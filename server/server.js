@@ -1,0 +1,99 @@
+const express = require('express');
+const cors = require('cors');
+require('dotenv').config();
+
+const connectDB = require('./config/db');
+
+// ──────────────────────────────────────────────────────────
+// TMS v2 — Express Server
+// ──────────────────────────────────────────────────────────
+
+const app = express();
+
+// ── Core middleware ───────────────────────────────────────
+app.use(cors());
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true }));
+
+// ── Request logger (dev) ─────────────────────────────────
+app.use((req, _res, next) => {
+  console.log(`${req.method} ${req.originalUrl}`);
+  next();
+});
+
+// ── Health check ─────────────────────────────────────────
+app.get('/api/health', (_req, res) => {
+  res.json({
+    status: 'ok',
+    timestamp: new Date().toISOString(),
+    uptime: Math.floor(process.uptime()),
+  });
+});
+
+// ──────────────────────────────────────────────────────────
+// Routes
+// ──────────────────────────────────────────────────────────
+app.use('/api/auth', require('./routes/authRoutes'));
+app.use('/api/users', require('./routes/userRoutes'));
+app.use('/api/teams', require('./routes/teamRoutes'));
+app.use('/api/classes', require('./routes/classRoutes'));
+app.use('/api/schedules', require('./routes/scheduleRoutes'));
+app.use('/api/attendance', require('./routes/attendanceRoutes'));
+app.use('/api/evaluations', require('./routes/evaluationRoutes'));
+app.use('/api/sync', require('./routes/syncRoutes'));
+
+// ── 404 handler ──────────────────────────────────────────
+app.use((_req, res) => {
+  res.status(404).json({ success: false, message: 'Route not found' });
+});
+
+// ── Global error handler ─────────────────────────────────
+app.use((err, _req, res, _next) => {
+  console.error('💥 Error:', err.message);
+
+  // Mongoose validation error
+  if (err.name === 'ValidationError') {
+    const messages = Object.values(err.errors).map((e) => e.message);
+    return res.status(400).json({ success: false, message: messages.join(', ') });
+  }
+
+  // Mongoose duplicate key
+  if (err.code === 11000) {
+    const field = Object.keys(err.keyValue)[0];
+    return res.status(400).json({
+      success: false,
+      message: `Duplicate value for '${field}': ${err.keyValue[field]}`,
+    });
+  }
+
+  // JWT errors
+  if (err.name === 'JsonWebTokenError') {
+    return res.status(401).json({ success: false, message: 'Invalid token' });
+  }
+  if (err.name === 'TokenExpiredError') {
+    return res.status(401).json({ success: false, message: 'Token expired' });
+  }
+
+  const statusCode = err.statusCode || 500;
+  res.status(statusCode).json({
+    success: false,
+    message: err.message || 'Internal Server Error',
+  });
+});
+
+// ── Start ─────────────────────────────────────────────────
+const PORT = process.env.PORT || 5000;
+
+const startServer = async () => {
+  await connectDB();
+  app.listen(PORT, () => {
+    console.log(`🚀 TMS v2 API running on http://localhost:${PORT}`);
+  });
+};
+
+startServer().catch((err) => {
+  console.error('Failed to start server:', err.message);
+  process.exit(1);
+});
+
+module.exports = app;
