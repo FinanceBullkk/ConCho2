@@ -8,10 +8,10 @@ const classSchema = new mongoose.Schema(
   {
     classCode: {
       type: String,
-      required: [true, 'Class code is required'],
       unique: true,
       trim: true,
-      uppercase: true,
+      uppercase: true,     // Normalize at write time (matches importController)
+      // Auto-generated as EL + 3-digit number (e.g. EL001) via Counter helper
     },
     courseName: {
       type: String,
@@ -31,5 +31,8 @@ const classSchema = new mongoose.Schema(
     timestamps: true,
   }
 );
+
+// NOTE: classCode generation has been moved to the controller
+// using the atomic Counter helper (helpers/counter.js).
 
 module.exports = mongoose.model('Class', classSchema);

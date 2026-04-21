@@ -17,6 +17,12 @@ const generateToken = (userId) => {
 /**
  * POST /api/auth/login
  * Login with empCode + password
+ *
+ * PERFORMANCE NOTE:
+ *   empCode is stored as uppercase (schema setter) with a
+ *   unique index. The query below normalizes input to match,
+ *   then does a simple exact-match equality lookup — this
+ *   hits the B-tree index directly: O(log n), no regex.
  */
 const login = async (req, res) => {
   try {
@@ -29,8 +35,11 @@ const login = async (req, res) => {
       });
     }
 
-    // Find user and explicitly select password (excluded by default)
-    const user = await User.findOne({ empCode: empCode.toUpperCase() }).select(
+    // Normalize input: trim whitespace + uppercase to match stored format
+    const normalizedCode = empCode.trim().toUpperCase();
+
+    // Exact-match query → uses the unique index on empCode
+    const user = await User.findOne({ empCode: normalizedCode }).select(
       '+password'
     );
 

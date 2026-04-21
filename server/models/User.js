@@ -17,10 +17,10 @@ const userSchema = new mongoose.Schema(
   {
     empCode: {
       type: String,
-      required: [true, 'Employee code is required'],
-      unique: true,
+      unique: true,        // Creates a unique B-tree index → O(log n) lookups
       trim: true,
-      uppercase: true,
+      uppercase: true,     // Normalize at write time → exact-match queries work
+      // Auto-generated as 6-digit number (e.g. 000001) via Counter helper
     },
     name: {
       type: String,
@@ -65,6 +65,11 @@ userSchema.index({ role: 1, status: 1 });
 userSchema.index({ department: 1 });
 
 // ── Pre-save: hash password ───────────────────────────────
+// NOTE: empCode generation has been moved to the controller
+// using the atomic Counter helper (helpers/counter.js).
+// This eliminates the race condition that existed when two
+// concurrent requests both queried the max empCode before
+// either had saved.
 userSchema.pre('save', async function (next) {
   if (!this.isModified('password')) return next();
   const salt = await bcrypt.genSalt(12);
@@ -130,6 +135,31 @@ userSchema.post('findOneAndUpdate', async function (doc) {
     console.log(
       `   ✅ Removed ${doc.empCode} from ${result.modifiedCount} future schedule(s)`
     );
+
+    // Auto-release slots where no enrolled users remain
+    // This prevents "ghost bookings" where bookedTeamId is set
+    // but no active members are left in the schedule.
+    const emptySchedules = await Schedule.find({
+      date: { $gte: today },
+      bookedTeamId: { $ne: null },
+      enrolledUsers: { $size: 0 },
+    });
+
+    for (const sched of emptySchedules) {
+      await Schedule.updateOne(
+        { _id: sched._id },
+        {
+          $set: {
+            bookedTeamId: null,
+            enrolledTeams: [],
+            enrolledCount: 0,
+          },
+        }
+      );
+      console.log(
+        `   🔓 Auto-released slot ${sched._id} — no enrolled users remain`
+      );
+    }
   } else {
     console.log(`   ℹ️  ${doc.empCode} had no future enrollments to release`);
   }

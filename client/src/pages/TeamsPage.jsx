@@ -97,6 +97,18 @@ export default function TeamsPage() {
     setDeleteId(null);
   };
 
+  // Quick-assign leader without opening the edit modal
+  const handleMakeLeader = async (team, memberId) => {
+    const memberName = team.members?.find(m => (m._id || m) === memberId)?.name || memberId;
+    if (!window.confirm(`Promote "${memberName}" to leader of "${team.name}"?`)) return;
+    try {
+      await teamsAPI.update(team._id, { leaderId: memberId });
+      load();
+    } catch (err) {
+      alert(err.response?.data?.message || 'Failed to update leader');
+    }
+  };
+
   return (
     <div className="space-y-6 animate-fade-in">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -114,30 +126,55 @@ export default function TeamsPage() {
         <div className="flex items-center justify-center py-20"><div className="w-8 h-8 border-2 border-primary-400 border-t-transparent rounded-full animate-spin" /></div>
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 stagger">
-          {teams.map((t) => (
-            <div key={t._id} className="glass rounded-2xl p-5 hover:scale-[1.01] transition-transform">
-              <div className="flex items-start justify-between mb-4">
-                <div>
-                  <h3 className="font-bold text-white">{t.name}</h3>
-                  <p className="text-sm text-slate-400 mt-0.5">Leader: <span className="text-primary-300">{t.leaderId?.name || '—'}</span></p>
-                </div>
-                <div className="flex gap-1.5">
-                  <button onClick={() => setModal(t)} className="px-2 py-1.5 rounded-lg text-slate-400 hover:text-primary-300 hover:bg-primary-500/10 transition-all text-xs">Edit</button>
-                  <button onClick={() => setDeleteId(t._id)} className="px-2 py-1.5 rounded-lg text-slate-400 hover:text-red-400 hover:bg-red-500/10 transition-all text-xs">Del</button>
-                </div>
-              </div>
-              <div className="space-y-1.5">
-                {(t.members || []).map((m) => (
-                  <div key={m._id} className="flex items-center gap-2 glass-light rounded-lg px-3 py-2">
-                    <div className="w-6 h-6 rounded-md bg-primary-500/20 flex items-center justify-center text-xs font-bold text-primary-300">{m.empCode?.slice(-1)}</div>
-                    <span className="text-sm text-white">{m.name}</span>
-                    {m._id === (t.leaderId?._id || t.leaderId) && <span className="ml-auto text-xs text-amber-400">★</span>}
+          {teams.map((t) => {
+            const leadId = t.leaderId?._id || t.leaderId;
+            return (
+              <div key={t._id} className="glass rounded-2xl p-5 hover:scale-[1.01] transition-transform">
+                <div className="flex items-start justify-between mb-4">
+                  <div>
+                    <h3 className="font-bold text-white">{t.name}</h3>
+                    <p className="text-sm text-slate-400 mt-0.5">
+                      Leader: <span className="text-amber-300 font-semibold">👑 {t.leaderId?.name || '— Not assigned'}</span>
+                    </p>
                   </div>
-                ))}
+                  <div className="flex gap-1.5">
+                    <button onClick={() => setModal(t)} className="px-2 py-1.5 rounded-lg text-slate-400 hover:text-primary-300 hover:bg-primary-500/10 transition-all text-xs">Edit</button>
+                    <button onClick={() => setDeleteId(t._id)} className="px-2 py-1.5 rounded-lg text-slate-400 hover:text-red-400 hover:bg-red-500/10 transition-all text-xs">Del</button>
+                  </div>
+                </div>
+                <div className="space-y-1.5">
+                  {(t.members || []).map((m) => {
+                    const isLeader = m._id === leadId;
+                    return (
+                      <div key={m._id} className={`flex items-center gap-2 rounded-lg px-3 py-2 transition-all ${
+                        isLeader ? 'bg-amber-500/10 border border-amber-500/15' : 'glass-light'
+                      }`}>
+                        <div className={`w-6 h-6 rounded-md flex items-center justify-center text-xs font-bold ${
+                          isLeader ? 'bg-amber-500/30 text-amber-300' : 'bg-primary-500/20 text-primary-300'
+                        }`}>
+                          {isLeader ? '👑' : m.empCode?.slice(-1)}
+                        </div>
+                        <span className="text-sm text-white flex-1">{m.name}</span>
+                        <span className="text-xs text-slate-500">{m.empCode}</span>
+                        {isLeader ? (
+                          <span className="text-xs text-amber-400 font-semibold ml-1">Leader</span>
+                        ) : (
+                          <button
+                            onClick={() => handleMakeLeader(t, m._id)}
+                            className="ml-1 px-2 py-0.5 rounded text-[10px] text-slate-500 hover:text-amber-300 hover:bg-amber-500/10 transition-all"
+                            title={`Promote ${m.name} to leader`}
+                          >
+                            ★ Make Leader
+                          </button>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+                <div className="mt-3 pt-3 border-t border-white/5 text-xs text-slate-500">{t.members?.length || 0} members</div>
               </div>
-              <div className="mt-3 pt-3 border-t border-white/5 text-xs text-slate-500">{t.members?.length || 0} members</div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
 

@@ -1,4 +1,5 @@
 const User = require('../models/User');
+const { getNextSequence } = require('../helpers/counter');
 
 // ──────────────────────────────────────────────────────────
 // User Controller (Admin Only)
@@ -7,6 +8,9 @@ const User = require('../models/User');
 // (models/User.js). When updateUser changes status to
 // 'Dropped' via findOneAndUpdate, the post middleware
 // automatically pulls the user from future schedules.
+//
+// empCode generation uses the atomic Counter helper
+// (helpers/counter.js) to avoid race conditions.
 // ──────────────────────────────────────────────────────────
 
 /**
@@ -46,17 +50,28 @@ const getUserById = async (req, res) => {
 /**
  * POST /api/users
  * Create a new user
+ *
+ * empCode is auto-generated using an atomic counter UNLESS
+ * explicitly provided in the request body (for migration/seeding).
  */
 const createUser = async (req, res) => {
   try {
-    const { empCode, name, role, department, status, password } = req.body;
+    const { name, role, department, status, password } = req.body;
+    let { empCode } = req.body;
+
+    // Auto-generate empCode if not provided
+    if (!empCode) {
+      const seq = await getNextSequence('empCode');
+      empCode = seq.toString().padStart(6, '0');
+    }
+
     const user = await User.create({
       empCode,
       name,
       role,
       department,
       status,
-      password: password || 'default123', // Default password if not provided
+      password: password || 'default123',
     });
 
     // Return without password

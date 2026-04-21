@@ -78,10 +78,10 @@ teamSchema.post('findOneAndUpdate', async function (doc) {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
-  // Find all future schedules that include this team
+  // Find all future schedules booked by this team (using bookedTeamId, not enrolledTeams)
   const futureSchedules = await Schedule.find({
     date: { $gte: today },
-    enrolledTeams: doc._id,
+    bookedTeamId: doc._id,    // ← Use the new source of truth
   });
 
   if (futureSchedules.length === 0) {
@@ -112,23 +112,10 @@ teamSchema.post('findOneAndUpdate', async function (doc) {
       );
     }
 
-    // ─── Push new members (capacity check) ─────────────
+    // ─── Push new members ──────────────────────────────
     if (addedMembers.length > 0) {
-      // Re-read schedule to get current count after removals
-      const refreshed = await Schedule.findById(schedule._id).lean();
-      const currentCount = refreshed.enrolledCount;
-      const availableSpots = refreshed.capacity - currentCount;
-      const currentEnrolled = new Set(
-        refreshed.enrolledUsers.map((id) => id.toString())
-      );
-
-      // Filter out members already enrolled
-      const toAdd = addedMembers.filter((id) => !currentEnrolled.has(id));
-
-      if (toAdd.length === 0) continue;
-
-      if (toAdd.length <= availableSpots) {
-        // All fit — add them
+      const toAdd = addedMembers.filter((id) => !enrolledSet.has(id));
+      if (toAdd.length > 0) {
         const objectIds = toAdd.map(
           (id) => new mongoose.Types.ObjectId(id)
         );
@@ -142,31 +129,25 @@ teamSchema.post('findOneAndUpdate', async function (doc) {
         console.log(
           `   ✅ Added ${toAdd.length} new member(s) to schedule ${schedule._id}`
         );
-      } else {
-        // Partial fit — add as many as possible, warn about the rest
-        const canAdd = toAdd.slice(0, availableSpots);
-        const cannotAdd = toAdd.slice(availableSpots);
-
-        if (canAdd.length > 0) {
-          const objectIds = canAdd.map(
-            (id) => new mongoose.Types.ObjectId(id)
-          );
-          await Schedule.updateOne(
-            { _id: schedule._id },
-            {
-              $push: { enrolledUsers: { $each: objectIds } },
-              $inc: { enrolledCount: canAdd.length },
-            }
-          );
-          console.log(
-            `   ⚠️  Added ${canAdd.length} member(s) to schedule ${schedule._id} (${cannotAdd.length} could not fit — capacity full)`
-          );
-        } else {
-          console.warn(
-            `   ❌ Cannot add ${toAdd.length} member(s) to schedule ${schedule._id} — no capacity`
-          );
-        }
       }
+    }
+
+    // ─── Auto-release slot if no active enrolled users remain ──
+    const refreshed = await Schedule.findById(schedule._id).lean();
+    if (refreshed && refreshed.enrolledUsers.length === 0) {
+      await Schedule.updateOne(
+        { _id: schedule._id },
+        {
+          $set: {
+            bookedTeamId: null,
+            enrolledTeams: [],
+            enrolledCount: 0,
+          },
+        }
+      );
+      console.log(
+        `   🔓 Auto-released slot ${schedule._id} — no enrolled users remain`
+      );
     }
   }
 

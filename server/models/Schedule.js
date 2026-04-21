@@ -4,9 +4,15 @@ const mongoose = require('mongoose');
 // Schedule Model
 // ──────────────────────────────────────────────────────────
 // Represents a single class session / time slot.
-// Enrollments are team-based: enrolledTeams tracks which
-// teams booked this slot; enrolledUsers is the flattened
-// list of individual members for attendance purposes.
+//
+// BOOKING RULES (updated):
+//   1. Each slot allows exactly 1 team (bookedTeamId).
+//   2. Each team can book max 2 slots per calendar week.
+//   3. bookedTeamId = null → slot is available.
+//      bookedTeamId = ObjectId → slot is taken.
+//
+// enrolledUsers is still maintained as a flattened member
+// list for attendance purposes.
 // ──────────────────────────────────────────────────────────
 
 const scheduleSchema = new mongoose.Schema(
@@ -24,7 +30,7 @@ const scheduleSchema = new mongoose.Schema(
       type: String,
       required: [true, 'Time slot is required'],
       trim: true,
-      // e.g. "09:00-10:30", "14:00-15:30"
+      // e.g. "09:00-10:00", "14:00-15:00"
     },
     teacherId: {
       type: mongoose.Schema.Types.ObjectId,
@@ -40,24 +46,37 @@ const scheduleSchema = new mongoose.Schema(
       type: Number,
       required: [true, 'Capacity is required'],
       min: [1, 'Capacity must be at least 1'],
+      default: 9,           // Default: 1 team of max 9 members
     },
-    enrolledCount: {
-      type: Number,
-      default: 0,
-      min: 0,
+
+    // ── Booking fields ──────────────────────────────────
+    // The single team that has booked this slot (null = available)
+    bookedTeamId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Team',
+      default: null,
     },
-    enrolledTeams: [
-      {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: 'Team',
-      },
-    ],
+
+    // Flattened member list (for attendance / roster views)
     enrolledUsers: [
       {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'User',
       },
     ],
+
+    // Legacy fields kept for backward compatibility
+    enrolledTeams: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Team',
+      },
+    ],
+    enrolledCount: {
+      type: Number,
+      default: 0,
+      min: 0,
+    },
   },
   {
     timestamps: true,
@@ -66,29 +85,21 @@ const scheduleSchema = new mongoose.Schema(
   }
 );
 
-// ── Virtual: available spots ──────────────────────────────
+// ── Virtuals ──────────────────────────────────────────────
+scheduleSchema.virtual('isBooked').get(function () {
+  return this.bookedTeamId != null;
+});
+
 scheduleSchema.virtual('availableSpots').get(function () {
   return this.capacity - this.enrolledCount;
 });
 
-// ── Pre-save: prevent overbooking ─────────────────────────
-scheduleSchema.pre('save', function (next) {
-  if (this.enrolledCount > this.capacity) {
-    const err = new Error(
-      `Enrolled count (${this.enrolledCount}) cannot exceed capacity (${this.capacity})`
-    );
-    err.statusCode = 400;
-    return next(err);
-  }
-  next();
-});
-
 // ── Indexes ───────────────────────────────────────────────
-// Query patterns: find by class, find by date range, find by teacher
 scheduleSchema.index({ classId: 1, date: 1 });
 scheduleSchema.index({ date: 1 });
 scheduleSchema.index({ teacherId: 1, date: 1 });
-scheduleSchema.index({ enrolledTeams: 1 });
+scheduleSchema.index({ bookedTeamId: 1, date: 1 });  // Weekly count query
 scheduleSchema.index({ enrolledUsers: 1 });
 
 module.exports = mongoose.model('Schedule', scheduleSchema);
+

@@ -10,6 +10,8 @@ import ClassesPage from './pages/ClassesPage';
 import SchedulesPage from './pages/SchedulesPage';
 import AttendancePage from './pages/AttendancePage';
 import SyncPage from './pages/SyncPage';
+import BookClassPage from './pages/BookClassPage';
+import AttendanceDashboardPage from './pages/AttendanceDashboardPage';
 
 export default function App() {
   return (
@@ -32,10 +34,16 @@ export default function App() {
               <ProtectedRoute roles={['Admin', 'Teacher']}><ClassesPage /></ProtectedRoute>
             } />
             <Route path="/schedules" element={
-              <ProtectedRoute roles={['Admin', 'Teacher']}><SchedulesPage /></ProtectedRoute>
+              <ProtectedRoute roles={['Admin', 'Teacher', 'Participant']}><SchedulesPage /></ProtectedRoute>
+            } />
+            <Route path="/book-class" element={
+              <ProtectedRoute roles={['Participant']}><BookClassPage /></ProtectedRoute>
             } />
             <Route path="/attendance" element={
               <ProtectedRoute roles={['Admin', 'Teacher']}><AttendancePage /></ProtectedRoute>
+            } />
+            <Route path="/analytics" element={
+              <ProtectedRoute roles={['Admin', 'Teacher']}><AttendanceDashboardPage /></ProtectedRoute>
             } />
             <Route path="/sync" element={
               <ProtectedRoute roles={['Admin']}><SyncPage /></ProtectedRoute>

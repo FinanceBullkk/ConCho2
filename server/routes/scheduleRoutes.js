@@ -1,14 +1,15 @@
 const router = require('express').Router();
 const {
   getSchedules, getScheduleById, createSchedule, updateSchedule, deleteSchedule,
-  bookTeam, cancelTeam,
+  bookTeam, cancelTeam, getAvailability
 } = require('../controllers/scheduleController');
 const { protect } = require('../middleware/auth');
 const { roleGuard } = require('../middleware/roleGuard');
 
 // Team booking endpoints (before /:id to avoid routing conflicts)
-router.post('/:id/book-team', protect, roleGuard('Admin'), bookTeam);
-router.post('/:id/cancel-team', protect, roleGuard('Admin'), cancelTeam);
+router.get('/availability', protect, getAvailability);
+router.post('/:id/book-team', protect, roleGuard('Admin', 'Participant'), bookTeam);
+router.post('/:id/cancel-team', protect, roleGuard('Admin', 'Participant'), cancelTeam);
 
 // CRUD
 router.route('/')

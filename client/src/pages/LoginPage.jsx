@@ -58,7 +58,7 @@ export default function LoginPage() {
                 type="text"
                 value={empCode}
                 onChange={(e) => setEmpCode(e.target.value)}
-                placeholder="e.g. ADMIN001"
+                placeholder="e.g. 000001"
                 className="w-full px-4 py-3 rounded-xl bg-surface-lighter/60 border border-white/10 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-primary-500/50 focus:border-primary-500/50 transition-all"
                 required
                 autoFocus
@@ -101,9 +101,9 @@ export default function LoginPage() {
             <p className="text-xs text-slate-500 mb-2">Test accounts:</p>
             <div className="flex flex-wrap gap-2">
               {[
-                { code: 'ADMIN001', pw: 'admin123', label: 'Admin' },
-                { code: 'TEACH001', pw: 'teacher123', label: 'Teacher' },
-                { code: 'PART001', pw: 'participant123', label: 'Participant' },
+                { code: '000001', pw: 'admin123', label: 'Admin' },
+                { code: '000002', pw: 'teacher123', label: 'Teacher' },
+                { code: '000004', pw: 'participant123', label: 'Participant' },
               ].map((acc) => (
                 <button
                   key={acc.code}

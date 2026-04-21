@@ -60,6 +60,7 @@ export const classesAPI = {
 
 // ── Schedules ─────────────────────────────────────────────
 export const schedulesAPI = {
+  getAvailability: (params) => api.get('/schedules/availability', { params }),
   getAll: (params) => api.get('/schedules', { params }),
   getById: (id) => api.get(`/schedules/${id}`),
   create: (data) => api.post('/schedules', data),
@@ -74,6 +75,9 @@ export const attendanceAPI = {
   bulkMark: (scheduleId, records) => api.post(`/attendance/${scheduleId}`, { records }),
   getBySchedule: (scheduleId) => api.get(`/attendance/schedule/${scheduleId}`),
   getByUser: (userId) => api.get(`/attendance/user/${userId}`),
+  getAnalyticsByEmployee: (params) => api.get('/attendance/analytics/by-employee', { params }),
+  getAnalyticsByTeam: (params) => api.get('/attendance/analytics/by-team', { params }),
+  getAnalyticsByClass: (params) => api.get('/attendance/analytics/by-class', { params }),
 };
 
 // ── Evaluations ───────────────────────────────────────────

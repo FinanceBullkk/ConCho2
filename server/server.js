@@ -41,6 +41,7 @@ app.use('/api/schedules', require('./routes/scheduleRoutes'));
 app.use('/api/attendance', require('./routes/attendanceRoutes'));
 app.use('/api/evaluations', require('./routes/evaluationRoutes'));
 app.use('/api/sync', require('./routes/syncRoutes'));
+app.use('/api/import', require('./routes/importRoutes'));
 
 // ── 404 handler ──────────────────────────────────────────
 app.use((_req, res) => {
