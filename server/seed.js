@@ -7,7 +7,7 @@
  * Usage: npm run seed
  *
  * Default credentials:
- *   Admin:       ADMIN001 / admin123
+ *   Admin:       ADMIN001 / admin12345
  *   Teachers:    TEACH001 / teacher123, TEACH002 / teacher123
  *   Participants: PART001–PART006 / participant123
  *
@@ -70,7 +70,7 @@ const seed = async () => {
       role: 'Admin',
       department: 'Management',
       status: 'Active',
-      password: 'admin123',
+      password: 'admin12345',
     });
 
     const teacher1 = await User.create({
@@ -270,7 +270,7 @@ const seed = async () => {
     console.log(`   Classes:    ${await Class.countDocuments()}`);
     console.log(`   Schedules:  ${await Schedule.countDocuments()}`);
     console.log('\n🔑 Login credentials:');
-    console.log('   Admin:       000001 / admin123');
+    console.log('   Admin:       000001 / admin12345');
     console.log('   Teachers:    000002 / teacher123');
     console.log('                000003 / teacher123');
     console.log('   Participants: 000004–000009 / participant123');
