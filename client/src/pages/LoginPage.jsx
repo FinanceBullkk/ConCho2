@@ -101,7 +101,7 @@ export default function LoginPage() {
             <p className="text-xs text-slate-500 mb-2">Test accounts:</p>
             <div className="flex flex-wrap gap-2">
               {[
-                { code: '000001', pw: 'admin123', label: 'Admin' },
+                { code: '000001', pw: 'admin12345', label: 'Admin' },
                 { code: '000002', pw: 'teacher123', label: 'Teacher' },
                 { code: '000004', pw: 'participant123', label: 'Participant' },
               ].map((acc) => (
