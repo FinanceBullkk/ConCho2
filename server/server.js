@@ -1,5 +1,6 @@
 const express = require('express');
 const cors = require('cors');
+const helmet = require('helmet');
 require('dotenv').config();
 
 const connectDB = require('./config/db');
@@ -8,10 +9,43 @@ const connectDB = require('./config/db');
 // TMS v2 — Express Server
 // ──────────────────────────────────────────────────────────
 
+// Fail fast if required secrets are missing — prevents silently
+// signing tokens with `undefined` and confusing login failures.
+if (!process.env.JWT_SECRET) {
+  console.error('❌ JWT_SECRET is not set. Refusing to start.');
+  process.exit(1);
+}
+
 const app = express();
 
+// Trust the first proxy hop (needed for correct client IPs
+// behind a load balancer so rate-limit keys on real IPs).
+app.set('trust proxy', 1);
+
+// ── Security headers ──────────────────────────────────────
+app.use(helmet());
+
+// ── CORS allowlist ────────────────────────────────────────
+// CORS_ORIGINS is a comma-separated list of allowed origins.
+// Example: CORS_ORIGINS=http://localhost:5173,https://tms.example.com
+const allowedOrigins = (process.env.CORS_ORIGINS || 'http://localhost:5173')
+  .split(',')
+  .map((s) => s.trim())
+  .filter(Boolean);
+
+app.use(
+  cors({
+    origin: (origin, cb) => {
+      // Allow requests with no origin (Postman, curl, server-to-server).
+      if (!origin) return cb(null, true);
+      if (allowedOrigins.includes(origin)) return cb(null, true);
+      return cb(new Error(`CORS: origin ${origin} not allowed`));
+    },
+    credentials: true,
+  })
+);
+
 // ── Core middleware ───────────────────────────────────────
-app.use(cors());
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
 

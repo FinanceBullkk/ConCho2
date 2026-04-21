@@ -38,7 +38,7 @@
             "header": [{ "key": "Content-Type", "value": "application/json" }],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"empCode\": \"ADMIN001\",\n  \"password\": \"admin123\"\n}"
+              "raw": "{\n  \"empCode\": \"ADMIN001\",\n  \"password\": \"admin12345\"\n}"
             }
           }
         },

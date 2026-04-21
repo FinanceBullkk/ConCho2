@@ -29,7 +29,7 @@
 
 | empCode | Password | Role | Status |
 |---------|----------|------|--------|
-| ADMIN001 | admin123 | Admin | Active |
+| ADMIN001 | admin12345 | Admin | Active |
 | TEACH001 | teacher123 | Teacher | Active |
 | TEACH002 | teacher123 | Teacher | Active |
 | PART001 | participant123 | Participant | Active |
@@ -58,7 +58,7 @@
 ```json
 {
   "empCode": "ADMIN001",
-  "password": "admin123"
+  "password": "admin12345"
 }
 ```
 **Response:** Returns `{ token, user }`. The token is valid for 7 days.
