@@ -1,4 +1,6 @@
 const Team = require('../models/Team');
+const Schedule = require('../models/Schedule');
+const Attendance = require('../models/Attendance');
 
 // ──────────────────────────────────────────────────────────
 // Team Controller (Admin Only)
@@ -137,15 +139,44 @@ const getMyTeams = async (req, res) => {
 
 /**
  * DELETE /api/teams/:id
- * Delete a team
+ * Delete a team — CASCADE: also removes related Schedules & Attendance.
+ *
+ * Cascade order (referential integrity):
+ *   1. Find all Schedules booked by this team
+ *   2. Delete Attendance records for those schedules
+ *   3. Delete the Schedules themselves
+ *   4. Delete the Team
  */
 const deleteTeam = async (req, res) => {
   try {
-    const team = await Team.findByIdAndDelete(req.params.id);
+    const team = await Team.findById(req.params.id);
     if (!team) {
       return res.status(404).json({ success: false, message: 'Team not found' });
     }
-    res.json({ success: true, message: `Team "${team.name}" deleted` });
+
+    // Step 1: Find related schedules
+    const scheduleIds = await Schedule.find({ bookedTeamId: team._id })
+      .select('_id').lean();
+    const ids = scheduleIds.map(s => s._id);
+
+    // Step 2: Cascade delete attendance → schedules
+    let deletedAttendance = 0;
+    let deletedSchedules = 0;
+    if (ids.length > 0) {
+      const attResult = await Attendance.deleteMany({ scheduleId: { $in: ids } });
+      deletedAttendance = attResult.deletedCount;
+      const schResult = await Schedule.deleteMany({ _id: { $in: ids } });
+      deletedSchedules = schResult.deletedCount;
+    }
+
+    // Step 3: Delete the team itself
+    await Team.findByIdAndDelete(team._id);
+
+    res.json({
+      success: true,
+      message: `Team "${team.name}" deleted`,
+      cascade: { deletedSchedules, deletedAttendance },
+    });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }

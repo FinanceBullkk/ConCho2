@@ -256,9 +256,92 @@ const getMyClassSchedules = async (userId) => {
   return { schedules, team: teams[0]?.name };
 };
 
+/**
+ * Admin-create a schedule with collision protection.
+ *
+ * Unlike bookSlot (leader flow), this:
+ *   - Does NOT enforce weekly limit (Admin override)
+ *   - DOES enforce collision detection (no overlapping slots)
+ *   - Auto-enrolls team members if bookedTeamId is provided
+ *
+ * @param {Object} data  Schedule fields from req.body
+ * @returns {Object} populated Schedule document
+ */
+const adminCreate = async (data) => {
+  const { startTime, endTime, classId, bookedTeamId } = data;
+
+  // ── Validate required fields ──────────────────────────
+  if (!classId) throw new ServiceError('classId is required');
+  if (!bookedTeamId) throw new ServiceError('bookedTeamId is required');
+  if (!startTime || !endTime) throw new ServiceError('startTime and endTime are required');
+
+  const start = new Date(startTime);
+  const end = new Date(endTime);
+
+  if (isNaN(start.getTime()) || isNaN(end.getTime())) {
+    throw new ServiceError('startTime and endTime must be valid ISO dates');
+  }
+  if (end <= start) {
+    throw new ServiceError('endTime must be after startTime');
+  }
+
+  // ── Auto-enroll team members if team provided ─────────
+  let enrolledUsers = [];
+  let enrolledCount = 0;
+  if (bookedTeamId) {
+    const team = await Team.findById(bookedTeamId).populate('members', '_id status');
+    if (!team) throw new ServiceError('Team not found', 404);
+    const activeMembers = team.members.filter(m => m.status === 'Active');
+    enrolledUsers = activeMembers.map(m => m._id);
+    enrolledCount = enrolledUsers.length;
+  }
+
+  // ── TRANSACTION: Collision check + create ──────────────
+  const session = await mongoose.startSession();
+  let created;
+
+  try {
+    await session.withTransaction(async () => {
+      // Collision — no overlapping schedule allowed
+      const collision = await Schedule.findOne({
+        startTime: { $lt: end },
+        endTime: { $gt: start },
+      }).session(session);
+
+      if (collision) {
+        throw new ServiceError(
+          'Khung giờ này đã bị trùng — This time slot overlaps with an existing schedule',
+          409
+        );
+      }
+
+      const [doc] = await Schedule.create(
+        [{
+          ...data,
+          startTime: start,
+          endTime: end,
+          enrolledUsers,
+          enrolledCount,
+        }],
+        { session }
+      );
+      created = doc;
+    });
+  } finally {
+    session.endSession();
+  }
+
+  return Schedule.findById(created._id)
+    .populate('classId', 'classCode courseName')
+    .populate('bookedTeamId', 'name')
+    .populate('teacherId', 'empCode name')
+    .populate('enrolledUsers', 'empCode name');
+};
+
 module.exports = {
   ServiceError,
   bookSlot,
+  adminCreate,
   cancelSlot,
   getAvailability,
   listSchedules,

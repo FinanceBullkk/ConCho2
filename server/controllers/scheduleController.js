@@ -94,10 +94,10 @@ const getMyClassSchedules = async (req, res) => {
 
 const createSchedule = async (req, res) => {
   try {
-    const schedule = await Schedule.create(req.body);
+    const schedule = await scheduleService.adminCreate(req.body);
     res.status(201).json({ success: true, data: schedule });
   } catch (error) {
-    res.status(400).json({ success: false, message: error.message });
+    handleError(res, error);
   }
 };
 
