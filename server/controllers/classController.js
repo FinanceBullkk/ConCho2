@@ -1,4 +1,6 @@
 const Class = require('../models/Class');
+const Team = require('../models/Team');
+const Schedule = require('../models/Schedule');
 const { getNextSequence } = require('../helpers/counter');
 
 /**
@@ -68,11 +70,35 @@ const updateClass = async (req, res) => {
 
 /**
  * DELETE /api/classes/:id
+ * Delete a class — GUARD: blocks if Teams or Schedules still reference it.
+ *
+ * Admin must delete/reassign Teams and Schedules first to avoid
+ * creating orphan data throughout the system.
  */
 const deleteClass = async (req, res) => {
   try {
-    const cls = await Class.findByIdAndDelete(req.params.id);
+    const cls = await Class.findById(req.params.id);
     if (!cls) return res.status(404).json({ success: false, message: 'Class not found' });
+
+    // Guard: check for Teams assigned to this class
+    const teamCount = await Team.countDocuments({ classId: cls._id });
+    if (teamCount > 0) {
+      return res.status(409).json({
+        success: false,
+        message: `Cannot delete: ${teamCount} team(s) are still assigned to this class. Delete or reassign them first.`,
+      });
+    }
+
+    // Guard: check for Schedules referencing this class
+    const scheduleCount = await Schedule.countDocuments({ classId: cls._id });
+    if (scheduleCount > 0) {
+      return res.status(409).json({
+        success: false,
+        message: `Cannot delete: ${scheduleCount} schedule(s) still reference this class. Delete them first.`,
+      });
+    }
+
+    await Class.findByIdAndDelete(cls._id);
     res.json({ success: true, message: `Class ${cls.classCode} deleted` });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
