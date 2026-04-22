@@ -20,6 +20,11 @@ const teamSchema = new mongoose.Schema(
       trim: true,
       unique: true,
     },
+    classId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Class',
+      required: [true, 'Assigned class is required'],
+    },
     leaderId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'User',
@@ -39,6 +44,7 @@ const teamSchema = new mongoose.Schema(
 
 // ── Indexes ───────────────────────────────────────────────
 teamSchema.index({ leaderId: 1 });
+teamSchema.index({ classId: 1 }, { unique: true }); // 1:1 Team ↔ Class
 
 // ──────────────────────────────────────────────────────────
 // DYNAMIC TEAM SYNC MIDDLEWARE
@@ -78,10 +84,10 @@ teamSchema.post('findOneAndUpdate', async function (doc) {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
-  // Find all future schedules booked by this team (using bookedTeamId, not enrolledTeams)
+  // Find all future schedules booked by this team
   const futureSchedules = await Schedule.find({
-    date: { $gte: today },
-    bookedTeamId: doc._id,    // ← Use the new source of truth
+    startTime: { $gte: today },
+    bookedTeamId: doc._id,
   });
 
   if (futureSchedules.length === 0) {
@@ -132,21 +138,12 @@ teamSchema.post('findOneAndUpdate', async function (doc) {
       }
     }
 
-    // ─── Auto-release slot if no active enrolled users remain ──
+    // ─── Auto-release: delete schedule if no active enrolled users remain ──
     const refreshed = await Schedule.findById(schedule._id).lean();
     if (refreshed && refreshed.enrolledUsers.length === 0) {
-      await Schedule.updateOne(
-        { _id: schedule._id },
-        {
-          $set: {
-            bookedTeamId: null,
-            enrolledTeams: [],
-            enrolledCount: 0,
-          },
-        }
-      );
+      await Schedule.findByIdAndDelete(schedule._id);
       console.log(
-        `   🔓 Auto-released slot ${schedule._id} — no enrolled users remain`
+        `   🔓 Auto-deleted schedule ${schedule._id} — no enrolled users remain`
       );
     }
   }

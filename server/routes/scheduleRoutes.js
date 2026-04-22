@@ -1,7 +1,7 @@
 const router = require('express').Router();
 const {
   getSchedules, getScheduleById, createSchedule, updateSchedule, deleteSchedule,
-  bookTeam, cancelTeam, getAvailability
+  bookTeamSlot, cancelSlot, getAvailability, getMyClassSchedules
 } = require('../controllers/scheduleController');
 const { protect } = require('../middleware/auth');
 const { roleGuard } = require('../middleware/roleGuard');
@@ -12,17 +12,20 @@ const {
   updateScheduleBody,
   listSchedulesQuery,
   availabilityQuery,
-  bookTeamBody,
+  bookTeamSlotBody,
 } = require('../schemas/schedule');
 
-// Team booking endpoints (before /:id to avoid routing conflicts)
+// ── Leader booking endpoints (before /:id to avoid routing conflicts) ──
 router.get('/availability', protect, validate({ query: availabilityQuery }), getAvailability);
-router.post('/:id/book-team', protect, roleGuard('Admin', 'Participant'),
-  validate({ params: idParam, body: bookTeamBody }), bookTeam);
-router.post('/:id/cancel-team', protect, roleGuard('Admin', 'Participant'),
-  validate({ params: idParam, body: bookTeamBody }), cancelTeam);
+router.get('/my-class', protect, getMyClassSchedules);
 
-// CRUD
+router.post('/book-slot', protect, roleGuard('Admin', 'Participant'),
+  validate({ body: bookTeamSlotBody }), bookTeamSlot);
+
+router.delete('/:id/cancel', protect, roleGuard('Admin', 'Participant'),
+  validate({ params: idParam }), cancelSlot);
+
+// ── Admin CRUD ─────────────────────────────────────────────
 router.route('/')
   .get(protect, validate({ query: listSchedulesQuery }), getSchedules)
   .post(protect, roleGuard('Admin'), validate({ body: createScheduleBody }), createSchedule);

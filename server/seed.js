@@ -1,22 +1,18 @@
 /**
- * TMS v2 — Seed Script
- * ─────────────────────
- * Populates the database with sample data for testing all roles
- * and the Team-based booking workflow.
+ * TMS v2 — Seed Script (v2 — Leader-Created Sessions)
+ * ─────────────────────────────────────────────────────
+ * Populates the database with sample data for testing.
+ *
+ * NEW FLOW: Each Team is assigned a Class (1:1).
+ * Team Leaders CREATE schedules by picking time slots.
+ * Schedules use startTime/endTime (Date) instead of date+timeSlot.
  *
  * Usage: npm run seed
  *
  * Default credentials:
- *   Admin:       ADMIN001 / admin12345
- *   Teachers:    TEACH001 / teacher123, TEACH002 / teacher123
- *   Participants: PART001–PART006 / participant123
- *
- * Creates:
- *   - 9 Users (1 Admin, 2 Teachers, 6 Participants)
- *   - 2 Teams (3 members each, led by PART001 and PART004)
- *   - 2 Classes
- *   - 4 Schedules (future dates) with team enrollments
- *   - PART003 has status 'Dropped' to test auto-release
+ *   Admin:        000001 / admin12345
+ *   Teachers:     000002 / teacher123, 000003 / teacher123
+ *   Participants: 000004–000009 / participant123
  */
 
 require('dotenv').config();
@@ -32,11 +28,11 @@ const Attendance = require('./models/Attendance');
 const Evaluation = require('./models/Evaluation');
 const Counter = require('./models/Counter');
 
-// ── Helper: future date ───────────────────────────────────
-const futureDate = (daysFromNow) => {
+// ── Helper: future date + time ────────────────────────────
+const futureDateTime = (daysFromNow, hour, minute = 0) => {
   const d = new Date();
   d.setDate(d.getDate() + daysFromNow);
-  d.setHours(0, 0, 0, 0);
+  d.setHours(hour, minute, 0, 0);
   return d;
 };
 
@@ -57,8 +53,7 @@ const seed = async () => {
       Counter.deleteMany({}),
     ]);
 
-    // Pre-set counters: seed creates 9 users (000001–000009) and 2 classes (EL001–EL002)
-    // so the next auto-generated IDs will be 000010 and EL003.
+    // Pre-set counters
     await Counter.create({ _id: 'empCode', seq: 9 });
     await Counter.create({ _id: 'classCode', seq: 2 });
 
@@ -114,7 +109,7 @@ const seed = async () => {
       name: 'Participant Vo (Dropped)',
       role: 'Participant',
       department: 'Sales',
-      status: 'Active', // Will be changed to Dropped to test auto-release
+      status: 'Active',
       password: 'participant123',
     });
 
@@ -145,23 +140,7 @@ const seed = async () => {
       password: 'participant123',
     });
 
-    console.log(`   ✅ Created ${9} users`);
-
-    // ── Create Teams ──────────────────────────────────────
-    console.log('👥 Creating teams...');
-    const teamA = await Team.create({
-      name: 'Sales Team Alpha',
-      leaderId: part1._id,
-      members: [part1._id, part2._id, part3._id],
-    });
-
-    const teamB = await Team.create({
-      name: 'Marketing Team Beta',
-      leaderId: part4._id,
-      members: [part4._id, part5._id, part6._id],
-    });
-
-    console.log(`   ✅ Created 2 teams`);
+    console.log(`   ✅ Created 9 users`);
 
     // ── Create Classes ────────────────────────────────────
     console.log('📚 Creating classes...');
@@ -179,86 +158,57 @@ const seed = async () => {
 
     console.log(`   ✅ Created 2 classes`);
 
-    // ── Create Schedules (future dates) ───────────────────
+    // ── Create Teams (now with classId — 1:1 mapping) ─────
+    console.log('👥 Creating teams...');
+    const teamA = await Team.create({
+      name: 'Sales Team Alpha',
+      classId: class1._id,     // Team Alpha → EL001
+      leaderId: part1._id,
+      members: [part1._id, part2._id, part3._id],
+    });
+
+    const teamB = await Team.create({
+      name: 'Marketing Team Beta',
+      classId: class2._id,     // Team Beta → EL002
+      leaderId: part4._id,
+      members: [part4._id, part5._id, part6._id],
+    });
+
+    console.log(`   ✅ Created 2 teams (each assigned to a class)`);
+
+    // ── Create Schedules (using startTime/endTime) ────────
     console.log('📅 Creating schedules...');
 
-    // Schedule 1: class1, 3 days from now, booked by Team A
-    const sched1 = await Schedule.create({
+    // Team A created 2 sessions this week
+    await Schedule.create({
       classId: class1._id,
-      date: futureDate(3),
-      timeSlot: '09:00-10:00',
-      teacherId: teacher1._id,
-      roomLink: 'https://meet.google.com/abc-defg-hij',
-      capacity: 9,
       bookedTeamId: teamA._id,
-      enrolledTeams: [teamA._id],
+      startTime: futureDateTime(3, 9, 0),   // +3 days, 09:00
+      endTime: futureDateTime(3, 10, 0),     // +3 days, 10:00
       enrolledUsers: [part1._id, part2._id, part3._id],
       enrolledCount: 3,
     });
 
-    // Schedule 2: class1, 5 days from now, booked by Team B
-    const sched2 = await Schedule.create({
+    await Schedule.create({
       classId: class1._id,
-      date: futureDate(5),
-      timeSlot: '14:00-15:00',
-      teacherId: teacher1._id,
-      roomLink: 'https://meet.google.com/klm-nopq-rst',
-      capacity: 9,
-      bookedTeamId: teamB._id,
-      enrolledTeams: [teamB._id],
-      enrolledUsers: [part4._id, part5._id, part6._id],
-      enrolledCount: 3,
-    });
-
-    // Schedule 3: class2, 4 days from now, booked by Team B
-    const sched3 = await Schedule.create({
-      classId: class2._id,
-      date: futureDate(4),
-      timeSlot: '10:00-11:00',
-      teacherId: teacher2._id,
-      roomLink: 'https://meet.google.com/uvw-xyza-bcd',
-      capacity: 9,
-      bookedTeamId: teamB._id,
-      enrolledTeams: [teamB._id],
-      enrolledUsers: [part4._id, part5._id, part6._id],
-      enrolledCount: 3,
-    });
-
-    // Schedule 4: class2, 6 days from now, EMPTY (available to book)
-    const sched4 = await Schedule.create({
-      classId: class2._id,
-      date: futureDate(6),
-      timeSlot: '13:00-14:00',
-      teacherId: teacher2._id,
-      roomLink: '',
-      capacity: 9,
-    });
-
-    // Schedule 5: class1, 4 days from now, EMPTY (available to book)
-    const sched5 = await Schedule.create({
-      classId: class1._id,
-      date: futureDate(4),
-      timeSlot: '15:00-16:00',
-      teacherId: teacher1._id,
-      roomLink: '',
-      capacity: 9,
-    });
-
-    // Schedule 6: class2, 3 days from now, booked by Team A
-    const sched6 = await Schedule.create({
-      classId: class2._id,
-      date: futureDate(3),
-      timeSlot: '14:00-15:00',
-      teacherId: teacher2._id,
-      roomLink: '',
-      capacity: 9,
       bookedTeamId: teamA._id,
-      enrolledTeams: [teamA._id],
+      startTime: futureDateTime(3, 14, 0),   // +3 days, 14:00
+      endTime: futureDateTime(3, 15, 0),     // +3 days, 15:00
       enrolledUsers: [part1._id, part2._id, part3._id],
       enrolledCount: 3,
     });
 
-    console.log(`   ✅ Created 6 schedules (4 booked, 2 empty)`);
+    // Team B created 1 session this week (has 1 more slot available)
+    await Schedule.create({
+      classId: class2._id,
+      bookedTeamId: teamB._id,
+      startTime: futureDateTime(4, 10, 0),   // +4 days, 10:00
+      endTime: futureDateTime(4, 11, 0),     // +4 days, 11:00
+      enrolledUsers: [part4._id, part5._id, part6._id],
+      enrolledCount: 3,
+    });
+
+    console.log(`   ✅ Created 3 schedules (Team A: 2, Team B: 1)`);
 
     // ── Summary ───────────────────────────────────────────
     console.log('\n════════════════════════════════════════');
@@ -274,13 +224,12 @@ const seed = async () => {
     console.log('   Teachers:    000002 / teacher123');
     console.log('                000003 / teacher123');
     console.log('   Participants: 000004–000009 / participant123');
-    console.log('\n👥 Teams:');
-    console.log('   Sales Team Alpha:     000004 (lead), 000005, 000006');
-    console.log('   Marketing Team Beta:  000007 (lead), 000008, 000009');
-    console.log('\n💡 Test auto-release: change 000006 status to "Dropped"');
-    console.log('   → Should remove them from schedules 1 and 2');
-    console.log('\n💡 Test team sync: remove 000005 from Team Alpha');
-    console.log('   → Should remove them from schedules 1 and 2');
+    console.log('\n👥 Teams (with assigned classes):');
+    console.log('   Sales Team Alpha → EL001:     000004 (lead), 000005, 000006');
+    console.log('   Marketing Team Beta → EL002:  000007 (lead), 000008, 000009');
+    console.log('\n📅 Schedules:');
+    console.log('   Team Alpha: 2 sessions (at weekly limit)');
+    console.log('   Team Beta:  1 session  (can book 1 more)');
     console.log('');
 
     await mongoose.connection.close();

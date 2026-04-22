@@ -1,36 +1,25 @@
 const { z } = require('zod');
 const { objectId, paginationQuery } = require('./common');
 
-const timeSlot = z
-  .string()
-  .trim()
-  .regex(/^\d{2}:\d{2}-\d{2}:\d{2}$/, 'timeSlot must be HH:MM-HH:MM');
-
-const fields = {
-  classId: objectId,
-  date: z.coerce.date(),
-  timeSlot,
-  teacherId: objectId,
-  roomLink: z.string().trim().max(500),
-  capacity: z.coerce.number().int().min(1).max(1000),
-};
-
+// ── Admin manual schedule creation ────────────────────────
 const createScheduleBody = z.object({
-  classId: fields.classId,
-  date: fields.date,
-  timeSlot: fields.timeSlot,
-  teacherId: fields.teacherId,
-  roomLink: fields.roomLink.optional(),
-  capacity: fields.capacity.optional(),
+  classId: objectId,
+  bookedTeamId: objectId,
+  startTime: z.coerce.date(),
+  endTime: z.coerce.date(),
+  teacherId: objectId.optional(),
+  roomLink: z.string().trim().max(500).optional(),
+  capacity: z.coerce.number().int().min(1).max(1000).optional(),
 });
 
 const updateScheduleBody = z.object({
-  classId: fields.classId.optional(),
-  date: fields.date.optional(),
-  timeSlot: fields.timeSlot.optional(),
-  teacherId: fields.teacherId.optional(),
-  roomLink: fields.roomLink.optional(),
-  capacity: fields.capacity.optional(),
+  classId: objectId.optional(),
+  bookedTeamId: objectId.optional(),
+  startTime: z.coerce.date().optional(),
+  endTime: z.coerce.date().optional(),
+  teacherId: objectId.optional(),
+  roomLink: z.string().trim().max(500).optional(),
+  capacity: z.coerce.number().int().min(1).max(1000).optional(),
 });
 
 const listSchedulesQuery = paginationQuery.extend({
@@ -44,12 +33,17 @@ const availabilityQuery = z.object({
   classId: objectId.optional(),
 });
 
-const bookTeamBody = z.object({ teamId: objectId });
+// ── Leader booking (new flow) ─────────────────────────────
+const bookTeamSlotBody = z.object({
+  teamId: objectId,
+  startTime: z.coerce.date(),
+  endTime: z.coerce.date(),
+});
 
 module.exports = {
   createScheduleBody,
   updateScheduleBody,
   listSchedulesQuery,
   availabilityQuery,
-  bookTeamBody,
+  bookTeamSlotBody,
 };

@@ -1,6 +1,7 @@
 const User = require('../models/User');
 const { getNextSequence } = require('../helpers/counter');
 const { parsePagination, paginatedResponse } = require('../helpers/pagination');
+const { escapeRegex } = require('../helpers/escapeRegex');
 
 // ──────────────────────────────────────────────────────────
 // User Controller (Admin Only)
@@ -24,7 +25,7 @@ const getUsers = async (req, res) => {
     const filter = {};
     if (req.query.role) filter.role = req.query.role;
     if (req.query.status) filter.status = req.query.status;
-    if (req.query.department) filter.department = { $regex: req.query.department, $options: 'i' };
+    if (req.query.department) filter.department = { $regex: escapeRegex(req.query.department), $options: 'i' };
 
     const { page, limit, skip } = parsePagination(req);
     const [users, total] = await Promise.all([

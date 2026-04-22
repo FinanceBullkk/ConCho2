@@ -28,7 +28,7 @@ app.use(helmet());
 // ── CORS allowlist ────────────────────────────────────────
 // CORS_ORIGINS is a comma-separated list of allowed origins.
 // Example: CORS_ORIGINS=http://localhost:5173,https://tms.example.com
-const allowedOrigins = (process.env.CORS_ORIGINS || 'http://localhost:5173')
+const allowedOrigins = (process.env.CORS_ORIGINS || 'http://localhost:5173,http://localhost:3000')
   .split(',')
   .map((s) => s.trim())
   .filter(Boolean);

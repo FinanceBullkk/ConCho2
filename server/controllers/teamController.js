@@ -117,6 +117,25 @@ const updateTeam = async (req, res) => {
 };
 
 /**
+ * GET /api/teams/my-teams
+ * Get teams where the logged-in user is the leader.
+ * Accessible by Participants for the booking flow.
+ */
+const getMyTeams = async (req, res) => {
+  try {
+    const teams = await Team.find({ leaderId: req.user._id })
+      .populate('classId', 'classCode courseName')
+      .populate('leaderId', 'empCode name department status')
+      .populate('members', 'empCode name department status')
+      .sort({ name: 1 });
+
+    res.json({ success: true, count: teams.length, data: teams });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+/**
  * DELETE /api/teams/:id
  * Delete a team
  */
@@ -132,4 +151,5 @@ const deleteTeam = async (req, res) => {
   }
 };
 
-module.exports = { getTeams, getTeamById, createTeam, updateTeam, deleteTeam };
+module.exports = { getTeams, getTeamById, createTeam, updateTeam, deleteTeam, getMyTeams };
+
