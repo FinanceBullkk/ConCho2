@@ -21,9 +21,7 @@ const NAV_ITEMS = {
   ],
   Participant: [
     { path: '/dashboard', label: 'Dashboard', icon: '📊' },
-    { path: '/book-class', label: 'Book Class', icon: '📋' },
-    { path: '/schedules', label: 'My Schedule', icon: '📅' },
-    { path: '/my-attendance', label: 'My Attendance', icon: '✅' },
+    { path: '/schedules', label: 'Schedule & Book', icon: '📅' },
   ],
 };
 

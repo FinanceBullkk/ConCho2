@@ -122,7 +122,7 @@ userSchema.post('findOneAndUpdate', async function (doc) {
   // Atomically pull user from all future schedules
   const result = await Schedule.updateMany(
     {
-      date: { $gte: today },
+      startTime: { $gte: today },
       enrolledUsers: doc._id,
     },
     {
@@ -137,27 +137,16 @@ userSchema.post('findOneAndUpdate', async function (doc) {
     );
 
     // Auto-release slots where no enrolled users remain
-    // This prevents "ghost bookings" where bookedTeamId is set
-    // but no active members are left in the schedule.
+    // Delete schedules with no enrolled users (ghost sessions)
     const emptySchedules = await Schedule.find({
-      date: { $gte: today },
-      bookedTeamId: { $ne: null },
+      startTime: { $gte: today },
       enrolledUsers: { $size: 0 },
     });
 
     for (const sched of emptySchedules) {
-      await Schedule.updateOne(
-        { _id: sched._id },
-        {
-          $set: {
-            bookedTeamId: null,
-            enrolledTeams: [],
-            enrolledCount: 0,
-          },
-        }
-      );
+      await Schedule.findByIdAndDelete(sched._id);
       console.log(
-        `   🔓 Auto-released slot ${sched._id} — no enrolled users remain`
+        `   🔓 Auto-deleted schedule ${sched._id} — no enrolled users remain`
       );
     }
   } else {

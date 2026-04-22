@@ -282,7 +282,7 @@ const getAnalyticsByClass = async (req, res) => {
     if (!classId) return res.status(400).json({ success: false, message: 'classId is required' });
 
     // Find all schedules for this class
-    const schedules = await Schedule.find({ classId }).select('_id date timeSlot').sort({ date: 1 }).lean();
+    const schedules = await Schedule.find({ classId }).select('_id startTime endTime').sort({ startTime: 1 }).lean();
     const scheduleIds = schedules.map(s => s._id);
 
     // Get all attendance for these schedules
@@ -324,11 +324,50 @@ const getAnalyticsByClass = async (req, res) => {
   }
 };
 
+/**
+ * GET /api/attendance/my-stats
+ * Get the logged-in participant's personal attendance stats.
+ * Returns: { totalSessions, present, absent, late, excused, attendanceRate }
+ */
+const getMyStats = async (req, res) => {
+  try {
+    const userId = new mongoose.Types.ObjectId(req.user._id);
+
+    const pipeline = [
+      { $match: { userId } },
+      {
+        $group: {
+          _id: null,
+          totalSessions: { $sum: 1 },
+          present: { $sum: { $cond: [{ $eq: ['$status', 'P'] }, 1, 0] } },
+          absent: { $sum: { $cond: [{ $eq: ['$status', 'A'] }, 1, 0] } },
+          late: { $sum: { $cond: [{ $eq: ['$status', 'L'] }, 1, 0] } },
+          excused: { $sum: { $cond: [{ $eq: ['$status', 'EL'] }, 1, 0] } },
+        },
+      },
+    ];
+
+    const results = await Attendance.aggregate(pipeline);
+    const stats = results[0] || { totalSessions: 0, present: 0, absent: 0, late: 0, excused: 0 };
+    stats.attendanceRate = stats.totalSessions > 0
+      ? parseFloat(((stats.present / stats.totalSessions) * 100).toFixed(1))
+      : 0;
+
+    // Remove the MongoDB _id
+    delete stats._id;
+
+    res.json({ success: true, data: stats });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
 module.exports = { 
   bulkMarkAttendance, 
   getAttendanceBySchedule, 
   getAttendanceByUser,
   getAnalyticsByEmployee,
   getAnalyticsByTeam,
-  getAnalyticsByClass
+  getAnalyticsByClass,
+  getMyStats,
 };

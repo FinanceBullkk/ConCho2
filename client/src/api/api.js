@@ -13,13 +13,18 @@ api.interceptors.request.use((config) => {
 });
 
 // Handle 401 globally — redirect to login
+// Skip for /auth/me — AuthContext handles that gracefully
+// to avoid a hard-redirect loop on page load.
 api.interceptors.response.use(
   (res) => res,
   (error) => {
     if (error.response?.status === 401) {
-      localStorage.removeItem('tms_token');
-      localStorage.removeItem('tms_user');
-      window.location.href = '/login';
+      const url = error.config?.url || '';
+      if (!url.includes('/auth/me')) {
+        localStorage.removeItem('tms_token');
+        localStorage.removeItem('tms_user');
+        window.location.href = '/login';
+      }
     }
     return Promise.reject(error);
   }
@@ -43,6 +48,7 @@ export const usersAPI = {
 // ── Teams ─────────────────────────────────────────────────
 export const teamsAPI = {
   getAll: () => api.get('/teams'),
+  getMyTeams: () => api.get('/teams/my-teams'),
   getById: (id) => api.get(`/teams/${id}`),
   create: (data) => api.post('/teams', data),
   update: (id, data) => api.put(`/teams/${id}`, data),
@@ -66,8 +72,12 @@ export const schedulesAPI = {
   create: (data) => api.post('/schedules', data),
   update: (id, data) => api.put(`/schedules/${id}`, data),
   delete: (id) => api.delete(`/schedules/${id}`),
-  bookTeam: (scheduleId, teamId) => api.post(`/schedules/${scheduleId}/book-team`, { teamId }),
-  cancelTeam: (scheduleId, teamId) => api.post(`/schedules/${scheduleId}/cancel-team`, { teamId }),
+  // Leader booking: creates a new schedule
+  bookSlot: (data) => api.post('/schedules/book-slot', data),
+  // Leader cancel: deletes the schedule
+  cancelSlot: (scheduleId) => api.delete(`/schedules/${scheduleId}/cancel`),
+  // Participant: upcoming sessions for my class
+  getMyClass: () => api.get('/schedules/my-class'),
 };
 
 // ── Attendance ────────────────────────────────────────────
@@ -78,6 +88,8 @@ export const attendanceAPI = {
   getAnalyticsByEmployee: (params) => api.get('/attendance/analytics/by-employee', { params }),
   getAnalyticsByTeam: (params) => api.get('/attendance/analytics/by-team', { params }),
   getAnalyticsByClass: (params) => api.get('/attendance/analytics/by-class', { params }),
+  // Participant: personal stats
+  getMyStats: () => api.get('/attendance/my-stats'),
 };
 
 // ── Evaluations ───────────────────────────────────────────

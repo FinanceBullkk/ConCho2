@@ -122,6 +122,9 @@ export default function AttendancePage() {
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 stagger">
           {schedules.map((s) => {
             const isSelected = selectedSchedule?._id === s._id;
+            const start = new Date(s.startTime);
+            const end = new Date(s.endTime);
+            const timeStr = `${String(start.getHours()).padStart(2,'0')}:${String(start.getMinutes()).padStart(2,'0')}-${String(end.getHours()).padStart(2,'0')}:${String(end.getMinutes()).padStart(2,'0')}`;
             return (
               <button
                 key={s._id}
@@ -134,10 +137,10 @@ export default function AttendancePage() {
               >
                 <div className="font-medium text-white text-sm">{s.classId?.classCode}</div>
                 <div className="text-xs text-slate-400 mt-1">
-                  {new Date(s.date).toLocaleDateString('en', { weekday: 'short', month: 'short', day: 'numeric' })} • {s.timeSlot}
+                  {start.toLocaleDateString('en', { weekday: 'short', month: 'short', day: 'numeric' })} • {timeStr}
                 </div>
                 <div className="text-xs text-slate-500 mt-1">
-                  {s.teacherId?.name} • {s.enrolledCount}/{s.capacity} students
+                  {s.teacherId?.name || 'No teacher'} • {s.enrolledCount}/{s.capacity} students
                 </div>
               </button>
             );
@@ -151,7 +154,7 @@ export default function AttendancePage() {
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
             <div>
               <h2 className="text-lg font-semibold text-white">
-                {selectedSchedule.classId?.classCode} — {new Date(selectedSchedule.date).toLocaleDateString()}
+                {selectedSchedule.classId?.classCode} — {new Date(selectedSchedule.startTime).toLocaleDateString()}
               </h2>
               <p className="text-sm text-slate-400">{records.length} students enrolled</p>
             </div>

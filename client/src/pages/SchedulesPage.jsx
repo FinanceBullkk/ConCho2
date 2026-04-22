@@ -1,15 +1,28 @@
 import { useState, useEffect } from 'react';
 import { schedulesAPI, classesAPI, teamsAPI, usersAPI } from '../api/api';
 
-function ScheduleModal({ schedule, classes, teachers, onClose, onSaved }) {
+// ──────────────────────────────────────────────────────────
+// Admin Schedule Management (v2 — startTime/endTime)
+// ──────────────────────────────────────────────────────────
+
+function ScheduleModal({ schedule, classes, teachers, teams, onClose, onSaved }) {
   const isEdit = !!schedule?._id;
+
+  // Helper: format Date → "YYYY-MM-DDTHH:MM" for datetime-local input
+  const toDateTimeLocal = (d) => {
+    if (!d) return '';
+    const dt = new Date(d);
+    return `${dt.getFullYear()}-${String(dt.getMonth()+1).padStart(2,'0')}-${String(dt.getDate()).padStart(2,'0')}T${String(dt.getHours()).padStart(2,'0')}:${String(dt.getMinutes()).padStart(2,'0')}`;
+  };
+
   const [form, setForm] = useState({
     classId: schedule?.classId?._id || schedule?.classId || '',
-    date: schedule?.date ? schedule.date.substring(0, 10) : '',
-    timeSlot: schedule?.timeSlot || '',
+    bookedTeamId: schedule?.bookedTeamId?._id || schedule?.bookedTeamId || '',
+    startTime: toDateTimeLocal(schedule?.startTime),
+    endTime: toDateTimeLocal(schedule?.endTime),
     teacherId: schedule?.teacherId?._id || schedule?.teacherId || '',
     roomLink: schedule?.roomLink || '',
-    capacity: schedule?.capacity || 10,
+    capacity: schedule?.capacity || 9,
   });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
@@ -17,8 +30,14 @@ function ScheduleModal({ schedule, classes, teachers, onClose, onSaved }) {
   const handleSubmit = async (e) => {
     e.preventDefault(); setSaving(true); setError('');
     try {
-      if (isEdit) await schedulesAPI.update(schedule._id, form);
-      else await schedulesAPI.create(form);
+      const payload = {
+        ...form,
+        startTime: new Date(form.startTime).toISOString(),
+        endTime: new Date(form.endTime).toISOString(),
+      };
+      if (!payload.teacherId) delete payload.teacherId;
+      if (isEdit) await schedulesAPI.update(schedule._id, payload);
+      else await schedulesAPI.create(payload);
       onSaved();
     } catch (err) { setError(err.response?.data?.message || 'Save failed'); }
     finally { setSaving(false); }
@@ -42,21 +61,29 @@ function ScheduleModal({ schedule, classes, teachers, onClose, onSaved }) {
               {classes.map((c) => <option key={c._id} value={c._id} className="bg-slate-800">{c.classCode} — {c.courseName}</option>)}
             </select>
           </div>
+          <div className="col-span-2">
+            <label className="block text-sm text-slate-300 mb-1">Team</label>
+            <select value={form.bookedTeamId} onChange={(e) => f('bookedTeamId', e.target.value)} required
+              className="w-full px-3 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white focus:outline-none focus:ring-2 focus:ring-primary-500/50 transition-all">
+              <option value="" className="bg-slate-800">Select team…</option>
+              {teams.map((t) => <option key={t._id} value={t._id} className="bg-slate-800">{t.name}</option>)}
+            </select>
+          </div>
           <div>
-            <label className="block text-sm text-slate-300 mb-1">Date</label>
-            <input type="date" value={form.date} onChange={(e) => f('date', e.target.value)} required
+            <label className="block text-sm text-slate-300 mb-1">Start Time</label>
+            <input type="datetime-local" value={form.startTime} onChange={(e) => f('startTime', e.target.value)} required
               className="w-full px-4 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white focus:outline-none focus:ring-2 focus:ring-primary-500/50 transition-all" />
           </div>
           <div>
-            <label className="block text-sm text-slate-300 mb-1">Time Slot</label>
-            <input type="text" value={form.timeSlot} onChange={(e) => f('timeSlot', e.target.value)} placeholder="09:00-10:30" required
-              className="w-full px-4 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-primary-500/50 transition-all" />
+            <label className="block text-sm text-slate-300 mb-1">End Time</label>
+            <input type="datetime-local" value={form.endTime} onChange={(e) => f('endTime', e.target.value)} required
+              className="w-full px-4 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white focus:outline-none focus:ring-2 focus:ring-primary-500/50 transition-all" />
           </div>
           <div>
-            <label className="block text-sm text-slate-300 mb-1">Teacher</label>
-            <select value={form.teacherId} onChange={(e) => f('teacherId', e.target.value)} required
+            <label className="block text-sm text-slate-300 mb-1">Teacher (optional)</label>
+            <select value={form.teacherId} onChange={(e) => f('teacherId', e.target.value)}
               className="w-full px-3 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white focus:outline-none focus:ring-2 focus:ring-primary-500/50 transition-all">
-              <option value="" className="bg-slate-800">Select teacher…</option>
+              <option value="" className="bg-slate-800">No teacher</option>
               {teachers.map((t) => <option key={t._id} value={t._id} className="bg-slate-800">{t.name} ({t.empCode})</option>)}
             </select>
           </div>
@@ -83,47 +110,6 @@ function ScheduleModal({ schedule, classes, teachers, onClose, onSaved }) {
   );
 }
 
-function BookTeamModal({ schedule, teams, onClose, onSaved }) {
-  const [teamId, setTeamId] = useState('');
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState('');
-
-  const enrolledTeamIds = schedule?.enrolledTeams?.map((t) => t._id || t) || [];
-  const available = teams.filter((t) => !enrolledTeamIds.includes(t._id));
-
-  const handleBook = async () => {
-    if (!teamId) return;
-    setSaving(true); setError('');
-    try {
-      await schedulesAPI.bookTeam(schedule._id, teamId);
-      onSaved();
-    } catch (err) { setError(err.response?.data?.message || 'Booking failed'); }
-    finally { setSaving(false); }
-  };
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm" onClick={onClose}>
-      <div className="glass rounded-2xl p-6 w-full max-w-sm mx-4 space-y-4 animate-fade-in" onClick={(e) => e.stopPropagation()}>
-        <h2 className="text-lg font-bold text-white">📋 Book a Team</h2>
-        <p className="text-sm text-slate-400">Available: {schedule.capacity - schedule.enrolledCount} spots · Schedule: {schedule.classId?.classCode}</p>
-        {error && <div className="px-4 py-2 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-sm">{error}</div>}
-        <select value={teamId} onChange={(e) => setTeamId(e.target.value)}
-          className="w-full px-3 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white focus:outline-none focus:ring-2 focus:ring-primary-500/50 transition-all">
-          <option value="" className="bg-slate-800">Select team…</option>
-          {available.map((t) => <option key={t._id} value={t._id} className="bg-slate-800">{t.name} ({t.members?.length || 0} members)</option>)}
-        </select>
-        {available.length === 0 && <p className="text-slate-500 text-sm">All teams already enrolled</p>}
-        <div className="flex gap-3">
-          <button onClick={onClose} className="flex-1 py-2.5 rounded-xl border border-white/10 text-slate-400 hover:bg-white/5 transition-all">Cancel</button>
-          <button onClick={handleBook} disabled={!teamId || saving} className="flex-1 py-2.5 rounded-xl bg-gradient-to-r from-primary-600 to-primary-500 text-white font-semibold disabled:opacity-50 transition-all">
-            {saving ? 'Booking...' : 'Book Team'}
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
 export default function SchedulesPage() {
   const [schedules, setSchedules] = useState([]);
   const [classes, setClasses] = useState([]);
@@ -131,7 +117,6 @@ export default function SchedulesPage() {
   const [teams, setTeams] = useState([]);
   const [loading, setLoading] = useState(true);
   const [modal, setModal] = useState(null);
-  const [bookModal, setBookModal] = useState(null);
   const [deleteId, setDeleteId] = useState(null);
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
@@ -164,8 +149,11 @@ export default function SchedulesPage() {
     setDeleteId(null);
   };
 
-  const handleCancelTeam = async (scheduleId, teamId) => {
-    try { await schedulesAPI.cancelTeam(scheduleId, teamId); load(); } catch (err) { alert(err.response?.data?.message); }
+  // Format time range from startTime/endTime
+  const fmtTime = (s) => {
+    const start = new Date(s.startTime);
+    const end = new Date(s.endTime);
+    return `${String(start.getHours()).padStart(2,'0')}:${String(start.getMinutes()).padStart(2,'0')}-${String(end.getHours()).padStart(2,'0')}:${String(end.getMinutes()).padStart(2,'0')}`;
   };
 
   return (
@@ -188,33 +176,31 @@ export default function SchedulesPage() {
           {schedules.map((s) => {
             const pct = s.capacity > 0 ? Math.round((s.enrolledCount / s.capacity) * 100) : 0;
             const barColor = pct >= 90 ? 'bg-red-500' : pct >= 60 ? 'bg-amber-500' : 'bg-emerald-500';
+            const startDate = new Date(s.startTime);
             return (
               <div key={s._id} className="glass rounded-2xl p-5">
                 <div className="flex flex-col lg:flex-row lg:items-center gap-4">
                   {/* Date badge */}
                   <div className="w-14 h-14 rounded-xl bg-primary-500/10 flex flex-col items-center justify-center text-primary-300 shrink-0">
-                    <span className="text-xs font-bold">{new Date(s.date).toLocaleDateString('en', { month: 'short' })}</span>
-                    <span className="text-xl font-bold leading-none">{new Date(s.date).getDate()}</span>
+                    <span className="text-xs font-bold">{startDate.toLocaleDateString('en', { month: 'short' })}</span>
+                    <span className="text-xl font-bold leading-none">{startDate.getDate()}</span>
                   </div>
                   {/* Info */}
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
                       <span className="font-bold text-white">{s.classId?.classCode}</span>
                       <span className="text-slate-400 text-sm">·</span>
-                      <span className="text-slate-300 text-sm">{s.timeSlot}</span>
+                      <span className="text-slate-300 text-sm">{fmtTime(s)}</span>
                       <span className="text-slate-400 text-sm">·</span>
-                      <span className="text-slate-400 text-sm">{s.teacherId?.name}</span>
+                      <span className="text-slate-400 text-sm">{s.teacherId?.name || 'No teacher'}</span>
                     </div>
                     <div className="text-sm text-slate-400 mt-1">{s.classId?.courseName}</div>
-                    {/* Teams enrolled */}
-                    {s.enrolledTeams?.length > 0 && (
+                    {/* Team */}
+                    {s.bookedTeamId && (
                       <div className="flex flex-wrap gap-1.5 mt-2">
-                        {s.enrolledTeams.map((t) => (
-                          <span key={t._id} className="flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-purple-500/10 text-purple-300 text-xs border border-purple-500/20">
-                            👥 {t.name}
-                            <button onClick={() => handleCancelTeam(s._id, t._id)} className="ml-1 text-purple-400 hover:text-red-400 transition-colors">×</button>
-                          </span>
-                        ))}
+                        <span className="flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-purple-500/10 text-purple-300 text-xs border border-purple-500/20">
+                          👥 {s.bookedTeamId.name || 'Team'}
+                        </span>
                       </div>
                     )}
                   </div>
@@ -231,7 +217,6 @@ export default function SchedulesPage() {
                   </div>
                   {/* Actions */}
                   <div className="flex gap-2 shrink-0">
-                    <button onClick={() => setBookModal(s)} className="px-3 py-1.5 rounded-lg bg-purple-500/10 text-purple-300 text-xs border border-purple-500/20 hover:bg-purple-500/20 transition-all">Book Team</button>
                     <button onClick={() => setModal(s)} className="px-3 py-1.5 rounded-lg bg-white/5 text-slate-300 text-xs hover:bg-primary-500/20 hover:text-primary-300 transition-all">Edit</button>
                     <button onClick={() => setDeleteId(s._id)} className="px-3 py-1.5 rounded-lg bg-white/5 text-slate-300 text-xs hover:bg-red-500/20 hover:text-red-400 transition-all">Del</button>
                   </div>
@@ -276,12 +261,8 @@ export default function SchedulesPage() {
       )}
 
       {(modal === 'create' || (modal && modal._id)) && (
-        <ScheduleModal schedule={modal === 'create' ? null : modal} classes={classes} teachers={teachers}
+        <ScheduleModal schedule={modal === 'create' ? null : modal} classes={classes} teachers={teachers} teams={teams}
           onClose={() => setModal(null)} onSaved={() => { setModal(null); load(); }} />
-      )}
-      {bookModal && (
-        <BookTeamModal schedule={bookModal} teams={teams}
-          onClose={() => setBookModal(null)} onSaved={() => { setBookModal(null); load(); }} />
       )}
     </div>
   );

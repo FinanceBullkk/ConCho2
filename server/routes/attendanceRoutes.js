@@ -1,7 +1,7 @@
 const router = require('express').Router();
 const { 
   bulkMarkAttendance, getAttendanceBySchedule, getAttendanceByUser,
-  getAnalyticsByEmployee, getAnalyticsByTeam, getAnalyticsByClass
+  getAnalyticsByEmployee, getAnalyticsByTeam, getAnalyticsByClass, getMyStats
 } = require('../controllers/attendanceController');
 const { protect } = require('../middleware/auth');
 const { roleGuard } = require('../middleware/roleGuard');
@@ -11,6 +11,9 @@ const { cacheMiddleware } = require('../middleware/analyticsCache');
 router.get('/analytics/by-employee', protect, cacheMiddleware('analytics:by-employee'), getAnalyticsByEmployee);
 router.get('/analytics/by-team',     protect, cacheMiddleware('analytics:by-team'),     getAnalyticsByTeam);
 router.get('/analytics/by-class',    protect, cacheMiddleware('analytics:by-class'),    getAnalyticsByClass);
+
+// Participant personal stats
+router.get('/my-stats', protect, getMyStats);
 
 // Bulk mark: Teacher or Admin (invalidates analytics cache — see controller)
 router.post('/:scheduleId', protect, roleGuard('Admin', 'Teacher'), bulkMarkAttendance);
