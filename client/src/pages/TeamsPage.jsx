@@ -83,7 +83,7 @@ export default function TeamsPage() {
   const load = async () => {
     setLoading(true);
     try {
-      const [tRes, pRes] = await Promise.all([teamsAPI.getAll(), usersAPI.getAll({ role: 'Participant' })]);
+      const [tRes, pRes] = await Promise.all([teamsAPI.getAll(), usersAPI.getAll({ role: 'Participant', limit: 200 })]);
       setTeams(tRes.data.data);
       setParticipants(pRes.data.data);
     } catch (err) { console.error(err); }

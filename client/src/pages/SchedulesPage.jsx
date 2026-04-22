@@ -133,17 +133,23 @@ export default function SchedulesPage() {
   const [modal, setModal] = useState(null);
   const [bookModal, setBookModal] = useState(null);
   const [deleteId, setDeleteId] = useState(null);
+  const [page, setPage] = useState(1);
+  const [total, setTotal] = useState(0);
+  const [pages, setPages] = useState(1);
+  const PAGE_SIZE = 50;
 
   const load = async () => {
     setLoading(true);
     try {
       const [sRes, cRes, tRes, teRes] = await Promise.all([
-        schedulesAPI.getAll(),
+        schedulesAPI.getAll({ page, limit: PAGE_SIZE }),
         classesAPI.getAll(),
-        usersAPI.getAll({ role: 'Teacher' }),
+        usersAPI.getAll({ role: 'Teacher', limit: 200 }),
         teamsAPI.getAll(),
       ]);
       setSchedules(sRes.data.data);
+      setTotal(sRes.data.total ?? sRes.data.count ?? 0);
+      setPages(sRes.data.pages ?? 1);
       setClasses(cRes.data.data);
       setTeachers(tRes.data.data);
       setTeams(teRes.data.data);
@@ -151,7 +157,7 @@ export default function SchedulesPage() {
     finally { setLoading(false); }
   };
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => { load(); }, [page]);
 
   const handleDelete = async (id) => {
     try { await schedulesAPI.delete(id); load(); } catch (err) { alert(err.response?.data?.message); }
@@ -167,7 +173,7 @@ export default function SchedulesPage() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-white">📅 Schedule Management</h1>
-          <p className="text-slate-400 mt-1">{schedules.length} sessions</p>
+          <p className="text-slate-400 mt-1">{total} sessions</p>
         </div>
         <button onClick={() => setModal('create')}
           className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-primary-600 to-primary-500 text-white font-semibold hover:from-primary-500 hover:to-primary-400 transition-all shadow-lg shadow-primary-500/20 self-start">
@@ -237,6 +243,24 @@ export default function SchedulesPage() {
       )}
 
       {!loading && schedules.length === 0 && <div className="glass rounded-2xl p-16 text-center text-slate-500">No schedules found</div>}
+
+      {!loading && total > 0 && (
+        <div className="flex items-center justify-between text-sm text-slate-400">
+          <span>Page {page} of {pages} · {total} total</span>
+          <div className="flex gap-2">
+            <button
+              onClick={() => setPage((p) => Math.max(1, p - 1))}
+              disabled={page <= 1}
+              className="px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 hover:bg-white/10 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
+            >← Prev</button>
+            <button
+              onClick={() => setPage((p) => Math.min(pages, p + 1))}
+              disabled={page >= pages}
+              className="px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 hover:bg-white/10 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
+            >Next →</button>
+          </div>
+        </div>
+      )}
 
       {deleteId && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">

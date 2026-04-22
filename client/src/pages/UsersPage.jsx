@@ -97,6 +97,8 @@ const ROLE_BADGE = {
   Participant: 'bg-teal-500/15 text-teal-300',
 };
 
+const PAGE_SIZE = 50;
+
 export default function UsersPage() {
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -104,19 +106,26 @@ export default function UsersPage() {
   const [filterRole, setFilterRole] = useState('');
   const [filterStatus, setFilterStatus] = useState('');
   const [deleteId, setDeleteId] = useState(null);
+  const [page, setPage] = useState(1);
+  const [total, setTotal] = useState(0);
+  const [pages, setPages] = useState(1);
 
   const load = () => {
     setLoading(true);
-    const params = {};
+    const params = { page, limit: PAGE_SIZE };
     if (filterRole) params.role = filterRole;
     if (filterStatus) params.status = filterStatus;
     usersAPI.getAll(params)
-      .then((r) => setUsers(r.data.data))
+      .then((r) => {
+        setUsers(r.data.data);
+        setTotal(r.data.total ?? r.data.count ?? 0);
+        setPages(r.data.pages ?? 1);
+      })
       .catch(console.error)
       .finally(() => setLoading(false));
   };
 
-  useEffect(() => { load(); }, [filterRole, filterStatus]);
+  useEffect(() => { load(); }, [filterRole, filterStatus, page]);
 
   const handleDelete = async (id) => {
     try { await usersAPI.delete(id); load(); } catch (err) { alert(err.response?.data?.message || 'Delete failed'); }
@@ -128,7 +137,7 @@ export default function UsersPage() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-white">👤 User Management</h1>
-          <p className="text-slate-400 mt-1">{users.length} users total</p>
+          <p className="text-slate-400 mt-1">{total} users total</p>
         </div>
         <button onClick={() => setModal('create')}
           className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-primary-600 to-primary-500 text-white font-semibold hover:from-primary-500 hover:to-primary-400 transition-all shadow-lg shadow-primary-500/20 self-start">
@@ -138,12 +147,12 @@ export default function UsersPage() {
 
       {/* Filters */}
       <div className="glass rounded-2xl px-5 py-4 flex flex-wrap gap-3">
-        <select value={filterRole} onChange={(e) => setFilterRole(e.target.value)}
+        <select value={filterRole} onChange={(e) => { setPage(1); setFilterRole(e.target.value); }}
           className="px-3 py-2 rounded-xl bg-white/5 border border-white/10 text-white text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/50">
           <option value="" className="bg-slate-800">All Roles</option>
           {ROLES.map((r) => <option key={r} value={r} className="bg-slate-800">{r}</option>)}
         </select>
-        <select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)}
+        <select value={filterStatus} onChange={(e) => { setPage(1); setFilterStatus(e.target.value); }}
           className="px-3 py-2 rounded-xl bg-white/5 border border-white/10 text-white text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/50">
           <option value="" className="bg-slate-800">All Statuses</option>
           {STATUSES.map((s) => <option key={s} value={s} className="bg-slate-800">{s}</option>)}
@@ -193,6 +202,25 @@ export default function UsersPage() {
           <div className="py-16 text-center text-slate-500">No users found</div>
         )}
       </div>
+
+      {/* Pager */}
+      {!loading && total > 0 && (
+        <div className="flex items-center justify-between text-sm text-slate-400">
+          <span>Page {page} of {pages} · {total} total</span>
+          <div className="flex gap-2">
+            <button
+              onClick={() => setPage((p) => Math.max(1, p - 1))}
+              disabled={page <= 1}
+              className="px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 hover:bg-white/10 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
+            >← Prev</button>
+            <button
+              onClick={() => setPage((p) => Math.min(pages, p + 1))}
+              disabled={page >= pages}
+              className="px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 hover:bg-white/10 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
+            >Next →</button>
+          </div>
+        </div>
+      )}
 
       {/* Delete confirm */}
       {deleteId && (

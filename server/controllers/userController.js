@@ -1,5 +1,6 @@
 const User = require('../models/User');
 const { getNextSequence } = require('../helpers/counter');
+const { parsePagination, paginatedResponse } = require('../helpers/pagination');
 
 // ──────────────────────────────────────────────────────────
 // User Controller (Admin Only)
@@ -15,7 +16,8 @@ const { getNextSequence } = require('../helpers/counter');
 
 /**
  * GET /api/users
- * Get all users (supports query filters: ?role=Teacher&status=Active&department=Sales)
+ * Filters: ?role=Teacher&status=Active&department=Sales
+ * Pagination: ?page=1&limit=50
  */
 const getUsers = async (req, res) => {
   try {
@@ -24,8 +26,13 @@ const getUsers = async (req, res) => {
     if (req.query.status) filter.status = req.query.status;
     if (req.query.department) filter.department = { $regex: req.query.department, $options: 'i' };
 
-    const users = await User.find(filter).sort({ empCode: 1 });
-    res.json({ success: true, count: users.length, data: users });
+    const { page, limit, skip } = parsePagination(req);
+    const [users, total] = await Promise.all([
+      User.find(filter).sort({ empCode: 1 }).skip(skip).limit(limit),
+      User.countDocuments(filter),
+    ]);
+
+    res.json(paginatedResponse({ data: users, total, page, limit }));
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }

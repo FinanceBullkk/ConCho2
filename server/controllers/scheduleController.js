@@ -2,6 +2,7 @@ const mongoose = require('mongoose');
 const Schedule = require('../models/Schedule');
 const Team = require('../models/Team');
 const User = require('../models/User');
+const { parsePagination, paginatedResponse } = require('../helpers/pagination');
 
 // ──────────────────────────────────────────────────────────
 // Schedule Controller
@@ -61,6 +62,7 @@ const getAvailability = async (req, res) => {
 /**
  * GET /api/schedules
  * Filters: ?classId=&teacherId=&from=&to=
+ * Pagination: ?page=1&limit=50
  */
 const getSchedules = async (req, res) => {
   try {
@@ -73,14 +75,20 @@ const getSchedules = async (req, res) => {
       if (req.query.to) filter.date.$lte = new Date(req.query.to);
     }
 
-    const schedules = await Schedule.find(filter)
-      .populate('classId', 'classCode courseName')
-      .populate('teacherId', 'empCode name')
-      .populate('enrolledTeams', 'name')
-      .populate('enrolledUsers', 'empCode name department')
-      .sort({ date: 1, timeSlot: 1 });
+    const { page, limit, skip } = parsePagination(req);
+    const [schedules, total] = await Promise.all([
+      Schedule.find(filter)
+        .populate('classId', 'classCode courseName')
+        .populate('teacherId', 'empCode name')
+        .populate('enrolledTeams', 'name')
+        .populate('enrolledUsers', 'empCode name department')
+        .sort({ date: 1, timeSlot: 1 })
+        .skip(skip)
+        .limit(limit),
+      Schedule.countDocuments(filter),
+    ]);
 
-    res.json({ success: true, count: schedules.length, data: schedules });
+    res.json(paginatedResponse({ data: schedules, total, page, limit }));
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
