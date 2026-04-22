@@ -29,7 +29,7 @@ export default function AttendancePage() {
 
   // Load schedules
   useEffect(() => {
-    schedulesAPI.getAll()
+    schedulesAPI.getAll({ limit: 200 })
       .then((res) => setSchedules(res.data.data))
       .catch(console.error)
       .finally(() => setLoading(false));
