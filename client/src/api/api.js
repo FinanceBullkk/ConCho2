@@ -3,16 +3,19 @@ import axios from 'axios';
 const api = axios.create({
   baseURL: '/api',
   headers: { 'Content-Type': 'application/json' },
+  // ── SECURITY FIX (SEC-03): Send HttpOnly cookies with every request ──
+  // The JWT is now stored in an HttpOnly cookie set by the server.
+  // withCredentials tells axios to include cookies on cross-origin requests.
+  withCredentials: true,
 });
 
-// Attach JWT token to every request
-api.interceptors.request.use((config) => {
-  const token = localStorage.getItem('tms_token');
-  if (token) config.headers.Authorization = `Bearer ${token}`;
-  return config;
-});
+// ── Request interceptor ───────────────────────────────────
+// No longer reads token from localStorage. The browser sends
+// the HttpOnly cookie automatically with withCredentials: true.
+// Nothing to do here — kept as a no-op for potential future use.
+api.interceptors.request.use((config) => config);
 
-// Handle 401 globally — redirect to login
+// ── Response interceptor: Handle 401 globally ─────────────
 // Skip for /auth/me — AuthContext handles that gracefully
 // to avoid a hard-redirect loop on page load.
 api.interceptors.response.use(
@@ -21,7 +24,8 @@ api.interceptors.response.use(
     if (error.response?.status === 401) {
       const url = error.config?.url || '';
       if (!url.includes('/auth/me')) {
-        localStorage.removeItem('tms_token');
+        // Cookie is HttpOnly so we can't clear it from JS — the server
+        // will reject it on expiry. Just clear local user data and redirect.
         localStorage.removeItem('tms_user');
         window.location.href = '/login';
       }
@@ -33,6 +37,7 @@ api.interceptors.response.use(
 // ── Auth ──────────────────────────────────────────────────
 export const authAPI = {
   login: (empCode, password) => api.post('/auth/login', { empCode, password }),
+  logout: () => api.post('/auth/logout'),
   getMe: () => api.get('/auth/me'),
 };
 
@@ -104,6 +109,14 @@ export const evaluationsAPI = {
 export const syncAPI = {
   status: () => api.get('/sync/status'),
   googleSheets: (data) => api.post('/sync/google-sheets', data),
+};
+
+// ── Export (HR) ───────────────────────────────────────────
+export const exportAPI = {
+  getStats: () => api.get('/export/stats'),
+  // responseType: 'blob' is required to handle the binary Excel file
+  downloadAttendance: (params = {}) =>
+    api.get('/export/attendance', { params, responseType: 'blob' }),
 };
 
 export default api;

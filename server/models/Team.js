@@ -82,7 +82,7 @@ teamSchema.post('findOneAndUpdate', async function (doc) {
   // Lazy-load to avoid circular dependency
   const Schedule = mongoose.model('Schedule');
   const today = new Date();
-  today.setHours(0, 0, 0, 0);
+  today.setUTCHours(0, 0, 0, 0); // UTC midnight — timezone-safe
 
   // Find all future schedules booked by this team
   const futureSchedules = await Schedule.find({

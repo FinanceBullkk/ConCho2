@@ -2,10 +2,14 @@ const jwt = require('jsonwebtoken');
 const User = require('../models/User');
 
 /**
- * JWT Authentication Middleware
- * ─────────────────────────────
- * Extracts Bearer token from Authorization header,
- * verifies it, and attaches the full user doc to req.user.
+ * JWT Authentication Middleware (Hardened)
+ * ────────────────────────────────────────
+ * Reads JWT from TWO sources (in priority order):
+ *   1. HttpOnly cookie 'tms_token'    ← XSS-proof (primary)
+ *   2. Authorization: Bearer <token>  ← backward compat / API clients
+ *
+ * This dual approach allows the frontend to migrate from
+ * localStorage to cookies without breaking existing sessions.
  *
  * Usage: router.get('/protected', protect, handler)
  */
@@ -13,7 +17,14 @@ const protect = async (req, res, next) => {
   try {
     let token;
 
+    // Priority 1: HttpOnly cookie (XSS-safe)
+    if (req.cookies && req.cookies.tms_token) {
+      token = req.cookies.tms_token;
+    }
+
+    // Priority 2: Authorization header (backward compat / Postman / API)
     if (
+      !token &&
       req.headers.authorization &&
       req.headers.authorization.startsWith('Bearer')
     ) {
