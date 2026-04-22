@@ -6,6 +6,7 @@ const {
 const { protect } = require('../middleware/auth');
 const { roleGuard } = require('../middleware/roleGuard');
 const { validate } = require('../middleware/validate');
+const { bookingLimiter } = require('../middleware/rateLimiters');
 const { idParam } = require('../schemas/common');
 const {
   createScheduleBody,
@@ -20,7 +21,7 @@ router.get('/availability', protect, validate({ query: availabilityQuery }), get
 router.get('/my-class', protect, getMyClassSchedules);
 
 router.post('/book-slot', protect, roleGuard('Admin', 'Participant'),
-  validate({ body: bookTeamSlotBody }), bookTeamSlot);
+  bookingLimiter, validate({ body: bookTeamSlotBody }), bookTeamSlot);
 
 router.delete('/:id/cancel', protect, roleGuard('Admin', 'Participant'),
   validate({ params: idParam }), cancelSlot);

@@ -1,99 +1,47 @@
-const jwt = require('jsonwebtoken');
-const User = require('../models/User');
+const authService = require('../services/authService');
 
 // ──────────────────────────────────────────────────────────
-// Auth Controller
+// Auth Controller (Thin — delegates to Service Layer)
 // ──────────────────────────────────────────────────────────
 
-/**
- * Generate JWT token
- */
-const generateToken = (userId) => {
-  return jwt.sign({ id: userId }, process.env.JWT_SECRET, {
-    expiresIn: process.env.JWT_EXPIRE || '7d',
-  });
+const handleError = (res, error) => {
+  const status = error.statusCode || 500;
+  res.status(status).json({ success: false, message: error.message });
 };
 
 /**
  * POST /api/auth/login
- * Login with empCode + password
- *
- * PERFORMANCE NOTE:
- *   empCode is stored as uppercase (schema setter) with a
- *   unique index. The query below normalizes input to match,
- *   then does a simple exact-match equality lookup — this
- *   hits the B-tree index directly: O(log n), no regex.
  */
 const login = async (req, res) => {
   try {
     const { empCode, password } = req.body;
+    const { token, user, cookieOptions } = await authService.authenticate(empCode, password);
 
-    if (!empCode || !password) {
-      return res.status(400).json({
-        success: false,
-        message: 'Please provide empCode and password',
-      });
-    }
-
-    // Normalize input: trim whitespace + uppercase to match stored format
-    const normalizedCode = empCode.trim().toUpperCase();
-
-    // Exact-match query → uses the unique index on empCode
-    const user = await User.findOne({ empCode: normalizedCode }).select(
-      '+password'
-    );
-
-    if (!user) {
-      return res.status(401).json({
-        success: false,
-        message: 'Invalid credentials',
-      });
-    }
-
-    // Check status
-    if (user.status !== 'Active') {
-      return res.status(403).json({
-        success: false,
-        message: `Account is ${user.status}. Contact admin.`,
-      });
-    }
-
-    // Compare password
-    const isMatch = await user.matchPassword(password);
-    if (!isMatch) {
-      return res.status(401).json({
-        success: false,
-        message: 'Invalid credentials',
-      });
-    }
-
-    const token = generateToken(user._id);
+    // Set HttpOnly cookie (primary auth)
+    res.cookie('tms_token', token, cookieOptions);
 
     res.json({
       success: true,
-      data: {
-        token,
-        user: {
-          _id: user._id,
-          empCode: user.empCode,
-          name: user.name,
-          role: user.role,
-          department: user.department,
-          status: user.status,
-        },
-      },
+      data: { token, user },
     });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    handleError(res, error);
   }
 };
 
 /**
+ * POST /api/auth/logout
+ */
+const logout = async (_req, res) => {
+  res.clearCookie('tms_token', { path: '/' });
+  res.json({ success: true, message: 'Logged out' });
+};
+
+/**
  * GET /api/auth/me
- * Get current logged-in user
  */
 const getMe = async (req, res) => {
   res.json({ success: true, data: req.user });
 };
 
-module.exports = { login, getMe };
+module.exports = { login, logout, getMe };

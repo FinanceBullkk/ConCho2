@@ -1,6 +1,7 @@
 const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
+const cookieParser = require('cookie-parser');
 require('dotenv').config();
 
 const connectDB = require('./config/db');
@@ -46,6 +47,7 @@ app.use(
 );
 
 // ── Core middleware ───────────────────────────────────────
+app.use(cookieParser());                          // Parse HttpOnly cookies
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
 
@@ -76,6 +78,7 @@ app.use('/api/attendance', require('./routes/attendanceRoutes'));
 app.use('/api/evaluations', require('./routes/evaluationRoutes'));
 app.use('/api/sync', require('./routes/syncRoutes'));
 app.use('/api/import', require('./routes/importRoutes'));
+app.use('/api/export', require('./routes/exportRoutes'));
 
 // ── 404 handler ──────────────────────────────────────────
 app.use((_req, res) => {

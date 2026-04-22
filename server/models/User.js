@@ -117,7 +117,7 @@ userSchema.post('findOneAndUpdate', async function (doc) {
   // Lazy-load Schedule to avoid circular dependency
   const Schedule = mongoose.model('Schedule');
   const today = new Date();
-  today.setHours(0, 0, 0, 0);
+  today.setUTCHours(0, 0, 0, 0); // UTC midnight — timezone-safe
 
   // Atomically pull user from all future schedules
   const result = await Schedule.updateMany(
