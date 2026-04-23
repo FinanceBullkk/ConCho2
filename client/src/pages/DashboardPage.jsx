@@ -23,8 +23,8 @@ export default function DashboardPage() {
 
     const fetchData = async () => {
       try {
-        const schedRes = await schedulesAPI.getAll();
-        setSchedules(schedRes.data.data.slice(0, 5));
+        const schedRes = await schedulesAPI.getAll({ from: new Date().toISOString(), limit: 5 });
+        setSchedules(schedRes.data.data);
 
         if (isAdmin) {
           const [usersRes, teamsRes, classesRes] = await Promise.all([
