@@ -44,6 +44,20 @@ const attendanceSchema = new mongoose.Schema(
       trim: true,
       default: '',
     },
+
+    // ── Export tracking (chống trùng lặp khi xuất HR) ─────
+    syncStatus: {
+      type: String,
+      enum: {
+        values: ['PENDING', 'EXPORTED'],
+        message: '{VALUE} is not a valid sync status',
+      },
+      default: 'PENDING',
+    },
+    exportedAt: {
+      type: Date,
+      default: null,
+    },
   },
   {
     timestamps: true,
@@ -54,6 +68,7 @@ const attendanceSchema = new mongoose.Schema(
 attendanceSchema.index({ scheduleId: 1, userId: 1 }, { unique: true });
 
 // ── Additional query indexes ──────────────────────────────
-attendanceSchema.index({ userId: 1 });
+attendanceSchema.index({ userId: 1, createdAt: -1 });  // User history queries
+attendanceSchema.index({ syncStatus: 1, createdAt: 1 });  // Export queries
 
 module.exports = mongoose.model('Attendance', attendanceSchema);

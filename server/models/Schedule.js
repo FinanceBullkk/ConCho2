@@ -1,18 +1,21 @@
 const mongoose = require('mongoose');
 
 // ──────────────────────────────────────────────────────────
-// Schedule Model
+// Schedule Model (v2 — Leader-Created Sessions)
 // ──────────────────────────────────────────────────────────
-// Represents a single class session / time slot.
+// Represents a single class session created by a Team Leader.
 //
-// BOOKING RULES (updated):
-//   1. Each slot allows exactly 1 team (bookedTeamId).
-//   2. Each team can book max 2 slots per calendar week.
-//   3. bookedTeamId = null → slot is available.
-//      bookedTeamId = ObjectId → slot is taken.
+// NEW FLOW:
+//   Team Leader clicks an empty time slot on the timetable →
+//   system CREATES a new Schedule doc with startTime/endTime.
 //
-// enrolledUsers is still maintained as a flattened member
-// list for attendance purposes.
+// BUSINESS RULES:
+//   1. Each time slot allows exactly 1 schedule (collision check).
+//   2. Each team can create max 2 sessions per Mon–Sun week.
+//   3. Cancelling a booking DELETES the Schedule document.
+//
+// enrolledUsers is maintained as a flattened member list
+// for attendance purposes.
 // ──────────────────────────────────────────────────────────
 
 const scheduleSchema = new mongoose.Schema(
@@ -22,39 +25,41 @@ const scheduleSchema = new mongoose.Schema(
       ref: 'Class',
       required: [true, 'Class reference is required'],
     },
-    date: {
+
+    // The team that created/owns this session
+    bookedTeamId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Team',
+      required: [true, 'Team reference is required'],
+    },
+
+    // ── Time range ─────────────────────────────────────────
+    startTime: {
       type: Date,
-      required: [true, 'Date is required'],
+      required: [true, 'Start time is required'],
     },
-    timeSlot: {
-      type: String,
-      required: [true, 'Time slot is required'],
-      trim: true,
-      // e.g. "09:00-10:00", "14:00-15:00"
+    endTime: {
+      type: Date,
+      required: [true, 'End time is required'],
     },
+
+    // Teacher (optional — Admin can assign later)
     teacherId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'User',
-      required: [true, 'Teacher is required'],
+      default: null,
     },
+
     roomLink: {
       type: String,
       trim: true,
       default: '',
     },
+
     capacity: {
       type: Number,
-      required: [true, 'Capacity is required'],
       min: [1, 'Capacity must be at least 1'],
-      default: 9,           // Default: 1 team of max 9 members
-    },
-
-    // ── Booking fields ──────────────────────────────────
-    // The single team that has booked this slot (null = available)
-    bookedTeamId: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: 'Team',
-      default: null,
+      default: 9,
     },
 
     // Flattened member list (for attendance / roster views)
@@ -65,13 +70,6 @@ const scheduleSchema = new mongoose.Schema(
       },
     ],
 
-    // Legacy fields kept for backward compatibility
-    enrolledTeams: [
-      {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: 'Team',
-      },
-    ],
     enrolledCount: {
       type: Number,
       default: 0,
@@ -86,20 +84,15 @@ const scheduleSchema = new mongoose.Schema(
 );
 
 // ── Virtuals ──────────────────────────────────────────────
-scheduleSchema.virtual('isBooked').get(function () {
-  return this.bookedTeamId != null;
-});
-
 scheduleSchema.virtual('availableSpots').get(function () {
   return this.capacity - this.enrolledCount;
 });
 
 // ── Indexes ───────────────────────────────────────────────
-scheduleSchema.index({ classId: 1, date: 1 });
-scheduleSchema.index({ date: 1 });
-scheduleSchema.index({ teacherId: 1, date: 1 });
-scheduleSchema.index({ bookedTeamId: 1, date: 1 });  // Weekly count query
+scheduleSchema.index({ startTime: 1, endTime: 1 });        // Collision queries
+scheduleSchema.index({ bookedTeamId: 1, startTime: 1 });   // Weekly count queries
+scheduleSchema.index({ classId: 1, startTime: 1 });
+scheduleSchema.index({ teacherId: 1, startTime: 1 });
 scheduleSchema.index({ enrolledUsers: 1 });
 
 module.exports = mongoose.model('Schedule', scheduleSchema);
-

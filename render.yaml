@@ -1,0 +1,22 @@
+# ──────────────────────────────────────────────────────────
+# Render.com Blueprint — Training Management System v2
+# ──────────────────────────────────────────────────────────
+# Deploy: https://render.com/deploy → paste this repo URL
+# ──────────────────────────────────────────────────────────
+
+services:
+  - type: web
+    name: tms-v2
+    runtime: node
+    plan: free
+    buildCommand: npm run build
+    startCommand: npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: JWT_SECRET
+        generateValue: true
+      - key: MONGO_URI
+        sync: false            # You must set this manually in Render dashboard
+      - key: CORS_ORIGINS
+        sync: false            # Set to your Render URL, e.g. https://tms-v2.onrender.com

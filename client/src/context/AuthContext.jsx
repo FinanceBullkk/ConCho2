@@ -10,26 +10,30 @@ export const useAuth = () => {
 };
 
 export function AuthProvider({ children }) {
+  // User profile is still cached in localStorage for fast hydration
+  // (role, name, etc. — no sensitive data). The actual auth token
+  // is in an HttpOnly cookie, invisible to JavaScript.
   const [user, setUser] = useState(() => {
-    const stored = localStorage.getItem('tms_user');
-    return stored ? JSON.parse(stored) : null;
+    try {
+      const stored = localStorage.getItem('tms_user');
+      return stored ? JSON.parse(stored) : null;
+    } catch {
+      localStorage.removeItem('tms_user');
+      return null;
+    }
   });
   const [loading, setLoading] = useState(true);
 
-  // Verify token on mount
+  // Verify session on mount by calling /auth/me.
+  // The HttpOnly cookie is sent automatically by the browser.
   useEffect(() => {
-    const token = localStorage.getItem('tms_token');
-    if (!token) {
-      setLoading(false);
-      return;
-    }
     authAPI.getMe()
       .then((res) => {
         setUser(res.data.data);
         localStorage.setItem('tms_user', JSON.stringify(res.data.data));
       })
       .catch(() => {
-        localStorage.removeItem('tms_token');
+        // Cookie invalid/expired — clear local user data
         localStorage.removeItem('tms_user');
         setUser(null);
       })
@@ -38,15 +42,21 @@ export function AuthProvider({ children }) {
 
   const login = async (empCode, password) => {
     const res = await authAPI.login(empCode, password);
-    const { token, user: userData } = res.data.data;
-    localStorage.setItem('tms_token', token);
+    const { user: userData } = res.data.data;
+    // Only store the user profile — NOT the token.
+    // Token is now in an HttpOnly cookie set by the server.
     localStorage.setItem('tms_user', JSON.stringify(userData));
     setUser(userData);
     return userData;
   };
 
-  const logout = () => {
-    localStorage.removeItem('tms_token');
+  const logout = async () => {
+    try {
+      // Tell the server to clear the HttpOnly cookie
+      await authAPI.logout();
+    } catch {
+      // If server is unreachable, still clear local state
+    }
     localStorage.removeItem('tms_user');
     setUser(null);
   };

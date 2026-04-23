@@ -1,6 +1,8 @@
 const express = require('express');
+const path = require('path');
 const cors = require('cors');
 const helmet = require('helmet');
+const cookieParser = require('cookie-parser');
 require('dotenv').config();
 
 const connectDB = require('./config/db');
@@ -23,12 +25,15 @@ const app = express();
 app.set('trust proxy', 1);
 
 // ── Security headers ──────────────────────────────────────
-app.use(helmet());
+app.use(helmet({
+  contentSecurityPolicy: false,   // Allow inline styles from React/Tailwind
+  crossOriginEmbedderPolicy: false,
+}));
 
 // ── CORS allowlist ────────────────────────────────────────
 // CORS_ORIGINS is a comma-separated list of allowed origins.
 // Example: CORS_ORIGINS=http://localhost:5173,https://tms.example.com
-const allowedOrigins = (process.env.CORS_ORIGINS || 'http://localhost:5173')
+const allowedOrigins = (process.env.CORS_ORIGINS || 'http://localhost:5173,http://localhost:3000')
   .split(',')
   .map((s) => s.trim())
   .filter(Boolean);
@@ -46,6 +51,7 @@ app.use(
 );
 
 // ── Core middleware ───────────────────────────────────────
+app.use(cookieParser());                          // Parse HttpOnly cookies
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
 
@@ -76,11 +82,23 @@ app.use('/api/attendance', require('./routes/attendanceRoutes'));
 app.use('/api/evaluations', require('./routes/evaluationRoutes'));
 app.use('/api/sync', require('./routes/syncRoutes'));
 app.use('/api/import', require('./routes/importRoutes'));
+app.use('/api/export', require('./routes/exportRoutes'));
 
-// ── 404 handler ──────────────────────────────────────────
-app.use((_req, res) => {
-  res.status(404).json({ success: false, message: 'Route not found' });
-});
+// ── Production: Serve React client build ─────────────────
+if (process.env.NODE_ENV === 'production') {
+  const clientDist = path.join(__dirname, '..', 'client', 'dist');
+  app.use(express.static(clientDist));
+
+  // SPA fallback: any non-API route → index.html (React Router)
+  app.get('*', (_req, res) => {
+    res.sendFile(path.join(clientDist, 'index.html'));
+  });
+} else {
+  // Dev: plain 404 for non-API routes
+  app.use((_req, res) => {
+    res.status(404).json({ success: false, message: 'Route not found' });
+  });
+}
 
 // ── Global error handler ─────────────────────────────────
 app.use((err, _req, res, _next) => {
