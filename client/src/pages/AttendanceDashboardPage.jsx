@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { attendanceAPI, classesAPI } from '../api/api';
+import { attendanceAPI, classesAPI, exportAPI } from '../api/api';
 
 export default function AttendanceDashboardPage() {
   const [activeTab, setActiveTab] = useState('employee'); // employee, team, class
@@ -8,6 +8,11 @@ export default function AttendanceDashboardPage() {
   const [selectedClass, setSelectedClass] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+
+  // ── Export state ─────────────────────────────────────────
+  const [exportStats, setExportStats] = useState({ pending: 0, exported: 0 });
+  const [isExporting, setIsExporting] = useState(false);
+  const [exportMsg, setExportMsg] = useState('');
 
   const loadData = async () => {
     setLoading(true);
@@ -50,6 +55,54 @@ export default function AttendanceDashboardPage() {
   useEffect(() => {
     loadData();
   }, [activeTab, selectedClass]);
+  useEffect(() => { document.title = 'TMS — Analytics'; }, []);
+
+  // ── Load export stats on mount ──────────────────────────
+  const loadExportStats = async () => {
+    try {
+      const res = await exportAPI.getStats();
+      setExportStats(res.data.data);
+    } catch { /* non-critical */ }
+  };
+  useEffect(() => { loadExportStats(); }, []);
+
+  // ── Export handler: download Excel via blob ─────────────
+  const handleExport = async () => {
+    setIsExporting(true);
+    setExportMsg('');
+    try {
+      const res = await exportAPI.downloadAttendance();
+      // Extract filename from content-disposition header or use default
+      const disposition = res.headers['content-disposition'];
+      let filename = 'TMS_Attendance_Export.xlsx';
+      if (disposition) {
+        const match = disposition.match(/filename="?([^"]+)"?/);
+        if (match) filename = match[1];
+      }
+      // Create a temporary <a> element to trigger browser download
+      const blob = new Blob([res.data], {
+        type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      });
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(url);
+
+      setExportMsg(`✅ Đã tải ${filename} thành công!`);
+      loadExportStats(); // Refresh stats (pending → 0)
+    } catch (err) {
+      const msg = err.response?.status === 404
+        ? 'Không có bản ghi nào để xuất.'
+        : 'Lỗi khi tải file. Vui lòng thử lại.';
+      setExportMsg(`❌ ${msg}`);
+    } finally {
+      setIsExporting(false);
+    }
+  };
 
   const renderProgressBar = (rate) => {
     let color = 'bg-red-500';
@@ -69,6 +122,52 @@ export default function AttendanceDashboardPage() {
         <div>
           <h1 className="text-2xl font-bold text-white">📈 Attendance Analytics</h1>
           <p className="text-slate-400 mt-1">Track participation across employees, teams, and classes</p>
+        </div>
+      </div>
+
+      {/* ── Export Banner ──────────────────────────────────── */}
+      <div className="glass rounded-2xl p-5 border border-white/5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+        <div className="flex items-center gap-4">
+          <div className="w-12 h-12 rounded-xl bg-emerald-500/10 flex items-center justify-center text-2xl">
+            📥
+          </div>
+          <div>
+            <h3 className="text-white font-semibold">Xuất Dữ Liệu Điểm Danh (HR Export)</h3>
+            <p className="text-sm text-slate-400 mt-0.5">
+              {exportStats.pending > 0 ? (
+                <>Có <span className="text-emerald-400 font-bold">{exportStats.pending}</span> bản ghi mới chưa xuất</>
+              ) : (
+                <>Tất cả đã được xuất · <span className="text-slate-500">{exportStats.exported} bản ghi đã xử lý</span></>
+              )}
+            </p>
+          </div>
+        </div>
+        <div className="flex items-center gap-3 w-full sm:w-auto">
+          {exportMsg && (
+            <span className={`text-sm ${exportMsg.startsWith('✅') ? 'text-emerald-400' : 'text-red-400'}`}>
+              {exportMsg}
+            </span>
+          )}
+          <button
+            onClick={handleExport}
+            disabled={isExporting || exportStats.pending === 0}
+            className="flex items-center gap-2 px-5 py-2.5 rounded-xl font-semibold text-sm transition-all
+              bg-emerald-500 hover:bg-emerald-400 text-white shadow-lg shadow-emerald-500/20
+              disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-emerald-500
+              whitespace-nowrap w-full sm:w-auto justify-center"
+          >
+            {isExporting ? (
+              <>
+                <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                Đang tải...
+              </>
+            ) : (
+              <>
+                <span>📄</span>
+                Tải Excel ({exportStats.pending})
+              </>
+            )}
+          </button>
         </div>
       </div>
 

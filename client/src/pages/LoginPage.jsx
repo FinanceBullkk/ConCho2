@@ -96,7 +96,8 @@ export default function LoginPage() {
             )}
           </button>
 
-          {/* Quick login hints */}
+          {/* Quick login hints — dev only */}
+          {import.meta.env.DEV && (
           <div className="mt-6 pt-5 border-t border-white/5">
             <p className="text-xs text-slate-500 mb-2">Test accounts:</p>
             <div className="flex flex-wrap gap-2">
@@ -116,6 +117,7 @@ export default function LoginPage() {
               ))}
             </div>
           </div>
+          )}
         </form>
       </div>
     </div>

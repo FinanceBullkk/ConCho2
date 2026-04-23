@@ -69,6 +69,7 @@ export default function ClassesPage() {
   };
 
   useEffect(() => { load(); }, [filter]);
+  useEffect(() => { document.title = 'TMS — Classes'; }, []);
 
   const handleDelete = async (id) => {
     try { await classesAPI.delete(id); load(); } catch (err) { alert(err.response?.data?.message); }

@@ -117,12 +117,12 @@ userSchema.post('findOneAndUpdate', async function (doc) {
   // Lazy-load Schedule to avoid circular dependency
   const Schedule = mongoose.model('Schedule');
   const today = new Date();
-  today.setHours(0, 0, 0, 0);
+  today.setUTCHours(0, 0, 0, 0); // UTC midnight — timezone-safe
 
   // Atomically pull user from all future schedules
   const result = await Schedule.updateMany(
     {
-      date: { $gte: today },
+      startTime: { $gte: today },
       enrolledUsers: doc._id,
     },
     {
@@ -137,27 +137,14 @@ userSchema.post('findOneAndUpdate', async function (doc) {
     );
 
     // Auto-release slots where no enrolled users remain
-    // This prevents "ghost bookings" where bookedTeamId is set
-    // but no active members are left in the schedule.
-    const emptySchedules = await Schedule.find({
-      date: { $gte: today },
-      bookedTeamId: { $ne: null },
+    // Single deleteMany instead of N individual findByIdAndDelete calls
+    const emptyResult = await Schedule.deleteMany({
+      startTime: { $gte: today },
       enrolledUsers: { $size: 0 },
     });
-
-    for (const sched of emptySchedules) {
-      await Schedule.updateOne(
-        { _id: sched._id },
-        {
-          $set: {
-            bookedTeamId: null,
-            enrolledTeams: [],
-            enrolledCount: 0,
-          },
-        }
-      );
+    if (emptyResult.deletedCount > 0) {
       console.log(
-        `   🔓 Auto-released slot ${sched._id} — no enrolled users remain`
+        `   🔓 Auto-deleted ${emptyResult.deletedCount} empty schedule(s)`
       );
     }
   } else {

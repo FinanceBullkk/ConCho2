@@ -10,6 +10,7 @@ const NAV_ITEMS = {
     { path: '/schedules', label: 'Schedules', icon: '📅' },
     { path: '/attendance', label: 'Attendance', icon: '✅' },
     { path: '/analytics', label: 'Analytics', icon: '📈' },
+    { path: '/export', label: 'HR Export', icon: '📤' },
     { path: '/sync', label: 'Sheets Sync', icon: '📊' },
   ],
   Teacher: [
@@ -17,13 +18,10 @@ const NAV_ITEMS = {
     { path: '/schedules', label: 'My Schedules', icon: '📅' },
     { path: '/attendance', label: 'Attendance', icon: '✅' },
     { path: '/analytics', label: 'Analytics', icon: '📈' },
-    { path: '/evaluations', label: 'Evaluations', icon: '⭐' },
   ],
   Participant: [
     { path: '/dashboard', label: 'Dashboard', icon: '📊' },
-    { path: '/book-class', label: 'Book Class', icon: '📋' },
-    { path: '/schedules', label: 'My Schedule', icon: '📅' },
-    { path: '/my-attendance', label: 'My Attendance', icon: '✅' },
+    { path: '/schedules', label: 'Schedule & Book', icon: '📅' },
   ],
 };
 

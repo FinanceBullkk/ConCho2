@@ -1,7 +1,9 @@
 const router = require('express').Router();
 const rateLimit = require('express-rate-limit');
-const { login, getMe } = require('../controllers/authController');
+const { login, logout, getMe } = require('../controllers/authController');
 const { protect } = require('../middleware/auth');
+const { validate } = require('../middleware/validate');
+const { loginBody } = require('../schemas/auth');
 
 // Throttle login attempts: 5 per 15 minutes per IP.
 // Successful logins are not counted so a legit user isn't locked out.
@@ -17,7 +19,8 @@ const loginLimiter = rateLimit({
   },
 });
 
-router.post('/login', loginLimiter, login);
+router.post('/login', loginLimiter, validate({ body: loginBody }), login);
+router.post('/logout', protect, logout);
 router.get('/me', protect, getMe);
 
 module.exports = router;

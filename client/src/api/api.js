@@ -3,23 +3,30 @@ import axios from 'axios';
 const api = axios.create({
   baseURL: '/api',
   headers: { 'Content-Type': 'application/json' },
+  // ── SECURITY FIX (SEC-03): Send HttpOnly cookies with every request ──
+  // The JWT is now stored in an HttpOnly cookie set by the server.
+  // withCredentials tells axios to include cookies on cross-origin requests.
+  withCredentials: true,
 });
 
-// Attach JWT token to every request
-api.interceptors.request.use((config) => {
-  const token = localStorage.getItem('tms_token');
-  if (token) config.headers.Authorization = `Bearer ${token}`;
-  return config;
-});
+// ── Request interceptor ───────────────────────────────────
+// No longer needed — HttpOnly cookie is sent automatically
+// by the browser with withCredentials: true.
 
-// Handle 401 globally — redirect to login
+// ── Response interceptor: Handle 401 globally ─────────────
+// Skip for /auth/me — AuthContext handles that gracefully
+// to avoid a hard-redirect loop on page load.
 api.interceptors.response.use(
   (res) => res,
   (error) => {
     if (error.response?.status === 401) {
-      localStorage.removeItem('tms_token');
-      localStorage.removeItem('tms_user');
-      window.location.href = '/login';
+      const url = error.config?.url || '';
+      if (!url.includes('/auth/me')) {
+        // Cookie is HttpOnly so we can't clear it from JS — the server
+        // will reject it on expiry. Just clear local user data and redirect.
+        localStorage.removeItem('tms_user');
+        window.location.href = '/login';
+      }
     }
     return Promise.reject(error);
   }
@@ -28,6 +35,7 @@ api.interceptors.response.use(
 // ── Auth ──────────────────────────────────────────────────
 export const authAPI = {
   login: (empCode, password) => api.post('/auth/login', { empCode, password }),
+  logout: () => api.post('/auth/logout'),
   getMe: () => api.get('/auth/me'),
 };
 
@@ -43,6 +51,7 @@ export const usersAPI = {
 // ── Teams ─────────────────────────────────────────────────
 export const teamsAPI = {
   getAll: () => api.get('/teams'),
+  getMyTeams: () => api.get('/teams/my-teams'),
   getById: (id) => api.get(`/teams/${id}`),
   create: (data) => api.post('/teams', data),
   update: (id, data) => api.put(`/teams/${id}`, data),
@@ -66,8 +75,16 @@ export const schedulesAPI = {
   create: (data) => api.post('/schedules', data),
   update: (id, data) => api.put(`/schedules/${id}`, data),
   delete: (id) => api.delete(`/schedules/${id}`),
-  bookTeam: (scheduleId, teamId) => api.post(`/schedules/${scheduleId}/book-team`, { teamId }),
-  cancelTeam: (scheduleId, teamId) => api.post(`/schedules/${scheduleId}/cancel-team`, { teamId }),
+  // Leader booking: creates a new schedule
+  bookSlot: (data) => api.post('/schedules/book-slot', data),
+  // Leader cancel: deletes the schedule
+  cancelSlot: (scheduleId) => api.delete(`/schedules/${scheduleId}/cancel`),
+  // Participant: upcoming sessions for my class
+  getMyClass: () => api.get('/schedules/my-class'),
+  // Teacher assignment
+  assignTeacher: (scheduleId, teacherId) => api.patch(`/schedules/${scheduleId}/assign-teacher`, { teacherId }),
+  // Attendance calendar: schedules with pre-computed attendance status
+  getAttendanceCalendar: () => api.get('/schedules/attendance-calendar'),
 };
 
 // ── Attendance ────────────────────────────────────────────
@@ -78,6 +95,8 @@ export const attendanceAPI = {
   getAnalyticsByEmployee: (params) => api.get('/attendance/analytics/by-employee', { params }),
   getAnalyticsByTeam: (params) => api.get('/attendance/analytics/by-team', { params }),
   getAnalyticsByClass: (params) => api.get('/attendance/analytics/by-class', { params }),
+  // Participant: personal stats
+  getMyStats: () => api.get('/attendance/my-stats'),
 };
 
 // ── Evaluations ───────────────────────────────────────────
@@ -92,6 +111,14 @@ export const evaluationsAPI = {
 export const syncAPI = {
   status: () => api.get('/sync/status'),
   googleSheets: (data) => api.post('/sync/google-sheets', data),
+};
+
+// ── Export (HR) ───────────────────────────────────────────
+export const exportAPI = {
+  getStats: () => api.get('/export/stats'),
+  // responseType: 'blob' is required to handle the binary Excel file
+  downloadAttendance: (params = {}) =>
+    api.get('/export/attendance', { params, responseType: 'blob' }),
 };
 
 export default api;

@@ -1,5 +1,11 @@
 const User = require('../models/User');
+const Team = require('../models/Team');
+const Schedule = require('../models/Schedule');
+const Attendance = require('../models/Attendance');
 const { getNextSequence } = require('../helpers/counter');
+const { parsePagination, paginatedResponse } = require('../helpers/pagination');
+const { escapeRegex } = require('../helpers/escapeRegex');
+const { invalidateUserCache } = require('../middleware/auth');
 
 // ──────────────────────────────────────────────────────────
 // User Controller (Admin Only)
@@ -15,17 +21,33 @@ const { getNextSequence } = require('../helpers/counter');
 
 /**
  * GET /api/users
- * Get all users (supports query filters: ?role=Teacher&status=Active&department=Sales)
+ * Filters: ?role=Teacher&status=Active&department=Sales
+ * Pagination: ?page=1&limit=50
  */
 const getUsers = async (req, res) => {
   try {
     const filter = {};
     if (req.query.role) filter.role = req.query.role;
     if (req.query.status) filter.status = req.query.status;
-    if (req.query.department) filter.department = { $regex: req.query.department, $options: 'i' };
+    if (req.query.department) filter.department = { $regex: escapeRegex(req.query.department), $options: 'i' };
 
-    const users = await User.find(filter).sort({ empCode: 1 });
-    res.json({ success: true, count: users.length, data: users });
+    // Text search across empCode, name, department
+    if (req.query.search) {
+      const s = escapeRegex(req.query.search);
+      filter.$or = [
+        { empCode: { $regex: s, $options: 'i' } },
+        { name: { $regex: s, $options: 'i' } },
+        { department: { $regex: s, $options: 'i' } },
+      ];
+    }
+
+    const { page, limit, skip } = parsePagination(req);
+    const [users, total] = await Promise.all([
+      User.find(filter).sort({ empCode: 1 }).skip(skip).limit(limit),
+      User.countDocuments(filter),
+    ]);
+
+    res.json(paginatedResponse({ data: users, total, page, limit }));
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
@@ -113,12 +135,15 @@ const updateUser = async (req, res) => {
     const user = await User.findOneAndUpdate(
       { _id: req.params.id },
       updateData,
-      { new: true, runValidators: true }
+      { new: true, runValidators: true, select: '-password' }
     );
 
     if (!user) {
       return res.status(404).json({ success: false, message: 'User not found' });
     }
+
+    // Invalidate auth cache so status changes take effect immediately
+    invalidateUserCache(user._id);
 
     res.json({ success: true, data: user });
   } catch (error) {
@@ -128,15 +153,57 @@ const updateUser = async (req, res) => {
 
 /**
  * DELETE /api/users/:id
- * Delete a user (hard delete — use status change for soft delete)
+ * Delete a user — GUARD + CASCADE.
+ *
+ * Guards:
+ *   - BLOCKS deletion if user is a Team Leader (must reassign first)
+ *
+ * Cascade:
+ *   1. Pull user from all Teams' members arrays
+ *   2. Pull user from all Schedules' enrolledUsers + decrement enrolledCount
+ *   3. Delete all Attendance records for this user
+ *   4. Delete the user
  */
 const deleteUser = async (req, res) => {
   try {
-    const user = await User.findByIdAndDelete(req.params.id);
+    const user = await User.findById(req.params.id);
     if (!user) {
       return res.status(404).json({ success: false, message: 'User not found' });
     }
-    res.json({ success: true, message: `User ${user.empCode} deleted` });
+
+    // Guard: Block if user is a team leader
+    const ledTeams = await Team.find({ leaderId: user._id }).select('name').lean();
+    if (ledTeams.length > 0) {
+      const teamNames = ledTeams.map(t => t.name).join(', ');
+      return res.status(409).json({
+        success: false,
+        message: `Cannot delete: user is leader of team(s): ${teamNames}. Reassign leader first.`,
+      });
+    }
+
+    // Cascade Step 1: Pull from Team.members
+    await Team.updateMany(
+      { members: user._id },
+      { $pull: { members: user._id } }
+    );
+
+    // Cascade Step 2: Pull from Schedule.enrolledUsers
+    await Schedule.updateMany(
+      { enrolledUsers: user._id },
+      { $pull: { enrolledUsers: user._id }, $inc: { enrolledCount: -1 } }
+    );
+
+    // Cascade Step 3: Delete Attendance records
+    const attResult = await Attendance.deleteMany({ userId: user._id });
+
+    // Step 4: Delete the user
+    await User.findByIdAndDelete(user._id);
+
+    res.json({
+      success: true,
+      message: `User ${user.empCode} deleted`,
+      cascade: { deletedAttendance: attResult.deletedCount },
+    });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }

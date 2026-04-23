@@ -1,4 +1,6 @@
 const Team = require('../models/Team');
+const Schedule = require('../models/Schedule');
+const Attendance = require('../models/Attendance');
 
 // ──────────────────────────────────────────────────────────
 // Team Controller (Admin Only)
@@ -51,7 +53,7 @@ const getTeamById = async (req, res) => {
  */
 const createTeam = async (req, res) => {
   try {
-    const { name, leaderId, members } = req.body;
+    const { name, classId, leaderId, members } = req.body;
 
     // Ensure leader is included in members
     let memberList = members || [];
@@ -59,7 +61,7 @@ const createTeam = async (req, res) => {
       memberList = [leaderId, ...memberList];
     }
 
-    const team = await Team.create({ name, leaderId, members: memberList });
+    const team = await Team.create({ name, classId, leaderId, members: memberList });
 
     // Return populated
     const populated = await Team.findById(team._id)
@@ -117,19 +119,68 @@ const updateTeam = async (req, res) => {
 };
 
 /**
- * DELETE /api/teams/:id
- * Delete a team
+ * GET /api/teams/my-teams
+ * Get teams where the logged-in user is the leader.
+ * Accessible by Participants for the booking flow.
  */
-const deleteTeam = async (req, res) => {
+const getMyTeams = async (req, res) => {
   try {
-    const team = await Team.findByIdAndDelete(req.params.id);
-    if (!team) {
-      return res.status(404).json({ success: false, message: 'Team not found' });
-    }
-    res.json({ success: true, message: `Team "${team.name}" deleted` });
+    const teams = await Team.find({ leaderId: req.user._id })
+      .populate('classId', 'classCode courseName')
+      .populate('leaderId', 'empCode name department status')
+      .populate('members', 'empCode name department status')
+      .sort({ name: 1 });
+
+    res.json({ success: true, count: teams.length, data: teams });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
 };
 
-module.exports = { getTeams, getTeamById, createTeam, updateTeam, deleteTeam };
+/**
+ * DELETE /api/teams/:id
+ * Delete a team — CASCADE: also removes related Schedules & Attendance.
+ *
+ * Cascade order (referential integrity):
+ *   1. Find all Schedules booked by this team
+ *   2. Delete Attendance records for those schedules
+ *   3. Delete the Schedules themselves
+ *   4. Delete the Team
+ */
+const deleteTeam = async (req, res) => {
+  try {
+    const team = await Team.findById(req.params.id);
+    if (!team) {
+      return res.status(404).json({ success: false, message: 'Team not found' });
+    }
+
+    // Step 1: Find related schedules
+    const scheduleIds = await Schedule.find({ bookedTeamId: team._id })
+      .select('_id').lean();
+    const ids = scheduleIds.map(s => s._id);
+
+    // Step 2: Cascade delete attendance → schedules
+    let deletedAttendance = 0;
+    let deletedSchedules = 0;
+    if (ids.length > 0) {
+      const attResult = await Attendance.deleteMany({ scheduleId: { $in: ids } });
+      deletedAttendance = attResult.deletedCount;
+      const schResult = await Schedule.deleteMany({ _id: { $in: ids } });
+      deletedSchedules = schResult.deletedCount;
+    }
+
+    // Step 3: Delete the team itself
+    await Team.findByIdAndDelete(team._id);
+
+    res.json({
+      success: true,
+      message: `Team "${team.name}" deleted`,
+      cascade: { deletedSchedules, deletedAttendance },
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+module.exports = { getTeams, getTeamById, createTeam, updateTeam, deleteTeam, getMyTeams };
+

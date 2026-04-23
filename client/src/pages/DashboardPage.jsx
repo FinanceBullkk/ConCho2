@@ -1,14 +1,26 @@
 import { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { schedulesAPI, classesAPI, usersAPI, teamsAPI } from '../api/api';
+import ParticipantDashboard from './ParticipantDashboard';
+import TeacherDashboard from './TeacherDashboard';
 
 export default function DashboardPage() {
-  const { user, isAdmin, isTeacher } = useAuth();
+  const { user, isAdmin, isTeacher, isParticipant } = useAuth();
+
+  // ── All hooks MUST be declared before any conditional returns ──
+  // (React Rules of Hooks — hooks must run in the same order every render)
   const [stats, setStats] = useState(null);
   const [schedules, setSchedules] = useState([]);
   const [loading, setLoading] = useState(true);
 
+  // UX-06: Browser tab title
+  useEffect(() => { document.title = 'TMS — Dashboard'; }, []);
+
   useEffect(() => {
+    // Skip fetch for non-admin roles (they render their own dashboards)
+    if (isParticipant || isTeacher) return;
+
     const fetchData = async () => {
       try {
         const schedRes = await schedulesAPI.getAll();
@@ -36,7 +48,11 @@ export default function DashboardPage() {
       }
     };
     fetchData();
-  }, [isAdmin]);
+  }, [isAdmin, isParticipant, isTeacher]);
+
+  // Role-specific dashboards (after all hooks)
+  if (isParticipant) return <ParticipantDashboard />;
+  if (isTeacher) return <TeacherDashboard />;
 
   if (loading) {
     return (
@@ -90,24 +106,29 @@ export default function DashboardPage() {
           <p className="text-slate-400 text-sm">No upcoming schedules</p>
         ) : (
           <div className="space-y-3 stagger">
-            {schedules.map((s) => (
-              <div key={s._id} className="glass-light rounded-xl p-4 flex items-center justify-between">
+            {schedules.map((s) => {
+              const start = new Date(s.startTime);
+              const end = new Date(s.endTime);
+              const timeStr = `${String(start.getHours()).padStart(2,'0')}:${String(start.getMinutes()).padStart(2,'0')}-${String(end.getHours()).padStart(2,'0')}:${String(end.getMinutes()).padStart(2,'0')}`;
+              return (
+              <Link key={s._id} to="/attendance" className="block glass-light rounded-xl p-4 flex items-center justify-between hover:scale-[1.01] hover:border-primary-500/20 border border-transparent transition-all">
                 <div className="flex items-center gap-4">
                   <div className="w-12 h-12 rounded-xl bg-primary-500/10 flex flex-col items-center justify-center text-primary-300">
-                    <span className="text-xs font-bold">{new Date(s.date).toLocaleDateString('en', { month: 'short' })}</span>
-                    <span className="text-lg font-bold leading-none">{new Date(s.date).getDate()}</span>
+                    <span className="text-xs font-bold">{start.toLocaleDateString('en', { month: 'short' })}</span>
+                    <span className="text-lg font-bold leading-none">{start.getDate()}</span>
                   </div>
                   <div>
                     <div className="font-medium text-white">{s.classId?.courseName || s.classId?.classCode}</div>
-                    <div className="text-sm text-slate-400">{s.timeSlot} • {s.teacherId?.name}</div>
+                    <div className="text-sm text-slate-400">{timeStr} • {s.teacherId?.name || <span className="text-accent-amber">No teacher</span>}</div>
                   </div>
                 </div>
                 <div className="text-right">
                   <div className="text-sm font-medium text-white">{s.enrolledCount}/{s.capacity}</div>
                   <div className="text-xs text-slate-500">enrolled</div>
                 </div>
-              </div>
-            ))}
+              </Link>
+              );
+            })}
           </div>
         )}
       </div>
