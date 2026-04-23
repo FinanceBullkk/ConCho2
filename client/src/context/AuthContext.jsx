@@ -14,8 +14,13 @@ export function AuthProvider({ children }) {
   // (role, name, etc. — no sensitive data). The actual auth token
   // is in an HttpOnly cookie, invisible to JavaScript.
   const [user, setUser] = useState(() => {
-    const stored = localStorage.getItem('tms_user');
-    return stored ? JSON.parse(stored) : null;
+    try {
+      const stored = localStorage.getItem('tms_user');
+      return stored ? JSON.parse(stored) : null;
+    } catch {
+      localStorage.removeItem('tms_user');
+      return null;
+    }
   });
   const [loading, setLoading] = useState(true);
 

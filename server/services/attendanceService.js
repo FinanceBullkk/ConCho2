@@ -8,13 +8,7 @@ const { invalidateAnalyticsCache } = require('../middleware/analyticsCache');
 // Attendance Service
 // ──────────────────────────────────────────────────────────
 
-class ServiceError extends Error {
-  constructor(message, statusCode = 400) {
-    super(message);
-    this.name = 'ServiceError';
-    this.statusCode = statusCode;
-  }
-}
+const { ServiceError } = require('../helpers/ServiceError');
 
 const VALID_STATUSES = ['P', 'A', 'L', 'EL'];
 
@@ -77,7 +71,7 @@ const bulkMark = async (scheduleId, records) => {
 const getBySchedule = async (scheduleId) => {
   return Attendance.find({ scheduleId })
     .populate('userId', 'empCode name department')
-    .sort({ 'userId.empCode': 1 });
+    .sort({ createdAt: 1 });  // Sort by creation order (populated field sort is a no-op)
 };
 
 /**
@@ -212,7 +206,8 @@ const analyticsByClass = async (classId) => {
     .populate('userId', 'empCode name').lean();
 
   const userMap = {};
-  records.forEach(r => {
+  // Filter out orphan records where user was deleted (populate → null)
+  records.filter(r => r.userId).forEach(r => {
     if (!userMap[r.userId._id]) {
       userMap[r.userId._id] = { user: r.userId, sessions: {}, present: 0, total: 0 };
     }

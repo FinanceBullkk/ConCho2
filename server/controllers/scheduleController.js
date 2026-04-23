@@ -1,6 +1,7 @@
 const scheduleService = require('../services/scheduleService');
 const Schedule = require('../models/Schedule');
 const { parsePagination, paginatedResponse } = require('../helpers/pagination');
+const { handleError } = require('../helpers/handleError');
 
 // ──────────────────────────────────────────────────────────
 // Schedule Controller (Thin — delegates to Service Layer)
@@ -13,16 +14,6 @@ const { parsePagination, paginatedResponse } = require('../helpers/pagination');
 // All business logic (validation, transactions, authorization)
 // lives in services/scheduleService.js.
 // ──────────────────────────────────────────────────────────
-
-/**
- * Map ServiceError → HTTP response.
- */
-const handleError = (res, error) => {
-  const status = error.statusCode || 500;
-  res.status(status).json({ success: false, message: error.message });
-};
-
-// ── Leader Booking Flow ──────────────────────────────────
 
 const bookTeamSlot = async (req, res) => {
   try {
@@ -103,13 +94,38 @@ const createSchedule = async (req, res) => {
 
 const updateSchedule = async (req, res) => {
   try {
+    // ── Collision check if time is being changed ──────────
+    if (req.body.startTime || req.body.endTime) {
+      const existing = await Schedule.findById(req.params.id);
+      if (!existing) return res.status(404).json({ success: false, message: 'Schedule not found' });
+
+      const start = new Date(req.body.startTime || existing.startTime);
+      const end = new Date(req.body.endTime || existing.endTime);
+
+      if (end <= start) {
+        return res.status(400).json({ success: false, message: 'endTime must be after startTime' });
+      }
+
+      const collision = await Schedule.findOne({
+        _id: { $ne: existing._id },  // Exclude self
+        startTime: { $lt: end },
+        endTime: { $gt: start },
+      });
+      if (collision) {
+        return res.status(409).json({
+          success: false,
+          message: 'Cannot move schedule — time slot overlaps with an existing schedule',
+        });
+      }
+    }
+
     const schedule = await Schedule.findByIdAndUpdate(req.params.id, req.body, {
       new: true, runValidators: true,
     });
     if (!schedule) return res.status(404).json({ success: false, message: 'Schedule not found' });
     res.json({ success: true, data: schedule });
   } catch (error) {
-    res.status(400).json({ success: false, message: error.message });
+    handleError(res, error);
   }
 };
 

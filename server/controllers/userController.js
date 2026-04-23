@@ -5,6 +5,7 @@ const Attendance = require('../models/Attendance');
 const { getNextSequence } = require('../helpers/counter');
 const { parsePagination, paginatedResponse } = require('../helpers/pagination');
 const { escapeRegex } = require('../helpers/escapeRegex');
+const { invalidateUserCache } = require('../middleware/auth');
 
 // ──────────────────────────────────────────────────────────
 // User Controller (Admin Only)
@@ -124,12 +125,15 @@ const updateUser = async (req, res) => {
     const user = await User.findOneAndUpdate(
       { _id: req.params.id },
       updateData,
-      { new: true, runValidators: true }
+      { new: true, runValidators: true, select: '-password' }
     );
 
     if (!user) {
       return res.status(404).json({ success: false, message: 'User not found' });
     }
+
+    // Invalidate auth cache so status changes take effect immediately
+    invalidateUserCache(user._id);
 
     res.json({ success: true, data: user });
   } catch (error) {

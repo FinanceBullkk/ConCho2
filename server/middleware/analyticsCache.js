@@ -28,7 +28,7 @@ const ANALYTICS_TTL = 30 * 60; // 30 minutes in seconds
 const cache = new NodeCache({
   stdTTL: ANALYTICS_TTL,
   checkperiod: 120,       // Check for expired keys every 2 min
-  useClones: true,        // Safety: deep-copy cached data to prevent mutation
+  useClones: false,       // Perf: skip deep-copy — data goes straight to res.json()
 });
 
 /**

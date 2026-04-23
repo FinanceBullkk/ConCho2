@@ -10,13 +10,7 @@ const Attendance = require('../models/Attendance');
 // rồi đánh dấu EXPORTED để lần sau không lấy lại.
 // ──────────────────────────────────────────────────────────
 
-class ServiceError extends Error {
-  constructor(message, statusCode = 400) {
-    super(message);
-    this.name = 'ServiceError';
-    this.statusCode = statusCode;
-  }
-}
+const { ServiceError } = require('../helpers/ServiceError');
 
 // Map status code → Vietnamese text
 const STATUS_TEXT = {
