@@ -1,13 +1,9 @@
 const attendanceService = require('../services/attendanceService');
+const { handleError } = require('../helpers/handleError');
 
 // ──────────────────────────────────────────────────────────
 // Attendance Controller (Thin — delegates to Service Layer)
 // ──────────────────────────────────────────────────────────
-
-const handleError = (res, error) => {
-  const status = error.statusCode || 500;
-  res.status(status).json({ success: false, message: error.message });
-};
 
 const bulkMarkAttendance = async (req, res) => {
   try {

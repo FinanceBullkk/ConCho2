@@ -137,16 +137,14 @@ userSchema.post('findOneAndUpdate', async function (doc) {
     );
 
     // Auto-release slots where no enrolled users remain
-    // Delete schedules with no enrolled users (ghost sessions)
-    const emptySchedules = await Schedule.find({
+    // Single deleteMany instead of N individual findByIdAndDelete calls
+    const emptyResult = await Schedule.deleteMany({
       startTime: { $gte: today },
       enrolledUsers: { $size: 0 },
     });
-
-    for (const sched of emptySchedules) {
-      await Schedule.findByIdAndDelete(sched._id);
+    if (emptyResult.deletedCount > 0) {
       console.log(
-        `   🔓 Auto-deleted schedule ${sched._id} — no enrolled users remain`
+        `   🔓 Auto-deleted ${emptyResult.deletedCount} empty schedule(s)`
       );
     }
   } else {

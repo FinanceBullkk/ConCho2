@@ -5,13 +5,7 @@ const User = require('../models/User');
 // Auth Service
 // ──────────────────────────────────────────────────────────
 
-class ServiceError extends Error {
-  constructor(message, statusCode = 400) {
-    super(message);
-    this.name = 'ServiceError';
-    this.statusCode = statusCode;
-  }
-}
+const { ServiceError } = require('../helpers/ServiceError');
 
 const JWT_EXPIRE = process.env.JWT_EXPIRE || '7d';
 

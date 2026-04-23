@@ -17,13 +17,7 @@ const Team = require('../models/Team');
  * Custom error class with HTTP status code.
  * Controllers catch these and map statusCode → res.status().
  */
-class ServiceError extends Error {
-  constructor(message, statusCode = 400) {
-    super(message);
-    this.name = 'ServiceError';
-    this.statusCode = statusCode;
-  }
-}
+const { ServiceError } = require('../helpers/ServiceError');
 
 // ── Helpers ───────────────────────────────────────────────
 

@@ -1,15 +1,29 @@
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
+const NodeCache = require('node-cache');
+
+// ── User cache for auth middleware ────────────────────────
+// Short TTL (2 min) to avoid DB query on every request.
+// Invalidated immediately when user status changes via
+// invalidateUserCache(userId).
+const userCache = new NodeCache({ stdTTL: 120, checkperiod: 60 });
 
 /**
- * JWT Authentication Middleware (Hardened)
- * ────────────────────────────────────────
+ * Invalidate a specific user from the auth cache.
+ * Call this after status change or user update.
+ */
+const invalidateUserCache = (userId) => {
+  userCache.del(userId.toString());
+};
+
+/**
+ * JWT Authentication Middleware (Hardened + Cached)
+ * ────────────────────────────────────────────────────
  * Reads JWT from TWO sources (in priority order):
  *   1. HttpOnly cookie 'tms_token'    ← XSS-proof (primary)
  *   2. Authorization: Bearer <token>  ← backward compat / API clients
  *
- * This dual approach allows the frontend to migrate from
- * localStorage to cookies without breaking existing sessions.
+ * User lookups are cached (2 min TTL) to reduce DB load.
  *
  * Usage: router.get('/protected', protect, handler)
  */
@@ -41,8 +55,14 @@ const protect = async (req, res, next) => {
     // Verify token
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
-    // Attach user (exclude password)
-    const user = await User.findById(decoded.id);
+    // Cached user lookup — avoids DB query on every request
+    const cacheKey = decoded.id.toString();
+    let user = userCache.get(cacheKey);
+    if (!user) {
+      user = await User.findById(decoded.id);
+      if (user) userCache.set(cacheKey, user);
+    }
+
     if (!user) {
       return res.status(401).json({
         success: false,
@@ -70,4 +90,4 @@ const protect = async (req, res, next) => {
   }
 };
 
-module.exports = { protect };
+module.exports = { protect, invalidateUserCache };

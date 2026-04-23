@@ -1,13 +1,9 @@
 const importService = require('../services/importService');
+const { handleError } = require('../helpers/handleError');
 
 // ──────────────────────────────────────────────────────────
 // Import Controller (Thin — delegates to Service Layer)
 // ──────────────────────────────────────────────────────────
-
-const handleError = (res, error) => {
-  const status = error.statusCode || 500;
-  res.status(status).json({ success: false, message: error.message });
-};
 
 const bulkImportUsers = async (req, res) => {
   try {

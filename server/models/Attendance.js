@@ -68,7 +68,7 @@ const attendanceSchema = new mongoose.Schema(
 attendanceSchema.index({ scheduleId: 1, userId: 1 }, { unique: true });
 
 // ── Additional query indexes ──────────────────────────────
-attendanceSchema.index({ userId: 1 });
+attendanceSchema.index({ userId: 1, createdAt: -1 });  // User history queries
 attendanceSchema.index({ syncStatus: 1, createdAt: 1 });  // Export queries
 
 module.exports = mongoose.model('Attendance', attendanceSchema);

@@ -7,13 +7,7 @@ const Class = require('../models/Class');
 // Import Service
 // ──────────────────────────────────────────────────────────
 
-class ServiceError extends Error {
-  constructor(message, statusCode = 400) {
-    super(message);
-    this.name = 'ServiceError';
-    this.statusCode = statusCode;
-  }
-}
+const { ServiceError } = require('../helpers/ServiceError');
 
 const MAX_IMPORT_BATCH = 2000;
 const CHUNK_SIZE = 50;
