@@ -1,4 +1,4 @@
-import { Navigate } from 'react-router-dom';
+import { Navigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 
 export default function ProtectedRoute({ children, roles }) {
@@ -21,6 +21,9 @@ export default function ProtectedRoute({ children, roles }) {
           <div className="text-4xl mb-4">🚫</div>
           <h2 className="text-xl font-bold text-white mb-2">Access Denied</h2>
           <p className="text-slate-400">Your role ({user.role}) does not have access to this page.</p>
+          <Link to="/dashboard" className="inline-block mt-5 px-5 py-2.5 rounded-xl bg-primary-500/20 text-primary-300 text-sm font-medium hover:bg-primary-500/30 transition-all">
+            ← Back to Dashboard
+          </Link>
         </div>
       </div>
     );

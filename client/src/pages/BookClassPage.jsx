@@ -98,6 +98,7 @@ export default function BookClassPage() {
   };
 
   useEffect(() => { load(); }, []);
+  useEffect(() => { document.title = 'TMS — Schedule & Book'; }, []);
 
   // ── Build the 7 days of the current week ────────────────
   const weekDays = useMemo(() => {

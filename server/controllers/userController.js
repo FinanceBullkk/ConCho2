@@ -31,6 +31,16 @@ const getUsers = async (req, res) => {
     if (req.query.status) filter.status = req.query.status;
     if (req.query.department) filter.department = { $regex: escapeRegex(req.query.department), $options: 'i' };
 
+    // Text search across empCode, name, department
+    if (req.query.search) {
+      const s = escapeRegex(req.query.search);
+      filter.$or = [
+        { empCode: { $regex: s, $options: 'i' } },
+        { name: { $regex: s, $options: 'i' } },
+        { department: { $regex: s, $options: 'i' } },
+      ];
+    }
+
     const { page, limit, skip } = parsePagination(req);
     const [users, total] = await Promise.all([
       User.find(filter).sort({ empCode: 1 }).skip(skip).limit(limit),

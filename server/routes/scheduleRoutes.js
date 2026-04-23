@@ -1,7 +1,7 @@
 const router = require('express').Router();
 const {
   getSchedules, getScheduleById, createSchedule, updateSchedule, deleteSchedule,
-  bookTeamSlot, cancelSlot, getAvailability, getMyClassSchedules
+  bookTeamSlot, cancelSlot, getAvailability, getMyClassSchedules, assignTeacher
 } = require('../controllers/scheduleController');
 const { protect } = require('../middleware/auth');
 const { roleGuard } = require('../middleware/roleGuard');
@@ -25,6 +25,10 @@ router.post('/book-slot', protect, roleGuard('Admin', 'Participant'),
 
 router.delete('/:id/cancel', protect, roleGuard('Admin', 'Participant'),
   validate({ params: idParam }), cancelSlot);
+
+// ── Teacher assignment ────────────────────────────────────────
+router.patch('/:id/assign-teacher', protect, roleGuard('Admin', 'Teacher'),
+  validate({ params: idParam }), assignTeacher);
 
 // ── Admin CRUD ─────────────────────────────────────────────
 router.route('/')

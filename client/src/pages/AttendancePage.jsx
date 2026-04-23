@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { schedulesAPI, attendanceAPI } from '../api/api';
 import { useAuth } from '../context/AuthContext';
 
@@ -20,6 +20,7 @@ const STATUS_OPTIONS = [
 export default function AttendancePage() {
   const { isAdmin } = useAuth();
   const [schedules, setSchedules] = useState([]);
+  const [markedSet, setMarkedSet] = useState(new Set()); // IDs of schedules with attendance
   const [selectedSchedule, setSelectedSchedule] = useState(null);
   const [records, setRecords] = useState([]);
   const [existingRecords, setExistingRecords] = useState([]);
@@ -27,20 +28,79 @@ export default function AttendancePage() {
   const [result, setResult] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  // Load schedules
+  // ── Date filter state ──────────────────────────────────
+  const [filterDate, setFilterDate] = useState(''); // 'YYYY-MM-DD'
+  const [filterStatus, setFilterStatus] = useState('all'); // 'all' | 'unmarked' | 'marked'
+
+  useEffect(() => { document.title = 'TMS — Attendance'; }, []);
+
+  // Load schedules + check which ones have attendance
   useEffect(() => {
-    schedulesAPI.getAll({ limit: 200 })
-      .then((res) => setSchedules(res.data.data))
-      .catch(console.error)
-      .finally(() => setLoading(false));
+    const fetchData = async () => {
+      try {
+        const res = await schedulesAPI.getAll({ limit: 200 });
+        const allSchedules = res.data.data;
+        setSchedules(allSchedules);
+
+        // Check which schedules have attendance records (batch check)
+        const marked = new Set();
+        await Promise.all(
+          allSchedules.map(async (s) => {
+            try {
+              const attRes = await attendanceAPI.getBySchedule(s._id);
+              if (attRes.data.data && attRes.data.data.length > 0) {
+                marked.add(s._id);
+              }
+            } catch { /* ignore */ }
+          })
+        );
+        setMarkedSet(marked);
+      } catch (err) {
+        console.error(err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchData();
   }, []);
+
+  // ── Filtered + sorted schedules ────────────────────────
+  const filteredSchedules = useMemo(() => {
+    let list = [...schedules];
+
+    // Date filter
+    if (filterDate) {
+      list = list.filter((s) => {
+        const d = new Date(s.startTime).toISOString().slice(0, 10);
+        return d === filterDate;
+      });
+    }
+
+    // Status filter
+    if (filterStatus === 'unmarked') {
+      list = list.filter((s) => !markedSet.has(s._id));
+    } else if (filterStatus === 'marked') {
+      list = list.filter((s) => markedSet.has(s._id));
+    }
+
+    // Sort: unmarked first, then by date
+    list.sort((a, b) => {
+      const aMarked = markedSet.has(a._id) ? 1 : 0;
+      const bMarked = markedSet.has(b._id) ? 1 : 0;
+      if (aMarked !== bMarked) return aMarked - bMarked;
+      return new Date(a.startTime) - new Date(b.startTime);
+    });
+
+    return list;
+  }, [schedules, markedSet, filterDate, filterStatus]);
+
+  const unmarkedCount = schedules.filter((s) => !markedSet.has(s._id)).length;
 
   // When schedule is selected, load enrolled users and existing attendance
   const handleSelectSchedule = async (schedule) => {
     setSelectedSchedule(schedule);
     setResult(null);
 
-    // Fetch existing attendance for this schedule
     let existing = [];
     try {
       const res = await attendanceAPI.getBySchedule(schedule._id);
@@ -50,7 +110,6 @@ export default function AttendancePage() {
       setExistingRecords([]);
     }
 
-    // Build records from enrolled users, pre-filling existing statuses
     const existingMap = {};
     existing.forEach((r) => {
       existingMap[r.userId?._id || r.userId] = r;
@@ -71,17 +130,14 @@ export default function AttendancePage() {
     setRecords(recs);
   };
 
-  // Update a record's status or remark
   const updateRecord = (idx, field, value) => {
     setRecords((prev) => prev.map((r, i) => i === idx ? { ...r, [field]: value } : r));
   };
 
-  // Set all to same status
   const markAll = (status) => {
     setRecords((prev) => prev.map((r) => ({ ...r, status })));
   };
 
-  // Submit bulk attendance
   const handleSubmit = async () => {
     if (!selectedSchedule || records.length === 0) return;
     setSubmitting(true);
@@ -94,6 +150,8 @@ export default function AttendancePage() {
       }));
       const res = await attendanceAPI.bulkMark(selectedSchedule._id, payload);
       setResult({ success: true, message: res.data.message });
+      // Update marked set
+      setMarkedSet((prev) => new Set([...prev, selectedSchedule._id]));
     } catch (err) {
       setResult({ success: false, message: err.response?.data?.message || 'Failed to submit' });
     } finally {
@@ -111,41 +169,105 @@ export default function AttendancePage() {
 
   return (
     <div className="space-y-6 animate-fade-in">
-      <div>
-        <h1 className="text-2xl font-bold text-white">✅ Attendance Marking</h1>
-        <p className="text-slate-400 mt-1">Select a schedule and mark attendance for all students</p>
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold text-white">✅ Attendance Marking</h1>
+          <p className="text-slate-400 mt-1">
+            Select a schedule and mark attendance for all students
+            {unmarkedCount > 0 && (
+              <span className="ml-2 px-2 py-0.5 rounded-full bg-accent-amber/10 text-accent-amber text-xs font-medium">
+                {unmarkedCount} not marked
+              </span>
+            )}
+          </p>
+        </div>
+      </div>
+
+      {/* ── Filters ─────────────────────────────────────── */}
+      <div className="glass rounded-2xl px-5 py-4 flex flex-wrap gap-3 items-center">
+        <div>
+          <label className="block text-xs text-slate-500 mb-1">Date</label>
+          <input
+            type="date"
+            value={filterDate}
+            onChange={(e) => setFilterDate(e.target.value)}
+            className="px-3 py-2 rounded-xl bg-white/5 border border-white/10 text-white text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/50 [color-scheme:dark]"
+          />
+        </div>
+        <div>
+          <label className="block text-xs text-slate-500 mb-1">Status</label>
+          <select
+            value={filterStatus}
+            onChange={(e) => setFilterStatus(e.target.value)}
+            className="px-3 py-2 rounded-xl bg-white/5 border border-white/10 text-white text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/50"
+          >
+            <option value="all" className="bg-slate-800">All ({schedules.length})</option>
+            <option value="unmarked" className="bg-slate-800">⏳ Not Marked ({unmarkedCount})</option>
+            <option value="marked" className="bg-slate-800">✅ Marked ({schedules.length - unmarkedCount})</option>
+          </select>
+        </div>
+        {(filterDate || filterStatus !== 'all') && (
+          <button
+            onClick={() => { setFilterDate(''); setFilterStatus('all'); }}
+            className="px-3 py-2 rounded-xl bg-white/5 border border-white/10 text-slate-300 text-sm hover:bg-white/10 transition-all self-end"
+          >
+            ✕ Clear
+          </button>
+        )}
+        <div className="ml-auto text-sm text-slate-500 self-end">
+          Showing {filteredSchedules.length} of {schedules.length}
+        </div>
       </div>
 
       {/* Schedule Selector */}
       <div className="glass rounded-2xl p-6">
         <h2 className="text-sm font-semibold text-slate-300 uppercase tracking-wider mb-4">Select Schedule</h2>
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 stagger">
-          {schedules.map((s) => {
-            const isSelected = selectedSchedule?._id === s._id;
-            const start = new Date(s.startTime);
-            const end = new Date(s.endTime);
-            const timeStr = `${String(start.getHours()).padStart(2,'0')}:${String(start.getMinutes()).padStart(2,'0')}-${String(end.getHours()).padStart(2,'0')}:${String(end.getMinutes()).padStart(2,'0')}`;
-            return (
-              <button
-                key={s._id}
-                onClick={() => handleSelectSchedule(s)}
-                className={`text-left p-4 rounded-xl border transition-all ${
-                  isSelected
-                    ? 'border-primary-500/50 bg-primary-500/10 glow-primary'
-                    : 'border-white/5 glass-light hover:border-white/15'
-                }`}
-              >
-                <div className="font-medium text-white text-sm">{s.classId?.classCode}</div>
-                <div className="text-xs text-slate-400 mt-1">
-                  {start.toLocaleDateString('en', { weekday: 'short', month: 'short', day: 'numeric' })} • {timeStr}
-                </div>
-                <div className="text-xs text-slate-500 mt-1">
-                  {s.teacherId?.name || 'No teacher'} • {s.enrolledCount}/{s.capacity} students
-                </div>
-              </button>
-            );
-          })}
-        </div>
+        {filteredSchedules.length === 0 ? (
+          <div className="py-8 text-center text-slate-500">
+            <div className="text-3xl mb-2 opacity-50">📭</div>
+            No schedules match your filters
+          </div>
+        ) : (
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 stagger">
+            {filteredSchedules.map((s) => {
+              const isSelected = selectedSchedule?._id === s._id;
+              const isMarked = markedSet.has(s._id);
+              const start = new Date(s.startTime);
+              const end = new Date(s.endTime);
+              const timeStr = `${String(start.getHours()).padStart(2,'0')}:${String(start.getMinutes()).padStart(2,'0')}-${String(end.getHours()).padStart(2,'0')}:${String(end.getMinutes()).padStart(2,'0')}`;
+              const isPast = start < new Date();
+              return (
+                <button
+                  key={s._id}
+                  onClick={() => handleSelectSchedule(s)}
+                  className={`text-left p-4 rounded-xl border transition-all relative ${
+                    isSelected
+                      ? 'border-primary-500/50 bg-primary-500/10 glow-primary'
+                      : 'border-white/5 glass-light hover:border-white/15'
+                  }`}
+                >
+                  {/* Marked / Not marked badge */}
+                  <div className={`absolute top-2 right-2 px-2 py-0.5 rounded-full text-[10px] font-semibold ${
+                    isMarked
+                      ? 'bg-accent-green/15 text-accent-green'
+                      : isPast
+                        ? 'bg-accent-red/15 text-accent-red animate-pulse'
+                        : 'bg-accent-amber/15 text-accent-amber'
+                  }`}>
+                    {isMarked ? '✅ Marked' : isPast ? '⚠️ Overdue' : '⏳ Pending'}
+                  </div>
+                  <div className="font-medium text-white text-sm">{s.classId?.classCode}</div>
+                  <div className="text-xs text-slate-400 mt-1">
+                    {start.toLocaleDateString('en', { weekday: 'short', month: 'short', day: 'numeric' })} • {timeStr}
+                  </div>
+                  <div className="text-xs text-slate-500 mt-1">
+                    {s.teacherId?.name || 'No teacher'} • {s.enrolledCount}/{s.capacity} students
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        )}
       </div>
 
       {/* Attendance Table */}

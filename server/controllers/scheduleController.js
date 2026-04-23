@@ -2,6 +2,7 @@ const scheduleService = require('../services/scheduleService');
 const Schedule = require('../models/Schedule');
 const { parsePagination, paginatedResponse } = require('../helpers/pagination');
 const { handleError } = require('../helpers/handleError');
+const User = require('../models/User');
 
 // ──────────────────────────────────────────────────────────
 // Schedule Controller (Thin — delegates to Service Layer)
@@ -139,7 +140,58 @@ const deleteSchedule = async (req, res) => {
   }
 };
 
+// ── Teacher Assignment ───────────────────────────────────
+// PATCH /schedules/:id/assign-teacher
+// Admin: can assign any teacher (body.teacherId)
+// Teacher: can self-assign to unassigned schedules (no body needed)
+
+const assignTeacher = async (req, res) => {
+  try {
+    const schedule = await Schedule.findById(req.params.id);
+    if (!schedule) return res.status(404).json({ success: false, message: 'Schedule not found' });
+
+    const isAdmin = req.user.role === 'Admin';
+    const isTeacher = req.user.role === 'Teacher';
+
+    let teacherId;
+
+    if (isAdmin) {
+      // Admin can assign or reassign any teacher
+      teacherId = req.body.teacherId || null;
+      if (teacherId) {
+        const teacher = await User.findById(teacherId);
+        if (!teacher || teacher.role !== 'Teacher') {
+          return res.status(400).json({ success: false, message: 'Invalid teacher ID — user is not a Teacher' });
+        }
+      }
+    } else if (isTeacher) {
+      // Teacher can only self-assign to unassigned schedules
+      if (schedule.teacherId && schedule.teacherId.toString() !== req.user._id.toString()) {
+        return res.status(403).json({ success: false, message: 'This schedule is already assigned to another teacher' });
+      }
+      teacherId = req.user._id;
+    } else {
+      return res.status(403).json({ success: false, message: 'Only Admin or Teacher can assign teachers' });
+    }
+
+    schedule.teacherId = teacherId;
+    await schedule.save();
+
+    // Re-populate for response
+    await schedule.populate('teacherId', 'name empCode');
+    await schedule.populate('classId', 'classCode courseName');
+
+    res.json({
+      success: true,
+      message: teacherId ? `Teacher ${schedule.teacherId?.name || ''} assigned successfully` : 'Teacher unassigned',
+      data: schedule,
+    });
+  } catch (error) {
+    handleError(res, error);
+  }
+};
+
 module.exports = {
   getSchedules, getScheduleById, createSchedule, updateSchedule, deleteSchedule,
-  bookTeamSlot, cancelSlot, getAvailability, getMyClassSchedules,
+  bookTeamSlot, cancelSlot, getAvailability, getMyClassSchedules, assignTeacher,
 };
