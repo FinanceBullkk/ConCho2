@@ -1,13 +1,9 @@
 const authService = require('../services/authService');
+const { handleError } = require('../helpers/handleError');
 
 // ──────────────────────────────────────────────────────────
 // Auth Controller (Thin — delegates to Service Layer)
 // ──────────────────────────────────────────────────────────
-
-const handleError = (res, error) => {
-  const status = error.statusCode || 500;
-  res.status(status).json({ success: false, message: error.message });
-};
 
 /**
  * POST /api/auth/login

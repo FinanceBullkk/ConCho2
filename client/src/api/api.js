@@ -10,10 +10,8 @@ const api = axios.create({
 });
 
 // ── Request interceptor ───────────────────────────────────
-// No longer reads token from localStorage. The browser sends
-// the HttpOnly cookie automatically with withCredentials: true.
-// Nothing to do here — kept as a no-op for potential future use.
-api.interceptors.request.use((config) => config);
+// No longer needed — HttpOnly cookie is sent automatically
+// by the browser with withCredentials: true.
 
 // ── Response interceptor: Handle 401 globally ─────────────
 // Skip for /auth/me — AuthContext handles that gracefully
@@ -85,6 +83,8 @@ export const schedulesAPI = {
   getMyClass: () => api.get('/schedules/my-class'),
   // Teacher assignment
   assignTeacher: (scheduleId, teacherId) => api.patch(`/schedules/${scheduleId}/assign-teacher`, { teacherId }),
+  // Attendance calendar: schedules with pre-computed attendance status
+  getAttendanceCalendar: () => api.get('/schedules/attendance-calendar'),
 };
 
 // ── Attendance ────────────────────────────────────────────

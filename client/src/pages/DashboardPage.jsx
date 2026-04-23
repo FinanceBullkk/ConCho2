@@ -8,9 +8,8 @@ import TeacherDashboard from './TeacherDashboard';
 export default function DashboardPage() {
   const { user, isAdmin, isTeacher, isParticipant } = useAuth();
 
-  // Role-specific dashboards
-  if (isParticipant) return <ParticipantDashboard />;
-  if (isTeacher) return <TeacherDashboard />;
+  // ── All hooks MUST be declared before any conditional returns ──
+  // (React Rules of Hooks — hooks must run in the same order every render)
   const [stats, setStats] = useState(null);
   const [schedules, setSchedules] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -19,6 +18,9 @@ export default function DashboardPage() {
   useEffect(() => { document.title = 'TMS — Dashboard'; }, []);
 
   useEffect(() => {
+    // Skip fetch for non-admin roles (they render their own dashboards)
+    if (isParticipant || isTeacher) return;
+
     const fetchData = async () => {
       try {
         const schedRes = await schedulesAPI.getAll();
@@ -46,7 +48,11 @@ export default function DashboardPage() {
       }
     };
     fetchData();
-  }, [isAdmin]);
+  }, [isAdmin, isParticipant, isTeacher]);
+
+  // Role-specific dashboards (after all hooks)
+  if (isParticipant) return <ParticipantDashboard />;
+  if (isTeacher) return <TeacherDashboard />;
 
   if (loading) {
     return (

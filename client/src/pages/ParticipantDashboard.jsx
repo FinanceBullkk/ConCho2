@@ -5,28 +5,47 @@ import { schedulesAPI, attendanceAPI } from '../api/api';
 // ──────────────────────────────────────────────────────────
 // Participant Dashboard
 // ──────────────────────────────────────────────────────────
-// Two sections:
+// Three sections:
 //   1. My Upcoming Classes — schedules for the participant's team/class
 //   2. My Attendance Stats — personal P/A/L/EL breakdown + rate
+//   3. My Attendance History — per-session table with date, time, status
 // ──────────────────────────────────────────────────────────
+
+// Status badge config
+const STATUS_CONFIG = {
+  P:  { label: 'Có mặt',    short: 'P',  bg: 'bg-emerald-500/15', text: 'text-emerald-400', border: 'border-emerald-500/25' },
+  A:  { label: 'Vắng mặt',  short: 'A',  bg: 'bg-red-500/15',     text: 'text-red-400',     border: 'border-red-500/25' },
+  L:  { label: 'Đi muộn',   short: 'L',  bg: 'bg-amber-500/15',   text: 'text-amber-400',   border: 'border-amber-500/25' },
+  EL: { label: 'Có phép',   short: 'EL', bg: 'bg-blue-500/15',    text: 'text-blue-400',    border: 'border-blue-500/25' },
+};
 
 export default function ParticipantDashboard() {
   const { user } = useAuth();
   const [schedules, setSchedules] = useState([]);
   const [stats, setStats] = useState(null);
+  const [history, setHistory] = useState([]);
   const [teamName, setTeamName] = useState('');
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [schedRes, statsRes] = await Promise.all([
+        const [schedRes, statsRes, historyRes] = await Promise.all([
           schedulesAPI.getMyClass(),
           attendanceAPI.getMyStats(),
+          attendanceAPI.getByUser(user._id),
         ]);
         setSchedules(schedRes.data.data);
         setTeamName(schedRes.data.team || '');
         setStats(statsRes.data.data);
+        // Sort by schedule date (newest first) — backend can't sort by populated fields
+        const records = historyRes.data.data || [];
+        records.sort((a, b) => {
+          const dateA = a.scheduleId?.startTime ? new Date(a.scheduleId.startTime) : new Date(0);
+          const dateB = b.scheduleId?.startTime ? new Date(b.scheduleId.startTime) : new Date(0);
+          return dateB - dateA;
+        });
+        setHistory(records);
       } catch (err) {
         console.error('Dashboard fetch error:', err);
       } finally {
@@ -34,7 +53,7 @@ export default function ParticipantDashboard() {
       }
     };
     fetchData();
-  }, []);
+  }, [user._id]);
   useEffect(() => { document.title = 'TMS — My Dashboard'; }, []);
 
   if (loading) {
@@ -194,6 +213,123 @@ export default function ParticipantDashboard() {
         {(stats?.totalSessions ?? 0) === 0 && (
           <div className="text-center py-6 mt-4">
             <p className="text-slate-500 text-sm">No attendance records yet — stats will appear after your teacher marks attendance</p>
+          </div>
+        )}
+      </div>
+
+      {/* ── Section 3: My Attendance History (Table) ────────── */}
+      <div className="glass rounded-2xl p-6">
+        <div className="flex items-center justify-between mb-5">
+          <h2 className="text-lg font-semibold text-white flex items-center gap-2">
+            📋 Lịch Sử Điểm Danh
+          </h2>
+          <span className="text-xs text-slate-500 bg-white/5 px-3 py-1 rounded-full">
+            {history.length} buổi
+          </span>
+        </div>
+
+        {history.length === 0 ? (
+          <div className="text-center py-10">
+            <div className="text-4xl mb-3 opacity-50">📭</div>
+            <p className="text-slate-400">Chưa có lịch sử điểm danh</p>
+            <p className="text-slate-500 text-sm mt-1">Kết quả sẽ hiện sau khi giáo viên chấm công</p>
+          </div>
+        ) : (
+          <div className="overflow-x-auto -mx-2">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-white/10">
+                  <th className="text-left py-3 px-3 text-slate-400 font-medium text-xs uppercase tracking-wider">Ngày</th>
+                  <th className="text-left py-3 px-3 text-slate-400 font-medium text-xs uppercase tracking-wider">Giờ học</th>
+                  <th className="text-left py-3 px-3 text-slate-400 font-medium text-xs uppercase tracking-wider">Mã lớp</th>
+                  <th className="text-left py-3 px-3 text-slate-400 font-medium text-xs uppercase tracking-wider hidden sm:table-cell">Khóa học</th>
+                  <th className="text-left py-3 px-3 text-slate-400 font-medium text-xs uppercase tracking-wider hidden md:table-cell">Giáo viên</th>
+                  <th className="text-center py-3 px-3 text-slate-400 font-medium text-xs uppercase tracking-wider">Trạng thái</th>
+                  <th className="text-left py-3 px-3 text-slate-400 font-medium text-xs uppercase tracking-wider hidden lg:table-cell">Ghi chú</th>
+                </tr>
+              </thead>
+              <tbody>
+                {history.map((record, i) => {
+                  const sched = record.scheduleId;
+                  const start = sched?.startTime ? new Date(sched.startTime) : null;
+                  const end = sched?.endTime ? new Date(sched.endTime) : null;
+                  const cfg = STATUS_CONFIG[record.status] || STATUS_CONFIG.A;
+
+                  const dateStr = start
+                    ? start.toLocaleDateString('vi-VN', { weekday: 'short', day: '2-digit', month: '2-digit', year: 'numeric' })
+                    : '—';
+                  const timeStr = start && end
+                    ? `${String(start.getHours()).padStart(2, '0')}:${String(start.getMinutes()).padStart(2, '0')} – ${String(end.getHours()).padStart(2, '0')}:${String(end.getMinutes()).padStart(2, '0')}`
+                    : '—';
+
+                  return (
+                    <tr
+                      key={record._id}
+                      className={`border-b border-white/5 hover:bg-white/[0.02] transition-colors ${i === 0 ? '' : ''}`}
+                    >
+                      {/* Date */}
+                      <td className="py-3 px-3">
+                        <div className="flex items-center gap-2">
+                          {start && (
+                            <div className="w-9 h-9 rounded-lg bg-primary-500/10 flex flex-col items-center justify-center shrink-0">
+                              <span className="text-[9px] font-bold text-primary-400 leading-tight">
+                                {start.toLocaleDateString('en', { month: 'short' })}
+                              </span>
+                              <span className="text-sm font-bold text-primary-300 leading-tight">
+                                {start.getDate()}
+                              </span>
+                            </div>
+                          )}
+                          <span className="text-slate-300 text-xs whitespace-nowrap">
+                            {dateStr}
+                          </span>
+                        </div>
+                      </td>
+
+                      {/* Time */}
+                      <td className="py-3 px-3 text-slate-300 whitespace-nowrap font-mono text-xs">
+                        {timeStr}
+                      </td>
+
+                      {/* Class Code */}
+                      <td className="py-3 px-3">
+                        <span className="text-white font-medium">
+                          {sched?.classId?.classCode || '—'}
+                        </span>
+                      </td>
+
+                      {/* Course Name (hidden on mobile) */}
+                      <td className="py-3 px-3 hidden sm:table-cell">
+                        <span className="text-slate-400 text-xs">
+                          {sched?.classId?.courseName || '—'}
+                        </span>
+                      </td>
+
+                      {/* Teacher (hidden on small) */}
+                      <td className="py-3 px-3 hidden md:table-cell">
+                        <span className="text-slate-400 text-xs">
+                          {sched?.teacherId?.name || <span className="text-slate-600 italic">—</span>}
+                        </span>
+                      </td>
+
+                      {/* Status Badge */}
+                      <td className="py-3 px-3 text-center">
+                        <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold border ${cfg.bg} ${cfg.text} ${cfg.border}`}>
+                          {cfg.label}
+                        </span>
+                      </td>
+
+                      {/* Remark (hidden on small) */}
+                      <td className="py-3 px-3 hidden lg:table-cell">
+                        <span className="text-slate-500 text-xs">
+                          {record.remark || '—'}
+                        </span>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
           </div>
         )}
       </div>

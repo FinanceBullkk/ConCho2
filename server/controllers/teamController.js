@@ -53,7 +53,7 @@ const getTeamById = async (req, res) => {
  */
 const createTeam = async (req, res) => {
   try {
-    const { name, leaderId, members } = req.body;
+    const { name, classId, leaderId, members } = req.body;
 
     // Ensure leader is included in members
     let memberList = members || [];
@@ -61,7 +61,7 @@ const createTeam = async (req, res) => {
       memberList = [leaderId, ...memberList];
     }
 
-    const team = await Team.create({ name, leaderId, members: memberList });
+    const team = await Team.create({ name, classId, leaderId, members: memberList });
 
     // Return populated
     const populated = await Team.findById(team._id)

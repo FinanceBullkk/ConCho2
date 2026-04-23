@@ -56,10 +56,13 @@ const protect = async (req, res, next) => {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
     // Cached user lookup — avoids DB query on every request
+    // Use lean() to cache plain objects instead of heavy Mongoose documents
     const cacheKey = decoded.id.toString();
     let user = userCache.get(cacheKey);
     if (!user) {
-      user = await User.findById(decoded.id);
+      user = await User.findById(decoded.id)
+        .select('_id empCode name role department status')
+        .lean();
       if (user) userCache.set(cacheKey, user);
     }
 

@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { schedulesAPI, attendanceAPI } from '../api/api';
+import { schedulesAPI } from '../api/api';
 
 // ──────────────────────────────────────────────────────────
 // Teacher Dashboard
@@ -24,7 +24,9 @@ export default function TeacherDashboard() {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const res = await schedulesAPI.getAll({ limit: 200 });
+        // Use the attendance-calendar endpoint (1 request) instead of
+        // N+1 getBySchedule calls per past session
+        const res = await schedulesAPI.getAttendanceCalendar();
         const all = res.data.data;
 
         // Filter to schedules assigned to this teacher
@@ -33,18 +35,10 @@ export default function TeacherDashboard() {
         );
         setSchedules(mySchedules);
 
-        // Check unmarked attendance
-        let unmarked = 0;
-        await Promise.all(
-          mySchedules
-            .filter((s) => new Date(s.startTime) < new Date()) // Past only
-            .map(async (s) => {
-              try {
-                const attRes = await attendanceAPI.getBySchedule(s._id);
-                if (!attRes.data.data || attRes.data.data.length === 0) unmarked++;
-              } catch { unmarked++; }
-            })
-        );
+        // Count unmarked from pre-computed status (no extra API calls)
+        const unmarked = mySchedules.filter(
+          (s) => s.attendanceStatus === 'pending' && new Date(s.startTime) < new Date()
+        ).length;
         setUnmarkedCount(unmarked);
       } catch (err) {
         console.error('Teacher dashboard error:', err);
@@ -71,9 +65,7 @@ export default function TeacherDashboard() {
     .sort((a, b) => new Date(a.startTime) - new Date(b.startTime))
     .slice(0, 7);
 
-  const pastUnmarked = schedules.filter(
-    (s) => new Date(s.startTime) < now
-  );
+
 
   // Stats
   const statCards = [
