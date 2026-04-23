@@ -1,7 +1,8 @@
 const router = require('express').Router();
 const {
   getSchedules, getScheduleById, createSchedule, updateSchedule, deleteSchedule,
-  bookTeamSlot, cancelSlot, getAvailability, getMyClassSchedules, assignTeacher
+  bookTeamSlot, cancelSlot, getAvailability, getMyClassSchedules, assignTeacher,
+  getAttendanceCalendar
 } = require('../controllers/scheduleController');
 const { protect } = require('../middleware/auth');
 const { roleGuard } = require('../middleware/roleGuard');
@@ -19,6 +20,9 @@ const {
 // ── Leader booking endpoints (before /:id to avoid routing conflicts) ──
 router.get('/availability', protect, validate({ query: availabilityQuery }), getAvailability);
 router.get('/my-class', protect, getMyClassSchedules);
+
+// ── Attendance calendar (Admin/Teacher) ───────────────────
+router.get('/attendance-calendar', protect, roleGuard('Admin', 'Teacher'), getAttendanceCalendar);
 
 router.post('/book-slot', protect, roleGuard('Admin', 'Participant'),
   bookingLimiter, validate({ body: bookTeamSlotBody }), bookTeamSlot);

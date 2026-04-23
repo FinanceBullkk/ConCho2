@@ -22,7 +22,15 @@ router.post('/:scheduleId', protect, roleGuard('Admin', 'Teacher'), attendanceLi
 // Query by schedule: Teacher or Admin
 router.get('/schedule/:scheduleId', protect, roleGuard('Admin', 'Teacher'), getAttendanceBySchedule);
 
-// Query by user: any authenticated user
-router.get('/user/:userId', protect, getAttendanceByUser);
+// Query by user: Participants restricted to own records, Admin/Teacher can view anyone
+router.get('/user/:userId', protect, (req, res, next) => {
+  if (req.user.role === 'Participant' && req.params.userId !== req.user._id.toString()) {
+    return res.status(403).json({
+      success: false,
+      message: 'You can only view your own attendance records',
+    });
+  }
+  next();
+}, getAttendanceByUser);
 
 module.exports = router;

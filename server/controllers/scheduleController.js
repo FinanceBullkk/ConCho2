@@ -191,7 +191,23 @@ const assignTeacher = async (req, res) => {
   }
 };
 
+// ── Attendance Calendar ──────────────────────────────────
+// GET /schedules/attendance-calendar?from=&to=
+// Returns schedules with pre-computed attendance status
+// Optional date range filtering for performance
+
+const getAttendanceCalendar = async (req, res) => {
+  try {
+    const { from, to } = req.query;
+    const data = await scheduleService.getAttendanceCalendar({ from, to });
+    res.json({ success: true, count: data.length, data });
+  } catch (error) {
+    handleError(res, error);
+  }
+};
+
 module.exports = {
   getSchedules, getScheduleById, createSchedule, updateSchedule, deleteSchedule,
   bookTeamSlot, cancelSlot, getAvailability, getMyClassSchedules, assignTeacher,
+  getAttendanceCalendar,
 };

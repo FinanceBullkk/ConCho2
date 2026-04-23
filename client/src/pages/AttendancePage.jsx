@@ -3,11 +3,11 @@ import { schedulesAPI, attendanceAPI } from '../api/api';
 import { useAuth } from '../context/AuthContext';
 
 // ──────────────────────────────────────────────────────────
-// <AttendanceMarking />
+// AttendancePage — Calendar View
 // ──────────────────────────────────────────────────────────
-// Teacher selects a schedule → sees enrolled students →
-// marks P/A/L/EL for each → bulk submits in one click.
-// Uses the bulk upsert API (MongoDB bulkWrite).
+// Weekly timetable calendar (Mon–Sun × time slots) with
+// color-coded attendance status badges. Click a cell to
+// open the attendance marking form below.
 // ──────────────────────────────────────────────────────────
 
 const STATUS_OPTIONS = [
@@ -17,10 +17,48 @@ const STATUS_OPTIONS = [
   { value: 'EL', label: 'Excused', color: 'bg-accent-purple/20 text-accent-purple border-accent-purple/30' },
 ];
 
+const TIME_SLOTS = [
+  '10:00-11:00', '11:00-12:00',
+  '13:00-14:00', '14:00-15:00', '15:00-16:00',
+];
+
+const DAY_NAMES = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+
+const STATUS_CONFIG = {
+  done:    { badge: '✅ Done',       cls: 'bg-accent-green/15 text-accent-green border-accent-green/25', cell: 'from-accent-green/20 to-teal-500/10 border-accent-green/25' },
+  pending: { badge: '⏳ Pending',    cls: 'bg-accent-amber/15 text-accent-amber border-accent-amber/25', cell: 'from-accent-amber/20 to-orange-500/10 border-accent-amber/25' },
+  partial: { badge: '🔵 Partial',    cls: 'bg-blue-500/15 text-blue-400 border-blue-500/25', cell: 'from-blue-500/20 to-indigo-500/10 border-blue-500/25' },
+  none:    { badge: '⚪ No students', cls: 'bg-white/5 text-slate-500 border-white/10', cell: 'from-white/[0.04] to-white/[0.02] border-white/10' },
+};
+
+// ── Helpers ─────────────────────────────────────────────
+
+const getMonday = (date) => {
+  const d = new Date(date);
+  const day = d.getDay();
+  const diff = d.getDate() - day + (day === 0 ? -6 : 1);
+  const mon = new Date(d);
+  mon.setDate(diff);
+  mon.setHours(0, 0, 0, 0);
+  return mon;
+};
+
+const toDateKey = (d) => {
+  const dt = new Date(d);
+  return `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}-${String(dt.getDate()).padStart(2, '0')}`;
+};
+
+const scheduleToKey = (s) => {
+  const start = new Date(s.startTime);
+  const end = new Date(s.endTime);
+  const dateKey = toDateKey(start);
+  const timeSlot = `${String(start.getHours()).padStart(2, '0')}:${String(start.getMinutes()).padStart(2, '0')}-${String(end.getHours()).padStart(2, '0')}:${String(end.getMinutes()).padStart(2, '0')}`;
+  return `${dateKey}|${timeSlot}`;
+};
+
 export default function AttendancePage() {
   const { isAdmin } = useAuth();
   const [schedules, setSchedules] = useState([]);
-  const [markedSet, setMarkedSet] = useState(new Set()); // IDs of schedules with attendance
   const [selectedSchedule, setSelectedSchedule] = useState(null);
   const [records, setRecords] = useState([]);
   const [existingRecords, setExistingRecords] = useState([]);
@@ -28,106 +66,107 @@ export default function AttendancePage() {
   const [result, setResult] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  // ── Date filter state ──────────────────────────────────
-  const [filterDate, setFilterDate] = useState(''); // 'YYYY-MM-DD'
-  const [filterStatus, setFilterStatus] = useState('all'); // 'all' | 'unmarked' | 'marked'
+  // Week navigation
+  const [weekStart, setWeekStart] = useState(() => getMonday(new Date()));
 
   useEffect(() => { document.title = 'TMS — Attendance'; }, []);
 
-  // Load schedules + check which ones have attendance
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const res = await schedulesAPI.getAll({ limit: 200 });
-        const allSchedules = res.data.data;
-        setSchedules(allSchedules);
-
-        // Check which schedules have attendance records (batch check)
-        const marked = new Set();
-        await Promise.all(
-          allSchedules.map(async (s) => {
-            try {
-              const attRes = await attendanceAPI.getBySchedule(s._id);
-              if (attRes.data.data && attRes.data.data.length > 0) {
-                marked.add(s._id);
-              }
-            } catch { /* ignore */ }
-          })
-        );
-        setMarkedSet(marked);
-      } catch (err) {
-        console.error(err);
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchData();
-  }, []);
-
-  // ── Filtered + sorted schedules ────────────────────────
-  const filteredSchedules = useMemo(() => {
-    let list = [...schedules];
-
-    // Date filter
-    if (filterDate) {
-      list = list.filter((s) => {
-        const d = new Date(s.startTime).toISOString().slice(0, 10);
-        return d === filterDate;
-      });
+  // ── Load schedules with pre-computed attendance status ──
+  const loadSchedules = async () => {
+    setLoading(true);
+    try {
+      const res = await schedulesAPI.getAttendanceCalendar();
+      setSchedules(res.data.data);
+    } catch (err) {
+      console.error('Failed to load attendance calendar:', err);
+    } finally {
+      setLoading(false);
     }
+  };
 
-    // Status filter
-    if (filterStatus === 'unmarked') {
-      list = list.filter((s) => !markedSet.has(s._id));
-    } else if (filterStatus === 'marked') {
-      list = list.filter((s) => markedSet.has(s._id));
-    }
+  useEffect(() => { loadSchedules(); }, []);
 
-    // Sort: unmarked first, then by date
-    list.sort((a, b) => {
-      const aMarked = markedSet.has(a._id) ? 1 : 0;
-      const bMarked = markedSet.has(b._id) ? 1 : 0;
-      if (aMarked !== bMarked) return aMarked - bMarked;
-      return new Date(a.startTime) - new Date(b.startTime);
+  // ── Build the 7 days of the current week ────────────────
+  const weekDays = useMemo(() => {
+    return Array.from({ length: 7 }, (_, i) => new Date(weekStart.getTime() + i * 86400000));
+  }, [weekStart]);
+
+  // ── Build schedule lookup map ───────────────────────────
+  const scheduleMap = useMemo(() => {
+    const map = {};
+    schedules.forEach(s => {
+      const key = scheduleToKey(s);
+      if (!map[key]) map[key] = [];
+      map[key].push(s);
     });
+    return map;
+  }, [schedules]);
 
-    return list;
-  }, [schedules, markedSet, filterDate, filterStatus]);
+  // ── Summary stats for current week ──────────────────────
+  const weekStats = useMemo(() => {
+    const weekEnd = new Date(weekStart.getTime() + 7 * 86400000);
+    const weekSchedules = schedules.filter(s => {
+      const d = new Date(s.startTime);
+      return d >= weekStart && d < weekEnd;
+    });
+    return {
+      total: weekSchedules.length,
+      done: weekSchedules.filter(s => s.attendanceStatus === 'done').length,
+      pending: weekSchedules.filter(s => s.attendanceStatus === 'pending').length,
+      partial: weekSchedules.filter(s => s.attendanceStatus === 'partial').length,
+      none: weekSchedules.filter(s => s.attendanceStatus === 'none').length,
+    };
+  }, [schedules, weekStart]);
 
-  const unmarkedCount = schedules.filter((s) => !markedSet.has(s._id)).length;
+  // ── Week navigation ─────────────────────────────────────
+  const prevWeek = () => setWeekStart(new Date(weekStart.getTime() - 7 * 86400000));
+  const nextWeek = () => setWeekStart(new Date(weekStart.getTime() + 7 * 86400000));
+  const goToday = () => setWeekStart(getMonday(new Date()));
+  const today = toDateKey(new Date());
 
-  // When schedule is selected, load enrolled users and existing attendance
+  // ── Select schedule → load attendance form ──────────────
   const handleSelectSchedule = async (schedule) => {
+    // Need to re-fetch the full schedule with enrolledUsers populated
     setSelectedSchedule(schedule);
     setResult(null);
+    setRecords([]);
 
-    let existing = [];
     try {
-      const res = await attendanceAPI.getBySchedule(schedule._id);
-      existing = res.data.data;
-      setExistingRecords(existing);
-    } catch {
-      setExistingRecords([]);
+      // Get full schedule with enrolled users
+      const scheduleRes = await schedulesAPI.getById(schedule._id);
+      const fullSchedule = scheduleRes.data.data;
+
+      let existing = [];
+      try {
+        const res = await attendanceAPI.getBySchedule(schedule._id);
+        existing = res.data.data;
+        setExistingRecords(existing);
+      } catch {
+        setExistingRecords([]);
+      }
+
+      const existingMap = {};
+      existing.forEach((r) => {
+        existingMap[r.userId?._id || r.userId] = r;
+      });
+
+      const recs = (fullSchedule.enrolledUsers || []).map((user) => {
+        const prev = existingMap[user._id];
+        return {
+          userId: user._id,
+          empCode: user.empCode,
+          name: user.name,
+          department: user.department,
+          status: prev?.status || 'P',
+          remark: prev?.remark || '',
+        };
+      });
+
+      setRecords(recs);
+      setSelectedSchedule({ ...schedule, ...fullSchedule });
+    } catch (err) {
+      console.error('Failed to load schedule details:', err);
     }
-
-    const existingMap = {};
-    existing.forEach((r) => {
-      existingMap[r.userId?._id || r.userId] = r;
-    });
-
-    const recs = (schedule.enrolledUsers || []).map((user) => {
-      const prev = existingMap[user._id];
-      return {
-        userId: user._id,
-        empCode: user.empCode,
-        name: user.name,
-        department: user.department,
-        status: prev?.status || 'P',
-        remark: prev?.remark || '',
-      };
-    });
-
-    setRecords(recs);
   };
 
   const updateRecord = (idx, field, value) => {
@@ -150,8 +189,8 @@ export default function AttendancePage() {
       }));
       const res = await attendanceAPI.bulkMark(selectedSchedule._id, payload);
       setResult({ success: true, message: res.data.message });
-      // Update marked set
-      setMarkedSet((prev) => new Set([...prev, selectedSchedule._id]));
+      // Reload calendar to reflect updated status
+      loadSchedules();
     } catch (err) {
       setResult({ success: false, message: err.response?.data?.message || 'Failed to submit' });
     } finally {
@@ -169,116 +208,175 @@ export default function AttendancePage() {
 
   return (
     <div className="space-y-6 animate-fade-in">
+      {/* ── Header ─────────────────────────────────────── */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-white">✅ Attendance Marking</h1>
           <p className="text-slate-400 mt-1">
-            Select a schedule and mark attendance for all students
-            {unmarkedCount > 0 && (
-              <span className="ml-2 px-2 py-0.5 rounded-full bg-accent-amber/10 text-accent-amber text-xs font-medium">
-                {unmarkedCount} not marked
-              </span>
-            )}
+            Click a session on the calendar to mark attendance
           </p>
         </div>
       </div>
 
-      {/* ── Filters ─────────────────────────────────────── */}
-      <div className="glass rounded-2xl px-5 py-4 flex flex-wrap gap-3 items-center">
-        <div>
-          <label className="block text-xs text-slate-500 mb-1">Date</label>
-          <input
-            type="date"
-            value={filterDate}
-            onChange={(e) => setFilterDate(e.target.value)}
-            className="px-3 py-2 rounded-xl bg-white/5 border border-white/10 text-white text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/50 [color-scheme:dark]"
-          />
-        </div>
-        <div>
-          <label className="block text-xs text-slate-500 mb-1">Status</label>
-          <select
-            value={filterStatus}
-            onChange={(e) => setFilterStatus(e.target.value)}
-            className="px-3 py-2 rounded-xl bg-white/5 border border-white/10 text-white text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/50"
-          >
-            <option value="all" className="bg-slate-800">All ({schedules.length})</option>
-            <option value="unmarked" className="bg-slate-800">⏳ Not Marked ({unmarkedCount})</option>
-            <option value="marked" className="bg-slate-800">✅ Marked ({schedules.length - unmarkedCount})</option>
-          </select>
-        </div>
-        {(filterDate || filterStatus !== 'all') && (
-          <button
-            onClick={() => { setFilterDate(''); setFilterStatus('all'); }}
-            className="px-3 py-2 rounded-xl bg-white/5 border border-white/10 text-slate-300 text-sm hover:bg-white/10 transition-all self-end"
-          >
-            ✕ Clear
-          </button>
-        )}
-        <div className="ml-auto text-sm text-slate-500 self-end">
-          Showing {filteredSchedules.length} of {schedules.length}
+      {/* ── Week Stats Banner ──────────────────────────── */}
+      <div className="glass rounded-2xl px-5 py-4 flex flex-wrap gap-4 items-center">
+        <div className="flex items-center gap-4 flex-wrap">
+          {weekStats.pending > 0 && (
+            <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-accent-amber/10 border border-accent-amber/20">
+              <span className="text-accent-amber text-sm font-semibold">{weekStats.pending}</span>
+              <span className="text-xs text-accent-amber/70">pending</span>
+            </div>
+          )}
+          {weekStats.partial > 0 && (
+            <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-blue-500/10 border border-blue-500/20">
+              <span className="text-blue-400 text-sm font-semibold">{weekStats.partial}</span>
+              <span className="text-xs text-blue-400/70">partial</span>
+            </div>
+          )}
+          <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-accent-green/10 border border-accent-green/20">
+            <span className="text-accent-green text-sm font-semibold">{weekStats.done}</span>
+            <span className="text-xs text-accent-green/70">done</span>
+          </div>
+          <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-white/5 border border-white/10">
+            <span className="text-slate-400 text-sm font-semibold">{weekStats.total}</span>
+            <span className="text-xs text-slate-500">total this week</span>
+          </div>
         </div>
       </div>
 
-      {/* Schedule Selector */}
-      <div className="glass rounded-2xl p-6">
-        <h2 className="text-sm font-semibold text-slate-300 uppercase tracking-wider mb-4">Select Schedule</h2>
-        {filteredSchedules.length === 0 ? (
-          <div className="py-8 text-center text-slate-500">
-            <div className="text-3xl mb-2 opacity-50">📭</div>
-            No schedules match your filters
-          </div>
-        ) : (
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 stagger">
-            {filteredSchedules.map((s) => {
-              const isSelected = selectedSchedule?._id === s._id;
-              const isMarked = markedSet.has(s._id);
-              const start = new Date(s.startTime);
-              const end = new Date(s.endTime);
-              const timeStr = `${String(start.getHours()).padStart(2,'0')}:${String(start.getMinutes()).padStart(2,'0')}-${String(end.getHours()).padStart(2,'0')}:${String(end.getMinutes()).padStart(2,'0')}`;
-              const isPast = start < new Date();
-              return (
-                <button
-                  key={s._id}
-                  onClick={() => handleSelectSchedule(s)}
-                  className={`text-left p-4 rounded-xl border transition-all relative ${
-                    isSelected
-                      ? 'border-primary-500/50 bg-primary-500/10 glow-primary'
-                      : 'border-white/5 glass-light hover:border-white/15'
-                  }`}
-                >
-                  {/* Marked / Not marked badge */}
-                  <div className={`absolute top-2 right-2 px-2 py-0.5 rounded-full text-[10px] font-semibold ${
-                    isMarked
-                      ? 'bg-accent-green/15 text-accent-green'
-                      : isPast
-                        ? 'bg-accent-red/15 text-accent-red animate-pulse'
-                        : 'bg-accent-amber/15 text-accent-amber'
-                  }`}>
-                    {isMarked ? '✅ Marked' : isPast ? '⚠️ Overdue' : '⏳ Pending'}
-                  </div>
-                  <div className="font-medium text-white text-sm">{s.classId?.classCode}</div>
-                  <div className="text-xs text-slate-400 mt-1">
-                    {start.toLocaleDateString('en', { weekday: 'short', month: 'short', day: 'numeric' })} • {timeStr}
-                  </div>
-                  <div className="text-xs text-slate-500 mt-1">
-                    {s.teacherId?.name || 'No teacher'} • {s.enrolledCount}/{s.capacity} students
-                  </div>
-                </button>
-              );
-            })}
-          </div>
-        )}
+      {/* ── Week Navigation ────────────────────────────── */}
+      <div className="flex items-center justify-between">
+        <button onClick={prevWeek} className="px-4 py-2 rounded-xl bg-white/5 text-slate-300 hover:bg-white/10 transition-all text-sm border border-white/10">← Prev</button>
+        <div className="flex items-center gap-3">
+          <h2 className="text-white font-semibold">
+            {weekDays[0].toLocaleDateString('en', { month: 'short', day: 'numeric' })} — {weekDays[6].toLocaleDateString('en', { month: 'short', day: 'numeric', year: 'numeric' })}
+          </h2>
+          <button onClick={goToday} className="px-3 py-1 rounded-lg bg-primary-500/20 text-primary-300 text-xs border border-primary-500/20 hover:bg-primary-500/30 transition-all">Today</button>
+        </div>
+        <button onClick={nextWeek} className="px-4 py-2 rounded-xl bg-white/5 text-slate-300 hover:bg-white/10 transition-all text-sm border border-white/10">Next →</button>
       </div>
 
-      {/* Attendance Table */}
+      {/* ── Timetable Calendar ─────────────────────────── */}
+      <div className="glass rounded-2xl overflow-hidden border border-white/5">
+        <div className="overflow-x-auto">
+          <table className="w-full border-collapse min-w-[800px]">
+            <thead>
+              <tr>
+                <th className="sticky left-0 z-20 bg-slate-900/95 backdrop-blur-sm px-3 py-3 border-b border-r border-white/10 text-xs text-slate-500 w-24">Time</th>
+                {weekDays.map((day, i) => {
+                  const dateKey = toDateKey(day);
+                  const isToday = dateKey === today;
+                  return (
+                    <th key={i} className={`px-2 py-3 border-b border-white/10 text-center ${isToday ? 'bg-primary-500/10' : ''}`}>
+                      <div className={`text-xs font-bold ${isToday ? 'text-primary-300' : 'text-slate-400'}`}>{DAY_NAMES[i]}</div>
+                      <div className={`text-xl font-bold ${isToday ? 'text-primary-200' : 'text-white'}`}>{day.getDate()}</div>
+                      <div className="text-[10px] text-slate-500">{day.toLocaleDateString('en', { month: 'short' })}</div>
+                    </th>
+                  );
+                })}
+              </tr>
+            </thead>
+
+            <tbody>
+              {TIME_SLOTS.map((slot) => (
+                <tr key={slot} className="group">
+                  <td className="sticky left-0 z-10 bg-slate-900/95 backdrop-blur-sm px-3 py-2 border-r border-b border-white/10 text-xs font-mono text-slate-400 whitespace-nowrap align-middle">
+                    {slot}
+                  </td>
+
+                  {weekDays.map((day, dayIdx) => {
+                    const dateKey = toDateKey(day);
+                    const cellKey = `${dateKey}|${slot}`;
+                    const cellSchedules = scheduleMap[cellKey] || [];
+                    const isToday = dateKey === today;
+                    const isPast = new Date(day) < new Date(new Date().setHours(0, 0, 0, 0));
+
+                    if (cellSchedules.length > 0) {
+                      const schedule = cellSchedules[0];
+                      const cfg = STATUS_CONFIG[schedule.attendanceStatus] || STATUS_CONFIG.pending;
+                      const isSelected = selectedSchedule?._id === schedule._id;
+                      const isOverdue = schedule.attendanceStatus === 'pending' && isPast;
+
+                      return (
+                        <td key={dayIdx} className={`border-b border-white/5 p-1 align-top ${isToday ? 'bg-primary-500/5' : ''}`}>
+                          <div
+                            className={`rounded-xl p-2.5 h-full min-h-[80px] transition-all cursor-pointer border bg-gradient-to-br ${cfg.cell} ${
+                              isSelected ? 'ring-2 ring-primary-400 ring-offset-1 ring-offset-slate-900 shadow-lg shadow-primary-500/20' : 'hover:scale-[1.02]'
+                            }`}
+                            onClick={() => handleSelectSchedule(schedule)}
+                          >
+                            {/* Status badge */}
+                            <div className={`inline-flex items-center px-1.5 py-0.5 rounded-full text-[9px] font-bold border ${cfg.cls} ${isOverdue ? 'animate-pulse' : ''}`}>
+                              {isOverdue ? '⚠️ Overdue' : cfg.badge}
+                            </div>
+
+                            {/* Class info */}
+                            <div className="text-xs font-bold text-white mt-1.5 truncate">
+                              {schedule.classId?.classCode}
+                            </div>
+                            <div className="text-[10px] text-slate-400 truncate">
+                              {schedule.classId?.courseName}
+                            </div>
+
+                            {/* Meta */}
+                            <div className="text-[10px] text-slate-500 mt-1 truncate">
+                              {schedule.teacherId?.name || 'No teacher'} · {schedule.enrolledCount || 0}👤
+                            </div>
+
+                            {/* Marked count */}
+                            {schedule.markedCount > 0 && (
+                              <div className="text-[10px] text-slate-500 mt-0.5">
+                                {schedule.markedCount}/{schedule.enrolledCount || 0} marked
+                              </div>
+                            )}
+                          </div>
+                        </td>
+                      );
+                    }
+
+                    // ── Empty cell ──
+                    return (
+                      <td key={dayIdx} className={`border-b border-white/5 p-1 align-top ${isToday ? 'bg-primary-500/5' : ''}`}>
+                        <div className="rounded-xl h-full min-h-[80px] bg-white/[0.02]" />
+                      </td>
+                    );
+                  })}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* ── Legend ──────────────────────────────────────── */}
+      <div className="flex flex-wrap gap-4 text-xs text-slate-400">
+        <div className="flex items-center gap-2">
+          <div className="w-3.5 h-3.5 rounded bg-gradient-to-br from-accent-green/25 to-teal-500/15 border border-accent-green/30" />
+          <span>Done — All marked</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <div className="w-3.5 h-3.5 rounded bg-gradient-to-br from-accent-amber/25 to-orange-500/15 border border-accent-amber/30" />
+          <span>Pending — Not yet marked</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <div className="w-3.5 h-3.5 rounded bg-gradient-to-br from-blue-500/25 to-indigo-500/15 border border-blue-500/30" />
+          <span>Partial — Some marked</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <div className="w-3.5 h-3.5 rounded bg-white/[0.06] border border-white/15" />
+          <span>No students registered</span>
+        </div>
+      </div>
+
+      {/* ── Attendance Marking Panel ───────────────────── */}
       {selectedSchedule && records.length > 0 && (
         <div className="glass rounded-2xl p-6 animate-fade-in">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
             <div>
               <h2 className="text-lg font-semibold text-white">
-                {selectedSchedule.classId?.classCode} — {new Date(selectedSchedule.startTime).toLocaleDateString()}
+                {selectedSchedule.classId?.classCode} — {new Date(selectedSchedule.startTime).toLocaleDateString('en', { weekday: 'short', month: 'short', day: 'numeric' })}
               </h2>
-              <p className="text-sm text-slate-400">{records.length} students enrolled</p>
+              <p className="text-sm text-slate-400">{records.length} students enrolled · {selectedSchedule.classId?.courseName}</p>
             </div>
             {/* Quick mark all buttons */}
             <div className="flex gap-2">
@@ -370,8 +468,10 @@ export default function AttendancePage() {
       )}
 
       {selectedSchedule && records.length === 0 && (
-        <div className="glass rounded-2xl p-8 text-center">
+        <div className="glass rounded-2xl p-8 text-center animate-fade-in">
+          <div className="text-3xl mb-2 opacity-50">📭</div>
           <p className="text-slate-400">No students enrolled in this schedule</p>
+          <p className="text-slate-500 text-sm mt-1">Attendance cannot be marked for sessions with 0 enrolled students</p>
         </div>
       )}
     </div>

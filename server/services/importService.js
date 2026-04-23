@@ -44,7 +44,15 @@ const importUsers = async (users) => {
     );
   }
 
-  // ── Chunked bcrypt hashing ──────────────────────────────
+  // ── Pre-load existing empCodes to skip bcrypt for updates ─
+  const allEmpCodes = users.map(u => u.empCode.trim().toUpperCase());
+  const existingUsers = await User.find(
+    { empCode: { $in: allEmpCodes } },
+    { empCode: 1 }
+  ).lean();
+  const existingSet = new Set(existingUsers.map(u => u.empCode));
+
+  // ── Chunked bcrypt hashing (only for NEW users) ─────────
   const operations = [];
   for (let i = 0; i < users.length; i += CHUNK_SIZE) {
     const chunk = users.slice(i, i + CHUNK_SIZE);
@@ -57,14 +65,18 @@ const importUsers = async (users) => {
         if (u.department !== undefined) setFields.department = u.department;
         if (u.status !== undefined) setFields.status = u.status;
 
-        const raw = u.password || 'default123';
-        const salt = await bcrypt.genSalt(12);
-        const setOnInsert = { password: await bcrypt.hash(raw, salt) };
+        // Only hash password for NEW users (skip bcrypt for existing)
+        const setOnInsert = {};
+        if (!existingSet.has(empCode)) {
+          const raw = u.password || 'default123';
+          const salt = await bcrypt.genSalt(12);
+          setOnInsert.password = await bcrypt.hash(raw, salt);
+        }
 
         return {
           updateOne: {
             filter: { empCode },
-            update: { $set: setFields, $setOnInsert: setOnInsert },
+            update: { $set: setFields, ...(Object.keys(setOnInsert).length > 0 ? { $setOnInsert: setOnInsert } : {}) },
             upsert: true,
           },
         };

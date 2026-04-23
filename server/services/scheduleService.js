@@ -1,6 +1,7 @@
 const mongoose = require('mongoose');
 const Schedule = require('../models/Schedule');
 const Team = require('../models/Team');
+const Attendance = require('../models/Attendance');
 
 // ──────────────────────────────────────────────────────────
 // Schedule Service
@@ -332,6 +333,67 @@ const adminCreate = async (data) => {
     .populate('enrolledUsers', 'empCode name');
 };
 
+/**
+ * Get schedules with pre-computed attendance status for the calendar view.
+ * Returns schedules with a reliable status field.
+ *
+ * @param {Object} opts
+ * @param {Date|string} opts.from  Optional start date filter
+ * @param {Date|string} opts.to    Optional end date filter
+ *
+ * Status logic:
+ *   "none"    — enrolledCount === 0 (no students registered)
+ *   "pending" — enrolledCount > 0 but 0 attendance records
+ *   "partial" — some attendance marked but count < enrolledCount
+ *   "done"    — attendance count >= enrolledCount
+ */
+const getAttendanceCalendar = async ({ from, to } = {}) => {
+  // Step 1: Build filter (optional date range for performance)
+  const filter = {};
+  if (from || to) {
+    filter.startTime = {};
+    if (from) filter.startTime.$gte = new Date(from);
+    if (to) filter.startTime.$lte = new Date(to);
+  }
+
+  const schedules = await Schedule.find(filter)
+    .populate('classId', 'classCode courseName')
+    .populate('bookedTeamId', 'name')
+    .populate('teacherId', 'empCode name')
+    .sort({ startTime: 1 })
+    .lean();
+
+  if (schedules.length === 0) return [];
+
+  // Step 2: Batch-count attendance records per schedule (single aggregation)
+  const scheduleIds = schedules.map(s => s._id);
+  const attCounts = await Attendance.aggregate([
+    { $match: { scheduleId: { $in: scheduleIds } } },
+    { $group: { _id: '$scheduleId', count: { $sum: 1 } } },
+  ]);
+  const countMap = {};
+  attCounts.forEach(a => { countMap[a._id.toString()] = a.count; });
+
+  // Step 3: Compute status for each schedule
+  return schedules.map(s => {
+    const enrolled = s.enrolledCount || 0;
+    const marked = countMap[s._id.toString()] || 0;
+
+    let attendanceStatus;
+    if (enrolled === 0) {
+      attendanceStatus = 'none';    // No students → grey
+    } else if (marked === 0) {
+      attendanceStatus = 'pending'; // Has students, no attendance yet
+    } else if (marked < enrolled) {
+      attendanceStatus = 'partial'; // Some but not all
+    } else {
+      attendanceStatus = 'done';    // All marked
+    }
+
+    return { ...s, attendanceStatus, markedCount: marked };
+  });
+};
+
 module.exports = {
   ServiceError,
   bookSlot,
@@ -341,4 +403,5 @@ module.exports = {
   listSchedules,
   getById,
   getMyClassSchedules,
+  getAttendanceCalendar,
 };
