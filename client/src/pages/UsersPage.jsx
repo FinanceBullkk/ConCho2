@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { usersAPI } from '../api/api';
 
 const ROLES = ['Admin', 'Teacher', 'Participant'];
@@ -105,16 +105,28 @@ export default function UsersPage() {
   const [modal, setModal] = useState(null); // null | 'create' | userObject
   const [filterRole, setFilterRole] = useState('');
   const [filterStatus, setFilterStatus] = useState('');
+  const [search, setSearch] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
   const [deleteId, setDeleteId] = useState(null);
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
   const [pages, setPages] = useState(1);
+
+  // UX-06: Browser tab title
+  useEffect(() => { document.title = 'TMS — Users'; }, []);
+
+  // Debounce search input (300ms)
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedSearch(search), 300);
+    return () => clearTimeout(t);
+  }, [search]);
 
   const load = () => {
     setLoading(true);
     const params = { page, limit: PAGE_SIZE };
     if (filterRole) params.role = filterRole;
     if (filterStatus) params.status = filterStatus;
+    if (debouncedSearch.trim()) params.search = debouncedSearch.trim();
     usersAPI.getAll(params)
       .then((r) => {
         setUsers(r.data.data);
@@ -125,7 +137,7 @@ export default function UsersPage() {
       .finally(() => setLoading(false));
   };
 
-  useEffect(() => { load(); }, [filterRole, filterStatus, page]);
+  useEffect(() => { load(); }, [filterRole, filterStatus, debouncedSearch, page]);
 
   const handleDelete = async (id) => {
     try { await usersAPI.delete(id); load(); } catch (err) { alert(err.response?.data?.message || 'Delete failed'); }
@@ -145,8 +157,20 @@ export default function UsersPage() {
         </button>
       </div>
 
-      {/* Filters */}
-      <div className="glass rounded-2xl px-5 py-4 flex flex-wrap gap-3">
+      {/* Search + Filters */}
+      <div className="glass rounded-2xl px-5 py-4 flex flex-wrap gap-3 items-center">
+        <div className="relative flex-1 min-w-[200px] max-w-sm">
+          <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+          </svg>
+          <input
+            type="text"
+            value={search}
+            onChange={(e) => { setPage(1); setSearch(e.target.value); }}
+            placeholder="Search by name, code, or department..."
+            className="w-full pl-10 pr-4 py-2 rounded-xl bg-white/5 border border-white/10 text-white text-sm placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-primary-500/50 transition-all"
+          />
+        </div>
         <select value={filterRole} onChange={(e) => { setPage(1); setFilterRole(e.target.value); }}
           className="px-3 py-2 rounded-xl bg-white/5 border border-white/10 text-white text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/50">
           <option value="" className="bg-slate-800">All Roles</option>

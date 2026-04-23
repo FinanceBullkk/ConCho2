@@ -1,16 +1,22 @@
 import { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { schedulesAPI, classesAPI, usersAPI, teamsAPI } from '../api/api';
 import ParticipantDashboard from './ParticipantDashboard';
+import TeacherDashboard from './TeacherDashboard';
 
 export default function DashboardPage() {
   const { user, isAdmin, isTeacher, isParticipant } = useAuth();
 
-  // Participant gets their own dedicated dashboard
+  // Role-specific dashboards
   if (isParticipant) return <ParticipantDashboard />;
+  if (isTeacher) return <TeacherDashboard />;
   const [stats, setStats] = useState(null);
   const [schedules, setSchedules] = useState([]);
   const [loading, setLoading] = useState(true);
+
+  // UX-06: Browser tab title
+  useEffect(() => { document.title = 'TMS — Dashboard'; }, []);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -99,7 +105,7 @@ export default function DashboardPage() {
               const end = new Date(s.endTime);
               const timeStr = `${String(start.getHours()).padStart(2,'0')}:${String(start.getMinutes()).padStart(2,'0')}-${String(end.getHours()).padStart(2,'0')}:${String(end.getMinutes()).padStart(2,'0')}`;
               return (
-              <div key={s._id} className="glass-light rounded-xl p-4 flex items-center justify-between">
+              <Link key={s._id} to="/attendance" className="block glass-light rounded-xl p-4 flex items-center justify-between hover:scale-[1.01] hover:border-primary-500/20 border border-transparent transition-all">
                 <div className="flex items-center gap-4">
                   <div className="w-12 h-12 rounded-xl bg-primary-500/10 flex flex-col items-center justify-center text-primary-300">
                     <span className="text-xs font-bold">{start.toLocaleDateString('en', { month: 'short' })}</span>
@@ -107,14 +113,14 @@ export default function DashboardPage() {
                   </div>
                   <div>
                     <div className="font-medium text-white">{s.classId?.courseName || s.classId?.classCode}</div>
-                    <div className="text-sm text-slate-400">{timeStr} • {s.teacherId?.name || 'No teacher'}</div>
+                    <div className="text-sm text-slate-400">{timeStr} • {s.teacherId?.name || <span className="text-accent-amber">No teacher</span>}</div>
                   </div>
                 </div>
                 <div className="text-right">
                   <div className="text-sm font-medium text-white">{s.enrolledCount}/{s.capacity}</div>
                   <div className="text-xs text-slate-500">enrolled</div>
                 </div>
-              </div>
+              </Link>
               );
             })}
           </div>

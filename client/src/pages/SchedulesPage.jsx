@@ -118,6 +118,7 @@ export default function SchedulesPage() {
   const [loading, setLoading] = useState(true);
   const [modal, setModal] = useState(null);
   const [deleteId, setDeleteId] = useState(null);
+  const [assigningId, setAssigningId] = useState(null); // schedule ID being assigned
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
   const [pages, setPages] = useState(1);
@@ -143,10 +144,24 @@ export default function SchedulesPage() {
   };
 
   useEffect(() => { load(); }, [page]);
+  useEffect(() => { document.title = 'TMS — Schedules'; }, []);
 
   const handleDelete = async (id) => {
     try { await schedulesAPI.delete(id); load(); } catch (err) { alert(err.response?.data?.message); }
     setDeleteId(null);
+  };
+
+  // Quick-assign teacher to a schedule
+  const handleAssignTeacher = async (scheduleId, teacherId) => {
+    setAssigningId(scheduleId);
+    try {
+      await schedulesAPI.assignTeacher(scheduleId, teacherId || null);
+      load();
+    } catch (err) {
+      alert(err.response?.data?.message || 'Assignment failed');
+    } finally {
+      setAssigningId(null);
+    }
   };
 
   // Format time range from startTime/endTime
@@ -192,7 +207,26 @@ export default function SchedulesPage() {
                       <span className="text-slate-400 text-sm">·</span>
                       <span className="text-slate-300 text-sm">{fmtTime(s)}</span>
                       <span className="text-slate-400 text-sm">·</span>
-                      <span className="text-slate-400 text-sm">{s.teacherId?.name || 'No teacher'}</span>
+                      {/* Teacher assignment inline */}
+                      <div className="flex items-center gap-1.5">
+                        <select
+                          value={s.teacherId?._id || ''}
+                          onChange={(e) => handleAssignTeacher(s._id, e.target.value)}
+                          disabled={assigningId === s._id}
+                          className="px-2 py-1 rounded-lg bg-white/5 border border-white/10 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/50 transition-all disabled:opacity-50"
+                          style={{ color: s.teacherId ? '#e2e8f0' : '#f59e0b' }}
+                        >
+                          <option value="" className="bg-slate-800">⚠️ No teacher</option>
+                          {teachers.map((t) => (
+                            <option key={t._id} value={t._id} className="bg-slate-800">
+                              {t.name}
+                            </option>
+                          ))}
+                        </select>
+                        {assigningId === s._id && (
+                          <div className="w-3 h-3 border-2 border-primary-400 border-t-transparent rounded-full animate-spin" />
+                        )}
+                      </div>
                     </div>
                     <div className="text-sm text-slate-400 mt-1">{s.classId?.courseName}</div>
                     {/* Team */}

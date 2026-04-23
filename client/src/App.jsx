@@ -13,6 +13,7 @@ import AttendancePage from './pages/AttendancePage';
 import SyncPage from './pages/SyncPage';
 import BookClassPage from './pages/BookClassPage';
 import AttendanceDashboardPage from './pages/AttendanceDashboardPage';
+import HRExportPage from './pages/HRExportPage';
 
 // Role-aware schedule view: Participant gets calendar+booking, others get list CRUD
 function ScheduleRouter() {
@@ -57,6 +58,9 @@ export default function App() {
             } />
             <Route path="/analytics" element={
               <ProtectedRoute roles={['Admin', 'Teacher']}><AttendanceDashboardPage /></ProtectedRoute>
+            } />
+            <Route path="/export" element={
+              <ProtectedRoute roles={['Admin']}><HRExportPage /></ProtectedRoute>
             } />
             <Route path="/sync" element={
               <ProtectedRoute roles={['Admin']}><SyncPage /></ProtectedRoute>

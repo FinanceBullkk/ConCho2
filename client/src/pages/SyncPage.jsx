@@ -22,6 +22,7 @@ export default function SyncPage() {
       .then((res) => setConfigured(res.data.data.configured))
       .catch(() => setConfigured(false));
   }, []);
+  useEffect(() => { document.title = 'TMS — Sheets Sync'; }, []);
 
   const handleSync = async (e) => {
     e.preventDefault();

@@ -83,6 +83,8 @@ export const schedulesAPI = {
   cancelSlot: (scheduleId) => api.delete(`/schedules/${scheduleId}/cancel`),
   // Participant: upcoming sessions for my class
   getMyClass: () => api.get('/schedules/my-class'),
+  // Teacher assignment
+  assignTeacher: (scheduleId, teacherId) => api.patch(`/schedules/${scheduleId}/assign-teacher`, { teacherId }),
 };
 
 // ── Attendance ────────────────────────────────────────────

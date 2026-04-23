@@ -35,6 +35,7 @@ export default function ParticipantDashboard() {
     };
     fetchData();
   }, []);
+  useEffect(() => { document.title = 'TMS — My Dashboard'; }, []);
 
   if (loading) {
     return (

@@ -91,6 +91,7 @@ export default function TeamsPage() {
   };
 
   useEffect(() => { load(); }, []);
+  useEffect(() => { document.title = 'TMS — Teams'; }, []);
 
   const handleDelete = async (id) => {
     try { await teamsAPI.delete(id); load(); } catch (err) { alert(err.response?.data?.message); }

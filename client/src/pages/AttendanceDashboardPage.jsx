@@ -55,6 +55,7 @@ export default function AttendanceDashboardPage() {
   useEffect(() => {
     loadData();
   }, [activeTab, selectedClass]);
+  useEffect(() => { document.title = 'TMS — Analytics'; }, []);
 
   // ── Load export stats on mount ──────────────────────────
   const loadExportStats = async () => {
