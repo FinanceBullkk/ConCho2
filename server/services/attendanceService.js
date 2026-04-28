@@ -26,6 +26,14 @@ const bulkMark = async (scheduleId, records) => {
   const schedule = await Schedule.findById(scheduleId);
   if (!schedule) throw new ServiceError('Schedule not found', 404);
 
+  // ── Guard: cannot mark attendance for sessions that haven't started ──
+  if (new Date(schedule.startTime) > new Date()) {
+    throw new ServiceError(
+      'Chưa thể điểm danh — Buổi học này chưa diễn ra. Cannot mark attendance for a future session.',
+      400
+    );
+  }
+
   // Validate each record
   for (const record of records) {
     if (!record.userId || !record.status) {

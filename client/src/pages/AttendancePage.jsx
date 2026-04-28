@@ -29,6 +29,7 @@ const STATUS_CONFIG = {
   pending: { badge: '⏳ Pending',    cls: 'bg-accent-amber/15 text-accent-amber border-accent-amber/25', cell: 'from-accent-amber/20 to-orange-500/10 border-accent-amber/25' },
   partial: { badge: '🔵 Partial',    cls: 'bg-blue-500/15 text-blue-400 border-blue-500/25', cell: 'from-blue-500/20 to-indigo-500/10 border-blue-500/25' },
   none:    { badge: '⚪ No students', cls: 'bg-white/5 text-slate-500 border-white/10', cell: 'from-white/[0.04] to-white/[0.02] border-white/10' },
+  future:  { badge: '🔮 Chưa diễn ra', cls: 'bg-slate-500/15 text-slate-400 border-slate-500/25', cell: 'from-slate-500/10 to-slate-600/5 border-slate-500/20' },
 };
 
 // ── Helpers ─────────────────────────────────────────────
@@ -293,9 +294,11 @@ export default function AttendancePage() {
 
                     if (cellSchedules.length > 0) {
                       const schedule = cellSchedules[0];
-                      const cfg = STATUS_CONFIG[schedule.attendanceStatus] || STATUS_CONFIG.pending;
+                      const isFutureSession = new Date(schedule.startTime) > new Date();
+                      const effectiveStatus = isFutureSession ? 'future' : schedule.attendanceStatus;
+                      const cfg = STATUS_CONFIG[effectiveStatus] || STATUS_CONFIG.pending;
                       const isSelected = selectedSchedule?._id === schedule._id;
-                      const isOverdue = schedule.attendanceStatus === 'pending' && isPast;
+                      const isOverdue = schedule.attendanceStatus === 'pending' && isPast && !isFutureSession;
 
                       return (
                         <td key={dayIdx} className={`border-b border-white/5 p-1 align-top ${isToday ? 'bg-primary-500/5' : ''}`}>
@@ -366,10 +369,26 @@ export default function AttendancePage() {
           <div className="w-3.5 h-3.5 rounded bg-white/[0.06] border border-white/15" />
           <span>No students registered</span>
         </div>
+        <div className="flex items-center gap-2">
+          <div className="w-3.5 h-3.5 rounded bg-gradient-to-br from-slate-500/15 to-slate-600/10 border border-slate-500/25" />
+          <span>Chưa diễn ra — Future session</span>
+        </div>
       </div>
 
       {/* ── Attendance Marking Panel ───────────────────── */}
-      {selectedSchedule && records.length > 0 && (
+      {selectedSchedule && new Date(selectedSchedule.startTime) > new Date() && (
+        <div className="glass rounded-2xl p-8 text-center animate-fade-in">
+          <div className="text-3xl mb-2 opacity-50">🔮</div>
+          <p className="text-slate-400 font-semibold">Buổi học chưa diễn ra</p>
+          <p className="text-slate-500 text-sm mt-1">
+            Không thể điểm danh cho buổi học trong tương lai. Vui lòng quay lại sau khi buổi học đã bắt đầu.
+          </p>
+          <p className="text-xs text-slate-600 mt-3">
+            Lịch học: {new Date(selectedSchedule.startTime).toLocaleString('vi-VN', { weekday: 'long', day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+          </p>
+        </div>
+      )}
+      {selectedSchedule && new Date(selectedSchedule.startTime) <= new Date() && records.length > 0 && (
         <div className="glass rounded-2xl p-6 animate-fade-in">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
             <div>
