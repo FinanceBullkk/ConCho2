@@ -311,7 +311,7 @@ export default function AttendanceDashboardPage() {
                         {data.schedules.map((s, i) => (
                           <th key={s._id} className="p-4 font-semibold min-w-[80px] text-center border-l border-white/5">
                             <div className="text-xs text-slate-400">S{i+1}</div>
-                            <div className="text-xs">{new Date(s.date).toLocaleDateString('en', { month: 'numeric', day: 'numeric' })}</div>
+                            <div className="text-xs">{new Date(s.startTime).toLocaleDateString('en', { month: 'numeric', day: 'numeric' })}</div>
                           </th>
                         ))}
                       </tr>
