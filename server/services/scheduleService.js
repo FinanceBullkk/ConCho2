@@ -52,6 +52,21 @@ const utcToday = () => {
   return now;
 };
 
+// ── Allowed time slots (must match frontend TIME_SLOTS) ──
+const ALLOWED_TIME_SLOTS = [
+  { sh: 10, sm: 0, eh: 11, em: 0 },
+  { sh: 11, sm: 0, eh: 12, em: 0 },
+  { sh: 13, sm: 0, eh: 14, em: 0 },
+  { sh: 14, sm: 0, eh: 15, em: 0 },
+  { sh: 15, sm: 0, eh: 16, em: 0 },
+];
+
+const isValidTimeSlot = (start, end) => {
+  const sH = start.getHours(), sM = start.getMinutes();
+  const eH = end.getHours(), eM = end.getMinutes();
+  return ALLOWED_TIME_SLOTS.some(s => s.sh === sH && s.sm === sM && s.eh === eH && s.em === eM);
+};
+
 // ── Core Business Logic ──────────────────────────────────
 
 /**
@@ -75,6 +90,11 @@ const bookSlot = async ({ teamId, startTime, endTime, requestUser }) => {
   }
   if (end <= start) {
     throw new ServiceError('endTime must be after startTime');
+  }
+  if (!isValidTimeSlot(start, end)) {
+    throw new ServiceError(
+      'Khung giờ không hợp lệ — Only allowed time slots: 10:00-11:00, 11:00-12:00, 13:00-14:00, 14:00-15:00, 15:00-16:00'
+    );
   }
 
   // ── Step 1: Identify Class via Team ───────────────────
@@ -278,6 +298,11 @@ const adminCreate = async (data) => {
   }
   if (end <= start) {
     throw new ServiceError('endTime must be after startTime');
+  }
+  if (!isValidTimeSlot(start, end)) {
+    throw new ServiceError(
+      'Khung giờ không hợp lệ — Only allowed time slots: 10:00-11:00, 11:00-12:00, 13:00-14:00, 14:00-15:00, 15:00-16:00'
+    );
   }
 
   // ── Auto-enroll team members if team provided ─────────
