@@ -1,22 +1,29 @@
 import { useState, useEffect } from 'react';
-import { teamsAPI, usersAPI } from '../api/api';
+import { teamsAPI, usersAPI, classesAPI } from '../api/api';
 
-function TeamModal({ team, participants, onClose, onSaved }) {
+function TeamModal({ team, participants, classes, onClose, onSaved }) {
   const isEdit = !!team?._id;
   const [name, setName] = useState(team?.name || '');
+  const [classId, setClassId] = useState(team?.classId?._id || team?.classId || '');
   const [leaderId, setLeaderId] = useState(team?.leaderId?._id || team?.leaderId || '');
   const [memberIds, setMemberIds] = useState(team?.members?.map((m) => m._id || m) || []);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+
+  // Classes already assigned to OTHER teams (not this one) — disable them
+  const usedClassIds = new Set();
+  // We don't have the full teams list here, but we use the classes prop to show all.
+  // The server's unique index on classId will enforce 1:1 anyway.
 
   const toggleMember = (id) => setMemberIds((prev) => prev.includes(id) ? prev.filter((m) => m !== id) : [...prev, id]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!leaderId) return setError('Please select a team leader');
+    if (!classId) return setError('Please select a class');
     setSaving(true); setError('');
     try {
-      const payload = { name, leaderId, members: memberIds };
+      const payload = { name, classId, leaderId, members: memberIds };
       if (isEdit) await teamsAPI.update(team._id, payload);
       else await teamsAPI.create(payload);
       onSaved();
@@ -35,6 +42,16 @@ function TeamModal({ team, participants, onClose, onSaved }) {
           <label className="block text-sm text-slate-300 mb-1">Team Name</label>
           <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Team name" required
             className="w-full px-4 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-primary-500/50 transition-all" />
+        </div>
+        <div>
+          <label className="block text-sm text-slate-300 mb-1">Assigned Class</label>
+          <select value={classId} onChange={(e) => setClassId(e.target.value)}
+            className="w-full px-3 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white focus:outline-none focus:ring-2 focus:ring-primary-500/50 transition-all">
+            <option value="" className="bg-slate-800">Select class…</option>
+            {classes.filter(c => c.status === 'Ongoing').map((c) => (
+              <option key={c._id} value={c._id} className="bg-slate-800">{c.classCode} — {c.courseName}</option>
+            ))}
+          </select>
         </div>
         <div>
           <label className="block text-sm text-slate-300 mb-1">Team Leader</label>
@@ -76,6 +93,7 @@ function TeamModal({ team, participants, onClose, onSaved }) {
 export default function TeamsPage() {
   const [teams, setTeams] = useState([]);
   const [participants, setParticipants] = useState([]);
+  const [classes, setClasses] = useState([]);
   const [loading, setLoading] = useState(true);
   const [modal, setModal] = useState(null);
   const [deleteId, setDeleteId] = useState(null);
@@ -83,9 +101,14 @@ export default function TeamsPage() {
   const load = async () => {
     setLoading(true);
     try {
-      const [tRes, pRes] = await Promise.all([teamsAPI.getAll(), usersAPI.getAll({ role: 'Participant', limit: 200 })]);
+      const [tRes, pRes, cRes] = await Promise.all([
+        teamsAPI.getAll(),
+        usersAPI.getAll({ role: 'Participant', limit: 200 }),
+        classesAPI.getAll(),
+      ]);
       setTeams(tRes.data.data);
       setParticipants(pRes.data.data);
+      setClasses(cRes.data.data);
     } catch (err) { console.error(err); }
     finally { setLoading(false); }
   };
@@ -129,11 +152,26 @@ export default function TeamsPage() {
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 stagger">
           {teams.map((t) => {
             const leadId = t.leaderId?._id || t.leaderId;
+            const classInfo = t.classId; // populated object or null
             return (
               <div key={t._id} className="glass rounded-2xl p-5 hover:scale-[1.01] transition-transform">
                 <div className="flex items-start justify-between mb-4">
                   <div>
-                    <h3 className="font-bold text-white">{t.name}</h3>
+                    <div className="flex items-center gap-2 mb-1">
+                      <h3 className="font-bold text-white">{t.name}</h3>
+                      {classInfo?.classCode ? (
+                        <span className="px-2 py-0.5 rounded-lg text-[11px] font-mono font-semibold bg-primary-500/15 text-primary-300 border border-primary-500/20">
+                          📚 {classInfo.classCode}
+                        </span>
+                      ) : (
+                        <span className="px-2 py-0.5 rounded-lg text-[11px] font-medium bg-red-500/10 text-red-400 border border-red-500/15">
+                          ⚠ No class
+                        </span>
+                      )}
+                    </div>
+                    {classInfo?.courseName && (
+                      <p className="text-xs text-slate-500 mb-1">{classInfo.courseName}</p>
+                    )}
                     <p className="text-sm text-slate-400 mt-0.5">
                       Leader: <span className="text-amber-300 font-semibold">👑 {t.leaderId?.name || '— Not assigned'}</span>
                     </p>
@@ -193,7 +231,7 @@ export default function TeamsPage() {
       )}
 
       {(modal === 'create' || (modal && modal._id)) && (
-        <TeamModal team={modal === 'create' ? null : modal} participants={participants}
+        <TeamModal team={modal === 'create' ? null : modal} participants={participants} classes={classes}
           onClose={() => setModal(null)} onSaved={() => { setModal(null); load(); }} />
       )}
     </div>
