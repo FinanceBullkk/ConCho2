@@ -18,6 +18,7 @@ const Attendance = require('../models/Attendance');
 const getTeams = async (req, res) => {
   try {
     const teams = await Team.find()
+      .populate('classId', 'classCode courseName status')
       .populate('leaderId', 'empCode name department status')
       .populate('members', 'empCode name department status')
       .sort({ name: 1 });
@@ -35,6 +36,7 @@ const getTeams = async (req, res) => {
 const getTeamById = async (req, res) => {
   try {
     const team = await Team.findById(req.params.id)
+      .populate('classId', 'classCode courseName status')
       .populate('leaderId', 'empCode name department status')
       .populate('members', 'empCode name department status');
 
