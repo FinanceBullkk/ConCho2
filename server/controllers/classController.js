@@ -1,3 +1,4 @@
+const mongoose = require('mongoose');
 const Class = require('../models/Class');
 const Team = require('../models/Team');
 const Schedule = require('../models/Schedule');
@@ -5,13 +6,54 @@ const { getNextSequence } = require('../helpers/counter');
 
 /**
  * GET /api/classes
+ *
+ * Returns classes grouped by classCode for the matrix view.
+ * Each class also includes `bookedSessions` (count of schedules).
  */
 const getClasses = async (req, res) => {
   try {
     const filter = {};
     if (req.query.status) filter.status = req.query.status;
-    const classes = await Class.find(filter).sort({ classCode: 1 });
-    res.json({ success: true, count: classes.length, data: classes });
+    if (req.query.classCode) filter.classCode = req.query.classCode;
+
+    const classes = await Class.find(filter).sort({ classCode: 1, courseName: 1 }).lean();
+
+    // Batch-count booked sessions per class (1 aggregation)
+    const classIds = classes.map(c => c._id);
+    const sessionCounts = await Schedule.aggregate([
+      { $match: { classId: { $in: classIds } } },
+      { $group: { _id: '$classId', bookedSessions: { $sum: 1 } } },
+    ]);
+    const countMap = {};
+    sessionCounts.forEach(s => { countMap[s._id.toString()] = s.bookedSessions; });
+
+    // Attach bookedSessions to each class
+    const enriched = classes.map(c => ({
+      ...c,
+      bookedSessions: countMap[c._id.toString()] || 0,
+    }));
+
+    res.json({ success: true, count: enriched.length, data: enriched });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+/**
+ * GET /api/classes/courses
+ * Returns the list of valid course names and their default sessions.
+ */
+const getCourseList = async (req, res) => {
+  try {
+    const Setting = mongoose.model('Setting');
+    const setting = await Setting.findOne({ key: 'COURSE_SESSIONS' });
+    const courseSessions = setting ? setting.value : {};
+    const courseNames = Object.keys(courseSessions);
+
+    res.json({
+      success: true,
+      data: { courseNames, courseSessions },
+    });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
@@ -22,9 +64,12 @@ const getClasses = async (req, res) => {
  */
 const getClassById = async (req, res) => {
   try {
-    const cls = await Class.findById(req.params.id);
+    const cls = await Class.findById(req.params.id).lean();
     if (!cls) return res.status(404).json({ success: false, message: 'Class not found' });
-    res.json({ success: true, data: cls });
+
+    // Attach booked session count
+    const bookedSessions = await Schedule.countDocuments({ classId: cls._id });
+    res.json({ success: true, data: { ...cls, bookedSessions } });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
@@ -33,12 +78,15 @@ const getClassById = async (req, res) => {
 /**
  * POST /api/classes
  *
- * classCode is auto-generated using an atomic counter UNLESS
- * explicitly provided in the request body (for migration/seeding).
+ * classCode can be:
+ *   - Provided explicitly (e.g. "EL001" for adding a course to existing cohort)
+ *   - Omitted → auto-generate next code (e.g. "EL002" for new cohort)
+ *
+ * totalSessions is auto-mapped from courseName.
  */
 const createClass = async (req, res) => {
   try {
-    let { classCode } = req.body;
+    let { classCode, courseName, status } = req.body;
 
     // Auto-generate classCode if not provided
     if (!classCode) {
@@ -46,9 +94,26 @@ const createClass = async (req, res) => {
       classCode = `EL${seq.toString().padStart(3, '0')}`;
     }
 
-    const cls = await Class.create({ ...req.body, classCode });
+    // Auto-map totalSessions from courseName
+    const Setting = mongoose.model('Setting');
+    const setting = await Setting.findOne({ key: 'COURSE_SESSIONS' });
+    const courseSessions = setting ? setting.value : {};
+    const totalSessions = courseSessions[courseName];
+
+    if (!totalSessions) {
+      return res.status(400).json({ success: false, message: `Unknown course: ${courseName}` });
+    }
+
+    const cls = await Class.create({ classCode: classCode.toUpperCase(), courseName, totalSessions, status });
     res.status(201).json({ success: true, data: cls });
   } catch (error) {
+    // Handle duplicate key (classCode + courseName)
+    if (error.code === 11000) {
+      return res.status(409).json({
+        success: false,
+        message: `Class "${req.body.classCode}" already has course "${req.body.courseName}".`,
+      });
+    }
     res.status(400).json({ success: false, message: error.message });
   }
 };
@@ -58,6 +123,15 @@ const createClass = async (req, res) => {
  */
 const updateClass = async (req, res) => {
   try {
+    // If courseName is being changed, recalculate totalSessions
+    if (req.body.courseName && !req.body.totalSessions) {
+      const Setting = mongoose.model('Setting');
+      const setting = await Setting.findOne({ key: 'COURSE_SESSIONS' });
+      if (setting && setting.value[req.body.courseName]) {
+        req.body.totalSessions = setting.value[req.body.courseName];
+      }
+    }
+
     const cls = await Class.findByIdAndUpdate(req.params.id, req.body, {
       new: true, runValidators: true,
     });
@@ -99,10 +173,10 @@ const deleteClass = async (req, res) => {
     }
 
     await Class.findByIdAndDelete(cls._id);
-    res.json({ success: true, message: `Class ${cls.classCode} deleted` });
+    res.json({ success: true, message: `Class ${cls.classCode} - ${cls.courseName} deleted` });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
 };
 
-module.exports = { getClasses, getClassById, createClass, updateClass, deleteClass };
+module.exports = { getClasses, getCourseList, getClassById, createClass, updateClass, deleteClass };

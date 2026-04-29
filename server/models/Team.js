@@ -23,7 +23,7 @@ const teamSchema = new mongoose.Schema(
     classId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'Class',
-      required: [true, 'Assigned class is required'],
+      default: null,               // null = unassigned
     },
     leaderId: {
       type: mongoose.Schema.Types.ObjectId,
@@ -44,7 +44,7 @@ const teamSchema = new mongoose.Schema(
 
 // ── Indexes ───────────────────────────────────────────────
 teamSchema.index({ leaderId: 1 });
-teamSchema.index({ classId: 1 }, { unique: true }); // 1:1 Team ↔ Class
+teamSchema.index({ classId: 1 }, { unique: true, partialFilterExpression: { classId: { $type: 'objectId' } } }); // 1:1 Team ↔ Class (nulls allowed)
 
 // ──────────────────────────────────────────────────────────
 // DYNAMIC TEAM SYNC MIDDLEWARE
@@ -67,7 +67,7 @@ teamSchema.post('findOneAndUpdate', async function (doc) {
   if (!doc || !this._previousMembers) return;
 
   const oldMembers = this._previousMembers;
-  const newMembers = doc.members.map((id) => id.toString());
+  const newMembers = doc.members.map((m) => (m._id ? m._id.toString() : m.toString()));
 
   // Compute diff
   const removedSet = new Set(oldMembers.filter((id) => !newMembers.includes(id)));

@@ -4,20 +4,12 @@ import { useAuth } from '../context/AuthContext';
 const NAV_ITEMS = {
   Admin: [
     { path: '/dashboard', label: 'Dashboard', icon: '📊' },
-    { path: '/users', label: 'Users', icon: '👤' },
-    { path: '/teams', label: 'Teams', icon: '👥' },
+    { path: '/people', label: 'People', icon: '👥' },
     { path: '/classes', label: 'Classes', icon: '📚' },
     { path: '/schedules', label: 'Schedules', icon: '📅' },
     { path: '/attendance', label: 'Attendance', icon: '✅' },
-    { path: '/analytics', label: 'Analytics', icon: '📈' },
-    { path: '/export', label: 'HR Export', icon: '📤' },
-    { path: '/sync', label: 'Sheets Sync', icon: '📊' },
-  ],
-  Teacher: [
-    { path: '/dashboard', label: 'Dashboard', icon: '📊' },
-    { path: '/schedules', label: 'My Schedules', icon: '📅' },
-    { path: '/attendance', label: 'Attendance', icon: '✅' },
-    { path: '/analytics', label: 'Analytics', icon: '📈' },
+    { path: '/data', label: 'Data', icon: '📤' },
+    { path: '/settings', label: 'Settings', icon: '⚙️' },
   ],
   Participant: [
     { path: '/dashboard', label: 'Dashboard', icon: '📊' },
@@ -35,7 +27,6 @@ export default function Navbar() {
 
   const roleColors = {
     Admin: 'from-primary-500 to-purple-500',
-    Teacher: 'from-accent-green to-teal-400',
     Participant: 'from-accent-amber to-orange-400',
   };
 

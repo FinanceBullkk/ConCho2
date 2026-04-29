@@ -27,6 +27,7 @@ const Schedule = require('./models/Schedule');
 const Attendance = require('./models/Attendance');
 const Evaluation = require('./models/Evaluation');
 const Counter = require('./models/Counter');
+const Setting = require('./models/Setting');
 
 // ── Helper: future date + time ────────────────────────────
 const futureDateTime = (daysFromNow, hour, minute = 0) => {
@@ -42,20 +43,53 @@ const seed = async () => {
     console.log('\n🌱 Seeding TMS v2 database...\n');
 
     // ── Drop all collections ──────────────────────────────
-    console.log('🗑️  Clearing existing data...');
+    // Drop collections to clear old indexes
+    console.log('🗑️  Dropping collections to clear data and old indexes...');
+    const dropIfExists = async (model) => {
+      try { await model.collection.drop(); } catch (e) { /* ignore collection not found */ }
+    };
     await Promise.all([
-      User.deleteMany({}),
-      Team.deleteMany({}),
-      Class.deleteMany({}),
-      Schedule.deleteMany({}),
-      Attendance.deleteMany({}),
-      Evaluation.deleteMany({}),
-      Counter.deleteMany({}),
+      dropIfExists(User),
+      dropIfExists(Team),
+      dropIfExists(Class),
+      dropIfExists(Schedule),
+      dropIfExists(Attendance),
+      dropIfExists(Evaluation),
+      dropIfExists(Counter),
+      dropIfExists(Setting),
     ]);
 
     // Pre-set counters
     await Counter.create({ _id: 'empCode', seq: 9 });
     await Counter.create({ _id: 'classCode', seq: 2 });
+
+    console.log('⚙️ Creating settings...');
+    await Setting.create([
+      {
+        key: 'ALLOWED_TIME_SLOTS',
+        description: 'Các khung giờ được phép đặt lịch (24h format)',
+        value: [
+          { sh: 9, sm: 0, eh: 10, em: 0 },
+          { sh: 10, sm: 0, eh: 11, em: 0 },
+          { sh: 11, sm: 0, eh: 12, em: 0 },
+          { sh: 13, sm: 0, eh: 14, em: 0 },
+          { sh: 14, sm: 0, eh: 15, em: 0 },
+          { sh: 15, sm: 0, eh: 16, em: 0 },
+        ],
+      },
+      {
+        key: 'COURSE_SESSIONS',
+        description: 'Cấu hình số buổi học mặc định cho từng khóa học',
+        value: {
+          'Foundation': 16,
+          'Extension of Foundation': 16,
+          'Communication 1': 10,
+          'Communication 2': 16,
+          'Communication 3': 16,
+          'Business English': 16,
+        },
+      }
+    ]);
 
     // ── Create Users ──────────────────────────────────────
     console.log('👤 Creating users...');
@@ -146,13 +180,15 @@ const seed = async () => {
     console.log('📚 Creating classes...');
     const class1 = await Class.create({
       classCode: 'EL001',
-      courseName: 'Business English - Intermediate (B1)',
+      courseName: 'Business English',
+      totalSessions: 16,
       status: 'Ongoing',
     });
 
     const class2 = await Class.create({
       classCode: 'EL002',
-      courseName: 'General English - Pre-Intermediate (A2)',
+      courseName: 'Communication 2',
+      totalSessions: 16,
       status: 'Ongoing',
     });
 

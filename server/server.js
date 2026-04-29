@@ -7,6 +7,7 @@ require('dotenv').config();
 
 const connectDB = require('./config/db');
 
+// Trigger nodemon
 // ──────────────────────────────────────────────────────────
 // TMS v2 — Express Server
 // ──────────────────────────────────────────────────────────
@@ -33,7 +34,7 @@ app.use(helmet({
 // ── CORS allowlist ────────────────────────────────────────
 // CORS_ORIGINS is a comma-separated list of allowed origins.
 // Example: CORS_ORIGINS=http://localhost:5173,https://tms.example.com
-const allowedOrigins = (process.env.CORS_ORIGINS || 'http://localhost:5173,http://localhost:3000')
+const allowedOrigins = (process.env.CORS_ORIGINS || 'http://localhost:5173,http://localhost:3000,http://localhost:3001')
   .split(',')
   .map((s) => s.trim())
   .filter(Boolean);
@@ -80,9 +81,11 @@ app.use('/api/classes', require('./routes/classRoutes'));
 app.use('/api/schedules', require('./routes/scheduleRoutes'));
 app.use('/api/attendance', require('./routes/attendanceRoutes'));
 app.use('/api/evaluations', require('./routes/evaluationRoutes'));
+app.use('/api/enrollments', require('./routes/enrollmentRoutes'));
 app.use('/api/sync', require('./routes/syncRoutes'));
 app.use('/api/import', require('./routes/importRoutes'));
 app.use('/api/export', require('./routes/exportRoutes'));
+app.use('/api/settings', require('./routes/settingRoutes'));
 
 // ── Production: Serve React client build ─────────────────
 if (process.env.NODE_ENV === 'production') {

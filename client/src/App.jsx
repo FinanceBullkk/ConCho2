@@ -1,3 +1,4 @@
+import { useState, useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
 import { AuthProvider, useAuth } from './context/AuthContext';
@@ -5,15 +6,13 @@ import ProtectedRoute from './components/ProtectedRoute';
 import Layout from './components/Layout';
 import LoginPage from './pages/LoginPage';
 import DashboardPage from './pages/DashboardPage';
-import UsersPage from './pages/UsersPage';
-import TeamsPage from './pages/TeamsPage';
+import PeoplePage from './pages/PeoplePage';
 import ClassesPage from './pages/ClassesPage';
 import SchedulesPage from './pages/SchedulesPage';
-import AttendancePage from './pages/AttendancePage';
-import SyncPage from './pages/SyncPage';
+import AttendanceHubPage from './pages/AttendanceHubPage';
+import DataPage from './pages/DataPage';
 import BookClassPage from './pages/BookClassPage';
-import AttendanceDashboardPage from './pages/AttendanceDashboardPage';
-import HRExportPage from './pages/HRExportPage';
+import SettingsPage from './pages/SettingsPage';
 
 // Role-aware schedule view: Participant gets calendar+booking, others get list CRUD
 function ScheduleRouter() {
@@ -21,10 +20,39 @@ function ScheduleRouter() {
   return user?.role === 'Participant' ? <BookClassPage /> : <SchedulesPage />;
 }
 
+function AuthExpiredModal() {
+  const [open, setOpen] = useState(false);
+
+  useEffect(() => {
+    const handleExpired = () => setOpen(true);
+    window.addEventListener('auth-expired', handleExpired);
+    return () => window.removeEventListener('auth-expired', handleExpired);
+  }, []);
+
+  if (!open) return null;
+
+  return (
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-sm">
+      <div className="glass rounded-2xl p-6 max-w-sm mx-4 text-center space-y-4 animate-fade-in border border-red-500/30">
+        <div className="text-4xl">⏱️</div>
+        <h3 className="text-xl font-bold text-white">Phiên đăng nhập hết hạn</h3>
+        <p className="text-sm text-slate-300">
+          Vui lòng mở một tab mới để đăng nhập lại, sau đó quay lại đây và tiếp tục công việc của bạn mà không bị mất dữ liệu.
+        </p>
+        <div className="pt-4 flex gap-3">
+          <button onClick={() => window.open('/login', '_blank')} className="flex-1 py-2.5 rounded-xl bg-primary-500/20 text-primary-400 border border-primary-500/30 hover:bg-primary-500/30 font-semibold transition-all">Đăng nhập (Tab mới)</button>
+          <button onClick={() => setOpen(false)} className="px-4 py-2.5 rounded-xl border border-white/10 text-slate-400 hover:bg-white/5 transition-all">Đóng</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function App() {
   return (
     <BrowserRouter>
       <AuthProvider>
+        <AuthExpiredModal />
         <Toaster
           position="top-right"
           toastOptions={{
@@ -41,29 +69,23 @@ export default function App() {
           {/* Protected — wrapped in Layout */}
           <Route element={<ProtectedRoute><Layout /></ProtectedRoute>}>
             <Route path="/dashboard" element={<DashboardPage />} />
-            <Route path="/users" element={
-              <ProtectedRoute roles={['Admin']}><UsersPage /></ProtectedRoute>
-            } />
-            <Route path="/teams" element={
-              <ProtectedRoute roles={['Admin']}><TeamsPage /></ProtectedRoute>
+            <Route path="/people" element={
+              <ProtectedRoute roles={['Admin']}><PeoplePage /></ProtectedRoute>
             } />
             <Route path="/classes" element={
-              <ProtectedRoute roles={['Admin', 'Teacher']}><ClassesPage /></ProtectedRoute>
+              <ProtectedRoute roles={['Admin']}><ClassesPage /></ProtectedRoute>
             } />
             <Route path="/schedules" element={
-              <ProtectedRoute roles={['Admin', 'Teacher', 'Participant']}><ScheduleRouter /></ProtectedRoute>
+              <ProtectedRoute roles={['Admin', 'Participant']}><ScheduleRouter /></ProtectedRoute>
             } />
             <Route path="/attendance" element={
-              <ProtectedRoute roles={['Admin', 'Teacher']}><AttendancePage /></ProtectedRoute>
+              <ProtectedRoute roles={['Admin']}><AttendanceHubPage /></ProtectedRoute>
             } />
-            <Route path="/analytics" element={
-              <ProtectedRoute roles={['Admin', 'Teacher']}><AttendanceDashboardPage /></ProtectedRoute>
+            <Route path="/data" element={
+              <ProtectedRoute roles={['Admin']}><DataPage /></ProtectedRoute>
             } />
-            <Route path="/export" element={
-              <ProtectedRoute roles={['Admin']}><HRExportPage /></ProtectedRoute>
-            } />
-            <Route path="/sync" element={
-              <ProtectedRoute roles={['Admin']}><SyncPage /></ProtectedRoute>
+            <Route path="/settings" element={
+              <ProtectedRoute roles={['Admin']}><SettingsPage /></ProtectedRoute>
             } />
           </Route>
 

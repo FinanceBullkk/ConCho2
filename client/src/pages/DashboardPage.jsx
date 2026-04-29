@@ -3,10 +3,9 @@ import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { schedulesAPI, classesAPI, usersAPI, teamsAPI } from '../api/api';
 import ParticipantDashboard from './ParticipantDashboard';
-import TeacherDashboard from './TeacherDashboard';
 
 export default function DashboardPage() {
-  const { user, isAdmin, isTeacher, isParticipant } = useAuth();
+  const { user, isAdmin, isParticipant } = useAuth();
 
   // ── All hooks MUST be declared before any conditional returns ──
   // (React Rules of Hooks — hooks must run in the same order every render)
@@ -19,7 +18,7 @@ export default function DashboardPage() {
 
   useEffect(() => {
     // Skip fetch for non-admin roles (they render their own dashboards)
-    if (isParticipant || isTeacher) return;
+    if (isParticipant) return;
 
     const fetchData = async () => {
       try {
@@ -48,11 +47,10 @@ export default function DashboardPage() {
       }
     };
     fetchData();
-  }, [isAdmin, isParticipant, isTeacher]);
+  }, [isAdmin, isParticipant]);
 
   // Role-specific dashboards (after all hooks)
   if (isParticipant) return <ParticipantDashboard />;
-  if (isTeacher) return <TeacherDashboard />;
 
   if (loading) {
     return (
@@ -64,7 +62,6 @@ export default function DashboardPage() {
 
   const roleGreeting = {
     Admin: '🛡️ Admin Control Center',
-    Teacher: '📖 Teacher Dashboard',
     Participant: '🎓 My Learning Dashboard',
   };
 
@@ -119,7 +116,7 @@ export default function DashboardPage() {
                   </div>
                   <div>
                     <div className="font-medium text-white">{s.classId?.courseName || s.classId?.classCode}</div>
-                    <div className="text-sm text-slate-400">{timeStr} • {s.teacherId?.name || <span className="text-accent-amber">No teacher</span>}</div>
+                    <div className="text-sm text-slate-400">{timeStr}</div>
                   </div>
                 </div>
                 <div className="text-right">

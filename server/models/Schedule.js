@@ -43,13 +43,6 @@ const scheduleSchema = new mongoose.Schema(
       required: [true, 'End time is required'],
     },
 
-    // Teacher (optional — Admin can assign later)
-    teacherId: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: 'User',
-      default: null,
-    },
-
     roomLink: {
       type: String,
       trim: true,
@@ -89,10 +82,9 @@ scheduleSchema.virtual('availableSpots').get(function () {
 });
 
 // ── Indexes ───────────────────────────────────────────────
-scheduleSchema.index({ startTime: 1, endTime: 1 });        // Collision queries
-scheduleSchema.index({ bookedTeamId: 1, startTime: 1 });   // Weekly count queries
+scheduleSchema.index({ startTime: 1, endTime: 1 }, { unique: true }); // Collision prevention (Part 2: Concurrency Lock)
+scheduleSchema.index({ bookedTeamId: 1, startTime: 1 });               // Weekly count queries
 scheduleSchema.index({ classId: 1, startTime: 1 });
-scheduleSchema.index({ teacherId: 1, startTime: 1 });
 scheduleSchema.index({ enrolledUsers: 1 });
 
 module.exports = mongoose.model('Schedule', scheduleSchema);

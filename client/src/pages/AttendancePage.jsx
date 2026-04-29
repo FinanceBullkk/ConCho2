@@ -18,7 +18,7 @@ const STATUS_OPTIONS = [
 ];
 
 const TIME_SLOTS = [
-  '10:00-11:00', '11:00-12:00',
+  '09:00-10:00', '10:00-11:00', '11:00-12:00',
   '13:00-14:00', '14:00-15:00', '15:00-16:00',
 ];
 
@@ -323,7 +323,7 @@ export default function AttendancePage() {
 
                             {/* Meta */}
                             <div className="text-[10px] text-slate-500 mt-1 truncate">
-                              {schedule.teacherId?.name || 'No teacher'} · {schedule.enrolledCount || 0}👤
+                              {schedule.enrolledCount || 0}👤
                             </div>
 
                             {/* Marked count */}
