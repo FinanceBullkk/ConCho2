@@ -52,19 +52,53 @@ const utcToday = () => {
   return now;
 };
 
-// ── Allowed time slots (must match frontend TIME_SLOTS) ──
-const ALLOWED_TIME_SLOTS = [
-  { sh: 10, sm: 0, eh: 11, em: 0 },
-  { sh: 11, sm: 0, eh: 12, em: 0 },
-  { sh: 13, sm: 0, eh: 14, em: 0 },
-  { sh: 14, sm: 0, eh: 15, em: 0 },
-  { sh: 15, sm: 0, eh: 16, em: 0 },
-];
+// isValidTimeSlot has been moved inside bookSlot to fetch dynamically
 
-const isValidTimeSlot = (start, end) => {
-  const sH = start.getHours(), sM = start.getMinutes();
-  const eH = end.getHours(), eM = end.getMinutes();
-  return ALLOWED_TIME_SLOTS.some(s => s.sh === sH && s.sm === sM && s.eh === eH && s.em === eM);
+/**
+ * Attach `sessionNumber` to an array of schedule objects.
+ * For each schedule, sessionNumber = its 1-based position among
+ * all schedules of the same classId, ordered by startTime ASC.
+ *
+ * @param {Array} schedules — array of lean/plain schedule objects
+ *   (must have classId and startTime populated)
+ * @returns {Array} same array with `sessionNumber` attached
+ */
+const attachSessionNumbers = async (schedules) => {
+  if (schedules.length === 0) return schedules;
+
+  // Collect unique classIds
+  const classIdSet = new Set();
+  for (const s of schedules) {
+    const cId = s.classId?._id?.toString() || s.classId?.toString();
+    if (cId) classIdSet.add(cId);
+  }
+
+  // For each classId, fetch ALL schedule _ids sorted by startTime
+  // to determine global ordinal position.
+  const classIds = [...classIdSet].map(id => new mongoose.Types.ObjectId(id));
+  const allSchedules = await Schedule.find({ classId: { $in: classIds } })
+    .select('_id classId startTime')
+    .sort({ startTime: 1 })
+    .lean();
+
+  // Build a map: classId -> ordered list of schedule _ids
+  const orderMap = {};  // classId -> [scheduleId, scheduleId, ...]
+  for (const s of allSchedules) {
+    const cId = s.classId.toString();
+    if (!orderMap[cId]) orderMap[cId] = [];
+    orderMap[cId].push(s._id.toString());
+  }
+
+  // Attach sessionNumber to each schedule in the input
+  for (const s of schedules) {
+    const cId = s.classId?._id?.toString() || s.classId?.toString();
+    const sId = s._id.toString();
+    const order = orderMap[cId] || [];
+    const idx = order.indexOf(sId);
+    s.sessionNumber = idx >= 0 ? idx + 1 : null;
+  }
+
+  return schedules;
 };
 
 // ── Core Business Logic ──────────────────────────────────
@@ -91,28 +125,20 @@ const bookSlot = async ({ teamId, startTime, endTime, requestUser }) => {
   if (end <= start) {
     throw new ServiceError('endTime must be after startTime');
   }
-  if (!isValidTimeSlot(start, end)) {
+  // ── Fetch Allowed Time Slots from Settings ────────────
+  const Setting = mongoose.model('Setting');
+  const allowedSlotsSetting = await Setting.findOne({ key: 'ALLOWED_TIME_SLOTS' });
+  const ALLOWED_TIME_SLOTS = allowedSlotsSetting ? allowedSlotsSetting.value : [];
+
+  const sH = start.getHours(), sM = start.getMinutes();
+  const eH = end.getHours(), eM = end.getMinutes();
+  const isValid = ALLOWED_TIME_SLOTS.some(s => s.sh === sH && s.sm === sM && s.eh === eH && s.em === eM);
+
+  if (!isValid) {
     throw new ServiceError(
-      'Khung giờ không hợp lệ — Only allowed time slots: 10:00-11:00, 11:00-12:00, 13:00-14:00, 14:00-15:00, 15:00-16:00'
+      'Khung giờ không hợp lệ — Please select an allowed time slot.'
     );
   }
-
-  // ── Step 1: Identify Class via Team ───────────────────
-  const team = await Team.findById(teamId).populate('members', '_id status');
-  if (!team) throw new ServiceError('Team not found', 404);
-  if (!team.classId) {
-    throw new ServiceError('Team chưa được gán lớp — This team has no assigned class');
-  }
-
-  // ── Authorization check ───────────────────────────────
-  if (requestUser.role !== 'Admin') {
-    if (team.leaderId.toString() !== requestUser._id.toString()) {
-      throw new ServiceError('Only Admin or the Team Leader can book for this team', 403);
-    }
-  }
-
-  const activeMembers = team.members.filter(m => m.status === 'Active');
-  const memberIds = activeMembers.map(m => m._id);
 
   // ── TRANSACTION: Atomic booking ───────────────────────
   const session = await mongoose.startSession();
@@ -120,6 +146,28 @@ const bookSlot = async ({ teamId, startTime, endTime, requestUser }) => {
 
   try {
     await session.withTransaction(async () => {
+      // Step 1: Acquire Write Lock on Team document
+      // By updating 'updatedAt', we force MongoDB to serialize concurrent requests for the same team.
+      const team = await Team.findByIdAndUpdate(
+        teamId,
+        { $set: { updatedAt: new Date() } },
+        { session, new: true }
+      ).populate('members', '_id status');
+
+      if (!team) throw new ServiceError('Team not found', 404);
+      if (!team.classId) {
+        throw new ServiceError('Team chưa được gán lớp — This team has no assigned class');
+      }
+
+      // ── Authorization check ───────────────────────────────
+      if (requestUser.role !== 'Admin') {
+        if (team.leaderId.toString() !== requestUser._id.toString()) {
+          throw new ServiceError('Only Admin or the Team Leader can book for this team', 403);
+        }
+      }
+
+      const activeMembers = team.members.filter(m => m.status === 'Active');
+      const memberIds = activeMembers.map(m => m._id);
       // Step 2: Weekly Limit — max 2 sessions per team per week
       const { weekStart, weekEnd } = getWeekBounds(start);
       const weeklyCount = await Schedule.countDocuments({
@@ -160,6 +208,15 @@ const bookSlot = async ({ teamId, startTime, endTime, requestUser }) => {
       );
       created = doc;
     });
+  } catch (err) {
+    // Part 2: Catch duplicate key error from unique index (concurrent booking)
+    if (err.code === 11000 || err.message?.includes('E11000')) {
+      throw new ServiceError(
+        'Khung giờ này đã bị Team khác đặt — This time slot is already taken (concurrent booking detected)',
+        409
+      );
+    }
+    throw err;
   } finally {
     session.endSession();
   }
@@ -203,7 +260,6 @@ const getAvailability = async (filters = {}) => {
   return Schedule.find(query)
     .populate('classId', 'classCode courseName')
     .populate('bookedTeamId', 'name')
-    .populate('teacherId', 'empCode name')
     .sort({ startTime: 1 });
 };
 
@@ -213,7 +269,6 @@ const getAvailability = async (filters = {}) => {
 const listSchedules = async (filters, { page, limit, skip }) => {
   const query = {};
   if (filters.classId) query.classId = filters.classId;
-  if (filters.teacherId) query.teacherId = filters.teacherId;
   if (filters.from || filters.to) {
     query.startTime = {};
     if (filters.from) query.startTime.$gte = new Date(filters.from);
@@ -222,15 +277,16 @@ const listSchedules = async (filters, { page, limit, skip }) => {
 
   const [schedules, total] = await Promise.all([
     Schedule.find(query)
-      .populate('classId', 'classCode courseName')
+      .populate('classId', 'classCode courseName totalSessions')
       .populate('bookedTeamId', 'name')
-      .populate('teacherId', 'empCode name')
       .populate('enrolledUsers', 'empCode name department')
       .sort({ startTime: 1 })
-      .skip(skip).limit(limit),
+      .skip(skip).limit(limit)
+      .lean(),
     Schedule.countDocuments(query),
   ]);
 
+  await attachSessionNumbers(schedules);
   return { schedules, total };
 };
 
@@ -241,7 +297,6 @@ const getById = async (id) => {
   const schedule = await Schedule.findById(id)
     .populate('classId', 'classCode courseName')
     .populate('bookedTeamId', 'name')
-    .populate('teacherId', 'empCode name')
     .populate('enrolledUsers', 'empCode name department status');
 
   if (!schedule) throw new ServiceError('Schedule not found', 404);
@@ -262,12 +317,13 @@ const getMyClassSchedules = async (userId) => {
     classId: { $in: classIds },
     startTime: { $gte: utcToday() },
   })
-    .populate('classId', 'classCode courseName')
+    .populate('classId', 'classCode courseName totalSessions')
     .populate('bookedTeamId', 'name')
-    .populate('teacherId', 'empCode name')
     .sort({ startTime: 1 })
-    .limit(20);
+    .limit(20)
+    .lean();
 
+  await attachSessionNumbers(schedules);
   return { schedules, team: teams[0]?.name };
 };
 
@@ -354,7 +410,6 @@ const adminCreate = async (data) => {
   return Schedule.findById(created._id)
     .populate('classId', 'classCode courseName')
     .populate('bookedTeamId', 'name')
-    .populate('teacherId', 'empCode name')
     .populate('enrolledUsers', 'empCode name');
 };
 
@@ -382,15 +437,17 @@ const getAttendanceCalendar = async ({ from, to } = {}) => {
   }
 
   const schedules = await Schedule.find(filter)
-    .populate('classId', 'classCode courseName')
+    .populate('classId', 'classCode courseName totalSessions')
     .populate('bookedTeamId', 'name')
-    .populate('teacherId', 'empCode name')
     .sort({ startTime: 1 })
     .lean();
 
   if (schedules.length === 0) return [];
 
-  // Step 2: Batch-count attendance records per schedule (single aggregation)
+  // Step 2: Attach session numbers
+  await attachSessionNumbers(schedules);
+
+  // Step 3: Batch-count attendance records per schedule (single aggregation)
   const scheduleIds = schedules.map(s => s._id);
   const attCounts = await Attendance.aggregate([
     { $match: { scheduleId: { $in: scheduleIds } } },
@@ -399,7 +456,7 @@ const getAttendanceCalendar = async ({ from, to } = {}) => {
   const countMap = {};
   attCounts.forEach(a => { countMap[a._id.toString()] = a.count; });
 
-  // Step 3: Compute status for each schedule
+  // Step 4: Compute status for each schedule
   return schedules.map(s => {
     const enrolled = s.enrolledCount || 0;
     const marked = countMap[s._id.toString()] || 0;

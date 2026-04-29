@@ -2,6 +2,7 @@ const User = require('../models/User');
 const Team = require('../models/Team');
 const Schedule = require('../models/Schedule');
 const Attendance = require('../models/Attendance');
+const Enrollment = require('../models/Enrollment');
 const { getNextSequence } = require('../helpers/counter');
 const { parsePagination, paginatedResponse } = require('../helpers/pagination');
 const { escapeRegex } = require('../helpers/escapeRegex');
@@ -209,4 +210,66 @@ const deleteUser = async (req, res) => {
   }
 };
 
-module.exports = { getUsers, getUserById, createUser, updateUser, deleteUser };
+/**
+ * GET /api/users/:id/progress
+ */
+const getUserProgress = async (req, res) => {
+  try {
+    const userId = req.params.id;
+    const user = await User.findById(userId).select('-password').lean();
+    if (!user) return res.status(404).json({ success: false, message: 'User not found' });
+
+    const enrollments = await Enrollment.find({ userId })
+      .populate('teamId')
+      .populate('classId', 'classCode courseName')
+      .lean();
+      
+    // Fallback: Check for teams where user is a member but missing an Enrollment record
+    const activeTeams = await Team.find({ members: userId })
+      .populate('classId', 'classCode courseName')
+      .lean();
+      
+    const enrolledTeamIds = enrollments.map(e => e.teamId?._id?.toString());
+    
+    for (const team of activeTeams) {
+      if (!enrolledTeamIds.includes(team._id.toString())) {
+        enrollments.push({
+          _id: `mock-${team._id}`,
+          userId,
+          teamId: team,
+          classId: team.classId,
+          status: 'Active',
+          joinedAt: team.createdAt || new Date(),
+        });
+      }
+    }
+      
+    const teamIds = enrollments.map(e => e.teamId?._id).filter(Boolean);
+
+    const schedules = await Schedule.find({ bookedTeamId: { $in: teamIds } })
+      .sort({ startTime: 1 })
+      .populate('classId', 'classCode courseName')
+      .populate('bookedTeamId', 'name')
+      .lean();
+
+    const scheduleIds = schedules.map(s => s._id);
+    const attendances = await Attendance.find({ 
+      scheduleId: { $in: scheduleIds },
+      userId 
+    }).lean();
+
+    res.json({
+      success: true,
+      data: {
+        user,
+        enrollments,
+        schedules,
+        attendances,
+      }
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+module.exports = { getUsers, getUserById, createUser, updateUser, deleteUser, getUserProgress };

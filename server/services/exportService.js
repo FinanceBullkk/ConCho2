@@ -71,13 +71,7 @@ const buildExportPipeline = ({ from, to, includeExported = false }) => {
     { $unwind: { path: '$team', preserveNullAndEmptyArrays: true } }
   );
 
-  // ── Stage 6: Join Teacher (giáo viên, optional) ────────
-  pipeline.push(
-    { $lookup: { from: 'users', localField: 'schedule.teacherId', foreignField: '_id', as: 'teacher' } },
-    { $unwind: { path: '$teacher', preserveNullAndEmptyArrays: true } }
-  );
-
-  // ── Stage 7: Projection ────────────────────────────────
+  // ── Stage 6: Projection ────────────────────────────────
   pipeline.push({
     $project: {
       _id: 1,
@@ -93,7 +87,6 @@ const buildExportPipeline = ({ from, to, includeExported = false }) => {
       durationMinutes: {
         $divide: [{ $subtract: ['$schedule.endTime', '$schedule.startTime'] }, 60000],
       },
-      teacherName: { $ifNull: ['$teacher.name', ''] },
       roomLink: { $ifNull: ['$schedule.roomLink', ''] },
       status: '$status',
       remark: '$remark',
@@ -147,7 +140,6 @@ const generateExcel = async (records) => {
     { header: 'Giờ BĐ',         key: 'startStr',       width: 10 },
     { header: 'Giờ KT',          key: 'endStr',         width: 10 },
     { header: 'Thời Lượng (ph)', key: 'duration',       width: 14 },
-    { header: 'Giáo Viên',      key: 'teacherName',   width: 20 },
     { header: 'Điểm Danh',      key: 'statusText',    width: 14 },
     { header: 'Mã ĐD',           key: 'status',        width: 8 },
     { header: 'Ghi Chú',         key: 'remark',        width: 25 },
@@ -181,7 +173,6 @@ const generateExcel = async (records) => {
       startStr: startDate.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }),
       endStr: endDate.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }),
       duration: Math.round(r.durationMinutes),
-      teacherName: r.teacherName,
       statusText: STATUS_TEXT[r.status] || r.status,
       status: r.status,
       remark: r.remark || '',

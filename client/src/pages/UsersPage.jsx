@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { usersAPI } from '../api/api';
+import StudentProgressModal from '../components/Progress/StudentProgressModal';
 
 const ROLES = ['Admin', 'Teacher', 'Participant'];
 const STATUSES = ['Active', 'Dropped', 'Transferred', 'On-hold'];
@@ -111,6 +112,7 @@ export default function UsersPage() {
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
   const [pages, setPages] = useState(1);
+  const [progressModal, setProgressModal] = useState(null); // { id, name }
 
   // UX-06: Browser tab title
   useEffect(() => { document.title = 'TMS — Users'; }, []);
@@ -201,7 +203,11 @@ export default function UsersPage() {
               {users.map((u) => (
                 <tr key={u._id} className="hover:bg-white/3 transition-colors">
                   <td className="px-5 py-4 font-mono text-primary-300 font-medium">{u.empCode}</td>
-                  <td className="px-5 py-4 text-white font-medium">{u.name}</td>
+                  <td className="px-5 py-4 text-white font-medium">
+                    <button onClick={() => setProgressModal({ id: u._id, name: u.name })} className="hover:text-teal-400 hover:underline transition-colors text-left">
+                      {u.name}
+                    </button>
+                  </td>
                   <td className="px-5 py-4">
                     <span className={`px-2.5 py-1 rounded-lg text-xs font-medium ${ROLE_BADGE[u.role]}`}>{u.role}</span>
                   </td>
@@ -211,6 +217,8 @@ export default function UsersPage() {
                   </td>
                   <td className="px-5 py-4">
                     <div className="flex gap-2">
+                      <button onClick={() => setProgressModal({ id: u._id, name: u.name })}
+                        className="px-3 py-1.5 rounded-lg bg-white/5 text-slate-300 text-xs hover:bg-teal-500/20 hover:text-teal-300 transition-all" title="View Progress">📊</button>
                       <button onClick={() => setModal(u)}
                         className="px-3 py-1.5 rounded-lg bg-white/5 text-slate-300 text-xs hover:bg-primary-500/20 hover:text-primary-300 transition-all">Edit</button>
                       <button onClick={() => setDeleteId(u._id)}
@@ -263,6 +271,14 @@ export default function UsersPage() {
 
       {(modal === 'create' || (modal && modal._id)) && (
         <UserModal user={modal === 'create' ? null : modal} onClose={() => setModal(null)} onSaved={() => { setModal(null); load(); }} />
+      )}
+
+      {progressModal && (
+        <StudentProgressModal 
+          userId={progressModal.id} 
+          userName={progressModal.name} 
+          onClose={() => setProgressModal(null)} 
+        />
       )}
     </div>
   );

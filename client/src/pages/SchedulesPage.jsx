@@ -1,15 +1,15 @@
 import { useState, useEffect, useMemo } from 'react';
-import { schedulesAPI, classesAPI, teamsAPI, usersAPI } from '../api/api';
+import { schedulesAPI, classesAPI, teamsAPI } from '../api/api';
 
 // ──────────────────────────────────────────────────────────
 // Admin Schedule Management (v2 — Calendar View)
 // ──────────────────────────────────────────────────────────
 // Weekly timetable grid (Mon–Sun × time slots) with full
-// admin control: create, edit, delete, assign teacher.
+// admin control: create, edit, delete.
 // ──────────────────────────────────────────────────────────
 
 const TIME_SLOTS = [
-  '10:00-11:00', '11:00-12:00',
+  '09:00-10:00', '10:00-11:00', '11:00-12:00',
   '13:00-14:00', '14:00-15:00', '15:00-16:00',
 ];
 
@@ -49,7 +49,7 @@ const scheduleToKey = (s) => {
 
 // ── Schedule Modal (Create / Edit) ────────────────────────
 
-function ScheduleModal({ schedule, classes, teachers, teams, onClose, onSaved, prefill }) {
+function ScheduleModal({ schedule, classes, teams, onClose, onSaved, prefill }) {
   const isEdit = !!schedule?._id;
 
   const toDateTimeLocal = (d) => {
@@ -63,7 +63,6 @@ function ScheduleModal({ schedule, classes, teachers, teams, onClose, onSaved, p
     bookedTeamId: schedule?.bookedTeamId?._id || schedule?.bookedTeamId || '',
     startTime: toDateTimeLocal(schedule?.startTime || prefill?.startTime),
     endTime: toDateTimeLocal(schedule?.endTime || prefill?.endTime),
-    teacherId: schedule?.teacherId?._id || schedule?.teacherId || '',
     roomLink: schedule?.roomLink || '',
     capacity: schedule?.capacity || 9,
   });
@@ -78,7 +77,6 @@ function ScheduleModal({ schedule, classes, teachers, teams, onClose, onSaved, p
         startTime: new Date(form.startTime).toISOString(),
         endTime: new Date(form.endTime).toISOString(),
       };
-      if (!payload.teacherId) delete payload.teacherId;
       if (isEdit) await schedulesAPI.update(schedule._id, payload);
       else await schedulesAPI.create(payload);
       onSaved();
@@ -123,14 +121,6 @@ function ScheduleModal({ schedule, classes, teachers, teams, onClose, onSaved, p
               className="w-full px-4 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white focus:outline-none focus:ring-2 focus:ring-primary-500/50 transition-all" />
           </div>
           <div>
-            <label className="block text-sm text-slate-300 mb-1">Teacher (optional)</label>
-            <select value={form.teacherId} onChange={(e) => f('teacherId', e.target.value)}
-              className="w-full px-3 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white focus:outline-none focus:ring-2 focus:ring-primary-500/50 transition-all">
-              <option value="" className="bg-slate-800">No teacher</option>
-              {teachers.map((t) => <option key={t._id} value={t._id} className="bg-slate-800">{t.name} ({t.empCode})</option>)}
-            </select>
-          </div>
-          <div>
             <label className="block text-sm text-slate-300 mb-1">Capacity</label>
             <input type="number" value={form.capacity} onChange={(e) => f('capacity', Number(e.target.value))} min={1} required
               className="w-full px-4 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white focus:outline-none focus:ring-2 focus:ring-primary-500/50 transition-all" />
@@ -158,13 +148,11 @@ function ScheduleModal({ schedule, classes, teachers, teams, onClose, onSaved, p
 export default function SchedulesPage() {
   const [schedules, setSchedules] = useState([]);
   const [classes, setClasses] = useState([]);
-  const [teachers, setTeachers] = useState([]);
   const [teams, setTeams] = useState([]);
   const [loading, setLoading] = useState(true);
   const [modal, setModal] = useState(null);       // 'create' | schedule obj | null
   const [prefill, setPrefill] = useState(null);    // { startTime, endTime } for calendar click
   const [deleteTarget, setDeleteTarget] = useState(null);
-  const [assigningId, setAssigningId] = useState(null);
 
   // Week navigation
   const [weekStart, setWeekStart] = useState(() => getMonday(new Date()));
@@ -172,15 +160,13 @@ export default function SchedulesPage() {
   const load = async () => {
     setLoading(true);
     try {
-      const [sRes, cRes, tRes, teRes] = await Promise.all([
+      const [sRes, cRes, teRes] = await Promise.all([
         schedulesAPI.getAll({ limit: 200 }),
         classesAPI.getAll(),
-        usersAPI.getAll({ role: 'Teacher', limit: 200 }),
         teamsAPI.getAll(),
       ]);
       setSchedules(sRes.data.data);
       setClasses(cRes.data.data);
-      setTeachers(tRes.data.data);
       setTeams(teRes.data.data);
     } catch (err) { console.error(err); }
     finally { setLoading(false); }
@@ -236,14 +222,7 @@ export default function SchedulesPage() {
     setDeleteTarget(null);
   };
 
-  const handleAssignTeacher = async (scheduleId, teacherId) => {
-    setAssigningId(scheduleId);
-    try {
-      await schedulesAPI.assignTeacher(scheduleId, teacherId || null);
-      load();
-    } catch (err) { alert(err.response?.data?.message || 'Assignment failed'); }
-    finally { setAssigningId(null); }
-  };
+
 
   return (
     <div className="space-y-5 animate-fade-in">
@@ -320,7 +299,6 @@ export default function SchedulesPage() {
                               {cellSchedules.map((s) => {
                                 const pct = s.capacity > 0 ? Math.round((s.enrolledCount / s.capacity) * 100) : 0;
                                 const barColor = pct >= 90 ? 'bg-red-500' : pct >= 60 ? 'bg-amber-500' : 'bg-emerald-500';
-                                const hasTeacher = !!s.teacherId;
                                 return (
                                   <div key={s._id}
                                     className="rounded-xl p-2 bg-gradient-to-br from-primary-500/20 to-purple-500/10 border border-primary-400/20 hover:border-primary-400/40 transition-all group/card cursor-pointer relative"
@@ -334,27 +312,18 @@ export default function SchedulesPage() {
                                       {s.classId?.courseName}
                                     </div>
 
+                                    {/* Session number */}
+                                    {s.sessionNumber && (
+                                      <div className="text-[9px] font-medium text-emerald-400 mt-0.5">
+                                        Session {s.sessionNumber}{s.classId?.totalSessions ? ` / ${s.classId.totalSessions}` : ''}
+                                      </div>
+                                    )}
+
                                     {/* Team badge */}
                                     <div className="mt-1">
                                       <span className="inline-flex items-center gap-1 text-[9px] font-semibold text-purple-300 bg-purple-500/15 px-1.5 py-0.5 rounded-full truncate max-w-full">
                                         👥 {s.bookedTeamId?.name || '—'}
                                       </span>
-                                    </div>
-
-                                    {/* Teacher — inline assignment */}
-                                    <div className="mt-1" onClick={(e) => e.stopPropagation()}>
-                                      <select
-                                        value={s.teacherId?._id || ''}
-                                        onChange={(e) => handleAssignTeacher(s._id, e.target.value)}
-                                        disabled={assigningId === s._id}
-                                        className="w-full px-1.5 py-0.5 rounded-lg bg-white/5 border border-white/10 text-[10px] focus:outline-none focus:ring-1 focus:ring-primary-500/50 transition-all disabled:opacity-50"
-                                        style={{ color: hasTeacher ? '#94a3b8' : '#f59e0b' }}
-                                      >
-                                        <option value="" className="bg-slate-800">⚠️ No teacher</option>
-                                        {teachers.map((t) => (
-                                          <option key={t._id} value={t._id} className="bg-slate-800">{t.name}</option>
-                                        ))}
-                                      </select>
                                     </div>
 
                                     {/* Capacity bar */}
@@ -442,7 +411,7 @@ export default function SchedulesPage() {
       {(modal === 'create' || (modal && modal._id)) && (
         <ScheduleModal
           schedule={modal === 'create' ? null : modal}
-          classes={classes} teachers={teachers} teams={teams}
+          classes={classes} teams={teams}
           prefill={prefill}
           onClose={() => { setModal(null); setPrefill(null); }}
           onSaved={() => { setModal(null); setPrefill(null); load(); }}

@@ -91,7 +91,6 @@ const getByUser = async (userId) => {
       path: 'scheduleId',
       populate: [
         { path: 'classId', select: 'classCode courseName' },
-        { path: 'teacherId', select: 'empCode name' },
       ],
     })
     .sort({ createdAt: -1 });
