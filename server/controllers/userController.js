@@ -32,13 +32,14 @@ const getUsers = async (req, res) => {
     if (req.query.status) filter.status = req.query.status;
     if (req.query.department) filter.department = { $regex: escapeRegex(req.query.department), $options: 'i' };
 
-    // Text search across empCode, name, department
+    // Text search across empCode, name, department, position
     if (req.query.search) {
       const s = escapeRegex(req.query.search);
       filter.$or = [
         { empCode: { $regex: s, $options: 'i' } },
         { name: { $regex: s, $options: 'i' } },
         { department: { $regex: s, $options: 'i' } },
+        { position: { $regex: s, $options: 'i' } },
       ];
     }
 
@@ -48,7 +49,31 @@ const getUsers = async (req, res) => {
       User.countDocuments(filter),
     ]);
 
-    res.json(paginatedResponse({ data: users, total, page, limit }));
+    // Compute lastActive date for each user via attendance records
+    const userIds = users.map(u => u._id);
+    const lastActiveAgg = await Attendance.aggregate([
+      { $match: { userId: { $in: userIds } } },
+      { $group: { _id: '$userId', lastDate: { $max: '$date' } } },
+    ]);
+    const lastActiveMap = {};
+    for (const a of lastActiveAgg) {
+      lastActiveMap[a._id.toString()] = a.lastDate;
+    }
+
+    // Merge lastActive into user objects
+    const enrichedUsers = users.map(u => {
+      const obj = u.toObject();
+      const lastDate = lastActiveMap[u._id.toString()] || null;
+      obj.lastActive = lastDate;
+      if (lastDate) {
+        obj.daysSince = Math.floor((Date.now() - new Date(lastDate).getTime()) / (1000 * 60 * 60 * 24));
+      } else {
+        obj.daysSince = null;
+      }
+      return obj;
+    });
+
+    res.json(paginatedResponse({ data: enrichedUsers, total, page, limit }));
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
@@ -79,7 +104,7 @@ const getUserById = async (req, res) => {
  */
 const createUser = async (req, res) => {
   try {
-    const { name, role, department, status, password } = req.body;
+    const { name, role, department, position, status, dropReason, password } = req.body;
     let { empCode } = req.body;
 
     // Auto-generate empCode if not provided
@@ -93,7 +118,9 @@ const createUser = async (req, res) => {
       name,
       role,
       department,
+      position,
       status,
+      dropReason,
       password: password || 'default123',
     });
 
@@ -116,14 +143,16 @@ const createUser = async (req, res) => {
  */
 const updateUser = async (req, res) => {
   try {
-    const { empCode, name, role, department, status } = req.body;
+    const { empCode, name, role, department, position, status, dropReason } = req.body;
     const updateData = {};
 
     if (empCode !== undefined) updateData.empCode = empCode;
     if (name !== undefined) updateData.name = name;
     if (role !== undefined) updateData.role = role;
     if (department !== undefined) updateData.department = department;
+    if (position !== undefined) updateData.position = position;
     if (status !== undefined) updateData.status = status;
+    if (dropReason !== undefined) updateData.dropReason = dropReason;
 
     // If password is being changed, hash it manually
     // (pre-save hooks don't run on findOneAndUpdate)
@@ -197,13 +226,16 @@ const deleteUser = async (req, res) => {
     // Cascade Step 3: Delete Attendance records
     const attResult = await Attendance.deleteMany({ userId: user._id });
 
-    // Step 4: Delete the user
+    // Cascade Step 4: Delete all Enrollment records for this user
+    const enrollResult = await Enrollment.deleteMany({ userId: user._id });
+
+    // Step 5: Delete the user
     await User.findByIdAndDelete(user._id);
 
     res.json({
       success: true,
       message: `User ${user.empCode} deleted`,
-      cascade: { deletedAttendance: attResult.deletedCount },
+      cascade: { deletedAttendance: attResult.deletedCount, deletedEnrollments: enrollResult.deletedCount },
     });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });

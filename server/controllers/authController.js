@@ -39,5 +39,30 @@ const logout = async (_req, res) => {
 const getMe = async (req, res) => {
   res.json({ success: true, data: req.user });
 };
+/**
+ * PUT /api/auth/change-password
+ */
+const changePassword = async (req, res) => {
+  try {
+    const { currentPassword, newPassword } = req.body;
+    const User = require('../models/User');
+    const user = await User.findById(req.user._id).select('+password');
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'User not found' });
+    }
+    const isMatch = await user.matchPassword(currentPassword);
+    if (!isMatch) {
+      return res.status(401).json({ success: false, message: 'Current password is incorrect' });
+    }
+    user.password = newPassword;
+    await user.save();
+    // Invalidate auth cache so the next request uses fresh data
+    const { invalidateUserCache } = require('../middleware/auth');
+    invalidateUserCache(user._id);
+    res.json({ success: true, message: 'Password changed successfully' });
+  } catch (error) {
+    handleError(res, error);
+  }
+};
 
-module.exports = { login, logout, getMe };
+module.exports = { login, logout, getMe, changePassword };

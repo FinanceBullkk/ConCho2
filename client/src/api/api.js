@@ -37,6 +37,8 @@ export const authAPI = {
   login: (empCode, password) => api.post('/auth/login', { empCode, password }),
   logout: () => api.post('/auth/logout'),
   getMe: () => api.get('/auth/me'),
+  changePassword: (currentPassword, newPassword) =>
+    api.put('/auth/change-password', { currentPassword, newPassword }),
 };
 
 // ── Users ─────────────────────────────────────────────────
@@ -129,6 +131,11 @@ export const enrollmentsAPI = {
   getByUser: (userId) => api.get(`/enrollments/user/${userId}`),
   update: (id, data) => api.put(`/enrollments/${id}`, data),
   checkConflicts: (data) => api.post('/enrollments/check-conflicts', data),
+};
+
+// ── Dashboard Analytics ───────────────────────────────────
+export const dashboardAPI = {
+  getStats: () => api.get('/dashboard/stats'),
 };
 
 export default api;

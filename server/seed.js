@@ -26,6 +26,7 @@ const Class = require('./models/Class');
 const Schedule = require('./models/Schedule');
 const Attendance = require('./models/Attendance');
 const Evaluation = require('./models/Evaluation');
+const Enrollment = require('./models/Enrollment');
 const Counter = require('./models/Counter');
 const Setting = require('./models/Setting');
 
@@ -55,6 +56,7 @@ const seed = async () => {
       dropIfExists(Schedule),
       dropIfExists(Attendance),
       dropIfExists(Evaluation),
+      dropIfExists(Enrollment),
       dropIfExists(Counter),
       dropIfExists(Setting),
     ]);
@@ -140,7 +142,7 @@ const seed = async () => {
 
     const part3 = await User.create({
       empCode: '000006',
-      name: 'Participant Vo (Dropped)',
+      name: 'Participant Vo',
       role: 'Participant',
       department: 'Sales',
       status: 'Active',
@@ -211,6 +213,19 @@ const seed = async () => {
     });
 
     console.log(`   ✅ Created 2 teams (each assigned to a class)`);
+
+    // ── Create Enrollment records for initial members ──────
+    console.log('📋 Creating enrollment records...');
+    const now = new Date();
+    await Enrollment.insertMany([
+      { userId: part1._id, teamId: teamA._id, classId: class1._id, joinedAt: now, status: 'Active' },
+      { userId: part2._id, teamId: teamA._id, classId: class1._id, joinedAt: now, status: 'Active' },
+      { userId: part3._id, teamId: teamA._id, classId: class1._id, joinedAt: now, status: 'Active' },
+      { userId: part4._id, teamId: teamB._id, classId: class2._id, joinedAt: now, status: 'Active' },
+      { userId: part5._id, teamId: teamB._id, classId: class2._id, joinedAt: now, status: 'Active' },
+      { userId: part6._id, teamId: teamB._id, classId: class2._id, joinedAt: now, status: 'Active' },
+    ]);
+    console.log(`   ✅ Created 6 enrollment records`);
 
     // ── Create Schedules (using startTime/endTime) ────────
     console.log('📅 Creating schedules...');
