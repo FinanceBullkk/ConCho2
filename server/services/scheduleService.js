@@ -130,8 +130,8 @@ const bookSlot = async ({ teamId, startTime, endTime, requestUser }) => {
   const allowedSlotsSetting = await Setting.findOne({ key: 'ALLOWED_TIME_SLOTS' });
   const ALLOWED_TIME_SLOTS = allowedSlotsSetting ? allowedSlotsSetting.value : [];
 
-  const sH = start.getHours(), sM = start.getMinutes();
-  const eH = end.getHours(), eM = end.getMinutes();
+  const sH = start.getUTCHours(), sM = start.getUTCMinutes();
+  const eH = end.getUTCHours(), eM = end.getUTCMinutes();
   const isValid = ALLOWED_TIME_SLOTS.some(s => s.sh === sH && s.sm === sM && s.eh === eH && s.em === eM);
 
   if (!isValid) {
@@ -181,8 +181,9 @@ const bookSlot = async ({ teamId, startTime, endTime, requestUser }) => {
         );
       }
 
-      // Step 3: Collision — no overlapping schedule
+      // Step 3: Collision — no overlapping schedule FOR THIS CLASS
       const collision = await Schedule.findOne({
+        classId: team.classId,
         startTime: { $lt: end },
         endTime: { $gt: start },
       }).session(session);
@@ -328,12 +329,13 @@ const getMyClassSchedules = async (userId) => {
 };
 
 /**
- * Admin-create a schedule with collision protection.
+ * Admin-create a schedule with full business rules.
  *
- * Unlike bookSlot (leader flow), this:
- *   - Does NOT enforce weekly limit (Admin override)
- *   - DOES enforce collision detection (no overlapping slots)
- *   - Auto-enrolls team members if bookedTeamId is provided
+ * Enforces:
+ *   - Team can only book for its assigned class code
+ *   - Max 2 sessions per team per week
+ *   - No overlapping time slots (collision detection)
+ *   - Auto-enrolls team members
  *
  * @param {Object} data  Schedule fields from req.body
  * @returns {Object} populated Schedule document
@@ -355,9 +357,18 @@ const adminCreate = async (data) => {
   if (end <= start) {
     throw new ServiceError('endTime must be after startTime');
   }
-  if (!isValidTimeSlot(start, end)) {
+
+  // ── Validate time slot against allowed settings ──────
+  const Setting = mongoose.model('Setting');
+  const allowedSlotsSetting = await Setting.findOne({ key: 'ALLOWED_TIME_SLOTS' });
+  const ALLOWED_TIME_SLOTS = allowedSlotsSetting ? allowedSlotsSetting.value : [];
+  const sH = start.getUTCHours(), sM = start.getUTCMinutes();
+  const eH = end.getUTCHours(), eM = end.getUTCMinutes();
+  const isValid = ALLOWED_TIME_SLOTS.some(s => s.sh === sH && s.sm === sM && s.eh === eH && s.em === eM);
+
+  if (!isValid) {
     throw new ServiceError(
-      'Khung giờ không hợp lệ — Only allowed time slots: 10:00-11:00, 11:00-12:00, 13:00-14:00, 14:00-15:00, 15:00-16:00'
+      'Khung giờ không hợp lệ — Only allowed time slots can be booked'
     );
   }
 
@@ -367,6 +378,29 @@ const adminCreate = async (data) => {
   if (bookedTeamId) {
     const team = await Team.findById(bookedTeamId).populate('members', '_id status');
     if (!team) throw new ServiceError('Team not found', 404);
+
+    // ── Rule: Team can only book sessions for its assigned class ──
+    if (team.classId && team.classId.toString() !== classId.toString()) {
+      throw new ServiceError(
+        'Team này được gán lớp khác — This team is assigned to a different class. Cannot book for this classId.',
+        400
+      );
+    }
+
+    // ── Rule: Max 2 sessions per team per week ──
+    const start = new Date(startTime);
+    const { weekStart, weekEnd } = getWeekBounds(start);
+    const weeklyCount = await Schedule.countDocuments({
+      bookedTeamId,
+      startTime: { $gte: weekStart, $lte: weekEnd },
+    });
+    if (weeklyCount >= 2) {
+      throw new ServiceError(
+        `Team đã đặt tối đa 2 buổi/tuần — This team already has ${weeklyCount} session(s) this week (limit: 2)`,
+        400
+      );
+    }
+
     const activeMembers = team.members.filter(m => m.status === 'Active');
     enrolledUsers = activeMembers.map(m => m._id);
     enrolledCount = enrolledUsers.length;
@@ -378,8 +412,9 @@ const adminCreate = async (data) => {
 
   try {
     await session.withTransaction(async () => {
-      // Collision — no overlapping schedule allowed
+      // Collision — no overlapping schedule FOR THIS CLASS
       const collision = await Schedule.findOne({
+        classId,
         startTime: { $lt: end },
         endTime: { $gt: start },
       }).session(session);

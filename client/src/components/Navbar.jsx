@@ -11,6 +11,11 @@ const NAV_ITEMS = {
     { path: '/data', label: 'Data', icon: '📤' },
     { path: '/settings', label: 'Settings', icon: '⚙️' },
   ],
+  Teacher: [
+    { path: '/dashboard', label: 'Dashboard', icon: '📊' },
+    { path: '/schedules', label: 'Schedules', icon: '📅' },
+    { path: '/attendance', label: 'Attendance', icon: '✅' },
+  ],
   Participant: [
     { path: '/dashboard', label: 'Dashboard', icon: '📊' },
     { path: '/schedules', label: 'Schedule & Book', icon: '📅' },
@@ -27,6 +32,7 @@ export default function Navbar() {
 
   const roleColors = {
     Admin: 'from-primary-500 to-purple-500',
+    Teacher: 'from-accent-green to-teal-400',
     Participant: 'from-accent-amber to-orange-400',
   };
 

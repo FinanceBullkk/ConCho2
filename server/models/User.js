@@ -40,13 +40,33 @@ const userSchema = new mongoose.Schema(
       trim: true,
       default: '',
     },
+    position: {
+      type: String,
+      trim: true,
+      default: '',
+    },
     status: {
       type: String,
       enum: {
-        values: ['Active', 'Dropped', 'Transferred', 'On-hold'],
+        values: ['Active', 'Inactive', 'Dropped', 'Transferred', 'On-hold', 'Waiting for class'],
         message: '{VALUE} is not a valid status',
       },
       default: 'Active',
+    },
+    dropReason: {
+      type: String,
+      trim: true,
+      default: '',
+    },
+    entranceLevel: {
+      type: String,
+      trim: true,
+      default: '',
+    },
+    currentLevel: {
+      type: String,
+      trim: true,
+      default: '',
     },
     password: {
       type: String,

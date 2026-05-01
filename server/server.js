@@ -3,6 +3,7 @@ const path = require('path');
 const cors = require('cors');
 const helmet = require('helmet');
 const cookieParser = require('cookie-parser');
+const mongoSanitize = require('express-mongo-sanitize');
 require('dotenv').config();
 
 const connectDB = require('./config/db');
@@ -56,11 +57,17 @@ app.use(cookieParser());                          // Parse HttpOnly cookies
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
 
-// ── Request logger (dev) ─────────────────────────────────
-app.use((req, _res, next) => {
-  console.log(`${req.method} ${req.originalUrl}`);
-  next();
-});
+// ── NoSQL Injection Prevention ───────────────────────────
+// Strips keys containing $ or . from req.body, req.query, req.params
+app.use(mongoSanitize());
+
+// ── Request logger (dev only) ────────────────────────────
+if (process.env.NODE_ENV !== 'production') {
+  app.use((req, _res, next) => {
+    console.log(`${req.method} ${req.originalUrl}`);
+    next();
+  });
+}
 
 // ── Health check ─────────────────────────────────────────
 app.get('/api/health', (_req, res) => {
@@ -86,6 +93,7 @@ app.use('/api/sync', require('./routes/syncRoutes'));
 app.use('/api/import', require('./routes/importRoutes'));
 app.use('/api/export', require('./routes/exportRoutes'));
 app.use('/api/settings', require('./routes/settingRoutes'));
+app.use('/api/dashboard', require('./routes/dashboardRoutes'));
 
 // ── Production: Serve React client build ─────────────────
 if (process.env.NODE_ENV === 'production') {
@@ -133,7 +141,9 @@ app.use((err, _req, res, _next) => {
   const statusCode = err.statusCode || 500;
   res.status(statusCode).json({
     success: false,
-    message: err.message || 'Internal Server Error',
+    message: statusCode === 500 && process.env.NODE_ENV === 'production'
+      ? 'Internal Server Error'
+      : err.message || 'Internal Server Error',
   });
 });
 

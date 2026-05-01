@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import UsersPage from './UsersPage';
 import TeamsPage from './TeamsPage';
-import EnrollmentPage from './EnrollmentPage';
 
 // ──────────────────────────────────────────────────────────
 // People Page — Hub for Users, Teams & Enrollment
@@ -10,7 +9,6 @@ import EnrollmentPage from './EnrollmentPage';
 const TABS = [
   { id: 'users', label: 'Users', icon: '👤' },
   { id: 'teams', label: 'Teams', icon: '👥' },
-  { id: 'enrollment', label: 'Enrollment', icon: '📋' },
 ];
 
 export default function PeoplePage() {
@@ -39,7 +37,6 @@ export default function PeoplePage() {
       {/* ── Tab content ────────────────────────────────── */}
       {activeTab === 'users' && <UsersPage />}
       {activeTab === 'teams' && <TeamsPage />}
-      {activeTab === 'enrollment' && <EnrollmentPage />}
     </div>
   );
 }

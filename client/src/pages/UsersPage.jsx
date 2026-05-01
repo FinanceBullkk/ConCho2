@@ -1,9 +1,9 @@
 import { useState, useEffect, useRef } from 'react';
-import { usersAPI } from '../api/api';
+import { usersAPI, teamsAPI } from '../api/api';
 import StudentProgressModal from '../components/Progress/StudentProgressModal';
 
 const ROLES = ['Admin', 'Teacher', 'Participant'];
-const STATUSES = ['Active', 'Dropped', 'Transferred', 'On-hold'];
+const STATUSES = ['Active', 'Inactive', 'Dropped', 'Transferred', 'On-hold', 'Waiting for class'];
 
 function UserModal({ user, onClose, onSaved }) {
   const isEdit = !!user?._id;
@@ -12,7 +12,9 @@ function UserModal({ user, onClose, onSaved }) {
     name: user?.name || '',
     role: user?.role || 'Participant',
     department: user?.department || '',
+    position: user?.position || '',
     status: user?.status || 'Active',
+    dropReason: user?.dropReason || '',
     password: '',
   });
   const [saving, setSaving] = useState(false);
@@ -47,7 +49,8 @@ function UserModal({ user, onClose, onSaved }) {
         {[
           { key: 'empCode', label: 'Employee Code', type: 'text', placeholder: 'e.g. PART007', disabled: isEdit },
           { key: 'name', label: 'Full Name', type: 'text', placeholder: 'Full name' },
-          { key: 'department', label: 'Department', type: 'text', placeholder: 'e.g. Sales' },
+          { key: 'department', label: 'BU / Department', type: 'text', placeholder: 'e.g. Sales, HR' },
+          { key: 'position', label: 'Position', type: 'text', placeholder: 'e.g. DEV, QC, Designer' },
           { key: 'password', label: isEdit ? 'New Password (leave blank to keep)' : 'Password', type: 'password', placeholder: '••••••••' },
         ].map(({ key, label, type, placeholder, disabled }) => (
           <div key={key}>
@@ -75,6 +78,16 @@ function UserModal({ user, onClose, onSaved }) {
           </div>
         </div>
 
+        {/* Drop Reason — only show when status is Dropped/Inactive/Transferred */}
+        {['Dropped', 'Inactive', 'Transferred'].includes(form.status) && (
+          <div>
+            <label className="block text-sm text-slate-300 mb-1">Drop/Leave Reason</label>
+            <input type="text" value={form.dropReason} onChange={(e) => set('dropReason', e.target.value)}
+              placeholder="e.g. High workload, Learning goal achieved"
+              className="w-full px-4 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-primary-500/50 transition-all" />
+          </div>
+        )}
+
         <div className="flex gap-3 pt-2">
           <button type="button" onClick={onClose} className="flex-1 py-2.5 rounded-xl border border-white/10 text-slate-400 hover:bg-white/5 transition-all">Cancel</button>
           <button type="submit" disabled={saving} className="flex-1 py-2.5 rounded-xl bg-gradient-to-r from-primary-600 to-primary-500 text-white font-semibold hover:from-primary-500 hover:to-primary-400 transition-all disabled:opacity-50">
@@ -88,9 +101,11 @@ function UserModal({ user, onClose, onSaved }) {
 
 const STATUS_BADGE = {
   Active: 'bg-emerald-500/15 text-emerald-400',
+  Inactive: 'bg-slate-500/15 text-slate-400',
   Dropped: 'bg-red-500/15 text-red-400',
   Transferred: 'bg-amber-500/15 text-amber-400',
   'On-hold': 'bg-slate-500/15 text-slate-400',
+  'Waiting for class': 'bg-blue-500/15 text-blue-400',
 };
 const ROLE_BADGE = {
   Admin: 'bg-primary-500/15 text-primary-300',
@@ -113,6 +128,7 @@ export default function UsersPage() {
   const [total, setTotal] = useState(0);
   const [pages, setPages] = useState(1);
   const [progressModal, setProgressModal] = useState(null); // { id, name }
+  const [teamsByUser, setTeamsByUser] = useState({}); // userId → { teamName, classCode, courseName }
 
   // UX-06: Browser tab title
   useEffect(() => { document.title = 'TMS — Users'; }, []);
@@ -140,6 +156,34 @@ export default function UsersPage() {
   };
 
   useEffect(() => { load(); }, [filterRole, filterStatus, debouncedSearch, page]);
+
+  // Load team assignments for all users
+  useEffect(() => {
+    teamsAPI.getAll().then(res => {
+      const map = {};
+      for (const t of res.data.data) {
+        const cls = t.classId;
+        const info = {
+          teamName: t.name,
+          classCode: cls?.classCode || '',
+          courseName: cls?.courseName || '',
+        };
+        // Map each member to this team
+        if (t.members) {
+          t.members.forEach(m => {
+            const uid = m._id || m;
+            map[uid] = info;
+          });
+        }
+        // Also map leader
+        if (t.leaderId) {
+          const lid = t.leaderId._id || t.leaderId;
+          map[lid] = info;
+        }
+      }
+      setTeamsByUser(map);
+    }).catch(() => {});
+  }, [users]); // refresh when users change
 
   const handleDelete = async (id) => {
     try { await usersAPI.delete(id); load(); } catch (err) { alert(err.response?.data?.message || 'Delete failed'); }
@@ -194,35 +238,79 @@ export default function UsersPage() {
           <table className="w-full text-sm">
             <thead className="border-b border-white/5">
               <tr className="text-left text-slate-400 text-xs uppercase tracking-wider">
-                {['Emp Code', 'Name', 'Role', 'Department', 'Status', 'Actions'].map((h) => (
-                  <th key={h} className="px-5 py-4 font-medium">{h}</th>
+                {['Code', 'Name', 'BU', 'Position', 'Level', 'Status', 'Team / Class', 'Last Active', 'Actions'].map((h) => (
+                  <th key={h} className="px-4 py-3 font-medium">{h}</th>
                 ))}
               </tr>
             </thead>
             <tbody className="divide-y divide-white/5 stagger">
               {users.map((u) => (
                 <tr key={u._id} className="hover:bg-white/3 transition-colors">
-                  <td className="px-5 py-4 font-mono text-primary-300 font-medium">{u.empCode}</td>
-                  <td className="px-5 py-4 text-white font-medium">
-                    <button onClick={() => setProgressModal({ id: u._id, name: u.name })} className="hover:text-teal-400 hover:underline transition-colors text-left">
+                  <td className="px-4 py-3 font-mono text-primary-300 font-medium text-xs">{u.empCode}</td>
+                  <td className="px-4 py-3 text-white font-medium">
+                    <button onClick={() => setProgressModal({ id: u._id, name: u.name })} className="hover:text-teal-400 hover:underline transition-colors text-left text-sm">
                       {u.name}
                     </button>
+                    {u.role !== 'Participant' && (
+                      <span className={`ml-2 px-1.5 py-0.5 rounded text-[10px] font-medium ${ROLE_BADGE[u.role]}`}>{u.role}</span>
+                    )}
                   </td>
-                  <td className="px-5 py-4">
-                    <span className={`px-2.5 py-1 rounded-lg text-xs font-medium ${ROLE_BADGE[u.role]}`}>{u.role}</span>
+                  <td className="px-4 py-3 text-slate-400 text-xs">{u.department || '—'}</td>
+                  <td className="px-4 py-3 text-slate-400 text-xs">{u.position || '—'}</td>
+                  <td className="px-4 py-3">
+                    {(u.entranceLevel || u.currentLevel) ? (
+                      <div>
+                        {u.currentLevel && <div className="text-xs text-white font-medium">{u.currentLevel}</div>}
+                        {u.entranceLevel && u.entranceLevel !== u.currentLevel && (
+                          <div className="text-[10px] text-slate-500">from {u.entranceLevel}</div>
+                        )}
+                      </div>
+                    ) : (
+                      <span className="text-xs text-slate-600">—</span>
+                    )}
                   </td>
-                  <td className="px-5 py-4 text-slate-400">{u.department || '—'}</td>
-                  <td className="px-5 py-4">
-                    <span className={`px-2.5 py-1 rounded-lg text-xs font-medium ${STATUS_BADGE[u.status]}`}>{u.status}</span>
+                  <td className="px-4 py-3">
+                    <span className={`px-2 py-0.5 rounded-lg text-[11px] font-medium ${STATUS_BADGE[u.status]}`}>{u.status}</span>
+                    {u.dropReason && (
+                      <div className="text-[10px] text-slate-500 mt-0.5 truncate max-w-[120px]" title={u.dropReason}>{u.dropReason}</div>
+                    )}
                   </td>
-                  <td className="px-5 py-4">
-                    <div className="flex gap-2">
+                  <td className="px-4 py-3">
+                    {teamsByUser[u._id] ? (
+                      <div>
+                        <div className="text-xs text-white font-medium">{teamsByUser[u._id].teamName}</div>
+                        {teamsByUser[u._id].classCode && (
+                          <div className="text-[10px] text-slate-500">
+                            {teamsByUser[u._id].classCode} — {teamsByUser[u._id].courseName}
+                          </div>
+                        )}
+                      </div>
+                    ) : (
+                      <span className="text-xs text-slate-600 italic">—</span>
+                    )}
+                  </td>
+                  <td className="px-4 py-3">
+                    {u.lastActive ? (
+                      <div>
+                        <div className="text-xs text-slate-300">{new Date(u.lastActive).toLocaleDateString('en', { day: '2-digit', month: 'short' })}</div>
+                        <div className={`text-[10px] font-semibold ${
+                          u.daysSince > 30 ? 'text-red-400' : u.daysSince > 14 ? 'text-amber-400' : 'text-slate-500'
+                        }`}>
+                          {u.daysSince}d ago {u.daysSince > 30 ? '⚠️' : ''}
+                        </div>
+                      </div>
+                    ) : (
+                      <span className="text-xs text-slate-600">—</span>
+                    )}
+                  </td>
+                  <td className="px-4 py-3">
+                    <div className="flex gap-1">
                       <button onClick={() => setProgressModal({ id: u._id, name: u.name })}
-                        className="px-3 py-1.5 rounded-lg bg-white/5 text-slate-300 text-xs hover:bg-teal-500/20 hover:text-teal-300 transition-all" title="View Progress">📊</button>
+                        className="px-2 py-1 rounded-lg bg-white/5 text-slate-300 text-xs hover:bg-teal-500/20 hover:text-teal-300 transition-all" title="View Progress">📊</button>
                       <button onClick={() => setModal(u)}
-                        className="px-3 py-1.5 rounded-lg bg-white/5 text-slate-300 text-xs hover:bg-primary-500/20 hover:text-primary-300 transition-all">Edit</button>
+                        className="px-2 py-1 rounded-lg bg-white/5 text-slate-300 text-xs hover:bg-primary-500/20 hover:text-primary-300 transition-all">✏️</button>
                       <button onClick={() => setDeleteId(u._id)}
-                        className="px-3 py-1.5 rounded-lg bg-white/5 text-slate-300 text-xs hover:bg-red-500/20 hover:text-red-400 transition-all">Del</button>
+                        className="px-2 py-1 rounded-lg bg-white/5 text-slate-300 text-xs hover:bg-red-500/20 hover:text-red-400 transition-all">🗑</button>
                     </div>
                   </td>
                 </tr>

@@ -82,10 +82,10 @@ const createSchedule = async (req, res) => {
 
 const updateSchedule = async (req, res) => {
   try {
-    if (req.body.startTime || req.body.endTime) {
-      const existing = await Schedule.findById(req.params.id);
-      if (!existing) return res.status(404).json({ success: false, message: 'Schedule not found' });
+    const existing = await Schedule.findById(req.params.id);
+    if (!existing) return res.status(404).json({ success: false, message: 'Schedule not found' });
 
+    if (req.body.startTime || req.body.endTime) {
       const start = new Date(req.body.startTime || existing.startTime);
       const end = new Date(req.body.endTime || existing.endTime);
 
@@ -93,6 +93,7 @@ const updateSchedule = async (req, res) => {
         return res.status(400).json({ success: false, message: 'endTime must be after startTime' });
       }
 
+      // ── Collision check ────────────────────────────────
       const collision = await Schedule.findOne({
         _id: { $ne: existing._id },
         startTime: { $lt: end },
@@ -102,6 +103,65 @@ const updateSchedule = async (req, res) => {
         return res.status(409).json({
           success: false,
           message: 'Cannot move schedule - time slot overlaps with an existing schedule',
+        });
+      }
+
+      // ── Weekly limit check (max 2 sessions/team/week) ──
+      // Only enforce when startTime changes (moving to a different week)
+      if (req.body.startTime) {
+        const teamId = req.body.bookedTeamId || existing.bookedTeamId;
+        const d = new Date(start);
+        const dayOfWeek = d.getUTCDay();
+        const diffToMonday = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
+        const weekStart = new Date(Date.UTC(
+          d.getUTCFullYear(), d.getUTCMonth(),
+          d.getUTCDate() + diffToMonday, 0, 0, 0, 0
+        ));
+        const weekEnd = new Date(Date.UTC(
+          weekStart.getUTCFullYear(), weekStart.getUTCMonth(),
+          weekStart.getUTCDate() + 6, 23, 59, 59, 999
+        ));
+
+        const weeklyCount = await Schedule.countDocuments({
+          _id: { $ne: existing._id },
+          bookedTeamId: teamId,
+          startTime: { $gte: weekStart, $lte: weekEnd },
+        });
+
+        if (weeklyCount >= 2) {
+          return res.status(400).json({
+            success: false,
+            message: 'Cannot move schedule — target week already has 2 sessions for this team (limit: 2/week)',
+          });
+        }
+      }
+    }
+
+    // ── Also check weekly limit when changing bookedTeamId ──
+    if (req.body.bookedTeamId && req.body.bookedTeamId !== existing.bookedTeamId?.toString()) {
+      const start = new Date(req.body.startTime || existing.startTime);
+      const d = new Date(start);
+      const dayOfWeek = d.getUTCDay();
+      const diffToMonday = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
+      const weekStart = new Date(Date.UTC(
+        d.getUTCFullYear(), d.getUTCMonth(),
+        d.getUTCDate() + diffToMonday, 0, 0, 0, 0
+      ));
+      const weekEnd = new Date(Date.UTC(
+        weekStart.getUTCFullYear(), weekStart.getUTCMonth(),
+        weekStart.getUTCDate() + 6, 23, 59, 59, 999
+      ));
+
+      const weeklyCount = await Schedule.countDocuments({
+        _id: { $ne: existing._id },
+        bookedTeamId: req.body.bookedTeamId,
+        startTime: { $gte: weekStart, $lte: weekEnd },
+      });
+
+      if (weeklyCount >= 2) {
+        return res.status(400).json({
+          success: false,
+          message: 'Cannot reassign schedule — target team already has 2 sessions this week (limit: 2/week)',
         });
       }
     }
