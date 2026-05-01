@@ -16,9 +16,9 @@ const teamSchema = new mongoose.Schema(
   {
     name: {
       type: String,
-      required: [true, 'Team name is required'],
+      required: [true, 'Team name (PIC) is required'],
       trim: true,
-      unique: true,
+      // NOT unique — same PIC can manage multiple courses
     },
     classId: {
       type: mongoose.Schema.Types.ObjectId,
