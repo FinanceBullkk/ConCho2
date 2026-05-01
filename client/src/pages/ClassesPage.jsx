@@ -145,14 +145,10 @@ function EditClassModal({ cls, team, onClose, onSaved, onDeleted, onNavigate }) 
                   </div>
                 </div>
               </div>
-              <div className="flex gap-2 pt-1">
+              <div className="pt-1">
                 <button onClick={() => onNavigate('/people')}
-                  className="flex-1 py-2 rounded-lg bg-purple-500/10 text-purple-300 text-xs font-semibold border border-purple-500/20 hover:bg-purple-500/20 transition-all">
-                  👥 Manage Team
-                </button>
-                <button onClick={() => onNavigate('/people')}
-                  className="flex-1 py-2 rounded-lg bg-primary-500/10 text-primary-300 text-xs font-semibold border border-primary-500/20 hover:bg-primary-500/20 transition-all">
-                  📋 Enrollment
+                  className="w-full py-2 rounded-lg bg-purple-500/10 text-purple-300 text-xs font-semibold border border-purple-500/20 hover:bg-purple-500/20 transition-all">
+                  👥 Manage Team & Members
                 </button>
               </div>
             </div>

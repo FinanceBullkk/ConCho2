@@ -42,6 +42,11 @@ const classSchema = new mongoose.Schema(
       required: true,
       min: [1, 'Must have at least 1 session'],
     },
+    bookedSessions: {
+      type: Number,
+      default: 0,
+      min: 0,
+    },
     status: {
       type: String,
       enum: {

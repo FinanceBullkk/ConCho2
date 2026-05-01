@@ -104,6 +104,21 @@ const createClass = async (req, res) => {
       return res.status(400).json({ success: false, message: `Unknown course: ${courseName}` });
     }
 
+    // ── Rule: Only 1 Ongoing course per classCode ──────────
+    const effectiveStatus = status || 'Ongoing';
+    if (effectiveStatus === 'Ongoing') {
+      const existingOngoing = await Class.findOne({
+        classCode: classCode.toUpperCase(),
+        status: 'Ongoing',
+      });
+      if (existingOngoing) {
+        return res.status(409).json({
+          success: false,
+          message: `Class "${classCode.toUpperCase()}" already has an Ongoing course: "${existingOngoing.courseName}". Please mark it as Completed before starting a new course.`,
+        });
+      }
+    }
+
     const cls = await Class.create({ classCode: classCode.toUpperCase(), courseName, totalSessions, status });
     res.status(201).json({ success: true, data: cls });
   } catch (error) {
@@ -123,12 +138,32 @@ const createClass = async (req, res) => {
  */
 const updateClass = async (req, res) => {
   try {
+    const existingCls = await Class.findById(req.params.id);
+    if (!existingCls) return res.status(404).json({ success: false, message: 'Class not found' });
+
     // If courseName is being changed, recalculate totalSessions
     if (req.body.courseName && !req.body.totalSessions) {
       const Setting = mongoose.model('Setting');
       const setting = await Setting.findOne({ key: 'COURSE_SESSIONS' });
       if (setting && setting.value[req.body.courseName]) {
         req.body.totalSessions = setting.value[req.body.courseName];
+      }
+    }
+
+    // ── Rule: Only 1 Ongoing course per classCode ──────────
+    const newStatus = req.body.status || existingCls.status;
+    if (newStatus === 'Ongoing' && existingCls.status !== 'Ongoing') {
+      // Changing TO Ongoing — check for conflicts
+      const conflict = await Class.findOne({
+        _id: { $ne: existingCls._id },
+        classCode: existingCls.classCode,
+        status: 'Ongoing',
+      });
+      if (conflict) {
+        return res.status(409).json({
+          success: false,
+          message: `Class "${existingCls.classCode}" already has an Ongoing course: "${conflict.courseName}". Mark it as Completed first.`,
+        });
       }
     }
 
