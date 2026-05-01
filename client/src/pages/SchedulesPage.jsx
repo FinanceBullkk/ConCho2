@@ -58,22 +58,61 @@ function ScheduleModal({ schedule, classes, teams, onClose, onSaved, prefill }) 
     return `${dt.getFullYear()}-${String(dt.getMonth()+1).padStart(2,'0')}-${String(dt.getDate()).padStart(2,'0')}T${String(dt.getHours()).padStart(2,'0')}:${String(dt.getMinutes()).padStart(2,'0')}`;
   };
 
-  const [form, setForm] = useState({
-    classId: schedule?.classId?._id || schedule?.classId || '',
-    bookedTeamId: schedule?.bookedTeamId?._id || schedule?.bookedTeamId || '',
-    startTime: toDateTimeLocal(schedule?.startTime || prefill?.startTime),
-    endTime: toDateTimeLocal(schedule?.endTime || prefill?.endTime),
-    roomLink: schedule?.roomLink || '',
-    capacity: schedule?.capacity || 9,
+  // Build lookup maps for Team ↔ Class sync
+  const teamById = {};
+  const teamByClassId = {};
+  teams.forEach(t => {
+    teamById[t._id] = t;
+    const cId = t.classId?._id || t.classId;
+    if (cId) teamByClassId[cId] = t;
+  });
+  const classById = {};
+  classes.forEach(c => { classById[c._id] = c; });
+
+  // Only show teams that have an assigned class (valid for scheduling)
+  const assignedTeams = teams.filter(t => t.classId);
+
+  const [form, setForm] = useState(() => {
+    const initTeamId = schedule?.bookedTeamId?._id || schedule?.bookedTeamId || '';
+    let initClassId = schedule?.classId?._id || schedule?.classId || '';
+
+    // Auto-resolve classId from team if not set
+    if (!initClassId && initTeamId) {
+      const t = teamById[initTeamId];
+      if (t?.classId) initClassId = t.classId._id || t.classId;
+    }
+
+    return {
+      classId: initClassId,
+      bookedTeamId: initTeamId,
+      startTime: toDateTimeLocal(schedule?.startTime || prefill?.startTime),
+      endTime: toDateTimeLocal(schedule?.endTime || prefill?.endTime),
+      roomLink: schedule?.roomLink || '',
+      capacity: schedule?.capacity || 9,
+    };
   });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+
+  // Derive the resolved class info from selected team
+  const selectedTeam = form.bookedTeamId ? teamById[form.bookedTeamId] : null;
+  const resolvedClassId = selectedTeam?.classId?._id || selectedTeam?.classId || form.classId;
+  const resolvedClass = resolvedClassId ? classById[resolvedClassId] : null;
+  // Also check: does this team even have a class?
+  const teamHasNoClass = selectedTeam && !selectedTeam.classId;
+
+  const handleTeamChange = (teamId) => {
+    const team = teamById[teamId];
+    const classId = team?.classId?._id || team?.classId || '';
+    setForm(p => ({ ...p, bookedTeamId: teamId, classId }));
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault(); setSaving(true); setError('');
     try {
       const payload = {
         ...form,
+        classId: resolvedClassId || form.classId,
         startTime: new Date(form.startTime).toISOString(),
         endTime: new Date(form.endTime).toISOString(),
       };
@@ -94,22 +133,43 @@ function ScheduleModal({ schedule, classes, teams, onClose, onSaved, prefill }) 
         {error && <div className="px-4 py-2 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-sm">{error}</div>}
 
         <div className="grid grid-cols-2 gap-4">
-          <div className="col-span-2">
-            <label className="block text-sm text-slate-300 mb-1">Class</label>
-            <select value={form.classId} onChange={(e) => f('classId', e.target.value)} required
-              className="w-full px-3 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white focus:outline-none focus:ring-2 focus:ring-primary-500/50 transition-all">
-              <option value="" className="bg-slate-800">Select class…</option>
-              {classes.map((c) => <option key={c._id} value={c._id} className="bg-slate-800">{c.classCode} — {c.courseName}</option>)}
-            </select>
-          </div>
+          {/* ── Team selector (primary) ──────────────────── */}
           <div className="col-span-2">
             <label className="block text-sm text-slate-300 mb-1">Team</label>
-            <select value={form.bookedTeamId} onChange={(e) => f('bookedTeamId', e.target.value)} required
+            <select value={form.bookedTeamId} onChange={(e) => handleTeamChange(e.target.value)} required
               className="w-full px-3 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white focus:outline-none focus:ring-2 focus:ring-primary-500/50 transition-all">
               <option value="" className="bg-slate-800">Select team…</option>
-              {teams.map((t) => <option key={t._id} value={t._id} className="bg-slate-800">{t.name}</option>)}
+              {assignedTeams.map((t) => {
+                const cls = classById[t.classId?._id || t.classId];
+                const label = cls ? `${t.name} → ${cls.classCode} (${cls.courseName})` : t.name;
+                return <option key={t._id} value={t._id} className="bg-slate-800">{label}</option>;
+              })}
             </select>
           </div>
+
+          {/* ── Auto-resolved class (read-only info) ────── */}
+          <div className="col-span-2">
+            <label className="block text-sm text-slate-300 mb-1">Class <span className="text-slate-500">(auto-synced from team)</span></label>
+            {resolvedClass ? (
+              <div className="flex items-center gap-2 px-3 py-2.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20">
+                <span className="text-emerald-400 text-sm font-bold">{resolvedClass.classCode}</span>
+                <span className="text-slate-400 text-sm">—</span>
+                <span className="text-slate-300 text-sm">{resolvedClass.courseName}</span>
+                <span className={`ml-auto text-[10px] font-semibold px-2 py-0.5 rounded-full ${
+                  resolvedClass.status === 'Ongoing' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-slate-500/20 text-slate-400'
+                }`}>{resolvedClass.status}</span>
+              </div>
+            ) : teamHasNoClass ? (
+              <div className="px-3 py-2.5 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-400 text-sm">
+                ⚠️ This team has no assigned class. Please assign a class in the Classes page first.
+              </div>
+            ) : (
+              <div className="px-3 py-2.5 rounded-xl bg-white/5 border border-white/10 text-slate-500 text-sm">
+                Select a team to auto-fill class
+              </div>
+            )}
+          </div>
+
           <div>
             <label className="block text-sm text-slate-300 mb-1">Start Time</label>
             <input type="datetime-local" value={form.startTime} onChange={(e) => f('startTime', e.target.value)} required
@@ -134,7 +194,7 @@ function ScheduleModal({ schedule, classes, teams, onClose, onSaved, prefill }) 
 
         <div className="flex gap-3 pt-2">
           <button type="button" onClick={onClose} className="flex-1 py-2.5 rounded-xl border border-white/10 text-slate-400 hover:bg-white/5 transition-all">Cancel</button>
-          <button type="submit" disabled={saving} className="flex-1 py-2.5 rounded-xl bg-gradient-to-r from-primary-600 to-primary-500 text-white font-semibold disabled:opacity-50 transition-all">
+          <button type="submit" disabled={saving || teamHasNoClass} className="flex-1 py-2.5 rounded-xl bg-gradient-to-r from-primary-600 to-primary-500 text-white font-semibold disabled:opacity-50 transition-all">
             {saving ? 'Saving...' : isEdit ? 'Update' : 'Create'}
           </button>
         </div>

@@ -82,7 +82,7 @@ scheduleSchema.virtual('availableSpots').get(function () {
 });
 
 // ── Indexes ───────────────────────────────────────────────
-scheduleSchema.index({ startTime: 1, endTime: 1 }, { unique: true }); // Collision prevention (Part 2: Concurrency Lock)
+scheduleSchema.index({ classId: 1, startTime: 1, endTime: 1 }, { unique: true }); // Same class can't have 2 sessions at same time
 scheduleSchema.index({ bookedTeamId: 1, startTime: 1 });               // Weekly count queries
 scheduleSchema.index({ classId: 1, startTime: 1 });
 scheduleSchema.index({ enrolledUsers: 1 });

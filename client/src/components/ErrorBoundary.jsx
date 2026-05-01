@@ -1,0 +1,53 @@
+import { Component } from 'react';
+
+export default class ErrorBoundary extends Component {
+  constructor(props) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
+
+  static getDerivedStateFromError(error) {
+    return { hasError: true, error };
+  }
+
+  componentDidCatch(error, errorInfo) {
+    console.error('ErrorBoundary caught:', error, errorInfo);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="min-h-screen flex items-center justify-center p-4">
+          <div className="glass rounded-2xl p-8 text-center max-w-md animate-fade-in">
+            <div className="text-5xl mb-4">💥</div>
+            <h2 className="text-xl font-bold text-white mb-2">Đã xảy ra lỗi</h2>
+            <p className="text-slate-400 text-sm mb-6">
+              Ứng dụng gặp lỗi không mong muốn. Vui lòng tải lại trang.
+            </p>
+            <div className="flex gap-3 justify-center">
+              <button
+                onClick={() => window.location.reload()}
+                className="px-6 py-2.5 rounded-xl bg-primary-500 text-white font-semibold hover:bg-primary-600 transition-colors"
+              >
+                Tải lại trang
+              </button>
+              <button
+                onClick={() => this.setState({ hasError: false, error: null })}
+                className="px-6 py-2.5 rounded-xl border border-white/10 text-slate-300 hover:bg-white/5 transition-colors"
+              >
+                Thử lại
+              </button>
+            </div>
+            {process.env.NODE_ENV !== 'production' && this.state.error && (
+              <pre className="mt-4 text-xs text-left text-red-400/80 bg-red-500/10 rounded-lg p-3 overflow-auto max-h-40">
+                {this.state.error.toString()}
+              </pre>
+            )}
+          </div>
+        </div>
+      );
+    }
+
+    return this.props.children;
+  }
+}

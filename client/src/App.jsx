@@ -3,6 +3,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import ProtectedRoute from './components/ProtectedRoute';
+import ErrorBoundary from './components/ErrorBoundary';
 import Layout from './components/Layout';
 import LoginPage from './pages/LoginPage';
 import DashboardPage from './pages/DashboardPage';
@@ -14,7 +15,7 @@ import DataPage from './pages/DataPage';
 import BookClassPage from './pages/BookClassPage';
 import SettingsPage from './pages/SettingsPage';
 
-// Role-aware schedule view: Participant gets calendar+booking, others get list CRUD
+// Role-aware schedule view: Participant gets calendar+booking, Admin/Teacher get list CRUD
 function ScheduleRouter() {
   const { user } = useAuth();
   return user?.role === 'Participant' ? <BookClassPage /> : <SchedulesPage />;
@@ -50,6 +51,7 @@ function AuthExpiredModal() {
 
 export default function App() {
   return (
+    <ErrorBoundary>
     <BrowserRouter>
       <AuthProvider>
         <AuthExpiredModal />
@@ -76,10 +78,10 @@ export default function App() {
               <ProtectedRoute roles={['Admin']}><ClassesPage /></ProtectedRoute>
             } />
             <Route path="/schedules" element={
-              <ProtectedRoute roles={['Admin', 'Participant']}><ScheduleRouter /></ProtectedRoute>
+              <ProtectedRoute roles={['Admin', 'Teacher', 'Participant']}><ScheduleRouter /></ProtectedRoute>
             } />
             <Route path="/attendance" element={
-              <ProtectedRoute roles={['Admin']}><AttendanceHubPage /></ProtectedRoute>
+              <ProtectedRoute roles={['Admin', 'Teacher']}><AttendanceHubPage /></ProtectedRoute>
             } />
             <Route path="/data" element={
               <ProtectedRoute roles={['Admin']}><DataPage /></ProtectedRoute>
@@ -94,5 +96,6 @@ export default function App() {
         </Routes>
       </AuthProvider>
     </BrowserRouter>
+    </ErrorBoundary>
   );
 }
