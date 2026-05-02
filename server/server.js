@@ -159,16 +159,20 @@ app.use((err, _req, res, _next) => {
 // ── Start ─────────────────────────────────────────────────
 const PORT = process.env.PORT || 5000;
 
-const startServer = async () => {
-  await connectDB();
-  app.listen(PORT, () => {
-    console.log(`🚀 TMS v2 API running on http://localhost:${PORT}`);
-  });
-};
+// In test mode, supertest handles HTTP and tests manage their own DB connection.
+// Only auto-start when running normally (dev/production).
+if (process.env.NODE_ENV !== 'test') {
+  const startServer = async () => {
+    await connectDB();
+    app.listen(PORT, () => {
+      console.log(`🚀 TMS v2 API running on http://localhost:${PORT}`);
+    });
+  };
 
-startServer().catch((err) => {
-  console.error('Failed to start server:', err.message);
-  process.exit(1);
-});
+  startServer().catch((err) => {
+    console.error('Failed to start server:', err.message);
+    process.exit(1);
+  });
+}
 
 module.exports = app;
