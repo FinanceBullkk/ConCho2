@@ -1,9 +1,8 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
-import { classesAPI } from '../api/api';
 import Portal from '../components/Portal';
-import { useClasses, useCourses } from '../hooks/useClasses';
+import { useClasses, useCourses, useCreateClass, useUpdateClass, useDeleteClass } from '../hooks/useClasses';
 import { useTeams } from '../hooks/useTeams';
 import { qk } from '../hooks/queryKeys';
 
@@ -36,20 +35,19 @@ const SHORT_NAMES = {
 // ── New Cohort Modal ──────────────────────────────────────
 
 function NewCohortModal({ courseNames, onClose, onSaved }) {
+  const createMutation = useCreateClass();
   const [courseName, setCourseName] = useState(courseNames[0] || '');
-  const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setSaving(true); setError('');
+    setError('');
     try {
-      // classCode omitted → backend auto-generates next ELxxx
-      await classesAPI.create({ courseName });
+      await createMutation.mutateAsync({ courseName });
       onSaved();
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to create cohort');
-    } finally { setSaving(false); }
+    }
   };
 
   return (
@@ -69,8 +67,8 @@ function NewCohortModal({ courseNames, onClose, onSaved }) {
         </div>
         <div className="flex gap-3 pt-2">
           <button type="button" onClick={onClose} className="flex-1 py-2.5 rounded-xl border border-white/10 text-slate-400 hover:bg-white/5 transition-all">Cancel</button>
-          <button type="submit" disabled={saving} className="flex-1 py-2.5 rounded-xl bg-gradient-to-r from-primary-600 to-primary-500 text-white font-semibold disabled:opacity-50 transition-all">
-            {saving ? 'Creating...' : 'Create Cohort'}
+          <button type="submit" disabled={createMutation.isPending} className="flex-1 py-2.5 rounded-xl bg-gradient-to-r from-primary-600 to-primary-500 text-white font-semibold disabled:opacity-50 transition-all">
+            {createMutation.isPending ? 'Creating...' : 'Create Cohort'}
           </button>
         </div>
       </form>
@@ -82,37 +80,34 @@ function NewCohortModal({ courseNames, onClose, onSaved }) {
 // ── Edit Class Modal ──────────────────────────────────────
 
 function EditClassModal({ cls, team, onClose, onSaved, onDeleted, onNavigate }) {
+  const updateMutation = useUpdateClass();
+  const deleteMutation = useDeleteClass();
   const [status, setStatus] = useState(cls.status);
   const [totalSessions, setTotalSessions] = useState(cls.totalSessions);
-  const [saving, setSaving] = useState(false);
-  const [deleting, setDeleting] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [error, setError] = useState('');
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setSaving(true); setError('');
+    setError('');
     try {
-      await classesAPI.update(cls._id, { status, totalSessions });
+      await updateMutation.mutateAsync({ id: cls._id, data: { status, totalSessions } });
       onSaved();
     } catch (err) {
       setError(err.response?.data?.message || 'Update failed');
-    } finally { setSaving(false); }
+    }
   };
 
   const handleDelete = async () => {
-    if (!confirmDelete) {
-      setConfirmDelete(true);
-      return;
-    }
-    setDeleting(true); setError('');
+    if (!confirmDelete) { setConfirmDelete(true); return; }
+    setError('');
     try {
-      await classesAPI.delete(cls._id);
+      await deleteMutation.mutateAsync(cls._id);
       onDeleted();
     } catch (err) {
       setError(err.response?.data?.message || 'Delete failed');
       setConfirmDelete(false);
-    } finally { setDeleting(false); }
+    }
   };
 
   const pct = cls.totalSessions > 0 ? Math.round((cls.bookedSessions / cls.totalSessions) * 100) : 0;
@@ -182,13 +177,13 @@ function EditClassModal({ cls, team, onClose, onSaved, onDeleted, onNavigate }) 
           </div>
 
           <div className="flex gap-3 pt-2">
-            <button type="button" onClick={handleDelete} disabled={deleting}
+            <button type="button" onClick={handleDelete} disabled={deleteMutation.isPending}
               className={`py-2.5 px-4 rounded-xl border transition-all text-sm font-semibold ${
                 confirmDelete
                   ? 'bg-red-500/30 text-red-300 border-red-500/40 hover:bg-red-500/40'
                   : 'bg-red-500/10 text-red-400 border-red-500/20 hover:bg-red-500/20'
               }`}>
-              {deleting ? 'Deleting...' : confirmDelete ? '⚠ Confirm Delete?' : 'Delete'}
+              {deleteMutation.isPending ? 'Deleting...' : confirmDelete ? '⚠ Confirm Delete?' : 'Delete'}
             </button>
             {confirmDelete && (
               <button type="button" onClick={() => setConfirmDelete(false)}
@@ -199,8 +194,8 @@ function EditClassModal({ cls, team, onClose, onSaved, onDeleted, onNavigate }) 
             {!confirmDelete && (
               <>
                 <button type="button" onClick={onClose} className="flex-1 py-2.5 rounded-xl border border-white/10 text-slate-400 hover:bg-white/5 transition-all">Cancel</button>
-                <button type="submit" disabled={saving} className="flex-1 py-2.5 rounded-xl bg-gradient-to-r from-primary-600 to-primary-500 text-white font-semibold disabled:opacity-50 transition-all">
-                  {saving ? 'Saving...' : 'Update'}
+                <button type="submit" disabled={updateMutation.isPending} className="flex-1 py-2.5 rounded-xl bg-gradient-to-r from-primary-600 to-primary-500 text-white font-semibold disabled:opacity-50 transition-all">
+                  {updateMutation.isPending ? 'Saving...' : 'Update'}
                 </button>
               </>
             )}
@@ -230,11 +225,6 @@ export default function ClassesPage() {
 
   useEffect(() => { document.title = 'TMS — Classes'; }, []);
 
-  const reload = () => {
-    queryClient.invalidateQueries({ queryKey: qk.classes.all });
-    queryClient.invalidateQueries({ queryKey: qk.teams.all });
-  };
-
   // Build classCode → team lookup (team owns the entire cohort)
   const teamByClassCode = useMemo(() => {
     const map = {};
@@ -259,16 +249,16 @@ export default function ClassesPage() {
     };
   }, [classes]);
 
+  const quickCreateMutation = useCreateClass();
+
   // ── Quick-create a class for a specific cell ──────────
   const handleQuickCreate = async (classCode, courseName) => {
     const key = `${classCode}|${courseName}`;
     setCreating(key);
     try {
-      await classesAPI.create({ classCode, courseName });
-      reload();
-    } catch (err) {
-      alert(err.response?.data?.message || 'Failed to create class');
-    } finally { setCreating(null); }
+      await quickCreateMutation.mutateAsync({ classCode, courseName });
+    } catch { /* toast shown by global onError */ }
+    finally { setCreating(null); }
   };
 
   return (
@@ -423,7 +413,7 @@ export default function ClassesPage() {
         <NewCohortModal
           courseNames={courseNames}
           onClose={() => setCohortModal(false)}
-          onSaved={() => { setCohortModal(false); reload(); }}
+          onSaved={() => setCohortModal(false)}
         />
       )}
 
@@ -432,8 +422,8 @@ export default function ClassesPage() {
           cls={editModal}
           team={teamByClassCode[editModal.classCode]}
           onClose={() => setEditModal(null)}
-          onSaved={() => { setEditModal(null); reload(); }}
-          onDeleted={() => { setEditModal(null); reload(); }}
+          onSaved={() => setEditModal(null)}
+          onDeleted={() => setEditModal(null)}
           onNavigate={(path) => { setEditModal(null); navigate(path); }}
         />
       )}

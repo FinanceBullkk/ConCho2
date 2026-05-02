@@ -1,21 +1,24 @@
 import { useState, useEffect } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import { teamsAPI, enrollmentsAPI } from '../api/api';
 import TeamProgressModal from '../components/Progress/TeamProgressModal';
 import StudentProgressModal from '../components/Progress/StudentProgressModal';
 import Portal from '../components/Portal';
-import { useTeams } from '../hooks/useTeams';
+import { useTeams, useCreateTeam, useUpdateTeam, useDeleteTeam } from '../hooks/useTeams';
 import { useUsers } from '../hooks/useUsers';
 import { useClasses } from '../hooks/useClasses';
+import { useCheckEnrollmentConflicts } from '../hooks/useEnrollments';
 import { qk } from '../hooks/queryKeys';
 
 function TeamModal({ team, participants, classes, teams, onClose, onSaved }) {
   const isEdit = !!team?._id;
+  const createMutation = useCreateTeam();
+  const updateMutation = useUpdateTeam();
+  const checkConflicts = useCheckEnrollmentConflicts();
+  const saving = createMutation.isPending || updateMutation.isPending;
   const [name, setName] = useState(team?.name || '');
   const [classId, setClassId] = useState(team?.classId?._id || team?.classId || '');
   const [leaderId, setLeaderId] = useState(team?.leaderId?._id || team?.leaderId || '');
   const [memberIds, setMemberIds] = useState(team?.members?.map((m) => m._id || m) || []);
-  const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [swapConfirm, setSwapConfirm] = useState(null);
   const [transferConfirm, setTransferConfirm] = useState(null);
@@ -72,25 +75,23 @@ function TeamModal({ team, participants, classes, teams, onClose, onSaved }) {
 
     if (!forceTransfer) {
       try {
-        setSaving(true);
-        const res = await enrollmentsAPI.checkConflicts({ teamId: team?._id || 'new', memberIds });
-        if (res.data.data.length > 0) { setTransferConfirm({ conflicts: res.data.data, payload }); setSaving(false); return; }
+        const res = await checkConflicts.mutateAsync({ teamId: team?._id || 'new', memberIds });
+        if (res.data?.length > 0) { setTransferConfirm({ conflicts: res.data, payload }); return; }
       } catch (err) { console.error('Failed to check conflicts', err); }
-      finally { setSaving(false); }
     }
 
-    setSaving(true); setError('');
+    setError('');
     try {
       const finalPayload = forceTransfer ? transferConfirm.payload : payload;
-      if (isEdit) await teamsAPI.update(team._id, finalPayload);
-      else await teamsAPI.create(finalPayload);
+      if (isEdit) await updateMutation.mutateAsync({ id: team._id, data: finalPayload });
+      else await createMutation.mutateAsync(finalPayload);
       onSaved();
     } catch (err) {
       const data = err.response?.data;
       if (err.response?.status === 409 && data?.conflictTeamId) {
         setSwapConfirm({ classId, classCode: classId, takenByTeam: data.conflictTeamName });
       } else { setError(data?.message || 'Save failed'); }
-    } finally { setSaving(false); }
+    }
   };
 
   return (
@@ -263,6 +264,8 @@ function TeamModal({ team, participants, classes, teams, onClose, onSaved }) {
 
 export default function TeamsPage() {
   const queryClient = useQueryClient();
+  const deleteMutation = useDeleteTeam();
+  const updateMutation = useUpdateTeam();
   const [modal, setModal] = useState(null);
   const [deleteId, setDeleteId] = useState(null);
   const [progressModal, setProgressModal] = useState(null);
@@ -277,27 +280,17 @@ export default function TeamsPage() {
 
   useEffect(() => { document.title = 'TMS — Teams'; }, []);
 
-  const reload = () => {
-    queryClient.invalidateQueries({ queryKey: qk.teams.all });
-    queryClient.invalidateQueries({ queryKey: qk.users.all });
-    queryClient.invalidateQueries({ queryKey: qk.classes.all });
-  };
-
   const handleDelete = async (id) => {
-    try { await teamsAPI.delete(id); reload(); } catch (err) { alert(err.response?.data?.message); }
+    try { await deleteMutation.mutateAsync(id); } catch { /* toast shown by global onError */ }
     setDeleteId(null);
   };
 
-  // Quick-assign leader without opening the edit modal
   const handleMakeLeader = async (team, memberId) => {
     const memberName = team.members?.find(m => (m._id || m) === memberId)?.name || memberId;
     if (!window.confirm(`Promote "${memberName}" to leader of "${team.name}"?`)) return;
     try {
-      await teamsAPI.update(team._id, { leaderId: memberId });
-      reload();
-    } catch (err) {
-      alert(err.response?.data?.message || 'Failed to update leader');
-    }
+      await updateMutation.mutateAsync({ id: team._id, data: { leaderId: memberId } });
+    } catch { /* toast shown by global onError */ }
   };
 
   return (
@@ -407,7 +400,7 @@ export default function TeamsPage() {
 
       {(modal === 'create' || (modal && modal._id)) && (
         <TeamModal team={modal === 'create' ? null : modal} participants={participants} classes={classes} teams={teams}
-          onClose={() => setModal(null)} onSaved={() => { setModal(null); reload(); }} />
+          onClose={() => setModal(null)} onSaved={() => setModal(null)} />
       )}
 
       {progressModal && (
