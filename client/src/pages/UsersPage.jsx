@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { usersAPI, teamsAPI } from '../api/api';
 import StudentProgressModal from '../components/Progress/StudentProgressModal';
+import Portal from '../components/Portal';
 
 const ROLES = ['Admin', 'Teacher', 'Participant'];
 const STATUSES = ['Active', 'Inactive', 'Dropped', 'Transferred', 'On-hold', 'Waiting for class'];
@@ -40,6 +41,7 @@ function UserModal({ user, onClose, onSaved }) {
   };
 
   return (
+    <Portal>
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm animate-fade-in" onClick={onClose}>
       <form onSubmit={handleSubmit} onClick={(e) => e.stopPropagation()}
         className="glass rounded-2xl p-6 w-full max-w-md mx-4 space-y-4 animate-fade-in">
@@ -96,6 +98,7 @@ function UserModal({ user, onClose, onSaved }) {
         </div>
       </form>
     </div>
+    </Portal>
   );
 }
 
@@ -344,6 +347,7 @@ export default function UsersPage() {
 
       {/* Delete confirm */}
       {deleteId && (
+        <Portal>
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
           <div className="glass rounded-2xl p-6 max-w-sm mx-4 text-center space-y-4 animate-fade-in">
             <div className="text-3xl">🗑️</div>
@@ -355,6 +359,7 @@ export default function UsersPage() {
             </div>
           </div>
         </div>
+        </Portal>
       )}
 
       {(modal === 'create' || (modal && modal._id)) && (

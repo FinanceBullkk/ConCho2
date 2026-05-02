@@ -1,4 +1,5 @@
 const mongoose = require('mongoose');
+const { toVN, todayVN } = require('../helpers/dayjsConfig');
 const Schedule = require('../models/Schedule');
 const Team = require('../models/Team');
 const Attendance = require('../models/Attendance');
@@ -44,13 +45,10 @@ const getWeekBounds = (date) => {
 };
 
 /**
- * Return UTC midnight today.
+ * Return midnight today in Vietnam timezone (as UTC Date for MongoDB).
+ * Example: 23:30 VN May 2 → returns 17:00 UTC May 1 (= 00:00 VN May 2)
  */
-const utcToday = () => {
-  const now = new Date();
-  now.setUTCHours(0, 0, 0, 0);
-  return now;
-};
+const utcToday = () => todayVN();
 
 // isValidTimeSlot has been moved inside bookSlot to fetch dynamically
 
@@ -130,8 +128,12 @@ const bookSlot = async ({ teamId, startTime, endTime, requestUser }) => {
   const allowedSlotsSetting = await Setting.findOne({ key: 'ALLOWED_TIME_SLOTS' });
   const ALLOWED_TIME_SLOTS = allowedSlotsSetting ? allowedSlotsSetting.value : [];
 
-  const sH = start.getUTCHours(), sM = start.getUTCMinutes();
-  const eH = end.getUTCHours(), eM = end.getUTCMinutes();
+  // Convert to VN timezone for time-slot validation
+  // (ALLOWED_TIME_SLOTS stores hours in VN time, e.g. sh:10 = 10:00 VN)
+  const startVN = toVN(start);
+  const endVN = toVN(end);
+  const sH = startVN.hour(), sM = startVN.minute();
+  const eH = endVN.hour(), eM = endVN.minute();
   const isValid = ALLOWED_TIME_SLOTS.some(s => s.sh === sH && s.sm === sM && s.eh === eH && s.em === eM);
 
   if (!isValid) {
@@ -362,8 +364,11 @@ const adminCreate = async (data) => {
   const Setting = mongoose.model('Setting');
   const allowedSlotsSetting = await Setting.findOne({ key: 'ALLOWED_TIME_SLOTS' });
   const ALLOWED_TIME_SLOTS = allowedSlotsSetting ? allowedSlotsSetting.value : [];
-  const sH = start.getUTCHours(), sM = start.getUTCMinutes();
-  const eH = end.getUTCHours(), eM = end.getUTCMinutes();
+  // Convert to VN timezone for time-slot validation
+  const startVN = toVN(start);
+  const endVN = toVN(end);
+  const sH = startVN.hour(), sM = startVN.minute();
+  const eH = endVN.hour(), eM = endVN.minute();
   const isValid = ALLOWED_TIME_SLOTS.some(s => s.sh === sH && s.sm === sM && s.eh === eH && s.em === eM);
 
   if (!isValid) {
@@ -438,6 +443,15 @@ const adminCreate = async (data) => {
       );
       created = doc;
     });
+  } catch (err) {
+    // Catch duplicate key error from concurrent booking race condition
+    if (err.code === 11000 || err.message?.includes('E11000')) {
+      throw new ServiceError(
+        'Khung giờ này đã bị trùng — This time slot overlaps with an existing schedule (concurrent booking detected)',
+        409
+      );
+    }
+    throw err;
   } finally {
     session.endSession();
   }

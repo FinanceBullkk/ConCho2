@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { enrollmentsAPI, teamsAPI } from '../api/api';
 import toast from 'react-hot-toast';
+import Portal from '../components/Portal';
 
 // ──────────────────────────────────────────────────────────
 // Enrollment Page — Learning History by Team
@@ -36,6 +37,7 @@ function EditModal({ enrollment, onClose, onSaved }) {
   };
 
   return (
+    <Portal>
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm" onClick={onClose}>
       <form onSubmit={handleSubmit} onClick={(e) => e.stopPropagation()}
         className="glass rounded-2xl p-6 w-full max-w-md mx-4 space-y-4 animate-fade-in">
@@ -70,6 +72,7 @@ function EditModal({ enrollment, onClose, onSaved }) {
         </div>
       </form>
     </div>
+    </Portal>
   );
 }
 

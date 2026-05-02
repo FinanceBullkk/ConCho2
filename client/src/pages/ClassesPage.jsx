@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { classesAPI, teamsAPI } from '../api/api';
+import Portal from '../components/Portal';
 
 // ──────────────────────────────────────────────────────────
 // Classes Page (v2 — Matrix View)
@@ -48,6 +49,7 @@ function NewCohortModal({ courseNames, onClose, onSaved }) {
   };
 
   return (
+    <Portal>
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm" onClick={onClose}>
       <form onSubmit={handleSubmit} onClick={(e) => e.stopPropagation()}
         className="glass rounded-2xl p-6 w-full max-w-md mx-4 space-y-4 animate-fade-in">
@@ -69,6 +71,7 @@ function NewCohortModal({ courseNames, onClose, onSaved }) {
         </div>
       </form>
     </div>
+    </Portal>
   );
 }
 
@@ -111,6 +114,7 @@ function EditClassModal({ cls, team, onClose, onSaved, onDeleted, onNavigate }) 
   const pct = cls.totalSessions > 0 ? Math.round((cls.bookedSessions / cls.totalSessions) * 100) : 0;
 
   return (
+    <Portal>
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm" onClick={onClose}>
       <div onClick={(e) => e.stopPropagation()}
         className="glass rounded-2xl p-6 w-full max-w-lg mx-4 space-y-4 animate-fade-in max-h-[90vh] overflow-y-auto">
@@ -200,6 +204,7 @@ function EditClassModal({ cls, team, onClose, onSaved, onDeleted, onNavigate }) 
         </form>
       </div>
     </div>
+    </Portal>
   );
 }
 

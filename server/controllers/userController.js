@@ -1,3 +1,4 @@
+const mongoose = require('mongoose');
 const User = require('../models/User');
 const Team = require('../models/Team');
 const Schedule = require('../models/Schedule');
@@ -211,31 +212,46 @@ const deleteUser = async (req, res) => {
       });
     }
 
-    // Cascade Step 1: Pull from Team.members
-    await Team.updateMany(
-      { members: user._id },
-      { $pull: { members: user._id } }
-    );
+    // ── TRANSACTION: Cascade delete (all-or-nothing) ──────
+    const session = await mongoose.startSession();
+    let deletedAttendance = 0;
+    let deletedEnrollments = 0;
 
-    // Cascade Step 2: Pull from Schedule.enrolledUsers
-    await Schedule.updateMany(
-      { enrolledUsers: user._id },
-      { $pull: { enrolledUsers: user._id }, $inc: { enrolledCount: -1 } }
-    );
+    try {
+      await session.withTransaction(async () => {
+        // Cascade Step 1: Pull from Team.members
+        await Team.updateMany(
+          { members: user._id },
+          { $pull: { members: user._id } },
+          { session }
+        );
 
-    // Cascade Step 3: Delete Attendance records
-    const attResult = await Attendance.deleteMany({ userId: user._id });
+        // Cascade Step 2: Pull from Schedule.enrolledUsers
+        await Schedule.updateMany(
+          { enrolledUsers: user._id },
+          { $pull: { enrolledUsers: user._id }, $inc: { enrolledCount: -1 } },
+          { session }
+        );
 
-    // Cascade Step 4: Delete all Enrollment records for this user
-    const enrollResult = await Enrollment.deleteMany({ userId: user._id });
+        // Cascade Step 3: Delete Attendance records
+        const attResult = await Attendance.deleteMany({ userId: user._id }, { session });
+        deletedAttendance = attResult.deletedCount;
 
-    // Step 5: Delete the user
-    await User.findByIdAndDelete(user._id);
+        // Cascade Step 4: Delete all Enrollment records for this user
+        const enrollResult = await Enrollment.deleteMany({ userId: user._id }, { session });
+        deletedEnrollments = enrollResult.deletedCount;
+
+        // Step 5: Delete the user
+        await User.findByIdAndDelete(user._id, { session });
+      });
+    } finally {
+      session.endSession();
+    }
 
     res.json({
       success: true,
       message: `User ${user.empCode} deleted`,
-      cascade: { deletedAttendance: attResult.deletedCount, deletedEnrollments: enrollResult.deletedCount },
+      cascade: { deletedAttendance, deletedEnrollments },
     });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });

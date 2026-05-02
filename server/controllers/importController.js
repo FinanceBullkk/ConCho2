@@ -47,6 +47,14 @@ const bulkImportHistory = async (req, res) => {
       return res.status(400).json({ success: false, message: 'sessions array required' });
     }
 
+    const MAX_SESSIONS_BATCH = 500;
+    if (sessions.length > MAX_SESSIONS_BATCH) {
+      return res.status(400).json({
+        success: false,
+        message: `Too many sessions. Maximum ${MAX_SESSIONS_BATCH} per request. Got ${sessions.length}. Split into smaller batches.`,
+      });
+    }
+
     let schedulesCreated = 0, attendanceCreated = 0, errors = [];
 
     for (const s of sessions) {

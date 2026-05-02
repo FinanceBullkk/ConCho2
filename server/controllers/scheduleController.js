@@ -93,9 +93,11 @@ const updateSchedule = async (req, res) => {
         return res.status(400).json({ success: false, message: 'endTime must be after startTime' });
       }
 
-      // ── Collision check ────────────────────────────────
+      // ── Collision check (scoped to same class) ──────────
+      const classId = req.body.classId || existing.classId;
       const collision = await Schedule.findOne({
         _id: { $ne: existing._id },
+        classId,
         startTime: { $lt: end },
         endTime: { $gt: start },
       });
