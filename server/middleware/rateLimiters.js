@@ -1,5 +1,9 @@
 const rateLimit = require('express-rate-limit');
 
+// In test environment, disable all rate-limit validations
+// (supertest uses ::ffff:127.0.0.1 which triggers IPv6 warnings)
+const IS_TEST = process.env.NODE_ENV === 'test';
+const validateOpts = IS_TEST ? false : { ip: false };
 // ──────────────────────────────────────────────────────────
 // Rate Limiters for Write Endpoints (SEC-04)
 // ──────────────────────────────────────────────────────────
@@ -28,7 +32,7 @@ const bookingLimiter = rateLimit({
     success: false,
     message: 'Too many booking requests. Please wait a moment before trying again.',
   },
-  validate: { ip: false },
+  validate: validateOpts,
   keyGenerator: (req) => (req.user ? req.user._id.toString() : req.ip),
 });
 
@@ -46,7 +50,7 @@ const importLimiter = rateLimit({
     success: false,
     message: 'Too many import requests. Please wait before importing again.',
   },
-  validate: { ip: false },
+  validate: validateOpts,
   keyGenerator: (req) => (req.user ? req.user._id.toString() : req.ip),
 });
 
@@ -63,7 +67,7 @@ const attendanceLimiter = rateLimit({
     success: false,
     message: 'Too many attendance submissions. Please slow down.',
   },
-  validate: { ip: false },
+  validate: validateOpts,
   keyGenerator: (req) => (req.user ? req.user._id.toString() : req.ip),
 });
 
@@ -80,7 +84,7 @@ const syncLimiter = rateLimit({
     success: false,
     message: 'Too many sync requests. Please wait before syncing again.',
   },
-  validate: { ip: false },
+  validate: validateOpts,
   keyGenerator: (req) => (req.user ? req.user._id.toString() : req.ip),
 });
 
