@@ -1,13 +1,9 @@
 import { useState, useEffect } from 'react';
-import { useQueryClient } from '@tanstack/react-query';
-import { exportAPI } from '../api/api';
 import { useAttendanceAnalyticsByEmployee, useAttendanceAnalyticsByTeam, useAttendanceAnalyticsByClass } from '../hooks/useAttendance';
 import { useClasses } from '../hooks/useClasses';
-import { useExportStats } from '../hooks/useExport';
-import { qk } from '../hooks/queryKeys';
+import { useExportStats, useDownloadAttendance } from '../hooks/useExport';
 
 export default function AttendanceDashboardPage() {
-  const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState('employee'); // employee, team, class
   const [selectedClass, setSelectedClass] = useState('');
 
@@ -39,23 +35,19 @@ export default function AttendanceDashboardPage() {
 
   // ── Export state ─────────────────────────────────────────
   const { data: exportStats = { pending: 0, exported: 0 } } = useExportStats();
-  const [isExporting, setIsExporting] = useState(false);
+  const downloadMutation = useDownloadAttendance();
   const [exportMsg, setExportMsg] = useState('');
 
-  // ── Export handler: download Excel via blob ─────────────
   const handleExport = async () => {
-    setIsExporting(true);
     setExportMsg('');
     try {
-      const res = await exportAPI.downloadAttendance();
-      // Extract filename from content-disposition header or use default
+      const res = await downloadMutation.mutateAsync();
       const disposition = res.headers['content-disposition'];
       let filename = 'TMS_Attendance_Export.xlsx';
       if (disposition) {
         const match = disposition.match(/filename="?([^"]+)"?/);
         if (match) filename = match[1];
       }
-      // Create a temporary <a> element to trigger browser download
       const blob = new Blob([res.data], {
         type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
       });
@@ -67,16 +59,12 @@ export default function AttendanceDashboardPage() {
       a.click();
       a.remove();
       window.URL.revokeObjectURL(url);
-
       setExportMsg(`✅ Đã tải ${filename} thành công!`);
-      queryClient.invalidateQueries({ queryKey: qk.exportHr.stats });
     } catch (err) {
       const msg = err.response?.status === 404
         ? 'Không có bản ghi nào để xuất.'
         : 'Lỗi khi tải file. Vui lòng thử lại.';
       setExportMsg(`❌ ${msg}`);
-    } finally {
-      setIsExporting(false);
     }
   };
 
@@ -126,13 +114,13 @@ export default function AttendanceDashboardPage() {
           )}
           <button
             onClick={handleExport}
-            disabled={isExporting || exportStats.pending === 0}
+            disabled={downloadMutation.isPending || exportStats.pending === 0}
             className="flex items-center gap-2 px-5 py-2.5 rounded-xl font-semibold text-sm transition-all
               bg-emerald-500 hover:bg-emerald-400 text-white shadow-lg shadow-emerald-500/20
               disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-emerald-500
               whitespace-nowrap w-full sm:w-auto justify-center"
           >
-            {isExporting ? (
+            {downloadMutation.isPending ? (
               <>
                 <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
                 Đang tải...
@@ -168,11 +156,7 @@ export default function AttendanceDashboardPage() {
         ))}
       </div>
 
-      {error && (
-        <div className="px-4 py-3 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-sm">
-          {error}
-        </div>
-      )}
+
 
       {loading ? (
         <div className="flex items-center justify-center py-20"><div className="w-8 h-8 border-2 border-primary-400 border-t-transparent rounded-full animate-spin" /></div>
