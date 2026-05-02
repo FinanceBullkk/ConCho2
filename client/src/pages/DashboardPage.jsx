@@ -193,8 +193,27 @@ export default function DashboardPage() {
               <tbody className="divide-y divide-white/5">
                 {stats.classProgress.map((c, i) => {
                   const progressPct = Math.min(c.progress * 100, 100);
-                  const isDone = c.status === 'Completed' || progressPct >= 100;
-                  const barColor = isDone ? '#10b981' : progressPct > 50 ? '#6366f1' : '#f59e0b';
+
+                  // Status based purely on actual progress
+                  let statusLabel, statusClass, barColor;
+                  if (c.doneSessions >= c.totalSessions && c.totalSessions > 0) {
+                    statusLabel = '✅ Completed';
+                    statusClass = 'bg-emerald-500/15 text-emerald-400';
+                    barColor = '#10b981';
+                  } else if (c.doneSessions === 0) {
+                    statusLabel = '⏳ Not started';
+                    statusClass = 'bg-slate-500/15 text-slate-400';
+                    barColor = '#64748b';
+                  } else if (progressPct > 50) {
+                    statusLabel = '🔄 In progress';
+                    statusClass = 'bg-primary-500/15 text-primary-300';
+                    barColor = '#6366f1';
+                  } else {
+                    statusLabel = '🔄 In progress';
+                    statusClass = 'bg-amber-500/15 text-amber-400';
+                    barColor = '#f59e0b';
+                  }
+
                   return (
                     <tr key={i} className="hover:bg-white/3 transition-colors">
                       <td className="px-3 py-2.5 font-mono text-primary-300 font-medium">{c.classCode}</td>
@@ -211,10 +230,8 @@ export default function DashboardPage() {
                         </div>
                       </td>
                       <td className="px-3 py-2.5">
-                        <span className={`px-2 py-0.5 rounded text-[10px] font-medium ${
-                          isDone ? 'bg-emerald-500/15 text-emerald-400' : 'bg-primary-500/15 text-primary-300'
-                        }`}>
-                          {isDone ? '✅ Done' : '🔄 In progress'}
+                        <span className={`px-2 py-0.5 rounded text-[10px] font-medium ${statusClass}`}>
+                          {statusLabel}
                         </span>
                       </td>
                     </tr>
