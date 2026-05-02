@@ -20,17 +20,21 @@ const updateSettings = async (req, res) => {
       return res.status(400).json({ success: false, message: 'Expected an array of settings' });
     }
 
-    const updated = [];
-    for (const item of settings) {
-      if (item.key && item.value !== undefined) {
-        const s = await Setting.findOneAndUpdate(
-          { key: item.key },
-          { value: item.value },
-          { new: true, upsert: true }
-        );
-        updated.push(s);
-      }
+    const validItems = settings.filter((item) => item.key && item.value !== undefined);
+
+    if (validItems.length > 0) {
+      await Setting.bulkWrite(
+        validItems.map((item) => ({
+          updateOne: {
+            filter: { key: item.key },
+            update: { $set: { value: item.value } },
+            upsert: true,
+          },
+        }))
+      );
     }
+
+    const updated = await Setting.find({ key: { $in: validItems.map((i) => i.key) } });
 
     res.json({ success: true, data: updated });
   } catch (error) {

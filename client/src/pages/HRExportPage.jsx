@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import { exportAPI } from '../api/api';
-import { useExportStats } from '../hooks/useExport';
+import { useExportStats, useDownloadAttendance } from '../hooks/useExport';
 import { qk } from '../hooks/queryKeys';
 
 // ──────────────────────────────────────────────────────────
@@ -14,16 +13,15 @@ import { qk } from '../hooks/queryKeys';
 export default function HRExportPage() {
   const queryClient = useQueryClient();
   const { data: stats = { pending: 0, exported: 0 }, isLoading: loading } = useExportStats();
-  const [isExporting, setIsExporting] = useState(false);
+  const downloadMutation = useDownloadAttendance();
   const [exportMsg, setExportMsg] = useState('');
 
   useEffect(() => { document.title = 'TMS — HR Export'; }, []);
 
   const handleExport = async () => {
-    setIsExporting(true);
     setExportMsg('');
     try {
-      const res = await exportAPI.downloadAttendance();
+      const res = await downloadMutation.mutateAsync();
       const disposition = res.headers['content-disposition'];
       let filename = 'TMS_Attendance_Export.xlsx';
       if (disposition) {
@@ -41,16 +39,12 @@ export default function HRExportPage() {
       a.click();
       a.remove();
       window.URL.revokeObjectURL(url);
-
       setExportMsg(`✅ Downloaded ${filename} successfully!`);
-      queryClient.invalidateQueries({ queryKey: qk.exportHr.stats });
     } catch (err) {
       const msg = err.response?.status === 404
         ? 'No pending records to export.'
         : 'Export failed. Please try again.';
       setExportMsg(`❌ ${msg}`);
-    } finally {
-      setIsExporting(false);
     }
   };
 
@@ -94,10 +88,10 @@ export default function HRExportPage() {
         <div className="flex flex-wrap items-center gap-4">
           <button
             onClick={handleExport}
-            disabled={isExporting || stats.pending === 0}
+            disabled={downloadMutation.isPending || stats.pending === 0}
             className="px-6 py-3 rounded-xl bg-gradient-to-r from-primary-600 to-primary-500 text-white font-semibold hover:from-primary-500 hover:to-primary-400 transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-primary-500/20"
           >
-            {isExporting ? (
+            {downloadMutation.isPending ? (
               <span className="flex items-center gap-2">
                 <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
                 Exporting...
