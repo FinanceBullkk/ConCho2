@@ -1,8 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import { schedulesAPI } from '../api/api';
 import Portal from '../components/Portal';
-import { useSchedules } from '../hooks/useSchedules';
+import { useSchedules, useCreateSchedule, useUpdateSchedule, useDeleteSchedule } from '../hooks/useSchedules';
 import { useClasses } from '../hooks/useClasses';
 import { useTeams } from '../hooks/useTeams';
 import { qk } from '../hooks/queryKeys';
@@ -56,6 +55,8 @@ const scheduleToKey = (s) => {
 // ── Schedule Modal (Create / Edit) ────────────────────────
 
 function ScheduleModal({ schedule, classes, teams, onClose, onSaved, prefill }) {
+  const createMutation = useCreateSchedule();
+  const updateMutation = useUpdateSchedule();
   const isEdit = !!schedule?._id;
 
   const toDateTimeLocal = (d) => {
@@ -97,7 +98,7 @@ function ScheduleModal({ schedule, classes, teams, onClose, onSaved, prefill }) 
       capacity: schedule?.capacity || 9,
     };
   });
-  const [saving, setSaving] = useState(false);
+  const saving = createMutation.isPending || updateMutation.isPending;
   const [error, setError] = useState('');
 
   // Derive the resolved class info from selected team
@@ -114,7 +115,7 @@ function ScheduleModal({ schedule, classes, teams, onClose, onSaved, prefill }) 
   };
 
   const handleSubmit = async (e) => {
-    e.preventDefault(); setSaving(true); setError('');
+    e.preventDefault(); setError('');
     try {
       const payload = {
         ...form,
@@ -122,11 +123,10 @@ function ScheduleModal({ schedule, classes, teams, onClose, onSaved, prefill }) 
         startTime: new Date(form.startTime).toISOString(),
         endTime: new Date(form.endTime).toISOString(),
       };
-      if (isEdit) await schedulesAPI.update(schedule._id, payload);
-      else await schedulesAPI.create(payload);
+      if (isEdit) await updateMutation.mutateAsync({ id: schedule._id, data: payload });
+      else await createMutation.mutateAsync(payload);
       onSaved();
     } catch (err) { setError(err.response?.data?.message || 'Save failed'); }
-    finally { setSaving(false); }
   };
 
   const f = (k, v) => setForm((p) => ({ ...p, [k]: v }));
@@ -215,6 +215,7 @@ function ScheduleModal({ schedule, classes, teams, onClose, onSaved, prefill }) 
 
 export default function SchedulesPage() {
   const queryClient = useQueryClient();
+  const deleteMutation = useDeleteSchedule();
   const [modal, setModal] = useState(null);       // 'create' | schedule obj | null
   const [prefill, setPrefill] = useState(null);    // { startTime, endTime } for calendar click
   const [deleteTarget, setDeleteTarget] = useState(null);
@@ -222,18 +223,16 @@ export default function SchedulesPage() {
   // Week navigation
   const [weekStart, setWeekStart] = useState(() => getMonday(new Date()));
 
-  const { data: schedData, isLoading: loadingSched } = useSchedules({ limit: 200 });
+  // Fetch all schedules (calendar needs access to any week)
+  const schedParams = useMemo(() => ({ limit: 2000 }), []);
+  const { data: schedData, isLoading: loadingSched } = useSchedules(schedParams);
   const schedules = schedData?.data || [];
+  const totalSchedules = schedData?.total || schedules.length;
   const { data: classes = [] } = useClasses();
   const { data: teams = [] } = useTeams();
   const loading = loadingSched;
 
   useEffect(() => { document.title = 'TMS — Schedules'; }, []);
-
-  const reload = () => {
-    queryClient.invalidateQueries({ queryKey: qk.schedules.all });
-    queryClient.invalidateQueries({ queryKey: qk.classes.all });
-  };
 
   // ── Week helpers ────────────────────────────────────────
   const weekDays = useMemo(() =>
@@ -265,6 +264,21 @@ export default function SchedulesPage() {
     }).length;
   }, [schedules, weekStart]);
 
+  // Find the Monday of the week containing the latest schedule
+  const latestScheduleWeek = useMemo(() => {
+    if (schedules.length === 0) return null;
+    let latest = new Date(schedules[0].startTime);
+    schedules.forEach(s => {
+      const d = new Date(s.startTime);
+      if (d > latest) latest = d;
+    });
+    return getMonday(latest);
+  }, [schedules]);
+
+  const goToLatest = () => {
+    if (latestScheduleWeek) setWeekStart(latestScheduleWeek);
+  };
+
   // ── Admin handlers ──────────────────────────────────────
 
   const handleCellClick = (day, slot) => {
@@ -277,8 +291,8 @@ export default function SchedulesPage() {
 
   const handleDelete = async () => {
     if (!deleteTarget) return;
-    try { await schedulesAPI.delete(deleteTarget._id); reload(); }
-    catch (err) { alert(err.response?.data?.message || 'Delete failed'); }
+    try { await deleteMutation.mutateAsync(deleteTarget._id); }
+    catch { /* toast shown by global onError */ }
     setDeleteTarget(null);
   };
 
@@ -291,7 +305,7 @@ export default function SchedulesPage() {
         <div>
           <h1 className="text-2xl font-bold text-white">📅 Schedule Management</h1>
           <p className="text-slate-400 mt-1">
-            {schedules.length} total sessions · {weekScheduleCount} this week
+            {totalSchedules} total sessions · {weekScheduleCount} this week
           </p>
         </div>
         <button onClick={() => { setPrefill(null); setModal('create'); }}
@@ -308,6 +322,9 @@ export default function SchedulesPage() {
             {weekDays[0].toLocaleDateString('en', { month: 'short', day: 'numeric' })} — {weekDays[6].toLocaleDateString('en', { month: 'short', day: 'numeric', year: 'numeric' })}
           </h2>
           <button onClick={goToday} className="px-3 py-1 rounded-lg bg-primary-500/20 text-primary-300 text-xs border border-primary-500/20 hover:bg-primary-500/30 transition-all">Today</button>
+          {latestScheduleWeek && weekScheduleCount === 0 && (
+            <button onClick={goToLatest} className="px-3 py-1 rounded-lg bg-amber-500/20 text-amber-300 text-xs border border-amber-500/20 hover:bg-amber-500/30 transition-all animate-pulse">⚡ Jump to latest</button>
+          )}
         </div>
         <button onClick={nextWeek} className="px-4 py-2 rounded-xl bg-white/5 text-slate-300 hover:bg-white/10 transition-all text-sm border border-white/10">Next →</button>
       </div>
@@ -476,7 +493,7 @@ export default function SchedulesPage() {
           classes={classes} teams={teams}
           prefill={prefill}
           onClose={() => { setModal(null); setPrefill(null); }}
-          onSaved={() => { setModal(null); setPrefill(null); reload(); }}
+          onSaved={() => { setModal(null); setPrefill(null); }}
         />
       )}
     </div>
