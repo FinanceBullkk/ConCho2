@@ -119,49 +119,39 @@ teamSchema.post('findOneAndUpdate', async function (doc) {
       continue;
     }
 
-    // Build a single update operation combining pull + push
-    const update = { $inc: {} };
-
-    if (toRemove.length > 0) {
+    // enrolledCount is a virtual (enrolledUsers.length) — only array ops needed.
+    if (toRemove.length > 0 && toAdd.length > 0) {
+      // MongoDB forbids $pull + $push in one op — use two updateOnes.
       const removeIds = toRemove.map((id) => new mongoose.Types.ObjectId(id));
-      update.$pull = { enrolledUsers: { $in: removeIds } };
-      update.$inc.enrolledCount = -toRemove.length;
-    }
-
-    if (toAdd.length > 0) {
       const addIds = toAdd.map((id) => new mongoose.Types.ObjectId(id));
-      // MongoDB doesn't allow $pull and $push in the same update,
-      // so if both are needed, we split into two operations
-      if (toRemove.length > 0) {
-        // Op 1: Pull removed members
-        bulkOps.push({
-          updateOne: {
-            filter: { _id: schedule._id },
-            update: {
-              $pull: { enrolledUsers: { $in: toRemove.map(id => new mongoose.Types.ObjectId(id)) } },
-              $inc: { enrolledCount: -toRemove.length },
-            },
-          },
-        });
-        // Op 2: Push new members
-        bulkOps.push({
-          updateOne: {
-            filter: { _id: schedule._id },
-            update: {
-              $push: { enrolledUsers: { $each: addIds } },
-              $inc: { enrolledCount: toAdd.length },
-            },
-          },
-        });
-      } else {
-        // Only adding — single operation
-        update.$push = { enrolledUsers: { $each: addIds } };
-        update.$inc.enrolledCount = (update.$inc.enrolledCount || 0) + toAdd.length;
-        bulkOps.push({ updateOne: { filter: { _id: schedule._id }, update } });
-      }
+      bulkOps.push({
+        updateOne: {
+          filter: { _id: schedule._id },
+          update: { $pull: { enrolledUsers: { $in: removeIds } } },
+        },
+      });
+      bulkOps.push({
+        updateOne: {
+          filter: { _id: schedule._id },
+          update: { $push: { enrolledUsers: { $each: addIds } } },
+        },
+      });
+    } else if (toRemove.length > 0) {
+      const removeIds = toRemove.map((id) => new mongoose.Types.ObjectId(id));
+      bulkOps.push({
+        updateOne: {
+          filter: { _id: schedule._id },
+          update: { $pull: { enrolledUsers: { $in: removeIds } } },
+        },
+      });
     } else {
-      // Only removing — single operation
-      bulkOps.push({ updateOne: { filter: { _id: schedule._id }, update } });
+      const addIds = toAdd.map((id) => new mongoose.Types.ObjectId(id));
+      bulkOps.push({
+        updateOne: {
+          filter: { _id: schedule._id },
+          update: { $push: { enrolledUsers: { $each: addIds } } },
+        },
+      });
     }
   }
 

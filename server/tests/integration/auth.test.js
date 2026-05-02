@@ -29,10 +29,10 @@ describe('POST /api/auth/login', () => {
 
     expect(res.status).toBe(200);
     expect(res.body.success).toBe(true);
-    expect(res.body.data.token).toBeTruthy();
     expect(res.body.data.user.role).toBe('Admin');
     expect(res.body.data.user.empCode).toBe('000001');
-    // Should set HttpOnly cookie
+    // Token is set as HttpOnly cookie only — not in response body (SEC-01)
+    expect(res.body.data.token).toBeUndefined();
     expect(res.headers['set-cookie']).toBeDefined();
     expect(res.headers['set-cookie'][0]).toMatch(/tms_token/);
   });

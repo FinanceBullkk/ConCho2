@@ -33,7 +33,7 @@ const createUserBody = z.object({
   dropReason: fields.dropReason.optional(),
   entranceLevel: fields.entranceLevel.optional(),
   currentLevel: fields.currentLevel.optional(),
-  password: fields.password.optional(),
+  password: fields.password,
 });
 
 const updateUserBody = z.object({

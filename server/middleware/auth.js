@@ -61,7 +61,7 @@ const protect = async (req, res, next) => {
     let user = userCache.get(cacheKey);
     if (!user) {
       user = await User.findById(decoded.id)
-        .select('_id empCode name role department status')
+        .select('_id empCode name role department status passwordChangedAt')
         .lean();
       if (user) userCache.set(cacheKey, user);
     }
@@ -78,6 +78,18 @@ const protect = async (req, res, next) => {
         success: false,
         message: `Account is ${user.status}. Contact admin.`,
       });
+    }
+
+    // Reject tokens issued before the last password change.
+    // decoded.iat is in seconds; passwordChangedAt is a Date.
+    if (user.passwordChangedAt) {
+      const changedAt = Math.floor(new Date(user.passwordChangedAt).getTime() / 1000);
+      if (decoded.iat < changedAt) {
+        return res.status(401).json({
+          success: false,
+          message: 'Password was recently changed. Please log in again.',
+        });
+      }
     }
 
     req.user = user;
