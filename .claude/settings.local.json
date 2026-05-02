@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm test *)",
+      "Bash(npx jest *)",
+      "Bash(NODE_ENV=test JWT_SECRET=test MONGO_URI=placeholder npx jest --runInBand --forceExit --detectOpenHandles --verbose tests/integration/booking.test.js)",
+      "Bash(git commit -m ' *)",
+      "Bash(git push *)"
+    ]
+  }
+}

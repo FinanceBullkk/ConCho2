@@ -1,6 +1,9 @@
 import { useState, useEffect, useMemo } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { schedulesAPI, attendanceAPI } from '../api/api';
 import { useAuth } from '../context/AuthContext';
+import { useAttendanceCalendar } from '../hooks/useSchedules';
+import { qk } from '../hooks/queryKeys';
 
 // ──────────────────────────────────────────────────────────
 // AttendancePage — Calendar View
@@ -59,13 +62,12 @@ const scheduleToKey = (s) => {
 
 export default function AttendancePage() {
   const { isAdmin } = useAuth();
-  const [schedules, setSchedules] = useState([]);
+  const queryClient = useQueryClient();
   const [selectedSchedule, setSelectedSchedule] = useState(null);
   const [records, setRecords] = useState([]);
   const [existingRecords, setExistingRecords] = useState([]);
   const [submitting, setSubmitting] = useState(false);
   const [result, setResult] = useState(null);
-  const [loading, setLoading] = useState(true);
 
   // Week navigation
   const [weekStart, setWeekStart] = useState(() => getMonday(new Date()));
@@ -73,19 +75,7 @@ export default function AttendancePage() {
   useEffect(() => { document.title = 'TMS — Attendance'; }, []);
 
   // ── Load schedules with pre-computed attendance status ──
-  const loadSchedules = async () => {
-    setLoading(true);
-    try {
-      const res = await schedulesAPI.getAttendanceCalendar();
-      setSchedules(res.data.data);
-    } catch (err) {
-      console.error('Failed to load attendance calendar:', err);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => { loadSchedules(); }, []);
+  const { data: schedules = [], isLoading: loading } = useAttendanceCalendar();
 
   // ── Build the 7 days of the current week ────────────────
   const weekDays = useMemo(() => {
@@ -191,7 +181,7 @@ export default function AttendancePage() {
       const res = await attendanceAPI.bulkMark(selectedSchedule._id, payload);
       setResult({ success: true, message: res.data.message });
       // Reload calendar to reflect updated status
-      loadSchedules();
+      queryClient.invalidateQueries({ queryKey: qk.schedules.attendanceCalendar });
     } catch (err) {
       setResult({ success: false, message: err.response?.data?.message || 'Failed to submit' });
     } finally {

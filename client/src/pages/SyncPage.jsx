@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { syncAPI } from '../api/api';
+import { useSyncStatus, useGoogleSheetsSync } from '../hooks/useSync';
 
 // ──────────────────────────────────────────────────────────
 // Google Sheets Sync Page (Admin Only)
@@ -9,34 +9,28 @@ import { syncAPI } from '../api/api';
 // ──────────────────────────────────────────────────────────
 
 export default function SyncPage() {
-  const [configured, setConfigured] = useState(null);
+  const { data: syncStatus } = useSyncStatus();
+  const configured = syncStatus?.configured ?? null;
+
+  const syncMutation = useGoogleSheetsSync();
   const [spreadsheetId, setSpreadsheetId] = useState('');
   const [sheetName, setSheetName] = useState('Sheet1');
   const [range, setRange] = useState('A2:D');
-  const [syncing, setSyncing] = useState(false);
   const [report, setReport] = useState(null);
   const [error, setError] = useState('');
 
-  useEffect(() => {
-    syncAPI.status()
-      .then((res) => setConfigured(res.data.data.configured))
-      .catch(() => setConfigured(false));
-  }, []);
   useEffect(() => { document.title = 'TMS — Sheets Sync'; }, []);
 
   const handleSync = async (e) => {
     e.preventDefault();
     if (!spreadsheetId.trim()) return;
-    setSyncing(true);
     setError('');
     setReport(null);
     try {
-      const res = await syncAPI.googleSheets({ spreadsheetId, sheetName, range });
-      setReport(res.data.data);
+      const data = await syncMutation.mutateAsync({ spreadsheetId, sheetName, range });
+      setReport(data.data);
     } catch (err) {
       setError(err.response?.data?.message || 'Sync failed');
-    } finally {
-      setSyncing(false);
     }
   };
 
@@ -111,10 +105,10 @@ export default function SyncPage() {
           <div className="flex items-end">
             <button
               type="submit"
-              disabled={syncing || !spreadsheetId.trim()}
+              disabled={syncMutation.isPending || !spreadsheetId.trim()}
               className="w-full px-6 py-3 rounded-xl bg-gradient-to-r from-primary-600 to-primary-500 text-white font-semibold hover:from-primary-500 hover:to-primary-400 transition-all disabled:opacity-50 shadow-lg shadow-primary-500/20"
             >
-              {syncing ? (
+              {syncMutation.isPending ? (
                 <span className="flex items-center justify-center gap-2">
                   <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
                   Syncing...

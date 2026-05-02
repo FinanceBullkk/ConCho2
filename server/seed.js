@@ -237,7 +237,6 @@ const seed = async () => {
       startTime: futureDateTime(3, 9, 0),   // +3 days, 09:00
       endTime: futureDateTime(3, 10, 0),     // +3 days, 10:00
       enrolledUsers: [part1._id, part2._id, part3._id],
-      enrolledCount: 3,
     });
 
     await Schedule.create({
@@ -246,7 +245,6 @@ const seed = async () => {
       startTime: futureDateTime(3, 14, 0),   // +3 days, 14:00
       endTime: futureDateTime(3, 15, 0),     // +3 days, 15:00
       enrolledUsers: [part1._id, part2._id, part3._id],
-      enrolledCount: 3,
     });
 
     // Team B created 1 session this week (has 1 more slot available)
@@ -256,7 +254,6 @@ const seed = async () => {
       startTime: futureDateTime(4, 10, 0),   // +4 days, 10:00
       endTime: futureDateTime(4, 11, 0),     // +4 days, 11:00
       enrolledUsers: [part4._id, part5._id, part6._id],
-      enrolledCount: 3,
     });
 
     console.log(`   ✅ Created 3 schedules (Team A: 2, Team B: 1)`);
