@@ -9,6 +9,7 @@ const mongoose = require('mongoose');
 const Team = require('../models/Team');
 const Schedule = require('../models/Schedule');
 const Attendance = require('../models/Attendance');
+const { handleError } = require('../helpers/handleError');
 
 const fixTeamData = async (req, res) => {
   const dryRun = req.query.dryRun !== 'false'; // default true
@@ -77,7 +78,6 @@ const fixTeamData = async (req, res) => {
               $set: {
                 bookedTeamId: new mongoose.Types.ObjectId(correctTeamId),
                 enrolledUsers: realUserIds.map(id => new mongoose.Types.ObjectId(id)),
-                enrolledCount: realUserIds.length,
               },
             },
           },
@@ -168,7 +168,7 @@ const fixTeamData = async (req, res) => {
 
   } catch (error) {
     console.error('❌ Fix error:', error);
-    res.status(500).json({ success: false, message: error.message });
+    handleError(res, error);
   }
 };
 

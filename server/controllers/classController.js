@@ -3,6 +3,7 @@ const Class = require('../models/Class');
 const Team = require('../models/Team');
 const Schedule = require('../models/Schedule');
 const { getNextSequence } = require('../helpers/counter');
+const { handleError } = require('../helpers/handleError');
 
 /**
  * GET /api/classes
@@ -35,7 +36,7 @@ const getClasses = async (req, res) => {
 
     res.json({ success: true, count: enriched.length, data: enriched });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    handleError(res, error);
   }
 };
 
@@ -55,7 +56,7 @@ const getCourseList = async (req, res) => {
       data: { courseNames, courseSessions },
     });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    handleError(res, error);
   }
 };
 
@@ -71,7 +72,7 @@ const getClassById = async (req, res) => {
     const bookedSessions = await Schedule.countDocuments({ classId: cls._id });
     res.json({ success: true, data: { ...cls, bookedSessions } });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    handleError(res, error);
   }
 };
 
@@ -129,7 +130,7 @@ const createClass = async (req, res) => {
         message: `Class "${req.body.classCode}" already has course "${req.body.courseName}".`,
       });
     }
-    res.status(400).json({ success: false, message: error.message });
+    handleError(res, error);
   }
 };
 
@@ -173,7 +174,7 @@ const updateClass = async (req, res) => {
     if (!cls) return res.status(404).json({ success: false, message: 'Class not found' });
     res.json({ success: true, data: cls });
   } catch (error) {
-    res.status(400).json({ success: false, message: error.message });
+    handleError(res, error);
   }
 };
 
@@ -210,7 +211,7 @@ const deleteClass = async (req, res) => {
     await Class.findByIdAndDelete(cls._id);
     res.json({ success: true, message: `Class ${cls.classCode} - ${cls.courseName} deleted` });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    handleError(res, error);
   }
 };
 

@@ -1,6 +1,11 @@
 import { useState, useEffect, useMemo } from 'react';
-import { schedulesAPI, classesAPI, teamsAPI } from '../api/api';
+import { useQueryClient } from '@tanstack/react-query';
+import { schedulesAPI } from '../api/api';
 import Portal from '../components/Portal';
+import { useSchedules } from '../hooks/useSchedules';
+import { useClasses } from '../hooks/useClasses';
+import { useTeams } from '../hooks/useTeams';
+import { qk } from '../hooks/queryKeys';
 
 // ──────────────────────────────────────────────────────────
 // Admin Schedule Management (v2 — Calendar View)
@@ -209,10 +214,7 @@ function ScheduleModal({ schedule, classes, teams, onClose, onSaved, prefill }) 
 // ── Main Page ─────────────────────────────────────────────
 
 export default function SchedulesPage() {
-  const [schedules, setSchedules] = useState([]);
-  const [classes, setClasses] = useState([]);
-  const [teams, setTeams] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const queryClient = useQueryClient();
   const [modal, setModal] = useState(null);       // 'create' | schedule obj | null
   const [prefill, setPrefill] = useState(null);    // { startTime, endTime } for calendar click
   const [deleteTarget, setDeleteTarget] = useState(null);
@@ -220,23 +222,18 @@ export default function SchedulesPage() {
   // Week navigation
   const [weekStart, setWeekStart] = useState(() => getMonday(new Date()));
 
-  const load = async () => {
-    setLoading(true);
-    try {
-      const [sRes, cRes, teRes] = await Promise.all([
-        schedulesAPI.getAll({ limit: 200 }),
-        classesAPI.getAll(),
-        teamsAPI.getAll(),
-      ]);
-      setSchedules(sRes.data.data);
-      setClasses(cRes.data.data);
-      setTeams(teRes.data.data);
-    } catch (err) { console.error(err); }
-    finally { setLoading(false); }
-  };
+  const { data: schedData, isLoading: loadingSched } = useSchedules({ limit: 200 });
+  const schedules = schedData?.data || [];
+  const { data: classes = [] } = useClasses();
+  const { data: teams = [] } = useTeams();
+  const loading = loadingSched;
 
-  useEffect(() => { load(); }, []);
   useEffect(() => { document.title = 'TMS — Schedules'; }, []);
+
+  const reload = () => {
+    queryClient.invalidateQueries({ queryKey: qk.schedules.all });
+    queryClient.invalidateQueries({ queryKey: qk.classes.all });
+  };
 
   // ── Week helpers ────────────────────────────────────────
   const weekDays = useMemo(() =>
@@ -280,7 +277,7 @@ export default function SchedulesPage() {
 
   const handleDelete = async () => {
     if (!deleteTarget) return;
-    try { await schedulesAPI.delete(deleteTarget._id); load(); }
+    try { await schedulesAPI.delete(deleteTarget._id); reload(); }
     catch (err) { alert(err.response?.data?.message || 'Delete failed'); }
     setDeleteTarget(null);
   };
@@ -479,7 +476,7 @@ export default function SchedulesPage() {
           classes={classes} teams={teams}
           prefill={prefill}
           onClose={() => { setModal(null); setPrefill(null); }}
-          onSaved={() => { setModal(null); setPrefill(null); load(); }}
+          onSaved={() => { setModal(null); setPrefill(null); reload(); }}
         />
       )}
     </div>

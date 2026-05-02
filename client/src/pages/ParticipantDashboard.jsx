@@ -1,6 +1,7 @@
-import { useState, useEffect } from 'react';
+import { useEffect, useMemo } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { schedulesAPI, attendanceAPI } from '../api/api';
+import { useMyClassSchedules } from '../hooks/useSchedules';
+import { useMyAttendanceStats, useAttendanceByUser } from '../hooks/useAttendance';
 
 // ──────────────────────────────────────────────────────────
 // Participant Dashboard
@@ -21,40 +22,27 @@ const STATUS_CONFIG = {
 
 export default function ParticipantDashboard() {
   const { user } = useAuth();
-  const [schedules, setSchedules] = useState([]);
-  const [stats, setStats] = useState(null);
-  const [history, setHistory] = useState([]);
-  const [teamName, setTeamName] = useState('');
-  const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const [schedRes, statsRes, historyRes] = await Promise.all([
-          schedulesAPI.getMyClass(),
-          attendanceAPI.getMyStats(),
-          attendanceAPI.getByUser(user._id),
-        ]);
-        setSchedules(schedRes.data.data);
-        setTeamName(schedRes.data.team || '');
-        setStats(statsRes.data.data);
-        // Sort by schedule date (newest first) — backend can't sort by populated fields
-        const records = historyRes.data.data || [];
-        records.sort((a, b) => {
-          const dateA = a.scheduleId?.startTime ? new Date(a.scheduleId.startTime) : new Date(0);
-          const dateB = b.scheduleId?.startTime ? new Date(b.scheduleId.startTime) : new Date(0);
-          return dateB - dateA;
-        });
-        setHistory(records);
-      } catch (err) {
-        console.error('Dashboard fetch error:', err);
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchData();
-  }, [user._id]);
+  const { data: schedData, isLoading: loadingSched } = useMyClassSchedules();
+  const { data: stats, isLoading: loadingStats } = useMyAttendanceStats();
+  const { data: rawHistory, isLoading: loadingHistory } = useAttendanceByUser(user._id);
+
+  const schedules = schedData?.data || [];
+  const teamName = schedData?.team || '';
+
+  // Sort by schedule date (newest first) — backend can't sort by populated fields
+  const history = useMemo(() => {
+    const records = rawHistory?.data || rawHistory || [];
+    return [...records].sort((a, b) => {
+      const dateA = a.scheduleId?.startTime ? new Date(a.scheduleId.startTime) : new Date(0);
+      const dateB = b.scheduleId?.startTime ? new Date(b.scheduleId.startTime) : new Date(0);
+      return dateB - dateA;
+    });
+  }, [rawHistory]);
+
   useEffect(() => { document.title = 'TMS — My Dashboard'; }, []);
+
+  const loading = loadingSched || loadingStats || loadingHistory;
 
   if (loading) {
     return (
@@ -63,6 +51,7 @@ export default function ParticipantDashboard() {
       </div>
     );
   }
+
 
   // ── Attendance stat cards ─────────────────────────────────
   const rate = stats?.attendanceRate ?? 0;

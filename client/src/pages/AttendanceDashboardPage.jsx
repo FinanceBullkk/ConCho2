@@ -1,70 +1,46 @@
 import { useState, useEffect } from 'react';
-import { attendanceAPI, classesAPI, exportAPI } from '../api/api';
+import { useQueryClient } from '@tanstack/react-query';
+import { exportAPI } from '../api/api';
+import { useAttendanceAnalyticsByEmployee, useAttendanceAnalyticsByTeam, useAttendanceAnalyticsByClass } from '../hooks/useAttendance';
+import { useClasses } from '../hooks/useClasses';
+import { useExportStats } from '../hooks/useExport';
+import { qk } from '../hooks/queryKeys';
 
 export default function AttendanceDashboardPage() {
+  const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState('employee'); // employee, team, class
-  const [data, setData] = useState([]);
-  const [classes, setClasses] = useState([]);
   const [selectedClass, setSelectedClass] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
 
-  // ── Export state ─────────────────────────────────────────
-  const [exportStats, setExportStats] = useState({ pending: 0, exported: 0 });
-  const [isExporting, setIsExporting] = useState(false);
-  const [exportMsg, setExportMsg] = useState('');
+  // ── Analytics queries (enabled based on active tab) ──────
+  const { data: employeeData = [], isLoading: loadingEmployee } = useAttendanceAnalyticsByEmployee({}, { enabled: activeTab === 'employee' });
+  const { data: teamData = [], isLoading: loadingTeam } = useAttendanceAnalyticsByTeam({}, { enabled: activeTab === 'team' });
+  const { data: classesData = [] } = useClasses({}, { enabled: activeTab === 'class' });
+  const { data: classAnalytics, isLoading: loadingClass } = useAttendanceAnalyticsByClass(
+    { classId: selectedClass || classesData?.[0]?._id },
+    { enabled: activeTab === 'class' && !!(selectedClass || classesData?.[0]?._id) }
+  );
 
-  const loadData = async () => {
-    setLoading(true);
-    setError('');
-    setData([]);  // Reset data to prevent stale renders during tab switch
-    try {
-      if (activeTab === 'employee') {
-        const res = await attendanceAPI.getAnalyticsByEmployee();
-        setData(res.data.data);
-      } else if (activeTab === 'team') {
-        const res = await attendanceAPI.getAnalyticsByTeam();
-        setData(res.data.data);
-      } else if (activeTab === 'class') {
-        if (!selectedClass) {
-          const cRes = await classesAPI.getAll();
-          setClasses(cRes.data.data);
-          if (cRes.data.data.length > 0) {
-            setSelectedClass(cRes.data.data[0]._id);
-          } else {
-            setData(null);
-            setLoading(false);
-            return;
-          }
-        }
-        
-        const targetClassId = selectedClass || classes[0]?._id;
-        if (targetClassId) {
-          const res = await attendanceAPI.getAnalyticsByClass({ classId: targetClassId });
-          setData(res.data.data);
-        }
-      }
-    } catch (err) {
-      console.error(err);
-      setError('Failed to load analytics data.');
-    } finally {
-      setLoading(false);
-    }
-  };
-
+  // Auto-select first class when classes load
   useEffect(() => {
-    loadData();
-  }, [activeTab, selectedClass]);
+    if (activeTab === 'class' && !selectedClass && classesData?.length > 0) {
+      setSelectedClass(classesData[0]._id);
+    }
+  }, [activeTab, classesData, selectedClass]);
+
+  const classes = classesData || [];
+  const data = activeTab === 'employee' ? employeeData
+             : activeTab === 'team' ? teamData
+             : classAnalytics;
+  const loading = activeTab === 'employee' ? loadingEmployee
+                : activeTab === 'team' ? loadingTeam
+                : loadingClass;
+
   useEffect(() => { document.title = 'TMS — Analytics'; }, []);
 
-  // ── Load export stats on mount ──────────────────────────
-  const loadExportStats = async () => {
-    try {
-      const res = await exportAPI.getStats();
-      setExportStats(res.data.data);
-    } catch { /* non-critical */ }
-  };
-  useEffect(() => { loadExportStats(); }, []);
+  // ── Export state ─────────────────────────────────────────
+  const { data: exportStats = { pending: 0, exported: 0 } } = useExportStats();
+  const [isExporting, setIsExporting] = useState(false);
+  const [exportMsg, setExportMsg] = useState('');
 
   // ── Export handler: download Excel via blob ─────────────
   const handleExport = async () => {
@@ -93,7 +69,7 @@ export default function AttendanceDashboardPage() {
       window.URL.revokeObjectURL(url);
 
       setExportMsg(`✅ Đã tải ${filename} thành công!`);
-      loadExportStats(); // Refresh stats (pending → 0)
+      queryClient.invalidateQueries({ queryKey: qk.exportHr.stats });
     } catch (err) {
       const msg = err.response?.status === 404
         ? 'Không có bản ghi nào để xuất.'
