@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { schedulesAPI, classesAPI, teamsAPI } from '../api/api';
+import Portal from '../components/Portal';
 
 // ──────────────────────────────────────────────────────────
 // Admin Schedule Management (v2 — Calendar View)
@@ -126,6 +127,7 @@ function ScheduleModal({ schedule, classes, teams, onClose, onSaved, prefill }) 
   const f = (k, v) => setForm((p) => ({ ...p, [k]: v }));
 
   return (
+    <Portal>
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm" onClick={onClose}>
       <form onSubmit={handleSubmit} onClick={(e) => e.stopPropagation()}
         className="glass rounded-2xl p-6 w-full max-w-lg mx-4 space-y-4 animate-fade-in max-h-[90vh] overflow-y-auto">
@@ -200,6 +202,7 @@ function ScheduleModal({ schedule, classes, teams, onClose, onSaved, prefill }) 
         </div>
       </form>
     </div>
+    </Portal>
   );
 }
 
@@ -452,6 +455,7 @@ export default function SchedulesPage() {
 
       {/* ── Delete Confirmation ─────────────────────────── */}
       {deleteTarget && (
+        <Portal>
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
           <div className="glass rounded-2xl p-6 max-w-sm mx-4 text-center space-y-4 animate-fade-in">
             <div className="text-3xl">🗑️</div>
@@ -465,6 +469,7 @@ export default function SchedulesPage() {
             </div>
           </div>
         </div>
+        </Portal>
       )}
 
       {/* ── Create / Edit Modal ────────────────────────── */}
