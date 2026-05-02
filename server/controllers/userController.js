@@ -1,4 +1,5 @@
 const mongoose = require('mongoose');
+const bcrypt = require('bcryptjs');
 const User = require('../models/User');
 const Team = require('../models/Team');
 const Schedule = require('../models/Schedule');
@@ -8,6 +9,7 @@ const { getNextSequence } = require('../helpers/counter');
 const { parsePagination, paginatedResponse } = require('../helpers/pagination');
 const { escapeRegex } = require('../helpers/escapeRegex');
 const { invalidateUserCache } = require('../middleware/auth');
+const { handleError } = require('../helpers/handleError');
 
 // ──────────────────────────────────────────────────────────
 // User Controller (Admin Only)
@@ -54,7 +56,7 @@ const getUsers = async (req, res) => {
     const userIds = users.map(u => u._id);
     const lastActiveAgg = await Attendance.aggregate([
       { $match: { userId: { $in: userIds } } },
-      { $group: { _id: '$userId', lastDate: { $max: '$date' } } },
+      { $group: { _id: '$userId', lastDate: { $max: '$createdAt' } } },
     ]);
     const lastActiveMap = {};
     for (const a of lastActiveAgg) {
@@ -76,7 +78,7 @@ const getUsers = async (req, res) => {
 
     res.json(paginatedResponse({ data: enrichedUsers, total, page, limit }));
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    handleError(res, error);
   }
 };
 
@@ -92,7 +94,7 @@ const getUserById = async (req, res) => {
     }
     res.json({ success: true, data: user });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    handleError(res, error);
   }
 };
 
@@ -114,6 +116,10 @@ const createUser = async (req, res) => {
       empCode = seq.toString().padStart(6, '0');
     }
 
+    if (!password) {
+      return res.status(400).json({ success: false, message: 'password is required' });
+    }
+
     const user = await User.create({
       empCode,
       name,
@@ -122,7 +128,7 @@ const createUser = async (req, res) => {
       position,
       status,
       dropReason,
-      password: password || 'default123',
+      password,
     });
 
     // Return without password
@@ -131,7 +137,7 @@ const createUser = async (req, res) => {
 
     res.status(201).json({ success: true, data: userObj });
   } catch (error) {
-    res.status(400).json({ success: false, message: error.message });
+    handleError(res, error);
   }
 };
 
@@ -158,9 +164,9 @@ const updateUser = async (req, res) => {
     // If password is being changed, hash it manually
     // (pre-save hooks don't run on findOneAndUpdate)
     if (req.body.password) {
-      const bcrypt = require('bcryptjs');
       const salt = await bcrypt.genSalt(12);
       updateData.password = await bcrypt.hash(req.body.password, salt);
+      updateData.passwordChangedAt = new Date();
     }
 
     const user = await User.findOneAndUpdate(
@@ -178,7 +184,7 @@ const updateUser = async (req, res) => {
 
     res.json({ success: true, data: user });
   } catch (error) {
-    res.status(400).json({ success: false, message: error.message });
+    handleError(res, error);
   }
 };
 
@@ -227,9 +233,10 @@ const deleteUser = async (req, res) => {
         );
 
         // Cascade Step 2: Pull from Schedule.enrolledUsers
+        // enrolledCount is a virtual, no $inc needed.
         await Schedule.updateMany(
           { enrolledUsers: user._id },
-          { $pull: { enrolledUsers: user._id }, $inc: { enrolledCount: -1 } },
+          { $pull: { enrolledUsers: user._id } },
           { session }
         );
 
@@ -254,7 +261,7 @@ const deleteUser = async (req, res) => {
       cascade: { deletedAttendance, deletedEnrollments },
     });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    handleError(res, error);
   }
 };
 
@@ -316,7 +323,7 @@ const getUserProgress = async (req, res) => {
       }
     });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    handleError(res, error);
   }
 };
 
