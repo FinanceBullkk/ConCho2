@@ -3,6 +3,7 @@ const Class = require('../models/Class');
 const Schedule = require('../models/Schedule');
 const Attendance = require('../models/Attendance');
 const Team = require('../models/Team');
+const { handleError } = require('../helpers/handleError');
 
 // ──────────────────────────────────────────────────────────
 // Dashboard Controller — Admin Analytics (Optimized)
@@ -126,7 +127,7 @@ const getDashboardStats = async (req, res) => {
     });
   } catch (error) {
     console.error('Dashboard error:', error);
-    res.status(500).json({ success: false, message: error.message });
+    handleError(res, error);
   }
 };
 

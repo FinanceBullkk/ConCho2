@@ -1,8 +1,12 @@
 import { useState, useEffect, useMemo } from 'react';
-import { schedulesAPI, teamsAPI } from '../api/api';
+import { useQueryClient } from '@tanstack/react-query';
+import { schedulesAPI } from '../api/api';
 import { useAuth } from '../context/AuthContext';
 import toast from 'react-hot-toast';
 import Portal from '../components/Portal';
+import { useAvailability } from '../hooks/useSchedules';
+import { useMyTeams } from '../hooks/useTeams';
+import { qk } from '../hooks/queryKeys';
 
 // ──────────────────────────────────────────────────────────
 // BookClassPage (v2 — Leader-Created Sessions)
@@ -63,9 +67,7 @@ const scheduleToKey = (s) => {
 
 export default function BookClassPage() {
   const { user } = useAuth();
-  const [schedules, setSchedules] = useState([]);
-  const [myTeams, setMyTeams] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const queryClient = useQueryClient();
   const [error, setError] = useState('');
   const [selectedTeam, setSelectedTeam] = useState('');
   const [bookModal, setBookModal] = useState(null);   // { day, slot } for creating
@@ -76,29 +78,22 @@ export default function BookClassPage() {
   const [weekStart, setWeekStart] = useState(() => getMonday(new Date()));
 
   // ── Data loading ────────────────────────────────────────
-  const load = async () => {
-    setLoading(true);
-    setError('');
-    try {
-      const sRes = await schedulesAPI.getAvailability();
-      setSchedules(sRes.data.data);
+  const { data: schedules = [], isLoading: loadingSched } = useAvailability();
+  const { data: myTeams = [], isLoading: loadingTeams } = useMyTeams();
+  const loading = loadingSched || loadingTeams;
 
-      const tRes = await teamsAPI.getMyTeams();
-      const ledTeams = tRes.data.data;
-      setMyTeams(ledTeams);
-      if (ledTeams.length > 0 && !selectedTeam) {
-        setSelectedTeam(ledTeams[0]._id);
-      }
-    } catch (err) {
-      console.error(err);
-      setError('Failed to load schedule data');
-    } finally {
-      setLoading(false);
+  // Auto-select first team
+  useEffect(() => {
+    if (myTeams.length > 0 && !selectedTeam) {
+      setSelectedTeam(myTeams[0]._id);
     }
-  };
+  }, [myTeams, selectedTeam]);
 
-  useEffect(() => { load(); }, []);
   useEffect(() => { document.title = 'TMS — Schedule & Book'; }, []);
+
+  const reload = () => {
+    queryClient.invalidateQueries({ queryKey: qk.schedules.all });
+  };
 
   // ── Build the 7 days of the current week ────────────────
   const weekDays = useMemo(() => {
@@ -139,7 +134,7 @@ export default function BookClassPage() {
       });
       setBookModal(null);
       toast.success(res.data.message || 'Session created successfully! ✅');
-      load();
+      reload();
     } catch (err) {
       const msg = err.response?.data?.message || 'Booking failed';
       setError(msg);
@@ -159,7 +154,7 @@ export default function BookClassPage() {
       await schedulesAPI.cancelSlot(cancelModal._id);
       setCancelModal(null);
       toast.success('Session cancelled successfully');
-      load();
+      reload();
     } catch (err) {
       const msg = err.response?.data?.message || 'Cancel failed';
       setError(msg);

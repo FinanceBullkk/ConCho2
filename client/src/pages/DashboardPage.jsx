@@ -1,7 +1,8 @@
-import { useState, useEffect } from 'react';
+import { useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { dashboardAPI, schedulesAPI } from '../api/api';
+import { useDashboardStats } from '../hooks/useDashboard';
+import { useSchedules } from '../hooks/useSchedules';
 import ParticipantDashboard from './ParticipantDashboard';
 
 // ── Status color palette ─────────────────────────────────
@@ -11,32 +12,17 @@ const COURSE_COLORS = [
 
 export default function DashboardPage() {
   const { user, isAdmin, isParticipant } = useAuth();
-  const [stats, setStats] = useState(null);
-  const [schedules, setSchedules] = useState([]);
-  const [loading, setLoading] = useState(true);
+
+  const schedParams = { from: new Date().toISOString(), limit: 5 };
+  const { data: stats, isLoading: loadingStats } = useDashboardStats({ enabled: isAdmin });
+  const { data: schedData, isLoading: loadingSched } = useSchedules(schedParams, { enabled: !isParticipant });
+  const schedules = schedData?.data || [];
 
   useEffect(() => { document.title = 'TMS — Dashboard'; }, []);
 
-  useEffect(() => {
-    if (isParticipant) return;
-    const fetchData = async () => {
-      try {
-        const [dashRes, schedRes] = await Promise.all([
-          isAdmin ? dashboardAPI.getStats() : Promise.resolve(null),
-          schedulesAPI.getAll({ from: new Date().toISOString(), limit: 5 }),
-        ]);
-        if (dashRes) setStats(dashRes.data.data);
-        setSchedules(schedRes.data.data);
-      } catch (err) {
-        console.error('Dashboard fetch error:', err);
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchData();
-  }, [isAdmin, isParticipant]);
-
   if (isParticipant) return <ParticipantDashboard />;
+
+  const loading = loadingStats || loadingSched;
 
   if (loading) {
     return (

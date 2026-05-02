@@ -67,7 +67,6 @@ const bulkImportHistory = async (req, res) => {
           endTime: new Date(s.endTime),
           capacity: Math.max(s.students?.length || 0, 9),
           enrolledUsers: (s.students || []).map(st => st.userId),
-          enrolledCount: s.students?.length || 0,
         });
         schedulesCreated++;
 

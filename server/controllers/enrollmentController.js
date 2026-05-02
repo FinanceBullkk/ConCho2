@@ -1,6 +1,7 @@
 const Enrollment = require('../models/Enrollment');
 const Attendance = require('../models/Attendance');
 const Schedule = require('../models/Schedule');
+const { handleError } = require('../helpers/handleError');
 
 // ──────────────────────────────────────────────────────────
 // Enrollment Controller
@@ -27,7 +28,7 @@ const getEnrollments = async (req, res) => {
 
     res.json({ success: true, count: enrollments.length, data: enrollments });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    handleError(res, error);
   }
 };
 
@@ -117,7 +118,7 @@ const getTeamEnrollments = async (req, res) => {
 
     res.json({ success: true, count: enriched.length, data: enriched });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    handleError(res, error);
   }
 };
 
@@ -137,7 +138,7 @@ const getUserEnrollments = async (req, res) => {
 
     res.json({ success: true, count: enrollments.length, data: enrollments });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    handleError(res, error);
   }
 };
 
@@ -178,7 +179,7 @@ const updateEnrollment = async (req, res) => {
 
     res.json({ success: true, data: enrollment });
   } catch (error) {
-    res.status(400).json({ success: false, message: error.message });
+    handleError(res, error);
   }
 };
 
@@ -213,7 +214,7 @@ const checkConflicts = async (req, res) => {
 
     res.json({ success: true, data: formattedConflicts });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    handleError(res, error);
   }
 };
 
