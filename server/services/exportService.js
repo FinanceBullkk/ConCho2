@@ -1,7 +1,7 @@
 const mongoose = require('mongoose');
 const ExcelJS = require('exceljs');
 const Attendance = require('../models/Attendance');
-
+const { toVN } = require('../helpers/dayjsConfig');
 // ──────────────────────────────────────────────────────────
 // Export Service
 // ──────────────────────────────────────────────────────────
@@ -169,14 +169,14 @@ const generateExcel = async (records) => {
       classCode: r.classCode,
       courseName: r.courseName,
       teamName: r.teamName,
-      dateStr: startDate.toLocaleDateString('vi-VN'),
-      startStr: startDate.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }),
-      endStr: endDate.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }),
+      dateStr: toVN(startDate).format('DD/MM/YYYY'),
+      startStr: toVN(startDate).format('HH:mm'),
+      endStr: toVN(endDate).format('HH:mm'),
       duration: Math.round(r.durationMinutes),
       statusText: STATUS_TEXT[r.status] || r.status,
       status: r.status,
       remark: r.remark || '',
-      attendanceDate: new Date(r.attendanceDate).toLocaleString('vi-VN'),
+      attendanceDate: toVN(r.attendanceDate).format('DD/MM/YYYY HH:mm'),
     });
   }
 

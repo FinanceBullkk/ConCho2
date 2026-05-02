@@ -11,7 +11,7 @@ const { importUsersBody, importClassesBody } = require('../schemas/import');
 router.post('/users',   protect, roleGuard('Admin'), importLimiter, validate({ body: importUsersBody }), bulkImportUsers);
 router.post('/classes', protect, roleGuard('Admin'), importLimiter, validate({ body: importClassesBody }), bulkImportClasses);
 
-// Historical data import — Admin-only, large payload, no rate limit
-router.post('/history', protect, roleGuard('Admin'), express.json({ limit: '50mb' }), bulkImportHistory);
+// Historical data import — Admin-only, larger payload for bulk migration
+router.post('/history', protect, roleGuard('Admin'), express.json({ limit: '5mb' }), bulkImportHistory);
 
 module.exports = router;

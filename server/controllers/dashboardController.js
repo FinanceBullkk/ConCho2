@@ -5,166 +5,97 @@ const Attendance = require('../models/Attendance');
 const Team = require('../models/Team');
 
 // ──────────────────────────────────────────────────────────
-// Dashboard Controller — Admin Analytics
-// ──────────────────────────────────────────────────────────
-// Mirrors the 4 sections of the Excel DASHBOARD sheet:
-//   Section 1: Overview KPIs
-//   Section 2: Students by Course
-//   Section 3: Drop Reason Analytics
-//   Section 4: Class Progress (done/expected)
+// Dashboard Controller — Admin Analytics (Optimized)
 // ──────────────────────────────────────────────────────────
 
 const getDashboardStats = async (req, res) => {
   try {
-    // ── Section 1: Overview KPIs ──
-    const [
-      totalUsers,
-      activeUsers,
-      inactiveUsers,
-      waitingUsers,
-      droppedUsers,
-      onHoldUsers,
-      totalClasses,
-      totalTeams,
-    ] = await Promise.all([
-      User.countDocuments({ role: 'Participant' }),
-      User.countDocuments({ role: 'Participant', status: 'Active' }),
-      User.countDocuments({ role: 'Participant', status: 'Inactive' }),
-      User.countDocuments({ role: 'Participant', status: 'Waiting for class' }),
-      User.countDocuments({ role: 'Participant', status: 'Dropped' }),
-      User.countDocuments({ role: 'Participant', status: 'On-hold' }),
-      Class.countDocuments(),
-      Team.countDocuments(),
-    ]);
-
-    // Attendance rate: total Present / total records
-    const attStats = await Attendance.aggregate([
-      { $group: {
-        _id: null,
-        total: { $sum: 1 },
-        present: { $sum: { $cond: [{ $in: ['$status', ['P', 'L']] }, 1, 0] } },
-      }},
-    ]);
-    const totalAtt = attStats[0]?.total || 0;
-    const presentAtt = attStats[0]?.present || 0;
-    const attendanceRate = totalAtt > 0 ? presentAtt / totalAtt : 0;
-
-    // At Risk: participants with lastActive > 30 days ago OR no attendance at all
+    const now = new Date();
     const thirtyDaysAgo = new Date();
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
-    const activeUserIds = await User.find({ role: 'Participant', status: 'Active' }).select('_id').lean();
-    const activeIds = activeUserIds.map(u => u._id);
+    // ═══ PHASE 1: All independent queries in parallel ═══
+    const [
+      userStatusCounts,
+      attStats,
+      recentlyActiveIds,
+      teams,
+      allParticipants,
+      dropReasonAgg,
+      dropClassificationAgg,
+      classes,
+      scheduleCountsByClass,
+    ] = await Promise.all([
+      User.aggregate([
+        { $match: { role: 'Participant' } },
+        { $group: { _id: '$status', count: { $sum: 1 } } },
+      ]),
+      Attendance.aggregate([
+        { $group: { _id: null, total: { $sum: 1 }, present: { $sum: { $cond: [{ $in: ['$status', ['P', 'L']] }, 1, 0] } } } },
+      ]),
+      Attendance.distinct('userId', { createdAt: { $gte: thirtyDaysAgo } }),
+      Team.find().populate('classId', 'courseName status').select('members classId').lean(),
+      User.find({ role: 'Participant' }).select('_id status').lean(),
+      User.aggregate([
+        { $match: { role: 'Participant', status: { $in: ['Inactive', 'Dropped'] }, dropReason: { $ne: '' } } },
+        { $project: { reason: { $cond: { if: { $regexMatch: { input: { $ifNull: ['$dropReason', ''] }, regex: / — / } }, then: { $arrayElemAt: [{ $split: ['$dropReason', ' — '] }, 1] }, else: '$dropReason' } } } },
+        { $group: { _id: '$reason', count: { $sum: 1 } } },
+        { $sort: { count: -1 } },
+        { $limit: 10 },
+      ]),
+      User.aggregate([
+        { $match: { role: 'Participant', status: { $in: ['Inactive', 'Dropped'] }, dropReason: { $ne: '' } } },
+        { $project: { classification: { $cond: { if: { $regexMatch: { input: { $ifNull: ['$dropReason', ''] }, regex: / — / } }, then: { $arrayElemAt: [{ $split: ['$dropReason', ' — '] }, 0] }, else: '$dropReason' } } } },
+        { $group: { _id: '$classification', count: { $sum: 1 } } },
+        { $sort: { count: -1 } },
+      ]),
+      Class.find().sort({ classCode: 1 }).lean(),
+      Schedule.aggregate([
+        { $group: { _id: '$classId', total: { $sum: 1 }, done: { $sum: { $cond: [{ $lt: ['$endTime', now] }, 1, 0] } }, teacherId: { $first: '$teacherId' } } },
+      ]),
+    ]);
 
-    const recentlyActive = await Attendance.distinct('userId', {
-      userId: { $in: activeIds },
-      createdAt: { $gte: thirtyDaysAgo },
-    });
-    const atRisk = activeIds.length - recentlyActive.length;
+    // ═══ PHASE 2: Compute from fetched data (zero DB) ═══
+    const statusMap = {};
+    userStatusCounts.forEach(s => { statusMap[s._id] = s.count; });
+    const totalUsers = Object.values(statusMap).reduce((a, b) => a + b, 0);
+    const activeUsers = statusMap['Active'] || 0;
 
-    // ── Section 2: Students by Course ──
-    // Get all classes and map which users are in which teams
-    const teams = await Team.find().populate('classId', 'courseName status').lean();
+    const totalAtt = attStats[0]?.total || 0;
+    const presentAtt = attStats[0]?.present || 0;
+
+    const recentSet = new Set(recentlyActiveIds.map(id => id.toString()));
+    const atRisk = allParticipants.filter(u => u.status === 'Active' && !recentSet.has(u._id.toString())).length;
+
+    // Course breakdown (no N+1)
+    const userStatusLookup = {};
+    allParticipants.forEach(u => { userStatusLookup[u._id.toString()] = u.status; });
     const courseStats = {};
-
     for (const team of teams) {
       if (!team.classId) continue;
-      const courseName = team.classId.courseName;
-      if (!courseStats[courseName]) {
-        courseStats[courseName] = { active: 0, inactive: 0, waiting: 0, total: 0 };
-      }
-      // Count members by status
-      const memberIds = [...(team.members || [])];
-      if (memberIds.length > 0) {
-        const members = await User.find({ _id: { $in: memberIds }, role: 'Participant' })
-          .select('status').lean();
-        for (const m of members) {
-          courseStats[courseName].total++;
-          if (m.status === 'Active') courseStats[courseName].active++;
-          else if (m.status === 'Inactive') courseStats[courseName].inactive++;
-          else if (m.status === 'Waiting for class') courseStats[courseName].waiting++;
-        }
+      const cn = team.classId.courseName;
+      if (!courseStats[cn]) courseStats[cn] = { active: 0, inactive: 0, waiting: 0, total: 0 };
+      for (const m of (team.members || [])) {
+        const s = userStatusLookup[m._id?.toString() || m.toString()];
+        if (!s) continue;
+        courseStats[cn].total++;
+        if (s === 'Active') courseStats[cn].active++;
+        else if (s === 'Inactive') courseStats[cn].inactive++;
+        else if (s === 'Waiting for class') courseStats[cn].waiting++;
       }
     }
 
-    // If no team data, fallback: count from users' current enrollment
-    // Use the imported STUDENTS data (all users have courses tracked externally)
-    // For now, provide what we have from teams
-    const courseBreakdown = Object.entries(courseStats)
-      .map(([courseName, counts]) => ({ courseName, ...counts }))
-      .sort((a, b) => b.total - a.total);
-
-    // ── Section 3: Drop Reasons ──
-    const dropReasonAgg = await User.aggregate([
-      { $match: { role: 'Participant', status: { $in: ['Inactive', 'Dropped'] }, dropReason: { $ne: '' } } },
-      {
-        $project: {
-          // Extract the last part after " — " for the reason
-          reason: {
-            $cond: {
-              if: { $regexMatch: { input: { $ifNull: ['$dropReason', ''] }, regex: / — / } },
-              then: { $arrayElemAt: [{ $split: ['$dropReason', ' — '] }, 1] },
-              else: '$dropReason',
-            }
-          },
-          classification: {
-            $cond: {
-              if: { $regexMatch: { input: { $ifNull: ['$dropReason', ''] }, regex: / — / } },
-              then: { $arrayElemAt: [{ $split: ['$dropReason', ' — '] }, 0] },
-              else: '',
-            }
-          }
-        }
-      },
-      { $group: { _id: '$reason', count: { $sum: 1 } } },
-      { $sort: { count: -1 } },
-      { $limit: 10 },
-    ]);
-
-    const dropClassificationAgg = await User.aggregate([
-      { $match: { role: 'Participant', status: { $in: ['Inactive', 'Dropped'] }, dropReason: { $ne: '' } } },
-      {
-        $project: {
-          classification: {
-            $cond: {
-              if: { $regexMatch: { input: { $ifNull: ['$dropReason', ''] }, regex: / — / } },
-              then: { $arrayElemAt: [{ $split: ['$dropReason', ' — '] }, 0] },
-              else: '$dropReason',
-            }
-          }
-        }
-      },
-      { $group: { _id: '$classification', count: { $sum: 1 } } },
-      { $sort: { count: -1 } },
-    ]);
-
-    // ── Section 4: Class Progress ──
-    const classes = await Class.find().sort({ classCode: 1 }).lean();
-    const classProgress = [];
-
-    for (const cls of classes) {
-      // Count done sessions (schedules in the past)
-      const schedules = await Schedule.find({ classId: cls._id }).lean();
-      const now = new Date();
-      const doneSessions = schedules.filter(s => new Date(s.endTime) < now).length;
-
-      // Find PIC (teacher from first schedule that has one)
-      const withTeacher = schedules.find(s => s.teacherId);
-      let teacherName = null;
-      if (withTeacher) {
-        const teacher = await User.findById(withTeacher.teacherId).select('name').lean();
-        teacherName = teacher?.name || null;
-      }
-
-      classProgress.push({
-        classCode: cls.classCode,
-        courseName: cls.courseName,
-        totalSessions: cls.totalSessions,
-        doneSessions,
-        progress: cls.totalSessions > 0 ? doneSessions / cls.totalSessions : 0,
-        status: cls.status,
-        teacher: teacherName,
-      });
+    // Class progress (no N+1)
+    const schedMap = {};
+    const teacherIds = new Set();
+    scheduleCountsByClass.forEach(s => {
+      const cid = s._id?.toString();
+      if (cid) { schedMap[cid] = s; if (s.teacherId) teacherIds.add(s.teacherId.toString()); }
+    });
+    let teacherMap = {};
+    if (teacherIds.size > 0) {
+      const teachers = await User.find({ _id: { $in: [...teacherIds] } }).select('name').lean();
+      teachers.forEach(t => { teacherMap[t._id.toString()] = t.name; });
     }
 
     res.json({
@@ -173,21 +104,24 @@ const getDashboardStats = async (req, res) => {
         overview: {
           totalStudents: totalUsers,
           active: activeUsers,
-          inactive: inactiveUsers,
-          waiting: waitingUsers,
-          dropped: droppedUsers,
-          onHold: onHoldUsers,
-          attendanceRate,
+          inactive: statusMap['Inactive'] || 0,
+          waiting: statusMap['Waiting for class'] || 0,
+          dropped: statusMap['Dropped'] || 0,
+          onHold: statusMap['On-hold'] || 0,
+          attendanceRate: totalAtt > 0 ? presentAtt / totalAtt : 0,
           totalSessions: totalAtt,
           presentSessions: presentAtt,
           atRisk,
-          totalClasses,
-          totalTeams,
+          totalClasses: classes.length,
+          totalTeams: teams.length,
         },
-        courseBreakdown,
+        courseBreakdown: Object.entries(courseStats).map(([courseName, c]) => ({ courseName, ...c })).sort((a, b) => b.total - a.total),
         dropReasons: dropReasonAgg.map(d => ({ reason: d._id, count: d.count })),
         dropClassifications: dropClassificationAgg.map(d => ({ classification: d._id, count: d.count })),
-        classProgress,
+        classProgress: classes.map(cls => {
+          const s = schedMap[cls._id.toString()] || { done: 0, teacherId: null };
+          return { classCode: cls.classCode, courseName: cls.courseName, totalSessions: cls.totalSessions, doneSessions: s.done, progress: cls.totalSessions > 0 ? s.done / cls.totalSessions : 0, status: cls.status, teacher: s.teacherId ? teacherMap[s.teacherId.toString()] || null : null };
+        }),
       },
     });
   } catch (error) {
