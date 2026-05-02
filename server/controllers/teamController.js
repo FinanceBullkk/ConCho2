@@ -3,6 +3,7 @@ const Team = require('../models/Team');
 const Schedule = require('../models/Schedule');
 const Attendance = require('../models/Attendance');
 const Enrollment = require('../models/Enrollment');
+const { handleError } = require('../helpers/handleError');
 
 // ──────────────────────────────────────────────────────────
 // Team Controller (Admin Only)
@@ -127,7 +128,7 @@ const getTeams = async (req, res) => {
 
     res.json({ success: true, count: teams.length, data: teams });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    handleError(res, error);
   }
 };
 
@@ -146,7 +147,7 @@ const getTeamById = async (req, res) => {
     }
     res.json({ success: true, data: team });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    handleError(res, error);
   }
 };
 
@@ -206,7 +207,7 @@ const createTeam = async (req, res) => {
 
     res.status(201).json({ success: true, data: populated });
   } catch (error) {
-    res.status(400).json({ success: false, message: error.message });
+    handleError(res, error);
   }
 };
 
@@ -309,7 +310,7 @@ const updateTeam = async (req, res) => {
 
     res.json({ success: true, data: populated });
   } catch (error) {
-    res.status(400).json({ success: false, message: error.message });
+    handleError(res, error);
   }
 };
 
@@ -326,7 +327,7 @@ const getMyTeams = async (req, res) => {
 
     res.json({ success: true, count: teams.length, data: teams });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    handleError(res, error);
   }
 };
 
@@ -381,7 +382,7 @@ const deleteTeam = async (req, res) => {
       cascade: { deletedSchedules, deletedAttendance },
     });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    handleError(res, error);
   }
 };
 
@@ -414,7 +415,7 @@ const getTeamProgress = async (req, res) => {
       }
     });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    handleError(res, error);
   }
 };
 

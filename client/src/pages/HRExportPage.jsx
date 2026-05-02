@@ -1,5 +1,8 @@
 import { useState, useEffect } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { exportAPI } from '../api/api';
+import { useExportStats } from '../hooks/useExport';
+import { qk } from '../hooks/queryKeys';
 
 // ──────────────────────────────────────────────────────────
 // HR Export Page (Admin Only)
@@ -9,23 +12,12 @@ import { exportAPI } from '../api/api';
 // ──────────────────────────────────────────────────────────
 
 export default function HRExportPage() {
-  const [stats, setStats] = useState({ pending: 0, exported: 0 });
+  const queryClient = useQueryClient();
+  const { data: stats = { pending: 0, exported: 0 }, isLoading: loading } = useExportStats();
   const [isExporting, setIsExporting] = useState(false);
   const [exportMsg, setExportMsg] = useState('');
-  const [loading, setLoading] = useState(true);
 
   useEffect(() => { document.title = 'TMS — HR Export'; }, []);
-
-  const loadStats = async () => {
-    setLoading(true);
-    try {
-      const res = await exportAPI.getStats();
-      setStats(res.data.data);
-    } catch { /* non-critical */ }
-    finally { setLoading(false); }
-  };
-
-  useEffect(() => { loadStats(); }, []);
 
   const handleExport = async () => {
     setIsExporting(true);
@@ -51,7 +43,7 @@ export default function HRExportPage() {
       window.URL.revokeObjectURL(url);
 
       setExportMsg(`✅ Downloaded ${filename} successfully!`);
-      loadStats();
+      queryClient.invalidateQueries({ queryKey: qk.exportHr.stats });
     } catch (err) {
       const msg = err.response?.status === 404
         ? 'No pending records to export.'
@@ -116,7 +108,7 @@ export default function HRExportPage() {
           </button>
 
           <button
-            onClick={loadStats}
+            onClick={() => queryClient.invalidateQueries({ queryKey: qk.exportHr.stats })}
             className="px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-slate-300 text-sm hover:bg-white/10 transition-all"
           >
             ↻ Refresh Stats

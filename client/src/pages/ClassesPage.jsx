@@ -1,7 +1,11 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { classesAPI, teamsAPI } from '../api/api';
+import { useQueryClient } from '@tanstack/react-query';
+import { classesAPI } from '../api/api';
 import Portal from '../components/Portal';
+import { useClasses, useCourses } from '../hooks/useClasses';
+import { useTeams } from '../hooks/useTeams';
+import { qk } from '../hooks/queryKeys';
 
 // ──────────────────────────────────────────────────────────
 // Classes Page (v2 — Matrix View)
@@ -212,31 +216,24 @@ function EditClassModal({ cls, team, onClose, onSaved, onDeleted, onNavigate }) 
 
 export default function ClassesPage() {
   const navigate = useNavigate();
-  const [classes, setClasses] = useState([]);
-  const [teams, setTeams] = useState([]);
-  const [courseNames, setCourseNames] = useState(COURSE_ORDER);
-  const [loading, setLoading] = useState(true);
+  const queryClient = useQueryClient();
   const [cohortModal, setCohortModal] = useState(false);
   const [editModal, setEditModal] = useState(null);
   const [creating, setCreating] = useState(null);
 
-  const load = async () => {
-    setLoading(true);
-    try {
-      const [cRes, metaRes, tRes] = await Promise.all([
-        classesAPI.getAll(),
-        classesAPI.getCourses(),
-        teamsAPI.getAll(),
-      ]);
-      setClasses(cRes.data.data);
-      setCourseNames(metaRes.data.data.courseNames);
-      setTeams(tRes.data.data);
-    } catch (err) { console.error(err); }
-    finally { setLoading(false); }
-  };
+  const { data: classes = [], isLoading: loadingClasses } = useClasses();
+  const { data: courseMeta } = useCourses();
+  const { data: teams = [], isLoading: loadingTeams } = useTeams();
 
-  useEffect(() => { load(); }, []);
+  const courseNames = courseMeta?.courseNames || COURSE_ORDER;
+  const loading = loadingClasses || loadingTeams;
+
   useEffect(() => { document.title = 'TMS — Classes'; }, []);
+
+  const reload = () => {
+    queryClient.invalidateQueries({ queryKey: qk.classes.all });
+    queryClient.invalidateQueries({ queryKey: qk.teams.all });
+  };
 
   // Build classCode → team lookup (team owns the entire cohort)
   const teamByClassCode = useMemo(() => {
@@ -268,7 +265,7 @@ export default function ClassesPage() {
     setCreating(key);
     try {
       await classesAPI.create({ classCode, courseName });
-      load();
+      reload();
     } catch (err) {
       alert(err.response?.data?.message || 'Failed to create class');
     } finally { setCreating(null); }
@@ -426,7 +423,7 @@ export default function ClassesPage() {
         <NewCohortModal
           courseNames={courseNames}
           onClose={() => setCohortModal(false)}
-          onSaved={() => { setCohortModal(false); load(); }}
+          onSaved={() => { setCohortModal(false); reload(); }}
         />
       )}
 
@@ -435,8 +432,8 @@ export default function ClassesPage() {
           cls={editModal}
           team={teamByClassCode[editModal.classCode]}
           onClose={() => setEditModal(null)}
-          onSaved={() => { setEditModal(null); load(); }}
-          onDeleted={() => { setEditModal(null); load(); }}
+          onSaved={() => { setEditModal(null); reload(); }}
+          onDeleted={() => { setEditModal(null); reload(); }}
           onNavigate={(path) => { setEditModal(null); navigate(path); }}
         />
       )}
