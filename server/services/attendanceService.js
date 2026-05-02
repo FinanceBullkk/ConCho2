@@ -1,7 +1,7 @@
 const mongoose = require('mongoose');
 const Attendance = require('../models/Attendance');
 const Schedule = require('../models/Schedule');
-const Team = require('../models/Team');
+const Team = require('../models/Team'); // used in analyticsByTeam aggregation
 const { invalidateAnalyticsCache } = require('../middleware/analyticsCache');
 
 // ──────────────────────────────────────────────────────────
@@ -34,6 +34,9 @@ const bulkMark = async (scheduleId, records) => {
     );
   }
 
+  // Build an allowlist of enrolled user IDs for this schedule
+  const enrolledSet = new Set(schedule.enrolledUsers.map(id => id.toString()));
+
   // Validate each record
   for (const record of records) {
     if (!record.userId || !record.status) {
@@ -42,6 +45,12 @@ const bulkMark = async (scheduleId, records) => {
     if (!VALID_STATUSES.includes(record.status)) {
       throw new ServiceError(
         `Invalid status "${record.status}". Use: ${VALID_STATUSES.join(', ')}`
+      );
+    }
+    if (!enrolledSet.has(record.userId.toString())) {
+      throw new ServiceError(
+        `User ${record.userId} is not enrolled in this schedule`,
+        400
       );
     }
   }
@@ -142,61 +151,75 @@ const analyticsByEmployee = async (filterUserId) => {
 
 /**
  * Analytics: attendance stats grouped by team.
+ * Uses a single aggregation pipeline — no in-memory fan-out.
  */
 const analyticsByTeam = async () => {
-  const teams = await Team.find().populate('members', '_id').lean();
-
-  const memberToTeams = {};
-  const teamMeta = {};
-  for (const team of teams) {
-    teamMeta[team._id.toString()] = { name: team.name, memberCount: team.members.length };
-    for (const m of team.members) {
-      const uid = m._id.toString();
-      if (!memberToTeams[uid]) memberToTeams[uid] = [];
-      memberToTeams[uid].push(team._id.toString());
-    }
-  }
-
-  const allMemberIds = Object.keys(memberToTeams).map(id => new mongoose.Types.ObjectId(id));
-
-  const userStats = await Attendance.aggregate([
-    { $match: { userId: { $in: allMemberIds } } },
+  const results = await Team.aggregate([
+    // For each team, fetch all attendance records for its members
     {
-      $group: {
-        _id: '$userId',
-        totalSessions: { $sum: 1 },
-        present: { $sum: { $cond: [{ $eq: ['$status', 'P'] }, 1, 0] } },
-        absent: { $sum: { $cond: [{ $eq: ['$status', 'A'] }, 1, 0] } },
-        late: { $sum: { $cond: [{ $eq: ['$status', 'L'] }, 1, 0] } },
-        excused: { $sum: { $cond: [{ $eq: ['$status', 'EL'] }, 1, 0] } },
+      $lookup: {
+        from: 'attendances',
+        let: { memberIds: '$members' },
+        pipeline: [
+          { $match: { $expr: { $in: ['$userId', '$$memberIds'] } } },
+        ],
+        as: 'attendanceRecords',
       },
     },
+    {
+      $project: {
+        name: 1,
+        memberCount: { $size: '$members' },
+        totalSessions: { $size: '$attendanceRecords' },
+        present: {
+          $size: {
+            $filter: { input: '$attendanceRecords', as: 'a', cond: { $eq: ['$$a.status', 'P'] } },
+          },
+        },
+        absent: {
+          $size: {
+            $filter: { input: '$attendanceRecords', as: 'a', cond: { $eq: ['$$a.status', 'A'] } },
+          },
+        },
+        late: {
+          $size: {
+            $filter: { input: '$attendanceRecords', as: 'a', cond: { $eq: ['$$a.status', 'L'] } },
+          },
+        },
+        excused: {
+          $size: {
+            $filter: { input: '$attendanceRecords', as: 'a', cond: { $eq: ['$$a.status', 'EL'] } },
+          },
+        },
+      },
+    },
+    {
+      $addFields: {
+        attendanceRate: {
+          $cond: [
+            { $gt: ['$totalSessions', 0] },
+            { $round: [{ $multiply: [{ $divide: ['$present', '$totalSessions'] }, 100] }, 1] },
+            0,
+          ],
+        },
+      },
+    },
+    { $sort: { attendanceRate: -1, name: 1 } },
   ]);
 
-  // Aggregate per-user into per-team
-  const teamStats = {};
-  for (const tid of Object.keys(teamMeta)) {
-    teamStats[tid] = { totalSessions: 0, present: 0, absent: 0, late: 0, excused: 0 };
-  }
-  for (const us of userStats) {
-    const tids = memberToTeams[us._id.toString()] || [];
-    for (const tid of tids) {
-      teamStats[tid].totalSessions += us.totalSessions;
-      teamStats[tid].present += us.present;
-      teamStats[tid].absent += us.absent;
-      teamStats[tid].late += us.late;
-      teamStats[tid].excused += us.excused;
-    }
-  }
-
-  return Object.entries(teamMeta).map(([tid, meta]) => {
-    const s = teamStats[tid];
-    const rate = s.totalSessions > 0 ? parseFloat(((s.present / s.totalSessions) * 100).toFixed(1)) : 0;
-    return {
-      _id: tid, name: meta.name, memberCount: meta.memberCount,
-      stats: { ...s, attendanceRate: rate },
-    };
-  });
+  return results.map(r => ({
+    _id: r._id,
+    name: r.name,
+    memberCount: r.memberCount,
+    stats: {
+      totalSessions: r.totalSessions,
+      present: r.present,
+      absent: r.absent,
+      late: r.late,
+      excused: r.excused,
+      attendanceRate: r.attendanceRate,
+    },
+  }));
 };
 
 /**
