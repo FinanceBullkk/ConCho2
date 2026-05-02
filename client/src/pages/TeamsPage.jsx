@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { teamsAPI, usersAPI, classesAPI, enrollmentsAPI } from '../api/api';
 import TeamProgressModal from '../components/Progress/TeamProgressModal';
 import StudentProgressModal from '../components/Progress/StudentProgressModal';
+import Portal from '../components/Portal';
 
 function TeamModal({ team, participants, classes, teams, onClose, onSaved }) {
   const isEdit = !!team?._id;
@@ -12,60 +13,65 @@ function TeamModal({ team, participants, classes, teams, onClose, onSaved }) {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [swapConfirm, setSwapConfirm] = useState(null);
-  const [transferConfirm, setTransferConfirm] = useState(null); // { conflicts, payload }
+  const [transferConfirm, setTransferConfirm] = useState(null);
+  const [memberSearch, setMemberSearch] = useState('');
 
-  // Build a map: classId → team name (for OTHER teams only)
+  // Build userId → team name map (for OTHER teams)
+  const userTeamMap = {};
+  for (const t of teams) {
+    if (isEdit && t._id === team?._id) continue;
+    const tName = t.name;
+    if (t.leaderId) { const lid = t.leaderId._id || t.leaderId; userTeamMap[lid] = tName; }
+    if (t.members) t.members.forEach(m => { const mid = m._id || m; userTeamMap[mid] = tName; });
+  }
+
+  // Build classId → team name map
   const takenClassMap = new Map();
   for (const t of teams) {
     const cId = t.classId?._id || t.classId;
-    if (cId && (!isEdit || t._id !== team?._id)) {
-      takenClassMap.set(cId, t.name);
-    }
+    if (cId && (!isEdit || t._id !== team?._id)) takenClassMap.set(cId, t.name);
   }
+
+  // Filter participants by search
+  const searchLower = memberSearch.toLowerCase().trim();
+  const filteredParticipants = searchLower
+    ? participants.filter(p => p.name.toLowerCase().includes(searchLower) || p.empCode.toLowerCase().includes(searchLower))
+    : participants;
+
+  // Sort: selected first, then available, then taken by other teams
+  const sortedParticipants = [...filteredParticipants].sort((a, b) => {
+    const aSelected = memberIds.includes(a._id) ? 0 : 1;
+    const bSelected = memberIds.includes(b._id) ? 0 : 1;
+    if (aSelected !== bSelected) return aSelected - bSelected;
+    const aTaken = (!memberIds.includes(a._id) && userTeamMap[a._id]) ? 1 : 0;
+    const bTaken = (!memberIds.includes(b._id) && userTeamMap[b._id]) ? 1 : 0;
+    return aTaken - bTaken;
+  });
 
   const toggleMember = (id) => setMemberIds((prev) => prev.includes(id) ? prev.filter((m) => m !== id) : [...prev, id]);
 
-  // Handle class dropdown change — intercept if taken
   const handleClassChange = (newClassId) => {
     if (newClassId && takenClassMap.has(newClassId)) {
       const cls = classes.find(c => c._id === newClassId);
-      setSwapConfirm({
-        classId: newClassId,
-        classCode: cls?.classCode || newClassId,
-        takenByTeam: takenClassMap.get(newClassId),
-      });
-    } else {
-      setClassId(newClassId);
-    }
+      setSwapConfirm({ classId: newClassId, classCode: cls?.classCode || newClassId, takenByTeam: takenClassMap.get(newClassId) });
+    } else { setClassId(newClassId); }
   };
 
-  const handleSwapConfirm = () => {
-    setClassId(swapConfirm.classId);
-    setSwapConfirm(null);
-  };
+  const handleSwapConfirm = () => { setClassId(swapConfirm.classId); setSwapConfirm(null); };
 
   const handleSubmit = async (e, forceSwap = false, forceTransfer = false) => {
     e?.preventDefault();
     if (!leaderId) return setError('Please select a team leader');
-
     const payload = { name, classId: classId || null, leaderId, members: memberIds };
     if (forceSwap || takenClassMap.has(classId)) payload.forceSwap = true;
 
-    // ── Check for enrollment conflicts before saving ──
     if (!forceTransfer) {
       try {
         setSaving(true);
         const res = await enrollmentsAPI.checkConflicts({ teamId: team?._id || 'new', memberIds });
-        if (res.data.data.length > 0) {
-          setTransferConfirm({ conflicts: res.data.data, payload });
-          setSaving(false);
-          return;
-        }
-      } catch (err) {
-        console.error('Failed to check conflicts', err);
-      } finally {
-        setSaving(false);
-      }
+        if (res.data.data.length > 0) { setTransferConfirm({ conflicts: res.data.data, payload }); setSaving(false); return; }
+      } catch (err) { console.error('Failed to check conflicts', err); }
+      finally { setSaving(false); }
     }
 
     setSaving(true); setError('');
@@ -76,50 +82,41 @@ function TeamModal({ team, participants, classes, teams, onClose, onSaved }) {
       onSaved();
     } catch (err) {
       const data = err.response?.data;
-      // If server returns 409 with conflict info, show swap dialog
       if (err.response?.status === 409 && data?.conflictTeamId) {
-        setSwapConfirm({
-          classId,
-          classCode: classId,
-          takenByTeam: data.conflictTeamName,
-        });
-      } else {
-        setError(data?.message || 'Save failed');
-      }
+        setSwapConfirm({ classId, classCode: classId, takenByTeam: data.conflictTeamName });
+      } else { setError(data?.message || 'Save failed'); }
     } finally { setSaving(false); }
   };
 
   return (
+    <Portal>
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm" onClick={onClose}>
       <form onSubmit={(e) => handleSubmit(e)} onClick={(e) => e.stopPropagation()}
-        className="glass rounded-2xl p-6 w-full max-w-lg mx-4 space-y-4 animate-fade-in max-h-[90vh] overflow-y-auto">
-        <h2 className="text-lg font-bold text-white">{isEdit ? 'Edit Team' : 'Create Team'}</h2>
+        className="glass rounded-2xl p-6 w-full max-w-2xl mx-4 space-y-4 animate-fade-in max-h-[92vh] overflow-y-auto">
+        <h2 className="text-xl font-bold text-white">{isEdit ? '✏️ Edit Team' : '➕ Create Team'}</h2>
         {error && <div className="px-4 py-2 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-sm">{error}</div>}
-        <div>
-          <label className="block text-sm text-slate-300 mb-1">Team Name</label>
-          <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Team name" required
-            className="w-full px-4 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-primary-500/50 transition-all" />
+
+        {/* ── Top fields: 2-column layout ─────────────── */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <label className="block text-sm text-slate-300 mb-1">Team Name</label>
+            <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Team name" required
+              className="w-full px-4 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-primary-500/50 transition-all" />
+          </div>
+          <div>
+            <label className="block text-sm text-slate-300 mb-1">Assigned Class</label>
+            <select value={classId} onChange={(e) => handleClassChange(e.target.value)}
+              className="w-full px-3 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white focus:outline-none focus:ring-2 focus:ring-primary-500/50 transition-all">
+              <option value="" className="bg-slate-800">— No class —</option>
+              {classes.filter(c => c.status === 'Ongoing').map((c) => {
+                const takenBy = takenClassMap.get(c._id);
+                return (<option key={c._id} value={c._id} className="bg-slate-800">{c.classCode} — {c.courseName}{takenBy ? ` (⇄ ${takenBy})` : ''}</option>);
+              })}
+            </select>
+          </div>
         </div>
-        <div>
-          <label className="block text-sm text-slate-300 mb-1">Assigned Class</label>
-          <select value={classId} onChange={(e) => handleClassChange(e.target.value)}
-            className="w-full px-3 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white focus:outline-none focus:ring-2 focus:ring-primary-500/50 transition-all">
-            <option value="" className="bg-slate-800">— No class assigned —</option>
-            {classes.filter(c => c.status === 'Ongoing').map((c) => {
-              const takenBy = takenClassMap.get(c._id);
-              return (
-                <option key={c._id} value={c._id} className="bg-slate-800">
-                  {c.classCode} — {c.courseName}{takenBy ? ` (⇄ ${takenBy})` : ''}
-                </option>
-              );
-            })}
-          </select>
-          {!classId && (
-            <p className="mt-1.5 text-xs text-slate-400">
-              This team has no assigned class. You can assign one later.
-            </p>
-          )}
-        </div>
+
+        {/* ── Team Leader ─────────────────────────────── */}
         <div>
           <label className="block text-sm text-slate-300 mb-1">Team Leader</label>
           <select value={leaderId} onChange={(e) => { setLeaderId(e.target.value); if (!memberIds.includes(e.target.value)) setMemberIds((p) => [...p, e.target.value]); }}
@@ -128,19 +125,66 @@ function TeamModal({ team, participants, classes, teams, onClose, onSaved }) {
             {participants.map((p) => <option key={p._id} value={p._id} className="bg-slate-800">{p.name} ({p.empCode})</option>)}
           </select>
         </div>
+
+        {/* ── Members with Search ─────────────────────── */}
         <div>
-          <label className="block text-sm text-slate-300 mb-2">Members <span className="text-slate-500">({memberIds.length} selected)</span></label>
-          <div className="glass-light rounded-xl p-3 max-h-48 overflow-y-auto space-y-1">
-            {participants.map((p) => (
-              <label key={p._id} className="flex items-center gap-3 px-3 py-2 rounded-lg cursor-pointer hover:bg-white/5 transition-all">
-                <input type="checkbox" checked={memberIds.includes(p._id)} onChange={() => toggleMember(p._id)} className="w-4 h-4 rounded accent-primary-500" />
-                <span className="text-sm text-white">{p.name}</span>
-                <span className="text-xs text-slate-500 ml-auto">{p.empCode}</span>
-                {p._id === leaderId && <span className="text-xs text-amber-400">Leader</span>}
-              </label>
-            ))}
+          <div className="flex items-center justify-between mb-2">
+            <label className="text-sm text-slate-300">Members <span className="text-slate-500">({memberIds.length} selected)</span></label>
+          </div>
+          {/* Search box */}
+          <div className="relative mb-2">
+            <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
+            <input
+              type="text" value={memberSearch} onChange={(e) => setMemberSearch(e.target.value)}
+              placeholder="Search by name or employee code..."
+              className="w-full pl-10 pr-4 py-2 rounded-xl bg-white/5 border border-white/10 text-white text-sm placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-primary-500/50 transition-all"
+            />
+            {memberSearch && (
+              <button type="button" onClick={() => setMemberSearch('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-white text-xs">✕</button>
+            )}
+          </div>
+          {/* Member list */}
+          <div className="glass-light rounded-xl p-2 max-h-64 overflow-y-auto space-y-0.5">
+            {sortedParticipants.length === 0 && (
+              <div className="text-center text-slate-500 text-sm py-4">No users match "{memberSearch}"</div>
+            )}
+            {sortedParticipants.map((p) => {
+              const isSelected = memberIds.includes(p._id);
+              const otherTeam = userTeamMap[p._id];
+              const isInOtherTeam = !isSelected && !!otherTeam;
+              const isLeader = p._id === leaderId;
+
+              return (
+                <label key={p._id}
+                  className={`flex items-center gap-3 px-3 py-2 rounded-lg transition-all ${
+                    isSelected
+                      ? 'bg-primary-500/10 border border-primary-500/20'
+                      : isInOtherTeam
+                        ? 'opacity-60 hover:opacity-90 cursor-pointer hover:bg-amber-500/5 border border-transparent'
+                        : 'cursor-pointer hover:bg-white/5 border border-transparent'
+                  }`}
+                >
+                  <input type="checkbox" checked={isSelected} onChange={() => toggleMember(p._id)} className="w-4 h-4 rounded accent-primary-500 shrink-0" />
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <span className={`text-sm truncate ${isSelected ? 'text-white font-medium' : 'text-slate-300'}`}>{p.name}</span>
+                      {isLeader && <span className="text-[10px] text-amber-300 bg-amber-500/15 px-1.5 py-0.5 rounded-full font-semibold shrink-0">👑 Leader</span>}
+                    </div>
+                    {isInOtherTeam && (
+                      <div className="text-[10px] text-amber-400 mt-0.5">
+                        {isSelected ? '⚠ Will transfer from' : '🔒 Currently in'} <span className="font-semibold">{otherTeam}</span>
+                      </div>
+                    )}
+                  </div>
+                  <span className="text-xs text-slate-500 font-mono shrink-0">{p.empCode}</span>
+                </label>
+              );
+            })}
           </div>
         </div>
+
         {isEdit && (
           <p className="text-xs text-amber-400/80 bg-amber-500/5 border border-amber-500/10 rounded-lg px-3 py-2">
             ⚡ Saving triggers Dynamic Team Sync — future schedules update automatically.
@@ -208,6 +252,7 @@ function TeamModal({ team, participants, classes, teams, onClose, onSaved }) {
         </div>
       )}
     </div>
+    </Portal>
   );
 }
 
@@ -347,6 +392,7 @@ export default function TeamsPage() {
       )}
 
       {deleteId && (
+        <Portal>
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
           <div className="glass rounded-2xl p-6 max-w-sm mx-4 text-center space-y-4 animate-fade-in">
             <div className="text-3xl">🗑️</div>
@@ -357,6 +403,7 @@ export default function TeamsPage() {
             </div>
           </div>
         </div>
+        </Portal>
       )}
 
       {(modal === 'create' || (modal && modal._id)) && (

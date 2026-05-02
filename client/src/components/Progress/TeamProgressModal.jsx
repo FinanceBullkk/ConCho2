@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { teamsAPI } from '../../api/api';
+import Portal from '../Portal';
 
 const STATUS_ICONS = {
   Present: '✅',
@@ -22,7 +23,7 @@ export default function TeamProgressModal({ teamId, onClose }) {
     });
   }, [teamId]);
 
-  if (loading) return <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm text-white">Loading...</div>;
+  if (loading) return <Portal><div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm text-white">Loading...</div></Portal>;
   if (!data) return null;
 
   const { team, schedules, attendances } = data;
@@ -42,6 +43,7 @@ export default function TeamProgressModal({ teamId, onClose }) {
   };
 
   return (
+    <Portal>
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4" onClick={onClose}>
       <div className="bg-[#1e1e1e] rounded-2xl w-full max-w-5xl max-h-[90vh] overflow-hidden flex flex-col shadow-2xl border border-white/10" onClick={e => e.stopPropagation()}>
         <div className="p-6 border-b border-white/10 flex justify-between items-center bg-white/5">
@@ -112,5 +114,6 @@ export default function TeamProgressModal({ teamId, onClose }) {
         </div>
       </div>
     </div>
+    </Portal>
   );
 }

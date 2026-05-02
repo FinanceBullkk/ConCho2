@@ -28,7 +28,16 @@ app.set('trust proxy', 1);
 
 // ── Security headers ──────────────────────────────────────
 app.use(helmet({
-  contentSecurityPolicy: false,   // Allow inline styles from React/Tailwind
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      scriptSrc:  ["'self'"],
+      styleSrc:   ["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com'],
+      fontSrc:    ["'self'", 'https://fonts.gstatic.com'],
+      imgSrc:     ["'self'", 'data:', 'https:'],
+      connectSrc: ["'self'"],
+    },
+  },
   crossOriginEmbedderPolicy: false,
 }));
 

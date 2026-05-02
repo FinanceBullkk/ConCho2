@@ -144,9 +144,9 @@ const section = (name) => results.push(`\n━━━ ${name} ━━━`);
   // Book a schedule
   const futureDate = new Date();
   futureDate.setDate(futureDate.getDate() + 14);
-  futureDate.setUTCHours(10, 0, 0, 0); // 10:00 UTC — matches allowed slot sh=10,eh=11
+  futureDate.setHours(10, 0, 0, 0); // 10:00 local — matches allowed slot sh=10,eh=11
   const endDate = new Date(futureDate);
-  endDate.setUTCHours(11, 0, 0, 0);
+  endDate.setHours(11, 0, 0, 0);
 
   const bookRes = await doReq('POST', '/api/schedules', {
     classId: classForTest?._id,
@@ -176,9 +176,9 @@ const section = (name) => results.push(`\n━━━ ${name} ━━━`);
 
   // Test weekly limit: book 2nd session
   const futureDate2 = new Date(futureDate);
-  futureDate2.setUTCHours(14, 0, 0, 0); // 14:00 UTC — matches allowed slot sh=14,eh=15
+  futureDate2.setHours(14, 0, 0, 0); // 14:00 local — matches allowed slot sh=14,eh=15
   const endDate2 = new Date(futureDate2);
-  endDate2.setUTCHours(15, 0, 0, 0);
+  endDate2.setHours(15, 0, 0, 0);
   const book2 = await doReq('POST', '/api/schedules', {
     classId: classForTest?._id,
     bookedTeamId: testTeamId,
@@ -191,9 +191,9 @@ const section = (name) => results.push(`\n━━━ ${name} ━━━`);
   // Test weekly limit: 3rd session in same week should be blocked (even for Admin)
   const futureDate3 = new Date(futureDate);
   futureDate3.setDate(futureDate3.getDate() + 1);
-  futureDate3.setUTCHours(9, 0, 0, 0); // 09:00 UTC — matches allowed slot sh=9,eh=10
+  futureDate3.setHours(9, 0, 0, 0); // 09:00 local — matches allowed slot sh=9,eh=10
   const endDate3 = new Date(futureDate3);
-  endDate3.setUTCHours(10, 0, 0, 0);
+  endDate3.setHours(10, 0, 0, 0);
   const book3 = await doReq('POST', '/api/schedules', {
     classId: classForTest?._id,
     bookedTeamId: testTeamId,

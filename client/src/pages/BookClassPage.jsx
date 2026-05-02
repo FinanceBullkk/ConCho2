@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { schedulesAPI, teamsAPI } from '../api/api';
 import { useAuth } from '../context/AuthContext';
 import toast from 'react-hot-toast';
+import Portal from '../components/Portal';
 
 // ──────────────────────────────────────────────────────────
 // BookClassPage (v2 — Leader-Created Sessions)
@@ -359,6 +360,7 @@ export default function BookClassPage() {
 
       {/* ── Create Booking Modal ───────────────────────── */}
       {bookModal && (
+        <Portal>
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm animate-fade-in">
           <div className="glass rounded-2xl p-6 max-w-sm mx-4 space-y-4 border border-white/10 shadow-2xl">
             <h3 className="text-lg font-bold text-white text-center">Create Session</h3>
@@ -406,10 +408,12 @@ export default function BookClassPage() {
             </div>
           </div>
         </div>
+        </Portal>
       )}
 
       {/* ── Cancel Booking Modal ───────────────────────── */}
       {cancelModal && (
+        <Portal>
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm animate-fade-in">
           <div className="glass rounded-2xl p-6 max-w-sm mx-4 space-y-4 border border-white/10 shadow-2xl">
             <h3 className="text-lg font-bold text-white text-center">Cancel Session</h3>
@@ -458,6 +462,7 @@ export default function BookClassPage() {
             </div>
           </div>
         </div>
+        </Portal>
       )}
     </div>
   );

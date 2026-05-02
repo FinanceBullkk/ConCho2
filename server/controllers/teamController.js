@@ -1,3 +1,4 @@
+const mongoose = require('mongoose');
 const Team = require('../models/Team');
 const Schedule = require('../models/Schedule');
 const Attendance = require('../models/Attendance');
@@ -341,27 +342,38 @@ const deleteTeam = async (req, res) => {
       return res.status(404).json({ success: false, message: 'Team not found' });
     }
 
-    // Close all active enrollments for this team
-    await Enrollment.updateMany(
-      { teamId: team._id, status: 'Active' },
-      { $set: { status: 'Dropped', leftAt: new Date() } }
-    );
-
-    // Cascade delete: attendance → schedules
-    const scheduleIds = await Schedule.find({ bookedTeamId: team._id })
-      .select('_id').lean();
-    const ids = scheduleIds.map(s => s._id);
-
+    // ── TRANSACTION: Cascade delete (all-or-nothing) ──────
+    const session = await mongoose.startSession();
     let deletedAttendance = 0;
     let deletedSchedules = 0;
-    if (ids.length > 0) {
-      const attResult = await Attendance.deleteMany({ scheduleId: { $in: ids } });
-      deletedAttendance = attResult.deletedCount;
-      const schResult = await Schedule.deleteMany({ _id: { $in: ids } });
-      deletedSchedules = schResult.deletedCount;
-    }
 
-    await Team.findByIdAndDelete(team._id);
+    try {
+      await session.withTransaction(async () => {
+        // Step 1: Close all active enrollments for this team
+        await Enrollment.updateMany(
+          { teamId: team._id, status: 'Active' },
+          { $set: { status: 'Dropped', leftAt: new Date() } },
+          { session }
+        );
+
+        // Step 2: Cascade delete — attendance → schedules
+        const scheduleIds = await Schedule.find({ bookedTeamId: team._id })
+          .select('_id').session(session).lean();
+        const ids = scheduleIds.map(s => s._id);
+
+        if (ids.length > 0) {
+          const attResult = await Attendance.deleteMany({ scheduleId: { $in: ids } }, { session });
+          deletedAttendance = attResult.deletedCount;
+          const schResult = await Schedule.deleteMany({ _id: { $in: ids } }, { session });
+          deletedSchedules = schResult.deletedCount;
+        }
+
+        // Step 3: Delete the team
+        await Team.findByIdAndDelete(team._id, { session });
+      });
+    } finally {
+      session.endSession();
+    }
 
     res.json({
       success: true,
