@@ -1,12 +1,9 @@
 import { useState, useEffect, useMemo } from 'react';
-import { useQueryClient } from '@tanstack/react-query';
-import { schedulesAPI } from '../api/api';
 import { useAuth } from '../context/AuthContext';
 import toast from 'react-hot-toast';
 import Portal from '../components/Portal';
-import { useAvailability } from '../hooks/useSchedules';
+import { useAvailability, useBookSlot, useCancelSlot } from '../hooks/useSchedules';
 import { useMyTeams } from '../hooks/useTeams';
-import { qk } from '../hooks/queryKeys';
 
 // ──────────────────────────────────────────────────────────
 // BookClassPage (v2 — Leader-Created Sessions)
@@ -67,12 +64,12 @@ const scheduleToKey = (s) => {
 
 export default function BookClassPage() {
   const { user } = useAuth();
-  const queryClient = useQueryClient();
+  const bookMutation = useBookSlot();
+  const cancelMutation = useCancelSlot();
   const [error, setError] = useState('');
   const [selectedTeam, setSelectedTeam] = useState('');
   const [bookModal, setBookModal] = useState(null);   // { day, slot } for creating
   const [cancelModal, setCancelModal] = useState(null); // schedule obj for deleting
-  const [processing, setProcessing] = useState(false);
 
   // Week navigation
   const [weekStart, setWeekStart] = useState(() => getMonday(new Date()));
@@ -90,10 +87,6 @@ export default function BookClassPage() {
   }, [myTeams, selectedTeam]);
 
   useEffect(() => { document.title = 'TMS — Schedule & Book'; }, []);
-
-  const reload = () => {
-    queryClient.invalidateQueries({ queryKey: qk.schedules.all });
-  };
 
   // ── Build the 7 days of the current week ────────────────
   const weekDays = useMemo(() => {
@@ -115,53 +108,38 @@ export default function BookClassPage() {
   // ── Create schedule handler (click empty slot) ──────────
   const handleBookSlot = async () => {
     if (!selectedTeam || !bookModal) return;
-    setProcessing(true);
     setError('');
     try {
       const { day, slot } = bookModal;
       const { sh, sm, eh, em } = parseSlot(slot);
-
-      const startTime = new Date(day);
-      startTime.setHours(sh, sm, 0, 0);
-
-      const endTime = new Date(day);
-      endTime.setHours(eh, em, 0, 0);
-
-      const res = await schedulesAPI.bookSlot({
+      const startTime = new Date(day); startTime.setHours(sh, sm, 0, 0);
+      const endTime = new Date(day); endTime.setHours(eh, em, 0, 0);
+      const res = await bookMutation.mutateAsync({
         teamId: selectedTeam,
         startTime: startTime.toISOString(),
         endTime: endTime.toISOString(),
       });
       setBookModal(null);
-      toast.success(res.data.message || 'Session created successfully! ✅');
-      reload();
+      toast.success(res.message || 'Session created successfully! ✅');
     } catch (err) {
       const msg = err.response?.data?.message || 'Booking failed';
       setError(msg);
-      toast.error(msg);
       setBookModal(null);
-    } finally {
-      setProcessing(false);
     }
   };
 
   // ── Cancel/delete schedule handler ──────────────────────
   const handleCancel = async () => {
     if (!cancelModal) return;
-    setProcessing(true);
     setError('');
     try {
-      await schedulesAPI.cancelSlot(cancelModal._id);
+      await cancelMutation.mutateAsync(cancelModal._id);
       setCancelModal(null);
       toast.success('Session cancelled successfully');
-      reload();
     } catch (err) {
       const msg = err.response?.data?.message || 'Cancel failed';
       setError(msg);
-      toast.error(msg);
       setCancelModal(null);
-    } finally {
-      setProcessing(false);
     }
   };
 
@@ -390,10 +368,15 @@ export default function BookClassPage() {
               </button>
               <button
                 onClick={handleBookSlot}
-                disabled={processing}
+                disabled={bookMutation.isPending}
                 className="flex-1 py-2.5 rounded-xl bg-gradient-to-r from-primary-600 to-primary-500 text-white font-semibold hover:from-primary-500 hover:to-primary-400 transition-all disabled:opacity-50 shadow-lg shadow-primary-500/20"
               >
                 {processing ? (
+                  <span className="flex items-center justify-center gap-2">
+                    <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                    Creating...
+                  </span>
+                ) : bookMutation.isPending ? (
                   <span className="flex items-center justify-center gap-2">
                     <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
                     Creating...
@@ -444,10 +427,10 @@ export default function BookClassPage() {
               </button>
               <button
                 onClick={handleCancel}
-                disabled={processing}
+                disabled={cancelMutation.isPending}
                 className="flex-1 py-2.5 rounded-xl bg-red-500/20 text-red-400 border border-red-500/20 hover:bg-red-500/30 font-semibold transition-all disabled:opacity-50"
               >
-                {processing ? (
+                {cancelMutation.isPending ? (
                   <span className="flex items-center justify-center gap-2">
                     <span className="w-3.5 h-3.5 border-2 border-red-400/30 border-t-red-400 rounded-full animate-spin" />
                     Cancelling...

@@ -1,9 +1,8 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import { usersAPI } from '../api/api';
 import StudentProgressModal from '../components/Progress/StudentProgressModal';
 import Portal from '../components/Portal';
-import { useUsers } from '../hooks/useUsers';
+import { useUsers, useCreateUser, useUpdateUser, useDeleteUser } from '../hooks/useUsers';
 import { useTeams } from '../hooks/useTeams';
 import { qk } from '../hooks/queryKeys';
 
@@ -12,6 +11,9 @@ const STATUSES = ['Active', 'Inactive', 'Dropped', 'Transferred', 'On-hold', 'Wa
 
 function UserModal({ user, onClose, onSaved }) {
   const isEdit = !!user?._id;
+  const createMutation = useCreateUser();
+  const updateMutation = useUpdateUser();
+  const saving = createMutation.isPending || updateMutation.isPending;
   const [form, setForm] = useState({
     empCode: user?.empCode || '',
     name: user?.name || '',
@@ -22,25 +24,21 @@ function UserModal({ user, onClose, onSaved }) {
     dropReason: user?.dropReason || '',
     password: '',
   });
-  const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
 
   const set = (k, v) => setForm((f) => ({ ...f, [k]: v }));
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setSaving(true);
     setError('');
     try {
       const payload = { ...form };
       if (isEdit && !payload.password) delete payload.password;
-      if (isEdit) await usersAPI.update(user._id, payload);
-      else await usersAPI.create(payload);
+      if (isEdit) await updateMutation.mutateAsync({ id: user._id, data: payload });
+      else await createMutation.mutateAsync(payload);
       onSaved();
     } catch (err) {
       setError(err.response?.data?.message || 'Save failed');
-    } finally {
-      setSaving(false);
     }
   };
 
@@ -124,6 +122,7 @@ const PAGE_SIZE = 50;
 
 export default function UsersPage() {
   const queryClient = useQueryClient();
+  const deleteMutation = useDeleteUser();
   const [modal, setModal] = useState(null); // null | 'create' | userObject
   const [filterRole, setFilterRole] = useState('');
   const [filterStatus, setFilterStatus] = useState('');
@@ -185,7 +184,7 @@ export default function UsersPage() {
   };
 
   const handleDelete = async (id) => {
-    try { await usersAPI.delete(id); reload(); } catch (err) { alert(err.response?.data?.message || 'Delete failed'); }
+    try { await deleteMutation.mutateAsync(id); } catch { /* toast shown by global onError */ }
     setDeleteId(null);
   };
 
@@ -359,7 +358,7 @@ export default function UsersPage() {
       )}
 
       {(modal === 'create' || (modal && modal._id)) && (
-        <UserModal user={modal === 'create' ? null : modal} onClose={() => setModal(null)} onSaved={() => { setModal(null); reload(); }} />
+        <UserModal user={modal === 'create' ? null : modal} onClose={() => setModal(null)} onSaved={() => setModal(null)} />
       )}
 
       {progressModal && (

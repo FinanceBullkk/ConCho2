@@ -1,9 +1,8 @@
 import { useState, useEffect, useMemo } from 'react';
-import { useQueryClient } from '@tanstack/react-query';
 import { schedulesAPI, attendanceAPI } from '../api/api';
 import { useAuth } from '../context/AuthContext';
 import { useAttendanceCalendar } from '../hooks/useSchedules';
-import { qk } from '../hooks/queryKeys';
+import { useBulkMarkAttendance } from '../hooks/useAttendance';
 
 // ──────────────────────────────────────────────────────────
 // AttendancePage — Calendar View
@@ -62,11 +61,10 @@ const scheduleToKey = (s) => {
 
 export default function AttendancePage() {
   const { isAdmin } = useAuth();
-  const queryClient = useQueryClient();
+  const bulkMarkMutation = useBulkMarkAttendance();
   const [selectedSchedule, setSelectedSchedule] = useState(null);
   const [records, setRecords] = useState([]);
   const [existingRecords, setExistingRecords] = useState([]);
-  const [submitting, setSubmitting] = useState(false);
   const [result, setResult] = useState(null);
 
   // Week navigation
@@ -170,7 +168,6 @@ export default function AttendancePage() {
 
   const handleSubmit = async () => {
     if (!selectedSchedule || records.length === 0) return;
-    setSubmitting(true);
     setResult(null);
     try {
       const payload = records.map((r) => ({
@@ -178,14 +175,10 @@ export default function AttendancePage() {
         status: r.status,
         remark: r.remark,
       }));
-      const res = await attendanceAPI.bulkMark(selectedSchedule._id, payload);
-      setResult({ success: true, message: res.data.message });
-      // Reload calendar to reflect updated status
-      queryClient.invalidateQueries({ queryKey: qk.schedules.attendanceCalendar });
+      const res = await bulkMarkMutation.mutateAsync({ scheduleId: selectedSchedule._id, records: payload });
+      setResult({ success: true, message: res.message });
     } catch (err) {
       setResult({ success: false, message: err.response?.data?.message || 'Failed to submit' });
-    } finally {
-      setSubmitting(false);
     }
   };
 
@@ -496,10 +489,10 @@ export default function AttendancePage() {
           <div className="mt-6 flex items-center gap-4">
             <button
               onClick={handleSubmit}
-              disabled={submitting}
+              disabled={bulkMarkMutation.isPending}
               className="px-6 py-3 rounded-xl bg-gradient-to-r from-accent-green to-teal-400 text-white font-semibold hover:from-accent-green hover:to-teal-300 transition-all disabled:opacity-50 shadow-lg shadow-accent-green/20"
             >
-              {submitting ? (
+              {bulkMarkMutation.isPending ? (
                 <span className="flex items-center gap-2">
                   <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
                   Submitting...

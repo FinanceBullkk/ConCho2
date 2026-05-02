@@ -1,11 +1,8 @@
 import { useState, useEffect } from 'react';
-import { useQueryClient } from '@tanstack/react-query';
-import { enrollmentsAPI } from '../api/api';
 import toast from 'react-hot-toast';
 import Portal from '../components/Portal';
 import { useTeams } from '../hooks/useTeams';
-import { useEnrollmentsByTeam } from '../hooks/useEnrollments';
-import { qk } from '../hooks/queryKeys';
+import { useEnrollmentsByTeam, useUpdateEnrollment } from '../hooks/useEnrollments';
 
 // ──────────────────────────────────────────────────────────
 // Enrollment Page — Learning History by Team
@@ -25,19 +22,19 @@ const STATUS_OPTIONS = ['Active', 'Completed', 'Dropped', 'Transferred'];
 function EditModal({ enrollment, onClose, onSaved }) {
   const [status, setStatus] = useState(enrollment.status);
   const [note, setNote] = useState(enrollment.note || '');
-  const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+  const updateMutation = useUpdateEnrollment();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setSaving(true); setError('');
+    setError('');
     try {
-      await enrollmentsAPI.update(enrollment._id, { status, note });
+      await updateMutation.mutateAsync({ id: enrollment._id, data: { status, note } });
       toast.success('Enrollment updated');
       onSaved();
     } catch (err) {
       setError(err.response?.data?.message || 'Update failed');
-    } finally { setSaving(false); }
+    }
   };
 
   return (
@@ -70,8 +67,8 @@ function EditModal({ enrollment, onClose, onSaved }) {
 
         <div className="flex gap-3 pt-2">
           <button type="button" onClick={onClose} className="flex-1 py-2.5 rounded-xl border border-white/10 text-slate-400 hover:bg-white/5 transition-all">Cancel</button>
-          <button type="submit" disabled={saving} className="flex-1 py-2.5 rounded-xl bg-gradient-to-r from-primary-600 to-primary-500 text-white font-semibold disabled:opacity-50 transition-all">
-            {saving ? 'Saving...' : 'Update'}
+          <button type="submit" disabled={updateMutation.isPending} className="flex-1 py-2.5 rounded-xl bg-gradient-to-r from-primary-600 to-primary-500 text-white font-semibold disabled:opacity-50 transition-all">
+            {updateMutation.isPending ? 'Saving...' : 'Update'}
           </button>
         </div>
       </form>
@@ -83,7 +80,6 @@ function EditModal({ enrollment, onClose, onSaved }) {
 // ── Main Page ─────────────────────────────────────────────
 
 export default function EnrollmentPage() {
-  const queryClient = useQueryClient();
   const [selectedTeam, setSelectedTeam] = useState('');
   const [statusFilter, setStatusFilter] = useState('All');
   const [editModal, setEditModal] = useState(null);
@@ -107,10 +103,6 @@ export default function EnrollmentPage() {
   useEffect(() => { document.title = 'TMS — Enrollment'; }, []);
 
   const loading = loadingTeams || loadingEnrollments;
-
-  const reload = () => {
-    queryClient.invalidateQueries({ queryKey: qk.enrollments.all });
-  };
 
   const selectedTeamObj = teams.find(t => t._id === selectedTeam);
 
@@ -317,7 +309,7 @@ export default function EnrollmentPage() {
         <EditModal
           enrollment={editModal}
           onClose={() => setEditModal(null)}
-          onSaved={() => { setEditModal(null); reload(); }}
+          onSaved={() => setEditModal(null)}
         />
       )}
     </div>

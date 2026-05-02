@@ -28,3 +28,11 @@ export const useExportStats = (options = {}) =>
     queryFn: () => exportAPI.getStats().then((r) => r.data.data),
     ...options,
   });
+
+export const useDownloadAttendance = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (params = {}) => exportAPI.downloadAttendance(params),
+    onSuccess: () => qc.invalidateQueries({ queryKey: qk.exportHr.stats }),
+  });
+};
