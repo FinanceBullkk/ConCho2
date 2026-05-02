@@ -63,11 +63,6 @@ const scheduleSchema = new mongoose.Schema(
       },
     ],
 
-    enrolledCount: {
-      type: Number,
-      default: 0,
-      min: 0,
-    },
   },
   {
     timestamps: true,
@@ -77,8 +72,13 @@ const scheduleSchema = new mongoose.Schema(
 );
 
 // ── Virtuals ──────────────────────────────────────────────
+// enrolledCount is derived from the actual array — never drifts.
+scheduleSchema.virtual('enrolledCount').get(function () {
+  return this.enrolledUsers.length;
+});
+
 scheduleSchema.virtual('availableSpots').get(function () {
-  return this.capacity - this.enrolledCount;
+  return this.capacity - this.enrolledUsers.length;
 });
 
 // ── Indexes ───────────────────────────────────────────────

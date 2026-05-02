@@ -74,6 +74,13 @@ const userSchema = new mongoose.Schema(
       minlength: [10, 'Password must be at least 10 characters'],
       select: false, // Never return password by default
     },
+
+    // Set on every password change so tokens issued before this date are rejected.
+    passwordChangedAt: {
+      type: Date,
+      default: null,
+      select: false, // Internal field — not exposed to clients
+    },
   },
   {
     timestamps: true,
@@ -140,6 +147,7 @@ userSchema.post('findOneAndUpdate', async function (doc) {
   today.setUTCHours(0, 0, 0, 0); // UTC midnight — timezone-safe
 
   // Atomically pull user from all future schedules
+  // enrolledCount is a virtual (enrolledUsers.length), no $inc needed.
   const result = await Schedule.updateMany(
     {
       startTime: { $gte: today },
@@ -147,7 +155,6 @@ userSchema.post('findOneAndUpdate', async function (doc) {
     },
     {
       $pull: { enrolledUsers: doc._id },
-      $inc: { enrolledCount: -1 },
     }
   );
 

@@ -182,9 +182,10 @@ const deleteSchedule = async (req, res) => {
   try {
     const schedule = await Schedule.findByIdAndDelete(req.params.id);
     if (!schedule) return res.status(404).json({ success: false, message: 'Schedule not found' });
+    scheduleService.invalidateSessionOrderCache(schedule.classId);
     res.json({ success: true, message: 'Schedule deleted' });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    handleError(res, error);
   }
 };
 

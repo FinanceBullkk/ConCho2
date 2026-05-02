@@ -39,7 +39,6 @@ describe('POST /api/attendance/:scheduleId (bulk mark)', () => {
       startTime: pastDate,
       endTime: pastEnd,
       enrolledUsers: [seed.leader._id, seed.member1._id],
-      enrolledCount: 2,
     });
   });
 
@@ -75,7 +74,6 @@ describe('POST /api/attendance/:scheduleId (bulk mark)', () => {
       startTime: futureDate,
       endTime: futureEnd,
       enrolledUsers: [seed.leader._id],
-      enrolledCount: 1,
     });
 
     const res = await request(app)
@@ -126,6 +124,19 @@ describe('POST /api/attendance/:scheduleId (bulk mark)', () => {
       });
 
     expect(res.status).toBe(404);
+  });
+
+  test('rejects userId not enrolled in schedule (BUG-02 fix)', async () => {
+    // member2 is NOT in enrolledUsers of pastSchedule
+    const res = await request(app)
+      .post(`/api/attendance/${pastSchedule._id}`)
+      .set('Authorization', `Bearer ${tokens.admin}`)
+      .send({
+        records: [{ userId: seed.member2._id.toString(), status: 'P' }],
+      });
+
+    expect(res.status).toBe(400);
+    expect(res.body.message).toMatch(/not enrolled/i);
   });
 });
 

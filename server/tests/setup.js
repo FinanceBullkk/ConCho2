@@ -15,8 +15,9 @@
  */
 
 const mongoose = require('mongoose');
-const { MongoMemoryServer } = require('mongodb-memory-server');
+const { MongoMemoryReplSet } = require('mongodb-memory-server');
 
+// Replica set required for MongoDB transactions (bookSlot, adminCreate, deleteUser cascade).
 let mongoServer;
 let app;
 let tokens = {};
@@ -31,8 +32,8 @@ const setup = async () => {
   process.env.JWT_SECRET = 'test-secret-key-for-jest-only';
   process.env.JWT_EXPIRE = '1h';
 
-  // Start in-memory MongoDB
-  mongoServer = await MongoMemoryServer.create();
+  // Start in-memory MongoDB replica set (single node) — required for transactions.
+  mongoServer = await MongoMemoryReplSet.create({ replSet: { count: 1 } });
   process.env.MONGO_URI = mongoServer.getUri();
 
   // Connect mongoose
@@ -102,25 +103,16 @@ const setup = async () => {
     leaderId: leader._id, members: [leader._id, member1._id, member2._id],
   });
 
-  // Get auth tokens via login
-  const request = require('supertest');
-
-  const adminLogin = await request(app)
-    .post('/api/auth/login')
-    .send({ empCode: '000001', password: 'admin12345' });
-  
-  const leaderLogin = await request(app)
-    .post('/api/auth/login')
-    .send({ empCode: '000010', password: 'leader12345' });
-
-  const teacherLogin = await request(app)
-    .post('/api/auth/login')
-    .send({ empCode: '000002', password: 'teacher12345' });
+  // Generate tokens directly — avoids coupling to login response shape.
+  // Bearer token auth is still accepted by the protect middleware.
+  const jwt = require('jsonwebtoken');
+  const sign = (userId) =>
+    jwt.sign({ id: userId.toString() }, process.env.JWT_SECRET, { expiresIn: '1h' });
 
   tokens = {
-    admin: adminLogin.body.data?.token,
-    leader: leaderLogin.body.data?.token,
-    teacher: teacherLogin.body.data?.token,
+    admin: sign(admin._id),
+    leader: sign(leader._id),
+    teacher: sign(teacher._id),
   };
 
   seedData = {
