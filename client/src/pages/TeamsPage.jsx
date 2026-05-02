@@ -1,8 +1,13 @@
 import { useState, useEffect } from 'react';
-import { teamsAPI, usersAPI, classesAPI, enrollmentsAPI } from '../api/api';
+import { useQueryClient } from '@tanstack/react-query';
+import { teamsAPI, enrollmentsAPI } from '../api/api';
 import TeamProgressModal from '../components/Progress/TeamProgressModal';
 import StudentProgressModal from '../components/Progress/StudentProgressModal';
 import Portal from '../components/Portal';
+import { useTeams } from '../hooks/useTeams';
+import { useUsers } from '../hooks/useUsers';
+import { useClasses } from '../hooks/useClasses';
+import { qk } from '../hooks/queryKeys';
 
 function TeamModal({ team, participants, classes, teams, onClose, onSaved }) {
   const isEdit = !!team?._id;
@@ -257,35 +262,29 @@ function TeamModal({ team, participants, classes, teams, onClose, onSaved }) {
 }
 
 export default function TeamsPage() {
-  const [teams, setTeams] = useState([]);
-  const [participants, setParticipants] = useState([]);
-  const [classes, setClasses] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const queryClient = useQueryClient();
   const [modal, setModal] = useState(null);
   const [deleteId, setDeleteId] = useState(null);
   const [progressModal, setProgressModal] = useState(null);
-  const [studentProgressModal, setStudentProgressModal] = useState(null); // { id, name }
+  const [studentProgressModal, setStudentProgressModal] = useState(null);
 
-  const load = async () => {
-    setLoading(true);
-    try {
-      const [tRes, pRes, cRes] = await Promise.all([
-        teamsAPI.getAll(),
-        usersAPI.getAll({ role: 'Participant', limit: 200 }),
-        classesAPI.getAll(),
-      ]);
-      setTeams(tRes.data.data);
-      setParticipants(pRes.data.data);
-      setClasses(cRes.data.data);
-    } catch (err) { console.error(err); }
-    finally { setLoading(false); }
-  };
+  const { data: teams = [], isLoading: loadingTeams } = useTeams();
+  const { data: participantsData } = useUsers({ role: 'Participant', limit: 200 });
+  const participants = participantsData?.data || [];
+  const { data: classes = [] } = useClasses();
 
-  useEffect(() => { load(); }, []);
+  const loading = loadingTeams;
+
   useEffect(() => { document.title = 'TMS — Teams'; }, []);
 
+  const reload = () => {
+    queryClient.invalidateQueries({ queryKey: qk.teams.all });
+    queryClient.invalidateQueries({ queryKey: qk.users.all });
+    queryClient.invalidateQueries({ queryKey: qk.classes.all });
+  };
+
   const handleDelete = async (id) => {
-    try { await teamsAPI.delete(id); load(); } catch (err) { alert(err.response?.data?.message); }
+    try { await teamsAPI.delete(id); reload(); } catch (err) { alert(err.response?.data?.message); }
     setDeleteId(null);
   };
 
@@ -295,7 +294,7 @@ export default function TeamsPage() {
     if (!window.confirm(`Promote "${memberName}" to leader of "${team.name}"?`)) return;
     try {
       await teamsAPI.update(team._id, { leaderId: memberId });
-      load();
+      reload();
     } catch (err) {
       alert(err.response?.data?.message || 'Failed to update leader');
     }
@@ -408,7 +407,7 @@ export default function TeamsPage() {
 
       {(modal === 'create' || (modal && modal._id)) && (
         <TeamModal team={modal === 'create' ? null : modal} participants={participants} classes={classes} teams={teams}
-          onClose={() => setModal(null)} onSaved={() => { setModal(null); load(); }} />
+          onClose={() => setModal(null)} onSaved={() => { setModal(null); reload(); }} />
       )}
 
       {progressModal && (

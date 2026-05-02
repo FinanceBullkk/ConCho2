@@ -1,7 +1,11 @@
-import { useState, useEffect, useRef } from 'react';
-import { usersAPI, teamsAPI } from '../api/api';
+import { useState, useEffect, useMemo } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
+import { usersAPI } from '../api/api';
 import StudentProgressModal from '../components/Progress/StudentProgressModal';
 import Portal from '../components/Portal';
+import { useUsers } from '../hooks/useUsers';
+import { useTeams } from '../hooks/useTeams';
+import { qk } from '../hooks/queryKeys';
 
 const ROLES = ['Admin', 'Teacher', 'Participant'];
 const STATUSES = ['Active', 'Inactive', 'Dropped', 'Transferred', 'On-hold', 'Waiting for class'];
@@ -119,8 +123,7 @@ const ROLE_BADGE = {
 const PAGE_SIZE = 50;
 
 export default function UsersPage() {
-  const [users, setUsers] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const queryClient = useQueryClient();
   const [modal, setModal] = useState(null); // null | 'create' | userObject
   const [filterRole, setFilterRole] = useState('');
   const [filterStatus, setFilterStatus] = useState('');
@@ -128,10 +131,7 @@ export default function UsersPage() {
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [deleteId, setDeleteId] = useState(null);
   const [page, setPage] = useState(1);
-  const [total, setTotal] = useState(0);
-  const [pages, setPages] = useState(1);
   const [progressModal, setProgressModal] = useState(null); // { id, name }
-  const [teamsByUser, setTeamsByUser] = useState({}); // userId → { teamName, classCode, courseName }
 
   // UX-06: Browser tab title
   useEffect(() => { document.title = 'TMS — Users'; }, []);
@@ -142,54 +142,50 @@ export default function UsersPage() {
     return () => clearTimeout(t);
   }, [search]);
 
-  const load = () => {
-    setLoading(true);
+  const queryParams = useMemo(() => {
     const params = { page, limit: PAGE_SIZE };
     if (filterRole) params.role = filterRole;
     if (filterStatus) params.status = filterStatus;
     if (debouncedSearch.trim()) params.search = debouncedSearch.trim();
-    usersAPI.getAll(params)
-      .then((r) => {
-        setUsers(r.data.data);
-        setTotal(r.data.total ?? r.data.count ?? 0);
-        setPages(r.data.pages ?? 1);
-      })
-      .catch(console.error)
-      .finally(() => setLoading(false));
-  };
+    return params;
+  }, [page, filterRole, filterStatus, debouncedSearch]);
 
-  useEffect(() => { load(); }, [filterRole, filterStatus, debouncedSearch, page]);
+  const { data: usersData, isLoading: loading } = useUsers(queryParams);
+  const users = usersData?.data || [];
+  const total = usersData?.total ?? usersData?.count ?? 0;
+  const pages = usersData?.pages ?? 1;
 
   // Load team assignments for all users
-  useEffect(() => {
-    teamsAPI.getAll().then(res => {
-      const map = {};
-      for (const t of res.data.data) {
-        const cls = t.classId;
-        const info = {
-          teamName: t.name,
-          classCode: cls?.classCode || '',
-          courseName: cls?.courseName || '',
-        };
-        // Map each member to this team
-        if (t.members) {
-          t.members.forEach(m => {
-            const uid = m._id || m;
-            map[uid] = info;
-          });
-        }
-        // Also map leader
-        if (t.leaderId) {
-          const lid = t.leaderId._id || t.leaderId;
-          map[lid] = info;
-        }
+  const { data: allTeams = [] } = useTeams();
+  const teamsByUser = useMemo(() => {
+    const map = {};
+    for (const t of allTeams) {
+      const cls = t.classId;
+      const info = {
+        teamName: t.name,
+        classCode: cls?.classCode || '',
+        courseName: cls?.courseName || '',
+      };
+      if (t.members) {
+        t.members.forEach(m => {
+          const uid = m._id || m;
+          map[uid] = info;
+        });
       }
-      setTeamsByUser(map);
-    }).catch(() => {});
-  }, [users]); // refresh when users change
+      if (t.leaderId) {
+        const lid = t.leaderId._id || t.leaderId;
+        map[lid] = info;
+      }
+    }
+    return map;
+  }, [allTeams]);
+
+  const reload = () => {
+    queryClient.invalidateQueries({ queryKey: qk.users.all });
+  };
 
   const handleDelete = async (id) => {
-    try { await usersAPI.delete(id); load(); } catch (err) { alert(err.response?.data?.message || 'Delete failed'); }
+    try { await usersAPI.delete(id); reload(); } catch (err) { alert(err.response?.data?.message || 'Delete failed'); }
     setDeleteId(null);
   };
 
@@ -230,7 +226,7 @@ export default function UsersPage() {
           <option value="" className="bg-slate-800">All Statuses</option>
           {STATUSES.map((s) => <option key={s} value={s} className="bg-slate-800">{s}</option>)}
         </select>
-        <button onClick={load} className="px-3 py-2 rounded-xl bg-white/5 border border-white/10 text-slate-300 text-sm hover:bg-white/10 transition-all">↻ Refresh</button>
+        <button onClick={reload} className="px-3 py-2 rounded-xl bg-white/5 border border-white/10 text-slate-300 text-sm hover:bg-white/10 transition-all">↻ Refresh</button>
       </div>
 
       {/* Table */}
@@ -363,7 +359,7 @@ export default function UsersPage() {
       )}
 
       {(modal === 'create' || (modal && modal._id)) && (
-        <UserModal user={modal === 'create' ? null : modal} onClose={() => setModal(null)} onSaved={() => { setModal(null); load(); }} />
+        <UserModal user={modal === 'create' ? null : modal} onClose={() => setModal(null)} onSaved={() => { setModal(null); reload(); }} />
       )}
 
       {progressModal && (

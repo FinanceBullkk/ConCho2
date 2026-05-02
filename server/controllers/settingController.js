@@ -1,4 +1,5 @@
 const Setting = require('../models/Setting');
+const { handleError } = require('../helpers/handleError');
 
 // GET /api/settings
 const getSettings = async (req, res) => {
@@ -6,7 +7,7 @@ const getSettings = async (req, res) => {
     const settings = await Setting.find();
     res.json({ success: true, data: settings });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    handleError(res, error);
   }
 };
 
@@ -33,7 +34,7 @@ const updateSettings = async (req, res) => {
 
     res.json({ success: true, data: updated });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    handleError(res, error);
   }
 };
 

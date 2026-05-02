@@ -1,7 +1,11 @@
 import { useState, useEffect } from 'react';
-import { enrollmentsAPI, teamsAPI } from '../api/api';
+import { useQueryClient } from '@tanstack/react-query';
+import { enrollmentsAPI } from '../api/api';
 import toast from 'react-hot-toast';
 import Portal from '../components/Portal';
+import { useTeams } from '../hooks/useTeams';
+import { useEnrollmentsByTeam } from '../hooks/useEnrollments';
+import { qk } from '../hooks/queryKeys';
 
 // ──────────────────────────────────────────────────────────
 // Enrollment Page — Learning History by Team
@@ -79,48 +83,33 @@ function EditModal({ enrollment, onClose, onSaved }) {
 // ── Main Page ─────────────────────────────────────────────
 
 export default function EnrollmentPage() {
-  const [teams, setTeams] = useState([]);
+  const queryClient = useQueryClient();
   const [selectedTeam, setSelectedTeam] = useState('');
-  const [enrollments, setEnrollments] = useState([]);
-  const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState('All');
   const [editModal, setEditModal] = useState(null);
 
   // Load teams list
+  const { data: teams = [], isLoading: loadingTeams } = useTeams();
+
+  // Auto-select first team
   useEffect(() => {
-    const loadTeams = async () => {
-      try {
-        const res = await teamsAPI.getAll();
-        setTeams(res.data.data);
-        if (res.data.data.length > 0) {
-          setSelectedTeam(res.data.data[0]._id);
-        }
-      } catch (err) { console.error(err); }
-      finally { setLoading(false); }
-    };
-    loadTeams();
-    document.title = 'TMS — Enrollment';
-  }, []);
+    if (!selectedTeam && teams.length > 0) {
+      setSelectedTeam(teams[0]._id);
+    }
+  }, [teams, selectedTeam]);
 
   // Load enrollments when team or filter changes
-  useEffect(() => {
-    if (!selectedTeam) return;
-    const loadEnrollments = async () => {
-      setLoading(true);
-      try {
-        const res = await enrollmentsAPI.getByTeam(selectedTeam, { status: statusFilter });
-        setEnrollments(res.data.data);
-      } catch (err) { console.error(err); }
-      finally { setLoading(false); }
-    };
-    loadEnrollments();
-  }, [selectedTeam, statusFilter]);
+  const { data: enrollments = [], isLoading: loadingEnrollments } = useEnrollmentsByTeam(
+    selectedTeam,
+    { status: statusFilter }
+  );
+
+  useEffect(() => { document.title = 'TMS — Enrollment'; }, []);
+
+  const loading = loadingTeams || loadingEnrollments;
 
   const reload = () => {
-    if (!selectedTeam) return;
-    enrollmentsAPI.getByTeam(selectedTeam, { status: statusFilter })
-      .then(res => setEnrollments(res.data.data))
-      .catch(console.error);
+    queryClient.invalidateQueries({ queryKey: qk.enrollments.all });
   };
 
   const selectedTeamObj = teams.find(t => t._id === selectedTeam);

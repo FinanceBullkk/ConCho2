@@ -1,39 +1,25 @@
 import { useState, useEffect } from 'react';
 import toast from 'react-hot-toast';
-import api from '../api/api';
+import { useSettings, useUpdateSettings } from '../hooks/useSettings';
 
 export default function SettingsPage() {
-  const [settings, setSettings] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
+  const { data: settings = [], isLoading: loading } = useSettings();
+  const updateMutation = useUpdateSettings();
   const [formData, setFormData] = useState({});
 
+  // Sync formData when settings are loaded/refetched
   useEffect(() => {
-    loadSettings();
-  }, []);
-
-  const loadSettings = async () => {
-    try {
-      setLoading(true);
-      const res = await api.get('/settings');
-      setSettings(res.data.data);
-      
+    if (settings.length > 0) {
       const initial = {};
-      res.data.data.forEach(s => {
+      settings.forEach(s => {
         initial[s.key] = JSON.stringify(s.value, null, 2);
       });
       setFormData(initial);
-    } catch (error) {
-      toast.error('Failed to load settings');
-    } finally {
-      setLoading(false);
     }
-  };
+  }, [settings]);
 
   const handleSave = async () => {
     try {
-      setSaving(true);
-      
       const payload = [];
       for (const [key, strValue] of Object.entries(formData)) {
         try {
@@ -44,13 +30,10 @@ export default function SettingsPage() {
         }
       }
 
-      await api.put('/settings', { settings: payload });
+      await updateMutation.mutateAsync(payload);
       toast.success('Settings saved successfully');
-      loadSettings();
     } catch (error) {
       toast.error(error.message || 'Failed to save settings');
-    } finally {
-      setSaving(false);
     }
   };
 
@@ -73,10 +56,10 @@ export default function SettingsPage() {
         </div>
         <button
           onClick={handleSave}
-          disabled={saving}
+          disabled={updateMutation.isPending}
           className="px-4 py-2 bg-primary-600 hover:bg-primary-500 text-white rounded-xl font-medium shadow-lg shadow-primary-500/20 transition-all active:scale-95 disabled:opacity-50"
         >
-          {saving ? 'Đang lưu...' : 'Lưu thay đổi'}
+          {updateMutation.isPending ? 'Đang lưu...' : 'Lưu thay đổi'}
         </button>
       </div>
 

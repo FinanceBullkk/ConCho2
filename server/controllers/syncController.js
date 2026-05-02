@@ -1,6 +1,7 @@
 const Schedule = require('../models/Schedule');
 const Team = require('../models/Team');
 const Class = require('../models/Class');
+const { handleError } = require('../helpers/handleError');
 
 // ──────────────────────────────────────────────────────────
 // Google Sheets Sync Controller (v2 — Optimized)
@@ -233,7 +234,6 @@ const syncFromGoogleSheets = async (req, res) => {
           update: {
             $set: { bookedTeamId: team._id },
             $push: { enrolledUsers: { $each: memberIds } },
-            $inc: { enrolledCount: memberIds.length },
           },
         },
       });
@@ -265,7 +265,7 @@ const syncFromGoogleSheets = async (req, res) => {
     });
   } catch (error) {
     console.error('❌ Google Sheets sync error:', error.message);
-    res.status(500).json({ success: false, message: error.message });
+    handleError(res, error);
   }
 };
 
