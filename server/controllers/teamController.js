@@ -1,5 +1,6 @@
 const mongoose = require('mongoose');
 const Team = require('../models/Team');
+const { syncSchedulesForTeamUpdate } = require('../models/Team');
 const Schedule = require('../models/Schedule');
 const Attendance = require('../models/Attendance');
 const Enrollment = require('../models/Enrollment');
@@ -12,10 +13,10 @@ const { handleError } = require('../helpers/handleError');
 //   When members are added/removed, enrollment records are
 //   automatically created/closed to maintain learning history.
 //
-// The DYNAMIC TEAM SYNC logic lives in the Team model
-// middleware (models/Team.js). When updateTeam changes the
-// members array via findOneAndUpdate, the post middleware
-// auto-syncs all future schedules.
+// SCHEDULE SYNC (transactional):
+//   When updateTeam changes the members array, the sync logic
+//   runs INSIDE the same MongoDB transaction — ensuring Team
+//   and Schedule are always consistent (no fire-and-forget).
 // ──────────────────────────────────────────────────────────
 
 // Helper to check if any user is already in another team
@@ -214,14 +215,16 @@ const createTeam = async (req, res) => {
 /**
  * PUT /api/teams/:id
  *
- * IMPORTANT: Uses findOneAndUpdate which triggers the
- * Dynamic Team Sync middleware in Team.js
+ * TRANSACTIONAL: Team update + Schedule sync + Enrollment sync
+ * are wrapped in a single MongoDB transaction. If the process
+ * crashes mid-way, the entire operation rolls back — no stale
+ * Schedule.enrolledUsers left behind.
  */
 const updateTeam = async (req, res) => {
   try {
     const { name, classId, leaderId, members, forceSwap } = req.body;
 
-    // Fetch current team state BEFORE update for enrollment diff
+    // ── Pre-validation (read-only, outside transaction) ─────
     const currentTeam = await Team.findById(req.params.id).lean();
     if (!currentTeam) {
       return res.status(404).json({ success: false, message: 'Team not found' });
@@ -277,33 +280,56 @@ const updateTeam = async (req, res) => {
       }
     }
 
-    // ── Enrollment diff: compute added/removed BEFORE the update ──
-    if (members !== undefined) {
-      const oldMembers = currentTeam.members.map(id => id.toString());
-      const newMembers = (updateData.members || members).map(id => id.toString());
+    // ── Compute member diff BEFORE transaction ──────────────
+    const oldMemberStrs = currentTeam.members.map(id => id.toString());
+    const newMemberStrs = updateData.members
+      ? updateData.members.map(id => id.toString())
+      : oldMemberStrs;
+    const membersChanged = members !== undefined
+      && (oldMemberStrs.length !== newMemberStrs.length
+          || oldMemberStrs.some(id => !newMemberStrs.includes(id)));
 
-      const addedIds = newMembers.filter(id => !oldMembers.includes(id));
-      const removedIds = oldMembers.filter(id => !newMembers.includes(id));
+    // ── TRANSACTION: Team update + Schedule sync (atomic) ───
+    const session = await mongoose.startSession();
+    try {
+      await session.withTransaction(async () => {
+        // Step 1: Update Team document
+        await Team.findOneAndUpdate(
+          { _id: req.params.id },
+          updateData,
+          { new: true, runValidators: true, session }
+        );
 
-      const effectiveClassId = updateData.classId !== undefined
-        ? updateData.classId
-        : currentTeam.classId?.toString() || null;
+        // Step 2: Sync Schedule.enrolledUsers (if members changed)
+        if (membersChanged) {
+          await syncSchedulesForTeamUpdate({
+            teamId: req.params.id,
+            oldMembers: oldMemberStrs,
+            newMembers: newMemberStrs,
+            session,
+          });
+        }
 
-      if (addedIds.length > 0 || removedIds.length > 0) {
-        // Fire and forget to avoid response bottleneck
-        syncEnrollments(req.params.id, addedIds, removedIds, effectiveClassId)
-          .catch(err => console.error('Background syncEnrollments failed:', err));
-      }
+        // Step 3: Sync Enrollment records (if members changed)
+        if (membersChanged) {
+          const addedIds = newMemberStrs.filter(id => !oldMemberStrs.includes(id));
+          const removedIds = oldMemberStrs.filter(id => !newMemberStrs.includes(id));
+
+          const effectiveClassId = updateData.classId !== undefined
+            ? updateData.classId
+            : currentTeam.classId?.toString() || null;
+
+          if (addedIds.length > 0 || removedIds.length > 0) {
+            await syncEnrollments(req.params.id, addedIds, removedIds, effectiveClassId);
+          }
+        }
+      });
+    } finally {
+      session.endSession();
     }
 
-    const team = await Team.findOneAndUpdate(
-      { _id: req.params.id },
-      updateData,
-      { new: true, runValidators: true }
-    );
-
-    // Return populated
-    const populated = await Team.findById(team._id)
+    // Return populated (outside transaction — read-only)
+    const populated = await Team.findById(req.params.id)
       .populate('classId', 'classCode courseName status')
       .populate('leaderId', 'empCode name department status')
       .populate('members', 'empCode name department status');
@@ -313,6 +339,7 @@ const updateTeam = async (req, res) => {
     handleError(res, error);
   }
 };
+
 
 /**
  * GET /api/teams/my-teams
