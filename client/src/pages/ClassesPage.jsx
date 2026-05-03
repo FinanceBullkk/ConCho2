@@ -329,6 +329,7 @@ export default function ClassesPage() {
                           ? Math.round((cls.bookedSessions / cls.totalSessions) * 100)
                           : 0;
                         const isComplete = cls.status === 'Completed';
+                        const noSessions = cls.bookedSessions === 0;
                         const barColor = isComplete
                           ? 'bg-slate-500'
                           : pct >= 80 ? 'bg-amber-500' : 'bg-emerald-500';
@@ -337,19 +338,24 @@ export default function ClassesPage() {
                           <td key={course} className="px-2 py-2 text-center">
                             <button
                               onClick={() => setEditModal(cls)}
+                              title={noSessions ? 'No schedules — likely missing team assignment' : undefined}
                               className={`w-full rounded-xl px-3 py-2.5 transition-all text-left hover:scale-[1.02] ${
-                                isComplete
+                                noSessions
+                                  ? 'bg-amber-500/10 border border-amber-500/30 hover:border-amber-400/50'
+                                  : isComplete
                                   ? 'bg-slate-500/10 border border-slate-500/15 hover:border-slate-400/30'
                                   : 'bg-emerald-500/10 border border-emerald-500/15 hover:border-emerald-400/30'
                               }`}
                             >
                               {/* Status badge */}
                               <span className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-semibold ${
-                                isComplete
+                                noSessions
+                                  ? 'bg-amber-500/20 text-amber-300'
+                                  : isComplete
                                   ? 'bg-slate-500/20 text-slate-400'
                                   : 'bg-emerald-500/20 text-emerald-400'
                               }`}>
-                                {cls.status}
+                                {noSessions ? '⚠️ No team' : cls.status}
                               </span>
 
                               {/* Session progress */}
