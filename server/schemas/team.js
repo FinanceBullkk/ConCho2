@@ -5,17 +5,19 @@ const { objectId } = require('./common');
 const createTeamBody = z.object({
   name: z.string().trim().min(1, 'Team name is required'),
   leaderId: objectId,
-  classId: objectId.optional(),
+  classId: objectId.nullable().optional(),
   members: z.array(objectId).optional().default([]),
+  forceSwap: z.boolean().optional(),
 });
 
 // ── Update Team ─────────────────────────────────────────
 const updateTeamBody = z.object({
   name: z.string().trim().min(1).optional(),
   leaderId: objectId.optional(),
-  classId: objectId.optional(),
+  classId: z.union([objectId, z.literal(''), z.null()]).optional(),
   members: z.array(objectId).optional(),
-}).refine(data => Object.keys(data).length > 0, {
+  forceSwap: z.boolean().optional(),
+}).refine(data => Object.keys(data).filter(k => k !== 'forceSwap').length > 0, {
   message: 'At least one field is required',
 });
 

@@ -1,4 +1,5 @@
 const router = require('express').Router();
+const { z } = require('zod');
 const { 
   bulkMarkAttendance, getAttendanceBySchedule, getAttendanceByUser,
   getAnalyticsByEmployee, getAnalyticsByTeam, getAnalyticsByClass, getMyStats
@@ -7,6 +8,9 @@ const { protect } = require('../middleware/auth');
 const { roleGuard } = require('../middleware/roleGuard');
 const { cacheMiddleware } = require('../middleware/analyticsCache');
 const { attendanceLimiter } = require('../middleware/rateLimiters');
+const { validate } = require('../middleware/validate');
+const { bulkMarkBody } = require('../schemas/attendance');
+const { idParam } = require('../schemas/common');
 
 // Analytics endpoints — cached for 30 min, invalidated on new attendance writes
 router.get('/analytics/by-employee', protect, cacheMiddleware('analytics:by-employee'), getAnalyticsByEmployee);
@@ -16,8 +20,9 @@ router.get('/analytics/by-class',    protect, cacheMiddleware('analytics:by-clas
 // Participant personal stats
 router.get('/my-stats', protect, getMyStats);
 
-// Bulk mark: Teacher or Admin (rate limited + invalidates analytics cache)
-router.post('/:scheduleId', protect, roleGuard('Admin', 'Teacher'), attendanceLimiter, bulkMarkAttendance);
+// Bulk mark: Teacher or Admin (rate limited + validated + invalidates analytics cache)
+router.post('/:scheduleId', protect, roleGuard('Admin', 'Teacher'), attendanceLimiter,
+  validate({ params: z.object({ scheduleId: idParam.shape.id }), body: bulkMarkBody }), bulkMarkAttendance);
 
 // Query by schedule: Teacher or Admin
 router.get('/schedule/:scheduleId', protect, roleGuard('Admin', 'Teacher'), getAttendanceBySchedule);

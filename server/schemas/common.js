@@ -8,7 +8,7 @@ const objectId = z.string().regex(/^[0-9a-fA-F]{24}$/, 'Invalid ObjectId');
 // controllers can rely on req.query.page / req.query.limit.
 const paginationQuery = z.object({
   page: z.coerce.number().int().min(1).default(1),
-  limit: z.coerce.number().int().min(1).max(200).default(50),
+  limit: z.coerce.number().int().min(1).max(2000).default(50),
 });
 
 // :id route param used by most resources.

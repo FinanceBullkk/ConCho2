@@ -1,6 +1,8 @@
 import { useState, useEffect, useMemo } from 'react';
 import { schedulesAPI, attendanceAPI } from '../api/api';
 import { useAuth } from '../context/AuthContext';
+import { useAttendanceCalendar } from '../hooks/useSchedules';
+import { useBulkMarkAttendance } from '../hooks/useAttendance';
 
 // ──────────────────────────────────────────────────────────
 // AttendancePage — Calendar View
@@ -18,17 +20,18 @@ const STATUS_OPTIONS = [
 ];
 
 const TIME_SLOTS = [
-  '10:00-11:00', '11:00-12:00',
+  '09:00-10:00', '10:00-11:00', '11:00-12:00',
   '13:00-14:00', '14:00-15:00', '15:00-16:00',
 ];
 
 const DAY_NAMES = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
 const STATUS_CONFIG = {
-  done:    { badge: '✅ Done',       cls: 'bg-accent-green/15 text-accent-green border-accent-green/25', cell: 'from-accent-green/20 to-teal-500/10 border-accent-green/25' },
-  pending: { badge: '⏳ Pending',    cls: 'bg-accent-amber/15 text-accent-amber border-accent-amber/25', cell: 'from-accent-amber/20 to-orange-500/10 border-accent-amber/25' },
-  partial: { badge: '🔵 Partial',    cls: 'bg-blue-500/15 text-blue-400 border-blue-500/25', cell: 'from-blue-500/20 to-indigo-500/10 border-blue-500/25' },
-  none:    { badge: '⚪ No students', cls: 'bg-white/5 text-slate-500 border-white/10', cell: 'from-white/[0.04] to-white/[0.02] border-white/10' },
+  done:    { badge: '✅ Done',       cls: 'bg-accent-green/15 text-accent-green border-accent-green/25', leftColor: '#34d399', watermark: '✓', watermarkCls: 'text-emerald-400/15', opacity: 'opacity-70' },
+  pending: { badge: '⏳ Pending',    cls: 'bg-accent-amber/20 text-accent-amber border-accent-amber/30', leftColor: '#fbbf24', watermark: '!', watermarkCls: 'text-amber-400/15', opacity: '' },
+  partial: { badge: '🔵 Partial',    cls: 'bg-blue-500/20 text-blue-400 border-blue-500/30', leftColor: '#60a5fa', watermark: '½', watermarkCls: 'text-blue-400/15', opacity: '' },
+  none:    { badge: '⚪ No students', cls: 'bg-white/5 text-slate-500 border-white/10', leftColor: '#475569', watermark: '—', watermarkCls: 'text-slate-600/10', opacity: 'opacity-40' },
+  future:  { badge: '🔮 Chưa diễn ra', cls: 'bg-slate-500/15 text-slate-400 border-slate-500/25', leftColor: '#475569', watermark: '⏳', watermarkCls: 'text-slate-500/10', opacity: 'opacity-40' },
 };
 
 // ── Helpers ─────────────────────────────────────────────
@@ -58,13 +61,11 @@ const scheduleToKey = (s) => {
 
 export default function AttendancePage() {
   const { isAdmin } = useAuth();
-  const [schedules, setSchedules] = useState([]);
+  const bulkMarkMutation = useBulkMarkAttendance();
   const [selectedSchedule, setSelectedSchedule] = useState(null);
   const [records, setRecords] = useState([]);
   const [existingRecords, setExistingRecords] = useState([]);
-  const [submitting, setSubmitting] = useState(false);
   const [result, setResult] = useState(null);
-  const [loading, setLoading] = useState(true);
 
   // Week navigation
   const [weekStart, setWeekStart] = useState(() => getMonday(new Date()));
@@ -72,19 +73,7 @@ export default function AttendancePage() {
   useEffect(() => { document.title = 'TMS — Attendance'; }, []);
 
   // ── Load schedules with pre-computed attendance status ──
-  const loadSchedules = async () => {
-    setLoading(true);
-    try {
-      const res = await schedulesAPI.getAttendanceCalendar();
-      setSchedules(res.data.data);
-    } catch (err) {
-      console.error('Failed to load attendance calendar:', err);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => { loadSchedules(); }, []);
+  const { data: schedules = [], isLoading: loading } = useAttendanceCalendar();
 
   // ── Build the 7 days of the current week ────────────────
   const weekDays = useMemo(() => {
@@ -179,7 +168,6 @@ export default function AttendancePage() {
 
   const handleSubmit = async () => {
     if (!selectedSchedule || records.length === 0) return;
-    setSubmitting(true);
     setResult(null);
     try {
       const payload = records.map((r) => ({
@@ -187,14 +175,10 @@ export default function AttendancePage() {
         status: r.status,
         remark: r.remark,
       }));
-      const res = await attendanceAPI.bulkMark(selectedSchedule._id, payload);
-      setResult({ success: true, message: res.data.message });
-      // Reload calendar to reflect updated status
-      loadSchedules();
+      const res = await bulkMarkMutation.mutateAsync({ scheduleId: selectedSchedule._id, records: payload });
+      setResult({ success: true, message: res.message });
     } catch (err) {
       setResult({ success: false, message: err.response?.data?.message || 'Failed to submit' });
-    } finally {
-      setSubmitting(false);
     }
   };
 
@@ -293,20 +277,34 @@ export default function AttendancePage() {
 
                     if (cellSchedules.length > 0) {
                       const schedule = cellSchedules[0];
-                      const cfg = STATUS_CONFIG[schedule.attendanceStatus] || STATUS_CONFIG.pending;
+                      const isFutureSession = new Date(schedule.startTime) > new Date();
+                      const effectiveStatus = isFutureSession ? 'future' : schedule.attendanceStatus;
+                      const cfg = STATUS_CONFIG[effectiveStatus] || STATUS_CONFIG.pending;
                       const isSelected = selectedSchedule?._id === schedule._id;
-                      const isOverdue = schedule.attendanceStatus === 'pending' && isPast;
+                      const isOverdue = schedule.attendanceStatus === 'pending' && isPast && !isFutureSession;
+
+                      // Dynamic background based on status
+                      const bgMap = {
+                        done: 'bg-emerald-500/[0.08]',
+                        pending: 'bg-amber-500/[0.15]',
+                        partial: 'bg-blue-500/[0.12]',
+                        none: 'bg-white/[0.02]',
+                        future: 'bg-slate-500/[0.04]',
+                      };
+                      const cellBg = isOverdue ? 'bg-red-500/[0.15]' : (bgMap[effectiveStatus] || 'bg-white/[0.03]');
+                      const leftColor = isOverdue ? '#f87171' : cfg.leftColor;
 
                       return (
                         <td key={dayIdx} className={`border-b border-white/5 p-1 align-top ${isToday ? 'bg-primary-500/5' : ''}`}>
                           <div
-                            className={`rounded-xl p-2.5 h-full min-h-[80px] transition-all cursor-pointer border bg-gradient-to-br ${cfg.cell} ${
-                              isSelected ? 'ring-2 ring-primary-400 ring-offset-1 ring-offset-slate-900 shadow-lg shadow-primary-500/20' : 'hover:scale-[1.02]'
+                            className={`rounded-xl p-2.5 pl-3 h-full min-h-[80px] transition-all cursor-pointer relative overflow-hidden ${cellBg} ${cfg.opacity} ${
+                              isSelected ? 'ring-2 ring-primary-400 ring-offset-1 ring-offset-slate-900 shadow-lg shadow-primary-500/20 !opacity-100' : 'hover:scale-[1.02] hover:!opacity-100'
                             }`}
+                            style={{ borderLeft: `4px solid ${leftColor}`, borderTop: '1px solid rgba(255,255,255,0.05)', borderRight: '1px solid rgba(255,255,255,0.05)', borderBottom: '1px solid rgba(255,255,255,0.05)' }}
                             onClick={() => handleSelectSchedule(schedule)}
                           >
                             {/* Status badge */}
-                            <div className={`inline-flex items-center px-1.5 py-0.5 rounded-full text-[9px] font-bold border ${cfg.cls} ${isOverdue ? 'animate-pulse' : ''}`}>
+                            <div className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold border ${cfg.cls} ${isOverdue ? 'animate-pulse !bg-red-500/20 !text-red-400 !border-red-500/30' : ''}`}>
                               {isOverdue ? '⚠️ Overdue' : cfg.badge}
                             </div>
 
@@ -320,13 +318,23 @@ export default function AttendancePage() {
 
                             {/* Meta */}
                             <div className="text-[10px] text-slate-500 mt-1 truncate">
-                              {schedule.teacherId?.name || 'No teacher'} · {schedule.enrolledCount || 0}👤
+                              {schedule.enrolledCount || 0}👤
                             </div>
 
-                            {/* Marked count */}
-                            {schedule.markedCount > 0 && (
-                              <div className="text-[10px] text-slate-500 mt-0.5">
-                                {schedule.markedCount}/{schedule.enrolledCount || 0} marked
+                            {/* Marked progress */}
+                            {effectiveStatus !== 'future' && effectiveStatus !== 'none' && (
+                              <div className="mt-1.5">
+                                <div className="flex justify-between text-[9px] text-slate-500 mb-0.5">
+                                  <span>{schedule.markedCount || 0}/{schedule.enrolledCount || 0}</span>
+                                </div>
+                                <div className="h-1 rounded-full bg-white/10 overflow-hidden">
+                                  <div
+                                    className={`h-full rounded-full transition-all ${
+                                      effectiveStatus === 'done' ? 'bg-emerald-400' : effectiveStatus === 'partial' ? 'bg-blue-400' : 'bg-amber-400'
+                                    }`}
+                                    style={{ width: `${schedule.enrolledCount > 0 ? Math.round(((schedule.markedCount || 0) / schedule.enrolledCount) * 100) : 0}%` }}
+                                  />
+                                </div>
                               </div>
                             )}
                           </div>
@@ -351,31 +359,69 @@ export default function AttendancePage() {
       {/* ── Legend ──────────────────────────────────────── */}
       <div className="flex flex-wrap gap-4 text-xs text-slate-400">
         <div className="flex items-center gap-2">
-          <div className="w-3.5 h-3.5 rounded bg-gradient-to-br from-accent-green/25 to-teal-500/15 border border-accent-green/30" />
+          <div className="w-5 h-3.5 rounded bg-emerald-500/[0.12] border border-emerald-400/30 border-l-4 border-l-emerald-400" />
           <span>Done — All marked</span>
         </div>
         <div className="flex items-center gap-2">
-          <div className="w-3.5 h-3.5 rounded bg-gradient-to-br from-accent-amber/25 to-orange-500/15 border border-accent-amber/30" />
+          <div className="w-5 h-3.5 rounded bg-amber-500/[0.15] border border-amber-400/30 border-l-4 border-l-amber-400" />
           <span>Pending — Not yet marked</span>
         </div>
         <div className="flex items-center gap-2">
-          <div className="w-3.5 h-3.5 rounded bg-gradient-to-br from-blue-500/25 to-indigo-500/15 border border-blue-500/30" />
+          <div className="w-5 h-3.5 rounded bg-red-500/[0.15] border border-red-400/30 border-l-4 border-l-red-400" />
+          <span className="text-red-400 font-semibold">Overdue — Past, not marked</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <div className="w-5 h-3.5 rounded bg-blue-500/[0.12] border border-blue-400/30 border-l-4 border-l-blue-400" />
           <span>Partial — Some marked</span>
         </div>
         <div className="flex items-center gap-2">
-          <div className="w-3.5 h-3.5 rounded bg-white/[0.06] border border-white/15" />
-          <span>No students registered</span>
+          <div className="w-5 h-3.5 rounded bg-white/[0.04] border border-slate-600/30 border-l-4 border-l-slate-600 opacity-50" />
+          <span>Future / No students</span>
         </div>
       </div>
 
       {/* ── Attendance Marking Panel ───────────────────── */}
-      {selectedSchedule && records.length > 0 && (
-        <div className="glass rounded-2xl p-6 animate-fade-in">
+      {selectedSchedule && new Date(selectedSchedule.startTime) > new Date() && (
+        <div className="glass rounded-2xl p-8 text-center animate-fade-in">
+          <div className="text-3xl mb-2 opacity-50">🔮</div>
+          <p className="text-slate-400 font-semibold">Buổi học chưa diễn ra</p>
+          <p className="text-slate-500 text-sm mt-1">
+            Không thể điểm danh cho buổi học trong tương lai. Vui lòng quay lại sau khi buổi học đã bắt đầu.
+          </p>
+          <p className="text-xs text-slate-600 mt-3">
+            Lịch học: {new Date(selectedSchedule.startTime).toLocaleString('vi-VN', { weekday: 'long', day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+          </p>
+        </div>
+      )}
+      {selectedSchedule && new Date(selectedSchedule.startTime) <= new Date() && records.length > 0 && (() => {
+        const isFuture = new Date(selectedSchedule.startTime) > new Date();
+        const isPast = new Date(selectedSchedule.startTime) < new Date(new Date().setHours(0, 0, 0, 0));
+        const status = selectedSchedule.attendanceStatus || 'pending';
+        const isOverdue = status === 'pending' && isPast && !isFuture;
+        // Panel accent colors
+        const panelStyles = {
+          done:    { border: '#34d399', bg: 'rgba(52, 211, 153, 0.06)', label: '✅ Done', labelCls: 'text-emerald-400' },
+          pending: { border: '#fbbf24', bg: 'rgba(251, 191, 36, 0.06)', label: '⏳ Pending', labelCls: 'text-amber-400' },
+          partial: { border: '#60a5fa', bg: 'rgba(96, 165, 250, 0.06)', label: '🔵 Partial', labelCls: 'text-blue-400' },
+          none:    { border: '#475569', bg: 'transparent', label: '', labelCls: '' },
+        };
+        const ps = isOverdue
+          ? { border: '#f87171', bg: 'rgba(248, 113, 113, 0.06)', label: '⚠️ Overdue', labelCls: 'text-red-400' }
+          : (panelStyles[status] || panelStyles.pending);
+
+        return (
+        <div
+          className="glass rounded-2xl p-6 animate-fade-in"
+          style={{ borderLeft: `4px solid ${ps.border}`, backgroundColor: ps.bg }}
+        >
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
             <div>
-              <h2 className="text-lg font-semibold text-white">
-                {selectedSchedule.classId?.classCode} — {new Date(selectedSchedule.startTime).toLocaleDateString('en', { weekday: 'short', month: 'short', day: 'numeric' })}
-              </h2>
+              <div className="flex items-center gap-3">
+                <h2 className="text-lg font-semibold text-white">
+                  {selectedSchedule.classId?.classCode} — {new Date(selectedSchedule.startTime).toLocaleDateString('en', { weekday: 'short', month: 'short', day: 'numeric' })}
+                </h2>
+                <span className={`text-xs font-bold ${ps.labelCls}`}>{ps.label}</span>
+              </div>
               <p className="text-sm text-slate-400">{records.length} students enrolled · {selectedSchedule.classId?.courseName}</p>
             </div>
             {/* Quick mark all buttons */}
@@ -443,10 +489,10 @@ export default function AttendancePage() {
           <div className="mt-6 flex items-center gap-4">
             <button
               onClick={handleSubmit}
-              disabled={submitting}
+              disabled={bulkMarkMutation.isPending}
               className="px-6 py-3 rounded-xl bg-gradient-to-r from-accent-green to-teal-400 text-white font-semibold hover:from-accent-green hover:to-teal-300 transition-all disabled:opacity-50 shadow-lg shadow-accent-green/20"
             >
-              {submitting ? (
+              {bulkMarkMutation.isPending ? (
                 <span className="flex items-center gap-2">
                   <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
                   Submitting...
@@ -465,7 +511,8 @@ export default function AttendancePage() {
             )}
           </div>
         </div>
-      )}
+        );
+      })()}
 
       {selectedSchedule && records.length === 0 && (
         <div className="glass rounded-2xl p-8 text-center animate-fade-in">
