@@ -22,10 +22,10 @@ api.interceptors.response.use(
     if (error.response?.status === 401) {
       const url = error.config?.url || '';
       if (!url.includes('/auth/me')) {
-        // Cookie is HttpOnly so we can't clear it from JS — the server
-        // will reject it on expiry. Just clear local user data and redirect.
+        // Instead of hard-redirecting, we dispatch an event so the App can
+        // show a non-intrusive "Session expired" modal without losing form data.
         localStorage.removeItem('tms_user');
-        window.location.href = '/login';
+        window.dispatchEvent(new Event('auth-expired'));
       }
     }
     return Promise.reject(error);
@@ -37,6 +37,8 @@ export const authAPI = {
   login: (empCode, password) => api.post('/auth/login', { empCode, password }),
   logout: () => api.post('/auth/logout'),
   getMe: () => api.get('/auth/me'),
+  changePassword: (currentPassword, newPassword) =>
+    api.put('/auth/change-password', { currentPassword, newPassword }),
 };
 
 // ── Users ─────────────────────────────────────────────────
@@ -46,6 +48,7 @@ export const usersAPI = {
   create: (data) => api.post('/users', data),
   update: (id, data) => api.put(`/users/${id}`, data),
   delete: (id) => api.delete(`/users/${id}`),
+  getProgress: (id) => api.get(`/users/${id}/progress`),
 };
 
 // ── Teams ─────────────────────────────────────────────────
@@ -56,11 +59,13 @@ export const teamsAPI = {
   create: (data) => api.post('/teams', data),
   update: (id, data) => api.put(`/teams/${id}`, data),
   delete: (id) => api.delete(`/teams/${id}`),
+  getProgress: (id) => api.get(`/teams/${id}/progress`),
 };
 
 // ── Classes ───────────────────────────────────────────────
 export const classesAPI = {
   getAll: (params) => api.get('/classes', { params }),
+  getCourses: () => api.get('/classes/courses'),
   getById: (id) => api.get(`/classes/${id}`),
   create: (data) => api.post('/classes', data),
   update: (id, data) => api.put(`/classes/${id}`, data),
@@ -81,8 +86,6 @@ export const schedulesAPI = {
   cancelSlot: (scheduleId) => api.delete(`/schedules/${scheduleId}/cancel`),
   // Participant: upcoming sessions for my class
   getMyClass: () => api.get('/schedules/my-class'),
-  // Teacher assignment
-  assignTeacher: (scheduleId, teacherId) => api.patch(`/schedules/${scheduleId}/assign-teacher`, { teacherId }),
   // Attendance calendar: schedules with pre-computed attendance status
   getAttendanceCalendar: () => api.get('/schedules/attendance-calendar'),
 };
@@ -119,6 +122,20 @@ export const exportAPI = {
   // responseType: 'blob' is required to handle the binary Excel file
   downloadAttendance: (params = {}) =>
     api.get('/export/attendance', { params, responseType: 'blob' }),
+};
+
+// ── Enrollments ───────────────────────────────────────────
+export const enrollmentsAPI = {
+  getAll: (params) => api.get('/enrollments', { params }),
+  getByTeam: (teamId, params) => api.get(`/enrollments/team/${teamId}`, { params }),
+  getByUser: (userId) => api.get(`/enrollments/user/${userId}`),
+  update: (id, data) => api.put(`/enrollments/${id}`, data),
+  checkConflicts: (data) => api.post('/enrollments/check-conflicts', data),
+};
+
+// ── Dashboard Analytics ───────────────────────────────────
+export const dashboardAPI = {
+  getStats: () => api.get('/dashboard/stats'),
 };
 
 export default api;

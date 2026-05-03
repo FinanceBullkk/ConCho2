@@ -43,13 +43,6 @@ const scheduleSchema = new mongoose.Schema(
       required: [true, 'End time is required'],
     },
 
-    // Teacher (optional — Admin can assign later)
-    teacherId: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: 'User',
-      default: null,
-    },
-
     roomLink: {
       type: String,
       trim: true,
@@ -70,11 +63,6 @@ const scheduleSchema = new mongoose.Schema(
       },
     ],
 
-    enrolledCount: {
-      type: Number,
-      default: 0,
-      min: 0,
-    },
   },
   {
     timestamps: true,
@@ -84,15 +72,19 @@ const scheduleSchema = new mongoose.Schema(
 );
 
 // ── Virtuals ──────────────────────────────────────────────
+// enrolledCount is derived from the actual array — never drifts.
+scheduleSchema.virtual('enrolledCount').get(function () {
+  return this.enrolledUsers.length;
+});
+
 scheduleSchema.virtual('availableSpots').get(function () {
-  return this.capacity - this.enrolledCount;
+  return this.capacity - this.enrolledUsers.length;
 });
 
 // ── Indexes ───────────────────────────────────────────────
-scheduleSchema.index({ startTime: 1, endTime: 1 });        // Collision queries
-scheduleSchema.index({ bookedTeamId: 1, startTime: 1 });   // Weekly count queries
+scheduleSchema.index({ classId: 1, startTime: 1, endTime: 1 }); // Performance index for collision-check overlap queries
+scheduleSchema.index({ bookedTeamId: 1, startTime: 1 });               // Weekly count queries
 scheduleSchema.index({ classId: 1, startTime: 1 });
-scheduleSchema.index({ teacherId: 1, startTime: 1 });
 scheduleSchema.index({ enrolledUsers: 1 });
 
 module.exports = mongoose.model('Schedule', scheduleSchema);

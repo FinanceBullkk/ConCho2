@@ -2,7 +2,7 @@ const { z } = require('zod');
 const { paginationQuery } = require('./common');
 
 const ROLES = ['Admin', 'Teacher', 'Participant'];
-const STATUSES = ['Active', 'Dropped', 'Transferred', 'On-hold'];
+const STATUSES = ['Active', 'Inactive', 'Dropped', 'Transferred', 'On-hold', 'Waiting for class'];
 
 // Field primitives — no defaults here so that using them in an
 // update schema does not silently overwrite stored values with
@@ -12,7 +12,11 @@ const fields = {
   name: z.string().trim().min(1, 'name is required').max(120),
   role: z.enum(ROLES),
   department: z.string().trim().max(120),
+  position: z.string().trim().max(120),
   status: z.enum(STATUSES),
+  dropReason: z.string().trim().max(500),
+  entranceLevel: z.string().trim().max(120),
+  currentLevel: z.string().trim().max(120),
   password: z
     .string()
     .min(10, 'Password must be at least 10 characters')
@@ -24,8 +28,12 @@ const createUserBody = z.object({
   name: fields.name,
   role: fields.role,
   department: fields.department.optional(),
+  position: fields.position.optional(),
   status: fields.status.optional(),
-  password: fields.password.optional(),
+  dropReason: fields.dropReason.optional(),
+  entranceLevel: fields.entranceLevel.optional(),
+  currentLevel: fields.currentLevel.optional(),
+  password: fields.password,
 });
 
 const updateUserBody = z.object({
@@ -33,7 +41,11 @@ const updateUserBody = z.object({
   name: fields.name.optional(),
   role: fields.role.optional(),
   department: fields.department.optional(),
+  position: fields.position.optional(),
   status: fields.status.optional(),
+  dropReason: fields.dropReason.optional(),
+  entranceLevel: fields.entranceLevel.optional(),
+  currentLevel: fields.currentLevel.optional(),
   password: fields.password.optional(),
 });
 

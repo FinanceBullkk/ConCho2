@@ -1,11 +1,15 @@
+const mongoose = require('mongoose');
+const bcrypt = require('bcryptjs');
 const User = require('../models/User');
 const Team = require('../models/Team');
 const Schedule = require('../models/Schedule');
 const Attendance = require('../models/Attendance');
+const Enrollment = require('../models/Enrollment');
 const { getNextSequence } = require('../helpers/counter');
 const { parsePagination, paginatedResponse } = require('../helpers/pagination');
 const { escapeRegex } = require('../helpers/escapeRegex');
 const { invalidateUserCache } = require('../middleware/auth');
+const { handleError } = require('../helpers/handleError');
 
 // ──────────────────────────────────────────────────────────
 // User Controller (Admin Only)
@@ -31,13 +35,14 @@ const getUsers = async (req, res) => {
     if (req.query.status) filter.status = req.query.status;
     if (req.query.department) filter.department = { $regex: escapeRegex(req.query.department), $options: 'i' };
 
-    // Text search across empCode, name, department
+    // Text search across empCode, name, department, position
     if (req.query.search) {
       const s = escapeRegex(req.query.search);
       filter.$or = [
         { empCode: { $regex: s, $options: 'i' } },
         { name: { $regex: s, $options: 'i' } },
         { department: { $regex: s, $options: 'i' } },
+        { position: { $regex: s, $options: 'i' } },
       ];
     }
 
@@ -47,9 +52,33 @@ const getUsers = async (req, res) => {
       User.countDocuments(filter),
     ]);
 
-    res.json(paginatedResponse({ data: users, total, page, limit }));
+    // Compute lastActive date for each user via attendance records
+    const userIds = users.map(u => u._id);
+    const lastActiveAgg = await Attendance.aggregate([
+      { $match: { userId: { $in: userIds } } },
+      { $group: { _id: '$userId', lastDate: { $max: '$createdAt' } } },
+    ]);
+    const lastActiveMap = {};
+    for (const a of lastActiveAgg) {
+      lastActiveMap[a._id.toString()] = a.lastDate;
+    }
+
+    // Merge lastActive into user objects
+    const enrichedUsers = users.map(u => {
+      const obj = u.toObject();
+      const lastDate = lastActiveMap[u._id.toString()] || null;
+      obj.lastActive = lastDate;
+      if (lastDate) {
+        obj.daysSince = Math.floor((Date.now() - new Date(lastDate).getTime()) / (1000 * 60 * 60 * 24));
+      } else {
+        obj.daysSince = null;
+      }
+      return obj;
+    });
+
+    res.json(paginatedResponse({ data: enrichedUsers, total, page, limit }));
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    handleError(res, error);
   }
 };
 
@@ -65,7 +94,7 @@ const getUserById = async (req, res) => {
     }
     res.json({ success: true, data: user });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    handleError(res, error);
   }
 };
 
@@ -78,7 +107,7 @@ const getUserById = async (req, res) => {
  */
 const createUser = async (req, res) => {
   try {
-    const { name, role, department, status, password } = req.body;
+    const { name, role, department, position, status, dropReason, password } = req.body;
     let { empCode } = req.body;
 
     // Auto-generate empCode if not provided
@@ -87,13 +116,19 @@ const createUser = async (req, res) => {
       empCode = seq.toString().padStart(6, '0');
     }
 
+    if (!password) {
+      return res.status(400).json({ success: false, message: 'password is required' });
+    }
+
     const user = await User.create({
       empCode,
       name,
       role,
       department,
+      position,
       status,
-      password: password || 'default123',
+      dropReason,
+      password,
     });
 
     // Return without password
@@ -102,7 +137,7 @@ const createUser = async (req, res) => {
 
     res.status(201).json({ success: true, data: userObj });
   } catch (error) {
-    res.status(400).json({ success: false, message: error.message });
+    handleError(res, error);
   }
 };
 
@@ -115,21 +150,23 @@ const createUser = async (req, res) => {
  */
 const updateUser = async (req, res) => {
   try {
-    const { empCode, name, role, department, status } = req.body;
+    const { empCode, name, role, department, position, status, dropReason } = req.body;
     const updateData = {};
 
     if (empCode !== undefined) updateData.empCode = empCode;
     if (name !== undefined) updateData.name = name;
     if (role !== undefined) updateData.role = role;
     if (department !== undefined) updateData.department = department;
+    if (position !== undefined) updateData.position = position;
     if (status !== undefined) updateData.status = status;
+    if (dropReason !== undefined) updateData.dropReason = dropReason;
 
     // If password is being changed, hash it manually
     // (pre-save hooks don't run on findOneAndUpdate)
     if (req.body.password) {
-      const bcrypt = require('bcryptjs');
       const salt = await bcrypt.genSalt(12);
       updateData.password = await bcrypt.hash(req.body.password, salt);
+      updateData.passwordChangedAt = new Date();
     }
 
     const user = await User.findOneAndUpdate(
@@ -147,7 +184,7 @@ const updateUser = async (req, res) => {
 
     res.json({ success: true, data: user });
   } catch (error) {
-    res.status(400).json({ success: false, message: error.message });
+    handleError(res, error);
   }
 };
 
@@ -181,32 +218,113 @@ const deleteUser = async (req, res) => {
       });
     }
 
-    // Cascade Step 1: Pull from Team.members
-    await Team.updateMany(
-      { members: user._id },
-      { $pull: { members: user._id } }
-    );
+    // ── TRANSACTION: Cascade delete (all-or-nothing) ──────
+    const session = await mongoose.startSession();
+    let deletedAttendance = 0;
+    let deletedEnrollments = 0;
 
-    // Cascade Step 2: Pull from Schedule.enrolledUsers
-    await Schedule.updateMany(
-      { enrolledUsers: user._id },
-      { $pull: { enrolledUsers: user._id }, $inc: { enrolledCount: -1 } }
-    );
+    try {
+      await session.withTransaction(async () => {
+        // Cascade Step 1: Pull from Team.members
+        await Team.updateMany(
+          { members: user._id },
+          { $pull: { members: user._id } },
+          { session }
+        );
 
-    // Cascade Step 3: Delete Attendance records
-    const attResult = await Attendance.deleteMany({ userId: user._id });
+        // Cascade Step 2: Pull from Schedule.enrolledUsers
+        // enrolledCount is a virtual, no $inc needed.
+        await Schedule.updateMany(
+          { enrolledUsers: user._id },
+          { $pull: { enrolledUsers: user._id } },
+          { session }
+        );
 
-    // Step 4: Delete the user
-    await User.findByIdAndDelete(user._id);
+        // Cascade Step 3: Delete Attendance records
+        const attResult = await Attendance.deleteMany({ userId: user._id }, { session });
+        deletedAttendance = attResult.deletedCount;
+
+        // Cascade Step 4: Delete all Enrollment records for this user
+        const enrollResult = await Enrollment.deleteMany({ userId: user._id }, { session });
+        deletedEnrollments = enrollResult.deletedCount;
+
+        // Step 5: Delete the user
+        await User.findByIdAndDelete(user._id, { session });
+      });
+    } finally {
+      session.endSession();
+    }
 
     res.json({
       success: true,
       message: `User ${user.empCode} deleted`,
-      cascade: { deletedAttendance: attResult.deletedCount },
+      cascade: { deletedAttendance, deletedEnrollments },
     });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    handleError(res, error);
   }
 };
 
-module.exports = { getUsers, getUserById, createUser, updateUser, deleteUser };
+/**
+ * GET /api/users/:id/progress
+ */
+const getUserProgress = async (req, res) => {
+  try {
+    const userId = req.params.id;
+    const user = await User.findById(userId).select('-password').lean();
+    if (!user) return res.status(404).json({ success: false, message: 'User not found' });
+
+    const enrollments = await Enrollment.find({ userId })
+      .populate('teamId')
+      .populate('classId', 'classCode courseName')
+      .lean();
+      
+    // Fallback: Check for teams where user is a member but missing an Enrollment record
+    const activeTeams = await Team.find({ members: userId })
+      .populate('classId', 'classCode courseName')
+      .lean();
+      
+    const enrolledTeamIds = enrollments.map(e => e.teamId?._id?.toString());
+    
+    for (const team of activeTeams) {
+      if (!enrolledTeamIds.includes(team._id.toString())) {
+        enrollments.push({
+          _id: `mock-${team._id}`,
+          userId,
+          teamId: team,
+          classId: team.classId,
+          status: 'Active',
+          joinedAt: team.createdAt || new Date(),
+        });
+      }
+    }
+      
+    const teamIds = enrollments.map(e => e.teamId?._id).filter(Boolean);
+
+    const schedules = await Schedule.find({ bookedTeamId: { $in: teamIds } })
+      .sort({ startTime: 1 })
+      .populate('classId', 'classCode courseName')
+      .populate('bookedTeamId', 'name')
+      .lean();
+
+    const scheduleIds = schedules.map(s => s._id);
+    const attendances = await Attendance.find({ 
+      scheduleId: { $in: scheduleIds },
+      userId 
+    }).lean();
+
+    res.json({
+      success: true,
+      data: {
+        user,
+        enrollments,
+        schedules,
+        attendances,
+      }
+    });
+  } catch (error) {
+    handleError(res, error);
+  }
+};
+
+module.exports = { getUsers, getUserById, createUser, updateUser, deleteUser, getUserProgress };

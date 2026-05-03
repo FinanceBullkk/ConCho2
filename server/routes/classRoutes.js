@@ -1,10 +1,13 @@
 const router = require('express').Router();
-const { getClasses, getClassById, createClass, updateClass, deleteClass } = require('../controllers/classController');
+const { getClasses, getCourseList, getClassById, createClass, updateClass, deleteClass } = require('../controllers/classController');
 const { protect } = require('../middleware/auth');
 const { roleGuard } = require('../middleware/roleGuard');
 const { validate } = require('../middleware/validate');
 const { idParam } = require('../schemas/common');
 const { createClassBody, updateClassBody } = require('../schemas/class');
+
+// Metadata: list of valid course names + default sessions
+router.get('/courses', protect, getCourseList);
 
 // Read: all authenticated users. Write: Admin only.
 router.route('/')

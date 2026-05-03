@@ -3,10 +3,12 @@ const path = require('path');
 const cors = require('cors');
 const helmet = require('helmet');
 const cookieParser = require('cookie-parser');
+const mongoSanitize = require('express-mongo-sanitize');
 require('dotenv').config();
 
 const connectDB = require('./config/db');
 
+// Trigger nodemon
 // ──────────────────────────────────────────────────────────
 // TMS v2 — Express Server
 // ──────────────────────────────────────────────────────────
@@ -26,14 +28,23 @@ app.set('trust proxy', 1);
 
 // ── Security headers ──────────────────────────────────────
 app.use(helmet({
-  contentSecurityPolicy: false,   // Allow inline styles from React/Tailwind
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      scriptSrc:  ["'self'"],
+      styleSrc:   ["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com'],
+      fontSrc:    ["'self'", 'https://fonts.gstatic.com'],
+      imgSrc:     ["'self'", 'data:', 'https:'],
+      connectSrc: ["'self'"],
+    },
+  },
   crossOriginEmbedderPolicy: false,
 }));
 
 // ── CORS allowlist ────────────────────────────────────────
 // CORS_ORIGINS is a comma-separated list of allowed origins.
 // Example: CORS_ORIGINS=http://localhost:5173,https://tms.example.com
-const allowedOrigins = (process.env.CORS_ORIGINS || 'http://localhost:5173,http://localhost:3000')
+const allowedOrigins = (process.env.CORS_ORIGINS || 'http://localhost:5173,http://localhost:3000,http://localhost:3001')
   .split(',')
   .map((s) => s.trim())
   .filter(Boolean);
@@ -55,11 +66,17 @@ app.use(cookieParser());                          // Parse HttpOnly cookies
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
 
-// ── Request logger (dev) ─────────────────────────────────
-app.use((req, _res, next) => {
-  console.log(`${req.method} ${req.originalUrl}`);
-  next();
-});
+// ── NoSQL Injection Prevention ───────────────────────────
+// Strips keys containing $ or . from req.body, req.query, req.params
+app.use(mongoSanitize());
+
+// ── Request logger (dev only) ────────────────────────────
+if (process.env.NODE_ENV !== 'production') {
+  app.use((req, _res, next) => {
+    console.log(`${req.method} ${req.originalUrl}`);
+    next();
+  });
+}
 
 // ── Health check ─────────────────────────────────────────
 app.get('/api/health', (_req, res) => {
@@ -80,9 +97,12 @@ app.use('/api/classes', require('./routes/classRoutes'));
 app.use('/api/schedules', require('./routes/scheduleRoutes'));
 app.use('/api/attendance', require('./routes/attendanceRoutes'));
 app.use('/api/evaluations', require('./routes/evaluationRoutes'));
+app.use('/api/enrollments', require('./routes/enrollmentRoutes'));
 app.use('/api/sync', require('./routes/syncRoutes'));
 app.use('/api/import', require('./routes/importRoutes'));
 app.use('/api/export', require('./routes/exportRoutes'));
+app.use('/api/settings', require('./routes/settingRoutes'));
+app.use('/api/dashboard', require('./routes/dashboardRoutes'));
 
 // ── Production: Serve React client build ─────────────────
 if (process.env.NODE_ENV === 'production') {
@@ -130,23 +150,29 @@ app.use((err, _req, res, _next) => {
   const statusCode = err.statusCode || 500;
   res.status(statusCode).json({
     success: false,
-    message: err.message || 'Internal Server Error',
+    message: statusCode === 500 && process.env.NODE_ENV === 'production'
+      ? 'Internal Server Error'
+      : err.message || 'Internal Server Error',
   });
 });
 
 // ── Start ─────────────────────────────────────────────────
 const PORT = process.env.PORT || 5000;
 
-const startServer = async () => {
-  await connectDB();
-  app.listen(PORT, () => {
-    console.log(`🚀 TMS v2 API running on http://localhost:${PORT}`);
-  });
-};
+// In test mode, supertest handles HTTP and tests manage their own DB connection.
+// Only auto-start when running normally (dev/production).
+if (process.env.NODE_ENV !== 'test') {
+  const startServer = async () => {
+    await connectDB();
+    app.listen(PORT, () => {
+      console.log(`🚀 TMS v2 API running on http://localhost:${PORT}`);
+    });
+  };
 
-startServer().catch((err) => {
-  console.error('Failed to start server:', err.message);
-  process.exit(1);
-});
+  startServer().catch((err) => {
+    console.error('Failed to start server:', err.message);
+    process.exit(1);
+  });
+}
 
 module.exports = app;

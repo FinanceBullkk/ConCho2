@@ -92,10 +92,10 @@ const cacheMiddleware = (prefix) => {
  */
 const invalidateAnalyticsCache = () => {
   const keys = cache.keys();
-  const analyticsKeys = keys.filter(k => k.startsWith('analytics:'));
+  const analyticsKeys = keys.filter(k => k.startsWith('analytics:') || k.startsWith('dashboard:'));
   if (analyticsKeys.length > 0) {
     cache.del(analyticsKeys);
-    console.log(`🗑️  Invalidated ${analyticsKeys.length} analytics cache entries`);
+    console.log(`🗑️  Invalidated ${analyticsKeys.length} analytics/dashboard cache entries`);
   }
 };
 

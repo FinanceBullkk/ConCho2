@@ -1,85 +1,53 @@
 import { useState, useEffect } from 'react';
-import { attendanceAPI, classesAPI, exportAPI } from '../api/api';
+import { useAttendanceAnalyticsByEmployee, useAttendanceAnalyticsByTeam, useAttendanceAnalyticsByClass } from '../hooks/useAttendance';
+import { useClasses } from '../hooks/useClasses';
+import { useExportStats, useDownloadAttendance } from '../hooks/useExport';
 
 export default function AttendanceDashboardPage() {
   const [activeTab, setActiveTab] = useState('employee'); // employee, team, class
-  const [data, setData] = useState([]);
-  const [classes, setClasses] = useState([]);
   const [selectedClass, setSelectedClass] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
 
-  // ── Export state ─────────────────────────────────────────
-  const [exportStats, setExportStats] = useState({ pending: 0, exported: 0 });
-  const [isExporting, setIsExporting] = useState(false);
-  const [exportMsg, setExportMsg] = useState('');
+  // ── Analytics queries (enabled based on active tab) ──────
+  const { data: employeeData = [], isLoading: loadingEmployee } = useAttendanceAnalyticsByEmployee({}, { enabled: activeTab === 'employee' });
+  const { data: teamData = [], isLoading: loadingTeam } = useAttendanceAnalyticsByTeam({}, { enabled: activeTab === 'team' });
+  const { data: classesData = [] } = useClasses({}, { enabled: activeTab === 'class' });
+  const { data: classAnalytics, isLoading: loadingClass } = useAttendanceAnalyticsByClass(
+    { classId: selectedClass || classesData?.[0]?._id },
+    { enabled: activeTab === 'class' && !!(selectedClass || classesData?.[0]?._id) }
+  );
 
-  const loadData = async () => {
-    setLoading(true);
-    setError('');
-    setData([]);  // Reset data to prevent stale renders during tab switch
-    try {
-      if (activeTab === 'employee') {
-        const res = await attendanceAPI.getAnalyticsByEmployee();
-        setData(res.data.data);
-      } else if (activeTab === 'team') {
-        const res = await attendanceAPI.getAnalyticsByTeam();
-        setData(res.data.data);
-      } else if (activeTab === 'class') {
-        if (!selectedClass) {
-          const cRes = await classesAPI.getAll();
-          setClasses(cRes.data.data);
-          if (cRes.data.data.length > 0) {
-            setSelectedClass(cRes.data.data[0]._id);
-          } else {
-            setData(null);
-            setLoading(false);
-            return;
-          }
-        }
-        
-        const targetClassId = selectedClass || classes[0]?._id;
-        if (targetClassId) {
-          const res = await attendanceAPI.getAnalyticsByClass({ classId: targetClassId });
-          setData(res.data.data);
-        }
-      }
-    } catch (err) {
-      console.error(err);
-      setError('Failed to load analytics data.');
-    } finally {
-      setLoading(false);
-    }
-  };
-
+  // Auto-select first class when classes load
   useEffect(() => {
-    loadData();
-  }, [activeTab, selectedClass]);
+    if (activeTab === 'class' && !selectedClass && classesData?.length > 0) {
+      setSelectedClass(classesData[0]._id);
+    }
+  }, [activeTab, classesData, selectedClass]);
+
+  const classes = classesData || [];
+  const data = activeTab === 'employee' ? employeeData
+             : activeTab === 'team' ? teamData
+             : classAnalytics;
+  const loading = activeTab === 'employee' ? loadingEmployee
+                : activeTab === 'team' ? loadingTeam
+                : loadingClass;
+
   useEffect(() => { document.title = 'TMS — Analytics'; }, []);
 
-  // ── Load export stats on mount ──────────────────────────
-  const loadExportStats = async () => {
-    try {
-      const res = await exportAPI.getStats();
-      setExportStats(res.data.data);
-    } catch { /* non-critical */ }
-  };
-  useEffect(() => { loadExportStats(); }, []);
+  // ── Export state ─────────────────────────────────────────
+  const { data: exportStats = { pending: 0, exported: 0 } } = useExportStats();
+  const downloadMutation = useDownloadAttendance();
+  const [exportMsg, setExportMsg] = useState('');
 
-  // ── Export handler: download Excel via blob ─────────────
   const handleExport = async () => {
-    setIsExporting(true);
     setExportMsg('');
     try {
-      const res = await exportAPI.downloadAttendance();
-      // Extract filename from content-disposition header or use default
+      const res = await downloadMutation.mutateAsync();
       const disposition = res.headers['content-disposition'];
       let filename = 'TMS_Attendance_Export.xlsx';
       if (disposition) {
         const match = disposition.match(/filename="?([^"]+)"?/);
         if (match) filename = match[1];
       }
-      // Create a temporary <a> element to trigger browser download
       const blob = new Blob([res.data], {
         type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
       });
@@ -91,16 +59,12 @@ export default function AttendanceDashboardPage() {
       a.click();
       a.remove();
       window.URL.revokeObjectURL(url);
-
       setExportMsg(`✅ Đã tải ${filename} thành công!`);
-      loadExportStats(); // Refresh stats (pending → 0)
     } catch (err) {
       const msg = err.response?.status === 404
         ? 'Không có bản ghi nào để xuất.'
         : 'Lỗi khi tải file. Vui lòng thử lại.';
       setExportMsg(`❌ ${msg}`);
-    } finally {
-      setIsExporting(false);
     }
   };
 
@@ -150,13 +114,13 @@ export default function AttendanceDashboardPage() {
           )}
           <button
             onClick={handleExport}
-            disabled={isExporting || exportStats.pending === 0}
+            disabled={downloadMutation.isPending || exportStats.pending === 0}
             className="flex items-center gap-2 px-5 py-2.5 rounded-xl font-semibold text-sm transition-all
               bg-emerald-500 hover:bg-emerald-400 text-white shadow-lg shadow-emerald-500/20
               disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-emerald-500
               whitespace-nowrap w-full sm:w-auto justify-center"
           >
-            {isExporting ? (
+            {downloadMutation.isPending ? (
               <>
                 <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
                 Đang tải...
@@ -192,11 +156,7 @@ export default function AttendanceDashboardPage() {
         ))}
       </div>
 
-      {error && (
-        <div className="px-4 py-3 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-sm">
-          {error}
-        </div>
-      )}
+
 
       {loading ? (
         <div className="flex items-center justify-center py-20"><div className="w-8 h-8 border-2 border-primary-400 border-t-transparent rounded-full animate-spin" /></div>
@@ -311,7 +271,7 @@ export default function AttendanceDashboardPage() {
                         {data.schedules.map((s, i) => (
                           <th key={s._id} className="p-4 font-semibold min-w-[80px] text-center border-l border-white/5">
                             <div className="text-xs text-slate-400">S{i+1}</div>
-                            <div className="text-xs">{new Date(s.date).toLocaleDateString('en', { month: 'numeric', day: 'numeric' })}</div>
+                            <div className="text-xs">{new Date(s.startTime).toLocaleDateString('en', { month: 'numeric', day: 'numeric' })}</div>
                           </th>
                         ))}
                       </tr>

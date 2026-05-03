@@ -1,7 +1,9 @@
 import { useState, useEffect, useMemo } from 'react';
-import { schedulesAPI, teamsAPI } from '../api/api';
 import { useAuth } from '../context/AuthContext';
 import toast from 'react-hot-toast';
+import Portal from '../components/Portal';
+import { useAvailability, useBookSlot, useCancelSlot } from '../hooks/useSchedules';
+import { useMyTeams } from '../hooks/useTeams';
 
 // ──────────────────────────────────────────────────────────
 // BookClassPage (v2 — Leader-Created Sessions)
@@ -11,7 +13,7 @@ import toast from 'react-hot-toast';
 // ──────────────────────────────────────────────────────────
 
 const TIME_SLOTS = [
-  '10:00-11:00', '11:00-12:00',
+  '09:00-10:00', '10:00-11:00', '11:00-12:00',
   '13:00-14:00', '14:00-15:00', '15:00-16:00',
 ];
 
@@ -62,41 +64,28 @@ const scheduleToKey = (s) => {
 
 export default function BookClassPage() {
   const { user } = useAuth();
-  const [schedules, setSchedules] = useState([]);
-  const [myTeams, setMyTeams] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const bookMutation = useBookSlot();
+  const cancelMutation = useCancelSlot();
   const [error, setError] = useState('');
   const [selectedTeam, setSelectedTeam] = useState('');
   const [bookModal, setBookModal] = useState(null);   // { day, slot } for creating
   const [cancelModal, setCancelModal] = useState(null); // schedule obj for deleting
-  const [processing, setProcessing] = useState(false);
 
   // Week navigation
   const [weekStart, setWeekStart] = useState(() => getMonday(new Date()));
 
   // ── Data loading ────────────────────────────────────────
-  const load = async () => {
-    setLoading(true);
-    setError('');
-    try {
-      const sRes = await schedulesAPI.getAvailability();
-      setSchedules(sRes.data.data);
+  const { data: schedules = [], isLoading: loadingSched } = useAvailability();
+  const { data: myTeams = [], isLoading: loadingTeams } = useMyTeams();
+  const loading = loadingSched || loadingTeams;
 
-      const tRes = await teamsAPI.getMyTeams();
-      const ledTeams = tRes.data.data;
-      setMyTeams(ledTeams);
-      if (ledTeams.length > 0 && !selectedTeam) {
-        setSelectedTeam(ledTeams[0]._id);
-      }
-    } catch (err) {
-      console.error(err);
-      setError('Failed to load schedule data');
-    } finally {
-      setLoading(false);
+  // Auto-select first team
+  useEffect(() => {
+    if (myTeams.length > 0 && !selectedTeam) {
+      setSelectedTeam(myTeams[0]._id);
     }
-  };
+  }, [myTeams, selectedTeam]);
 
-  useEffect(() => { load(); }, []);
   useEffect(() => { document.title = 'TMS — Schedule & Book'; }, []);
 
   // ── Build the 7 days of the current week ────────────────
@@ -119,53 +108,38 @@ export default function BookClassPage() {
   // ── Create schedule handler (click empty slot) ──────────
   const handleBookSlot = async () => {
     if (!selectedTeam || !bookModal) return;
-    setProcessing(true);
     setError('');
     try {
       const { day, slot } = bookModal;
       const { sh, sm, eh, em } = parseSlot(slot);
-
-      const startTime = new Date(day);
-      startTime.setHours(sh, sm, 0, 0);
-
-      const endTime = new Date(day);
-      endTime.setHours(eh, em, 0, 0);
-
-      const res = await schedulesAPI.bookSlot({
+      const startTime = new Date(day); startTime.setHours(sh, sm, 0, 0);
+      const endTime = new Date(day); endTime.setHours(eh, em, 0, 0);
+      const res = await bookMutation.mutateAsync({
         teamId: selectedTeam,
         startTime: startTime.toISOString(),
         endTime: endTime.toISOString(),
       });
       setBookModal(null);
-      toast.success(res.data.message || 'Session created successfully! ✅');
-      load();
+      toast.success(res.message || 'Session created successfully! ✅');
     } catch (err) {
       const msg = err.response?.data?.message || 'Booking failed';
       setError(msg);
-      toast.error(msg);
       setBookModal(null);
-    } finally {
-      setProcessing(false);
     }
   };
 
   // ── Cancel/delete schedule handler ──────────────────────
   const handleCancel = async () => {
     if (!cancelModal) return;
-    setProcessing(true);
     setError('');
     try {
-      await schedulesAPI.cancelSlot(cancelModal._id);
+      await cancelMutation.mutateAsync(cancelModal._id);
       setCancelModal(null);
       toast.success('Session cancelled successfully');
-      load();
     } catch (err) {
       const msg = err.response?.data?.message || 'Cancel failed';
       setError(msg);
-      toast.error(msg);
       setCancelModal(null);
-    } finally {
-      setProcessing(false);
     }
   };
 
@@ -359,6 +333,7 @@ export default function BookClassPage() {
 
       {/* ── Create Booking Modal ───────────────────────── */}
       {bookModal && (
+        <Portal>
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm animate-fade-in">
           <div className="glass rounded-2xl p-6 max-w-sm mx-4 space-y-4 border border-white/10 shadow-2xl">
             <h3 className="text-lg font-bold text-white text-center">Create Session</h3>
@@ -393,10 +368,15 @@ export default function BookClassPage() {
               </button>
               <button
                 onClick={handleBookSlot}
-                disabled={processing}
+                disabled={bookMutation.isPending}
                 className="flex-1 py-2.5 rounded-xl bg-gradient-to-r from-primary-600 to-primary-500 text-white font-semibold hover:from-primary-500 hover:to-primary-400 transition-all disabled:opacity-50 shadow-lg shadow-primary-500/20"
               >
                 {processing ? (
+                  <span className="flex items-center justify-center gap-2">
+                    <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                    Creating...
+                  </span>
+                ) : bookMutation.isPending ? (
                   <span className="flex items-center justify-center gap-2">
                     <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
                     Creating...
@@ -406,10 +386,12 @@ export default function BookClassPage() {
             </div>
           </div>
         </div>
+        </Portal>
       )}
 
       {/* ── Cancel Booking Modal ───────────────────────── */}
       {cancelModal && (
+        <Portal>
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm animate-fade-in">
           <div className="glass rounded-2xl p-6 max-w-sm mx-4 space-y-4 border border-white/10 shadow-2xl">
             <h3 className="text-lg font-bold text-white text-center">Cancel Session</h3>
@@ -445,10 +427,10 @@ export default function BookClassPage() {
               </button>
               <button
                 onClick={handleCancel}
-                disabled={processing}
+                disabled={cancelMutation.isPending}
                 className="flex-1 py-2.5 rounded-xl bg-red-500/20 text-red-400 border border-red-500/20 hover:bg-red-500/30 font-semibold transition-all disabled:opacity-50"
               >
-                {processing ? (
+                {cancelMutation.isPending ? (
                   <span className="flex items-center justify-center gap-2">
                     <span className="w-3.5 h-3.5 border-2 border-red-400/30 border-t-red-400 rounded-full animate-spin" />
                     Cancelling...
@@ -458,6 +440,7 @@ export default function BookClassPage() {
             </div>
           </div>
         </div>
+        </Portal>
       )}
     </div>
   );

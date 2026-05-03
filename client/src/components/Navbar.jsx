@@ -4,20 +4,17 @@ import { useAuth } from '../context/AuthContext';
 const NAV_ITEMS = {
   Admin: [
     { path: '/dashboard', label: 'Dashboard', icon: '📊' },
-    { path: '/users', label: 'Users', icon: '👤' },
-    { path: '/teams', label: 'Teams', icon: '👥' },
+    { path: '/people', label: 'People', icon: '👥' },
     { path: '/classes', label: 'Classes', icon: '📚' },
     { path: '/schedules', label: 'Schedules', icon: '📅' },
     { path: '/attendance', label: 'Attendance', icon: '✅' },
-    { path: '/analytics', label: 'Analytics', icon: '📈' },
-    { path: '/export', label: 'HR Export', icon: '📤' },
-    { path: '/sync', label: 'Sheets Sync', icon: '📊' },
+    { path: '/data', label: 'Data', icon: '📤' },
+    { path: '/settings', label: 'Settings', icon: '⚙️' },
   ],
   Teacher: [
     { path: '/dashboard', label: 'Dashboard', icon: '📊' },
-    { path: '/schedules', label: 'My Schedules', icon: '📅' },
+    { path: '/schedules', label: 'Schedules', icon: '📅' },
     { path: '/attendance', label: 'Attendance', icon: '✅' },
-    { path: '/analytics', label: 'Analytics', icon: '📈' },
   ],
   Participant: [
     { path: '/dashboard', label: 'Dashboard', icon: '📊' },

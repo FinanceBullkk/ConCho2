@@ -1,7 +1,13 @@
 const mongoose = require('mongoose');
+const NodeCache = require('node-cache');
+const { toVN, todayVN } = require('../helpers/dayjsConfig');
 const Schedule = require('../models/Schedule');
 const Team = require('../models/Team');
 const Attendance = require('../models/Attendance');
+
+// Per-class ordered schedule ID list — 5 min TTL.
+// Invalidated on create/delete so sessionNumbers stay accurate.
+const sessionOrderCache = new NodeCache({ stdTTL: 300, checkperiod: 60 });
 
 // ──────────────────────────────────────────────────────────
 // Schedule Service
@@ -44,12 +50,78 @@ const getWeekBounds = (date) => {
 };
 
 /**
- * Return UTC midnight today.
+ * Return midnight today in Vietnam timezone (as UTC Date for MongoDB).
+ * Example: 23:30 VN May 2 → returns 17:00 UTC May 1 (= 00:00 VN May 2)
  */
-const utcToday = () => {
-  const now = new Date();
-  now.setUTCHours(0, 0, 0, 0);
-  return now;
+const utcToday = () => todayVN();
+
+// isValidTimeSlot has been moved inside bookSlot to fetch dynamically
+
+/**
+ * Attach `sessionNumber` to an array of schedule objects.
+ * sessionNumber = 1-based position among all sessions of the same class, ordered by startTime.
+ *
+ * Uses a per-classId cache (5 min TTL) so repeated calls within a request window
+ * do not re-query MongoDB. Call invalidateSessionOrderCache(classId) after
+ * creating or deleting a schedule to keep numbers accurate.
+ */
+const attachSessionNumbers = async (schedules) => {
+  if (schedules.length === 0) return schedules;
+
+  // Collect unique classIds, check cache for each
+  const orderMap = {};
+  const uncachedIds = [];
+
+  for (const s of schedules) {
+    const cId = s.classId?._id?.toString() || s.classId?.toString();
+    if (!cId) continue;
+    if (orderMap[cId]) continue; // already resolved this classId in this call
+    const cached = sessionOrderCache.get(cId);
+    if (cached) {
+      orderMap[cId] = cached;
+    } else {
+      uncachedIds.push(cId);
+    }
+  }
+
+  // Single query for all uncached classes
+  if (uncachedIds.length > 0) {
+    const objectIds = uncachedIds.map(id => new mongoose.Types.ObjectId(id));
+    const allSchedules = await Schedule.find({ classId: { $in: objectIds } })
+      .select('_id classId startTime')
+      .sort({ startTime: 1 })
+      .lean();
+
+    const tempMap = {};
+    for (const s of allSchedules) {
+      const cId = s.classId.toString();
+      if (!tempMap[cId]) tempMap[cId] = [];
+      tempMap[cId].push(s._id.toString());
+    }
+    for (const [cId, ids] of Object.entries(tempMap)) {
+      orderMap[cId] = ids;
+      sessionOrderCache.set(cId, ids);
+    }
+  }
+
+  // Attach sessionNumber
+  for (const s of schedules) {
+    const cId = s.classId?._id?.toString() || s.classId?.toString();
+    const sId = s._id.toString();
+    const order = orderMap[cId] || [];
+    const idx = order.indexOf(sId);
+    s.sessionNumber = idx >= 0 ? idx + 1 : null;
+  }
+
+  return schedules;
+};
+
+/**
+ * Invalidate the session-order cache for a class.
+ * Call after creating or deleting a schedule so sessionNumbers are recomputed.
+ */
+const invalidateSessionOrderCache = (classId) => {
+  if (classId) sessionOrderCache.del(classId.toString());
 };
 
 // ── Core Business Logic ──────────────────────────────────
@@ -76,23 +148,24 @@ const bookSlot = async ({ teamId, startTime, endTime, requestUser }) => {
   if (end <= start) {
     throw new ServiceError('endTime must be after startTime');
   }
+  // ── Fetch Allowed Time Slots from Settings ────────────
+  const Setting = mongoose.model('Setting');
+  const allowedSlotsSetting = await Setting.findOne({ key: 'ALLOWED_TIME_SLOTS' });
+  const ALLOWED_TIME_SLOTS = allowedSlotsSetting ? allowedSlotsSetting.value : [];
 
-  // ── Step 1: Identify Class via Team ───────────────────
-  const team = await Team.findById(teamId).populate('members', '_id status');
-  if (!team) throw new ServiceError('Team not found', 404);
-  if (!team.classId) {
-    throw new ServiceError('Team chưa được gán lớp — This team has no assigned class');
+  // Convert to VN timezone for time-slot validation
+  // (ALLOWED_TIME_SLOTS stores hours in VN time, e.g. sh:10 = 10:00 VN)
+  const startVN = toVN(start);
+  const endVN = toVN(end);
+  const sH = startVN.hour(), sM = startVN.minute();
+  const eH = endVN.hour(), eM = endVN.minute();
+  const isValid = ALLOWED_TIME_SLOTS.some(s => s.sh === sH && s.sm === sM && s.eh === eH && s.em === eM);
+
+  if (!isValid) {
+    throw new ServiceError(
+      'Khung giờ không hợp lệ — Please select an allowed time slot.'
+    );
   }
-
-  // ── Authorization check ───────────────────────────────
-  if (requestUser.role !== 'Admin') {
-    if (team.leaderId.toString() !== requestUser._id.toString()) {
-      throw new ServiceError('Only Admin or the Team Leader can book for this team', 403);
-    }
-  }
-
-  const activeMembers = team.members.filter(m => m.status === 'Active');
-  const memberIds = activeMembers.map(m => m._id);
 
   // ── TRANSACTION: Atomic booking ───────────────────────
   const session = await mongoose.startSession();
@@ -100,6 +173,28 @@ const bookSlot = async ({ teamId, startTime, endTime, requestUser }) => {
 
   try {
     await session.withTransaction(async () => {
+      // Step 1: Acquire Write Lock on Team document
+      // By updating 'updatedAt', we force MongoDB to serialize concurrent requests for the same team.
+      const team = await Team.findByIdAndUpdate(
+        teamId,
+        { $set: { updatedAt: new Date() } },
+        { session, new: true }
+      ).populate('members', '_id status');
+
+      if (!team) throw new ServiceError('Team not found', 404);
+      if (!team.classId) {
+        throw new ServiceError('Team chưa được gán lớp — This team has no assigned class');
+      }
+
+      // ── Authorization check ───────────────────────────────
+      if (requestUser.role !== 'Admin') {
+        if (team.leaderId.toString() !== requestUser._id.toString()) {
+          throw new ServiceError('Only Admin or the Team Leader can book for this team', 403);
+        }
+      }
+
+      const activeMembers = team.members.filter(m => m.status === 'Active');
+      const memberIds = activeMembers.map(m => m._id);
       // Step 2: Weekly Limit — max 2 sessions per team per week
       const { weekStart, weekEnd } = getWeekBounds(start);
       const weeklyCount = await Schedule.countDocuments({
@@ -113,8 +208,9 @@ const bookSlot = async ({ teamId, startTime, endTime, requestUser }) => {
         );
       }
 
-      // Step 3: Collision — no overlapping schedule
+      // Step 3: Collision — no overlapping schedule FOR THIS CLASS
       const collision = await Schedule.findOne({
+        classId: team.classId,
         startTime: { $lt: end },
         endTime: { $gt: start },
       }).session(session);
@@ -134,15 +230,26 @@ const bookSlot = async ({ teamId, startTime, endTime, requestUser }) => {
           startTime: start,
           endTime: end,
           enrolledUsers: memberIds,
-          enrolledCount: memberIds.length,
         }],
         { session }
       );
       created = doc;
     });
+  } catch (err) {
+    // Part 2: Catch duplicate key error from unique index (concurrent booking)
+    if (err.code === 11000 || err.message?.includes('E11000')) {
+      throw new ServiceError(
+        'Khung giờ này đã bị Team khác đặt — This time slot is already taken (concurrent booking detected)',
+        409
+      );
+    }
+    throw err;
   } finally {
     session.endSession();
   }
+
+  // Invalidate session-order cache for the affected class
+  invalidateSessionOrderCache(created.classId);
 
   // Populate for response
   return Schedule.findById(created._id)
@@ -169,7 +276,9 @@ const cancelSlot = async (scheduleId, requestUser) => {
     }
   }
 
+  const classId = schedule.classId;
   await Schedule.findByIdAndDelete(schedule._id);
+  invalidateSessionOrderCache(classId);
 };
 
 /**
@@ -183,7 +292,6 @@ const getAvailability = async (filters = {}) => {
   return Schedule.find(query)
     .populate('classId', 'classCode courseName')
     .populate('bookedTeamId', 'name')
-    .populate('teacherId', 'empCode name')
     .sort({ startTime: 1 });
 };
 
@@ -193,7 +301,6 @@ const getAvailability = async (filters = {}) => {
 const listSchedules = async (filters, { page, limit, skip }) => {
   const query = {};
   if (filters.classId) query.classId = filters.classId;
-  if (filters.teacherId) query.teacherId = filters.teacherId;
   if (filters.from || filters.to) {
     query.startTime = {};
     if (filters.from) query.startTime.$gte = new Date(filters.from);
@@ -202,15 +309,16 @@ const listSchedules = async (filters, { page, limit, skip }) => {
 
   const [schedules, total] = await Promise.all([
     Schedule.find(query)
-      .populate('classId', 'classCode courseName')
+      .populate('classId', 'classCode courseName totalSessions')
       .populate('bookedTeamId', 'name')
-      .populate('teacherId', 'empCode name')
       .populate('enrolledUsers', 'empCode name department')
       .sort({ startTime: 1 })
-      .skip(skip).limit(limit),
+      .skip(skip).limit(limit)
+      .lean({ virtuals: true }),
     Schedule.countDocuments(query),
   ]);
 
+  await attachSessionNumbers(schedules);
   return { schedules, total };
 };
 
@@ -221,7 +329,6 @@ const getById = async (id) => {
   const schedule = await Schedule.findById(id)
     .populate('classId', 'classCode courseName')
     .populate('bookedTeamId', 'name')
-    .populate('teacherId', 'empCode name')
     .populate('enrolledUsers', 'empCode name department status');
 
   if (!schedule) throw new ServiceError('Schedule not found', 404);
@@ -242,22 +349,24 @@ const getMyClassSchedules = async (userId) => {
     classId: { $in: classIds },
     startTime: { $gte: utcToday() },
   })
-    .populate('classId', 'classCode courseName')
+    .populate('classId', 'classCode courseName totalSessions')
     .populate('bookedTeamId', 'name')
-    .populate('teacherId', 'empCode name')
     .sort({ startTime: 1 })
-    .limit(20);
+    .limit(20)
+    .lean({ virtuals: true });
 
+  await attachSessionNumbers(schedules);
   return { schedules, team: teams[0]?.name };
 };
 
 /**
- * Admin-create a schedule with collision protection.
+ * Admin-create a schedule with full business rules.
  *
- * Unlike bookSlot (leader flow), this:
- *   - Does NOT enforce weekly limit (Admin override)
- *   - DOES enforce collision detection (no overlapping slots)
- *   - Auto-enrolls team members if bookedTeamId is provided
+ * Enforces:
+ *   - Team can only book for its assigned class code
+ *   - Max 2 sessions per team per week
+ *   - No overlapping time slots (collision detection)
+ *   - Auto-enrolls team members
  *
  * @param {Object} data  Schedule fields from req.body
  * @returns {Object} populated Schedule document
@@ -280,25 +389,65 @@ const adminCreate = async (data) => {
     throw new ServiceError('endTime must be after startTime');
   }
 
-  // ── Auto-enroll team members if team provided ─────────
-  let enrolledUsers = [];
-  let enrolledCount = 0;
-  if (bookedTeamId) {
-    const team = await Team.findById(bookedTeamId).populate('members', '_id status');
-    if (!team) throw new ServiceError('Team not found', 404);
-    const activeMembers = team.members.filter(m => m.status === 'Active');
-    enrolledUsers = activeMembers.map(m => m._id);
-    enrolledCount = enrolledUsers.length;
+  // ── Validate time slot against allowed settings ──────
+  const Setting = mongoose.model('Setting');
+  const allowedSlotsSetting = await Setting.findOne({ key: 'ALLOWED_TIME_SLOTS' });
+  const ALLOWED_TIME_SLOTS = allowedSlotsSetting ? allowedSlotsSetting.value : [];
+  // Convert to VN timezone for time-slot validation
+  const startVN = toVN(start);
+  const endVN = toVN(end);
+  const sH = startVN.hour(), sM = startVN.minute();
+  const eH = endVN.hour(), eM = endVN.minute();
+  const isValid = ALLOWED_TIME_SLOTS.some(s => s.sh === sH && s.sm === sM && s.eh === eH && s.em === eM);
+
+  if (!isValid) {
+    throw new ServiceError(
+      'Khung giờ không hợp lệ — Only allowed time slots can be booked'
+    );
   }
 
-  // ── TRANSACTION: Collision check + create ──────────────
+  // ── TRANSACTION: All checks + create (atomic) ─────────
   const session = await mongoose.startSession();
   let created;
+  let enrolledUsers = [];
 
   try {
     await session.withTransaction(async () => {
-      // Collision — no overlapping schedule allowed
+      // ── Resolve team + class mismatch check ──────────────
+      if (bookedTeamId) {
+        const team = await Team.findById(bookedTeamId)
+          .populate('members', '_id status')
+          .session(session);
+        if (!team) throw new ServiceError('Team not found', 404);
+
+        if (team.classId && team.classId.toString() !== classId.toString()) {
+          throw new ServiceError(
+            'Team này được gán lớp khác — This team is assigned to a different class. Cannot book for this classId.',
+            400
+          );
+        }
+
+        // ── Rule: Max 2 sessions per team per week (inside tx) ──
+        const { weekStart, weekEnd } = getWeekBounds(start);
+        const weeklyCount = await Schedule.countDocuments({
+          bookedTeamId,
+          startTime: { $gte: weekStart, $lte: weekEnd },
+        }).session(session);
+
+        if (weeklyCount >= 2) {
+          throw new ServiceError(
+            `Team đã đặt tối đa 2 buổi/tuần — This team already has ${weeklyCount} session(s) this week (limit: 2)`,
+            400
+          );
+        }
+
+        const activeMembers = team.members.filter(m => m.status === 'Active');
+        enrolledUsers = activeMembers.map(m => m._id);
+      }
+
+      // ── Collision — no overlapping schedule FOR THIS CLASS ──
       const collision = await Schedule.findOne({
+        classId,
         startTime: { $lt: end },
         endTime: { $gt: start },
       }).session(session);
@@ -316,20 +465,28 @@ const adminCreate = async (data) => {
           startTime: start,
           endTime: end,
           enrolledUsers,
-          enrolledCount,
         }],
         { session }
       );
       created = doc;
     });
+  } catch (err) {
+    if (err.code === 11000 || err.message?.includes('E11000')) {
+      throw new ServiceError(
+        'Khung giờ này đã bị trùng — This time slot overlaps with an existing schedule (concurrent booking detected)',
+        409
+      );
+    }
+    throw err;
   } finally {
     session.endSession();
   }
 
+  invalidateSessionOrderCache(classId);
+
   return Schedule.findById(created._id)
     .populate('classId', 'classCode courseName')
     .populate('bookedTeamId', 'name')
-    .populate('teacherId', 'empCode name')
     .populate('enrolledUsers', 'empCode name');
 };
 
@@ -357,15 +514,17 @@ const getAttendanceCalendar = async ({ from, to } = {}) => {
   }
 
   const schedules = await Schedule.find(filter)
-    .populate('classId', 'classCode courseName')
+    .populate('classId', 'classCode courseName totalSessions')
     .populate('bookedTeamId', 'name')
-    .populate('teacherId', 'empCode name')
     .sort({ startTime: 1 })
-    .lean();
+    .lean({ virtuals: true });
 
   if (schedules.length === 0) return [];
 
-  // Step 2: Batch-count attendance records per schedule (single aggregation)
+  // Step 2: Attach session numbers
+  await attachSessionNumbers(schedules);
+
+  // Step 3: Batch-count attendance records per schedule (single aggregation)
   const scheduleIds = schedules.map(s => s._id);
   const attCounts = await Attendance.aggregate([
     { $match: { scheduleId: { $in: scheduleIds } } },
@@ -374,7 +533,7 @@ const getAttendanceCalendar = async ({ from, to } = {}) => {
   const countMap = {};
   attCounts.forEach(a => { countMap[a._id.toString()] = a.count; });
 
-  // Step 3: Compute status for each schedule
+  // Step 4: Compute status for each schedule
   return schedules.map(s => {
     const enrolled = s.enrolledCount || 0;
     const marked = countMap[s._id.toString()] || 0;
@@ -404,4 +563,5 @@ module.exports = {
   getById,
   getMyClassSchedules,
   getAttendanceCalendar,
+  invalidateSessionOrderCache,
 };

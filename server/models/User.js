@@ -40,19 +40,46 @@ const userSchema = new mongoose.Schema(
       trim: true,
       default: '',
     },
+    position: {
+      type: String,
+      trim: true,
+      default: '',
+    },
     status: {
       type: String,
       enum: {
-        values: ['Active', 'Dropped', 'Transferred', 'On-hold'],
+        values: ['Active', 'Inactive', 'Dropped', 'Transferred', 'On-hold', 'Waiting for class'],
         message: '{VALUE} is not a valid status',
       },
       default: 'Active',
+    },
+    dropReason: {
+      type: String,
+      trim: true,
+      default: '',
+    },
+    entranceLevel: {
+      type: String,
+      trim: true,
+      default: '',
+    },
+    currentLevel: {
+      type: String,
+      trim: true,
+      default: '',
     },
     password: {
       type: String,
       required: [true, 'Password is required'],
       minlength: [10, 'Password must be at least 10 characters'],
       select: false, // Never return password by default
+    },
+
+    // Set on every password change so tokens issued before this date are rejected.
+    passwordChangedAt: {
+      type: Date,
+      default: null,
+      select: false, // Internal field — not exposed to clients
     },
   },
   {
@@ -120,6 +147,7 @@ userSchema.post('findOneAndUpdate', async function (doc) {
   today.setUTCHours(0, 0, 0, 0); // UTC midnight — timezone-safe
 
   // Atomically pull user from all future schedules
+  // enrolledCount is a virtual (enrolledUsers.length), no $inc needed.
   const result = await Schedule.updateMany(
     {
       startTime: { $gte: today },
@@ -127,7 +155,6 @@ userSchema.post('findOneAndUpdate', async function (doc) {
     },
     {
       $pull: { enrolledUsers: doc._id },
-      $inc: { enrolledCount: -1 },
     }
   );
 

@@ -1,4 +1,5 @@
 const Evaluation = require('../models/Evaluation');
+const { handleError } = require('../helpers/handleError');
 
 // ──────────────────────────────────────────────────────────
 // Evaluation Controller
@@ -29,7 +30,7 @@ const upsertEvaluation = async (req, res) => {
 
     res.json({ success: true, data: evaluation });
   } catch (error) {
-    res.status(400).json({ success: false, message: error.message });
+    handleError(res, error);
   }
 };
 
@@ -50,7 +51,7 @@ const getEvaluations = async (req, res) => {
 
     res.json({ success: true, count: evaluations.length, data: evaluations });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    handleError(res, error);
   }
 };
 
@@ -66,7 +67,7 @@ const getEvaluationById = async (req, res) => {
     if (!evaluation) return res.status(404).json({ success: false, message: 'Evaluation not found' });
     res.json({ success: true, data: evaluation });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    handleError(res, error);
   }
 };
 
@@ -79,7 +80,7 @@ const deleteEvaluation = async (req, res) => {
     if (!evaluation) return res.status(404).json({ success: false, message: 'Evaluation not found' });
     res.json({ success: true, message: 'Evaluation deleted' });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    handleError(res, error);
   }
 };
 
