@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useDashboardStats } from '../hooks/useDashboard';
@@ -13,7 +13,8 @@ const COURSE_COLORS = [
 export default function DashboardPage() {
   const { user, isAdmin, isParticipant } = useAuth();
 
-  const schedParams = { from: new Date().toISOString(), limit: 5 };
+  // Stabilize params so the query key doesn't change every render
+  const schedParams = useMemo(() => ({ from: new Date().toISOString().slice(0, 10), limit: 5 }), []);
   const { data: stats, isLoading: loadingStats } = useDashboardStats({ enabled: isAdmin });
   const { data: schedData, isLoading: loadingSched } = useSchedules(schedParams, { enabled: !isParticipant });
   const schedules = schedData?.data || [];
