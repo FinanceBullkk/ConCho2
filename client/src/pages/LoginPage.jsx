@@ -103,7 +103,6 @@ export default function LoginPage() {
             <div className="flex flex-wrap gap-2">
               {[
                 { code: '000001', pw: 'admin12345', label: 'Admin' },
-                { code: '000002', pw: 'teacher123', label: 'Teacher' },
                 { code: '000004', pw: 'participant123', label: 'Participant' },
               ].map((acc) => (
                 <button

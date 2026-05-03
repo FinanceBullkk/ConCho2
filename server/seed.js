@@ -26,7 +26,9 @@ const Class = require('./models/Class');
 const Schedule = require('./models/Schedule');
 const Attendance = require('./models/Attendance');
 const Evaluation = require('./models/Evaluation');
+const Enrollment = require('./models/Enrollment');
 const Counter = require('./models/Counter');
+const Setting = require('./models/Setting');
 
 // ── Helper: future date + time ────────────────────────────
 const futureDateTime = (daysFromNow, hour, minute = 0) => {
@@ -42,20 +44,54 @@ const seed = async () => {
     console.log('\n🌱 Seeding TMS v2 database...\n');
 
     // ── Drop all collections ──────────────────────────────
-    console.log('🗑️  Clearing existing data...');
+    // Drop collections to clear old indexes
+    console.log('🗑️  Dropping collections to clear data and old indexes...');
+    const dropIfExists = async (model) => {
+      try { await model.collection.drop(); } catch (e) { /* ignore collection not found */ }
+    };
     await Promise.all([
-      User.deleteMany({}),
-      Team.deleteMany({}),
-      Class.deleteMany({}),
-      Schedule.deleteMany({}),
-      Attendance.deleteMany({}),
-      Evaluation.deleteMany({}),
-      Counter.deleteMany({}),
+      dropIfExists(User),
+      dropIfExists(Team),
+      dropIfExists(Class),
+      dropIfExists(Schedule),
+      dropIfExists(Attendance),
+      dropIfExists(Evaluation),
+      dropIfExists(Enrollment),
+      dropIfExists(Counter),
+      dropIfExists(Setting),
     ]);
 
     // Pre-set counters
     await Counter.create({ _id: 'empCode', seq: 9 });
     await Counter.create({ _id: 'classCode', seq: 2 });
+
+    console.log('⚙️ Creating settings...');
+    await Setting.create([
+      {
+        key: 'ALLOWED_TIME_SLOTS',
+        description: 'Các khung giờ được phép đặt lịch (24h format)',
+        value: [
+          { sh: 9, sm: 0, eh: 10, em: 0 },
+          { sh: 10, sm: 0, eh: 11, em: 0 },
+          { sh: 11, sm: 0, eh: 12, em: 0 },
+          { sh: 13, sm: 0, eh: 14, em: 0 },
+          { sh: 14, sm: 0, eh: 15, em: 0 },
+          { sh: 15, sm: 0, eh: 16, em: 0 },
+        ],
+      },
+      {
+        key: 'COURSE_SESSIONS',
+        description: 'Cấu hình số buổi học mặc định cho từng khóa học',
+        value: {
+          'Foundation': 16,
+          'Extension of Foundation': 16,
+          'Communication 1': 10,
+          'Communication 2': 16,
+          'Communication 3': 16,
+          'Business English': 16,
+        },
+      }
+    ]);
 
     // ── Create Users ──────────────────────────────────────
     console.log('👤 Creating users...');
@@ -106,7 +142,7 @@ const seed = async () => {
 
     const part3 = await User.create({
       empCode: '000006',
-      name: 'Participant Vo (Dropped)',
+      name: 'Participant Vo',
       role: 'Participant',
       department: 'Sales',
       status: 'Active',
@@ -146,13 +182,15 @@ const seed = async () => {
     console.log('📚 Creating classes...');
     const class1 = await Class.create({
       classCode: 'EL001',
-      courseName: 'Business English - Intermediate (B1)',
+      courseName: 'Business English',
+      totalSessions: 16,
       status: 'Ongoing',
     });
 
     const class2 = await Class.create({
       classCode: 'EL002',
-      courseName: 'General English - Pre-Intermediate (A2)',
+      courseName: 'Communication 2',
+      totalSessions: 16,
       status: 'Ongoing',
     });
 
@@ -176,6 +214,19 @@ const seed = async () => {
 
     console.log(`   ✅ Created 2 teams (each assigned to a class)`);
 
+    // ── Create Enrollment records for initial members ──────
+    console.log('📋 Creating enrollment records...');
+    const now = new Date();
+    await Enrollment.insertMany([
+      { userId: part1._id, teamId: teamA._id, classId: class1._id, joinedAt: now, status: 'Active' },
+      { userId: part2._id, teamId: teamA._id, classId: class1._id, joinedAt: now, status: 'Active' },
+      { userId: part3._id, teamId: teamA._id, classId: class1._id, joinedAt: now, status: 'Active' },
+      { userId: part4._id, teamId: teamB._id, classId: class2._id, joinedAt: now, status: 'Active' },
+      { userId: part5._id, teamId: teamB._id, classId: class2._id, joinedAt: now, status: 'Active' },
+      { userId: part6._id, teamId: teamB._id, classId: class2._id, joinedAt: now, status: 'Active' },
+    ]);
+    console.log(`   ✅ Created 6 enrollment records`);
+
     // ── Create Schedules (using startTime/endTime) ────────
     console.log('📅 Creating schedules...');
 
@@ -186,7 +237,6 @@ const seed = async () => {
       startTime: futureDateTime(3, 9, 0),   // +3 days, 09:00
       endTime: futureDateTime(3, 10, 0),     // +3 days, 10:00
       enrolledUsers: [part1._id, part2._id, part3._id],
-      enrolledCount: 3,
     });
 
     await Schedule.create({
@@ -195,7 +245,6 @@ const seed = async () => {
       startTime: futureDateTime(3, 14, 0),   // +3 days, 14:00
       endTime: futureDateTime(3, 15, 0),     // +3 days, 15:00
       enrolledUsers: [part1._id, part2._id, part3._id],
-      enrolledCount: 3,
     });
 
     // Team B created 1 session this week (has 1 more slot available)
@@ -205,7 +254,6 @@ const seed = async () => {
       startTime: futureDateTime(4, 10, 0),   // +4 days, 10:00
       endTime: futureDateTime(4, 11, 0),     // +4 days, 11:00
       enrolledUsers: [part4._id, part5._id, part6._id],
-      enrolledCount: 3,
     });
 
     console.log(`   ✅ Created 3 schedules (Team A: 2, Team B: 1)`);

@@ -1,15 +1,20 @@
 import { useState, useEffect, useMemo } from 'react';
-import { schedulesAPI, classesAPI, teamsAPI, usersAPI } from '../api/api';
+import { useQueryClient } from '@tanstack/react-query';
+import Portal from '../components/Portal';
+import { useSchedules, useCreateSchedule, useUpdateSchedule, useDeleteSchedule } from '../hooks/useSchedules';
+import { useClasses } from '../hooks/useClasses';
+import { useTeams } from '../hooks/useTeams';
+import { qk } from '../hooks/queryKeys';
 
 // ──────────────────────────────────────────────────────────
 // Admin Schedule Management (v2 — Calendar View)
 // ──────────────────────────────────────────────────────────
 // Weekly timetable grid (Mon–Sun × time slots) with full
-// admin control: create, edit, delete, assign teacher.
+// admin control: create, edit, delete.
 // ──────────────────────────────────────────────────────────
 
 const TIME_SLOTS = [
-  '10:00-11:00', '11:00-12:00',
+  '09:00-10:00', '10:00-11:00', '11:00-12:00',
   '13:00-14:00', '14:00-15:00', '15:00-16:00',
 ];
 
@@ -49,7 +54,9 @@ const scheduleToKey = (s) => {
 
 // ── Schedule Modal (Create / Edit) ────────────────────────
 
-function ScheduleModal({ schedule, classes, teachers, teams, onClose, onSaved, prefill }) {
+function ScheduleModal({ schedule, classes, teams, onClose, onSaved, prefill }) {
+  const createMutation = useCreateSchedule();
+  const updateMutation = useUpdateSchedule();
   const isEdit = !!schedule?._id;
 
   const toDateTimeLocal = (d) => {
@@ -58,37 +65,74 @@ function ScheduleModal({ schedule, classes, teachers, teams, onClose, onSaved, p
     return `${dt.getFullYear()}-${String(dt.getMonth()+1).padStart(2,'0')}-${String(dt.getDate()).padStart(2,'0')}T${String(dt.getHours()).padStart(2,'0')}:${String(dt.getMinutes()).padStart(2,'0')}`;
   };
 
-  const [form, setForm] = useState({
-    classId: schedule?.classId?._id || schedule?.classId || '',
-    bookedTeamId: schedule?.bookedTeamId?._id || schedule?.bookedTeamId || '',
-    startTime: toDateTimeLocal(schedule?.startTime || prefill?.startTime),
-    endTime: toDateTimeLocal(schedule?.endTime || prefill?.endTime),
-    teacherId: schedule?.teacherId?._id || schedule?.teacherId || '',
-    roomLink: schedule?.roomLink || '',
-    capacity: schedule?.capacity || 9,
+  // Build lookup maps for Team ↔ Class sync
+  const teamById = {};
+  const teamByClassId = {};
+  teams.forEach(t => {
+    teamById[t._id] = t;
+    const cId = t.classId?._id || t.classId;
+    if (cId) teamByClassId[cId] = t;
   });
-  const [saving, setSaving] = useState(false);
+  const classById = {};
+  classes.forEach(c => { classById[c._id] = c; });
+
+  // Only show teams that have an assigned class (valid for scheduling)
+  const assignedTeams = teams.filter(t => t.classId);
+
+  const [form, setForm] = useState(() => {
+    const initTeamId = schedule?.bookedTeamId?._id || schedule?.bookedTeamId || '';
+    let initClassId = schedule?.classId?._id || schedule?.classId || '';
+
+    // Auto-resolve classId from team if not set
+    if (!initClassId && initTeamId) {
+      const t = teamById[initTeamId];
+      if (t?.classId) initClassId = t.classId._id || t.classId;
+    }
+
+    return {
+      classId: initClassId,
+      bookedTeamId: initTeamId,
+      startTime: toDateTimeLocal(schedule?.startTime || prefill?.startTime),
+      endTime: toDateTimeLocal(schedule?.endTime || prefill?.endTime),
+      roomLink: schedule?.roomLink || '',
+      capacity: schedule?.capacity || 9,
+    };
+  });
+  const saving = createMutation.isPending || updateMutation.isPending;
   const [error, setError] = useState('');
 
+  // Derive the resolved class info from selected team
+  const selectedTeam = form.bookedTeamId ? teamById[form.bookedTeamId] : null;
+  const resolvedClassId = selectedTeam?.classId?._id || selectedTeam?.classId || form.classId;
+  const resolvedClass = resolvedClassId ? classById[resolvedClassId] : null;
+  // Also check: does this team even have a class?
+  const teamHasNoClass = selectedTeam && !selectedTeam.classId;
+
+  const handleTeamChange = (teamId) => {
+    const team = teamById[teamId];
+    const classId = team?.classId?._id || team?.classId || '';
+    setForm(p => ({ ...p, bookedTeamId: teamId, classId }));
+  };
+
   const handleSubmit = async (e) => {
-    e.preventDefault(); setSaving(true); setError('');
+    e.preventDefault(); setError('');
     try {
       const payload = {
         ...form,
+        classId: resolvedClassId || form.classId,
         startTime: new Date(form.startTime).toISOString(),
         endTime: new Date(form.endTime).toISOString(),
       };
-      if (!payload.teacherId) delete payload.teacherId;
-      if (isEdit) await schedulesAPI.update(schedule._id, payload);
-      else await schedulesAPI.create(payload);
+      if (isEdit) await updateMutation.mutateAsync({ id: schedule._id, data: payload });
+      else await createMutation.mutateAsync(payload);
       onSaved();
     } catch (err) { setError(err.response?.data?.message || 'Save failed'); }
-    finally { setSaving(false); }
   };
 
   const f = (k, v) => setForm((p) => ({ ...p, [k]: v }));
 
   return (
+    <Portal>
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm" onClick={onClose}>
       <form onSubmit={handleSubmit} onClick={(e) => e.stopPropagation()}
         className="glass rounded-2xl p-6 w-full max-w-lg mx-4 space-y-4 animate-fade-in max-h-[90vh] overflow-y-auto">
@@ -96,22 +140,43 @@ function ScheduleModal({ schedule, classes, teachers, teams, onClose, onSaved, p
         {error && <div className="px-4 py-2 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-sm">{error}</div>}
 
         <div className="grid grid-cols-2 gap-4">
-          <div className="col-span-2">
-            <label className="block text-sm text-slate-300 mb-1">Class</label>
-            <select value={form.classId} onChange={(e) => f('classId', e.target.value)} required
-              className="w-full px-3 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white focus:outline-none focus:ring-2 focus:ring-primary-500/50 transition-all">
-              <option value="" className="bg-slate-800">Select class…</option>
-              {classes.map((c) => <option key={c._id} value={c._id} className="bg-slate-800">{c.classCode} — {c.courseName}</option>)}
-            </select>
-          </div>
+          {/* ── Team selector (primary) ──────────────────── */}
           <div className="col-span-2">
             <label className="block text-sm text-slate-300 mb-1">Team</label>
-            <select value={form.bookedTeamId} onChange={(e) => f('bookedTeamId', e.target.value)} required
+            <select value={form.bookedTeamId} onChange={(e) => handleTeamChange(e.target.value)} required
               className="w-full px-3 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white focus:outline-none focus:ring-2 focus:ring-primary-500/50 transition-all">
               <option value="" className="bg-slate-800">Select team…</option>
-              {teams.map((t) => <option key={t._id} value={t._id} className="bg-slate-800">{t.name}</option>)}
+              {assignedTeams.map((t) => {
+                const cls = classById[t.classId?._id || t.classId];
+                const label = cls ? `${t.name} → ${cls.classCode} (${cls.courseName})` : t.name;
+                return <option key={t._id} value={t._id} className="bg-slate-800">{label}</option>;
+              })}
             </select>
           </div>
+
+          {/* ── Auto-resolved class (read-only info) ────── */}
+          <div className="col-span-2">
+            <label className="block text-sm text-slate-300 mb-1">Class <span className="text-slate-500">(auto-synced from team)</span></label>
+            {resolvedClass ? (
+              <div className="flex items-center gap-2 px-3 py-2.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20">
+                <span className="text-emerald-400 text-sm font-bold">{resolvedClass.classCode}</span>
+                <span className="text-slate-400 text-sm">—</span>
+                <span className="text-slate-300 text-sm">{resolvedClass.courseName}</span>
+                <span className={`ml-auto text-[10px] font-semibold px-2 py-0.5 rounded-full ${
+                  resolvedClass.status === 'Ongoing' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-slate-500/20 text-slate-400'
+                }`}>{resolvedClass.status}</span>
+              </div>
+            ) : teamHasNoClass ? (
+              <div className="px-3 py-2.5 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-400 text-sm">
+                ⚠️ This team has no assigned class. Please assign a class in the Classes page first.
+              </div>
+            ) : (
+              <div className="px-3 py-2.5 rounded-xl bg-white/5 border border-white/10 text-slate-500 text-sm">
+                Select a team to auto-fill class
+              </div>
+            )}
+          </div>
+
           <div>
             <label className="block text-sm text-slate-300 mb-1">Start Time</label>
             <input type="datetime-local" value={form.startTime} onChange={(e) => f('startTime', e.target.value)} required
@@ -121,14 +186,6 @@ function ScheduleModal({ schedule, classes, teachers, teams, onClose, onSaved, p
             <label className="block text-sm text-slate-300 mb-1">End Time</label>
             <input type="datetime-local" value={form.endTime} onChange={(e) => f('endTime', e.target.value)} required
               className="w-full px-4 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white focus:outline-none focus:ring-2 focus:ring-primary-500/50 transition-all" />
-          </div>
-          <div>
-            <label className="block text-sm text-slate-300 mb-1">Teacher (optional)</label>
-            <select value={form.teacherId} onChange={(e) => f('teacherId', e.target.value)}
-              className="w-full px-3 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white focus:outline-none focus:ring-2 focus:ring-primary-500/50 transition-all">
-              <option value="" className="bg-slate-800">No teacher</option>
-              {teachers.map((t) => <option key={t._id} value={t._id} className="bg-slate-800">{t.name} ({t.empCode})</option>)}
-            </select>
           </div>
           <div>
             <label className="block text-sm text-slate-300 mb-1">Capacity</label>
@@ -144,49 +201,37 @@ function ScheduleModal({ schedule, classes, teachers, teams, onClose, onSaved, p
 
         <div className="flex gap-3 pt-2">
           <button type="button" onClick={onClose} className="flex-1 py-2.5 rounded-xl border border-white/10 text-slate-400 hover:bg-white/5 transition-all">Cancel</button>
-          <button type="submit" disabled={saving} className="flex-1 py-2.5 rounded-xl bg-gradient-to-r from-primary-600 to-primary-500 text-white font-semibold disabled:opacity-50 transition-all">
+          <button type="submit" disabled={saving || teamHasNoClass} className="flex-1 py-2.5 rounded-xl bg-gradient-to-r from-primary-600 to-primary-500 text-white font-semibold disabled:opacity-50 transition-all">
             {saving ? 'Saving...' : isEdit ? 'Update' : 'Create'}
           </button>
         </div>
       </form>
     </div>
+    </Portal>
   );
 }
 
 // ── Main Page ─────────────────────────────────────────────
 
 export default function SchedulesPage() {
-  const [schedules, setSchedules] = useState([]);
-  const [classes, setClasses] = useState([]);
-  const [teachers, setTeachers] = useState([]);
-  const [teams, setTeams] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const queryClient = useQueryClient();
+  const deleteMutation = useDeleteSchedule();
   const [modal, setModal] = useState(null);       // 'create' | schedule obj | null
   const [prefill, setPrefill] = useState(null);    // { startTime, endTime } for calendar click
   const [deleteTarget, setDeleteTarget] = useState(null);
-  const [assigningId, setAssigningId] = useState(null);
 
   // Week navigation
   const [weekStart, setWeekStart] = useState(() => getMonday(new Date()));
 
-  const load = async () => {
-    setLoading(true);
-    try {
-      const [sRes, cRes, tRes, teRes] = await Promise.all([
-        schedulesAPI.getAll({ limit: 200 }),
-        classesAPI.getAll(),
-        usersAPI.getAll({ role: 'Teacher', limit: 200 }),
-        teamsAPI.getAll(),
-      ]);
-      setSchedules(sRes.data.data);
-      setClasses(cRes.data.data);
-      setTeachers(tRes.data.data);
-      setTeams(teRes.data.data);
-    } catch (err) { console.error(err); }
-    finally { setLoading(false); }
-  };
+  // Fetch all schedules (calendar needs access to any week)
+  const schedParams = useMemo(() => ({ limit: 2000 }), []);
+  const { data: schedData, isLoading: loadingSched } = useSchedules(schedParams);
+  const schedules = schedData?.data || [];
+  const totalSchedules = schedData?.total || schedules.length;
+  const { data: classes = [] } = useClasses();
+  const { data: teams = [] } = useTeams();
+  const loading = loadingSched;
 
-  useEffect(() => { load(); }, []);
   useEffect(() => { document.title = 'TMS — Schedules'; }, []);
 
   // ── Week helpers ────────────────────────────────────────
@@ -219,6 +264,21 @@ export default function SchedulesPage() {
     }).length;
   }, [schedules, weekStart]);
 
+  // Find the Monday of the week containing the latest schedule
+  const latestScheduleWeek = useMemo(() => {
+    if (schedules.length === 0) return null;
+    let latest = new Date(schedules[0].startTime);
+    schedules.forEach(s => {
+      const d = new Date(s.startTime);
+      if (d > latest) latest = d;
+    });
+    return getMonday(latest);
+  }, [schedules]);
+
+  const goToLatest = () => {
+    if (latestScheduleWeek) setWeekStart(latestScheduleWeek);
+  };
+
   // ── Admin handlers ──────────────────────────────────────
 
   const handleCellClick = (day, slot) => {
@@ -231,19 +291,12 @@ export default function SchedulesPage() {
 
   const handleDelete = async () => {
     if (!deleteTarget) return;
-    try { await schedulesAPI.delete(deleteTarget._id); load(); }
-    catch (err) { alert(err.response?.data?.message || 'Delete failed'); }
+    try { await deleteMutation.mutateAsync(deleteTarget._id); }
+    catch { /* toast shown by global onError */ }
     setDeleteTarget(null);
   };
 
-  const handleAssignTeacher = async (scheduleId, teacherId) => {
-    setAssigningId(scheduleId);
-    try {
-      await schedulesAPI.assignTeacher(scheduleId, teacherId || null);
-      load();
-    } catch (err) { alert(err.response?.data?.message || 'Assignment failed'); }
-    finally { setAssigningId(null); }
-  };
+
 
   return (
     <div className="space-y-5 animate-fade-in">
@@ -252,7 +305,7 @@ export default function SchedulesPage() {
         <div>
           <h1 className="text-2xl font-bold text-white">📅 Schedule Management</h1>
           <p className="text-slate-400 mt-1">
-            {schedules.length} total sessions · {weekScheduleCount} this week
+            {totalSchedules} total sessions · {weekScheduleCount} this week
           </p>
         </div>
         <button onClick={() => { setPrefill(null); setModal('create'); }}
@@ -269,6 +322,9 @@ export default function SchedulesPage() {
             {weekDays[0].toLocaleDateString('en', { month: 'short', day: 'numeric' })} — {weekDays[6].toLocaleDateString('en', { month: 'short', day: 'numeric', year: 'numeric' })}
           </h2>
           <button onClick={goToday} className="px-3 py-1 rounded-lg bg-primary-500/20 text-primary-300 text-xs border border-primary-500/20 hover:bg-primary-500/30 transition-all">Today</button>
+          {latestScheduleWeek && weekScheduleCount === 0 && (
+            <button onClick={goToLatest} className="px-3 py-1 rounded-lg bg-amber-500/20 text-amber-300 text-xs border border-amber-500/20 hover:bg-amber-500/30 transition-all animate-pulse">⚡ Jump to latest</button>
+          )}
         </div>
         <button onClick={nextWeek} className="px-4 py-2 rounded-xl bg-white/5 text-slate-300 hover:bg-white/10 transition-all text-sm border border-white/10">Next →</button>
       </div>
@@ -320,7 +376,6 @@ export default function SchedulesPage() {
                               {cellSchedules.map((s) => {
                                 const pct = s.capacity > 0 ? Math.round((s.enrolledCount / s.capacity) * 100) : 0;
                                 const barColor = pct >= 90 ? 'bg-red-500' : pct >= 60 ? 'bg-amber-500' : 'bg-emerald-500';
-                                const hasTeacher = !!s.teacherId;
                                 return (
                                   <div key={s._id}
                                     className="rounded-xl p-2 bg-gradient-to-br from-primary-500/20 to-purple-500/10 border border-primary-400/20 hover:border-primary-400/40 transition-all group/card cursor-pointer relative"
@@ -334,27 +389,18 @@ export default function SchedulesPage() {
                                       {s.classId?.courseName}
                                     </div>
 
+                                    {/* Session number */}
+                                    {s.sessionNumber && (
+                                      <div className="text-[9px] font-medium text-emerald-400 mt-0.5">
+                                        Session {s.sessionNumber}{s.classId?.totalSessions ? ` / ${s.classId.totalSessions}` : ''}
+                                      </div>
+                                    )}
+
                                     {/* Team badge */}
                                     <div className="mt-1">
                                       <span className="inline-flex items-center gap-1 text-[9px] font-semibold text-purple-300 bg-purple-500/15 px-1.5 py-0.5 rounded-full truncate max-w-full">
                                         👥 {s.bookedTeamId?.name || '—'}
                                       </span>
-                                    </div>
-
-                                    {/* Teacher — inline assignment */}
-                                    <div className="mt-1" onClick={(e) => e.stopPropagation()}>
-                                      <select
-                                        value={s.teacherId?._id || ''}
-                                        onChange={(e) => handleAssignTeacher(s._id, e.target.value)}
-                                        disabled={assigningId === s._id}
-                                        className="w-full px-1.5 py-0.5 rounded-lg bg-white/5 border border-white/10 text-[10px] focus:outline-none focus:ring-1 focus:ring-primary-500/50 transition-all disabled:opacity-50"
-                                        style={{ color: hasTeacher ? '#94a3b8' : '#f59e0b' }}
-                                      >
-                                        <option value="" className="bg-slate-800">⚠️ No teacher</option>
-                                        {teachers.map((t) => (
-                                          <option key={t._id} value={t._id} className="bg-slate-800">{t.name}</option>
-                                        ))}
-                                      </select>
                                     </div>
 
                                     {/* Capacity bar */}
@@ -423,6 +469,7 @@ export default function SchedulesPage() {
 
       {/* ── Delete Confirmation ─────────────────────────── */}
       {deleteTarget && (
+        <Portal>
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
           <div className="glass rounded-2xl p-6 max-w-sm mx-4 text-center space-y-4 animate-fade-in">
             <div className="text-3xl">🗑️</div>
@@ -436,16 +483,17 @@ export default function SchedulesPage() {
             </div>
           </div>
         </div>
+        </Portal>
       )}
 
       {/* ── Create / Edit Modal ────────────────────────── */}
       {(modal === 'create' || (modal && modal._id)) && (
         <ScheduleModal
           schedule={modal === 'create' ? null : modal}
-          classes={classes} teachers={teachers} teams={teams}
+          classes={classes} teams={teams}
           prefill={prefill}
           onClose={() => { setModal(null); setPrefill(null); }}
-          onSaved={() => { setModal(null); setPrefill(null); load(); }}
+          onSaved={() => { setModal(null); setPrefill(null); }}
         />
       )}
     </div>
