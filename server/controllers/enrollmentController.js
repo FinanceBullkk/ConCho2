@@ -8,8 +8,47 @@ const { handleError } = require('../helpers/handleError');
 // ──────────────────────────────────────────────────────────
 
 /**
+ * Enrich a list of (lean) enrollments with per-(user, class) attendance counts.
+ * Mutates nothing; returns a new array of enrollments with `.attendance` attached.
+ */
+const enrichWithAttendance = async (enrollments) => {
+  if (enrollments.length === 0) return enrollments;
+
+  const classIds = [...new Set(enrollments.map(e => e.classId?._id?.toString()).filter(Boolean))];
+  const userIds = enrollments.map(e => e.userId?._id?.toString()).filter(Boolean);
+
+  const schedules = classIds.length
+    ? await Schedule.find({ classId: { $in: classIds } }).select('_id classId').lean()
+    : [];
+  const scheduleIds = schedules.map(s => s._id);
+  const attendanceRecords = scheduleIds.length
+    ? await Attendance.find({ scheduleId: { $in: scheduleIds }, userId: { $in: userIds } })
+        .select('scheduleId userId status').lean()
+    : [];
+
+  const scheduleMap = {};
+  schedules.forEach(s => { scheduleMap[s._id.toString()] = s; });
+
+  const attMap = {};
+  attendanceRecords.forEach(a => {
+    const sched = scheduleMap[a.scheduleId.toString()];
+    if (!sched) return;
+    const key = `${a.userId}|${sched.classId}`;
+    if (!attMap[key]) attMap[key] = { P: 0, A: 0, L: 0, EL: 0, total: 0 };
+    attMap[key][a.status] = (attMap[key][a.status] || 0) + 1;
+    attMap[key].total += 1;
+  });
+
+  return enrollments.map(e => ({
+    ...e,
+    attendance: attMap[`${e.userId?._id}|${e.classId?._id}`] || { P: 0, A: 0, L: 0, EL: 0, total: 0 },
+  }));
+};
+
+/**
  * GET /api/enrollments
- * List enrollments with optional filters.
+ * List enrollments with optional filters. When `classId` is provided,
+ * results are enriched with per-user attendance summary.
  */
 const getEnrollments = async (req, res) => {
   try {
@@ -19,14 +58,18 @@ const getEnrollments = async (req, res) => {
     if (req.query.status) filter.status = req.query.status;
     if (req.query.classId) filter.classId = req.query.classId;
 
-    const enrollments = await Enrollment.find(filter)
+    const needsAttendance = !!req.query.classId;
+    const query = Enrollment.find(filter)
       .populate('userId', 'empCode name department status')
       .populate('teamId', 'name')
       .populate('classId', 'classCode courseName totalSessions')
       .populate('transferredTo', 'name')
       .sort({ joinedAt: -1 });
 
-    res.json({ success: true, count: enrollments.length, data: enrollments });
+    const enrollments = needsAttendance ? await query.lean() : await query;
+    const data = needsAttendance ? await enrichWithAttendance(enrollments) : enrollments;
+
+    res.json({ success: true, count: data.length, data });
   } catch (error) {
     handleError(res, error);
   }
@@ -54,68 +97,7 @@ const getTeamEnrollments = async (req, res) => {
       .sort({ status: 1, joinedAt: -1 })
       .lean();
 
-    if (enrollments.length === 0) {
-      return res.json({ success: true, count: 0, data: [] });
-    }
-
-    // ── Batch-compute attendance summaries ──────────────────
-    // For each enrollment, find schedules in the date range and
-    // count attendance by status.
-
-    // 1. Collect all classIds and userIds
-    const classIds = [...new Set(enrollments.map(e => e.classId?._id?.toString()).filter(Boolean))];
-    const userIds = enrollments.map(e => e.userId._id.toString());
-
-    // 2. Fetch all schedules for these classes
-    const schedules = classIds.length > 0
-      ? await Schedule.find({ classId: { $in: classIds } })
-          .select('_id classId startTime')
-          .sort({ startTime: 1 })
-          .lean()
-      : [];
-
-    // 3. Fetch all attendance for these users in these schedules
-    const scheduleIds = schedules.map(s => s._id);
-    const attendanceRecords = scheduleIds.length > 0
-      ? await Attendance.find({
-          scheduleId: { $in: scheduleIds },
-          userId: { $in: userIds },
-        })
-          .select('scheduleId userId status')
-          .lean()
-      : [];
-
-    // 4. Build lookup maps
-    // scheduleId → { classId, startTime }
-    const scheduleMap = {};
-    schedules.forEach(s => {
-      scheduleMap[s._id.toString()] = s;
-    });
-
-    // userId+classId → attendance counts
-    const attMap = {}; // "userId|classId" → { P: n, A: n, L: n, EL: n, total: n }
-    attendanceRecords.forEach(a => {
-      const sched = scheduleMap[a.scheduleId.toString()];
-      if (!sched) return;
-      const key = `${a.userId}|${sched.classId}`;
-      if (!attMap[key]) attMap[key] = { P: 0, A: 0, L: 0, EL: 0, total: 0 };
-      attMap[key][a.status] = (attMap[key][a.status] || 0) + 1;
-      attMap[key].total += 1;
-    });
-
-    // 5. Attach attendance summary to each enrollment
-    const enriched = enrollments.map(e => {
-      const classId = e.classId?._id?.toString();
-      const userId = e.userId._id.toString();
-      const key = `${userId}|${classId}`;
-      const att = attMap[key] || { P: 0, A: 0, L: 0, EL: 0, total: 0 };
-
-      return {
-        ...e,
-        attendance: att,
-      };
-    });
-
+    const enriched = await enrichWithAttendance(enrollments);
     res.json({ success: true, count: enriched.length, data: enriched });
   } catch (error) {
     handleError(res, error);
