@@ -305,8 +305,8 @@ function RosterTab({ classId }) {
           <tbody className="divide-y divide-white/5">
             {enrollments.map((e) => {
               const att = e.attendance || {};
-              const totalSessions = e.classId?.totalSessions || 0;
-              const attended = att.total || 0;
+              const total = att.total || 0;
+              const rate = total > 0 ? Math.round(((att.P || 0) / total) * 100) : null;
               return (
                 <tr key={e._id} className="hover:bg-white/[0.02] transition-colors">
                   <td className="px-4 py-3">
@@ -326,13 +326,13 @@ function RosterTab({ classId }) {
                       <span className="text-amber-400 text-xs font-semibold" title="Late">L:{att.L || 0}</span>
                       <span className="text-blue-400 text-xs font-semibold" title="Excused">EL:{att.EL || 0}</span>
                     </div>
-                    {totalSessions > 0 && (
+                    {rate !== null && (
                       <div className="mt-1">
                         <div className="h-1 rounded-full bg-white/5 overflow-hidden w-20 mx-auto">
                           <div className="h-full rounded-full bg-emerald-500 transition-all"
-                            style={{ width: `${Math.min((attended / totalSessions) * 100, 100)}%` }} />
+                            style={{ width: `${rate}%` }} />
                         </div>
-                        <div className="text-[10px] text-slate-500 mt-0.5">{attended}/{totalSessions}</div>
+                        <div className="text-[10px] text-slate-500 mt-0.5">{rate}% ({att.P || 0}/{total})</div>
                       </div>
                     )}
                   </td>
