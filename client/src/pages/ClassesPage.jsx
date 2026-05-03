@@ -1,10 +1,8 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useQueryClient } from '@tanstack/react-query';
 import Portal from '../components/Portal';
-import { useClasses, useCourses, useCreateClass, useUpdateClass, useDeleteClass } from '../hooks/useClasses';
+import { useClasses, useCourses, useCreateClass } from '../hooks/useClasses';
 import { useTeams } from '../hooks/useTeams';
-import { qk } from '../hooks/queryKeys';
 
 // ──────────────────────────────────────────────────────────
 // Classes Page (v2 — Matrix View)
@@ -77,143 +75,11 @@ function NewCohortModal({ courseNames, onClose, onSaved }) {
   );
 }
 
-// ── Edit Class Modal ──────────────────────────────────────
-
-function EditClassModal({ cls, team, onClose, onSaved, onDeleted, onNavigate }) {
-  const updateMutation = useUpdateClass();
-  const deleteMutation = useDeleteClass();
-  const [status, setStatus] = useState(cls.status);
-  const [totalSessions, setTotalSessions] = useState(cls.totalSessions);
-  const [confirmDelete, setConfirmDelete] = useState(false);
-  const [error, setError] = useState('');
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setError('');
-    try {
-      await updateMutation.mutateAsync({ id: cls._id, data: { status, totalSessions } });
-      onSaved();
-    } catch (err) {
-      setError(err.response?.data?.message || 'Update failed');
-    }
-  };
-
-  const handleDelete = async () => {
-    if (!confirmDelete) { setConfirmDelete(true); return; }
-    setError('');
-    try {
-      await deleteMutation.mutateAsync(cls._id);
-      onDeleted();
-    } catch (err) {
-      setError(err.response?.data?.message || 'Delete failed');
-      setConfirmDelete(false);
-    }
-  };
-
-  const pct = cls.totalSessions > 0 ? Math.round((cls.bookedSessions / cls.totalSessions) * 100) : 0;
-
-  return (
-    <Portal>
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm" onClick={onClose}>
-      <div onClick={(e) => e.stopPropagation()}
-        className="glass rounded-2xl p-6 w-full max-w-lg mx-4 space-y-4 animate-fade-in max-h-[90vh] overflow-y-auto">
-        <h2 className="text-lg font-bold text-white">📚 {cls.classCode} — {cls.courseName}</h2>
-        {error && <div className="px-4 py-2 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-sm">{error}</div>}
-
-        {/* ── Progress Card ──────────────────────────── */}
-        <div className="bg-white/5 rounded-xl p-4 space-y-3">
-          <div className="flex justify-between text-sm">
-            <span className="text-slate-400">Session Progress</span>
-            <span className="text-white font-semibold">{cls.bookedSessions} / {cls.totalSessions}</span>
-          </div>
-          <div className="h-2 rounded-full bg-white/5 overflow-hidden">
-            <div className={`h-full rounded-full transition-all ${pct >= 100 ? 'bg-primary-400' : pct >= 80 ? 'bg-amber-500' : 'bg-emerald-500'}`}
-              style={{ width: `${Math.min(pct, 100)}%` }} />
-          </div>
-        </div>
-
-        {/* ── Team Info Card ──────────────────────────── */}
-        <div className="bg-white/5 rounded-xl p-4 space-y-2">
-          <div className="flex items-center justify-between">
-            <span className="text-xs text-slate-500 uppercase tracking-wider font-semibold">Assigned Team</span>
-          </div>
-          {team ? (
-            <div className="space-y-2">
-              <div className="flex items-center gap-3">
-                <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-purple-500 to-primary-500 flex items-center justify-center text-sm">👥</div>
-                <div>
-                  <div className="text-sm font-bold text-white">{team.name}</div>
-                  <div className="text-xs text-slate-400">
-                    Leader: {team.leaderId?.name || 'N/A'} · {team.members?.length || 0} member{(team.members?.length || 0) !== 1 ? 's' : ''}
-                  </div>
-                </div>
-              </div>
-              <div className="pt-1">
-                <button onClick={() => onNavigate('/people')}
-                  className="w-full py-2 rounded-lg bg-purple-500/10 text-purple-300 text-xs font-semibold border border-purple-500/20 hover:bg-purple-500/20 transition-all">
-                  👥 Manage Team & Members
-                </button>
-              </div>
-            </div>
-          ) : (
-            <p className="text-sm text-slate-500 italic">No team assigned to this class.</p>
-          )}
-        </div>
-
-        {/* ── Edit Form ───────────────────────────────── */}
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label className="block text-sm text-slate-300 mb-1">Status</label>
-            <select value={status} onChange={(e) => setStatus(e.target.value)}
-              className="w-full px-3 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white focus:outline-none focus:ring-2 focus:ring-primary-500/50 transition-all">
-              <option value="Ongoing" className="bg-slate-800">Ongoing</option>
-              <option value="Completed" className="bg-slate-800">Completed</option>
-            </select>
-          </div>
-          <div>
-            <label className="block text-sm text-slate-300 mb-1">Total Sessions</label>
-            <input type="number" value={totalSessions} onChange={(e) => setTotalSessions(Number(e.target.value))} min={1}
-              className="w-full px-4 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white focus:outline-none focus:ring-2 focus:ring-primary-500/50 transition-all" />
-          </div>
-
-          <div className="flex gap-3 pt-2">
-            <button type="button" onClick={handleDelete} disabled={deleteMutation.isPending}
-              className={`py-2.5 px-4 rounded-xl border transition-all text-sm font-semibold ${
-                confirmDelete
-                  ? 'bg-red-500/30 text-red-300 border-red-500/40 hover:bg-red-500/40'
-                  : 'bg-red-500/10 text-red-400 border-red-500/20 hover:bg-red-500/20'
-              }`}>
-              {deleteMutation.isPending ? 'Deleting...' : confirmDelete ? '⚠ Confirm Delete?' : 'Delete'}
-            </button>
-            {confirmDelete && (
-              <button type="button" onClick={() => setConfirmDelete(false)}
-                className="py-2.5 px-3 rounded-xl text-slate-400 text-sm hover:bg-white/5 transition-all">
-                No
-              </button>
-            )}
-            {!confirmDelete && (
-              <>
-                <button type="button" onClick={onClose} className="flex-1 py-2.5 rounded-xl border border-white/10 text-slate-400 hover:bg-white/5 transition-all">Cancel</button>
-                <button type="submit" disabled={updateMutation.isPending} className="flex-1 py-2.5 rounded-xl bg-gradient-to-r from-primary-600 to-primary-500 text-white font-semibold disabled:opacity-50 transition-all">
-                  {updateMutation.isPending ? 'Saving...' : 'Update'}
-                </button>
-              </>
-            )}
-          </div>
-        </form>
-      </div>
-    </div>
-    </Portal>
-  );
-}
-
 // ── Main Page ─────────────────────────────────────────────
 
 export default function ClassesPage() {
   const navigate = useNavigate();
-  const queryClient = useQueryClient();
   const [cohortModal, setCohortModal] = useState(false);
-  const [editModal, setEditModal] = useState(null);
   const [creating, setCreating] = useState(null);
 
   const { data: classes = [], isLoading: loadingClasses } = useClasses();
@@ -337,7 +203,7 @@ export default function ClassesPage() {
                         return (
                           <td key={course} className="px-2 py-2 text-center">
                             <button
-                              onClick={() => setEditModal(cls)}
+                              onClick={() => navigate(`/classes/${cls._id}`)}
                               title={noSessions ? 'No schedules — likely missing team assignment' : undefined}
                               className={`w-full rounded-xl px-3 py-2.5 transition-all text-left hover:scale-[1.02] ${
                                 noSessions
@@ -402,7 +268,7 @@ export default function ClassesPage() {
       <div className="flex flex-wrap gap-4 text-xs text-slate-400">
         <div className="flex items-center gap-2">
           <div className="w-3.5 h-3.5 rounded bg-emerald-500/15 border border-emerald-500/20" />
-          <span>Ongoing (click to edit)</span>
+          <span>Ongoing (click to open)</span>
         </div>
         <div className="flex items-center gap-2">
           <div className="w-3.5 h-3.5 rounded bg-slate-500/15 border border-slate-500/20" />
@@ -423,16 +289,6 @@ export default function ClassesPage() {
         />
       )}
 
-      {editModal && (
-        <EditClassModal
-          cls={editModal}
-          team={teamByClassCode[editModal.classCode]}
-          onClose={() => setEditModal(null)}
-          onSaved={() => setEditModal(null)}
-          onDeleted={() => setEditModal(null)}
-          onNavigate={(path) => { setEditModal(null); navigate(path); }}
-        />
-      )}
     </div>
   );
 }
