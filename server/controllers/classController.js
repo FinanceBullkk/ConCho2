@@ -2,6 +2,8 @@ const mongoose = require('mongoose');
 const Class = require('../models/Class');
 const Team = require('../models/Team');
 const Schedule = require('../models/Schedule');
+const Enrollment = require('../models/Enrollment');
+const Evaluation = require('../models/Evaluation');
 const { getNextSequence } = require('../helpers/counter');
 const { handleError } = require('../helpers/handleError');
 
@@ -208,8 +210,29 @@ const deleteClass = async (req, res) => {
       });
     }
 
-    await Class.findByIdAndDelete(cls._id);
-    res.json({ success: true, message: `Class ${cls.classCode} - ${cls.courseName} deleted` });
+    // ── Cascade: cleanup referencing data before delete (DI-03) ──
+    const session = await mongoose.startSession();
+    let deletedEvaluations = 0;
+    let deletedEnrollments = 0;
+    try {
+      await session.withTransaction(async () => {
+        const evalResult = await Evaluation.deleteMany({ classId: cls._id }, { session });
+        deletedEvaluations = evalResult.deletedCount;
+
+        const enrollResult = await Enrollment.deleteMany({ classId: cls._id }, { session });
+        deletedEnrollments = enrollResult.deletedCount;
+
+        await Class.findByIdAndDelete(cls._id, { session });
+      });
+    } finally {
+      session.endSession();
+    }
+
+    res.json({
+      success: true,
+      message: `Class ${cls.classCode} - ${cls.courseName} deleted`,
+      cascade: { deletedEvaluations, deletedEnrollments },
+    });
   } catch (error) {
     handleError(res, error);
   }
