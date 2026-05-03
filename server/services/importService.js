@@ -1,4 +1,5 @@
 const mongoose = require('mongoose');
+const crypto = require('crypto');
 const bcrypt = require('bcryptjs');
 const User = require('../models/User');
 const Class = require('../models/Class');
@@ -11,6 +12,12 @@ const { ServiceError } = require('../helpers/ServiceError');
 
 const MAX_IMPORT_BATCH = 2000;
 const CHUNK_SIZE = 50;
+
+/**
+ * Generate a cryptographically secure random password (DI-09).
+ * Replaces the old hardcoded 'default123' to prevent mass-credential-guessing.
+ */
+const generateSecurePassword = () => crypto.randomBytes(12).toString('base64url');
 
 /**
  * Bulk import/update users by empCode (atomic, chunked bcrypt).
@@ -68,7 +75,7 @@ const importUsers = async (users) => {
         // Only hash password for NEW users (skip bcrypt for existing)
         const setOnInsert = {};
         if (!existingSet.has(empCode)) {
-          const raw = u.password || 'default123';
+          const raw = u.password || generateSecurePassword();
           const salt = await bcrypt.genSalt(12);
           setOnInsert.password = await bcrypt.hash(raw, salt);
         }

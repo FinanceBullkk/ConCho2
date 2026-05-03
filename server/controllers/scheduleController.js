@@ -1,5 +1,7 @@
+const mongoose = require('mongoose');
 const scheduleService = require('../services/scheduleService');
 const Schedule = require('../models/Schedule');
+const Attendance = require('../models/Attendance');
 const { parsePagination, paginatedResponse } = require('../helpers/pagination');
 const { handleError } = require('../helpers/handleError');
 
@@ -85,93 +87,106 @@ const updateSchedule = async (req, res) => {
     const existing = await Schedule.findById(req.params.id);
     if (!existing) return res.status(404).json({ success: false, message: 'Schedule not found' });
 
-    if (req.body.startTime || req.body.endTime) {
-      const start = new Date(req.body.startTime || existing.startTime);
-      const end = new Date(req.body.endTime || existing.endTime);
+    // ── TRANSACTION: Collision check + Update (SYNC-04) ────
+    // Wrapping checks + update in a transaction eliminates the
+    // TOCTOU window that could allow double-booking.
+    const session = await mongoose.startSession();
+    let schedule;
+    try {
+      await session.withTransaction(async () => {
+        if (req.body.startTime || req.body.endTime) {
+          const start = new Date(req.body.startTime || existing.startTime);
+          const end = new Date(req.body.endTime || existing.endTime);
 
-      if (end <= start) {
-        return res.status(400).json({ success: false, message: 'endTime must be after startTime' });
-      }
+          if (end <= start) {
+            throw Object.assign(new Error('endTime must be after startTime'), { statusCode: 400 });
+          }
 
-      // ── Collision check (scoped to same class) ──────────
-      const classId = req.body.classId || existing.classId;
-      const collision = await Schedule.findOne({
-        _id: { $ne: existing._id },
-        classId,
-        startTime: { $lt: end },
-        endTime: { $gt: start },
-      });
-      if (collision) {
-        return res.status(409).json({
-          success: false,
-          message: 'Cannot move schedule - time slot overlaps with an existing schedule',
-        });
-      }
+          // ── Collision check (scoped to same class) ──────────
+          const classId = req.body.classId || existing.classId;
+          const collision = await Schedule.findOne({
+            _id: { $ne: existing._id },
+            classId,
+            startTime: { $lt: end },
+            endTime: { $gt: start },
+          }).session(session);
+          if (collision) {
+            throw Object.assign(
+              new Error('Cannot move schedule - time slot overlaps with an existing schedule'),
+              { statusCode: 409 }
+            );
+          }
 
-      // ── Weekly limit check (max 2 sessions/team/week) ──
-      // Only enforce when startTime changes (moving to a different week)
-      if (req.body.startTime) {
-        const teamId = req.body.bookedTeamId || existing.bookedTeamId;
-        const d = new Date(start);
-        const dayOfWeek = d.getUTCDay();
-        const diffToMonday = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
-        const weekStart = new Date(Date.UTC(
-          d.getUTCFullYear(), d.getUTCMonth(),
-          d.getUTCDate() + diffToMonday, 0, 0, 0, 0
-        ));
-        const weekEnd = new Date(Date.UTC(
-          weekStart.getUTCFullYear(), weekStart.getUTCMonth(),
-          weekStart.getUTCDate() + 6, 23, 59, 59, 999
-        ));
+          // ── Weekly limit check (max 2 sessions/team/week) ──
+          if (req.body.startTime) {
+            const teamId = req.body.bookedTeamId || existing.bookedTeamId;
+            const d = new Date(start);
+            const dayOfWeek = d.getUTCDay();
+            const diffToMonday = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
+            const weekStart = new Date(Date.UTC(
+              d.getUTCFullYear(), d.getUTCMonth(),
+              d.getUTCDate() + diffToMonday, 0, 0, 0, 0
+            ));
+            const weekEnd = new Date(Date.UTC(
+              weekStart.getUTCFullYear(), weekStart.getUTCMonth(),
+              weekStart.getUTCDate() + 6, 23, 59, 59, 999
+            ));
 
-        const weeklyCount = await Schedule.countDocuments({
-          _id: { $ne: existing._id },
-          bookedTeamId: teamId,
-          startTime: { $gte: weekStart, $lte: weekEnd },
-        });
+            const weeklyCount = await Schedule.countDocuments({
+              _id: { $ne: existing._id },
+              bookedTeamId: teamId,
+              startTime: { $gte: weekStart, $lte: weekEnd },
+            }).session(session);
 
-        if (weeklyCount >= 2) {
-          return res.status(400).json({
-            success: false,
-            message: 'Cannot move schedule — target week already has 2 sessions for this team (limit: 2/week)',
-          });
+            if (weeklyCount >= 2) {
+              throw Object.assign(
+                new Error('Cannot move schedule — target week already has 2 sessions for this team (limit: 2/week)'),
+                { statusCode: 400 }
+              );
+            }
+          }
         }
-      }
-    }
 
-    // ── Also check weekly limit when changing bookedTeamId ──
-    if (req.body.bookedTeamId && req.body.bookedTeamId !== existing.bookedTeamId?.toString()) {
-      const start = new Date(req.body.startTime || existing.startTime);
-      const d = new Date(start);
-      const dayOfWeek = d.getUTCDay();
-      const diffToMonday = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
-      const weekStart = new Date(Date.UTC(
-        d.getUTCFullYear(), d.getUTCMonth(),
-        d.getUTCDate() + diffToMonday, 0, 0, 0, 0
-      ));
-      const weekEnd = new Date(Date.UTC(
-        weekStart.getUTCFullYear(), weekStart.getUTCMonth(),
-        weekStart.getUTCDate() + 6, 23, 59, 59, 999
-      ));
+        // ── Also check weekly limit when changing bookedTeamId ──
+        if (req.body.bookedTeamId && req.body.bookedTeamId !== existing.bookedTeamId?.toString()) {
+          const start = new Date(req.body.startTime || existing.startTime);
+          const d = new Date(start);
+          const dayOfWeek = d.getUTCDay();
+          const diffToMonday = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
+          const weekStart = new Date(Date.UTC(
+            d.getUTCFullYear(), d.getUTCMonth(),
+            d.getUTCDate() + diffToMonday, 0, 0, 0, 0
+          ));
+          const weekEnd = new Date(Date.UTC(
+            weekStart.getUTCFullYear(), weekStart.getUTCMonth(),
+            weekStart.getUTCDate() + 6, 23, 59, 59, 999
+          ));
 
-      const weeklyCount = await Schedule.countDocuments({
-        _id: { $ne: existing._id },
-        bookedTeamId: req.body.bookedTeamId,
-        startTime: { $gte: weekStart, $lte: weekEnd },
-      });
+          const weeklyCount = await Schedule.countDocuments({
+            _id: { $ne: existing._id },
+            bookedTeamId: req.body.bookedTeamId,
+            startTime: { $gte: weekStart, $lte: weekEnd },
+          }).session(session);
 
-      if (weeklyCount >= 2) {
-        return res.status(400).json({
-          success: false,
-          message: 'Cannot reassign schedule — target team already has 2 sessions this week (limit: 2/week)',
+          if (weeklyCount >= 2) {
+            throw Object.assign(
+              new Error('Cannot reassign schedule — target team already has 2 sessions this week (limit: 2/week)'),
+              { statusCode: 400 }
+            );
+          }
+        }
+
+        schedule = await Schedule.findByIdAndUpdate(req.params.id, req.body, {
+          new: true, runValidators: true, session,
         });
-      }
+        if (!schedule) {
+          throw Object.assign(new Error('Schedule not found'), { statusCode: 404 });
+        }
+      });
+    } finally {
+      session.endSession();
     }
 
-    const schedule = await Schedule.findByIdAndUpdate(req.params.id, req.body, {
-      new: true, runValidators: true,
-    });
-    if (!schedule) return res.status(404).json({ success: false, message: 'Schedule not found' });
     res.json({ success: true, data: schedule });
   } catch (error) {
     handleError(res, error);
@@ -180,10 +195,28 @@ const updateSchedule = async (req, res) => {
 
 const deleteSchedule = async (req, res) => {
   try {
-    const schedule = await Schedule.findByIdAndDelete(req.params.id);
+    const schedule = await Schedule.findById(req.params.id);
     if (!schedule) return res.status(404).json({ success: false, message: 'Schedule not found' });
+
+    // ── TRANSACTION: Cascade delete Attendance → Schedule (DI-01) ──
+    const session = await mongoose.startSession();
+    let deletedAttendance = 0;
+    try {
+      await session.withTransaction(async () => {
+        const attResult = await Attendance.deleteMany({ scheduleId: schedule._id }, { session });
+        deletedAttendance = attResult.deletedCount;
+        await Schedule.findByIdAndDelete(schedule._id, { session });
+      });
+    } finally {
+      session.endSession();
+    }
+
     scheduleService.invalidateSessionOrderCache(schedule.classId);
-    res.json({ success: true, message: 'Schedule deleted' });
+    res.json({
+      success: true,
+      message: 'Schedule deleted',
+      cascade: { deletedAttendance },
+    });
   } catch (error) {
     handleError(res, error);
   }

@@ -42,11 +42,9 @@ const classSchema = new mongoose.Schema(
       required: true,
       min: [1, 'Must have at least 1 session'],
     },
-    bookedSessions: {
-      type: Number,
-      default: 0,
-      min: 0,
-    },
+    // NOTE: bookedSessions was removed (UX-04) — it was never updated
+    // by any controller. The actual count is computed on-the-fly via
+    // Schedule.countDocuments({ classId }) wherever needed.
     status: {
       type: String,
       enum: {

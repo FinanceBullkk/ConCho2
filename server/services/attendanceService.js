@@ -34,6 +34,17 @@ const bulkMark = async (scheduleId, records) => {
     );
   }
 
+  // ── Guard: cannot modify attendance for sessions > 30 days old (UX-07) ──
+  const EDIT_WINDOW_DAYS = 30;
+  const cutoff = new Date();
+  cutoff.setDate(cutoff.getDate() - EDIT_WINDOW_DAYS);
+  if (new Date(schedule.startTime) < cutoff) {
+    throw new ServiceError(
+      `Không thể chỉnh sửa điểm danh cho buổi học cũ hơn ${EDIT_WINDOW_DAYS} ngày. Cannot edit attendance older than ${EDIT_WINDOW_DAYS} days.`,
+      400
+    );
+  }
+
   // Build an allowlist of enrolled user IDs for this schedule
   const enrolledSet = new Set(schedule.enrolledUsers.map(id => id.toString()));
 

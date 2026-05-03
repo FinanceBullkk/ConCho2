@@ -3,10 +3,10 @@ const User = require('../models/User');
 const NodeCache = require('node-cache');
 
 // ── User cache for auth middleware ────────────────────────
-// Short TTL (2 min) to avoid DB query on every request.
-// Invalidated immediately when user status changes via
-// invalidateUserCache(userId).
-const userCache = new NodeCache({ stdTTL: 120, checkperiod: 60 });
+// Short TTL (30s) to minimise the window where a demoted user
+// retains old privileges (SYNC-03). invalidateUserCache() is
+// called on every updateUser, so role changes are immediate.
+const userCache = new NodeCache({ stdTTL: 30, checkperiod: 15 });
 
 /**
  * Invalidate a specific user from the auth cache.
