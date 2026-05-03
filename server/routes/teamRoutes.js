@@ -1,5 +1,5 @@
 const router = require('express').Router();
-const { getTeams, getTeamById, createTeam, updateTeam, deleteTeam, getMyTeams } = require('../controllers/teamController');
+const { getTeams, getTeamById, createTeam, updateTeam, deleteTeam, getMyTeams, getTeamProgress } = require('../controllers/teamController');
 const { protect } = require('../middleware/auth');
 const { roleGuard } = require('../middleware/roleGuard');
 const { validate } = require('../middleware/validate');
@@ -21,5 +21,8 @@ router.route('/:id')
   .get(validate({ params: idParam }), getTeamById)
   .put(validate({ params: idParam, body: updateTeamBody }), updateTeam)
   .delete(validate({ params: idParam }), deleteTeam);
+
+router.route('/:id/progress')
+  .get(validate({ params: idParam }), getTeamProgress);
 
 module.exports = router;

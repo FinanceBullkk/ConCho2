@@ -1,5 +1,10 @@
 const rateLimit = require('express-rate-limit');
 
+// In test environment, disable rate limiting entirely so test suites
+// that make many requests for the same user don't get throttled.
+const IS_TEST = process.env.NODE_ENV === 'test';
+const validateOpts = IS_TEST ? false : { ip: false };
+const skipInTest = () => IS_TEST;
 // ──────────────────────────────────────────────────────────
 // Rate Limiters for Write Endpoints (SEC-04)
 // ──────────────────────────────────────────────────────────
@@ -20,14 +25,14 @@ const rateLimit = require('express-rate-limit');
  * Normal usage: 1–2 bookings per session.
  */
 const bookingLimiter = rateLimit({
-  windowMs: 60 * 1000,   // 1 minute
+  windowMs: 60 * 1000,
   max: 10,
   standardHeaders: true,
   legacyHeaders: false,
-  message: {
-    success: false,
-    message: 'Too many booking requests. Please wait a moment before trying again.',
-  },
+  skip: skipInTest,
+  message: { success: false, message: 'Too many booking requests. Please wait a moment before trying again.' },
+  validate: validateOpts,
+  keyGenerator: (req) => (req.user ? req.user._id.toString() : req.ip),
 });
 
 /**
@@ -36,14 +41,14 @@ const bookingLimiter = rateLimit({
  * Low limit because each request can trigger thousands of bcrypt hashes.
  */
 const importLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,  // 15 minutes
+  windowMs: 15 * 60 * 1000,
   max: 5,
   standardHeaders: true,
   legacyHeaders: false,
-  message: {
-    success: false,
-    message: 'Too many import requests. Please wait before importing again.',
-  },
+  skip: skipInTest,
+  message: { success: false, message: 'Too many import requests. Please wait before importing again.' },
+  validate: validateOpts,
+  keyGenerator: (req) => (req.user ? req.user._id.toString() : req.ip),
 });
 
 /**
@@ -51,14 +56,14 @@ const importLimiter = rateLimit({
  * Normal usage: teacher submits once per class, maybe a few corrections.
  */
 const attendanceLimiter = rateLimit({
-  windowMs: 60 * 1000,   // 1 minute
+  windowMs: 60 * 1000,
   max: 30,
   standardHeaders: true,
   legacyHeaders: false,
-  message: {
-    success: false,
-    message: 'Too many attendance submissions. Please slow down.',
-  },
+  skip: skipInTest,
+  message: { success: false, message: 'Too many attendance submissions. Please slow down.' },
+  validate: validateOpts,
+  keyGenerator: (req) => (req.user ? req.user._id.toString() : req.ip),
 });
 
 /**
@@ -66,14 +71,14 @@ const attendanceLimiter = rateLimit({
  * Normal usage: admin triggers sync once after updating the sheet.
  */
 const syncLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,  // 15 minutes
+  windowMs: 15 * 60 * 1000,
   max: 3,
   standardHeaders: true,
   legacyHeaders: false,
-  message: {
-    success: false,
-    message: 'Too many sync requests. Please wait before syncing again.',
-  },
+  skip: skipInTest,
+  message: { success: false, message: 'Too many sync requests. Please wait before syncing again.' },
+  validate: validateOpts,
+  keyGenerator: (req) => (req.user ? req.user._id.toString() : req.ip),
 });
 
 module.exports = {

@@ -7,7 +7,6 @@ const createScheduleBody = z.object({
   bookedTeamId: objectId,
   startTime: z.coerce.date(),
   endTime: z.coerce.date(),
-  teacherId: objectId.optional(),
   roomLink: z.string().trim().max(500).optional(),
   capacity: z.coerce.number().int().min(1).max(1000).optional(),
 });
@@ -17,14 +16,12 @@ const updateScheduleBody = z.object({
   bookedTeamId: objectId.optional(),
   startTime: z.coerce.date().optional(),
   endTime: z.coerce.date().optional(),
-  teacherId: objectId.optional(),
   roomLink: z.string().trim().max(500).optional(),
   capacity: z.coerce.number().int().min(1).max(1000).optional(),
 });
 
 const listSchedulesQuery = paginationQuery.extend({
   classId: objectId.optional(),
-  teacherId: objectId.optional(),
   from: z.coerce.date().optional(),
   to: z.coerce.date().optional(),
 });

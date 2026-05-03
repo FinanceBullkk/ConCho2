@@ -1,5 +1,5 @@
 const router = require('express').Router();
-const { getUsers, getUserById, createUser, updateUser, deleteUser } = require('../controllers/userController');
+const { getUsers, getUserById, createUser, updateUser, deleteUser, getUserProgress } = require('../controllers/userController');
 const { protect } = require('../middleware/auth');
 const { roleGuard } = require('../middleware/roleGuard');
 const { validate } = require('../middleware/validate');
@@ -19,5 +19,9 @@ router
   .get(validate({ params: idParam }), getUserById)
   .put(validate({ params: idParam, body: updateUserBody }), updateUser)
   .delete(validate({ params: idParam }), deleteUser);
+
+router
+  .route('/:id/progress')
+  .get(validate({ params: idParam }), getUserProgress);
 
 module.exports = router;
