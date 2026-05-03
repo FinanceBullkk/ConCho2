@@ -16,17 +16,9 @@ const getDashboardStats = async (req, res) => {
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
     // ═══ PHASE 1: All independent queries in parallel ═══
-    const [
-      userStatusCounts,
-      attStats,
-      recentlyActiveIds,
-      teams,
-      allParticipants,
-      dropReasonAgg,
-      dropClassificationAgg,
-      classes,
-      scheduleCountsByClass,
-    ] = await Promise.all([
+    // Using Promise.allSettled so a single failed query doesn't crash
+    // the entire dashboard (BUG-04).
+    const results = await Promise.allSettled([
       User.aggregate([
         { $match: { role: 'Participant' } },
         { $group: { _id: '$status', count: { $sum: 1 } } },
@@ -55,6 +47,20 @@ const getDashboardStats = async (req, res) => {
         { $group: { _id: '$classId', total: { $sum: 1 }, done: { $sum: { $cond: [{ $lt: ['$endTime', now] }, 1, 0] } }, teacherId: { $first: '$teacherId' } } },
       ]),
     ]);
+
+    // Safely extract values — fallback to empty arrays for rejected promises
+    const safeValue = (r, fallback = []) => r.status === 'fulfilled' ? r.value : fallback;
+    const [
+      userStatusCounts,
+      attStats,
+      recentlyActiveIds,
+      teams,
+      allParticipants,
+      dropReasonAgg,
+      dropClassificationAgg,
+      classes,
+      scheduleCountsByClass,
+    ] = results.map(r => safeValue(r));
 
     // ═══ PHASE 2: Compute from fetched data (zero DB) ═══
     const statusMap = {};

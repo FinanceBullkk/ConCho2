@@ -276,67 +276,75 @@ export default function AttendancePage() {
                     const isPast = new Date(day) < new Date(new Date().setHours(0, 0, 0, 0));
 
                     if (cellSchedules.length > 0) {
-                      const schedule = cellSchedules[0];
-                      const isFutureSession = new Date(schedule.startTime) > new Date();
-                      const effectiveStatus = isFutureSession ? 'future' : schedule.attendanceStatus;
-                      const cfg = STATUS_CONFIG[effectiveStatus] || STATUS_CONFIG.pending;
-                      const isSelected = selectedSchedule?._id === schedule._id;
-                      const isOverdue = schedule.attendanceStatus === 'pending' && isPast && !isFutureSession;
-
-                      // Dynamic background based on status
-                      const bgMap = {
-                        done: 'bg-emerald-500/[0.08]',
-                        pending: 'bg-amber-500/[0.15]',
-                        partial: 'bg-blue-500/[0.12]',
-                        none: 'bg-white/[0.02]',
-                        future: 'bg-slate-500/[0.04]',
-                      };
-                      const cellBg = isOverdue ? 'bg-red-500/[0.15]' : (bgMap[effectiveStatus] || 'bg-white/[0.03]');
-                      const leftColor = isOverdue ? '#f87171' : cfg.leftColor;
-
                       return (
                         <td key={dayIdx} className={`border-b border-white/5 p-1 align-top ${isToday ? 'bg-primary-500/5' : ''}`}>
-                          <div
-                            className={`rounded-xl p-2.5 pl-3 h-full min-h-[80px] transition-all cursor-pointer relative overflow-hidden ${cellBg} ${cfg.opacity} ${
-                              isSelected ? 'ring-2 ring-primary-400 ring-offset-1 ring-offset-slate-900 shadow-lg shadow-primary-500/20 !opacity-100' : 'hover:scale-[1.02] hover:!opacity-100'
-                            }`}
-                            style={{ borderLeft: `4px solid ${leftColor}`, borderTop: '1px solid rgba(255,255,255,0.05)', borderRight: '1px solid rgba(255,255,255,0.05)', borderBottom: '1px solid rgba(255,255,255,0.05)' }}
-                            onClick={() => handleSelectSchedule(schedule)}
-                          >
-                            {/* Status badge */}
-                            <div className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold border ${cfg.cls} ${isOverdue ? 'animate-pulse !bg-red-500/20 !text-red-400 !border-red-500/30' : ''}`}>
-                              {isOverdue ? '⚠️ Overdue' : cfg.badge}
-                            </div>
+                          <div className="flex flex-col gap-1 h-full">
+                            {cellSchedules.map((schedule) => {
+                              const isFutureSession = new Date(schedule.startTime) > new Date();
+                              const effectiveStatus = isFutureSession ? 'future' : schedule.attendanceStatus;
+                              const cfg = STATUS_CONFIG[effectiveStatus] || STATUS_CONFIG.pending;
+                              const isSelected = selectedSchedule?._id === schedule._id;
+                              const isOverdue = schedule.attendanceStatus === 'pending' && isPast && !isFutureSession;
 
-                            {/* Class info */}
-                            <div className="text-xs font-bold text-white mt-1.5 truncate">
-                              {schedule.classId?.classCode}
-                            </div>
-                            <div className="text-[10px] text-slate-400 truncate">
-                              {schedule.classId?.courseName}
-                            </div>
+                              // Dynamic background based on status
+                              const bgMap = {
+                                done: 'bg-emerald-500/[0.08]',
+                                pending: 'bg-amber-500/[0.15]',
+                                partial: 'bg-blue-500/[0.12]',
+                                none: 'bg-white/[0.02]',
+                                future: 'bg-slate-500/[0.04]',
+                              };
+                              const cellBg = isOverdue ? 'bg-red-500/[0.15]' : (bgMap[effectiveStatus] || 'bg-white/[0.03]');
+                              const leftColor = isOverdue ? '#f87171' : cfg.leftColor;
 
-                            {/* Meta */}
-                            <div className="text-[10px] text-slate-500 mt-1 truncate">
-                              {schedule.enrolledCount || 0}👤
-                            </div>
+                              return (
+                                <div
+                                  key={schedule._id}
+                                  className={`rounded-xl p-2.5 pl-3 transition-all cursor-pointer relative overflow-hidden ${cellBg} ${cfg.opacity} ${
+                                    cellSchedules.length === 1 ? 'min-h-[80px]' : 'min-h-[60px]'
+                                  } ${
+                                    isSelected ? 'ring-2 ring-primary-400 ring-offset-1 ring-offset-slate-900 shadow-lg shadow-primary-500/20 !opacity-100' : 'hover:scale-[1.02] hover:!opacity-100'
+                                  }`}
+                                  style={{ borderLeft: `4px solid ${leftColor}`, borderTop: '1px solid rgba(255,255,255,0.05)', borderRight: '1px solid rgba(255,255,255,0.05)', borderBottom: '1px solid rgba(255,255,255,0.05)' }}
+                                  onClick={() => handleSelectSchedule(schedule)}
+                                >
+                                  {/* Status badge */}
+                                  <div className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold border ${cfg.cls} ${isOverdue ? 'animate-pulse !bg-red-500/20 !text-red-400 !border-red-500/30' : ''}`}>
+                                    {isOverdue ? '⚠️ Overdue' : cfg.badge}
+                                  </div>
 
-                            {/* Marked progress */}
-                            {effectiveStatus !== 'future' && effectiveStatus !== 'none' && (
-                              <div className="mt-1.5">
-                                <div className="flex justify-between text-[9px] text-slate-500 mb-0.5">
-                                  <span>{schedule.markedCount || 0}/{schedule.enrolledCount || 0}</span>
+                                  {/* Class info */}
+                                  <div className="text-xs font-bold text-white mt-1.5 truncate">
+                                    {schedule.classId?.classCode}
+                                  </div>
+                                  <div className="text-[10px] text-slate-400 truncate">
+                                    {schedule.classId?.courseName}
+                                  </div>
+
+                                  {/* Meta */}
+                                  <div className="text-[10px] text-slate-500 mt-1 truncate">
+                                    {schedule.enrolledCount || 0}👤
+                                  </div>
+
+                                  {/* Marked progress */}
+                                  {effectiveStatus !== 'future' && effectiveStatus !== 'none' && (
+                                    <div className="mt-1.5">
+                                      <div className="flex justify-between text-[9px] text-slate-500 mb-0.5">
+                                        <span>{schedule.markedCount || 0}/{schedule.enrolledCount || 0}</span>
+                                      </div>
+                                      <div className="h-1 rounded-full bg-white/10 overflow-hidden">
+                                        <div
+                                          className={`h-full rounded-full transition-all ${
+                                            effectiveStatus === 'done' ? 'bg-emerald-400' : effectiveStatus === 'partial' ? 'bg-blue-400' : 'bg-amber-400'
+                                          }`}
+                                          style={{ width: `${schedule.enrolledCount > 0 ? Math.round(((schedule.markedCount || 0) / schedule.enrolledCount) * 100) : 0}%` }}
+                                        />
+                                      </div>
+                                    </div>
+                                  )}
                                 </div>
-                                <div className="h-1 rounded-full bg-white/10 overflow-hidden">
-                                  <div
-                                    className={`h-full rounded-full transition-all ${
-                                      effectiveStatus === 'done' ? 'bg-emerald-400' : effectiveStatus === 'partial' ? 'bg-blue-400' : 'bg-amber-400'
-                                    }`}
-                                    style={{ width: `${schedule.enrolledCount > 0 ? Math.round(((schedule.markedCount || 0) / schedule.enrolledCount) * 100) : 0}%` }}
-                                  />
-                                </div>
-                              </div>
-                            )}
+                              );
+                            })}
                           </div>
                         </td>
                       );

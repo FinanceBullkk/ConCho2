@@ -67,4 +67,12 @@ enrollmentSchema.index({ teamId: 1, status: 1 });    // List enrollments for a t
 enrollmentSchema.index({ userId: 1, joinedAt: -1 }); // User timeline
 enrollmentSchema.index({ classId: 1 });               // Course-based queries
 
+// DI-05: Prevent duplicate Active enrollments for same user+team.
+// partialFilterExpression ensures the constraint only applies when status='Active',
+// so historical records (Dropped, Transferred, Completed) are unrestricted.
+enrollmentSchema.index(
+  { userId: 1, teamId: 1 },
+  { unique: true, partialFilterExpression: { status: 'Active' } }
+);
+
 module.exports = mongoose.model('Enrollment', enrollmentSchema);

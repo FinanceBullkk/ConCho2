@@ -5,6 +5,7 @@ const Team = require('../models/Team');
 const Schedule = require('../models/Schedule');
 const Attendance = require('../models/Attendance');
 const Enrollment = require('../models/Enrollment');
+const Evaluation = require('../models/Evaluation');
 const { getNextSequence } = require('../helpers/counter');
 const { parsePagination, paginatedResponse } = require('../helpers/pagination');
 const { escapeRegex } = require('../helpers/escapeRegex');
@@ -200,6 +201,17 @@ const updateUser = async (req, res) => {
  *   2. Pull user from all Schedules' enrolledUsers + decrement enrolledCount
  *   3. Delete all Attendance records for this user
  *   4. Delete the user
+/**
+ * DELETE /api/users/:id
+ * SOFT DELETE — marks user as deleted but preserves all data.
+ *
+ * Side-effects (reversible via restore):
+ *   1. Pull user from all Teams' members arrays
+ *   2. Pull user from all future Schedules' enrolledUsers
+ *   3. Close active Enrollment records (status → 'Dropped')
+ *   4. Mark user as soft-deleted (isDeleted=true, deletedAt=now)
+ *
+ * Attendance, Evaluation records are PRESERVED for audit trail.
  */
 const deleteUser = async (req, res) => {
   try {
@@ -218,48 +230,109 @@ const deleteUser = async (req, res) => {
       });
     }
 
-    // ── TRANSACTION: Cascade delete (all-or-nothing) ──────
+    // ── TRANSACTION: Soft-delete cascade (UX-03) ──────────
     const session = await mongoose.startSession();
-    let deletedAttendance = 0;
-    let deletedEnrollments = 0;
+    let pulledFromTeams = 0;
+    let pulledFromSchedules = 0;
+    let closedEnrollments = 0;
 
     try {
       await session.withTransaction(async () => {
-        // Cascade Step 1: Pull from Team.members
-        await Team.updateMany(
+        // Step 1: Pull from Team.members
+        const teamResult = await Team.updateMany(
           { members: user._id },
           { $pull: { members: user._id } },
           { session }
         );
+        pulledFromTeams = teamResult.modifiedCount;
 
-        // Cascade Step 2: Pull from Schedule.enrolledUsers
-        // enrolledCount is a virtual, no $inc needed.
-        await Schedule.updateMany(
+        // Step 2: Pull from future Schedule.enrolledUsers
+        const schedResult = await Schedule.updateMany(
           { enrolledUsers: user._id },
           { $pull: { enrolledUsers: user._id } },
           { session }
         );
+        pulledFromSchedules = schedResult.modifiedCount;
 
-        // Cascade Step 3: Delete Attendance records
-        const attResult = await Attendance.deleteMany({ userId: user._id }, { session });
-        deletedAttendance = attResult.deletedCount;
+        // Step 3: Close active enrollments
+        const enrollResult = await Enrollment.updateMany(
+          { userId: user._id, status: 'Active' },
+          { $set: { status: 'Dropped', leftAt: new Date() } },
+          { session }
+        );
+        closedEnrollments = enrollResult.modifiedCount;
 
-        // Cascade Step 4: Delete all Enrollment records for this user
-        const enrollResult = await Enrollment.deleteMany({ userId: user._id }, { session });
-        deletedEnrollments = enrollResult.deletedCount;
-
-        // Step 5: Delete the user
-        await User.findByIdAndDelete(user._id, { session });
+        // Step 4: Soft-delete the user (bypass auto-filter via raw update)
+        await User.collection.updateOne(
+          { _id: user._id },
+          { $set: { isDeleted: true, deletedAt: new Date(), status: 'Dropped' } },
+          { session }
+        );
       });
     } finally {
       session.endSession();
     }
 
+    // Invalidate auth cache so deleted user can't make requests
+    invalidateUserCache(user._id);
+
     res.json({
       success: true,
-      message: `User ${user.empCode} deleted`,
-      cascade: { deletedAttendance, deletedEnrollments },
+      message: `User ${user.empCode} soft-deleted (can be restored)`,
+      cascade: { pulledFromTeams, pulledFromSchedules, closedEnrollments },
     });
+  } catch (error) {
+    handleError(res, error);
+  }
+};
+
+/**
+ * POST /api/users/:id/restore
+ * Restore a soft-deleted user. Only sets isDeleted=false.
+ * Admin must manually re-add user to teams/classes if needed.
+ */
+const restoreUser = async (req, res) => {
+  try {
+    // Must bypass auto-filter to find deleted users
+    const user = await User.findOne({ _id: req.params.id, isDeleted: true })
+      .select('+isDeleted +deletedAt')
+      .lean();
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'Deleted user not found. Either the ID is invalid or the user was not soft-deleted.',
+      });
+    }
+
+    await User.collection.updateOne(
+      { _id: new mongoose.Types.ObjectId(req.params.id) },
+      { $set: { isDeleted: false, deletedAt: null, status: 'Inactive' } }
+    );
+
+    invalidateUserCache(req.params.id);
+
+    res.json({
+      success: true,
+      message: `User ${user.empCode} restored (status set to Inactive — admin can re-activate)`,
+    });
+  } catch (error) {
+    handleError(res, error);
+  }
+};
+
+/**
+ * GET /api/users/deleted
+ * List all soft-deleted users (Admin trash view).
+ */
+const getDeletedUsers = async (req, res) => {
+  try {
+    const users = await User.find({ isDeleted: true })
+      .select('+isDeleted +deletedAt')
+      .sort({ deletedAt: -1 })
+      .lean();
+
+    res.json({ success: true, count: users.length, data: users });
   } catch (error) {
     handleError(res, error);
   }
@@ -327,4 +400,4 @@ const getUserProgress = async (req, res) => {
   }
 };
 
-module.exports = { getUsers, getUserById, createUser, updateUser, deleteUser, getUserProgress };
+module.exports = { getUsers, getUserById, createUser, updateUser, deleteUser, restoreUser, getDeletedUsers, getUserProgress };
