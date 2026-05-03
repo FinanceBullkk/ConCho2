@@ -142,15 +142,16 @@ tms-v2/
 
 ```mermaid
 erDiagram
-    USER ||--o{ TEAM : "belongs to"
     USER ||--o{ ATTENDANCE : "has"
     USER ||--o{ EVALUATION : "receives"
     USER ||--o{ ENROLLMENT : "enrolled in"
+    TEAM }o--|| USER : "led by"
     TEAM ||--o{ SCHEDULE : "books"
     CLASSES ||--o{ SCHEDULE : "has sessions"
     CLASSES ||--o{ EVALUATION : "evaluated in"
+    CLASSES ||--o{ ENROLLMENT : "belongs to"
+    ENROLLMENT }o--|| TEAM : "via team"
     SCHEDULE ||--o{ ATTENDANCE : "tracked per"
-    SCHEDULE ||--o{ ENROLLMENT : "contains"
 
     USER {
         string empCode PK
@@ -164,23 +165,51 @@ erDiagram
     TEAM {
         string name
         ref leaderId FK
-        ref members FK
+        ref classId FK
+        ref members "embedded array"
     }
 
     CLASSES {
         string classCode PK
-        string course
-        string status "Ongoing-Completed-Cancelled"
-        ref teacherId FK
+        string courseName
+        string status "Ongoing-Completed"
         int totalSessions
+        int bookedSessions
     }
 
     SCHEDULE {
         ref classId FK
-        date date
-        string timeSlot
         ref bookedTeamId FK
-        int enrolledCount
+        date startTime
+        date endTime
+        int capacity
+        ref enrolledUsers "embedded array"
+    }
+
+    ENROLLMENT {
+        ref userId FK
+        ref teamId FK
+        ref classId FK
+        date joinedAt
+        date leftAt
+        string status "Active-Completed-Dropped-Transferred"
+    }
+
+    ATTENDANCE {
+        ref scheduleId FK
+        ref userId FK
+        string status "P-A-L-EL"
+        string syncStatus "PENDING-EXPORTED"
+    }
+
+    EVALUATION {
+        ref classId FK
+        ref userId FK
+        string level
+        number grammarScore
+        number vocabularyScore
+        number pronunciationScore
+        number fluencyScore
     }
 ```
 
