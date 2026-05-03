@@ -9,6 +9,7 @@ import LoginPage from './pages/LoginPage';
 import DashboardPage from './pages/DashboardPage';
 import PeoplePage from './pages/PeoplePage';
 import ClassesPage from './pages/ClassesPage';
+import ClassDetailPage from './pages/ClassDetailPage';
 import SchedulesPage from './pages/SchedulesPage';
 import AttendanceHubPage from './pages/AttendanceHubPage';
 import DataPage from './pages/DataPage';
@@ -76,6 +77,9 @@ export default function App() {
             } />
             <Route path="/classes" element={
               <ProtectedRoute roles={['Admin']}><ClassesPage /></ProtectedRoute>
+            } />
+            <Route path="/classes/:id" element={
+              <ProtectedRoute roles={['Admin']}><ClassDetailPage /></ProtectedRoute>
             } />
             <Route path="/schedules" element={
               <ProtectedRoute roles={['Admin', 'Teacher', 'Participant']}><ScheduleRouter /></ProtectedRoute>
