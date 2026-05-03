@@ -147,16 +147,16 @@ erDiagram
     USER ||--o{ EVALUATION : "receives"
     USER ||--o{ ENROLLMENT : "enrolled in"
     TEAM ||--o{ SCHEDULE : "books"
-    CLASS ||--o{ SCHEDULE : "has sessions"
-    CLASS ||--o{ EVALUATION : "evaluated in"
+    CLASSES ||--o{ SCHEDULE : "has sessions"
+    CLASSES ||--o{ EVALUATION : "evaluated in"
     SCHEDULE ||--o{ ATTENDANCE : "tracked per"
     SCHEDULE ||--o{ ENROLLMENT : "contains"
 
     USER {
         string empCode PK
         string name
-        string role "Admin | Teacher | Participant"
-        string status "Active | On-hold | Dropped"
+        string role "Admin-Teacher-Participant"
+        string status "Active-Onhold-Dropped"
         string department
         string password "bcrypt hashed"
     }
@@ -164,13 +164,13 @@ erDiagram
     TEAM {
         string name
         ref leaderId FK
-        ref[] members FK
+        ref members FK
     }
 
-    CLASS {
+    CLASSES {
         string classCode PK
         string course
-        string status "Ongoing | Completed | Cancelled"
+        string status "Ongoing-Completed-Cancelled"
         ref teacherId FK
         int totalSessions
     }
