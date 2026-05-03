@@ -289,21 +289,10 @@ async function auditBusinessRules() {
     });
   }
 
-  // 4c. enrolledCount mismatch
-  const schedules = await Schedule.find().select('_id enrolledUsers enrolledCount').lean();
+  // 4c. enrolledCount mismatch — skipped: enrolledCount is a virtual derived
+  // from enrolledUsers.length (Schedule schema), so it cannot drift. lean()
+  // drops virtuals, which made the previous check produce 100% false positives.
   let enrollMismatch = 0;
-  for (const s of schedules) {
-    const actual = (s.enrolledUsers || []).length;
-    if (s.enrolledCount !== actual) {
-      enrollMismatch++;
-      addError('business_enrollcount', {
-        _id: s._id,
-        enrolledCount: s.enrolledCount,
-        actualLength: actual,
-        error: `enrolledCount (${s.enrolledCount}) != enrolledUsers.length (${actual})`,
-      });
-    }
-  }
 
   // 4d. Weekly limit — teams with > 2 sessions in same week
   const allSchedules = await Schedule.find().sort({ startTime: 1 }).lean();
