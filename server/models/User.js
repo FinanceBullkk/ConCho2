@@ -81,11 +81,38 @@ const userSchema = new mongoose.Schema(
       default: null,
       select: false, // Internal field — not exposed to clients
     },
+
+    // ── Soft-delete fields (UX-03) ──────────────────────────
+    isDeleted: {
+      type: Boolean,
+      default: false,
+      select: false, // Hidden from normal queries
+    },
+    deletedAt: {
+      type: Date,
+      default: null,
+      select: false,
+    },
   },
   {
     timestamps: true,
   }
 );
+
+// ── Soft-delete auto-filter (UX-03) ─────────────────────
+// Automatically exclude soft-deleted users from all queries
+// unless the caller explicitly sets { isDeleted: true } in
+// the filter (e.g. for admin "trash" view).
+const SOFT_DELETE_HOOKS = ['find', 'findOne', 'countDocuments', 'findOneAndUpdate', 'findOneAndDelete'];
+for (const hook of SOFT_DELETE_HOOKS) {
+  userSchema.pre(hook, function () {
+    const filter = this.getFilter();
+    // Only auto-add if caller hasn't explicitly queried isDeleted
+    if (filter.isDeleted === undefined) {
+      this.where({ isDeleted: { $ne: true } });
+    }
+  });
+}
 
 // ── Indexes ───────────────────────────────────────────────
 userSchema.index({ role: 1, status: 1 });
@@ -146,36 +173,44 @@ userSchema.post('findOneAndUpdate', async function (doc) {
   const today = new Date();
   today.setUTCHours(0, 0, 0, 0); // UTC midnight — timezone-safe
 
-  // Atomically pull user from all future schedules
-  // enrolledCount is a virtual (enrolledUsers.length), no $inc needed.
-  const result = await Schedule.updateMany(
-    {
-      startTime: { $gte: today },
-      enrolledUsers: doc._id,
-    },
-    {
-      $pull: { enrolledUsers: doc._id },
-    }
-  );
-
-  if (result.modifiedCount > 0) {
-    console.log(
-      `   ✅ Removed ${doc.empCode} from ${result.modifiedCount} future schedule(s)`
-    );
-
-    // Auto-release slots where no enrolled users remain
-    // Single deleteMany instead of N individual findByIdAndDelete calls
-    const emptyResult = await Schedule.deleteMany({
-      startTime: { $gte: today },
-      enrolledUsers: { $size: 0 },
-    });
-    if (emptyResult.deletedCount > 0) {
-      console.log(
-        `   🔓 Auto-deleted ${emptyResult.deletedCount} empty schedule(s)`
+  // ── TRANSACTION: Atomic pull + cleanup (SYNC-02) ──────
+  const session = await mongoose.startSession();
+  try {
+    await session.withTransaction(async () => {
+      // Atomically pull user from all future schedules
+      // enrolledCount is a virtual (enrolledUsers.length), no $inc needed.
+      const result = await Schedule.updateMany(
+        {
+          startTime: { $gte: today },
+          enrolledUsers: doc._id,
+        },
+        {
+          $pull: { enrolledUsers: doc._id },
+        },
+        { session }
       );
-    }
-  } else {
-    console.log(`   ℹ️  ${doc.empCode} had no future enrollments to release`);
+
+      if (result.modifiedCount > 0) {
+        console.log(
+          `   ✅ Removed ${doc.empCode} from ${result.modifiedCount} future schedule(s)`
+        );
+
+        // Auto-release slots where no enrolled users remain
+        const emptyResult = await Schedule.deleteMany({
+          startTime: { $gte: today },
+          enrolledUsers: { $size: 0 },
+        }, { session });
+        if (emptyResult.deletedCount > 0) {
+          console.log(
+            `   🔓 Auto-deleted ${emptyResult.deletedCount} empty schedule(s)`
+          );
+        }
+      } else {
+        console.log(`   ℹ️  ${doc.empCode} had no future enrollments to release`);
+      }
+    });
+  } finally {
+    session.endSession();
   }
 });
 

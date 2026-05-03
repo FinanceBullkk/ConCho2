@@ -276,8 +276,17 @@ const cancelSlot = async (scheduleId, requestUser) => {
     }
   }
 
+  // ── TRANSACTION: Cascade delete Attendance → Schedule (BUG-03) ──
   const classId = schedule.classId;
-  await Schedule.findByIdAndDelete(schedule._id);
+  const session = await mongoose.startSession();
+  try {
+    await session.withTransaction(async () => {
+      await Attendance.deleteMany({ scheduleId: schedule._id }, { session });
+      await Schedule.findByIdAndDelete(schedule._id, { session });
+    });
+  } finally {
+    session.endSession();
+  }
   invalidateSessionOrderCache(classId);
 };
 

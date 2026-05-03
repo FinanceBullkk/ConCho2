@@ -37,11 +37,32 @@ const teamSchema = new mongoose.Schema(
         ref: 'User',
       },
     ],
+
+    // ── Soft-delete fields (UX-03) ──────────────────────────
+    isDeleted: {
+      type: Boolean,
+      default: false,
+    },
+    deletedAt: {
+      type: Date,
+      default: null,
+    },
   },
   {
     timestamps: true,
   }
 );
+
+// ── Soft-delete auto-filter (UX-03) ─────────────────────
+const SOFT_DELETE_HOOKS = ['find', 'findOne', 'countDocuments', 'findOneAndUpdate', 'findOneAndDelete'];
+for (const hook of SOFT_DELETE_HOOKS) {
+  teamSchema.pre(hook, function () {
+    const filter = this.getFilter();
+    if (filter.isDeleted === undefined) {
+      this.where({ isDeleted: { $ne: true } });
+    }
+  });
+}
 
 // ── Indexes ───────────────────────────────────────────────
 teamSchema.index({ leaderId: 1 });

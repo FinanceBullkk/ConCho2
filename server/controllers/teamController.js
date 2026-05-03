@@ -193,14 +193,24 @@ const createTeam = async (req, res) => {
       });
     }
 
-    const team = await Team.create({ name, classId: classId || null, leaderId, members: memberList });
+    // ── TRANSACTION: Team creation + Enrollment sync (SYNC-01) ──
+    let team;
+    const session = await mongoose.startSession();
+    try {
+      await session.withTransaction(async () => {
+        [team] = await Team.create(
+          [{ name, classId: classId || null, leaderId, members: memberList }],
+          { session }
+        );
 
-    // ── Enrollment: create records for all initial members ──
-    // Fire and forget to avoid response bottleneck
-    syncEnrollments(team._id.toString(), memberList, [], classId || null)
-      .catch(err => console.error('Background syncEnrollments failed:', err));
+        // Sync enrollments inside the same transaction
+        await syncEnrollments(team._id.toString(), memberList, [], classId || null);
+      });
+    } finally {
+      session.endSession();
+    }
 
-    // Return populated
+    // Return populated (read-only, outside transaction)
     const populated = await Team.findById(team._id)
       .populate('classId', 'classCode courseName status')
       .populate('leaderId', 'empCode name department status')
@@ -346,7 +356,12 @@ const updateTeam = async (req, res) => {
  */
 const getMyTeams = async (req, res) => {
   try {
-    const teams = await Team.find({ leaderId: req.user._id })
+    const teams = await Team.find({
+      $or: [
+        { leaderId: req.user._id },
+        { members: req.user._id },
+      ],
+    })
       .populate('classId', 'classCode courseName')
       .populate('leaderId', 'empCode name department status')
       .populate('members', 'empCode name department status')
@@ -360,8 +375,13 @@ const getMyTeams = async (req, res) => {
 
 /**
  * DELETE /api/teams/:id
- * CASCADE: Schedules → Attendance → Team.
- * Enrollment records are preserved (status → Dropped).
+ * SOFT DELETE — marks team as deleted but preserves all data.
+ *
+ * Side-effects (reversible via restore):
+ *   1. Close active Enrollment records (status → 'Dropped')
+ *   2. Mark team as soft-deleted (isDeleted=true, deletedAt=now)
+ *
+ * Schedules and Attendance are PRESERVED for audit trail.
  */
 const deleteTeam = async (req, res) => {
   try {
@@ -370,34 +390,26 @@ const deleteTeam = async (req, res) => {
       return res.status(404).json({ success: false, message: 'Team not found' });
     }
 
-    // ── TRANSACTION: Cascade delete (all-or-nothing) ──────
+    // ── TRANSACTION: Soft-delete (UX-03) ──────────────────
     const session = await mongoose.startSession();
-    let deletedAttendance = 0;
-    let deletedSchedules = 0;
+    let closedEnrollments = 0;
 
     try {
       await session.withTransaction(async () => {
         // Step 1: Close all active enrollments for this team
-        await Enrollment.updateMany(
+        const enrollResult = await Enrollment.updateMany(
           { teamId: team._id, status: 'Active' },
           { $set: { status: 'Dropped', leftAt: new Date() } },
           { session }
         );
+        closedEnrollments = enrollResult.modifiedCount;
 
-        // Step 2: Cascade delete — attendance → schedules
-        const scheduleIds = await Schedule.find({ bookedTeamId: team._id })
-          .select('_id').session(session).lean();
-        const ids = scheduleIds.map(s => s._id);
-
-        if (ids.length > 0) {
-          const attResult = await Attendance.deleteMany({ scheduleId: { $in: ids } }, { session });
-          deletedAttendance = attResult.deletedCount;
-          const schResult = await Schedule.deleteMany({ _id: { $in: ids } }, { session });
-          deletedSchedules = schResult.deletedCount;
-        }
-
-        // Step 3: Delete the team
-        await Team.findByIdAndDelete(team._id, { session });
+        // Step 2: Soft-delete the team (bypass auto-filter via raw update)
+        await Team.collection.updateOne(
+          { _id: team._id },
+          { $set: { isDeleted: true, deletedAt: new Date() } },
+          { session }
+        );
       });
     } finally {
       session.endSession();
@@ -405,9 +417,56 @@ const deleteTeam = async (req, res) => {
 
     res.json({
       success: true,
-      message: `Team "${team.name}" deleted`,
-      cascade: { deletedSchedules, deletedAttendance },
+      message: `Team "${team.name}" soft-deleted (can be restored)`,
+      cascade: { closedEnrollments },
     });
+  } catch (error) {
+    handleError(res, error);
+  }
+};
+
+/**
+ * POST /api/teams/:id/restore
+ * Restore a soft-deleted team.
+ * Admin must manually re-add members if needed.
+ */
+const restoreTeam = async (req, res) => {
+  try {
+    const team = await Team.findOne({ _id: req.params.id, isDeleted: true }).lean();
+    if (!team) {
+      return res.status(404).json({
+        success: false,
+        message: 'Deleted team not found.',
+      });
+    }
+
+    await Team.collection.updateOne(
+      { _id: new mongoose.Types.ObjectId(req.params.id) },
+      { $set: { isDeleted: false, deletedAt: null } }
+    );
+
+    res.json({
+      success: true,
+      message: `Team "${team.name}" restored`,
+    });
+  } catch (error) {
+    handleError(res, error);
+  }
+};
+
+/**
+ * GET /api/teams/deleted
+ * List all soft-deleted teams (Admin trash view).
+ */
+const getDeletedTeams = async (req, res) => {
+  try {
+    const teams = await Team.find({ isDeleted: true })
+      .populate('classId', 'classCode courseName')
+      .populate('leaderId', 'empCode name')
+      .sort({ deletedAt: -1 })
+      .lean();
+
+    res.json({ success: true, count: teams.length, data: teams });
   } catch (error) {
     handleError(res, error);
   }
@@ -446,4 +505,7 @@ const getTeamProgress = async (req, res) => {
   }
 };
 
-module.exports = { getTeams, getTeamById, createTeam, updateTeam, deleteTeam, getMyTeams, getTeamProgress };
+module.exports = {
+  getTeams, getTeamById, createTeam, updateTeam, deleteTeam,
+  restoreTeam, getDeletedTeams, getMyTeams, getTeamProgress,
+};
