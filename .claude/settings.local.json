@@ -9,7 +9,15 @@
       "Bash(npm run *)",
       "Bash(node -e ' *)",
       "Bash(node -e \"require\\('./controllers/enrollmentController.js'\\); console.log\\('OK'\\);\")",
-      "Bash(node -e \"require\\('./server/controllers/enrollmentController.js'\\); console.log\\('OK'\\);\")"
+      "Bash(node -e \"require\\('./server/controllers/enrollmentController.js'\\); console.log\\('OK'\\);\")",
+      "Bash(curl -s \"http://localhost:5000/api/schedules?limit=2000\")",
+      "Bash(curl -s \"http://localhost:5000/api/schedules?limit=999999\")",
+      "Bash(git -C E:/ConCho2 add server/schemas/common.js)",
+      "Bash(git -C E:/ConCho2 commit -m ' *)",
+      "Bash(git -C E:/ConCho2 push)",
+      "mcp__Claude_Preview__preview_start",
+      "mcp__Claude_in_Chrome__list_connected_browsers",
+      "Bash(npx tsc *)"
     ]
   }
 }

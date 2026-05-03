@@ -5,12 +5,13 @@ const mongoose = require('mongoose');
 // ──────────────────────────────────────────────────────────
 // Team Leader = a Participant referenced as leaderId.
 //
-// CRITICAL MIDDLEWARE:
-//   Dynamic Team Sync — when the members array changes,
-//   all future Schedules booked by this team are auto-synced:
+// SCHEDULE SYNC:
+//   syncSchedulesForTeamUpdate() — explicit, session-aware function
+//   called by the controller INSIDE a MongoDB transaction.
+//   When the members array changes, all future Schedules are synced:
 //   - Removed members are $pulled from enrolledUsers
-//   - New members are $pushed ONLY if capacity allows
-// ──────────────────────────────────────────────────────────
+//   - New members are $pushed
+//   If the process crashes, the entire transaction rolls back.
 
 const teamSchema = new mongoose.Schema(
   {
@@ -47,36 +48,33 @@ teamSchema.index({ leaderId: 1 });
 teamSchema.index({ classId: 1 }, { unique: true, partialFilterExpression: { classId: { $type: 'objectId' } } }); // 1:1 Team ↔ Class (nulls allowed)
 
 // ──────────────────────────────────────────────────────────
-// DYNAMIC TEAM SYNC MIDDLEWARE
+// SCHEDULE SYNC — Explicit, Session-Aware
 // ──────────────────────────────────────────────────────────
-// 1. pre('findOneAndUpdate')  → snapshot old members
-// 2. post('findOneAndUpdate') → diff old vs new, sync schedules
+// Previously this was implicit Mongoose middleware (fire-and-forget).
+// Moved here as an explicit function so the controller can call it
+// INSIDE the same MongoDB transaction that updates the Team document.
+//
+// If the process crashes mid-way, the entire transaction rolls back
+// and both Team.members + Schedule.enrolledUsers stay consistent.
 // ──────────────────────────────────────────────────────────
 
-teamSchema.pre('findOneAndUpdate', async function (next) {
-  const teamDoc = await this.model.findOne(this.getQuery()).lean();
-  if (teamDoc) {
-    // Store old members as string array for easy comparison
-    this._previousMembers = teamDoc.members.map((id) => id.toString());
-    this._teamId = teamDoc._id;
-  }
-  next();
-});
-
-teamSchema.post('findOneAndUpdate', async function (doc) {
-  if (!doc || !this._previousMembers) return;
-
-  const oldMembers = this._previousMembers;
-  const newMembers = doc.members.map((m) => (m._id ? m._id.toString() : m.toString()));
-
-  // Compute diff
+/**
+ * Sync future Schedule.enrolledUsers after a Team member change.
+ *
+ * @param {Object} params
+ * @param {ObjectId|string} params.teamId
+ * @param {string[]} params.oldMembers  — previous member ID strings
+ * @param {string[]} params.newMembers  — new member ID strings
+ * @param {import('mongoose').ClientSession} params.session — MongoDB session (for transaction)
+ */
+const syncSchedulesForTeamUpdate = async ({ teamId, oldMembers, newMembers, session }) => {
   const removedSet = new Set(oldMembers.filter((id) => !newMembers.includes(id)));
   const addedSet = new Set(newMembers.filter((id) => !oldMembers.includes(id)));
 
   // Nothing changed — skip
   if (removedSet.size === 0 && addedSet.size === 0) return;
 
-  console.log(`🔄 Team Sync triggered for "${doc.name}"`);
+  console.log(`🔄 Team Sync for team ${teamId}`);
   console.log(`   Removed: ${removedSet.size}, Added: ${addedSet.size}`);
 
   // Lazy-load to avoid circular dependency
@@ -87,8 +85,8 @@ teamSchema.post('findOneAndUpdate', async function (doc) {
   // 1 DB query: fetch all future schedules for this team
   const futureSchedules = await Schedule.find({
     startTime: { $gte: today },
-    bookedTeamId: doc._id,
-  }).lean();
+    bookedTeamId: teamId,
+  }).session(session).lean();
 
   if (futureSchedules.length === 0) {
     console.log('   ℹ️  No future schedules found for this team');
@@ -155,18 +153,23 @@ teamSchema.post('findOneAndUpdate', async function (doc) {
     }
   }
 
-  // ── Execute: 1 bulkWrite + 1 deleteMany (max 2 DB calls) ──
+  // ── Execute within the same session/transaction ──────────
   if (bulkOps.length > 0) {
-    await Schedule.bulkWrite(bulkOps);
+    await Schedule.bulkWrite(bulkOps, { session });
     console.log(`   ✅ Executed ${bulkOps.length} schedule update(s) via bulkWrite`);
   }
 
   if (emptyScheduleIds.length > 0) {
-    await Schedule.deleteMany({ _id: { $in: emptyScheduleIds } });
+    await Schedule.deleteMany({ _id: { $in: emptyScheduleIds } }, { session });
     console.log(`   🔓 Auto-deleted ${emptyScheduleIds.length} empty schedule(s)`);
   }
 
   console.log('   🏁 Team sync complete');
-});
+};
 
-module.exports = mongoose.model('Team', teamSchema);
+const Team = mongoose.model('Team', teamSchema);
+
+// Export both the model and the sync helper
+module.exports = Team;
+module.exports.syncSchedulesForTeamUpdate = syncSchedulesForTeamUpdate;
+
