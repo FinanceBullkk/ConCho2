@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import TeamProgressModal from '../components/Progress/TeamProgressModal';
 import StudentProgressModal from '../components/Progress/StudentProgressModal';
@@ -271,6 +271,11 @@ export default function TeamsPage() {
   const [progressModal, setProgressModal] = useState(null);
   const [studentProgressModal, setStudentProgressModal] = useState(null);
 
+  // ── Search, Sort & View state ──────────────────────────
+  const [search, setSearch] = useState('');
+  const [sortBy, setSortBy] = useState('name-asc');
+  const [viewMode, setViewMode] = useState('cards'); // 'cards' | 'table'
+
   const { data: teams = [], isLoading: loadingTeams } = useTeams();
   const { data: participantsData } = useUsers({ role: 'Participant', limit: 200 });
   const participants = participantsData?.data || [];
@@ -279,6 +284,48 @@ export default function TeamsPage() {
   const loading = loadingTeams;
 
   useEffect(() => { document.title = 'TMS — Teams'; }, []);
+
+  // ── Filter + Sort teams ────────────────────────────────
+  const filteredTeams = useMemo(() => {
+    const q = search.toLowerCase().trim();
+
+    // Filter
+    let result = teams;
+    if (q) {
+      result = teams.filter(t => {
+        const teamName = (t.name || '').toLowerCase();
+        const leaderName = (t.leaderId?.name || '').toLowerCase();
+        const classCode = (t.classId?.classCode || '').toLowerCase();
+        const courseName = (t.classId?.courseName || '').toLowerCase();
+        const memberNames = (t.members || []).map(m => (m.name || '').toLowerCase()).join(' ');
+        const memberCodes = (t.members || []).map(m => (m.empCode || '').toLowerCase()).join(' ');
+        return teamName.includes(q) || leaderName.includes(q) || classCode.includes(q) || courseName.includes(q) || memberNames.includes(q) || memberCodes.includes(q);
+      });
+    }
+
+    // Sort
+    const sorted = [...result];
+    switch (sortBy) {
+      case 'name-asc':
+        sorted.sort((a, b) => (a.name || '').localeCompare(b.name || '', 'vi'));
+        break;
+      case 'name-desc':
+        sorted.sort((a, b) => (b.name || '').localeCompare(a.name || '', 'vi'));
+        break;
+      case 'class':
+        sorted.sort((a, b) => (a.classId?.classCode || 'ZZZ').localeCompare(b.classId?.classCode || 'ZZZ'));
+        break;
+      case 'members-desc':
+        sorted.sort((a, b) => (b.members?.length || 0) - (a.members?.length || 0));
+        break;
+      case 'members-asc':
+        sorted.sort((a, b) => (a.members?.length || 0) - (b.members?.length || 0));
+        break;
+      default:
+        break;
+    }
+    return sorted;
+  }, [teams, search, sortBy]);
 
   const handleDelete = async (id) => {
     try { await deleteMutation.mutateAsync(id); } catch { /* toast shown by global onError */ }
@@ -306,13 +353,136 @@ export default function TeamsPage() {
         </button>
       </div>
 
+      {/* ── Search & Sort Bar ────────────────────────────── */}
+      <div className="glass rounded-2xl px-5 py-4 flex flex-col sm:flex-row gap-3 items-stretch sm:items-center">
+        {/* Search */}
+        <div className="relative flex-1">
+          <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+          </svg>
+          <input
+            type="text"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search by team name, leader, member, or class code..."
+            className="w-full pl-10 pr-8 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white text-sm placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-primary-500/50 transition-all"
+          />
+          {search && (
+            <button onClick={() => setSearch('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-white transition-colors text-sm">✕</button>
+          )}
+        </div>
+
+        {/* Sort */}
+        <div className="flex items-center gap-2 shrink-0">
+          <span className="text-xs text-slate-500 whitespace-nowrap">Sort by:</span>
+          <select
+            value={sortBy}
+            onChange={(e) => setSortBy(e.target.value)}
+            className="px-3 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/50 transition-all cursor-pointer"
+          >
+            <option value="name-asc" className="bg-slate-800">Name A → Z</option>
+            <option value="name-desc" className="bg-slate-800">Name Z → A</option>
+            <option value="class" className="bg-slate-800">Class Code</option>
+            <option value="members-desc" className="bg-slate-800">Most Members</option>
+            <option value="members-asc" className="bg-slate-800">Fewest Members</option>
+          </select>
+        </div>
+
+        {/* View toggle */}
+        <div className="flex rounded-xl border border-white/10 overflow-hidden shrink-0">
+          <button
+            onClick={() => setViewMode('table')}
+            className={`px-3 py-2 text-xs font-medium transition-all ${viewMode === 'table' ? 'bg-primary-500/20 text-primary-300' : 'text-slate-500 hover:text-slate-300 hover:bg-white/5'}`}
+            title="Table view"
+          >☰ Table</button>
+          <button
+            onClick={() => setViewMode('cards')}
+            className={`px-3 py-2 text-xs font-medium transition-all border-l border-white/10 ${viewMode === 'cards' ? 'bg-primary-500/20 text-primary-300' : 'text-slate-500 hover:text-slate-300 hover:bg-white/5'}`}
+            title="Card view"
+          >▦ Cards</button>
+        </div>
+
+        {/* Result count (when searching) */}
+        {search && (
+          <div className="text-xs text-slate-400 self-center whitespace-nowrap">
+            {filteredTeams.length} / {teams.length} teams
+          </div>
+        )}
+      </div>
+
       {loading ? (
         <div className="flex items-center justify-center py-20"><div className="w-8 h-8 border-2 border-primary-400 border-t-transparent rounded-full animate-spin" /></div>
+      ) : filteredTeams.length === 0 ? (
+        <div className="glass rounded-2xl py-16 text-center">
+          <div className="text-4xl mb-4">🔍</div>
+          <p className="text-slate-400">{search ? `No teams match "${search}"` : 'No teams created yet.'}</p>
+          {search && (
+            <button onClick={() => setSearch('')} className="mt-3 px-4 py-2 rounded-xl bg-primary-500/20 text-primary-300 text-sm hover:bg-primary-500/30 transition-all">
+              Clear search
+            </button>
+          )}
+        </div>
+      ) : viewMode === 'table' ? (
+        /* ── TABLE VIEW ──────────────────────────────────── */
+        <div className="glass rounded-2xl overflow-hidden border border-white/5">
+          <div className="overflow-x-auto">
+            <table className="w-full border-collapse min-w-[800px]">
+              <thead>
+                <tr>
+                  <th className="sticky left-0 z-20 bg-slate-900/95 backdrop-blur-sm px-4 py-3 border-b border-white/10 text-left text-xs text-slate-400 font-semibold uppercase tracking-wider">Team</th>
+                  <th className="px-4 py-3 border-b border-white/10 text-left text-xs text-slate-400 font-semibold uppercase tracking-wider">Class</th>
+                  <th className="px-4 py-3 border-b border-white/10 text-left text-xs text-slate-400 font-semibold uppercase tracking-wider">Course</th>
+                  <th className="px-4 py-3 border-b border-white/10 text-left text-xs text-slate-400 font-semibold uppercase tracking-wider">Leader</th>
+                  <th className="px-4 py-3 border-b border-white/10 text-center text-xs text-slate-400 font-semibold uppercase tracking-wider">Members</th>
+                  <th className="px-4 py-3 border-b border-white/10 text-center text-xs text-slate-400 font-semibold uppercase tracking-wider">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-white/5">
+                {filteredTeams.map((t) => {
+                  const classInfo = t.classId;
+                  return (
+                    <tr key={t._id} className="hover:bg-white/[0.03] transition-colors">
+                      <td className="sticky left-0 z-10 bg-slate-900/95 backdrop-blur-sm px-4 py-3 border-r border-white/5">
+                        <span className="font-semibold text-white text-sm">{t.name}</span>
+                      </td>
+                      <td className="px-4 py-3">
+                        {classInfo?.classCode ? (
+                          <span className="font-mono text-sm text-primary-300">{classInfo.classCode}</span>
+                        ) : (
+                          <span className="text-xs text-red-400/70">—</span>
+                        )}
+                      </td>
+                      <td className="px-4 py-3">
+                        <span className="text-sm text-slate-300">{classInfo?.courseName || '—'}</span>
+                      </td>
+                      <td className="px-4 py-3">
+                        <span className="text-sm text-amber-300">👑 {t.leaderId?.name || '—'}</span>
+                      </td>
+                      <td className="px-4 py-3 text-center">
+                        <span className="inline-flex items-center justify-center w-7 h-7 rounded-lg bg-primary-500/10 text-primary-300 text-sm font-bold">
+                          {t.members?.length || 0}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 text-center">
+                        <div className="flex items-center justify-center gap-1">
+                          <button onClick={() => setProgressModal(t._id)} className="px-2 py-1.5 rounded-lg text-slate-400 hover:text-teal-300 hover:bg-teal-500/10 transition-all text-xs" title="View Progress">📊</button>
+                          <button onClick={() => setModal(t)} className="px-2 py-1.5 rounded-lg text-slate-400 hover:text-primary-300 hover:bg-primary-500/10 transition-all text-xs">✏️</button>
+                          <button onClick={() => setDeleteId(t._id)} className="px-2 py-1.5 rounded-lg text-slate-400 hover:text-red-400 hover:bg-red-500/10 transition-all text-xs">🗑</button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
       ) : (
+        /* ── CARD VIEW ───────────────────────────────────── */
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 stagger">
-          {teams.map((t) => {
+          {filteredTeams.map((t) => {
             const leadId = t.leaderId?._id || t.leaderId;
-            const classInfo = t.classId; // populated object or null
+            const classInfo = t.classId;
             return (
               <div key={t._id} className="glass rounded-2xl p-5 hover:scale-[1.01] transition-transform">
                 <div className="flex items-start justify-between mb-4">
@@ -349,11 +519,7 @@ export default function TeamsPage() {
                       <div key={m._id} className={`flex items-center gap-2 rounded-lg px-3 py-2 transition-all ${
                         isLeader ? 'bg-amber-500/10 border border-amber-500/15' : 'glass-light'
                       }`}>
-                        <div className={`w-6 h-6 rounded-md flex items-center justify-center text-xs font-bold ${
-                          isLeader ? 'bg-amber-500/30 text-amber-300' : 'bg-primary-500/20 text-primary-300'
-                        }`}>
-                          {isLeader ? '👑' : m.empCode?.slice(-1)}
-                        </div>
+                        {isLeader && <span className="text-xs">👑</span>}
                         <button 
                           onClick={() => setStudentProgressModal({ id: m._id, name: m.name })}
                           className="text-sm text-white flex-1 text-left hover:text-teal-400 hover:underline transition-colors"
