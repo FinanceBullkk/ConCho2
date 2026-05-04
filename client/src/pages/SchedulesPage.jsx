@@ -13,7 +13,7 @@ import { qk } from '../hooks/queryKeys';
 // admin control: create, edit, delete.
 // ──────────────────────────────────────────────────────────
 
-const TIME_SLOTS = [
+const DEFAULT_TIME_SLOTS = [
   '09:00-10:00', '10:00-11:00', '11:00-12:00',
   '13:00-14:00', '14:00-15:00', '15:00-16:00',
 ];
@@ -44,12 +44,19 @@ const parseSlot = (slot) => {
   return { sh, sm, eh, em };
 };
 
-const scheduleToKey = (s) => {
+// Map schedule to date + start-hour bucket key
+const scheduleToBucketKey = (s) => {
+  const start = new Date(s.startTime);
+  const dateKey = toDateKey(start);
+  const hourKey = start.getHours(); // bucket by start hour
+  return `${dateKey}|${hourKey}`;
+};
+
+// Format a schedule's actual time range for display
+const scheduleTimeLabel = (s) => {
   const start = new Date(s.startTime);
   const end = new Date(s.endTime);
-  const dateKey = toDateKey(start);
-  const timeSlot = `${String(start.getHours()).padStart(2, '0')}:${String(start.getMinutes()).padStart(2, '0')}-${String(end.getHours()).padStart(2, '0')}:${String(end.getMinutes()).padStart(2, '0')}`;
-  return `${dateKey}|${timeSlot}`;
+  return `${String(start.getHours()).padStart(2, '0')}:${String(start.getMinutes()).padStart(2, '0')}-${String(end.getHours()).padStart(2, '0')}:${String(end.getMinutes()).padStart(2, '0')}`;
 };
 
 // ── Schedule Modal (Create / Edit) ────────────────────────
@@ -239,15 +246,35 @@ export default function SchedulesPage() {
     Array.from({ length: 7 }, (_, i) => new Date(weekStart.getTime() + i * 86400000))
   , [weekStart]);
 
+  // Map schedules by date + start hour (bucket)
   const scheduleMap = useMemo(() => {
     const map = {};
     schedules.forEach(s => {
-      const key = scheduleToKey(s);
+      const key = scheduleToBucketKey(s);
       if (!map[key]) map[key] = [];
       map[key].push(s);
     });
     return map;
   }, [schedules]);
+
+  // Dynamic time rows: merge default slots with actual data hours for current week
+  const weekTimeRows = useMemo(() => {
+    const weekEnd = new Date(weekStart.getTime() + 7 * 86400000);
+    const hoursInWeek = new Set();
+    // Add default row hours
+    DEFAULT_TIME_SLOTS.forEach(slot => {
+      const hour = parseInt(slot.split(':')[0]);
+      hoursInWeek.add(hour);
+    });
+    // Add hours from actual schedules in this week
+    schedules.forEach(s => {
+      const d = new Date(s.startTime);
+      if (d >= weekStart && d < weekEnd) {
+        hoursInWeek.add(d.getHours());
+      }
+    });
+    return [...hoursInWeek].sort((a, b) => a - b);
+  }, [schedules, weekStart]);
 
   const prevWeek = () => setWeekStart(new Date(weekStart.getTime() - 7 * 86400000));
   const nextWeek = () => setWeekStart(new Date(weekStart.getTime() + 7 * 86400000));
@@ -356,20 +383,21 @@ export default function SchedulesPage() {
               </thead>
 
               <tbody>
-                {TIME_SLOTS.map((slot) => (
-                  <tr key={slot} className="group">
-                    <td className="sticky left-0 z-10 bg-slate-900/95 backdrop-blur-sm px-3 py-2 border-r border-b border-white/10 text-xs font-mono text-slate-400 whitespace-nowrap align-middle">
-                      {slot}
+                {weekTimeRows.map((hour) => {
+                  const hourLabel = `${String(hour).padStart(2, '0')}:00`;
+                  return (
+                  <tr key={hour} className="group">
+                    <td className="sticky left-0 z-10 bg-slate-900/95 backdrop-blur-sm px-3 py-2 border-r border-b border-white/10 text-xs font-mono text-slate-400 whitespace-nowrap align-top">
+                      {hourLabel}
                     </td>
 
                     {weekDays.map((day, dayIdx) => {
                       const dateKey = toDateKey(day);
-                      const cellKey = `${dateKey}|${slot}`;
+                      const cellKey = `${dateKey}|${hour}`;
                       const cellSchedules = scheduleMap[cellKey] || [];
                       const isToday = dateKey === today;
 
                       if (cellSchedules.length > 0) {
-                        // ── SCHEDULED CELL(S) ─────────────────
                         return (
                           <td key={dayIdx} className={`border-b border-white/5 p-1 align-top ${isToday ? 'bg-primary-500/5' : ''}`}>
                             <div className="space-y-1">
@@ -381,6 +409,10 @@ export default function SchedulesPage() {
                                     className="rounded-xl p-2 bg-gradient-to-br from-primary-500/20 to-purple-500/10 border border-primary-400/20 hover:border-primary-400/40 transition-all group/card cursor-pointer relative"
                                     onClick={() => setModal(s)}
                                   >
+                                    {/* Time range */}
+                                    <div className="text-[9px] font-mono text-slate-500 mb-0.5">
+                                      {scheduleTimeLabel(s)}
+                                    </div>
                                     {/* Class info */}
                                     <div className="text-xs font-bold text-primary-300 truncate">
                                       {s.classId?.classCode}
@@ -430,11 +462,13 @@ export default function SchedulesPage() {
                       }
 
                       // ── EMPTY CELL — click to create ──────
+                      // Use the hour to build a default slot for prefill
+                      const defaultSlot = `${String(hour).padStart(2, '0')}:00-${String(hour + 1).padStart(2, '0')}:00`;
                       return (
                         <td key={dayIdx} className={`border-b border-white/5 p-1 align-top ${isToday ? 'bg-primary-500/5' : ''}`}>
                           <div
                             className="rounded-xl h-full min-h-[80px] flex items-center justify-center transition-all bg-white/[0.02] hover:bg-emerald-500/10 hover:border-emerald-500/20 border border-transparent cursor-pointer group/cell"
-                            onClick={() => handleCellClick(day, slot)}
+                            onClick={() => handleCellClick(day, defaultSlot)}
                           >
                             <span className="text-[10px] text-slate-600 opacity-0 group-hover/cell:opacity-100 transition-opacity font-medium">
                               + Create
@@ -444,7 +478,8 @@ export default function SchedulesPage() {
                       );
                     })}
                   </tr>
-                ))}
+                  );
+                })}
               </tbody>
             </table>
           </div>
