@@ -188,7 +188,7 @@ const bookSlot = async ({ teamId, startTime, endTime, requestUser }) => {
 
       // ── Authorization check ───────────────────────────────
       if (requestUser.role !== 'Admin') {
-        if (team.leaderId.toString() !== requestUser._id.toString()) {
+        if (!team.leaderId || team.leaderId.toString() !== requestUser._id.toString()) {
           throw new ServiceError('Only Admin or the Team Leader can book for this team', 403);
         }
       }
@@ -271,7 +271,7 @@ const cancelSlot = async (scheduleId, requestUser) => {
 
   if (requestUser.role !== 'Admin') {
     const team = await Team.findById(schedule.bookedTeamId);
-    if (!team || team.leaderId.toString() !== requestUser._id.toString()) {
+    if (!team || !team.leaderId || team.leaderId.toString() !== requestUser._id.toString()) {
       throw new ServiceError('Only Admin or the Team Leader can cancel this booking', 403);
     }
   }
