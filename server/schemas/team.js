@@ -4,7 +4,7 @@ const { objectId } = require('./common');
 // ── Create Team ─────────────────────────────────────────
 const createTeamBody = z.object({
   name: z.string().trim().min(1, 'Team name is required'),
-  leaderId: objectId,
+  leaderId: objectId.nullable().optional(),
   classId: objectId.nullable().optional(),
   members: z.array(objectId).optional().default([]),
   forceSwap: z.boolean().optional(),
