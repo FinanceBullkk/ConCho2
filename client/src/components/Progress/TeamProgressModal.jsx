@@ -3,10 +3,10 @@ import { teamsAPI } from '../../api/api';
 import Portal from '../Portal';
 
 const STATUS_ICONS = {
-  Present: '✅',
-  Absent: '❌',
-  Late: '⚠️',
-  Excused: 'ℹ️'
+  P: '✅',
+  A: '❌',
+  L: '⚠️',
+  EL: 'ℹ️'
 };
 
 export default function TeamProgressModal({ teamId, onClose }) {
@@ -77,10 +77,14 @@ export default function TeamProgressModal({ teamId, onClose }) {
                       <div className="text-xs text-slate-500 font-normal">{member.empCode}</div>
                     </td>
                     {schedules.map(sch => {
-                      const att = attendances.find(a => a.scheduleId === sch._id && a.userId === member._id);
+                      const att = attendances.find(a => {
+                        const aSchId = a.scheduleId?._id || a.scheduleId;
+                        const aUserId = a.userId?._id || a.userId;
+                        return aSchId?.toString() === sch._id?.toString() && aUserId?.toString() === member._id?.toString();
+                      });
                       if (att) {
-                        if (att.status === 'Present') presentCount++;
-                        if (att.status === 'Absent') absentCount++;
+                        if (att.status === 'P' || att.status === 'L') presentCount++;
+                        if (att.status === 'A') absentCount++;
                       }
                       
                       const icon = att ? STATUS_ICONS[att.status] || att.status : '-';

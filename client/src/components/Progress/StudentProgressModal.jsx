@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { usersAPI } from '../../api/api';
 import Portal from '../Portal';
 
-const STATUS_ICONS = { Present: '✅', Absent: '❌', Late: '⚠️', Excused: 'ℹ️' };
+const STATUS_ICONS = { P: '✅', A: '❌', L: '⚠️', EL: 'ℹ️' };
 
 export default function StudentProgressModal({ userId, userName, onClose }) {
   const [data, setData] = useState(null);
@@ -80,10 +80,13 @@ export default function StudentProgressModal({ userId, userName, onClose }) {
                     ) : (
                       <div className="flex items-center gap-2 min-w-max">
                         {tSchedules.map((sch, i) => {
-                          const att = attendances.find(a => a.scheduleId === sch._id);
+                          const att = attendances.find(a => {
+                            const aSchId = a.scheduleId?._id || a.scheduleId;
+                            return aSchId?.toString() === sch._id?.toString();
+                          });
                           if (att) {
-                            if (att.status === 'Present') pCount++;
-                            if (att.status === 'Absent') aCount++;
+                            if (att.status === 'P' || att.status === 'L') pCount++;
+                            if (att.status === 'A') aCount++;
                           }
                           const icon = att ? STATUS_ICONS[att.status] || att.status : '-';
                           
