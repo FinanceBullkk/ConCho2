@@ -1,18 +1,22 @@
 import { useState } from 'react';
 import HRExportPage from './HRExportPage';
 import SyncPage from './SyncPage';
+import DatabaseExplorer from './DatabaseExplorer';
+import CourseManager from './CourseManager';
 
 // ──────────────────────────────────────────────────────────
-// Data Page — HR Export + Sheets Sync
+// Data Page — HR Export + Sheets Sync + Database Explorer
 // ──────────────────────────────────────────────────────────
 
 const TABS = [
+  { id: 'courses', label: 'Courses', icon: '📚' },
+  { id: 'database', label: 'Database', icon: '🗄️' },
   { id: 'export', label: 'HR Export', icon: '📤' },
   { id: 'sync', label: 'Sheets Sync', icon: '📊' },
 ];
 
 export default function DataPage() {
-  const [activeTab, setActiveTab] = useState('export');
+  const [activeTab, setActiveTab] = useState('courses');
 
   return (
     <div className="space-y-0">
@@ -35,6 +39,8 @@ export default function DataPage() {
       </div>
 
       {/* ── Tab content ────────────────────────────────── */}
+      {activeTab === 'courses' && <CourseManager />}
+      {activeTab === 'database' && <DatabaseExplorer />}
       {activeTab === 'export' && <HRExportPage />}
       {activeTab === 'sync' && <SyncPage />}
     </div>
