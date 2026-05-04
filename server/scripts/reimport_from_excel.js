@@ -1,0 +1,379 @@
+/**
+ * Wipe & Re-import TMS data from cleaned Excel file.
+ *
+ * Usage:
+ *   node server/scripts/reimport_from_excel.js                    # dry-run (no DB writes)
+ *   CONFIRM_WIPE=YES node server/scripts/reimport_from_excel.js   # execute wipe + import
+ *
+ * Source file: C:/Users/anhha/Downloads/TMS_Import_Ready.xlsx
+ *   Sheets: Users, Classes, Teams, Sessions, Attendance
+ *
+ * Behavior:
+ *   - Keeps Admin users + Settings; wipes everything else.
+ *   - Default password for new users: default12345 (bcrypt salt 12).
+ *   - Schedule.startTime stored as UTC, assuming Excel times are Asia/Ho_Chi_Minh (UTC+7).
+ *   - Attendance ambiguity (same classCode + date but different courseName) resolved by
+ *     selecting the schedule whose enrolledUsers contains the empCode.
+ */
+
+const path = require('path');
+require('dotenv').config({ path: path.join(__dirname, '..', '.env') });
+
+const mongoose = require('mongoose');
+const bcrypt = require('bcryptjs');
+const XLSX = require('xlsx');
+
+const connectDB = require('../config/db');
+const User = require('../models/User');
+const Class = require('../models/Class');
+const Team = require('../models/Team');
+const Schedule = require('../models/Schedule');
+const Attendance = require('../models/Attendance');
+const Enrollment = require('../models/Enrollment');
+const Counter = require('../models/Counter');
+
+const EXCEL_PATH = process.env.EXCEL_PATH || 'C:/Users/anhha/Downloads/TMS_Import_Ready.xlsx';
+const CONFIRMED = process.env.CONFIRM_WIPE === 'YES';
+const DEFAULT_PASSWORD = 'default12345';
+const VN_OFFSET = '+07:00';
+
+function log(...args) { console.log(...args); }
+function section(title) { log('\n' + '═'.repeat(60) + '\n' + title + '\n' + '═'.repeat(60)); }
+
+function readSheets() {
+  const wb = XLSX.readFile(EXCEL_PATH);
+  const get = (name) => XLSX.utils.sheet_to_json(wb.Sheets[name], { raw: false, defval: '' });
+  return {
+    users: get('Users'),
+    classes: get('Classes'),
+    teams: get('Teams'),
+    sessions: get('Sessions'),
+    attendance: get('Attendance'),
+  };
+}
+
+function normDateStr(v) {
+  if (!v) return '';
+  if (v instanceof Date) {
+    const y = v.getFullYear(), m = String(v.getMonth() + 1).padStart(2, '0'), d = String(v.getDate()).padStart(2, '0');
+    return `${y}-${m}-${d}`;
+  }
+  const s = String(v).trim();
+  // Already YYYY-MM-DD
+  if (/^\d{4}-\d{2}-\d{2}/.test(s)) return s.slice(0, 10);
+  // M/D/YYYY or D/M/YYYY (Excel sometimes localizes)
+  const m = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+  if (m) {
+    const [, a, b, y] = m;
+    return `${y}-${String(b).padStart(2, '0')}-${String(a).padStart(2, '0')}`;
+  }
+  return s;
+}
+
+function vnDate(dateStr, hhmm) {
+  return new Date(`${dateStr}T${hhmm}:00${VN_OFFSET}`);
+}
+
+async function chunkedHash(passwords) {
+  const CHUNK = 50;
+  const out = [];
+  for (let i = 0; i < passwords.length; i += CHUNK) {
+    const slice = passwords.slice(i, i + CHUNK);
+    const hashed = await Promise.all(slice.map(p => bcrypt.hash(p, 12)));
+    out.push(...hashed);
+  }
+  return out;
+}
+
+async function main() {
+  section('TMS RE-IMPORT FROM EXCEL');
+  log('Excel file: ' + EXCEL_PATH);
+  log('Mode: ' + (CONFIRMED ? '🔥 EXECUTE (wipe + import)' : '🧪 DRY RUN (no DB writes)'));
+
+  const data = readSheets();
+  log(`\nExcel rows: Users=${data.users.length} Classes=${data.classes.length} Teams=${data.teams.length} Sessions=${data.sessions.length} Attendance=${data.attendance.length}`);
+
+  if (!process.env.MONGO_URI) {
+    console.error('❌ MONGO_URI not set in server/.env');
+    process.exit(1);
+  }
+  await connectDB();
+
+  // ── Current state ──
+  section('CURRENT DATABASE STATE');
+  const cur = {
+    users: await mongoose.connection.db.collection('users').countDocuments(),
+    admins: await User.countDocuments({ role: 'Admin' }),
+    classes: await mongoose.connection.db.collection('classes').countDocuments(),
+    teams: await mongoose.connection.db.collection('teams').countDocuments(),
+    schedules: await mongoose.connection.db.collection('schedules').countDocuments(),
+    attendance: await mongoose.connection.db.collection('attendances').countDocuments(),
+    enrollments: await mongoose.connection.db.collection('enrollments').countDocuments(),
+  };
+  log(JSON.stringify(cur, null, 2));
+
+  if (!CONFIRMED) {
+    section('DRY RUN — exiting before any writes');
+    log('Re-run with: CONFIRM_WIPE=YES node server/scripts/reimport_from_excel.js');
+    await mongoose.disconnect();
+    return;
+  }
+
+  // ────────────────────────────────────────────────────────
+  // STEP 1 — WIPE (keep Admin users + Settings)
+  // ────────────────────────────────────────────────────────
+  section('STEP 1 — WIPE');
+  // Use raw collection to bypass soft-delete middleware on Team/User
+  const dropResults = {
+    attendance: await mongoose.connection.db.collection('attendances').deleteMany({}),
+    schedules: await mongoose.connection.db.collection('schedules').deleteMany({}),
+    enrollments: await mongoose.connection.db.collection('enrollments').deleteMany({}),
+    teams: await mongoose.connection.db.collection('teams').deleteMany({}),
+    classes: await mongoose.connection.db.collection('classes').deleteMany({}),
+    users: await mongoose.connection.db.collection('users').deleteMany({ role: { $ne: 'Admin' } }),
+  };
+  for (const [k, r] of Object.entries(dropResults)) log(`  ${k}: deleted ${r.deletedCount}`);
+
+  await Counter.updateMany(
+    { _id: { $in: ['empCode', 'classCode'] } },
+    { $set: { seq: 0 } },
+    { upsert: false }
+  );
+  log('  counters reset (empCode, classCode → 0)');
+
+  // ────────────────────────────────────────────────────────
+  // STEP 2 — IMPORT USERS
+  // ────────────────────────────────────────────────────────
+  section('STEP 2 — IMPORT USERS');
+  const passwordHash = await bcrypt.hash(DEFAULT_PASSWORD, 12);
+  const userOps = [];
+  for (const u of data.users) {
+    const empCode = String(u.empCode || '').trim().toUpperCase();
+    if (!empCode || !u.name) continue;
+    userOps.push({
+      updateOne: {
+        filter: { empCode },
+        update: {
+          $set: {
+            name: String(u.name).trim(),
+            role: u.role || 'Participant',
+            status: u.status || 'Active',
+            department: u.department || '',
+            position: u.position || '',
+            dropReason: u.dropReason || '',
+            entranceLevel: u.entranceLevel || '',
+            currentLevel: u.currentLevel || '',
+          },
+          $setOnInsert: { empCode, password: passwordHash },
+        },
+        upsert: true,
+      },
+    });
+  }
+  const userRes = await User.bulkWrite(userOps, { ordered: false });
+  log(`  upserts=${userOps.length} inserted=${userRes.upsertedCount} matched=${userRes.matchedCount} modified=${userRes.modifiedCount}`);
+
+  // Build empCode → ObjectId map
+  const userDocs = await User.find({}, { empCode: 1 }).lean();
+  const userMap = new Map(userDocs.map(u => [u.empCode.toUpperCase(), u._id]));
+  log(`  total users in DB now: ${userDocs.length} (incl. preserved Admins)`);
+
+  // ────────────────────────────────────────────────────────
+  // STEP 3 — IMPORT CLASSES
+  // ────────────────────────────────────────────────────────
+  section('STEP 3 — IMPORT CLASSES');
+  const classOps = data.classes.map(c => ({
+    updateOne: {
+      filter: { classCode: String(c.classCode).toUpperCase().trim(), courseName: String(c.courseName).trim() },
+      update: {
+        $set: {
+          classCode: String(c.classCode).toUpperCase().trim(),
+          courseName: String(c.courseName).trim(),
+          totalSessions: Number(c.totalSessions) || 1,
+          status: c.status || 'Ongoing',
+        },
+      },
+      upsert: true,
+    },
+  }));
+  const classRes = await Class.bulkWrite(classOps, { ordered: false });
+  log(`  upserts=${classOps.length} inserted=${classRes.upsertedCount} matched=${classRes.matchedCount}`);
+
+  const classDocs = await Class.find({}).lean();
+  const classMap = new Map(classDocs.map(c => [`${c.classCode}|${c.courseName}`, c._id]));
+  log(`  total classes in DB: ${classDocs.length}`);
+
+  // ────────────────────────────────────────────────────────
+  // STEP 4 — IMPORT TEAMS
+  // ────────────────────────────────────────────────────────
+  section('STEP 4 — IMPORT TEAMS');
+  const teamMap = new Map(); // `${classCode}|${courseName}` → { teamId, memberIds, leaderId }
+  let teamCreated = 0, teamErrors = 0;
+  for (const t of data.teams) {
+    const key = `${String(t.classCode).toUpperCase().trim()}|${String(t.courseName).trim()}`;
+    const classId = classMap.get(key);
+    const leaderId = userMap.get(String(t.leaderEmpCode).toUpperCase().trim());
+    if (!classId) { log(`  ⚠ team "${t.name}" — class not found: ${key}`); teamErrors++; continue; }
+    if (!leaderId) { log(`  ⚠ team "${t.name}" — leader not found: ${t.leaderEmpCode}`); teamErrors++; continue; }
+    const memberIds = String(t.memberEmpCodes || '')
+      .split(',').map(s => s.trim()).filter(Boolean)
+      .map(c => userMap.get(c.toUpperCase()))
+      .filter(Boolean);
+    try {
+      const team = await Team.create({
+        name: String(t.name).trim(),
+        classId,
+        leaderId,
+        members: memberIds,
+      });
+      teamMap.set(key, { teamId: team._id, memberIds, leaderId, classId });
+      teamCreated++;
+    } catch (err) {
+      log(`  ❌ team "${t.name}" (${key}): ${err.message}`);
+      teamErrors++;
+    }
+  }
+  log(`  created=${teamCreated} errors=${teamErrors}`);
+
+  // ────────────────────────────────────────────────────────
+  // STEP 5 — IMPORT ENROLLMENTS
+  // ────────────────────────────────────────────────────────
+  section('STEP 5 — IMPORT ENROLLMENTS');
+  const enrollmentDocs = [];
+  const now = new Date();
+  for (const { teamId, memberIds, classId } of teamMap.values()) {
+    for (const userId of memberIds) {
+      enrollmentDocs.push({ userId, teamId, classId, status: 'Active', joinedAt: now });
+    }
+  }
+  let enrollmentCreated = 0;
+  try {
+    const result = await Enrollment.insertMany(enrollmentDocs, { ordered: false });
+    enrollmentCreated = result.length;
+  } catch (err) {
+    enrollmentCreated = err.insertedDocs ? err.insertedDocs.length : 0;
+    log(`  ⚠ partial: ${enrollmentCreated}/${enrollmentDocs.length} (${err.writeErrors ? err.writeErrors.length : 0} dup/err)`);
+  }
+  log(`  created=${enrollmentCreated} of ${enrollmentDocs.length}`);
+
+  // ────────────────────────────────────────────────────────
+  // STEP 6 — IMPORT SESSIONS → SCHEDULE
+  // ────────────────────────────────────────────────────────
+  section('STEP 6 — IMPORT SCHEDULES');
+  const scheduleDocs = [];
+  let sessionSkipped = 0;
+  for (const s of data.sessions) {
+    const key = `${String(s.classCode).toUpperCase().trim()}|${String(s.courseName).trim()}`;
+    const team = teamMap.get(key);
+    const classId = classMap.get(key);
+    if (!team || !classId) { sessionSkipped++; continue; }
+    const dateStr = normDateStr(s.date);
+    const startTime = vnDate(dateStr, String(s.startTime).trim());
+    const endTime = vnDate(dateStr, String(s.endTime).trim());
+    if (isNaN(startTime) || isNaN(endTime)) { sessionSkipped++; continue; }
+    scheduleDocs.push({
+      classId,
+      bookedTeamId: team.teamId,
+      startTime,
+      endTime,
+      capacity: Math.max(team.memberIds.length, 9),
+      enrolledUsers: team.memberIds,
+      _classCode: String(s.classCode).toUpperCase().trim(),
+      _courseName: String(s.courseName).trim(),
+      _dateStr: dateStr,
+    });
+  }
+  // Strip helper fields before insert
+  const inserts = scheduleDocs.map(({ _classCode, _courseName, _dateStr, ...rest }) => rest);
+  let scheduleCreated = 0;
+  try {
+    const result = await Schedule.insertMany(inserts, { ordered: false });
+    scheduleCreated = result.length;
+    // Attach _id back to scheduleDocs (insertMany preserves order with ordered:false on success)
+    for (let i = 0; i < result.length; i++) scheduleDocs[i]._id = result[i]._id;
+  } catch (err) {
+    log(`  ⚠ schedule insert err: ${err.message}`);
+  }
+  log(`  created=${scheduleCreated} skipped=${sessionSkipped}`);
+
+  // Build lookup: `${classCode}|${dateStr}` → [{ scheduleId, courseName, enrolledSet }]
+  const scheduleLookup = new Map();
+  for (const sd of scheduleDocs) {
+    if (!sd._id) continue;
+    const k = `${sd._classCode}|${sd._dateStr}`;
+    const enrolledSet = new Set(sd.enrolledUsers.map(id => String(id)));
+    if (!scheduleLookup.has(k)) scheduleLookup.set(k, []);
+    scheduleLookup.get(k).push({ scheduleId: sd._id, courseName: sd._courseName, enrolledSet });
+  }
+
+  // ────────────────────────────────────────────────────────
+  // STEP 7 — IMPORT ATTENDANCE
+  // ────────────────────────────────────────────────────────
+  section('STEP 7 — IMPORT ATTENDANCE');
+  const attendanceDocs = [];
+  let attSkipped = 0;
+  const skipReasons = { noSchedule: 0, noUser: 0, ambiguousUnresolved: 0, badStatus: 0 };
+  const VALID_STATUS = new Set(['P', 'A', 'L', 'EL']);
+
+  for (const a of data.attendance) {
+    const classCode = String(a.classCode).toUpperCase().trim();
+    const dateStr = normDateStr(a.sessionDate);
+    const empCode = String(a.empCode).toUpperCase().trim();
+    const status = String(a.status).trim().toUpperCase();
+    if (!VALID_STATUS.has(status)) { skipReasons.badStatus++; attSkipped++; continue; }
+
+    const userId = userMap.get(empCode);
+    if (!userId) { skipReasons.noUser++; attSkipped++; continue; }
+
+    const candidates = scheduleLookup.get(`${classCode}|${dateStr}`);
+    if (!candidates || candidates.length === 0) { skipReasons.noSchedule++; attSkipped++; continue; }
+
+    let chosen = candidates[0];
+    if (candidates.length > 1) {
+      const userIdStr = String(userId);
+      const matched = candidates.find(c => c.enrolledSet.has(userIdStr));
+      if (!matched) { skipReasons.ambiguousUnresolved++; attSkipped++; continue; }
+      chosen = matched;
+    }
+
+    attendanceDocs.push({
+      scheduleId: chosen.scheduleId,
+      userId,
+      status,
+      remark: a.remark || '',
+    });
+  }
+
+  let attCreated = 0;
+  try {
+    const result = await Attendance.insertMany(attendanceDocs, { ordered: false });
+    attCreated = result.length;
+  } catch (err) {
+    attCreated = err.insertedDocs ? err.insertedDocs.length : 0;
+    log(`  ⚠ partial insert: ${attCreated}/${attendanceDocs.length}`);
+  }
+  log(`  created=${attCreated} skipped=${attSkipped} reasons=${JSON.stringify(skipReasons)}`);
+
+  // ────────────────────────────────────────────────────────
+  // STEP 8 — FINAL REPORT
+  // ────────────────────────────────────────────────────────
+  section('FINAL REPORT');
+  const finalCounts = {
+    users: await User.countDocuments({}),
+    admins: await User.countDocuments({ role: 'Admin' }),
+    classes: await Class.countDocuments({}),
+    teams: await mongoose.connection.db.collection('teams').countDocuments({}),
+    schedules: await Schedule.countDocuments({}),
+    attendance: await Attendance.countDocuments({}),
+    enrollments: await Enrollment.countDocuments({}),
+  };
+  log(JSON.stringify(finalCounts, null, 2));
+
+  await mongoose.disconnect();
+  log('\n✅ Done.');
+}
+
+main().catch(err => {
+  console.error('\n❌ Fatal:', err);
+  process.exit(1);
+});
