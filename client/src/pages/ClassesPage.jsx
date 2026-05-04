@@ -196,6 +196,8 @@ export default function ClassesPage() {
                           : 0;
                         const isComplete = cls.status === 'Completed';
                         const noSessions = cls.bookedSessions === 0;
+                        const hasTeam = !!teamByClassCode[code];
+                        const showWarning = noSessions && !hasTeam;
                         const barColor = isComplete
                           ? 'bg-slate-500'
                           : pct >= 80 ? 'bg-amber-500' : 'bg-emerald-500';
@@ -204,9 +206,9 @@ export default function ClassesPage() {
                           <td key={course} className="px-2 py-2 text-center">
                             <button
                               onClick={() => navigate(`/classes/${cls._id}`)}
-                              title={noSessions ? 'No schedules — likely missing team assignment' : undefined}
+                              title={showWarning ? 'No team assigned — cannot book sessions' : noSessions ? 'No sessions booked yet' : undefined}
                               className={`w-full rounded-xl px-3 py-2.5 transition-all text-left hover:scale-[1.02] ${
-                                noSessions
+                                showWarning
                                   ? 'bg-amber-500/10 border border-amber-500/30 hover:border-amber-400/50'
                                   : isComplete
                                   ? 'bg-slate-500/10 border border-slate-500/15 hover:border-slate-400/30'
@@ -215,13 +217,13 @@ export default function ClassesPage() {
                             >
                               {/* Status badge */}
                               <span className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-semibold ${
-                                noSessions
+                                showWarning
                                   ? 'bg-amber-500/20 text-amber-300'
                                   : isComplete
                                   ? 'bg-slate-500/20 text-slate-400'
                                   : 'bg-emerald-500/20 text-emerald-400'
                               }`}>
-                                {noSessions ? '⚠️ No team' : cls.status}
+                                {showWarning ? '⚠️ No team' : cls.status}
                               </span>
 
                               {/* Session progress */}
