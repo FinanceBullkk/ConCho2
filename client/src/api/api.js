@@ -138,4 +138,12 @@ export const dashboardAPI = {
   getStats: () => api.get('/dashboard/stats'),
 };
 
+// ── Admin Database Explorer ───────────────────────────────
+export const adminDbAPI = {
+  getCollections: () => api.get('/admin-db/collections'),
+  query: (collection, params) => api.get(`/admin-db/${collection}`, { params }),
+  update: (collection, id, data) => api.put(`/admin-db/${collection}/${id}`, data),
+  remove: (collection, id) => api.delete(`/admin-db/${collection}/${id}`),
+};
+
 export default api;
