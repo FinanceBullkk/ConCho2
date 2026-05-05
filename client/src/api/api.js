@@ -21,7 +21,9 @@ api.interceptors.response.use(
   (error) => {
     if (error.response?.status === 401) {
       const url = error.config?.url || '';
-      if (!url.includes('/auth/me')) {
+      // Skip auth endpoints — login/me failures are handled by their own UI.
+      // Only fire auth-expired for protected API calls that fail mid-session.
+      if (!url.includes('/auth/')) {
         // Instead of hard-redirecting, we dispatch an event so the App can
         // show a non-intrusive "Session expired" modal without losing form data.
         localStorage.removeItem('tms_user');
