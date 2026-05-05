@@ -17,7 +17,9 @@
       "Bash(git -C E:/ConCho2 push)",
       "mcp__Claude_Preview__preview_start",
       "mcp__Claude_in_Chrome__list_connected_browsers",
-      "Bash(npx tsc *)"
+      "Bash(npx tsc *)",
+      "Bash(node server/scripts/reimport_from_excel.js)",
+      "Bash(git add *)"
     ]
   }
 }
