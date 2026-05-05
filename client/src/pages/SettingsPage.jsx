@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import toast from 'react-hot-toast';
+import { toast } from 'sonner';
 import { useSettings, useUpdateSettings } from '../hooks/useSettings';
 
 export default function SettingsPage() {
