@@ -48,16 +48,26 @@ const getUsers = async (req, res) => {
     }
 
     const { page, limit, skip } = parsePagination(req);
+
+    // Sortable columns whitelist
+    const SORTABLE = ['empCode', 'name', 'department', 'position', 'status', 'role', 'entranceLevel', 'currentLevel'];
+    const sortBy = SORTABLE.includes(req.query.sortBy) ? req.query.sortBy : 'empCode';
+    const sortOrder = req.query.sortOrder === 'desc' ? -1 : 1;
+
     const [users, total] = await Promise.all([
-      User.find(filter).sort({ empCode: 1 }).skip(skip).limit(limit),
+      User.find(filter).sort({ [sortBy]: sortOrder }).skip(skip).limit(limit),
       User.countDocuments(filter),
     ]);
 
-    // Compute lastActive date for each user via attendance records
+    // Compute lastActive date for each user via their most recent attended session
+    // We join Attendance → Schedule to get the actual session date (startTime),
+    // NOT Attendance.createdAt which is when the admin marked attendance.
     const userIds = users.map(u => u._id);
     const lastActiveAgg = await Attendance.aggregate([
-      { $match: { userId: { $in: userIds } } },
-      { $group: { _id: '$userId', lastDate: { $max: '$createdAt' } } },
+      { $match: { userId: { $in: userIds }, status: { $in: ['P', 'L'] } } },
+      { $lookup: { from: 'schedules', localField: 'scheduleId', foreignField: '_id', as: 'schedule' } },
+      { $unwind: '$schedule' },
+      { $group: { _id: '$userId', lastDate: { $max: '$schedule.startTime' } } },
     ]);
     const lastActiveMap = {};
     for (const a of lastActiveAgg) {

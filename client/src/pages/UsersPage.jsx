@@ -131,6 +131,8 @@ export default function UsersPage() {
   const [deleteId, setDeleteId] = useState(null);
   const [page, setPage] = useState(1);
   const [progressModal, setProgressModal] = useState(null); // { id, name }
+  const [sortBy, setSortBy] = useState('empCode');
+  const [sortOrder, setSortOrder] = useState('asc');
 
   // UX-06: Browser tab title
   useEffect(() => { document.title = 'TMS — Users'; }, []);
@@ -142,12 +144,27 @@ export default function UsersPage() {
   }, [search]);
 
   const queryParams = useMemo(() => {
-    const params = { page, limit: PAGE_SIZE };
+    const params = { page, limit: PAGE_SIZE, sortBy, sortOrder };
     if (filterRole) params.role = filterRole;
     if (filterStatus) params.status = filterStatus;
     if (debouncedSearch.trim()) params.search = debouncedSearch.trim();
     return params;
-  }, [page, filterRole, filterStatus, debouncedSearch]);
+  }, [page, filterRole, filterStatus, debouncedSearch, sortBy, sortOrder]);
+
+  const handleSort = (col) => {
+    if (sortBy === col) {
+      setSortOrder(prev => prev === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortBy(col);
+      setSortOrder('asc');
+    }
+    setPage(1);
+  };
+
+  const SortIcon = ({ col }) => {
+    if (sortBy !== col) return <span className="text-slate-600 ml-0.5">↕</span>;
+    return <span className="text-primary-400 ml-0.5">{sortOrder === 'asc' ? '↑' : '↓'}</span>;
+  };
 
   const { data: usersData, isLoading: loading } = useUsers(queryParams);
   const users = usersData?.data || [];
@@ -236,8 +253,21 @@ export default function UsersPage() {
           <table className="w-full text-sm">
             <thead className="border-b border-white/5">
               <tr className="text-left text-slate-400 text-xs uppercase tracking-wider">
-                {['Code', 'Name', 'BU', 'Position', 'Level', 'Status', 'Team / Class', 'Last Active', 'Actions'].map((h) => (
-                  <th key={h} className="px-4 py-3 font-medium">{h}</th>
+                {[
+                  { key: 'empCode', label: 'Code' },
+                  { key: 'name', label: 'Name' },
+                  { key: 'department', label: 'BU' },
+                  { key: 'position', label: 'Position' },
+                  { key: 'currentLevel', label: 'Level' },
+                  { key: 'status', label: 'Status' },
+                  { key: null, label: 'Team / Class' },
+                  { key: null, label: 'Last Active' },
+                  { key: null, label: 'Actions' },
+                ].map((h) => (
+                  <th key={h.label} className={`px-4 py-3 font-medium ${h.key ? 'cursor-pointer hover:text-white select-none transition-colors' : ''}`}
+                    onClick={h.key ? () => handleSort(h.key) : undefined}>
+                    {h.label}{h.key && <SortIcon col={h.key} />}
+                  </th>
                 ))}
               </tr>
             </thead>
