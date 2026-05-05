@@ -44,6 +44,32 @@ const formatDate = (d) => {
   } catch { return String(d); }
 };
 
+// Convert Date to "YYYY-MM-DDTHH:mm" in local tz for <input type="datetime-local">
+const toLocalDateTime = (d) => {
+  if (!d) return '';
+  const dt = new Date(d);
+  if (isNaN(dt.getTime())) return '';
+  const pad = (n) => String(n).padStart(2, '0');
+  return `${dt.getFullYear()}-${pad(dt.getMonth() + 1)}-${pad(dt.getDate())}T${pad(dt.getHours())}:${pad(dt.getMinutes())}`;
+};
+
+// Known enum values per field — rendered as <select> in inline edit
+const STATUS_ENUMS = {
+  status: ['Active', 'Inactive', 'Dropped', 'Transferred', 'On-hold', 'Waiting for class', 'Ongoing', 'Completed'],
+  role: ['Admin', 'Leader', 'Participant'],
+};
+
+// Returns inline edit mode for a field/value pair, or null if not editable inline
+const cellEditMode = (field, value) => {
+  if (['_id', '__v', 'createdAt', 'updatedAt'].includes(field)) return null;
+  if (Array.isArray(value)) return null;
+  if (value && typeof value === 'object') return null; // populated refs
+  if (DATE_FIELDS.includes(field)) return 'datetime';
+  if (typeof value === 'boolean') return 'boolean';
+  if (STATUS_ENUMS[field]) return 'select';
+  return 'text';
+};
+
 // Format a cell value for display
 const formatValue = (key, value) => {
   if (value === null || value === undefined) return <span className="text-slate-600">null</span>;
@@ -156,6 +182,9 @@ export default function DatabaseExplorer() {
   const [loading, setLoading] = useState(false);
   const [editDoc, setEditDoc] = useState(null);
   const [deleteTarget, setDeleteTarget] = useState(null);
+  const [editingCell, setEditingCell] = useState(null); // { docId, field, value, mode }
+  const [savingCell, setSavingCell] = useState(false);
+  const [cellError, setCellError] = useState(null);     // { docId, field, message }
   const [includeDeleted, setIncludeDeleted] = useState(false);
   const [sortField, setSortField] = useState('-updatedAt');
 
@@ -199,6 +228,43 @@ export default function DatabaseExplorer() {
   ];
 
   const totalPages = Math.ceil(total / limit);
+
+  const beginCellEdit = (doc, field) => {
+    const mode = cellEditMode(field, doc[field]);
+    if (!mode) return;
+    let initial;
+    if (mode === 'datetime') initial = toLocalDateTime(doc[field]);
+    else if (mode === 'boolean') initial = !!doc[field];
+    else initial = doc[field] === null || doc[field] === undefined ? '' : String(doc[field]);
+    setEditingCell({ docId: doc._id, field, value: initial, mode });
+    setCellError(null);
+  };
+
+  const cancelCellEdit = () => { setEditingCell(null); setSavingCell(false); };
+
+  const saveCellEdit = async () => {
+    if (!editingCell) return;
+    const { docId, field, value, mode } = editingCell;
+    const original = docs.find(d => d._id === docId)?.[field];
+    let payloadValue = value;
+    if (mode === 'datetime') payloadValue = value ? new Date(value).toISOString() : null;
+    else if (mode === 'boolean') payloadValue = !!value;
+    else if (mode === 'text') {
+      if (typeof original === 'number' && value !== '' && !isNaN(Number(value))) payloadValue = Number(value);
+      if (value === '') payloadValue = null;
+    }
+    setSavingCell(true);
+    setCellError(null);
+    try {
+      await adminDbAPI.update(activeCollection, docId, { [field]: payloadValue });
+      setDocs(prev => prev.map(d => d._id === docId ? { ...d, [field]: payloadValue } : d));
+      setEditingCell(null);
+    } catch (err) {
+      setCellError({ docId, field, message: err.response?.data?.message || 'Update failed' });
+    } finally {
+      setSavingCell(false);
+    }
+  };
 
   const handleDelete = async () => {
     if (!deleteTarget) return;
@@ -303,16 +369,69 @@ export default function DatabaseExplorer() {
                     <td className="sticky left-0 z-10 bg-slate-900/95 backdrop-blur-sm px-3 py-2.5 border-r border-white/5 text-slate-500 text-xs">
                       {(page - 1) * limit + idx + 1}
                     </td>
-                    {orderedFields.slice(0, 12).map(f => (
-                      <td key={f} className="px-3 py-2.5 text-slate-300 whitespace-nowrap max-w-[200px] truncate">
-                        {formatValue(f, doc[f])}
-                      </td>
-                    ))}
+                    {orderedFields.slice(0, 12).map(f => {
+                      const isEditing = editingCell?.docId === doc._id && editingCell?.field === f;
+                      const mode = cellEditMode(f, doc[f]);
+                      const editable = !!mode;
+                      const errHere = cellError?.docId === doc._id && cellError?.field === f;
+                      const onKey = (e) => {
+                        if (e.key === 'Enter') { e.preventDefault(); saveCellEdit(); }
+                        else if (e.key === 'Escape') { e.preventDefault(); cancelCellEdit(); }
+                      };
+                      if (isEditing) return (
+                        <td key={f} className="px-2 py-1 bg-primary-500/10 border border-primary-500/40 min-w-[140px]">
+                          {editingCell.mode === 'datetime' && (
+                            <input type="datetime-local" autoFocus disabled={savingCell}
+                              value={editingCell.value}
+                              onChange={e => setEditingCell(c => ({ ...c, value: e.target.value }))}
+                              onBlur={saveCellEdit} onKeyDown={onKey}
+                              className="w-full px-2 py-1 rounded bg-slate-900 border border-white/10 text-white text-xs focus:outline-none focus:ring-1 focus:ring-primary-400" />
+                          )}
+                          {editingCell.mode === 'select' && (
+                            <select autoFocus disabled={savingCell}
+                              value={editingCell.value}
+                              onChange={e => setEditingCell(c => ({ ...c, value: e.target.value }))}
+                              onBlur={saveCellEdit} onKeyDown={onKey}
+                              className="w-full px-2 py-1 rounded bg-slate-900 border border-white/10 text-white text-xs focus:outline-none focus:ring-1 focus:ring-primary-400">
+                              {STATUS_ENUMS[f].map(opt => <option key={opt} value={opt} className="bg-slate-800">{opt}</option>)}
+                            </select>
+                          )}
+                          {editingCell.mode === 'boolean' && (
+                            <select autoFocus disabled={savingCell}
+                              value={String(editingCell.value)}
+                              onChange={e => setEditingCell(c => ({ ...c, value: e.target.value === 'true' }))}
+                              onBlur={saveCellEdit} onKeyDown={onKey}
+                              className="w-full px-2 py-1 rounded bg-slate-900 border border-white/10 text-white text-xs focus:outline-none focus:ring-1 focus:ring-primary-400">
+                              <option value="true" className="bg-slate-800">true</option>
+                              <option value="false" className="bg-slate-800">false</option>
+                            </select>
+                          )}
+                          {editingCell.mode === 'text' && (
+                            <input type="text" autoFocus disabled={savingCell}
+                              value={editingCell.value}
+                              onChange={e => setEditingCell(c => ({ ...c, value: e.target.value }))}
+                              onBlur={saveCellEdit} onKeyDown={onKey}
+                              className="w-full px-2 py-1 rounded bg-slate-900 border border-white/10 text-white text-xs font-mono focus:outline-none focus:ring-1 focus:ring-primary-400" />
+                          )}
+                          {errHere && <div className="text-[10px] text-red-400 mt-0.5">{cellError.message}</div>}
+                        </td>
+                      );
+                      return (
+                        <td key={f}
+                          onClick={editable ? () => beginCellEdit(doc, f) : undefined}
+                          title={editable ? 'Click để sửa · Enter lưu · Esc hủy' : undefined}
+                          className={`px-3 py-2.5 text-slate-300 whitespace-nowrap max-w-[200px] truncate transition-colors ${
+                            editable ? 'cursor-pointer hover:bg-primary-500/10 hover:ring-1 hover:ring-inset hover:ring-primary-500/30' : ''
+                          } ${errHere ? 'ring-1 ring-red-500/60 bg-red-500/10' : ''}`}>
+                          {formatValue(f, doc[f])}
+                        </td>
+                      );
+                    })}
                     <td className="sticky right-0 z-10 bg-slate-900/95 backdrop-blur-sm px-3 py-2.5 text-center border-l border-white/5">
                       <div className="flex items-center justify-center gap-1">
                         <button onClick={() => setEditDoc(doc)}
                           className="px-2 py-1 rounded-lg text-slate-400 hover:text-primary-300 hover:bg-primary-500/10 transition-all text-xs"
-                          title="Edit">✏️</button>
+                          title="Edit all fields (modal)">✏️</button>
                         <button onClick={() => setDeleteTarget(doc)}
                           className="px-2 py-1 rounded-lg text-slate-400 hover:text-red-400 hover:bg-red-500/10 transition-all text-xs"
                           title="Delete">🗑</button>
