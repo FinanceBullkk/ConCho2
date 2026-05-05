@@ -19,7 +19,8 @@
       "mcp__Claude_in_Chrome__list_connected_browsers",
       "Bash(npx tsc *)",
       "Bash(node server/scripts/reimport_from_excel.js)",
-      "Bash(git add *)"
+      "Bash(git add *)",
+      "Bash(node scripts/check_enrolled.js)"
     ]
   }
 }
