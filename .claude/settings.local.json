@@ -20,7 +20,12 @@
       "Bash(npx tsc *)",
       "Bash(node server/scripts/reimport_from_excel.js)",
       "Bash(git add *)",
-      "Bash(node scripts/check_enrolled.js)"
+      "Bash(node scripts/check_enrolled.js)",
+      "Bash(nslookup _mongodb._tcp.cluster0.mhtjnsw.mongodb.net)",
+      "Bash(curl -s --max-time 10 https://cluster0.mhtjnsw.mongodb.net)",
+      "Bash(ping -n 2 cluster0.mhtjnsw.mongodb.net)",
+      "Bash(curl -s http://localhost:5000/api/health)",
+      "Bash(curl -s http://localhost:3001/api/health)"
     ]
   }
 }
