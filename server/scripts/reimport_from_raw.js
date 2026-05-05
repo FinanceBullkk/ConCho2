@@ -90,7 +90,9 @@ const section = (t) => log('\n' + '═'.repeat(60) + '\n' + t + '\n' + '═'.rep
 function excelSerialToDate(serial) {
   if (typeof serial !== 'number' || !isFinite(serial)) return null;
   const utcMs = (serial - 25569) * 86400 * 1000;
-  return new Date(utcMs - 7 * 3600 * 1000);
+  // Round to nearest minute to avoid floating-point drift (e.g. 13:59:59.999 → 14:00:00)
+  const raw = utcMs - 7 * 3600 * 1000;
+  return new Date(Math.round(raw / 60000) * 60000);
 }
 
 // "YYYY-MM-DD" portion (UTC) for grouping schedules by calendar date if needed
