@@ -148,6 +148,7 @@ export default function AttendancePage() {
           department: user.department,
           status: prev?.status || 'P',
           remark: prev?.remark || '',
+          isMarked: !!prev,
         };
       });
 
@@ -159,11 +160,11 @@ export default function AttendancePage() {
   };
 
   const updateRecord = (idx, field, value) => {
-    setRecords((prev) => prev.map((r, i) => i === idx ? { ...r, [field]: value } : r));
+    setRecords((prev) => prev.map((r, i) => i === idx ? { ...r, [field]: value, isMarked: true } : r));
   };
 
   const markAll = (status) => {
-    setRecords((prev) => prev.map((r) => ({ ...r, status })));
+    setRecords((prev) => prev.map((r) => ({ ...r, status, isMarked: true })));
   };
 
   const handleSubmit = async () => {
@@ -430,7 +431,18 @@ export default function AttendancePage() {
                 </h2>
                 <span className={`text-xs font-bold ${ps.labelCls}`}>{ps.label}</span>
               </div>
-              <p className="text-sm text-slate-400">{records.length} students enrolled · {selectedSchedule.classId?.courseName}</p>
+              <p className="text-sm text-slate-400">
+                {records.length} students enrolled · {selectedSchedule.classId?.courseName}
+                {(() => {
+                  const unmarked = records.filter((r) => !r.isMarked).length;
+                  if (unmarked === 0) return null;
+                  return (
+                    <span className="ml-2 px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-400 border border-amber-500/30 text-xs font-semibold">
+                      {unmarked} chưa điểm danh
+                    </span>
+                  );
+                })()}
+              </p>
             </div>
             {/* Quick mark all buttons */}
             <div className="flex gap-2">
@@ -450,7 +462,12 @@ export default function AttendancePage() {
           {/* Roster */}
           <div className="space-y-2 stagger">
             {records.map((record, idx) => (
-              <div key={record.userId} className="glass-light rounded-xl p-4 flex flex-col sm:flex-row sm:items-center gap-3">
+              <div
+                key={record.userId}
+                className={`glass-light rounded-xl p-4 flex flex-col sm:flex-row sm:items-center gap-3 ${
+                  !record.isMarked ? 'border border-amber-500/30 bg-amber-500/5' : ''
+                }`}
+              >
                 {/* Student info */}
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">
@@ -458,7 +475,14 @@ export default function AttendancePage() {
                       {record.empCode?.slice(-2)}
                     </div>
                     <div>
-                      <div className="font-medium text-white text-sm truncate">{record.name}</div>
+                      <div className="font-medium text-white text-sm truncate flex items-center gap-2">
+                        {record.name}
+                        {!record.isMarked && (
+                          <span className="px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-400 border border-amber-500/30 text-[10px] font-semibold">
+                            chưa điểm danh
+                          </span>
+                        )}
+                      </div>
                       <div className="text-xs text-slate-500">{record.empCode} • {record.department}</div>
                     </div>
                   </div>
@@ -471,7 +495,7 @@ export default function AttendancePage() {
                       key={opt.value}
                       onClick={() => updateRecord(idx, 'status', opt.value)}
                       className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all ${
-                        record.status === opt.value
+                        record.isMarked && record.status === opt.value
                           ? opt.color + ' scale-105 shadow-md'
                           : 'border-white/5 text-slate-500 hover:border-white/15 hover:text-slate-300'
                       }`}

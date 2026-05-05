@@ -544,7 +544,7 @@ const getAttendanceCalendar = async ({ from, to } = {}) => {
 
   // Step 4: Compute status for each schedule
   return schedules.map(s => {
-    const enrolled = s.enrolledCount || 0;
+    const enrolled = (s.enrolledUsers || []).length;
     const marked = countMap[s._id.toString()] || 0;
 
     let attendanceStatus;
@@ -558,7 +558,7 @@ const getAttendanceCalendar = async ({ from, to } = {}) => {
       attendanceStatus = 'done';    // All marked
     }
 
-    return { ...s, attendanceStatus, markedCount: marked };
+    return { ...s, enrolledCount: enrolled, attendanceStatus, markedCount: marked };
   });
 };
 
