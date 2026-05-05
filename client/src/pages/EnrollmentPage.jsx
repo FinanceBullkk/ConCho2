@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import toast from 'react-hot-toast';
+import { toast } from 'sonner';
 import Portal from '../components/Portal';
 import { useTeams } from '../hooks/useTeams';
 import { useEnrollmentsByTeam, useUpdateEnrollment } from '../hooks/useEnrollments';

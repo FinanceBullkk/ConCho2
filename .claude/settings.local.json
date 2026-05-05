@@ -25,7 +25,11 @@
       "Bash(curl -s --max-time 10 https://cluster0.mhtjnsw.mongodb.net)",
       "Bash(ping -n 2 cluster0.mhtjnsw.mongodb.net)",
       "Bash(curl -s http://localhost:5000/api/health)",
-      "Bash(curl -s http://localhost:3001/api/health)"
+      "Bash(curl -s http://localhost:3001/api/health)",
+      "Bash(npx eslint *)",
+      "Bash(grep -E \"\\\\.\\(js|ts\\)$\")",
+      "Bash(xargs wc *)",
+      "Bash(npx vite *)"
     ]
   }
 }
