@@ -52,8 +52,14 @@ const allowedOrigins = (process.env.CORS_ORIGINS || 'http://localhost:5173,http:
 app.use(
   cors({
     origin: (origin, cb) => {
-      // Allow requests with no origin (Postman, curl, server-to-server).
-      if (!origin) return cb(null, true);
+      // In production, require an Origin header to prevent automated
+      // cross-origin attacks from scripts/curl (SEC-ADD-06).
+      // In development, allow origin-less requests (Postman, curl).
+      if (!origin) {
+        return process.env.NODE_ENV === 'production'
+          ? cb(new Error('CORS: origin header required'))
+          : cb(null, true);
+      }
       if (allowedOrigins.includes(origin)) return cb(null, true);
       return cb(new Error(`CORS: origin ${origin} not allowed`));
     },
@@ -69,6 +75,11 @@ app.use(express.urlencoded({ extended: true }));
 // ── NoSQL Injection Prevention ───────────────────────────
 // Strips keys containing $ or . from req.body, req.query, req.params
 app.use(mongoSanitize());
+
+// ── Global Rate Limiters (SEC-RL-01/02) ──────────────────
+const { globalLimiter, globalWriteLimiter } = require('./middleware/rateLimiters');
+app.use('/api', globalLimiter);       // 200 requests/min per IP (all endpoints)
+app.use('/api', globalWriteLimiter);   // 60 writes/min per user (POST/PUT/PATCH/DELETE)
 
 // ── Request logger (dev only) ────────────────────────────
 if (process.env.NODE_ENV !== 'production') {

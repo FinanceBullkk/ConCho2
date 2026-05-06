@@ -5,6 +5,41 @@ const rateLimit = require('express-rate-limit');
 const IS_TEST = process.env.NODE_ENV === 'test';
 const validateOpts = IS_TEST ? false : { ip: false };
 const skipInTest = () => IS_TEST;
+
+// ──────────────────────────────────────────────────────────
+// Rate Limiters (SEC-04 + SEC-RL-01/02)
+// ──────────────────────────────────────────────────────────
+
+/**
+ * Global API rate limiter: max 200 requests/min per IP.
+ * Prevents scraping, enumeration, and brute-force across all endpoints.
+ * SEC-RL-02
+ */
+const globalLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 200,
+  standardHeaders: true,
+  legacyHeaders: false,
+  skip: skipInTest,
+  message: { success: false, message: 'Too many requests. Please slow down.' },
+  validate: validateOpts,
+});
+
+/**
+ * Global write rate limiter: max 60 write requests/min per user/IP.
+ * Covers all POST/PUT/PATCH/DELETE requests that aren't covered by
+ * specific limiters. SEC-RL-01
+ */
+const globalWriteLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 60,
+  standardHeaders: true,
+  legacyHeaders: false,
+  skip: (req) => IS_TEST || req.method === 'GET',
+  message: { success: false, message: 'Too many write requests. Please slow down.' },
+  validate: validateOpts,
+  keyGenerator: (req) => (req.user ? req.user._id.toString() : req.ip),
+});
 // ──────────────────────────────────────────────────────────
 // Rate Limiters for Write Endpoints (SEC-04)
 // ──────────────────────────────────────────────────────────
@@ -82,6 +117,8 @@ const syncLimiter = rateLimit({
 });
 
 module.exports = {
+  globalLimiter,
+  globalWriteLimiter,
   bookingLimiter,
   importLimiter,
   attendanceLimiter,
