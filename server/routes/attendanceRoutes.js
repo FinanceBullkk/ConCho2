@@ -13,9 +13,10 @@ const { bulkMarkBody } = require('../schemas/attendance');
 const { idParam } = require('../schemas/common');
 
 // Analytics endpoints — cached for 30 min, invalidated on new attendance writes
-router.get('/analytics/by-employee', protect, cacheMiddleware('analytics:by-employee'), getAnalyticsByEmployee);
-router.get('/analytics/by-team',     protect, cacheMiddleware('analytics:by-team'),     getAnalyticsByTeam);
-router.get('/analytics/by-class',    protect, cacheMiddleware('analytics:by-class'),    getAnalyticsByClass);
+// SEC-IDOR-02: Restricted to Admin/Teacher — Participants must not see org-wide analytics
+router.get('/analytics/by-employee', protect, roleGuard('Admin', 'Teacher'), cacheMiddleware('analytics:by-employee'), getAnalyticsByEmployee);
+router.get('/analytics/by-team',     protect, roleGuard('Admin', 'Teacher'), cacheMiddleware('analytics:by-team'),     getAnalyticsByTeam);
+router.get('/analytics/by-class',    protect, roleGuard('Admin', 'Teacher'), cacheMiddleware('analytics:by-class'),    getAnalyticsByClass);
 
 // Participant personal stats
 router.get('/my-stats', protect, getMyStats);
