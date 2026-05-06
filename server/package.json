@@ -7,7 +7,11 @@
     "start": "node server.js",
     "dev": "node --watch server.js",
     "seed": "node seed.js",
-    "test": "jest --runInBand --forceExit --detectOpenHandles"
+    "test": "jest --runInBand --forceExit --detectOpenHandles",
+    "test:smoke": "npx artillery run tests/load/smoke-test.yml",
+    "test:load": "npx artillery run tests/load/load-test.yml",
+    "test:spike": "npx artillery run tests/load/spike-test.yml",
+    "test:load:report": "npx artillery run tests/load/load-test.yml --output tests/load/report.json && npx artillery report tests/load/report.json"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",
@@ -28,6 +32,7 @@
   },
   "devDependencies": {
     "@jest/globals": "^30.3.0",
+    "artillery": "^2.0.31",
     "jest": "^30.3.0",
     "mongodb-memory-server": "^11.1.0",
     "supertest": "^7.2.2"
@@ -35,7 +40,9 @@
   "jest": {
     "testEnvironment": "node",
     "testTimeout": 30000,
-    "testMatch": ["**/tests/**/*.test.js"],
+    "testMatch": [
+      "**/tests/**/*.test.js"
+    ],
     "verbose": true
   }
 }
