@@ -12,14 +12,24 @@ const { handleError } = require('../helpers/handleError');
 const login = async (req, res) => {
   try {
     const { empCode, password } = req.body;
-    const { token, user, cookieOptions } = await authService.authenticate(empCode, password);
+    const result = await authService.authenticate(empCode, password);
 
-    // Set HttpOnly cookie (primary auth)
+    // Two-step login: if MFA is enabled, return the pending token in
+    // the JSON body (NOT a cookie) so the client can pass it back to
+    // /api/auth/mfa/verify with the user's TOTP code.
+    if (result.mfaRequired) {
+      return res.json({
+        success: true,
+        data: {
+          mfaRequired: true,
+          mfaPendingToken: result.mfaPendingToken,
+        },
+      });
+    }
+
+    const { token, user, cookieOptions } = result;
     res.cookie('tms_token', token, cookieOptions);
 
-    // Audit successful login. Failure cases are logged via the warn-level
-    // logger inside authService — we don't audit failed logins to avoid
-    // an attack vector that pollutes the audit collection.
     auditService.record({
       req: { ...req, user: { _id: user._id, role: user.role, empCode: user.empCode } },
       action: 'logged-in',
@@ -31,6 +41,202 @@ const login = async (req, res) => {
       success: true,
       data: { user },
     });
+  } catch (error) {
+    handleError(res, error);
+  }
+};
+
+/**
+ * POST /api/auth/mfa/verify
+ *
+ * Second leg of MFA-protected login. Body: { mfaPendingToken, code }.
+ * On success, sets the regular session cookie.
+ */
+const mfaVerifyLogin = async (req, res) => {
+  try {
+    const { mfaPendingToken, code } = req.body;
+    const { token, user, cookieOptions, backupCodeUsed } =
+      await authService.verifyMfaLogin(mfaPendingToken, code);
+
+    res.cookie('tms_token', token, cookieOptions);
+
+    auditService.record({
+      req: { ...req, user: { _id: user._id, role: user.role, empCode: user.empCode } },
+      action: 'logged-in',
+      entity: 'Auth',
+      entityId: user._id,
+      note: backupCodeUsed ? 'MFA verified via backup code' : 'MFA verified via TOTP',
+    });
+
+    res.json({
+      success: true,
+      data: { user, backupCodeUsed: !!backupCodeUsed },
+    });
+  } catch (error) {
+    handleError(res, error);
+  }
+};
+
+/**
+ * POST /api/auth/mfa/setup
+ *
+ * Step 1 of enrolling MFA on the caller's own account. Returns a fresh
+ * secret + QR code. Caller must complete enrollment with verify-setup.
+ *
+ * NOTE: We don't persist mfaEnabled=true here. The user must prove
+ * possession of the device first by passing back a valid 6-digit code
+ * via /mfa/verify-setup.
+ */
+const mfaSetup = async (req, res) => {
+  try {
+    const mfaService = require('../services/mfaService');
+    const User = require('../models/User');
+
+    const setup = await mfaService.generateSetup(req.user.empCode);
+
+    // Persist the secret immediately (so verify-setup can read it) but
+    // keep mfaEnabled=false. If the user abandons the flow, the secret
+    // sits unused and is overwritten on the next setup attempt.
+    await User.updateOne(
+      { _id: req.user._id },
+      { $set: { mfaSecret: setup.base32 } }
+    );
+
+    res.json({
+      success: true,
+      data: {
+        qrCodeDataUrl: setup.qrCodeDataUrl,
+        otpauthUrl: setup.otpauthUrl,
+        // base32 is also returned so users with apps that can't scan
+        // a QR code can manually enter the secret.
+        secretBase32: setup.base32,
+      },
+    });
+  } catch (error) {
+    handleError(res, error);
+  }
+};
+
+/**
+ * POST /api/auth/mfa/verify-setup
+ *
+ * Step 2 of enrollment. Body: { code }. If the code matches the stored
+ * mfaSecret, mfaEnabled flips true and 8 backup codes are returned ONCE.
+ */
+const mfaVerifySetup = async (req, res) => {
+  try {
+    const mfaService = require('../services/mfaService');
+    const User = require('../models/User');
+    const { code } = req.body;
+
+    const user = await User.findById(req.user._id).select('+mfaSecret');
+    if (!user || !user.mfaSecret) {
+      return res.status(400).json({
+        success: false,
+        message: 'No pending MFA setup. Call /mfa/setup first.',
+      });
+    }
+
+    if (!mfaService.verifyToken(user.mfaSecret, code)) {
+      return res.status(401).json({ success: false, message: 'Invalid code' });
+    }
+
+    const { plain, hashed } = await mfaService.generateBackupCodes();
+    user.mfaEnabled = true;
+    user.mfaBackupCodes = hashed;
+    await user.save();
+
+    auditService.record({
+      req,
+      action: 'mfa-enabled',
+      entity: 'User',
+      entityId: user._id,
+    });
+
+    res.json({
+      success: true,
+      message: 'MFA enabled. Save these backup codes — they will not be shown again.',
+      data: { backupCodes: plain },
+    });
+  } catch (error) {
+    handleError(res, error);
+  }
+};
+
+/**
+ * POST /api/auth/mfa/disable
+ *
+ * Body: { code }. Self-service disable. Requires a valid TOTP/backup code
+ * to prove the device is still in the user's possession (otherwise an
+ * attacker who steals a session cookie could turn off MFA silently).
+ */
+const mfaDisable = async (req, res) => {
+  try {
+    const mfaService = require('../services/mfaService');
+    const User = require('../models/User');
+    const { code } = req.body;
+
+    const user = await User.findById(req.user._id).select('+mfaSecret +mfaBackupCodes');
+    if (!user || !user.mfaEnabled) {
+      return res.status(400).json({ success: false, message: 'MFA is not enabled' });
+    }
+
+    let ok = mfaService.verifyToken(user.mfaSecret, code);
+    if (!ok) {
+      const remaining = await mfaService.consumeBackupCode(user.mfaBackupCodes || [], code);
+      if (remaining) ok = true;
+    }
+    if (!ok) {
+      return res.status(401).json({ success: false, message: 'Invalid code' });
+    }
+
+    user.mfaEnabled = false;
+    user.mfaSecret = null;
+    user.mfaBackupCodes = [];
+    await user.save();
+
+    auditService.record({
+      req,
+      action: 'mfa-disabled',
+      entity: 'User',
+      entityId: user._id,
+    });
+
+    res.json({ success: true, message: 'MFA disabled' });
+  } catch (error) {
+    handleError(res, error);
+  }
+};
+
+/**
+ * POST /api/auth/mfa/admin-disable/:userId
+ *
+ * Admin override. Used when a user has lost their device. Does NOT
+ * require a code — the admin's own session is the authorization.
+ * Audit-logged with the admin as actor and the target user as entity.
+ */
+const mfaAdminDisable = async (req, res) => {
+  try {
+    const User = require('../models/User');
+    const user = await User.findById(req.params.userId);
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'User not found' });
+    }
+
+    user.mfaEnabled = false;
+    user.mfaSecret = null;
+    user.mfaBackupCodes = [];
+    await user.save();
+
+    auditService.record({
+      req,
+      action: 'mfa-admin-disabled',
+      entity: 'User',
+      entityId: user._id,
+      note: `MFA reset by admin for ${user.empCode}`,
+    });
+
+    res.json({ success: true, message: `MFA disabled for ${user.empCode}` });
   } catch (error) {
     handleError(res, error);
   }
@@ -151,4 +357,15 @@ const adminForceLogout = async (req, res) => {
   }
 };
 
-module.exports = { login, logout, getMe, changePassword, adminForceLogout };
+module.exports = {
+  login,
+  logout,
+  getMe,
+  changePassword,
+  adminForceLogout,
+  mfaVerifyLogin,
+  mfaSetup,
+  mfaVerifySetup,
+  mfaDisable,
+  mfaAdminDisable,
+};
