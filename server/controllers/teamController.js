@@ -5,6 +5,7 @@ const Schedule = require('../models/Schedule');
 const Attendance = require('../models/Attendance');
 const Enrollment = require('../models/Enrollment');
 const { handleError } = require('../helpers/handleError');
+const auditService = require('../services/auditService');
 
 // ──────────────────────────────────────────────────────────
 // Team Controller (Admin Only)
@@ -216,6 +217,14 @@ const createTeam = async (req, res) => {
       .populate('leaderId', 'empCode name department status')
       .populate('members', 'empCode name department status');
 
+    auditService.record({
+      req,
+      action: 'created',
+      entity: 'Team',
+      entityId: team._id,
+      diff: { after: { name: team.name, classId: team.classId, leaderId: team.leaderId, memberCount: memberList.length } },
+    });
+
     res.status(201).json({ success: true, data: populated });
   } catch (error) {
     handleError(res, error);
@@ -344,6 +353,17 @@ const updateTeam = async (req, res) => {
       .populate('leaderId', 'empCode name department status')
       .populate('members', 'empCode name department status');
 
+    auditService.record({
+      req,
+      action: 'updated',
+      entity: 'Team',
+      entityId: req.params.id,
+      diff: auditService.diff(
+        { name: currentTeam.name, classId: currentTeam.classId, leaderId: currentTeam.leaderId, members: oldMemberStrs },
+        { name: populated.name, classId: populated.classId?._id, leaderId: populated.leaderId?._id, members: newMemberStrs }
+      ),
+    });
+
     res.json({ success: true, data: populated });
   } catch (error) {
     handleError(res, error);
@@ -415,6 +435,14 @@ const deleteTeam = async (req, res) => {
       session.endSession();
     }
 
+    auditService.record({
+      req,
+      action: 'soft-deleted',
+      entity: 'Team',
+      entityId: team._id,
+      note: `Closed ${closedEnrollments} enrollments`,
+    });
+
     res.json({
       success: true,
       message: `Team "${team.name}" soft-deleted (can be restored)`,
@@ -444,6 +472,13 @@ const restoreTeam = async (req, res) => {
       { _id: new mongoose.Types.ObjectId(req.params.id) },
       { $set: { isDeleted: false, deletedAt: null } }
     );
+
+    auditService.record({
+      req,
+      action: 'restored',
+      entity: 'Team',
+      entityId: team._id,
+    });
 
     res.json({
       success: true,

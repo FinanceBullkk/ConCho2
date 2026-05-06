@@ -1,4 +1,5 @@
 const Evaluation = require('../models/Evaluation');
+const auditService = require('../services/auditService');
 const { handleError } = require('../helpers/handleError');
 
 // ──────────────────────────────────────────────────────────
@@ -21,12 +22,24 @@ const upsertEvaluation = async (req, res) => {
       });
     }
 
+    const before = await Evaluation.findOne({ classId, userId }).lean();
+
     const evaluation = await Evaluation.findOneAndUpdate(
       { classId, userId },
       { level, grammarScore, vocabularyScore, pronunciationScore,
         fluencyScore, teacherComment },
       { new: true, upsert: true, runValidators: true }
     );
+
+    auditService.record({
+      req,
+      action: before ? 'updated' : 'created',
+      entity: 'Evaluation',
+      entityId: evaluation._id,
+      diff: before
+        ? auditService.diff(before, evaluation.toObject())
+        : { after: { classId, userId, level, grammarScore, vocabularyScore, pronunciationScore, fluencyScore } },
+    });
 
     res.json({ success: true, data: evaluation });
   } catch (error) {
@@ -78,6 +91,15 @@ const deleteEvaluation = async (req, res) => {
   try {
     const evaluation = await Evaluation.findByIdAndDelete(req.params.id);
     if (!evaluation) return res.status(404).json({ success: false, message: 'Evaluation not found' });
+
+    auditService.record({
+      req,
+      action: 'deleted',
+      entity: 'Evaluation',
+      entityId: evaluation._id,
+      diff: { before: evaluation.toObject() },
+    });
+
     res.json({ success: true, message: 'Evaluation deleted' });
   } catch (error) {
     handleError(res, error);
