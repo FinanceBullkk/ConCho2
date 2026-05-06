@@ -68,6 +68,9 @@ const importUsers = async (users) => {
         const empCode = u.empCode.trim().toUpperCase();
         const setFields = { empCode };
         if (u.name !== undefined) setFields.name = u.name;
+        if (u.email !== undefined && u.email !== null && u.email !== '') {
+          setFields.email = String(u.email).trim().toLowerCase();
+        }
         if (u.role !== undefined) setFields.role = u.role;
         if (u.department !== undefined) setFields.department = u.department;
         if (u.status !== undefined) setFields.status = u.status;
