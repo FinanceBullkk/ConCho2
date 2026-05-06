@@ -9,9 +9,14 @@ const { idParam } = require('../schemas/common');
 // Create/update: Teacher or Admin (validated)
 router.post('/', protect, roleGuard('Admin', 'Teacher'), validate({ body: upsertEvaluationBody }), upsertEvaluation);
 
-// Read: any authenticated user
-router.get('/', protect, getEvaluations);
-router.get('/:id', protect, getEvaluationById);
+// Read: Admin/Teacher see all, Participants restricted to own records (SEC-IDOR-01)
+router.get('/', protect, (req, _res, next) => {
+  if (req.user.role === 'Participant') {
+    req.query.userId = req.user._id.toString();
+  }
+  next();
+}, getEvaluations);
+router.get('/:id', protect, roleGuard('Admin', 'Teacher'), getEvaluationById);
 
 // Delete: Admin only
 router.delete('/:id', protect, roleGuard('Admin'), deleteEvaluation);
