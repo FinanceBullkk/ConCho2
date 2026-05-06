@@ -1,6 +1,7 @@
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
 const NodeCache = require('node-cache');
+const { isTokenRevoked } = require('../services/authService');
 
 // ── User cache for auth middleware ────────────────────────
 // Short TTL (30s) to minimise the window where a demoted user
@@ -54,6 +55,21 @@ const protect = async (req, res, next) => {
 
     // Verify token
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
+
+    // Reject revoked tokens (Phase 1.4). Tokens issued before this
+    // change have no JTI — those are still accepted (graceful rollout).
+    // Once all old tokens have expired you could optionally enforce
+    // JTI presence here.
+    if (decoded.jti && (await isTokenRevoked(decoded.jti))) {
+      return res.status(401).json({
+        success: false,
+        message: 'Session has been revoked. Please log in again.',
+      });
+    }
+
+    // Expose the JTI + exp so the logout handler can revoke this exact token.
+    req.tokenJti = decoded.jti || null;
+    req.tokenExp = decoded.exp || null;
 
     // Cached user lookup — avoids DB query on every request
     // Use lean() to cache plain objects instead of heavy Mongoose documents
