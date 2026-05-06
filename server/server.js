@@ -59,20 +59,69 @@ if (process.env.NODE_ENV !== 'test') {
 // behind a load balancer so rate-limit keys on real IPs).
 app.set('trust proxy', 1);
 
-// ── Security headers ──────────────────────────────────────
+// ── Security headers (Phase 1.5) ──────────────────────────
+// CSP notes:
+//   - style-src KEEPS 'unsafe-inline' because Radix UI / Floating UI
+//     set dynamic inline styles for popover positioning. Removing
+//     it requires either CSP nonces (every component touched) or
+//     migrating to a positioning library that uses classes only.
+//     Tracked as Phase 5 polish work.
+//   - object-src 'none' blocks Flash/PDF/Java applet embedding.
+//   - base-uri 'self' prevents <base> tag injection (an XSS escalator).
+//   - form-action 'self' prevents <form action="evil.com"> attacks.
+//   - frame-ancestors 'none' is a stronger X-Frame-Options: prevents
+//     this app from being iframed anywhere (clickjacking).
 app.use(helmet({
   contentSecurityPolicy: {
     directives: {
-      defaultSrc: ["'self'"],
-      scriptSrc:  ["'self'"],
-      styleSrc:   ["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com'],
-      fontSrc:    ["'self'", 'https://fonts.gstatic.com'],
-      imgSrc:     ["'self'", 'data:', 'https:'],
-      connectSrc: ["'self'"],
+      defaultSrc:    ["'self'"],
+      scriptSrc:     ["'self'"],
+      styleSrc:      ["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com'],
+      fontSrc:       ["'self'", 'https://fonts.gstatic.com'],
+      imgSrc:        ["'self'", 'data:', 'https:'],
+      connectSrc:    ["'self'"],
+      objectSrc:     ["'none'"],
+      baseUri:       ["'self'"],
+      formAction:    ["'self'"],
+      frameAncestors: ["'none'"],
+      // Force HTTPS at the browser level in production.
+      ...(process.env.NODE_ENV === 'production'
+        ? { upgradeInsecureRequests: [] }
+        : {}),
     },
   },
   crossOriginEmbedderPolicy: false,
+  // Cross-Origin-Opener-Policy: protects against side-channel attacks
+  // (Spectre) and window.opener leaks.
+  crossOriginOpenerPolicy: { policy: 'same-origin' },
+  // Cross-Origin-Resource-Policy: prevents this app's resources being
+  // loaded by other origins.
+  crossOriginResourcePolicy: { policy: 'same-site' },
+  // Referrer-Policy: don't leak the URL on outbound navigation.
+  referrerPolicy: { policy: 'no-referrer' },
 }));
+
+// Permissions-Policy: deny access to powerful browser APIs we don't use.
+// Helmet doesn't ship a built-in Permissions-Policy in v8, so we set
+// the header directly. Each entry says "no origin can use this feature".
+app.use((_req, res, next) => {
+  res.setHeader(
+    'Permissions-Policy',
+    [
+      'camera=()',
+      'microphone=()',
+      'geolocation=()',
+      'payment=()',
+      'usb=()',
+      'magnetometer=()',
+      'gyroscope=()',
+      'accelerometer=()',
+      'autoplay=()',
+      'fullscreen=(self)',
+    ].join(', ')
+  );
+  next();
+});
 
 // ── CORS allowlist ────────────────────────────────────────
 // CORS_ORIGINS is a comma-separated list of allowed origins.
