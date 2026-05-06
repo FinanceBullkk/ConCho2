@@ -7,6 +7,7 @@ import {
   ShieldCog,
   CalendarPlus,
   LogOut,
+  UserCog,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { Button } from '@/components/ui/button';
@@ -116,6 +117,15 @@ export default function Navbar() {
               {user.role} · {user.empCode}
             </span>
           </div>
+          <Link to="/me/settings" title="Account settings">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="text-slate-400 hover:bg-primary-500/10 hover:text-primary-300"
+            >
+              <UserCog className="size-4" />
+            </Button>
+          </Link>
           <Button
             variant="ghost"
             size="icon"
