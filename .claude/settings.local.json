@@ -29,7 +29,8 @@
       "Bash(npx eslint *)",
       "Bash(grep -E \"\\\\.\\(js|ts\\)$\")",
       "Bash(xargs wc *)",
-      "Bash(npx vite *)"
+      "Bash(npx vite *)",
+      "Bash(gh --version)"
     ]
   }
 }
