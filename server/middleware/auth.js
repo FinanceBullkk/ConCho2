@@ -56,6 +56,16 @@ const protect = async (req, res, next) => {
     // Verify token
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
+    // Reject MFA-pending tokens on normal protected routes.
+    // A pending token only authorizes /api/auth/mfa/verify; using it
+    // anywhere else would defeat the second factor.
+    if (decoded.mfa === 'pending') {
+      return res.status(401).json({
+        success: false,
+        message: 'MFA challenge incomplete. Submit your second-factor code.',
+      });
+    }
+
     // Reject revoked tokens (Phase 1.4). Tokens issued before this
     // change have no JTI — those are still accepted (graceful rollout).
     // Once all old tokens have expired you could optionally enforce

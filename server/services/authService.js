@@ -2,6 +2,7 @@ const jwt = require('jsonwebtoken');
 const { v4: uuidv4 } = require('uuid');
 const User = require('../models/User');
 const TokenBlocklist = require('../models/TokenBlocklist');
+const mfaService = require('./mfaService');
 const logger = require('../lib/logger');
 
 // ──────────────────────────────────────────────────────────
@@ -43,6 +44,20 @@ const generateToken = (userId) => {
     { id: userId, jti: uuidv4() },
     process.env.JWT_SECRET,
     { expiresIn: JWT_EXPIRE }
+  );
+};
+
+/**
+ * Generate a short-lived MFA-pending token. Carries `mfa: 'pending'`
+ * so the auth middleware (and helpers) can refuse to treat it as a
+ * fully-authenticated session. 5-minute TTL caps the exchange window.
+ */
+const MFA_PENDING_EXPIRE = '5m';
+const generateMfaPendingToken = (userId) => {
+  return jwt.sign(
+    { id: userId, jti: uuidv4(), mfa: 'pending' },
+    process.env.JWT_SECRET,
+    { expiresIn: MFA_PENDING_EXPIRE }
   );
 };
 
@@ -110,7 +125,7 @@ const authenticate = async (empCode, password) => {
   const normalizedCode = empCode.trim().toUpperCase();
 
   const user = await User.findOne({ empCode: normalizedCode })
-    .select('+password +failedLoginAttempts +lockUntil');
+    .select('+password +failedLoginAttempts +lockUntil +mfaSecret');
   if (!user) {
     // Generic message — do not reveal whether the account exists.
     throw new ServiceError('Invalid credentials', 401);
@@ -152,6 +167,16 @@ const authenticate = async (empCode, password) => {
     );
   }
 
+  // If MFA is enabled, do NOT issue a full session. Issue a short-lived
+  // pending token; the client must call /api/auth/mfa/verify with a TOTP
+  // (or backup) code to complete login.
+  if (user.mfaEnabled) {
+    return {
+      mfaRequired: true,
+      mfaPendingToken: generateMfaPendingToken(user._id),
+    };
+  }
+
   const token = generateToken(user._id);
 
   return {
@@ -168,9 +193,76 @@ const authenticate = async (empCode, password) => {
   };
 };
 
+/**
+ * Second leg of MFA-protected login. Caller passes the mfa-pending token
+ * (issued by authenticate()) plus a 6-digit TOTP code or a backup code.
+ *
+ * On success: returns the same shape as a normal authenticate() response.
+ */
+const verifyMfaLogin = async (mfaPendingToken, code) => {
+  if (!mfaPendingToken || !code) {
+    throw new ServiceError('mfaPendingToken and code are required');
+  }
+
+  let decoded;
+  try {
+    decoded = jwt.verify(mfaPendingToken, process.env.JWT_SECRET);
+  } catch (err) {
+    throw new ServiceError('MFA challenge expired. Please log in again.', 401);
+  }
+  if (decoded.mfa !== 'pending') {
+    throw new ServiceError('Invalid MFA challenge token', 401);
+  }
+
+  const user = await User.findById(decoded.id)
+    .select('+mfaSecret +mfaBackupCodes');
+  if (!user || !user.mfaEnabled || !user.mfaSecret) {
+    // Don't leak whether the account exists or has MFA configured.
+    throw new ServiceError('Invalid MFA challenge', 401);
+  }
+
+  // Try TOTP first; fall back to backup codes.
+  let ok = mfaService.verifyToken(user.mfaSecret, code);
+  let backupCodeUsed = false;
+  if (!ok) {
+    const remaining = await mfaService.consumeBackupCode(user.mfaBackupCodes || [], code);
+    if (remaining) {
+      user.mfaBackupCodes = remaining;
+      await user.save();
+      backupCodeUsed = true;
+      ok = true;
+      logger.warn(
+        { userId: user._id.toString(), remaining: remaining.length },
+        'MFA backup code consumed'
+      );
+    }
+  }
+
+  if (!ok) {
+    throw new ServiceError('Invalid MFA code', 401);
+  }
+
+  const token = generateToken(user._id);
+
+  return {
+    token,
+    cookieOptions: getCookieOptions(),
+    backupCodeUsed,
+    user: {
+      _id: user._id,
+      empCode: user.empCode,
+      name: user.name,
+      role: user.role,
+      department: user.department,
+      status: user.status,
+    },
+  };
+};
+
 module.exports = {
   ServiceError,
   authenticate,
+  verifyMfaLogin,
   getCookieOptions,
   revokeToken,
   isTokenRevoked,
