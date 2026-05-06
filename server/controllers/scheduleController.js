@@ -66,8 +66,8 @@ const getScheduleById = async (req, res) => {
 
 const getMyClassSchedules = async (req, res) => {
   try {
-    const { schedules, team } = await scheduleService.getMyClassSchedules(req.user._id);
-    res.json({ success: true, count: schedules.length, data: schedules, team });
+    const { schedules, team, leader } = await scheduleService.getMyClassSchedules(req.user._id);
+    res.json({ success: true, count: schedules.length, data: schedules, team, leader });
   } catch (error) {
     handleError(res, error);
   }
