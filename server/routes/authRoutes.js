@@ -1,7 +1,8 @@
 const router = require('express').Router();
 const { z } = require('zod');
-const { login, logout, getMe, changePassword } = require('../controllers/authController');
+const { login, logout, getMe, changePassword, adminForceLogout } = require('../controllers/authController');
 const { protect } = require('../middleware/auth');
+const { roleGuard } = require('../middleware/roleGuard');
 const { validate } = require('../middleware/validate');
 const { loginLimiter } = require('../middleware/rateLimiters');
 const { loginBody } = require('../schemas/auth');
@@ -15,6 +16,9 @@ router.post('/login', loginLimiter, validate({ body: loginBody }), login);
 router.post('/logout', protect, logout);
 router.get('/me', protect, getMe);
 router.put('/change-password', protect, validate({ body: changePasswordBody }), changePassword);
+
+// Admin kill-switch: invalidate every session for a target user.
+router.post('/admin/force-logout/:userId', protect, roleGuard('Admin'), adminForceLogout);
 
 module.exports = router;
 

@@ -4,6 +4,7 @@ const Schedule = require('../models/Schedule');
 const Attendance = require('../models/Attendance');
 const { parsePagination, paginatedResponse } = require('../helpers/pagination');
 const { handleError } = require('../helpers/handleError');
+const auditService = require('../services/auditService');
 
 // ──────────────────────────────────────────────────────────
 // Schedule Controller (Thin — delegates to Service Layer)
@@ -17,6 +18,16 @@ const bookTeamSlot = async (req, res) => {
       endTime: req.body.endTime,
       requestUser: req.user,
     });
+
+    auditService.record({
+      req,
+      action: 'created',
+      entity: 'Schedule',
+      entityId: result._id,
+      diff: { after: { teamId: req.body.teamId, startTime: req.body.startTime, endTime: req.body.endTime, enrolledCount: result.enrolledUsers?.length || 0 } },
+      note: 'Booked by team leader',
+    });
+
     res.status(201).json({
       success: true,
       message: `Booked successfully! ${result.enrolledUsers?.length || 0} members enrolled.`,
@@ -30,6 +41,15 @@ const bookTeamSlot = async (req, res) => {
 const cancelSlot = async (req, res) => {
   try {
     await scheduleService.cancelSlot(req.params.id, req.user);
+
+    auditService.record({
+      req,
+      action: 'cancelled',
+      entity: 'Schedule',
+      entityId: req.params.id,
+      note: 'Cancelled by team leader',
+    });
+
     res.json({ success: true, message: 'Schedule cancelled and removed' });
   } catch (error) {
     handleError(res, error);
@@ -76,6 +96,16 @@ const getMyClassSchedules = async (req, res) => {
 const createSchedule = async (req, res) => {
   try {
     const schedule = await scheduleService.adminCreate(req.body);
+
+    auditService.record({
+      req,
+      action: 'created',
+      entity: 'Schedule',
+      entityId: schedule._id,
+      diff: { after: { classId: schedule.classId, bookedTeamId: schedule.bookedTeamId, startTime: schedule.startTime, endTime: schedule.endTime } },
+      note: 'Created by admin',
+    });
+
     res.status(201).json({ success: true, data: schedule });
   } catch (error) {
     handleError(res, error);
@@ -187,6 +217,14 @@ const updateSchedule = async (req, res) => {
       session.endSession();
     }
 
+    auditService.record({
+      req,
+      action: 'updated',
+      entity: 'Schedule',
+      entityId: req.params.id,
+      diff: auditService.diff(existing.toObject(), schedule.toObject()),
+    });
+
     res.json({ success: true, data: schedule });
   } catch (error) {
     handleError(res, error);
@@ -212,6 +250,15 @@ const deleteSchedule = async (req, res) => {
     }
 
     scheduleService.invalidateSessionOrderCache(schedule.classId);
+
+    auditService.record({
+      req,
+      action: 'deleted',
+      entity: 'Schedule',
+      entityId: schedule._id,
+      note: `Cascade: ${deletedAttendance} attendance records`,
+    });
+
     res.json({
       success: true,
       message: 'Schedule deleted',

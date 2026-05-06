@@ -6,6 +6,7 @@ const Enrollment = require('../models/Enrollment');
 const Evaluation = require('../models/Evaluation');
 const { getNextSequence } = require('../helpers/counter');
 const { handleError } = require('../helpers/handleError');
+const auditService = require('../services/auditService');
 
 /**
  * GET /api/classes
@@ -123,6 +124,15 @@ const createClass = async (req, res) => {
     }
 
     const cls = await Class.create({ classCode: classCode.toUpperCase(), courseName, totalSessions, status });
+
+    auditService.record({
+      req,
+      action: 'created',
+      entity: 'Class',
+      entityId: cls._id,
+      diff: { after: { classCode: cls.classCode, courseName: cls.courseName, status: cls.status, totalSessions: cls.totalSessions } },
+    });
+
     res.status(201).json({ success: true, data: cls });
   } catch (error) {
     // Handle duplicate key (classCode + courseName)
@@ -174,6 +184,15 @@ const updateClass = async (req, res) => {
       new: true, runValidators: true,
     });
     if (!cls) return res.status(404).json({ success: false, message: 'Class not found' });
+
+    auditService.record({
+      req,
+      action: 'updated',
+      entity: 'Class',
+      entityId: cls._id,
+      diff: auditService.diff(existingCls.toObject(), cls.toObject()),
+    });
+
     res.json({ success: true, data: cls });
   } catch (error) {
     handleError(res, error);
@@ -227,6 +246,14 @@ const deleteClass = async (req, res) => {
     } finally {
       session.endSession();
     }
+
+    auditService.record({
+      req,
+      action: 'deleted',
+      entity: 'Class',
+      entityId: cls._id,
+      note: `Cascade: ${deletedEvaluations} evaluations, ${deletedEnrollments} enrollments. Class: ${cls.classCode} - ${cls.courseName}`,
+    });
 
     res.json({
       success: true,

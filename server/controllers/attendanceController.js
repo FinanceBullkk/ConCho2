@@ -1,4 +1,5 @@
 const attendanceService = require('../services/attendanceService');
+const auditService = require('../services/auditService');
 const { handleError } = require('../helpers/handleError');
 
 // ──────────────────────────────────────────────────────────
@@ -8,6 +9,15 @@ const { handleError } = require('../helpers/handleError');
 const bulkMarkAttendance = async (req, res) => {
   try {
     const result = await attendanceService.bulkMark(req.params.scheduleId, req.body.records);
+
+    auditService.record({
+      req,
+      action: 'marked',
+      entity: 'Attendance',
+      entityId: req.params.scheduleId,
+      note: `Bulk mark: ${result.upserted} created, ${result.modified} updated for schedule ${req.params.scheduleId}`,
+    });
+
     res.json({
       success: true,
       message: `Attendance processed: ${result.upserted} created, ${result.modified} updated`,
