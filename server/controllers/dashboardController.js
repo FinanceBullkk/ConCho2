@@ -246,7 +246,7 @@ const getDashboardStats = async (req, res) => {
         dropClassifications: dropClassificationAgg.map(d => ({ classification: d._id, count: d.count })),
         classProgress: classes.map(cls => {
           const s = schedMap[cls._id.toString()] || { done: 0, teacherId: null };
-          return { classCode: cls.classCode, courseName: cls.courseName, totalSessions: cls.totalSessions, doneSessions: s.done, progress: cls.totalSessions > 0 ? s.done / cls.totalSessions : 0, status: cls.status, teacher: s.teacherId ? teacherMap[s.teacherId.toString()] || null : null };
+          return { _id: cls._id, classCode: cls.classCode, courseName: cls.courseName, totalSessions: cls.totalSessions, doneSessions: s.done, progress: cls.totalSessions > 0 ? s.done / cls.totalSessions : 0, status: cls.status, teacher: s.teacherId ? teacherMap[s.teacherId.toString()] || null : null };
         }),
         departmentBreakdown: departmentAgg.map(d => {
           const obj = { department: d._id, total: d.total, active: 0, inactive: 0, waiting: 0 };
