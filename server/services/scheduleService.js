@@ -348,11 +348,17 @@ const getById = async (id) => {
  * Get upcoming schedules for a participant's team/class.
  */
 const getMyClassSchedules = async (userId) => {
-  const teams = await Team.find({ members: userId }).select('classId name').lean();
-  if (teams.length === 0) return { schedules: [], team: null };
+  const teams = await Team.find({ members: userId })
+    .select('classId name leaderId')
+    .populate('leaderId', 'name empCode email department')
+    .lean();
+  if (teams.length === 0) return { schedules: [], team: null, leader: null };
+
+  const team = teams[0];
+  const leader = team?.leaderId || null;
 
   const classIds = teams.map(t => t.classId).filter(Boolean);
-  if (classIds.length === 0) return { schedules: [], team: teams[0]?.name };
+  if (classIds.length === 0) return { schedules: [], team: team?.name, leader };
 
   const schedules = await Schedule.find({
     classId: { $in: classIds },
@@ -365,7 +371,7 @@ const getMyClassSchedules = async (userId) => {
     .lean({ virtuals: true });
 
   await attachSessionNumbers(schedules);
-  return { schedules, team: teams[0]?.name };
+  return { schedules, team: team?.name, leader };
 };
 
 /**
