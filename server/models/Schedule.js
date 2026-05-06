@@ -63,6 +63,23 @@ const scheduleSchema = new mongoose.Schema(
       },
     ],
 
+    // ── Google Calendar integration ────────────────────────
+    // Set when calendarService successfully creates an event for this
+    // schedule. Used to update/delete the Calendar event when the
+    // schedule is changed or cancelled. Null when:
+    //   - Calendar integration is not configured (env vars missing), or
+    //   - Calendar API call failed (we fail-soft so booking still succeeds).
+    googleEventId: {
+      type: String,
+      default: null,
+    },
+
+    // Optional Google Meet link auto-created by Calendar API. If present,
+    // the frontend should display this in place of the manual roomLink.
+    meetLink: {
+      type: String,
+      default: '',
+    },
   },
   {
     timestamps: true,

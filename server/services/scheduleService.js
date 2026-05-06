@@ -4,6 +4,9 @@ const { toVN, todayVN } = require('../helpers/dayjsConfig');
 const Schedule = require('../models/Schedule');
 const Team = require('../models/Team');
 const Attendance = require('../models/Attendance');
+const calendarService = require('./calendarService');
+const auditService = require('./auditService');
+const logger = require('../lib/logger');
 
 // Per-class ordered schedule ID list — 5 min TTL.
 // Invalidated on create/delete so sessionNumbers stay accurate.
@@ -122,6 +125,52 @@ const attachSessionNumbers = async (schedules) => {
  */
 const invalidateSessionOrderCache = (classId) => {
   if (classId) sessionOrderCache.del(classId.toString());
+};
+
+/**
+ * After a Schedule is created, create a Google Calendar event for it
+ * and store the event ID + Meet link back on the schedule.
+ *
+ * Always fail-soft: a calendar failure must never break the booking
+ * flow. The schedule already exists; the worst outcome is that we
+ * have a Schedule without a calendar event, which the admin can fix
+ * by editing & re-saving (which would trigger an update).
+ *
+ * Returns { googleEventId, meetLink } or null.
+ */
+const createCalendarEventForSchedule = async (scheduleId) => {
+  if (!calendarService.isConfigured()) return null;
+
+  try {
+    // Re-fetch with full population so we have everyone's email.
+    const schedule = await Schedule.findById(scheduleId)
+      .populate('classId', 'classCode courseName')
+      .populate('bookedTeamId', 'name')
+      .populate('enrolledUsers', 'empCode name email')
+      .lean();
+    if (!schedule) return null;
+
+    const result = await calendarService.createEventForSchedule({
+      schedule,
+      classDoc: schedule.classId,
+      team: schedule.bookedTeamId,
+      attendees: schedule.enrolledUsers,
+    });
+    if (!result) return null;
+
+    await Schedule.updateOne(
+      { _id: scheduleId },
+      { $set: { googleEventId: result.eventId, meetLink: result.meetLink || '' } }
+    );
+
+    return result;
+  } catch (err) {
+    logger.error(
+      { err: err.message, scheduleId },
+      'createCalendarEventForSchedule failed (booking already saved; calendar skipped)'
+    );
+    return null;
+  }
 };
 
 // ── Core Business Logic ──────────────────────────────────
@@ -251,7 +300,22 @@ const bookSlot = async ({ teamId, startTime, endTime, requestUser }) => {
   // Invalidate session-order cache for the affected class
   invalidateSessionOrderCache(created.classId);
 
-  // Populate for response
+  // Create the Calendar event AFTER the transaction commits. Doing
+  // this inside the transaction would mean a Calendar failure rolls
+  // back the booking — we don't want that. Instead, the Schedule
+  // exists first; calendar is best-effort augmentation.
+  const calRes = await createCalendarEventForSchedule(created._id);
+  if (calRes) {
+    auditService.record({
+      req: { user: requestUser },
+      action: 'calendar-event-created',
+      entity: 'Schedule',
+      entityId: created._id,
+      note: `Google event ${calRes.eventId}; Meet: ${calRes.meetLink || 'n/a'}`,
+    });
+  }
+
+  // Populate for response (re-fetch so the response includes googleEventId/meetLink).
   return Schedule.findById(created._id)
     .populate('classId', 'classCode courseName')
     .populate('bookedTeamId', 'name')
@@ -278,6 +342,7 @@ const cancelSlot = async (scheduleId, requestUser) => {
 
   // ── TRANSACTION: Cascade delete Attendance → Schedule (BUG-03) ──
   const classId = schedule.classId;
+  const googleEventId = schedule.googleEventId; // capture before delete
   const session = await mongoose.startSession();
   try {
     await session.withTransaction(async () => {
@@ -288,6 +353,22 @@ const cancelSlot = async (scheduleId, requestUser) => {
     session.endSession();
   }
   invalidateSessionOrderCache(classId);
+
+  // Best-effort: cancel the Google Calendar event so all attendees get
+  // a cancellation notification. Outside the transaction so a Calendar
+  // hiccup doesn't roll back the local cancellation.
+  if (googleEventId) {
+    const ok = await calendarService.deleteEventForSchedule(googleEventId);
+    if (ok) {
+      auditService.record({
+        req: { user: requestUser },
+        action: 'calendar-event-deleted',
+        entity: 'Schedule',
+        entityId: schedule._id,
+        note: `Google event ${googleEventId}`,
+      });
+    }
+  }
 };
 
 /**
@@ -498,6 +579,9 @@ const adminCreate = async (data) => {
   }
 
   invalidateSessionOrderCache(classId);
+
+  // Best-effort calendar event (admin-created path).
+  await createCalendarEventForSchedule(created._id);
 
   return Schedule.findById(created._id)
     .populate('classId', 'classCode courseName')
