@@ -6,7 +6,6 @@ const Schedule = require('../models/Schedule');
 const Attendance = require('../models/Attendance');
 const Enrollment = require('../models/Enrollment');
 const Evaluation = require('../models/Evaluation');
-const { getNextSequence } = require('../helpers/counter');
 const { parsePagination, paginatedResponse } = require('../helpers/pagination');
 const { escapeRegex } = require('../helpers/escapeRegex');
 const { invalidateUserCache } = require('../middleware/auth');
@@ -112,21 +111,15 @@ const getUserById = async (req, res) => {
 
 /**
  * POST /api/users
- * Create a new user
+ * Create a new user.
  *
- * empCode is auto-generated using an atomic counter UNLESS
- * explicitly provided in the request body (for migration/seeding).
+ * empCode and email are admin-provided (Zod schema enforces both as
+ * required). No auto-generation — the admin owns the numbering scheme
+ * and email assignments do not follow a pattern.
  */
 const createUser = async (req, res) => {
   try {
-    const { name, role, department, position, status, dropReason, password } = req.body;
-    let { empCode } = req.body;
-
-    // Auto-generate empCode if not provided
-    if (!empCode) {
-      const seq = await getNextSequence('empCode');
-      empCode = seq.toString().padStart(6, '0');
-    }
+    const { empCode, name, email, role, department, position, status, dropReason, password } = req.body;
 
     if (!password) {
       return res.status(400).json({ success: false, message: 'password is required' });
@@ -135,6 +128,7 @@ const createUser = async (req, res) => {
     const user = await User.create({
       empCode,
       name,
+      email,
       role,
       department,
       position,
@@ -170,11 +164,12 @@ const createUser = async (req, res) => {
  */
 const updateUser = async (req, res) => {
   try {
-    const { empCode, name, role, department, position, status, dropReason } = req.body;
+    const { empCode, name, email, role, department, position, status, dropReason } = req.body;
     const updateData = {};
 
     if (empCode !== undefined) updateData.empCode = empCode;
     if (name !== undefined) updateData.name = name;
+    if (email !== undefined) updateData.email = email;
     if (role !== undefined) updateData.role = role;
     if (department !== undefined) updateData.department = department;
     if (position !== undefined) updateData.position = position;

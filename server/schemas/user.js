@@ -10,6 +10,12 @@ const STATUSES = ['Active', 'Inactive', 'Dropped', 'Transferred', 'On-hold', 'Wa
 const fields = {
   empCode: z.string().trim().min(1).max(32),
   name: z.string().trim().min(1, 'name is required').max(120),
+  email: z
+    .string()
+    .trim()
+    .toLowerCase()
+    .email('email must be a valid email address')
+    .max(254),
   role: z.enum(ROLES),
   department: z.string().trim().max(120),
   position: z.string().trim().max(120),
@@ -23,9 +29,14 @@ const fields = {
     .max(128),
 };
 
+// On create:
+//   - empCode is REQUIRED (admin enters; no auto-generation).
+//   - email is REQUIRED (needed for Google Calendar invites; admin
+//     enters per-user since emails do not follow a pattern).
 const createUserBody = z.object({
-  empCode: fields.empCode.optional(),
+  empCode: fields.empCode,
   name: fields.name,
+  email: fields.email,
   role: fields.role,
   department: fields.department.optional(),
   position: fields.position.optional(),
@@ -39,6 +50,7 @@ const createUserBody = z.object({
 const updateUserBody = z.object({
   empCode: fields.empCode.optional(),
   name: fields.name.optional(),
+  email: fields.email.optional(),
   role: fields.role.optional(),
   department: fields.department.optional(),
   position: fields.position.optional(),
