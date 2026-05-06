@@ -11,6 +11,7 @@ const { parsePagination, paginatedResponse } = require('../helpers/pagination');
 const { escapeRegex } = require('../helpers/escapeRegex');
 const { invalidateUserCache } = require('../middleware/auth');
 const { handleError } = require('../helpers/handleError');
+const auditService = require('../services/auditService');
 
 // ──────────────────────────────────────────────────────────
 // User Controller (Admin Only)
@@ -146,6 +147,14 @@ const createUser = async (req, res) => {
     const userObj = user.toObject();
     delete userObj.password;
 
+    auditService.record({
+      req,
+      action: 'created',
+      entity: 'User',
+      entityId: user._id,
+      diff: { after: auditService.stripSensitive(userObj) },
+    });
+
     res.status(201).json({ success: true, data: userObj });
   } catch (error) {
     handleError(res, error);
@@ -180,6 +189,9 @@ const updateUser = async (req, res) => {
       updateData.passwordChangedAt = new Date();
     }
 
+    // Snapshot before-state for audit diff (lean to keep it cheap).
+    const before = await User.findById(req.params.id).lean();
+
     const user = await User.findOneAndUpdate(
       { _id: req.params.id },
       updateData,
@@ -192,6 +204,14 @@ const updateUser = async (req, res) => {
 
     // Invalidate auth cache so status changes take effect immediately
     invalidateUserCache(user._id);
+
+    auditService.record({
+      req,
+      action: 'updated',
+      entity: 'User',
+      entityId: user._id,
+      diff: auditService.diff(before, user.toObject()),
+    });
 
     res.json({ success: true, data: user });
   } catch (error) {
@@ -286,6 +306,14 @@ const deleteUser = async (req, res) => {
     // Invalidate auth cache so deleted user can't make requests
     invalidateUserCache(user._id);
 
+    auditService.record({
+      req,
+      action: 'soft-deleted',
+      entity: 'User',
+      entityId: user._id,
+      note: `Cascade: ${pulledFromTeams} teams, ${pulledFromSchedules} schedules, ${closedEnrollments} enrollments`,
+    });
+
     res.json({
       success: true,
       message: `User ${user.empCode} soft-deleted (can be restored)`,
@@ -321,6 +349,13 @@ const restoreUser = async (req, res) => {
     );
 
     invalidateUserCache(req.params.id);
+
+    auditService.record({
+      req,
+      action: 'restored',
+      entity: 'User',
+      entityId: user._id,
+    });
 
     res.json({
       success: true,

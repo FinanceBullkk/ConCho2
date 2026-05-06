@@ -140,6 +140,7 @@ app.use('/api/export', require('./routes/exportRoutes'));
 app.use('/api/settings', require('./routes/settingRoutes'));
 app.use('/api/dashboard', require('./routes/dashboardRoutes'));
 app.use('/api/admin-db', require('./routes/adminDbRoutes'));
+app.use('/api/admin/audit', require('./routes/auditRoutes'));
 
 // ── Production: Serve React client build ─────────────────
 if (process.env.NODE_ENV === 'production') {

@@ -1,5 +1,7 @@
 const jwt = require('jsonwebtoken');
+const { v4: uuidv4 } = require('uuid');
 const User = require('../models/User');
+const TokenBlocklist = require('../models/TokenBlocklist');
 const logger = require('../lib/logger');
 
 // ──────────────────────────────────────────────────────────
@@ -31,11 +33,55 @@ const parseExpireToMs = (expire) => {
 
 /**
  * Generate a JWT token for a user.
+ *
+ * Includes a JTI (JWT ID) so individual tokens can be revoked without
+ * invalidating every token for the user (which is what passwordChangedAt
+ * would do).
  */
 const generateToken = (userId) => {
-  return jwt.sign({ id: userId }, process.env.JWT_SECRET, {
-    expiresIn: JWT_EXPIRE,
-  });
+  return jwt.sign(
+    { id: userId, jti: uuidv4() },
+    process.env.JWT_SECRET,
+    { expiresIn: JWT_EXPIRE }
+  );
+};
+
+/**
+ * Add a token JTI to the blocklist. Called on explicit logout and when
+ * an admin force-logs-out a user.
+ *
+ * @param {string} jti
+ * @param {number} expSeconds - the JWT `exp` claim in seconds since epoch
+ * @param {Object} [opts]
+ * @param {string} [opts.userId]
+ * @param {string} [opts.reason] - 'logout' | 'force-logout' | 'admin-action'
+ */
+const revokeToken = async (jti, expSeconds, opts = {}) => {
+  if (!jti || !expSeconds) return;
+  // upsert so a duplicate revocation (e.g. double-logout-click) is a no-op.
+  await TokenBlocklist.updateOne(
+    { jti },
+    {
+      $setOnInsert: {
+        jti,
+        userId: opts.userId || null,
+        expiresAt: new Date(expSeconds * 1000),
+        reason: opts.reason || 'logout',
+      },
+    },
+    { upsert: true }
+  );
+};
+
+/**
+ * Check whether a JTI has been revoked. Returns boolean.
+ * Auth middleware calls this on every request, so it's a single
+ * indexed lookup (~1ms with the unique index on jti).
+ */
+const isTokenRevoked = async (jti) => {
+  if (!jti) return false;
+  const hit = await TokenBlocklist.findOne({ jti }).select('_id').lean();
+  return !!hit;
 };
 
 /**
@@ -122,4 +168,10 @@ const authenticate = async (empCode, password) => {
   };
 };
 
-module.exports = { ServiceError, authenticate, getCookieOptions };
+module.exports = {
+  ServiceError,
+  authenticate,
+  getCookieOptions,
+  revokeToken,
+  isTokenRevoked,
+};
