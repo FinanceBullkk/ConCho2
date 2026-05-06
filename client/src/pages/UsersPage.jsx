@@ -17,6 +17,7 @@ function UserModal({ user, onClose, onSaved }) {
   const [form, setForm] = useState({
     empCode: user?.empCode || '',
     name: user?.name || '',
+    email: user?.email || '',
     role: user?.role || 'Participant',
     department: user?.department || '',
     position: user?.position || '',
@@ -33,7 +34,11 @@ function UserModal({ user, onClose, onSaved }) {
     setError('');
     try {
       const payload = { ...form };
+      // Drop blank optional fields rather than sending empty strings — Zod
+      // rejects "" for fields like email, and the import workflow shouldn't
+      // overwrite a stored email with empty.
       if (isEdit && !payload.password) delete payload.password;
+      if (!payload.email) delete payload.email;
       if (isEdit) await updateMutation.mutateAsync({ id: user._id, data: payload });
       else await createMutation.mutateAsync(payload);
       onSaved();
@@ -51,17 +56,20 @@ function UserModal({ user, onClose, onSaved }) {
         {error && <div className="px-4 py-2 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-sm">{error}</div>}
 
         {[
-          { key: 'empCode', label: 'Employee Code', type: 'text', placeholder: 'e.g. PART007', disabled: isEdit },
+          { key: 'empCode', label: 'Employee Code', type: 'text', placeholder: 'e.g. 000123', disabled: isEdit },
           { key: 'name', label: 'Full Name', type: 'text', placeholder: 'Full name' },
+          { key: 'email', label: 'Email (Workspace)', type: 'email', placeholder: 'name@yourdomain.com', help: 'Required for Google Calendar invites' },
           { key: 'department', label: 'BU / Department', type: 'text', placeholder: 'e.g. Sales, HR' },
           { key: 'position', label: 'Position', type: 'text', placeholder: 'e.g. DEV, QC, Designer' },
           { key: 'password', label: isEdit ? 'New Password (leave blank to keep)' : 'Password', type: 'password', placeholder: '••••••••' },
-        ].map(({ key, label, type, placeholder, disabled }) => (
+        ].map(({ key, label, type, placeholder, disabled, help }) => (
           <div key={key}>
             <label className="block text-sm text-slate-300 mb-1">{label}</label>
             <input type={type} value={form[key]} onChange={(e) => set(key, e.target.value)} placeholder={placeholder}
-              disabled={disabled} required={key === 'empCode' || key === 'name' || (!isEdit && key === 'password')}
+              disabled={disabled}
+              required={key === 'empCode' || key === 'name' || key === 'email' || (!isEdit && key === 'password')}
               className="w-full px-4 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-primary-500/50 disabled:opacity-40 transition-all" />
+            {help && <p className="text-[11px] text-slate-500 mt-1">{help}</p>}
           </div>
         ))}
 
@@ -256,6 +264,7 @@ export default function UsersPage() {
                 {[
                   { key: 'empCode', label: 'Code' },
                   { key: 'name', label: 'Name' },
+                  { key: 'email', label: 'Email' },
                   { key: 'department', label: 'BU' },
                   { key: 'position', label: 'Position' },
                   { key: 'currentLevel', label: 'Level' },
@@ -281,6 +290,13 @@ export default function UsersPage() {
                     </button>
                     {u.role !== 'Participant' && (
                       <span className={`ml-2 px-1.5 py-0.5 rounded text-[10px] font-medium ${ROLE_BADGE[u.role]}`}>{u.role}</span>
+                    )}
+                  </td>
+                  <td className="px-4 py-3 text-slate-400 text-xs">
+                    {u.email ? (
+                      <span className="font-mono">{u.email}</span>
+                    ) : (
+                      <span className="text-amber-400/70" title="No email set — user won't receive Google Calendar invites">—</span>
                     )}
                   </td>
                   <td className="px-4 py-3 text-slate-400 text-xs">{u.department || '—'}</td>
