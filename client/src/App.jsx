@@ -15,6 +15,7 @@ import ReportsPage from './pages/ReportsPage';
 import AdminPage from './pages/AdminPage';
 import BookClassPage from './pages/BookClassPage';
 import ClassDetailPage from './pages/ClassDetailPage';
+import UserSettingsPage from './pages/UserSettingsPage';
 
 function AuthExpiredModal() {
   const [open, setOpen] = useState(false);
@@ -101,6 +102,9 @@ export default function App() {
               <Route path="/classes/:id" element={
                 <ProtectedRoute roles={['Admin']}><ClassDetailPage /></ProtectedRoute>
               } />
+
+              {/* Self-service account settings — every authenticated user */}
+              <Route path="/me/settings" element={<UserSettingsPage />} />
 
               {/* Legacy redirects */}
               {LEGACY_REDIRECTS.map(({ from, to }) => (

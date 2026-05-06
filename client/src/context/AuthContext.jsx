@@ -40,14 +40,45 @@ export function AuthProvider({ children }) {
       .finally(() => setLoading(false));
   }, []);
 
+  // login() returns one of two shapes:
+  //   { mfaRequired: true, mfaPendingToken } — caller must collect a TOTP/backup code
+  //                                            and call verifyMfa() to finish.
+  //   { mfaRequired: false, user }           — session is fully established.
   const login = async (empCode, password) => {
     const res = await authAPI.login(empCode, password);
-    const { user: userData } = res.data.data;
-    // Only store the user profile — NOT the token.
-    // Token is now in an HttpOnly cookie set by the server.
+    const data = res.data.data;
+
+    if (data.mfaRequired) {
+      // Don't set user — user is not authenticated until MFA verified.
+      return { mfaRequired: true, mfaPendingToken: data.mfaPendingToken };
+    }
+
+    const userData = data.user;
+    localStorage.setItem('tms_user', JSON.stringify(userData));
+    setUser(userData);
+    return { mfaRequired: false, user: userData };
+  };
+
+  // Second leg of MFA-protected login.
+  const verifyMfa = async (mfaPendingToken, code) => {
+    const res = await authAPI.mfaVerifyLogin(mfaPendingToken, code);
+    const userData = res.data.data.user;
     localStorage.setItem('tms_user', JSON.stringify(userData));
     setUser(userData);
     return userData;
+  };
+
+  // Refresh the cached user (after MFA enroll/disable, etc).
+  const refreshUser = async () => {
+    try {
+      const res = await authAPI.getMe();
+      const userData = res.data.data;
+      localStorage.setItem('tms_user', JSON.stringify(userData));
+      setUser(userData);
+      return userData;
+    } catch {
+      return null;
+    }
   };
 
   const logout = async () => {
@@ -66,7 +97,7 @@ export function AuthProvider({ children }) {
   const isParticipant = user?.role === 'Participant';
 
   return (
-    <AuthContext.Provider value={{ user, login, logout, loading, isAdmin, isTeacher, isParticipant }}>
+    <AuthContext.Provider value={{ user, login, verifyMfa, refreshUser, logout, loading, isAdmin, isTeacher, isParticipant }}>
       {children}
     </AuthContext.Provider>
   );
