@@ -1,5 +1,6 @@
 const mongoose = require('mongoose');
 const dns = require('dns');
+const logger = require('../lib/logger');
 
 // ──────────────────────────────────────────────────────────
 // Resilient MongoDB Connection
@@ -30,43 +31,44 @@ const connectDB = async () => {
         retryReads: true,
       });
 
-      console.log(`✅ MongoDB Connected: ${conn.connection.host} (attempt ${attempt})`);
+      logger.info({ host: conn.connection.host, attempt }, 'MongoDB connected');
       return conn;
     } catch (error) {
       lastError = error;
       const delay = BASE_DELAY_MS * Math.pow(2, attempt - 1);
-      console.error(
-        `❌ MongoDB connection attempt ${attempt}/${MAX_RETRIES} failed: ${error.message}`
+      logger.error(
+        { attempt, maxRetries: MAX_RETRIES, err: error.message },
+        'MongoDB connection attempt failed'
       );
 
       if (attempt < MAX_RETRIES) {
-        console.log(`   ⏳ Retrying in ${delay / 1000}s...`);
+        logger.info({ delayMs: delay }, 'Retrying MongoDB connection');
         await new Promise((resolve) => setTimeout(resolve, delay));
       }
     }
   }
 
-  console.error(`💀 All ${MAX_RETRIES} MongoDB connection attempts failed.`);
+  logger.fatal({ maxRetries: MAX_RETRIES }, 'All MongoDB connection attempts failed');
   throw lastError;
 };
 
 // ── Connection event listeners ────────────────────────────
 mongoose.connection.on('connected', () => {
-  console.log('📡 Mongoose connection established');
+  logger.info('Mongoose connection established');
 });
 
 mongoose.connection.on('error', (err) => {
-  console.error('🔴 Mongoose connection error:', err.message);
+  logger.error({ err: err.message }, 'Mongoose connection error');
 });
 
 mongoose.connection.on('disconnected', () => {
-  console.warn('🟡 Mongoose disconnected — will attempt reconnect automatically');
+  logger.warn('Mongoose disconnected — will attempt reconnect automatically');
 });
 
 // ── Graceful shutdown ─────────────────────────────────────
 process.on('SIGINT', async () => {
   await mongoose.connection.close();
-  console.log('🛑 MongoDB connection closed (app termination)');
+  logger.info('MongoDB connection closed (app termination)');
   process.exit(0);
 });
 

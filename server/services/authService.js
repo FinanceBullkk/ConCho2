@@ -1,11 +1,19 @@
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
+const logger = require('../lib/logger');
 
 // ──────────────────────────────────────────────────────────
 // Auth Service
 // ──────────────────────────────────────────────────────────
 
 const { ServiceError } = require('../helpers/ServiceError');
+
+// Defense-in-depth lockout. The express-rate-limit `loginLimiter` blocks
+// *requests* per IP+empCode; this lock is per-account, durable in DB,
+// and survives instance restarts. After MAX_FAILED consecutive failures,
+// the account is locked for LOCK_MINUTES regardless of source IP.
+const MAX_FAILED_ATTEMPTS = Number(process.env.LOGIN_MAX_FAILED || 10);
+const LOCK_MINUTES = Number(process.env.LOGIN_LOCK_MINUTES || 15);
 
 const JWT_EXPIRE = process.env.JWT_EXPIRE || '7d';
 
@@ -55,8 +63,17 @@ const authenticate = async (empCode, password) => {
 
   const normalizedCode = empCode.trim().toUpperCase();
 
-  const user = await User.findOne({ empCode: normalizedCode }).select('+password');
+  const user = await User.findOne({ empCode: normalizedCode })
+    .select('+password +failedLoginAttempts +lockUntil');
   if (!user) {
+    // Generic message — do not reveal whether the account exists.
+    throw new ServiceError('Invalid credentials', 401);
+  }
+
+  // Honor active lockout. Generic 401 (not 423) so attackers can't
+  // distinguish "locked" from "wrong password" via status code.
+  if (user.lockUntil && user.lockUntil > new Date()) {
+    logger.warn({ empCode: normalizedCode, lockUntil: user.lockUntil }, 'Login attempt on locked account');
     throw new ServiceError('Invalid credentials', 401);
   }
 
@@ -66,7 +83,27 @@ const authenticate = async (empCode, password) => {
 
   const isMatch = await user.matchPassword(password);
   if (!isMatch) {
+    // Atomically increment failed attempts; lock on threshold.
+    const newAttempts = (user.failedLoginAttempts || 0) + 1;
+    const update = { $set: { failedLoginAttempts: newAttempts } };
+    if (newAttempts >= MAX_FAILED_ATTEMPTS) {
+      update.$set.lockUntil = new Date(Date.now() + LOCK_MINUTES * 60 * 1000);
+      update.$set.failedLoginAttempts = 0; // reset for next window
+      logger.warn(
+        { empCode: normalizedCode, attempts: newAttempts },
+        'Account locked due to repeated failed login attempts'
+      );
+    }
+    await User.updateOne({ _id: user._id }, update);
     throw new ServiceError('Invalid credentials', 401);
+  }
+
+  // Successful login — clear any failure state.
+  if (user.failedLoginAttempts > 0 || user.lockUntil) {
+    await User.updateOne(
+      { _id: user._id },
+      { $set: { failedLoginAttempts: 0, lockUntil: null } }
+    );
   }
 
   const token = generateToken(user._id);
