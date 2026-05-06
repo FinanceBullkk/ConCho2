@@ -82,6 +82,29 @@ const userSchema = new mongoose.Schema(
       select: false, // Internal field — not exposed to clients
     },
 
+    // ── MFA / TOTP (Phase 1.3) ──────────────────────────────
+    // mfaSecret stores the base32-encoded shared secret used to verify
+    // TOTP codes. Kept select:false so it never leaks via /me, list
+    // endpoints, or the generic admin-db explorer.
+    //
+    // mfaBackupCodes: array of bcrypt hashes. Each is single-use:
+    // matching one removes it from the array. 8 codes generated at
+    // setup, shown to the user once (never again).
+    mfaEnabled: {
+      type: Boolean,
+      default: false,
+    },
+    mfaSecret: {
+      type: String,
+      default: null,
+      select: false,
+    },
+    mfaBackupCodes: {
+      type: [String],
+      default: [],
+      select: false,
+    },
+
     // ── Brute-force defense (Phase 0.4) ─────────────────────
     // Counts consecutive failed login attempts. Reset to 0 on success
     // or after lockUntil expires. Rate-limit middleware is the first
