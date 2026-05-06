@@ -1,8 +1,10 @@
 import { useEffect, useMemo, useState, useCallback } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useDashboardStats, useDashboardFilterOptions } from '../hooks/useDashboard';
 import { useSchedules } from '../hooks/useSchedules';
+import { TodayHero } from '@/components/home/TodayHero';
+import { PageHeader } from '@/components/PageHeader';
 import ParticipantDashboard from './ParticipantDashboard';
 
 // ── Color palettes ───────────────────────────────────────
@@ -30,6 +32,7 @@ function FilterSelect({ label, value, options, onChange }) {
 
 export default function DashboardPage() {
   const { user, isAdmin, isParticipant } = useAuth();
+  const navigate = useNavigate();
 
   // ── Filter state ─────────────────────────────────────
   const [filters, setFilters] = useState({});
@@ -93,15 +96,15 @@ export default function DashboardPage() {
   const visibleClasses = showAllClasses ? sortedClasses : sortedClasses.slice(0, 10);
 
   return (
-    <div className="space-y-4 animate-fade-in">
-      {/* ═══ HEADER + FILTER BAR ═══ */}
-      <div className="flex items-center justify-between">
-        <h1 className="text-xl font-bold text-white">📊 Dashboard</h1>
-        <div className="flex items-center gap-2">
-          {isFetching && <div className="w-3 h-3 border border-primary-400 border-t-transparent rounded-full animate-spin" />}
-          <span className="text-[10px] text-slate-500">{new Date().toLocaleString('en', { dateStyle: 'medium', timeStyle: 'short' })}</span>
-        </div>
-      </div>
+    <div className="space-y-5 animate-fade-in">
+      <PageHeader
+        title={`Welcome back, ${user?.name?.split(' ')[0] || 'there'}`}
+        description={new Date().toLocaleDateString('en-GB', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' })}
+        actions={isFetching && <div className="w-3 h-3 border border-primary-400 border-t-transparent rounded-full animate-spin" />}
+      />
+
+      {/* ═══ Today hero — actionable items ═══ */}
+      <TodayHero />
 
       <div className="glass rounded-xl px-3 py-2 flex items-center gap-2 flex-wrap">
         <FilterSelect label="All BUs" value={filters.department || ''} options={filterOpts?.departments} onChange={v => setFilter('department', v)} />
@@ -314,7 +317,12 @@ export default function DashboardPage() {
                     const done = c.doneSessions >= c.totalSessions && c.totalSessions > 0;
                     const barColor = done ? '#10b981' : progressPct > 50 ? '#6366f1' : c.doneSessions === 0 ? '#64748b' : '#f59e0b';
                     return (
-                      <tr key={i} className="hover:bg-white/3 transition-colors">
+                      <tr
+                        key={i}
+                        onClick={() => c._id && navigate(`/classes/${c._id}`)}
+                        className={`transition-colors ${c._id ? 'cursor-pointer hover:bg-white/[0.04]' : 'hover:bg-white/3'}`}
+                        title={c._id ? 'Click to open class detail' : undefined}
+                      >
                         <td className="px-2 py-2 font-mono text-primary-300 font-medium">{c.classCode}</td>
                         <td className="px-2 py-2 text-white">{c.courseName}</td>
                         <td className="px-2 py-2 text-white font-medium">{c.doneSessions}</td>

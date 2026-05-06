@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import Portal from '../components/Portal';
+import { Breadcrumbs } from '@/components/Breadcrumbs';
 import { useClass, useUpdateClass, useDeleteClass } from '../hooks/useClasses';
 import { useTeams } from '../hooks/useTeams';
 import { useSchedules } from '../hooks/useSchedules';
@@ -57,7 +58,7 @@ function EditClassModal({ cls, onClose, onDeleted }) {
     try {
       await deleteMutation.mutateAsync(cls._id);
       onDeleted();
-      navigate('/classes');
+      navigate('/academy?tab=classes');
     } catch (err) {
       setError(err.response?.data?.message || 'Delete failed');
       setConfirmDelete(false);
@@ -447,7 +448,7 @@ export default function ClassDetailPage() {
       <div className="glass rounded-2xl py-16 text-center space-y-3">
         <div className="text-4xl">❌</div>
         <p className="text-slate-400">Class not found.</p>
-        <Link to="/classes" className="inline-block px-4 py-2 rounded-xl bg-white/5 border border-white/10 text-slate-300 text-sm hover:bg-white/10 transition-all">← Back to Classes</Link>
+        <Link to="/academy?tab=classes" className="inline-block px-4 py-2 rounded-xl bg-white/5 border border-white/10 text-slate-300 text-sm hover:bg-white/10 transition-all">← Back to Classes</Link>
       </div>
     );
   }
@@ -459,7 +460,15 @@ export default function ClassDetailPage() {
   return (
     <div className="space-y-5 animate-fade-in">
       {/* ── Breadcrumb / Back ──────────────────────────── */}
-      <Link to="/classes" className="inline-flex items-center gap-1 text-sm text-slate-400 hover:text-primary-300 transition-colors">
+      <Breadcrumbs
+        items={[
+          { label: 'Home', to: '/home' },
+          { label: 'Academy', to: '/academy?tab=classes' },
+          { label: 'Classes', to: '/academy?tab=classes' },
+          { label: cls.classCode },
+        ]}
+      />
+      <Link to="/academy?tab=classes" className="inline-flex items-center gap-1 text-sm text-slate-400 hover:text-primary-300 transition-colors">
         ← Back to Classes
       </Link>
 
