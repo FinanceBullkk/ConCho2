@@ -82,6 +82,22 @@ const userSchema = new mongoose.Schema(
       select: false, // Internal field — not exposed to clients
     },
 
+    // ── Brute-force defense (Phase 0.4) ─────────────────────
+    // Counts consecutive failed login attempts. Reset to 0 on success
+    // or after lockUntil expires. Rate-limit middleware is the first
+    // line of defense; this DB-backed lockout is durable across
+    // multi-instance deploys where an in-memory limiter is per-process.
+    failedLoginAttempts: {
+      type: Number,
+      default: 0,
+      select: false,
+    },
+    lockUntil: {
+      type: Date,
+      default: null,
+      select: false,
+    },
+
     // ── Soft-delete fields (UX-03) ──────────────────────────
     isDeleted: {
       type: Boolean,

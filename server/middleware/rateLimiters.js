@@ -107,6 +107,37 @@ const attendanceLimiter = rateLimit({
 });
 
 /**
+ * Login: max 5 attempts per 15 min per (IP + empCode) pair.
+ *
+ * Why combine IP and empCode:
+ *   - IP-only lets an attacker rotate usernames behind the same IP
+ *     (credential stuffing) until they get lucky.
+ *   - empCode-only lets a botnet brute-force one account from many IPs.
+ *   - Combining catches both. Pair with DB-backed lockout in authService
+ *     for defense in depth across distributed instances.
+ *
+ * Successful logins are NOT counted (skipSuccessfulRequests) so legitimate
+ * users with sticky fingers don't lock themselves out.
+ */
+const loginLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 5,
+  skipSuccessfulRequests: true,
+  standardHeaders: true,
+  legacyHeaders: false,
+  skip: skipInTest,
+  message: {
+    success: false,
+    message: 'Too many login attempts. Please try again in 15 minutes.',
+  },
+  validate: validateOpts,
+  keyGenerator: (req) => {
+    const empCode = (req.body?.empCode || '').toString().trim().toUpperCase();
+    return `${req.ip}|${empCode}`;
+  },
+});
+
+/**
  * Sync: max 3 requests per 15 minutes per IP.
  * Normal usage: admin triggers sync once after updating the sheet.
  */
@@ -128,4 +159,5 @@ module.exports = {
   importLimiter,
   attendanceLimiter,
   syncLimiter,
+  loginLimiter,
 };
