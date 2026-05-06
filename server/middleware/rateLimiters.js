@@ -3,7 +3,12 @@ const rateLimit = require('express-rate-limit');
 // In test environment, disable rate limiting entirely so test suites
 // that make many requests for the same user don't get throttled.
 const IS_TEST = process.env.NODE_ENV === 'test';
-const validateOpts = IS_TEST ? false : { ip: false };
+// Disable rate-limit validation checks:
+//   - In test: disable everything (no rate limiting)
+//   - In prod: disable ip + default checks to avoid ERR_ERL_KEY_GEN_IPV6
+//     (our custom keyGenerators use req.user._id with req.ip as fallback,
+//      which is fine behind a reverse proxy like Render/Nginx)
+const validateOpts = IS_TEST ? false : { ip: false, default: false };
 const skipInTest = () => IS_TEST;
 
 // ──────────────────────────────────────────────────────────
