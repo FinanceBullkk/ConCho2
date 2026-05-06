@@ -27,6 +27,20 @@ const userSchema = new mongoose.Schema(
       required: [true, 'Name is required'],
       trim: true,
     },
+    // Workspace email — admin enters per-user (no derivable pattern).
+    // Required for Google Calendar invitations. Optional at schema level
+    // so existing rows without email don't break; controllers enforce
+    // required-on-create via Zod.
+    email: {
+      type: String,
+      trim: true,
+      lowercase: true,
+      default: null,
+      validate: {
+        validator: (v) => v == null || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v),
+        message: (props) => `${props.value} is not a valid email`,
+      },
+    },
     role: {
       type: String,
       enum: {
@@ -156,6 +170,14 @@ for (const hook of SOFT_DELETE_HOOKS) {
 // ── Indexes ───────────────────────────────────────────────
 userSchema.index({ role: 1, status: 1 });
 userSchema.index({ department: 1 });
+// Partial unique on email: enforce no duplicates among users that HAVE
+// an email (string-typed). A plain `sparse:true` is not enough here
+// because the field has `default: null` and MongoDB treats null values
+// as collisions; partialFilterExpression is the correct primitive.
+userSchema.index(
+  { email: 1 },
+  { unique: true, partialFilterExpression: { email: { $type: 'string' } } }
+);
 
 // ── Pre-save: hash password ───────────────────────────────
 // NOTE: empCode generation has been moved to the controller

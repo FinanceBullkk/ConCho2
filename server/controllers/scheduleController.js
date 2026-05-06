@@ -1,5 +1,6 @@
 const mongoose = require('mongoose');
 const scheduleService = require('../services/scheduleService');
+const calendarService = require('../services/calendarService');
 const Schedule = require('../models/Schedule');
 const Attendance = require('../models/Attendance');
 const { parsePagination, paginatedResponse } = require('../helpers/pagination');
@@ -225,6 +226,33 @@ const updateSchedule = async (req, res) => {
       diff: auditService.diff(existing.toObject(), schedule.toObject()),
     });
 
+    // Sync the change to Google Calendar so attendees are notified of
+    // the new time. Fail-soft.
+    if (schedule.googleEventId && calendarService.isConfigured()) {
+      try {
+        const populated = await Schedule.findById(schedule._id)
+          .populate('classId', 'classCode courseName')
+          .populate('bookedTeamId', 'name')
+          .populate('enrolledUsers', 'empCode name email')
+          .lean();
+        await calendarService.updateEventForSchedule({
+          schedule: populated,
+          classDoc: populated.classId,
+          team: populated.bookedTeamId,
+          attendees: populated.enrolledUsers,
+        });
+        auditService.record({
+          req,
+          action: 'calendar-event-updated',
+          entity: 'Schedule',
+          entityId: schedule._id,
+          note: `Google event ${schedule.googleEventId}`,
+        });
+      } catch (e) {
+        // Already logged inside calendarService — no-op here.
+      }
+    }
+
     res.json({ success: true, data: schedule });
   } catch (error) {
     handleError(res, error);
@@ -237,6 +265,7 @@ const deleteSchedule = async (req, res) => {
     if (!schedule) return res.status(404).json({ success: false, message: 'Schedule not found' });
 
     // ── TRANSACTION: Cascade delete Attendance → Schedule (DI-01) ──
+    const googleEventId = schedule.googleEventId; // capture before delete
     const session = await mongoose.startSession();
     let deletedAttendance = 0;
     try {
@@ -250,6 +279,20 @@ const deleteSchedule = async (req, res) => {
     }
 
     scheduleService.invalidateSessionOrderCache(schedule.classId);
+
+    // Best-effort calendar cleanup so attendees are notified.
+    if (googleEventId) {
+      const ok = await calendarService.deleteEventForSchedule(googleEventId);
+      if (ok) {
+        auditService.record({
+          req,
+          action: 'calendar-event-deleted',
+          entity: 'Schedule',
+          entityId: schedule._id,
+          note: `Google event ${googleEventId}`,
+        });
+      }
+    }
 
     auditService.record({
       req,
