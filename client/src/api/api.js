@@ -41,6 +41,17 @@ export const authAPI = {
   getMe: () => api.get('/auth/me'),
   changePassword: (currentPassword, newPassword) =>
     api.put('/auth/change-password', { currentPassword, newPassword }),
+
+  // MFA / TOTP
+  mfaVerifyLogin: (mfaPendingToken, code) =>
+    api.post('/auth/mfa/verify', { mfaPendingToken, code }),
+  mfaSetup: () => api.post('/auth/mfa/setup'),
+  mfaVerifySetup: (code) => api.post('/auth/mfa/verify-setup', { code }),
+  mfaDisable: (code) => api.post('/auth/mfa/disable', { code }),
+  mfaAdminDisable: (userId) => api.post(`/auth/mfa/admin-disable/${userId}`),
+
+  // Admin force-logout
+  adminForceLogout: (userId) => api.post(`/auth/admin/force-logout/${userId}`),
 };
 
 // ── Users ─────────────────────────────────────────────────
