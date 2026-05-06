@@ -1,12 +1,21 @@
+require('dotenv').config();
+
+// Sentry must be initialized before requiring anything that might throw
+// during module load, otherwise early errors won't be captured.
+const { Sentry, initSentry, isEnabled: sentryEnabled } = require('./lib/sentry');
+initSentry();
+
 const express = require('express');
 const path = require('path');
 const cors = require('cors');
 const helmet = require('helmet');
 const cookieParser = require('cookie-parser');
 const mongoSanitize = require('express-mongo-sanitize');
-require('dotenv').config();
+const pinoHttp = require('pino-http');
 
 const connectDB = require('./config/db');
+const logger = require('./lib/logger');
+const { requestId } = require('./middleware/requestId');
 
 // Trigger nodemon
 // ──────────────────────────────────────────────────────────
@@ -16,11 +25,35 @@ const connectDB = require('./config/db');
 // Fail fast if required secrets are missing — prevents silently
 // signing tokens with `undefined` and confusing login failures.
 if (!process.env.JWT_SECRET) {
-  console.error('❌ JWT_SECRET is not set. Refusing to start.');
+  logger.fatal('JWT_SECRET is not set. Refusing to start.');
   process.exit(1);
 }
 
 const app = express();
+
+// ── Request correlation ID (must be early so all logs/errors carry it) ──
+app.use(requestId);
+
+// ── Structured request/response logging ─────────────────────
+// pino-http logs each request with method, url, status, latency, and
+// the X-Request-Id we just attached. Skipped in test runs.
+if (process.env.NODE_ENV !== 'test') {
+  app.use(
+    pinoHttp({
+      logger,
+      genReqId: (req) => req.id,
+      customLogLevel: (_req, res, err) => {
+        if (err || res.statusCode >= 500) return 'error';
+        if (res.statusCode >= 400) return 'warn';
+        return 'info';
+      },
+      serializers: {
+        req: (req) => ({ id: req.id, method: req.method, url: req.url }),
+        res: (res) => ({ statusCode: res.statusCode }),
+      },
+    })
+  );
+}
 
 // Trust the first proxy hop (needed for correct client IPs
 // behind a load balancer so rate-limit keys on real IPs).
@@ -81,22 +114,13 @@ const { globalLimiter, globalWriteLimiter } = require('./middleware/rateLimiters
 app.use('/api', globalLimiter);       // 200 requests/min per IP (all endpoints)
 app.use('/api', globalWriteLimiter);   // 60 writes/min per user (POST/PUT/PATCH/DELETE)
 
-// ── Request logger (dev only) ────────────────────────────
-if (process.env.NODE_ENV !== 'production') {
-  app.use((req, _res, next) => {
-    console.log(`${req.method} ${req.originalUrl}`);
-    next();
-  });
-}
-
-// ── Health check ─────────────────────────────────────────
-app.get('/api/health', (_req, res) => {
-  res.json({
-    status: 'ok',
-    timestamp: new Date().toISOString(),
-    uptime: Math.floor(process.uptime()),
-  });
-});
+// ── Health & readiness ───────────────────────────────────
+// /health   = liveness (always 200 if process is up)
+// /ready    = readiness (503 if Mongo is unreachable)
+// /api/health kept as alias for backward compat with existing clients.
+const healthRouter = require('./routes/healthRoutes');
+app.use('/', healthRouter);
+app.use('/api', healthRouter);
 
 
 // ──────────────────────────────────────────────────────────
@@ -134,8 +158,18 @@ if (process.env.NODE_ENV === 'production') {
 }
 
 // ── Global error handler ─────────────────────────────────
-app.use((err, _req, res, _next) => {
-  console.error('💥 Error:', err.message);
+app.use((err, req, res, _next) => {
+  // Log with request context. pino-http already attached req.log; fall
+  // back to the base logger if it's missing (e.g. very early errors).
+  const log = req.log || logger;
+  log.error({ err, requestId: req.id, statusCode: err.statusCode || 500 }, 'Request error');
+
+  // Forward to Sentry for 5xx and unexpected errors only.
+  // 4xx (validation / auth) are expected and would be noise.
+  const status = err.statusCode || 500;
+  if (sentryEnabled() && status >= 500) {
+    Sentry.captureException(err, { tags: { requestId: req.id } });
+  }
 
   // Mongoose validation error
   if (err.name === 'ValidationError') {
@@ -178,14 +212,30 @@ if (process.env.NODE_ENV !== 'test') {
   const startServer = async () => {
     await connectDB();
     app.listen(PORT, () => {
-      console.log(`🚀 TMS v2 API running on http://localhost:${PORT}`);
+      logger.info({ port: PORT }, 'TMS v2 API running');
     });
   };
 
   startServer().catch((err) => {
-    console.error('Failed to start server:', err.message);
+    logger.fatal({ err }, 'Failed to start server');
+    if (sentryEnabled()) Sentry.captureException(err);
     process.exit(1);
   });
 }
+
+// Last-resort catchers so a stray rejection doesn't take down the process
+// silently. Sentry captures, logger records, then we exit so the orchestrator
+// can restart us cleanly.
+process.on('unhandledRejection', (reason) => {
+  logger.error({ err: reason }, 'Unhandled promise rejection');
+  if (sentryEnabled()) Sentry.captureException(reason);
+});
+
+process.on('uncaughtException', (err) => {
+  logger.fatal({ err }, 'Uncaught exception — exiting');
+  if (sentryEnabled()) Sentry.captureException(err);
+  // Give Sentry a moment to flush, then exit so the orchestrator restarts us.
+  setTimeout(() => process.exit(1), 1000).unref();
+});
 
 module.exports = app;
