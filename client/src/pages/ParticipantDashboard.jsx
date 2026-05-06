@@ -29,6 +29,7 @@ export default function ParticipantDashboard() {
 
   const schedules = schedData?.data || [];
   const teamName = schedData?.team || '';
+  const leader = schedData?.leader || null;
 
   // Sort by schedule date (newest first) — backend can't sort by populated fields
   const history = useMemo(() => {
@@ -75,6 +76,21 @@ export default function ParticipantDashboard() {
           Welcome back, {user.name}
           {teamName && <span className="text-primary-400"> · {teamName}</span>}
         </p>
+        {leader && (
+          <div className="mt-3 inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-xs text-slate-300">
+            <span className="text-slate-500">Team Leader:</span>
+            <span className="font-medium text-white">{leader.name}</span>
+            {leader.email && (
+              <a
+                href={`mailto:${leader.email}`}
+                className="text-primary-300 hover:text-primary-200 underline-offset-2 hover:underline"
+              >
+                {leader.email}
+              </a>
+            )}
+            {leader.empCode && <span className="text-slate-500">· {leader.empCode}</span>}
+          </div>
+        )}
       </div>
 
       {/* ── Section 1: My Upcoming Classes ────────────────── */}
