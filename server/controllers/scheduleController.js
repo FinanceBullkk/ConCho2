@@ -6,6 +6,7 @@ const Attendance = require('../models/Attendance');
 const { parsePagination, paginatedResponse } = require('../helpers/pagination');
 const { handleError } = require('../helpers/handleError');
 const auditService = require('../services/auditService');
+const { invalidateAnalyticsCache } = require('../middleware/analyticsCache');
 
 // ──────────────────────────────────────────────────────────
 // Schedule Controller (Thin — delegates to Service Layer)
@@ -29,6 +30,7 @@ const bookTeamSlot = async (req, res) => {
       note: 'Booked by team leader',
     });
 
+    invalidateAnalyticsCache();
     res.status(201).json({
       success: true,
       message: `Booked successfully! ${result.enrolledUsers?.length || 0} members enrolled.`,
@@ -51,6 +53,7 @@ const cancelSlot = async (req, res) => {
       note: 'Cancelled by team leader',
     });
 
+    invalidateAnalyticsCache();
     res.json({ success: true, message: 'Schedule cancelled and removed' });
   } catch (error) {
     handleError(res, error);
@@ -107,6 +110,7 @@ const createSchedule = async (req, res) => {
       note: 'Created by admin',
     });
 
+    invalidateAnalyticsCache();
     res.status(201).json({ success: true, data: schedule });
   } catch (error) {
     handleError(res, error);
@@ -253,6 +257,7 @@ const updateSchedule = async (req, res) => {
       }
     }
 
+    invalidateAnalyticsCache();
     res.json({ success: true, data: schedule });
   } catch (error) {
     handleError(res, error);
