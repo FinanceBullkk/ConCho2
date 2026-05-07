@@ -21,11 +21,12 @@ const auditLogSchema = new mongoose.Schema(
   {
     // Who acted. Nullable so system jobs (cron, migrations) can write
     // audit lines too with actorId=null + actorRole='System'.
+    // NOTE: no inline index:true here — the compound {actorId:1, createdAt:-1}
+    // schema-level index below is a superset and covers all actorId-only queries.
     actorId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'User',
       default: null,
-      index: true,
     },
     actorRole: {
       type: String,

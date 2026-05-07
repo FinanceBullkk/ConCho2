@@ -68,7 +68,13 @@ const attendanceSchema = new mongoose.Schema(
 attendanceSchema.index({ scheduleId: 1, userId: 1 }, { unique: true });
 
 // ── Additional query indexes ──────────────────────────────
-attendanceSchema.index({ userId: 1, createdAt: -1 });  // User history queries
+attendanceSchema.index({ userId: 1, createdAt: -1 });   // User history queries (profile page timeline)
+// Covers dashboard aggregate: $match {userId:{$in:userIds}, status:{$in:['P','L']}}
+// Used in getUsers lastActive enrichment — more selective than userId+createdAt alone.
+attendanceSchema.index({ userId: 1, status: 1 });
+// Covered index for dashboard distinct query: distinct('userId', {createdAt:{$gte:30daysAgo}})
+// Leading on createdAt so the date range scan is index-only (no doc fetch needed).
+attendanceSchema.index({ createdAt: 1, userId: 1 });
 attendanceSchema.index({ syncStatus: 1, createdAt: 1 });  // Export queries
 
 module.exports = mongoose.model('Attendance', attendanceSchema);
