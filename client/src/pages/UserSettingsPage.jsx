@@ -1,8 +1,11 @@
 import { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { Shield, ShieldCheck, KeyRound, Copy, Check, AlertTriangle, Lock } from 'lucide-react';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
 import { useAuth } from '../context/AuthContext';
 import { authAPI } from '../api/api';
+import { changePasswordSchema } from '../lib/validations';
 
 // ──────────────────────────────────────────────────────────
 // User Settings — change password, manage MFA
@@ -12,60 +15,70 @@ import { authAPI } from '../api/api';
 // ──────────────────────────────────────────────────────────
 
 function ChangePasswordSection() {
-  const [current, setCurrent] = useState('');
-  const [next, setNext] = useState('');
-  const [confirm, setConfirm] = useState('');
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState('');
+  const { register, handleSubmit, reset, setError, formState: { errors, isSubmitting } } = useForm({
+    resolver: zodResolver(changePasswordSchema),
+    defaultValues: { current: '', next: '', confirm: '' },
+  });
   const [ok, setOk] = useState('');
 
-  const submit = async (e) => {
-    e.preventDefault();
-    setError(''); setOk('');
-    if (next !== confirm) { setError('New password and confirmation do not match'); return; }
-    if (next.length < 10) { setError('New password must be at least 10 characters'); return; }
-    setBusy(true);
+  const submit = handleSubmit(async ({ current, next }) => {
+    setOk('');
     try {
       await authAPI.changePassword(current, next);
       setOk('Password updated.');
-      setCurrent(''); setNext(''); setConfirm('');
+      reset();
     } catch (err) {
-      setError(err.response?.data?.message || 'Failed to change password');
-    } finally {
-      setBusy(false);
+      setError('root', { message: err.response?.data?.message || 'Failed to change password' });
     }
-  };
+  });
+
+  const inputCls = 'w-full px-4 py-2.5 rounded-xl bg-white/5 border text-white focus:outline-none focus:ring-2 focus:ring-primary-500/50 transition-all';
 
   return (
-    <form onSubmit={submit} className="glass rounded-2xl p-6 space-y-4">
+    <form onSubmit={submit} className="glass rounded-2xl p-6 space-y-4" noValidate>
       <div className="flex items-center gap-2">
-        <KeyRound className="size-5 text-primary-400" />
+        <KeyRound className="size-5 text-primary-400" aria-hidden="true" />
         <h2 className="text-lg font-semibold text-white">Change password</h2>
       </div>
 
-      {error && <div className="px-3 py-2 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 text-sm">{error}</div>}
-      {ok && <div className="px-3 py-2 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-sm">{ok}</div>}
+      {errors.root && (
+        <div role="alert" className="px-3 py-2 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 text-sm">
+          {errors.root.message}
+        </div>
+      )}
+      {ok && (
+        <div role="status" className="px-3 py-2 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-sm">
+          {ok}
+        </div>
+      )}
 
-      <div>
-        <label className="block text-sm text-slate-300 mb-1">Current password</label>
-        <input type="password" value={current} onChange={(e) => setCurrent(e.target.value)} required
-          className="w-full px-4 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white focus:outline-none focus:ring-2 focus:ring-primary-500/50 transition-all" />
-      </div>
-      <div>
-        <label className="block text-sm text-slate-300 mb-1">New password</label>
-        <input type="password" value={next} onChange={(e) => setNext(e.target.value)} required minLength={10}
-          className="w-full px-4 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white focus:outline-none focus:ring-2 focus:ring-primary-500/50 transition-all" />
-        <p className="text-xs text-slate-500 mt-1">Min 10 characters.</p>
-      </div>
-      <div>
-        <label className="block text-sm text-slate-300 mb-1">Confirm new password</label>
-        <input type="password" value={confirm} onChange={(e) => setConfirm(e.target.value)} required minLength={10}
-          className="w-full px-4 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white focus:outline-none focus:ring-2 focus:ring-primary-500/50 transition-all" />
-      </div>
+      {[
+        { name: 'current', label: 'Current password' },
+        { name: 'next', label: 'New password', hint: 'Min 10 characters.' },
+        { name: 'confirm', label: 'Confirm new password' },
+      ].map(({ name, label, hint }) => (
+        <div key={name}>
+          <label htmlFor={name} className="block text-sm text-slate-300 mb-1">{label}</label>
+          <input
+            id={name}
+            type="password"
+            aria-invalid={!!errors[name]}
+            aria-describedby={errors[name] ? `${name}-error` : undefined}
+            className={`${inputCls} ${errors[name] ? 'border-red-500/50' : 'border-white/10'}`}
+            {...register(name)}
+          />
+          {errors[name] && (
+            <p id={`${name}-error`} role="alert" className="mt-1 text-xs text-red-400">
+              {errors[name].message}
+            </p>
+          )}
+          {hint && !errors[name] && <p className="text-xs text-slate-500 mt-1">{hint}</p>}
+        </div>
+      ))}
 
-      <button type="submit" disabled={busy}
+      <button type="submit" disabled={isSubmitting}
         className="w-full py-2.5 rounded-xl bg-gradient-to-r from-primary-600 to-primary-500 text-white font-semibold hover:from-primary-500 hover:to-primary-400 transition-all disabled:opacity-50">
-        {busy ? 'Updating…' : 'Update password'}
+        {isSubmitting ? 'Updating…' : 'Update password'}
       </button>
     </form>
   );
@@ -228,9 +241,11 @@ function MfaSection({ user, onMfaChange, forceEnroll = false, onEnrollComplete }
 
           <form onSubmit={verifySetup} className="space-y-3">
             <p className="text-sm text-slate-300">2. Enter the 6-digit code shown in your app:</p>
+            {/* eslint-disable jsx-a11y/no-autofocus */}
             <input type="text" inputMode="numeric" autoComplete="one-time-code" value={code}
               onChange={(e) => setCode(e.target.value)} placeholder="123456" required minLength={6} maxLength={10}
               className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-primary-500/50 transition-all font-mono tracking-widest text-center text-lg" autoFocus />
+            {/* eslint-enable jsx-a11y/no-autofocus */}
 
             <div className="flex gap-3">
               <button type="button" onClick={cancel}
@@ -272,9 +287,11 @@ function MfaSection({ user, onMfaChange, forceEnroll = false, onEnrollComplete }
       {stage === 'disable' && (
         <form onSubmit={disable} className="space-y-3">
           <p className="text-sm text-slate-300">Enter a current 6-digit code or a backup code to confirm:</p>
+          {/* eslint-disable jsx-a11y/no-autofocus */}
           <input type="text" inputMode="text" autoComplete="one-time-code" value={code}
             onChange={(e) => setCode(e.target.value)} placeholder="123456 or XXXXX-XXXXX" required minLength={6} maxLength={20}
             className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-primary-500/50 transition-all font-mono tracking-widest text-center text-lg" autoFocus />
+          {/* eslint-enable jsx-a11y/no-autofocus */}
 
           <div className="flex gap-3">
             <button type="button" onClick={cancel}
