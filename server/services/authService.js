@@ -62,6 +62,38 @@ const generateMfaPendingToken = (userId) => {
 };
 
 /**
+ * Generate an enrollment-required token. Issued when a user logs in
+ * with the right credentials but their role REQUIRES MFA and they have
+ * not yet enrolled. The token authorizes ONLY: /me, /logout, /mfa/setup,
+ * /mfa/verify-setup. After successful verify-setup, the controller
+ * swaps it for a full-session token.
+ *
+ * 30-minute TTL — longer than mfa-pending because enrollment involves
+ * scanning a QR code and configuring an authenticator app.
+ */
+const MFA_ENROLLMENT_EXPIRE = '30m';
+const generateMfaEnrollmentToken = (userId) => {
+  return jwt.sign(
+    { id: userId, jti: uuidv4(), mfa: 'enrollment-required' },
+    process.env.JWT_SECRET,
+    { expiresIn: MFA_ENROLLMENT_EXPIRE }
+  );
+};
+
+/**
+ * Roles for which MFA is required (not just available).
+ * Configured via MFA_REQUIRED_ROLES env (comma-separated, e.g. "Admin").
+ * When a matching user logs in without MFA, they're forced through
+ * enrollment before they can use any other feature.
+ */
+const MFA_REQUIRED_ROLES = (process.env.MFA_REQUIRED_ROLES || '')
+  .split(',')
+  .map((r) => r.trim())
+  .filter(Boolean);
+
+const isMfaRequiredForRole = (role) => MFA_REQUIRED_ROLES.includes(role);
+
+/**
  * Add a token JTI to the blocklist. Called on explicit logout and when
  * an admin force-logs-out a user.
  *
@@ -177,6 +209,33 @@ const authenticate = async (empCode, password) => {
     };
   }
 
+  // MFA enforcement: this user's role requires MFA but they haven't enrolled.
+  // Issue an enrollment-required token; the controller will set it as the
+  // session cookie. Auth middleware restricts this token to MFA setup
+  // endpoints only — the user is locked out of everything else until they
+  // complete enrollment.
+  if (isMfaRequiredForRole(user.role)) {
+    logger.info(
+      { empCode: user.empCode, role: user.role },
+      'User logged in but MFA enrollment is required by policy'
+    );
+    return {
+      mfaEnrollmentRequired: true,
+      enrollmentToken: generateMfaEnrollmentToken(user._id),
+      cookieOptions: getCookieOptions(),
+      user: {
+        _id: user._id,
+        empCode: user.empCode,
+        name: user.name,
+        role: user.role,
+        department: user.department,
+        status: user.status,
+        mfaEnabled: false,
+        mfaEnrollmentRequired: true,
+      },
+    };
+  }
+
   const token = generateToken(user._id);
 
   return {
@@ -264,6 +323,8 @@ module.exports = {
   authenticate,
   verifyMfaLogin,
   getCookieOptions,
+  generateToken,
   revokeToken,
   isTokenRevoked,
+  isMfaRequiredForRole,
 };

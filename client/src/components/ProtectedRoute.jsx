@@ -1,8 +1,9 @@
-import { Navigate, Link } from 'react-router-dom';
+import { Navigate, Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 
 export default function ProtectedRoute({ children, roles }) {
   const { user, loading } = useAuth();
+  const location = useLocation();
 
   if (loading) {
     return (
@@ -13,6 +14,15 @@ export default function ProtectedRoute({ children, roles }) {
   }
 
   if (!user) return <Navigate to="/login" replace />;
+
+  // MFA enrollment lockdown: when the server flagged this session as
+  // enrollment-required (admin role with MFA enforcement on, no enrollment
+  // yet), redirect every protected route to the settings page until the
+  // user completes enrollment. The settings page renders a special
+  // lockdown variant when ?force=mfa is present.
+  if (user.mfaEnrollmentRequired && location.pathname !== '/me/settings') {
+    return <Navigate to="/me/settings?force=mfa" replace />;
+  }
 
   if (roles && !roles.includes(user.role)) {
     return (
