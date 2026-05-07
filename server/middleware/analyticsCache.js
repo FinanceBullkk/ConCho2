@@ -1,4 +1,5 @@
 const NodeCache = require('node-cache');
+const logger = require('../lib/logger');
 
 // ──────────────────────────────────────────────────────────
 // Analytics Cache Service
@@ -99,7 +100,7 @@ const invalidateAnalyticsCache = () => {
   const analyticsKeys = keys.filter(k => k.startsWith('analytics:') || k.startsWith('dashboard:'));
   if (analyticsKeys.length > 0) {
     cache.del(analyticsKeys);
-    console.log(`🗑️  Invalidated ${analyticsKeys.length} analytics/dashboard cache entries`);
+    logger.debug({ keys: analyticsKeys.length }, 'Analytics cache invalidated');
   }
 };
 

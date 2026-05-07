@@ -2,6 +2,7 @@ const Schedule = require('../models/Schedule');
 const Team = require('../models/Team');
 const Class = require('../models/Class');
 const { handleError } = require('../helpers/handleError');
+const logger = require('../lib/logger');
 
 // ──────────────────────────────────────────────────────────
 // Google Sheets Sync Controller (v2 — Optimized)
@@ -67,7 +68,7 @@ const syncFromGoogleSheets = async (req, res) => {
     }
 
     // ── 1. Connect to Google Sheets ─────────────────────
-    console.log('📊 Connecting to Google Sheets...');
+    logger.info({ spreadsheetId, range: `${sheetName}!${range}` }, 'Connecting to Google Sheets');
     const sheets = await getGoogleSheetsClient();
 
     const fullRange = `${sheetName}!${range}`;
@@ -85,7 +86,7 @@ const syncFromGoogleSheets = async (req, res) => {
       });
     }
 
-    console.log(`📋 Found ${rows.length} registration row(s)`);
+    logger.info({ rows: rows.length }, 'Sheet rows fetched');
 
     // ── 2. PRE-LOAD: Build in-memory lookup Maps ────────
     // This replaces the N+1 queries inside the loop.
@@ -253,10 +254,10 @@ const syncFromGoogleSheets = async (req, res) => {
     // Instead of N individual updateOne calls, one DB roundtrip.
     if (bulkOps.length > 0) {
       await Schedule.bulkWrite(bulkOps);
-      console.log(`📝 Executed ${bulkOps.length} schedule update(s) via bulkWrite`);
+      logger.info({ ops: bulkOps.length }, 'Schedule bulkWrite executed');
     }
 
-    console.log(`✅ Sync complete: ${report.enrolled} enrolled, ${report.skipped} skipped`);
+    logger.info({ ...report }, 'Google Sheets sync complete');
 
     res.json({
       success: true,
@@ -264,7 +265,7 @@ const syncFromGoogleSheets = async (req, res) => {
       data: report,
     });
   } catch (error) {
-    console.error('❌ Google Sheets sync error:', error.message);
+    logger.error({ err: error }, 'Google Sheets sync failed');
     handleError(res, error);
   }
 };
