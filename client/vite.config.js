@@ -79,6 +79,17 @@ export default defineConfig({
     // still well under it, but the default 500 KB is noisy.
     chunkSizeWarningLimit: 700,
   },
+  test: {
+    environment: 'jsdom',
+    globals: true,
+    setupFiles: ['./src/test/setup.js'],
+    coverage: {
+      provider: 'v8',
+      reporter: ['text', 'lcov'],
+      exclude: ['src/test/**', 'src/main.jsx', '**/*.config.*'],
+      thresholds: { lines: 60, functions: 60, branches: 60 },
+    },
+  },
   server: {
     // Honor PORT env so the preview-server harness can choose a free port
     // when 3000 is already in use. Falls back to 3000 in dev.
