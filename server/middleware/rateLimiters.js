@@ -1,15 +1,20 @@
 const rateLimit = require('express-rate-limit');
+const { ipKeyGenerator } = require('express-rate-limit');
 
 // In test environment, disable rate limiting entirely so test suites
 // that make many requests for the same user don't get throttled.
 const IS_TEST = process.env.NODE_ENV === 'test';
-// Disable rate-limit validation checks:
-//   - In test: disable everything (no rate limiting)
-//   - In prod: disable ip + default checks to avoid ERR_ERL_KEY_GEN_IPV6
-//     (our custom keyGenerators use req.user._id with req.ip as fallback,
-//      which is fine behind a reverse proxy like Render/Nginx)
-const validateOpts = IS_TEST ? false : { ip: false, default: false };
+// Disable rate-limit validation checks in test only. In production we
+// keep validation ON; the IPv6 concern is handled by always using
+// `ipKeyGenerator(req)` (never raw `req.ip`) inside custom keyGenerators
+// — which is the library-recommended fix for ERR_ERL_KEY_GEN_IPV6.
+const validateOpts = IS_TEST ? false : true;
 const skipInTest = () => IS_TEST;
+
+// Helper: produce a stable rate-limit key for an authenticated user,
+// falling back to a properly-bucketed IP (handles IPv6 /64 collapsing).
+const userOrIpKey = (req) =>
+  (req.user ? req.user._id.toString() : ipKeyGenerator(req));
 
 // ──────────────────────────────────────────────────────────
 // Rate Limiters (SEC-04 + SEC-RL-01/02)
@@ -43,7 +48,7 @@ const globalWriteLimiter = rateLimit({
   skip: (req) => IS_TEST || req.method === 'GET',
   message: { success: false, message: 'Too many write requests. Please slow down.' },
   validate: validateOpts,
-  keyGenerator: (req) => (req.user ? req.user._id.toString() : req.ip),
+  keyGenerator: userOrIpKey,
 });
 // ──────────────────────────────────────────────────────────
 // Rate Limiters for Write Endpoints (SEC-04)
@@ -72,7 +77,7 @@ const bookingLimiter = rateLimit({
   skip: skipInTest,
   message: { success: false, message: 'Too many booking requests. Please wait a moment before trying again.' },
   validate: validateOpts,
-  keyGenerator: (req) => (req.user ? req.user._id.toString() : req.ip),
+  keyGenerator: userOrIpKey,
 });
 
 /**
@@ -88,7 +93,7 @@ const importLimiter = rateLimit({
   skip: skipInTest,
   message: { success: false, message: 'Too many import requests. Please wait before importing again.' },
   validate: validateOpts,
-  keyGenerator: (req) => (req.user ? req.user._id.toString() : req.ip),
+  keyGenerator: userOrIpKey,
 });
 
 /**
@@ -103,7 +108,7 @@ const attendanceLimiter = rateLimit({
   skip: skipInTest,
   message: { success: false, message: 'Too many attendance submissions. Please slow down.' },
   validate: validateOpts,
-  keyGenerator: (req) => (req.user ? req.user._id.toString() : req.ip),
+  keyGenerator: userOrIpKey,
 });
 
 /**
@@ -133,7 +138,7 @@ const loginLimiter = rateLimit({
   validate: validateOpts,
   keyGenerator: (req) => {
     const empCode = (req.body?.empCode || '').toString().trim().toUpperCase();
-    return `${req.ip}|${empCode}`;
+    return `${ipKeyGenerator(req)}|${empCode}`;
   },
 });
 
@@ -149,7 +154,7 @@ const syncLimiter = rateLimit({
   skip: skipInTest,
   message: { success: false, message: 'Too many sync requests. Please wait before syncing again.' },
   validate: validateOpts,
-  keyGenerator: (req) => (req.user ? req.user._id.toString() : req.ip),
+  keyGenerator: userOrIpKey,
 });
 
 module.exports = {
