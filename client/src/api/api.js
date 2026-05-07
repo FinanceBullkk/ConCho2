@@ -160,4 +160,12 @@ export const adminDbAPI = {
   remove: (collection, id) => api.delete(`/admin-db/${collection}/${id}`),
 };
 
+// ── Reconciliation ───────────────────────────────────────
+export const reconcileAPI = {
+  triggerRun:     () => api.post('/admin/reconcile/run'),
+  getLatest:      () => api.get('/admin/reconcile/latest'),
+  getHistory:     () => api.get('/admin/reconcile/history'),
+  getById:        (id) => api.get(`/admin/reconcile/${id}`),
+};
+
 export default api;
