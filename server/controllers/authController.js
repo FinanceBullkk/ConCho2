@@ -27,6 +27,25 @@ const login = async (req, res) => {
       });
     }
 
+    // MFA enforcement path: user role requires MFA but no enrollment yet.
+    // Set the enrollment-required token AS the session cookie. The auth
+    // middleware will only allow this token to hit MFA setup endpoints
+    // until enrollment completes.
+    if (result.mfaEnrollmentRequired) {
+      res.cookie('tms_token', result.enrollmentToken, result.cookieOptions);
+      auditService.record({
+        req: { ...req, user: { _id: result.user._id, role: result.user.role, empCode: result.user.empCode } },
+        action: 'logged-in-enrollment-required',
+        entity: 'Auth',
+        entityId: result.user._id,
+        note: 'MFA enrollment required by policy — locked to setup flow',
+      });
+      return res.json({
+        success: true,
+        data: { user: result.user, mfaEnrollmentRequired: true },
+      });
+    }
+
     const { token, user, cookieOptions } = result;
     res.cookie('tms_token', token, cookieOptions);
 
@@ -151,12 +170,25 @@ const mfaVerifySetup = async (req, res) => {
       action: 'mfa-enabled',
       entity: 'User',
       entityId: user._id,
+      note: req.mfaEnrollmentRequired ? 'Forced enrollment completed' : undefined,
     });
+
+    // If enrollment was triggered by MFA enforcement (the user came in
+    // via an enrollment-required token), swap their cookie for a full
+    // session token now — they shouldn't have to log in again after
+    // completing the very flow we just forced them through.
+    if (req.mfaEnrollmentRequired) {
+      const fullToken = authService.generateToken(user._id);
+      res.cookie('tms_token', fullToken, authService.getCookieOptions());
+    }
 
     res.json({
       success: true,
       message: 'MFA enabled. Save these backup codes — they will not be shown again.',
-      data: { backupCodes: plain },
+      data: {
+        backupCodes: plain,
+        sessionUpgraded: !!req.mfaEnrollmentRequired,
+      },
     });
   } catch (error) {
     handleError(res, error);
@@ -279,6 +311,13 @@ const logout = async (req, res) => {
 const getMe = async (req, res) => {
   // Strip internal fields before sending to client.
   const { passwordChangedAt, ...safeUser } = req.user;
+  // If the current session is an enrollment-required token (set by
+  // the auth middleware when MFA enforcement applies), surface that
+  // flag so the SPA keeps the user locked into the setup flow even
+  // across reloads.
+  if (req.mfaEnrollmentRequired) {
+    safeUser.mfaEnrollmentRequired = true;
+  }
   res.json({ success: true, data: safeUser });
 };
 /**
