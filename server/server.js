@@ -134,14 +134,14 @@ const allowedOrigins = (process.env.CORS_ORIGINS || 'http://localhost:5173,http:
 app.use(
   cors({
     origin: (origin, cb) => {
-      // In production, require an Origin header to prevent automated
-      // cross-origin attacks from scripts/curl (SEC-ADD-06).
-      // In development, allow origin-less requests (Postman, curl).
-      if (!origin) {
-        return process.env.NODE_ENV === 'production'
-          ? cb(new Error('CORS: origin header required'))
-          : cb(null, true);
-      }
+      // No-origin requests (same-origin browser GETs, curl, monitoring,
+      // server-side health probes) must be allowed. Browsers only set
+      // the Origin header on cross-origin or non-simple requests, so
+      // rejecting no-origin here breaks legitimate same-origin traffic
+      // (e.g. typing the URL into the address bar to load the SPA).
+      // The cross-origin protection comes from the allowedOrigins
+      // check below — that's where actual CORS enforcement happens.
+      if (!origin) return cb(null, true);
       if (allowedOrigins.includes(origin)) return cb(null, true);
       return cb(new Error(`CORS: origin ${origin} not allowed`));
     },
