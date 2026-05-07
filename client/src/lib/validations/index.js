@@ -56,3 +56,17 @@ export const changePasswordSchema = z
     message: 'Passwords do not match',
     path: ['confirm'],
   });
+
+export const forgotPasswordSchema = z.object({
+  empCode: z.string().min(1, 'Employee code is required').max(20),
+});
+
+export const resetPasswordSchema = z
+  .object({
+    password: z.string().min(10, 'Password must be at least 10 characters'),
+    confirm: z.string().min(1, 'Please confirm your password'),
+  })
+  .refine((d) => d.password === d.confirm, {
+    message: 'Passwords do not match',
+    path: ['confirm'],
+  });

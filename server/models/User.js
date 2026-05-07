@@ -97,6 +97,12 @@ const userSchema = new mongoose.Schema(
       select: false, // Internal field — not exposed to clients
     },
 
+    // ── Password reset (forgot-password flow) ───────────────
+    // Raw token is emailed to the user; only the SHA-256 hash is stored
+    // here so a DB breach cannot be used to reset accounts.
+    passwordResetToken: { type: String, default: null },
+    passwordResetExpires: { type: Date, default: null },
+
     // ── MFA / TOTP (Phase 1.3) ──────────────────────────────
     // mfaSecret stores the base32-encoded shared secret used to verify
     // TOTP codes. Kept select:false so it never leaks via /me, list
