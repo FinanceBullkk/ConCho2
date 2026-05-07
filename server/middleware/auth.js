@@ -112,7 +112,7 @@ const protect = async (req, res, next) => {
     let user = userCache.get(cacheKey);
     if (!user) {
       user = await User.findById(decoded.id)
-        .select('_id empCode name role department status passwordChangedAt')
+        .select('_id empCode name role department status passwordChangedAt mfaEnabled')
         .lean();
       if (user) userCache.set(cacheKey, user);
     }
