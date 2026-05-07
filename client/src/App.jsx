@@ -1,21 +1,33 @@
-import { useState, useEffect } from 'react';
-import { BrowserRouter, Routes, Route, Navigate, Link } from 'react-router-dom';
+import { useState, useEffect, lazy, Suspense } from 'react';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { Toaster } from '@/components/ui/sonner';
 import { AlarmClock } from 'lucide-react';
-import { AuthProvider, useAuth } from './context/AuthContext';
+import { AuthProvider } from './context/AuthContext';
 import ProtectedRoute from './components/ProtectedRoute';
 import ErrorBoundary from './components/ErrorBoundary';
 import Layout from './components/Layout';
 import { Button } from '@/components/ui/button';
+
+// Login is kept eager — first paint for unauthenticated users should not
+// pay a chunk-fetch round-trip. Everything behind auth is lazy.
 import LoginPage from './pages/LoginPage';
-import DashboardPage from './pages/DashboardPage';
-import AcademyPage from './pages/AcademyPage';
-import OperationsPage from './pages/OperationsPage';
-import ReportsPage from './pages/ReportsPage';
-import AdminPage from './pages/AdminPage';
-import BookClassPage from './pages/BookClassPage';
-import ClassDetailPage from './pages/ClassDetailPage';
-import UserSettingsPage from './pages/UserSettingsPage';
+
+const DashboardPage    = lazy(() => import('./pages/DashboardPage'));
+const AcademyPage      = lazy(() => import('./pages/AcademyPage'));
+const OperationsPage   = lazy(() => import('./pages/OperationsPage'));
+const ReportsPage      = lazy(() => import('./pages/ReportsPage'));
+const AdminPage        = lazy(() => import('./pages/AdminPage'));
+const BookClassPage    = lazy(() => import('./pages/BookClassPage'));
+const ClassDetailPage  = lazy(() => import('./pages/ClassDetailPage'));
+const UserSettingsPage = lazy(() => import('./pages/UserSettingsPage'));
+
+function RouteFallback() {
+  return (
+    <div className="min-h-[60vh] flex items-center justify-center">
+      <div className="w-8 h-8 border-2 border-primary-400 border-t-transparent rounded-full animate-spin" />
+    </div>
+  );
+}
 
 function AuthExpiredModal() {
   const [open, setOpen] = useState(false);
@@ -72,49 +84,51 @@ export default function App() {
         <AuthProvider>
           <AuthExpiredModal />
           <Toaster position="top-right" richColors closeButton />
-          <Routes>
-            {/* Public */}
-            <Route path="/login" element={<LoginPage />} />
+          <Suspense fallback={<RouteFallback />}>
+            <Routes>
+              {/* Public */}
+              <Route path="/login" element={<LoginPage />} />
 
-            {/* Protected — wrapped in Layout */}
-            <Route element={<ProtectedRoute><Layout /></ProtectedRoute>}>
-              <Route path="/home" element={<DashboardPage />} />
+              {/* Protected — wrapped in Layout */}
+              <Route element={<ProtectedRoute><Layout /></ProtectedRoute>}>
+                <Route path="/home" element={<DashboardPage />} />
 
-              <Route path="/academy" element={
-                <ProtectedRoute roles={['Admin']}><AcademyPage /></ProtectedRoute>
-              } />
-              <Route path="/operations" element={
-                <ProtectedRoute roles={['Admin', 'Teacher']}><OperationsPage /></ProtectedRoute>
-              } />
-              <Route path="/reports" element={
-                <ProtectedRoute roles={['Admin', 'Teacher']}><ReportsPage /></ProtectedRoute>
-              } />
-              <Route path="/admin" element={
-                <ProtectedRoute roles={['Admin']}><AdminPage /></ProtectedRoute>
-              } />
+                <Route path="/academy" element={
+                  <ProtectedRoute roles={['Admin']}><AcademyPage /></ProtectedRoute>
+                } />
+                <Route path="/operations" element={
+                  <ProtectedRoute roles={['Admin', 'Teacher']}><OperationsPage /></ProtectedRoute>
+                } />
+                <Route path="/reports" element={
+                  <ProtectedRoute roles={['Admin', 'Teacher']}><ReportsPage /></ProtectedRoute>
+                } />
+                <Route path="/admin" element={
+                  <ProtectedRoute roles={['Admin']}><AdminPage /></ProtectedRoute>
+                } />
 
-              {/* Participant booking calendar */}
-              <Route path="/book" element={
-                <ProtectedRoute roles={['Participant']}><BookClassPage /></ProtectedRoute>
-              } />
+                {/* Participant booking calendar */}
+                <Route path="/book" element={
+                  <ProtectedRoute roles={['Participant']}><BookClassPage /></ProtectedRoute>
+                } />
 
-              {/* Detail pages keep their own routes for deep links */}
-              <Route path="/classes/:id" element={
-                <ProtectedRoute roles={['Admin']}><ClassDetailPage /></ProtectedRoute>
-              } />
+                {/* Detail pages keep their own routes for deep links */}
+                <Route path="/classes/:id" element={
+                  <ProtectedRoute roles={['Admin']}><ClassDetailPage /></ProtectedRoute>
+                } />
 
-              {/* Self-service account settings — every authenticated user */}
-              <Route path="/me/settings" element={<UserSettingsPage />} />
+                {/* Self-service account settings — every authenticated user */}
+                <Route path="/me/settings" element={<UserSettingsPage />} />
 
-              {/* Legacy redirects */}
-              {LEGACY_REDIRECTS.map(({ from, to }) => (
-                <Route key={from} path={from} element={<Navigate to={to} replace />} />
-              ))}
-            </Route>
+                {/* Legacy redirects */}
+                {LEGACY_REDIRECTS.map(({ from, to }) => (
+                  <Route key={from} path={from} element={<Navigate to={to} replace />} />
+                ))}
+              </Route>
 
-            {/* Fallback */}
-            <Route path="*" element={<Navigate to="/home" replace />} />
-          </Routes>
+              {/* Fallback */}
+              <Route path="*" element={<Navigate to="/home" replace />} />
+            </Routes>
+          </Suspense>
         </AuthProvider>
       </BrowserRouter>
     </ErrorBoundary>
