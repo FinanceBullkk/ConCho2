@@ -1,6 +1,9 @@
+const crypto = require('crypto');
 const authService = require('../services/authService');
 const auditService = require('../services/auditService');
 const { handleError } = require('../helpers/handleError');
+const { sendMail } = require('../lib/mailer');
+const logger = require('../lib/logger');
 
 // ──────────────────────────────────────────────────────────
 // Auth Controller (Thin — delegates to Service Layer)
@@ -408,6 +411,113 @@ const adminForceLogout = async (req, res) => {
   }
 };
 
+/**
+ * POST /api/auth/forgot-password
+ * Body: { empCode }
+ * Generates a reset token, stores its hash on the user, emails the raw token.
+ * Always returns 200 to avoid user-enumeration (don't reveal if empCode exists).
+ */
+const forgotPassword = async (req, res) => {
+  try {
+    const { empCode } = req.body;
+    if (!empCode) {
+      return res.status(400).json({ success: false, message: 'empCode is required' });
+    }
+
+    const User = require('../models/User');
+    const user = await User.findOne({ empCode: empCode.trim(), isDeleted: { $ne: true } });
+
+    // Always respond the same to prevent user enumeration
+    const okMsg = 'If that employee code exists and has an email on file, a reset link has been sent.';
+
+    if (!user || !user.email) {
+      return res.json({ success: true, message: okMsg });
+    }
+
+    // Generate token: raw for email, hashed for storage (same pattern as JWT refresh tokens)
+    const rawToken = crypto.randomBytes(32).toString('hex');
+    const hashedToken = crypto.createHash('sha256').update(rawToken).digest('hex');
+    const expires = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
+
+    user.passwordResetToken = hashedToken;
+    user.passwordResetExpires = expires;
+    await user.save({ validateBeforeSave: false });
+
+    const clientOrigin = process.env.CLIENT_ORIGIN || 'http://localhost:5173';
+    const resetUrl = `${clientOrigin}/reset-password?token=${rawToken}`;
+
+    try {
+      await sendMail({
+        to: user.email,
+        subject: 'TMS — Password Reset Request',
+        text: `Hi ${user.name},\n\nYou requested a password reset. Click the link below (valid for 1 hour):\n\n${resetUrl}\n\nIf you did not request this, ignore this email.`,
+        html: `<p>Hi <strong>${user.name}</strong>,</p>
+               <p>You requested a password reset. Click the link below (valid for 1 hour):</p>
+               <p><a href="${resetUrl}">${resetUrl}</a></p>
+               <p>If you did not request this, ignore this email.</p>`,
+      });
+    } catch {
+      // Rollback token if email fails — user can retry
+      user.passwordResetToken = null;
+      user.passwordResetExpires = null;
+      await user.save({ validateBeforeSave: false });
+      return res.status(500).json({ success: false, message: 'Failed to send reset email. Please try again.' });
+    }
+
+    logger.info({ empCode }, 'Password reset email sent');
+    res.json({ success: true, message: okMsg });
+  } catch (err) {
+    handleError(res, err);
+  }
+};
+
+/**
+ * POST /api/auth/reset-password
+ * Body: { token, password }
+ * Verifies the token (hash match + expiry), sets the new password.
+ */
+const resetPassword = async (req, res) => {
+  try {
+    const { token, password } = req.body;
+    if (!token || !password) {
+      return res.status(400).json({ success: false, message: 'token and password are required' });
+    }
+    if (password.length < 10) {
+      return res.status(400).json({ success: false, message: 'Password must be at least 10 characters' });
+    }
+
+    const User = require('../models/User');
+    const hashedToken = crypto.createHash('sha256').update(token).digest('hex');
+
+    const user = await User.findOne({
+      passwordResetToken: hashedToken,
+      passwordResetExpires: { $gt: new Date() },
+      isDeleted: { $ne: true },
+    });
+
+    if (!user) {
+      return res.status(400).json({ success: false, message: 'Reset token is invalid or has expired' });
+    }
+
+    user.password = password;
+    user.passwordResetToken = null;
+    user.passwordResetExpires = null;
+    user.passwordChangedAt = new Date();
+    await user.save();
+
+    // Invalidate any cached user state
+    const { invalidateUserCache } = require('../middleware/auth');
+    if (typeof invalidateUserCache === 'function') {
+      invalidateUserCache(user._id);
+    }
+
+    logger.info({ userId: user._id }, 'Password reset successful');
+    res.json({ success: true, message: 'Password reset successful. Please sign in with your new password.' });
+  } catch (err) {
+    handleError(res, err);
+  }
+};
+
 module.exports = {
   login,
   logout,
@@ -419,4 +529,6 @@ module.exports = {
   mfaVerifySetup,
   mfaDisable,
   mfaAdminDisable,
+  forgotPassword,
+  resetPassword,
 };
