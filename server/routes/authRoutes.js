@@ -11,6 +11,8 @@ const {
   mfaVerifySetup,
   mfaDisable,
   mfaAdminDisable,
+  forgotPassword,
+  resetPassword,
 } = require('../controllers/authController');
 const { protect } = require('../middleware/auth');
 const { roleGuard } = require('../middleware/roleGuard');
@@ -65,6 +67,12 @@ router.post(
   roleGuard('Admin'),
   mfaAdminDisable
 );
+
+// POST /forgot-password — rate limited, no auth required
+router.post('/forgot-password', loginLimiter, forgotPassword);
+
+// POST /reset-password — rate limited, no auth required
+router.post('/reset-password', loginLimiter, resetPassword);
 
 module.exports = router;
 

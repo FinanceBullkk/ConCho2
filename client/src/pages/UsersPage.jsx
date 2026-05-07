@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useQueryClient } from '@tanstack/react-query';
@@ -13,6 +14,7 @@ import { createUserSchema, editUserSchema } from '../lib/validations';
 import QueryError from '../components/QueryError';
 import TableSkeleton from '../components/TableSkeleton';
 import Pagination from '../components/Pagination';
+import { useDebounce } from '../hooks/useDebounce';
 
 const ROLES = ['Admin', 'Teacher', 'Participant'];
 const STATUSES = ['Active', 'Inactive', 'Dropped', 'Transferred', 'On-hold', 'Waiting for class'];
@@ -176,28 +178,39 @@ export default function UsersPage() {
   const { user: currentUser, isAdmin } = useAuth();
   const deleteMutation = useDeleteUser();
   const [modal, setModal] = useState(null); // null | 'create' | userObject
-  const [filterRole, setFilterRole] = useState('');
-  const [filterStatus, setFilterStatus] = useState('');
-  const [search, setSearch] = useState('');
-  const [debouncedSearch, setDebouncedSearch] = useState('');
   const [deleteId, setDeleteId] = useState(null);
-  const [page, setPage] = useState(1);
   const [progressModal, setProgressModal] = useState(null); // { id, name }
-  const [sortBy, setSortBy] = useState('empCode');
-  const [sortOrder, setSortOrder] = useState('asc');
   // Admin actions: force-logout and MFA reset
   const [adminAction, setAdminAction] = useState(null); // { type: 'force-logout'|'reset-mfa', userId, userName }
   const [adminActionLoading, setAdminActionLoading] = useState(false);
   const [adminActionError, setAdminActionError] = useState('');
 
+  // URL-synced filter / sort / pagination state
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  const search = searchParams.get('search') || '';
+  const filterRole = searchParams.get('role') || '';
+  const filterStatus = searchParams.get('status') || '';
+  const sortBy = searchParams.get('sortBy') || 'empCode';
+  const sortOrder = searchParams.get('sortOrder') || 'asc';
+  const page = Number(searchParams.get('page') || 1);
+
+  // Debounced search for actual API calls (avoids query on every keystroke)
+  const debouncedSearch = useDebounce(search, 300);
+
+  // Helper: update a single URL param; resets page when filters change
+  const setParam = (key, value) => {
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev);
+      if (value) next.set(key, value);
+      else next.delete(key);
+      if (key !== 'page') next.delete('page');
+      return next;
+    }, { replace: true });
+  };
+
   // UX-06: Browser tab title
   useEffect(() => { document.title = 'TMS — Users'; }, []);
-
-  // Debounce search input (300ms)
-  useEffect(() => {
-    const t = setTimeout(() => setDebouncedSearch(search), 300);
-    return () => clearTimeout(t);
-  }, [search]);
 
   const queryParams = useMemo(() => {
     const params = { page, limit: PAGE_SIZE, sortBy, sortOrder };
@@ -209,12 +222,16 @@ export default function UsersPage() {
 
   const handleSort = (col) => {
     if (sortBy === col) {
-      setSortOrder(prev => prev === 'asc' ? 'desc' : 'asc');
+      setParam('sortOrder', sortOrder === 'asc' ? 'desc' : 'asc');
     } else {
-      setSortBy(col);
-      setSortOrder('asc');
+      setSearchParams((prev) => {
+        const next = new URLSearchParams(prev);
+        next.set('sortBy', col);
+        next.set('sortOrder', 'asc');
+        next.delete('page');
+        return next;
+      }, { replace: true });
     }
-    setPage(1);
   };
 
   const SortIcon = ({ col }) => {
@@ -302,17 +319,17 @@ export default function UsersPage() {
           <input
             type="text"
             value={search}
-            onChange={(e) => { setPage(1); setSearch(e.target.value); }}
+            onChange={(e) => setParam('search', e.target.value)}
             placeholder="Search by name, code, or department..."
             className="w-full pl-10 pr-4 py-2 rounded-xl bg-white/5 border border-white/10 text-white text-sm placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-primary-500/50 transition-all"
           />
         </div>
-        <select value={filterRole} onChange={(e) => { setPage(1); setFilterRole(e.target.value); }}
+        <select value={filterRole} onChange={(e) => setParam('role', e.target.value)}
           className="px-3 py-2 rounded-xl bg-white/5 border border-white/10 text-white text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/50">
           <option value="" className="bg-slate-800">All Roles</option>
           {ROLES.map((r) => <option key={r} value={r} className="bg-slate-800">{r}</option>)}
         </select>
-        <select value={filterStatus} onChange={(e) => { setPage(1); setFilterStatus(e.target.value); }}
+        <select value={filterStatus} onChange={(e) => setParam('status', e.target.value)}
           className="px-3 py-2 rounded-xl bg-white/5 border border-white/10 text-white text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/50">
           <option value="" className="bg-slate-800">All Statuses</option>
           {STATUSES.map((s) => <option key={s} value={s} className="bg-slate-800">{s}</option>)}
@@ -459,7 +476,7 @@ export default function UsersPage() {
       {!loading && !isError && total > 0 && (
         <div className="flex items-center justify-between text-sm text-slate-400">
           <span>Page {page} of {pages} · {total} total</span>
-          <Pagination page={page} totalPages={pages} onPageChange={setPage} isLoading={loading} />
+          <Pagination page={page} totalPages={pages} onPageChange={(p) => setParam('page', p > 1 ? String(p) : '')} isLoading={loading} />
         </div>
       )}
 

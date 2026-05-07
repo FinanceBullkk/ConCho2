@@ -30,6 +30,7 @@
     "mongoose": "^8.13.2",
     "node-cache": "^5.1.2",
     "node-cron": "^4.2.1",
+    "nodemailer": "^8.0.7",
     "pino": "^10.3.1",
     "pino-http": "^11.0.0",
     "qrcode": "^1.5.4",

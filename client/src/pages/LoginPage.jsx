@@ -1,7 +1,7 @@
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { loginSchema, mfaSchema } from '../lib/validations';
 
@@ -131,6 +131,12 @@ export default function LoginPage() {
                   </p>
                 )}
               </div>
+            </div>
+
+            <div className="flex justify-end mb-1">
+              <Link to="/forgot-password" className="text-xs text-primary-400 hover:text-primary-300 transition-colors">
+                Forgot password?
+              </Link>
             </div>
 
             <button
