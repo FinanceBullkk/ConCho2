@@ -48,6 +48,11 @@ const generateSetup = async (empCode) => {
 
 /**
  * Verify a 6-digit TOTP code against a secret.
+ *
+ * window: 2 accepts codes for the current 30-s step ± 2 steps (= ±60 s).
+ * RFC 6238 recommends window ≤ 1, but cloud servers and mobile clocks can
+ * drift by 30–60 s in practice, so 2 is a pragmatic production default
+ * while still blocking brute-force (only 5 valid windows at any moment).
  */
 const verifyToken = (secretBase32, token) => {
   if (!secretBase32 || !token) return false;
@@ -55,7 +60,7 @@ const verifyToken = (secretBase32, token) => {
     secret: secretBase32,
     encoding: 'base32',
     token: String(token).replace(/\s+/g, ''),
-    window: 1,
+    window: 2,
   });
 };
 
