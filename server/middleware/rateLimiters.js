@@ -157,6 +157,36 @@ const syncLimiter = rateLimit({
   keyGenerator: userOrIpKey,
 });
 
+/**
+ * Change-password: max 10 attempts per 15 minutes per IP.
+ * Prevents brute-forcing the current-password field.
+ */
+const changePasswordLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  skip: skipInTest,
+  message: { success: false, message: 'Too many password change attempts. Please try again later.' },
+  validate: validateOpts,
+  keyGenerator: (req) => ipKeyGenerator(req),
+});
+
+/**
+ * MFA endpoints: max 20 requests per 15 minutes per IP.
+ * Covers verify, setup, verify-setup, disable, and admin-disable routes.
+ */
+const mfaLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 20,
+  standardHeaders: true,
+  legacyHeaders: false,
+  skip: skipInTest,
+  message: { success: false, message: 'Too many MFA requests. Please try again later.' },
+  validate: validateOpts,
+  keyGenerator: (req) => ipKeyGenerator(req),
+});
+
 module.exports = {
   globalLimiter,
   globalWriteLimiter,
@@ -165,4 +195,6 @@ module.exports = {
   attendanceLimiter,
   syncLimiter,
   loginLimiter,
+  changePasswordLimiter,
+  mfaLimiter,
 };
