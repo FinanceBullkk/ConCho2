@@ -6,6 +6,7 @@ const Attendance = require('../models/Attendance');
 const Enrollment = require('../models/Enrollment');
 const { handleError } = require('../helpers/handleError');
 const auditService = require('../services/auditService');
+const { invalidateAnalyticsCache } = require('../middleware/analyticsCache');
 
 // ──────────────────────────────────────────────────────────
 // Team Controller (Admin Only)
@@ -225,6 +226,7 @@ const createTeam = async (req, res) => {
       diff: { after: { name: team.name, classId: team.classId, leaderId: team.leaderId, memberCount: memberList.length } },
     });
 
+    invalidateAnalyticsCache();
     res.status(201).json({ success: true, data: populated });
   } catch (error) {
     handleError(res, error);
@@ -364,6 +366,7 @@ const updateTeam = async (req, res) => {
       ),
     });
 
+    invalidateAnalyticsCache();
     res.json({ success: true, data: populated });
   } catch (error) {
     handleError(res, error);
@@ -443,6 +446,7 @@ const deleteTeam = async (req, res) => {
       note: `Closed ${closedEnrollments} enrollments`,
     });
 
+    invalidateAnalyticsCache();
     res.json({
       success: true,
       message: `Team "${team.name}" soft-deleted (can be restored)`,
@@ -480,6 +484,7 @@ const restoreTeam = async (req, res) => {
       entityId: team._id,
     });
 
+    invalidateAnalyticsCache();
     res.json({
       success: true,
       message: `Team "${team.name}" restored`,

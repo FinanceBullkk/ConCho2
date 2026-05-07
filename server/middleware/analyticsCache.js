@@ -23,7 +23,11 @@ const NodeCache = require('node-cache');
 // TTL: 30 minutes (1800 seconds).
 // ──────────────────────────────────────────────────────────
 
-const ANALYTICS_TTL = 30 * 60; // 30 minutes in seconds
+// TTL is configurable via DASHBOARD_CACHE_TTL_MINUTES (default 60 min).
+// Longer TTL is safe because all write controllers now call
+// invalidateAnalyticsCache() so the cache never serves truly stale data —
+// it only ages out as a safety net.
+const ANALYTICS_TTL = Number(process.env.DASHBOARD_CACHE_TTL_MINUTES || 60) * 60;
 
 const cache = new NodeCache({
   stdTTL: ANALYTICS_TTL,
