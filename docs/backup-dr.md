@@ -81,8 +81,13 @@ Critical env vars to document:
 | `GOOGLE_SERVICE_ACCOUNT_KEY` | Google Calendar service account JSON |
 | `GOOGLE_CALENDAR_ID` | Target Google Calendar |
 | `SENTRY_DSN` | Sentry error reporting DSN |
-| `CLIENT_ORIGIN` | Allowed CORS origin |
+| `CLIENT_ORIGIN` | Allowed CORS origin / frontend URL for password-reset links (e.g. `https://yourtms.onrender.com`) |
 | `NODE_ENV` | `production` |
+| `SMTP_HOST` | SMTP server hostname (e.g. `smtp.gmail.com`) |
+| `SMTP_PORT` | SMTP port — `587` (STARTTLS) or `465` (SSL) |
+| `SMTP_USER` | SMTP username / sender address |
+| `SMTP_PASS` | SMTP password or app password |
+| `EMAIL_FROM` | Sender display address (optional, defaults to `SMTP_USER`) |
 
 ### 4.2 Source code (GitHub)
 
