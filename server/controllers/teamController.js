@@ -7,6 +7,7 @@ const Enrollment = require('../models/Enrollment');
 const { handleError } = require('../helpers/handleError');
 const auditService = require('../services/auditService');
 const { invalidateAnalyticsCache } = require('../middleware/analyticsCache');
+const logger = require('../lib/logger');
 
 // ──────────────────────────────────────────────────────────
 // Team Controller (Admin Only)
@@ -79,7 +80,7 @@ const syncEnrollments = async (teamId, addedIds, removedIds, classId) => {
         $pull: { members: userId },
       });
 
-      console.log(`📋 Enrollment: ${userId} transferred from team ${existingEnrollment.teamId} → ${teamId}`);
+      logger.info({ userId, fromTeamId: existingEnrollment.teamId, toTeamId: teamId }, 'Enrollment transferred');
     }
 
     // Check if user already has an Active enrollment in THIS team (avoid duplicates)
@@ -97,7 +98,7 @@ const syncEnrollments = async (teamId, addedIds, removedIds, classId) => {
         joinedAt: now,
         status: 'Active',
       });
-      console.log(`📋 Enrollment: created Active record for ${userId} in team ${teamId}`);
+      logger.info({ userId, teamId }, 'Enrollment created (Active)');
     }
   }
 
@@ -113,7 +114,7 @@ const syncEnrollments = async (teamId, addedIds, removedIds, classId) => {
       activeEnrollment.status = 'Dropped';
       activeEnrollment.leftAt = now;
       await activeEnrollment.save();
-      console.log(`📋 Enrollment: marked ${userId} as Dropped from team ${teamId}`);
+      logger.info({ userId, teamId }, 'Enrollment marked Dropped');
     }
   }
 };
@@ -168,7 +169,7 @@ const createTeam = async (req, res) => {
         const code = conflict.classId?.classCode || classId;
         if (forceSwap) {
           await Team.findByIdAndUpdate(conflict._id, { $set: { classId: null } });
-          console.log(`🔄 Force-swap: unassigned class "${code}" from team "${conflict.name}"`);
+          logger.info({ classCode: code, fromTeam: conflict.name }, 'Force-swap: class unassigned');
         } else {
           return res.status(409).json({
             success: false,
@@ -267,7 +268,7 @@ const updateTeam = async (req, res) => {
           const code = conflict.classId?.classCode || classId;
           if (forceSwap) {
             await Team.findByIdAndUpdate(conflict._id, { $set: { classId: null } });
-            console.log(`🔄 Force-swap: unassigned class "${code}" from team "${conflict.name}"`);
+            logger.info({ classCode: code, fromTeam: conflict.name }, 'Force-swap: class unassigned');
           } else {
             return res.status(409).json({
               success: false,

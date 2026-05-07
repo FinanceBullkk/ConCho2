@@ -10,13 +10,13 @@ const Team = require('../models/Team');
 const Schedule = require('../models/Schedule');
 const Attendance = require('../models/Attendance');
 const { handleError } = require('../helpers/handleError');
+const logger = require('../lib/logger');
 
 const fixTeamData = async (req, res) => {
   const dryRun = req.query.dryRun !== 'false'; // default true
 
   try {
-    console.log(dryRun ? '🔍 DRY RUN MODE' : '🔧 LIVE MODE');
-    console.log('─'.repeat(60));
+    logger.info({ dryRun }, 'Team-data fix started');
 
     // ── Step 0: Build classId → team lookup ──────────────
     const teams = await Team.find().populate('leaderId', 'name empCode').lean();
@@ -163,11 +163,11 @@ const fixTeamData = async (req, res) => {
       result.message = '🔍 Dry run complete — no changes written. Set ?dryRun=false to apply.';
     }
 
-    console.log(JSON.stringify(result, null, 2));
+    logger.info({ result }, 'Team-data fix complete');
     res.json({ success: true, data: result });
 
   } catch (error) {
-    console.error('❌ Fix error:', error);
+    logger.error({ err: error }, 'Team-data fix failed');
     handleError(res, error);
   }
 };
