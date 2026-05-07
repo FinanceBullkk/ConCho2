@@ -15,7 +15,7 @@ const {
 const { protect } = require('../middleware/auth');
 const { roleGuard } = require('../middleware/roleGuard');
 const { validate } = require('../middleware/validate');
-const { loginLimiter } = require('../middleware/rateLimiters');
+const { loginLimiter, changePasswordLimiter, mfaLimiter } = require('../middleware/rateLimiters');
 const { loginBody } = require('../schemas/auth');
 
 const changePasswordBody = z.object({
@@ -34,7 +34,7 @@ const mfaCodeBody = z.object({ code: mfaCodeSchema });
 router.post('/login', loginLimiter, validate({ body: loginBody }), login);
 router.post('/logout', protect, logout);
 router.get('/me', protect, getMe);
-router.put('/change-password', protect, validate({ body: changePasswordBody }), changePassword);
+router.put('/change-password', changePasswordLimiter, protect, validate({ body: changePasswordBody }), changePassword);
 
 // Admin kill-switch: invalidate every session for a target user.
 router.post('/admin/force-logout/:userId', protect, roleGuard('Admin'), adminForceLogout);
@@ -44,6 +44,7 @@ router.post('/admin/force-logout/:userId', protect, roleGuard('Admin'), adminFor
 // attempt is effectively a login attempt.
 router.post(
   '/mfa/verify',
+  mfaLimiter,
   loginLimiter,
   validate({ body: mfaVerifyLoginBody }),
   mfaVerifyLogin
@@ -52,13 +53,14 @@ router.post(
 // Self-service enrollment. `protect` ensures only the logged-in user
 // can enroll their own device; the MFA-pending guard in protect()
 // prevents this from being abused by a half-authenticated session.
-router.post('/mfa/setup', protect, mfaSetup);
-router.post('/mfa/verify-setup', protect, validate({ body: mfaCodeBody }), mfaVerifySetup);
-router.post('/mfa/disable', protect, validate({ body: mfaCodeBody }), mfaDisable);
+router.post('/mfa/setup', mfaLimiter, protect, mfaSetup);
+router.post('/mfa/verify-setup', mfaLimiter, protect, validate({ body: mfaCodeBody }), mfaVerifySetup);
+router.post('/mfa/disable', mfaLimiter, protect, validate({ body: mfaCodeBody }), mfaDisable);
 
 // Admin override: reset MFA when a user has lost their device.
 router.post(
   '/mfa/admin-disable/:userId',
+  mfaLimiter,
   protect,
   roleGuard('Admin'),
   mfaAdminDisable

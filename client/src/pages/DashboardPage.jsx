@@ -6,6 +6,7 @@ import { useSchedules } from '../hooks/useSchedules';
 import { TodayHero } from '@/components/home/TodayHero';
 import { PageHeader } from '@/components/PageHeader';
 import ParticipantDashboard from './ParticipantDashboard';
+import QueryError from '../components/QueryError';
 
 // ── Color palettes ───────────────────────────────────────
 const COURSE_COLORS = ['#6366f1', '#8b5cf6', '#06b6d4', '#10b981', '#f59e0b', '#ef4444'];
@@ -59,7 +60,7 @@ export default function DashboardPage() {
   const resetFilters = useCallback(() => setFilters({}), []);
 
   // ── Data fetching ────────────────────────────────────
-  const { data: stats, isLoading: loadingStats, isFetching, refetch, dataUpdatedAt } = useDashboardStats(filters, { enabled: isAdmin });
+  const { data: stats, isLoading: loadingStats, isError, error, isFetching, refetch, dataUpdatedAt } = useDashboardStats(filters, { enabled: isAdmin });
   const { data: filterOpts } = useDashboardFilterOptions({ enabled: isAdmin });
 
   useEffect(() => { document.title = 'TMS — Dashboard'; }, []);
@@ -71,6 +72,10 @@ export default function DashboardPage() {
         <div className="w-8 h-8 border-2 border-primary-400 border-t-transparent rounded-full animate-spin" />
       </div>
     );
+  }
+
+  if (isError) {
+    return <QueryError error={error} onRetry={refetch} className="py-32" />;
   }
 
   const o = stats?.overview || {};

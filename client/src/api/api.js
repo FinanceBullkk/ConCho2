@@ -10,8 +10,25 @@ const api = axios.create({
 });
 
 // ── Request interceptor ───────────────────────────────────
-// No longer needed — HttpOnly cookie is sent automatically
-// by the browser with withCredentials: true.
+// HttpOnly JWT cookie is sent automatically by the browser with
+// withCredentials: true. We additionally echo the readable csrf-token
+// cookie back in X-CSRF-Token on all state-changing requests so the
+// server's double-submit CSRF check passes.
+function getCsrfCookie() {
+  return document.cookie
+    .split('; ')
+    .find((row) => row.startsWith('csrf-token='))
+    ?.split('=')[1];
+}
+
+api.interceptors.request.use((config) => {
+  const method = (config.method || '').toUpperCase();
+  if (['POST', 'PUT', 'PATCH', 'DELETE'].includes(method)) {
+    const token = getCsrfCookie();
+    if (token) config.headers['X-CSRF-Token'] = token;
+  }
+  return config;
+});
 
 // ── Response interceptor: Handle 401 globally ─────────────
 // Skip for /auth/me — AuthContext handles that gracefully

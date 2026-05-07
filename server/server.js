@@ -158,6 +158,10 @@ app.use(express.urlencoded({ extended: true }));
 // Strips keys containing $ or . from req.body, req.query, req.params
 app.use(mongoSanitize());
 
+// ── CSRF Protection (double-submit cookie) ────────────────
+const { csrfProtection } = require('./middleware/csrfProtection');
+app.use('/api', csrfProtection);
+
 // ── Global Rate Limiters (SEC-RL-01/02) ──────────────────
 const { globalLimiter, globalWriteLimiter } = require('./middleware/rateLimiters');
 app.use('/api', globalLimiter);       // 200 requests/min per IP (all endpoints)
@@ -175,6 +179,11 @@ app.use('/api', healthRouter);
 // ──────────────────────────────────────────────────────────
 // Routes
 // ──────────────────────────────────────────────────────────
+
+// CSRF token endpoint (GET — exempt from CSRF check itself via safe-method rule)
+const { getCsrfToken } = require('./middleware/csrfProtection');
+app.get('/api/auth/csrf', getCsrfToken);
+
 app.use('/api/auth', require('./routes/authRoutes'));
 app.use('/api/users', require('./routes/userRoutes'));
 app.use('/api/teams', require('./routes/teamRoutes'));
