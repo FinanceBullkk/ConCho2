@@ -22,11 +22,12 @@ const mongoose = require('mongoose');
 
 const tokenBlocklistSchema = new mongoose.Schema(
   {
+    // unique:true already creates a B-tree index — index:true removed to avoid
+    // Mongoose creating a second redundant index on the same field.
     jti: {
       type: String,
       required: true,
       unique: true,
-      index: true,
     },
     userId: {
       type: mongoose.Schema.Types.ObjectId,
