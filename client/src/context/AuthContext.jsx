@@ -40,10 +40,11 @@ export function AuthProvider({ children }) {
       .finally(() => setLoading(false));
   }, []);
 
-  // login() returns one of two shapes:
-  //   { mfaRequired: true, mfaPendingToken } — caller must collect a TOTP/backup code
-  //                                            and call verifyMfa() to finish.
-  //   { mfaRequired: false, user }           — session is fully established.
+  // login() returns one of three shapes:
+  //   { mfaRequired: true, mfaPendingToken }      — collect TOTP, call verifyMfa()
+  //   { mfaEnrollmentRequired: true, user }       — role enforces MFA, user must enroll
+  //                                                 before accessing anything else
+  //   { mfaRequired: false, user }                — session fully established
   const login = async (empCode, password) => {
     const res = await authAPI.login(empCode, password);
     const data = res.data.data;
@@ -51,6 +52,15 @@ export function AuthProvider({ children }) {
     if (data.mfaRequired) {
       // Don't set user — user is not authenticated until MFA verified.
       return { mfaRequired: true, mfaPendingToken: data.mfaPendingToken };
+    }
+
+    if (data.mfaEnrollmentRequired) {
+      // The session cookie is already set (enrollment-required token).
+      // Record the user with the flag so ProtectedRoute redirects to setup.
+      const userData = { ...data.user, mfaEnrollmentRequired: true };
+      localStorage.setItem('tms_user', JSON.stringify(userData));
+      setUser(userData);
+      return { mfaEnrollmentRequired: true, user: userData };
     }
 
     const userData = data.user;

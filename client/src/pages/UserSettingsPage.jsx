@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
-import { Shield, ShieldCheck, KeyRound, Copy, Check, AlertTriangle } from 'lucide-react';
+import { useSearchParams } from 'react-router-dom';
+import { Shield, ShieldCheck, KeyRound, Copy, Check, AlertTriangle, Lock } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { authAPI } from '../api/api';
 
@@ -113,7 +114,7 @@ function BackupCodesPanel({ codes, onClose }) {
   );
 }
 
-function MfaSection({ user, onMfaChange }) {
+function MfaSection({ user, onMfaChange, forceEnroll = false, onEnrollComplete }) {
   const enabled = !!user?.mfaEnabled;
   const [stage, setStage] = useState('idle'); // 'idle' | 'setup' | 'verify' | 'backup' | 'disable'
   const [setup, setSetup] = useState(null);   // { qrCodeDataUrl, secretBase32 }
@@ -143,7 +144,12 @@ function MfaSection({ user, onMfaChange }) {
       setBackupCodes(res.data.data.backupCodes);
       setStage('backup');
       setCode('');
-      onMfaChange(); // tell parent to refresh user
+      // In forceEnroll (lockdown) mode, defer the user-state refresh until
+      // after they've dismissed the backup codes panel. Refreshing now
+      // would flip user.mfaEnrollmentRequired to false, which causes the
+      // parent to exit lockdown immediately and unmount this component
+      // mid-flow — losing the backup codes the user hasn't saved yet.
+      if (!forceEnroll) onMfaChange();
     } catch (err) {
       setError(err.response?.data?.message || 'Invalid code');
     } finally {
@@ -242,7 +248,17 @@ function MfaSection({ user, onMfaChange }) {
 
       {/* ── Backup codes after successful setup ─────────────── */}
       {stage === 'backup' && backupCodes && (
-        <BackupCodesPanel codes={backupCodes} onClose={() => { setBackupCodes(null); setStage('idle'); }} />
+        <BackupCodesPanel
+          codes={backupCodes}
+          onClose={() => {
+            setBackupCodes(null);
+            setStage('idle');
+            // In lockdown mode, the user is fully enrolled now — tell the
+            // parent so it can refresh /me (clears the enrollment flag) and
+            // drop out of lockdown into the regular settings page.
+            if (forceEnroll && onEnrollComplete) onEnrollComplete();
+          }}
+        />
       )}
 
       {/* ── Enabled — Disable flow ──────────────────────────── */}
@@ -278,12 +294,61 @@ function MfaSection({ user, onMfaChange }) {
 
 export default function UserSettingsPage() {
   const { user, refreshUser } = useAuth();
+  const [searchParams] = useSearchParams();
+  // Lockdown is captured ONCE at mount based on the URL flag and the
+  // server-authoritative user.mfaEnrollmentRequired. We deliberately do NOT
+  // re-derive it from the user object — the user's flag flips to false
+  // mid-enrollment (when refreshUser fires after verify-setup) which would
+  // unmount the MfaSection while the backup-codes panel is still showing.
+  // Instead we keep lockdown as state and clear it explicitly via
+  // onEnrollComplete after the user dismisses the backup codes.
+  const [lockdownActive, setLockdownActive] = useState(
+    () => searchParams.get('force') === 'mfa' && !!user?.mfaEnrollmentRequired
+  );
 
   useEffect(() => { document.title = 'TMS — Account Settings'; }, []);
   // Refresh once on mount so we see fresh mfaEnabled state if it changed elsewhere.
-  useEffect(() => { refreshUser?.(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  // Skip in lockdown mode — refreshing here would clear the flag prematurely
+  // before the user finishes enrollment.
+  useEffect(() => {
+    if (!lockdownActive) refreshUser?.();
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   if (!user) return null;
+
+  const handleEnrollComplete = async () => {
+    await refreshUser?.();
+    setLockdownActive(false);
+  };
+
+  // Lockdown variant — the user's role requires MFA but they haven't enrolled.
+  // Hide profile, password change, and everything else; render only the MFA
+  // enrollment flow with a prominent banner explaining why.
+  if (lockdownActive) {
+    return (
+      <div className="space-y-6 animate-fade-in max-w-2xl">
+        <div className="rounded-2xl p-6 border border-amber-500/30 bg-amber-500/10">
+          <div className="flex items-start gap-3">
+            <Lock className="size-6 text-amber-300 shrink-0 mt-0.5" />
+            <div>
+              <h1 className="text-lg font-bold text-white">Two-factor authentication required</h1>
+              <p className="text-sm text-amber-200/90 mt-1">
+                Your role ({user.role}) requires 2FA before you can access the system.
+                Set it up below — it takes about a minute. After enrollment you'll be
+                returned to the app and won't see this screen again.
+              </p>
+            </div>
+          </div>
+        </div>
+        <MfaSection
+          user={user}
+          onMfaChange={refreshUser}
+          forceEnroll
+          onEnrollComplete={handleEnrollComplete}
+        />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6 animate-fade-in max-w-2xl">
