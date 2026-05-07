@@ -1,17 +1,19 @@
 import { useSearchParams } from 'react-router-dom';
-import { Settings, Database } from 'lucide-react';
+import { Settings, Database, ShieldCheck } from 'lucide-react';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { PageHeader } from '@/components/PageHeader';
 import SettingsPage from './SettingsPage';
 import DatabaseExplorer from './DatabaseExplorer';
+import ReconcilePage from './ReconcilePage';
 
 // ──────────────────────────────────────────────────────────
-// Admin — power-user section: settings + raw DB access.
+// Admin — power-user section: settings + raw DB access + reconciliation.
 // ──────────────────────────────────────────────────────────
 
 const TABS = [
-  { id: 'settings', label: 'Settings', icon: Settings, description: 'System configuration variables.' },
-  { id: 'database', label: 'Database', icon: Database, description: 'Browse and edit raw collection data.' },
+  { id: 'settings',   label: 'Settings',       icon: Settings,    description: 'System configuration variables.' },
+  { id: 'database',   label: 'Database',        icon: Database,    description: 'Browse and edit raw collection data.' },
+  { id: 'reconcile',  label: 'Reconciliation',  icon: ShieldCheck, description: 'Detect data drift across Schedule, Attendance, Enrollment and Team.' },
 ];
 
 export default function AdminPage() {
@@ -45,6 +47,9 @@ export default function AdminPage() {
         </TabsContent>
         <TabsContent value="database" hidden={activeTab !== 'database'}>
           {activeTab === 'database' && <DatabaseExplorer />}
+        </TabsContent>
+        <TabsContent value="reconcile" hidden={activeTab !== 'reconcile'}>
+          {activeTab === 'reconcile' && <ReconcilePage />}
         </TabsContent>
       </Tabs>
     </div>
