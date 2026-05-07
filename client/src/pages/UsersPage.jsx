@@ -10,6 +10,9 @@ import { qk } from '../hooks/queryKeys';
 import { useAuth } from '../context/AuthContext';
 import { authAPI } from '../api/api';
 import { createUserSchema, editUserSchema } from '../lib/validations';
+import QueryError from '../components/QueryError';
+import TableSkeleton from '../components/TableSkeleton';
+import Pagination from '../components/Pagination';
 
 const ROLES = ['Admin', 'Teacher', 'Participant'];
 const STATUSES = ['Active', 'Inactive', 'Dropped', 'Transferred', 'On-hold', 'Waiting for class'];
@@ -219,7 +222,7 @@ export default function UsersPage() {
     return <span className="text-primary-400 ml-0.5">{sortOrder === 'asc' ? '↑' : '↓'}</span>;
   };
 
-  const { data: usersData, isLoading: loading } = useUsers(queryParams);
+  const { data: usersData, isLoading: loading, isError, error, refetch } = useUsers(queryParams);
   const users = usersData?.data || [];
   const total = usersData?.total ?? usersData?.count ?? 0;
   const pages = usersData?.pages ?? 1;
@@ -320,7 +323,9 @@ export default function UsersPage() {
       {/* Table */}
       <div className="glass rounded-2xl overflow-hidden">
         {loading ? (
-          <div className="flex items-center justify-center py-20"><div className="w-8 h-8 border-2 border-primary-400 border-t-transparent rounded-full animate-spin" /></div>
+          <div className="p-6"><TableSkeleton rows={8} cols={6} /></div>
+        ) : isError ? (
+          <QueryError error={error} onRetry={refetch} />
         ) : (
           <table className="w-full text-sm">
             <thead className="border-b border-white/5">
@@ -451,21 +456,10 @@ export default function UsersPage() {
       </div>
 
       {/* Pager */}
-      {!loading && total > 0 && (
+      {!loading && !isError && total > 0 && (
         <div className="flex items-center justify-between text-sm text-slate-400">
           <span>Page {page} of {pages} · {total} total</span>
-          <div className="flex gap-2">
-            <button
-              onClick={() => setPage((p) => Math.max(1, p - 1))}
-              disabled={page <= 1}
-              className="px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 hover:bg-white/10 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
-            >← Prev</button>
-            <button
-              onClick={() => setPage((p) => Math.min(pages, p + 1))}
-              disabled={page >= pages}
-              className="px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 hover:bg-white/10 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
-            >Next →</button>
-          </div>
+          <Pagination page={page} totalPages={pages} onPageChange={setPage} isLoading={loading} />
         </div>
       )}
 
