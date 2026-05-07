@@ -4,6 +4,7 @@ const Schedule = require('../models/Schedule');
 const Attendance = require('../models/Attendance');
 const Team = require('../models/Team');
 const { handleError } = require('../helpers/handleError');
+const logger = require('../lib/logger');
 
 // ──────────────────────────────────────────────────────────
 // Dashboard Controller — Admin Analytics (Interactive Filters)
@@ -271,7 +272,7 @@ const getDashboardStats = async (req, res) => {
       },
     });
   } catch (error) {
-    console.error('Dashboard error:', error);
+    logger.error({ err: error }, 'Dashboard query failed');
     handleError(res, error);
   }
 };

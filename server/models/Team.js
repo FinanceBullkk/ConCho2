@@ -1,4 +1,5 @@
 const mongoose = require('mongoose');
+const logger = require('../lib/logger');
 
 // ──────────────────────────────────────────────────────────
 // Team Model
@@ -95,8 +96,10 @@ const syncSchedulesForTeamUpdate = async ({ teamId, oldMembers, newMembers, sess
   // Nothing changed — skip
   if (removedSet.size === 0 && addedSet.size === 0) return;
 
-  console.log(`🔄 Team Sync for team ${teamId}`);
-  console.log(`   Removed: ${removedSet.size}, Added: ${addedSet.size}`);
+  logger.info(
+    { teamId: String(teamId), removed: removedSet.size, added: addedSet.size },
+    'Team Sync triggered'
+  );
 
   // Lazy-load to avoid circular dependency
   const Schedule = mongoose.model('Schedule');
@@ -110,11 +113,11 @@ const syncSchedulesForTeamUpdate = async ({ teamId, oldMembers, newMembers, sess
   }).session(session).lean();
 
   if (futureSchedules.length === 0) {
-    console.log('   ℹ️  No future schedules found for this team');
+    logger.info({ teamId: String(teamId) }, 'Team Sync: no future schedules');
     return;
   }
 
-  console.log(`   📋 Processing ${futureSchedules.length} future schedule(s)...`);
+  logger.debug({ teamId: String(teamId), count: futureSchedules.length }, 'Team Sync: processing future schedules');
 
   // ── Build all operations in-memory (0 DB calls) ────────
   const bulkOps = [];
@@ -177,15 +180,15 @@ const syncSchedulesForTeamUpdate = async ({ teamId, oldMembers, newMembers, sess
   // ── Execute within the same session/transaction ──────────
   if (bulkOps.length > 0) {
     await Schedule.bulkWrite(bulkOps, { session });
-    console.log(`   ✅ Executed ${bulkOps.length} schedule update(s) via bulkWrite`);
+    logger.info({ teamId: String(teamId), ops: bulkOps.length }, 'Team Sync: bulkWrite executed');
   }
 
   if (emptyScheduleIds.length > 0) {
     await Schedule.deleteMany({ _id: { $in: emptyScheduleIds } }, { session });
-    console.log(`   🔓 Auto-deleted ${emptyScheduleIds.length} empty schedule(s)`);
+    logger.info({ teamId: String(teamId), deleted: emptyScheduleIds.length }, 'Team Sync: empty schedules deleted');
   }
 
-  console.log('   🏁 Team sync complete');
+  logger.info({ teamId: String(teamId) }, 'Team Sync complete');
 };
 
 const Team = mongoose.model('Team', teamSchema);
