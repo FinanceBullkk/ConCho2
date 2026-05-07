@@ -1,4 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
 import { useQueryClient } from '@tanstack/react-query';
 import StudentProgressModal from '../components/Progress/StudentProgressModal';
 import Portal from '../components/Portal';
@@ -7,6 +9,7 @@ import { useTeams } from '../hooks/useTeams';
 import { qk } from '../hooks/queryKeys';
 import { useAuth } from '../context/AuthContext';
 import { authAPI } from '../api/api';
+import { createUserSchema, editUserSchema } from '../lib/validations';
 
 const ROLES = ['Admin', 'Teacher', 'Participant'];
 const STATUSES = ['Active', 'Inactive', 'Dropped', 'Transferred', 'On-hold', 'Waiting for class'];
@@ -16,89 +19,124 @@ function UserModal({ user, onClose, onSaved }) {
   const createMutation = useCreateUser();
   const updateMutation = useUpdateUser();
   const saving = createMutation.isPending || updateMutation.isPending;
-  const [form, setForm] = useState({
-    empCode: user?.empCode || '',
-    name: user?.name || '',
-    email: user?.email || '',
-    role: user?.role || 'Participant',
-    department: user?.department || '',
-    position: user?.position || '',
-    status: user?.status || 'Active',
-    dropReason: user?.dropReason || '',
-    password: '',
+
+  const {
+    register,
+    handleSubmit,
+    watch,
+    setError,
+    formState: { errors },
+  } = useForm({
+    resolver: zodResolver(isEdit ? editUserSchema : createUserSchema),
+    defaultValues: {
+      empCode: user?.empCode || '',
+      name: user?.name || '',
+      email: user?.email || '',
+      role: user?.role || 'Participant',
+      department: user?.department || '',
+      position: user?.position || '',
+      status: user?.status || 'Active',
+      dropReason: user?.dropReason || '',
+      password: '',
+    },
   });
-  const [error, setError] = useState('');
 
-  const set = (k, v) => setForm((f) => ({ ...f, [k]: v }));
+  const currentStatus = watch('status'); // eslint-disable-line react-hooks/incompatible-library
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setError('');
+  const onSubmit = handleSubmit(async (data) => {
     try {
-      const payload = { ...form };
-      // Drop blank optional fields rather than sending empty strings — Zod
-      // rejects "" for fields like email, and the import workflow shouldn't
-      // overwrite a stored email with empty.
+      const payload = { ...data };
+      // Drop blank optional fields — avoids overwriting stored values with ""
       if (isEdit && !payload.password) delete payload.password;
       if (!payload.email) delete payload.email;
       if (isEdit) await updateMutation.mutateAsync({ id: user._id, data: payload });
       else await createMutation.mutateAsync(payload);
       onSaved();
     } catch (err) {
-      setError(err.response?.data?.message || 'Save failed');
+      setError('root', { message: err.response?.data?.message || 'Save failed' });
     }
-  };
+  });
+
+  const inputCls = 'w-full px-4 py-2.5 rounded-xl bg-white/5 border text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-primary-500/50 disabled:opacity-40 transition-all';
 
   return (
     <Portal>
+    {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions */}
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm animate-fade-in" onClick={onClose}>
-      <form onSubmit={handleSubmit} onClick={(e) => e.stopPropagation()}
+      {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-noninteractive-element-interactions */}
+      <form onSubmit={onSubmit} onClick={(e) => e.stopPropagation()} noValidate
         className="glass rounded-2xl p-6 w-full max-w-md mx-4 space-y-4 animate-fade-in">
         <h2 className="text-lg font-bold text-white">{isEdit ? 'Edit User' : 'Create User'}</h2>
-        {error && <div className="px-4 py-2 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-sm">{error}</div>}
+
+        {errors.root && (
+          <div role="alert" className="px-4 py-2 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-sm">
+            {errors.root.message}
+          </div>
+        )}
 
         {[
-          { key: 'empCode', label: 'Employee Code', type: 'text', placeholder: 'e.g. 000123', disabled: isEdit },
-          { key: 'name', label: 'Full Name', type: 'text', placeholder: 'Full name' },
-          { key: 'email', label: 'Email (Workspace)', type: 'email', placeholder: 'name@yourdomain.com', help: 'Required for Google Calendar invites' },
-          { key: 'department', label: 'BU / Department', type: 'text', placeholder: 'e.g. Sales, HR' },
-          { key: 'position', label: 'Position', type: 'text', placeholder: 'e.g. DEV, QC, Designer' },
-          { key: 'password', label: isEdit ? 'New Password (leave blank to keep)' : 'Password', type: 'password', placeholder: '••••••••' },
-        ].map(({ key, label, type, placeholder, disabled, help }) => (
-          <div key={key}>
-            <label className="block text-sm text-slate-300 mb-1">{label}</label>
-            <input type={type} value={form[key]} onChange={(e) => set(key, e.target.value)} placeholder={placeholder}
+          { name: 'empCode', label: 'Employee Code', type: 'text', placeholder: 'e.g. 000123', disabled: isEdit },
+          { name: 'name', label: 'Full Name', type: 'text', placeholder: 'Full name' },
+          { name: 'email', label: 'Email (Workspace)', type: 'email', placeholder: 'name@yourdomain.com', help: 'Required for Google Calendar invites' },
+          { name: 'department', label: 'BU / Department', type: 'text', placeholder: 'e.g. Sales, HR' },
+          { name: 'position', label: 'Position', type: 'text', placeholder: 'e.g. DEV, QC, Designer' },
+          { name: 'password', label: isEdit ? 'New Password (leave blank to keep)' : 'Password', type: 'password', placeholder: '••••••••' },
+        ].map(({ name, label, type, placeholder, disabled, help }) => (
+          <div key={name}>
+            <label htmlFor={name} className="block text-sm text-slate-300 mb-1">{label}</label>
+            <input
+              id={name}
+              type={type}
+              placeholder={placeholder}
               disabled={disabled}
-              required={key === 'empCode' || key === 'name' || key === 'email' || (!isEdit && key === 'password')}
-              className="w-full px-4 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-primary-500/50 disabled:opacity-40 transition-all" />
-            {help && <p className="text-[11px] text-slate-500 mt-1">{help}</p>}
+              aria-invalid={!!errors[name]}
+              aria-describedby={errors[name] ? `${name}-error` : undefined}
+              className={`${inputCls} ${errors[name] ? 'border-red-500/50' : 'border-white/10'}`}
+              {...register(name)}
+            />
+            {errors[name] && (
+              <p id={`${name}-error`} role="alert" className="mt-1 text-xs text-red-400">
+                {errors[name].message}
+              </p>
+            )}
+            {help && !errors[name] && <p className="text-[11px] text-slate-500 mt-1">{help}</p>}
           </div>
         ))}
 
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <label className="block text-sm text-slate-300 mb-1">Role</label>
-            <select value={form.role} onChange={(e) => set('role', e.target.value)}
-              className="w-full px-3 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white focus:outline-none focus:ring-2 focus:ring-primary-500/50 transition-all">
+            <label htmlFor="role" className="block text-sm text-slate-300 mb-1">Role</label>
+            <select
+              id="role"
+              className="w-full px-3 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white focus:outline-none focus:ring-2 focus:ring-primary-500/50 transition-all"
+              {...register('role')}
+            >
               {ROLES.map((r) => <option key={r} value={r} className="bg-slate-800">{r}</option>)}
             </select>
           </div>
           <div>
-            <label className="block text-sm text-slate-300 mb-1">Status</label>
-            <select value={form.status} onChange={(e) => set('status', e.target.value)}
-              className="w-full px-3 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white focus:outline-none focus:ring-2 focus:ring-primary-500/50 transition-all">
+            <label htmlFor="status" className="block text-sm text-slate-300 mb-1">Status</label>
+            <select
+              id="status"
+              className="w-full px-3 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white focus:outline-none focus:ring-2 focus:ring-primary-500/50 transition-all"
+              {...register('status')}
+            >
               {STATUSES.map((s) => <option key={s} value={s} className="bg-slate-800">{s}</option>)}
             </select>
           </div>
         </div>
 
         {/* Drop Reason — only show when status is Dropped/Inactive/Transferred */}
-        {['Dropped', 'Inactive', 'Transferred'].includes(form.status) && (
+        {['Dropped', 'Inactive', 'Transferred'].includes(currentStatus) && (
           <div>
-            <label className="block text-sm text-slate-300 mb-1">Drop/Leave Reason</label>
-            <input type="text" value={form.dropReason} onChange={(e) => set('dropReason', e.target.value)}
+            <label htmlFor="dropReason" className="block text-sm text-slate-300 mb-1">Drop/Leave Reason</label>
+            <input
+              id="dropReason"
+              type="text"
               placeholder="e.g. High workload, Learning goal achieved"
-              className="w-full px-4 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-primary-500/50 transition-all" />
+              className={`${inputCls} border-white/10`}
+              {...register('dropReason')}
+            />
           </div>
         )}
 
