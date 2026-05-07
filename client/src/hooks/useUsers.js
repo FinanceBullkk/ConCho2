@@ -2,6 +2,9 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { usersAPI } from '../api/api';
 import { qk } from './queryKeys';
 
+// Partial key that matches all user list queries regardless of params
+const USER_LIST_KEY = ['users', 'list'];
+
 const unwrap = (res) => res.data;
 
 export const useUsers = (params, options = {}) =>
@@ -31,7 +34,7 @@ export const useCreateUser = () => {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (data) => usersAPI.create(data).then((r) => r.data.data),
-    onSuccess: () => {
+    onSettled: () => {
       qc.invalidateQueries({ queryKey: qk.users.all });
       qc.invalidateQueries({ queryKey: qk.dashboard.stats });
     },
@@ -42,8 +45,25 @@ export const useUpdateUser = () => {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: ({ id, data }) => usersAPI.update(id, data).then((r) => r.data.data),
-    onSuccess: (_data, vars) => {
-      qc.invalidateQueries({ queryKey: qk.users.all });
+    onMutate: async ({ id, data }) => {
+      await qc.cancelQueries({ queryKey: USER_LIST_KEY });
+      const previous = qc.getQueriesData({ queryKey: USER_LIST_KEY });
+      qc.setQueriesData({ queryKey: USER_LIST_KEY }, (old) => {
+        if (!old) return old;
+        return {
+          ...old,
+          data: old.data?.map((u) => (u._id === id ? { ...u, ...data } : u)) ?? [],
+        };
+      });
+      return { previous };
+    },
+    onError: (_err, _vars, context) => {
+      if (context?.previous) {
+        context.previous.forEach(([key, data]) => qc.setQueryData(key, data));
+      }
+    },
+    onSettled: (_data, _err, vars) => {
+      qc.invalidateQueries({ queryKey: USER_LIST_KEY });
       qc.invalidateQueries({ queryKey: qk.users.detail(vars.id) });
       qc.invalidateQueries({ queryKey: qk.teams.all });
       qc.invalidateQueries({ queryKey: qk.dashboard.stats });
@@ -55,8 +75,22 @@ export const useDeleteUser = () => {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (id) => usersAPI.delete(id),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: qk.users.all });
+    onMutate: async (id) => {
+      await qc.cancelQueries({ queryKey: USER_LIST_KEY });
+      const previous = qc.getQueriesData({ queryKey: USER_LIST_KEY });
+      qc.setQueriesData({ queryKey: USER_LIST_KEY }, (old) => {
+        if (!old) return old;
+        return { ...old, data: old.data?.filter((u) => u._id !== id) ?? [] };
+      });
+      return { previous };
+    },
+    onError: (_err, _id, context) => {
+      if (context?.previous) {
+        context.previous.forEach(([key, data]) => qc.setQueryData(key, data));
+      }
+    },
+    onSettled: () => {
+      qc.invalidateQueries({ queryKey: USER_LIST_KEY });
       qc.invalidateQueries({ queryKey: qk.teams.all });
     },
   });

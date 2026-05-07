@@ -12,6 +12,9 @@ import { Button } from '@/components/ui/button';
 // pay a chunk-fetch round-trip. Everything behind auth is lazy.
 import LoginPage from './pages/LoginPage';
 
+const ForgotPasswordPage = lazy(() => import('./pages/ForgotPasswordPage'));
+const ResetPasswordPage  = lazy(() => import('./pages/ResetPasswordPage'));
+
 const DashboardPage    = lazy(() => import('./pages/DashboardPage'));
 const AcademyPage      = lazy(() => import('./pages/AcademyPage'));
 const OperationsPage   = lazy(() => import('./pages/OperationsPage'));
@@ -88,6 +91,8 @@ export default function App() {
             <Routes>
               {/* Public */}
               <Route path="/login" element={<LoginPage />} />
+              <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+              <Route path="/reset-password" element={<ResetPasswordPage />} />
 
               {/* Protected — wrapped in Layout */}
               <Route element={<ProtectedRoute><Layout /></ProtectedRoute>}>
