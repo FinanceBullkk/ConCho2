@@ -66,6 +66,31 @@ const protect = async (req, res, next) => {
       });
     }
 
+    // Enrollment-required tokens (issued when MFA enforcement triggers)
+    // are restricted to a tiny whitelist of endpoints — the user can see
+    // their identity, log out, or complete MFA enrollment, and that's it.
+    // Hitting anything else returns 403 with mfaEnrollmentRequired so the
+    // frontend knows to redirect to the settings page.
+    if (decoded.mfa === 'enrollment-required') {
+      const path = (req.originalUrl || req.url || '').split('?')[0];
+      const ENROLLMENT_ALLOWED = new Set([
+        '/api/auth/me',
+        '/api/auth/logout',
+        '/api/auth/mfa/setup',
+        '/api/auth/mfa/verify-setup',
+      ]);
+      if (!ENROLLMENT_ALLOWED.has(path)) {
+        return res.status(403).json({
+          success: false,
+          message: 'MFA enrollment is required by policy. Complete enrollment to continue.',
+          mfaEnrollmentRequired: true,
+        });
+      }
+      // Mark request so downstream code (e.g. mfaVerifySetup) can detect
+      // the post-enrollment moment and swap in a fresh full-session token.
+      req.mfaEnrollmentRequired = true;
+    }
+
     // Reject revoked tokens (Phase 1.4). Tokens issued before this
     // change have no JTI — those are still accepted (graceful rollout).
     // Once all old tokens have expired you could optionally enforce
