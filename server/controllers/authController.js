@@ -165,6 +165,12 @@ const mfaVerifySetup = async (req, res) => {
     user.mfaBackupCodes = hashed;
     await user.save();
 
+    // Bust the auth-middleware user cache so the next /auth/me reflects
+    // mfaEnabled=true immediately (otherwise the SPA reads a stale
+    // mfaEnabled=false for up to the cache TTL).
+    const { invalidateUserCache } = require('../middleware/auth');
+    invalidateUserCache(user._id);
+
     auditService.record({
       req,
       action: 'mfa-enabled',
@@ -227,6 +233,9 @@ const mfaDisable = async (req, res) => {
     user.mfaBackupCodes = [];
     await user.save();
 
+    const { invalidateUserCache } = require('../middleware/auth');
+    invalidateUserCache(user._id);
+
     auditService.record({
       req,
       action: 'mfa-disabled',
@@ -259,6 +268,9 @@ const mfaAdminDisable = async (req, res) => {
     user.mfaSecret = null;
     user.mfaBackupCodes = [];
     await user.save();
+
+    const { invalidateUserCache } = require('../middleware/auth');
+    invalidateUserCache(user._id);
 
     auditService.record({
       req,
