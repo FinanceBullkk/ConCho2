@@ -3,6 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import Portal from '../components/Portal';
 import { useClasses, useCourses, useCreateClass } from '../hooks/useClasses';
 import { useTeams } from '../hooks/useTeams';
+import QueryError from '../components/QueryError';
+import TableSkeleton from '../components/TableSkeleton';
 
 // ──────────────────────────────────────────────────────────
 // Classes Page (v2 — Matrix View)
@@ -82,7 +84,7 @@ export default function ClassesPage() {
   const [cohortModal, setCohortModal] = useState(false);
   const [creating, setCreating] = useState(null);
 
-  const { data: classes = [], isLoading: loadingClasses } = useClasses();
+  const { data: classes = [], isLoading: loadingClasses, isError: classesError, error: classesErrorObj, refetch: refetchClasses } = useClasses();
   const { data: courseMeta } = useCourses();
   const { data: teams = [], isLoading: loadingTeams } = useTeams();
 
@@ -144,9 +146,9 @@ export default function ClassesPage() {
 
       {/* ── Matrix Table ──────────────────────────────────── */}
       {loading ? (
-        <div className="flex items-center justify-center py-20">
-          <div className="w-8 h-8 border-2 border-primary-400 border-t-transparent rounded-full animate-spin" />
-        </div>
+        <div className="glass rounded-2xl p-6"><TableSkeleton rows={6} cols={5} /></div>
+      ) : classesError ? (
+        <div className="glass rounded-2xl"><QueryError error={classesErrorObj} onRetry={refetchClasses} /></div>
       ) : classCodes.length === 0 ? (
         <div className="glass rounded-2xl py-16 text-center">
           <div className="text-4xl mb-4">📭</div>
