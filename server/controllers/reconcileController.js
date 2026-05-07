@@ -1,0 +1,93 @@
+const ReconcileReport = require('../models/ReconcileReport');
+const { runReconciliation } = require('../services/reconcileService');
+const { handleError } = require('../helpers/handleError');
+
+// ──────────────────────────────────────────────────────────
+// Reconcile Controller
+// ──────────────────────────────────────────────────────────
+// All endpoints require Admin role (enforced in the router).
+// ──────────────────────────────────────────────────────────
+
+/**
+ * GET /api/admin/reconcile/latest
+ * Returns the most recent report (or 404 if no run yet).
+ */
+const getLatestReport = async (req, res) => {
+  try {
+    const report = await ReconcileReport.findOne()
+      .sort({ runAt: -1 })
+      .lean();
+
+    if (!report) {
+      return res.status(404).json({
+        success: false,
+        message: 'No reconciliation report found. Trigger a run first via POST /api/admin/reconcile/run',
+      });
+    }
+
+    res.json({ success: true, data: report });
+  } catch (err) {
+    handleError(res, err);
+  }
+};
+
+/**
+ * GET /api/admin/reconcile/history
+ * Returns the last 10 report headers (no issues array — just summary + runAt + status).
+ * Useful for showing a run history chart without sending large payloads.
+ */
+const getReportHistory = async (req, res) => {
+  try {
+    const reports = await ReconcileReport.find()
+      .sort({ runAt: -1 })
+      .limit(10)
+      .select('-issues') // omit the issues array to keep the payload small
+      .lean();
+
+    res.json({ success: true, data: reports });
+  } catch (err) {
+    handleError(res, err);
+  }
+};
+
+/**
+ * GET /api/admin/reconcile/:id
+ * Returns a specific report by ID (with full issues array).
+ */
+const getReportById = async (req, res) => {
+  try {
+    const report = await ReconcileReport.findById(req.params.id).lean();
+    if (!report) {
+      return res.status(404).json({ success: false, message: 'Report not found' });
+    }
+    res.json({ success: true, data: report });
+  } catch (err) {
+    handleError(res, err);
+  }
+};
+
+/**
+ * POST /api/admin/reconcile/run
+ * Triggers an immediate reconciliation run and returns the new report.
+ * This is the primary way to use reconciliation on Render free tier
+ * (where cron may not fire if the service is sleeping).
+ *
+ * The run is synchronous — it waits for all checks to complete before
+ * responding. Typical duration: 200–800ms depending on data volume.
+ */
+const triggerRun = async (req, res) => {
+  try {
+    const report = await runReconciliation('manual');
+    const statusCode = report.status === 'ok' ? 200 : 200; // always 200; client reads report.status
+    res.status(statusCode).json({ success: true, data: report });
+  } catch (err) {
+    handleError(res, err);
+  }
+};
+
+module.exports = {
+  getLatestReport,
+  getReportHistory,
+  getReportById,
+  triggerRun,
+};

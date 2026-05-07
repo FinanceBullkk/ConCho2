@@ -190,6 +190,7 @@ app.use('/api/settings', require('./routes/settingRoutes'));
 app.use('/api/dashboard', require('./routes/dashboardRoutes'));
 app.use('/api/admin-db', require('./routes/adminDbRoutes'));
 app.use('/api/admin/audit', require('./routes/auditRoutes'));
+app.use('/api/admin/reconcile', require('./routes/reconcileRoutes'));
 
 // ── Production: Serve React client build ─────────────────
 if (process.env.NODE_ENV === 'production') {
@@ -264,6 +265,9 @@ if (process.env.NODE_ENV !== 'test') {
     app.listen(PORT, () => {
       logger.info({ port: PORT }, 'TMS v2 API running');
     });
+    // Start background jobs after DB is connected
+    const { startReconcileJob } = require('./jobs/reconcileJob');
+    startReconcileJob();
   };
 
   startServer().catch((err) => {
