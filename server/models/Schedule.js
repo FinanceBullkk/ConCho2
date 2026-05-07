@@ -99,9 +99,13 @@ scheduleSchema.virtual('availableSpots').get(function () {
 });
 
 // ── Indexes ───────────────────────────────────────────────
-scheduleSchema.index({ classId: 1, startTime: 1, endTime: 1 }); // Performance index for collision-check overlap queries
-scheduleSchema.index({ bookedTeamId: 1, startTime: 1 });               // Weekly count queries
-scheduleSchema.index({ classId: 1, startTime: 1 });
-scheduleSchema.index({ enrolledUsers: 1 });
+scheduleSchema.index({ classId: 1, startTime: 1, endTime: 1 }); // Collision-check: findOne({classId, startTime:{$lt:end}, endTime:{$gt:start}})
+scheduleSchema.index({ bookedTeamId: 1, startTime: 1 });         // Weekly count: countDocuments({bookedTeamId, startTime:{$gte:weekStart,$lte:weekEnd}})
+// Compound multikey index — covers both auto-release (User.Dropped middleware) and
+// team-sync (syncSchedulesForTeamUpdate) which both filter on enrolledUsers + startTime.
+// Replaces the standalone {enrolledUsers:1} which couldn't filter on startTime.
+// NOTE: {classId:1, startTime:1} removed — it is a strict prefix of the
+//   {classId:1, startTime:1, endTime:1} index above and would never be chosen.
+scheduleSchema.index({ enrolledUsers: 1, startTime: 1 });
 
 module.exports = mongoose.model('Schedule', scheduleSchema);
