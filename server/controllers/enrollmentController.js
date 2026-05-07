@@ -2,6 +2,7 @@ const Enrollment = require('../models/Enrollment');
 const Attendance = require('../models/Attendance');
 const Schedule = require('../models/Schedule');
 const { handleError } = require('../helpers/handleError');
+const { invalidateAnalyticsCache } = require('../middleware/analyticsCache');
 
 // ──────────────────────────────────────────────────────────
 // Enrollment Controller
@@ -159,6 +160,7 @@ const updateEnrollment = async (req, res) => {
       return res.status(404).json({ success: false, message: 'Enrollment not found' });
     }
 
+    invalidateAnalyticsCache();
     res.json({ success: true, data: enrollment });
   } catch (error) {
     handleError(res, error);

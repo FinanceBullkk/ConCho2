@@ -59,7 +59,7 @@ export default function DashboardPage() {
   const resetFilters = useCallback(() => setFilters({}), []);
 
   // ── Data fetching ────────────────────────────────────
-  const { data: stats, isLoading: loadingStats, isFetching } = useDashboardStats(filters, { enabled: isAdmin });
+  const { data: stats, isLoading: loadingStats, isFetching, refetch, dataUpdatedAt } = useDashboardStats(filters, { enabled: isAdmin });
   const { data: filterOpts } = useDashboardFilterOptions({ enabled: isAdmin });
 
   useEffect(() => { document.title = 'TMS — Dashboard'; }, []);
@@ -100,7 +100,26 @@ export default function DashboardPage() {
       <PageHeader
         title={`Welcome back, ${user?.name?.split(' ')[0] || 'there'}`}
         description={new Date().toLocaleDateString('en-GB', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' })}
-        actions={isFetching && <div className="w-3 h-3 border border-primary-400 border-t-transparent rounded-full animate-spin" />}
+        actions={
+          <div className="flex items-center gap-2 text-xs text-slate-500">
+            {dataUpdatedAt > 0 && !isFetching && (
+              <span title={new Date(dataUpdatedAt).toLocaleTimeString()}>
+                Updated {Math.round((Date.now() - dataUpdatedAt) / 60000) || '<1'}m ago
+              </span>
+            )}
+            <button
+              onClick={() => refetch()}
+              disabled={isFetching}
+              title="Refresh dashboard data"
+              className="flex items-center gap-1 px-2 py-1 rounded-lg bg-white/5 border border-white/10 text-slate-400 hover:bg-white/10 hover:text-white transition-all disabled:opacity-50"
+            >
+              {isFetching
+                ? <span className="w-3 h-3 border border-primary-400 border-t-transparent rounded-full animate-spin inline-block" />
+                : '↻'}
+              <span className="hidden sm:inline">{isFetching ? 'Loading…' : 'Refresh'}</span>
+            </button>
+          </div>
+        }
       />
 
       {/* ═══ Today hero — actionable items ═══ */}
