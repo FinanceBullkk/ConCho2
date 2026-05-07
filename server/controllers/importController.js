@@ -2,6 +2,7 @@ const importService = require('../services/importService');
 const { handleError } = require('../helpers/handleError');
 const Schedule = require('../models/Schedule');
 const Attendance = require('../models/Attendance');
+const { invalidateAnalyticsCache } = require('../middleware/analyticsCache');
 
 // ──────────────────────────────────────────────────────────
 // Import Controller (Thin — delegates to Service Layer)
@@ -10,6 +11,7 @@ const Attendance = require('../models/Attendance');
 const bulkImportUsers = async (req, res) => {
   try {
     const result = await importService.importUsers(req.body.users);
+    invalidateAnalyticsCache();
     res.json({
       success: true,
       message: `Import complete: ${result.created} created, ${result.updated} updated`,
@@ -23,6 +25,7 @@ const bulkImportUsers = async (req, res) => {
 const bulkImportClasses = async (req, res) => {
   try {
     const result = await importService.importClasses(req.body.classes);
+    invalidateAnalyticsCache();
     res.json({
       success: true,
       message: `Import complete: ${result.created} created, ${result.updated} updated`,
@@ -92,6 +95,7 @@ const bulkImportHistory = async (req, res) => {
       }
     }
 
+    invalidateAnalyticsCache();
     res.json({
       success: true,
       message: `Imported ${schedulesCreated} schedules, ${attendanceCreated} attendance records`,

@@ -11,6 +11,7 @@ const { escapeRegex } = require('../helpers/escapeRegex');
 const { invalidateUserCache } = require('../middleware/auth');
 const { handleError } = require('../helpers/handleError');
 const auditService = require('../services/auditService');
+const { invalidateAnalyticsCache } = require('../middleware/analyticsCache');
 
 // ──────────────────────────────────────────────────────────
 // User Controller (Admin Only)
@@ -149,6 +150,7 @@ const createUser = async (req, res) => {
       diff: { after: auditService.stripSensitive(userObj) },
     });
 
+    invalidateAnalyticsCache();
     res.status(201).json({ success: true, data: userObj });
   } catch (error) {
     handleError(res, error);
@@ -208,6 +210,7 @@ const updateUser = async (req, res) => {
       diff: auditService.diff(before, user.toObject()),
     });
 
+    invalidateAnalyticsCache();
     res.json({ success: true, data: user });
   } catch (error) {
     handleError(res, error);
@@ -309,6 +312,7 @@ const deleteUser = async (req, res) => {
       note: `Cascade: ${pulledFromTeams} teams, ${pulledFromSchedules} schedules, ${closedEnrollments} enrollments`,
     });
 
+    invalidateAnalyticsCache();
     res.json({
       success: true,
       message: `User ${user.empCode} soft-deleted (can be restored)`,
@@ -352,6 +356,7 @@ const restoreUser = async (req, res) => {
       entityId: user._id,
     });
 
+    invalidateAnalyticsCache();
     res.json({
       success: true,
       message: `User ${user.empCode} restored (status set to Inactive — admin can re-activate)`,
