@@ -1,5 +1,6 @@
 const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');
+const logger = require('../lib/logger');
 
 // ──────────────────────────────────────────────────────────
 // User Model
@@ -225,8 +226,9 @@ userSchema.post('findOneAndUpdate', async function (doc) {
   // Only trigger when status changes TO 'Dropped'
   if (previousStatus === newStatus || newStatus !== 'Dropped') return;
 
-  console.log(
-    `🔄 Auto-Release triggered for ${doc.empCode} (${previousStatus} → Dropped)`
+  logger.info(
+    { empCode: doc.empCode, previousStatus },
+    'Auto-Release triggered (Dropped)'
   );
 
   // Lazy-load Schedule to avoid circular dependency
@@ -252,8 +254,9 @@ userSchema.post('findOneAndUpdate', async function (doc) {
       );
 
       if (result.modifiedCount > 0) {
-        console.log(
-          `   ✅ Removed ${doc.empCode} from ${result.modifiedCount} future schedule(s)`
+        logger.info(
+          { empCode: doc.empCode, removed: result.modifiedCount },
+          'Auto-Release: removed user from future schedules'
         );
 
         // Auto-release slots where no enrolled users remain
@@ -262,12 +265,13 @@ userSchema.post('findOneAndUpdate', async function (doc) {
           enrolledUsers: { $size: 0 },
         }, { session });
         if (emptyResult.deletedCount > 0) {
-          console.log(
-            `   🔓 Auto-deleted ${emptyResult.deletedCount} empty schedule(s)`
+          logger.info(
+            { empCode: doc.empCode, deleted: emptyResult.deletedCount },
+            'Auto-Release: deleted empty schedules'
           );
         }
       } else {
-        console.log(`   ℹ️  ${doc.empCode} had no future enrollments to release`);
+        logger.info({ empCode: doc.empCode }, 'Auto-Release: no future enrollments to release');
       }
     });
   } finally {

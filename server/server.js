@@ -191,6 +191,7 @@ app.use('/api/dashboard', require('./routes/dashboardRoutes'));
 app.use('/api/admin-db', require('./routes/adminDbRoutes'));
 app.use('/api/admin/audit', require('./routes/auditRoutes'));
 app.use('/api/admin/reconcile', require('./routes/reconcileRoutes'));
+app.use('/api/cron', require('./routes/cronRoutes'));
 
 // ── Production: Serve React client build ─────────────────
 if (process.env.NODE_ENV === 'production') {
