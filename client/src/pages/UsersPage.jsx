@@ -5,6 +5,8 @@ import Portal from '../components/Portal';
 import { useUsers, useCreateUser, useUpdateUser, useDeleteUser } from '../hooks/useUsers';
 import { useTeams } from '../hooks/useTeams';
 import { qk } from '../hooks/queryKeys';
+import { useAuth } from '../context/AuthContext';
+import { authAPI } from '../api/api';
 
 const ROLES = ['Admin', 'Teacher', 'Participant'];
 const STATUSES = ['Active', 'Inactive', 'Dropped', 'Transferred', 'On-hold', 'Waiting for class'];
@@ -130,6 +132,7 @@ const PAGE_SIZE = 50;
 
 export default function UsersPage() {
   const queryClient = useQueryClient();
+  const { user: currentUser, isAdmin } = useAuth();
   const deleteMutation = useDeleteUser();
   const [modal, setModal] = useState(null); // null | 'create' | userObject
   const [filterRole, setFilterRole] = useState('');
@@ -141,6 +144,10 @@ export default function UsersPage() {
   const [progressModal, setProgressModal] = useState(null); // { id, name }
   const [sortBy, setSortBy] = useState('empCode');
   const [sortOrder, setSortOrder] = useState('asc');
+  // Admin actions: force-logout and MFA reset
+  const [adminAction, setAdminAction] = useState(null); // { type: 'force-logout'|'reset-mfa', userId, userName }
+  const [adminActionLoading, setAdminActionLoading] = useState(false);
+  const [adminActionError, setAdminActionError] = useState('');
 
   // UX-06: Browser tab title
   useEffect(() => { document.title = 'TMS — Users'; }, []);
@@ -211,6 +218,25 @@ export default function UsersPage() {
   const handleDelete = async (id) => {
     try { await deleteMutation.mutateAsync(id); } catch { /* toast shown by global onError */ }
     setDeleteId(null);
+  };
+
+  const handleAdminAction = async () => {
+    if (!adminAction) return;
+    setAdminActionLoading(true);
+    setAdminActionError('');
+    try {
+      if (adminAction.type === 'force-logout') {
+        await authAPI.adminForceLogout(adminAction.userId);
+      } else if (adminAction.type === 'reset-mfa') {
+        await authAPI.mfaAdminDisable(adminAction.userId);
+      }
+      reload();
+      setAdminAction(null);
+    } catch (err) {
+      setAdminActionError(err.response?.data?.message || 'Action failed. Please try again.');
+    } finally {
+      setAdminActionLoading(false);
+    }
   };
 
   return (
@@ -348,13 +374,32 @@ export default function UsersPage() {
                     )}
                   </td>
                   <td className="px-4 py-3">
-                    <div className="flex gap-1">
+                    <div className="flex gap-1 flex-wrap">
                       <button onClick={() => setProgressModal({ id: u._id, name: u.name })}
                         className="px-2 py-1 rounded-lg bg-white/5 text-slate-300 text-xs hover:bg-teal-500/20 hover:text-teal-300 transition-all" title="View Progress">📊</button>
                       <button onClick={() => setModal(u)}
-                        className="px-2 py-1 rounded-lg bg-white/5 text-slate-300 text-xs hover:bg-primary-500/20 hover:text-primary-300 transition-all">✏️</button>
+                        className="px-2 py-1 rounded-lg bg-white/5 text-slate-300 text-xs hover:bg-primary-500/20 hover:text-primary-300 transition-all" title="Edit user">✏️</button>
                       <button onClick={() => setDeleteId(u._id)}
-                        className="px-2 py-1 rounded-lg bg-white/5 text-slate-300 text-xs hover:bg-red-500/20 hover:text-red-400 transition-all">🗑</button>
+                        className="px-2 py-1 rounded-lg bg-white/5 text-slate-300 text-xs hover:bg-red-500/20 hover:text-red-400 transition-all" title="Delete user">🗑</button>
+                      {/* Admin-only actions — hidden for the current user's own row */}
+                      {isAdmin && u._id !== currentUser?._id && (
+                        <>
+                          <button
+                            onClick={() => setAdminAction({ type: 'force-logout', userId: u._id, userName: u.name })}
+                            className="px-2 py-1 rounded-lg bg-white/5 text-slate-300 text-xs hover:bg-amber-500/20 hover:text-amber-300 transition-all"
+                            title="Force logout — invalidate all active sessions">
+                            🔒
+                          </button>
+                          {u.mfaEnabled && (
+                            <button
+                              onClick={() => setAdminAction({ type: 'reset-mfa', userId: u._id, userName: u.name })}
+                              className="px-2 py-1 rounded-lg bg-white/5 text-slate-300 text-xs hover:bg-orange-500/20 hover:text-orange-300 transition-all"
+                              title="Disable MFA — user can log in without 2FA until they re-enroll">
+                              🛡️
+                            </button>
+                          )}
+                        </>
+                      )}
                     </div>
                   </td>
                 </tr>
@@ -408,11 +453,52 @@ export default function UsersPage() {
       )}
 
       {progressModal && (
-        <StudentProgressModal 
-          userId={progressModal.id} 
-          userName={progressModal.name} 
-          onClose={() => setProgressModal(null)} 
+        <StudentProgressModal
+          userId={progressModal.id}
+          userName={progressModal.name}
+          onClose={() => setProgressModal(null)}
         />
+      )}
+
+      {/* Admin action confirmation modal */}
+      {adminAction && (
+        <Portal>
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+            <div className="glass rounded-2xl p-6 max-w-sm mx-4 space-y-4 animate-fade-in">
+              <div className="text-3xl text-center">
+                {adminAction.type === 'force-logout' ? '🔒' : '🛡️'}
+              </div>
+              <h3 className="text-lg font-bold text-white text-center">
+                {adminAction.type === 'force-logout' ? 'Force Logout' : 'Disable MFA'}
+              </h3>
+              <p className="text-slate-400 text-sm text-center">
+                {adminAction.type === 'force-logout'
+                  ? <>Invalidate all active sessions for <span className="text-white font-medium">{adminAction.userName}</span>? They will need to log in again immediately.</>
+                  : <>Disable 2FA for <span className="text-white font-medium">{adminAction.userName}</span>? They will be able to log in without a code until they re-enroll.</>
+                }
+              </p>
+              {adminActionError && (
+                <div className="px-4 py-2 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-sm text-center">
+                  {adminActionError}
+                </div>
+              )}
+              <div className="flex gap-3">
+                <button
+                  onClick={() => { setAdminAction(null); setAdminActionError(''); }}
+                  disabled={adminActionLoading}
+                  className="flex-1 py-2.5 rounded-xl border border-white/10 text-slate-400 hover:bg-white/5 transition-all disabled:opacity-50">
+                  Cancel
+                </button>
+                <button
+                  onClick={handleAdminAction}
+                  disabled={adminActionLoading}
+                  className="flex-1 py-2.5 rounded-xl bg-amber-500/20 text-amber-300 border border-amber-500/30 hover:bg-amber-500/30 transition-all font-semibold disabled:opacity-50">
+                  {adminActionLoading ? 'Processing…' : 'Confirm'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </Portal>
       )}
     </div>
   );
