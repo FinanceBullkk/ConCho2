@@ -1,5 +1,6 @@
 const express = require('express');
-const { protect, roleGuard } = require('../middleware/auth');
+const { protect } = require('../middleware/auth');
+const { roleGuard } = require('../middleware/roleGuard');
 const {
   getLatestReport,
   getReportHistory,
