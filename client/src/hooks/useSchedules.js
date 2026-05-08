@@ -1,4 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { toast } from 'sonner';
 import { schedulesAPI } from '../api/api';
 import { qk } from './queryKeys';
 
@@ -48,7 +49,7 @@ export const useCreateSchedule = () => {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (data) => schedulesAPI.create(data).then((r) => r.data.data),
-    onSuccess: () => invalidateScheduleScopes(qc),
+    onSuccess: () => { toast.success('Schedule created'); invalidateScheduleScopes(qc); },
   });
 };
 
@@ -56,7 +57,7 @@ export const useUpdateSchedule = () => {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: ({ id, data }) => schedulesAPI.update(id, data).then((r) => r.data.data),
-    onSuccess: () => invalidateScheduleScopes(qc),
+    onSuccess: () => { toast.success('Schedule updated'); invalidateScheduleScopes(qc); },
   });
 };
 
@@ -64,7 +65,7 @@ export const useDeleteSchedule = () => {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (id) => schedulesAPI.delete(id),
-    onSuccess: () => invalidateScheduleScopes(qc),
+    onSuccess: () => { toast.success('Schedule deleted'); invalidateScheduleScopes(qc); },
   });
 };
 
@@ -72,7 +73,7 @@ export const useBookSlot = () => {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (data) => schedulesAPI.bookSlot(data).then((r) => r.data),
-    onSuccess: () => invalidateScheduleScopes(qc),
+    onSuccess: () => { toast.success('Slot booked'); invalidateScheduleScopes(qc); },
   });
 };
 
@@ -80,6 +81,6 @@ export const useCancelSlot = () => {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (id) => schedulesAPI.cancelSlot(id),
-    onSuccess: () => invalidateScheduleScopes(qc),
+    onSuccess: () => { toast.success('Slot cancelled'); invalidateScheduleScopes(qc); },
   });
 };

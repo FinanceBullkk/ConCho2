@@ -118,8 +118,10 @@ const getByUser = async (userId) => {
 
 /**
  * Analytics: attendance stats grouped by employee.
+ * @param {string|undefined} filterUserId  Optional userId filter
+ * @param {object}           pagination    { page, limit, skip }
  */
-const analyticsByEmployee = async (filterUserId) => {
+const analyticsByEmployee = async (filterUserId, { page = 1, limit = 100, skip = 0 } = {}) => {
   const pipeline = [
     {
       $group: {
@@ -157,15 +159,27 @@ const analyticsByEmployee = async (filterUserId) => {
     pipeline.unshift({ $match: { userId: new mongoose.Types.ObjectId(filterUserId) } });
   }
 
-  return Attendance.aggregate(pipeline);
+  // Count total matching groups before slicing
+  const countPipeline = [...pipeline, { $count: 'total' }];
+  const [countResult] = await Attendance.aggregate(countPipeline);
+  const total = countResult ? countResult.total : 0;
+
+  const data = await Attendance.aggregate([
+    ...pipeline,
+    { $skip: skip },
+    { $limit: limit },
+  ]);
+
+  return { data, total, page, limit };
 };
 
 /**
  * Analytics: attendance stats grouped by team.
  * Uses a single aggregation pipeline — no in-memory fan-out.
+ * @param {object} pagination  { page, limit, skip }
  */
-const analyticsByTeam = async () => {
-  const results = await Team.aggregate([
+const analyticsByTeam = async ({ page = 1, limit = 100, skip = 0 } = {}) => {
+  const basePipeline = [
     // For each team, fetch all attendance records for its members
     {
       $lookup: {
@@ -216,9 +230,18 @@ const analyticsByTeam = async () => {
       },
     },
     { $sort: { attendanceRate: -1, name: 1 } },
+  ];
+
+  const [countResult] = await Team.aggregate([...basePipeline, { $count: 'total' }]);
+  const total = countResult ? countResult.total : 0;
+
+  const results = await Team.aggregate([
+    ...basePipeline,
+    { $skip: skip },
+    { $limit: limit },
   ]);
 
-  return results.map(r => ({
+  const data = results.map(r => ({
     _id: r._id,
     name: r.name,
     memberCount: r.memberCount,
@@ -231,6 +254,8 @@ const analyticsByTeam = async () => {
       attendanceRate: r.attendanceRate,
     },
   }));
+
+  return { data, total, page, limit };
 };
 
 /**
