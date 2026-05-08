@@ -1,6 +1,18 @@
 <!doctype html>
 <html lang="en" class="dark">
   <head>
+    <!-- Prevent flash of wrong theme on load -->
+    <script>
+      (function() {
+        var stored = localStorage.getItem('tms-theme');
+        var prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+        if (stored === 'dark' || (!stored && prefersDark)) {
+          document.documentElement.classList.add('dark');
+        } else if (stored === 'light') {
+          document.documentElement.classList.remove('dark');
+        }
+      })();
+    </script>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />

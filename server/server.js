@@ -272,9 +272,33 @@ const PORT = process.env.PORT || 5000;
 if (process.env.NODE_ENV !== 'test') {
   const startServer = async () => {
     await connectDB();
-    app.listen(PORT, () => {
+    const server = app.listen(PORT, () => {
       logger.info({ port: PORT }, 'TMS v2 API running');
     });
+
+    // Graceful shutdown on SIGTERM (sent by Render, Kubernetes, systemd on deploy/stop).
+    // Give in-flight requests up to 10s to complete before forcing exit.
+    const shutdown = (signal) => {
+      logger.info({ signal }, 'Shutdown signal received — draining connections');
+      server.close((err) => {
+        if (err) {
+          logger.error({ err }, 'Error during server close');
+          process.exit(1);
+        }
+        logger.info('Server closed cleanly');
+        process.exit(0);
+      });
+
+      // Force-kill after 10s so we don't hang indefinitely
+      setTimeout(() => {
+        logger.warn('Force-killing after 10s drain timeout');
+        process.exit(1);
+      }, 10_000).unref();
+    };
+
+    process.on('SIGTERM', () => shutdown('SIGTERM'));
+    process.on('SIGINT',  () => shutdown('SIGINT'));
+
     // Start background jobs after DB is connected
     const { startReconcileJob } = require('./jobs/reconcileJob');
     startReconcileJob();
