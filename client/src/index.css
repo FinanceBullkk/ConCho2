@@ -1,6 +1,7 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 
+/* Dark mode is toggled via the .dark class on <html> */
 @custom-variant dark (&:is(.dark *));
 
 /* ── Brand tokens (kept from original design) ───────────── */
@@ -28,29 +29,17 @@
   --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
 }
 
-/* ── shadcn semantic tokens (dark) ──────────────────────── */
+/* ── shadcn semantic tokens ─────────────────────────────── */
+
+/* Shared tokens (same in both modes) */
 :root {
   --radius: 0.625rem;
 
-  /* Slate-based dark theme — matches existing surface gradient */
-  --background: hsl(222 47% 7%);            /* near surface */
-  --foreground: hsl(210 40% 92%);
-  --card: hsl(222 40% 11%);
-  --card-foreground: hsl(210 40% 92%);
-  --popover: hsl(222 40% 11%);
-  --popover-foreground: hsl(210 40% 92%);
+  /* Primary / accent colours — unchanged across themes */
   --primary: hsl(217 91% 60%);              /* primary-500 */
   --primary-foreground: hsl(0 0% 100%);
-  --secondary: hsl(217 33% 18%);
-  --secondary-foreground: hsl(210 40% 92%);
-  --muted: hsl(217 33% 17%);
-  --muted-foreground: hsl(215 20% 65%);
-  --accent: hsl(217 33% 18%);
-  --accent-foreground: hsl(210 40% 92%);
   --destructive: hsl(0 72% 60%);
   --destructive-foreground: hsl(0 0% 100%);
-  --border: hsl(217 33% 22% / 0.6);
-  --input: hsl(217 33% 22%);
   --ring: hsl(217 91% 60%);
 
   /* Chart palette — reused across all dashboards */
@@ -62,6 +51,42 @@
   --chart-6: hsl(0 84% 60%);     /* red */
   --chart-7: hsl(330 81% 60%);   /* pink */
   --chart-8: hsl(83 78% 50%);    /* lime */
+}
+
+/* Dark theme tokens — active when <html> has .dark class */
+html.dark {
+  --background: hsl(222 47% 7%);            /* near surface */
+  --foreground: hsl(210 40% 92%);
+  --card: hsl(222 40% 11%);
+  --card-foreground: hsl(210 40% 92%);
+  --popover: hsl(222 40% 11%);
+  --popover-foreground: hsl(210 40% 92%);
+  --secondary: hsl(217 33% 18%);
+  --secondary-foreground: hsl(210 40% 92%);
+  --muted: hsl(217 33% 17%);
+  --muted-foreground: hsl(215 20% 65%);
+  --accent: hsl(217 33% 18%);
+  --accent-foreground: hsl(210 40% 92%);
+  --border: hsl(217 33% 22% / 0.6);
+  --input: hsl(217 33% 22%);
+}
+
+/* Light theme tokens — active when <html> does NOT have .dark class */
+html:not(.dark) {
+  --background: hsl(210 40% 96%);
+  --foreground: hsl(222 47% 11%);
+  --card: hsl(0 0% 100%);
+  --card-foreground: hsl(222 47% 11%);
+  --popover: hsl(0 0% 100%);
+  --popover-foreground: hsl(222 47% 11%);
+  --secondary: hsl(210 40% 92%);
+  --secondary-foreground: hsl(222 47% 11%);
+  --muted: hsl(210 40% 93%);
+  --muted-foreground: hsl(215 20% 45%);
+  --accent: hsl(210 40% 92%);
+  --accent-foreground: hsl(222 47% 11%);
+  --border: hsl(214 32% 85% / 0.8);
+  --input: hsl(214 32% 88%);
 }
 
 @theme inline {
@@ -105,6 +130,11 @@
     background: linear-gradient(135deg, #0f172a 0%, #1a1a2e 50%, #16213e 100%);
     color: #e2e8f0;
     min-height: 100vh;
+  }
+
+  html:not(.dark) body {
+    background: linear-gradient(135deg, #f1f5f9 0%, #e2e8f0 50%, #f8fafc 100%);
+    color: #0f172a;
   }
 
   ::selection {

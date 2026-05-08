@@ -1,4 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { toast } from 'sonner';
 import { teamsAPI } from '../api/api';
 import { qk } from './queryKeys';
 
@@ -43,7 +44,7 @@ export const useCreateTeam = () => {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (data) => teamsAPI.create(data).then((r) => r.data.data),
-    onSuccess: () => invalidateTeamScopes(qc),
+    onSuccess: () => { toast.success('Team created'); invalidateTeamScopes(qc); },
   });
 };
 
@@ -51,7 +52,7 @@ export const useUpdateTeam = () => {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: ({ id, data }) => teamsAPI.update(id, data).then((r) => r.data.data),
-    onSuccess: () => invalidateTeamScopes(qc),
+    onSuccess: () => { toast.success('Team updated'); invalidateTeamScopes(qc); },
   });
 };
 
@@ -59,6 +60,6 @@ export const useDeleteTeam = () => {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (id) => teamsAPI.delete(id),
-    onSuccess: () => invalidateTeamScopes(qc),
+    onSuccess: () => { toast.success('Team deleted'); invalidateTeamScopes(qc); },
   });
 };

@@ -3,12 +3,14 @@ import { useSearchParams } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useQueryClient } from '@tanstack/react-query';
+import { toast } from 'sonner';
 import StudentProgressModal from '../components/Progress/StudentProgressModal';
 import Portal from '../components/Portal';
 import { useUsers, useCreateUser, useUpdateUser, useDeleteUser } from '../hooks/useUsers';
 import { useTeams } from '../hooks/useTeams';
 import { qk } from '../hooks/queryKeys';
 import { useAuth } from '../context/AuthContext';
+import { useRole } from '../hooks/useRole';
 import { authAPI } from '../api/api';
 import { createUserSchema, editUserSchema } from '../lib/validations';
 import QueryError from '../components/QueryError';
@@ -176,7 +178,9 @@ const PAGE_SIZE = 50;
 export default function UsersPage() {
   const queryClient = useQueryClient();
   const { user: currentUser, isAdmin } = useAuth();
+  const { can } = useRole();
   const deleteMutation = useDeleteUser();
+  const updateMutation = useUpdateUser();
   const [modal, setModal] = useState(null); // null | 'create' | userObject
   const [deleteId, setDeleteId] = useState(null);
   const [progressModal, setProgressModal] = useState(null); // { id, name }
@@ -184,6 +188,10 @@ export default function UsersPage() {
   const [adminAction, setAdminAction] = useState(null); // { type: 'force-logout'|'reset-mfa', userId, userName }
   const [adminActionLoading, setAdminActionLoading] = useState(false);
   const [adminActionError, setAdminActionError] = useState('');
+
+  // Bulk selection state
+  const [selectedIds, setSelectedIds] = useState(new Set());
+  const [bulkAction, setBulkAction] = useState('');
 
   // URL-synced filter / sort / pagination state
   const [searchParams, setSearchParams] = useSearchParams();
@@ -243,6 +251,49 @@ export default function UsersPage() {
   const users = usersData?.data || [];
   const total = usersData?.total ?? usersData?.count ?? 0;
   const pages = usersData?.pages ?? 1;
+
+  // Bulk selection helpers
+  const toggleSelect = (id) =>
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+
+  const toggleSelectAll = () => {
+    if (selectedIds.size === users.length) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(users.map((u) => u._id)));
+    }
+  };
+
+  // Clear selection when page/filter changes
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => setSelectedIds(new Set()), [searchParams.toString()]);
+
+  const executeBulkAction = async () => {
+    if (!bulkAction || selectedIds.size === 0) return;
+    const ids = [...selectedIds];
+
+    try {
+      if (bulkAction === 'delete') {
+        if (!window.confirm(`Delete ${ids.length} users? This cannot be undone.`)) return;
+        await Promise.all(ids.map((id) => deleteMutation.mutateAsync(id)));
+        toast.success(`${ids.length} user${ids.length > 1 ? 's' : ''} deleted`);
+      } else if (bulkAction.startsWith('status:')) {
+        const status = bulkAction.replace('status:', '');
+        await Promise.all(
+          ids.map((id) => updateMutation.mutateAsync({ id, data: { status } }))
+        );
+        toast.success(`${ids.length} user${ids.length > 1 ? 's' : ''} updated to ${status}`);
+      }
+      setSelectedIds(new Set());
+      setBulkAction('');
+    } catch {
+      toast.error('Bulk action failed — some updates may not have applied');
+    }
+  };
 
   // Load team assignments for all users
   const { data: allTeams = [] } = useTeams();
@@ -337,6 +388,42 @@ export default function UsersPage() {
         <button onClick={reload} className="px-3 py-2 rounded-xl bg-white/5 border border-white/10 text-slate-300 text-sm hover:bg-white/10 transition-all">↻ Refresh</button>
       </div>
 
+      {/* Bulk action toolbar — visible only when rows are selected */}
+      {selectedIds.size > 0 && (
+        <div className="flex items-center gap-3 px-4 py-2.5 rounded-xl bg-primary-500/10 border border-primary-500/20 animate-fade-in">
+          <span className="text-sm text-primary-300 font-medium">
+            {selectedIds.size} selected
+          </span>
+          <div className="flex-1" />
+          <select
+            value={bulkAction}
+            onChange={(e) => setBulkAction(e.target.value)}
+            aria-label="Bulk action"
+            className="px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 text-white text-sm focus:outline-none focus:ring-1 focus:ring-primary-500/50"
+          >
+            <option value="">Choose action…</option>
+            <option value="status:Active">Set Active</option>
+            <option value="status:Inactive">Set Inactive</option>
+            <option value="status:On-hold">Set On-hold</option>
+            {isAdmin && <option value="delete">Delete selected</option>}
+          </select>
+          <button
+            onClick={executeBulkAction}
+            disabled={!bulkAction}
+            className="px-3 py-1.5 rounded-lg bg-primary-600 text-white text-sm font-medium hover:bg-primary-500 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
+          >
+            Apply
+          </button>
+          <button
+            onClick={() => setSelectedIds(new Set())}
+            aria-label="Clear selection"
+            className="px-2 py-1.5 rounded-lg bg-white/5 text-slate-400 hover:text-white text-sm transition-all"
+          >
+            ✕
+          </button>
+        </div>
+      )}
+
       {/* Table */}
       <div className="glass rounded-2xl overflow-hidden">
         {loading ? (
@@ -347,6 +434,16 @@ export default function UsersPage() {
           <table className="w-full text-sm">
             <thead className="border-b border-white/5">
               <tr className="text-left text-slate-400 text-xs uppercase tracking-wider">
+                <th className="w-10 px-3 py-3">
+                  <input
+                    type="checkbox"
+                    checked={users.length > 0 && selectedIds.size === users.length}
+                    ref={(el) => { if (el) el.indeterminate = selectedIds.size > 0 && selectedIds.size < users.length; }}
+                    onChange={toggleSelectAll}
+                    aria-label="Select all users"
+                    className="w-4 h-4 rounded border-white/20 bg-white/5 text-primary-500 focus:ring-primary-500/50 cursor-pointer"
+                  />
+                </th>
                 {[
                   { key: 'empCode', label: 'Code' },
                   { key: 'name', label: 'Name' },
@@ -369,6 +466,15 @@ export default function UsersPage() {
             <tbody className="divide-y divide-white/5 stagger">
               {users.map((u) => (
                 <tr key={u._id} className="hover:bg-white/3 transition-colors">
+                  <td className="px-3 py-3">
+                    <input
+                      type="checkbox"
+                      checked={selectedIds.has(u._id)}
+                      onChange={() => toggleSelect(u._id)}
+                      aria-label={`Select ${u.name}`}
+                      className="w-4 h-4 rounded border-white/20 bg-white/5 text-primary-500 focus:ring-primary-500/50 cursor-pointer"
+                    />
+                  </td>
                   <td className="px-4 py-3 font-mono text-primary-300 font-medium text-xs">{u.empCode}</td>
                   <td className="px-4 py-3 text-white font-medium">
                     <button onClick={() => setProgressModal({ id: u._id, name: u.name })} className="hover:text-teal-400 hover:underline transition-colors text-left text-sm">
@@ -439,8 +545,10 @@ export default function UsersPage() {
                         className="px-2 py-1 rounded-lg bg-white/5 text-slate-300 text-xs hover:bg-teal-500/20 hover:text-teal-300 transition-all" title="View Progress">📊</button>
                       <button onClick={() => setModal(u)}
                         className="px-2 py-1 rounded-lg bg-white/5 text-slate-300 text-xs hover:bg-primary-500/20 hover:text-primary-300 transition-all" title="Edit user">✏️</button>
-                      <button onClick={() => setDeleteId(u._id)}
-                        className="px-2 py-1 rounded-lg bg-white/5 text-slate-300 text-xs hover:bg-red-500/20 hover:text-red-400 transition-all" title="Delete user">🗑</button>
+                      {can('delete:user') && (
+                        <button onClick={() => setDeleteId(u._id)}
+                          className="px-2 py-1 rounded-lg bg-white/5 text-slate-300 text-xs hover:bg-red-500/20 hover:text-red-400 transition-all" title="Delete user">🗑</button>
+                      )}
                       {/* Admin-only actions — hidden for the current user's own row */}
                       {isAdmin && u._id !== currentUser?._id && (
                         <>
