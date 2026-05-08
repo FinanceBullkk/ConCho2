@@ -16,6 +16,8 @@ const pinoHttp = require('pino-http');
 const connectDB = require('./config/db');
 const logger = require('./lib/logger');
 const { requestId } = require('./middleware/requestId');
+const swaggerUi = require('swagger-ui-express');
+const { spec } = require('./lib/swagger');
 
 // Trigger nodemon
 // ──────────────────────────────────────────────────────────
@@ -175,6 +177,15 @@ const healthRouter = require('./routes/healthRoutes');
 app.use('/', healthRouter);
 app.use('/api', healthRouter);
 
+
+// ── API Docs — enabled in dev or when SWAGGER_ENABLED=true ──
+if (process.env.NODE_ENV !== 'production' || process.env.SWAGGER_ENABLED === 'true') {
+  app.use('/api/docs', swaggerUi.serve, swaggerUi.setup(spec, {
+    customSiteTitle: 'TMS v2 API Docs',
+    swaggerOptions: { persistAuthorization: true },
+  }));
+  app.get('/api/docs.json', (_req, res) => res.json(spec));
+}
 
 // ──────────────────────────────────────────────────────────
 // Routes
