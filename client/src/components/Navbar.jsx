@@ -1,4 +1,5 @@
-import { Link, useLocation } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { Link, NavLink, useLocation } from 'react-router-dom';
 import {
   Home,
   GraduationCap,
@@ -10,6 +11,8 @@ import {
   UserCog,
   Sun,
   Moon,
+  Menu,
+  X,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../hooks/useTheme';
@@ -56,6 +59,10 @@ export default function Navbar() {
   const { user, logout } = useAuth();
   const location = useLocation();
   const { isDark, toggle } = useTheme();
+  const [mobileOpen, setMobileOpen] = useState(false);
+
+  // Close on route change
+  useEffect(() => setMobileOpen(false), [location.pathname]);
 
   if (!user) return null;
 
@@ -67,88 +74,133 @@ export default function Navbar() {
   };
 
   return (
-    <nav className="glass sticky top-0 z-50 border-b border-white/5">
-      <div className="mx-auto flex h-16 max-w-7xl items-center justify-between gap-4 px-4 sm:px-6">
-        {/* Logo */}
-        <Link to="/home" className="group flex shrink-0 items-center gap-3">
-          <div
-            className={cn(
-              'flex size-9 items-center justify-center rounded-xl bg-gradient-to-br text-sm font-bold text-white shadow-lg transition-transform group-hover:scale-110',
-              ROLE_GRADIENTS[user.role]
-            )}
-          >
-            T
-          </div>
-          <span className="hidden text-lg font-bold tracking-tight text-white sm:block">
-            TMS<span className="text-primary-400">v2</span>
-          </span>
-        </Link>
-
-        {/* Nav Links */}
-        <div className="flex flex-1 items-center justify-center gap-1 overflow-x-auto">
-          {items.map((item) => {
-            const Icon = item.icon;
-            const active = isActive(item.path);
-            return (
-              <Link
-                key={item.path}
-                to={item.path}
-                className={cn(
-                  'flex items-center gap-2 whitespace-nowrap rounded-lg px-3 py-2 text-sm font-medium transition-all',
-                  active
-                    ? 'bg-primary/15 text-primary-foreground/90'
-                    : 'text-slate-400 hover:bg-white/5 hover:text-white'
-                )}
-                style={active ? { color: 'hsl(217 91% 75%)' } : undefined}
-              >
-                <Icon className="size-4" />
-                <span className="hidden md:inline">{item.label}</span>
-              </Link>
-            );
-          })}
-        </div>
-
-        {/* User + Logout */}
-        <div className="flex shrink-0 items-center gap-3">
-          <div className="hidden flex-col items-end sm:flex">
-            <span className="text-sm font-medium text-white">{user.name}</span>
-            <span
+    <header className="glass sticky top-0 z-50 border-b border-white/5">
+      <div className="mx-auto max-w-7xl px-4 sm:px-6">
+        {/* Main nav row */}
+        <nav className="flex h-16 items-center justify-between gap-4" aria-label="Main navigation">
+          {/* Logo */}
+          <Link to="/home" className="group flex shrink-0 items-center gap-3">
+            <div
               className={cn(
-                'bg-gradient-to-r bg-clip-text text-xs font-semibold text-transparent',
+                'flex size-9 items-center justify-center rounded-xl bg-gradient-to-br text-sm font-bold text-white shadow-lg transition-transform group-hover:scale-110',
                 ROLE_GRADIENTS[user.role]
               )}
             >
-              {user.role} · {user.empCode}
+              T
+            </div>
+            <span className="hidden text-lg font-bold tracking-tight text-white sm:block">
+              TMS<span className="text-primary-400">v2</span>
             </span>
+          </Link>
+
+          {/* Desktop Nav Links */}
+          <div className="hidden md:flex flex-1 items-center justify-center gap-1">
+            {items.map((item) => {
+              const Icon = item.icon;
+              const active = isActive(item.path);
+              return (
+                <Link
+                  key={item.path}
+                  to={item.path}
+                  className={cn(
+                    'flex items-center gap-2 whitespace-nowrap rounded-lg px-3 py-2 text-sm font-medium transition-all',
+                    active
+                      ? 'bg-primary/15 text-primary-foreground/90'
+                      : 'text-slate-400 hover:bg-white/5 hover:text-white'
+                  )}
+                  style={active ? { color: 'hsl(217 91% 75%)' } : undefined}
+                >
+                  <Icon className="size-4" />
+                  <span>{item.label}</span>
+                </Link>
+              );
+            })}
           </div>
-          <button
-            onClick={toggle}
-            aria-label={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
-            title={isDark ? 'Light mode' : 'Dark mode'}
-            className="p-2 rounded-lg text-slate-400 hover:text-white hover:bg-white/10 transition-all"
-          >
-            {isDark ? <Sun className="size-4" aria-hidden="true" /> : <Moon className="size-4" aria-hidden="true" />}
-          </button>
-          <Link to="/me/settings" title="Account settings">
+
+          {/* User + Actions */}
+          <div className="flex shrink-0 items-center gap-3">
+            <div className="hidden flex-col items-end sm:flex">
+              <span className="text-sm font-medium text-white">{user.name}</span>
+              <span
+                className={cn(
+                  'bg-gradient-to-r bg-clip-text text-xs font-semibold text-transparent',
+                  ROLE_GRADIENTS[user.role]
+                )}
+              >
+                {user.role} · {user.empCode}
+              </span>
+            </div>
+            <button
+              onClick={toggle}
+              aria-label={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
+              title={isDark ? 'Light mode' : 'Dark mode'}
+              className="p-2 rounded-lg text-slate-400 hover:text-white hover:bg-white/10 transition-all"
+            >
+              {isDark ? <Sun className="size-4" aria-hidden="true" /> : <Moon className="size-4" aria-hidden="true" />}
+            </button>
+            <Link to="/me/settings" title="Account settings">
+              <Button
+                variant="ghost"
+                size="icon"
+                className="text-slate-400 hover:bg-primary-500/10 hover:text-primary-300"
+              >
+                <UserCog className="size-4" />
+              </Button>
+            </Link>
             <Button
               variant="ghost"
               size="icon"
-              className="text-slate-400 hover:bg-primary-500/10 hover:text-primary-300"
+              onClick={logout}
+              title="Sign out"
+              className="text-slate-400 hover:bg-rose-500/10 hover:text-rose-400"
             >
-              <UserCog className="size-4" />
+              <LogOut className="size-4" />
             </Button>
-          </Link>
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={logout}
-            title="Sign out"
-            className="text-slate-400 hover:bg-rose-500/10 hover:text-rose-400"
+
+            {/* Hamburger button — mobile only */}
+            <button
+              onClick={() => setMobileOpen((o) => !o)}
+              aria-label={mobileOpen ? 'Close menu' : 'Open menu'}
+              aria-expanded={mobileOpen}
+              aria-controls="mobile-nav"
+              className="md:hidden p-2 rounded-lg text-slate-400 hover:text-white hover:bg-white/10 transition-all"
+            >
+              {mobileOpen ? (
+                <X className="size-5" aria-hidden="true" />
+              ) : (
+                <Menu className="size-5" aria-hidden="true" />
+              )}
+            </button>
+          </div>
+        </nav>
+
+        {/* Mobile nav panel */}
+        {mobileOpen && (
+          <nav
+            id="mobile-nav"
+            aria-label="Mobile navigation"
+            className="md:hidden border-t border-white/10 py-3 space-y-1 animate-fade-in"
           >
-            <LogOut className="size-4" />
-          </Button>
-        </div>
+            {items.map((item) => (
+              <NavLink
+                key={item.path}
+                to={item.path}
+                className={({ isActive }) =>
+                  `flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-medium transition-all ${
+                    isActive
+                      ? 'bg-primary-500/15 text-primary-400'
+                      : 'text-slate-400 hover:bg-white/5 hover:text-white'
+                  }`
+                }
+                onClick={() => setMobileOpen(false)}
+              >
+                {item.icon && <item.icon className="size-4" aria-hidden="true" />}
+                {item.label}
+              </NavLink>
+            ))}
+          </nav>
+        )}
       </div>
-    </nav>
+    </header>
   );
 }

@@ -1,5 +1,8 @@
 # TMS v2 — API Reference & Postman Guide
 
+> **Interactive docs:** In development, the full API is browsable at `http://localhost:5000/api/docs`.
+> The raw OpenAPI spec JSON is at `GET /api/docs.json`.
+
 ## Quick Start with Postman
 
 ### 1. Import the Collection
@@ -155,11 +158,13 @@
 { "teamId": "paste_team_id_here" }
 ```
 
-The book-team endpoint:
-- Finds all **Active** team members
-- Skips members already enrolled
-- Checks capacity before enrolling
-- Returns count of members added
+The book-slot endpoint (`POST /api/schedules/book-slot`):
+- Validates the time slot against allowed time slots (Admin settings)
+- Finds all **Active** team members and auto-enrolls them
+- Enforces max 2 sessions per team per week
+- Prevents overlapping slots for the same class (collision check)
+- Returns the populated schedule with enrolled users
+- **Sends a booking confirmation email** to the requester (team leader or admin) if they have an email address on file — the email is fire-and-forget and will not roll back the booking if delivery fails
 
 ---
 

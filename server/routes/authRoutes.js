@@ -17,7 +17,7 @@ const {
 const { protect } = require('../middleware/auth');
 const { roleGuard } = require('../middleware/roleGuard');
 const { validate } = require('../middleware/validate');
-const { loginLimiter, changePasswordLimiter, mfaLimiter } = require('../middleware/rateLimiters');
+const { loginLimiter, changePasswordLimiter, mfaLimiter, forgotPasswordLimiter } = require('../middleware/rateLimiters');
 const { loginBody } = require('../schemas/auth');
 
 const changePasswordBody = z.object({
@@ -33,6 +33,41 @@ const mfaVerifyLoginBody = z.object({
 });
 const mfaCodeBody = z.object({ code: mfaCodeSchema });
 
+/**
+ * @openapi
+ * /auth/login:
+ *   post:
+ *     tags: [Auth]
+ *     summary: Sign in with employee code and password
+ *     security: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [empCode, password]
+ *             properties:
+ *               empCode:  { type: string, example: '000001' }
+ *               password: { type: string, example: 'mypassword' }
+ *     responses:
+ *       200:
+ *         description: Login successful — session cookie set
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success: { type: boolean }
+ *                 data:    { $ref: '#/components/schemas/User' }
+ *       401:
+ *         description: Invalid credentials
+ *         content:
+ *           application/json:
+ *             schema: { $ref: '#/components/schemas/Error' }
+ *       429:
+ *         description: Too many failed attempts
+ */
 router.post('/login', loginLimiter, validate({ body: loginBody }), login);
 router.post('/logout', protect, logout);
 router.get('/me', protect, getMe);
@@ -68,11 +103,54 @@ router.post(
   mfaAdminDisable
 );
 
+/**
+ * @openapi
+ * /auth/forgot-password:
+ *   post:
+ *     tags: [Auth]
+ *     summary: Request a password reset email
+ *     security: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [empCode]
+ *             properties:
+ *               empCode: { type: string, example: '000001' }
+ *     responses:
+ *       200:
+ *         description: Always 200 (anti-enumeration) — reset email sent if account found
+ */
 // POST /forgot-password — rate limited, no auth required
-router.post('/forgot-password', loginLimiter, forgotPassword);
+router.post('/forgot-password', forgotPasswordLimiter, forgotPassword);
 
+/**
+ * @openapi
+ * /auth/reset-password:
+ *   post:
+ *     tags: [Auth]
+ *     summary: Reset password using token from email
+ *     security: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [token, password]
+ *             properties:
+ *               token:    { type: string, description: Raw token from reset email }
+ *               password: { type: string, minLength: 10 }
+ *     responses:
+ *       200:
+ *         description: Password reset successful
+ *       400:
+ *         description: Invalid or expired token
+ */
 // POST /reset-password — rate limited, no auth required
-router.post('/reset-password', loginLimiter, resetPassword);
+router.post('/reset-password', forgotPasswordLimiter, resetPassword);
 
 module.exports = router;
 

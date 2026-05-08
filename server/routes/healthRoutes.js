@@ -1,5 +1,6 @@
 const router = require('express').Router();
 const mongoose = require('mongoose');
+const { version } = require('../package.json');
 
 // Liveness — "the process is up". Always 200 if Node is responding.
 // Used by orchestrators to decide whether to restart the container.
@@ -7,8 +8,10 @@ router.get('/health', (_req, res) => {
   res.json({
     status: 'ok',
     service: 'tms-server',
+    version,
     uptime: Math.floor(process.uptime()),
     timestamp: new Date().toISOString(),
+    env: process.env.NODE_ENV || 'development',
   });
 });
 
@@ -30,7 +33,13 @@ router.get('/ready', async (_req, res) => {
       mongoose.connection.db.admin().ping(),
       new Promise((_, reject) => setTimeout(() => reject(new Error('mongo_ping_timeout')), 2000)),
     ]);
-    res.json({ status: 'ready', mongoState });
+    res.json({
+      status: 'ready',
+      db: 'connected',
+      dbName: mongoose.connection.name,
+      uptime: Math.floor(process.uptime()),
+      timestamp: new Date().toISOString(),
+    });
   } catch (err) {
     res.status(503).json({ status: 'not_ready', reason: err.message, mongoState });
   }

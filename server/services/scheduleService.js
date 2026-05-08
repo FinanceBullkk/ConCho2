@@ -7,6 +7,7 @@ const Attendance = require('../models/Attendance');
 const calendarService = require('./calendarService');
 const auditService = require('./auditService');
 const logger = require('../lib/logger');
+const { sendMail } = require('../lib/mailer');
 
 // Per-class ordered schedule ID list — 5 min TTL.
 // Invalidated on create/delete so sessionNumbers stay accurate.
@@ -316,10 +317,36 @@ const bookSlot = async ({ teamId, startTime, endTime, requestUser }) => {
   }
 
   // Populate for response (re-fetch so the response includes googleEventId/meetLink).
-  return Schedule.findById(created._id)
+  const populated = await Schedule.findById(created._id)
     .populate('classId', 'classCode courseName')
     .populate('bookedTeamId', 'name')
     .populate('enrolledUsers', 'empCode name');
+
+  // Send booking confirmation email to the requestUser (non-blocking, fail-soft).
+  if (requestUser.email) {
+    const className = populated.classId
+      ? `${populated.classId.classCode} — ${populated.classId.courseName}`
+      : 'your class';
+    const scheduleDate = new Date(created.startTime).toLocaleString('en-GB', {
+      timeZone: 'Asia/Ho_Chi_Minh',
+      dateStyle: 'full',
+      timeStyle: 'short',
+    });
+    sendMail({
+      to: requestUser.email,
+      subject: `TMS — Booking Confirmed: ${className}`,
+      text: `Hi ${requestUser.name},\n\nYour spot in "${className}" has been confirmed.\n\nDate: ${scheduleDate}\n\nIf you need to cancel, please do so at least 24 hours in advance.\n\nTMS Training System`,
+      html: `<p>Hi <strong>${requestUser.name}</strong>,</p>
+             <p>Your spot in <strong>${className}</strong> has been confirmed.</p>
+             <p><strong>Date:</strong> ${scheduleDate}</p>
+             <p>If you need to cancel, please do so at least 24 hours in advance.</p>
+             <p>TMS Training System</p>`,
+    }).catch((err) => {
+      logger.warn({ err, userId: requestUser._id }, 'Booking email failed');
+    });
+  }
+
+  return populated;
 };
 
 /**
