@@ -1,4 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { toast } from 'sonner';
 import { enrollmentsAPI } from '../api/api';
 import { qk } from './queryKeys';
 
@@ -30,6 +31,7 @@ export const useUpdateEnrollment = () => {
   return useMutation({
     mutationFn: ({ id, data }) => enrollmentsAPI.update(id, data).then((r) => r.data.data),
     onSuccess: () => {
+      toast.success('Enrollment updated');
       qc.invalidateQueries({ queryKey: qk.enrollments.all });
       qc.invalidateQueries({ queryKey: qk.dashboard.stats });
     },
