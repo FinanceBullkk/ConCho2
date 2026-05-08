@@ -134,4 +134,33 @@ const getApp = () => setup();
 const getTokens = () => tokens;
 const getSeedData = () => seedData;
 
-module.exports = { getApp, getTokens, getSeedData, teardown };
+/**
+ * Returns a supertest request agent that carries a valid CSRF token
+ * (double-submit cookie + header pair). Use for POST/PUT/DELETE requests.
+ *
+ * Usage:
+ *   const agent = await getCsrfAgent(app);
+ *   await agent.post('/api/foo').set('Authorization', `Bearer ${token}`).send({...});
+ *
+ * The agent remembers the csrf-token cookie across calls, and automatically
+ * adds the X-CSRF-Token header via the helper below. For one-off requests
+ * you can use getCsrfHeaders(app) instead and spread the result.
+ */
+const getCsrfHeaders = async (appInstance) => {
+  const request = require('supertest');
+  // A GET request triggers the middleware to set (and return) the csrf cookie.
+  const res = await request(appInstance).get('/api/auth/csrf');
+  const setCookie = res.headers['set-cookie'] || [];
+  const cookieHeader = Array.isArray(setCookie) ? setCookie.join('; ') : setCookie;
+  // Extract raw token value from the cookie string "csrf-token=<value>; ..."
+  const match = cookieHeader.match(/csrf-token=([^;]+)/);
+  const csrfToken = match ? match[1] : (res.body.data && res.body.data.csrfToken);
+  return {
+    // Include as Cookie header so middleware can read req.cookies.csrf-token
+    'Cookie': `csrf-token=${csrfToken}`,
+    // Include as X-CSRF-Token header so the double-submit check passes
+    'X-CSRF-Token': csrfToken,
+  };
+};
+
+module.exports = { getApp, getTokens, getSeedData, teardown, getCsrfHeaders };

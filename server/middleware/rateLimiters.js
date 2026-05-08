@@ -187,6 +187,55 @@ const mfaLimiter = rateLimit({
   keyGenerator: (req) => ipKeyGenerator(req),
 });
 
+/**
+ * forgotPasswordLimiter — dedicated limiter for the forgot-password endpoint.
+ * More lenient than loginLimiter since it's not a security-sensitive brute-force
+ * target, but still throttled to prevent email flooding.
+ * 5 requests per 15 minutes per IP.
+ */
+const forgotPasswordLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 5,
+  keyGenerator: (req) => req.ip,
+  standardHeaders: true,
+  legacyHeaders: false,
+  skip: skipInTest,
+  message: { success: false, message: 'Too many password reset requests. Please try again in 15 minutes.' },
+  skipSuccessfulRequests: false, // count all requests (anti-abuse)
+  validate: validateOpts,
+});
+
+/**
+ * exportLimiter — throttle expensive export operations.
+ * Excel generation is CPU-intensive; prevent repeated abuse.
+ * 10 requests per hour per authenticated user (or IP fallback).
+ */
+const exportLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000, // 1 hour
+  max: 10,
+  keyGenerator: (req) => req.user?.id || req.ip,
+  standardHeaders: true,
+  legacyHeaders: false,
+  skip: skipInTest,
+  message: { success: false, message: 'Export rate limit reached. Please wait before exporting again.' },
+  validate: validateOpts,
+});
+
+/**
+ * reconcileLimiter — protect the cron/reconcile endpoint from abuse.
+ * Reconciliation runs DB-wide aggregations; limit to 10 per hour per IP.
+ */
+const reconcileLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  max: 10,
+  keyGenerator: (req) => req.ip,
+  standardHeaders: true,
+  legacyHeaders: false,
+  skip: skipInTest,
+  message: { success: false, message: 'Reconciliation rate limit reached.' },
+  validate: validateOpts,
+});
+
 module.exports = {
   globalLimiter,
   globalWriteLimiter,
@@ -197,4 +246,7 @@ module.exports = {
   loginLimiter,
   changePasswordLimiter,
   mfaLimiter,
+  forgotPasswordLimiter,
+  exportLimiter,
+  reconcileLimiter,
 };
