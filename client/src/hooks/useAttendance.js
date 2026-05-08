@@ -1,4 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { toast } from 'sonner';
 import { attendanceAPI } from '../api/api';
 import { qk } from './queryKeys';
 
@@ -52,6 +53,7 @@ export const useBulkMarkAttendance = () => {
     mutationFn: ({ scheduleId, records }) =>
       attendanceAPI.bulkMark(scheduleId, records).then((r) => r.data),
     onSuccess: (_data, vars) => {
+      toast.success('Attendance recorded');
       qc.invalidateQueries({ queryKey: qk.attendance.all });
       qc.invalidateQueries({ queryKey: qk.attendance.bySchedule(vars.scheduleId) });
       qc.invalidateQueries({ queryKey: qk.schedules.attendanceCalendar });

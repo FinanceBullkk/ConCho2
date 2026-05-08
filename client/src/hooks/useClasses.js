@@ -1,4 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { toast } from 'sonner';
 import { classesAPI } from '../api/api';
 import { qk } from './queryKeys';
 
@@ -38,6 +39,7 @@ export const useCreateClass = () => {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (data) => classesAPI.create(data).then((r) => r.data.data),
+    onSuccess: () => toast.success('Class created'),
     onSettled: () => invalidateClassScopes(qc),
   });
 };
@@ -58,6 +60,7 @@ export const useUpdateClass = () => {
       });
       return { previous };
     },
+    onSuccess: () => toast.success('Class updated'),
     onError: (_err, _vars, context) => {
       if (context?.previous) {
         context.previous.forEach(([key, data]) => qc.setQueryData(key, data));
@@ -80,6 +83,7 @@ export const useDeleteClass = () => {
       });
       return { previous };
     },
+    onSuccess: () => toast.success('Class deleted'),
     onError: (_err, _id, context) => {
       if (context?.previous) {
         context.previous.forEach(([key, data]) => qc.setQueryData(key, data));

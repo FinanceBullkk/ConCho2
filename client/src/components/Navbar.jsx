@@ -8,8 +8,11 @@ import {
   CalendarPlus,
   LogOut,
   UserCog,
+  Sun,
+  Moon,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { useTheme } from '../hooks/useTheme';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 
@@ -52,6 +55,7 @@ const NAV_PARENT_ROUTES = {
 export default function Navbar() {
   const { user, logout } = useAuth();
   const location = useLocation();
+  const { isDark, toggle } = useTheme();
 
   if (!user) return null;
 
@@ -117,6 +121,14 @@ export default function Navbar() {
               {user.role} · {user.empCode}
             </span>
           </div>
+          <button
+            onClick={toggle}
+            aria-label={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
+            title={isDark ? 'Light mode' : 'Dark mode'}
+            className="p-2 rounded-lg text-slate-400 hover:text-white hover:bg-white/10 transition-all"
+          >
+            {isDark ? <Sun className="size-4" aria-hidden="true" /> : <Moon className="size-4" aria-hidden="true" />}
+          </button>
           <Link to="/me/settings" title="Account settings">
             <Button
               variant="ghost"

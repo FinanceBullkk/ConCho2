@@ -1,6 +1,18 @@
 const attendanceService = require('../services/attendanceService');
 const auditService = require('../services/auditService');
 const { handleError } = require('../helpers/handleError');
+const { parsePagination, paginatedResponse } = require('../helpers/pagination');
+
+// Max rows allowed per analytics page (prevents enormous memory spikes)
+const ANALYTICS_MAX_LIMIT = 500;
+
+const parseAnalyticsPagination = (req) => {
+  const raw = parsePagination(req);
+  const limit = Math.min(Number(raw.limit) || 100, ANALYTICS_MAX_LIMIT);
+  const page  = Math.max(Number(raw.page)  || 1,   1);
+  const skip  = (page - 1) * limit;
+  return { page, limit, skip };
+};
 
 // ──────────────────────────────────────────────────────────
 // Attendance Controller (Thin — delegates to Service Layer)
@@ -48,8 +60,9 @@ const getAttendanceByUser = async (req, res) => {
 
 const getAnalyticsByEmployee = async (req, res) => {
   try {
-    const data = await attendanceService.analyticsByEmployee(req.query.userId);
-    res.json({ success: true, count: data.length, data });
+    const pagination = parseAnalyticsPagination(req);
+    const result = await attendanceService.analyticsByEmployee(req.query.userId, pagination);
+    res.json(paginatedResponse(result));
   } catch (error) {
     handleError(res, error);
   }
@@ -57,8 +70,9 @@ const getAnalyticsByEmployee = async (req, res) => {
 
 const getAnalyticsByTeam = async (req, res) => {
   try {
-    const data = await attendanceService.analyticsByTeam();
-    res.json({ success: true, count: data.length, data });
+    const pagination = parseAnalyticsPagination(req);
+    const result = await attendanceService.analyticsByTeam(pagination);
+    res.json(paginatedResponse(result));
   } catch (error) {
     handleError(res, error);
   }

@@ -1,4 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { toast } from 'sonner';
 import { usersAPI } from '../api/api';
 import { qk } from './queryKeys';
 
@@ -34,6 +35,7 @@ export const useCreateUser = () => {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (data) => usersAPI.create(data).then((r) => r.data.data),
+    onSuccess: () => toast.success('User created'),
     onSettled: () => {
       qc.invalidateQueries({ queryKey: qk.users.all });
       qc.invalidateQueries({ queryKey: qk.dashboard.stats });
@@ -57,6 +59,7 @@ export const useUpdateUser = () => {
       });
       return { previous };
     },
+    onSuccess: () => toast.success('User updated'),
     onError: (_err, _vars, context) => {
       if (context?.previous) {
         context.previous.forEach(([key, data]) => qc.setQueryData(key, data));
@@ -84,6 +87,7 @@ export const useDeleteUser = () => {
       });
       return { previous };
     },
+    onSuccess: () => toast.success('User deleted'),
     onError: (_err, _id, context) => {
       if (context?.previous) {
         context.previous.forEach(([key, data]) => qc.setQueryData(key, data));
