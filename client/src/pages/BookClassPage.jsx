@@ -4,6 +4,7 @@ import { toast } from 'sonner';
 import Portal from '../components/Portal';
 import { useAvailability, useBookSlot, useCancelSlot } from '../hooks/useSchedules';
 import { useMyTeams } from '../hooks/useTeams';
+import { useTimeSlots } from '../hooks/useTimeSlots';
 
 // ──────────────────────────────────────────────────────────
 // BookClassPage (v2 — Leader-Created Sessions)
@@ -11,11 +12,6 @@ import { useMyTeams } from '../hooks/useTeams';
 // Timetable grid where Team Leaders click empty slots to
 // CREATE new schedule sessions, or click their own to cancel.
 // ──────────────────────────────────────────────────────────
-
-const TIME_SLOTS = [
-  '10:00-11:00', '11:00-12:00',
-  '13:00-14:00', '14:00-15:00', '15:00-16:00',
-];
 
 const DAY_NAMES = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
@@ -66,6 +62,7 @@ const scheduleToKey = (s) => {
 
 export default function BookClassPage() {
   const { user } = useAuth();
+  const TIME_SLOTS = useTimeSlots(); // fetched from DB settings (falls back to hardcoded defaults)
   const bookMutation = useBookSlot();
   const cancelMutation = useCancelSlot();
   const [error, setError] = useState('');
