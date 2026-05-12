@@ -120,7 +120,14 @@ const getUserById = async (req, res) => {
  */
 const createUser = async (req, res) => {
   try {
-    const { empCode, name, email, role, department, position, status, dropReason, password } = req.body;
+    // BUG #13 fix: entranceLevel and currentLevel are part of the Zod
+    // schema and the User model, but were previously dropped here —
+    // admins setting these on create got a 201 with the fields silently
+    // ignored.
+    const {
+      empCode, name, email, role, department, position, status, dropReason,
+      entranceLevel, currentLevel, password,
+    } = req.body;
 
     if (!password) {
       return res.status(400).json({ success: false, message: 'password is required' });
@@ -135,6 +142,8 @@ const createUser = async (req, res) => {
       position,
       status,
       dropReason,
+      entranceLevel,
+      currentLevel,
       password,
     });
 
@@ -166,7 +175,12 @@ const createUser = async (req, res) => {
  */
 const updateUser = async (req, res) => {
   try {
-    const { empCode, name, email, role, department, position, status, dropReason } = req.body;
+    // BUG #13 fix: include entranceLevel + currentLevel — previously
+    // updates to these fields via API were silent no-ops.
+    const {
+      empCode, name, email, role, department, position, status, dropReason,
+      entranceLevel, currentLevel,
+    } = req.body;
     const updateData = {};
 
     if (empCode !== undefined) updateData.empCode = empCode;
@@ -177,6 +191,58 @@ const updateUser = async (req, res) => {
     if (position !== undefined) updateData.position = position;
     if (status !== undefined) updateData.status = status;
     if (dropReason !== undefined) updateData.dropReason = dropReason;
+    if (entranceLevel !== undefined) updateData.entranceLevel = entranceLevel;
+    if (currentLevel !== undefined) updateData.currentLevel = currentLevel;
+
+    // Snapshot before-state for audit diff (lean to keep it cheap).
+    const before = await User.findById(req.params.id).lean();
+    if (!before) {
+      return res.status(404).json({ success: false, message: 'User not found' });
+    }
+
+    // ── BUG #9 fix: Re-auth gate on sensitive privilege changes ──
+    // Previously any Admin could reset another user's password or change
+    // anyone's role without re-authenticating, so a single compromised
+    // admin session = full org takeover. Now: when the target user is
+    // SOMEONE ELSE and the request mutates `password` or `role`, the
+    // acting admin must re-prove their identity by supplying their own
+    // `currentPassword` in the request body.
+    const isSelf = before._id.toString() === req.user._id.toString();
+    const sensitiveChange =
+      !!req.body.password ||
+      (role !== undefined && role !== before.role);
+
+    if (!isSelf && sensitiveChange) {
+      if (!req.body.currentPassword) {
+        return res.status(403).json({
+          success: false,
+          message: 'currentPassword is required to change password or role for another user',
+          requiresReauth: true,
+        });
+      }
+      // Verify the acting admin's password. Use `+password` because the
+      // User schema hides password by default.
+      const acting = await User.findById(req.user._id).select('+password');
+      if (!acting) {
+        return res.status(401).json({ success: false, message: 'Session user not found' });
+      }
+      const ok = await bcrypt.compare(req.body.currentPassword, acting.password || '');
+      if (!ok) {
+        // Note: audit log captures the failed re-auth attempt.
+        auditService.record({
+          req,
+          action: 'reauth-failed',
+          entity: 'User',
+          entityId: before._id,
+          note: 'currentPassword verification failed for privilege change',
+        });
+        return res.status(403).json({
+          success: false,
+          message: 'currentPassword does not match',
+          requiresReauth: true,
+        });
+      }
+    }
 
     // If password is being changed, hash it manually
     // (pre-save hooks don't run on findOneAndUpdate)
@@ -185,9 +251,6 @@ const updateUser = async (req, res) => {
       updateData.password = await bcrypt.hash(req.body.password, salt);
       updateData.passwordChangedAt = new Date();
     }
-
-    // Snapshot before-state for audit diff (lean to keep it cheap).
-    const before = await User.findById(req.params.id).lean();
 
     const user = await User.findOneAndUpdate(
       { _id: req.params.id },
