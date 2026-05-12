@@ -352,6 +352,7 @@ const changePassword = async (req, res) => {
     }
     user.password = newPassword;
     user.passwordChangedAt = new Date();
+    user.mustChangePassword = false; // Clear forced-change flag (SEC-04)
     await user.save();
     // Invalidate auth cache — forces re-read with new passwordChangedAt on next request.
     // This also immediately rejects the current token (iat < changedAt).

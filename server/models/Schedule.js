@@ -108,13 +108,18 @@ scheduleSchema.virtual('availableSpots').get(function () {
 });
 
 // ── Indexes ───────────────────────────────────────────────
-scheduleSchema.index({ classId: 1, startTime: 1, endTime: 1 }); // Collision-check: findOne({classId, startTime:{$lt:end}, endTime:{$gt:start}})
+// UNIQUE constraint: one booking per (class, time slot). This is the last
+// line of defense against concurrent double-bookings — the transaction in
+// scheduleService already does an explicit collision check, but two
+// requests that pass the check simultaneously can still race to insert.
+// MongoDB will reject the second insert with E11000; scheduleService
+// catches that code and converts it to a 409 ServiceError.
+scheduleSchema.index({ classId: 1, startTime: 1 }, { unique: true });
+
+scheduleSchema.index({ classId: 1, startTime: 1, endTime: 1 }); // Collision-check range query: findOne({classId, startTime:{$lt:end}, endTime:{$gt:start}})
 scheduleSchema.index({ bookedTeamId: 1, startTime: 1 });         // Weekly count: countDocuments({bookedTeamId, startTime:{$gte:weekStart,$lte:weekEnd}})
 // Compound multikey index — covers both auto-release (User.Dropped middleware) and
 // team-sync (syncSchedulesForTeamUpdate) which both filter on enrolledUsers + startTime.
-// Replaces the standalone {enrolledUsers:1} which couldn't filter on startTime.
-// NOTE: {classId:1, startTime:1} removed — it is a strict prefix of the
-//   {classId:1, startTime:1, endTime:1} index above and would never be chosen.
 scheduleSchema.index({ enrolledUsers: 1, startTime: 1 });
 
 module.exports = mongoose.model('Schedule', scheduleSchema);
