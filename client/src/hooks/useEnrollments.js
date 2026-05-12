@@ -38,6 +38,20 @@ export const useUpdateEnrollment = () => {
   });
 };
 
+export const useTransferEnrollment = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, data }) => enrollmentsAPI.transfer(id, data).then((r) => r.data.data),
+    onSuccess: () => {
+      toast.success('Member transferred successfully');
+      qc.invalidateQueries({ queryKey: qk.enrollments.all });
+      qc.invalidateQueries({ queryKey: qk.teams.all });
+      qc.invalidateQueries({ queryKey: qk.schedules.all });
+      qc.invalidateQueries({ queryKey: qk.dashboard.stats });
+    },
+  });
+};
+
 export const useCheckEnrollmentConflicts = () =>
   useMutation({
     mutationFn: (data) => enrollmentsAPI.checkConflicts(data).then((r) => r.data),

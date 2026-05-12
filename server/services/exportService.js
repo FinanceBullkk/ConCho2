@@ -1,6 +1,7 @@
 const mongoose = require('mongoose');
 const ExcelJS = require('exceljs');
 const Attendance = require('../models/Attendance');
+const Evaluation = require('../models/Evaluation');
 const { toVN } = require('../helpers/dayjsConfig');
 // ──────────────────────────────────────────────────────────
 // Export Service
@@ -270,9 +271,138 @@ const getExportStats = async () => {
   return { pending, exported, total: pending + exported };
 };
 
+// ──────────────────────────────────────────────────────────
+// Evaluation Export
+// ──────────────────────────────────────────────────────────
+// Exports all evaluations as Excel, joined with Class + User.
+// Unlike attendance, evaluations are NOT marked as exported —
+// they can be re-exported any number of times (snapshots, not events).
+
+const buildEvaluationPipeline = ({ from, to, classId } = {}) => {
+  const matchStage = {};
+  if (classId) matchStage.classId = new mongoose.Types.ObjectId(classId);
+  if (from || to) {
+    matchStage.updatedAt = {};
+    if (from) matchStage.updatedAt.$gte = new Date(from);
+    if (to) matchStage.updatedAt.$lte = new Date(to);
+  }
+
+  const pipeline = [];
+  if (Object.keys(matchStage).length > 0) pipeline.push({ $match: matchStage });
+
+  pipeline.push(
+    { $lookup: { from: 'users', localField: 'userId', foreignField: '_id', as: 'user' } },
+    { $unwind: '$user' },
+    { $lookup: { from: 'classes', localField: 'classId', foreignField: '_id', as: 'class' } },
+    { $unwind: '$class' },
+    {
+      $project: {
+        _id: 1,
+        empCode: '$user.empCode',
+        userName: '$user.name',
+        department: '$user.department',
+        classCode: '$class.classCode',
+        courseName: '$class.courseName',
+        level: '$level',
+        grammarScore: 1,
+        vocabularyScore: 1,
+        pronunciationScore: 1,
+        fluencyScore: 1,
+        averageScore: {
+          $divide: [
+            { $add: ['$grammarScore', '$vocabularyScore', '$pronunciationScore', '$fluencyScore'] },
+            4,
+          ],
+        },
+        teacherComment: '$teacherComment',
+        updatedAt: 1,
+      },
+    },
+    { $sort: { classCode: 1, empCode: 1 } }
+  );
+
+  return pipeline;
+};
+
+const queryEvaluationData = async (opts = {}) => Evaluation.aggregate(buildEvaluationPipeline(opts));
+
+const generateEvaluationExcel = async (records) => {
+  const workbook = new ExcelJS.Workbook();
+  workbook.creator = 'TMS Export';
+  workbook.created = new Date();
+
+  const sheet = workbook.addWorksheet('Evaluation Export', {
+    headerFooter: { firstHeader: 'TMS - Báo Cáo Đánh Giá' },
+  });
+
+  sheet.columns = [
+    { header: 'Mã NV',         key: 'empCode',          width: 12 },
+    { header: 'Họ Tên',        key: 'userName',         width: 22 },
+    { header: 'Phòng Ban',     key: 'department',       width: 18 },
+    { header: 'Mã Lớp',        key: 'classCode',        width: 10 },
+    { header: 'Khóa Học',      key: 'courseName',       width: 25 },
+    { header: 'Trình Độ',      key: 'level',            width: 12 },
+    { header: 'Ngữ Pháp',      key: 'grammarScore',     width: 10 },
+    { header: 'Từ Vựng',       key: 'vocabularyScore',  width: 10 },
+    { header: 'Phát Âm',       key: 'pronunciationScore', width: 10 },
+    { header: 'Trôi Chảy',     key: 'fluencyScore',     width: 10 },
+    { header: 'Điểm TB',       key: 'averageScore',     width: 10 },
+    { header: 'Nhận Xét',      key: 'teacherComment',   width: 35 },
+    { header: 'Cập Nhật',      key: 'updatedStr',       width: 18 },
+  ];
+
+  const headerRow = sheet.getRow(1);
+  headerRow.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+  headerRow.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF2563EB' } };
+  headerRow.alignment = { horizontal: 'center', vertical: 'middle' };
+  headerRow.height = 24;
+
+  for (const r of records) {
+    sheet.addRow({
+      empCode:            r.empCode,
+      userName:           r.userName,
+      department:         r.department || '',
+      classCode:          r.classCode,
+      courseName:         r.courseName,
+      level:              r.level || '',
+      grammarScore:       r.grammarScore,
+      vocabularyScore:    r.vocabularyScore,
+      pronunciationScore: r.pronunciationScore,
+      fluencyScore:       r.fluencyScore,
+      averageScore:       Math.round(r.averageScore * 100) / 100,
+      teacherComment:     r.teacherComment || '',
+      updatedStr:         toVN(r.updatedAt).format('DD/MM/YYYY HH:mm'),
+    });
+  }
+
+  sheet.autoFilter = {
+    from: { row: 1, column: 1 },
+    to: { row: 1, column: sheet.columns.length },
+  };
+
+  return workbook.xlsx.writeBuffer();
+};
+
+const exportEvaluations = async (opts = {}) => {
+  const records = await queryEvaluationData(opts);
+
+  if (records.length === 0) {
+    throw new ServiceError('Không có bản ghi đánh giá nào để xuất (No evaluations found)', 404);
+  }
+
+  const buffer = await generateEvaluationExcel(records);
+  const now = new Date();
+  const dateStr = now.toISOString().slice(0, 10).replace(/-/g, '');
+  const filename = `TMS_Evaluations_${dateStr}_${records.length}records.xlsx`;
+
+  return { buffer, filename, recordCount: records.length };
+};
+
 module.exports = {
   ServiceError,
   exportAttendance,
+  exportEvaluations,
   getExportStats,
   queryExportData,
+  queryEvaluationData,
 };

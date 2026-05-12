@@ -13,11 +13,13 @@ import {
   Moon,
   Menu,
   X,
+  Search,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../hooks/useTheme';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
+import SearchPalette from './SearchPalette';
 
 const NAV_ITEMS = {
   Admin: [
@@ -60,9 +62,56 @@ export default function Navbar() {
   const location = useLocation();
   const { isDark, toggle } = useTheme();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
 
   // Close on route change
   useEffect(() => setMobileOpen(false), [location.pathname]);
+
+  // Global keyboard shortcut: Cmd/Ctrl+K opens the search palette.
+  // We listen at document level so the shortcut works regardless of focus.
+  //
+  // BUG #14 fix: previously the shortcut fired even when a modal dialog
+  // was open (UserModal / EditModal / etc.), stealing focus and discarding
+  // in-progress form input. We now bail when any aria-modal dialog is
+  // mounted UNLESS that modal is the SearchPalette itself (so Cmd+K can
+  // still close it). Similarly "/" is suppressed inside form controls
+  // including <select> and ARIA combobox/textbox/searchbox widgets.
+  useEffect(() => {
+    const isAnotherModalOpen = () => {
+      const dialogs = document.querySelectorAll('[aria-modal="true"]');
+      for (const d of dialogs) {
+        // SearchPalette has aria-label="Global search" — allow Cmd+K to close it.
+        if (d.getAttribute('aria-label') === 'Global search') continue;
+        return true;
+      }
+      return false;
+    };
+
+    const isTypingTarget = (el) => {
+      if (!el) return false;
+      const tag = (el.tagName || '').toLowerCase();
+      if (tag === 'input' || tag === 'textarea' || tag === 'select') return true;
+      if (el.isContentEditable) return true;
+      const role = (el.getAttribute && el.getAttribute('role')) || '';
+      return ['combobox', 'textbox', 'searchbox', 'spinbutton'].includes(role);
+    };
+
+    const onKey = (e) => {
+      const mod = e.metaKey || e.ctrlKey;
+      if (mod && (e.key === 'k' || e.key === 'K')) {
+        if (isAnotherModalOpen()) return;
+        e.preventDefault();
+        setSearchOpen((o) => !o);
+      } else if (e.key === '/' && !mod) {
+        if (isAnotherModalOpen()) return;
+        if (isTypingTarget(e.target)) return;
+        e.preventDefault();
+        setSearchOpen(true);
+      }
+    };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, []);
 
   if (!user) return null;
 
@@ -130,6 +179,23 @@ export default function Navbar() {
                 {user.role} · {user.empCode}
               </span>
             </div>
+            <button
+              onClick={() => setSearchOpen(true)}
+              aria-label="Open search (Ctrl+K)"
+              title="Search (Ctrl+K)"
+              className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 text-xs text-slate-400 hover:text-white hover:bg-white/10 transition-all"
+            >
+              <Search className="size-3.5" aria-hidden="true" />
+              <span>Search…</span>
+              <kbd className="ml-2 px-1.5 py-0.5 rounded bg-white/5 text-[10px] font-mono">Ctrl K</kbd>
+            </button>
+            <button
+              onClick={() => setSearchOpen(true)}
+              aria-label="Open search"
+              className="sm:hidden p-2 rounded-lg text-slate-400 hover:text-white hover:bg-white/10 transition-all"
+            >
+              <Search className="size-4" aria-hidden="true" />
+            </button>
             <button
               onClick={toggle}
               aria-label={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
@@ -201,6 +267,9 @@ export default function Navbar() {
           </nav>
         )}
       </div>
+
+      {/* Global search palette — Cmd/Ctrl+K opens, "/" too (when not in an input) */}
+      <SearchPalette open={searchOpen} onClose={() => setSearchOpen(false)} />
     </header>
   );
 }
