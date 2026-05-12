@@ -1,5 +1,5 @@
 const router = require('express').Router();
-const { exportAttendance, getExportStats } = require('../controllers/exportController');
+const { exportAttendance, exportEvaluations, getExportStats } = require('../controllers/exportController');
 const { protect } = require('../middleware/auth');
 const { roleGuard } = require('../middleware/roleGuard');
 const { exportLimiter } = require('../middleware/rateLimiters');
@@ -12,5 +12,8 @@ router.get('/stats', getExportStats);
 
 // GET /api/export/attendance — download Excel or JSON preview
 router.get('/attendance', exportLimiter, exportAttendance);
+
+// GET /api/export/evaluations — download Excel or JSON preview (re-exportable)
+router.get('/evaluations', exportLimiter, exportEvaluations);
 
 module.exports = router;

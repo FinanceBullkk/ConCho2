@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import { useExportStats, useDownloadAttendance } from '../hooks/useExport';
+import { useExportStats, useDownloadAttendance, useDownloadEvaluations } from '../hooks/useExport';
 import { qk } from '../hooks/queryKeys';
 
 // ──────────────────────────────────────────────────────────
@@ -14,7 +14,9 @@ export default function HRExportPage() {
   const queryClient = useQueryClient();
   const { data: stats = { pending: 0, exported: 0 }, isLoading: loading } = useExportStats();
   const downloadMutation = useDownloadAttendance();
+  const evalMutation = useDownloadEvaluations();
   const [exportMsg, setExportMsg] = useState('');
+  const [evalMsg, setEvalMsg] = useState('');
 
   useEffect(() => { document.title = 'TMS — HR Export'; }, []);
 
@@ -45,6 +47,36 @@ export default function HRExportPage() {
         ? 'No pending records to export.'
         : 'Export failed. Please try again.';
       setExportMsg(`❌ ${msg}`);
+    }
+  };
+
+  const handleEvalExport = async () => {
+    setEvalMsg('');
+    try {
+      const res = await evalMutation.mutateAsync();
+      const disposition = res.headers['content-disposition'];
+      let filename = 'TMS_Evaluations_Export.xlsx';
+      if (disposition) {
+        const match = disposition.match(/filename="?([^"]+)"?/);
+        if (match) filename = match[1];
+      }
+      const blob = new Blob([res.data], {
+        type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      });
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(url);
+      setEvalMsg(`✅ Downloaded ${filename} successfully!`);
+    } catch (err) {
+      const msg = err.response?.status === 404
+        ? 'No evaluations to export.'
+        : 'Export failed. Please try again.';
+      setEvalMsg(`❌ ${msg}`);
     }
   };
 
@@ -116,6 +148,43 @@ export default function HRExportPage() {
               : 'bg-accent-red/10 border border-accent-red/20 text-accent-red'
           }`}>
             {exportMsg}
+          </div>
+        )}
+      </div>
+
+      {/* Evaluation Export */}
+      <div className="glass rounded-2xl p-6">
+        <h2 className="text-sm font-semibold text-slate-300 uppercase tracking-wider mb-4">Download Evaluation Report</h2>
+        <p className="text-sm text-slate-400 mb-5">
+          Export all evaluations (grammar, vocabulary, pronunciation, fluency scores + teacher comments)
+          as Excel. Unlike attendance, evaluations are <strong className="text-white">re-exportable</strong> —
+          they are not marked after download.
+        </p>
+
+        <div className="flex flex-wrap items-center gap-4">
+          <button
+            onClick={handleEvalExport}
+            disabled={evalMutation.isPending}
+            className="px-6 py-3 rounded-xl bg-gradient-to-r from-purple-600 to-purple-500 text-white font-semibold hover:from-purple-500 hover:to-purple-400 transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-purple-500/20"
+          >
+            {evalMutation.isPending ? (
+              <span className="flex items-center gap-2">
+                <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                Exporting...
+              </span>
+            ) : (
+              '📥 Export Evaluations'
+            )}
+          </button>
+        </div>
+
+        {evalMsg && (
+          <div className={`mt-4 px-4 py-3 rounded-xl text-sm animate-fade-in ${
+            evalMsg.startsWith('✅')
+              ? 'bg-accent-green/10 border border-accent-green/20 text-accent-green'
+              : 'bg-accent-red/10 border border-accent-red/20 text-accent-red'
+          }`}>
+            {evalMsg}
           </div>
         )}
       </div>

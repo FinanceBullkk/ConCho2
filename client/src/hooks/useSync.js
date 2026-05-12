@@ -36,3 +36,9 @@ export const useDownloadAttendance = () => {
     onSuccess: () => qc.invalidateQueries({ queryKey: qk.exportHr.stats }),
   });
 };
+
+export const useDownloadEvaluations = () =>
+  useMutation({
+    // Evaluations are re-exportable — no stats invalidation needed.
+    mutationFn: (params = {}) => exportAPI.downloadEvaluations(params),
+  });

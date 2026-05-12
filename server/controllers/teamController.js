@@ -8,6 +8,11 @@ const { handleError } = require('../helpers/handleError');
 const auditService = require('../services/auditService');
 const { invalidateAnalyticsCache } = require('../middleware/analyticsCache');
 const logger = require('../lib/logger');
+const User = require('../models/User');
+const {
+  sendEnrollmentDropped,
+  sendEnrollmentTransferred,
+} = require('../lib/emailTemplates');
 
 // ──────────────────────────────────────────────────────────
 // Team Controller (Admin Only)
@@ -51,13 +56,36 @@ const checkMemberConflicts = async (memberIds, excludeTeamId = null) => {
  * Handle enrollment records when members change.
  * Called by both createTeam and updateTeam.
  *
+ * BUG #7 fix: now accepts an optional MongoDB `session` parameter and
+ * threads it through every DB op. Callers that wrap the call inside
+ * `session.withTransaction(...)` should pass the session so the
+ * enrollment writes commit (or roll back) together with the outer
+ * team/schedule writes.
+ *
+ * Email side-effects are returned as a list of "pending notification"
+ * thunks rather than fired in-flight, so the caller can flush them
+ * AFTER the transaction commits. This prevents misleading emails when
+ * the outer transaction rolls back.
+ *
  * @param {string} teamId — the team being modified
  * @param {string[]} addedIds — user IDs being added
  * @param {string[]} removedIds — user IDs being removed
  * @param {string|null} classId — the team's current classId
+ * @param {Object}  [opts]
+ * @param {mongoose.ClientSession} [opts.session]
+ * @returns {Promise<{ pendingEmails: Array<() => void> }>}
  */
-const syncEnrollments = async (teamId, addedIds, removedIds, classId) => {
+const syncEnrollments = async (teamId, addedIds, removedIds, classId, opts = {}) => {
+  const { session = null } = opts;
   const now = new Date();
+  const pendingEmails = [];
+
+  // Resolve target team once (used for email context). Read in-session so
+  // it sees any team writes made earlier in the same transaction.
+  const targetTeam = await Team.findById(teamId)
+    .populate('classId', 'classCode courseName')
+    .session(session || null)
+    .lean();
 
   // ── Handle ADDED members ────────────────────────────────
   for (const userId of addedIds) {
@@ -66,21 +94,43 @@ const syncEnrollments = async (teamId, addedIds, removedIds, classId) => {
       userId,
       status: 'Active',
       teamId: { $ne: teamId },
-    });
+    })
+      .populate('teamId', 'name')
+      .session(session || null);
 
     if (existingEnrollment) {
+      const fromTeamName = existingEnrollment.teamId?.name || 'previous team';
+
       // Close old enrollment → Transferred
       existingEnrollment.status = 'Transferred';
       existingEnrollment.leftAt = now;
       existingEnrollment.transferredTo = teamId;
-      await existingEnrollment.save();
+      const carriedNote = existingEnrollment.note;
+      await existingEnrollment.save({ session: session || undefined });
 
       // Auto-remove from old team's members array
-      await Team.findByIdAndUpdate(existingEnrollment.teamId, {
-        $pull: { members: userId },
-      });
+      await Team.findByIdAndUpdate(
+        existingEnrollment.teamId,
+        { $pull: { members: userId } },
+        { session: session || undefined },
+      );
 
       logger.info({ userId, fromTeamId: existingEnrollment.teamId, toTeamId: teamId }, 'Enrollment transferred');
+
+      // Queue email send for post-commit flush.
+      pendingEmails.push(async () => {
+        const u = await User.findById(userId).select('name email').lean();
+        if (u && u.email) {
+          sendEnrollmentTransferred({
+            to: u.email,
+            userName: u.name,
+            fromTeamName,
+            toTeamName: targetTeam?.name || 'new team',
+            toCourseName: targetTeam?.classId?.courseName || '',
+            note: carriedNote || '',
+          });
+        }
+      });
     }
 
     // Check if user already has an Active enrollment in THIS team (avoid duplicates)
@@ -88,16 +138,19 @@ const syncEnrollments = async (teamId, addedIds, removedIds, classId) => {
       userId,
       teamId,
       status: 'Active',
-    });
+    }).session(session || null);
 
     if (!alreadyActive) {
-      await Enrollment.create({
-        userId,
-        teamId,
-        classId: classId || null,
-        joinedAt: now,
-        status: 'Active',
-      });
+      await Enrollment.create(
+        [{
+          userId,
+          teamId,
+          classId: classId || null,
+          joinedAt: now,
+          status: 'Active',
+        }],
+        { session: session || undefined },
+      );
       logger.info({ userId, teamId }, 'Enrollment created (Active)');
     }
   }
@@ -108,14 +161,43 @@ const syncEnrollments = async (teamId, addedIds, removedIds, classId) => {
       userId,
       teamId,
       status: 'Active',
-    });
+    }).session(session || null);
 
     if (activeEnrollment) {
       activeEnrollment.status = 'Dropped';
       activeEnrollment.leftAt = now;
-      await activeEnrollment.save();
+      await activeEnrollment.save({ session: session || undefined });
       logger.info({ userId, teamId }, 'Enrollment marked Dropped');
+
+      // Queue email for post-commit flush.
+      pendingEmails.push(async () => {
+        const u = await User.findById(userId).select('name email').lean();
+        if (u && u.email) {
+          sendEnrollmentDropped({
+            to: u.email,
+            userName: u.name,
+            teamName: targetTeam?.name || 'team',
+            courseName: targetTeam?.classId?.courseName || '',
+          });
+        }
+      });
     }
+  }
+
+  return { pendingEmails };
+};
+
+/**
+ * Helper to fire-and-forget all queued email senders after a transaction
+ * commits. Each thunk is async; any rejection is swallowed and logged so
+ * the parent flow never fails on email delivery.
+ */
+const flushPendingEmails = (pendingEmails) => {
+  if (!Array.isArray(pendingEmails)) return;
+  for (const send of pendingEmails) {
+    Promise.resolve()
+      .then(() => send())
+      .catch((err) => logger.warn({ err }, 'Pending email flush failed'));
   }
 };
 
@@ -197,7 +279,10 @@ const createTeam = async (req, res) => {
     }
 
     // ── TRANSACTION: Team creation + Enrollment sync (SYNC-01) ──
+    // BUG #7 fix: syncEnrollments now runs in-session and returns pending
+    // email notifications to flush after commit.
     let team;
+    let pendingEmails = [];
     const session = await mongoose.startSession();
     try {
       await session.withTransaction(async () => {
@@ -206,12 +291,16 @@ const createTeam = async (req, res) => {
           { session }
         );
 
-        // Sync enrollments inside the same transaction
-        await syncEnrollments(team._id.toString(), memberList, [], classId || null);
+        const result = await syncEnrollments(
+          team._id.toString(), memberList, [], classId || null,
+          { session },
+        );
+        pendingEmails = result.pendingEmails;
       });
     } finally {
       session.endSession();
     }
+    flushPendingEmails(pendingEmails);
 
     // Return populated (read-only, outside transaction)
     const populated = await Team.findById(team._id)
@@ -311,7 +400,14 @@ const updateTeam = async (req, res) => {
       && (oldMemberStrs.length !== newMemberStrs.length
           || oldMemberStrs.some(id => !newMemberStrs.includes(id)));
 
-    // ── TRANSACTION: Team update + Schedule sync (atomic) ───
+    // ── TRANSACTION: Team update + Schedule sync + Enrollment sync (atomic) ──
+    // BUG #7 fix: previously syncEnrollments ran without the session,
+    // committing enrollment writes outside the outer transaction. If the
+    // outer transaction rolled back (e.g. a later step failed), the team
+    // would revert but enrollments would be left in the new state.
+    // Emails are now queued and flushed AFTER the commit so a rollback
+    // doesn't generate misleading notifications.
+    let pendingEmails = [];
     const session = await mongoose.startSession();
     try {
       await session.withTransaction(async () => {
@@ -342,13 +438,20 @@ const updateTeam = async (req, res) => {
             : currentTeam.classId?.toString() || null;
 
           if (addedIds.length > 0 || removedIds.length > 0) {
-            await syncEnrollments(req.params.id, addedIds, removedIds, effectiveClassId);
+            const { pendingEmails: emails } = await syncEnrollments(
+              req.params.id, addedIds, removedIds, effectiveClassId,
+              { session },
+            );
+            pendingEmails = emails;
           }
         }
       });
     } finally {
       session.endSession();
     }
+
+    // Flush queued notification emails now that the transaction has committed.
+    flushPendingEmails(pendingEmails);
 
     // Return populated (outside transaction — read-only)
     const populated = await Team.findById(req.params.id)
@@ -549,4 +652,7 @@ const getTeamProgress = async (req, res) => {
 module.exports = {
   getTeams, getTeamById, createTeam, updateTeam, deleteTeam,
   restoreTeam, getDeletedTeams, getMyTeams, getTeamProgress,
+  // Internal helpers exported for cross-controller use (enrollment transfers)
+  syncEnrollments,
+  flushPendingEmails,
 };

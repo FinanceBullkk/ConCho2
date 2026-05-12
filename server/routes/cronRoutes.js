@@ -2,6 +2,7 @@ const express = require('express');
 const { cronAuth } = require('../middleware/cronAuth');
 const { reconcileLimiter } = require('../middleware/rateLimiters');
 const { runReconciliation } = require('../services/reconcileService');
+const { sendUpcomingReminders } = require('../services/reminderService');
 const { handleError } = require('../helpers/handleError');
 
 // ──────────────────────────────────────────────────────────
@@ -72,6 +73,37 @@ router.post('/reconcile', reconcileLimiter, async (req, res) => {
 // real cron runs (keeps the Render dyno warm if you want that).
 router.get('/health', (req, res) => {
   res.json({ success: true, data: { ts: new Date().toISOString() } });
+});
+
+/**
+ * @openapi
+ * /cron/attendance-reminders:
+ *   post:
+ *     tags: [Cron]
+ *     summary: Send reminder emails for upcoming sessions (next 24h)
+ *     description: |
+ *       Idempotent — each schedule is reminded at most once. Safe to call
+ *       hourly from an external pinger. Returns { scanned, notified, emailed }.
+ *     security:
+ *       - cronToken: []
+ *     parameters:
+ *       - in: query
+ *         name: hours
+ *         schema: { type: integer, minimum: 1, maximum: 168 }
+ *         description: Lookahead window in hours (default 24)
+ *     responses:
+ *       200: { description: Reminder run summary }
+ *       401: { description: Invalid cron token }
+ */
+// POST /api/cron/attendance-reminders
+router.post('/attendance-reminders', async (req, res) => {
+  try {
+    const lookaheadHours = Math.min(168, Math.max(1, Number(req.query.hours) || 24));
+    const summary = await sendUpcomingReminders({ lookaheadHours });
+    res.json({ success: true, data: summary });
+  } catch (err) {
+    handleError(res, err);
+  }
 });
 
 module.exports = router;

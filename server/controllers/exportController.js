@@ -58,4 +58,37 @@ const getExportStats = async (req, res) => {
   }
 };
 
-module.exports = { exportAttendance, getExportStats };
+/**
+ * GET /api/export/evaluations
+ * Query params:
+ *   ?from=2026-04-01&to=2026-04-30    Date range (optional, uses updatedAt)
+ *   ?classId=...                       Filter by class (optional)
+ *   ?format=json                       Return JSON instead of Excel
+ *
+ * Default: Returns .xlsx file download with all evaluations.
+ * Unlike attendance, evaluations are NOT marked exported — re-exportable any time.
+ */
+const exportEvaluations = async (req, res) => {
+  try {
+    const { from, to, classId, format } = req.query;
+
+    if (format === 'json') {
+      const records = await exportService.queryEvaluationData({ from, to, classId });
+      return res.json({ success: true, count: records.length, data: records });
+    }
+
+    const { buffer, filename, recordCount } = await exportService.exportEvaluations({
+      from, to, classId,
+    });
+
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    res.setHeader('X-TMS-Record-Count', recordCount);
+
+    res.send(buffer);
+  } catch (error) {
+    handleError(res, error);
+  }
+};
+
+module.exports = { exportAttendance, exportEvaluations, getExportStats };

@@ -4,6 +4,7 @@ import Portal from '../components/Portal';
 import { useSchedules, useCreateSchedule, useUpdateSchedule, useDeleteSchedule } from '../hooks/useSchedules';
 import { useClasses } from '../hooks/useClasses';
 import { useTeams } from '../hooks/useTeams';
+import { useRole } from '../hooks/useRole';
 import { qk } from '../hooks/queryKeys';
 
 // ──────────────────────────────────────────────────────────
@@ -222,6 +223,10 @@ function ScheduleModal({ schedule, classes, teams, onClose, onSaved, prefill }) 
 
 export default function SchedulesPage() {
   const queryClient = useQueryClient();
+  const { can } = useRole();
+  const canCreate = can('create:schedule');
+  const canUpdate = can('update:schedule');
+  const canDelete = can('delete:schedule');
   const deleteMutation = useDeleteSchedule();
   const [modal, setModal] = useState(null);       // 'create' | schedule obj | null
   const [prefill, setPrefill] = useState(null);    // { startTime, endTime } for calendar click
@@ -335,10 +340,12 @@ export default function SchedulesPage() {
             {totalSchedules} total sessions · {weekScheduleCount} this week
           </p>
         </div>
-        <button onClick={() => { setPrefill(null); setModal('create'); }}
-          className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-primary-600 to-primary-500 text-white font-semibold hover:from-primary-500 hover:to-primary-400 transition-all shadow-lg shadow-primary-500/20 self-start">
-          + New Schedule
-        </button>
+        {canCreate && (
+          <button onClick={() => { setPrefill(null); setModal('create'); }}
+            className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-primary-600 to-primary-500 text-white font-semibold hover:from-primary-500 hover:to-primary-400 transition-all shadow-lg shadow-primary-500/20 self-start">
+            + New Schedule
+          </button>
+        )}
       </div>
 
       {/* ── Week navigation ────────────────────────────── */}
@@ -406,8 +413,8 @@ export default function SchedulesPage() {
                                 const barColor = pct >= 90 ? 'bg-red-500' : pct >= 60 ? 'bg-amber-500' : 'bg-emerald-500';
                                 return (
                                   <div key={s._id}
-                                    className="rounded-xl p-2 bg-gradient-to-br from-primary-500/20 to-purple-500/10 border border-primary-400/20 hover:border-primary-400/40 transition-all group/card cursor-pointer relative"
-                                    onClick={() => setModal(s)}
+                                    className={`rounded-xl p-2 bg-gradient-to-br from-primary-500/20 to-purple-500/10 border border-primary-400/20 hover:border-primary-400/40 transition-all group/card relative ${canUpdate ? 'cursor-pointer' : ''}`}
+                                    onClick={() => { if (canUpdate) setModal(s); }}
                                   >
                                     {/* Time range */}
                                     <div className="text-[9px] font-mono text-slate-500 mb-0.5">
@@ -446,13 +453,15 @@ export default function SchedulesPage() {
                                     </div>
 
                                     {/* Actions (visible on hover) */}
-                                    <div className="absolute top-1 right-1 opacity-0 group-hover/card:opacity-100 transition-opacity flex gap-1">
-                                      <button
-                                        onClick={(e) => { e.stopPropagation(); setDeleteTarget(s); }}
-                                        className="w-5 h-5 rounded bg-red-500/20 text-red-400 text-[10px] flex items-center justify-center hover:bg-red-500/40 transition-all"
-                                        title="Delete"
-                                      >✕</button>
-                                    </div>
+                                    {canDelete && (
+                                      <div className="absolute top-1 right-1 opacity-0 group-hover/card:opacity-100 transition-opacity flex gap-1">
+                                        <button
+                                          onClick={(e) => { e.stopPropagation(); setDeleteTarget(s); }}
+                                          className="w-5 h-5 rounded bg-red-500/20 text-red-400 text-[10px] flex items-center justify-center hover:bg-red-500/40 transition-all"
+                                          title="Delete"
+                                        >✕</button>
+                                      </div>
+                                    )}
                                   </div>
                                 );
                               })}
@@ -461,19 +470,23 @@ export default function SchedulesPage() {
                         );
                       }
 
-                      // ── EMPTY CELL — click to create ──────
+                      // ── EMPTY CELL — click to create (gated) ──────
                       // Use the hour to build a default slot for prefill
                       const defaultSlot = `${String(hour).padStart(2, '0')}:00-${String(hour + 1).padStart(2, '0')}:00`;
                       return (
                         <td key={dayIdx} className={`border-b border-white/5 p-1 align-top ${isToday ? 'bg-primary-500/5' : ''}`}>
-                          <div
-                            className="rounded-xl h-full min-h-[80px] flex items-center justify-center transition-all bg-white/[0.02] hover:bg-emerald-500/10 hover:border-emerald-500/20 border border-transparent cursor-pointer group/cell"
-                            onClick={() => handleCellClick(day, defaultSlot)}
-                          >
-                            <span className="text-[10px] text-slate-600 opacity-0 group-hover/cell:opacity-100 transition-opacity font-medium">
-                              + Create
-                            </span>
-                          </div>
+                          {canCreate ? (
+                            <div
+                              className="rounded-xl h-full min-h-[80px] flex items-center justify-center transition-all bg-white/[0.02] hover:bg-emerald-500/10 hover:border-emerald-500/20 border border-transparent cursor-pointer group/cell"
+                              onClick={() => handleCellClick(day, defaultSlot)}
+                            >
+                              <span className="text-[10px] text-slate-600 opacity-0 group-hover/cell:opacity-100 transition-opacity font-medium">
+                                + Create
+                              </span>
+                            </div>
+                          ) : (
+                            <div className="rounded-xl h-full min-h-[80px] bg-white/[0.02] border border-transparent" />
+                          )}
                         </td>
                       );
                     })}

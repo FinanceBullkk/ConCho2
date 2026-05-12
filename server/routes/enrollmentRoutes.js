@@ -5,6 +5,7 @@ const {
   getUserEnrollments,
   updateEnrollment,
   checkConflicts,
+  transferEnrollment,
 } = require('../controllers/enrollmentController');
 const { protect } = require('../middleware/auth');
 const { roleGuard } = require('../middleware/roleGuard');
@@ -17,5 +18,6 @@ router.post('/check-conflicts', checkConflicts);
 router.get('/team/:teamId', getTeamEnrollments);
 router.get('/user/:userId', getUserEnrollments);
 router.put('/:id', updateEnrollment);
+router.post('/:id/transfer', transferEnrollment);
 
 module.exports = router;
