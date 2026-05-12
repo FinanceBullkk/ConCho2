@@ -3,7 +3,7 @@
   <img src="https://img.shields.io/badge/Node.js-%3E%3D18-339933?style=for-the-badge&logo=node.js&logoColor=white" alt="Node.js"/>
   <img src="https://img.shields.io/badge/React-19-61dafb?style=for-the-badge&logo=react&logoColor=black" alt="React 19"/>
   <img src="https://img.shields.io/badge/MongoDB-Atlas-47A248?style=for-the-badge&logo=mongodb&logoColor=white" alt="MongoDB"/>
-  <img src="https://img.shields.io/badge/Tests-100%2B-brightgreen?style=for-the-badge" alt="Tests"/>
+  <img src="https://img.shields.io/badge/Tests-241%2B-brightgreen?style=for-the-badge" alt="Tests"/>
   <img src="https://img.shields.io/badge/License-MIT-yellow?style=for-the-badge" alt="License"/>
 </p>
 
@@ -89,18 +89,23 @@ Hệ thống có **3 vai trò (roles)** với phạm vi quyền khác nhau:
 ### 2.3. Quản lý nhóm học (Teams)
 - Mỗi team gắn với 1 class duy nhất
 - Có **leader** (PIC — Person In Charge), thường là người đặt lịch
-- Khi update danh sách members → hệ thống đồng bộ enrollments cho tất cả schedules tương lai (transaction)
+- Khi update danh sách members → hệ thống đồng bộ enrollments cho tất cả schedules tương lai (atomic transaction)
+- **Transfer học viên** — chuyển từ team này sang team khác trong 1 thao tác: cập nhật cả 2 team + lịch học + lưu lịch sử; học viên nhận email thông báo
 - Soft delete + restore
 
 ### 2.4. Đặt lịch & quản lý schedules
 - **Capacity mặc định**: 9 người/slot
+- **Khung giờ học cố định** (5 slot, mỗi slot 1 tiếng): 10:00–11:00 · 11:00–12:00 · 13:00–14:00 · 14:00–15:00 · 15:00–16:00
 - **Booking flow**:
-  - Admin/Teacher tạo schedule trống (ngày, giờ, room link)
-  - Team leader (hoặc Admin/Participant) book slot → tự động fill toàn bộ team members
+  - Admin tạo schedule trống (ngày, giờ, room link)
+  - Team leader click slot trống trên booking calendar → cả team tự động được fill vào
+  - Grid hiển thị rõ: xanh = của team mình, đỏ = bị team khác chiếm (không thể book), trắng = trống
   - Tự tạo Google Calendar event + Meet link nếu Workspace setup đầy đủ
-- **Conflict detection** — không cho phép user double-book trong cùng khoảng thời gian
-- **Cancel** — hủy slot trước giờ học, người trong team được thông báo
+- **Weekly limit** — mỗi team tối đa 2 buổi/tuần
+- **Conflict detection** — không cho phép book slot đã bị team khác đặt
+- **Cancel** — hủy slot trước giờ học; học viên trong team nhận email thông báo tự động
 - **Email confirmation** — gửi email xác nhận khi book thành công (timezone Asia/Ho_Chi_Minh)
+- **Reminder email** — nhắc học viên trước giờ học 24h (idempotent, tự thử lại nếu SMTP tạm lỗi)
 - **Auto-attendance generation** — khi tới giờ học, hệ thống tạo sẵn record attendance để giáo viên mark
 
 ### 2.5. Điểm danh (Attendance)
@@ -117,7 +122,8 @@ Hệ thống có **3 vai trò (roles)** với phạm vi quyền khác nhau:
 - Upsert behavior — chấm lại sẽ ghi đè record cũ
 
 ### 2.7. Báo cáo & Export
-- **Excel export** — file `.xlsx` đầy đủ thông tin attendance theo khoảng ngày
+- **Attendance Excel export** — file `.xlsx` đầy đủ thông tin attendance theo khoảng ngày
+- **Evaluation Excel export** — file `.xlsx` điểm 4 kỹ năng + trung bình + nhận xét giáo viên theo lớp
 - **JSON preview** — xem trước trước khi tải Excel
 - **Sync flag** — tự động đánh dấu record đã export
 - **Dashboard analytics**:
@@ -159,6 +165,7 @@ Hệ thống có **3 vai trò (roles)** với phạm vi quyền khác nhau:
 - **Google Sheets sync** — import dữ liệu từ HR sheet (Admin trigger thủ công)
 
 ### 2.12. UX & Accessibility
+- **Global search (Cmd+K / Ctrl+K)** — tìm ngay user, team, class từ bất kỳ đâu; kết quả phân quyền theo role
 - **Light/Dark mode toggle** — lưu preference trong localStorage, fallback `prefers-color-scheme`
 - **Mobile responsive** — hamburger menu, table horizontal scroll
 - **Skip-to-main link** — keyboard navigation friendly
@@ -166,6 +173,8 @@ Hệ thống có **3 vai trò (roles)** với phạm vi quyền khác nhau:
 - **Optimistic updates** — UI cập nhật ngay khi click, rollback nếu server fail
 - **Toast notifications** — Sonner cho mọi success/error
 - **Loading skeletons** — không hiển thị spinner trống
+- **RBAC-gated buttons** — nút Edit/Delete/Create chỉ render với đúng role có quyền
+- **URL-synced filters** — bộ lọc lưu trong URL, bookmarkable, back-button safe
 
 ---
 
@@ -188,7 +197,7 @@ Hệ thống có **3 vai trò (roles)** với phạm vi quyền khác nhau:
 ### 3.2. Workflow của Admin (HR / L&D Manager)
 
 #### A. Setup ban đầu (1 lần khi triển khai)
-1. **Settings → tab Settings**: cấu hình `ALLOWED_TIME_SLOTS` (các khung giờ học cho phép, ví dụ 8h-9h, 14h-15h)
+1. **Settings → tab Settings**: kiểm tra `ALLOWED_TIME_SLOTS` — mặc định đã có 5 slot (10-11, 11-12, 13-14, 14-15, 15-16). Chỉnh sửa nếu tổ chức dùng khung giờ khác.
 2. **Academy → Courses**: định nghĩa các course có sẵn (Beginner / Intermediate / Advanced) và số session mỗi course
 3. **Academy → Users → Bulk Import**: upload file Excel danh sách nhân viên (template ở [docs/import-template.xlsx])
 
@@ -238,10 +247,13 @@ Hệ thống có **3 vai trò (roles)** với phạm vi quyền khác nhau:
 ### 3.4. Workflow của Participant (Học viên)
 
 1. Đăng nhập
-2. Vào **Book Class** — xem các slot trống cho team mình
-3. Click slot phù hợp → confirm → nhận email confirmation
-4. Tới giờ học → click Meet link trong calendar event (hoặc trong system)
-5. **My Settings** — xem điểm số, thay đổi password, bật MFA
+2. Dùng **Cmd+K** (hoặc `/`) để tìm nhanh tên lớp, team, đồng nghiệp
+3. Nếu là **Team Leader**: vào **Book Class** (Operations → Schedules)
+   - Grid hiển thị 5 khung giờ × 7 ngày trong tuần
+   - Ô đỏ = đã bị team khác đặt; ô trắng = còn trống
+   - Click ô trống → confirm → cả team tự động được đăng ký; nhận email xác nhận
+4. Tới giờ học → click Meet link trong calendar event
+5. **My Settings** — xem điểm số cá nhân, thay đổi password, bật MFA
 
 ### 3.5. Tự quản lý tài khoản (mọi user)
 
@@ -984,17 +996,24 @@ mongo $MONGO_URI --eval "db.users.getIndexes()"
 ### 10.1. Test coverage
 
 **Server (Jest + supertest):**
-- Integration tests: 9 suites
+- Integration tests: 17 suites
   - `auth.test.js` — login, MFA, role guards
-  - `booking.test.js` — slot booking, enrollment auto-fill
-  - `attendance.test.js` — bulk mark, analytics
-  - `teams.test.js` — CRUD, soft-delete sync
-  - `passwordReset.test.js` — forgot/reset flow + anti-enumeration
+  - `booking.test.js` — slot booking, enrollment auto-fill, weekly limit, CSRF
+  - `attendance.test.js` — bulk mark, analytics, CSRF
+  - `teams.test.js` — CRUD, soft-delete sync, leader guard, CSRF
+  - `passwordReset.test.js` — forgot/reset flow, anti-enumeration, timing attack fix
+  - `userRoutes.test.js` — CRUD, re-auth gate, level fields, soft-delete/restore
+  - `evaluationRoutes.test.js` — upsert, IDOR scoping, Teacher classId requirement
+  - `enrollmentRoutes.test.js` — list, update status
+  - `enrollmentTransfer.test.js` — transfer happy path, validation, conflict
+  - `scheduleAuthz.test.js` — Participant IDOR scoping
+  - `autoReleaseScope.test.js` — drop user không xóa nhầm team khác
+  - `searchRoutes.test.js` — global search, role scoping
   - `cronRoutes.test.js` — CRON_TOKEN auth
   - `exportRoutes.test.js` — Excel/JSON export, role guards
   - `auditRoutes.test.js` — paginated query, role guards
   - `settings.test.js` — whitelist enforcement
-- Unit tests: 4 suites (helpers, middleware, cronAuth, csrfProtection)
+- Unit tests: 5 suites (helpers, middleware, cronAuth, csrfProtection, emailTemplates)
 - Load tests: Artillery smoke/load/spike scripts
 
 **Client (Vitest + React Testing Library + MSW):**
@@ -1004,7 +1023,11 @@ mongo $MONGO_URI --eval "db.users.getIndexes()"
 - `Pagination.test.jsx`, `QueryError.test.jsx` — components
 - `useDebounce`, `useUsers`, `useRole`, `useTheme` — hooks
 
-**Tổng:** ~100+ test cases pass.
+**E2E (Playwright):**
+- 4 spec files, 19 tests
+- `auth.spec.js`, `permissions.spec.js`, `navigation.spec.js`, `theme.spec.js`
+
+**Tổng:** 241+ test cases, 21/21 suites pass.
 
 ### 10.2. Run tests
 
@@ -1161,6 +1184,7 @@ Hệ thống đã trải qua **8 sprints** đưa từ MVP lên production-grade:
 | 6 | Light/dark mode, server-side analytics pagination, more tests |
 | 7 | Integration tests cho 10 routes, middleware unit tests, rate limiter security fixes |
 | 8 | OpenAPI/Swagger docs, mobile hamburger nav, booking confirmation email, health versioning |
+| 9 | Global search (Cmd+K), enrollment transfer, email notifications, evaluation export, RBAC guards, ClassesPage filters, Playwright E2E, 18 bug fixes (IDOR scoping, anti-enumeration, re-auth gate, auto-release scope, weekly limit enforcement, key-matching fix for booking grid) |
 
 ---
 
