@@ -5,16 +5,18 @@
  */
 
 const request = require('supertest');
-const { getApp, getTokens, getSeedData, teardown } = require('../setup');
+const { getApp, getTokens, getSeedData, getCsrfHeaders, teardown } = require('../setup');
 const Schedule = require('../../models/Schedule');
 const Attendance = require('../../models/Attendance');
 
-let app, tokens, seed;
+let app, tokens, seed, csrf;
 
 beforeAll(async () => {
   app = await getApp();
   tokens = getTokens();
   seed = getSeedData();
+  // CSRF required on POST/PUT/PATCH/DELETE (csrfProtection middleware).
+  csrf = await getCsrfHeaders(app);
 });
 
 afterAll(async () => {
@@ -50,7 +52,7 @@ describe('POST /api/attendance/:scheduleId (bulk mark)', () => {
   test('marks attendance for past schedule successfully', async () => {
     const res = await request(app)
       .post(`/api/attendance/${pastSchedule._id}`)
-      .set('Authorization', `Bearer ${tokens.admin}`)
+      .set('Authorization', `Bearer ${tokens.admin}`).set(csrf)
       .send({
         records: [
           { userId: seed.leader._id.toString(), status: 'P' },
@@ -78,7 +80,7 @@ describe('POST /api/attendance/:scheduleId (bulk mark)', () => {
 
     const res = await request(app)
       .post(`/api/attendance/${futureSchedule._id}`)
-      .set('Authorization', `Bearer ${tokens.admin}`)
+      .set('Authorization', `Bearer ${tokens.admin}`).set(csrf)
       .send({
         records: [
           { userId: seed.leader._id.toString(), status: 'P' },
@@ -94,7 +96,7 @@ describe('POST /api/attendance/:scheduleId (bulk mark)', () => {
   test('rejects invalid attendance status', async () => {
     const res = await request(app)
       .post(`/api/attendance/${pastSchedule._id}`)
-      .set('Authorization', `Bearer ${tokens.admin}`)
+      .set('Authorization', `Bearer ${tokens.admin}`).set(csrf)
       .send({
         records: [
           { userId: seed.leader._id.toString(), status: 'INVALID' },
@@ -108,7 +110,7 @@ describe('POST /api/attendance/:scheduleId (bulk mark)', () => {
   test('rejects empty records array', async () => {
     const res = await request(app)
       .post(`/api/attendance/${pastSchedule._id}`)
-      .set('Authorization', `Bearer ${tokens.admin}`)
+      .set('Authorization', `Bearer ${tokens.admin}`).set(csrf)
       .send({ records: [] });
 
     expect(res.status).toBe(400);
@@ -118,7 +120,7 @@ describe('POST /api/attendance/:scheduleId (bulk mark)', () => {
     const fakeId = '000000000000000000000000';
     const res = await request(app)
       .post(`/api/attendance/${fakeId}`)
-      .set('Authorization', `Bearer ${tokens.admin}`)
+      .set('Authorization', `Bearer ${tokens.admin}`).set(csrf)
       .send({
         records: [{ userId: seed.leader._id.toString(), status: 'P' }],
       });
@@ -130,7 +132,7 @@ describe('POST /api/attendance/:scheduleId (bulk mark)', () => {
     // member2 is NOT in enrolledUsers of pastSchedule
     const res = await request(app)
       .post(`/api/attendance/${pastSchedule._id}`)
-      .set('Authorization', `Bearer ${tokens.admin}`)
+      .set('Authorization', `Bearer ${tokens.admin}`).set(csrf)
       .send({
         records: [{ userId: seed.member2._id.toString(), status: 'P' }],
       });
@@ -146,7 +148,7 @@ describe('GET /api/attendance/analytics/*', () => {
   test('by-employee returns array', async () => {
     const res = await request(app)
       .get('/api/attendance/analytics/by-employee')
-      .set('Authorization', `Bearer ${tokens.admin}`);
+      .set('Authorization', `Bearer ${tokens.admin}`).set(csrf);
 
     expect(res.status).toBe(200);
     expect(Array.isArray(res.body.data)).toBe(true);
@@ -155,7 +157,7 @@ describe('GET /api/attendance/analytics/*', () => {
   test('by-team returns array with team structure', async () => {
     const res = await request(app)
       .get('/api/attendance/analytics/by-team')
-      .set('Authorization', `Bearer ${tokens.admin}`);
+      .set('Authorization', `Bearer ${tokens.admin}`).set(csrf);
 
     expect(res.status).toBe(200);
     expect(Array.isArray(res.body.data)).toBe(true);

@@ -6,19 +6,21 @@
 
 const request = require('supertest');
 const mongoose = require('mongoose');
-const { getApp, getTokens, getSeedData, teardown } = require('../setup');
+const { getApp, getTokens, getSeedData, getCsrfHeaders, teardown } = require('../setup');
 const Team = require('../../models/Team');
 const Schedule = require('../../models/Schedule');
 const Attendance = require('../../models/Attendance');
 const User = require('../../models/User');
 const Class = require('../../models/Class');
 
-let app, tokens, seed;
+let app, tokens, seed, csrf;
 
 beforeAll(async () => {
   app = await getApp();
   tokens = getTokens();
   seed = getSeedData();
+  // CSRF required on POST/PUT/DELETE.
+  csrf = await getCsrfHeaders(app);
 });
 
 afterAll(async () => {
@@ -31,7 +33,7 @@ describe('Team CRUD', () => {
   test('GET /api/teams returns all teams', async () => {
     const res = await request(app)
       .get('/api/teams')
-      .set('Authorization', `Bearer ${tokens.admin}`);
+      .set('Authorization', `Bearer ${tokens.admin}`).set(csrf);
 
     expect(res.status).toBe(200);
     expect(res.body.success).toBe(true);
@@ -51,7 +53,7 @@ describe('Team CRUD', () => {
 
     const res = await request(app)
       .post('/api/teams')
-      .set('Authorization', `Bearer ${tokens.admin}`)
+      .set('Authorization', `Bearer ${tokens.admin}`).set(csrf)
       .send({
         name: 'Gamma Team',
         classId: freshClass._id.toString(),
@@ -72,7 +74,7 @@ describe('Team CRUD', () => {
   test('non-Admin cannot create team (403)', async () => {
     const res = await request(app)
       .post('/api/teams')
-      .set('Authorization', `Bearer ${tokens.leader}`)
+      .set('Authorization', `Bearer ${tokens.leader}`).set(csrf)
       .send({
         name: 'Rogue Team',
         leaderId: seed.leader._id.toString(),
@@ -91,7 +93,7 @@ describe('Team CRUD', () => {
 
     const res = await request(app)
       .post('/api/teams')
-      .set('Authorization', `Bearer ${tokens.admin}`)
+      .set('Authorization', `Bearer ${tokens.admin}`).set(csrf)
       .send({
         name: 'Conflict Team',
         classId: seed.class1._id.toString(),
@@ -130,7 +132,7 @@ describe('User Delete Guard (Team Leader)', () => {
   test('cannot delete a user who is a team leader', async () => {
     const res = await request(app)
       .delete(`/api/users/${seed.leader._id}`)
-      .set('Authorization', `Bearer ${tokens.admin}`);
+      .set('Authorization', `Bearer ${tokens.admin}`).set(csrf);
 
     // Should be blocked because seed.leader is Alpha Team's leader
     expect(res.status).toBe(409);
