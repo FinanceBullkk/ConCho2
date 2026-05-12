@@ -59,6 +59,9 @@ const updateUserBody = z.object({
   entranceLevel: fields.entranceLevel.optional(),
   currentLevel: fields.currentLevel.optional(),
   password: fields.password.optional(),
+  // BUG #9 fix: acting admin's password — required when mutating
+  // `password` or `role` of another user. Length cap matches `password`.
+  currentPassword: z.string().min(1).max(128).optional(),
 });
 
 const listUsersQuery = paginationQuery.extend({

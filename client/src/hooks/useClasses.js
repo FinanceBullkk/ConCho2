@@ -51,12 +51,13 @@ export const useUpdateClass = () => {
     onMutate: async ({ id, data }) => {
       await qc.cancelQueries({ queryKey: CLASS_LIST_KEY });
       const previous = qc.getQueriesData({ queryKey: CLASS_LIST_KEY });
+      // BUG #5 fix: `useClasses` queryFn returns `r.data.data` (the array),
+      // so the cached value IS the array — not an envelope. The previous
+      // code did `old.data?.map(...)` which made the cache `{ data: [] }`
+      // and collapsed the ClassesPage matrix to "No cohorts".
       qc.setQueriesData({ queryKey: CLASS_LIST_KEY }, (old) => {
-        if (!old) return old;
-        return {
-          ...old,
-          data: old.data?.map((c) => (c._id === id ? { ...c, ...data } : c)) ?? [],
-        };
+        if (!Array.isArray(old)) return old;
+        return old.map((c) => (c._id === id ? { ...c, ...data } : c));
       });
       return { previous };
     },
@@ -77,9 +78,10 @@ export const useDeleteClass = () => {
     onMutate: async (id) => {
       await qc.cancelQueries({ queryKey: CLASS_LIST_KEY });
       const previous = qc.getQueriesData({ queryKey: CLASS_LIST_KEY });
+      // Same BUG #5 fix — operate on the array directly.
       qc.setQueriesData({ queryKey: CLASS_LIST_KEY }, (old) => {
-        if (!old) return old;
-        return { ...old, data: old.data?.filter((c) => c._id !== id) ?? [] };
+        if (!Array.isArray(old)) return old;
+        return old.filter((c) => c._id !== id);
       });
       return { previous };
     },
