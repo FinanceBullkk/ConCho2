@@ -71,7 +71,6 @@ const seed = async () => {
         key: 'ALLOWED_TIME_SLOTS',
         description: 'Các khung giờ được phép đặt lịch (24h format)',
         value: [
-          { sh: 9, sm: 0, eh: 10, em: 0 },
           { sh: 10, sm: 0, eh: 11, em: 0 },
           { sh: 11, sm: 0, eh: 12, em: 0 },
           { sh: 13, sm: 0, eh: 14, em: 0 },
