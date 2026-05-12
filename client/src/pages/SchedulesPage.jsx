@@ -6,6 +6,7 @@ import { useClasses } from '../hooks/useClasses';
 import { useTeams } from '../hooks/useTeams';
 import { useRole } from '../hooks/useRole';
 import { qk } from '../hooks/queryKeys';
+import { useTimeSlots } from '../hooks/useTimeSlots';
 
 // ──────────────────────────────────────────────────────────
 // Admin Schedule Management (v2 — Calendar View)
@@ -13,11 +14,6 @@ import { qk } from '../hooks/queryKeys';
 // Weekly timetable grid (Mon–Sun × time slots) with full
 // admin control: create, edit, delete.
 // ──────────────────────────────────────────────────────────
-
-const DEFAULT_TIME_SLOTS = [
-  '10:00-11:00', '11:00-12:00',
-  '13:00-14:00', '14:00-15:00', '15:00-16:00',
-];
 
 const DAY_NAMES = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
@@ -223,6 +219,7 @@ function ScheduleModal({ schedule, classes, teams, onClose, onSaved, prefill }) 
 
 export default function SchedulesPage() {
   const queryClient = useQueryClient();
+  const DEFAULT_TIME_SLOTS = useTimeSlots(); // fetched from DB settings (falls back to hardcoded defaults)
   const { can } = useRole();
   const canCreate = can('create:schedule');
   const canUpdate = can('update:schedule');

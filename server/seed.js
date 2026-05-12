@@ -101,6 +101,7 @@ const seed = async () => {
       department: 'Management',
       status: 'Active',
       password: 'admin12345',
+      mustChangePassword: true, // Force password change on first login (SEC-04)
     });
 
     const teacher1 = await User.create({
@@ -233,8 +234,8 @@ const seed = async () => {
     await Schedule.create({
       classId: class1._id,
       bookedTeamId: teamA._id,
-      startTime: futureDateTime(3, 9, 0),   // +3 days, 09:00
-      endTime: futureDateTime(3, 10, 0),     // +3 days, 10:00
+      startTime: futureDateTime(3, 10, 0),   // +3 days, 10:00
+      endTime: futureDateTime(3, 11, 0),     // +3 days, 11:00
       enrolledUsers: [part1._id, part2._id, part3._id],
     });
 

@@ -3,6 +3,7 @@ import { schedulesAPI, attendanceAPI } from '../api/api';
 import { useAuth } from '../context/AuthContext';
 import { useAttendanceCalendar } from '../hooks/useSchedules';
 import { useBulkMarkAttendance } from '../hooks/useAttendance';
+import { useTimeSlots } from '../hooks/useTimeSlots';
 
 // ──────────────────────────────────────────────────────────
 // AttendancePage — Calendar View
@@ -19,10 +20,7 @@ const STATUS_OPTIONS = [
   { value: 'EL', label: 'Excused', color: 'bg-accent-purple/20 text-accent-purple border-accent-purple/30' },
 ];
 
-const TIME_SLOTS = [
-  '09:00-10:00', '10:00-11:00', '11:00-12:00',
-  '13:00-14:00', '14:00-15:00', '15:00-16:00',
-];
+// TIME_SLOTS is resolved at runtime via useTimeSlots() — see component body.
 
 const DAY_NAMES = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
@@ -51,16 +49,16 @@ const toDateKey = (d) => {
   return `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}-${String(dt.getDate()).padStart(2, '0')}`;
 };
 
+// Key on start-time only so the map lookup matches cellKey regardless of duration.
 const scheduleToKey = (s) => {
   const start = new Date(s.startTime);
-  const end = new Date(s.endTime);
   const dateKey = toDateKey(start);
-  const timeSlot = `${String(start.getHours()).padStart(2, '0')}:${String(start.getMinutes()).padStart(2, '0')}-${String(end.getHours()).padStart(2, '0')}:${String(end.getMinutes()).padStart(2, '0')}`;
-  return `${dateKey}|${timeSlot}`;
+  return `${dateKey}|${String(start.getHours()).padStart(2, '0')}:${String(start.getMinutes()).padStart(2, '0')}`;
 };
 
 export default function AttendancePage() {
   const { isAdmin } = useAuth();
+  const TIME_SLOTS = useTimeSlots(); // from DB settings; hook falls back to hardcoded defaults while loading
   const bulkMarkMutation = useBulkMarkAttendance();
   const [selectedSchedule, setSelectedSchedule] = useState(null);
   const [records, setRecords] = useState([]);
@@ -271,7 +269,8 @@ export default function AttendancePage() {
 
                   {weekDays.map((day, dayIdx) => {
                     const dateKey = toDateKey(day);
-                    const cellKey = `${dateKey}|${slot}`;
+                    const slotStartTime = slot.split('-')[0]; // "10:00-11:00" → "10:00"
+                    const cellKey = `${dateKey}|${slotStartTime}`;
                     const cellSchedules = scheduleMap[cellKey] || [];
                     const isToday = dateKey === today;
                     const isPast = new Date(day) < new Date(new Date().setHours(0, 0, 0, 0));
