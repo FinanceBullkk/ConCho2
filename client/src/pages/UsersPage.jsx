@@ -23,6 +23,8 @@ const STATUSES = ['Active', 'Inactive', 'Dropped', 'Transferred', 'On-hold', 'Wa
 
 function UserModal({ user, onClose, onSaved }) {
   const isEdit = !!user?._id;
+  const { user: currentUser } = useAuth();
+  const isSelf = isEdit && user?._id === currentUser?._id;
   const createMutation = useCreateUser();
   const updateMutation = useUpdateUser();
   const saving = createMutation.isPending || updateMutation.isPending;
@@ -45,10 +47,18 @@ function UserModal({ user, onClose, onSaved }) {
       status: user?.status || 'Active',
       dropReason: user?.dropReason || '',
       password: '',
+      currentPassword: '',
     },
   });
 
+  const watchedPassword = watch('password');
+  const watchedRole = watch('role');
   const currentStatus = watch('status'); // eslint-disable-line react-hooks/incompatible-library
+
+  // Re-auth is needed when admin edits ANOTHER user's password or role
+  const needsReauth = isEdit && !isSelf && (
+    !!watchedPassword || watchedRole !== (user?.role || 'Participant')
+  );
 
   const onSubmit = handleSubmit(async (data) => {
     try {
@@ -56,11 +66,18 @@ function UserModal({ user, onClose, onSaved }) {
       // Drop blank optional fields — avoids overwriting stored values with ""
       if (isEdit && !payload.password) delete payload.password;
       if (!payload.email) delete payload.email;
+      if (!payload.currentPassword) delete payload.currentPassword;
       if (isEdit) await updateMutation.mutateAsync({ id: user._id, data: payload });
       else await createMutation.mutateAsync(payload);
       onSaved();
     } catch (err) {
-      setError('root', { message: err.response?.data?.message || 'Save failed' });
+      const serverMsg = err.response?.data?.message || 'Save failed';
+      // Server returned 403 requiresReauth — surface as a clear field-level hint
+      if (err.response?.data?.requiresReauth) {
+        setError('currentPassword', { message: 'Enter your admin password to confirm this change' });
+      } else {
+        setError('root', { message: serverMsg });
+      }
     }
   });
 
@@ -132,6 +149,36 @@ function UserModal({ user, onClose, onSaved }) {
             </select>
           </div>
         </div>
+
+        {/* Re-auth confirmation — shown when admin resets another user's password or changes their role */}
+        {needsReauth && (
+          <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 space-y-2">
+            <p className="text-xs text-amber-300 flex items-center gap-1.5">
+              <svg className="w-3.5 h-3.5 shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M8.485 2.495c.673-1.167 2.357-1.167 3.03 0l6.28 10.875c.673 1.167-.17 2.625-1.516 2.625H3.72c-1.347 0-2.189-1.458-1.515-2.625L8.485 2.495zM10 5a.75.75 0 01.75.75v3.5a.75.75 0 01-1.5 0v-3.5A.75.75 0 0110 5zm0 9a1 1 0 100-2 1 1 0 000 2z" clipRule="evenodd"/>
+              </svg>
+              Confirm your identity to change another user&apos;s password or role
+            </p>
+            <div>
+              <label htmlFor="currentPassword" className="block text-sm text-slate-300 mb-1">
+                Your admin password
+              </label>
+              <input
+                id="currentPassword"
+                type="password"
+                placeholder="Enter your own password"
+                aria-invalid={!!errors.currentPassword}
+                className={`${inputCls} ${errors.currentPassword ? 'border-amber-500/50' : 'border-amber-500/30'}`}
+                {...register('currentPassword')}
+              />
+              {errors.currentPassword && (
+                <p role="alert" className="mt-1 text-xs text-amber-400">
+                  {errors.currentPassword.message}
+                </p>
+              )}
+            </div>
+          </div>
+        )}
 
         {/* Drop Reason — only show when status is Dropped/Inactive/Transferred */}
         {['Dropped', 'Inactive', 'Transferred'].includes(currentStatus) && (
