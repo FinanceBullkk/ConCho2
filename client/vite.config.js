@@ -83,10 +83,12 @@ export default defineConfig({
     environment: 'jsdom',
     globals: true,
     setupFiles: ['./src/test/setup.js'],
+    // Exclude Playwright e2e/ — those use @playwright/test, not vitest.
+    exclude: ['node_modules/**', 'dist/**', 'e2e/**', '**/*.e2e.*'],
     coverage: {
       provider: 'v8',
       reporter: ['text', 'lcov'],
-      exclude: ['src/test/**', 'src/main.jsx', '**/*.config.*'],
+      exclude: ['src/test/**', 'src/main.jsx', '**/*.config.*', 'e2e/**'],
       thresholds: { lines: 60, functions: 60, branches: 60 },
     },
   },

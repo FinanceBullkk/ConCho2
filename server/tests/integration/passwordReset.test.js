@@ -34,6 +34,15 @@ beforeEach(() => {
 
 // ── POST /api/auth/forgot-password ───────────────────────
 
+// BUG #15 fix made forgot-password async — response returns immediately,
+// then the token mint + DB save + email send run on the background tick
+// via `setImmediate`. Tests must await the queued microtask drain before
+// asserting on persisted state and mock invocations.
+// The background flow does: User.findOne (1 await) → save (1 await) →
+// sendMail mock (1 await) → save again on failure path (1 await).
+// 50ms is generous on an in-memory replica set.
+const flushBackground = () => new Promise((r) => setTimeout(r, 50));
+
 describe('POST /api/auth/forgot-password', () => {
   test('returns 200 with valid empCode that has an email on file', async () => {
     // Give the admin user an email so the reset path is triggered
@@ -49,6 +58,9 @@ describe('POST /api/auth/forgot-password', () => {
     expect(res.status).toBe(200);
     expect(res.body.success).toBe(true);
     expect(res.body.message).toMatch(/If that employee code exists/);
+
+    // Wait for the deferred background work to commit.
+    await flushBackground();
 
     // Token should have been stored on the user
     const user = await User.findById(seed.admin._id);
@@ -73,6 +85,9 @@ describe('POST /api/auth/forgot-password', () => {
     expect(res.body.success).toBe(true);
     // Should NOT reveal whether the user exists
     expect(res.body.message).toMatch(/If that employee code exists/);
+
+    // Allow background no-op to settle, then verify sendMail was NOT called.
+    await flushBackground();
     expect(sendMail).not.toHaveBeenCalled();
   });
 
@@ -89,6 +104,7 @@ describe('POST /api/auth/forgot-password', () => {
 
     expect(res.status).toBe(200);
     expect(res.body.success).toBe(true);
+    await flushBackground();
     expect(sendMail).not.toHaveBeenCalled();
   });
 
@@ -101,6 +117,36 @@ describe('POST /api/auth/forgot-password', () => {
 
     expect(res.status).toBe(400);
     expect(res.body.success).toBe(false);
+  });
+
+  test('BUG #15 fix: response time for valid vs unknown empCode is similar (anti-enumeration)', async () => {
+    // The fix moves all real work to a background tick — the HTTP
+    // response should leave the handler in ~constant time regardless of
+    // whether the user exists. We don't assert ms-level equality (CI
+    // variance), but the spread should be small: under 50ms.
+    const csrf = await getCsrfHeaders(app);
+    const samples = 3;
+    const valid = [];
+    const unknown = [];
+
+    for (let i = 0; i < samples; i += 1) {
+      const t1 = Date.now();
+      await request(app).post('/api/auth/forgot-password').set(csrf).send({ empCode: '000001' });
+      valid.push(Date.now() - t1);
+
+      const t2 = Date.now();
+      await request(app).post('/api/auth/forgot-password').set(csrf).send({ empCode: '999999' });
+      unknown.push(Date.now() - t2);
+    }
+
+    const avg = (a) => a.reduce((s, x) => s + x, 0) / a.length;
+    const avgValid = avg(valid);
+    const avgUnknown = avg(unknown);
+
+    // The CPU-bound work (bcrypt-equivalent) is no longer on the hot path;
+    // both branches should be close to wire latency. Allow generous slack
+    // for CI: difference < 75ms.
+    expect(Math.abs(avgValid - avgUnknown)).toBeLessThan(75);
   });
 });
 
