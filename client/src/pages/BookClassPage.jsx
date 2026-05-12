@@ -52,14 +52,16 @@ const parseSlot = (slot) => {
 
 /**
  * Build a schedule lookup key from a schedule's startTime.
- * Returns "YYYY-MM-DD|HH:MM-HH:MM" using local time.
+ * Returns "YYYY-MM-DD|HH:MM" using local time — keyed by START HOUR only.
+ *
+ * We intentionally ignore the end time so that admin-created schedules
+ * with non-standard durations (e.g. 10:00–11:30) still appear in the
+ * correct time-slot row ("10:00-11:00") rather than being silently hidden.
  */
 const scheduleToKey = (s) => {
   const start = new Date(s.startTime);
-  const end = new Date(s.endTime);
   const dateKey = toDateKey(start);
-  const timeSlot = `${String(start.getHours()).padStart(2, '0')}:${String(start.getMinutes()).padStart(2, '0')}-${String(end.getHours()).padStart(2, '0')}:${String(end.getMinutes()).padStart(2, '0')}`;
-  return `${dateKey}|${timeSlot}`;
+  return `${dateKey}|${String(start.getHours()).padStart(2, '0')}:${String(start.getMinutes()).padStart(2, '0')}`;
 };
 
 export default function BookClassPage() {
@@ -265,7 +267,9 @@ export default function BookClassPage() {
 
                     {weekDays.map((day, dayIdx) => {
                       const dateKey = toDateKey(day);
-                      const cellKey = `${dateKey}|${slot}`;
+                      // cellKey uses slot's start time only ("HH:MM") to match scheduleToKey
+                      const slotStartTime = slot.split('-')[0]; // "10:00-11:00" → "10:00"
+                      const cellKey = `${dateKey}|${slotStartTime}`;
                       const schedule = scheduleMap[cellKey];
                       const isToday = dateKey === today;
                       const isPast = dateKey < today;
