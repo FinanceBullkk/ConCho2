@@ -6,16 +6,19 @@
  */
 
 const request = require('supertest');
-const { getApp, getTokens, getSeedData, teardown } = require('../setup');
+const { getApp, getTokens, getSeedData, getCsrfHeaders, teardown } = require('../setup');
 const Schedule = require('../../models/Schedule');
 const Setting = require('../../models/Setting');
 
-let app, tokens, seed;
+let app, tokens, seed, csrf;
 
 beforeAll(async () => {
   app = await getApp();
   tokens = getTokens();
   seed = getSeedData();
+  // CSRF double-submit cookie + header is required for all POST/PUT/DELETE
+  // (csrfProtection middleware). Fetch once and reuse across tests.
+  csrf = await getCsrfHeaders(app);
 
   // Ensure ALLOWED_TIME_SLOTS includes a 10:00–11:00 VN slot (= 03:00–04:00 UTC)
   // setup.js may already have 10:00–11:30, which covers this range.
@@ -56,7 +59,7 @@ describe('POST /api/schedules/book-slot', () => {
     const { start, end } = vnSlot();
     const res = await request(app)
       .post('/api/schedules/book-slot')
-      .set('Authorization', `Bearer ${tokens.leader}`)
+      .set('Authorization', `Bearer ${tokens.leader}`).set(csrf)
       .send({
         teamId: seed.team._id.toString(),
         startTime: start.toISOString(),
@@ -72,7 +75,7 @@ describe('POST /api/schedules/book-slot', () => {
     const { start, end } = vnSlot();
     const res = await request(app)
       .post('/api/schedules/book-slot')
-      .set('Authorization', `Bearer ${tokens.leader}`)
+      .set('Authorization', `Bearer ${tokens.leader}`).set(csrf)
       .send({
         teamId: seed.team._id.toString(),
         startTime: start.toISOString(),
@@ -90,19 +93,19 @@ describe('POST /api/schedules/book-slot', () => {
 
     await request(app)
       .post('/api/schedules/book-slot')
-      .set('Authorization', `Bearer ${tokens.leader}`)
+      .set('Authorization', `Bearer ${tokens.leader}`).set(csrf)
       .send({ teamId: seed.team._id.toString(), startTime: slots[0].start.toISOString(), endTime: slots[0].end.toISOString() })
       .expect(201);
 
     await request(app)
       .post('/api/schedules/book-slot')
-      .set('Authorization', `Bearer ${tokens.leader}`)
+      .set('Authorization', `Bearer ${tokens.leader}`).set(csrf)
       .send({ teamId: seed.team._id.toString(), startTime: slots[1].start.toISOString(), endTime: slots[1].end.toISOString() })
       .expect(201);
 
     const res3 = await request(app)
       .post('/api/schedules/book-slot')
-      .set('Authorization', `Bearer ${tokens.leader}`)
+      .set('Authorization', `Bearer ${tokens.leader}`).set(csrf)
       .send({ teamId: seed.team._id.toString(), startTime: slots[2].start.toISOString(), endTime: slots[2].end.toISOString() });
 
     expect(res3.status).toBe(400);
@@ -114,13 +117,13 @@ describe('POST /api/schedules/book-slot', () => {
 
     await request(app)
       .post('/api/schedules/book-slot')
-      .set('Authorization', `Bearer ${tokens.leader}`)
+      .set('Authorization', `Bearer ${tokens.leader}`).set(csrf)
       .send({ teamId: seed.team._id.toString(), startTime: start.toISOString(), endTime: end.toISOString() })
       .expect(201);
 
     const res = await request(app)
       .post('/api/schedules/book-slot')
-      .set('Authorization', `Bearer ${tokens.leader}`)
+      .set('Authorization', `Bearer ${tokens.leader}`).set(csrf)
       .send({ teamId: seed.team._id.toString(), startTime: start.toISOString(), endTime: end.toISOString() });
 
     expect(res.status).toBe(409);
@@ -131,7 +134,7 @@ describe('POST /api/schedules/book-slot', () => {
     // tokens.teacher is not the leader of seed.team
     const res = await request(app)
       .post('/api/schedules/book-slot')
-      .set('Authorization', `Bearer ${tokens.teacher}`)
+      .set('Authorization', `Bearer ${tokens.teacher}`).set(csrf)
       .send({
         teamId: seed.team._id.toString(),
         startTime: start.toISOString(),
@@ -144,8 +147,12 @@ describe('POST /api/schedules/book-slot', () => {
 
   test('unauthenticated request returns 401', async () => {
     const { start, end } = vnSlot();
+    // Pass CSRF so the request reaches the auth middleware (csrfProtection
+    // runs first; without it the response would be 403 CSRF, masking the
+    // auth check this test is meant to exercise).
     const res = await request(app)
       .post('/api/schedules/book-slot')
+      .set(csrf)
       .send({ teamId: seed.team._id.toString(), startTime: start.toISOString(), endTime: end.toISOString() });
 
     expect(res.status).toBe(401);
@@ -159,7 +166,7 @@ describe('POST /api/schedules/book-slot', () => {
 
     const res = await request(app)
       .post('/api/schedules/book-slot')
-      .set('Authorization', `Bearer ${tokens.leader}`)
+      .set('Authorization', `Bearer ${tokens.leader}`).set(csrf)
       .send({
         teamId: seed.team._id.toString(),
         startTime: badStart.toISOString(),
@@ -178,14 +185,14 @@ describe('DELETE /api/schedules/:id/cancel', () => {
     const { start, end } = vnSlot();
     const createRes = await request(app)
       .post('/api/schedules/book-slot')
-      .set('Authorization', `Bearer ${tokens.leader}`)
+      .set('Authorization', `Bearer ${tokens.leader}`).set(csrf)
       .send({ teamId: seed.team._id.toString(), startTime: start.toISOString(), endTime: end.toISOString() })
       .expect(201);
 
     const scheduleId = createRes.body.data._id;
     await request(app)
       .delete(`/api/schedules/${scheduleId}/cancel`)
-      .set('Authorization', `Bearer ${tokens.leader}`)
+      .set('Authorization', `Bearer ${tokens.leader}`).set(csrf)
       .expect(200);
 
     const check = await Schedule.findById(scheduleId);
@@ -196,14 +203,14 @@ describe('DELETE /api/schedules/:id/cancel', () => {
     const { start, end } = vnSlot();
     const createRes = await request(app)
       .post('/api/schedules/book-slot')
-      .set('Authorization', `Bearer ${tokens.leader}`)
+      .set('Authorization', `Bearer ${tokens.leader}`).set(csrf)
       .send({ teamId: seed.team._id.toString(), startTime: start.toISOString(), endTime: end.toISOString() })
       .expect(201);
 
     const scheduleId = createRes.body.data._id;
     await request(app)
       .delete(`/api/schedules/${scheduleId}/cancel`)
-      .set('Authorization', `Bearer ${tokens.admin}`)
+      .set('Authorization', `Bearer ${tokens.admin}`).set(csrf)
       .expect(200);
   });
 });
@@ -215,7 +222,7 @@ describe('Schedule.enrolledCount virtual (ARCH-02)', () => {
     const { start, end } = vnSlot();
     const res = await request(app)
       .post('/api/schedules/book-slot')
-      .set('Authorization', `Bearer ${tokens.leader}`)
+      .set('Authorization', `Bearer ${tokens.leader}`).set(csrf)
       .send({ teamId: seed.team._id.toString(), startTime: start.toISOString(), endTime: end.toISOString() })
       .expect(201);
 
