@@ -418,57 +418,75 @@ const adminForceLogout = async (req, res) => {
  * Always returns 200 to avoid user-enumeration (don't reveal if empCode exists).
  */
 const forgotPassword = async (req, res) => {
-  try {
-    const { empCode } = req.body;
-    if (!empCode) {
-      return res.status(400).json({ success: false, message: 'empCode is required' });
-    }
+  // BUG #15 fix: previously a real user took ~hundreds of ms (DB save +
+  // bcrypt-equivalent crypto + SMTP roundtrip) while a non-existent user
+  // returned 200 in ~10ms. The timing differential let an attacker
+  // enumerate valid empCodes despite the unified response message.
+  //
+  // We now:
+  //   1. Reply 200 IMMEDIATELY (constant-time from the attacker's view).
+  //   2. Do the real work (token mint, DB save, email send) AFTER the
+  //      response is flushed, off the request thread.
+  // The trade-off: a legitimate user whose email send fails sees no
+  // error — but `loginLimiter` already caps abuse to 5/15min and email
+  // failures are logged for ops follow-up. The anti-enumeration property
+  // is more valuable than the inline error reporting here.
 
-    const User = require('../models/User');
-    const user = await User.findOne({ empCode: empCode.trim(), isDeleted: { $ne: true } });
+  const okMsg = 'If that employee code exists and has an email on file, a reset link has been sent.';
 
-    // Always respond the same to prevent user enumeration
-    const okMsg = 'If that employee code exists and has an email on file, a reset link has been sent.';
-
-    if (!user || !user.email) {
-      return res.json({ success: true, message: okMsg });
-    }
-
-    // Generate token: raw for email, hashed for storage (same pattern as JWT refresh tokens)
-    const rawToken = crypto.randomBytes(32).toString('hex');
-    const hashedToken = crypto.createHash('sha256').update(rawToken).digest('hex');
-    const expires = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
-
-    user.passwordResetToken = hashedToken;
-    user.passwordResetExpires = expires;
-    await user.save({ validateBeforeSave: false });
-
-    const clientOrigin = process.env.CLIENT_ORIGIN || 'http://localhost:5173';
-    const resetUrl = `${clientOrigin}/reset-password?token=${rawToken}`;
-
-    try {
-      await sendMail({
-        to: user.email,
-        subject: 'TMS — Password Reset Request',
-        text: `Hi ${user.name},\n\nYou requested a password reset. Click the link below (valid for 1 hour):\n\n${resetUrl}\n\nIf you did not request this, ignore this email.`,
-        html: `<p>Hi <strong>${user.name}</strong>,</p>
-               <p>You requested a password reset. Click the link below (valid for 1 hour):</p>
-               <p><a href="${resetUrl}">${resetUrl}</a></p>
-               <p>If you did not request this, ignore this email.</p>`,
-      });
-    } catch {
-      // Rollback token if email fails — user can retry
-      user.passwordResetToken = null;
-      user.passwordResetExpires = null;
-      await user.save({ validateBeforeSave: false });
-      return res.status(500).json({ success: false, message: 'Failed to send reset email. Please try again.' });
-    }
-
-    logger.info({ empCode }, 'Password reset email sent');
-    res.json({ success: true, message: okMsg });
-  } catch (err) {
-    handleError(res, err);
+  const { empCode } = req.body || {};
+  if (!empCode || typeof empCode !== 'string' || empCode.trim().length === 0) {
+    return res.status(400).json({ success: false, message: 'empCode is required' });
   }
+  const normalizedEmpCode = empCode.trim();
+
+  // Reply first — same shape for valid and invalid users.
+  res.json({ success: true, message: okMsg });
+
+  // Background work — best-effort, never blocks or surfaces errors to the caller.
+  // We intentionally do NOT await this from the request handler.
+  setImmediate(async () => {
+    try {
+      const User = require('../models/User');
+      const user = await User.findOne({ empCode: normalizedEmpCode, isDeleted: { $ne: true } });
+      if (!user || !user.email) {
+        logger.info({ empCode: normalizedEmpCode }, 'Forgot-password: no matching user (no-op)');
+        return;
+      }
+
+      const rawToken = crypto.randomBytes(32).toString('hex');
+      const hashedToken = crypto.createHash('sha256').update(rawToken).digest('hex');
+      const expires = new Date(Date.now() + 60 * 60 * 1000); // 1h
+
+      user.passwordResetToken = hashedToken;
+      user.passwordResetExpires = expires;
+      await user.save({ validateBeforeSave: false });
+
+      const clientOrigin = process.env.CLIENT_ORIGIN || 'http://localhost:5173';
+      const resetUrl = `${clientOrigin}/reset-password?token=${rawToken}`;
+
+      try {
+        await sendMail({
+          to: user.email,
+          subject: 'TMS — Password Reset Request',
+          text: `Hi ${user.name},\n\nYou requested a password reset. Click the link below (valid for 1 hour):\n\n${resetUrl}\n\nIf you did not request this, ignore this email.`,
+          html: `<p>Hi <strong>${user.name}</strong>,</p>` +
+                `<p>You requested a password reset. Click the link below (valid for 1 hour):</p>` +
+                `<p><a href="${resetUrl}">${resetUrl}</a></p>` +
+                `<p>If you did not request this, ignore this email.</p>`,
+        });
+        logger.info({ empCode: normalizedEmpCode }, 'Password reset email sent');
+      } catch (mailErr) {
+        // Roll back the token so the user can retry without ambiguity.
+        user.passwordResetToken = null;
+        user.passwordResetExpires = null;
+        await user.save({ validateBeforeSave: false });
+        logger.warn({ err: mailErr, empCode: normalizedEmpCode }, 'Password reset email failed');
+      }
+    } catch (err) {
+      logger.warn({ err, empCode: normalizedEmpCode }, 'Forgot-password background flow errored');
+    }
+  });
 };
 
 /**

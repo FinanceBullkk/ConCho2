@@ -72,7 +72,17 @@ const getAvailability = async (req, res) => {
 const getSchedules = async (req, res) => {
   try {
     const pagination = parsePagination(req);
-    const { schedules, total } = await scheduleService.listSchedules(req.query, pagination);
+
+    // SCOPE FIX (BUG #2 — IDOR): The route only gates with `protect`, so
+    // any authenticated user could list every schedule org-wide, including
+    // other teams' enrolledUsers (empCode/name/department) and Meet links.
+    // Participants are now restricted to schedules they are enrolled in.
+    const filters = { ...req.query };
+    if (req.user.role === 'Participant') {
+      filters.enrolledUser = req.user._id;
+    }
+
+    const { schedules, total } = await scheduleService.listSchedules(filters, pagination);
     res.json(paginatedResponse({ data: schedules, total, page: pagination.page, limit: pagination.limit }));
   } catch (error) {
     handleError(res, error);
@@ -82,6 +92,22 @@ const getSchedules = async (req, res) => {
 const getScheduleById = async (req, res) => {
   try {
     const schedule = await scheduleService.getById(req.params.id);
+    if (!schedule) {
+      return res.status(404).json({ success: false, message: 'Schedule not found' });
+    }
+
+    // SCOPE FIX (BUG #2 — IDOR): Participants may only fetch schedules
+    // they are enrolled in. Admin / Teacher unrestricted.
+    if (req.user.role === 'Participant') {
+      const userIdStr = req.user._id.toString();
+      const enrolled = (schedule.enrolledUsers || []).some(
+        (u) => (u?._id ? u._id.toString() : u.toString()) === userIdStr,
+      );
+      if (!enrolled) {
+        return res.status(403).json({ success: false, message: 'Not authorized to view this schedule' });
+      }
+    }
+
     res.json({ success: true, data: schedule });
   } catch (error) {
     handleError(res, error);
@@ -211,7 +237,19 @@ const updateSchedule = async (req, res) => {
           }
         }
 
-        schedule = await Schedule.findByIdAndUpdate(req.params.id, req.body, {
+        // BUG #10 fix: previously passed raw req.body to findByIdAndUpdate,
+        // relying entirely on validate middleware stripping unknown keys.
+        // Defense in depth — explicitly whitelist the fields admins may
+        // change. Server-managed fields (enrolledUsers, googleEventId,
+        // meetLink, remindersSentAt, syncStatus) MUST NEVER be writable
+        // through this endpoint.
+        const ALLOWED = ['classId', 'bookedTeamId', 'startTime', 'endTime', 'roomLink', 'capacity'];
+        const updateData = {};
+        for (const k of ALLOWED) {
+          if (req.body[k] !== undefined) updateData[k] = req.body[k];
+        }
+
+        schedule = await Schedule.findByIdAndUpdate(req.params.id, updateData, {
           new: true, runValidators: true, session,
         });
         if (!schedule) {
@@ -255,6 +293,18 @@ const updateSchedule = async (req, res) => {
       } catch (e) {
         // Already logged inside calendarService — no-op here.
       }
+    }
+
+    // BUG #18 fix: when startTime changes the in-memory session-order cache
+    // (used by attachSessionNumbers to label "Session N / M") becomes stale.
+    // Invalidate for BOTH the old and new classId in case the update also
+    // moved the schedule to a different class. createSchedule/deleteSchedule
+    // already do this — updateSchedule was missing it.
+    const oldClassId = existing.classId?.toString();
+    const newClassId = schedule.classId?.toString();
+    if (oldClassId) scheduleService.invalidateSessionOrderCache(existing.classId);
+    if (newClassId && newClassId !== oldClassId) {
+      scheduleService.invalidateSessionOrderCache(schedule.classId);
     }
 
     invalidateAnalyticsCache();

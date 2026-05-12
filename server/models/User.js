@@ -242,42 +242,51 @@ userSchema.post('findOneAndUpdate', async function (doc) {
   const today = new Date();
   today.setUTCHours(0, 0, 0, 0); // UTC midnight — timezone-safe
 
-  // ── TRANSACTION: Atomic pull + cleanup (SYNC-02) ──────
+  // ── TRANSACTION: Atomic pull + scoped cleanup (SYNC-02) ──
+  // SCOPE FIX (BUG #1): The previous version deleted EVERY empty future
+  // schedule across the whole DB after the pull, which would nuke
+  // unrelated empty placeholders an admin had pre-created. We now:
+  //   1. Snapshot the IDs of schedules this user was actually in,
+  //   2. $pull only within that set,
+  //   3. Delete only schedules from that same set that became empty.
+  // This keeps the original intent (release abandoned solo bookings)
+  // without touching schedules belonging to other teams.
   const session = await mongoose.startSession();
   try {
     await session.withTransaction(async () => {
-      // Atomically pull user from all future schedules
-      // enrolledCount is a virtual (enrolledUsers.length), no $inc needed.
+      // 1. Find the IDs of future schedules the user is currently in.
+      const affectedIds = await Schedule.find(
+        { startTime: { $gte: today }, enrolledUsers: doc._id },
+        { _id: 1 },
+        { session }
+      ).distinct('_id');
+
+      if (affectedIds.length === 0) {
+        logger.info({ empCode: doc.empCode }, 'Auto-Release: no future enrollments to release');
+        return;
+      }
+
+      // 2. Pull user from those schedules only.
       const result = await Schedule.updateMany(
-        {
-          startTime: { $gte: today },
-          enrolledUsers: doc._id,
-        },
-        {
-          $pull: { enrolledUsers: doc._id },
-        },
+        { _id: { $in: affectedIds } },
+        { $pull: { enrolledUsers: doc._id } },
         { session }
       );
+      logger.info(
+        { empCode: doc.empCode, removed: result.modifiedCount },
+        'Auto-Release: removed user from future schedules'
+      );
 
-      if (result.modifiedCount > 0) {
+      // 3. Delete only the previously-affected schedules that are now empty.
+      const emptyResult = await Schedule.deleteMany(
+        { _id: { $in: affectedIds }, enrolledUsers: { $size: 0 } },
+        { session }
+      );
+      if (emptyResult.deletedCount > 0) {
         logger.info(
-          { empCode: doc.empCode, removed: result.modifiedCount },
-          'Auto-Release: removed user from future schedules'
+          { empCode: doc.empCode, deleted: emptyResult.deletedCount },
+          'Auto-Release: deleted empty schedules (scoped to affected set)'
         );
-
-        // Auto-release slots where no enrolled users remain
-        const emptyResult = await Schedule.deleteMany({
-          startTime: { $gte: today },
-          enrolledUsers: { $size: 0 },
-        }, { session });
-        if (emptyResult.deletedCount > 0) {
-          logger.info(
-            { empCode: doc.empCode, deleted: emptyResult.deletedCount },
-            'Auto-Release: deleted empty schedules'
-          );
-        }
-      } else {
-        logger.info({ empCode: doc.empCode }, 'Auto-Release: no future enrollments to release');
       }
     });
   } finally {

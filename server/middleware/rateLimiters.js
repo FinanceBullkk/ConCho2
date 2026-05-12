@@ -209,11 +209,17 @@ const forgotPasswordLimiter = rateLimit({
  * exportLimiter — throttle expensive export operations.
  * Excel generation is CPU-intensive; prevent repeated abuse.
  * 10 requests per hour per authenticated user (or IP fallback).
+ *
+ * BUG #16 fix: previously keyed on `req.user?.id` which is undefined
+ * (User docs use `_id`, and the cached user is a plain `.lean()` object
+ * with no `id` virtual). The fallback to `req.ip` meant users behind a
+ * shared NAT all shared the same export bucket — one abusive user
+ * blocked legitimate exports for everyone on the same egress.
  */
 const exportLimiter = rateLimit({
   windowMs: 60 * 60 * 1000, // 1 hour
   max: 10,
-  keyGenerator: (req) => req.user?.id || req.ip,
+  keyGenerator: (req) => (req.user?._id ? req.user._id.toString() : req.ip),
   standardHeaders: true,
   legacyHeaders: false,
   skip: skipInTest,

@@ -268,9 +268,18 @@ export default function UsersPage() {
     }
   };
 
-  // Clear selection when page/filter changes
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  useEffect(() => setSelectedIds(new Set()), [searchParams.toString()]);
+  // BUG #17 fix: previously cleared selection whenever the URL changed —
+  // every keystroke into the debounced search box wiped the bulk pick,
+  // breaking the "select rows, then narrow to confirm scope, then apply"
+  // workflow. Only clear when dimensions that actually change WHICH
+  // rows the server returns change (page / role / status). The search
+  // field is debounced and re-keys the query, so the visible row set
+  // may also change — but bulk action validates ids server-side anyway,
+  // and clearing on every keystroke produced a worse UX.
+  // Re-use existing `page` const declared above; only watch role/status.
+  useEffect(() => {
+    setSelectedIds(new Set());
+  }, [page, filterRole, filterStatus]);
 
   const executeBulkAction = async () => {
     if (!bulkAction || selectedIds.size === 0) return;
@@ -355,10 +364,12 @@ export default function UsersPage() {
           <h1 className="text-2xl font-bold text-white">👤 User Management</h1>
           <p className="text-slate-400 mt-1">{total} users total</p>
         </div>
-        <button onClick={() => setModal('create')}
-          className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-primary-600 to-primary-500 text-white font-semibold hover:from-primary-500 hover:to-primary-400 transition-all shadow-lg shadow-primary-500/20 self-start">
-          + New User
-        </button>
+        {can('create:user') && (
+          <button onClick={() => setModal('create')}
+            className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-primary-600 to-primary-500 text-white font-semibold hover:from-primary-500 hover:to-primary-400 transition-all shadow-lg shadow-primary-500/20 self-start">
+            + New User
+          </button>
+        )}
       </div>
 
       {/* Search + Filters */}
@@ -543,22 +554,26 @@ export default function UsersPage() {
                     <div className="flex gap-1 flex-wrap">
                       <button onClick={() => setProgressModal({ id: u._id, name: u.name })}
                         className="px-2 py-1 rounded-lg bg-white/5 text-slate-300 text-xs hover:bg-teal-500/20 hover:text-teal-300 transition-all" title="View Progress">📊</button>
-                      <button onClick={() => setModal(u)}
-                        className="px-2 py-1 rounded-lg bg-white/5 text-slate-300 text-xs hover:bg-primary-500/20 hover:text-primary-300 transition-all" title="Edit user">✏️</button>
+                      {can('update:user') && (
+                        <button onClick={() => setModal(u)}
+                          className="px-2 py-1 rounded-lg bg-white/5 text-slate-300 text-xs hover:bg-primary-500/20 hover:text-primary-300 transition-all" title="Edit user">✏️</button>
+                      )}
                       {can('delete:user') && (
                         <button onClick={() => setDeleteId(u._id)}
                           className="px-2 py-1 rounded-lg bg-white/5 text-slate-300 text-xs hover:bg-red-500/20 hover:text-red-400 transition-all" title="Delete user">🗑</button>
                       )}
                       {/* Admin-only actions — hidden for the current user's own row */}
-                      {isAdmin && u._id !== currentUser?._id && (
+                      {u._id !== currentUser?._id && (
                         <>
-                          <button
-                            onClick={() => setAdminAction({ type: 'force-logout', userId: u._id, userName: u.name })}
-                            className="px-2 py-1 rounded-lg bg-white/5 text-slate-300 text-xs hover:bg-amber-500/20 hover:text-amber-300 transition-all"
-                            title="Force logout — invalidate all active sessions">
-                            🔒
-                          </button>
-                          {u.mfaEnabled && (
+                          {can('force-logout:user') && (
+                            <button
+                              onClick={() => setAdminAction({ type: 'force-logout', userId: u._id, userName: u.name })}
+                              className="px-2 py-1 rounded-lg bg-white/5 text-slate-300 text-xs hover:bg-amber-500/20 hover:text-amber-300 transition-all"
+                              title="Force logout — invalidate all active sessions">
+                              🔒
+                            </button>
+                          )}
+                          {u.mfaEnabled && can('disable-mfa:user') && (
                             <button
                               onClick={() => setAdminAction({ type: 'reset-mfa', userId: u._id, userName: u.name })}
                               className="px-2 py-1 rounded-lg bg-white/5 text-slate-300 text-xs hover:bg-orange-500/20 hover:text-orange-300 transition-all"

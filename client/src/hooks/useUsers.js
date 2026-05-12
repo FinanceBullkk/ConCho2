@@ -94,8 +94,16 @@ export const useDeleteUser = () => {
       }
     },
     onSettled: () => {
+      // BUG #12 fix: server-side deleteUser cascades through Team.members,
+      // Schedule.enrolledUsers, and closes any Active Enrollment rows.
+      // Previously only the users + teams caches were invalidated, so
+      // the schedule calendar would still show the user as enrolled and
+      // dashboard counts were stale until manual refresh.
       qc.invalidateQueries({ queryKey: USER_LIST_KEY });
       qc.invalidateQueries({ queryKey: qk.teams.all });
+      qc.invalidateQueries({ queryKey: qk.schedules.all });
+      qc.invalidateQueries({ queryKey: qk.enrollments.all });
+      qc.invalidateQueries({ queryKey: qk.dashboard.stats });
     },
   });
 };
