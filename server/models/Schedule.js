@@ -80,6 +80,15 @@ const scheduleSchema = new mongoose.Schema(
       type: String,
       default: '',
     },
+
+    // Set by reminderService when the "starts soon" email batch is sent.
+    // Null/missing = not yet reminded. The reminder cron uses an atomic
+    // findOneAndUpdate gated on this field, so each schedule is reminded
+    // at most once even if the cron fires concurrently.
+    remindersSentAt: {
+      type: Date,
+      default: null,
+    },
   },
   {
     timestamps: true,

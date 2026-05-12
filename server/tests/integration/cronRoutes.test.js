@@ -3,6 +3,7 @@
  * Integration Tests — Cron Routes
  * GET  /api/cron/health
  * POST /api/cron/reconcile
+ * POST /api/cron/attendance-reminders
  * ──────────────────────────────────────────────────────────
  */
 
@@ -126,5 +127,65 @@ describe('POST /api/cron/reconcile', () => {
     expect(res.body.success).toBe(true);
     // reconcileService returns a report object
     expect(res.body.data).toBeDefined();
+  });
+});
+
+// ── POST /api/cron/attendance-reminders ──────────────────
+
+describe('POST /api/cron/attendance-reminders', () => {
+  test('returns 401 without a token', async () => {
+    const res = await request(app).post('/api/cron/attendance-reminders');
+
+    expect(res.status).toBe(401);
+    expect(res.body.success).toBe(false);
+  });
+
+  test('returns 200 with a summary when authenticated', async () => {
+    const res = await request(app)
+      .post('/api/cron/attendance-reminders')
+      .set('Authorization', `Bearer ${VALID_CRON_TOKEN}`);
+
+    expect(res.status).toBe(200);
+    expect(res.body.success).toBe(true);
+    expect(res.body.data).toHaveProperty('scanned');
+    expect(res.body.data).toHaveProperty('notified');
+    expect(res.body.data).toHaveProperty('emailed');
+    expect(typeof res.body.data.scanned).toBe('number');
+  });
+
+  test('accepts ?hours= query and clamps to [1, 168]', async () => {
+    const res = await request(app)
+      .post('/api/cron/attendance-reminders?hours=48')
+      .set('Authorization', `Bearer ${VALID_CRON_TOKEN}`);
+
+    expect(res.status).toBe(200);
+    expect(res.body.success).toBe(true);
+  });
+
+  test('is idempotent — second call notifies 0 (everything already reminded)', async () => {
+    // Seed: create a schedule starting in 2h with an enrolled user
+    const mongoose = require('mongoose');
+    const Schedule = require('../../models/Schedule');
+    const startTime = new Date(Date.now() + 2 * 60 * 60 * 1000);
+    const endTime = new Date(startTime.getTime() + 90 * 60 * 1000);
+    await Schedule.create({
+      classId: seed.class1._id,
+      bookedTeamId: seed.team._id,
+      startTime,
+      endTime,
+      enrolledUsers: [seed.member1._id],
+    });
+
+    const first = await request(app)
+      .post('/api/cron/attendance-reminders')
+      .set('Authorization', `Bearer ${VALID_CRON_TOKEN}`);
+    expect(first.status).toBe(200);
+    expect(first.body.data.notified).toBeGreaterThanOrEqual(1);
+
+    const second = await request(app)
+      .post('/api/cron/attendance-reminders')
+      .set('Authorization', `Bearer ${VALID_CRON_TOKEN}`);
+    expect(second.status).toBe(200);
+    expect(second.body.data.notified).toBe(0);
   });
 });

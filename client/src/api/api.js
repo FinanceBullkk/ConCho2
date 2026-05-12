@@ -146,12 +146,19 @@ export const syncAPI = {
   googleSheets: (data) => api.post('/sync/google-sheets', data),
 };
 
+// ── Global Search ─────────────────────────────────────────
+export const searchAPI = {
+  global: (q, limit = 5) => api.get('/search', { params: { q, limit } }),
+};
+
 // ── Export (HR) ───────────────────────────────────────────
 export const exportAPI = {
   getStats: () => api.get('/export/stats'),
   // responseType: 'blob' is required to handle the binary Excel file
   downloadAttendance: (params = {}) =>
     api.get('/export/attendance', { params, responseType: 'blob' }),
+  downloadEvaluations: (params = {}) =>
+    api.get('/export/evaluations', { params, responseType: 'blob' }),
 };
 
 // ── Enrollments ───────────────────────────────────────────
@@ -160,6 +167,7 @@ export const enrollmentsAPI = {
   getByTeam: (teamId, params) => api.get(`/enrollments/team/${teamId}`, { params }),
   getByUser: (userId) => api.get(`/enrollments/user/${userId}`),
   update: (id, data) => api.put(`/enrollments/${id}`, data),
+  transfer: (id, data) => api.post(`/enrollments/${id}/transfer`, data),
   checkConflicts: (data) => api.post('/enrollments/check-conflicts', data),
 };
 
