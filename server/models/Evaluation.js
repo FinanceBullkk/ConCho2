@@ -54,6 +54,17 @@ const evaluationSchema = new mongoose.Schema(
       trim: true,
       default: '',
     },
+
+    // Accountability — the User._id (Teacher/Admin) who created or last
+    // updated this evaluation. Used for audit, dispute resolution, and as
+    // the foundation for future teacher-of-record scoping. Optional only
+    // for backward compatibility with pre-existing rows.
+    createdBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+      default: null,
+      index: true,
+    },
   },
   {
     timestamps: true,
