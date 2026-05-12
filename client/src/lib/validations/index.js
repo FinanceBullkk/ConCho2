@@ -44,6 +44,11 @@ export const editUserSchema = createUserSchema
       .min(8, 'Password must be at least 8 characters')
       .optional()
       .or(z.literal('')),
+    currentPassword: z
+      .string()
+      .max(128)
+      .optional()
+      .or(z.literal('')),
   });
 
 export const changePasswordSchema = z
