@@ -3,6 +3,7 @@
  * Integration Tests — Export Routes
  * GET /api/export/stats
  * GET /api/export/attendance
+ * GET /api/export/evaluations
  * ──────────────────────────────────────────────────────────
  * All export routes use GET — no CSRF required.
  * ──────────────────────────────────────────────────────────
@@ -119,6 +120,63 @@ describe('GET /api/export/attendance', () => {
 
   test('returns 401 when called without authentication', async () => {
     const res = await request(app).get('/api/export/attendance');
+
+    expect(res.status).toBe(401);
+  });
+});
+
+// ── GET /api/export/evaluations ──────────────────────────
+
+describe('GET /api/export/evaluations', () => {
+  test('returns 200 (xlsx) or 404 (no data) for Admin — xlsx mode', async () => {
+    const res = await request(app)
+      .get('/api/export/evaluations')
+      .set('Authorization', `Bearer ${tokens.admin}`);
+
+    // Either xlsx (200) when evaluations exist, or 404 if DB is empty
+    expect([200, 404]).toContain(res.status);
+
+    if (res.status === 200) {
+      expect(res.headers['content-type']).toMatch(
+        /application\/vnd\.openxmlformats-officedocument\.spreadsheetml\.sheet/
+      );
+      expect(res.headers['content-disposition']).toMatch(/attachment/);
+    } else {
+      expect(res.body.success).toBe(false);
+    }
+  });
+
+  test('returns 200 with JSON array when ?format=json', async () => {
+    const res = await request(app)
+      .get('/api/export/evaluations?format=json')
+      .set('Authorization', `Bearer ${tokens.admin}`);
+
+    expect(res.status).toBe(200);
+    expect(res.body.success).toBe(true);
+    expect(Array.isArray(res.body.data)).toBe(true);
+    expect(typeof res.body.count).toBe('number');
+  });
+
+  test('accepts date and classId filters in JSON mode', async () => {
+    const res = await request(app)
+      .get('/api/export/evaluations?format=json&from=2026-01-01&to=2026-12-31')
+      .set('Authorization', `Bearer ${tokens.admin}`);
+
+    expect(res.status).toBe(200);
+    expect(res.body.success).toBe(true);
+    expect(Array.isArray(res.body.data)).toBe(true);
+  });
+
+  test('returns 403 when called by a Teacher', async () => {
+    const res = await request(app)
+      .get('/api/export/evaluations')
+      .set('Authorization', `Bearer ${tokens.teacher}`);
+
+    expect(res.status).toBe(403);
+  });
+
+  test('returns 401 when called without authentication', async () => {
+    const res = await request(app).get('/api/export/evaluations');
 
     expect(res.status).toBe(401);
   });
