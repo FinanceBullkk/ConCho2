@@ -44,6 +44,12 @@ const PERMISSION_MAP = {
   'record:attendance': ['Admin', 'Teacher'],
   'read:attendance':   ['Admin', 'Teacher'],
 
+  // Team management
+  'create:team':       ['Admin'],
+  'update:team':       ['Admin'],
+  'delete:team':       ['Admin'],
+  'read:teams':        ['Admin', 'Teacher', 'Participant'],
+
   // Enrollment
   'manage:enrollment': ['Admin'],
   'book:class':        ['Admin', 'Participant'],

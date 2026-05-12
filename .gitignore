@@ -128,3 +128,9 @@ dist
 # Build outputs
 dist/
 build/
+
+# Playwright (E2E tests)
+client/test-results/
+client/playwright-report/
+client/playwright/.cache/
+client/blob-report/

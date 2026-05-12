@@ -8,6 +8,10 @@ const calendarService = require('./calendarService');
 const auditService = require('./auditService');
 const logger = require('../lib/logger');
 const { sendMail } = require('../lib/mailer');
+const {
+  sendBookingConfirmation,
+  sendClassCancellation,
+} = require('../lib/emailTemplates');
 
 // Per-class ordered schedule ID list — 5 min TTL.
 // Invalidated on create/delete so sessionNumbers stay accurate.
@@ -327,22 +331,11 @@ const bookSlot = async ({ teamId, startTime, endTime, requestUser }) => {
     const className = populated.classId
       ? `${populated.classId.classCode} — ${populated.classId.courseName}`
       : 'your class';
-    const scheduleDate = new Date(created.startTime).toLocaleString('en-GB', {
-      timeZone: 'Asia/Ho_Chi_Minh',
-      dateStyle: 'full',
-      timeStyle: 'short',
-    });
-    sendMail({
+    sendBookingConfirmation({
       to: requestUser.email,
-      subject: `TMS — Booking Confirmed: ${className}`,
-      text: `Hi ${requestUser.name},\n\nYour spot in "${className}" has been confirmed.\n\nDate: ${scheduleDate}\n\nIf you need to cancel, please do so at least 24 hours in advance.\n\nTMS Training System`,
-      html: `<p>Hi <strong>${requestUser.name}</strong>,</p>
-             <p>Your spot in <strong>${className}</strong> has been confirmed.</p>
-             <p><strong>Date:</strong> ${scheduleDate}</p>
-             <p>If you need to cancel, please do so at least 24 hours in advance.</p>
-             <p>TMS Training System</p>`,
-    }).catch((err) => {
-      logger.warn({ err, userId: requestUser._id }, 'Booking email failed');
+      userName: requestUser.name,
+      className,
+      startTime: created.startTime,
     });
   }
 
@@ -357,7 +350,10 @@ const bookSlot = async ({ teamId, startTime, endTime, requestUser }) => {
  * @throws {ServiceError} if not found or not authorized
  */
 const cancelSlot = async (scheduleId, requestUser) => {
-  const schedule = await Schedule.findById(scheduleId);
+  // Populate before delete so we still have user emails + class info for notifications.
+  const schedule = await Schedule.findById(scheduleId)
+    .populate('classId', 'classCode courseName')
+    .populate('enrolledUsers', 'name email');
   if (!schedule) throw new ServiceError('Schedule not found', 404);
 
   if (requestUser.role !== 'Admin') {
@@ -367,9 +363,19 @@ const cancelSlot = async (scheduleId, requestUser) => {
     }
   }
 
+  // Snapshot for post-commit email + calendar cleanup
+  const classId = schedule.classId?._id || schedule.classId;
+  const googleEventId = schedule.googleEventId;
+  const className = schedule.classId
+    ? `${schedule.classId.classCode} — ${schedule.classId.courseName}`
+    : 'your class';
+  const cancelledBy = requestUser.name || requestUser.empCode || 'Admin';
+  const startTime = schedule.startTime;
+  const enrolledUsers = Array.isArray(schedule.enrolledUsers)
+    ? schedule.enrolledUsers.filter(u => u && u.email)
+    : [];
+
   // ── TRANSACTION: Cascade delete Attendance → Schedule (BUG-03) ──
-  const classId = schedule.classId;
-  const googleEventId = schedule.googleEventId; // capture before delete
   const session = await mongoose.startSession();
   try {
     await session.withTransaction(async () => {
@@ -396,6 +402,19 @@ const cancelSlot = async (scheduleId, requestUser) => {
       });
     }
   }
+
+  // Notify all enrolled users via email (fire-and-forget, fail-soft).
+  // Calendar already pings attendees but explicit email reaches users
+  // who don't have the Calendar account linked.
+  for (const u of enrolledUsers) {
+    sendClassCancellation({
+      to: u.email,
+      userName: u.name,
+      className,
+      startTime,
+      cancelledBy,
+    });
+  }
 };
 
 /**
@@ -418,6 +437,9 @@ const getAvailability = async (filters = {}) => {
 const listSchedules = async (filters, { page, limit, skip }) => {
   const query = {};
   if (filters.classId) query.classId = filters.classId;
+  // Used by Participant scope (BUG #2 fix): restrict to schedules where
+  // the user is enrolled. Multikey index on enrolledUsers makes this cheap.
+  if (filters.enrolledUser) query.enrolledUsers = filters.enrolledUser;
   if (filters.from || filters.to) {
     query.startTime = {};
     if (filters.from) query.startTime.$gte = new Date(filters.from);

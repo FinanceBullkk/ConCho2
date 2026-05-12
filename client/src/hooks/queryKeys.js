@@ -59,4 +59,7 @@ export const qk = {
   exportHr: {
     stats: ['export', 'stats'],
   },
+  search: {
+    global: (q) => ['search', 'global', q],
+  },
 };
