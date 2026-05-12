@@ -97,6 +97,16 @@ const userSchema = new mongoose.Schema(
       select: false, // Internal field — not exposed to clients
     },
 
+    // ── Force password change (SEC-04) ──────────────────────
+    // Set to true by seed / admin tooling for accounts that use a default
+    // password (e.g. the seed Admin). The frontend intercepts this flag
+    // and blocks ALL navigation until the user changes their password.
+    // Cleared automatically on a successful PUT /auth/change-password.
+    mustChangePassword: {
+      type: Boolean,
+      default: false,
+    },
+
     // ── Password reset (forgot-password flow) ───────────────
     // Raw token is emailed to the user; only the SHA-256 hash is stored
     // here so a DB breach cannot be used to reset accounts.
