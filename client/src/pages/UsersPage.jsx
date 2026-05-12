@@ -86,115 +86,123 @@ function UserModal({ user, onClose, onSaved }) {
   return (
     <Portal>
     {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions */}
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm animate-fade-in" onClick={onClose}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm animate-fade-in p-4" onClick={onClose}>
       {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-noninteractive-element-interactions */}
       <form onSubmit={onSubmit} onClick={(e) => e.stopPropagation()} noValidate
-        className="glass rounded-2xl p-6 w-full max-w-md mx-4 space-y-4 animate-fade-in">
-        <h2 className="text-lg font-bold text-white">{isEdit ? 'Edit User' : 'Create User'}</h2>
+        className="glass rounded-2xl w-full max-w-md flex flex-col max-h-[92vh] animate-fade-in">
 
-        {errors.root && (
-          <div role="alert" className="px-4 py-2 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-sm">
-            {errors.root.message}
-          </div>
-        )}
-
-        {[
-          { name: 'empCode', label: 'Employee Code', type: 'text', placeholder: 'e.g. 000123', disabled: isEdit },
-          { name: 'name', label: 'Full Name', type: 'text', placeholder: 'Full name' },
-          { name: 'email', label: 'Email (Workspace)', type: 'email', placeholder: 'name@yourdomain.com', help: 'Required for Google Calendar invites' },
-          { name: 'department', label: 'BU / Department', type: 'text', placeholder: 'e.g. Sales, HR' },
-          { name: 'position', label: 'Position', type: 'text', placeholder: 'e.g. DEV, QC, Designer' },
-          { name: 'password', label: isEdit ? 'New Password (leave blank to keep)' : 'Password', type: 'password', placeholder: '••••••••' },
-        ].map(({ name, label, type, placeholder, disabled, help }) => (
-          <div key={name}>
-            <label htmlFor={name} className="block text-sm text-slate-300 mb-1">{label}</label>
-            <input
-              id={name}
-              type={type}
-              placeholder={placeholder}
-              disabled={disabled}
-              aria-invalid={!!errors[name]}
-              aria-describedby={errors[name] ? `${name}-error` : undefined}
-              className={`${inputCls} ${errors[name] ? 'border-red-500/50' : 'border-white/10'}`}
-              {...register(name)}
-            />
-            {errors[name] && (
-              <p id={`${name}-error`} role="alert" className="mt-1 text-xs text-red-400">
-                {errors[name].message}
-              </p>
-            )}
-            {help && !errors[name] && <p className="text-[11px] text-slate-500 mt-1">{help}</p>}
-          </div>
-        ))}
-
-        <div className="grid grid-cols-2 gap-3">
-          <div>
-            <label htmlFor="role" className="block text-sm text-slate-300 mb-1">Role</label>
-            <select
-              id="role"
-              className="w-full px-3 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white focus:outline-none focus:ring-2 focus:ring-primary-500/50 transition-all"
-              {...register('role')}
-            >
-              {ROLES.map((r) => <option key={r} value={r} className="bg-slate-800">{r}</option>)}
-            </select>
-          </div>
-          <div>
-            <label htmlFor="status" className="block text-sm text-slate-300 mb-1">Status</label>
-            <select
-              id="status"
-              className="w-full px-3 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white focus:outline-none focus:ring-2 focus:ring-primary-500/50 transition-all"
-              {...register('status')}
-            >
-              {STATUSES.map((s) => <option key={s} value={s} className="bg-slate-800">{s}</option>)}
-            </select>
-          </div>
+        {/* ── Sticky header ── */}
+        <div className="px-6 pt-6 pb-4 border-b border-white/8 shrink-0">
+          <h2 className="text-lg font-bold text-white">{isEdit ? 'Edit User' : 'Create User'}</h2>
         </div>
 
-        {/* Re-auth confirmation — shown when admin resets another user's password or changes their role */}
-        {needsReauth && (
-          <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 space-y-2">
-            <p className="text-xs text-amber-300 flex items-center gap-1.5">
-              <svg className="w-3.5 h-3.5 shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                <path fillRule="evenodd" d="M8.485 2.495c.673-1.167 2.357-1.167 3.03 0l6.28 10.875c.673 1.167-.17 2.625-1.516 2.625H3.72c-1.347 0-2.189-1.458-1.515-2.625L8.485 2.495zM10 5a.75.75 0 01.75.75v3.5a.75.75 0 01-1.5 0v-3.5A.75.75 0 0110 5zm0 9a1 1 0 100-2 1 1 0 000 2z" clipRule="evenodd"/>
-              </svg>
-              Confirm your identity to change another user&apos;s password or role
-            </p>
-            <div>
-              <label htmlFor="currentPassword" className="block text-sm text-slate-300 mb-1">
-                Your admin password
-              </label>
+        {/* ── Scrollable body ── */}
+        <div className="overflow-y-auto flex-1 px-6 py-4 space-y-4">
+          {errors.root && (
+            <div role="alert" className="px-4 py-2 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-sm">
+              {errors.root.message}
+            </div>
+          )}
+
+          {[
+            { name: 'empCode', label: 'Employee Code', type: 'text', placeholder: 'e.g. 000123', disabled: isEdit },
+            { name: 'name', label: 'Full Name', type: 'text', placeholder: 'Full name' },
+            { name: 'email', label: 'Email (Workspace)', type: 'email', placeholder: 'name@yourdomain.com', help: 'Required for Google Calendar invites' },
+            { name: 'department', label: 'BU / Department', type: 'text', placeholder: 'e.g. Sales, HR' },
+            { name: 'position', label: 'Position', type: 'text', placeholder: 'e.g. DEV, QC, Designer' },
+            { name: 'password', label: isEdit ? 'New Password (leave blank to keep)' : 'Password', type: 'password', placeholder: '••••••••' },
+          ].map(({ name, label, type, placeholder, disabled, help }) => (
+            <div key={name}>
+              <label htmlFor={name} className="block text-sm text-slate-300 mb-1">{label}</label>
               <input
-                id="currentPassword"
-                type="password"
-                placeholder="Enter your own password"
-                aria-invalid={!!errors.currentPassword}
-                className={`${inputCls} ${errors.currentPassword ? 'border-amber-500/50' : 'border-amber-500/30'}`}
-                {...register('currentPassword')}
+                id={name}
+                type={type}
+                placeholder={placeholder}
+                disabled={disabled}
+                aria-invalid={!!errors[name]}
+                aria-describedby={errors[name] ? `${name}-error` : undefined}
+                className={`${inputCls} ${errors[name] ? 'border-red-500/50' : 'border-white/10'}`}
+                {...register(name)}
               />
-              {errors.currentPassword && (
-                <p role="alert" className="mt-1 text-xs text-amber-400">
-                  {errors.currentPassword.message}
+              {errors[name] && (
+                <p id={`${name}-error`} role="alert" className="mt-1 text-xs text-red-400">
+                  {errors[name].message}
                 </p>
               )}
+              {help && !errors[name] && <p className="text-[11px] text-slate-500 mt-1">{help}</p>}
+            </div>
+          ))}
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label htmlFor="role" className="block text-sm text-slate-300 mb-1">Role</label>
+              <select
+                id="role"
+                className="w-full px-3 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white focus:outline-none focus:ring-2 focus:ring-primary-500/50 transition-all"
+                {...register('role')}
+              >
+                {ROLES.map((r) => <option key={r} value={r} className="bg-slate-800">{r}</option>)}
+              </select>
+            </div>
+            <div>
+              <label htmlFor="status" className="block text-sm text-slate-300 mb-1">Status</label>
+              <select
+                id="status"
+                className="w-full px-3 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white focus:outline-none focus:ring-2 focus:ring-primary-500/50 transition-all"
+                {...register('status')}
+              >
+                {STATUSES.map((s) => <option key={s} value={s} className="bg-slate-800">{s}</option>)}
+              </select>
             </div>
           </div>
-        )}
 
-        {/* Drop Reason — only show when status is Dropped/Inactive/Transferred */}
-        {['Dropped', 'Inactive', 'Transferred'].includes(currentStatus) && (
-          <div>
-            <label htmlFor="dropReason" className="block text-sm text-slate-300 mb-1">Drop/Leave Reason</label>
-            <input
-              id="dropReason"
-              type="text"
-              placeholder="e.g. High workload, Learning goal achieved"
-              className={`${inputCls} border-white/10`}
-              {...register('dropReason')}
-            />
-          </div>
-        )}
+          {/* Re-auth confirmation — shown when admin resets another user's password or changes their role */}
+          {needsReauth && (
+            <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 space-y-2">
+              <p className="text-xs text-amber-300 flex items-center gap-1.5">
+                <svg className="w-3.5 h-3.5 shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M8.485 2.495c.673-1.167 2.357-1.167 3.03 0l6.28 10.875c.673 1.167-.17 2.625-1.516 2.625H3.72c-1.347 0-2.189-1.458-1.515-2.625L8.485 2.495zM10 5a.75.75 0 01.75.75v3.5a.75.75 0 01-1.5 0v-3.5A.75.75 0 0110 5zm0 9a1 1 0 100-2 1 1 0 000 2z" clipRule="evenodd"/>
+                </svg>
+                Confirm your identity to change another user&apos;s password or role
+              </p>
+              <div>
+                <label htmlFor="currentPassword" className="block text-sm text-slate-300 mb-1">
+                  Your admin password
+                </label>
+                <input
+                  id="currentPassword"
+                  type="password"
+                  placeholder="Enter your own password"
+                  aria-invalid={!!errors.currentPassword}
+                  className={`${inputCls} ${errors.currentPassword ? 'border-amber-500/50' : 'border-amber-500/30'}`}
+                  {...register('currentPassword')}
+                />
+                {errors.currentPassword && (
+                  <p role="alert" className="mt-1 text-xs text-amber-400">
+                    {errors.currentPassword.message}
+                  </p>
+                )}
+              </div>
+            </div>
+          )}
 
-        <div className="flex gap-3 pt-2">
+          {/* Drop Reason — only show when status is Dropped/Inactive/Transferred */}
+          {['Dropped', 'Inactive', 'Transferred'].includes(currentStatus) && (
+            <div>
+              <label htmlFor="dropReason" className="block text-sm text-slate-300 mb-1">Drop/Leave Reason</label>
+              <input
+                id="dropReason"
+                type="text"
+                placeholder="e.g. High workload, Learning goal achieved"
+                className={`${inputCls} border-white/10`}
+                {...register('dropReason')}
+              />
+            </div>
+          )}
+        </div>
+
+        {/* ── Sticky footer ── */}
+        <div className="px-6 pb-6 pt-4 border-t border-white/8 shrink-0 flex gap-3">
           <button type="button" onClick={onClose} className="flex-1 py-2.5 rounded-xl border border-white/10 text-slate-400 hover:bg-white/5 transition-all">Cancel</button>
           <button type="submit" disabled={saving} className="flex-1 py-2.5 rounded-xl bg-gradient-to-r from-primary-600 to-primary-500 text-white font-semibold hover:from-primary-500 hover:to-primary-400 transition-all disabled:opacity-50">
             {saving ? 'Saving...' : isEdit ? 'Update' : 'Create'}
