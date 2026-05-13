@@ -268,39 +268,23 @@ export default function BookClassPage() {
 
                     {weekDays.map((day, dayIdx) => {
                       const dateKey = toDateKey(day);
-                      // cellKey uses slot's start time only ("HH:MM") to match scheduleToKey
                       const slotStartTime = slot.split('-')[0]; // "10:00-11:00" → "10:00"
                       const cellKey = `${dateKey}|${slotStartTime}`;
-                      // Array of all schedules at this (day, time)
                       const scheduleList = scheduleMap[cellKey] || [];
                       const isToday = dateKey === today;
                       const isPast = dateKey < today;
 
-                      // The current team's class id (for same-class collision detection)
-                      const myClassId = selectedTeamObj?.classId?._id?.toString()
-                        || selectedTeamObj?.classId?.toString();
-
-                      // My team's session (if any)
+                      // My team's session at this slot (if any)
                       const mySchedule = scheduleList.find(
                         s => s.bookedTeamId?._id === selectedTeam || s.bookedTeamId === selectedTeam
                       );
-                      const otherSchedules = scheduleList.filter(
+                      // Any other team's session at this slot
+                      const blockerSchedule = !mySchedule && scheduleList.find(
                         s => s.bookedTeamId?._id !== selectedTeam && s.bookedTeamId !== selectedTeam
                       );
 
-                      // Same-class teams: their bookings BLOCK this slot (unique index is {classId, startTime})
-                      const blockedBySameClass = otherSchedules.filter(s => {
-                        const sClassId = s.classId?._id?.toString() || s.classId?.toString();
-                        return sClassId === myClassId;
-                      });
-                      // Different-class teams: informational only (slot is still bookable for my class)
-                      const otherClassSchedules = otherSchedules.filter(s => {
-                        const sClassId = s.classId?._id?.toString() || s.classId?.toString();
-                        return sClassId !== myClassId;
-                      });
-
                       if (mySchedule) {
-                        // ── MY TEAM'S SESSION (blue, cancellable) ──
+                        // ── MY TEAM'S SESSION — blue, cancellable ──
                         return (
                           <td key={dayIdx} className={`border-b border-white/5 p-1 align-top ${isToday ? 'bg-primary-500/5' : ''}`}>
                             <div
@@ -318,76 +302,28 @@ export default function BookClassPage() {
                                   ✓ Your team · Click to cancel
                                 </span>
                               </div>
-                              {otherClassSchedules.length > 0 && (
-                                <div className="mt-1 text-[9px] text-amber-500/60 truncate">
-                                  +{otherClassSchedules.length} other class{otherClassSchedules.length > 1 ? 'es' : ''}
-                                </div>
-                              )}
                             </div>
                           </td>
                         );
                       }
 
-                      if (blockedBySameClass.length > 0) {
-                        // ── SAME-CLASS OTHER TEAM (red — slot is BLOCKED for my team) ──
-                        const blocker = blockedBySameClass[0];
-                        const teamName = blocker.bookedTeamId?.name || 'Another team';
+                      if (blockerSchedule) {
+                        // ── ANOTHER TEAM'S SESSION — red, slot is taken ──
+                        const teamName = blockerSchedule.bookedTeamId?.name || 'Another team';
                         return (
                           <td key={dayIdx} className={`border-b border-white/5 p-1 align-top ${isToday ? 'bg-primary-500/5' : ''}`}>
                             <div className="rounded-xl p-2.5 h-full min-h-[80px] bg-red-500/10 border border-red-500/15 cursor-default">
                               <div className="text-xs font-bold truncate text-red-400">
-                                {blocker.classId?.classCode}
+                                {blockerSchedule.classId?.classCode}
                               </div>
                               <div className="text-[10px] text-slate-400 truncate mt-0.5">
-                                {blocker.classId?.courseName}
+                                {blockerSchedule.classId?.courseName}
                               </div>
                               <div className="mt-1.5">
                                 <span className="inline-flex items-center text-[10px] font-bold text-red-400 bg-red-500/20 px-2 py-0.5 rounded-full">
                                   🔒 {teamName}
                                 </span>
                               </div>
-                              {blockedBySameClass.length > 1 && (
-                                <div className="mt-1 text-[9px] text-slate-500">
-                                  +{blockedBySameClass.length - 1} more team{blockedBySameClass.length > 2 ? 's' : ''}
-                                </div>
-                              )}
-                            </div>
-                          </td>
-                        );
-                      }
-
-                      if (otherClassSchedules.length > 0) {
-                        // ── DIFFERENT-CLASS SESSIONS (amber — informational, still bookable) ──
-                        return (
-                          <td key={dayIdx} className={`border-b border-white/5 p-1 align-top ${isToday ? 'bg-primary-500/5' : ''}`}>
-                            <div
-                              className={`rounded-xl p-2.5 h-full min-h-[80px] transition-all border ${
-                                isPast
-                                  ? 'bg-white/[0.02] border-white/5 cursor-default'
-                                  : 'bg-amber-500/5 border-amber-500/10 cursor-pointer hover:bg-emerald-500/10 hover:border-emerald-500/20 group/cell'
-                              }`}
-                              onClick={() => { if (!isPast) setBookModal({ day, slot }); }}
-                              title="Another class uses this slot — your class can still book it"
-                            >
-                              {otherClassSchedules.slice(0, 2).map((s, i) => (
-                                <div key={i} className={i > 0 ? 'mt-1' : ''}>
-                                  <div className="text-[10px] font-semibold text-amber-400/70 truncate">{s.classId?.classCode}</div>
-                                  <div className="text-[9px] text-slate-500 truncate">{s.bookedTeamId?.name}</div>
-                                </div>
-                              ))}
-                              {otherClassSchedules.length > 2 && (
-                                <div className="text-[9px] text-slate-500 mt-0.5">+{otherClassSchedules.length - 2} more</div>
-                              )}
-                              <div className="mt-1.5">
-                                <span className="text-[9px] text-amber-500/60 bg-amber-500/10 px-1.5 py-0.5 rounded-full">
-                                  ℹ️ other class
-                                </span>
-                              </div>
-                              {!isPast && (
-                                <div className="mt-1 text-[9px] text-slate-600 opacity-0 group-hover/cell:opacity-100 transition-opacity">
-                                  + Book for your class
-                                </div>
-                              )}
                             </div>
                           </td>
                         );
@@ -402,9 +338,7 @@ export default function BookClassPage() {
                                 ? 'bg-white/[0.02] cursor-default'
                                 : 'bg-white/[0.02] hover:bg-emerald-500/10 hover:border-emerald-500/20 border border-transparent cursor-pointer group/cell'
                             }`}
-                            onClick={() => {
-                              if (!isPast) setBookModal({ day, slot });
-                            }}
+                            onClick={() => { if (!isPast) setBookModal({ day, slot }); }}
                           >
                             {!isPast && (
                               <span className="text-[10px] text-slate-600 opacity-0 group-hover/cell:opacity-100 transition-opacity font-medium">
@@ -435,7 +369,7 @@ export default function BookClassPage() {
         </div>
         <div className="flex items-center gap-2">
           <div className="w-3.5 h-3.5 rounded bg-red-500/15 border border-red-500/20" />
-          <span>Taken by another team (same class)</span>
+          <span>Taken by another team</span>
         </div>
       </div>
 
