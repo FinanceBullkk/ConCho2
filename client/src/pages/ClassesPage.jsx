@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import Portal from '../components/Portal';
-import { useClasses, useCourses, useCreateClass } from '../hooks/useClasses';
+import { useClasses, useCourses, useCreateClass, useUpdateClass, useDeleteClass } from '../hooks/useClasses';
 import { useTeams } from '../hooks/useTeams';
 import { useRole } from '../hooks/useRole';
 import QueryError from '../components/QueryError';
@@ -78,13 +78,121 @@ function NewCohortModal({ courseNames, onClose, onSaved }) {
   );
 }
 
+// ── Edit Class Modal ──────────────────────────────────────
+
+function EditClassModal({ cls, onClose }) {
+  const updateMutation = useUpdateClass();
+  const deleteMutation = useDeleteClass();
+  const [status, setStatus] = useState(cls.status);
+  const [totalSessions, setTotalSessions] = useState(cls.totalSessions);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [error, setError] = useState('');
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setError('');
+    try {
+      await updateMutation.mutateAsync({ id: cls._id, data: { status, totalSessions } });
+      onClose();
+    } catch (err) {
+      setError(err.response?.data?.message || 'Lưu thất bại');
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!confirmDelete) { setConfirmDelete(true); return; }
+    try {
+      await deleteMutation.mutateAsync(cls._id);
+      onClose();
+    } catch (err) {
+      setError(err.response?.data?.message || 'Xoá thất bại');
+      setConfirmDelete(false);
+    }
+  };
+
+  return (
+    <Portal>
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm" onClick={onClose}>
+        <form onSubmit={handleSubmit} onClick={(e) => e.stopPropagation()}
+          className="glass rounded-2xl p-6 w-full max-w-md mx-4 space-y-4 animate-fade-in">
+          <div>
+            <h2 className="text-lg font-bold text-white">
+              ✏️ Chỉnh sửa lớp
+            </h2>
+            <p className="text-sm text-slate-400 mt-0.5">
+              <span className="font-mono text-primary-300">{cls.classCode}</span>
+              <span className="text-slate-600 mx-1.5">·</span>
+              {cls.courseName}
+            </p>
+          </div>
+
+          {error && <div className="px-4 py-2 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-sm">{error}</div>}
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm text-slate-300 mb-1">Trạng thái</label>
+              <select value={status} onChange={(e) => setStatus(e.target.value)}
+                className="w-full px-3 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white focus:outline-none focus:ring-2 focus:ring-primary-500/50 transition-all">
+                <option value="Ongoing" className="bg-slate-800">🟢 Đang học</option>
+                <option value="Completed" className="bg-slate-800">✓ Đã hoàn thành</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm text-slate-300 mb-1">Tổng số buổi</label>
+              <input type="number" value={totalSessions} onChange={(e) => setTotalSessions(Number(e.target.value))} min={1}
+                className="w-full px-4 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white focus:outline-none focus:ring-2 focus:ring-primary-500/50 transition-all" />
+            </div>
+          </div>
+
+          <div className="pt-1 flex items-center justify-between">
+            <Link to={`/classes/${cls._id}`}
+              className="text-xs text-slate-500 hover:text-primary-300 transition-colors flex items-center gap-1">
+              Xem chi tiết (Sessions, Roster...) →
+            </Link>
+          </div>
+
+          <div className="flex gap-3 pt-1">
+            <button type="button" onClick={handleDelete} disabled={deleteMutation.isPending}
+              className={`py-2.5 px-4 rounded-xl border transition-all text-sm font-semibold ${
+                confirmDelete
+                  ? 'bg-red-500/30 text-red-300 border-red-500/40 hover:bg-red-500/40'
+                  : 'bg-red-500/10 text-red-400 border-red-500/20 hover:bg-red-500/20'
+              }`}>
+              {deleteMutation.isPending ? 'Đang xoá...' : confirmDelete ? '⚠ Xác nhận xoá?' : 'Xoá'}
+            </button>
+            {!confirmDelete && (
+              <>
+                <button type="button" onClick={onClose}
+                  className="flex-1 py-2.5 rounded-xl border border-white/10 text-slate-400 hover:bg-white/5 transition-all">
+                  Huỷ
+                </button>
+                <button type="submit" disabled={updateMutation.isPending}
+                  className="flex-1 py-2.5 rounded-xl bg-gradient-to-r from-primary-600 to-primary-500 text-white font-semibold disabled:opacity-50 transition-all">
+                  {updateMutation.isPending ? 'Đang lưu...' : 'Lưu'}
+                </button>
+              </>
+            )}
+            {confirmDelete && (
+              <button type="button" onClick={() => setConfirmDelete(false)}
+                className="flex-1 py-2.5 rounded-xl border border-white/10 text-slate-400 hover:bg-white/5 transition-all">
+                Không xoá
+              </button>
+            )}
+          </div>
+        </form>
+      </div>
+    </Portal>
+  );
+}
+
 // ── Main Page ─────────────────────────────────────────────
 
 export default function ClassesPage() {
-  const navigate = useNavigate();
   const { can } = useRole();
   const canCreate = can('create:class');
+  const canEdit = can('update:class');
   const [cohortModal, setCohortModal] = useState(false);
+  const [editModal, setEditModal] = useState(null); // class object to edit
   const [creating, setCreating] = useState(null);
 
   // ── URL-synced filters (Sprint follow-up) ─────────────
@@ -207,10 +315,9 @@ export default function ClassesPage() {
           aria-label="Filter by status"
           className="px-3 py-2 rounded-xl bg-white/5 border border-white/10 text-white text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/50"
         >
-          <option value="" className="bg-slate-800">All Statuses</option>
-          <option value="Active" className="bg-slate-800">Active</option>
-          <option value="Completed" className="bg-slate-800">Completed</option>
-          <option value="Cancelled" className="bg-slate-800">Cancelled</option>
+          <option value="" className="bg-slate-800">Tất cả</option>
+          <option value="Ongoing" className="bg-slate-800">🟢 Đang học</option>
+          <option value="Completed" className="bg-slate-800">✓ Đã hoàn thành</option>
         </select>
         {hasActiveFilter && (
           <button
@@ -297,8 +404,8 @@ export default function ClassesPage() {
                         return (
                           <td key={course} className="px-2 py-2 text-center">
                             <button
-                              onClick={() => navigate(`/classes/${cls._id}`)}
-                              title={showWarning ? 'No team assigned — cannot book sessions' : noSessions ? 'No sessions booked yet' : undefined}
+                              onClick={() => canEdit ? setEditModal(cls) : undefined}
+                              title={canEdit ? 'Click để chỉnh sửa' : showWarning ? 'Chưa có nhóm' : undefined}
                               className={`w-full rounded-xl px-3 py-2.5 transition-all text-left hover:scale-[1.02] ${
                                 showWarning
                                   ? 'bg-amber-500/10 border border-amber-500/30 hover:border-amber-400/50'
@@ -384,6 +491,12 @@ export default function ClassesPage() {
           courseNames={courseNames}
           onClose={() => setCohortModal(false)}
           onSaved={() => setCohortModal(false)}
+        />
+      )}
+      {editModal && (
+        <EditClassModal
+          cls={editModal}
+          onClose={() => setEditModal(null)}
         />
       )}
 
