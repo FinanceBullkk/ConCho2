@@ -101,9 +101,13 @@ Hệ thống có **3 vai trò** với quyền hạn riêng biệt. Mỗi ngườ
 
   > **Tại sao làm trong một thao tác?** Nếu làm từng bước riêng lẻ (xóa khỏi nhóm A, thêm vào nhóm B, sửa lịch...) mà bị lỗi giữa chừng, dữ liệu sẽ ở trạng thái dở dang — người vừa bị xóa khỏi nhóm A nhưng chưa vào nhóm B. Hệ thống thực hiện toàn bộ hoặc không làm gì cả.
 
-### 3.4. Đặt lịch học
+### 3.4. Đặt lịch học (do trưởng nhóm tự tạo)
 
 Đây là tính năng trung tâm của hệ thống.
+
+> **Điểm quan trọng cần hiểu:** Lịch học **KHÔNG** do admin tạo trước rồi nhóm vào book. Mà ngược lại — **trưởng nhóm tự tạo lịch** bằng cách click vào ô trống trên lưới thời gian. Hệ thống tự sinh buổi học tại thời điểm đó và đăng ký toàn bộ nhóm vào.
+>
+> **Tại sao thiết kế như vậy?** Admin không cần biết trước nhóm nào sẽ học giờ nào — quá nhiều việc theo dõi. Để trưởng nhóm tự chọn giờ phù hợp với cả team thì linh hoạt và tự nhiên hơn. Admin chỉ cần đảm bảo: lớp đã tạo, nhóm đã gán đúng lớp, và đặt giới hạn khung giờ — phần còn lại nhóm tự lo.
 
 **Quy tắc lịch học:**
 - Mỗi buổi học kéo dài đúng **1 tiếng**
@@ -113,16 +117,18 @@ Hệ thống có **3 vai trò** với quyền hạn riêng biệt. Mỗi ngườ
 
 - Mỗi nhóm tối đa **2 buổi/tuần**
 
-**Cách đặt lịch (dành cho trưởng nhóm):**
-1. Mở trang **Đặt lịch** — hiện lưới 7 ngày × 5 khung giờ
-2. Ô **trắng** = còn trống · Ô **có màu** = đã bị nhóm khác đặt (không thể book)
-3. Click ô trống → xác nhận → cả nhóm tự động được đăng ký vào buổi đó
+**Cách tạo lịch (dành cho trưởng nhóm):**
+1. Mở trang **Đặt lịch** (`/book`) — hiện lưới 7 ngày × 5 khung giờ
+2. Ô **trắng** = còn trống, có thể tạo · Ô **có màu** = đã bị nhóm khác chiếm (không thể chọn)
+3. Click ô trống → xác nhận → hệ thống tạo buổi học mới · cả nhóm tự động được đăng ký
 4. Mỗi thành viên nhận email xác nhận + Google Calendar invite tự động
 
-  > **Tại sao học viên cần thấy slot của nhóm khác?** Để biết giờ nào còn trống mà chọn, tránh cố gắng đặt vào giờ đã bị chiếm. Nếu ẩn thông tin này, trưởng nhóm sẽ bị báo lỗi mà không hiểu lý do.
+  > **Tại sao trưởng nhóm cần thấy slot của nhóm khác?** Để biết giờ nào còn trống mà chọn, tránh cố gắng tạo vào giờ đã bị chiếm. Nếu ẩn thông tin này, trưởng nhóm sẽ bị báo lỗi mà không hiểu lý do.
 
+- **Chống đặt trùng** — hai trưởng nhóm cùng click một ô trong cùng một giây? Database có ràng buộc duy nhất `{lớp, giờ bắt đầu}` — chỉ một request thành công, request còn lại nhận thông báo "Slot đã bị chiếm, vui lòng chọn slot khác".
 - **Nhắc nhở tự động** — email nhắc lịch học gửi trước 24 giờ
-- **Hủy lịch** — có thể hủy buổi học, thành viên tự động nhận email thông báo
+- **Hủy lịch** — trưởng nhóm có thể hủy buổi học, thành viên tự động nhận email thông báo
+- **Admin chỉnh sửa nếu cần** — admin có toàn quyền chỉnh sửa hoặc xóa lịch đã tạo (ví dụ khi cần dời lịch hộ nhóm)
 
 ### 3.5. Điểm danh
 
@@ -211,16 +217,19 @@ Kết quả lưu lại 30 ngày để so sánh xu hướng.
 
 #### Quy trình mỗi khóa học mới
 
+> **Lưu ý quan trọng:** Admin **chỉ tạo lớp và nhóm** — không tạo lịch học trước. Lịch học do **trưởng nhóm tự tạo** khi book slot trên giao diện. Đây là khác biệt cốt lõi so với các hệ thống đặt lịch truyền thống.
+
 ```
 Bước 1 → Tạo lớp (Academy → Lớp học → Tạo mới)
          Nhập mã lớp, chọn khóa học, hệ thống tự điền số buổi
 
-Bước 2 → Tạo nhóm (Academy → Nhóm → Tạo mới)
-         Gắn nhóm với lớp, chọn trưởng nhóm, thêm thành viên
+Bước 2 → Tạo nhóm và gán vào lớp (Academy → Nhóm → Tạo mới)
+         Gắn nhóm với lớp (1 nhóm = 1 lớp), chọn trưởng nhóm, thêm thành viên
 
-Bước 3 → Thông báo cho trưởng nhóm đặt lịch
-         Họ vào "Đặt lịch", chọn slot trống, cả nhóm tự động được đăng ký
-         (Admin cũng có thể tạo lịch thủ công nếu cần)
+Bước 3 → Thông báo cho trưởng nhóm tự book lịch
+         Họ vào "Đặt lịch" (/book), thấy lưới 7 ngày × 5 khung giờ
+         Click ô trống → buổi học được tạo + cả nhóm tự động đăng ký
+         (Admin có thể chỉnh sửa hoặc dời lịch sau khi nhóm đã tạo nếu cần)
 
 Bước 4 → Theo dõi
          Dashboard → xem tỷ lệ đi học theo tuần/tháng
