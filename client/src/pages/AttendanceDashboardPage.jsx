@@ -147,7 +147,7 @@ export default function AttendanceDashboardPage() {
             onClick={() => setActiveTab(tab.id)}
             className={`px-4 py-2 text-sm font-semibold border-b-2 transition-all ${
               activeTab === tab.id 
-                ? 'border-primary-400 text-primary-300 bg-primary-500/5' 
+                ? 'border-primary text-primary bg-primary/5' 
                 : 'border-transparent text-slate-400 hover:text-slate-200 hover:bg-white/5'
             }`}
           >
@@ -159,7 +159,7 @@ export default function AttendanceDashboardPage() {
 
 
       {loading ? (
-        <div className="flex items-center justify-center py-20"><div className="w-8 h-8 border-2 border-primary-400 border-t-transparent rounded-full animate-spin" /></div>
+        <div className="flex items-center justify-center py-20"><div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" /></div>
       ) : (
         <div className="space-y-6">
           
@@ -218,7 +218,7 @@ export default function AttendanceDashboardPage() {
                       <h3 className="font-bold text-lg text-white">{team.name}</h3>
                       <p className="text-sm text-slate-400">{team.memberCount} members</p>
                     </div>
-                    <div className="text-2xl font-bold text-primary-300">{team.stats?.attendanceRate ?? 0}%</div>
+                    <div className="text-2xl font-bold text-primary">{team.stats?.attendanceRate ?? 0}%</div>
                   </div>
                   {renderProgressBar(team.stats?.attendanceRate ?? 0)}
                   <div className="grid grid-cols-4 gap-2 mt-6 text-center text-sm">
@@ -253,7 +253,7 @@ export default function AttendanceDashboardPage() {
                 <select 
                   value={selectedClass} 
                   onChange={(e) => setSelectedClass(e.target.value)}
-                  className="px-4 py-2 rounded-xl bg-white/5 border border-white/10 text-white focus:outline-none focus:ring-2 focus:ring-primary-500/50"
+                  className="px-4 py-2 rounded-xl bg-white/5 border border-white/10 text-white focus:outline-none focus:ring-2 focus:ring-primary/50"
                 >
                   {classes.map(c => (
                     <option key={c._id} value={c._id} className="bg-slate-800">{c.classCode} - {c.courseName}</option>
@@ -283,7 +283,7 @@ export default function AttendanceDashboardPage() {
                             <div className="font-semibold text-white whitespace-nowrap">{row.user.name}</div>
                             <div className="text-xs text-slate-500">{row.user.empCode}</div>
                           </td>
-                          <td className="p-4 font-bold text-primary-300">{row.attendanceRate}%</td>
+                          <td className="p-4 font-bold text-primary">{row.attendanceRate}%</td>
                           {data.schedules.map(s => {
                             const status = row.sessions[s._id];
                             let colors = 'text-slate-600';
