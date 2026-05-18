@@ -69,7 +69,7 @@ export default function StudentProgressModal({ userId, userName, onClose }) {
                       <h3 className="text-white font-bold">{team.name}</h3>
                       <p className="text-xs text-slate-400">{enrollment.classId?.courseName || 'N/A'} • Enrolled: {new Date(enrollment.joinedAt).toLocaleDateString()}</p>
                     </div>
-                    <div className={`px-3 py-1 rounded-full text-xs font-medium ${enrollment.status === 'Active' ? 'bg-primary-500/20 text-primary-400' : 'bg-red-500/20 text-red-400'}`}>
+                    <div className={`px-3 py-1 rounded-full text-xs font-medium ${enrollment.status === 'Active' ? 'bg-primary/20 text-primary' : 'bg-red-500/20 text-red-400'}`}>
                       {enrollment.status}
                     </div>
                   </div>

@@ -42,6 +42,14 @@
   --destructive-foreground: hsl(0 0% 100%);
   --ring: hsl(217 91% 60%);
 
+  /* State tokens — extension of shadcn semantic set (Phase 0 §04) */
+  --success: hsl(160 84% 39%);              /* emerald */
+  --success-foreground: hsl(0 0% 100%);
+  --warning: hsl(38 92% 50%);               /* amber */
+  --warning-foreground: hsl(0 0% 10%);
+  --info: hsl(189 94% 43%);                 /* cyan */
+  --info-foreground: hsl(0 0% 100%);
+
   /* Chart palette — reused across all dashboards */
   --chart-1: hsl(217 91% 60%);   /* blue */
   --chart-2: hsl(258 90% 66%);   /* violet */
@@ -106,6 +114,12 @@ html:not(.dark) {
   --color-accent-foreground: var(--accent-foreground);
   --color-destructive: var(--destructive);
   --color-destructive-foreground: var(--destructive-foreground);
+  --color-success: var(--success);
+  --color-success-foreground: var(--success-foreground);
+  --color-warning: var(--warning);
+  --color-warning-foreground: var(--warning-foreground);
+  --color-info: var(--info);
+  --color-info-foreground: var(--info-foreground);
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);

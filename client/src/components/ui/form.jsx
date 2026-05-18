@@ -81,7 +81,7 @@ export function FormInput({ type = 'text', placeholder, disabled, className = ''
       aria-invalid={!!error}
       aria-describedby={error ? `${name}-error` : undefined}
       className={`w-full px-4 py-2.5 rounded-xl bg-white/5 border text-white placeholder-slate-500
-        focus:outline-none focus:ring-2 focus:ring-primary-500/50 disabled:opacity-40 transition-all
+        focus:outline-none focus:ring-2 focus:ring-primary/50 disabled:opacity-40 transition-all
         ${error ? 'border-red-500/50 focus:ring-red-500/30' : 'border-white/10'}
         ${className}`}
       {...registerProps}

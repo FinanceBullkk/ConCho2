@@ -25,7 +25,7 @@ const TABS = [
 
 const STATUS_COLORS = {
   Active: 'bg-emerald-500/20 text-emerald-400 border-emerald-500/20',
-  Completed: 'bg-primary-500/20 text-primary-300 border-primary-500/20',
+  Completed: 'bg-primary/20 text-primary border-primary/20',
   Transferred: 'bg-amber-500/20 text-amber-400 border-amber-500/20',
   Dropped: 'bg-red-500/20 text-red-400 border-red-500/20',
 };
@@ -75,7 +75,7 @@ function EditClassModal({ cls, onClose, onDeleted }) {
           <div>
             <label className="block text-sm text-slate-300 mb-1">Status</label>
             <select value={status} onChange={(e) => setStatus(e.target.value)}
-              className="w-full px-3 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white focus:outline-none focus:ring-2 focus:ring-primary-500/50 transition-all">
+              className="w-full px-3 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all">
               <option value="Ongoing" className="bg-slate-800">Ongoing</option>
               <option value="Completed" className="bg-slate-800">Completed</option>
             </select>
@@ -83,7 +83,7 @@ function EditClassModal({ cls, onClose, onDeleted }) {
           <div>
             <label className="block text-sm text-slate-300 mb-1">Total Sessions</label>
             <input type="number" value={totalSessions} onChange={(e) => setTotalSessions(Number(e.target.value))} min={1}
-              className="w-full px-4 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white focus:outline-none focus:ring-2 focus:ring-primary-500/50 transition-all" />
+              className="w-full px-4 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all" />
           </div>
           <div className="flex gap-3 pt-2">
             <button type="button" onClick={handleDelete} disabled={deleteMutation.isPending}
@@ -97,7 +97,7 @@ function EditClassModal({ cls, onClose, onDeleted }) {
             {!confirmDelete && (
               <>
                 <button type="button" onClick={onClose} className="flex-1 py-2.5 rounded-xl border border-white/10 text-slate-400 hover:bg-white/5 transition-all">Cancel</button>
-                <button type="submit" disabled={updateMutation.isPending} className="flex-1 py-2.5 rounded-xl bg-gradient-to-r from-primary-600 to-primary-500 text-white font-semibold disabled:opacity-50 transition-all">
+                <button type="submit" disabled={updateMutation.isPending} className="flex-1 py-2.5 rounded-xl bg-gradient-to-r from-primary to-primary text-white font-semibold disabled:opacity-50 transition-all">
                   {updateMutation.isPending ? 'Saving...' : 'Update'}
                 </button>
               </>
@@ -127,7 +127,7 @@ function OverviewTab({ cls, team, onEdit }) {
           <span className="ml-auto text-sm text-slate-400">{pct}%</span>
         </div>
         <div className="h-2 rounded-full bg-white/5 overflow-hidden">
-          <div className={`h-full rounded-full transition-all ${pct >= 100 ? 'bg-primary-400' : pct >= 80 ? 'bg-amber-500' : 'bg-emerald-500'}`}
+          <div className={`h-full rounded-full transition-all ${pct >= 100 ? 'bg-primary' : pct >= 80 ? 'bg-amber-500' : 'bg-emerald-500'}`}
             style={{ width: `${Math.min(pct, 100)}%` }} />
         </div>
         <p className="text-xs text-slate-500">
@@ -141,7 +141,7 @@ function OverviewTab({ cls, team, onEdit }) {
         {team ? (
           <div className="space-y-2">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-purple-500 to-primary-500 flex items-center justify-center text-base">👥</div>
+              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-purple-500 to-primary flex items-center justify-center text-base">👥</div>
               <div>
                 <div className="text-base font-bold text-white">{team.name}</div>
                 <div className="text-xs text-slate-400">
@@ -166,7 +166,7 @@ function OverviewTab({ cls, team, onEdit }) {
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-sm">
               <div>
                 <div className="text-xs text-slate-500">Code</div>
-                <div className="font-mono font-bold text-primary-300">{cls.classCode}</div>
+                <div className="font-mono font-bold text-primary">{cls.classCode}</div>
               </div>
               <div>
                 <div className="text-xs text-slate-500">Course</div>
@@ -183,7 +183,7 @@ function OverviewTab({ cls, team, onEdit }) {
             </div>
           </div>
           <button onClick={onEdit}
-            className="px-4 py-2 rounded-xl bg-gradient-to-r from-primary-600 to-primary-500 text-white text-sm font-semibold hover:from-primary-500 hover:to-primary-400 transition-all whitespace-nowrap">
+            className="px-4 py-2 rounded-xl bg-gradient-to-r from-primary to-primary text-white text-sm font-semibold hover:from-primary hover:to-primary transition-all whitespace-nowrap">
             ✏️ Edit
           </button>
         </div>
@@ -200,7 +200,7 @@ function SessionsTab({ classId }) {
   const schedules = schedData?.data || [];
 
   if (isLoading) {
-    return <div className="flex justify-center py-12"><div className="w-6 h-6 border-2 border-primary-400 border-t-transparent rounded-full animate-spin" /></div>;
+    return <div className="flex justify-center py-12"><div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin" /></div>;
   }
 
   if (schedules.length === 0) {
@@ -254,7 +254,7 @@ function SessionsTab({ classId }) {
                 <td className="px-4 py-3 text-sm">
                   {s.roomLink ? (
                     <a href={s.roomLink} target="_blank" rel="noopener noreferrer"
-                      className="text-primary-300 hover:text-primary-200 underline text-xs truncate block max-w-[200px]"
+                      className="text-primary hover:text-primary underline text-xs truncate block max-w-[200px]"
                       onClick={(e) => e.stopPropagation()}>
                       {s.roomLink}
                     </a>
@@ -278,7 +278,7 @@ function RosterTab({ classId }) {
   const { data: enrollments = [], isLoading } = useEnrollments(params);
 
   if (isLoading) {
-    return <div className="flex justify-center py-12"><div className="w-6 h-6 border-2 border-primary-400 border-t-transparent rounded-full animate-spin" /></div>;
+    return <div className="flex justify-center py-12"><div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin" /></div>;
   }
 
   if (enrollments.length === 0) {
@@ -357,7 +357,7 @@ function AnalyticsTab({ classId }) {
   const { data, isLoading } = useAttendanceAnalyticsByClass(params);
 
   if (isLoading) {
-    return <div className="flex justify-center py-12"><div className="w-6 h-6 border-2 border-primary-400 border-t-transparent rounded-full animate-spin" /></div>;
+    return <div className="flex justify-center py-12"><div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin" /></div>;
   }
 
   if (!data?.schedules || data.schedules.length === 0 || data.roster?.length === 0) {
@@ -392,7 +392,7 @@ function AnalyticsTab({ classId }) {
                   <div className="font-semibold text-white whitespace-nowrap">{row.user.name}</div>
                   <div className="text-xs text-slate-500">{row.user.empCode}</div>
                 </td>
-                <td className="p-4 font-bold text-primary-300">{row.attendanceRate}%</td>
+                <td className="p-4 font-bold text-primary">{row.attendanceRate}%</td>
                 {data.schedules.map((s) => {
                   const status = row.sessions[s._id];
                   let colors = 'text-slate-600';
@@ -440,7 +440,7 @@ export default function ClassDetailPage() {
   }, [cls]);
 
   if (loadingClass) {
-    return <div className="flex items-center justify-center py-20"><div className="w-8 h-8 border-2 border-primary-400 border-t-transparent rounded-full animate-spin" /></div>;
+    return <div className="flex items-center justify-center py-20"><div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" /></div>;
   }
 
   if (classError || !cls) {
@@ -468,17 +468,17 @@ export default function ClassDetailPage() {
           { label: cls.classCode },
         ]}
       />
-      <Link to="/academy?tab=classes" className="inline-flex items-center gap-1 text-sm text-slate-400 hover:text-primary-300 transition-colors">
+      <Link to="/academy?tab=classes" className="inline-flex items-center gap-1 text-sm text-slate-400 hover:text-primary transition-colors">
         ← Back to Classes
       </Link>
 
       {/* ── Header ─────────────────────────────────────── */}
       <div className="glass rounded-2xl p-5 flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div className="flex items-center gap-4">
-          <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-primary-500 to-purple-500 flex items-center justify-center text-2xl shrink-0">📚</div>
+          <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-primary to-purple-500 flex items-center justify-center text-2xl shrink-0">📚</div>
           <div>
             <h1 className="text-2xl font-bold text-white">
-              <span className="font-mono text-primary-300">{cls.classCode}</span>
+              <span className="font-mono text-primary">{cls.classCode}</span>
               <span className="text-slate-500 mx-2">·</span>
               {cls.courseName}
             </h1>
@@ -513,7 +513,7 @@ export default function ClassDetailPage() {
           <button key={tab.id} onClick={() => setActiveTab(tab.id)}
             className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
               activeTab === tab.id
-                ? 'bg-primary-500/20 text-primary-300 shadow-sm'
+                ? 'bg-primary/20 text-primary shadow-sm'
                 : 'text-slate-400 hover:text-white hover:bg-white/5'
             }`}>
             <span className="text-base">{tab.icon}</span>

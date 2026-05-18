@@ -148,7 +148,7 @@ function ScheduleModal({ schedule, classes, teams, onClose, onSaved, prefill }) 
           <div className="col-span-2">
             <label className="block text-sm text-slate-300 mb-1">Team</label>
             <select value={form.bookedTeamId} onChange={(e) => handleTeamChange(e.target.value)} required
-              className="w-full px-3 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white focus:outline-none focus:ring-2 focus:ring-primary-500/50 transition-all">
+              className="w-full px-3 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all">
               <option value="" className="bg-slate-800">Select team…</option>
               {assignedTeams.map((t) => {
                 const cls = classById[t.classId?._id || t.classId];
@@ -184,28 +184,28 @@ function ScheduleModal({ schedule, classes, teams, onClose, onSaved, prefill }) 
           <div>
             <label className="block text-sm text-slate-300 mb-1">Start Time</label>
             <input type="datetime-local" value={form.startTime} onChange={(e) => f('startTime', e.target.value)} required
-              className="w-full px-4 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white focus:outline-none focus:ring-2 focus:ring-primary-500/50 transition-all" />
+              className="w-full px-4 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all" />
           </div>
           <div>
             <label className="block text-sm text-slate-300 mb-1">End Time</label>
             <input type="datetime-local" value={form.endTime} onChange={(e) => f('endTime', e.target.value)} required
-              className="w-full px-4 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white focus:outline-none focus:ring-2 focus:ring-primary-500/50 transition-all" />
+              className="w-full px-4 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all" />
           </div>
           <div>
             <label className="block text-sm text-slate-300 mb-1">Capacity</label>
             <input type="number" value={form.capacity} onChange={(e) => f('capacity', Number(e.target.value))} min={1} required
-              className="w-full px-4 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white focus:outline-none focus:ring-2 focus:ring-primary-500/50 transition-all" />
+              className="w-full px-4 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all" />
           </div>
           <div className="col-span-2">
             <label className="block text-sm text-slate-300 mb-1">Room / Meet Link</label>
             <input type="text" value={form.roomLink} onChange={(e) => f('roomLink', e.target.value)} placeholder="https://meet.google.com/..."
-              className="w-full px-4 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-primary-500/50 transition-all" />
+              className="w-full px-4 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all" />
           </div>
         </div>
 
         <div className="flex gap-3 pt-2">
           <button type="button" onClick={onClose} className="flex-1 py-2.5 rounded-xl border border-white/10 text-slate-400 hover:bg-white/5 transition-all">Cancel</button>
-          <button type="submit" disabled={saving || teamHasNoClass} className="flex-1 py-2.5 rounded-xl bg-gradient-to-r from-primary-600 to-primary-500 text-white font-semibold disabled:opacity-50 transition-all">
+          <button type="submit" disabled={saving || teamHasNoClass} className="flex-1 py-2.5 rounded-xl bg-gradient-to-r from-primary to-primary text-white font-semibold disabled:opacity-50 transition-all">
             {saving ? 'Saving...' : isEdit ? 'Update' : 'Create'}
           </button>
         </div>
@@ -339,7 +339,7 @@ export default function SchedulesPage() {
         </div>
         {canCreate && (
           <button onClick={() => { setPrefill(null); setModal('create'); }}
-            className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-primary-600 to-primary-500 text-white font-semibold hover:from-primary-500 hover:to-primary-400 transition-all shadow-lg shadow-primary-500/20 self-start">
+            className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-primary to-primary text-white font-semibold hover:from-primary hover:to-primary transition-all shadow-lg shadow-primary/20 self-start">
             + New Schedule
           </button>
         )}
@@ -352,7 +352,7 @@ export default function SchedulesPage() {
           <h2 className="text-white font-semibold">
             {weekDays[0].toLocaleDateString('en', { month: 'short', day: 'numeric' })} — {weekDays[6].toLocaleDateString('en', { month: 'short', day: 'numeric', year: 'numeric' })}
           </h2>
-          <button onClick={goToday} className="px-3 py-1 rounded-lg bg-primary-500/20 text-primary-300 text-xs border border-primary-500/20 hover:bg-primary-500/30 transition-all">Today</button>
+          <button onClick={goToday} className="px-3 py-1 rounded-lg bg-primary/20 text-primary text-xs border border-primary/20 hover:bg-primary/30 transition-all">Today</button>
           {latestScheduleWeek && weekScheduleCount === 0 && (
             <button onClick={goToLatest} className="px-3 py-1 rounded-lg bg-amber-500/20 text-amber-300 text-xs border border-amber-500/20 hover:bg-amber-500/30 transition-all animate-pulse">⚡ Jump to latest</button>
           )}
@@ -363,7 +363,7 @@ export default function SchedulesPage() {
       {/* ── Calendar Grid ──────────────────────────────── */}
       {loading ? (
         <div className="flex items-center justify-center py-20">
-          <div className="w-8 h-8 border-2 border-primary-400 border-t-transparent rounded-full animate-spin" />
+          <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
         </div>
       ) : (
         <div className="glass rounded-2xl overflow-hidden border border-white/5">
@@ -376,9 +376,9 @@ export default function SchedulesPage() {
                     const dateKey = toDateKey(day);
                     const isToday = dateKey === today;
                     return (
-                      <th key={i} className={`px-2 py-3 border-b border-white/10 text-center ${isToday ? 'bg-primary-500/10' : ''}`}>
-                        <div className={`text-xs font-bold ${isToday ? 'text-primary-300' : 'text-slate-400'}`}>{DAY_NAMES[i]}</div>
-                        <div className={`text-xl font-bold ${isToday ? 'text-primary-200' : 'text-white'}`}>{day.getDate()}</div>
+                      <th key={i} className={`px-2 py-3 border-b border-white/10 text-center ${isToday ? 'bg-primary/10' : ''}`}>
+                        <div className={`text-xs font-bold ${isToday ? 'text-primary' : 'text-slate-400'}`}>{DAY_NAMES[i]}</div>
+                        <div className={`text-xl font-bold ${isToday ? 'text-primary' : 'text-white'}`}>{day.getDate()}</div>
                         <div className="text-[10px] text-slate-500">{day.toLocaleDateString('en', { month: 'short' })}</div>
                       </th>
                     );
@@ -403,14 +403,14 @@ export default function SchedulesPage() {
 
                       if (cellSchedules.length > 0) {
                         return (
-                          <td key={dayIdx} className={`border-b border-white/5 p-1 align-top ${isToday ? 'bg-primary-500/5' : ''}`}>
+                          <td key={dayIdx} className={`border-b border-white/5 p-1 align-top ${isToday ? 'bg-primary/5' : ''}`}>
                             <div className="space-y-1">
                               {cellSchedules.map((s) => {
                                 const pct = s.capacity > 0 ? Math.round((s.enrolledCount / s.capacity) * 100) : 0;
                                 const barColor = pct >= 90 ? 'bg-red-500' : pct >= 60 ? 'bg-amber-500' : 'bg-emerald-500';
                                 return (
                                   <div key={s._id}
-                                    className={`rounded-xl p-2 bg-gradient-to-br from-primary-500/20 to-purple-500/10 border border-primary-400/20 hover:border-primary-400/40 transition-all group/card relative ${canUpdate ? 'cursor-pointer' : ''}`}
+                                    className={`rounded-xl p-2 bg-gradient-to-br from-primary/20 to-purple-500/10 border border-primary/20 hover:border-primary/40 transition-all group/card relative ${canUpdate ? 'cursor-pointer' : ''}`}
                                     onClick={() => { if (canUpdate) setModal(s); }}
                                   >
                                     {/* Time range */}
@@ -418,7 +418,7 @@ export default function SchedulesPage() {
                                       {scheduleTimeLabel(s)}
                                     </div>
                                     {/* Class info */}
-                                    <div className="text-xs font-bold text-primary-300 truncate">
+                                    <div className="text-xs font-bold text-primary truncate">
                                       {s.classId?.classCode}
                                     </div>
                                     <div className="text-[10px] text-slate-400 truncate">
@@ -471,7 +471,7 @@ export default function SchedulesPage() {
                       // Use the hour to build a default slot for prefill
                       const defaultSlot = `${String(hour).padStart(2, '0')}:00-${String(hour + 1).padStart(2, '0')}:00`;
                       return (
-                        <td key={dayIdx} className={`border-b border-white/5 p-1 align-top ${isToday ? 'bg-primary-500/5' : ''}`}>
+                        <td key={dayIdx} className={`border-b border-white/5 p-1 align-top ${isToday ? 'bg-primary/5' : ''}`}>
                           {canCreate ? (
                             <div
                               className="rounded-xl h-full min-h-[80px] flex items-center justify-center transition-all bg-white/[0.02] hover:bg-emerald-500/10 hover:border-emerald-500/20 border border-transparent cursor-pointer group/cell"
@@ -499,7 +499,7 @@ export default function SchedulesPage() {
       {/* ── Legend ──────────────────────────────────────── */}
       <div className="flex flex-wrap gap-4 text-xs text-slate-400">
         <div className="flex items-center gap-2">
-          <div className="w-3.5 h-3.5 rounded bg-gradient-to-br from-primary-500/30 to-purple-500/20 border border-primary-400/30" />
+          <div className="w-3.5 h-3.5 rounded bg-gradient-to-br from-primary/30 to-purple-500/20 border border-primary/30" />
           <span>Scheduled session (click to edit)</span>
         </div>
         <div className="flex items-center gap-2">
