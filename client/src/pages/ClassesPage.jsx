@@ -62,13 +62,13 @@ function NewCohortModal({ courseNames, onClose, onSaved }) {
         <div>
           <label className="block text-sm text-slate-300 mb-1">First Course</label>
           <select value={courseName} onChange={(e) => setCourseName(e.target.value)}
-            className="w-full px-3 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white focus:outline-none focus:ring-2 focus:ring-primary-500/50 transition-all">
+            className="w-full px-3 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all">
             {courseNames.map((c) => <option key={c} value={c} className="bg-slate-800">{c}</option>)}
           </select>
         </div>
         <div className="flex gap-3 pt-2">
           <button type="button" onClick={onClose} className="flex-1 py-2.5 rounded-xl border border-white/10 text-slate-400 hover:bg-white/5 transition-all">Cancel</button>
-          <button type="submit" disabled={createMutation.isPending} className="flex-1 py-2.5 rounded-xl bg-gradient-to-r from-primary-600 to-primary-500 text-white font-semibold disabled:opacity-50 transition-all">
+          <button type="submit" disabled={createMutation.isPending} className="flex-1 py-2.5 rounded-xl bg-gradient-to-r from-primary to-primary text-white font-semibold disabled:opacity-50 transition-all">
             {createMutation.isPending ? 'Creating...' : 'Create Cohort'}
           </button>
         </div>
@@ -120,7 +120,7 @@ function EditClassModal({ cls, onClose }) {
               ✏️ Chỉnh sửa lớp
             </h2>
             <p className="text-sm text-slate-400 mt-0.5">
-              <span className="font-mono text-primary-300">{cls.classCode}</span>
+              <span className="font-mono text-primary">{cls.classCode}</span>
               <span className="text-slate-600 mx-1.5">·</span>
               {cls.courseName}
             </p>
@@ -132,7 +132,7 @@ function EditClassModal({ cls, onClose }) {
             <div>
               <label className="block text-sm text-slate-300 mb-1">Trạng thái</label>
               <select value={status} onChange={(e) => setStatus(e.target.value)}
-                className="w-full px-3 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white focus:outline-none focus:ring-2 focus:ring-primary-500/50 transition-all">
+                className="w-full px-3 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all">
                 <option value="Ongoing" className="bg-slate-800">🟢 Đang học</option>
                 <option value="Completed" className="bg-slate-800">✓ Đã hoàn thành</option>
               </select>
@@ -140,13 +140,13 @@ function EditClassModal({ cls, onClose }) {
             <div>
               <label className="block text-sm text-slate-300 mb-1">Tổng số buổi</label>
               <input type="number" value={totalSessions} onChange={(e) => setTotalSessions(Number(e.target.value))} min={1}
-                className="w-full px-4 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white focus:outline-none focus:ring-2 focus:ring-primary-500/50 transition-all" />
+                className="w-full px-4 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all" />
             </div>
           </div>
 
           <div className="pt-1 flex items-center justify-between">
             <Link to={`/classes/${cls._id}`}
-              className="text-xs text-slate-500 hover:text-primary-300 transition-colors flex items-center gap-1">
+              className="text-xs text-slate-500 hover:text-primary transition-colors flex items-center gap-1">
               Xem chi tiết (Sessions, Roster...) →
             </Link>
           </div>
@@ -167,7 +167,7 @@ function EditClassModal({ cls, onClose }) {
                   Huỷ
                 </button>
                 <button type="submit" disabled={updateMutation.isPending}
-                  className="flex-1 py-2.5 rounded-xl bg-gradient-to-r from-primary-600 to-primary-500 text-white font-semibold disabled:opacity-50 transition-all">
+                  className="flex-1 py-2.5 rounded-xl bg-gradient-to-r from-primary to-primary text-white font-semibold disabled:opacity-50 transition-all">
                   {updateMutation.isPending ? 'Đang lưu...' : 'Lưu'}
                 </button>
               </>
@@ -288,7 +288,7 @@ export default function ClassesPage() {
         </div>
         {canCreate && (
           <button onClick={() => setCohortModal(true)}
-            className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-primary-600 to-primary-500 text-white font-semibold hover:from-primary-500 hover:to-primary-400 transition-all shadow-lg shadow-primary-500/20 self-start">
+            className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-primary to-primary text-white font-semibold hover:from-primary hover:to-primary transition-all shadow-lg shadow-primary/20 self-start">
             + New Cohort
           </button>
         )}
@@ -306,14 +306,14 @@ export default function ClassesPage() {
             onChange={(e) => setParam('q', e.target.value)}
             placeholder="Search by class code, course, or team..."
             aria-label="Search classes"
-            className="w-full pl-10 pr-4 py-2 rounded-xl bg-white/5 border border-white/10 text-white text-sm placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-primary-500/50 transition-all"
+            className="w-full pl-10 pr-4 py-2 rounded-xl bg-white/5 border border-white/10 text-white text-sm placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all"
           />
         </div>
         <select
           value={statusFilter}
           onChange={(e) => setParam('status', e.target.value)}
           aria-label="Filter by status"
-          className="px-3 py-2 rounded-xl bg-white/5 border border-white/10 text-white text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/50"
+          className="px-3 py-2 rounded-xl bg-white/5 border border-white/10 text-white text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
         >
           <option value="" className="bg-slate-800">Tất cả</option>
           <option value="Ongoing" className="bg-slate-800">🟢 Đang học</option>
@@ -343,7 +343,7 @@ export default function ClassesPage() {
           {hasActiveFilter ? (
             <>
               <p className="text-slate-400">No cohorts match your filters.</p>
-              <button onClick={clearFilters} className="mt-3 px-4 py-2 rounded-xl bg-primary-500/20 text-primary-300 text-sm hover:bg-primary-500/30 transition-all">
+              <button onClick={clearFilters} className="mt-3 px-4 py-2 rounded-xl bg-primary/20 text-primary text-sm hover:bg-primary/30 transition-all">
                 Clear filters
               </button>
             </>
@@ -372,7 +372,7 @@ export default function ClassesPage() {
                   <tr key={code} className="hover:bg-white/[0.02] transition-colors">
                     {/* Row header — Class Code + Team Name */}
                     <td className="sticky left-0 z-10 bg-slate-900/95 backdrop-blur-sm px-4 py-3 border-r border-white/10">
-                      <span className="font-mono font-bold text-primary-300 text-sm">{code}</span>
+                      <span className="font-mono font-bold text-primary text-sm">{code}</span>
                       {teamByClassCode[code] ? (
                         <div className="text-[11px] text-slate-500 mt-0.5 truncate max-w-[120px]" title={teamByClassCode[code].name}>
                           👥 {teamByClassCode[code].name}
@@ -447,12 +447,12 @@ export default function ClassesPage() {
                             <button
                               onClick={() => handleQuickCreate(code, course)}
                               disabled={isCreating}
-                              className="w-full rounded-xl px-3 py-4 border border-dashed border-white/10 hover:border-primary-400/30 hover:bg-primary-500/5 transition-all group disabled:opacity-50"
+                              className="w-full rounded-xl px-3 py-4 border border-dashed border-white/10 hover:border-primary/30 hover:bg-primary/5 transition-all group disabled:opacity-50"
                             >
                               {isCreating ? (
-                                <div className="w-4 h-4 border-2 border-primary-400 border-t-transparent rounded-full animate-spin mx-auto" />
+                                <div className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin mx-auto" />
                               ) : (
-                                <span className="text-slate-600 group-hover:text-primary-400 text-lg transition-colors">+</span>
+                                <span className="text-slate-600 group-hover:text-primary text-lg transition-colors">+</span>
                               )}
                             </button>
                           ) : (

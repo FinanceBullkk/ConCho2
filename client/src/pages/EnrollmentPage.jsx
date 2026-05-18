@@ -11,7 +11,7 @@ import { useRole } from '../hooks/useRole';
 
 const STATUS_COLORS = {
   Active: 'bg-emerald-500/20 text-emerald-400 border-emerald-500/20',
-  Completed: 'bg-primary-500/20 text-primary-300 border-primary-500/20',
+  Completed: 'bg-primary/20 text-primary border-primary/20',
   Transferred: 'bg-amber-500/20 text-amber-400 border-amber-500/20',
   Dropped: 'bg-red-500/20 text-red-400 border-red-500/20',
 };
@@ -98,7 +98,7 @@ function EditModal({ enrollment, allTeams = [], onClose, onSaved }) {
               onClick={() => { setTab('edit'); setError(''); }}
               className={`px-4 py-2 text-sm font-medium transition-colors border-b-2 ${
                 tab === 'edit'
-                  ? 'text-primary-300 border-primary-400'
+                  ? 'text-primary border-primary'
                   : 'text-slate-400 border-transparent hover:text-white'
               }`}
             >
@@ -128,7 +128,7 @@ function EditModal({ enrollment, allTeams = [], onClose, onSaved }) {
             <div>
               <label className="block text-sm text-slate-300 mb-1">Status</label>
               <select value={status} onChange={(e) => setStatus(e.target.value)}
-                className="w-full px-3 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white focus:outline-none focus:ring-2 focus:ring-primary-500/50 transition-all">
+                className="w-full px-3 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all">
                 {STATUS_OPTIONS.map(s => <option key={s} value={s} className="bg-slate-800">{s}</option>)}
               </select>
               <p className="text-[11px] text-slate-500 mt-1">
@@ -139,11 +139,11 @@ function EditModal({ enrollment, allTeams = [], onClose, onSaved }) {
               <label className="block text-sm text-slate-300 mb-1">Note</label>
               <textarea value={note} onChange={(e) => setNote(e.target.value)} rows={2}
                 placeholder="Optional note..."
-                className="w-full px-4 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-primary-500/50 transition-all resize-none" />
+                className="w-full px-4 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all resize-none" />
             </div>
             <div className="flex gap-3 pt-2">
               <button type="button" onClick={onClose} className="flex-1 py-2.5 rounded-xl border border-white/10 text-slate-400 hover:bg-white/5 transition-all">Cancel</button>
-              <button type="submit" disabled={updateMutation.isPending} className="flex-1 py-2.5 rounded-xl bg-gradient-to-r from-primary-600 to-primary-500 text-white font-semibold disabled:opacity-50 transition-all">
+              <button type="submit" disabled={updateMutation.isPending} className="flex-1 py-2.5 rounded-xl bg-gradient-to-r from-primary to-primary text-white font-semibold disabled:opacity-50 transition-all">
                 {updateMutation.isPending ? 'Saving...' : 'Update'}
               </button>
             </div>
@@ -252,7 +252,7 @@ export default function EnrollmentPage() {
         <div className="flex items-center gap-2">
           <label className="text-sm text-slate-400">Team:</label>
           <select value={selectedTeam} onChange={(e) => setSelectedTeam(e.target.value)}
-            className="px-3 py-2 rounded-xl bg-white/5 border border-white/10 text-white text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/50 transition-all">
+            className="px-3 py-2 rounded-xl bg-white/5 border border-white/10 text-white text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all">
             {teams.map(t => (
               <option key={t._id} value={t._id} className="bg-slate-800">
                 {t.name} {t.classId?.classCode ? `(${t.classId.classCode})` : ''}
@@ -264,7 +264,7 @@ export default function EnrollmentPage() {
         <div className="flex items-center gap-2">
           <label className="text-sm text-slate-400">Status:</label>
           <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}
-            className="px-3 py-2 rounded-xl bg-white/5 border border-white/10 text-white text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/50 transition-all">
+            className="px-3 py-2 rounded-xl bg-white/5 border border-white/10 text-white text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all">
             <option value="All" className="bg-slate-800">All</option>
             {STATUS_OPTIONS.map(s => <option key={s} value={s} className="bg-slate-800">{s}</option>)}
           </select>
@@ -284,7 +284,7 @@ export default function EnrollmentPage() {
       {/* ── Team Info Card ──────────────────────────────── */}
       {selectedTeamObj && (
         <div className="glass rounded-2xl p-5 flex items-center gap-4">
-          <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-primary-500 to-purple-500 flex items-center justify-center text-xl">
+          <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-primary to-purple-500 flex items-center justify-center text-xl">
             👥
           </div>
           <div>
@@ -303,7 +303,7 @@ export default function EnrollmentPage() {
       {/* ── Enrollment Table ────────────────────────────── */}
       {loading ? (
         <div className="flex items-center justify-center py-20">
-          <div className="w-8 h-8 border-2 border-primary-400 border-t-transparent rounded-full animate-spin" />
+          <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
         </div>
       ) : enrollments.length === 0 ? (
         <div className="glass rounded-2xl py-16 text-center">
@@ -383,7 +383,7 @@ export default function EnrollmentPage() {
                           <div className="mt-1">
                             <div className="h-1 rounded-full bg-white/5 overflow-hidden w-20 mx-auto">
                               <div
-                                className={`h-full rounded-full transition-all ${attendedSessions >= totalSessions ? 'bg-primary-400' : 'bg-emerald-500'}`}
+                                className={`h-full rounded-full transition-all ${attendedSessions >= totalSessions ? 'bg-primary' : 'bg-emerald-500'}`}
                                 style={{ width: `${Math.min((attendedSessions / totalSessions) * 100, 100)}%` }}
                               />
                             </div>

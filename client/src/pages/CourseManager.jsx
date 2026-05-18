@@ -129,7 +129,7 @@ function SessionPanel({ classId, classInfo, onClose, onClassUpdated }) {
               <h3 className="text-sm font-semibold text-slate-300">📊 Course Settings</h3>
               {!editingClass ? (
                 <button onClick={() => setEditingClass(true)}
-                  className="px-3 py-1 rounded-lg text-xs text-primary-300 hover:bg-primary-500/10 transition-all">
+                  className="px-3 py-1 rounded-lg text-xs text-primary hover:bg-primary/10 transition-all">
                   ✏️ Edit
                 </button>
               ) : (
@@ -137,7 +137,7 @@ function SessionPanel({ classId, classInfo, onClose, onClassUpdated }) {
                   <button onClick={() => setEditingClass(false)}
                     className="px-3 py-1 rounded-lg text-xs text-slate-400 hover:bg-white/5 transition-all">Cancel</button>
                   <button onClick={handleSaveClass} disabled={savingClass}
-                    className="px-3 py-1 rounded-lg text-xs bg-primary-500/20 text-primary-300 hover:bg-primary-500/30 transition-all disabled:opacity-50">
+                    className="px-3 py-1 rounded-lg text-xs bg-primary/20 text-primary hover:bg-primary/30 transition-all disabled:opacity-50">
                     {savingClass ? 'Saving...' : '💾 Save'}
                   </button>
                 </div>
@@ -149,7 +149,7 @@ function SessionPanel({ classId, classInfo, onClose, onClassUpdated }) {
                 <span className="text-[10px] text-slate-500 uppercase tracking-wider">Status</span>
                 {editingClass ? (
                   <select value={classForm.status} onChange={e => setClassForm(p => ({ ...p, status: e.target.value }))}
-                    className="mt-1 w-full px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-white text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/50">
+                    className="mt-1 w-full px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-white text-sm focus:outline-none focus:ring-2 focus:ring-primary/50">
                     <option value="Ongoing" className="bg-slate-800">Ongoing</option>
                     <option value="Completed" className="bg-slate-800">Completed</option>
                   </select>
@@ -164,7 +164,7 @@ function SessionPanel({ classId, classInfo, onClose, onClassUpdated }) {
                 {editingClass ? (
                   <input type="number" min={1} value={classForm.totalSessions}
                     onChange={e => setClassForm(p => ({ ...p, totalSessions: Number(e.target.value) }))}
-                    className="mt-1 w-full px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-white text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/50" />
+                    className="mt-1 w-full px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-white text-sm focus:outline-none focus:ring-2 focus:ring-primary/50" />
                 ) : (
                   <div className="mt-1 text-white text-lg font-bold">{classInfo.totalSessions}</div>
                 )}
@@ -192,7 +192,7 @@ function SessionPanel({ classId, classInfo, onClose, onClassUpdated }) {
 
           {loading ? (
             <div className="flex items-center justify-center py-10">
-              <div className="w-6 h-6 border-2 border-primary-400 border-t-transparent rounded-full animate-spin" />
+              <div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin" />
             </div>
           ) : sessions.length === 0 ? (
             <div className="py-10 text-center text-slate-500">No sessions scheduled yet</div>
@@ -203,12 +203,12 @@ function SessionPanel({ classId, classInfo, onClose, onClassUpdated }) {
                 return (
                   <div key={s._id} className={`rounded-xl border transition-all ${
                     isEditing
-                      ? 'bg-primary-500/10 border-primary-500/20'
+                      ? 'bg-primary/10 border-primary/20'
                       : 'glass-light border-white/5 hover:border-white/10'
                   }`}>
                     <div className="flex items-center gap-3 px-4 py-3">
                       {/* Session number */}
-                      <div className="w-8 h-8 rounded-lg bg-primary-500/15 text-primary-300 flex items-center justify-center text-sm font-bold shrink-0">
+                      <div className="w-8 h-8 rounded-lg bg-primary/15 text-primary flex items-center justify-center text-sm font-bold shrink-0">
                         {idx + 1}
                       </div>
 
@@ -219,13 +219,13 @@ function SessionPanel({ classId, classInfo, onClose, onClassUpdated }) {
                             <label className="text-[10px] text-slate-500">Start</label>
                             <input type="datetime-local" value={sessionForm.startTime}
                               onChange={e => setSessionForm(p => ({ ...p, startTime: e.target.value }))}
-                              className="w-full px-2 py-1.5 rounded-lg bg-white/5 border border-white/10 text-white text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/50" />
+                              className="w-full px-2 py-1.5 rounded-lg bg-white/5 border border-white/10 text-white text-sm focus:outline-none focus:ring-2 focus:ring-primary/50" />
                           </div>
                           <div className="flex-1">
                             <label className="text-[10px] text-slate-500">End</label>
                             <input type="datetime-local" value={sessionForm.endTime}
                               onChange={e => setSessionForm(p => ({ ...p, endTime: e.target.value }))}
-                              className="w-full px-2 py-1.5 rounded-lg bg-white/5 border border-white/10 text-white text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/50" />
+                              className="w-full px-2 py-1.5 rounded-lg bg-white/5 border border-white/10 text-white text-sm focus:outline-none focus:ring-2 focus:ring-primary/50" />
                           </div>
                         </div>
                       ) : (
@@ -263,13 +263,13 @@ function SessionPanel({ classId, classInfo, onClose, onClassUpdated }) {
                               Cancel
                             </button>
                             <button onClick={() => handleSaveSession(s._id)} disabled={savingSession}
-                              className="px-2.5 py-1.5 rounded-lg text-xs bg-primary-500/20 text-primary-300 hover:bg-primary-500/30 transition-all disabled:opacity-50">
+                              className="px-2.5 py-1.5 rounded-lg text-xs bg-primary/20 text-primary hover:bg-primary/30 transition-all disabled:opacity-50">
                               {savingSession ? '...' : '💾 Save'}
                             </button>
                           </>
                         ) : (
                           <button onClick={() => startEditSession(s)}
-                            className="px-2 py-1.5 rounded-lg text-xs text-slate-400 hover:text-primary-300 hover:bg-primary-500/10 transition-all">
+                            className="px-2 py-1.5 rounded-lg text-xs text-slate-400 hover:text-primary hover:bg-primary/10 transition-all">
                             ✏️
                           </button>
                         )}
@@ -366,7 +366,7 @@ export default function CourseManager() {
           </svg>
           <input type="text" value={search} onChange={e => setSearch(e.target.value)}
             placeholder="Search class code or course name..."
-            className="w-full pl-10 pr-8 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white text-sm placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-primary-500/50 transition-all" />
+            className="w-full pl-10 pr-8 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white text-sm placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all" />
           {search && (
             <button onClick={() => setSearch('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-white text-sm">✕</button>
           )}
@@ -376,7 +376,7 @@ export default function CourseManager() {
           {['all', 'Ongoing', 'Completed'].map(s => (
             <button key={s} onClick={() => setStatusFilter(s)}
               className={`px-3 py-2 text-xs font-medium transition-all ${
-                statusFilter === s ? 'bg-primary-500/20 text-primary-300' : 'text-slate-500 hover:text-slate-300 hover:bg-white/5'
+                statusFilter === s ? 'bg-primary/20 text-primary' : 'text-slate-500 hover:text-slate-300 hover:bg-white/5'
               } ${s !== 'all' ? 'border-l border-white/10' : ''}`}>
               {s === 'all' ? 'All' : s}
             </button>
@@ -389,7 +389,7 @@ export default function CourseManager() {
       {/* Class table */}
       {loading ? (
         <div className="flex items-center justify-center py-20">
-          <div className="w-8 h-8 border-2 border-primary-400 border-t-transparent rounded-full animate-spin" />
+          <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
         </div>
       ) : (
         <div className="glass rounded-2xl overflow-hidden border border-white/5">
@@ -412,7 +412,7 @@ export default function CourseManager() {
                     <tr key={c._id} className="hover:bg-white/[0.03] transition-colors cursor-pointer"
                       onClick={() => setSelectedClass(c)}>
                       <td className="sticky left-0 z-10 bg-slate-900/95 backdrop-blur-sm px-4 py-3 border-r border-white/5">
-                        <span className="font-mono font-bold text-primary-300">{c.classCode}</span>
+                        <span className="font-mono font-bold text-primary">{c.classCode}</span>
                       </td>
                       <td className="px-4 py-3 text-white text-sm">{c.courseName}</td>
                       <td className="px-4 py-3 text-center">
@@ -435,7 +435,7 @@ export default function CourseManager() {
                       </td>
                       <td className="px-4 py-3 text-center">
                         <button onClick={e => { e.stopPropagation(); setSelectedClass(c); }}
-                          className="px-3 py-1.5 rounded-lg text-xs text-primary-300 hover:bg-primary-500/10 transition-all">
+                          className="px-3 py-1.5 rounded-lg text-xs text-primary hover:bg-primary/10 transition-all">
                           📋 Sessions
                         </button>
                       </td>
