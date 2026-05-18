@@ -32,12 +32,12 @@ function ChangePasswordSection() {
     }
   });
 
-  const inputCls = 'w-full px-4 py-2.5 rounded-xl bg-white/5 border text-white focus:outline-none focus:ring-2 focus:ring-primary-500/50 transition-all';
+  const inputCls = 'w-full px-4 py-2.5 rounded-xl bg-white/5 border text-white focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all';
 
   return (
     <form onSubmit={submit} className="glass rounded-2xl p-6 space-y-4" noValidate>
       <div className="flex items-center gap-2">
-        <KeyRound className="size-5 text-primary-400" aria-hidden="true" />
+        <KeyRound className="size-5 text-primary" aria-hidden="true" />
         <h2 className="text-lg font-semibold text-white">Change password</h2>
       </div>
 
@@ -77,7 +77,7 @@ function ChangePasswordSection() {
       ))}
 
       <button type="submit" disabled={isSubmitting}
-        className="w-full py-2.5 rounded-xl bg-gradient-to-r from-primary-600 to-primary-500 text-white font-semibold hover:from-primary-500 hover:to-primary-400 transition-all disabled:opacity-50">
+        className="w-full py-2.5 rounded-xl bg-gradient-to-r from-primary to-primary text-white font-semibold hover:from-primary hover:to-primary transition-all disabled:opacity-50">
         {isSubmitting ? 'Updating…' : 'Update password'}
       </button>
     </form>
@@ -222,7 +222,7 @@ function MfaSection({ user, onMfaChange, forceEnroll = false, onEnrollComplete }
       {/* ── Disabled state — show Setup CTA ─────────────────── */}
       {!enabled && stage === 'idle' && (
         <button onClick={startSetup} disabled={busy}
-          className="w-full py-2.5 rounded-xl bg-gradient-to-r from-primary-600 to-primary-500 text-white font-semibold hover:from-primary-500 hover:to-primary-400 transition-all disabled:opacity-50">
+          className="w-full py-2.5 rounded-xl bg-gradient-to-r from-primary to-primary text-white font-semibold hover:from-primary hover:to-primary transition-all disabled:opacity-50">
           {busy ? 'Preparing…' : 'Enable two-factor authentication'}
         </button>
       )}
@@ -244,7 +244,7 @@ function MfaSection({ user, onMfaChange, forceEnroll = false, onEnrollComplete }
             {/* eslint-disable jsx-a11y/no-autofocus */}
             <input type="text" inputMode="numeric" autoComplete="one-time-code" value={code}
               onChange={(e) => setCode(e.target.value)} placeholder="123456" required minLength={6} maxLength={10}
-              className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-primary-500/50 transition-all font-mono tracking-widest text-center text-lg" autoFocus />
+              className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all font-mono tracking-widest text-center text-lg" autoFocus />
             {/* eslint-enable jsx-a11y/no-autofocus */}
 
             <div className="flex gap-3">
@@ -253,7 +253,7 @@ function MfaSection({ user, onMfaChange, forceEnroll = false, onEnrollComplete }
                 Cancel
               </button>
               <button type="submit" disabled={busy || code.length < 6}
-                className="flex-1 py-2.5 rounded-xl bg-gradient-to-r from-primary-600 to-primary-500 text-white font-semibold hover:from-primary-500 hover:to-primary-400 transition-all disabled:opacity-50">
+                className="flex-1 py-2.5 rounded-xl bg-gradient-to-r from-primary to-primary text-white font-semibold hover:from-primary hover:to-primary transition-all disabled:opacity-50">
                 {busy ? 'Verifying…' : 'Verify & enable'}
               </button>
             </div>
@@ -290,7 +290,7 @@ function MfaSection({ user, onMfaChange, forceEnroll = false, onEnrollComplete }
           {/* eslint-disable jsx-a11y/no-autofocus */}
           <input type="text" inputMode="text" autoComplete="one-time-code" value={code}
             onChange={(e) => setCode(e.target.value)} placeholder="123456 or XXXXX-XXXXX" required minLength={6} maxLength={20}
-            className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-primary-500/50 transition-all font-mono tracking-widest text-center text-lg" autoFocus />
+            className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all font-mono tracking-widest text-center text-lg" autoFocus />
           {/* eslint-enable jsx-a11y/no-autofocus */}
 
           <div className="flex gap-3">

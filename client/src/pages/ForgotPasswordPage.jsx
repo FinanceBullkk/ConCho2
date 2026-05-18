@@ -24,17 +24,17 @@ export default function ForgotPasswordPage() {
     }
   });
 
-  const inputCls = 'w-full px-4 py-3 rounded-xl bg-surface-lighter/60 border border-white/10 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-primary-500/50 transition-all';
+  const inputCls = 'w-full px-4 py-3 rounded-xl bg-muted/60 border border-white/10 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all';
 
   return (
     <div className="min-h-screen flex items-center justify-center px-4">
       <div className="w-full max-w-md animate-fade-in">
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br from-primary-500 to-purple-600 text-white text-2xl font-bold mb-4 shadow-lg shadow-primary-500/25">
+          <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br from-primary to-purple-600 text-white text-2xl font-bold mb-4 shadow-lg shadow-primary/25">
             T
           </div>
           <h1 className="text-3xl font-bold text-white tracking-tight">
-            TMS <span className="text-primary-400">v2</span>
+            TMS <span className="text-primary">v2</span>
           </h1>
         </div>
 
@@ -50,7 +50,7 @@ export default function ForgotPasswordPage() {
               </p>
               <Link
                 to="/login"
-                className="inline-flex items-center gap-2 mt-4 text-sm text-primary-400 hover:text-primary-300 transition-colors"
+                className="inline-flex items-center gap-2 mt-4 text-sm text-primary hover:text-primary transition-colors"
               >
                 <ArrowLeft className="size-4" aria-hidden="true" />
                 Back to sign in
@@ -88,7 +88,7 @@ export default function ForgotPasswordPage() {
                 <button
                   type="submit"
                   disabled={isSubmitting}
-                  className="w-full px-4 py-3 rounded-xl bg-gradient-to-r from-primary-600 to-primary-500 text-white font-semibold hover:from-primary-500 hover:to-primary-400 focus:outline-none focus:ring-2 focus:ring-primary-500/50 transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-primary-500/20"
+                  className="w-full px-4 py-3 rounded-xl bg-gradient-to-r from-primary to-primary text-white font-semibold hover:from-primary hover:to-primary focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-primary/20"
                 >
                   {isSubmitting ? (
                     <span className="flex items-center justify-center gap-2">

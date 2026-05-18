@@ -106,12 +106,12 @@ function TeamModal({ team, participants, classes, teams, onClose, onSaved }) {
           <div>
             <label className="block text-sm text-slate-300 mb-1">Team Name</label>
             <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Team name" required
-              className="w-full px-4 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-primary-500/50 transition-all" />
+              className="w-full px-4 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all" />
           </div>
           <div>
             <label className="block text-sm text-slate-300 mb-1">Assigned Class</label>
             <select value={classId} onChange={(e) => handleClassChange(e.target.value)}
-              className="w-full px-3 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white focus:outline-none focus:ring-2 focus:ring-primary-500/50 transition-all">
+              className="w-full px-3 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all">
               <option value="" className="bg-slate-800">— No class —</option>
               {classes.filter(c => c.status === 'Ongoing').map((c) => {
                 const takenBy = takenClassMap.get(c._id);
@@ -125,7 +125,7 @@ function TeamModal({ team, participants, classes, teams, onClose, onSaved }) {
         <div>
           <label className="block text-sm text-slate-300 mb-1">Team Leader</label>
           <select value={leaderId} onChange={(e) => { setLeaderId(e.target.value); if (!memberIds.includes(e.target.value)) setMemberIds((p) => [...p, e.target.value]); }}
-            className="w-full px-3 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white focus:outline-none focus:ring-2 focus:ring-primary-500/50 transition-all">
+            className="w-full px-3 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all">
             <option value="" className="bg-slate-800">Select leader…</option>
             {participants.map((p) => <option key={p._id} value={p._id} className="bg-slate-800">{p.name} ({p.empCode})</option>)}
           </select>
@@ -144,7 +144,7 @@ function TeamModal({ team, participants, classes, teams, onClose, onSaved }) {
             <input
               type="text" value={memberSearch} onChange={(e) => setMemberSearch(e.target.value)}
               placeholder="Search by name or employee code..."
-              className="w-full pl-10 pr-4 py-2 rounded-xl bg-white/5 border border-white/10 text-white text-sm placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-primary-500/50 transition-all"
+              className="w-full pl-10 pr-4 py-2 rounded-xl bg-white/5 border border-white/10 text-white text-sm placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all"
             />
             {memberSearch && (
               <button type="button" onClick={() => setMemberSearch('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-white text-xs">✕</button>
@@ -165,13 +165,13 @@ function TeamModal({ team, participants, classes, teams, onClose, onSaved }) {
                 <label key={p._id}
                   className={`flex items-center gap-3 px-3 py-2 rounded-lg transition-all ${
                     isSelected
-                      ? 'bg-primary-500/10 border border-primary-500/20'
+                      ? 'bg-primary/10 border border-primary/20'
                       : isInOtherTeam
                         ? 'opacity-60 hover:opacity-90 cursor-pointer hover:bg-amber-500/5 border border-transparent'
                         : 'cursor-pointer hover:bg-white/5 border border-transparent'
                   }`}
                 >
-                  <input type="checkbox" checked={isSelected} onChange={() => toggleMember(p._id)} className="w-4 h-4 rounded accent-primary-500 shrink-0" />
+                  <input type="checkbox" checked={isSelected} onChange={() => toggleMember(p._id)} className="w-4 h-4 rounded accent-primary shrink-0" />
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
                       <span className={`text-sm truncate ${isSelected ? 'text-white font-medium' : 'text-slate-300'}`}>{p.name}</span>
@@ -197,7 +197,7 @@ function TeamModal({ team, participants, classes, teams, onClose, onSaved }) {
         )}
         <div className="flex gap-3 pt-2">
           <button type="button" onClick={onClose} className="flex-1 py-2.5 rounded-xl border border-white/10 text-slate-400 hover:bg-white/5 transition-all">Cancel</button>
-          <button type="submit" disabled={saving} className="flex-1 py-2.5 rounded-xl bg-gradient-to-r from-primary-600 to-primary-500 text-white font-semibold disabled:opacity-50 transition-all">
+          <button type="submit" disabled={saving} className="flex-1 py-2.5 rounded-xl bg-gradient-to-r from-primary to-primary text-white font-semibold disabled:opacity-50 transition-all">
             {saving ? 'Saving...' : isEdit ? 'Update' : 'Create'}
           </button>
         </div>
@@ -210,7 +210,7 @@ function TeamModal({ team, participants, classes, teams, onClose, onSaved }) {
             <div className="text-3xl text-center">🔄</div>
             <h3 className="text-lg font-bold text-white text-center">Swap Class Assignment?</h3>
             <p className="text-sm text-slate-300 text-center">
-              <span className="font-mono text-primary-300">{swapConfirm.classCode}</span> is currently assigned to <strong className="text-white">{swapConfirm.takenByTeam}</strong>.
+              <span className="font-mono text-primary">{swapConfirm.classCode}</span> is currently assigned to <strong className="text-white">{swapConfirm.takenByTeam}</strong>.
             </p>
             <p className="text-sm text-slate-400 text-center">
               If you continue, <strong className="text-amber-300">{swapConfirm.takenByTeam}</strong> will be unassigned from this class.
@@ -232,7 +232,7 @@ function TeamModal({ team, participants, classes, teams, onClose, onSaved }) {
             <div className="text-3xl text-center">⚠️</div>
             <h3 className="text-lg font-bold text-white text-center">Transfer Members?</h3>
             <p className="text-sm text-slate-300 text-center">
-              The following users are currently active in other teams. Adding them to <strong className="text-primary-300">{name || 'this team'}</strong> will transfer them and close their previous enrollments.
+              The following users are currently active in other teams. Adding them to <strong className="text-primary">{name || 'this team'}</strong> will transfer them and close their previous enrollments.
             </p>
             <div className="glass-light rounded-xl p-3 max-h-48 overflow-y-auto space-y-2 mt-2">
               {transferConfirm.conflicts.map(c => (
@@ -322,7 +322,7 @@ function TeamCard({ t, canEdit, canDelete, onProgress, onEdit, onDelete, onMakeL
             {canEdit && (
               <button
                 onClick={() => onEdit(t)}
-                className="p-1.5 rounded-lg text-slate-500 hover:text-primary-300 hover:bg-primary-500/10 transition-all"
+                className="p-1.5 rounded-lg text-slate-500 hover:text-primary hover:bg-primary/10 transition-all"
                 title="Chỉnh sửa"
               >
                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -499,7 +499,7 @@ export default function TeamsPage() {
         </div>
         {canCreate && (
           <button onClick={() => setModal('create')}
-            className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-primary-600 to-primary-500 text-white font-semibold hover:from-primary-500 hover:to-primary-400 transition-all shadow-lg shadow-primary-500/20 self-start">
+            className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-primary to-primary text-white font-semibold hover:from-primary hover:to-primary transition-all shadow-lg shadow-primary/20 self-start">
             + Tạo nhóm
           </button>
         )}
@@ -526,7 +526,7 @@ export default function TeamsPage() {
                       ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
                       : color === 'slate'
                         ? 'bg-slate-500/20 text-slate-300 border border-slate-500/30'
-                        : 'bg-primary-500/20 text-primary-300 border border-primary-500/30'
+                        : 'bg-primary/20 text-primary border border-primary/30'
                     : 'text-slate-500 hover:text-slate-300 hover:bg-white/5 border border-transparent'
                 }`}
               >
@@ -548,7 +548,7 @@ export default function TeamsPage() {
             <input
               type="text" value={search} onChange={(e) => setSearch(e.target.value)}
               placeholder="Tìm theo tên nhóm, leader, thành viên, mã lớp..."
-              className="w-full pl-10 pr-8 py-2 rounded-xl bg-white/5 border border-white/10 text-white text-sm placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-primary-500/50 transition-all"
+              className="w-full pl-10 pr-8 py-2 rounded-xl bg-white/5 border border-white/10 text-white text-sm placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all"
             />
             {search && <button onClick={() => setSearch('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-white text-sm">✕</button>}
           </div>
@@ -564,11 +564,11 @@ export default function TeamsPage() {
 
           <div className="flex rounded-xl border border-white/10 overflow-hidden shrink-0">
             <button onClick={() => setViewMode('cards')}
-              className={`px-3 py-2 text-xs font-medium transition-all ${viewMode === 'cards' ? 'bg-primary-500/20 text-primary-300' : 'text-slate-500 hover:text-slate-300 hover:bg-white/5'}`}>
+              className={`px-3 py-2 text-xs font-medium transition-all ${viewMode === 'cards' ? 'bg-primary/20 text-primary' : 'text-slate-500 hover:text-slate-300 hover:bg-white/5'}`}>
               ▦ Cards
             </button>
             <button onClick={() => setViewMode('table')}
-              className={`px-3 py-2 text-xs font-medium transition-all border-l border-white/10 ${viewMode === 'table' ? 'bg-primary-500/20 text-primary-300' : 'text-slate-500 hover:text-slate-300 hover:bg-white/5'}`}>
+              className={`px-3 py-2 text-xs font-medium transition-all border-l border-white/10 ${viewMode === 'table' ? 'bg-primary/20 text-primary' : 'text-slate-500 hover:text-slate-300 hover:bg-white/5'}`}>
               ☰ Bảng
             </button>
           </div>
@@ -584,7 +584,7 @@ export default function TeamsPage() {
       {/* ── Content ───────────────────────────────────────── */}
       {loadingTeams ? (
         <div className="flex items-center justify-center py-20">
-          <div className="w-8 h-8 border-2 border-primary-400 border-t-transparent rounded-full animate-spin" />
+          <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
         </div>
       ) : filteredTeams.length === 0 ? (
         <div className="glass rounded-2xl py-16 text-center">
@@ -598,7 +598,7 @@ export default function TeamsPage() {
           </p>
           {(search || statusFilter !== 'all') && (
             <button onClick={() => { setSearch(''); setStatusFilter('all'); }}
-              className="mt-3 px-4 py-2 rounded-xl bg-primary-500/20 text-primary-300 text-sm hover:bg-primary-500/30 transition-all">
+              className="mt-3 px-4 py-2 rounded-xl bg-primary/20 text-primary text-sm hover:bg-primary/30 transition-all">
               Xem tất cả
             </button>
           )}
@@ -646,7 +646,7 @@ export default function TeamsPage() {
                       <td className="px-4 py-3">
                         {t.classId ? (
                           <div>
-                            <span className="font-mono text-sm text-primary-300">{t.classId.classCode}</span>
+                            <span className="font-mono text-sm text-primary">{t.classId.classCode}</span>
                             <p className="text-xs text-slate-500 mt-0.5">{t.classId.courseName}</p>
                           </div>
                         ) : (
@@ -668,7 +668,7 @@ export default function TeamsPage() {
                           <button onClick={() => setProgressModal(t._id)} className="p-1.5 rounded-lg text-slate-500 hover:text-teal-300 hover:bg-teal-500/10 transition-all" title="Xem tiến độ">
                             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" /></svg>
                           </button>
-                          {canEdit && <button onClick={() => setModal(t)} className="p-1.5 rounded-lg text-slate-500 hover:text-primary-300 hover:bg-primary-500/10 transition-all" title="Chỉnh sửa">
+                          {canEdit && <button onClick={() => setModal(t)} className="p-1.5 rounded-lg text-slate-500 hover:text-primary hover:bg-primary/10 transition-all" title="Chỉnh sửa">
                             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
                           </button>}
                           {canDelete && <button onClick={() => setDeleteId(t._id)} className="p-1.5 rounded-lg text-slate-500 hover:text-red-400 hover:bg-red-500/10 transition-all" title="Xoá">

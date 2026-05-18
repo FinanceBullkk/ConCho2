@@ -34,7 +34,7 @@ export default class ErrorBoundary extends Component {
             <div className="flex gap-3 justify-center">
               <button
                 onClick={() => window.location.reload()}
-                className="px-6 py-2.5 rounded-xl bg-primary-500 text-white font-semibold hover:bg-primary-600 transition-colors"
+                className="px-6 py-2.5 rounded-xl bg-primary text-white font-semibold hover:bg-primary transition-colors"
               >
                 Tải lại trang
               </button>
