@@ -28,7 +28,7 @@ const UserSettingsPage = lazy(() => import('./pages/UserSettingsPage'));
 function RouteFallback() {
   return (
     <div className="min-h-[60vh] flex items-center justify-center">
-      <div className="w-8 h-8 border-2 border-primary-400 border-t-transparent rounded-full animate-spin" />
+      <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
     </div>
   );
 }
@@ -55,7 +55,7 @@ function AuthExpiredModal() {
         <div className="flex gap-3 pt-2">
           <Button
             variant="outline"
-            className="flex-1 border-primary-500/30 bg-primary-500/15 text-primary-300 hover:bg-primary-500/25"
+            className="flex-1 border-primary/30 bg-primary/15 text-primary hover:bg-primary/25"
             onClick={() => window.open('/login', '_blank')}
           >
             Sign in (new tab)

@@ -21,7 +21,7 @@ function FilterSelect({ label, value, options, onChange }) {
       onChange={e => onChange(e.target.value)}
       className={`appearance-none text-xs rounded-lg px-3 py-1.5 pr-6 border transition-all cursor-pointer outline-none bg-[url('data:image/svg+xml;charset=UTF-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2210%22%20height%3D%226%22%20viewBox%3D%220%200%2010%206%22%3E%3Cpath%20fill%3D%22%2394a3b8%22%20d%3D%22M0%200l5%206%205-6z%22%2F%3E%3C%2Fsvg%3E')] bg-[length:10px_6px] bg-[right_8px_center] bg-no-repeat ${
         value
-          ? 'bg-primary-500/20 border-primary-500/40 text-primary-200'
+          ? 'bg-primary/20 border-primary/40 text-primary'
           : 'bg-white/5 border-white/10 text-slate-400 hover:border-white/20'
       }`}
     >
@@ -69,7 +69,7 @@ export default function DashboardPage() {
   if (loadingStats) {
     return (
       <div className="flex items-center justify-center py-20">
-        <div className="w-8 h-8 border-2 border-primary-400 border-t-transparent rounded-full animate-spin" />
+        <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
       </div>
     );
   }
@@ -119,7 +119,7 @@ export default function DashboardPage() {
               className="flex items-center gap-1 px-2 py-1 rounded-lg bg-white/5 border border-white/10 text-slate-400 hover:bg-white/10 hover:text-white transition-all disabled:opacity-50"
             >
               {isFetching
-                ? <span className="w-3 h-3 border border-primary-400 border-t-transparent rounded-full animate-spin inline-block" />
+                ? <span className="w-3 h-3 border border-primary border-t-transparent rounded-full animate-spin inline-block" />
                 : '↻'}
               <span className="hidden sm:inline">{isFetching ? 'Loading…' : 'Refresh'}</span>
             </button>
@@ -140,7 +140,7 @@ export default function DashboardPage() {
           <>
             <div className="h-4 w-px bg-white/10 mx-1" />
             {Object.entries(filters).filter(([,v]) => v).map(([k, v]) => (
-              <span key={k} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-primary-500/15 text-primary-300 text-[10px]">
+              <span key={k} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-primary/15 text-primary text-[10px]">
                 {v} <button onClick={() => setFilter(k, '')} className="hover:text-red-400">✕</button>
               </span>
             ))}
@@ -172,7 +172,7 @@ export default function DashboardPage() {
         {/* Students by Course */}
         <div className="glass rounded-xl p-5">
           <h3 className="text-sm font-semibold text-white mb-3 flex items-center gap-2">
-            <span className="w-1 h-4 rounded-full bg-primary-500 inline-block" />
+            <span className="w-1 h-4 rounded-full bg-primary inline-block" />
             Students by Course
           </h3>
           {stats?.courseBreakdown?.length > 0 ? (
@@ -347,7 +347,7 @@ export default function DashboardPage() {
                         className={`transition-colors ${c._id ? 'cursor-pointer hover:bg-white/[0.04]' : 'hover:bg-white/3'}`}
                         title={c._id ? 'Click to open class detail' : undefined}
                       >
-                        <td className="px-2 py-2 font-mono text-primary-300 font-medium">{c.classCode}</td>
+                        <td className="px-2 py-2 font-mono text-primary font-medium">{c.classCode}</td>
                         <td className="px-2 py-2 text-white">{c.courseName}</td>
                         <td className="px-2 py-2 text-white font-medium">{c.doneSessions}</td>
                         <td className="px-2 py-2 text-slate-400">{c.totalSessions}</td>
@@ -360,7 +360,7 @@ export default function DashboardPage() {
                           </div>
                         </td>
                         <td className="px-2 py-2">
-                          <span className={`px-1.5 py-0.5 rounded text-[9px] font-medium ${done ? 'bg-emerald-500/15 text-emerald-400' : c.doneSessions === 0 ? 'bg-slate-500/15 text-slate-400' : 'bg-primary-500/15 text-primary-300'}`}>
+                          <span className={`px-1.5 py-0.5 rounded text-[9px] font-medium ${done ? 'bg-emerald-500/15 text-emerald-400' : c.doneSessions === 0 ? 'bg-slate-500/15 text-slate-400' : 'bg-primary/15 text-primary'}`}>
                             {done ? '✅' : c.doneSessions === 0 ? '⏳' : '🔄'} {c.status}
                           </span>
                         </td>
@@ -372,7 +372,7 @@ export default function DashboardPage() {
             </div>
             {classData.length > 10 && (
               <button onClick={() => setShowAllClasses(!showAllClasses)}
-                className="mt-2 w-full text-center text-[11px] text-primary-400 hover:text-primary-300 py-1.5 rounded-lg hover:bg-white/3 transition-all">
+                className="mt-2 w-full text-center text-[11px] text-primary hover:text-primary py-1.5 rounded-lg hover:bg-white/3 transition-all">
                 {showAllClasses ? `Show less ↑` : `Show all ${classData.length} classes ↓`}
               </button>
             )}

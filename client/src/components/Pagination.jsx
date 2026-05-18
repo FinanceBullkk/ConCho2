@@ -54,7 +54,7 @@ export default function Pagination({ page, totalPages, onPageChange, isLoading =
             aria-label={`Page ${p}`}
             className={`w-9 h-9 rounded-xl text-sm font-medium transition-all ${
               p === page
-                ? 'bg-primary-600 text-white border border-primary-500'
+                ? 'bg-primary text-white border border-primary'
                 : btnCls
             }`}
           >

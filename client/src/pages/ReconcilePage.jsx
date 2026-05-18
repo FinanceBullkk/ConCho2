@@ -55,7 +55,7 @@ function SummaryCard({ checkKey, count, onClick, active }) {
   return (
     <button
       onClick={() => onClick(checkKey)}
-      className={`glass rounded-2xl p-4 text-left transition-all hover:bg-white/5 ${active ? 'ring-2 ring-primary-500/50' : ''}`}
+      className={`glass rounded-2xl p-4 text-left transition-all hover:bg-white/5 ${active ? 'ring-2 ring-primary/50' : ''}`}
     >
       <div className="flex items-start justify-between gap-2">
         <span className="text-2xl">{meta.icon}</span>
@@ -107,7 +107,7 @@ function RunHistoryBar({ history, onSelect, selectedId }) {
           title={`${r.summary?.total ?? 0} issues — ${new Date(r.runAt).toLocaleString()}`}
           className={`shrink-0 flex flex-col items-center gap-1 px-3 py-2 rounded-xl border transition-all text-xs ${
             selectedId === r._id
-              ? 'border-primary-500/50 bg-primary-500/10 text-primary-300'
+              ? 'border-primary/50 bg-primary/10 text-primary'
               : 'border-white/10 bg-white/3 text-slate-400 hover:bg-white/5'
           }`}
         >
@@ -184,7 +184,7 @@ export default function ReconcilePage() {
         <button
           onClick={() => runMutation.mutate()}
           disabled={runMutation.isPending}
-          className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-primary-600 to-primary-500 text-white font-semibold hover:from-primary-500 hover:to-primary-400 transition-all shadow-lg shadow-primary-500/20 disabled:opacity-50 self-start flex items-center gap-2"
+          className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-primary to-primary text-white font-semibold hover:from-primary hover:to-primary transition-all shadow-lg shadow-primary/20 disabled:opacity-50 self-start flex items-center gap-2"
         >
           {runMutation.isPending ? (
             <><span className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />Running…</>
@@ -218,7 +218,7 @@ export default function ReconcilePage() {
       {/* Loading */}
       {reportQuery.isLoading && (
         <div className="glass rounded-2xl py-20 flex items-center justify-center">
-          <div className="w-8 h-8 border-2 border-primary-400 border-t-transparent rounded-full animate-spin" />
+          <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
         </div>
       )}
 
