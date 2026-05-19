@@ -1,11 +1,14 @@
 import { useState, useEffect, useMemo } from 'react';
-import { useParams, useNavigate, Link } from 'react-router-dom';
+import { useParams, useNavigate, Link, useSearchParams } from 'react-router-dom';
 import {
   ClipboardList, CalendarDays, Users, BarChart3,
   BookOpen, AlertTriangle, Pencil, ArrowLeft, Users2,
+  Search, MoreHorizontal, X as XIcon,
 } from 'lucide-react';
 import Portal from '../components/Portal';
 import { Breadcrumbs } from '@/components/Breadcrumbs';
+import { PageHeader } from '@/components/PageHeader';
+import { KPICard } from '@/components/KPICard';
 import { StatusBadge } from '../components/StatusBadge';
 import { EmptyState } from '../components/EmptyState';
 import { useClass, useUpdateClass, useDeleteClass } from '../hooks/useClasses';
@@ -13,37 +16,42 @@ import { useTeams } from '../hooks/useTeams';
 import { useSchedules } from '../hooks/useSchedules';
 import { useEnrollments } from '../hooks/useEnrollments';
 import { useAttendanceAnalyticsByClass } from '../hooks/useAttendance';
+import { useRole } from '../hooks/useRole';
+import { EnrollmentDrawer } from '../components/EnrollmentDrawer';
+import { ScheduleDrawer } from '../components/ScheduleDrawer';
+import { useClasses } from '../hooks/useClasses';
 import { Spinner } from '../components/Spinner';
 import { Button } from '@/components/ui/button';
+import { cn } from '@/lib/utils';
 
 // ──────────────────────────────────────────────────────────
-// Class Detail Page — single-context view of one class
-// ──────────────────────────────────────────────────────────
-// Tabs: Overview | Sessions | Roster | Analytics
-// Replaces the old "jump between 4 pages" workflow with a
-// single class-scoped view.
+// ClassDetailPage — Phase 3 Screen 4
+//
+// Single landing page for everything class-related.
+// Folds EnrollmentPage (deleted in earlier phase) into Roster tab.
+//
+// Anatomy:
+//   1. Breadcrumb  ─ Programs › Classes › {code}
+//   2. PageHeader  ─ classCode + courseName + status + edit
+//   3. KPI strip   ─ Enrolled · Attendance · Sessions (3 cards)
+//   4. Tabs        ─ Overview · Roster · Schedules · Attendance (URL: ?tab=…)
+//   5. Tab body
 // ──────────────────────────────────────────────────────────
 
 const TABS = [
   { id: 'overview',   label: 'Overview',   icon: ClipboardList },
-  { id: 'sessions',   label: 'Schedules',  icon: CalendarDays  },
   { id: 'roster',     label: 'Roster',     icon: Users         },
-  { id: 'analytics',  label: 'Attendance', icon: BarChart3     },
+  { id: 'schedules',  label: 'Schedules',  icon: CalendarDays  },
+  { id: 'attendance', label: 'Attendance', icon: BarChart3     },
 ];
-
-const STATUS_COLORS = {
-  Active: 'bg-success/20 text-success border-success/20',
-  Completed: 'bg-primary/20 text-primary border-primary/20',
-  Transferred: 'bg-warning/20 text-warning border-warning/20',
-  Dropped: 'bg-destructive/20 text-destructive border-destructive/20',
-};
 
 const fmtDate = (d) => new Date(d).toLocaleDateString('en', { day: '2-digit', month: 'short', year: 'numeric' });
 const fmtTime = (d) => new Date(d).toLocaleTimeString('en', { hour: '2-digit', minute: '2-digit', hour12: false });
 
-// ── Edit Modal ─────────────────────────────────────────────
-
-function EditClassModal({ cls, onClose, onDeleted }) {
+// ──────────────────────────────────────────────────────────
+// Edit Modal (kept simple — Edit/Status/Sessions count/Delete)
+// ──────────────────────────────────────────────────────────
+function EditClassModal({ cls, onClose }) {
   const navigate = useNavigate();
   const updateMutation = useUpdateClass();
   const deleteMutation = useDeleteClass();
@@ -65,8 +73,7 @@ function EditClassModal({ cls, onClose, onDeleted }) {
     setError('');
     try {
       await deleteMutation.mutateAsync(cls._id);
-      onDeleted();
-      navigate('/academy?tab=classes');
+      navigate('/programs?tab=classes');
     } catch (err) {
       setError(err.response?.data?.message || 'Delete failed');
       setConfirmDelete(false);
@@ -77,13 +84,15 @@ function EditClassModal({ cls, onClose, onDeleted }) {
     <Portal>
       <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60" onClick={onClose}>
         <form onSubmit={handleSubmit} onClick={(e) => e.stopPropagation()}
-          className="bg-card border border-border rounded-lg p-6 w-full max-w-md mx-4 space-y-4 ">
-          <h2 className="text-lg font-bold text-foreground flex items-center gap-2"><Pencil className="size-4" /> Edit {cls.classCode} — {cls.courseName}</h2>
+          className="bg-card border border-border rounded-lg p-6 w-full max-w-md mx-4 space-y-4">
+          <h2 className="text-lg font-bold text-foreground flex items-center gap-2">
+            <Pencil className="size-4" /> Edit {cls.classCode}
+          </h2>
           {error && <div className="px-4 py-2 rounded-md bg-destructive/10 border border-destructive/20 text-destructive text-sm">{error}</div>}
           <div>
             <label className="block text-small text-muted-foreground mb-1">Status</label>
             <select value={status} onChange={(e) => setStatus(e.target.value)}
-              className="w-full px-3 h-(--control-h) rounded-md bg-background border border-input text-foreground placeholder:text-subtle-foreground focus:outline-none focus:ring-2 focus:ring-ring transition-colors">
+              className="w-full px-3 h-(--control-h) rounded-md bg-background border border-input text-foreground focus:outline-none focus:ring-2 focus:ring-ring transition-colors">
               <option value="Ongoing">Ongoing</option>
               <option value="Completed">Completed</option>
             </select>
@@ -91,7 +100,7 @@ function EditClassModal({ cls, onClose, onDeleted }) {
           <div>
             <label className="block text-small text-muted-foreground mb-1">Total Sessions</label>
             <input type="number" value={totalSessions} onChange={(e) => setTotalSessions(Number(e.target.value))} min={1}
-              className="w-full px-3 h-(--control-h) rounded-md bg-background border border-input text-foreground placeholder:text-subtle-foreground focus:outline-none focus:ring-2 focus:ring-ring transition-colors" />
+              className="w-full px-3 h-(--control-h) rounded-md bg-background border border-input text-foreground focus:outline-none focus:ring-2 focus:ring-ring transition-colors" />
           </div>
           <div className="flex gap-3 pt-2">
             <Button type="button" variant="destructive" onClick={handleDelete} disabled={deleteMutation.isPending}>
@@ -112,50 +121,52 @@ function EditClassModal({ cls, onClose, onDeleted }) {
   );
 }
 
-// ── Tab: Overview ──────────────────────────────────────────
-
-function OverviewTab({ cls, team, onEdit }) {
-  const pct = cls.totalSessions > 0 ? Math.round((cls.bookedSessions / cls.totalSessions) * 100) : 0;
+// ──────────────────────────────────────────────────────────
+// Tab 1 · Overview — metadata grid + assigned team card
+// ──────────────────────────────────────────────────────────
+function OverviewTab({ cls, team }) {
   const isComplete = cls.status === 'Completed';
   const noSessions = cls.bookedSessions === 0;
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-      {/* Progress */}
-      <div className="bg-card border border-border rounded-lg p-5 space-y-3">
-        <h3 className="text-xs uppercase tracking-wider text-subtle-foreground font-semibold">Session Progress</h3>
-        <div className="flex items-baseline gap-2">
-          <span className="text-h1 text-foreground">{cls.bookedSessions}</span>
-          <span className="text-subtle-foreground">/ {cls.totalSessions}</span>
-          <span className="ml-auto text-sm text-muted-foreground">{pct}%</span>
+    <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+      {/* Class metadata */}
+      <div className="bg-card border border-border rounded-lg p-5 lg:col-span-2 space-y-3">
+        <h3 className="text-overline text-subtle-foreground font-semibold">Class information</h3>
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-4 gap-y-3 text-sm">
+          <Field label="Code"><span className="font-mono font-bold text-primary">{cls.classCode}</span></Field>
+          <Field label="Course">{cls.courseName}</Field>
+          <Field label="Status"><StatusBadge status={cls.status} size="sm" /></Field>
+          <Field label="Total sessions"><span className="tabular-nums">{cls.totalSessions}</span></Field>
+          <Field label="Booked sessions"><span className="tabular-nums">{cls.bookedSessions}</span></Field>
+          <Field label="Created">{cls.createdAt ? fmtDate(cls.createdAt) : '—'}</Field>
         </div>
-        <div className="h-2 rounded-full bg-muted overflow-hidden">
-          <div className={`h-full rounded-full transition-all ${pct >= 100 ? 'bg-primary' : pct >= 80 ? 'bg-warning' : 'bg-success'}`}
-            style={{ width: `${Math.min(pct, 100)}%` }} />
-        </div>
-        <p className="text-xs text-subtle-foreground">
-          {isComplete ? 'This class is marked Completed.' : noSessions ? 'No schedules yet — likely no team assigned.' : `${cls.totalSessions - cls.bookedSessions} session(s) remaining.`}
-        </p>
+        {noSessions && !isComplete && (
+          <div className="flex items-start gap-2 rounded-md border border-warning/30 bg-warning-tint px-3 py-2 text-[11px]">
+            <AlertTriangle className="size-3.5 text-warning mt-0.5 shrink-0" strokeWidth={2} />
+            <span className="text-warning">No schedules yet — likely no team assigned.</span>
+          </div>
+        )}
       </div>
 
-      {/* Team */}
+      {/* Assigned team */}
       <div className="bg-card border border-border rounded-lg p-5 space-y-3">
-        <h3 className="text-xs uppercase tracking-wider text-subtle-foreground font-semibold">Assigned Team</h3>
+        <h3 className="text-overline text-subtle-foreground font-semibold">Assigned team</h3>
         {team ? (
           <div className="space-y-2">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-md bg-primary/15 flex items-center justify-center">
+              <div className="w-10 h-10 rounded-md bg-primary/15 flex items-center justify-center shrink-0">
                 <Users2 className="size-5 text-primary" />
               </div>
-              <div>
-                <div className="text-base font-bold text-foreground">{team.name}</div>
+              <div className="min-w-0">
+                <div className="text-base font-bold text-foreground truncate">{team.name}</div>
                 <div className="text-xs text-muted-foreground">
                   Leader: {team.leaderId?.name || 'N/A'} · {team.members?.length || 0} member{(team.members?.length || 0) !== 1 ? 's' : ''}
                 </div>
               </div>
             </div>
-            <Link to="/people" className="block w-full text-center py-2 rounded-md bg-muted text-muted-foreground text-xs font-semibold border border-border hover:bg-accent transition-all">
-              Manage Team & Members
+            <Link to="/academy?tab=teams" className="block w-full text-center py-2 rounded-md bg-muted text-muted-foreground text-xs font-semibold border border-border hover:bg-accent transition-all">
+              Manage team
             </Link>
           </div>
         ) : (
@@ -165,191 +176,416 @@ function OverviewTab({ cls, team, onEdit }) {
           </div>
         )}
       </div>
-
-      {/* Class meta */}
-      <div className="bg-card border border-border rounded-lg p-5 space-y-3 md:col-span-2">
-        <div className="flex items-start justify-between gap-4">
-          <div>
-            <h3 className="text-xs uppercase tracking-wider text-subtle-foreground font-semibold mb-2">Class Information</h3>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-sm">
-              <div>
-                <div className="text-xs text-subtle-foreground">Code</div>
-                <div className="font-mono font-bold text-primary">{cls.classCode}</div>
-              </div>
-              <div>
-                <div className="text-xs text-subtle-foreground">Course</div>
-                <div className="text-foreground">{cls.courseName}</div>
-              </div>
-              <div>
-                <div className="text-xs text-subtle-foreground">Status</div>
-                <StatusBadge status={cls.status} size="sm" />
-              </div>
-              <div>
-                <div className="text-xs text-subtle-foreground">Created</div>
-                <div className="text-muted-foreground">{cls.createdAt ? fmtDate(cls.createdAt) : '—'}</div>
-              </div>
-            </div>
-          </div>
-          <Button onClick={onEdit} variant="outline" size="sm" className="gap-1.5">
-            <Pencil className="size-3.5" /> Edit
-          </Button>
-        </div>
-      </div>
     </div>
   );
 }
 
-// ── Tab: Sessions ──────────────────────────────────────────
-
-function SessionsTab({ classId }) {
-  const params = useMemo(() => ({ classId, limit: 200 }), [classId]);
-  const { data: schedData, isLoading } = useSchedules(params);
-  const schedules = schedData?.data || [];
-
-  if (isLoading) {
-    return <div className="flex justify-center py-12"><Spinner size={24} /></div>;
-  }
-
-  if (schedules.length === 0) {
-    return <EmptyState icon={CalendarDays} title="No schedules yet" description="Sessions will appear here once they are booked." />;
-  }
-
-  // Sort by startTime ascending
-  const sorted = [...schedules].sort((a, b) => new Date(a.startTime) - new Date(b.startTime));
-
+function Field({ label, children }) {
   return (
-    <div className="bg-card border border-border rounded-lg overflow-hidden">
-      <div className="overflow-x-auto">
-        <table className="w-full border-collapse min-w-[700px]">
-          <thead>
-            <tr className="border-b border-border bg-muted">
-              <th className="px-4 py-3 text-left text-xs text-muted-foreground font-semibold uppercase tracking-wider w-12">#</th>
-              <th className="px-4 py-3 text-left text-xs text-muted-foreground font-semibold uppercase tracking-wider">Date</th>
-              <th className="px-4 py-3 text-left text-xs text-muted-foreground font-semibold uppercase tracking-wider">Time</th>
-              <th className="px-4 py-3 text-left text-xs text-muted-foreground font-semibold uppercase tracking-wider">Team</th>
-              <th className="px-4 py-3 text-center text-xs text-muted-foreground font-semibold uppercase tracking-wider">Capacity</th>
-              <th className="px-4 py-3 text-left text-xs text-muted-foreground font-semibold uppercase tracking-wider">Room</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-border">
-            {sorted.map((s, i) => (
-              <tr key={s._id} className="hover:bg-accent transition-colors">
-                <td className="px-4 py-3 text-xs text-subtle-foreground font-mono">{s.sessionNumber || i + 1}</td>
-                <td className="px-4 py-3 text-sm text-foreground">{fmtDate(s.startTime)}</td>
-                <td className="px-4 py-3 text-sm text-muted-foreground font-mono">
-                  {fmtTime(s.startTime)}–{fmtTime(s.endTime)}
-                </td>
-                <td className="px-4 py-3 text-sm">
-                  {s.bookedTeamId?.name ? (
-                    <span className="inline-flex items-center gap-1 text-xs font-semibold text-chart-6 bg-chart-6/15 px-2 py-0.5 rounded-full">
-                      👥 {s.bookedTeamId.name}
-                    </span>
-                  ) : (
-                    <span className="text-subtle-foreground text-xs italic">—</span>
-                  )}
-                </td>
-                <td className="px-4 py-3 text-center text-sm text-muted-foreground">
-                  <span className={s.enrolledCount >= s.capacity ? 'text-warning' : ''}>
-                    {s.enrolledCount}/{s.capacity}
-                  </span>
-                </td>
-                <td className="px-4 py-3 text-sm">
-                  {s.roomLink ? (
-                    <a href={s.roomLink} target="_blank" rel="noopener noreferrer"
-                      className="text-primary hover:text-primary underline text-xs truncate block max-w-[200px]"
-                      onClick={(e) => e.stopPropagation()}>
-                      {s.roomLink}
-                    </a>
-                  ) : (
-                    <span className="text-subtle-foreground text-xs">—</span>
-                  )}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+    <div>
+      <div className="text-overline text-subtle-foreground">{label}</div>
+      <div className="text-foreground mt-0.5">{children}</div>
     </div>
   );
 }
 
-// ── Tab: Roster ────────────────────────────────────────────
+// ──────────────────────────────────────────────────────────
+// Tab 2 · Roster — folds EnrollmentPage logic
+//   FilterBar (chips + search) + DataTable + selection bar + drawers
+// ──────────────────────────────────────────────────────────
+const STATUS_CHIPS = ['All', 'Active', 'On-hold', 'Dropped', 'Transferred'];
 
-function RosterTab({ classId }) {
+function RosterTab({ classId, classTeamId, canEdit }) {
   const params = useMemo(() => ({ classId }), [classId]);
   const { data: enrollments = [], isLoading } = useEnrollments(params);
+  const { data: teams = [] } = useTeams();
+
+  const [statusFilter, setStatusFilter] = useState('All');
+  const [search, setSearch]             = useState('');
+  const [selected, setSelected]         = useState(() => new Set()); // Set<enrollmentId>
+  const [drawerMode, setDrawerMode]     = useState(null); // 'transfer' | 'status' | 'drop' | null
+
+  // Filtered rows
+  const filtered = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    return enrollments.filter((e) => {
+      if (statusFilter !== 'All' && e.status !== statusFilter) return false;
+      if (!q) return true;
+      const name = e.userId?.name?.toLowerCase() || '';
+      const code = e.userId?.empCode?.toLowerCase() || '';
+      return name.includes(q) || code.includes(q);
+    });
+  }, [enrollments, statusFilter, search]);
+
+  const selectedRows = useMemo(
+    () => enrollments.filter((e) => selected.has(e._id)),
+    [enrollments, selected],
+  );
+
+  const allVisibleSelected = filtered.length > 0 && filtered.every((e) => selected.has(e._id));
+
+  const toggleRow = (id) => {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
+
+  const toggleAll = () => {
+    setSelected((prev) => {
+      if (allVisibleSelected) {
+        const next = new Set(prev);
+        filtered.forEach((e) => next.delete(e._id));
+        return next;
+      } else {
+        const next = new Set(prev);
+        filtered.forEach((e) => next.add(e._id));
+        return next;
+      }
+    });
+  };
+
+  const clearSelection = () => setSelected(new Set());
 
   if (isLoading) {
     return <div className="flex justify-center py-12"><Spinner size={24} /></div>;
   }
 
   if (enrollments.length === 0) {
-    return <EmptyState icon={Users} title="No roster" description="Enrollment records will appear here once students join." />;
+    return (
+      <EmptyState
+        icon={Users}
+        title="No students yet"
+        description="Add students to this class via the assigned team."
+      />
+    );
   }
 
+  // Per-status counts for chip labels
+  const counts = {};
+  enrollments.forEach((e) => { counts[e.status] = (counts[e.status] || 0) + 1; });
+  counts.All = enrollments.length;
+
   return (
-    <div className="bg-card border border-border rounded-lg overflow-hidden">
-      <div className="overflow-x-auto">
-        <table className="w-full border-collapse min-w-[800px]">
-          <thead>
-            <tr className="border-b border-border bg-muted">
-              <th className="px-4 py-3 text-left text-xs text-muted-foreground font-semibold uppercase tracking-wider">Member</th>
-              <th className="px-4 py-3 text-left text-xs text-muted-foreground font-semibold uppercase tracking-wider">Status</th>
-              <th className="px-4 py-3 text-left text-xs text-muted-foreground font-semibold uppercase tracking-wider">Joined</th>
-              <th className="px-4 py-3 text-center text-xs text-muted-foreground font-semibold uppercase tracking-wider">Attendance</th>
-              <th className="px-4 py-3 text-left text-xs text-muted-foreground font-semibold uppercase tracking-wider">Note</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-border">
-            {enrollments.map((e) => {
-              const att = e.attendance || {};
-              const total = att.total || 0;
-              const rate = total > 0 ? Math.round(((att.P || 0) / total) * 100) : null;
-              return (
-                <tr key={e._id} className="hover:bg-accent transition-colors">
-                  <td className="px-4 py-3">
-                    <div className="text-sm font-semibold text-foreground">{e.userId?.name}</div>
-                    <div className="text-xs text-subtle-foreground font-mono">{e.userId?.empCode}</div>
-                  </td>
-                  <td className="px-4 py-3">
-                    <span className={`inline-block px-2.5 py-0.5 rounded-full text-[11px] font-semibold border ${STATUS_COLORS[e.status] || ''}`}>
-                      {e.status}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3 text-sm text-muted-foreground">{fmtDate(e.joinedAt)}</td>
-                  <td className="px-4 py-3 text-center">
-                    <div className="flex items-center justify-center gap-2">
-                      <span className="text-success text-xs font-semibold" title="Present">P:{att.P || 0}</span>
-                      <span className="text-destructive text-xs font-semibold" title="Absent">A:{att.A || 0}</span>
-                      <span className="text-warning text-xs font-semibold" title="Late">L:{att.L || 0}</span>
-                      <span className="text-info text-xs font-semibold" title="Excused">EL:{att.EL || 0}</span>
-                    </div>
-                    {rate !== null && (
-                      <div className="mt-1">
-                        <div className="h-1 rounded-full bg-muted overflow-hidden w-20 mx-auto">
-                          <div className="h-full rounded-full bg-success transition-all"
-                            style={{ width: `${rate}%` }} />
-                        </div>
-                        <div className="text-[10px] text-subtle-foreground mt-0.5">{rate}% ({att.P || 0}/{total})</div>
-                      </div>
-                    )}
-                  </td>
-                  <td className="px-4 py-3 text-sm">
-                    {e.note ? <span className="text-muted-foreground text-xs italic">{e.note}</span> : <span className="text-subtle-foreground">—</span>}
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
+    <div className="space-y-3">
+      {/* ── FilterBar (chips + search) ─────────────────── */}
+      <div className="flex flex-wrap items-center gap-2 bg-card border border-border rounded-lg px-3 py-2">
+        <span className="text-overline text-subtle-foreground mr-1">Status</span>
+        {STATUS_CHIPS.map((s) => (
+          <button
+            key={s}
+            type="button"
+            onClick={() => setStatusFilter(s)}
+            className={cn(
+              'inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-medium border transition-colors duration-(--dur-fast)',
+              statusFilter === s
+                ? 'bg-primary/10 border-primary/30 text-primary'
+                : 'bg-background border-border text-muted-foreground hover:bg-accent',
+            )}
+          >
+            {s}
+            {counts[s] > 0 && (
+              <span className={cn(
+                'text-[10px] font-mono tabular-nums px-1 rounded',
+                statusFilter === s ? 'bg-primary/20' : 'bg-muted',
+              )}>
+                {counts[s]}
+              </span>
+            )}
+          </button>
+        ))}
+
+        <div className="relative ml-auto min-w-[180px] max-w-xs flex-1">
+          <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 size-3.5 text-subtle-foreground" />
+          <input
+            type="search"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search by name or code…"
+            className="w-full h-(--control-h) pl-8 pr-3 rounded-md border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring transition-colors"
+          />
+        </div>
       </div>
+
+      {/* ── Selection bar (sticky) ─────────────────────── */}
+      {canEdit && selected.size > 0 && (
+        <div className="sticky top-3 z-20 flex flex-wrap items-center gap-2 rounded-md border border-primary/30 bg-primary/10 px-3 py-2 text-xs text-primary">
+          <span className="font-semibold">{selected.size} selected</span>
+          <span className="text-subtle-foreground">·</span>
+          <Button size="sm" variant="outline" className="h-7 text-[11px]" onClick={() => setDrawerMode('transfer')}>
+            Transfer to team…
+          </Button>
+          <Button size="sm" variant="outline" className="h-7 text-[11px]" onClick={() => setDrawerMode('status')}>
+            Change status…
+          </Button>
+          <Button size="sm" variant="destructive" className="h-7 text-[11px]" onClick={() => setDrawerMode('drop')}>
+            Drop
+          </Button>
+          <span className="flex-1" />
+          <Button size="sm" variant="ghost" className="h-7 text-[11px]" onClick={clearSelection}>
+            <XIcon className="size-3 mr-1" /> Clear
+          </Button>
+        </div>
+      )}
+
+      {/* ── Table ──────────────────────────────────────── */}
+      <div className="bg-card border border-border rounded-lg overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full border-collapse min-w-[800px]">
+            <thead>
+              <tr className="border-b border-border bg-muted">
+                {canEdit && (
+                  <th className="px-3 py-2 w-9 text-center">
+                    <input
+                      type="checkbox"
+                      checked={allVisibleSelected}
+                      onChange={toggleAll}
+                      aria-label="Select all visible rows"
+                      className="size-3.5 accent-primary cursor-pointer"
+                    />
+                  </th>
+                )}
+                <th className="px-3 py-2 text-left text-overline text-muted-foreground">Code</th>
+                <th className="px-3 py-2 text-left text-overline text-muted-foreground">Name · Dept</th>
+                <th className="px-3 py-2 text-left text-overline text-muted-foreground">Team</th>
+                <th className="px-3 py-2 text-right text-overline text-muted-foreground">Att %</th>
+                <th className="px-3 py-2 text-right text-overline text-muted-foreground">Sessions</th>
+                <th className="px-3 py-2 text-left text-overline text-muted-foreground">Status</th>
+                <th className="px-3 py-2 text-center text-overline text-muted-foreground w-10"></th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-border">
+              {filtered.length === 0 ? (
+                <tr><td colSpan={canEdit ? 8 : 7} className="px-3 py-8 text-center text-muted-foreground text-sm">
+                  No students match the current filter.
+                </td></tr>
+              ) : filtered.map((e) => {
+                const att = e.attendance || {};
+                const total = att.total || 0;
+                const rate = total > 0 ? Math.round(((att.P || 0) / total) * 100) : null;
+                const isSel = selected.has(e._id);
+                const rateColor =
+                  rate == null ? 'text-subtle-foreground' :
+                  rate >= 80   ? 'text-success' :
+                  rate >= 60   ? 'text-warning' : 'text-destructive';
+
+                return (
+                  <tr key={e._id} className={cn(
+                    'hover:bg-accent transition-colors',
+                    isSel && 'bg-primary/[0.04]',
+                  )}>
+                    {canEdit && (
+                      <td className="px-3 py-2 text-center">
+                        <input
+                          type="checkbox"
+                          checked={isSel}
+                          onChange={() => toggleRow(e._id)}
+                          aria-label={`Select ${e.userId?.name}`}
+                          className="size-3.5 accent-primary cursor-pointer"
+                        />
+                      </td>
+                    )}
+                    <td className="px-3 py-2 text-mono text-primary text-xs">{e.userId?.empCode}</td>
+                    <td className="px-3 py-2">
+                      <div className="text-sm font-semibold text-foreground">{e.userId?.name}</div>
+                      <div className="text-[11px] text-subtle-foreground">{e.userId?.department || '—'}</div>
+                    </td>
+                    <td className="px-3 py-2 text-sm text-muted-foreground">{e.teamId?.name || '—'}</td>
+                    <td className={cn('px-3 py-2 text-right text-xs font-mono font-semibold tabular-nums', rateColor)}>
+                      {rate != null ? `${rate}%` : '—'}
+                    </td>
+                    <td className="px-3 py-2 text-right text-xs text-muted-foreground tabular-nums">
+                      {(att.P || 0)}/{total || 0}
+                    </td>
+                    <td className="px-3 py-2"><StatusBadge status={e.status} size="sm" /></td>
+                    <td className="px-3 py-2 text-center">
+                      {canEdit && (
+                        <button
+                          type="button"
+                          onClick={() => { setSelected(new Set([e._id])); setDrawerMode('status'); }}
+                          aria-label="Row actions"
+                          className="p-1 rounded text-subtle-foreground hover:text-foreground hover:bg-muted transition-colors"
+                        >
+                          <MoreHorizontal className="size-3.5" />
+                        </button>
+                      )}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* ── Drawer ─────────────────────────────────────── */}
+      <EnrollmentDrawer
+        isOpen={!!drawerMode}
+        mode={drawerMode || 'status'}
+        selected={selectedRows}
+        teams={teams}
+        excludeTeamId={classTeamId}
+        onClose={() => setDrawerMode(null)}
+        onDone={() => { setDrawerMode(null); clearSelection(); }}
+      />
     </div>
   );
 }
 
-// ── Tab: Analytics ─────────────────────────────────────────
+// ──────────────────────────────────────────────────────────
+// Tab 3 · Schedules — table + Past/Upcoming/All toggle + +New session
+// ──────────────────────────────────────────────────────────
+function SchedulesTab({ classId, classes, canEdit }) {
+  const navigate = useNavigate();
+  const params = useMemo(() => ({ classId, limit: 200 }), [classId]);
+  const { data: schedData, isLoading } = useSchedules(params);
+  const { data: teams = [] } = useTeams();
+  const schedules = schedData?.data || [];
 
-function AnalyticsTab({ classId }) {
+  const [filter, setFilter] = useState('upcoming'); // 'past' | 'upcoming' | 'all'
+  const [drawerOpen, setDrawerOpen] = useState(false);
+
+  const filtered = useMemo(() => {
+    const now = Date.now(); // captured at memo time — recomputes on schedules/filter change
+    const sorted = [...schedules].sort((a, b) => new Date(a.startTime) - new Date(b.startTime));
+    if (filter === 'past')     return sorted.filter((s) => new Date(s.endTime).getTime() < now);
+    if (filter === 'upcoming') return sorted.filter((s) => new Date(s.endTime).getTime() >= now);
+    return sorted;
+  }, [schedules, filter]);
+
+  const handleRowClick = (s) => {
+    // Navigate to /calendar with the week of the session preselected
+    const d = new Date(s.startTime);
+    const monday = new Date(d);
+    monday.setDate(d.getDate() - ((d.getDay() + 6) % 7));
+    monday.setHours(0, 0, 0, 0);
+    const week = monday.toISOString().slice(0, 10);
+    navigate(`/operations?tab=attendance&week=${week}`);
+  };
+
+  return (
+    <div className="space-y-3">
+      {/* ── Toolbar ────────────────────────────────────── */}
+      <div className="flex flex-wrap items-center gap-2 bg-card border border-border rounded-lg px-3 py-2">
+        <div className="inline-flex rounded-md overflow-hidden border border-border">
+          {[
+            { id: 'past',     label: 'Past' },
+            { id: 'upcoming', label: 'Upcoming' },
+            { id: 'all',      label: 'All' },
+          ].map((opt) => (
+            <button
+              key={opt.id}
+              type="button"
+              onClick={() => setFilter(opt.id)}
+              className={cn(
+                'px-3 py-1 text-xs transition-colors duration-(--dur-fast)',
+                filter === opt.id
+                  ? 'bg-primary/10 text-primary font-semibold'
+                  : 'text-muted-foreground hover:bg-accent',
+              )}
+            >
+              {opt.label}
+            </button>
+          ))}
+        </div>
+        <span className="text-xs text-muted-foreground">{filtered.length} session{filtered.length !== 1 ? 's' : ''}</span>
+        <span className="flex-1" />
+        {canEdit && (
+          <Button size="sm" className="h-8 text-xs" onClick={() => setDrawerOpen(true)}>
+            + New session
+          </Button>
+        )}
+      </div>
+
+      {/* ── Table ──────────────────────────────────────── */}
+      {isLoading ? (
+        <div className="flex justify-center py-12"><Spinner size={24} /></div>
+      ) : filtered.length === 0 ? (
+        <EmptyState
+          icon={CalendarDays}
+          title="No sessions"
+          description={filter === 'past' ? 'No past sessions yet.' : filter === 'upcoming' ? 'No upcoming sessions.' : 'No sessions scheduled for this class.'}
+        />
+      ) : (
+        <div className="bg-card border border-border rounded-lg overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full border-collapse min-w-[700px]">
+              <thead>
+                <tr className="border-b border-border bg-muted">
+                  <th className="px-3 py-2 text-left text-overline text-muted-foreground w-12">#</th>
+                  <th className="px-3 py-2 text-left text-overline text-muted-foreground">Date</th>
+                  <th className="px-3 py-2 text-left text-overline text-muted-foreground">Time</th>
+                  <th className="px-3 py-2 text-left text-overline text-muted-foreground">Team</th>
+                  <th className="px-3 py-2 text-center text-overline text-muted-foreground">Capacity</th>
+                  <th className="px-3 py-2 text-left text-overline text-muted-foreground">Room</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border">
+                {filtered.map((s, i) => (
+                  <tr
+                    key={s._id}
+                    onClick={() => handleRowClick(s)}
+                    className="hover:bg-accent transition-colors cursor-pointer"
+                    title="Open in calendar"
+                  >
+                    <td className="px-3 py-2 text-xs text-subtle-foreground font-mono">{i + 1}</td>
+                    <td className="px-3 py-2 text-sm text-foreground">{fmtDate(s.startTime)}</td>
+                    <td className="px-3 py-2 text-xs text-muted-foreground font-mono">
+                      {fmtTime(s.startTime)}–{fmtTime(s.endTime)}
+                    </td>
+                    <td className="px-3 py-2 text-sm">
+                      {s.bookedTeamId?.name ? (
+                        <span className="inline-flex items-center text-[11px] font-semibold text-chart-3 bg-chart-3/15 px-2 py-0.5 rounded">
+                          {s.bookedTeamId.name}
+                        </span>
+                      ) : <span className="text-subtle-foreground text-xs">—</span>}
+                    </td>
+                    <td className="px-3 py-2 text-center text-sm text-muted-foreground tabular-nums">
+                      <span className={s.enrolledCount >= s.capacity ? 'text-warning' : ''}>
+                        {s.enrolledCount}/{s.capacity}
+                      </span>
+                    </td>
+                    <td className="px-3 py-2 text-sm">
+                      {s.roomLink ? (
+                        <a href={s.roomLink} target="_blank" rel="noopener noreferrer"
+                          onClick={(e) => e.stopPropagation()}
+                          className="text-primary hover:underline text-xs truncate block max-w-[200px]">
+                          {s.roomLink}
+                        </a>
+                      ) : <span className="text-subtle-foreground text-xs">—</span>}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* ── ScheduleDrawer (reuse from Screen 2) ───────── */}
+      <ScheduleDrawer
+        isOpen={drawerOpen}
+        mode="create"
+        schedule={null}
+        prefill={null}
+        classes={classes}
+        teams={teams}
+        allSchedules={schedules}
+        isReadOnly={!canEdit}
+        onClose={() => setDrawerOpen(false)}
+        onSaved={() => setDrawerOpen(false)}
+        onDeleted={() => setDrawerOpen(false)}
+      />
+    </div>
+  );
+}
+
+// ──────────────────────────────────────────────────────────
+// Tab 4 · Attendance — class-level KPIs + per-student rate
+// (sorted by rate ASC — worst first, actionable signal)
+// ──────────────────────────────────────────────────────────
+function AttendanceTab({ classId }) {
   const params = useMemo(() => ({ classId }), [classId]);
   const { data, isLoading } = useAttendanceAnalyticsByClass(params);
 
@@ -358,77 +594,158 @@ function AnalyticsTab({ classId }) {
   }
 
   if (!data?.schedules || data.schedules.length === 0 || data.roster?.length === 0) {
-    return <EmptyState icon={BarChart3} title="No attendance data" description="Attendance records will appear here once sessions are marked." />;
+    return (
+      <EmptyState
+        icon={BarChart3}
+        title="No attendance recorded yet"
+        description="Mark attendance from Calendar to see analytics here."
+        action={<Button asChild variant="outline" size="sm"><Link to="/operations?tab=attendance">Open calendar</Link></Button>}
+      />
+    );
   }
 
+  // ── Aggregate class-level totals ──
+  let P = 0, A = 0, L = 0, EL = 0;
+  data.roster.forEach((row) => {
+    Object.values(row.sessions || {}).forEach((s) => {
+      if (s === 'P') P++;
+      else if (s === 'A') A++;
+      else if (s === 'L') L++;
+      else if (s === 'EL') EL++;
+    });
+  });
+  const totalMarked   = P + A + L + EL;
+  const totalScheduled = data.schedules.length * data.roster.length;
+  const ratePct = totalMarked > 0 ? Math.round((P / totalMarked) * 100) : 0;
+
+  const pPct  = totalMarked > 0 ? (P  / totalMarked) * 100 : 0;
+  const aPct  = totalMarked > 0 ? (A  / totalMarked) * 100 : 0;
+  const lPct  = totalMarked > 0 ? (L  / totalMarked) * 100 : 0;
+  const elPct = totalMarked > 0 ? (EL / totalMarked) * 100 : 0;
+
+  // ── Per-student rate (sorted ASC — worst first) ──
+  const studentRows = data.roster.map((row) => {
+    let p = 0, a = 0, l = 0, el = 0, total = 0;
+    Object.values(row.sessions || {}).forEach((s) => {
+      if (s === 'P') p++;
+      else if (s === 'A') a++;
+      else if (s === 'L') l++;
+      else if (s === 'EL') el++;
+      total++;
+    });
+    const rate = total > 0 ? (p / total) * 100 : 0;
+    return { user: row.user, p, a, l, el, total, rate };
+  }).sort((x, y) => x.rate - y.rate);
+
   return (
-    <div className="bg-card border border-border rounded-lg overflow-hidden">
-      <div className="overflow-x-auto">
-        <table className="w-full text-left border-collapse">
-          <thead>
-            <tr className="bg-muted border-b border-border text-muted-foreground text-sm">
-              <th className="p-4 font-semibold sticky left-0 bg-card border-r border-border z-10 w-48">Student</th>
-              <th className="p-4 font-semibold w-24">Rate</th>
-              {data.schedules.map((s, i) => (
-                <th key={s._id} className="p-4 font-semibold min-w-[80px] text-center border-l border-border">
-                  <div className="text-xs text-muted-foreground">S{i + 1}</div>
-                  <div className="text-xs">{new Date(s.startTime).toLocaleDateString('en', { month: 'numeric', day: 'numeric' })}</div>
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-border text-muted-foreground">
-            {data.roster.map((row, idx) => (
-              <tr key={idx} className="hover:bg-accent transition-colors">
-                <td className="p-4 sticky left-0 bg-card border-r border-border z-10">
-                  <div className="font-semibold text-foreground whitespace-nowrap">{row.user.name}</div>
-                  <div className="text-xs text-subtle-foreground">{row.user.empCode}</div>
-                </td>
-                <td className="p-4 font-bold text-primary">{row.attendanceRate}%</td>
-                {data.schedules.map((s) => {
-                  const status = row.sessions[s._id];
-                  let colors = 'text-subtle-foreground';
-                  if (status === 'P') colors = 'text-success bg-success/10';
-                  if (status === 'A') colors = 'text-destructive bg-destructive/10';
-                  if (status === 'L') colors = 'text-warning bg-warning/10';
-                  if (status === 'EL') colors = 'text-info bg-info/10';
-                  return (
-                    <td key={s._id} className="p-2 border-l border-border text-center">
-                      {status ? (
-                        <span className={`inline-flex items-center justify-center w-8 h-8 rounded-md font-bold text-sm ${colors}`}>{status}</span>
-                      ) : (
-                        <span className="text-subtle-foreground">-</span>
-                      )}
-                    </td>
-                  );
-                })}
+    <div className="space-y-4">
+      {/* ── Class-level KPI strip ──────────────────────── */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+        <div className="bg-card border border-border rounded-lg p-4 space-y-2">
+          <div className="flex items-baseline justify-between">
+            <span className="text-overline text-muted-foreground">Marked / Scheduled</span>
+            <span className="text-xs text-subtle-foreground tabular-nums">
+              {totalMarked} / {totalScheduled}
+            </span>
+          </div>
+          <span className="text-h1 text-foreground tabular-nums leading-none">
+            {ratePct}<span className="text-muted-foreground text-base font-normal">%</span>
+          </span>
+          <div className="text-small text-muted-foreground">Overall present rate</div>
+        </div>
+
+        <div className="bg-card border border-border rounded-lg p-4 space-y-2">
+          <span className="text-overline text-muted-foreground">Status breakdown</span>
+          <div className="h-2 rounded-full bg-muted overflow-hidden flex">
+            <div style={{ width: `${pPct}%`,  background: 'var(--color-chart-1)' }} title={`Present ${P}`} />
+            <div style={{ width: `${lPct}%`,  background: 'var(--color-chart-2)' }} title={`Late ${L}`} />
+            <div style={{ width: `${elPct}%`, background: 'var(--color-chart-3)' }} title={`Excused ${EL}`} />
+            <div style={{ width: `${aPct}%`,  background: 'var(--color-chart-4)' }} title={`Absent ${A}`} />
+          </div>
+          <div className="flex flex-wrap gap-3 text-[11px] text-muted-foreground tabular-nums">
+            <span className="flex items-center gap-1"><span className="size-2 rounded-sm bg-chart-1" /> P {P}</span>
+            <span className="flex items-center gap-1"><span className="size-2 rounded-sm bg-chart-2" /> L {L}</span>
+            <span className="flex items-center gap-1"><span className="size-2 rounded-sm bg-chart-3" /> EL {EL}</span>
+            <span className="flex items-center gap-1"><span className="size-2 rounded-sm bg-chart-4" /> A {A}</span>
+          </div>
+        </div>
+      </div>
+
+      {/* ── Per-student table (sorted by rate ASC) ────── */}
+      <div className="bg-card border border-border rounded-lg overflow-hidden">
+        <div className="px-3 py-2 border-b border-border flex items-center gap-2">
+          <h3 className="text-sm font-semibold text-foreground">Per-student attendance</h3>
+          <span className="text-overline text-subtle-foreground">sorted by rate · lowest first</span>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full border-collapse min-w-[600px]">
+            <thead>
+              <tr className="bg-muted border-b border-border">
+                <th className="px-3 py-2 text-left text-overline text-muted-foreground">Student</th>
+                <th className="px-3 py-2 text-right text-overline text-muted-foreground">P</th>
+                <th className="px-3 py-2 text-right text-overline text-muted-foreground">A</th>
+                <th className="px-3 py-2 text-right text-overline text-muted-foreground">L</th>
+                <th className="px-3 py-2 text-right text-overline text-muted-foreground">EL</th>
+                <th className="px-3 py-2 text-right text-overline text-muted-foreground">Rate</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody className="divide-y divide-border">
+              {studentRows.map((r) => {
+                const rateColor = r.rate >= 80 ? 'text-success' : r.rate >= 60 ? 'text-warning' : 'text-destructive';
+                return (
+                  <tr key={r.user._id || r.user.empCode} className="hover:bg-accent transition-colors">
+                    <td className="px-3 py-2">
+                      <div className="text-sm font-medium text-foreground">{r.user.name}</div>
+                      <div className="text-[11px] text-subtle-foreground font-mono">{r.user.empCode}</div>
+                    </td>
+                    <td className="px-3 py-2 text-right text-xs text-success tabular-nums">{r.p}</td>
+                    <td className="px-3 py-2 text-right text-xs text-destructive tabular-nums">{r.a}</td>
+                    <td className="px-3 py-2 text-right text-xs text-warning tabular-nums">{r.l}</td>
+                    <td className="px-3 py-2 text-right text-xs text-info tabular-nums">{r.el}</td>
+                    <td className={cn('px-3 py-2 text-right text-sm font-mono font-semibold tabular-nums', rateColor)}>
+                      {r.rate.toFixed(0)}%
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
   );
 }
 
-// ── Main Page ──────────────────────────────────────────────
-
+// ──────────────────────────────────────────────────────────
+// Main Page
+// ──────────────────────────────────────────────────────────
 export default function ClassDetailPage() {
   const { id } = useParams();
-  const navigate = useNavigate();
-  const [activeTab, setActiveTab] = useState('overview');
+  const [searchParams, setSearchParams] = useSearchParams();
   const [editOpen, setEditOpen] = useState(false);
+  const { can } = useRole();
+  const canEdit = can('update:class');
+
+  const tabFromUrl = searchParams.get('tab');
+  const activeTab = TABS.find((t) => t.id === tabFromUrl)?.id || 'overview';
+
+  const setTab = (id) => {
+    const next = new URLSearchParams(searchParams);
+    next.set('tab', id);
+    setSearchParams(next, { replace: true });
+  };
 
   const { data: cls, isLoading: loadingClass, error: classError } = useClass(id);
-  const { data: teams = [] } = useTeams();
+  const { data: teams    = [] } = useTeams();
+  const { data: classes  = [] } = useClasses();
 
   const team = useMemo(() => {
     if (!cls) return null;
-    return teams.find(t => (t.classId?._id || t.classId) === cls._id || t.classId?.classCode === cls.classCode) || null;
+    return teams.find((t) => (t.classId?._id || t.classId) === cls._id) || null;
   }, [teams, cls]);
 
   useEffect(() => {
-    document.title = cls ? `TMS — ${cls.classCode} ${cls.courseName}` : 'TMS — Class';
+    document.title = cls ? `TMS — ${cls.classCode}` : 'TMS — Class';
   }, [cls]);
 
   if (loadingClass) {
@@ -445,93 +762,146 @@ export default function ClassDetailPage() {
     );
   }
 
-  const pct = cls.totalSessions > 0 ? Math.round((cls.bookedSessions / cls.totalSessions) * 100) : 0;
-  const noSessions = cls.bookedSessions === 0;
-  const isComplete = cls.status === 'Completed';
+  // ── KPI metrics ──
+  const enrolledCount = team?.members?.length || 0;
+  const capacity = cls.capacity || cls.totalCapacity || 9;
+  const sessionsPct = cls.totalSessions > 0 ? Math.round((cls.bookedSessions / cls.totalSessions) * 100) : 0;
+  const enrolledPct = capacity > 0 ? Math.round((enrolledCount / capacity) * 100) : 0;
+  const attendanceRate = cls.attendanceRate; // may be undefined; we render '—' if so
 
   return (
-    <div className="space-y-5 ">
-      {/* ── Breadcrumb / Back ──────────────────────────── */}
+    <div className="space-y-5">
+      {/* ── Breadcrumb ─────────────────────────────────── */}
       <Breadcrumbs
         items={[
-          { label: 'Home', to: '/home' },
           { label: 'Programs', to: '/programs?tab=classes' },
-          { label: 'Classes', to: '/programs?tab=classes' },
+          { label: 'Classes',  to: '/programs?tab=classes' },
           { label: cls.classCode },
         ]}
       />
-      <Link to="/programs?tab=classes" className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-primary transition-colors">
-        <ArrowLeft className="size-3.5" /> Back to Classes
-      </Link>
 
-      {/* ── Header ─────────────────────────────────────── */}
-      <div className="bg-card border border-border rounded-lg p-5 flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div className="flex items-center gap-4">
-          <div className="w-14 h-14 rounded-md bg-primary/15 flex items-center justify-center shrink-0">
-            <BookOpen className="size-7 text-primary" />
-          </div>
-          <div>
-            <h1 className="text-h1 text-foreground">
-              <span className="font-mono text-primary">{cls.classCode}</span>
-              <span className="text-subtle-foreground mx-2">·</span>
-              {cls.courseName}
-            </h1>
-            <div className="flex flex-wrap items-center gap-2 mt-1.5">
-              {noSessions ? (
-                <StatusBadge tone="warning" icon={AlertTriangle}>No team</StatusBadge>
-              ) : (
-                <StatusBadge status={cls.status} size="sm" />
-              )}
-              {team && (
-                <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-muted-foreground bg-muted px-2 py-0.5 rounded-full border border-border">
-                  <Users2 className="size-3" />{team.name}
-                </span>
-              )}
-              <span className="text-xs text-subtle-foreground">
-                {cls.bookedSessions}/{cls.totalSessions} sessions ({pct}%)
+      {/* ── PageHeader (title + status + edit action) ──── */}
+      <PageHeader
+        title={
+          <span className="flex flex-wrap items-center gap-3">
+            <span className="font-mono text-primary text-h1">{cls.classCode}</span>
+            <span className="text-subtle-foreground">·</span>
+            <span className="text-foreground">{cls.courseName}</span>
+            <StatusBadge status={cls.status} size="sm" />
+          </span>
+        }
+        description={
+          <span className="flex flex-wrap items-center gap-2 text-muted-foreground text-sm">
+            {team && (
+              <span className="inline-flex items-center gap-1">
+                <Users2 className="size-3.5" /> {team.name}
               </span>
-            </div>
+            )}
+            <span className="text-subtle-foreground">·</span>
+            <span>{cls.bookedSessions}/{cls.totalSessions} sessions</span>
+          </span>
+        }
+        actions={canEdit ? (
+          <Button variant="outline" size="sm" onClick={() => setEditOpen(true)} className="gap-1.5">
+            <Pencil className="size-3.5" /> Edit
+          </Button>
+        ) : null}
+      />
+
+      {/* ── KPI strip ──────────────────────────────────── */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        <button
+          type="button"
+          onClick={() => setTab('roster')}
+          className="text-left bg-card border border-border rounded-lg p-4 hover:border-border-strong transition-colors duration-(--dur)"
+        >
+          <div className="flex items-center justify-between mb-1">
+            <span className="text-overline text-muted-foreground">Enrolled</span>
+            <Users className="size-4 text-success" />
           </div>
-        </div>
-        <Button variant="outline" onClick={() => setEditOpen(true)} className="gap-1.5">
-          <Pencil className="size-3.5" /> Edit
-        </Button>
+          <div className="flex items-baseline gap-1">
+            <span className="text-h1 text-foreground tabular-nums leading-none">{enrolledCount}</span>
+            <span className="text-sm text-muted-foreground">/ {capacity}</span>
+          </div>
+          <div className="mt-2 h-1.5 rounded-full bg-muted overflow-hidden">
+            <div className="h-full rounded-full bg-success" style={{ width: `${Math.min(enrolledPct, 100)}%` }} />
+          </div>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setTab('attendance')}
+          className="text-left bg-card border border-border rounded-lg p-4 hover:border-border-strong transition-colors duration-(--dur)"
+        >
+          <div className="flex items-center justify-between mb-1">
+            <span className="text-overline text-muted-foreground">Attendance</span>
+            <BarChart3 className="size-4 text-info" />
+          </div>
+          <div className="flex items-baseline gap-1">
+            <span className="text-h1 text-foreground tabular-nums leading-none">
+              {attendanceRate != null ? (attendanceRate * 100).toFixed(1) : '—'}
+            </span>
+            {attendanceRate != null && <span className="text-sm text-muted-foreground">%</span>}
+          </div>
+          <div className="mt-2 text-small text-subtle-foreground">Class avg present</div>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setTab('schedules')}
+          className="text-left bg-card border border-border rounded-lg p-4 hover:border-border-strong transition-colors duration-(--dur)"
+        >
+          <div className="flex items-center justify-between mb-1">
+            <span className="text-overline text-muted-foreground">Sessions</span>
+            <CalendarDays className="size-4 text-primary" />
+          </div>
+          <div className="flex items-baseline gap-1">
+            <span className="text-h1 text-foreground tabular-nums leading-none">{cls.bookedSessions}</span>
+            <span className="text-sm text-muted-foreground">/ {cls.totalSessions}</span>
+          </div>
+          <div className="mt-2 h-1.5 rounded-full bg-muted overflow-hidden">
+            <div className={cn('h-full rounded-full', sessionsPct >= 100 ? 'bg-primary' : sessionsPct >= 80 ? 'bg-warning' : 'bg-success')}
+              style={{ width: `${Math.min(sessionsPct, 100)}%` }} />
+          </div>
+        </button>
       </div>
 
-      {/* ── Subtab bar ─────────────────────────────────── */}
-      <div className="flex items-center gap-1 p-1 bg-muted/20 rounded-md w-fit border border-border">
-        {TABS.map((tab) => {
-          const Icon = tab.icon;
-          return (
-            <button key={tab.id} onClick={() => setActiveTab(tab.id)}
-              className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-all ${
-                activeTab === tab.id
-                  ? 'bg-primary/20 text-primary shadow-sm'
-                  : 'text-muted-foreground hover:text-foreground hover:bg-accent'
-              }`}>
-              <Icon className="size-4" strokeWidth={2} />
-              {tab.label}
-            </button>
-          );
-        })}
+      {/* ── Tabs ───────────────────────────────────────── */}
+      <div className="sticky top-0 z-10 -mx-1 px-1 bg-background/95 backdrop-blur-sm">
+        <div className="flex items-center gap-1 border-b border-border">
+          {TABS.map((tab) => {
+            const Icon = tab.icon;
+            const active = activeTab === tab.id;
+            return (
+              <button
+                key={tab.id}
+                type="button"
+                onClick={() => setTab(tab.id)}
+                className={cn(
+                  'flex items-center gap-1.5 px-3 py-2 text-sm font-medium border-b-2 -mb-px transition-colors duration-(--dur-fast)',
+                  active
+                    ? 'border-primary text-primary'
+                    : 'border-transparent text-muted-foreground hover:text-foreground hover:bg-accent/40',
+                )}
+              >
+                <Icon className="size-3.5" strokeWidth={2} />
+                {tab.label}
+              </button>
+            );
+          })}
+        </div>
       </div>
 
       {/* ── Tab content ────────────────────────────────── */}
       <div>
-        {activeTab === 'overview' && <OverviewTab cls={cls} team={team} onEdit={() => setEditOpen(true)} />}
-        {activeTab === 'sessions' && <SessionsTab classId={cls._id} />}
-        {activeTab === 'roster' && <RosterTab classId={cls._id} />}
-        {activeTab === 'analytics' && <AnalyticsTab classId={cls._id} />}
+        {activeTab === 'overview'   && <OverviewTab cls={cls} team={team} />}
+        {activeTab === 'roster'     && <RosterTab classId={cls._id} classTeamId={team?._id} canEdit={canEdit} />}
+        {activeTab === 'schedules'  && <SchedulesTab classId={cls._id} classes={classes} canEdit={canEdit} />}
+        {activeTab === 'attendance' && <AttendanceTab classId={cls._id} />}
       </div>
 
       {/* ── Edit Modal ─────────────────────────────────── */}
-      {editOpen && (
-        <EditClassModal
-          cls={cls}
-          onClose={() => setEditOpen(false)}
-          onDeleted={() => setEditOpen(false)}
-        />
-      )}
+      {editOpen && <EditClassModal cls={cls} onClose={() => setEditOpen(false)} />}
     </div>
   );
 }
