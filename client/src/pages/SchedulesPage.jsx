@@ -74,7 +74,9 @@ export default function SchedulesPage() {
     const handler = (e) => { if (e.key === 'Escape') closeDrawer(); };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
-  });
+  // closeDrawer only calls stable state setters — [] is safe
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const schedParams = useMemo(() => ({ limit: 2000 }), []);
   const { data: schedData, isLoading } = useSchedules(schedParams);
@@ -232,7 +234,7 @@ export default function SchedulesPage() {
                           <div className="text-xs font-bold text-primary truncate">{s.classId?.classCode}</div>
                           <div className="text-[10px] text-muted-foreground truncate">{s.classId?.courseName}</div>
                           <div className="mt-1">
-                            <span className="inline-flex items-center text-[9px] font-semibold text-chart-6 bg-chart-6/15 px-1.5 py-0.5 rounded truncate max-w-full">
+                            <span className="inline-flex items-center text-[9px] font-semibold text-chart-3 bg-chart-3/15 px-1.5 py-0.5 rounded truncate max-w-full">
                               {s.bookedTeamId?.name || '—'}
                             </span>
                           </div>
