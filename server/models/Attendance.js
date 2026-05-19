@@ -6,8 +6,8 @@ const mongoose = require('mongoose');
 // Status values:
 //   P  = Present
 //   A  = Absent
-//   L  = Late
-//   EL = Excused Leave
+//   L  = Late        (stored; v1.0 UI exposes P/A only — L backlogged)
+//   EL = Excused Leave  (stored; v1.0 UI exposes P/A only — EL backlogged)
 //
 // Compound unique index on { scheduleId, userId } prevents
 // duplicate attendance records for the same user in the
