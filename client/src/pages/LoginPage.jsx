@@ -62,30 +62,30 @@ export default function LoginPage() {
   };
 
   const inputCls =
-    'w-full px-4 py-3 rounded-xl bg-surface-lighter/60 border border-white/10 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-primary-500/50 focus:border-primary-500/50 transition-all';
+    'w-full px-4 py-3 rounded-xl bg-muted/60 border border-white/10 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary/50 transition-all';
   const errCls = 'mt-1 text-xs text-red-400';
 
   return (
     <div className="min-h-screen flex items-center justify-center px-4">
-      <div className="w-full max-w-md animate-fade-in">
+      <div className="w-full max-w-md ">
         {/* Logo */}
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br from-primary-500 to-purple-600 text-white text-2xl font-bold mb-4 shadow-lg shadow-primary-500/25">
+          <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br from-primary to-purple-600 text-white text-2xl font-bold mb-4 shadow-lg shadow-primary/25">
             T
           </div>
-          <h1 className="text-3xl font-bold text-white tracking-tight">
-            TMS <span className="text-primary-400">v2</span>
+          <h1 className="text-h1 text-foreground tracking-tight">
+            TMS <span className="text-primary">v2</span>
           </h1>
           <p className="text-slate-400 mt-1">Training Management System</p>
         </div>
 
         {/* ── Credentials step ─────────────────────────────── */}
         {step === 'credentials' ? (
-          <form onSubmit={handleCredSubmit} className="glass rounded-2xl p-8 glow-primary" noValidate>
+          <form onSubmit={handleCredSubmit} className="bg-card border border-border rounded-2xl p-8 " noValidate>
             <h2 className="text-xl font-semibold text-white mb-6">Sign In</h2>
 
             {credForm.formState.errors.root && (
-              <div role="alert" className="mb-4 px-4 py-3 rounded-xl bg-accent-red/10 border border-accent-red/20 text-accent-red text-sm animate-fade-in">
+              <div role="alert" className="mb-4 px-4 py-3 rounded-xl bg-destructive/10 border border-destructive/20 text-destructive text-sm ">
                 {credForm.formState.errors.root.message}
               </div>
             )}
@@ -134,7 +134,7 @@ export default function LoginPage() {
             </div>
 
             <div className="flex justify-end mb-1">
-              <Link to="/forgot-password" className="text-xs text-primary-400 hover:text-primary-300 transition-colors">
+              <Link to="/forgot-password" className="text-xs text-primary hover:text-primary transition-colors">
                 Forgot password?
               </Link>
             </div>
@@ -142,7 +142,7 @@ export default function LoginPage() {
             <button
               type="submit"
               disabled={credForm.formState.isSubmitting}
-              className="w-full mt-6 px-4 py-3 rounded-xl bg-gradient-to-r from-primary-600 to-primary-500 text-white font-semibold hover:from-primary-500 hover:to-primary-400 focus:outline-none focus:ring-2 focus:ring-primary-500/50 transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-primary-500/20"
+              className="w-full mt-6 px-4 py-3 rounded-xl bg-gradient-to-r from-primary to-primary text-white font-semibold hover:from-primary hover:to-primary focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-primary/20"
             >
               {credForm.formState.isSubmitting ? (
                 <span className="flex items-center justify-center gap-2">
@@ -180,14 +180,14 @@ export default function LoginPage() {
           </form>
         ) : (
           /* ── MFA step ────────────────────────────────────── */
-          <form onSubmit={handleMfaSubmit} className="glass rounded-2xl p-8 glow-primary" noValidate>
+          <form onSubmit={handleMfaSubmit} className="bg-card border border-border rounded-2xl p-8 " noValidate>
             <h2 className="text-xl font-semibold text-white mb-2">Two-Factor Authentication</h2>
             <p className="text-sm text-slate-400 mb-6">
               Enter the 6-digit code from your authenticator app, or a backup code (XXXXX-XXXXX).
             </p>
 
             {mfaForm.formState.errors.root && (
-              <div role="alert" className="mb-4 px-4 py-3 rounded-xl bg-accent-red/10 border border-accent-red/20 text-accent-red text-sm animate-fade-in">
+              <div role="alert" className="mb-4 px-4 py-3 rounded-xl bg-destructive/10 border border-destructive/20 text-destructive text-sm ">
                 {mfaForm.formState.errors.root.message}
               </div>
             )}
@@ -218,7 +218,7 @@ export default function LoginPage() {
             <button
               type="submit"
               disabled={mfaForm.formState.isSubmitting}
-              className="w-full mt-6 px-4 py-3 rounded-xl bg-gradient-to-r from-primary-600 to-primary-500 text-white font-semibold hover:from-primary-500 hover:to-primary-400 focus:outline-none focus:ring-2 focus:ring-primary-500/50 transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-primary-500/20"
+              className="w-full mt-6 px-4 py-3 rounded-xl bg-gradient-to-r from-primary to-primary text-white font-semibold hover:from-primary hover:to-primary focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-primary/20"
             >
               {mfaForm.formState.isSubmitting ? (
                 <span className="flex items-center justify-center gap-2">

@@ -41,7 +41,7 @@ const NAV_ITEMS = {
 };
 
 const ROLE_GRADIENTS = {
-  Admin: 'from-primary-500 to-purple-500',
+  Admin: 'from-primary to-purple-500',
   Teacher: 'from-emerald-500 to-teal-400',
   Participant: 'from-amber-500 to-orange-400',
 };
@@ -123,7 +123,7 @@ export default function Navbar() {
   };
 
   return (
-    <header className="glass sticky top-0 z-50 border-b border-white/5">
+    <header className="sticky top-0 z-50 bg-card border-b border-border">
       <div className="mx-auto max-w-7xl px-4 sm:px-6">
         {/* Main nav row */}
         <nav className="flex h-16 items-center justify-between gap-4" aria-label="Main navigation">
@@ -138,7 +138,7 @@ export default function Navbar() {
               T
             </div>
             <span className="hidden text-lg font-bold tracking-tight text-white sm:block">
-              TMS<span className="text-primary-400">v2</span>
+              TMS<span className="text-primary">v2</span>
             </span>
           </Link>
 
@@ -208,7 +208,7 @@ export default function Navbar() {
               <Button
                 variant="ghost"
                 size="icon"
-                className="text-slate-400 hover:bg-primary-500/10 hover:text-primary-300"
+                className="text-slate-400 hover:bg-primary/10 hover:text-primary"
               >
                 <UserCog className="size-4" />
               </Button>
@@ -245,7 +245,7 @@ export default function Navbar() {
           <nav
             id="mobile-nav"
             aria-label="Mobile navigation"
-            className="md:hidden border-t border-white/10 py-3 space-y-1 animate-fade-in"
+            className="md:hidden border-t border-white/10 py-3 space-y-1 "
           >
             {items.map((item) => (
               <NavLink
@@ -254,7 +254,7 @@ export default function Navbar() {
                 className={({ isActive }) =>
                   `flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-medium transition-all ${
                     isActive
-                      ? 'bg-primary-500/15 text-primary-400'
+                      ? 'bg-primary/15 text-primary'
                       : 'text-slate-400 hover:bg-white/5 hover:text-white'
                   }`
                 }

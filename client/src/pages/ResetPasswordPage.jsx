@@ -29,16 +29,16 @@ export default function ResetPasswordPage() {
     }
   });
 
-  const inputCls = 'w-full px-4 py-3 rounded-xl bg-surface-lighter/60 border border-white/10 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-primary-500/50 transition-all';
+  const inputCls = 'w-full px-4 py-3 rounded-xl bg-muted/60 border border-white/10 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all';
 
   if (!token) {
     return (
       <div className="min-h-screen flex items-center justify-center px-4">
-        <div className="glass rounded-2xl p-8 max-w-md w-full text-center space-y-4">
+        <div className="bg-card border border-border rounded-2xl p-8 max-w-md w-full text-center space-y-4">
           <XCircle className="size-12 text-red-400 mx-auto" aria-hidden="true" />
           <h2 className="text-xl font-semibold text-white">Invalid reset link</h2>
           <p className="text-slate-400 text-sm">This link is missing a reset token. Please request a new one.</p>
-          <Link to="/forgot-password" className="inline-block mt-2 px-4 py-2 rounded-xl bg-primary-600 text-white text-sm hover:bg-primary-500 transition-all">
+          <Link to="/forgot-password" className="inline-block mt-2 px-4 py-2 rounded-xl bg-primary text-white text-sm hover:bg-primary transition-all">
             Request reset link
           </Link>
         </div>
@@ -48,15 +48,15 @@ export default function ResetPasswordPage() {
 
   return (
     <div className="min-h-screen flex items-center justify-center px-4">
-      <div className="w-full max-w-md animate-fade-in">
+      <div className="w-full max-w-md ">
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br from-primary-500 to-purple-600 text-white text-2xl font-bold mb-4 shadow-lg shadow-primary-500/25">
+          <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br from-primary to-purple-600 text-white text-2xl font-bold mb-4 shadow-lg shadow-primary/25">
             T
           </div>
-          <h1 className="text-3xl font-bold text-white tracking-tight">TMS <span className="text-primary-400">v2</span></h1>
+          <h1 className="text-h1 text-foreground tracking-tight">TMS <span className="text-primary">v2</span></h1>
         </div>
 
-        <div className="glass rounded-2xl p-8 glow-primary">
+        <div className="bg-card border border-border rounded-2xl p-8 ">
           {done ? (
             <div className="text-center space-y-4">
               <CheckCircle className="size-12 text-emerald-400 mx-auto" aria-hidden="true" />
@@ -101,7 +101,7 @@ export default function ResetPasswordPage() {
                 <button
                   type="submit"
                   disabled={isSubmitting}
-                  className="w-full mt-2 px-4 py-3 rounded-xl bg-gradient-to-r from-primary-600 to-primary-500 text-white font-semibold hover:from-primary-500 hover:to-primary-400 focus:outline-none focus:ring-2 focus:ring-primary-500/50 transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-primary-500/20"
+                  className="w-full mt-2 px-4 py-3 rounded-xl bg-gradient-to-r from-primary to-primary text-white font-semibold hover:from-primary hover:to-primary focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-primary/20"
                 >
                   {isSubmitting ? (
                     <span className="flex items-center justify-center gap-2">

@@ -48,7 +48,7 @@ export default function ParticipantDashboard() {
   if (loading) {
     return (
       <div className="flex items-center justify-center py-20">
-        <div className="w-8 h-8 border-2 border-primary-400 border-t-transparent rounded-full animate-spin" />
+        <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
       </div>
     );
   }
@@ -56,25 +56,25 @@ export default function ParticipantDashboard() {
 
   // ── Attendance stat cards ─────────────────────────────────
   const rate = stats?.attendanceRate ?? 0;
-  const rateColor = rate >= 80 ? 'text-accent-green' : rate >= 60 ? 'text-accent-amber' : 'text-accent-red';
-  const rateGradient = rate >= 80 ? 'from-accent-green to-teal-400' : rate >= 60 ? 'from-accent-amber to-orange-400' : 'from-accent-red to-pink-500';
+  const rateColor = rate >= 80 ? 'text-success' : rate >= 60 ? 'text-warning' : 'text-destructive';
+  const rateGradient = rate >= 80 ? 'from-success to-teal-400' : rate >= 60 ? 'from-warning to-orange-400' : 'from-destructive to-pink-500';
 
   const statCards = [
-    { label: 'Total Sessions', value: stats?.totalSessions ?? 0, icon: '📊', color: 'from-primary-500 to-blue-400' },
-    { label: 'Present', value: stats?.present ?? 0, icon: '✅', color: 'from-accent-green to-teal-400' },
-    { label: 'Absent', value: stats?.absent ?? 0, icon: '❌', color: 'from-accent-red to-pink-500' },
-    { label: 'Late', value: stats?.late ?? 0, icon: '⏰', color: 'from-accent-amber to-orange-400' },
-    { label: 'Excused', value: stats?.excused ?? 0, icon: '📝', color: 'from-accent-purple to-pink-400' },
+    { label: 'Total Sessions', value: stats?.totalSessions ?? 0, icon: '📊', color: 'from-primary to-blue-400' },
+    { label: 'Present', value: stats?.present ?? 0, icon: '✅', color: 'from-success to-teal-400' },
+    { label: 'Absent', value: stats?.absent ?? 0, icon: '❌', color: 'from-destructive to-pink-500' },
+    { label: 'Late', value: stats?.late ?? 0, icon: '⏰', color: 'from-warning to-orange-400' },
+    { label: 'Excused', value: stats?.excused ?? 0, icon: '📝', color: 'from-chart-2 to-pink-400' },
   ];
 
   return (
-    <div className="space-y-8 animate-fade-in">
+    <div className="space-y-8 ">
       {/* ── Header ───────────────────────────────────────── */}
       <div>
-        <h1 className="text-2xl font-bold text-white">🎓 My Learning Dashboard</h1>
+        <h1 className="text-h1 text-foreground">My Learning Dashboard</h1>
         <p className="text-slate-400 mt-1">
           Welcome back, {user.name}
-          {teamName && <span className="text-primary-400"> · {teamName}</span>}
+          {teamName && <span className="text-primary"> · {teamName}</span>}
         </p>
         {leader && (
           <div className="mt-3 inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-xs text-slate-300">
@@ -83,7 +83,7 @@ export default function ParticipantDashboard() {
             {leader.email && (
               <a
                 href={`mailto:${leader.email}`}
-                className="text-primary-300 hover:text-primary-200 underline-offset-2 hover:underline"
+                className="text-primary hover:text-primary underline-offset-2 hover:underline"
               >
                 {leader.email}
               </a>
@@ -94,7 +94,7 @@ export default function ParticipantDashboard() {
       </div>
 
       {/* ── Section 1: My Upcoming Classes ────────────────── */}
-      <div className="glass rounded-2xl p-6">
+      <div className="bg-card border border-border rounded-2xl p-6">
         <div className="flex items-center justify-between mb-5">
           <h2 className="text-lg font-semibold text-white flex items-center gap-2">
             📅 My Upcoming Classes
@@ -111,16 +111,16 @@ export default function ParticipantDashboard() {
             <p className="text-slate-500 text-sm mt-1">Your Team Leader can book sessions from the Schedule & Book page</p>
           </div>
         ) : (
-          <div className="space-y-3 stagger">
+          <div className="space-y-3 ">
             {schedules.map((s) => {
               const start = new Date(s.startTime);
               const end = new Date(s.endTime);
               const timeStr = `${String(start.getHours()).padStart(2, '0')}:${String(start.getMinutes()).padStart(2, '0')}-${String(end.getHours()).padStart(2, '0')}:${String(end.getMinutes()).padStart(2, '0')}`;
               const isToday = new Date().toDateString() === start.toDateString();
               return (
-                <div key={s._id} className={`glass-light rounded-xl p-4 flex items-center justify-between transition-all hover:scale-[1.01] ${isToday ? 'border border-primary-500/30 shadow-sm shadow-primary-500/10' : ''}`}>
+                <div key={s._id} className={`bg-muted border border-border rounded-xl p-4 flex items-center justify-between transition-all hover:scale-[1.01] ${isToday ? 'border border-primary/30 shadow-sm shadow-primary/10' : ''}`}>
                   <div className="flex items-center gap-4">
-                    <div className={`w-14 h-14 rounded-xl flex flex-col items-center justify-center shrink-0 ${isToday ? 'bg-primary-500/20 text-primary-200' : 'bg-primary-500/10 text-primary-300'}`}>
+                    <div className={`w-14 h-14 rounded-xl flex flex-col items-center justify-center shrink-0 ${isToday ? 'bg-primary/20 text-primary' : 'bg-primary/10 text-primary'}`}>
                       <span className="text-xs font-bold">{start.toLocaleDateString('en', { month: 'short' })}</span>
                       <span className="text-xl font-bold leading-none">{start.getDate()}</span>
                     </div>
@@ -128,7 +128,7 @@ export default function ParticipantDashboard() {
                       <div className="flex items-center gap-2 flex-wrap">
                         <span className="font-semibold text-white">{s.classId?.classCode}</span>
                         {isToday && (
-                          <span className="text-[10px] font-bold text-primary-300 bg-primary-500/20 px-2 py-0.5 rounded-full">
+                          <span className="text-[10px] font-bold text-primary bg-primary/20 px-2 py-0.5 rounded-full">
                             TODAY
                           </span>
                         )}
@@ -159,7 +159,7 @@ export default function ParticipantDashboard() {
       </div>
 
       {/* ── Section 2: My Attendance Stats ────────────────── */}
-      <div className="glass rounded-2xl p-6">
+      <div className="bg-card border border-border rounded-2xl p-6">
         <div className="flex items-center justify-between mb-5">
           <h2 className="text-lg font-semibold text-white flex items-center gap-2">
             📈 My Attendance Stats
@@ -167,7 +167,7 @@ export default function ParticipantDashboard() {
         </div>
 
         {/* Attendance Rate — big hero card */}
-        <div className="glass-light rounded-xl p-6 mb-6">
+        <div className="bg-muted border border-border rounded-xl p-6 mb-6">
           <div className="flex items-center justify-between">
             <div>
               <div className="text-sm text-slate-400 mb-1">Attendance Rate</div>
@@ -205,9 +205,9 @@ export default function ParticipantDashboard() {
         {/* Stat breakdown cards */}
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
           {statCards.map((card, i) => (
-            <div key={card.label} className="glass-light rounded-xl p-4 text-center hover:scale-[1.03] transition-transform" style={{ animationDelay: `${i * 0.05}s` }}>
+            <div key={card.label} className="bg-muted border border-border rounded-xl p-4 text-center hover:scale-[1.03] transition-transform" style={{ animationDelay: `${i * 0.05}s` }}>
               <div className="text-2xl mb-2">{card.icon}</div>
-              <div className="text-2xl font-bold text-white">{card.value}</div>
+              <div className="text-h1 text-foreground">{card.value}</div>
               <div className="text-xs text-slate-400 mt-1">{card.label}</div>
               <div className={`h-1 rounded-full bg-gradient-to-r ${card.color} mt-3 opacity-40`} />
             </div>
@@ -223,7 +223,7 @@ export default function ParticipantDashboard() {
       </div>
 
       {/* ── Section 3: My Attendance History (Table) ────────── */}
-      <div className="glass rounded-2xl p-6">
+      <div className="bg-card border border-border rounded-2xl p-6">
         <div className="flex items-center justify-between mb-5">
           <h2 className="text-lg font-semibold text-white flex items-center gap-2">
             📋 Lịch Sử Điểm Danh
@@ -276,11 +276,11 @@ export default function ParticipantDashboard() {
                       <td className="py-3 px-3">
                         <div className="flex items-center gap-2">
                           {start && (
-                            <div className="w-9 h-9 rounded-lg bg-primary-500/10 flex flex-col items-center justify-center shrink-0">
-                              <span className="text-[9px] font-bold text-primary-400 leading-tight">
+                            <div className="w-9 h-9 rounded-lg bg-primary/10 flex flex-col items-center justify-center shrink-0">
+                              <span className="text-[9px] font-bold text-primary leading-tight">
                                 {start.toLocaleDateString('en', { month: 'short' })}
                               </span>
-                              <span className="text-sm font-bold text-primary-300 leading-tight">
+                              <span className="text-sm font-bold text-primary leading-tight">
                                 {start.getDate()}
                               </span>
                             </div>

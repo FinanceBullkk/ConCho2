@@ -79,7 +79,7 @@ function ResultRow({ kind, item, active, onHover, onOpen }) {
       onMouseEnter={onHover}
       data-active={active ? 'true' : undefined}
       className={`w-full flex items-center gap-3 px-4 py-2.5 text-left transition-colors ${
-        active ? 'bg-primary-500/15 text-white' : 'text-slate-300 hover:bg-white/5'
+        active ? 'bg-primary/15 text-white' : 'text-slate-300 hover:bg-white/5'
       }`}
     >
       <Icon className="size-4 shrink-0 text-slate-400" aria-hidden="true" />
@@ -87,7 +87,7 @@ function ResultRow({ kind, item, active, onHover, onOpen }) {
         <div className="text-sm font-medium truncate">{title}</div>
         <div className="text-xs text-slate-500 truncate">{subtitle}</div>
       </div>
-      {active && <ArrowRight className="size-4 text-primary-400" aria-hidden="true" />}
+      {active && <ArrowRight className="size-4 text-primary" aria-hidden="true" />}
     </button>
   );
 }
@@ -181,7 +181,7 @@ export default function SearchPalette({ open, onClose }) {
       role="dialog"
       aria-modal="true"
       aria-label="Global search"
-      className="fixed inset-0 z-[100] flex items-start justify-center bg-black/60 backdrop-blur-sm pt-[10vh] px-4 animate-fade-in"
+      className="fixed inset-0 z-[100] flex items-start justify-center bg-black/60 backdrop-blur-sm pt-[10vh] px-4 "
       onClick={onClose}
     >
       <div
@@ -202,7 +202,7 @@ export default function SearchPalette({ open, onClose }) {
             className="flex-1 bg-transparent text-sm text-white placeholder-slate-500 focus:outline-none"
           />
           {isFetching && (
-            <span className="w-4 h-4 border-2 border-primary-400 border-t-transparent rounded-full animate-spin" aria-hidden="true" />
+            <span className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin" aria-hidden="true" />
           )}
           <button
             type="button"
