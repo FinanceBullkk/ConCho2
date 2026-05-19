@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { reconcileAPI } from '../api/api';
+import { Button } from '@/components/ui/button';
+import { Spinner } from '../components/Spinner';
 
 // ──────────────────────────────────────────────────────────
 // Labels and styling for each check type
@@ -39,10 +41,10 @@ const CHECK_META = {
 };
 
 const COLOR_CLASSES = {
-  amber:  { badge: 'bg-amber-500/15 text-amber-300',  dot: 'bg-amber-400',  row: 'border-amber-500/20' },
-  red:    { badge: 'bg-red-500/15 text-red-400',       dot: 'bg-red-400',    row: 'border-red-500/20'   },
-  orange: { badge: 'bg-orange-500/15 text-orange-300', dot: 'bg-orange-400', row: 'border-orange-500/20'},
-  slate:  { badge: 'bg-slate-500/15 text-slate-400',   dot: 'bg-slate-400',  row: 'border-slate-500/20' },
+  amber:  { badge: 'bg-warning/15 text-warning',         dot: 'bg-warning',              row: 'border-warning/20'     },
+  red:    { badge: 'bg-destructive/15 text-destructive',  dot: 'bg-destructive',          row: 'border-destructive/20' },
+  orange: { badge: 'bg-warning/10 text-warning',          dot: 'bg-warning/80',           row: 'border-warning/15'     },
+  slate:  { badge: 'bg-muted text-muted-foreground',      dot: 'bg-muted-foreground/50',  row: 'border-border'         },
 };
 
 // ──────────────────────────────────────────────────────────
@@ -55,16 +57,16 @@ function SummaryCard({ checkKey, count, onClick, active }) {
   return (
     <button
       onClick={() => onClick(checkKey)}
-      className={`bg-card border border-border rounded-2xl p-4 text-left transition-all hover:bg-white/5 ${active ? 'ring-2 ring-primary/50' : ''}`}
+      className={`bg-card border border-border rounded-lg p-4 text-left transition-all hover:bg-accent ${active ? 'ring-2 ring-primary/50' : ''}`}
     >
       <div className="flex items-start justify-between gap-2">
         <span className="text-2xl">{meta.icon}</span>
-        <span className={`px-2 py-0.5 rounded-lg text-sm font-bold ${count > 0 ? colors.badge : 'bg-emerald-500/15 text-emerald-400'}`}>
+        <span className={`px-2 py-0.5 rounded-md text-sm font-bold ${count > 0 ? colors.badge : 'bg-success/15 text-success'}`}>
           {count}
         </span>
       </div>
-      <div className="mt-2 text-sm font-medium text-white">{meta.label}</div>
-      <div className="mt-0.5 text-xs text-slate-500 leading-snug">{meta.description}</div>
+      <div className="mt-2 text-sm font-medium text-foreground">{meta.label}</div>
+      <div className="mt-0.5 text-xs text-subtle-foreground leading-snug">{meta.description}</div>
     </button>
   );
 }
@@ -73,20 +75,20 @@ function IssueRow({ issue }) {
   const meta = CHECK_META[issue.check];
   const colors = COLOR_CLASSES[meta.color];
   return (
-    <div className={`flex items-start gap-3 py-3 px-4 border-b border-white/5 last:border-0`}>
+    <div className={`flex items-start gap-3 py-3 px-4 border-b border-border last:border-0`}>
       <span className="text-base mt-0.5">{meta.icon}</span>
       <div className="flex-1 min-w-0">
-        <div className="text-sm text-white">{issue.description}</div>
+        <div className="text-sm text-foreground">{issue.description}</div>
         {issue.detail && (
-          <div className="mt-1 text-xs text-slate-500 font-mono">
+          <div className="mt-1 text-xs text-subtle-foreground font-mono">
             {JSON.stringify(issue.detail)}
           </div>
         )}
-        <div className="mt-1 flex flex-wrap gap-2 text-[11px] text-slate-500">
-          {issue.refs?.scheduleId && <span>Schedule: <span className="text-slate-400 font-mono">{String(issue.refs.scheduleId).slice(-6)}</span></span>}
-          {issue.refs?.userId     && <span>User: <span className="text-slate-400 font-mono">{String(issue.refs.userId).slice(-6)}</span></span>}
-          {issue.refs?.teamId     && <span>Team: <span className="text-slate-400 font-mono">{String(issue.refs.teamId).slice(-6)}</span></span>}
-          {issue.refs?.classId    && <span>Class: <span className="text-slate-400 font-mono">{String(issue.refs.classId).slice(-6)}</span></span>}
+        <div className="mt-1 flex flex-wrap gap-2 text-[11px] text-subtle-foreground">
+          {issue.refs?.scheduleId && <span>Schedule: <span className="text-muted-foreground font-mono">{String(issue.refs.scheduleId).slice(-6)}</span></span>}
+          {issue.refs?.userId     && <span>User: <span className="text-muted-foreground font-mono">{String(issue.refs.userId).slice(-6)}</span></span>}
+          {issue.refs?.teamId     && <span>Team: <span className="text-muted-foreground font-mono">{String(issue.refs.teamId).slice(-6)}</span></span>}
+          {issue.refs?.classId    && <span>Class: <span className="text-muted-foreground font-mono">{String(issue.refs.classId).slice(-6)}</span></span>}
         </div>
       </div>
       <span className={`shrink-0 px-2 py-0.5 rounded text-[11px] font-medium ${colors.badge}`}>
@@ -105,17 +107,17 @@ function RunHistoryBar({ history, onSelect, selectedId }) {
           key={r._id}
           onClick={() => onSelect(r._id)}
           title={`${r.summary?.total ?? 0} issues — ${new Date(r.runAt).toLocaleString()}`}
-          className={`shrink-0 flex flex-col items-center gap-1 px-3 py-2 rounded-xl border transition-all text-xs ${
+          className={`shrink-0 flex flex-col items-center gap-1 px-3 py-2 rounded-md border transition-all text-xs ${
             selectedId === r._id
               ? 'border-primary/50 bg-primary/10 text-primary'
-              : 'border-white/10 bg-white/3 text-slate-400 hover:bg-white/5'
+              : 'border-border bg-muted/30 text-muted-foreground hover:bg-accent'
           }`}
         >
-          <span className={`font-bold text-sm ${r.summary?.total > 0 ? 'text-amber-400' : 'text-emerald-400'}`}>
+          <span className={`font-bold text-sm ${r.summary?.total > 0 ? 'text-warning' : 'text-success'}`}>
             {r.summary?.total ?? 0}
           </span>
           <span>{new Date(r.runAt).toLocaleDateString('en', { month: 'short', day: 'numeric' })}</span>
-          <span className={`px-1.5 py-0.5 rounded text-[10px] ${r.triggeredBy === 'scheduled' ? 'bg-slate-500/20 text-slate-400' : 'bg-blue-500/20 text-blue-300'}`}>
+          <span className={`px-1.5 py-0.5 rounded text-[10px] ${r.triggeredBy === 'scheduled' ? 'bg-muted text-muted-foreground' : 'bg-info/15 text-info'}`}>
             {r.triggeredBy === 'scheduled' ? 'auto' : 'manual'}
           </span>
         </button>
@@ -177,27 +179,23 @@ export default function ReconcilePage() {
       {/* Header row */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <p className="text-slate-400 text-sm mt-1">
+          <p className="text-muted-foreground text-sm mt-1">
             Detect data drift between Schedule ↔ Attendance ↔ Enrollment ↔ Team
           </p>
         </div>
-        <button
-          onClick={() => runMutation.mutate()}
-          disabled={runMutation.isPending}
-          className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-primary to-primary text-white font-semibold hover:from-primary hover:to-primary transition-all shadow-lg shadow-primary/20 disabled:opacity-50 self-start flex items-center gap-2"
-        >
+        <Button onClick={() => runMutation.mutate()} disabled={runMutation.isPending} className="self-start">
           {runMutation.isPending ? (
-            <><span className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />Running…</>
+            <><Spinner size={16} />Running…</>
           ) : (
             <>▶ Run Now</>
           )}
-        </button>
+        </Button>
       </div>
 
       {/* Run history bar */}
       {historyData?.length > 0 && (
-        <div className="bg-card border border-border rounded-2xl px-4 py-3 space-y-2">
-          <p className="text-xs text-slate-500 uppercase tracking-wider">Run History</p>
+        <div className="bg-card border border-border rounded-lg px-4 py-3 space-y-2">
+          <p className="text-xs text-subtle-foreground uppercase tracking-wider">Run History</p>
           <RunHistoryBar
             history={historyData}
             onSelect={(id) => { setSelectedReportId(id); setFilterCheck(null); }}
@@ -208,28 +206,28 @@ export default function ReconcilePage() {
 
       {/* No report yet */}
       {!reportQuery.isLoading && !report && (
-        <div className="bg-card border border-border rounded-2xl py-20 text-center space-y-3">
+        <div className="bg-card border border-border rounded-lg py-20 text-center space-y-3">
           <div className="text-4xl">🔍</div>
-          <p className="text-slate-400">No reconciliation report yet.</p>
-          <p className="text-slate-500 text-sm">Click <strong className="text-white">Run Now</strong> to scan for data issues.</p>
+          <p className="text-muted-foreground">No reconciliation report yet.</p>
+          <p className="text-subtle-foreground text-sm">Click <strong className="text-foreground">Run Now</strong> to scan for data issues.</p>
         </div>
       )}
 
       {/* Loading */}
       {reportQuery.isLoading && (
-        <div className="bg-card border border-border rounded-2xl py-20 flex items-center justify-center">
-          <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+        <div className="bg-card border border-border rounded-lg py-20 flex items-center justify-center">
+          <Spinner size={32} />
         </div>
       )}
 
       {report && (
         <>
           {/* Report meta */}
-          <div className="flex flex-wrap items-center gap-4 text-xs text-slate-500">
-            <span>Run: <span className="text-slate-300">{new Date(report.runAt).toLocaleString()}</span></span>
-            <span>Duration: <span className="text-slate-300">{report.durationMs}ms</span></span>
-            <span>Triggered: <span className="text-slate-300">{report.triggeredBy}</span></span>
-            <span className={`px-2 py-0.5 rounded-lg font-medium ${report.status === 'ok' ? 'bg-emerald-500/15 text-emerald-400' : 'bg-amber-500/15 text-amber-300'}`}>
+          <div className="flex flex-wrap items-center gap-4 text-xs text-subtle-foreground">
+            <span>Run: <span className="text-muted-foreground">{new Date(report.runAt).toLocaleString()}</span></span>
+            <span>Duration: <span className="text-muted-foreground">{report.durationMs}ms</span></span>
+            <span>Triggered: <span className="text-muted-foreground">{report.triggeredBy}</span></span>
+            <span className={`px-2 py-0.5 rounded-lg font-medium ${report.status === 'ok' ? 'bg-success/15 text-success' : 'bg-warning/15 text-warning'}`}>
               {report.status === 'ok' ? '✓ All clear' : `⚠ ${report.summary.total} issue(s)`}
             </span>
           </div>
@@ -249,9 +247,9 @@ export default function ReconcilePage() {
 
           {/* Issue list */}
           {report.summary.total > 0 && (
-            <div className="bg-card border border-border rounded-2xl overflow-hidden">
-              <div className="px-4 py-3 border-b border-white/5 flex items-center justify-between">
-                <span className="text-sm font-medium text-white">
+            <div className="bg-card border border-border rounded-lg overflow-hidden">
+              <div className="px-4 py-3 border-b border-border flex items-center justify-between">
+                <span className="text-sm font-medium text-foreground">
                   {filterCheck
                     ? `${CHECK_META[filterCheck].label} — ${visibleIssues.length} issue(s)`
                     : `All issues — ${report.summary.total}`}
@@ -259,15 +257,15 @@ export default function ReconcilePage() {
                 {filterCheck && (
                   <button
                     onClick={() => setFilterCheck(null)}
-                    className="text-xs text-slate-400 hover:text-white transition-colors"
+                    className="text-xs text-muted-foreground hover:text-foreground transition-colors"
                   >
                     Show all ×
                   </button>
                 )}
               </div>
-              <div className="divide-y divide-white/5">
+              <div className="divide-y divide-border">
                 {visibleIssues.length === 0 && (
-                  <div className="py-8 text-center text-slate-500 text-sm">No issues of this type</div>
+                  <div className="py-8 text-center text-subtle-foreground text-sm">No issues of this type</div>
                 )}
                 {visibleIssues.map((issue, i) => (
                   <IssueRow key={i} issue={issue} />
@@ -277,10 +275,10 @@ export default function ReconcilePage() {
           )}
 
           {report.status === 'ok' && (
-            <div className="bg-card border border-border rounded-2xl py-12 text-center space-y-2">
+            <div className="bg-card border border-border rounded-lg py-12 text-center space-y-2">
               <div className="text-4xl">✅</div>
-              <p className="text-emerald-400 font-medium">All clear — no data drift detected</p>
-              <p className="text-slate-500 text-sm">Checked {Object.keys(CHECK_META).length} integrity rules across all collections.</p>
+              <p className="text-success font-medium">All clear — no data drift detected</p>
+              <p className="text-subtle-foreground text-sm">Checked {Object.keys(CHECK_META).length} integrity rules across all collections.</p>
             </div>
           )}
         </>
