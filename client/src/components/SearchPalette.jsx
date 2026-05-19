@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import { Search, X, Users, GraduationCap, BookOpen, ArrowRight } from 'lucide-react';
 import { useGlobalSearch } from '../hooks/useSearch';
+import { Spinner } from './Spinner';
 
 // ──────────────────────────────────────────────────────────
 // SearchPalette — Cmd/Ctrl+K command palette
@@ -79,13 +80,13 @@ function ResultRow({ kind, item, active, onHover, onOpen }) {
       onMouseEnter={onHover}
       data-active={active ? 'true' : undefined}
       className={`w-full flex items-center gap-3 px-4 py-2.5 text-left transition-colors ${
-        active ? 'bg-primary/15 text-white' : 'text-slate-300 hover:bg-white/5'
+        active ? 'bg-primary/15 text-foreground' : 'text-muted-foreground hover:bg-accent'
       }`}
     >
-      <Icon className="size-4 shrink-0 text-slate-400" aria-hidden="true" />
+      <Icon className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
       <div className="min-w-0 flex-1">
         <div className="text-sm font-medium truncate">{title}</div>
-        <div className="text-xs text-slate-500 truncate">{subtitle}</div>
+        <div className="text-xs text-subtle-foreground truncate">{subtitle}</div>
       </div>
       {active && <ArrowRight className="size-4 text-primary" aria-hidden="true" />}
     </button>
@@ -161,7 +162,7 @@ export default function SearchPalette({ open, onClose }) {
     return (
       <div key={`${kind}-${item._id || idx}`}>
         {isNewGroup && (
-          <div className="px-4 pt-3 pb-1 text-[11px] font-semibold uppercase tracking-wider text-slate-500">
+          <div className="px-4 pt-3 pb-1 text-[11px] font-semibold uppercase tracking-wider text-subtle-foreground">
             {LABEL_FOR[kind]}
           </div>
         )}
@@ -181,17 +182,17 @@ export default function SearchPalette({ open, onClose }) {
       role="dialog"
       aria-modal="true"
       aria-label="Global search"
-      className="fixed inset-0 z-[100] flex items-start justify-center bg-black/60 backdrop-blur-sm pt-[10vh] px-4 "
+      className="fixed inset-0 z-[100] flex items-start justify-center bg-black/60 pt-[10vh] px-4 "
       onClick={onClose}
     >
       <div
         onClick={(e) => e.stopPropagation()}
         onKeyDown={onKeyDown}
-        className="w-full max-w-2xl rounded-2xl bg-slate-900/95 border border-white/10 shadow-2xl overflow-hidden"
+        className="w-full max-w-2xl rounded-lg bg-card border border-border shadow-2xl overflow-hidden"
       >
         {/* Input */}
-        <div className="flex items-center gap-3 border-b border-white/10 px-4 py-3">
-          <Search className="size-4 text-slate-400" aria-hidden="true" />
+        <div className="flex items-center gap-3 border-b border-border px-4 py-3">
+          <Search className="size-4 text-muted-foreground" aria-hidden="true" />
           <input
             ref={inputRef}
             type="text"
@@ -199,16 +200,16 @@ export default function SearchPalette({ open, onClose }) {
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Search users, teams, classes…"
             aria-label="Search query"
-            className="flex-1 bg-transparent text-sm text-white placeholder-slate-500 focus:outline-none"
+            className="flex-1 bg-transparent text-sm text-foreground placeholder:text-subtle-foreground focus:outline-none"
           />
           {isFetching && (
-            <span className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin" aria-hidden="true" />
+            <Spinner size={16} aria-hidden="true" />
           )}
           <button
             type="button"
             onClick={onClose}
             aria-label="Close search"
-            className="p-1 rounded text-slate-400 hover:text-white hover:bg-white/10 transition-colors"
+            className="p-1 rounded text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
           >
             <X className="size-4" aria-hidden="true" />
           </button>
@@ -217,17 +218,17 @@ export default function SearchPalette({ open, onClose }) {
         {/* Results */}
         <div role="listbox" aria-label="Search results" className="max-h-[60vh] overflow-y-auto py-1">
           {query.trim().length < 2 && (
-            <p className="px-4 py-8 text-center text-sm text-slate-500">
+            <p className="px-4 py-8 text-center text-sm text-subtle-foreground">
               Type at least 2 characters to search.
             </p>
           )}
           {query.trim().length >= 2 && !isFetching && flat.length === 0 && !isError && (
-            <p className="px-4 py-8 text-center text-sm text-slate-500">
+            <p className="px-4 py-8 text-center text-sm text-subtle-foreground">
               No matches for &quot;{query}&quot;.
             </p>
           )}
           {isError && (
-            <p className="px-4 py-8 text-center text-sm text-red-400">
+            <p className="px-4 py-8 text-center text-sm text-destructive">
               Search failed. Please try again.
             </p>
           )}
@@ -235,14 +236,14 @@ export default function SearchPalette({ open, onClose }) {
         </div>
 
         {/* Footer help */}
-        <div className="border-t border-white/10 px-4 py-2 text-[11px] text-slate-500 flex justify-between">
+        <div className="border-t border-border px-4 py-2 text-[11px] text-subtle-foreground flex justify-between">
           <span>
-            <kbd className="rounded bg-white/5 px-1.5 py-0.5">↑</kbd>{' '}
-            <kbd className="rounded bg-white/5 px-1.5 py-0.5">↓</kbd> Navigate
+            <kbd className="rounded bg-muted px-1.5 py-0.5">↑</kbd>{' '}
+            <kbd className="rounded bg-muted px-1.5 py-0.5">↓</kbd> Navigate
           </span>
           <span>
-            <kbd className="rounded bg-white/5 px-1.5 py-0.5">↵</kbd> Open ·{' '}
-            <kbd className="rounded bg-white/5 px-1.5 py-0.5">Esc</kbd> Close
+            <kbd className="rounded bg-muted px-1.5 py-0.5">↵</kbd> Open ·{' '}
+            <kbd className="rounded bg-muted px-1.5 py-0.5">Esc</kbd> Close
           </span>
         </div>
       </div>
