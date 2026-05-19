@@ -169,6 +169,9 @@ export const enrollmentsAPI = {
   update: (id, data) => api.put(`/enrollments/${id}`, data),
   transfer: (id, data) => api.post(`/enrollments/${id}/transfer`, data),
   checkConflicts: (data) => api.post('/enrollments/check-conflicts', data),
+  // ── Bulk (Screen 4 Roster tab) ──
+  bulkTransfer:     (data) => api.post('/enrollments/bulk-transfer', data),
+  bulkUpdateStatus: (data) => api.patch('/enrollments/bulk-status', data),
 };
 
 // ── Dashboard Analytics ───────────────────────────────────

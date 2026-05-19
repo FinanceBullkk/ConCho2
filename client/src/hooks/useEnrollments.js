@@ -56,3 +56,34 @@ export const useCheckEnrollmentConflicts = () =>
   useMutation({
     mutationFn: (data) => enrollmentsAPI.checkConflicts(data).then((r) => r.data),
   });
+
+// ── Bulk operations (Screen 4 Roster tab) ─────────────────
+
+export const useBulkTransferEnrollment = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (data) => enrollmentsAPI.bulkTransfer(data).then((r) => r.data),
+    onSuccess: (res) => {
+      const ok = res.ok || 0;
+      const failed = res.failed || 0;
+      if (failed === 0) toast.success(`${ok} student${ok !== 1 ? 's' : ''} transferred`);
+      else              toast.warning(`${ok} transferred · ${failed} failed`);
+      qc.invalidateQueries({ queryKey: qk.enrollments.all });
+      qc.invalidateQueries({ queryKey: qk.teams.all });
+      qc.invalidateQueries({ queryKey: qk.schedules.all });
+      qc.invalidateQueries({ queryKey: qk.dashboard.stats });
+    },
+  });
+};
+
+export const useBulkUpdateEnrollmentStatus = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (data) => enrollmentsAPI.bulkUpdateStatus(data).then((r) => r.data),
+    onSuccess: (res) => {
+      toast.success(res.message || `${res.modifiedCount || 0} enrollments updated`);
+      qc.invalidateQueries({ queryKey: qk.enrollments.all });
+      qc.invalidateQueries({ queryKey: qk.dashboard.stats });
+    },
+  });
+};
