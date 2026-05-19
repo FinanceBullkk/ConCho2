@@ -123,7 +123,7 @@ export default function Navbar() {
   };
 
   return (
-    <header className="bg-card border border-border sticky top-0 z-50 border-b border-white/5">
+    <header className="sticky top-0 z-50 bg-card border-b border-border">
       <div className="mx-auto max-w-7xl px-4 sm:px-6">
         {/* Main nav row */}
         <nav className="flex h-16 items-center justify-between gap-4" aria-label="Main navigation">
