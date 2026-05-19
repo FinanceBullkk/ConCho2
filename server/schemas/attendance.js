@@ -2,6 +2,8 @@ const { z } = require('zod');
 const { objectId } = require('./common');
 
 // ── Attendance ────────────────────────────────────────────
+// v1.0 UI exposes P/A only. L and EL are accepted by the API
+// for data-migration / future use but not surfaced in the drawer.
 const attendanceRecord = z.object({
   userId: objectId,
   status: z.enum(['P', 'A', 'L', 'EL']),

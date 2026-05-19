@@ -45,7 +45,11 @@ export function AttendanceDrawer({
   result,
   isStale,
   isAdmin,
-  onClose,
+  isDirty,
+  confirmingClose,
+  onCloseRequest,
+  onCancelClose,
+  onDiscardAndClose,
   onMarkAll,
   onRecordUpdate,
   onSubmit,
@@ -76,7 +80,7 @@ export function AttendanceDrawer({
         </div>
         <button
           type="button"
-          onClick={onClose}
+          onClick={onCloseRequest}
           aria-label="Close attendance panel"
           className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-colors shrink-0"
         >
@@ -189,23 +193,35 @@ export function AttendanceDrawer({
       {/* ── Footer ─────────────────────────────────── */}
       {hasRoster && (
         <div className="px-4 py-2.5 border-t border-border shrink-0 flex items-center gap-2.5">
-          {result ? (
-            <span className={cn(
-              'flex items-center gap-1 text-xs font-medium',
-              result.success ? 'text-success' : 'text-destructive',
-            )}>
-              {result.success ? <><Check className="size-3" />Saved</> : result.message}
-            </span>
-          ) : unmarked > 0 ? (
-            <span className="text-xs text-warning font-medium">{unmarked} unmarked</span>
-          ) : null}
-          <span className="flex-1" />
-          <span className="hidden lg:block text-[10px] text-subtle-foreground tabular-nums">
-            P A · ESC
-          </span>
-          <Button size="sm" className="h-8 text-xs gap-1.5" onClick={onSubmit} disabled={isPending}>
-            {isPending ? <><Spinner size={12} />Saving…</> : `Save (${records.length})`}
-          </Button>
+          {confirmingClose ? (
+            <>
+              <span className="text-xs text-warning font-medium flex-1">Discard changes?</span>
+              <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={onCancelClose}>Keep editing</Button>
+              <Button variant="destructive" size="sm" className="h-7 text-xs" onClick={onDiscardAndClose}>Discard</Button>
+            </>
+          ) : (
+            <>
+              {result ? (
+                <span className={cn(
+                  'flex items-center gap-1 text-xs font-medium',
+                  result.success ? 'text-success' : 'text-destructive',
+                )}>
+                  {result.success ? <><Check className="size-3" />Saved</> : result.message}
+                </span>
+              ) : unmarked > 0 ? (
+                <span className="text-xs text-warning font-medium">{unmarked} unmarked</span>
+              ) : isDirty ? (
+                <span className="text-xs text-warning font-medium">Unsaved changes</span>
+              ) : null}
+              <span className="flex-1" />
+              <span className="hidden lg:block text-[10px] text-subtle-foreground tabular-nums">
+                P A · ESC
+              </span>
+              <Button size="sm" className="h-8 text-xs gap-1.5" onClick={onSubmit} disabled={isPending}>
+                {isPending ? <><Spinner size={12} />Saving…</> : `Save (${records.length})`}
+              </Button>
+            </>
+          )}
         </div>
       )}
     </div>
@@ -216,7 +232,7 @@ export function AttendanceDrawer({
       {/* Mobile backdrop */}
       <div
         className="fixed inset-0 z-40 bg-black/40 lg:hidden"
-        onClick={onClose}
+        onClick={onCloseRequest}
         aria-hidden="true"
       />
 
