@@ -83,7 +83,7 @@ export default function HRExportPage() {
   return (
     <div className="space-y-6 ">
       <div>
-        <h1 className="text-2xl font-bold text-white">📤 HR Export</h1>
+        <h1 className="text-h1 text-foreground">HR Export</h1>
         <p className="text-slate-400 mt-1">Download attendance data as Excel for HR processing</p>
       </div>
 
@@ -103,7 +103,7 @@ export default function HRExportPage() {
         </div>
         <div className="bg-card border border-border rounded-2xl p-6 text-center">
           <div className="text-4xl mb-2">📊</div>
-          <div className="text-3xl font-bold text-white">{loading ? '...' : stats.pending + stats.exported}</div>
+          <div className="text-h1 text-foreground">{loading ? '...' : stats.pending + stats.exported}</div>
           <div className="text-sm text-slate-400 mt-1">Total Records</div>
           <div className="text-xs text-slate-500 mt-1">All attendance entries</div>
         </div>

@@ -122,7 +122,7 @@ function OverviewTab({ cls, team, onEdit }) {
       <div className="bg-card border border-border rounded-2xl p-5 space-y-3">
         <h3 className="text-xs uppercase tracking-wider text-slate-500 font-semibold">Session Progress</h3>
         <div className="flex items-baseline gap-2">
-          <span className="text-3xl font-bold text-white">{cls.bookedSessions}</span>
+          <span className="text-h1 text-foreground">{cls.bookedSessions}</span>
           <span className="text-slate-500">/ {cls.totalSessions}</span>
           <span className="ml-auto text-sm text-slate-400">{pct}%</span>
         </div>
@@ -477,7 +477,7 @@ export default function ClassDetailPage() {
         <div className="flex items-center gap-4">
           <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-primary to-purple-500 flex items-center justify-center text-2xl shrink-0">📚</div>
           <div>
-            <h1 className="text-2xl font-bold text-white">
+            <h1 className="text-h1 text-foreground">
               <span className="font-mono text-primary">{cls.classCode}</span>
               <span className="text-slate-500 mx-2">·</span>
               {cls.courseName}
