@@ -13,6 +13,7 @@ import { useAttendanceCalendar } from '../hooks/useSchedules';
 import { useBulkMarkAttendance } from '../hooks/useAttendance';
 import { useTimeSlots } from '../hooks/useTimeSlots';
 import { Spinner } from '../components/Spinner';
+import { StatusBadge } from '../components/StatusBadge';
 
 // ──────────────────────────────────────────────────────────
 // AttendancePage — Calendar View
@@ -41,49 +42,22 @@ const STATUS_OPTIONS = [
 
 const DAY_NAMES = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
-// Session-level status taxonomy (Phase 0 §04)
-// Keys are stable identifiers — visual treatment lives here, business
-// logic in deriveSessionState() below.
-const STATUS_CONFIG = {
-  upcoming: {
-    label: 'Upcoming',
-    icon: CalendarDays,
-    badgeCls: 'bg-neutral-tint text-neutral border-border-strong',
-    cellBg: 'bg-muted/30',
-    leftColor: 'var(--neutral)',
-    opacity: 'opacity-70',
-  },
-  toMark: {
-    label: 'To mark',
-    icon: AlertCircle,
-    badgeCls: 'bg-warning-tint text-warning border-warning/30',
-    cellBg: 'bg-warning/[0.10]',
-    leftColor: 'var(--warning)',
-    opacity: '',
-  },
-  inProgress: {
-    label: 'In progress',
-    icon: CircleDashed,
-    badgeCls: 'bg-info-tint text-info border-info/30',
-    cellBg: 'bg-info/[0.08]',
-    leftColor: 'var(--info)',
-    opacity: '',
-  },
-  done: {
-    label: 'Done',
-    icon: CheckCircle2,
-    badgeCls: 'bg-success-tint text-success border-success/30',
-    cellBg: 'bg-success/[0.06]',
-    leftColor: 'var(--success)',
-    opacity: 'opacity-80',
-  },
+// Cell-level visual treatment per state (Phase 0 §04).
+// Badge rendering uses <StatusBadge /> primitive — this map only holds
+// the data StatusBadge can't carry (cell background, left-rail color,
+// progress-bar tint, opacity).
+const STATE_CELL_STYLE = {
+  upcoming:   { icon: CalendarDays,  cellBg: 'bg-muted/30',         leftColor: 'var(--neutral)',     progressBar: 'bg-warning', opacity: 'opacity-70' },
+  toMark:     { icon: AlertCircle,   cellBg: 'bg-warning/[0.10]',   leftColor: 'var(--warning)',     progressBar: 'bg-warning', opacity: '' },
+  inProgress: { icon: CircleDashed,  cellBg: 'bg-info/[0.08]',      leftColor: 'var(--info)',        progressBar: 'bg-info',    opacity: '' },
+  done:       { icon: CheckCircle2,  cellBg: 'bg-success/[0.06]',   leftColor: 'var(--success)',     progressBar: 'bg-success', opacity: 'opacity-80' },
 };
 
-// Orthogonal flag — can co-exist with any state (config-error indicator)
-const NO_ROSTER_FLAG = {
-  label: 'No roster',
-  icon: UserX,
-  badgeCls: 'bg-destructive-tint text-destructive border-destructive/30',
+const STATE_LABEL = {
+  upcoming:   'Upcoming',
+  toMark:     'To mark',
+  inProgress: 'In progress',
+  done:       'Done',
 };
 
 // Derive (state, noRoster) from a schedule record.
@@ -359,42 +333,30 @@ export default function AttendancePage() {
                           <div className="flex flex-col gap-1 h-full">
                             {cellSchedules.map((schedule) => {
                               const { state, noRoster } = deriveSessionState(schedule);
-                              const cfg = STATUS_CONFIG[state];
-                              const Icon = cfg.icon;
+                              const cell = STATE_CELL_STYLE[state];
                               const isSelected = selectedSchedule?._id === schedule._id;
                               const progressPct = schedule.enrolledCount > 0
                                 ? Math.round(((schedule.markedCount || 0) / schedule.enrolledCount) * 100)
                                 : 0;
-                              const progressBarCls = state === 'done'
-                                ? 'bg-success'
-                                : state === 'inProgress'
-                                  ? 'bg-info'
-                                  : 'bg-warning';
 
                               return (
                                 <div
                                   key={schedule._id}
-                                  className={`rounded-md p-2.5 pl-3 cursor-pointer relative overflow-hidden border border-border transition-colors duration-(--dur-fast) ${cfg.cellBg} ${cfg.opacity} ${
+                                  className={`rounded-md p-2.5 pl-3 cursor-pointer relative overflow-hidden border border-border transition-colors duration-(--dur-fast) ${cell.cellBg} ${cell.opacity} ${
                                     cellSchedules.length === 1 ? 'min-h-[80px]' : 'min-h-[60px]'
                                   } ${
                                     isSelected
                                       ? 'ring-2 ring-ring ring-offset-2 ring-offset-card !opacity-100'
                                       : 'hover:!opacity-100'
                                   }`}
-                                  style={{ borderLeftWidth: '4px', borderLeftColor: cfg.leftColor }}
+                                  style={{ borderLeftWidth: '4px', borderLeftColor: cell.leftColor }}
                                   onClick={() => handleSelectSchedule(schedule)}
                                 >
                                   {/* Status badges — state + optional No-roster flag */}
                                   <div className="flex flex-wrap items-center gap-1">
-                                    <span className={`inline-flex items-center gap-1 px-1.5 h-[18px] rounded border text-[10.5px] font-medium ${cfg.badgeCls}`}>
-                                      <Icon className="size-3" strokeWidth={2} aria-hidden="true" />
-                                      {cfg.label}
-                                    </span>
+                                    <StatusBadge status={state} icon={cell.icon} size="sm" />
                                     {noRoster && (
-                                      <span className={`inline-flex items-center gap-1 px-1.5 h-[18px] rounded border text-[10.5px] font-medium ${NO_ROSTER_FLAG.badgeCls}`}>
-                                        <NO_ROSTER_FLAG.icon className="size-3" strokeWidth={2} aria-hidden="true" />
-                                        {NO_ROSTER_FLAG.label}
-                                      </span>
+                                      <StatusBadge status="noRoster" icon={UserX} size="sm" />
                                     )}
                                   </div>
 
@@ -420,7 +382,7 @@ export default function AttendancePage() {
                                       </div>
                                       <div className="h-1 rounded-full bg-muted overflow-hidden">
                                         <div
-                                          className={`h-full rounded-full transition-[width] duration-(--dur) ${progressBarCls}`}
+                                          className={`h-full rounded-full transition-[width] duration-(--dur) ${cell.progressBar}`}
                                           style={{ width: `${progressPct}%` }}
                                         />
                                       </div>
@@ -449,50 +411,34 @@ export default function AttendancePage() {
       </div>
 
       {/* ── Legend ──────────────────────────────────────── */}
-      <div className="flex flex-wrap gap-x-5 gap-y-2 text-small text-muted-foreground">
-        {(['upcoming', 'toMark', 'inProgress', 'done']).map((key) => {
-          const cfg = STATUS_CONFIG[key];
-          const Icon = cfg.icon;
-          return (
-            <div key={key} className="flex items-center gap-1.5">
-              <Icon className="size-3.5" strokeWidth={2} style={{ color: cfg.leftColor }} aria-hidden="true" />
-              <span>{cfg.label}</span>
-            </div>
-          );
-        })}
-        <div className="flex items-center gap-1.5">
-          <NO_ROSTER_FLAG.icon className="size-3.5 text-destructive" strokeWidth={2} aria-hidden="true" />
-          <span>{NO_ROSTER_FLAG.label}</span>
-          <span className="text-subtle-foreground">(config error)</span>
-        </div>
+      <div className="flex flex-wrap gap-2">
+        {(['upcoming', 'toMark', 'inProgress', 'done']).map((key) => (
+          <StatusBadge key={key} status={key} icon={STATE_CELL_STYLE[key].icon} size="sm" />
+        ))}
+        <StatusBadge status="noRoster" icon={UserX} size="sm" />
       </div>
 
       {/* ── Attendance Marking Panel ───────────────────── */}
-      {selectedSchedule && new Date(selectedSchedule.startTime) > new Date() && (() => {
-        const cfg = STATUS_CONFIG.upcoming;
-        const Icon = cfg.icon;
-        return (
-          <div className="bg-card border border-border rounded-md p-8 text-center">
-            <Icon className="mx-auto size-7 text-neutral mb-3" strokeWidth={2} aria-hidden="true" />
-            <p className="text-h3 text-foreground">Buổi học chưa diễn ra</p>
-            <p className="text-body text-muted-foreground mt-2 max-w-md mx-auto">
-              Không thể điểm danh cho buổi học trong tương lai. Vui lòng quay lại sau khi buổi học đã bắt đầu.
-            </p>
-            <p className="text-small text-subtle-foreground mt-3">
-              Lịch học: {new Date(selectedSchedule.startTime).toLocaleString('vi-VN', { weekday: 'long', day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
-            </p>
-          </div>
-        );
-      })()}
+      {selectedSchedule && new Date(selectedSchedule.startTime) > new Date() && (
+        <div className="bg-card border border-border rounded-md p-8 text-center">
+          <CalendarDays className="mx-auto size-7 text-neutral mb-3" strokeWidth={2} aria-hidden="true" />
+          <p className="text-h3 text-foreground">Buổi học chưa diễn ra</p>
+          <p className="text-body text-muted-foreground mt-2 max-w-md mx-auto">
+            Không thể điểm danh cho buổi học trong tương lai. Vui lòng quay lại sau khi buổi học đã bắt đầu.
+          </p>
+          <p className="text-small text-subtle-foreground mt-3">
+            Lịch học: {new Date(selectedSchedule.startTime).toLocaleString('vi-VN', { weekday: 'long', day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+          </p>
+        </div>
+      )}
       {selectedSchedule && new Date(selectedSchedule.startTime) <= new Date() && records.length > 0 && (() => {
         const { state, noRoster } = deriveSessionState(selectedSchedule);
-        const cfg = STATUS_CONFIG[state];
-        const Icon = cfg.icon;
+        const cell = STATE_CELL_STYLE[state];
 
         return (
         <div
           className="bg-card border border-border rounded-md p-6"
-          style={{ borderLeftWidth: '4px', borderLeftColor: cfg.leftColor }}
+          style={{ borderLeftWidth: '4px', borderLeftColor: cell.leftColor }}
         >
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
             <div>
@@ -500,16 +446,8 @@ export default function AttendancePage() {
                 <h2 className="text-h3 text-foreground">
                   {selectedSchedule.classId?.classCode} — {new Date(selectedSchedule.startTime).toLocaleDateString('en', { weekday: 'short', month: 'short', day: 'numeric' })}
                 </h2>
-                <span className={`inline-flex items-center gap-1 px-1.5 h-[20px] rounded border text-overline ${cfg.badgeCls}`}>
-                  <Icon className="size-3" strokeWidth={2} aria-hidden="true" />
-                  {cfg.label}
-                </span>
-                {noRoster && (
-                  <span className={`inline-flex items-center gap-1 px-1.5 h-[20px] rounded border text-overline ${NO_ROSTER_FLAG.badgeCls}`}>
-                    <NO_ROSTER_FLAG.icon className="size-3" strokeWidth={2} aria-hidden="true" />
-                    {NO_ROSTER_FLAG.label}
-                  </span>
-                )}
+                <StatusBadge status={state} icon={cell.icon} size="md" />
+                {noRoster && <StatusBadge status="noRoster" icon={UserX} size="md" />}
               </div>
               <p className="text-sm text-slate-400">
                 {records.length} students enrolled · {selectedSchedule.classId?.courseName}
@@ -628,7 +566,7 @@ export default function AttendancePage() {
 
       {selectedSchedule && records.length === 0 && (
         <div className="bg-card border border-border rounded-md p-8 text-center" style={{ borderLeftWidth: '4px', borderLeftColor: 'var(--destructive)' }}>
-          <NO_ROSTER_FLAG.icon className="mx-auto size-7 text-destructive mb-3" strokeWidth={2} aria-hidden="true" />
+          <UserX className="mx-auto size-7 text-destructive mb-3" strokeWidth={2} aria-hidden="true" />
           <p className="text-h3 text-foreground">No roster</p>
           <p className="text-body text-muted-foreground mt-2 max-w-md mx-auto">
             This session has 0 enrolled students. Attendance can't be marked. Likely a configuration error — check the class roster.
