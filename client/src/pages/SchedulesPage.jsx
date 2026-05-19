@@ -7,6 +7,9 @@ import { useTeams } from '../hooks/useTeams';
 import { useRole } from '../hooks/useRole';
 import { qk } from '../hooks/queryKeys';
 import { useTimeSlots } from '../hooks/useTimeSlots';
+import { CalendarGrid, getMonday, toDateKey } from '../components/CalendarGrid';
+import { Button } from '@/components/ui/button';
+import { Spinner } from '../components/Spinner';
 
 // ──────────────────────────────────────────────────────────
 // Admin Schedule Management (v2 — Calendar View)
@@ -18,21 +21,6 @@ import { useTimeSlots } from '../hooks/useTimeSlots';
 const DAY_NAMES = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
 // ── Helpers ───────────────────────────────────────────────
-
-const getMonday = (date) => {
-  const d = new Date(date);
-  const day = d.getDay();
-  const diff = d.getDate() - day + (day === 0 ? -6 : 1);
-  const mon = new Date(d);
-  mon.setDate(diff);
-  mon.setHours(0, 0, 0, 0);
-  return mon;
-};
-
-const toDateKey = (d) => {
-  const dt = new Date(d);
-  return `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}-${String(dt.getDate()).padStart(2, '0')}`;
-};
 
 const parseSlot = (slot) => {
   const [startStr, endStr] = slot.split('-');
@@ -137,77 +125,77 @@ function ScheduleModal({ schedule, classes, teams, onClose, onSaved, prefill }) 
 
   return (
     <Portal>
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm" onClick={onClose}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60" onClick={onClose}>
       <form onSubmit={handleSubmit} onClick={(e) => e.stopPropagation()}
-        className="bg-card border border-border rounded-2xl p-6 w-full max-w-lg mx-4 space-y-4 max-h-[90vh] overflow-y-auto">
-        <h2 className="text-lg font-bold text-white">{isEdit ? '✏️ Edit Schedule' : '➕ Create Schedule'}</h2>
-        {error && <div className="px-4 py-2 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-sm">{error}</div>}
+        className="bg-card border border-border rounded-lg p-6 w-full max-w-lg mx-4 space-y-4 max-h-[90vh] overflow-y-auto">
+        <h2 className="text-h3 text-foreground">{isEdit ? 'Edit Schedule' : 'Create Schedule'}</h2>
+        {error && <div className="px-4 py-2 rounded-md bg-destructive-tint border border-destructive/30 text-destructive text-sm">{error}</div>}
 
         <div className="grid grid-cols-2 gap-4">
           {/* ── Team selector (primary) ──────────────────── */}
           <div className="col-span-2">
-            <label className="block text-sm text-slate-300 mb-1">Team</label>
+            <label className="block text-small text-muted-foreground mb-1">Team</label>
             <select value={form.bookedTeamId} onChange={(e) => handleTeamChange(e.target.value)} required
-              className="w-full px-3 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all">
-              <option value="" className="bg-slate-800">Select team…</option>
+              className="w-full px-3 h-(--control-h) rounded-md border border-input bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-ring transition-colors">
+              <option value="" className="bg-popover">Select team…</option>
               {assignedTeams.map((t) => {
                 const cls = classById[t.classId?._id || t.classId];
                 const label = cls ? `${t.name} → ${cls.classCode} (${cls.courseName})` : t.name;
-                return <option key={t._id} value={t._id} className="bg-slate-800">{label}</option>;
+                return <option key={t._id} value={t._id} className="bg-popover">{label}</option>;
               })}
             </select>
           </div>
 
           {/* ── Auto-resolved class (read-only info) ────── */}
           <div className="col-span-2">
-            <label className="block text-sm text-slate-300 mb-1">Class <span className="text-slate-500">(auto-synced from team)</span></label>
+            <label className="block text-small text-muted-foreground mb-1">Class <span className="text-subtle-foreground">(auto-synced from team)</span></label>
             {resolvedClass ? (
-              <div className="flex items-center gap-2 px-3 py-2.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20">
-                <span className="text-emerald-400 text-sm font-bold">{resolvedClass.classCode}</span>
-                <span className="text-slate-400 text-sm">—</span>
-                <span className="text-slate-300 text-sm">{resolvedClass.courseName}</span>
+              <div className="flex items-center gap-2 px-3 py-2.5 rounded-md bg-success-tint border border-success/20">
+                <span className="text-success text-sm font-bold">{resolvedClass.classCode}</span>
+                <span className="text-muted-foreground text-sm">—</span>
+                <span className="text-foreground text-sm">{resolvedClass.courseName}</span>
                 <span className={`ml-auto text-[10px] font-semibold px-2 py-0.5 rounded-full ${
-                  resolvedClass.status === 'Ongoing' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-slate-500/20 text-slate-400'
+                  resolvedClass.status === 'Ongoing' ? 'bg-success-tint text-success' : 'bg-muted text-muted-foreground'
                 }`}>{resolvedClass.status}</span>
               </div>
             ) : teamHasNoClass ? (
-              <div className="px-3 py-2.5 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-400 text-sm">
-                ⚠️ This team has no assigned class. Please assign a class in the Classes page first.
+              <div className="px-3 py-2.5 rounded-md bg-warning-tint border border-warning/20 text-warning text-sm">
+                This team has no assigned class. Please assign a class in the Classes page first.
               </div>
             ) : (
-              <div className="px-3 py-2.5 rounded-xl bg-white/5 border border-white/10 text-slate-500 text-sm">
+              <div className="px-3 py-2.5 rounded-md bg-muted border border-border text-subtle-foreground text-sm">
                 Select a team to auto-fill class
               </div>
             )}
           </div>
 
           <div>
-            <label className="block text-sm text-slate-300 mb-1">Start Time</label>
+            <label className="block text-small text-muted-foreground mb-1">Start Time</label>
             <input type="datetime-local" value={form.startTime} onChange={(e) => f('startTime', e.target.value)} required
-              className="w-full px-4 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all" />
+              className="w-full px-3 h-(--control-h) rounded-md border border-input bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-ring transition-colors" />
           </div>
           <div>
-            <label className="block text-sm text-slate-300 mb-1">End Time</label>
+            <label className="block text-small text-muted-foreground mb-1">End Time</label>
             <input type="datetime-local" value={form.endTime} onChange={(e) => f('endTime', e.target.value)} required
-              className="w-full px-4 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all" />
+              className="w-full px-3 h-(--control-h) rounded-md border border-input bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-ring transition-colors" />
           </div>
           <div>
-            <label className="block text-sm text-slate-300 mb-1">Capacity</label>
+            <label className="block text-small text-muted-foreground mb-1">Capacity</label>
             <input type="number" value={form.capacity} onChange={(e) => f('capacity', Number(e.target.value))} min={1} required
-              className="w-full px-4 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all" />
+              className="w-full px-3 h-(--control-h) rounded-md border border-input bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-ring transition-colors" />
           </div>
           <div className="col-span-2">
-            <label className="block text-sm text-slate-300 mb-1">Room / Meet Link</label>
+            <label className="block text-small text-muted-foreground mb-1">Room / Meet Link</label>
             <input type="text" value={form.roomLink} onChange={(e) => f('roomLink', e.target.value)} placeholder="https://meet.google.com/..."
-              className="w-full px-4 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all" />
+              className="w-full px-3 h-(--control-h) rounded-md border border-input bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-ring transition-colors" />
           </div>
         </div>
 
         <div className="flex gap-3 pt-2">
-          <button type="button" onClick={onClose} className="flex-1 py-2.5 rounded-xl border border-white/10 text-slate-400 hover:bg-white/5 transition-all">Cancel</button>
-          <button type="submit" disabled={saving || teamHasNoClass} className="flex-1 py-2.5 rounded-xl bg-gradient-to-r from-primary to-primary text-white font-semibold disabled:opacity-50 transition-all">
-            {saving ? 'Saving...' : isEdit ? 'Update' : 'Create'}
-          </button>
+          <Button variant="outline" className="flex-1" type="button" onClick={onClose}>Cancel</Button>
+          <Button type="submit" className="flex-1" disabled={saving || teamHasNoClass}>
+            {saving ? 'Saving…' : isEdit ? 'Update' : 'Create'}
+          </Button>
         </div>
       </form>
     </div>
@@ -325,7 +313,7 @@ export default function SchedulesPage() {
     setDeleteTarget(null);
   };
 
-
+  const weekLabel = `${weekDays[0].toLocaleDateString('en', { month: 'short', day: 'numeric' })} — ${weekDays[6].toLocaleDateString('en', { month: 'short', day: 'numeric', year: 'numeric' })}`;
 
   return (
     <div className="space-y-5 ">
@@ -333,198 +321,130 @@ export default function SchedulesPage() {
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h1 className="text-h1 text-foreground">Schedule Management</h1>
-          <p className="text-slate-400 mt-1">
+          <p className="text-muted-foreground mt-1">
             {totalSchedules} total sessions · {weekScheduleCount} this week
           </p>
         </div>
         {canCreate && (
-          <button onClick={() => { setPrefill(null); setModal('create'); }}
-            className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-primary to-primary text-white font-semibold hover:from-primary hover:to-primary transition-all shadow-lg shadow-primary/20 self-start">
-            + New Schedule
-          </button>
+          <Button onClick={() => { setPrefill(null); setModal('create'); }}>+ New Schedule</Button>
         )}
       </div>
 
-      {/* ── Week navigation ────────────────────────────── */}
-      <div className="flex items-center justify-between">
-        <button onClick={prevWeek} className="px-4 py-2 rounded-xl bg-white/5 text-slate-300 hover:bg-white/10 transition-all text-sm border border-white/10">← Prev</button>
-        <div className="flex items-center gap-3">
-          <h2 className="text-white font-semibold">
-            {weekDays[0].toLocaleDateString('en', { month: 'short', day: 'numeric' })} — {weekDays[6].toLocaleDateString('en', { month: 'short', day: 'numeric', year: 'numeric' })}
-          </h2>
-          <button onClick={goToday} className="px-3 py-1 rounded-lg bg-primary/20 text-primary text-xs border border-primary/20 hover:bg-primary/30 transition-all">Today</button>
-          {latestScheduleWeek && weekScheduleCount === 0 && (
-            <button onClick={goToLatest} className="px-3 py-1 rounded-lg bg-amber-500/20 text-amber-300 text-xs border border-amber-500/20 hover:bg-amber-500/30 transition-all animate-pulse">⚡ Jump to latest</button>
-          )}
-        </div>
-        <button onClick={nextWeek} className="px-4 py-2 rounded-xl bg-white/5 text-slate-300 hover:bg-white/10 transition-all text-sm border border-white/10">Next →</button>
-      </div>
-
       {/* ── Calendar Grid ──────────────────────────────── */}
-      {loading ? (
-        <div className="flex items-center justify-center py-20">
-          <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
-        </div>
-      ) : (
-        <div className="bg-card border border-border rounded-2xl overflow-hidden border border-white/5">
-          <div className="overflow-x-auto">
-            <table className="w-full border-collapse min-w-[800px]">
-              <thead>
-                <tr>
-                  <th className="sticky left-0 z-20 bg-slate-900/95 backdrop-blur-sm px-3 py-3 border-b border-r border-white/10 text-xs text-slate-500 w-24">Time</th>
-                  {weekDays.map((day, i) => {
-                    const dateKey = toDateKey(day);
-                    const isToday = dateKey === today;
-                    return (
-                      <th key={i} className={`px-2 py-3 border-b border-white/10 text-center ${isToday ? 'bg-primary/10' : ''}`}>
-                        <div className={`text-xs font-bold ${isToday ? 'text-primary' : 'text-slate-400'}`}>{DAY_NAMES[i]}</div>
-                        <div className={`text-xl font-bold ${isToday ? 'text-primary' : 'text-white'}`}>{day.getDate()}</div>
-                        <div className="text-[10px] text-slate-500">{day.toLocaleDateString('en', { month: 'short' })}</div>
-                      </th>
-                    );
-                  })}
-                </tr>
-              </thead>
+      <CalendarGrid
+        weekDays={weekDays}
+        timeRows={weekTimeRows}
+        isLoading={loading}
+        onPrev={prevWeek}
+        onNext={nextWeek}
+        onToday={goToday}
+        weekLabel={weekLabel}
+        actions={
+          latestScheduleWeek && weekScheduleCount === 0 ? (
+            <Button variant="outline" size="sm" onClick={goToLatest} className="text-warning border-warning/30 hover:bg-warning/10">
+              Jump to latest
+            </Button>
+          ) : null
+        }
+        renderCell={(day, hour) => {
+          const dateKey = toDateKey(day);
+          const cellKey = `${dateKey}|${hour}`;
+          const cellSchedules = scheduleMap[cellKey] || [];
 
-              <tbody>
-                {weekTimeRows.map((hour) => {
-                  const hourLabel = `${String(hour).padStart(2, '0')}:00`;
+          if (cellSchedules.length > 0) {
+            return (
+              <div className="space-y-1">
+                {cellSchedules.map((s) => {
+                  const pct = s.capacity > 0 ? Math.round((s.enrolledCount / s.capacity) * 100) : 0;
+                  const barColor = pct >= 90 ? 'bg-destructive' : pct >= 60 ? 'bg-warning' : 'bg-success';
                   return (
-                  <tr key={hour} className="group">
-                    <td className="sticky left-0 z-10 bg-slate-900/95 backdrop-blur-sm px-3 py-2 border-r border-b border-white/10 text-xs font-mono text-slate-400 whitespace-nowrap align-top">
-                      {hourLabel}
-                    </td>
-
-                    {weekDays.map((day, dayIdx) => {
-                      const dateKey = toDateKey(day);
-                      const cellKey = `${dateKey}|${hour}`;
-                      const cellSchedules = scheduleMap[cellKey] || [];
-                      const isToday = dateKey === today;
-
-                      if (cellSchedules.length > 0) {
-                        return (
-                          <td key={dayIdx} className={`border-b border-white/5 p-1 align-top ${isToday ? 'bg-primary/5' : ''}`}>
-                            <div className="space-y-1">
-                              {cellSchedules.map((s) => {
-                                const pct = s.capacity > 0 ? Math.round((s.enrolledCount / s.capacity) * 100) : 0;
-                                const barColor = pct >= 90 ? 'bg-red-500' : pct >= 60 ? 'bg-amber-500' : 'bg-emerald-500';
-                                return (
-                                  <div key={s._id}
-                                    className={`rounded-xl p-2 bg-gradient-to-br from-primary/20 to-purple-500/10 border border-primary/20 hover:border-primary/40 transition-all group/card relative ${canUpdate ? 'cursor-pointer' : ''}`}
-                                    onClick={() => { if (canUpdate) setModal(s); }}
-                                  >
-                                    {/* Time range */}
-                                    <div className="text-[9px] font-mono text-slate-500 mb-0.5">
-                                      {scheduleTimeLabel(s)}
-                                    </div>
-                                    {/* Class info */}
-                                    <div className="text-xs font-bold text-primary truncate">
-                                      {s.classId?.classCode}
-                                    </div>
-                                    <div className="text-[10px] text-slate-400 truncate">
-                                      {s.classId?.courseName}
-                                    </div>
-
-                                    {/* Session number */}
-                                    {s.sessionNumber && (
-                                      <div className="text-[9px] font-medium text-emerald-400 mt-0.5">
-                                        Session {s.sessionNumber}{s.classId?.totalSessions ? ` / ${s.classId.totalSessions}` : ''}
-                                      </div>
-                                    )}
-
-                                    {/* Team badge */}
-                                    <div className="mt-1">
-                                      <span className="inline-flex items-center gap-1 text-[9px] font-semibold text-purple-300 bg-purple-500/15 px-1.5 py-0.5 rounded-full truncate max-w-full">
-                                        👥 {s.bookedTeamId?.name || '—'}
-                                      </span>
-                                    </div>
-
-                                    {/* Capacity bar */}
-                                    <div className="mt-1.5">
-                                      <div className="flex justify-between text-[9px] text-slate-500 mb-0.5">
-                                        <span>{s.enrolledCount}/{s.capacity}</span>
-                                      </div>
-                                      <div className="h-1 rounded-full bg-white/5 overflow-hidden">
-                                        <div className={`h-full rounded-full ${barColor} transition-all`} style={{ width: `${pct}%` }} />
-                                      </div>
-                                    </div>
-
-                                    {/* Actions (visible on hover) */}
-                                    {canDelete && (
-                                      <div className="absolute top-1 right-1 opacity-0 group-hover/card:opacity-100 transition-opacity flex gap-1">
-                                        <button
-                                          onClick={(e) => { e.stopPropagation(); setDeleteTarget(s); }}
-                                          className="w-5 h-5 rounded bg-red-500/20 text-red-400 text-[10px] flex items-center justify-center hover:bg-red-500/40 transition-all"
-                                          title="Delete"
-                                        >✕</button>
-                                      </div>
-                                    )}
-                                  </div>
-                                );
-                              })}
-                            </div>
-                          </td>
-                        );
-                      }
-
-                      // ── EMPTY CELL — click to create (gated) ──────
-                      // Use the hour to build a default slot for prefill
-                      const defaultSlot = `${String(hour).padStart(2, '0')}:00-${String(hour + 1).padStart(2, '0')}:00`;
-                      return (
-                        <td key={dayIdx} className={`border-b border-white/5 p-1 align-top ${isToday ? 'bg-primary/5' : ''}`}>
-                          {canCreate ? (
-                            <div
-                              className="rounded-xl h-full min-h-[80px] flex items-center justify-center transition-all bg-white/[0.02] hover:bg-emerald-500/10 hover:border-emerald-500/20 border border-transparent cursor-pointer group/cell"
-                              onClick={() => handleCellClick(day, defaultSlot)}
-                            >
-                              <span className="text-[10px] text-slate-600 opacity-0 group-hover/cell:opacity-100 transition-opacity font-medium">
-                                + Create
-                              </span>
-                            </div>
-                          ) : (
-                            <div className="rounded-xl h-full min-h-[80px] bg-white/[0.02] border border-transparent" />
-                          )}
-                        </td>
-                      );
-                    })}
-                  </tr>
+                    <div
+                      key={s._id}
+                      className={`rounded-md p-2 bg-primary/10 border border-primary/20 hover:border-primary/40 transition-colors duration-(--dur) relative ${canUpdate ? 'cursor-pointer' : ''} group/card`}
+                      onClick={() => { if (canUpdate) setModal(s); }}
+                    >
+                      <div className="text-[9px] font-mono text-subtle-foreground mb-0.5">
+                        {scheduleTimeLabel(s)}
+                      </div>
+                      <div className="text-xs font-bold text-primary truncate">
+                        {s.classId?.classCode}
+                      </div>
+                      <div className="text-[10px] text-muted-foreground truncate">
+                        {s.classId?.courseName}
+                      </div>
+                      {s.sessionNumber && (
+                        <div className="text-[9px] font-medium text-success mt-0.5">
+                          Session {s.sessionNumber}{s.classId?.totalSessions ? ` / ${s.classId.totalSessions}` : ''}
+                        </div>
+                      )}
+                      <div className="mt-1">
+                        <span className="inline-flex items-center gap-1 text-[9px] font-semibold text-chart-6 bg-chart-6/15 px-1.5 py-0.5 rounded truncate max-w-full">
+                          {s.bookedTeamId?.name || '—'}
+                        </span>
+                      </div>
+                      <div className="mt-1.5">
+                        <div className="flex justify-between text-[9px] text-subtle-foreground mb-0.5 tabular-nums">
+                          <span>{s.enrolledCount}/{s.capacity}</span>
+                        </div>
+                        <div className="h-1 rounded-full bg-muted overflow-hidden">
+                          <div className={`h-full rounded-full ${barColor} transition-all`} style={{ width: `${pct}%` }} />
+                        </div>
+                      </div>
+                      {canDelete && (
+                        <div className="absolute top-1 right-1 opacity-0 group-hover/card:opacity-100 transition-opacity flex gap-1">
+                          <button
+                            onClick={(e) => { e.stopPropagation(); setDeleteTarget(s); }}
+                            className="size-5 rounded bg-destructive/20 text-destructive text-[10px] flex items-center justify-center hover:bg-destructive/40 transition-colors"
+                            title="Delete"
+                          >✕</button>
+                        </div>
+                      )}
+                    </div>
                   );
                 })}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      )}
+              </div>
+            );
+          }
+
+          const defaultSlot = `${String(hour).padStart(2, '0')}:00-${String(hour + 1).padStart(2, '0')}:00`;
+          if (canCreate) {
+            return (
+              <div
+                className="h-full min-h-[80px] flex items-center justify-center rounded-md border border-transparent hover:bg-success/10 hover:border-success/20 cursor-pointer transition-colors duration-(--dur) group/cell"
+                onClick={() => handleCellClick(day, defaultSlot)}
+              >
+                <span className="text-[10px] text-subtle-foreground opacity-0 group-hover/cell:opacity-100 transition-opacity font-medium">+ Create</span>
+              </div>
+            );
+          }
+          return <div className="h-full min-h-[80px] rounded-md" />;
+        }}
+      />
 
       {/* ── Legend ──────────────────────────────────────── */}
-      <div className="flex flex-wrap gap-4 text-xs text-slate-400">
+      <div className="flex flex-wrap gap-4 text-xs text-muted-foreground">
         <div className="flex items-center gap-2">
-          <div className="w-3.5 h-3.5 rounded bg-gradient-to-br from-primary/30 to-purple-500/20 border border-primary/30" />
+          <div className="w-3.5 h-3.5 rounded bg-primary/15 border border-primary/20" />
           <span>Scheduled session (click to edit)</span>
         </div>
         <div className="flex items-center gap-2">
-          <div className="w-3.5 h-3.5 rounded bg-white/[0.03] border border-dashed border-emerald-500/30" />
+          <div className="w-3.5 h-3.5 rounded border border-dashed border-success/30" />
           <span>Empty — click to create</span>
-        </div>
-        <div className="flex items-center gap-2">
-          <div className="w-3.5 h-3.5 rounded bg-amber-500/30" />
-          <span>⚠️ = No teacher assigned</span>
         </div>
       </div>
 
       {/* ── Delete Confirmation ─────────────────────────── */}
       {deleteTarget && (
         <Portal>
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
-          <div className="bg-card border border-border rounded-2xl p-6 max-w-sm mx-4 text-center space-y-4 ">
-            <div className="text-3xl">🗑️</div>
-            <h3 className="text-lg font-bold text-white">Delete this schedule?</h3>
-            <p className="text-sm text-slate-400">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
+          <div className="bg-card border border-border rounded-lg p-6 max-w-sm mx-4 text-center space-y-4 ">
+            <h3 className="text-h3 text-foreground">Delete this schedule?</h3>
+            <p className="text-body text-muted-foreground">
               {deleteTarget.classId?.classCode} · {deleteTarget.bookedTeamId?.name}
             </p>
             <div className="flex gap-3">
-              <button onClick={() => setDeleteTarget(null)} className="flex-1 py-2.5 rounded-xl border border-white/10 text-slate-400 hover:bg-white/5 transition-all">Cancel</button>
-              <button onClick={handleDelete} className="flex-1 py-2.5 rounded-xl bg-red-500/20 text-red-400 border border-red-500/20 hover:bg-red-500/30 font-semibold transition-all">Delete</button>
+              <Button variant="outline" className="flex-1" onClick={() => setDeleteTarget(null)}>Cancel</Button>
+              <Button variant="destructive" className="flex-1" onClick={handleDelete}>Delete</Button>
             </div>
           </div>
         </div>
