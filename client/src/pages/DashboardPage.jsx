@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Users, BarChart3, AlertTriangle, PauseCircle, RefreshCw, BookOpen, Building2, UserCog } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useDashboardStats, useDashboardFilterOptions } from '../hooks/useDashboard';
+import { AlertBand } from '@/components/home/AlertBand';
 import { TodayHero } from '@/components/home/TodayHero';
 import { PageHeader } from '@/components/PageHeader';
 import { KPICard } from '@/components/KPICard';
@@ -13,15 +14,9 @@ import { Button } from '@/components/ui/button';
 import ParticipantDashboard from './ParticipantDashboard';
 import QueryError from '../components/QueryError';
 
-// ── Chart palette — CSS vars from Phase 0 §04 ───────────
-// Resolved at render time so they work in both light + dark mode.
-function chartColor(n) {
-  return `var(--color-chart-${n})`;
-}
-const COURSE_COLORS   = [1, 2, 3, 4, 5, 6].map(chartColor);
-const BU_COLORS       = [3, 7, 1, 2, 4, 8, 5, 7, 6, 2, 8, 4].map(chartColor);
-const POSITION_COLORS = [5, 6, 6, 7, 2, 1, 3, 4, 8, 8].map(chartColor);
-
+// Indexed chart-1…5 (guaranteed tokens in Phase 0 §04 palette).
+// Use (i % 5) + 1 inline — no static array needed.
+const chartVar = (i) => `var(--color-chart-${(i % 5) + 1})`;
 
 export default function DashboardPage() {
   const { user, isAdmin, isParticipant } = useAuth();
@@ -83,7 +78,7 @@ export default function DashboardPage() {
   const maxLevelCount = Math.max(...allLevels.map(l => Math.max(entranceMap[l] || 0, currentMap[l] || 0)), 1);
   const lp = stats?.levelProgression || {};
 
-  // ── Class progress: top 10 or all ──
+  // ── Class progress: sort + split visible / laggard ──
   const classData = stats?.classProgress || [];
   const sortedClasses = [...classData].sort((a, b) => {
     if (a.status === 'Ongoing' && b.status !== 'Ongoing') return -1;
@@ -92,8 +87,13 @@ export default function DashboardPage() {
   });
   const visibleClasses = showAllClasses ? sortedClasses : sortedClasses.slice(0, 10);
 
+  // Laggard: Ongoing classes with < 40% completion and at least 1 total session
+  const laggardClasses = classData.filter(
+    c => c.status === 'Ongoing' && c.totalSessions > 0 && c.progress < 0.4,
+  ).sort((a, b) => a.progress - b.progress);
+
   return (
-    <div className="space-y-5 ">
+    <div className="space-y-5">
       <PageHeader
         title={`Welcome back, ${user?.name?.split(' ')[0] || 'there'}`}
         description={new Date().toLocaleDateString('en-GB', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' })}
@@ -119,7 +119,10 @@ export default function DashboardPage() {
         }
       />
 
-      {/* ═══ Today hero — actionable items ═══ */}
+      {/* ═══ Alert band — actionable items (toMark, no leader…) ═══ */}
+      <AlertBand />
+
+      {/* ═══ Today hero — compact session-status band ═══ */}
       <TodayHero />
 
       <FilterBar
@@ -140,10 +143,10 @@ export default function DashboardPage() {
 
       {/* ═══ KPI ROW ═══ */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        <KPICard label="Active Students"   value={o.active}                  sub={`/ ${o.totalStudents || 0} total`}                      icon={Users}         tone="success" />
-        <KPICard label="Attendance Rate"   value={pct(o.attendanceRate || 0)} sub={`${o.presentSessions || 0} / ${o.totalSessions || 0} sessions`} icon={BarChart3}     tone="info" />
-        <KPICard label="At Risk"           value={o.atRisk || 0}              sub="no activity 30 days"                                    icon={AlertTriangle}  tone={o.atRisk > 0 ? 'danger' : 'neutral'} />
-        <KPICard label="Inactive / Waiting" value={o.inactive || 0}           sub={`${o.waiting || 0} waiting`}                            icon={PauseCircle}   tone="neutral" />
+        <KPICard label="Active Students"    value={o.active}                   sub={`/ ${o.totalStudents || 0} total`}                           icon={Users}         tone="success" />
+        <KPICard label="Attendance Rate"    value={pct(o.attendanceRate || 0)} sub={`${o.presentSessions || 0} / ${o.totalSessions || 0} sessions`} icon={BarChart3}     tone="info" />
+        <KPICard label="At Risk"            value={o.atRisk || 0}              sub="no activity 30 days"                                          icon={AlertTriangle}  tone={o.atRisk > 0 ? 'danger' : 'neutral'} />
+        <KPICard label="Inactive / Waiting" value={o.inactive || 0}            sub={`${o.waiting || 0} waiting`}                                  icon={PauseCircle}   tone="neutral" />
       </div>
 
       {/* ═══ ROW 2: Course + BU/Position (tabbed) ═══ */}
@@ -159,7 +162,7 @@ export default function DashboardPage() {
               {stats.courseBreakdown.map((c, i) => {
                 const maxTotal = Math.max(...stats.courseBreakdown.map(x => x.total));
                 const barWidth = maxTotal > 0 ? (c.total / maxTotal) * 100 : 0;
-                const color = COURSE_COLORS[i % COURSE_COLORS.length];
+                const color = chartVar(i);
                 return (
                   <div key={c.courseName}>
                     <div className="flex items-center justify-between text-xs mb-1">
@@ -173,7 +176,7 @@ export default function DashboardPage() {
                     <div className="w-full bg-muted rounded-full h-3.5 overflow-hidden">
                       <div className="h-full rounded-full flex" style={{ width: barWidth + '%' }}>
                         <div className="h-full rounded-l-full" style={{ width: c.total > 0 ? (c.active / c.total) * 100 + '%' : '0%', background: color }} />
-                        <div className="h-full rounded-r-full" style={{ width: c.total > 0 ? ((c.inactive + (c.waiting||0)) / c.total) * 100 + '%' : '0%', background: color, opacity: 0.2 }} />
+                        <div className="h-full rounded-r-full" style={{ width: c.total > 0 ? ((c.inactive + (c.waiting || 0)) / c.total) * 100 + '%' : '0%', background: color, opacity: 0.2 }} />
                       </div>
                     </div>
                   </div>
@@ -202,7 +205,7 @@ export default function DashboardPage() {
                 {stats.departmentBreakdown.map((d, i) => {
                   const maxTotal = Math.max(...stats.departmentBreakdown.map(x => x.total));
                   const barWidth = maxTotal > 0 ? (d.total / maxTotal) * 100 : 0;
-                  const color = BU_COLORS[i % BU_COLORS.length];
+                  const color = chartVar(i);
                   const isActive = filters.department === d.department;
                   return (
                     <div key={d.department} onClick={() => toggleFilter('department', d.department)}
@@ -225,7 +228,7 @@ export default function DashboardPage() {
                 {stats.positionBreakdown.map((p, i) => {
                   const maxTotal = Math.max(...stats.positionBreakdown.map(x => x.total));
                   const barWidth = maxTotal > 0 ? (p.total / maxTotal) * 100 : 0;
-                  const color = POSITION_COLORS[i % POSITION_COLORS.length];
+                  const color = chartVar(i);
                   const isActive = filters.position === p.position;
                   return (
                     <div key={p.position} onClick={() => toggleFilter('position', p.position)}
@@ -364,6 +367,59 @@ export default function DashboardPage() {
           </>
         ) : <EmptyState icon={BookOpen} title="No class data" variant="firstTime" className="py-8" />}
       </div>
+
+      {/* ═══ ROW 5: Laggard Classes — Ongoing with < 40% completion ═══ */}
+      {laggardClasses.length > 0 && (
+        <div className="bg-card border border-warning/20 rounded-lg p-5">
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
+              <span className="w-1 h-4 rounded-full bg-warning inline-block" />
+              Needs Attention
+              <span className="text-[10px] font-normal text-warning bg-warning/10 px-1.5 py-0.5 rounded">
+                &lt;40% sessions done
+              </span>
+            </h3>
+            <span className="text-[10px] text-subtle-foreground">{laggardClasses.length} ongoing class{laggardClasses.length !== 1 ? 'es' : ''}</span>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-xs">
+              <thead>
+                <tr className="text-left border-b border-border">
+                  {['Class', 'Course', 'Done', 'Total', 'Progress'].map(h => (
+                    <th key={h} className="px-2 py-1.5 text-overline text-muted-foreground">{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border">
+                {laggardClasses.map((c, i) => {
+                  const progressPct = Math.min(c.progress * 100, 100);
+                  return (
+                    <tr
+                      key={i}
+                      onClick={() => c._id && navigate(`/classes/${c._id}`)}
+                      className={`transition-colors duration-(--dur-fast) ${c._id ? 'cursor-pointer hover:bg-accent/50' : ''}`}
+                      title={c._id ? 'Click to open class detail' : undefined}
+                    >
+                      <td className="px-2 py-2 text-mono text-primary">{c.classCode}</td>
+                      <td className="px-2 py-2 text-foreground">{c.courseName}</td>
+                      <td className="px-2 py-2 text-foreground font-medium tabular-nums">{c.doneSessions}</td>
+                      <td className="px-2 py-2 text-muted-foreground tabular-nums">{c.totalSessions}</td>
+                      <td className="px-2 py-2 w-36">
+                        <div className="flex items-center gap-1.5">
+                          <div className="flex-1 bg-muted rounded-full h-1.5 overflow-hidden">
+                            <div className="h-full rounded-full bg-warning" style={{ width: progressPct + '%' }} />
+                          </div>
+                          <span className="text-[10px] w-7 text-right tabular-nums text-warning">{progressPct.toFixed(0)}%</span>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

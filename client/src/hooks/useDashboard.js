@@ -32,3 +32,16 @@ export const useDashboardFilterOptions = (options = {}) =>
     staleTime: 5 * 60_000, // 5 minutes
     ...options,
   });
+
+/**
+ * Fetch actionable alert counts (toMark, teamsWithoutLeader, teamsUnassigned).
+ * refetchOnWindowFocus: true — stays fresh as admin switches tabs.
+ */
+export const useDashboardAlerts = (options = {}) =>
+  useQuery({
+    queryKey: ['dashboard', 'alerts'],
+    queryFn: () => dashboardAPI.getAlerts().then((r) => r.data.data),
+    staleTime: 60_000,
+    refetchOnWindowFocus: true,
+    ...options,
+  });
