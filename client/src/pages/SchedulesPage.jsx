@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
+import { useSearchParams } from 'react-router-dom';
 import Portal from '../components/Portal';
 import { useSchedules, useCreateSchedule, useUpdateSchedule, useDeleteSchedule } from '../hooks/useSchedules';
 import { useClasses } from '../hooks/useClasses';
@@ -207,6 +208,7 @@ function ScheduleModal({ schedule, classes, teams, onClose, onSaved, prefill }) 
 
 export default function SchedulesPage() {
   const queryClient = useQueryClient();
+  const [searchParams, setSearchParams] = useSearchParams();
   const DEFAULT_TIME_SLOTS = useTimeSlots(); // fetched from DB settings (falls back to hardcoded defaults)
   const { can } = useRole();
   const canCreate = can('create:schedule');
@@ -217,8 +219,19 @@ export default function SchedulesPage() {
   const [prefill, setPrefill] = useState(null);    // { startTime, endTime } for calendar click
   const [deleteTarget, setDeleteTarget] = useState(null);
 
-  // Week navigation
-  const [weekStart, setWeekStart] = useState(() => getMonday(new Date()));
+  // Week navigation — persisted in URL (?week=YYYY-MM-DD)
+  const [weekStart, setWeekStart] = useState(() => {
+    const param = searchParams.get('week');
+    if (param) { const d = new Date(param); if (!isNaN(d)) return getMonday(d); }
+    return getMonday(new Date());
+  });
+
+  const setWeek = (monday) => {
+    setWeekStart(monday);
+    const next = new URLSearchParams(searchParams);
+    next.set('week', toDateKey(monday));
+    setSearchParams(next, { replace: true });
+  };
 
   // Fetch all schedules (calendar needs access to any week)
   const schedParams = useMemo(() => ({ limit: 2000 }), []);
@@ -266,9 +279,10 @@ export default function SchedulesPage() {
     return [...hoursInWeek].sort((a, b) => a - b);
   }, [schedules, weekStart]);
 
-  const prevWeek = () => setWeekStart(new Date(weekStart.getTime() - 7 * 86400000));
-  const nextWeek = () => setWeekStart(new Date(weekStart.getTime() + 7 * 86400000));
-  const goToday = () => setWeekStart(getMonday(new Date()));
+  const prevWeek  = () => setWeek(new Date(weekStart.getTime() - 7 * 86400000));
+  const nextWeek  = () => setWeek(new Date(weekStart.getTime() + 7 * 86400000));
+  const goToday   = () => setWeek(getMonday(new Date()));
+  const goToLatest = () => { if (latestScheduleWeek) setWeek(latestScheduleWeek); };
 
   const today = toDateKey(new Date());
 
@@ -291,10 +305,6 @@ export default function SchedulesPage() {
     });
     return getMonday(latest);
   }, [schedules]);
-
-  const goToLatest = () => {
-    if (latestScheduleWeek) setWeekStart(latestScheduleWeek);
-  };
 
   // ── Admin handlers ──────────────────────────────────────
 

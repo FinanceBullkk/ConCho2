@@ -4,7 +4,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { ShieldAlert, LogOut, BarChart3 } from 'lucide-react';
+import { ShieldAlert, LogOut, BarChart3, Pencil, Trash2, X, RefreshCw, Download } from 'lucide-react';
 import StudentProgressModal from '../components/Progress/StudentProgressModal';
 import Portal from '../components/Portal';
 import { useUsers, useCreateUser, useUpdateUser, useDeleteUser } from '../hooks/useUsers';
@@ -12,7 +12,7 @@ import { useTeams } from '../hooks/useTeams';
 import { qk } from '../hooks/queryKeys';
 import { useAuth } from '../context/AuthContext';
 import { useRole } from '../hooks/useRole';
-import { authAPI } from '../api/api';
+import { authAPI, usersAPI } from '../api/api';
 import { createUserSchema, editUserSchema } from '../lib/validations';
 import { DataTable } from '../components/DataTable';
 import { FilterBar } from '../components/FilterBar';
@@ -233,8 +233,8 @@ export default function UsersPage() {
   const search       = searchParams.get('search')    || '';
   const filterRole   = searchParams.get('role')      || '';
   const filterStatus = searchParams.get('status')    || '';
-  const sortBy       = searchParams.get('sortBy')    || 'empCode';
-  const sortOrder    = searchParams.get('sortOrder') || 'asc';
+  const sortBy       = searchParams.get('sortBy')    || 'lastActive';
+  const sortOrder    = searchParams.get('sortOrder') || 'desc';
   const page         = Number(searchParams.get('page') || 1);
 
   const debouncedSearch = useDebounce(search, 300);
@@ -283,15 +283,27 @@ export default function UsersPage() {
   const executeBulkAction = async () => {
     if (!bulkAction || selectedIds.size === 0) return;
     const ids = [...selectedIds];
+    const n = ids.length;
     try {
       if (bulkAction === 'delete') {
-        if (!window.confirm(`Delete ${ids.length} users? This cannot be undone.`)) return;
+        if (!window.confirm(`Delete ${n} users? This cannot be undone.`)) return;
         await Promise.all(ids.map((id) => deleteMutation.mutateAsync(id)));
-        toast.success(`${ids.length} user${ids.length > 1 ? 's' : ''} deleted`);
+        toast.success(`${n} user${n > 1 ? 's' : ''} deleted`);
       } else if (bulkAction.startsWith('status:')) {
         const status = bulkAction.replace('status:', '');
         await Promise.all(ids.map((id) => updateMutation.mutateAsync({ id, data: { status } })));
-        toast.success(`${ids.length} user${ids.length > 1 ? 's' : ''} updated to ${status}`);
+        toast.success(`${n} user${n > 1 ? 's' : ''} set to ${status}`);
+      } else if (bulkAction.startsWith('role:')) {
+        const role = bulkAction.replace('role:', '');
+        await Promise.all(ids.map((id) => updateMutation.mutateAsync({ id, data: { role } })));
+        toast.success(`${n} user${n > 1 ? 's' : ''} set to ${role}`);
+      } else if (bulkAction === 'export') {
+        const selected = users.filter((u) => selectedIds.has(u._id));
+        downloadCSV(selected);
+        toast.success(`Exported ${selected.length} user${selected.length > 1 ? 's' : ''}`);
+      } else if (bulkAction === 'invite') {
+        await Promise.all(ids.map((id) => usersAPI.sendInvite?.(id)));
+        toast.success(`Invite queued for ${n} user${n > 1 ? 's' : ''}`);
       }
       setSelectedIds(new Set());
       setBulkAction('');
@@ -313,6 +325,23 @@ export default function UsersPage() {
   }, [allTeams]);
 
   const reload = () => queryClient.invalidateQueries({ queryKey: qk.users.all });
+
+  const downloadCSV = (rows) => {
+    const header = ['Code', 'Name', 'Email', 'BU', 'Position', 'Role', 'Status', 'Last Active'];
+    const escape = (v) => `"${String(v ?? '').replace(/"/g, '""')}"`;
+    const lines = [
+      header.map(escape).join(','),
+      ...rows.map((u) => [
+        u.empCode, u.name, u.email || '', u.department || '', u.position || '',
+        u.role, u.status, u.lastActive ? new Date(u.lastActive).toLocaleDateString('en') : '',
+      ].map(escape).join(',')),
+    ].join('\n');
+    const blob = new Blob([lines], { type: 'text/csv' });
+    const url  = URL.createObjectURL(blob);
+    const a    = Object.assign(document.createElement('a'), { href: url, download: `users-${new Date().toISOString().slice(0, 10)}.csv` });
+    a.click();
+    URL.revokeObjectURL(url);
+  };
 
   const handleDelete = async (id) => {
     try { await deleteMutation.mutateAsync(id); } catch { /* toast shown by global onError */ }
@@ -440,7 +469,7 @@ export default function UsersPage() {
               title="Edit user"
               className="h-7 px-2 text-muted-foreground hover:text-primary hover:bg-primary/10"
             >
-              ✏️
+              <Pencil className="size-3.5" aria-hidden="true" />
             </Button>
           )}
           {can('delete:user') && (
@@ -450,7 +479,7 @@ export default function UsersPage() {
               title="Delete user"
               className="h-7 px-2 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
             >
-              🗑
+              <Trash2 className="size-3.5" aria-hidden="true" />
             </Button>
           )}
           {u._id !== currentUser?._id && (
@@ -491,9 +520,14 @@ export default function UsersPage() {
           <h1 className="text-h1 text-foreground">User Management</h1>
           <p className="text-muted-foreground mt-1">{total} users total</p>
         </div>
-        {can('create:user') && (
-          <Button onClick={() => setModal('create')} className="self-start">+ New User</Button>
-        )}
+        <div className="flex items-center gap-2 self-start">
+          <Button variant="outline" size="sm" onClick={() => downloadCSV(users)} title="Export current view as CSV">
+            <Download className="size-3.5 mr-1.5" />CSV
+          </Button>
+          {can('create:user') && (
+            <Button onClick={() => setModal('create')}>+ New User</Button>
+          )}
+        </div>
       </div>
 
       {/* ── Search + Filters ────────────────────────────── */}
@@ -518,7 +552,9 @@ export default function UsersPage() {
           },
         ]}
       >
-        <Button variant="outline" size="sm" onClick={reload} aria-label="Refresh">↻ Refresh</Button>
+        <Button variant="outline" size="sm" onClick={reload} aria-label="Refresh">
+          <RefreshCw className="size-3.5 mr-1.5" />Refresh
+        </Button>
       </FilterBar>
 
       {/* ── Bulk action toolbar ──────────────────────────── */}
@@ -536,6 +572,11 @@ export default function UsersPage() {
             <option value="status:Active">Set Active</option>
             <option value="status:Inactive">Set Inactive</option>
             <option value="status:On-hold">Set On-hold</option>
+            <option value="role:Admin">Set Role → Admin</option>
+            <option value="role:Teacher">Set Role → Teacher</option>
+            <option value="role:Participant">Set Role → Participant</option>
+            <option value="export">Export selected (CSV)</option>
+            <option value="invite">Send invite email</option>
             {isAdmin && <option value="delete">Delete selected</option>}
           </select>
           <Button size="sm" disabled={!bulkAction} onClick={executeBulkAction}>Apply</Button>
@@ -544,7 +585,7 @@ export default function UsersPage() {
             onClick={() => setSelectedIds(new Set())}
             aria-label="Clear selection"
             className="text-muted-foreground"
-          >✕</Button>
+          ><X className="size-3.5" /></Button>
         </div>
       )}
 
