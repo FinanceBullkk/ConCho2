@@ -23,14 +23,15 @@ const ProgramsPage     = lazy(() => import('./pages/ProgramsPage'));
 const OperationsPage   = lazy(() => import('./pages/OperationsPage'));
 const ReportsPage      = lazy(() => import('./pages/ReportsPage'));
 const SystemPage       = lazy(() => import('./pages/SystemPage'));
+const CalendarPage     = lazy(() => import('./pages/CalendarPage'));
 const BookClassPage    = lazy(() => import('./pages/BookClassPage'));
 const ClassDetailPage  = lazy(() => import('./pages/ClassDetailPage'));
 const UserSettingsPage = lazy(() => import('./pages/UserSettingsPage'));
 
 function RouteFallback() {
   return (
-    <div className="min-h-[60vh] flex items-center justify-center">
-      <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+    <div className="min-h-[60vh] flex items-center justify-center text-muted-foreground">
+      <Spinner size={28} />
     </div>
   );
 }
@@ -193,14 +194,17 @@ function ForceChangePasswordModal() {
 // to the new section pages (preserves bookmarks for one release).
 const LEGACY_REDIRECTS = [
   { from: '/dashboard',  to: '/home' },
-  // IA-S2 renames: old top-level paths → new section tabs
+  // IA-S2 renames
   { from: '/academy',    to: '/people' },
   { from: '/admin',      to: '/system' },
   { from: '/classes',    to: '/programs?tab=classes' },
-  { from: '/schedules',  to: '/operations?tab=schedules' },
-  { from: '/attendance', to: '/operations?tab=attendance' },
   { from: '/data',       to: '/reports?tab=hr-export' },
   { from: '/settings',   to: '/system?tab=settings' },
+  // IA-S3: Schedules + Attendance + Book → unified /calendar
+  { from: '/schedules',  to: '/calendar?tab=schedules' },
+  { from: '/attendance', to: '/calendar?tab=attendance' },
+  { from: '/operations', to: '/calendar' },
+  { from: '/book',       to: '/calendar?tab=book' },
 ];
 
 export default function App() {
@@ -228,6 +232,7 @@ export default function App() {
                 <Route path="/programs" element={
                   <ProtectedRoute roles={['Admin']}><ProgramsPage /></ProtectedRoute>
                 } />
+                <Route path="/calendar" element={<CalendarPage />} />
                 <Route path="/operations" element={
                   <ProtectedRoute roles={['Admin', 'Teacher']}><OperationsPage /></ProtectedRoute>
                 } />
@@ -236,11 +241,6 @@ export default function App() {
                 } />
                 <Route path="/system" element={
                   <ProtectedRoute roles={['Admin']}><SystemPage /></ProtectedRoute>
-                } />
-
-                {/* Participant booking calendar */}
-                <Route path="/book" element={
-                  <ProtectedRoute roles={['Participant']}><BookClassPage /></ProtectedRoute>
                 } />
 
                 {/* Detail pages keep their own routes for deep links */}

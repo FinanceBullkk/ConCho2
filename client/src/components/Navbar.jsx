@@ -4,10 +4,9 @@ import {
   Home,
   Users,
   BookOpen,
-  CalendarCheck,
+  CalendarDays,
   FileBarChart,
   ShieldCog,
-  CalendarPlus,
   LogOut,
   UserCog,
   Sun,
@@ -24,21 +23,21 @@ import SearchPalette from './SearchPalette';
 
 const NAV_ITEMS = {
   Admin: [
-    { path: '/home',       label: 'Home',       icon: Home },
-    { path: '/people',     label: 'People',     icon: Users },
-    { path: '/programs',   label: 'Programs',   icon: BookOpen },
-    { path: '/operations', label: 'Operations', icon: CalendarCheck },
-    { path: '/reports',    label: 'Reports',    icon: FileBarChart },
-    { path: '/system',     label: 'System',     icon: ShieldCog },
+    { path: '/home',     label: 'Home',     icon: Home },
+    { path: '/people',   label: 'People',   icon: Users },
+    { path: '/programs', label: 'Programs', icon: BookOpen },
+    { path: '/calendar', label: 'Calendar', icon: CalendarDays },
+    { path: '/reports',  label: 'Reports',  icon: FileBarChart },
+    { path: '/system',   label: 'System',   icon: ShieldCog },
   ],
   Teacher: [
-    { path: '/home',       label: 'Home',       icon: Home },
-    { path: '/operations', label: 'Operations', icon: CalendarCheck },
-    { path: '/reports',    label: 'Reports',    icon: FileBarChart },
+    { path: '/home',     label: 'Home',     icon: Home },
+    { path: '/calendar', label: 'Calendar', icon: CalendarDays },
+    { path: '/reports',  label: 'Reports',  icon: FileBarChart },
   ],
   Participant: [
-    { path: '/home', label: 'Home', icon: Home },
-    { path: '/book', label: 'Book', icon: CalendarPlus },
+    { path: '/home',     label: 'Home',     icon: Home },
+    { path: '/calendar', label: 'Calendar', icon: CalendarDays },
   ],
 };
 
@@ -58,13 +57,12 @@ const ROLE_TEXT = {
 // Routes that "live under" each top-level nav item — used to highlight active state
 // when a deeper page (e.g. /classes/:id) is open.
 const NAV_PARENT_ROUTES = {
-  '/home':       ['/home', '/dashboard'],
-  '/people':     ['/people', '/users', '/teams'],
-  '/programs':   ['/programs', '/classes', '/courses'],
-  '/operations': ['/operations', '/schedules', '/attendance'],
-  '/reports':    ['/reports', '/data'],
-  '/system':     ['/system', '/admin', '/settings', '/database'],
-  '/book':       ['/book'],
+  '/home':     ['/home', '/dashboard'],
+  '/people':   ['/people', '/users', '/teams'],
+  '/programs': ['/programs', '/classes', '/courses'],
+  '/calendar': ['/calendar', '/operations', '/schedules', '/attendance', '/book'],
+  '/reports':  ['/reports', '/data'],
+  '/system':   ['/system', '/admin', '/settings', '/database'],
 };
 
 export default function Navbar() {
