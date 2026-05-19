@@ -8,16 +8,25 @@ import {
   FileBarChart,
   ShieldCog,
   LogOut,
-  UserCog,
+  Settings,
   Sun,
   Moon,
   Menu,
   X,
   Search,
+  ChevronDown,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../hooks/useTheme';
 import { Button } from '@/components/ui/button';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { cn } from '@/lib/utils';
 import SearchPalette from './SearchPalette';
 
@@ -64,6 +73,79 @@ const NAV_PARENT_ROUTES = {
   '/reports':  ['/reports', '/data'],
   '/system':   ['/system', '/admin', '/settings', '/database'],
 };
+
+// ── Avatar dropdown ───────────────────────────────────────
+function AvatarMenu({ user, onLogout }) {
+  const initials = (user?.name || '?')
+    .split(' ')
+    .map((w) => w[0])
+    .join('')
+    .slice(0, 2)
+    .toUpperCase();
+
+  const roleColor = ROLE_BG[user?.role] ?? 'bg-primary';
+
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <button
+          aria-label="Open account menu"
+          className="flex items-center gap-1.5 rounded-lg px-1.5 py-1 hover:bg-accent transition-colors duration-(--dur) focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        >
+          {/* Avatar chip */}
+          <span
+            className={cn(
+              'flex size-7 items-center justify-center rounded-md text-[11px] font-bold text-primary-foreground',
+              roleColor,
+            )}
+            aria-hidden="true"
+          >
+            {initials}
+          </span>
+          <ChevronDown className="size-3 text-muted-foreground" aria-hidden="true" />
+        </button>
+      </DropdownMenuTrigger>
+
+      <DropdownMenuContent align="end" className="w-52">
+        {/* User info */}
+        <DropdownMenuLabel className="flex flex-col gap-0.5 pb-2">
+          <span className="text-sm font-semibold text-foreground">{user?.name}</span>
+          <span className={cn('text-xs font-medium', ROLE_TEXT[user?.role] ?? 'text-primary')}>
+            {user?.role} · {user?.empCode}
+          </span>
+        </DropdownMenuLabel>
+
+        <DropdownMenuSeparator />
+
+        <DropdownMenuItem asChild>
+          <Link to="/me/settings" className="flex items-center gap-2 cursor-pointer">
+            <Settings className="size-4 text-muted-foreground" aria-hidden="true" />
+            Account settings
+          </Link>
+        </DropdownMenuItem>
+
+        {user?.role === 'Admin' && (
+          <DropdownMenuItem asChild>
+            <Link to="/system" className="flex items-center gap-2 cursor-pointer">
+              <ShieldCog className="size-4 text-muted-foreground" aria-hidden="true" />
+              System
+            </Link>
+          </DropdownMenuItem>
+        )}
+
+        <DropdownMenuSeparator />
+
+        <DropdownMenuItem
+          onClick={onLogout}
+          className="flex items-center gap-2 cursor-pointer text-destructive focus:text-destructive focus:bg-destructive/10"
+        >
+          <LogOut className="size-4" aria-hidden="true" />
+          Sign out
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
 
 export default function Navbar() {
   const { user, logout } = useAuth();
@@ -206,24 +288,7 @@ export default function Navbar() {
             >
               {isDark ? <Sun className="size-4" aria-hidden="true" /> : <Moon className="size-4" aria-hidden="true" />}
             </button>
-            <Link to="/me/settings" title="Account settings">
-              <Button
-                variant="ghost"
-                size="icon"
-                className="text-muted-foreground hover:bg-primary/10 hover:text-primary"
-              >
-                <UserCog className="size-4" />
-              </Button>
-            </Link>
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={logout}
-              title="Sign out"
-              className="text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
-            >
-              <LogOut className="size-4" />
-            </Button>
+            <AvatarMenu user={user} onLogout={logout} />
 
             {/* Hamburger button — mobile only */}
             <button
