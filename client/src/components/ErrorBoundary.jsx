@@ -25,22 +25,21 @@ export default class ErrorBoundary extends Component {
     if (this.state.hasError) {
       return (
         <div className="min-h-screen flex items-center justify-center p-4">
-          <div className="bg-card border border-border rounded-2xl p-8 text-center max-w-md ">
-            <div className="text-5xl mb-4">💥</div>
-            <h2 className="text-xl font-bold text-white mb-2">Đã xảy ra lỗi</h2>
-            <p className="text-slate-400 text-sm mb-6">
+          <div className="bg-card border border-border rounded-lg p-8 text-center max-w-md">
+            <h2 className="text-h3 text-foreground mb-2">Đã xảy ra lỗi</h2>
+            <p className="text-body text-muted-foreground mb-6">
               Ứng dụng gặp lỗi không mong muốn. Vui lòng tải lại trang.
             </p>
             <div className="flex gap-3 justify-center">
               <button
                 onClick={() => window.location.reload()}
-                className="px-6 py-2.5 rounded-xl bg-primary text-white font-semibold hover:bg-primary transition-colors"
+                className="px-6 py-2.5 rounded-md bg-primary text-primary-foreground font-semibold hover:bg-primary/90 transition-colors"
               >
                 Tải lại trang
               </button>
               <button
                 onClick={() => this.setState({ hasError: false, error: null })}
-                className="px-6 py-2.5 rounded-xl border border-white/10 text-slate-300 hover:bg-white/5 transition-colors"
+                className="px-6 py-2.5 rounded-md border border-border text-muted-foreground hover:bg-accent transition-colors"
               >
                 Thử lại
               </button>
