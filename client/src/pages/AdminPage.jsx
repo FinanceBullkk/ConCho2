@@ -76,7 +76,7 @@ function AuditLogTab() {
   return (
     <div className="space-y-4">
       {/* Filter bar */}
-      <div className="glass-card rounded-2xl p-4">
+      <div className="bg-card border border-border-card rounded-2xl p-4">
         <div className="flex flex-wrap gap-3 items-end">
           {/* Entity filter */}
           <div className="flex flex-col gap-1 min-w-[140px]">
@@ -133,7 +133,7 @@ function AuditLogTab() {
       </div>
 
       {/* Table */}
-      <div className="glass-card rounded-2xl overflow-hidden">
+      <div className="bg-card border border-border-card rounded-2xl overflow-hidden">
         {isLoading ? (
           <div className="p-6">
             <TableSkeleton rows={8} cols={5} />

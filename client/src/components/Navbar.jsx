@@ -123,7 +123,7 @@ export default function Navbar() {
   };
 
   return (
-    <header className="glass sticky top-0 z-50 border-b border-white/5">
+    <header className="bg-card border border-border sticky top-0 z-50 border-b border-white/5">
       <div className="mx-auto max-w-7xl px-4 sm:px-6">
         {/* Main nav row */}
         <nav className="flex h-16 items-center justify-between gap-4" aria-label="Main navigation">
@@ -245,7 +245,7 @@ export default function Navbar() {
           <nav
             id="mobile-nav"
             aria-label="Mobile navigation"
-            className="md:hidden border-t border-white/10 py-3 space-y-1 animate-fade-in"
+            className="md:hidden border-t border-white/10 py-3 space-y-1 "
           >
             {items.map((item) => (
               <NavLink

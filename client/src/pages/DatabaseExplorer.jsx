@@ -129,7 +129,7 @@ function EditModal({ doc, fields, collection, onClose, onSaved }) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm" onClick={onClose}>
       <form onSubmit={handleSubmit} onClick={e => e.stopPropagation()}
-        className="glass rounded-2xl p-6 w-full max-w-2xl mx-4 space-y-4 animate-fade-in max-h-[90vh] overflow-y-auto">
+        className="bg-card border border-border rounded-2xl p-6 w-full max-w-2xl mx-4 space-y-4 max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between">
           <h2 className="text-lg font-bold text-white">✏️ Edit {collection} Document</h2>
           <span className="font-mono text-xs text-slate-500">{doc._id}</span>
@@ -301,7 +301,7 @@ export default function DatabaseExplorer() {
       </div>
 
       {/* ── Search & Controls ─────────────────────────────── */}
-      <div className="glass rounded-2xl px-5 py-4 flex flex-col sm:flex-row gap-3 items-stretch sm:items-center">
+      <div className="bg-card border border-border rounded-2xl px-5 py-4 flex flex-col sm:flex-row gap-3 items-stretch sm:items-center">
         <div className="relative flex-1">
           <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
@@ -345,7 +345,7 @@ export default function DatabaseExplorer() {
           <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
         </div>
       ) : (
-        <div className="glass rounded-2xl overflow-hidden border border-white/5">
+        <div className="bg-card border border-border rounded-2xl overflow-hidden border border-white/5">
           <div className="overflow-x-auto">
             <table className="w-full border-collapse text-sm">
               <thead>
@@ -501,7 +501,7 @@ export default function DatabaseExplorer() {
       {/* ── Delete Confirmation ─────────────────────────────── */}
       {deleteTarget && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
-          <div className="glass rounded-2xl p-6 max-w-sm mx-4 text-center space-y-4 animate-fade-in">
+          <div className="bg-card border border-border rounded-2xl p-6 max-w-sm mx-4 text-center space-y-4 ">
             <div className="text-3xl">⚠️</div>
             <h3 className="text-lg font-bold text-white">Hard Delete?</h3>
             <p className="text-sm text-slate-400">

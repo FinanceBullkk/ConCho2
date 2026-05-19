@@ -97,7 +97,7 @@ function TeamModal({ team, participants, classes, teams, onClose, onSaved }) {
     <Portal>
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm" onClick={onClose}>
       <form onSubmit={(e) => handleSubmit(e)} onClick={(e) => e.stopPropagation()}
-        className="glass rounded-2xl p-6 w-full max-w-2xl mx-4 space-y-4 animate-fade-in max-h-[92vh] overflow-y-auto">
+        className="bg-card border border-border rounded-2xl p-6 w-full max-w-2xl mx-4 space-y-4 max-h-[92vh] overflow-y-auto">
         <h2 className="text-xl font-bold text-white">{isEdit ? '✏️ Edit Team' : '➕ Create Team'}</h2>
         {error && <div className="px-4 py-2 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-sm">{error}</div>}
 
@@ -151,7 +151,7 @@ function TeamModal({ team, participants, classes, teams, onClose, onSaved }) {
             )}
           </div>
           {/* Member list */}
-          <div className="glass-light rounded-xl p-2 max-h-64 overflow-y-auto space-y-0.5">
+          <div className="bg-muted border border-border rounded-xl p-2 max-h-64 overflow-y-auto space-y-0.5">
             {sortedParticipants.length === 0 && (
               <div className="text-center text-slate-500 text-sm py-4">No users match "{memberSearch}"</div>
             )}
@@ -206,7 +206,7 @@ function TeamModal({ team, participants, classes, teams, onClose, onSaved }) {
       {/* Swap confirmation dialog */}
       {swapConfirm && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/70 backdrop-blur-sm" onClick={() => setSwapConfirm(null)}>
-          <div className="glass rounded-2xl p-6 max-w-sm mx-4 space-y-4 animate-fade-in" onClick={(e) => e.stopPropagation()}>
+          <div className="bg-card border border-border rounded-2xl p-6 max-w-sm mx-4 space-y-4 " onClick={(e) => e.stopPropagation()}>
             <div className="text-3xl text-center">🔄</div>
             <h3 className="text-lg font-bold text-white text-center">Swap Class Assignment?</h3>
             <p className="text-sm text-slate-300 text-center">
@@ -228,13 +228,13 @@ function TeamModal({ team, participants, classes, teams, onClose, onSaved }) {
       {/* Transfer confirmation dialog */}
       {transferConfirm && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/70 backdrop-blur-sm" onClick={() => setTransferConfirm(null)}>
-          <div className="glass rounded-2xl p-6 max-w-md mx-4 space-y-4 animate-fade-in" onClick={(e) => e.stopPropagation()}>
+          <div className="bg-card border border-border rounded-2xl p-6 max-w-md mx-4 space-y-4 " onClick={(e) => e.stopPropagation()}>
             <div className="text-3xl text-center">⚠️</div>
             <h3 className="text-lg font-bold text-white text-center">Transfer Members?</h3>
             <p className="text-sm text-slate-300 text-center">
               The following users are currently active in other teams. Adding them to <strong className="text-primary">{name || 'this team'}</strong> will transfer them and close their previous enrollments.
             </p>
-            <div className="glass-light rounded-xl p-3 max-h-48 overflow-y-auto space-y-2 mt-2">
+            <div className="bg-muted border border-border rounded-xl p-3 max-h-48 overflow-y-auto space-y-2 mt-2">
               {transferConfirm.conflicts.map(c => (
                 <div key={c.userId} className="flex justify-between items-center text-sm">
                   <div>
@@ -276,7 +276,7 @@ function TeamCard({ t, canEdit, canDelete, onProgress, onEdit, onDelete, onMakeL
   const isCompleted = status === 'completed';
 
   return (
-    <div className={`glass rounded-2xl overflow-hidden transition-all ${isCompleted ? 'opacity-60 grayscale-[30%]' : 'hover:scale-[1.01]'}`}>
+    <div className={`bg-card border border-border rounded-2xl overflow-hidden transition-all ${isCompleted ? 'opacity-60 grayscale-[30%]' : 'hover:scale-[1.01]'}`}>
       {/* ── Status bar at top ── */}
       <div className={`px-4 py-2 flex items-center justify-between ${
         isCompleted
@@ -487,7 +487,7 @@ export default function TeamsPage() {
   };
 
   return (
-    <div className="space-y-5 animate-fade-in">
+    <div className="space-y-5 ">
       {/* ── Header ────────────────────────────────────────── */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
@@ -506,7 +506,7 @@ export default function TeamsPage() {
       </div>
 
       {/* ── Toolbar ───────────────────────────────────────── */}
-      <div className="glass rounded-2xl px-4 py-3 space-y-3">
+      <div className="bg-card border border-border rounded-2xl px-4 py-3 space-y-3">
         {/* Status filter pills */}
         <div className="flex gap-2 flex-wrap">
           {[
@@ -587,7 +587,7 @@ export default function TeamsPage() {
           <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
         </div>
       ) : filteredTeams.length === 0 ? (
-        <div className="glass rounded-2xl py-16 text-center">
+        <div className="bg-card border border-border rounded-2xl py-16 text-center">
           <div className="text-4xl mb-4">{search ? '🔍' : statusFilter === 'completed' ? '🎓' : '👥'}</div>
           <p className="text-slate-400">
             {search
@@ -611,7 +611,7 @@ export default function TeamsPage() {
         </div>
       ) : (
         /* ── TABLE VIEW ───────────────────────────────────── */
-        <div className="glass rounded-2xl overflow-hidden border border-white/5">
+        <div className="bg-card border border-border rounded-2xl overflow-hidden border border-white/5">
           <div className="overflow-x-auto">
             <table className="w-full border-collapse min-w-[700px]">
               <thead>
@@ -689,7 +689,7 @@ export default function TeamsPage() {
       {deleteId && (
         <Portal>
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
-            <div className="glass rounded-2xl p-6 max-w-sm mx-4 text-center space-y-4 animate-fade-in">
+            <div className="bg-card border border-border rounded-2xl p-6 max-w-sm mx-4 text-center space-y-4 ">
               <div className="text-3xl">🗑️</div>
               <h3 className="text-lg font-bold text-white">Xoá nhóm này?</h3>
               <p className="text-sm text-slate-400">Thao tác này không thể hoàn tác.</p>

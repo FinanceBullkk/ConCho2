@@ -69,7 +69,7 @@ function EditClassModal({ cls, onClose, onDeleted }) {
     <Portal>
       <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm" onClick={onClose}>
         <form onSubmit={handleSubmit} onClick={(e) => e.stopPropagation()}
-          className="glass rounded-2xl p-6 w-full max-w-md mx-4 space-y-4 animate-fade-in">
+          className="bg-card border border-border rounded-2xl p-6 w-full max-w-md mx-4 space-y-4 ">
           <h2 className="text-lg font-bold text-white">✏️ Edit {cls.classCode} — {cls.courseName}</h2>
           {error && <div className="px-4 py-2 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-sm">{error}</div>}
           <div>
@@ -119,7 +119,7 @@ function OverviewTab({ cls, team, onEdit }) {
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
       {/* Progress */}
-      <div className="glass rounded-2xl p-5 space-y-3">
+      <div className="bg-card border border-border rounded-2xl p-5 space-y-3">
         <h3 className="text-xs uppercase tracking-wider text-slate-500 font-semibold">Session Progress</h3>
         <div className="flex items-baseline gap-2">
           <span className="text-3xl font-bold text-white">{cls.bookedSessions}</span>
@@ -136,7 +136,7 @@ function OverviewTab({ cls, team, onEdit }) {
       </div>
 
       {/* Team */}
-      <div className="glass rounded-2xl p-5 space-y-3">
+      <div className="bg-card border border-border rounded-2xl p-5 space-y-3">
         <h3 className="text-xs uppercase tracking-wider text-slate-500 font-semibold">Assigned Team</h3>
         {team ? (
           <div className="space-y-2">
@@ -159,7 +159,7 @@ function OverviewTab({ cls, team, onEdit }) {
       </div>
 
       {/* Class meta */}
-      <div className="glass rounded-2xl p-5 space-y-3 md:col-span-2">
+      <div className="bg-card border border-border rounded-2xl p-5 space-y-3 md:col-span-2">
         <div className="flex items-start justify-between gap-4">
           <div>
             <h3 className="text-xs uppercase tracking-wider text-slate-500 font-semibold mb-2">Class Information</h3>
@@ -205,7 +205,7 @@ function SessionsTab({ classId }) {
 
   if (schedules.length === 0) {
     return (
-      <div className="glass rounded-2xl py-16 text-center">
+      <div className="bg-card border border-border rounded-2xl py-16 text-center">
         <div className="text-4xl mb-3">📭</div>
         <p className="text-slate-400">No schedules for this class yet.</p>
       </div>
@@ -216,7 +216,7 @@ function SessionsTab({ classId }) {
   const sorted = [...schedules].sort((a, b) => new Date(a.startTime) - new Date(b.startTime));
 
   return (
-    <div className="glass rounded-2xl overflow-hidden border border-white/5">
+    <div className="bg-card border border-border rounded-2xl overflow-hidden border border-white/5">
       <div className="overflow-x-auto">
         <table className="w-full border-collapse min-w-[700px]">
           <thead>
@@ -283,7 +283,7 @@ function RosterTab({ classId }) {
 
   if (enrollments.length === 0) {
     return (
-      <div className="glass rounded-2xl py-16 text-center">
+      <div className="bg-card border border-border rounded-2xl py-16 text-center">
         <div className="text-4xl mb-3">📭</div>
         <p className="text-slate-400">No enrollment records for this class yet.</p>
       </div>
@@ -291,7 +291,7 @@ function RosterTab({ classId }) {
   }
 
   return (
-    <div className="glass rounded-2xl overflow-hidden border border-white/5">
+    <div className="bg-card border border-border rounded-2xl overflow-hidden border border-white/5">
       <div className="overflow-x-auto">
         <table className="w-full border-collapse min-w-[800px]">
           <thead>
@@ -362,7 +362,7 @@ function AnalyticsTab({ classId }) {
 
   if (!data?.schedules || data.schedules.length === 0 || data.roster?.length === 0) {
     return (
-      <div className="glass rounded-2xl py-16 text-center">
+      <div className="bg-card border border-border rounded-2xl py-16 text-center">
         <div className="text-4xl mb-3">📊</div>
         <p className="text-slate-400">No attendance data yet for this class.</p>
       </div>
@@ -370,7 +370,7 @@ function AnalyticsTab({ classId }) {
   }
 
   return (
-    <div className="glass rounded-2xl overflow-hidden">
+    <div className="bg-card border border-border rounded-2xl overflow-hidden">
       <div className="overflow-x-auto">
         <table className="w-full text-left border-collapse">
           <thead>
@@ -445,7 +445,7 @@ export default function ClassDetailPage() {
 
   if (classError || !cls) {
     return (
-      <div className="glass rounded-2xl py-16 text-center space-y-3">
+      <div className="bg-card border border-border rounded-2xl py-16 text-center space-y-3">
         <div className="text-4xl">❌</div>
         <p className="text-slate-400">Class not found.</p>
         <Link to="/academy?tab=classes" className="inline-block px-4 py-2 rounded-xl bg-white/5 border border-white/10 text-slate-300 text-sm hover:bg-white/10 transition-all">← Back to Classes</Link>
@@ -458,7 +458,7 @@ export default function ClassDetailPage() {
   const isComplete = cls.status === 'Completed';
 
   return (
-    <div className="space-y-5 animate-fade-in">
+    <div className="space-y-5 ">
       {/* ── Breadcrumb / Back ──────────────────────────── */}
       <Breadcrumbs
         items={[
@@ -473,7 +473,7 @@ export default function ClassDetailPage() {
       </Link>
 
       {/* ── Header ─────────────────────────────────────── */}
-      <div className="glass rounded-2xl p-5 flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <div className="bg-card border border-border rounded-2xl p-5 flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div className="flex items-center gap-4">
           <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-primary to-purple-500 flex items-center justify-center text-2xl shrink-0">📚</div>
           <div>

@@ -81,7 +81,7 @@ export default function AttendanceDashboardPage() {
   };
 
   return (
-    <div className="space-y-6 animate-fade-in">
+    <div className="space-y-6 ">
       <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-white">📈 Attendance Analytics</h1>
@@ -90,7 +90,7 @@ export default function AttendanceDashboardPage() {
       </div>
 
       {/* ── Export Banner ──────────────────────────────────── */}
-      <div className="glass rounded-2xl p-5 border border-white/5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+      <div className="bg-card border border-border rounded-2xl p-5 border border-white/5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div className="flex items-center gap-4">
           <div className="w-12 h-12 rounded-xl bg-emerald-500/10 flex items-center justify-center text-2xl">
             📥
@@ -165,7 +165,7 @@ export default function AttendanceDashboardPage() {
           
           {/* Employee Tab */}
           {activeTab === 'employee' && (
-            <div className="glass rounded-2xl overflow-hidden">
+            <div className="bg-card border border-border rounded-2xl overflow-hidden">
               <div className="overflow-x-auto">
                 <table className="w-full text-left border-collapse">
                   <thead>
@@ -212,7 +212,7 @@ export default function AttendanceDashboardPage() {
           {activeTab === 'team' && (
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
               {Array.isArray(data) && data.map(team => (
-                <div key={team._id} className="glass rounded-2xl p-6 border border-white/5 hover:border-white/10 transition-all">
+                <div key={team._id} className="bg-card border border-border rounded-2xl p-6 border border-white/5 hover:border-white/10 transition-all">
                   <div className="flex justify-between items-start mb-4">
                     <div>
                       <h3 className="font-bold text-lg text-white">{team.name}</h3>
@@ -261,7 +261,7 @@ export default function AttendanceDashboardPage() {
                 </select>
               </div>
 
-              <div className="glass rounded-2xl overflow-hidden">
+              <div className="bg-card border border-border rounded-2xl overflow-hidden">
                 <div className="overflow-x-auto">
                   <table className="w-full text-left border-collapse">
                     <thead>
