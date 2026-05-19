@@ -148,7 +148,7 @@ export default function DashboardPage() {
       {/* ═══ ROW 2: Course + BU/Position (tabbed) ═══ */}
       <div className="grid lg:grid-cols-2 gap-4">
         {/* Students by Course */}
-        <div className="bg-card border border-border rounded-xl p-5">
+        <div className="bg-card border border-border rounded-lg p-5">
           <h3 className="text-sm font-semibold text-foreground mb-3 flex items-center gap-2">
             <span className="w-1 h-4 rounded-full bg-primary inline-block" />
             Students by Course
@@ -183,7 +183,7 @@ export default function DashboardPage() {
         </div>
 
         {/* Tabbed: BU | Position */}
-        <div className="bg-card border border-border rounded-xl p-5">
+        <div className="bg-card border border-border rounded-lg p-5">
           <div className="flex items-center justify-between mb-3">
             <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
               <span className={`w-1 h-4 rounded-full inline-block ${orgTab === 'bu' ? 'bg-info' : 'bg-warning'}`} />
@@ -247,7 +247,7 @@ export default function DashboardPage() {
 
       {/* ═══ ROW 3: Level Progression (grouped chart) ═══ */}
       {allLevels.length > 0 && (
-        <div className="bg-card border border-border rounded-xl p-5">
+        <div className="bg-card border border-border rounded-lg p-5">
           <div className="flex items-center justify-between mb-3">
             <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
               <span className="w-1 h-4 rounded-full bg-chart-2 inline-block" />
@@ -294,7 +294,7 @@ export default function DashboardPage() {
       )}
 
       {/* ═══ ROW 4: Class Progress (compact, expandable) ═══ */}
-      <div className="bg-card border border-border rounded-xl p-5">
+      <div className="bg-card border border-border rounded-lg p-5">
         <div className="flex items-center justify-between mb-3">
           <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
             <span className="w-1 h-4 rounded-full bg-success inline-block" />

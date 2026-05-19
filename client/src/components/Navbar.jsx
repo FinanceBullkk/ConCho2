@@ -221,7 +221,7 @@ export default function Navbar() {
           <Link to="/home" className="group flex shrink-0 items-center gap-3">
             <div
               className={cn(
-                'flex size-9 items-center justify-center rounded-xl text-sm font-bold text-primary-foreground transition-colors duration-(--dur)',
+                'flex size-9 items-center justify-center rounded-lg text-sm font-bold text-primary-foreground transition-colors duration-(--dur)',
                 ROLE_BG[user.role] ?? 'bg-primary'
               )}
             >
