@@ -2,6 +2,7 @@ import { useEffect, useMemo } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useMyClassSchedules } from '../hooks/useSchedules';
 import { useMyAttendanceStats, useAttendanceByUser } from '../hooks/useAttendance';
+import { Spinner } from '../components/Spinner';
 
 // ──────────────────────────────────────────────────────────
 // Participant Dashboard
@@ -14,10 +15,10 @@ import { useMyAttendanceStats, useAttendanceByUser } from '../hooks/useAttendanc
 
 // Status badge config
 const STATUS_CONFIG = {
-  P:  { label: 'Có mặt',    short: 'P',  bg: 'bg-emerald-500/15', text: 'text-emerald-400', border: 'border-emerald-500/25' },
-  A:  { label: 'Vắng mặt',  short: 'A',  bg: 'bg-red-500/15',     text: 'text-red-400',     border: 'border-red-500/25' },
-  L:  { label: 'Đi muộn',   short: 'L',  bg: 'bg-amber-500/15',   text: 'text-amber-400',   border: 'border-amber-500/25' },
-  EL: { label: 'Có phép',   short: 'EL', bg: 'bg-blue-500/15',    text: 'text-blue-400',    border: 'border-blue-500/25' },
+  P:  { label: 'Có mặt',    short: 'P',  bg: 'bg-success/15',     text: 'text-success',     border: 'border-success/25' },
+  A:  { label: 'Vắng mặt',  short: 'A',  bg: 'bg-destructive/15', text: 'text-destructive', border: 'border-destructive/25' },
+  L:  { label: 'Đi muộn',   short: 'L',  bg: 'bg-warning/15',     text: 'text-warning',     border: 'border-warning/25' },
+  EL: { label: 'Có phép',   short: 'EL', bg: 'bg-info/15',        text: 'text-info',        border: 'border-info/25' },
 };
 
 export default function ParticipantDashboard() {
@@ -48,7 +49,7 @@ export default function ParticipantDashboard() {
   if (loading) {
     return (
       <div className="flex items-center justify-center py-20">
-        <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+        <Spinner size={32} />
       </div>
     );
   }
@@ -57,14 +58,13 @@ export default function ParticipantDashboard() {
   // ── Attendance stat cards ─────────────────────────────────
   const rate = stats?.attendanceRate ?? 0;
   const rateColor = rate >= 80 ? 'text-success' : rate >= 60 ? 'text-warning' : 'text-destructive';
-  const rateGradient = rate >= 80 ? 'from-success to-teal-400' : rate >= 60 ? 'from-warning to-orange-400' : 'from-destructive to-pink-500';
 
   const statCards = [
-    { label: 'Total Sessions', value: stats?.totalSessions ?? 0, icon: '📊', color: 'from-primary to-blue-400' },
-    { label: 'Present', value: stats?.present ?? 0, icon: '✅', color: 'from-success to-teal-400' },
-    { label: 'Absent', value: stats?.absent ?? 0, icon: '❌', color: 'from-destructive to-pink-500' },
-    { label: 'Late', value: stats?.late ?? 0, icon: '⏰', color: 'from-warning to-orange-400' },
-    { label: 'Excused', value: stats?.excused ?? 0, icon: '📝', color: 'from-chart-2 to-pink-400' },
+    { label: 'Total Sessions', value: stats?.totalSessions ?? 0, icon: '📊', color: 'bg-primary' },
+    { label: 'Present', value: stats?.present ?? 0, icon: '✅', color: 'bg-success' },
+    { label: 'Absent', value: stats?.absent ?? 0, icon: '❌', color: 'bg-destructive' },
+    { label: 'Late', value: stats?.late ?? 0, icon: '⏰', color: 'bg-warning' },
+    { label: 'Excused', value: stats?.excused ?? 0, icon: '📝', color: 'bg-chart-2' },
   ];
 
   return (
@@ -72,14 +72,14 @@ export default function ParticipantDashboard() {
       {/* ── Header ───────────────────────────────────────── */}
       <div>
         <h1 className="text-h1 text-foreground">My Learning Dashboard</h1>
-        <p className="text-slate-400 mt-1">
+        <p className="text-muted-foreground mt-1">
           Welcome back, {user.name}
           {teamName && <span className="text-primary"> · {teamName}</span>}
         </p>
         {leader && (
-          <div className="mt-3 inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-xs text-slate-300">
-            <span className="text-slate-500">Team Leader:</span>
-            <span className="font-medium text-white">{leader.name}</span>
+          <div className="mt-3 inline-flex items-center gap-2 rounded-md border border-border bg-muted px-3 py-1.5 text-xs text-muted-foreground">
+            <span className="text-subtle-foreground">Team Leader:</span>
+            <span className="font-medium text-foreground">{leader.name}</span>
             {leader.email && (
               <a
                 href={`mailto:${leader.email}`}
@@ -88,18 +88,18 @@ export default function ParticipantDashboard() {
                 {leader.email}
               </a>
             )}
-            {leader.empCode && <span className="text-slate-500">· {leader.empCode}</span>}
+            {leader.empCode && <span className="text-subtle-foreground">· {leader.empCode}</span>}
           </div>
         )}
       </div>
 
       {/* ── Section 1: My Upcoming Classes ────────────────── */}
-      <div className="bg-card border border-border rounded-2xl p-6">
+      <div className="bg-card border border-border rounded-lg p-6">
         <div className="flex items-center justify-between mb-5">
-          <h2 className="text-lg font-semibold text-white flex items-center gap-2">
+          <h2 className="text-lg font-semibold text-foreground flex items-center gap-2">
             📅 My Upcoming Classes
           </h2>
-          <span className="text-xs text-slate-500 bg-white/5 px-3 py-1 rounded-full">
+          <span className="text-xs text-subtle-foreground bg-muted px-3 py-1 rounded-md">
             {schedules.length} session{schedules.length !== 1 ? 's' : ''}
           </span>
         </div>
@@ -107,8 +107,8 @@ export default function ParticipantDashboard() {
         {schedules.length === 0 ? (
           <div className="text-center py-10">
             <div className="text-4xl mb-3 opacity-50">📭</div>
-            <p className="text-slate-400">No upcoming classes scheduled</p>
-            <p className="text-slate-500 text-sm mt-1">Your Team Leader can book sessions from the Schedule & Book page</p>
+            <p className="text-muted-foreground">No upcoming classes scheduled</p>
+            <p className="text-subtle-foreground text-sm mt-1">Your Team Leader can book sessions from the Schedule & Book page</p>
           </div>
         ) : (
           <div className="space-y-3 ">
@@ -118,23 +118,23 @@ export default function ParticipantDashboard() {
               const timeStr = `${String(start.getHours()).padStart(2, '0')}:${String(start.getMinutes()).padStart(2, '0')}-${String(end.getHours()).padStart(2, '0')}:${String(end.getMinutes()).padStart(2, '0')}`;
               const isToday = new Date().toDateString() === start.toDateString();
               return (
-                <div key={s._id} className={`bg-muted border border-border rounded-xl p-4 flex items-center justify-between transition-all hover:scale-[1.01] ${isToday ? 'border border-primary/30 shadow-sm shadow-primary/10' : ''}`}>
+                <div key={s._id} className={`bg-muted border border-border rounded-md p-4 flex items-center justify-between transition-colors ${isToday ? 'border border-primary/30 shadow-sm shadow-primary/10' : ''}`}>
                   <div className="flex items-center gap-4">
-                    <div className={`w-14 h-14 rounded-xl flex flex-col items-center justify-center shrink-0 ${isToday ? 'bg-primary/20 text-primary' : 'bg-primary/10 text-primary'}`}>
+                    <div className={`w-14 h-14 rounded-md flex flex-col items-center justify-center shrink-0 ${isToday ? 'bg-primary/20 text-primary' : 'bg-primary/10 text-primary'}`}>
                       <span className="text-xs font-bold">{start.toLocaleDateString('en', { month: 'short' })}</span>
                       <span className="text-xl font-bold leading-none">{start.getDate()}</span>
                     </div>
                     <div className="min-w-0">
                       <div className="flex items-center gap-2 flex-wrap">
-                        <span className="font-semibold text-white">{s.classId?.classCode}</span>
+                        <span className="font-semibold text-foreground">{s.classId?.classCode}</span>
                         {isToday && (
                           <span className="text-[10px] font-bold text-primary bg-primary/20 px-2 py-0.5 rounded-full">
                             TODAY
                           </span>
                         )}
                       </div>
-                      <div className="text-sm text-slate-400 mt-0.5">{s.classId?.courseName}</div>
-                      <div className="text-xs text-slate-500 mt-0.5 flex items-center gap-2">
+                      <div className="text-sm text-muted-foreground mt-0.5">{s.classId?.courseName}</div>
+                      <div className="text-xs text-subtle-foreground mt-0.5 flex items-center gap-2">
                         <span>🕐 {timeStr}</span>
                         <span>·</span>
                         <span>{start.toLocaleDateString('en', { weekday: 'long' })}</span>
@@ -148,8 +148,8 @@ export default function ParticipantDashboard() {
                     </div>
                   </div>
                   <div className="text-right shrink-0 ml-4">
-                    <div className="text-sm font-medium text-white">{s.enrolledCount}</div>
-                    <div className="text-[10px] text-slate-500">enrolled</div>
+                    <div className="text-sm font-medium text-foreground">{s.enrolledCount}</div>
+                    <div className="text-[10px] text-subtle-foreground">enrolled</div>
                   </div>
                 </div>
               );
@@ -159,27 +159,27 @@ export default function ParticipantDashboard() {
       </div>
 
       {/* ── Section 2: My Attendance Stats ────────────────── */}
-      <div className="bg-card border border-border rounded-2xl p-6">
+      <div className="bg-card border border-border rounded-lg p-6">
         <div className="flex items-center justify-between mb-5">
-          <h2 className="text-lg font-semibold text-white flex items-center gap-2">
+          <h2 className="text-lg font-semibold text-foreground flex items-center gap-2">
             📈 My Attendance Stats
           </h2>
         </div>
 
         {/* Attendance Rate — big hero card */}
-        <div className="bg-muted border border-border rounded-xl p-6 mb-6">
+        <div className="bg-muted border border-border rounded-md p-6 mb-6">
           <div className="flex items-center justify-between">
             <div>
-              <div className="text-sm text-slate-400 mb-1">Attendance Rate</div>
+              <div className="text-sm text-muted-foreground mb-1">Attendance Rate</div>
               <div className={`text-5xl font-bold ${rateColor}`}>{rate}%</div>
-              <div className="text-xs text-slate-500 mt-2">
+              <div className="text-xs text-subtle-foreground mt-2">
                 {stats?.present ?? 0} present out of {stats?.totalSessions ?? 0} total sessions
               </div>
             </div>
             {/* Circular progress ring */}
             <div className="relative w-24 h-24 shrink-0">
               <svg className="w-24 h-24 -rotate-90" viewBox="0 0 100 100">
-                <circle cx="50" cy="50" r="42" fill="none" stroke="rgba(255,255,255,0.05)" strokeWidth="8" />
+                <circle cx="50" cy="50" r="42" fill="none" stroke="currentColor" strokeWidth="8" className="text-border" />
                 <circle
                   cx="50" cy="50" r="42" fill="none"
                   stroke="url(#rateGradient)"
@@ -205,11 +205,11 @@ export default function ParticipantDashboard() {
         {/* Stat breakdown cards */}
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
           {statCards.map((card, i) => (
-            <div key={card.label} className="bg-muted border border-border rounded-xl p-4 text-center hover:scale-[1.03] transition-transform" style={{ animationDelay: `${i * 0.05}s` }}>
+            <div key={card.label} className="bg-muted border border-border rounded-md p-4 text-center transition-colors" style={{ animationDelay: `${i * 0.05}s` }}>
               <div className="text-2xl mb-2">{card.icon}</div>
               <div className="text-h1 text-foreground">{card.value}</div>
-              <div className="text-xs text-slate-400 mt-1">{card.label}</div>
-              <div className={`h-1 rounded-full bg-gradient-to-r ${card.color} mt-3 opacity-40`} />
+              <div className="text-xs text-muted-foreground mt-1">{card.label}</div>
+              <div className={`h-1 rounded-full ${card.color} mt-3 opacity-40`} />
             </div>
           ))}
         </div>
@@ -217,18 +217,18 @@ export default function ParticipantDashboard() {
         {/* Empty state */}
         {(stats?.totalSessions ?? 0) === 0 && (
           <div className="text-center py-6 mt-4">
-            <p className="text-slate-500 text-sm">No attendance records yet — stats will appear after your teacher marks attendance</p>
+            <p className="text-subtle-foreground text-sm">No attendance records yet — stats will appear after your teacher marks attendance</p>
           </div>
         )}
       </div>
 
       {/* ── Section 3: My Attendance History (Table) ────────── */}
-      <div className="bg-card border border-border rounded-2xl p-6">
+      <div className="bg-card border border-border rounded-lg p-6">
         <div className="flex items-center justify-between mb-5">
-          <h2 className="text-lg font-semibold text-white flex items-center gap-2">
+          <h2 className="text-lg font-semibold text-foreground flex items-center gap-2">
             📋 Lịch Sử Điểm Danh
           </h2>
-          <span className="text-xs text-slate-500 bg-white/5 px-3 py-1 rounded-full">
+          <span className="text-xs text-subtle-foreground bg-muted px-3 py-1 rounded-md">
             {history.length} buổi
           </span>
         </div>
@@ -236,21 +236,21 @@ export default function ParticipantDashboard() {
         {history.length === 0 ? (
           <div className="text-center py-10">
             <div className="text-4xl mb-3 opacity-50">📭</div>
-            <p className="text-slate-400">Chưa có lịch sử điểm danh</p>
-            <p className="text-slate-500 text-sm mt-1">Kết quả sẽ hiện sau khi giáo viên chấm công</p>
+            <p className="text-muted-foreground">Chưa có lịch sử điểm danh</p>
+            <p className="text-subtle-foreground text-sm mt-1">Kết quả sẽ hiện sau khi giáo viên chấm công</p>
           </div>
         ) : (
           <div className="overflow-x-auto -mx-2">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b border-white/10">
-                  <th className="text-left py-3 px-3 text-slate-400 font-medium text-xs uppercase tracking-wider">Ngày</th>
-                  <th className="text-left py-3 px-3 text-slate-400 font-medium text-xs uppercase tracking-wider">Giờ học</th>
-                  <th className="text-left py-3 px-3 text-slate-400 font-medium text-xs uppercase tracking-wider">Mã lớp</th>
-                  <th className="text-left py-3 px-3 text-slate-400 font-medium text-xs uppercase tracking-wider hidden sm:table-cell">Khóa học</th>
-                  <th className="text-left py-3 px-3 text-slate-400 font-medium text-xs uppercase tracking-wider hidden md:table-cell">Giáo viên</th>
-                  <th className="text-center py-3 px-3 text-slate-400 font-medium text-xs uppercase tracking-wider">Trạng thái</th>
-                  <th className="text-left py-3 px-3 text-slate-400 font-medium text-xs uppercase tracking-wider hidden lg:table-cell">Ghi chú</th>
+                <tr className="border-b border-border">
+                  <th className="text-left py-3 px-3 text-muted-foreground font-medium text-xs uppercase tracking-wider">Ngày</th>
+                  <th className="text-left py-3 px-3 text-muted-foreground font-medium text-xs uppercase tracking-wider">Giờ học</th>
+                  <th className="text-left py-3 px-3 text-muted-foreground font-medium text-xs uppercase tracking-wider">Mã lớp</th>
+                  <th className="text-left py-3 px-3 text-muted-foreground font-medium text-xs uppercase tracking-wider hidden sm:table-cell">Khóa học</th>
+                  <th className="text-left py-3 px-3 text-muted-foreground font-medium text-xs uppercase tracking-wider hidden md:table-cell">Giáo viên</th>
+                  <th className="text-center py-3 px-3 text-muted-foreground font-medium text-xs uppercase tracking-wider">Trạng thái</th>
+                  <th className="text-left py-3 px-3 text-muted-foreground font-medium text-xs uppercase tracking-wider hidden lg:table-cell">Ghi chú</th>
                 </tr>
               </thead>
               <tbody>
@@ -270,7 +270,7 @@ export default function ParticipantDashboard() {
                   return (
                     <tr
                       key={record._id}
-                      className={`border-b border-white/5 hover:bg-white/[0.02] transition-colors ${i === 0 ? '' : ''}`}
+                      className={`border-b border-border hover:bg-accent/30 transition-colors ${i === 0 ? '' : ''}`}
                     >
                       {/* Date */}
                       <td className="py-3 px-3">
@@ -285,35 +285,35 @@ export default function ParticipantDashboard() {
                               </span>
                             </div>
                           )}
-                          <span className="text-slate-300 text-xs whitespace-nowrap">
+                          <span className="text-muted-foreground text-xs whitespace-nowrap">
                             {dateStr}
                           </span>
                         </div>
                       </td>
 
                       {/* Time */}
-                      <td className="py-3 px-3 text-slate-300 whitespace-nowrap font-mono text-xs">
+                      <td className="py-3 px-3 text-muted-foreground whitespace-nowrap font-mono text-xs">
                         {timeStr}
                       </td>
 
                       {/* Class Code */}
                       <td className="py-3 px-3">
-                        <span className="text-white font-medium">
+                        <span className="text-foreground font-medium">
                           {sched?.classId?.classCode || '—'}
                         </span>
                       </td>
 
                       {/* Course Name (hidden on mobile) */}
                       <td className="py-3 px-3 hidden sm:table-cell">
-                        <span className="text-slate-400 text-xs">
+                        <span className="text-muted-foreground text-xs">
                           {sched?.classId?.courseName || '—'}
                         </span>
                       </td>
 
                       {/* Teacher (hidden on small) */}
                       <td className="py-3 px-3 hidden md:table-cell">
-                        <span className="text-slate-400 text-xs">
-                          {sched?.teacherId?.name || <span className="text-slate-600 italic">—</span>}
+                        <span className="text-muted-foreground text-xs">
+                          {sched?.teacherId?.name || <span className="text-subtle-foreground italic">—</span>}
                         </span>
                       </td>
 
@@ -326,7 +326,7 @@ export default function ParticipantDashboard() {
 
                       {/* Remark (hidden on small) */}
                       <td className="py-3 px-3 hidden lg:table-cell">
-                        <span className="text-slate-500 text-xs">
+                        <span className="text-subtle-foreground text-xs">
                           {record.remark || '—'}
                         </span>
                       </td>
