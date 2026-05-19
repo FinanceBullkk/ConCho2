@@ -91,6 +91,7 @@ export function CalendarGrid({
   weekLabel,
   actions,
   className,
+  selectedCellKey,
 }) {
   const todayStr = useMemo(() => todayKey(), []);
 
@@ -182,13 +183,16 @@ export function CalendarGrid({
 
                     {/* Day cells */}
                     {weekDays.map((day, dayIdx) => {
-                      const isToday = toDateKey(day) === todayStr;
+                      const isToday   = toDateKey(day) === todayStr;
+                      const cellKey   = `${toDateKey(day)}|${String(hour).padStart(2, '0')}:00`;
+                      const isSelected = selectedCellKey === cellKey;
                       return (
                         <td
                           key={dayIdx}
                           className={cn(
-                            'border-b border-border p-1 align-top',
+                            'border-b border-border p-1 align-top transition-colors duration-(--dur-fast)',
                             isToday && 'bg-primary/[0.04]',
+                            isSelected && 'ring-2 ring-primary ring-inset bg-primary/[0.06]',
                           )}
                         >
                           {renderCell?.(day, hour)}

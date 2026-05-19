@@ -30,25 +30,45 @@ import {
 import { cn } from '@/lib/utils';
 import SearchPalette from './SearchPalette';
 
-const NAV_ITEMS = {
-  Admin: [
-    { path: '/home',     label: 'Home',     icon: Home },
-    { path: '/people',   label: 'People',   icon: Users },
-    { path: '/programs', label: 'Programs', icon: BookOpen },
-    { path: '/calendar', label: 'Calendar', icon: CalendarDays },
-    { path: '/reports',  label: 'Reports',  icon: FileBarChart },
-    { path: '/system',   label: 'System',   icon: ShieldCog },
-  ],
-  Teacher: [
-    { path: '/home',     label: 'Home',     icon: Home },
-    { path: '/calendar', label: 'Calendar', icon: CalendarDays },
-    { path: '/reports',  label: 'Reports',  icon: FileBarChart },
-  ],
-  Participant: [
-    { path: '/home',     label: 'Home',     icon: Home },
-    { path: '/calendar', label: 'Calendar', icon: CalendarDays },
-  ],
-};
+// Phase 2 IA-S4 — single nav, permission-gated per item.
+// access 'full' → clickable link
+// access 'read' → clickable (page enforces read-only)
+// access 'none' → disabled span + tooltip
+const NAV_ITEMS = [
+  {
+    path: '/home',
+    label: 'Home',
+    icon: Home,
+    access: { Admin: 'full', Teacher: 'full', Participant: 'full' },
+  },
+  {
+    path: '/people',
+    label: 'People',
+    icon: Users,
+    access: { Admin: 'full', Teacher: 'none', Participant: 'none' },
+    disabledTitle: 'Admin access required',
+  },
+  {
+    path: '/programs',
+    label: 'Programs',
+    icon: BookOpen,
+    access: { Admin: 'full', Teacher: 'read', Participant: 'none' },
+    disabledTitle: 'Admin access required',
+  },
+  {
+    path: '/calendar',
+    label: 'Calendar',
+    icon: CalendarDays,
+    access: { Admin: 'full', Teacher: 'full', Participant: 'full' },
+  },
+  {
+    path: '/reports',
+    label: 'Reports',
+    icon: FileBarChart,
+    access: { Admin: 'full', Teacher: 'full', Participant: 'none' },
+    disabledTitle: 'Not available for participants',
+  },
+];
 
 // Role accent color — used for the logo chip and the role label.
 // Solid tokens only (no gradients per Phase 0 §02).
