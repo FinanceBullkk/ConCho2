@@ -1,9 +1,19 @@
 import { useState, useEffect, useMemo } from 'react';
+import {
+  CheckCircle2,
+  AlertCircle,
+  CircleDashed,
+  CalendarDays,
+  UserX,
+  Users,
+} from 'lucide-react';
 import { schedulesAPI, attendanceAPI } from '../api/api';
 import { useAuth } from '../context/AuthContext';
 import { useAttendanceCalendar } from '../hooks/useSchedules';
 import { useBulkMarkAttendance } from '../hooks/useAttendance';
 import { useTimeSlots } from '../hooks/useTimeSlots';
+import { Spinner } from '../components/Spinner';
+import { StatusBadge } from '../components/StatusBadge';
 
 // ──────────────────────────────────────────────────────────
 // AttendancePage — Calendar View
@@ -11,8 +21,16 @@ import { useTimeSlots } from '../hooks/useTimeSlots';
 // Weekly timetable calendar (Mon–Sun × time slots) with
 // color-coded attendance status badges. Click a cell to
 // open the attendance marking form below.
+//
+// Status taxonomy — Phase 0 §04:
+//   4 canonical states on a linear lifecycle:
+//     Upcoming → To mark → In progress → Done
+//   + 1 orthogonal flag:
+//     No roster (config error, can co-exist with any state)
+// Icons per Phase 0 §05 (Lucide-only, no emoji in UI chrome).
 // ──────────────────────────────────────────────────────────
 
+// Record-level options (per-student status in marking form)
 const STATUS_OPTIONS = [
   { value: 'P', label: 'Present', color: 'bg-success/20 text-success border-success/30' },
   { value: 'A', label: 'Absent', color: 'bg-destructive/20 text-destructive border-destructive/30' },
@@ -24,13 +42,47 @@ const STATUS_OPTIONS = [
 
 const DAY_NAMES = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
-const STATUS_CONFIG = {
-  done:    { badge: '✅ Done',       cls: 'bg-success/15 text-success border-success/25', leftColor: '#34d399', watermark: '✓', watermarkCls: 'text-emerald-400/15', opacity: 'opacity-70' },
-  pending: { badge: '⏳ Pending',    cls: 'bg-warning/20 text-warning border-warning/30', leftColor: '#fbbf24', watermark: '!', watermarkCls: 'text-amber-400/15', opacity: '' },
-  partial: { badge: '🔵 Partial',    cls: 'bg-blue-500/20 text-blue-400 border-blue-500/30', leftColor: '#60a5fa', watermark: '½', watermarkCls: 'text-blue-400/15', opacity: '' },
-  none:    { badge: '⚪ No students', cls: 'bg-white/5 text-slate-500 border-white/10', leftColor: '#475569', watermark: '—', watermarkCls: 'text-slate-600/10', opacity: 'opacity-40' },
-  future:  { badge: '🔮 Chưa diễn ra', cls: 'bg-slate-500/15 text-slate-400 border-slate-500/25', leftColor: '#475569', watermark: '⏳', watermarkCls: 'text-slate-500/10', opacity: 'opacity-40' },
+// Cell-level visual treatment per state (Phase 0 §04).
+// Badge rendering uses <StatusBadge /> primitive — this map only holds
+// the data StatusBadge can't carry (cell background, left-rail color,
+// progress-bar tint, opacity).
+const STATE_CELL_STYLE = {
+  upcoming:   { icon: CalendarDays,  cellBg: 'bg-muted/30',         leftColor: 'var(--neutral)',     progressBar: 'bg-warning', opacity: 'opacity-70' },
+  toMark:     { icon: AlertCircle,   cellBg: 'bg-warning/[0.10]',   leftColor: 'var(--warning)',     progressBar: 'bg-warning', opacity: '' },
+  inProgress: { icon: CircleDashed,  cellBg: 'bg-info/[0.08]',      leftColor: 'var(--info)',        progressBar: 'bg-info',    opacity: '' },
+  done:       { icon: CheckCircle2,  cellBg: 'bg-success/[0.06]',   leftColor: 'var(--success)',     progressBar: 'bg-success', opacity: 'opacity-80' },
 };
+
+const STATE_LABEL = {
+  upcoming:   'Upcoming',
+  toMark:     'To mark',
+  inProgress: 'In progress',
+  done:       'Done',
+};
+
+// Derive (state, noRoster) from a schedule record.
+// Server returns attendanceStatus ∈ {done, pending, partial, none}.
+function deriveSessionState(schedule) {
+  const isFuture = new Date(schedule.startTime) > new Date();
+  const isNoRoster = schedule.attendanceStatus === 'none';
+
+  if (isFuture) return { state: 'upcoming', noRoster: isNoRoster };
+
+  switch (schedule.attendanceStatus) {
+    case 'done':
+      return { state: 'done', noRoster: false };
+    case 'partial':
+      return { state: 'inProgress', noRoster: false };
+    case 'pending':
+      return { state: 'toMark', noRoster: false };
+    case 'none':
+      // Past + no roster → config error, surface via flag; state defaults
+      // to toMark so user can still see "something is wrong here".
+      return { state: 'toMark', noRoster: true };
+    default:
+      return { state: 'toMark', noRoster: false };
+  }
+}
 
 // ── Helpers ─────────────────────────────────────────────
 
@@ -240,12 +292,12 @@ export default function AttendancePage() {
       </div>
 
       {/* ── Timetable Calendar ─────────────────────────── */}
-      <div className="bg-card border border-border rounded-2xl overflow-hidden border border-white/5">
+      <div className="bg-card border border-border rounded-md overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full border-collapse min-w-[800px]">
             <thead>
               <tr>
-                <th className="sticky left-0 z-20 bg-slate-900/95 backdrop-blur-sm px-3 py-3 border-b border-r border-white/10 text-xs text-slate-500 w-24">Time</th>
+                <th className="sticky left-0 z-20 bg-card px-3 py-3 border-b border-r border-border text-overline text-muted-foreground w-24 text-left">Time</th>
                 {weekDays.map((day, i) => {
                   const dateKey = toDateKey(day);
                   const isToday = dateKey === today;
@@ -263,7 +315,7 @@ export default function AttendancePage() {
             <tbody>
               {TIME_SLOTS.map((slot) => (
                 <tr key={slot} className="group">
-                  <td className="sticky left-0 z-10 bg-slate-900/95 backdrop-blur-sm px-3 py-2 border-r border-b border-white/10 text-xs font-mono text-slate-400 whitespace-nowrap align-middle">
+                  <td className="sticky left-0 z-10 bg-card px-3 py-2 border-r border-b border-border text-mono text-muted-foreground whitespace-nowrap align-middle">
                     {slot}
                   </td>
 
@@ -277,67 +329,61 @@ export default function AttendancePage() {
 
                     if (cellSchedules.length > 0) {
                       return (
-                        <td key={dayIdx} className={`border-b border-white/5 p-1 align-top ${isToday ? 'bg-primary/5' : ''}`}>
+                        <td key={dayIdx} className={`border-b border-border p-1 align-top ${isToday ? 'bg-primary-tint/30' : ''}`}>
                           <div className="flex flex-col gap-1 h-full">
                             {cellSchedules.map((schedule) => {
-                              const isFutureSession = new Date(schedule.startTime) > new Date();
-                              const effectiveStatus = isFutureSession ? 'future' : schedule.attendanceStatus;
-                              const cfg = STATUS_CONFIG[effectiveStatus] || STATUS_CONFIG.pending;
+                              const { state, noRoster } = deriveSessionState(schedule);
+                              const cell = STATE_CELL_STYLE[state];
                               const isSelected = selectedSchedule?._id === schedule._id;
-                              const isOverdue = schedule.attendanceStatus === 'pending' && isPast && !isFutureSession;
-
-                              // Dynamic background based on status
-                              const bgMap = {
-                                done: 'bg-emerald-500/[0.08]',
-                                pending: 'bg-amber-500/[0.15]',
-                                partial: 'bg-blue-500/[0.12]',
-                                none: 'bg-white/[0.02]',
-                                future: 'bg-slate-500/[0.04]',
-                              };
-                              const cellBg = isOverdue ? 'bg-red-500/[0.15]' : (bgMap[effectiveStatus] || 'bg-white/[0.03]');
-                              const leftColor = isOverdue ? '#f87171' : cfg.leftColor;
+                              const progressPct = schedule.enrolledCount > 0
+                                ? Math.round(((schedule.markedCount || 0) / schedule.enrolledCount) * 100)
+                                : 0;
 
                               return (
                                 <div
                                   key={schedule._id}
-                                  className={`rounded-xl p-2.5 pl-3 transition-all cursor-pointer relative overflow-hidden ${cellBg} ${cfg.opacity} ${
+                                  className={`rounded-md p-2.5 pl-3 cursor-pointer relative overflow-hidden border border-border transition-colors duration-(--dur-fast) ${cell.cellBg} ${cell.opacity} ${
                                     cellSchedules.length === 1 ? 'min-h-[80px]' : 'min-h-[60px]'
                                   } ${
-                                    isSelected ? 'ring-2 ring-primary ring-offset-1 ring-offset-slate-900 shadow-lg shadow-primary/20 !opacity-100' : 'hover:scale-[1.02] hover:!opacity-100'
+                                    isSelected
+                                      ? 'ring-2 ring-ring ring-offset-2 ring-offset-card !opacity-100'
+                                      : 'hover:!opacity-100'
                                   }`}
-                                  style={{ borderLeft: `4px solid ${leftColor}`, borderTop: '1px solid rgba(255,255,255,0.05)', borderRight: '1px solid rgba(255,255,255,0.05)', borderBottom: '1px solid rgba(255,255,255,0.05)' }}
+                                  style={{ borderLeftWidth: '4px', borderLeftColor: cell.leftColor }}
                                   onClick={() => handleSelectSchedule(schedule)}
                                 >
-                                  {/* Status badge */}
-                                  <div className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold border ${cfg.cls} ${isOverdue ? 'animate-pulse !bg-red-500/20 !text-red-400 !border-red-500/30' : ''}`}>
-                                    {isOverdue ? '⚠️ Overdue' : cfg.badge}
+                                  {/* Status badges — state + optional No-roster flag */}
+                                  <div className="flex flex-wrap items-center gap-1">
+                                    <StatusBadge status={state} icon={cell.icon} size="sm" />
+                                    {noRoster && (
+                                      <StatusBadge status="noRoster" icon={UserX} size="sm" />
+                                    )}
                                   </div>
 
                                   {/* Class info */}
-                                  <div className="text-xs font-bold text-white mt-1.5 truncate">
+                                  <div className="text-xs font-semibold text-foreground mt-1.5 truncate">
                                     {schedule.classId?.classCode}
                                   </div>
-                                  <div className="text-[10px] text-slate-400 truncate">
+                                  <div className="text-[10px] text-muted-foreground truncate">
                                     {schedule.classId?.courseName}
                                   </div>
 
-                                  {/* Meta */}
-                                  <div className="text-[10px] text-slate-500 mt-1 truncate">
-                                    {schedule.enrolledCount || 0}👤
+                                  {/* Roster size */}
+                                  <div className="text-[10px] text-subtle-foreground mt-1 flex items-center gap-1 truncate">
+                                    <Users className="size-2.5" strokeWidth={2} aria-hidden="true" />
+                                    {schedule.enrolledCount || 0}
                                   </div>
 
-                                  {/* Marked progress */}
-                                  {effectiveStatus !== 'future' && effectiveStatus !== 'none' && (
+                                  {/* Marked progress (only when relevant) */}
+                                  {state !== 'upcoming' && !noRoster && (
                                     <div className="mt-1.5">
-                                      <div className="flex justify-between text-[9px] text-slate-500 mb-0.5">
+                                      <div className="flex justify-between text-[9px] text-subtle-foreground mb-0.5 tabular-nums">
                                         <span>{schedule.markedCount || 0}/{schedule.enrolledCount || 0}</span>
                                       </div>
-                                      <div className="h-1 rounded-full bg-white/10 overflow-hidden">
+                                      <div className="h-1 rounded-full bg-muted overflow-hidden">
                                         <div
-                                          className={`h-full rounded-full transition-all ${
-                                            effectiveStatus === 'done' ? 'bg-emerald-400' : effectiveStatus === 'partial' ? 'bg-blue-400' : 'bg-amber-400'
-                                          }`}
-                                          style={{ width: `${schedule.enrolledCount > 0 ? Math.round(((schedule.markedCount || 0) / schedule.enrolledCount) * 100) : 0}%` }}
+                                          className={`h-full rounded-full transition-[width] duration-(--dur) ${cell.progressBar}`}
+                                          style={{ width: `${progressPct}%` }}
                                         />
                                       </div>
                                     </div>
@@ -365,70 +411,43 @@ export default function AttendancePage() {
       </div>
 
       {/* ── Legend ──────────────────────────────────────── */}
-      <div className="flex flex-wrap gap-4 text-xs text-slate-400">
-        <div className="flex items-center gap-2">
-          <div className="w-5 h-3.5 rounded bg-emerald-500/[0.12] border border-emerald-400/30 border-l-4 border-l-emerald-400" />
-          <span>Done — All marked</span>
-        </div>
-        <div className="flex items-center gap-2">
-          <div className="w-5 h-3.5 rounded bg-amber-500/[0.15] border border-amber-400/30 border-l-4 border-l-amber-400" />
-          <span>Pending — Not yet marked</span>
-        </div>
-        <div className="flex items-center gap-2">
-          <div className="w-5 h-3.5 rounded bg-red-500/[0.15] border border-red-400/30 border-l-4 border-l-red-400" />
-          <span className="text-red-400 font-semibold">Overdue — Past, not marked</span>
-        </div>
-        <div className="flex items-center gap-2">
-          <div className="w-5 h-3.5 rounded bg-blue-500/[0.12] border border-blue-400/30 border-l-4 border-l-blue-400" />
-          <span>Partial — Some marked</span>
-        </div>
-        <div className="flex items-center gap-2">
-          <div className="w-5 h-3.5 rounded bg-white/[0.04] border border-slate-600/30 border-l-4 border-l-slate-600 opacity-50" />
-          <span>Future / No students</span>
-        </div>
+      <div className="flex flex-wrap gap-2">
+        {(['upcoming', 'toMark', 'inProgress', 'done']).map((key) => (
+          <StatusBadge key={key} status={key} icon={STATE_CELL_STYLE[key].icon} size="sm" />
+        ))}
+        <StatusBadge status="noRoster" icon={UserX} size="sm" />
       </div>
 
       {/* ── Attendance Marking Panel ───────────────────── */}
       {selectedSchedule && new Date(selectedSchedule.startTime) > new Date() && (
-        <div className="bg-card border border-border rounded-2xl p-8 text-center ">
-          <div className="text-3xl mb-2 opacity-50">🔮</div>
-          <p className="text-slate-400 font-semibold">Buổi học chưa diễn ra</p>
-          <p className="text-slate-500 text-sm mt-1">
+        <div className="bg-card border border-border rounded-md p-8 text-center">
+          <CalendarDays className="mx-auto size-7 text-neutral mb-3" strokeWidth={2} aria-hidden="true" />
+          <p className="text-h3 text-foreground">Buổi học chưa diễn ra</p>
+          <p className="text-body text-muted-foreground mt-2 max-w-md mx-auto">
             Không thể điểm danh cho buổi học trong tương lai. Vui lòng quay lại sau khi buổi học đã bắt đầu.
           </p>
-          <p className="text-xs text-slate-600 mt-3">
+          <p className="text-small text-subtle-foreground mt-3">
             Lịch học: {new Date(selectedSchedule.startTime).toLocaleString('vi-VN', { weekday: 'long', day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
           </p>
         </div>
       )}
       {selectedSchedule && new Date(selectedSchedule.startTime) <= new Date() && records.length > 0 && (() => {
-        const isFuture = new Date(selectedSchedule.startTime) > new Date();
-        const isPast = new Date(selectedSchedule.startTime) < new Date(new Date().setHours(0, 0, 0, 0));
-        const status = selectedSchedule.attendanceStatus || 'pending';
-        const isOverdue = status === 'pending' && isPast && !isFuture;
-        // Panel accent colors
-        const panelStyles = {
-          done:    { border: '#34d399', bg: 'rgba(52, 211, 153, 0.06)', label: '✅ Done', labelCls: 'text-emerald-400' },
-          pending: { border: '#fbbf24', bg: 'rgba(251, 191, 36, 0.06)', label: '⏳ Pending', labelCls: 'text-amber-400' },
-          partial: { border: '#60a5fa', bg: 'rgba(96, 165, 250, 0.06)', label: '🔵 Partial', labelCls: 'text-blue-400' },
-          none:    { border: '#475569', bg: 'transparent', label: '', labelCls: '' },
-        };
-        const ps = isOverdue
-          ? { border: '#f87171', bg: 'rgba(248, 113, 113, 0.06)', label: '⚠️ Overdue', labelCls: 'text-red-400' }
-          : (panelStyles[status] || panelStyles.pending);
+        const { state, noRoster } = deriveSessionState(selectedSchedule);
+        const cell = STATE_CELL_STYLE[state];
 
         return (
         <div
-          className="bg-card border border-border rounded-2xl p-6 "
-          style={{ borderLeft: `4px solid ${ps.border}`, backgroundColor: ps.bg }}
+          className="bg-card border border-border rounded-md p-6"
+          style={{ borderLeftWidth: '4px', borderLeftColor: cell.leftColor }}
         >
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
             <div>
-              <div className="flex items-center gap-3">
-                <h2 className="text-lg font-semibold text-white">
+              <div className="flex items-center gap-3 flex-wrap">
+                <h2 className="text-h3 text-foreground">
                   {selectedSchedule.classId?.classCode} — {new Date(selectedSchedule.startTime).toLocaleDateString('en', { weekday: 'short', month: 'short', day: 'numeric' })}
                 </h2>
-                <span className={`text-xs font-bold ${ps.labelCls}`}>{ps.label}</span>
+                <StatusBadge status={state} icon={cell.icon} size="md" />
+                {noRoster && <StatusBadge status="noRoster" icon={UserX} size="md" />}
               </div>
               <p className="text-sm text-slate-400">
                 {records.length} students enrolled · {selectedSchedule.classId?.courseName}
@@ -521,21 +540,21 @@ export default function AttendancePage() {
             <button
               onClick={handleSubmit}
               disabled={bulkMarkMutation.isPending}
-              className="px-6 py-3 rounded-xl bg-gradient-to-r from-success to-teal-400 text-white font-semibold hover:from-success hover:to-teal-300 transition-all disabled:opacity-50 shadow-lg shadow-success/20"
+              className="inline-flex items-center gap-2 px-4 h-(--control-h) rounded-md bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-(--dur-fast)"
             >
               {bulkMarkMutation.isPending ? (
-                <span className="flex items-center gap-2">
-                  <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                  Submitting...
-                </span>
+                <>
+                  <Spinner size={14} />
+                  Submitting…
+                </>
               ) : (
                 `Submit Attendance (${records.length} records)`
               )}
             </button>
 
             {result && (
-              <div className={`px-4 py-2 rounded-xl text-sm ${
-                result.success ? 'bg-success/10 text-success' : 'bg-destructive/10 text-destructive'
+              <div className={`px-3 py-1.5 rounded-md text-small ${
+                result.success ? 'bg-success-tint text-success border border-success/30' : 'bg-destructive-tint text-destructive border border-destructive/30'
               }`}>
                 {result.message}
               </div>
@@ -546,10 +565,12 @@ export default function AttendancePage() {
       })()}
 
       {selectedSchedule && records.length === 0 && (
-        <div className="bg-card border border-border rounded-2xl p-8 text-center ">
-          <div className="text-3xl mb-2 opacity-50">📭</div>
-          <p className="text-slate-400">No students enrolled in this schedule</p>
-          <p className="text-slate-500 text-sm mt-1">Attendance cannot be marked for sessions with 0 enrolled students</p>
+        <div className="bg-card border border-border rounded-md p-8 text-center" style={{ borderLeftWidth: '4px', borderLeftColor: 'var(--destructive)' }}>
+          <UserX className="mx-auto size-7 text-destructive mb-3" strokeWidth={2} aria-hidden="true" />
+          <p className="text-h3 text-foreground">No roster</p>
+          <p className="text-body text-muted-foreground mt-2 max-w-md mx-auto">
+            This session has 0 enrolled students. Attendance can't be marked. Likely a configuration error — check the class roster.
+          </p>
         </div>
       )}
     </div>
