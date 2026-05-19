@@ -2,6 +2,7 @@ import { useEffect, useMemo } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useMyClassSchedules } from '../hooks/useSchedules';
 import { useMyAttendanceStats, useAttendanceByUser } from '../hooks/useAttendance';
+import { useEvaluations } from '../hooks/useEvaluations';
 import { Spinner } from '../components/Spinner';
 import { DataTable } from '../components/DataTable';
 
@@ -28,6 +29,8 @@ export default function ParticipantDashboard() {
   const { data: schedData, isLoading: loadingSched } = useMyClassSchedules();
   const { data: stats, isLoading: loadingStats } = useMyAttendanceStats();
   const { data: rawHistory, isLoading: loadingHistory } = useAttendanceByUser(user._id);
+  // Backend auto-scopes GET /api/evaluations to the current participant's userId
+  const { data: rawEvals = [], isLoading: loadingEvals } = useEvaluations();
 
   const schedules = schedData?.data || [];
   const teamName = schedData?.team || '';
@@ -132,6 +135,12 @@ export default function ParticipantDashboard() {
   }, [rawHistory]);
 
   useEffect(() => { document.title = 'TMS — My Dashboard'; }, []);
+
+  // Sort evaluations newest first (by updatedAt or createdAt)
+  const evaluations = useMemo(() => {
+    const list = Array.isArray(rawEvals) ? rawEvals : rawEvals?.data ?? [];
+    return [...list].sort((a, b) => new Date(b.updatedAt ?? b.createdAt) - new Date(a.updatedAt ?? a.createdAt));
+  }, [rawEvals]);
 
   const loading = loadingSched || loadingStats || loadingHistory;
 
@@ -329,6 +338,116 @@ export default function ParticipantDashboard() {
           emptyTitle="Chưa có lịch sử điểm danh"
           emptyMessage="Kết quả sẽ hiện sau khi giáo viên chấm công."
         />
+      </div>
+
+      {/* ── Section 4: My Evaluations ────────────────────────── */}
+      <div className="bg-card border border-border rounded-lg p-6">
+        <div className="flex items-center justify-between mb-5">
+          <h2 className="text-lg font-semibold text-foreground flex items-center gap-2">
+            🎯 Kết Quả Đánh Giá
+          </h2>
+          <span className="text-xs text-subtle-foreground bg-muted px-3 py-1 rounded-md">
+            {evaluations.length} lớp
+          </span>
+        </div>
+
+        {loadingEvals ? (
+          <div className="flex justify-center py-10"><Spinner size={24} /></div>
+        ) : evaluations.length === 0 ? (
+          <div className="text-center py-10">
+            <div className="text-4xl mb-3 opacity-50">🎯</div>
+            <p className="text-muted-foreground">Chưa có kết quả đánh giá</p>
+            <p className="text-subtle-foreground text-sm mt-1">Điểm sẽ xuất hiện sau khi giáo viên nhập đánh giá</p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {evaluations.map((ev) => {
+              const avg = ((ev.grammarScore || 0) + (ev.vocabularyScore || 0) + (ev.pronunciationScore || 0) + (ev.fluencyScore || 0)) / 4;
+              const avgColor = avg >= 8 ? 'text-success' : avg >= 6 ? 'text-warning' : avg > 0 ? 'text-destructive' : 'text-muted-foreground';
+              const ringColor = avg >= 8 ? '#22c55e' : avg >= 6 ? '#f59e0b' : avg > 0 ? '#ef4444' : 'currentColor';
+
+              const scoreItems = [
+                { label: 'Grammar',       value: ev.grammarScore },
+                { label: 'Vocabulary',    value: ev.vocabularyScore },
+                { label: 'Pronunciation', value: ev.pronunciationScore },
+                { label: 'Fluency',       value: ev.fluencyScore },
+              ];
+
+              return (
+                <div key={ev._id} className="bg-muted border border-border rounded-md p-5 space-y-4">
+                  {/* Card header */}
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <div className="font-semibold text-foreground truncate">
+                        {ev.classId?.classCode ?? '—'}
+                      </div>
+                      <div className="text-xs text-muted-foreground mt-0.5 truncate">
+                        {ev.classId?.courseName ?? ''}
+                      </div>
+                    </div>
+                    {ev.level && (
+                      <span className="shrink-0 inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-primary/10 text-primary border border-primary/20">
+                        {ev.level}
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Average + score bars */}
+                  <div className="flex items-center gap-5">
+                    {/* Average ring */}
+                    <div className="relative w-16 h-16 shrink-0">
+                      <svg className="w-16 h-16 -rotate-90" viewBox="0 0 64 64">
+                        <circle cx="32" cy="32" r="26" fill="none" stroke="currentColor" strokeWidth="5" className="text-border" />
+                        <circle
+                          cx="32" cy="32" r="26" fill="none"
+                          stroke={ringColor}
+                          strokeWidth="5"
+                          strokeLinecap="round"
+                          strokeDasharray={`${(avg / 10) * 163.4} ${163.4 - (avg / 10) * 163.4}`}
+                          className="transition-all duration-700"
+                        />
+                      </svg>
+                      <div className="absolute inset-0 flex flex-col items-center justify-center">
+                        <span className={`text-sm font-bold leading-none ${avgColor}`}>
+                          {avg > 0 ? avg.toFixed(1) : '—'}
+                        </span>
+                        <span className="text-[9px] text-subtle-foreground mt-0.5">avg</span>
+                      </div>
+                    </div>
+
+                    {/* Individual scores */}
+                    <div className="flex-1 space-y-1.5">
+                      {scoreItems.map(({ label, value }) => {
+                        const pct = Math.round(((value || 0) / 10) * 100);
+                        const barColor = (value || 0) >= 8 ? 'bg-success' : (value || 0) >= 6 ? 'bg-warning' : (value || 0) > 0 ? 'bg-destructive' : 'bg-muted-foreground/30';
+                        return (
+                          <div key={label} className="flex items-center gap-2">
+                            <span className="text-[10px] text-muted-foreground w-20 shrink-0">{label}</span>
+                            <div className="flex-1 h-1.5 bg-border rounded-full overflow-hidden">
+                              <div className={`h-full rounded-full transition-all duration-500 ${barColor}`} style={{ width: `${pct}%` }} />
+                            </div>
+                            <span className="text-xs font-semibold text-foreground w-6 text-right tabular-nums">
+                              {value != null && value !== 0 ? value : '—'}
+                            </span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* Teacher comment */}
+                  {ev.teacherComment && (
+                    <div className="pt-1 border-t border-border">
+                      <p className="text-xs text-muted-foreground leading-relaxed italic">
+                        "{ev.teacherComment}"
+                      </p>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
       </div>
     </div>
   );
