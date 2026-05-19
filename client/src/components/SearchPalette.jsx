@@ -181,7 +181,7 @@ export default function SearchPalette({ open, onClose }) {
       role="dialog"
       aria-modal="true"
       aria-label="Global search"
-      className="fixed inset-0 z-[100] flex items-start justify-center bg-black/60 backdrop-blur-sm pt-[10vh] px-4 animate-fade-in"
+      className="fixed inset-0 z-[100] flex items-start justify-center bg-black/60 backdrop-blur-sm pt-[10vh] px-4 "
       onClick={onClose}
     >
       <div

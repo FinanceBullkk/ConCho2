@@ -139,7 +139,7 @@ function ScheduleModal({ schedule, classes, teams, onClose, onSaved, prefill }) 
     <Portal>
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm" onClick={onClose}>
       <form onSubmit={handleSubmit} onClick={(e) => e.stopPropagation()}
-        className="glass rounded-2xl p-6 w-full max-w-lg mx-4 space-y-4 animate-fade-in max-h-[90vh] overflow-y-auto">
+        className="bg-card border border-border rounded-2xl p-6 w-full max-w-lg mx-4 space-y-4 max-h-[90vh] overflow-y-auto">
         <h2 className="text-lg font-bold text-white">{isEdit ? '✏️ Edit Schedule' : '➕ Create Schedule'}</h2>
         {error && <div className="px-4 py-2 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-sm">{error}</div>}
 
@@ -328,7 +328,7 @@ export default function SchedulesPage() {
 
 
   return (
-    <div className="space-y-5 animate-fade-in">
+    <div className="space-y-5 ">
       {/* ── Header ─────────────────────────────────────── */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
@@ -366,7 +366,7 @@ export default function SchedulesPage() {
           <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
         </div>
       ) : (
-        <div className="glass rounded-2xl overflow-hidden border border-white/5">
+        <div className="bg-card border border-border rounded-2xl overflow-hidden border border-white/5">
           <div className="overflow-x-auto">
             <table className="w-full border-collapse min-w-[800px]">
               <thead>
@@ -516,7 +516,7 @@ export default function SchedulesPage() {
       {deleteTarget && (
         <Portal>
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
-          <div className="glass rounded-2xl p-6 max-w-sm mx-4 text-center space-y-4 animate-fade-in">
+          <div className="bg-card border border-border rounded-2xl p-6 max-w-sm mx-4 text-center space-y-4 ">
             <div className="text-3xl">🗑️</div>
             <h3 className="text-lg font-bold text-white">Delete this schedule?</h3>
             <p className="text-sm text-slate-400">

@@ -55,7 +55,7 @@ function SummaryCard({ checkKey, count, onClick, active }) {
   return (
     <button
       onClick={() => onClick(checkKey)}
-      className={`glass rounded-2xl p-4 text-left transition-all hover:bg-white/5 ${active ? 'ring-2 ring-primary/50' : ''}`}
+      className={`bg-card border border-border rounded-2xl p-4 text-left transition-all hover:bg-white/5 ${active ? 'ring-2 ring-primary/50' : ''}`}
     >
       <div className="flex items-start justify-between gap-2">
         <span className="text-2xl">{meta.icon}</span>
@@ -173,7 +173,7 @@ export default function ReconcilePage() {
   const CHECK_KEYS = Object.keys(CHECK_META);
 
   return (
-    <div className="space-y-6 animate-fade-in">
+    <div className="space-y-6 ">
       {/* Header row */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
@@ -196,7 +196,7 @@ export default function ReconcilePage() {
 
       {/* Run history bar */}
       {historyData?.length > 0 && (
-        <div className="glass rounded-2xl px-4 py-3 space-y-2">
+        <div className="bg-card border border-border rounded-2xl px-4 py-3 space-y-2">
           <p className="text-xs text-slate-500 uppercase tracking-wider">Run History</p>
           <RunHistoryBar
             history={historyData}
@@ -208,7 +208,7 @@ export default function ReconcilePage() {
 
       {/* No report yet */}
       {!reportQuery.isLoading && !report && (
-        <div className="glass rounded-2xl py-20 text-center space-y-3">
+        <div className="bg-card border border-border rounded-2xl py-20 text-center space-y-3">
           <div className="text-4xl">🔍</div>
           <p className="text-slate-400">No reconciliation report yet.</p>
           <p className="text-slate-500 text-sm">Click <strong className="text-white">Run Now</strong> to scan for data issues.</p>
@@ -217,7 +217,7 @@ export default function ReconcilePage() {
 
       {/* Loading */}
       {reportQuery.isLoading && (
-        <div className="glass rounded-2xl py-20 flex items-center justify-center">
+        <div className="bg-card border border-border rounded-2xl py-20 flex items-center justify-center">
           <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
         </div>
       )}
@@ -249,7 +249,7 @@ export default function ReconcilePage() {
 
           {/* Issue list */}
           {report.summary.total > 0 && (
-            <div className="glass rounded-2xl overflow-hidden">
+            <div className="bg-card border border-border rounded-2xl overflow-hidden">
               <div className="px-4 py-3 border-b border-white/5 flex items-center justify-between">
                 <span className="text-sm font-medium text-white">
                   {filterCheck
@@ -277,7 +277,7 @@ export default function ReconcilePage() {
           )}
 
           {report.status === 'ok' && (
-            <div className="glass rounded-2xl py-12 text-center space-y-2">
+            <div className="bg-card border border-border rounded-2xl py-12 text-center space-y-2">
               <div className="text-4xl">✅</div>
               <p className="text-emerald-400 font-medium">All clear — no data drift detected</p>
               <p className="text-slate-500 text-sm">Checked {Object.keys(CHECK_META).length} integrity rules across all collections.</p>

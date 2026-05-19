@@ -190,7 +190,7 @@ export default function AttendancePage() {
   }
 
   return (
-    <div className="space-y-6 animate-fade-in">
+    <div className="space-y-6 ">
       {/* ── Header ─────────────────────────────────────── */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
@@ -202,7 +202,7 @@ export default function AttendancePage() {
       </div>
 
       {/* ── Week Stats Banner ──────────────────────────── */}
-      <div className="glass rounded-2xl px-5 py-4 flex flex-wrap gap-4 items-center">
+      <div className="bg-card border border-border rounded-2xl px-5 py-4 flex flex-wrap gap-4 items-center">
         <div className="flex items-center gap-4 flex-wrap">
           {weekStats.pending > 0 && (
             <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-warning/10 border border-warning/20">
@@ -240,7 +240,7 @@ export default function AttendancePage() {
       </div>
 
       {/* ── Timetable Calendar ─────────────────────────── */}
-      <div className="glass rounded-2xl overflow-hidden border border-white/5">
+      <div className="bg-card border border-border rounded-2xl overflow-hidden border border-white/5">
         <div className="overflow-x-auto">
           <table className="w-full border-collapse min-w-[800px]">
             <thead>
@@ -390,7 +390,7 @@ export default function AttendancePage() {
 
       {/* ── Attendance Marking Panel ───────────────────── */}
       {selectedSchedule && new Date(selectedSchedule.startTime) > new Date() && (
-        <div className="glass rounded-2xl p-8 text-center animate-fade-in">
+        <div className="bg-card border border-border rounded-2xl p-8 text-center ">
           <div className="text-3xl mb-2 opacity-50">🔮</div>
           <p className="text-slate-400 font-semibold">Buổi học chưa diễn ra</p>
           <p className="text-slate-500 text-sm mt-1">
@@ -419,7 +419,7 @@ export default function AttendancePage() {
 
         return (
         <div
-          className="glass rounded-2xl p-6 animate-fade-in"
+          className="bg-card border border-border rounded-2xl p-6 "
           style={{ borderLeft: `4px solid ${ps.border}`, backgroundColor: ps.bg }}
         >
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
@@ -459,11 +459,11 @@ export default function AttendancePage() {
           </div>
 
           {/* Roster */}
-          <div className="space-y-2 stagger">
+          <div className="space-y-2 ">
             {records.map((record, idx) => (
               <div
                 key={record.userId}
-                className={`glass-light rounded-xl p-4 flex flex-col sm:flex-row sm:items-center gap-3 ${
+                className={`bg-muted border border-border rounded-xl p-4 flex flex-col sm:flex-row sm:items-center gap-3 ${
                   !record.isMarked ? 'border border-amber-500/30 bg-amber-500/5' : ''
                 }`}
               >
@@ -534,7 +534,7 @@ export default function AttendancePage() {
             </button>
 
             {result && (
-              <div className={`px-4 py-2 rounded-xl text-sm animate-fade-in ${
+              <div className={`px-4 py-2 rounded-xl text-sm ${
                 result.success ? 'bg-success/10 text-success' : 'bg-destructive/10 text-destructive'
               }`}>
                 {result.message}
@@ -546,7 +546,7 @@ export default function AttendancePage() {
       })()}
 
       {selectedSchedule && records.length === 0 && (
-        <div className="glass rounded-2xl p-8 text-center animate-fade-in">
+        <div className="bg-card border border-border rounded-2xl p-8 text-center ">
           <div className="text-3xl mb-2 opacity-50">📭</div>
           <p className="text-slate-400">No students enrolled in this schedule</p>
           <p className="text-slate-500 text-sm mt-1">Attendance cannot be marked for sessions with 0 enrolled students</p>

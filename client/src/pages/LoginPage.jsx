@@ -67,7 +67,7 @@ export default function LoginPage() {
 
   return (
     <div className="min-h-screen flex items-center justify-center px-4">
-      <div className="w-full max-w-md animate-fade-in">
+      <div className="w-full max-w-md ">
         {/* Logo */}
         <div className="text-center mb-8">
           <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br from-primary to-purple-600 text-white text-2xl font-bold mb-4 shadow-lg shadow-primary/25">
@@ -81,11 +81,11 @@ export default function LoginPage() {
 
         {/* ── Credentials step ─────────────────────────────── */}
         {step === 'credentials' ? (
-          <form onSubmit={handleCredSubmit} className="glass rounded-2xl p-8 glow-primary" noValidate>
+          <form onSubmit={handleCredSubmit} className="bg-card border border-border rounded-2xl p-8 " noValidate>
             <h2 className="text-xl font-semibold text-white mb-6">Sign In</h2>
 
             {credForm.formState.errors.root && (
-              <div role="alert" className="mb-4 px-4 py-3 rounded-xl bg-destructive/10 border border-destructive/20 text-destructive text-sm animate-fade-in">
+              <div role="alert" className="mb-4 px-4 py-3 rounded-xl bg-destructive/10 border border-destructive/20 text-destructive text-sm ">
                 {credForm.formState.errors.root.message}
               </div>
             )}
@@ -180,14 +180,14 @@ export default function LoginPage() {
           </form>
         ) : (
           /* ── MFA step ────────────────────────────────────── */
-          <form onSubmit={handleMfaSubmit} className="glass rounded-2xl p-8 glow-primary" noValidate>
+          <form onSubmit={handleMfaSubmit} className="bg-card border border-border rounded-2xl p-8 " noValidate>
             <h2 className="text-xl font-semibold text-white mb-2">Two-Factor Authentication</h2>
             <p className="text-sm text-slate-400 mb-6">
               Enter the 6-digit code from your authenticator app, or a backup code (XXXXX-XXXXX).
             </p>
 
             {mfaForm.formState.errors.root && (
-              <div role="alert" className="mb-4 px-4 py-3 rounded-xl bg-destructive/10 border border-destructive/20 text-destructive text-sm animate-fade-in">
+              <div role="alert" className="mb-4 px-4 py-3 rounded-xl bg-destructive/10 border border-destructive/20 text-destructive text-sm ">
                 {mfaForm.formState.errors.root.message}
               </div>
             )}

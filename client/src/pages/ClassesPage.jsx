@@ -55,7 +55,7 @@ function NewCohortModal({ courseNames, onClose, onSaved }) {
     <Portal>
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm" onClick={onClose}>
       <form onSubmit={handleSubmit} onClick={(e) => e.stopPropagation()}
-        className="glass rounded-2xl p-6 w-full max-w-md mx-4 space-y-4 animate-fade-in">
+        className="bg-card border border-border rounded-2xl p-6 w-full max-w-md mx-4 space-y-4 ">
         <h2 className="text-lg font-bold text-white">🆕 Create New Cohort</h2>
         <p className="text-sm text-slate-400">A new class code (e.g. EL002) will be auto-generated.</p>
         {error && <div className="px-4 py-2 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-sm">{error}</div>}
@@ -114,7 +114,7 @@ function EditClassModal({ cls, onClose }) {
     <Portal>
       <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm" onClick={onClose}>
         <form onSubmit={handleSubmit} onClick={(e) => e.stopPropagation()}
-          className="glass rounded-2xl p-6 w-full max-w-md mx-4 space-y-4 animate-fade-in">
+          className="bg-card border border-border rounded-2xl p-6 w-full max-w-md mx-4 space-y-4 ">
           <div>
             <h2 className="text-lg font-bold text-white">
               ✏️ Chỉnh sửa lớp
@@ -275,7 +275,7 @@ export default function ClassesPage() {
   };
 
   return (
-    <div className="space-y-6 animate-fade-in">
+    <div className="space-y-6 ">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-white">📚 Class Management</h1>
@@ -295,7 +295,7 @@ export default function ClassesPage() {
       </div>
 
       {/* ── Search & Filter Bar ───────────────────────────── */}
-      <div className="glass rounded-2xl px-5 py-4 flex flex-wrap gap-3 items-center">
+      <div className="bg-card border border-border rounded-2xl px-5 py-4 flex flex-wrap gap-3 items-center">
         <div className="relative flex-1 min-w-[200px] max-w-sm">
           <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
@@ -334,11 +334,11 @@ export default function ClassesPage() {
 
       {/* ── Matrix Table ──────────────────────────────────── */}
       {loading ? (
-        <div className="glass rounded-2xl p-6"><TableSkeleton rows={6} cols={5} /></div>
+        <div className="bg-card border border-border rounded-2xl p-6"><TableSkeleton rows={6} cols={5} /></div>
       ) : classesError ? (
-        <div className="glass rounded-2xl"><QueryError error={classesErrorObj} onRetry={refetchClasses} /></div>
+        <div className="bg-card border border-border rounded-2xl"><QueryError error={classesErrorObj} onRetry={refetchClasses} /></div>
       ) : classCodes.length === 0 ? (
-        <div className="glass rounded-2xl py-16 text-center">
+        <div className="bg-card border border-border rounded-2xl py-16 text-center">
           <div className="text-4xl mb-4">{hasActiveFilter ? '🔍' : '📭'}</div>
           {hasActiveFilter ? (
             <>
@@ -352,7 +352,7 @@ export default function ClassesPage() {
           )}
         </div>
       ) : (
-        <div className="glass rounded-2xl overflow-hidden border border-white/5">
+        <div className="bg-card border border-border rounded-2xl overflow-hidden border border-white/5">
           <div className="overflow-x-auto">
             <table className="w-full border-collapse min-w-[900px]">
               <thead>
