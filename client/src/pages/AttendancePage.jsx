@@ -14,10 +14,10 @@ import { useTimeSlots } from '../hooks/useTimeSlots';
 // ──────────────────────────────────────────────────────────
 
 const STATUS_OPTIONS = [
-  { value: 'P', label: 'Present', color: 'bg-accent-green/20 text-accent-green border-accent-green/30' },
-  { value: 'A', label: 'Absent', color: 'bg-accent-red/20 text-accent-red border-accent-red/30' },
-  { value: 'L', label: 'Late', color: 'bg-accent-amber/20 text-accent-amber border-accent-amber/30' },
-  { value: 'EL', label: 'Excused', color: 'bg-accent-purple/20 text-accent-purple border-accent-purple/30' },
+  { value: 'P', label: 'Present', color: 'bg-success/20 text-success border-success/30' },
+  { value: 'A', label: 'Absent', color: 'bg-destructive/20 text-destructive border-destructive/30' },
+  { value: 'L', label: 'Late', color: 'bg-warning/20 text-warning border-warning/30' },
+  { value: 'EL', label: 'Excused', color: 'bg-chart-2/20 text-chart-2 border-chart-2/30' },
 ];
 
 // TIME_SLOTS is resolved at runtime via useTimeSlots() — see component body.
@@ -25,8 +25,8 @@ const STATUS_OPTIONS = [
 const DAY_NAMES = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
 const STATUS_CONFIG = {
-  done:    { badge: '✅ Done',       cls: 'bg-accent-green/15 text-accent-green border-accent-green/25', leftColor: '#34d399', watermark: '✓', watermarkCls: 'text-emerald-400/15', opacity: 'opacity-70' },
-  pending: { badge: '⏳ Pending',    cls: 'bg-accent-amber/20 text-accent-amber border-accent-amber/30', leftColor: '#fbbf24', watermark: '!', watermarkCls: 'text-amber-400/15', opacity: '' },
+  done:    { badge: '✅ Done',       cls: 'bg-success/15 text-success border-success/25', leftColor: '#34d399', watermark: '✓', watermarkCls: 'text-emerald-400/15', opacity: 'opacity-70' },
+  pending: { badge: '⏳ Pending',    cls: 'bg-warning/20 text-warning border-warning/30', leftColor: '#fbbf24', watermark: '!', watermarkCls: 'text-amber-400/15', opacity: '' },
   partial: { badge: '🔵 Partial',    cls: 'bg-blue-500/20 text-blue-400 border-blue-500/30', leftColor: '#60a5fa', watermark: '½', watermarkCls: 'text-blue-400/15', opacity: '' },
   none:    { badge: '⚪ No students', cls: 'bg-white/5 text-slate-500 border-white/10', leftColor: '#475569', watermark: '—', watermarkCls: 'text-slate-600/10', opacity: 'opacity-40' },
   future:  { badge: '🔮 Chưa diễn ra', cls: 'bg-slate-500/15 text-slate-400 border-slate-500/25', leftColor: '#475569', watermark: '⏳', watermarkCls: 'text-slate-500/10', opacity: 'opacity-40' },
@@ -184,17 +184,17 @@ export default function AttendancePage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center py-20">
-        <div className="w-8 h-8 border-2 border-primary-400 border-t-transparent rounded-full animate-spin" />
+        <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
       </div>
     );
   }
 
   return (
-    <div className="space-y-6 animate-fade-in">
+    <div className="space-y-6 ">
       {/* ── Header ─────────────────────────────────────── */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-white">✅ Attendance Marking</h1>
+          <h1 className="text-h1 text-foreground">Attendance Marking</h1>
           <p className="text-slate-400 mt-1">
             Click a session on the calendar to mark attendance
           </p>
@@ -202,12 +202,12 @@ export default function AttendancePage() {
       </div>
 
       {/* ── Week Stats Banner ──────────────────────────── */}
-      <div className="glass rounded-2xl px-5 py-4 flex flex-wrap gap-4 items-center">
+      <div className="bg-card border border-border rounded-2xl px-5 py-4 flex flex-wrap gap-4 items-center">
         <div className="flex items-center gap-4 flex-wrap">
           {weekStats.pending > 0 && (
-            <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-accent-amber/10 border border-accent-amber/20">
-              <span className="text-accent-amber text-sm font-semibold">{weekStats.pending}</span>
-              <span className="text-xs text-accent-amber/70">pending</span>
+            <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-warning/10 border border-warning/20">
+              <span className="text-warning text-sm font-semibold">{weekStats.pending}</span>
+              <span className="text-xs text-warning/70">pending</span>
             </div>
           )}
           {weekStats.partial > 0 && (
@@ -216,9 +216,9 @@ export default function AttendancePage() {
               <span className="text-xs text-blue-400/70">partial</span>
             </div>
           )}
-          <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-accent-green/10 border border-accent-green/20">
-            <span className="text-accent-green text-sm font-semibold">{weekStats.done}</span>
-            <span className="text-xs text-accent-green/70">done</span>
+          <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-success/10 border border-success/20">
+            <span className="text-success text-sm font-semibold">{weekStats.done}</span>
+            <span className="text-xs text-success/70">done</span>
           </div>
           <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-white/5 border border-white/10">
             <span className="text-slate-400 text-sm font-semibold">{weekStats.total}</span>
@@ -234,13 +234,13 @@ export default function AttendancePage() {
           <h2 className="text-white font-semibold">
             {weekDays[0].toLocaleDateString('en', { month: 'short', day: 'numeric' })} — {weekDays[6].toLocaleDateString('en', { month: 'short', day: 'numeric', year: 'numeric' })}
           </h2>
-          <button onClick={goToday} className="px-3 py-1 rounded-lg bg-primary-500/20 text-primary-300 text-xs border border-primary-500/20 hover:bg-primary-500/30 transition-all">Today</button>
+          <button onClick={goToday} className="px-3 py-1 rounded-lg bg-primary/20 text-primary text-xs border border-primary/20 hover:bg-primary/30 transition-all">Today</button>
         </div>
         <button onClick={nextWeek} className="px-4 py-2 rounded-xl bg-white/5 text-slate-300 hover:bg-white/10 transition-all text-sm border border-white/10">Next →</button>
       </div>
 
       {/* ── Timetable Calendar ─────────────────────────── */}
-      <div className="glass rounded-2xl overflow-hidden border border-white/5">
+      <div className="bg-card border border-border rounded-2xl overflow-hidden border border-white/5">
         <div className="overflow-x-auto">
           <table className="w-full border-collapse min-w-[800px]">
             <thead>
@@ -250,9 +250,9 @@ export default function AttendancePage() {
                   const dateKey = toDateKey(day);
                   const isToday = dateKey === today;
                   return (
-                    <th key={i} className={`px-2 py-3 border-b border-white/10 text-center ${isToday ? 'bg-primary-500/10' : ''}`}>
-                      <div className={`text-xs font-bold ${isToday ? 'text-primary-300' : 'text-slate-400'}`}>{DAY_NAMES[i]}</div>
-                      <div className={`text-xl font-bold ${isToday ? 'text-primary-200' : 'text-white'}`}>{day.getDate()}</div>
+                    <th key={i} className={`px-2 py-3 border-b border-white/10 text-center ${isToday ? 'bg-primary/10' : ''}`}>
+                      <div className={`text-xs font-bold ${isToday ? 'text-primary' : 'text-slate-400'}`}>{DAY_NAMES[i]}</div>
+                      <div className={`text-xl font-bold ${isToday ? 'text-primary' : 'text-white'}`}>{day.getDate()}</div>
                       <div className="text-[10px] text-slate-500">{day.toLocaleDateString('en', { month: 'short' })}</div>
                     </th>
                   );
@@ -277,7 +277,7 @@ export default function AttendancePage() {
 
                     if (cellSchedules.length > 0) {
                       return (
-                        <td key={dayIdx} className={`border-b border-white/5 p-1 align-top ${isToday ? 'bg-primary-500/5' : ''}`}>
+                        <td key={dayIdx} className={`border-b border-white/5 p-1 align-top ${isToday ? 'bg-primary/5' : ''}`}>
                           <div className="flex flex-col gap-1 h-full">
                             {cellSchedules.map((schedule) => {
                               const isFutureSession = new Date(schedule.startTime) > new Date();
@@ -303,7 +303,7 @@ export default function AttendancePage() {
                                   className={`rounded-xl p-2.5 pl-3 transition-all cursor-pointer relative overflow-hidden ${cellBg} ${cfg.opacity} ${
                                     cellSchedules.length === 1 ? 'min-h-[80px]' : 'min-h-[60px]'
                                   } ${
-                                    isSelected ? 'ring-2 ring-primary-400 ring-offset-1 ring-offset-slate-900 shadow-lg shadow-primary-500/20 !opacity-100' : 'hover:scale-[1.02] hover:!opacity-100'
+                                    isSelected ? 'ring-2 ring-primary ring-offset-1 ring-offset-slate-900 shadow-lg shadow-primary/20 !opacity-100' : 'hover:scale-[1.02] hover:!opacity-100'
                                   }`}
                                   style={{ borderLeft: `4px solid ${leftColor}`, borderTop: '1px solid rgba(255,255,255,0.05)', borderRight: '1px solid rgba(255,255,255,0.05)', borderBottom: '1px solid rgba(255,255,255,0.05)' }}
                                   onClick={() => handleSelectSchedule(schedule)}
@@ -352,7 +352,7 @@ export default function AttendancePage() {
 
                     // ── Empty cell ──
                     return (
-                      <td key={dayIdx} className={`border-b border-white/5 p-1 align-top ${isToday ? 'bg-primary-500/5' : ''}`}>
+                      <td key={dayIdx} className={`border-b border-white/5 p-1 align-top ${isToday ? 'bg-primary/5' : ''}`}>
                         <div className="rounded-xl h-full min-h-[80px] bg-white/[0.02]" />
                       </td>
                     );
@@ -390,7 +390,7 @@ export default function AttendancePage() {
 
       {/* ── Attendance Marking Panel ───────────────────── */}
       {selectedSchedule && new Date(selectedSchedule.startTime) > new Date() && (
-        <div className="glass rounded-2xl p-8 text-center animate-fade-in">
+        <div className="bg-card border border-border rounded-2xl p-8 text-center ">
           <div className="text-3xl mb-2 opacity-50">🔮</div>
           <p className="text-slate-400 font-semibold">Buổi học chưa diễn ra</p>
           <p className="text-slate-500 text-sm mt-1">
@@ -419,7 +419,7 @@ export default function AttendancePage() {
 
         return (
         <div
-          className="glass rounded-2xl p-6 animate-fade-in"
+          className="bg-card border border-border rounded-2xl p-6 "
           style={{ borderLeft: `4px solid ${ps.border}`, backgroundColor: ps.bg }}
         >
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
@@ -459,18 +459,18 @@ export default function AttendancePage() {
           </div>
 
           {/* Roster */}
-          <div className="space-y-2 stagger">
+          <div className="space-y-2 ">
             {records.map((record, idx) => (
               <div
                 key={record.userId}
-                className={`glass-light rounded-xl p-4 flex flex-col sm:flex-row sm:items-center gap-3 ${
+                className={`bg-muted border border-border rounded-xl p-4 flex flex-col sm:flex-row sm:items-center gap-3 ${
                   !record.isMarked ? 'border border-amber-500/30 bg-amber-500/5' : ''
                 }`}
               >
                 {/* Student info */}
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">
-                    <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-primary-500/20 to-purple-500/20 flex items-center justify-center text-xs font-bold text-primary-300">
+                    <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-primary/20 to-purple-500/20 flex items-center justify-center text-xs font-bold text-primary">
                       {record.empCode?.slice(-2)}
                     </div>
                     <div>
@@ -510,7 +510,7 @@ export default function AttendancePage() {
                   placeholder="Remark..."
                   value={record.remark}
                   onChange={(e) => updateRecord(idx, 'remark', e.target.value)}
-                  className="w-full sm:w-40 px-3 py-1.5 rounded-lg bg-surface-lighter/60 border border-white/5 text-sm text-white placeholder-slate-600 focus:outline-none focus:ring-1 focus:ring-primary-500/50 transition-all"
+                  className="w-full sm:w-40 px-3 py-1.5 rounded-lg bg-muted/60 border border-white/5 text-sm text-white placeholder-slate-600 focus:outline-none focus:ring-1 focus:ring-primary/50 transition-all"
                 />
               </div>
             ))}
@@ -521,7 +521,7 @@ export default function AttendancePage() {
             <button
               onClick={handleSubmit}
               disabled={bulkMarkMutation.isPending}
-              className="px-6 py-3 rounded-xl bg-gradient-to-r from-accent-green to-teal-400 text-white font-semibold hover:from-accent-green hover:to-teal-300 transition-all disabled:opacity-50 shadow-lg shadow-accent-green/20"
+              className="px-6 py-3 rounded-xl bg-gradient-to-r from-success to-teal-400 text-white font-semibold hover:from-success hover:to-teal-300 transition-all disabled:opacity-50 shadow-lg shadow-success/20"
             >
               {bulkMarkMutation.isPending ? (
                 <span className="flex items-center gap-2">
@@ -534,8 +534,8 @@ export default function AttendancePage() {
             </button>
 
             {result && (
-              <div className={`px-4 py-2 rounded-xl text-sm animate-fade-in ${
-                result.success ? 'bg-accent-green/10 text-accent-green' : 'bg-accent-red/10 text-accent-red'
+              <div className={`px-4 py-2 rounded-xl text-sm ${
+                result.success ? 'bg-success/10 text-success' : 'bg-destructive/10 text-destructive'
               }`}>
                 {result.message}
               </div>
@@ -546,7 +546,7 @@ export default function AttendancePage() {
       })()}
 
       {selectedSchedule && records.length === 0 && (
-        <div className="glass rounded-2xl p-8 text-center animate-fade-in">
+        <div className="bg-card border border-border rounded-2xl p-8 text-center ">
           <div className="text-3xl mb-2 opacity-50">📭</div>
           <p className="text-slate-400">No students enrolled in this schedule</p>
           <p className="text-slate-500 text-sm mt-1">Attendance cannot be marked for sessions with 0 enrolled students</p>
