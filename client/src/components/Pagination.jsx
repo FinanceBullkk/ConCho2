@@ -1,11 +1,31 @@
-// Server-side pagination controls
-// Props: page (1-based), totalPages, onPageChange, isLoading
+// ──────────────────────────────────────────────────────────
+// Pagination — server-side page controls
+// Phase 1 §07 — tokenised (no more slate-*/white/* hardcodes)
+//
+// Props:
+//   page         1-based current page
+//   totalPages   total number of pages (renders nothing when ≤ 1)
+//   onPageChange (page: number) => void
+//   isLoading    dim + disable while fetching (default false)
+//   className    optional extra class on <nav>
+// ──────────────────────────────────────────────────────────
 import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
-export default function Pagination({ page, totalPages, onPageChange, isLoading = false, className = '' }) {
+const BTN_BASE =
+  'flex items-center justify-center size-8 rounded-md border border-border ' +
+  'text-muted-foreground text-sm ' +
+  'hover:bg-accent hover:text-foreground ' +
+  'transition-colors duration-(--dur-fast) ' +
+  'disabled:opacity-30 disabled:cursor-not-allowed disabled:pointer-events-none';
+
+const BTN_ACTIVE =
+  'bg-primary text-primary-foreground border-primary ' +
+  'hover:bg-primary hover:text-primary-foreground ' +
+  'font-medium';
+
+export default function Pagination({ page, totalPages, onPageChange, isLoading = false, className }) {
   if (totalPages <= 1) return null;
-
-  const btnCls = 'flex items-center justify-center w-9 h-9 rounded-xl border border-white/10 text-slate-400 hover:bg-white/10 hover:text-white transition-all disabled:opacity-30 disabled:cursor-not-allowed';
 
   // Build visible page range: always show first, last, current ±2
   const pages = [];
@@ -22,28 +42,32 @@ export default function Pagination({ page, totalPages, onPageChange, isLoading =
     <nav
       role="navigation"
       aria-label="Pagination"
-      className={`flex items-center gap-1 ${isLoading ? 'opacity-60 pointer-events-none' : ''} ${className}`}
+      className={cn(
+        'flex items-center gap-1',
+        isLoading && 'opacity-60 pointer-events-none',
+        className,
+      )}
     >
       <button
         onClick={() => onPageChange(1)}
         disabled={page === 1}
         aria-label="First page"
-        className={btnCls}
+        className={BTN_BASE}
       >
-        <ChevronsLeft className="size-4" />
+        <ChevronsLeft className="size-3.5" />
       </button>
       <button
         onClick={() => onPageChange(page - 1)}
         disabled={page === 1}
         aria-label="Previous page"
-        className={btnCls}
+        className={BTN_BASE}
       >
-        <ChevronLeft className="size-4" />
+        <ChevronLeft className="size-3.5" />
       </button>
 
       {pages.map((p, i) =>
         p === '...' ? (
-          <span key={`ellipsis-${i}`} className="w-9 text-center text-slate-500 text-sm">
+          <span key={`ell-${i}`} className="size-8 flex items-center justify-center text-subtle-foreground text-sm">
             …
           </span>
         ) : (
@@ -52,32 +76,28 @@ export default function Pagination({ page, totalPages, onPageChange, isLoading =
             onClick={() => onPageChange(p)}
             aria-current={p === page ? 'page' : undefined}
             aria-label={`Page ${p}`}
-            className={`w-9 h-9 rounded-xl text-sm font-medium transition-all ${
-              p === page
-                ? 'bg-primary text-white border border-primary'
-                : btnCls
-            }`}
+            className={cn(BTN_BASE, p === page && BTN_ACTIVE)}
           >
             {p}
           </button>
-        )
+        ),
       )}
 
       <button
         onClick={() => onPageChange(page + 1)}
         disabled={page === totalPages}
         aria-label="Next page"
-        className={btnCls}
+        className={BTN_BASE}
       >
-        <ChevronRight className="size-4" />
+        <ChevronRight className="size-3.5" />
       </button>
       <button
         onClick={() => onPageChange(totalPages)}
         disabled={page === totalPages}
         aria-label="Last page"
-        className={btnCls}
+        className={BTN_BASE}
       >
-        <ChevronsRight className="size-4" />
+        <ChevronsRight className="size-3.5" />
       </button>
     </nav>
   );
