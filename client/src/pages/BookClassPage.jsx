@@ -2,60 +2,47 @@ import { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
-import Portal from '../components/Portal';
 import { useAvailability, useBookSlot, useCancelSlot } from '../hooks/useSchedules';
 import { useMyTeams } from '../hooks/useTeams';
 import { useTimeSlots } from '../hooks/useTimeSlots';
 import { CalendarGrid, getMonday, toDateKey } from '../components/CalendarGrid';
+import { BookDrawer } from '../components/BookDrawer';
 import { Button } from '@/components/ui/button';
-import { Spinner } from '../components/Spinner';
 
 // ──────────────────────────────────────────────────────────
-// BookClassPage (v2 — Leader-Created Sessions)
-// ──────────────────────────────────────────────────────────
-// Timetable grid where Team Leaders click empty slots to
-// CREATE new schedule sessions, or click their own to cancel.
+// BookClassPage — Phase 3 Screen 2 (D2 Drawer)
+//
+// Participant Leader books empty slots or cancels own sessions.
+// D2 pattern: drawer right sidebar on desktop, bottom sheet on mobile.
 // ──────────────────────────────────────────────────────────
 
-/**
- * Parse a time slot string "HH:MM-HH:MM" into start/end hours+minutes.
- */
 const parseSlot = (slot) => {
-  const [startStr, endStr] = slot.split('-');
-  const [sh, sm] = startStr.split(':').map(Number);
-  const [eh, em] = endStr.split(':').map(Number);
+  const [s, e] = slot.split('-');
+  const [sh, sm] = s.split(':').map(Number);
+  const [eh, em] = e.split(':').map(Number);
   return { sh, sm, eh, em };
 };
 
-/**
- * Build a schedule lookup key from a schedule's startTime.
- * Returns "YYYY-MM-DD|HH:MM" using local time — keyed by START HOUR only.
- *
- * We intentionally ignore the end time so that admin-created schedules
- * with non-standard durations (e.g. 10:00–11:30) still appear in the
- * correct time-slot row ("10:00-11:00") rather than being silently hidden.
- */
 const scheduleToKey = (s) => {
-  const start = new Date(s.startTime);
-  const dateKey = toDateKey(start);
-  return `${dateKey}|${String(start.getHours()).padStart(2, '0')}:${String(start.getMinutes()).padStart(2, '0')}`;
+  const d = new Date(s.startTime);
+  return `${toDateKey(d)}|${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
 };
 
 export default function BookClassPage() {
   const { user } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
-  const TIME_SLOTS = useTimeSlots(); // fetched from DB settings (falls back to hardcoded defaults)
+  const TIME_SLOTS   = useTimeSlots();
   const bookMutation = useBookSlot();
   const cancelMutation = useCancelSlot();
-  const [error, setError] = useState('');
-  const [selectedTeam, setSelectedTeam] = useState('');
-  const [bookModal, setBookModal] = useState(null);   // { day, slot } for creating
-  const [cancelModal, setCancelModal] = useState(null); // schedule obj for deleting
 
-  // Week navigation — persisted in URL (?week=YYYY-MM-DD)
+  const [selectedTeam, setSelectedTeam] = useState('');
+  const [drawerMode, setDrawerMode]     = useState(null);   // 'book' | 'cancel' | null
+  const [drawerPrefill, setDrawerPrefill] = useState(null); // { day, slot, startTime, endTime, teamObj }
+  const [drawerSchedule, setDrawerSchedule] = useState(null); // schedule for cancel
+
   const [weekStart, setWeekStart] = useState(() => {
-    const param = searchParams.get('week');
-    if (param) { const d = new Date(param); if (!isNaN(d)) return getMonday(d); }
+    const p = searchParams.get('week');
+    if (p) { const d = new Date(p); if (!isNaN(d)) return getMonday(d); }
     return getMonday(new Date());
   });
 
@@ -66,38 +53,33 @@ export default function BookClassPage() {
     setSearchParams(next, { replace: true });
   };
 
-  // ── Data loading ────────────────────────────────────────
   const { data: schedules = [], isLoading: loadingSched } = useAvailability();
-  const { data: myTeams = [], isLoading: loadingTeams } = useMyTeams();
+  const { data: myTeams   = [], isLoading: loadingTeams  } = useMyTeams();
   const loading = loadingSched || loadingTeams;
 
-  // ── Determine leader vs member-only ─────────────────────
   const leaderTeams = useMemo(
     () => myTeams.filter(t => t.leaderId?._id === user._id || t.leaderId === user._id),
-    [myTeams, user._id]
+    [myTeams, user._id],
   );
   const isLeaderOfAny = leaderTeams.length > 0;
 
-  // Auto-select first team the user leads
   useEffect(() => {
-    if (leaderTeams.length > 0 && !selectedTeam) {
-      setSelectedTeam(leaderTeams[0]._id);
-    }
+    if (leaderTeams.length > 0 && !selectedTeam) setSelectedTeam(leaderTeams[0]._id);
   }, [leaderTeams, selectedTeam]);
 
   useEffect(() => { document.title = 'TMS — Schedule & Book'; }, []);
 
-  // ── Build the 7 days of the current week ────────────────
-  const weekDays = useMemo(() => {
-    return Array.from({ length: 7 }, (_, i) => {
-      return new Date(weekStart.getTime() + i * 86400000);
-    });
-  }, [weekStart]);
+  // ESC closes drawer
+  useEffect(() => {
+    const handler = (e) => { if (e.key === 'Escape') closeDrawer(); };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  });
 
-  // ── Build a lookup map: "YYYY-MM-DD|HH:MM" → Schedule[]
-  // Uses an ARRAY per key so that two different classes booking the same
-  // time slot (allowed by the class-scoped unique index) both appear on
-  // the grid instead of one silently overwriting the other.
+  const weekDays = useMemo(() =>
+    Array.from({ length: 7 }, (_, i) => new Date(weekStart.getTime() + i * 86400000)),
+  [weekStart]);
+
   const scheduleMap = useMemo(() => {
     const map = {};
     schedules.forEach(s => {
@@ -108,56 +90,52 @@ export default function BookClassPage() {
     return map;
   }, [schedules]);
 
-  // ── Derive integer hour rows from TIME_SLOTS ─────────────
-  const timeRows = useMemo(() =>
-    TIME_SLOTS.map(slot => parseInt(slot.split(':')[0], 10)),
-  [TIME_SLOTS]);
+  const timeRows = useMemo(() => TIME_SLOTS.map(s => parseInt(s.split(':')[0], 10)), [TIME_SLOTS]);
 
-  // ── Create schedule handler (click empty slot) ──────────
+  const today            = toDateKey(new Date());
+  const selectedTeamObj  = myTeams.find(t => t._id === selectedTeam);
+
+  const selectedCellKey = useMemo(() => {
+    if (drawerMode === 'book' && drawerPrefill) {
+      const d = drawerPrefill.startTime;
+      return `${toDateKey(d)}|${String(d.getHours()).padStart(2, '0')}:00`;
+    }
+    if (drawerMode === 'cancel' && drawerSchedule) {
+      const d = new Date(drawerSchedule.startTime);
+      return `${toDateKey(d)}|${String(d.getHours()).padStart(2, '0')}:00`;
+    }
+    return null;
+  }, [drawerMode, drawerPrefill, drawerSchedule]);
+
+  const closeDrawer = () => { setDrawerMode(null); setDrawerPrefill(null); setDrawerSchedule(null); };
+
   const handleBookSlot = async () => {
-    if (!selectedTeam || !bookModal) return;
-    setError('');
+    if (!selectedTeam || !drawerPrefill) return;
     try {
-      const { day, slot } = bookModal;
-      const { sh, sm, eh, em } = parseSlot(slot);
-      const startTime = new Date(day); startTime.setHours(sh, sm, 0, 0);
-      const endTime = new Date(day); endTime.setHours(eh, em, 0, 0);
       const res = await bookMutation.mutateAsync({
-        teamId: selectedTeam,
-        startTime: startTime.toISOString(),
-        endTime: endTime.toISOString(),
+        teamId:    selectedTeam,
+        startTime: drawerPrefill.startTime.toISOString(),
+        endTime:   drawerPrefill.endTime.toISOString(),
       });
-      setBookModal(null);
-      toast.success(res.message || 'Session created successfully! ✅');
+      closeDrawer();
+      toast.success(res.message || 'Session created ✅');
     } catch (err) {
-      const msg = err.response?.data?.message || 'Booking failed';
-      setError(msg);
-      setBookModal(null);
+      toast.error(err.response?.data?.message || 'Booking failed');
+      closeDrawer();
     }
   };
 
-  // ── Cancel/delete schedule handler ──────────────────────
   const handleCancel = async () => {
-    if (!cancelModal) return;
-    setError('');
+    if (!drawerSchedule) return;
     try {
-      await cancelMutation.mutateAsync(cancelModal._id);
-      setCancelModal(null);
-      toast.success('Session cancelled successfully');
+      await cancelMutation.mutateAsync(drawerSchedule._id);
+      closeDrawer();
+      toast.success('Session cancelled');
     } catch (err) {
-      const msg = err.response?.data?.message || 'Cancel failed';
-      setError(msg);
-      setCancelModal(null);
+      toast.error(err.response?.data?.message || 'Cancel failed');
+      closeDrawer();
     }
   };
-
-  // ── Week navigation helpers ─────────────────────────────
-  const prevWeek = () => setWeek(new Date(weekStart.getTime() - 7 * 86400000));
-  const nextWeek = () => setWeek(new Date(weekStart.getTime() + 7 * 86400000));
-  const goToday  = () => setWeek(getMonday(new Date()));
-
-  const today = toDateKey(new Date());
-  const selectedTeamObj = myTeams.find(t => t._id === selectedTeam);
 
   // ── Guards ──────────────────────────────────────────────
   if (!loading && myTeams.length === 0) {
@@ -170,7 +148,6 @@ export default function BookClassPage() {
   }
 
   if (!loading && !isLeaderOfAny) {
-    // User is a member but NOT a leader of any team
     const teamNames = myTeams.map(t => t.name).join(', ');
     return (
       <div className="bg-card border border-border rounded-lg p-10 text-center space-y-3">
@@ -179,9 +156,7 @@ export default function BookClassPage() {
           Bạn là thành viên của nhóm <span className="text-primary font-semibold">{teamNames}</span>,
           nhưng chỉ Team Leader mới có thể đặt lịch học.
         </p>
-        <p className="text-small text-subtle-foreground">
-          Vui lòng liên hệ Team Leader của bạn để đặt lịch.
-        </p>
+        <p className="text-small text-subtle-foreground">Vui lòng liên hệ Team Leader của bạn để đặt lịch.</p>
       </div>
     );
   }
@@ -192,198 +167,153 @@ export default function BookClassPage() {
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h1 className="text-h1 text-foreground">Schedule & Book</h1>
-          <p className="text-muted-foreground mt-1">Click an empty slot to create a session, click your booking to cancel</p>
+          <p className="text-muted-foreground mt-1 text-body">
+            {selectedTeamObj ? `${selectedTeamObj.name} · ${selectedTeamObj.enrolledCount ?? 0} students` : 'Click an empty slot to book, click your session to cancel'}
+          </p>
         </div>
-
-        <div className="flex items-center gap-3">
-          <label className="text-sm text-muted-foreground">Booking for:</label>
-          <select
-            value={selectedTeam}
-            onChange={e => setSelectedTeam(e.target.value)}
-            className="px-3 h-(--control-h) rounded-md border border-input bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring transition-colors"
-          >
-            {leaderTeams.map(t => (
-              <option key={t._id} value={t._id} className="bg-popover">{t.name}</option>
-            ))}
-          </select>
-        </div>
-      </div>
-
-      {/* ── Error ──────────────────────────────────────── */}
-      {error && (
-        <div className="px-4 py-3 rounded-md bg-destructive-tint border border-destructive/30 text-destructive text-sm flex items-center gap-2">
-          {error}
-          <button onClick={() => setError('')} className="ml-auto text-destructive hover:text-destructive/70">×</button>
-        </div>
-      )}
-
-      {/* ── Calendar Grid ──────────────────────────────── */}
-      <CalendarGrid
-        weekDays={weekDays}
-        timeRows={timeRows}
-        isLoading={loading}
-        onPrev={prevWeek}
-        onNext={nextWeek}
-        onToday={goToday}
-        weekLabel={`${weekDays[0].toLocaleDateString('en', { month: 'short', day: 'numeric' })} — ${weekDays[6].toLocaleDateString('en', { month: 'short', day: 'numeric', year: 'numeric' })}`}
-        renderCell={(day, hour) => {
-          const dateKey = toDateKey(day);
-          const slotStartTime = `${String(hour).padStart(2, '0')}:00`;
-          const slot = `${slotStartTime}-${String(hour + 1).padStart(2, '0')}:00`;
-          const cellKey = `${dateKey}|${slotStartTime}`;
-          const scheduleList = scheduleMap[cellKey] || [];
-          const isPast = dateKey < today;
-
-          const mySchedule = scheduleList.find(
-            s => s.bookedTeamId?._id === selectedTeam || s.bookedTeamId === selectedTeam
-          );
-          const blockerSchedule = !mySchedule && scheduleList.find(
-            s => s.bookedTeamId?._id !== selectedTeam && s.bookedTeamId !== selectedTeam
-          );
-
-          if (mySchedule) {
-            return (
-              <div
-                className="rounded-md p-2.5 h-full min-h-[80px] bg-primary/15 border border-primary/30 transition-colors duration-(--dur) cursor-pointer hover:border-destructive/40"
-                onClick={() => { if (!isPast) setCancelModal(mySchedule); }}
-              >
-                <div className="text-xs font-bold truncate text-primary">{mySchedule.classId?.classCode}</div>
-                <div className="text-[10px] text-muted-foreground truncate mt-0.5">{mySchedule.classId?.courseName}</div>
-                <div className="mt-1.5">
-                  <span className="inline-flex items-center gap-1 text-[10px] font-bold text-primary bg-primary/20 px-2 py-0.5 rounded">
-                    Your team · Click to cancel
-                  </span>
-                </div>
-              </div>
-            );
-          }
-
-          if (blockerSchedule) {
-            const teamName = blockerSchedule.bookedTeamId?.name || 'Another team';
-            return (
-              <div className="rounded-md p-2.5 h-full min-h-[80px] bg-destructive/10 border border-destructive/15">
-                <div className="text-xs font-bold truncate text-destructive">{blockerSchedule.classId?.classCode}</div>
-                <div className="text-[10px] text-muted-foreground truncate mt-0.5">{blockerSchedule.classId?.courseName}</div>
-                <div className="mt-1.5">
-                  <span className="inline-flex items-center text-[10px] font-bold text-destructive bg-destructive/20 px-2 py-0.5 rounded">
-                    {teamName}
-                  </span>
-                </div>
-              </div>
-            );
-          }
-
-          return (
-            <div
-              className={`rounded-md h-full min-h-[80px] flex items-center justify-center transition-colors duration-(--dur) ${
-                isPast
-                  ? 'bg-muted/20 cursor-default'
-                  : 'bg-muted/20 hover:bg-success/10 hover:border-success/20 border border-transparent cursor-pointer group/cell'
-              }`}
-              onClick={() => { if (!isPast) setBookModal({ day, slot }); }}
+        {leaderTeams.length > 1 && (
+          <div className="flex items-center gap-3">
+            <label className="text-sm text-muted-foreground">Booking for:</label>
+            <select
+              value={selectedTeam}
+              onChange={e => setSelectedTeam(e.target.value)}
+              className="px-3 h-(--control-h) rounded-md border border-input bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring transition-colors"
             >
-              {!isPast && (
-                <span className="text-[10px] text-subtle-foreground opacity-0 group-hover/cell:opacity-100 transition-opacity font-medium">+ Book</span>
-              )}
-            </div>
-          );
-        }}
-      />
-
-      {/* ── Legend ──────────────────────────────────────── */}
-      <div className="flex flex-wrap gap-4 text-xs text-muted-foreground">
-        <div className="flex items-center gap-2">
-          <div className="w-3.5 h-3.5 rounded bg-primary/15 border border-primary/20" />
-          <span>Your team's session</span>
-        </div>
-        <div className="flex items-center gap-2">
-          <div className="w-3.5 h-3.5 rounded border border-dashed border-success/30" />
-          <span>Available — click to book</span>
-        </div>
-        <div className="flex items-center gap-2">
-          <div className="w-3.5 h-3.5 rounded bg-destructive/15 border border-destructive/20" />
-          <span>Taken by another team</span>
-        </div>
+              {leaderTeams.map(t => (
+                <option key={t._id} value={t._id} className="bg-popover">{t.name}</option>
+              ))}
+            </select>
+          </div>
+        )}
       </div>
 
-      {/* ── Create Booking Modal ───────────────────────── */}
-      {bookModal && (
-        <Portal>
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
-            <div className="bg-card border border-border rounded-lg p-6 max-w-sm mx-4 space-y-4">
-              <h3 className="text-h3 text-foreground text-center">Create Session</h3>
+      {/* ── Main: calendar + drawer ─────────────────────── */}
+      <div className="lg:flex lg:gap-5 lg:items-start">
 
-              <div className="bg-muted rounded-md p-4 space-y-2">
-                <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">Day</span>
-                  <span className="text-foreground font-semibold">
-                    {bookModal.day.toLocaleDateString('en', { weekday: 'short', month: 'short', day: 'numeric' })}
-                  </span>
-                </div>
-                <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">Time</span>
-                  <span className="text-foreground">{bookModal.slot}</span>
-                </div>
-                <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">Team</span>
-                  <span className="text-primary font-semibold">{selectedTeamObj?.name}</span>
-                </div>
-                <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">Class</span>
-                  <span className="text-muted-foreground">{selectedTeamObj?.classId?.classCode || 'Auto-assigned'}</span>
-                </div>
-              </div>
+        {/* Left: calendar */}
+        <div className="flex-1 min-w-0 space-y-4">
+          <CalendarGrid
+            weekDays={weekDays}
+            timeRows={timeRows}
+            isLoading={loading}
+            selectedCellKey={selectedCellKey}
+            onPrev={() => setWeek(new Date(weekStart.getTime() - 7 * 86400000))}
+            onNext={() => setWeek(new Date(weekStart.getTime() + 7 * 86400000))}
+            onToday={() => setWeek(getMonday(new Date()))}
+            weekLabel={`${weekDays[0].toLocaleDateString('en', { month: 'short', day: 'numeric' })} — ${weekDays[6].toLocaleDateString('en', { month: 'short', day: 'numeric', year: 'numeric' })}`}
+            renderCell={(day, hour) => {
+              const dateKey  = toDateKey(day);
+              const slotStart = `${String(hour).padStart(2, '0')}:00`;
+              const cellKey  = `${dateKey}|${slotStart}`;
+              const list     = scheduleMap[cellKey] || [];
+              const isPast   = dateKey < today;
 
-              <div className="flex gap-3">
-                <Button variant="outline" className="flex-1" onClick={() => setBookModal(null)}>Cancel</Button>
-                <Button className="flex-1" onClick={handleBookSlot} disabled={bookMutation.isPending}>
-                  {bookMutation.isPending ? <><Spinner size={14} />Creating…</> : 'Create Session'}
-                </Button>
-              </div>
+              const mySchedule = list.find(
+                s => s.bookedTeamId?._id === selectedTeam || s.bookedTeamId === selectedTeam,
+              );
+              const blocker = !mySchedule && list.find(
+                s => s.bookedTeamId?._id !== selectedTeam && s.bookedTeamId !== selectedTeam,
+              );
+
+              if (mySchedule) {
+                const isSel = drawerMode === 'cancel' && drawerSchedule?._id === mySchedule._id;
+                return (
+                  <div
+                    className={`rounded-md p-2.5 h-full min-h-[80px] border transition-colors duration-(--dur) cursor-pointer ${
+                      isSel ? 'bg-success/15 border-success/50' : 'bg-success/10 border-success/25 hover:border-success/50'
+                    }`}
+                    onClick={() => {
+                      if (isSel) { closeDrawer(); return; }
+                      setDrawerSchedule(mySchedule);
+                      setDrawerPrefill(null);
+                      setDrawerMode('cancel');
+                    }}
+                  >
+                    <div className="text-xs font-bold truncate text-success">
+                      <span className="bg-success/20 px-1.5 py-0.5 rounded text-[10px] font-bold text-success mr-1">Mine</span>
+                      {mySchedule.classId?.classCode}
+                    </div>
+                    <div className="text-[10px] text-muted-foreground truncate mt-0.5">{selectedTeamObj?.name}</div>
+                    <div className="text-[10px] text-success/60 mt-1.5">Click to cancel</div>
+                  </div>
+                );
+              }
+
+              if (blocker) {
+                return (
+                  <div className="rounded-md p-2.5 h-full min-h-[80px] bg-muted/30 border border-border">
+                    <div className="text-xs font-bold truncate text-muted-foreground">{blocker.classId?.classCode}</div>
+                    <div className="mt-1.5">
+                      <span className="inline-flex text-[10px] font-semibold text-muted-foreground bg-muted px-2 py-0.5 rounded truncate">
+                        {blocker.bookedTeamId?.name || 'Team'}
+                      </span>
+                    </div>
+                  </div>
+                );
+              }
+
+              if (!isPast) {
+                const slot = `${slotStart}-${String(hour + 1).padStart(2, '0')}:00`;
+                const { sh, sm, eh, em } = parseSlot(slot);
+                const startTime = new Date(day); startTime.setHours(sh, sm, 0, 0);
+                const endTime   = new Date(day); endTime.setHours(eh, em, 0, 0);
+                const isSel = drawerMode === 'book' && selectedCellKey === `${dateKey}|${String(hour).padStart(2, '0')}:00`;
+
+                return (
+                  <div
+                    className={`rounded-md h-full min-h-[80px] flex items-center justify-center border border-dashed transition-colors duration-(--dur) cursor-pointer ${
+                      isSel
+                        ? 'border-primary/60 bg-primary/10'
+                        : 'border-primary/25 bg-primary/[0.03] hover:bg-primary/10 hover:border-primary/40'
+                    }`}
+                    onClick={() => {
+                      if (isSel) { closeDrawer(); return; }
+                      setDrawerPrefill({ day, slot, startTime, endTime, teamObj: selectedTeamObj });
+                      setDrawerSchedule(null);
+                      setDrawerMode('book');
+                    }}
+                  >
+                    <span className="text-[11px] text-primary/60 font-medium">+ Book</span>
+                  </div>
+                );
+              }
+
+              return <div className="h-full min-h-[80px] rounded-md bg-muted/20" />;
+            }}
+          />
+
+          {/* Legend */}
+          <div className="flex flex-wrap gap-4 text-xs text-muted-foreground">
+            <div className="flex items-center gap-2">
+              <div className="w-3.5 h-3.5 rounded bg-success/10 border border-success/25" />
+              <span>Your session — click to cancel</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="w-3.5 h-3.5 rounded border border-dashed border-primary/25" />
+              <span>Available — click to book</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="w-3.5 h-3.5 rounded bg-muted/30 border border-border" />
+              <span>Taken by another team</span>
             </div>
           </div>
-        </Portal>
-      )}
+        </div>
 
-      {/* ── Cancel Booking Modal ───────────────────────── */}
-      {cancelModal && (
-        <Portal>
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
-            <div className="bg-card border border-border rounded-lg p-6 max-w-sm mx-4 space-y-4">
-              <h3 className="text-h3 text-foreground text-center">Cancel Session</h3>
-
-              <div className="bg-destructive-tint border border-destructive/20 rounded-md p-4 space-y-2">
-                <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">Class</span>
-                  <span className="text-foreground font-semibold">{cancelModal.classId?.classCode}</span>
-                </div>
-                <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">Course</span>
-                  <span className="text-foreground">{cancelModal.classId?.courseName}</span>
-                </div>
-                <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">Time</span>
-                  <span className="text-foreground">
-                    {new Date(cancelModal.startTime).toLocaleDateString('en', { weekday: 'short', month: 'short', day: 'numeric' })}
-                    {' '}
-                    {new Date(cancelModal.startTime).toLocaleTimeString('en', { hour: '2-digit', minute: '2-digit', hour12: false })}
-                    –
-                    {new Date(cancelModal.endTime).toLocaleTimeString('en', { hour: '2-digit', minute: '2-digit', hour12: false })}
-                  </span>
-                </div>
-                <p className="text-small text-destructive mt-2">This will permanently delete this session.</p>
-              </div>
-
-              <div className="flex gap-3">
-                <Button variant="outline" className="flex-1" onClick={() => setCancelModal(null)}>Keep</Button>
-                <Button variant="destructive" className="flex-1" onClick={handleCancel} disabled={cancelMutation.isPending}>
-                  {cancelMutation.isPending ? <><Spinner size={14} />Cancelling…</> : 'Cancel Session'}
-                </Button>
-              </div>
-            </div>
-          </div>
-        </Portal>
-      )}
+        {/* Right: drawer */}
+        <div className="lg:w-[300px] lg:flex-none lg:sticky lg:top-6">
+          <BookDrawer
+            isOpen={!!drawerMode}
+            mode={drawerMode || 'book'}
+            schedule={drawerSchedule}
+            prefill={drawerPrefill}
+            allSchedules={schedules}
+            isPending={bookMutation.isPending || cancelMutation.isPending}
+            onClose={closeDrawer}
+            onBook={handleBookSlot}
+            onCancel={handleCancel}
+          />
+        </div>
+      </div>
     </div>
   );
 }
