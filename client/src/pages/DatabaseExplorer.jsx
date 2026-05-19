@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { adminDbAPI } from '../api/api';
+import { Spinner } from '../components/Spinner';
 
 // ──────────────────────────────────────────────────────────
 // Database Explorer — Admin-only data browser & editor
@@ -15,16 +16,16 @@ const COLLECTION_ICONS = {
 const ID_FIELDS = ['_id', 'userId', 'teamId', 'classId', 'scheduleId', 'bookedTeamId', 'leaderId', 'enrollmentId'];
 const DATE_FIELDS = ['createdAt', 'updatedAt', 'startTime', 'endTime', 'joinedAt', 'lastLogin', 'closedAt'];
 const STATUS_COLORS = {
-  Active: 'bg-emerald-500/20 text-emerald-400',
-  Inactive: 'bg-red-500/20 text-red-400',
-  Ongoing: 'bg-emerald-500/20 text-emerald-400',
-  Completed: 'bg-blue-500/20 text-blue-400',
-  Present: 'bg-emerald-500/20 text-emerald-400',
-  P: 'bg-emerald-500/20 text-emerald-400',
-  Absent: 'bg-red-500/20 text-red-400',
-  A: 'bg-red-500/20 text-red-400',
-  L: 'bg-amber-500/20 text-amber-400',
-  EL: 'bg-blue-500/20 text-blue-400',
+  Active: 'bg-success/20 text-success',
+  Inactive: 'bg-destructive/20 text-destructive',
+  Ongoing: 'bg-success/20 text-success',
+  Completed: 'bg-info/20 text-info',
+  Present: 'bg-success/20 text-success',
+  P: 'bg-success/20 text-success',
+  Absent: 'bg-destructive/20 text-destructive',
+  A: 'bg-destructive/20 text-destructive',
+  L: 'bg-warning/20 text-warning',
+  EL: 'bg-info/20 text-info',
 };
 
 // Truncate ObjectId for display
@@ -72,16 +73,16 @@ const cellEditMode = (field, value) => {
 
 // Format a cell value for display
 const formatValue = (key, value) => {
-  if (value === null || value === undefined) return <span className="text-slate-600">null</span>;
-  if (typeof value === 'boolean') return <span className={value ? 'text-emerald-400' : 'text-red-400'}>{value.toString()}</span>;
+  if (value === null || value === undefined) return <span className="text-subtle-foreground">null</span>;
+  if (typeof value === 'boolean') return <span className={value ? 'text-success' : 'text-destructive'}>{value.toString()}</span>;
   if (ID_FIELDS.includes(key)) {
     const displayId = typeof value === 'object' ? (value.name || value.classCode || value._id) : value;
     return <span className="font-mono text-[10px] text-primary bg-primary/10 px-1.5 py-0.5 rounded">{shortId(displayId)}</span>;
   }
-  if (DATE_FIELDS.includes(key)) return <span className="text-slate-400 text-xs">{formatDate(value)}</span>;
+  if (DATE_FIELDS.includes(key)) return <span className="text-muted-foreground text-xs">{formatDate(value)}</span>;
   if (STATUS_COLORS[value]) return <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold ${STATUS_COLORS[value]}`}>{value}</span>;
-  if (Array.isArray(value)) return <span className="text-slate-400 text-xs">[{value.length} items]</span>;
-  if (typeof value === 'object') return <span className="text-slate-500 text-xs">{JSON.stringify(value).slice(0, 40)}…</span>;
+  if (Array.isArray(value)) return <span className="text-muted-foreground text-xs">[{value.length} items]</span>;
+  if (typeof value === 'object') return <span className="text-subtle-foreground text-xs">{JSON.stringify(value).slice(0, 40)}…</span>;
   const s = String(value);
   return s.length > 50 ? <span title={s}>{s.slice(0, 50)}…</span> : s;
 };
@@ -127,32 +128,32 @@ function EditModal({ doc, fields, collection, onClose, onSaved }) {
   const editableFields = fields.filter(f => f !== '_id' && f !== '__v' && f !== 'createdAt');
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm" onClick={onClose}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60" onClick={onClose}>
       <form onSubmit={handleSubmit} onClick={e => e.stopPropagation()}
-        className="bg-card border border-border rounded-2xl p-6 w-full max-w-2xl mx-4 space-y-4 max-h-[90vh] overflow-y-auto">
+        className="bg-card border border-border rounded-lg p-6 w-full max-w-2xl mx-4 space-y-4 max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between">
-          <h2 className="text-lg font-bold text-white">✏️ Edit {collection} Document</h2>
-          <span className="font-mono text-xs text-slate-500">{doc._id}</span>
+          <h2 className="text-lg font-bold text-foreground">✏️ Edit {collection} Document</h2>
+          <span className="font-mono text-xs text-subtle-foreground">{doc._id}</span>
         </div>
-        {error && <div className="px-4 py-2 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-sm">{error}</div>}
+        {error && <div className="px-4 py-2 rounded-md bg-destructive/10 border border-destructive/20 text-destructive text-sm">{error}</div>}
 
         <div className="space-y-3 max-h-[60vh] overflow-y-auto pr-2">
           {editableFields.map(field => (
             <div key={field}>
-              <label className="block text-xs text-slate-400 mb-1 font-mono">{field}</label>
+              <label className="block text-xs text-muted-foreground mb-1 font-mono">{field}</label>
               {typeof form[field] === 'string' && form[field].length > 80 ? (
                 <textarea
                   value={form[field]}
                   onChange={e => setForm(p => ({ ...p, [field]: e.target.value }))}
                   rows={3}
-                  className="w-full px-3 py-2 rounded-xl bg-white/5 border border-white/10 text-white text-sm font-mono focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all resize-y"
+                  className="w-full px-3 py-2 rounded-md bg-background border border-input text-foreground text-sm font-mono focus:outline-none focus:ring-2 focus:ring-ring transition-all resize-y"
                 />
               ) : (
                 <input
                   type="text"
                   value={form[field] === null || form[field] === undefined ? '' : form[field]}
                   onChange={e => setForm(p => ({ ...p, [field]: e.target.value }))}
-                  className="w-full px-3 py-2 rounded-xl bg-white/5 border border-white/10 text-white text-sm font-mono focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all"
+                  className="w-full px-3 py-2 rounded-md bg-background border border-input text-foreground text-sm font-mono focus:outline-none focus:ring-2 focus:ring-ring transition-all"
                 />
               )}
             </div>
@@ -160,8 +161,8 @@ function EditModal({ doc, fields, collection, onClose, onSaved }) {
         </div>
 
         <div className="flex gap-3 pt-2">
-          <button type="button" onClick={onClose} className="flex-1 py-2.5 rounded-xl border border-white/10 text-slate-400 hover:bg-white/5 transition-all">Cancel</button>
-          <button type="submit" disabled={saving} className="flex-1 py-2.5 rounded-xl bg-gradient-to-r from-primary to-primary text-white font-semibold disabled:opacity-50 transition-all">
+          <button type="button" onClick={onClose} className="flex-1 py-2.5 rounded-md border border-border text-muted-foreground hover:bg-accent transition-all">Cancel</button>
+          <button type="submit" disabled={saving} className="flex-1 py-2.5 rounded-md bg-primary text-primary-foreground font-semibold disabled:opacity-50 transition-all">
             {saving ? 'Saving...' : 'Save Changes'}
           </button>
         </div>
@@ -285,56 +286,56 @@ export default function DatabaseExplorer() {
           <button
             key={c.name}
             onClick={() => setActiveCollection(c.name)}
-            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium transition-all border ${
+            className={`flex items-center gap-2 px-4 py-2.5 rounded-md text-sm font-medium transition-all border ${
               activeCollection === c.name
                 ? 'bg-primary/20 text-primary border-primary/30 shadow-sm shadow-primary/10'
-                : 'text-slate-400 hover:text-white hover:bg-white/5 border-white/5'
+                : 'text-muted-foreground hover:text-foreground hover:bg-accent border-border'
             }`}
           >
             <span>{COLLECTION_ICONS[c.name] || '📄'}</span>
             <span>{c.name}</span>
             <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${
-              activeCollection === c.name ? 'bg-primary/30 text-primary' : 'bg-white/5 text-slate-500'
+              activeCollection === c.name ? 'bg-primary/30 text-primary' : 'bg-muted text-subtle-foreground'
             }`}>{c.count}</span>
           </button>
         ))}
       </div>
 
       {/* ── Search & Controls ─────────────────────────────── */}
-      <div className="bg-card border border-border rounded-2xl px-5 py-4 flex flex-col sm:flex-row gap-3 items-stretch sm:items-center">
+      <div className="bg-card border border-border rounded-lg px-5 py-4 flex flex-col sm:flex-row gap-3 items-stretch sm:items-center">
         <div className="relative flex-1">
-          <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+          <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-subtle-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
           </svg>
           <input
             type="text" value={search}
             onChange={e => setSearch(e.target.value)}
             placeholder={`Search in ${activeCollection || ''}...`}
-            className="w-full pl-10 pr-8 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white text-sm placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all"
+            className="w-full pl-10 pr-8 py-2.5 rounded-md bg-background border border-input text-foreground text-sm placeholder:text-subtle-foreground focus:outline-none focus:ring-2 focus:ring-ring transition-all"
           />
           {search && (
-            <button onClick={() => setSearch('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-white text-sm">✕</button>
+            <button onClick={() => setSearch('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-subtle-foreground hover:text-foreground text-sm">✕</button>
           )}
         </div>
 
         <div className="flex items-center gap-2 shrink-0">
-          <span className="text-xs text-slate-500">Sort:</span>
+          <span className="text-xs text-subtle-foreground">Sort:</span>
           <select value={sortField} onChange={e => setSortField(e.target.value)}
-            className="px-3 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 cursor-pointer">
-            <option value="-updatedAt" className="bg-slate-800">Latest Updated</option>
-            <option value="-createdAt" className="bg-slate-800">Latest Created</option>
-            <option value="createdAt" className="bg-slate-800">Oldest First</option>
-            <option value="name" className="bg-slate-800">Name A-Z</option>
+            className="px-3 py-2.5 rounded-md bg-background border border-input text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring cursor-pointer">
+            <option value="-updatedAt">Latest Updated</option>
+            <option value="-createdAt">Latest Created</option>
+            <option value="createdAt">Oldest First</option>
+            <option value="name">Name A-Z</option>
           </select>
         </div>
 
         <label className="flex items-center gap-2 shrink-0 cursor-pointer">
           <input type="checkbox" checked={includeDeleted} onChange={e => setIncludeDeleted(e.target.checked)}
             className="w-4 h-4 rounded accent-primary" />
-          <span className="text-xs text-slate-400">Include deleted</span>
+          <span className="text-xs text-muted-foreground">Include deleted</span>
         </label>
 
-        <div className="text-xs text-slate-500 shrink-0">
+        <div className="text-xs text-subtle-foreground shrink-0">
           {total} docs
         </div>
       </div>
@@ -342,31 +343,31 @@ export default function DatabaseExplorer() {
       {/* ── Data Table ─────────────────────────────────────── */}
       {loading ? (
         <div className="flex items-center justify-center py-20">
-          <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+          <Spinner size={32} />
         </div>
       ) : (
-        <div className="bg-card border border-border rounded-2xl overflow-hidden border border-white/5">
+        <div className="bg-card border border-border rounded-lg overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full border-collapse text-sm">
               <thead>
                 <tr>
-                  <th className="sticky left-0 z-20 bg-slate-900/95 backdrop-blur-sm px-3 py-3 border-b border-r border-white/10 text-left text-[10px] text-slate-400 font-semibold uppercase tracking-wider w-10">
+                  <th className="sticky left-0 z-20 bg-card px-3 py-3 border-b border-r border-border text-left text-[10px] text-muted-foreground font-semibold uppercase tracking-wider w-10">
                     #
                   </th>
                   {orderedFields.slice(0, 12).map(f => (
-                    <th key={f} className="px-3 py-3 border-b border-white/10 text-left text-[10px] text-slate-400 font-semibold uppercase tracking-wider whitespace-nowrap">
+                    <th key={f} className="px-3 py-3 border-b border-border text-left text-[10px] text-muted-foreground font-semibold uppercase tracking-wider whitespace-nowrap">
                       {f}
                     </th>
                   ))}
-                  <th className="px-3 py-3 border-b border-white/10 text-center text-[10px] text-slate-400 font-semibold uppercase tracking-wider sticky right-0 z-20 bg-slate-900/95 backdrop-blur-sm border-l">
+                  <th className="px-3 py-3 border-b border-border text-center text-[10px] text-muted-foreground font-semibold uppercase tracking-wider sticky right-0 z-20 bg-card border-l">
                     Actions
                   </th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-white/5">
+              <tbody className="divide-y divide-border">
                 {docs.map((doc, idx) => (
-                  <tr key={doc._id} className={`hover:bg-white/[0.03] transition-colors ${doc.isDeleted ? 'opacity-50' : ''}`}>
-                    <td className="sticky left-0 z-10 bg-slate-900/95 backdrop-blur-sm px-3 py-2.5 border-r border-white/5 text-slate-500 text-xs">
+                  <tr key={doc._id} className={`hover:bg-accent/30 transition-colors ${doc.isDeleted ? 'opacity-50' : ''}`}>
+                    <td className="sticky left-0 z-10 bg-card px-3 py-2.5 border-r border-border text-subtle-foreground text-xs">
                       {(page - 1) * limit + idx + 1}
                     </td>
                     {orderedFields.slice(0, 12).map(f => {
@@ -385,15 +386,15 @@ export default function DatabaseExplorer() {
                               value={editingCell.value}
                               onChange={e => setEditingCell(c => ({ ...c, value: e.target.value }))}
                               onBlur={saveCellEdit} onKeyDown={onKey}
-                              className="w-full px-2 py-1 rounded bg-slate-900 border border-white/10 text-white text-xs focus:outline-none focus:ring-1 focus:ring-primary" />
+                              className="w-full px-2 py-1 rounded bg-background border border-input text-foreground text-xs focus:outline-none focus:ring-1 focus:ring-ring" />
                           )}
                           {editingCell.mode === 'select' && (
                             <select autoFocus disabled={savingCell}
                               value={editingCell.value}
                               onChange={e => setEditingCell(c => ({ ...c, value: e.target.value }))}
                               onBlur={saveCellEdit} onKeyDown={onKey}
-                              className="w-full px-2 py-1 rounded bg-slate-900 border border-white/10 text-white text-xs focus:outline-none focus:ring-1 focus:ring-primary">
-                              {STATUS_ENUMS[f].map(opt => <option key={opt} value={opt} className="bg-slate-800">{opt}</option>)}
+                              className="w-full px-2 py-1 rounded bg-background border border-input text-foreground text-xs focus:outline-none focus:ring-1 focus:ring-ring">
+                              {STATUS_ENUMS[f].map(opt => <option key={opt} value={opt}>{opt}</option>)}
                             </select>
                           )}
                           {editingCell.mode === 'boolean' && (
@@ -401,9 +402,9 @@ export default function DatabaseExplorer() {
                               value={String(editingCell.value)}
                               onChange={e => setEditingCell(c => ({ ...c, value: e.target.value === 'true' }))}
                               onBlur={saveCellEdit} onKeyDown={onKey}
-                              className="w-full px-2 py-1 rounded bg-slate-900 border border-white/10 text-white text-xs focus:outline-none focus:ring-1 focus:ring-primary">
-                              <option value="true" className="bg-slate-800">true</option>
-                              <option value="false" className="bg-slate-800">false</option>
+                              className="w-full px-2 py-1 rounded bg-background border border-input text-foreground text-xs focus:outline-none focus:ring-1 focus:ring-ring">
+                              <option value="true">true</option>
+                              <option value="false">false</option>
                             </select>
                           )}
                           {editingCell.mode === 'text' && (
@@ -411,29 +412,29 @@ export default function DatabaseExplorer() {
                               value={editingCell.value}
                               onChange={e => setEditingCell(c => ({ ...c, value: e.target.value }))}
                               onBlur={saveCellEdit} onKeyDown={onKey}
-                              className="w-full px-2 py-1 rounded bg-slate-900 border border-white/10 text-white text-xs font-mono focus:outline-none focus:ring-1 focus:ring-primary" />
+                              className="w-full px-2 py-1 rounded bg-background border border-input text-foreground text-xs font-mono focus:outline-none focus:ring-1 focus:ring-ring" />
                           )}
-                          {errHere && <div className="text-[10px] text-red-400 mt-0.5">{cellError.message}</div>}
+                          {errHere && <div className="text-[10px] text-destructive mt-0.5">{cellError.message}</div>}
                         </td>
                       );
                       return (
                         <td key={f}
                           onClick={editable ? () => beginCellEdit(doc, f) : undefined}
                           title={editable ? 'Click để sửa · Enter lưu · Esc hủy' : undefined}
-                          className={`px-3 py-2.5 text-slate-300 whitespace-nowrap max-w-[200px] truncate transition-colors ${
+                          className={`px-3 py-2.5 text-muted-foreground whitespace-nowrap max-w-[200px] truncate transition-colors ${
                             editable ? 'cursor-pointer hover:bg-primary/10 hover:ring-1 hover:ring-inset hover:ring-primary/30' : ''
-                          } ${errHere ? 'ring-1 ring-red-500/60 bg-red-500/10' : ''}`}>
+                          } ${errHere ? 'ring-1 ring-destructive/60 bg-destructive/10' : ''}`}>
                           {formatValue(f, doc[f])}
                         </td>
                       );
                     })}
-                    <td className="sticky right-0 z-10 bg-slate-900/95 backdrop-blur-sm px-3 py-2.5 text-center border-l border-white/5">
+                    <td className="sticky right-0 z-10 bg-card px-3 py-2.5 text-center border-l border-border">
                       <div className="flex items-center justify-center gap-1">
                         <button onClick={() => setEditDoc(doc)}
                           className="px-2 py-1 rounded-lg text-slate-400 hover:text-primary hover:bg-primary/10 transition-all text-xs"
                           title="Edit all fields (modal)">✏️</button>
                         <button onClick={() => setDeleteTarget(doc)}
-                          className="px-2 py-1 rounded-lg text-slate-400 hover:text-red-400 hover:bg-red-500/10 transition-all text-xs"
+                          className="px-2 py-1 rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-all text-xs"
                           title="Delete">🗑</button>
                       </div>
                     </td>
@@ -441,7 +442,7 @@ export default function DatabaseExplorer() {
                 ))}
                 {docs.length === 0 && (
                   <tr>
-                    <td colSpan={orderedFields.length + 2} className="px-6 py-12 text-center text-slate-500">
+                    <td colSpan={orderedFields.length + 2} className="px-6 py-12 text-center text-subtle-foreground">
                       {search ? `No results for "${search}"` : 'No documents found'}
                     </td>
                   </tr>
@@ -452,13 +453,13 @@ export default function DatabaseExplorer() {
 
           {/* Pagination */}
           {totalPages > 1 && (
-            <div className="flex items-center justify-between px-5 py-3 border-t border-white/10">
-              <span className="text-xs text-slate-500">
+            <div className="flex items-center justify-between px-5 py-3 border-t border-border">
+              <span className="text-xs text-subtle-foreground">
                 Page {page} of {totalPages} · {total} total
               </span>
               <div className="flex gap-1">
                 <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page <= 1}
-                  className="px-3 py-1.5 rounded-lg text-xs bg-white/5 text-slate-300 hover:bg-white/10 disabled:opacity-30 transition-all border border-white/10">
+                  className="px-3 py-1.5 rounded-lg text-xs bg-muted text-muted-foreground hover:bg-accent disabled:opacity-30 transition-all border border-border">
                   ← Prev
                 </button>
                 {/* Page numbers */}
@@ -471,14 +472,14 @@ export default function DatabaseExplorer() {
                       className={`px-3 py-1.5 rounded-lg text-xs transition-all border ${
                         p === page
                           ? 'bg-primary/20 text-primary border-primary/30'
-                          : 'bg-white/5 text-slate-400 hover:bg-white/10 border-white/10'
+                          : 'bg-muted text-muted-foreground hover:bg-accent border-border'
                       }`}>
                       {p}
                     </button>
                   );
                 })}
                 <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page >= totalPages}
-                  className="px-3 py-1.5 rounded-lg text-xs bg-white/5 text-slate-300 hover:bg-white/10 disabled:opacity-30 transition-all border border-white/10">
+                  className="px-3 py-1.5 rounded-lg text-xs bg-muted text-muted-foreground hover:bg-accent disabled:opacity-30 transition-all border border-border">
                   Next →
                 </button>
               </div>
@@ -500,17 +501,17 @@ export default function DatabaseExplorer() {
 
       {/* ── Delete Confirmation ─────────────────────────────── */}
       {deleteTarget && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
-          <div className="bg-card border border-border rounded-2xl p-6 max-w-sm mx-4 text-center space-y-4 ">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
+          <div className="bg-card border border-border rounded-lg p-6 max-w-sm mx-4 text-center space-y-4 ">
             <div className="text-3xl">⚠️</div>
-            <h3 className="text-lg font-bold text-white">Hard Delete?</h3>
-            <p className="text-sm text-slate-400">
-              This will <span className="text-red-400 font-semibold">permanently remove</span> this {activeCollection} document.
+            <h3 className="text-lg font-bold text-foreground">Hard Delete?</h3>
+            <p className="text-sm text-muted-foreground">
+              This will <span className="text-destructive font-semibold">permanently remove</span> this {activeCollection} document.
             </p>
-            <p className="font-mono text-xs text-slate-500 break-all">{deleteTarget._id}</p>
+            <p className="font-mono text-xs text-subtle-foreground break-all">{deleteTarget._id}</p>
             <div className="flex gap-3">
-              <button onClick={() => setDeleteTarget(null)} className="flex-1 py-2.5 rounded-xl border border-white/10 text-slate-400 hover:bg-white/5 transition-all">Cancel</button>
-              <button onClick={handleDelete} className="flex-1 py-2.5 rounded-xl bg-red-500/20 text-red-400 border border-red-500/20 hover:bg-red-500/30 font-semibold transition-all">Delete Forever</button>
+              <button onClick={() => setDeleteTarget(null)} className="flex-1 py-2.5 rounded-md border border-border text-muted-foreground hover:bg-accent transition-all">Cancel</button>
+              <button onClick={handleDelete} className="flex-1 py-2.5 rounded-md bg-destructive/20 text-destructive border border-destructive/20 hover:bg-destructive/30 font-semibold transition-all">Delete Forever</button>
             </div>
           </div>
         </div>
