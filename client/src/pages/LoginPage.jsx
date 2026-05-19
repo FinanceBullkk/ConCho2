@@ -4,6 +4,9 @@ import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { loginSchema, mfaSchema } from '../lib/validations';
+import { Button } from '@/components/ui/button';
+import { Spinner } from '../components/Spinner';
+import { cn } from '@/lib/utils';
 
 export default function LoginPage() {
   const [step, setStep] = useState('credentials'); // 'credentials' | 'mfa'
@@ -61,38 +64,38 @@ export default function LoginPage() {
     credForm.clearErrors();
   };
 
-  const inputCls =
-    'w-full px-4 py-3 rounded-xl bg-muted/60 border border-white/10 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary/50 transition-all';
-  const errCls = 'mt-1 text-xs text-red-400';
+  const INPUT_CLS =
+    'w-full px-4 h-12 rounded-md bg-background border border-input text-foreground placeholder:text-subtle-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-ring transition-colors';
+  const ERR_CLS = 'mt-1 text-xs text-destructive';
 
   return (
     <div className="min-h-screen flex items-center justify-center px-4">
-      <div className="w-full max-w-md ">
+      <div className="w-full max-w-md">
         {/* Logo */}
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br from-primary to-purple-600 text-white text-2xl font-bold mb-4 shadow-lg shadow-primary/25">
+          <div className="inline-flex items-center justify-center size-16 rounded-lg bg-primary text-primary-foreground text-2xl font-bold mb-4">
             T
           </div>
           <h1 className="text-h1 text-foreground tracking-tight">
             TMS <span className="text-primary">v2</span>
           </h1>
-          <p className="text-slate-400 mt-1">Training Management System</p>
+          <p className="text-muted-foreground mt-1">Training Management System</p>
         </div>
 
         {/* ── Credentials step ─────────────────────────────── */}
         {step === 'credentials' ? (
-          <form onSubmit={handleCredSubmit} className="bg-card border border-border rounded-2xl p-8 " noValidate>
-            <h2 className="text-xl font-semibold text-white mb-6">Sign In</h2>
+          <form onSubmit={handleCredSubmit} className="bg-card border border-border rounded-lg p-8" noValidate>
+            <h2 className="text-h3 text-foreground mb-6">Sign In</h2>
 
             {credForm.formState.errors.root && (
-              <div role="alert" className="mb-4 px-4 py-3 rounded-xl bg-destructive/10 border border-destructive/20 text-destructive text-sm ">
+              <div role="alert" className="mb-4 px-3 py-2.5 rounded-md bg-destructive-tint border border-destructive/30 text-destructive text-sm">
                 {credForm.formState.errors.root.message}
               </div>
             )}
 
             <div className="space-y-5">
               <div>
-                <label htmlFor="empCode" className="block text-sm font-medium text-slate-300 mb-1.5">
+                <label htmlFor="empCode" className="block text-small font-medium text-muted-foreground mb-1.5">
                   Employee Code
                 </label>
                 <input
@@ -102,18 +105,18 @@ export default function LoginPage() {
                   autoFocus // eslint-disable-line jsx-a11y/no-autofocus
                   aria-invalid={!!credForm.formState.errors.empCode}
                   aria-describedby={credForm.formState.errors.empCode ? 'empCode-error' : undefined}
-                  className={`${inputCls} ${credForm.formState.errors.empCode ? 'border-red-500/50' : ''}`}
+                  className={cn(INPUT_CLS, credForm.formState.errors.empCode && 'border-destructive')}
                   {...credForm.register('empCode')}
                 />
                 {credForm.formState.errors.empCode && (
-                  <p id="empCode-error" role="alert" className={errCls}>
+                  <p id="empCode-error" role="alert" className={ERR_CLS}>
                     {credForm.formState.errors.empCode.message}
                   </p>
                 )}
               </div>
 
               <div>
-                <label htmlFor="password" className="block text-sm font-medium text-slate-300 mb-1.5">
+                <label htmlFor="password" className="block text-small font-medium text-muted-foreground mb-1.5">
                   Password
                 </label>
                 <input
@@ -122,44 +125,39 @@ export default function LoginPage() {
                   placeholder="••••••••"
                   aria-invalid={!!credForm.formState.errors.password}
                   aria-describedby={credForm.formState.errors.password ? 'password-error' : undefined}
-                  className={`${inputCls} ${credForm.formState.errors.password ? 'border-red-500/50' : ''}`}
+                  className={cn(INPUT_CLS, credForm.formState.errors.password && 'border-destructive')}
                   {...credForm.register('password')}
                 />
                 {credForm.formState.errors.password && (
-                  <p id="password-error" role="alert" className={errCls}>
+                  <p id="password-error" role="alert" className={ERR_CLS}>
                     {credForm.formState.errors.password.message}
                   </p>
                 )}
               </div>
             </div>
 
-            <div className="flex justify-end mb-1">
-              <Link to="/forgot-password" className="text-xs text-primary hover:text-primary transition-colors">
+            <div className="flex justify-end mt-2 mb-1">
+              <Link to="/forgot-password" className="text-xs text-primary hover:text-primary/80 transition-colors">
                 Forgot password?
               </Link>
             </div>
 
-            <button
+            <Button
               type="submit"
+              className="w-full mt-4 h-12"
               disabled={credForm.formState.isSubmitting}
-              className="w-full mt-6 px-4 py-3 rounded-xl bg-gradient-to-r from-primary to-primary text-white font-semibold hover:from-primary hover:to-primary focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-primary/20"
             >
               {credForm.formState.isSubmitting ? (
-                <span className="flex items-center justify-center gap-2">
-                  <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" aria-hidden="true" />
-                  Signing in...
-                </span>
-              ) : (
-                'Sign In'
-              )}
-            </button>
+                <><Spinner size={16} />Signing in…</>
+              ) : 'Sign In'}
+            </Button>
 
             {import.meta.env.DEV && (
-              <div className="mt-6 pt-5 border-t border-white/5">
-                <p className="text-xs text-slate-500 mb-2">Test accounts:</p>
+              <div className="mt-6 pt-5 border-t border-border">
+                <p className="text-xs text-subtle-foreground mb-2">Test accounts:</p>
                 <div className="flex flex-wrap gap-2">
                   {[
-                    { code: '000001', pw: 'admin12345', label: 'Admin' },
+                    { code: '000001', pw: 'admin12345',    label: 'Admin' },
                     { code: '000004', pw: 'participant123', label: 'Participant' },
                   ].map((acc) => (
                     <button
@@ -169,7 +167,7 @@ export default function LoginPage() {
                         credForm.setValue('empCode', acc.code);
                         credForm.setValue('password', acc.pw);
                       }}
-                      className="px-2.5 py-1 rounded-lg bg-white/5 text-xs text-slate-400 hover:bg-white/10 hover:text-white transition-all"
+                      className="px-2.5 py-1 rounded-md bg-muted text-xs text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
                     >
                       {acc.label}
                     </button>
@@ -180,20 +178,20 @@ export default function LoginPage() {
           </form>
         ) : (
           /* ── MFA step ────────────────────────────────────── */
-          <form onSubmit={handleMfaSubmit} className="bg-card border border-border rounded-2xl p-8 " noValidate>
-            <h2 className="text-xl font-semibold text-white mb-2">Two-Factor Authentication</h2>
-            <p className="text-sm text-slate-400 mb-6">
+          <form onSubmit={handleMfaSubmit} className="bg-card border border-border rounded-lg p-8" noValidate>
+            <h2 className="text-h3 text-foreground mb-2">Two-Factor Authentication</h2>
+            <p className="text-body text-muted-foreground mb-6">
               Enter the 6-digit code from your authenticator app, or a backup code (XXXXX-XXXXX).
             </p>
 
             {mfaForm.formState.errors.root && (
-              <div role="alert" className="mb-4 px-4 py-3 rounded-xl bg-destructive/10 border border-destructive/20 text-destructive text-sm ">
+              <div role="alert" className="mb-4 px-3 py-2.5 rounded-md bg-destructive-tint border border-destructive/30 text-destructive text-sm">
                 {mfaForm.formState.errors.root.message}
               </div>
             )}
 
             <div>
-              <label htmlFor="mfaCode" className="block text-sm font-medium text-slate-300 mb-1.5">
+              <label htmlFor="mfaCode" className="block text-small font-medium text-muted-foreground mb-1.5">
                 Verification code
               </label>
               <input
@@ -205,38 +203,34 @@ export default function LoginPage() {
                 autoFocus // eslint-disable-line jsx-a11y/no-autofocus
                 aria-invalid={!!mfaForm.formState.errors.mfaCode}
                 aria-describedby={mfaForm.formState.errors.mfaCode ? 'mfaCode-error' : undefined}
-                className={`${inputCls} font-mono tracking-widest text-center text-lg ${mfaForm.formState.errors.mfaCode ? 'border-red-500/50' : ''}`}
+                className={cn(INPUT_CLS, 'font-mono tracking-widest text-center text-lg', mfaForm.formState.errors.mfaCode && 'border-destructive')}
                 {...mfaForm.register('mfaCode')}
               />
               {mfaForm.formState.errors.mfaCode && (
-                <p id="mfaCode-error" role="alert" className={errCls}>
+                <p id="mfaCode-error" role="alert" className={ERR_CLS}>
                   {mfaForm.formState.errors.mfaCode.message}
                 </p>
               )}
             </div>
 
-            <button
+            <Button
               type="submit"
+              className="w-full mt-6 h-12"
               disabled={mfaForm.formState.isSubmitting}
-              className="w-full mt-6 px-4 py-3 rounded-xl bg-gradient-to-r from-primary to-primary text-white font-semibold hover:from-primary hover:to-primary focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-primary/20"
             >
               {mfaForm.formState.isSubmitting ? (
-                <span className="flex items-center justify-center gap-2">
-                  <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" aria-hidden="true" />
-                  Verifying...
-                </span>
-              ) : (
-                'Verify & Sign In'
-              )}
-            </button>
+                <><Spinner size={16} />Verifying…</>
+              ) : 'Verify & Sign In'}
+            </Button>
 
-            <button
+            <Button
               type="button"
+              variant="outline"
+              className="w-full mt-3"
               onClick={handleBackToCreds}
-              className="w-full mt-3 px-4 py-2.5 rounded-xl border border-white/10 text-slate-400 hover:bg-white/5 transition-all text-sm"
             >
               ← Back to sign in
-            </button>
+            </Button>
           </form>
         )}
       </div>
