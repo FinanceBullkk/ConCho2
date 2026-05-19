@@ -1,66 +1,135 @@
-import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 
-/**
- * Centralized status mapping. Add new statuses here, not in pages.
- * The class strings are utility-class strings (Tailwind) applied to a shadcn Badge
- * via `className` to override its default variant.
- */
-const STATUS_STYLES = {
-  // User / enrollment status
-  Active: 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30',
-  Inactive: 'bg-slate-500/15 text-slate-300 border-slate-500/30',
-  Dropped: 'bg-rose-500/15 text-rose-300 border-rose-500/30',
-  Transferred: 'bg-sky-500/15 text-sky-300 border-sky-500/30',
-  'On-hold': 'bg-amber-500/15 text-amber-300 border-amber-500/30',
-  'Waiting for class': 'bg-violet-500/15 text-violet-300 border-violet-500/30',
+// ──────────────────────────────────────────────────────────
+// StatusBadge — Phase 1 §06 · bound to Phase 0 §04 taxonomy
+// ──────────────────────────────────────────────────────────
+// 5 strict tones. Each tone = one semantic intent.
+//   upcoming  → neutral / passive
+//   warning   → action required by user (was "pending"/"to-mark")
+//   info      → in progress / informational
+//   success   → done / OK
+//   danger    → config error / absent / critical
+// ──────────────────────────────────────────────────────────
 
-  // Class lifecycle
-  Ongoing: 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30',
-  Completed: 'bg-blue-500/15 text-blue-300 border-blue-500/30',
-
-  // Attendance per-record
-  P: 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30',
-  Present: 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30',
-  A: 'bg-rose-500/15 text-rose-300 border-rose-500/30',
-  Absent: 'bg-rose-500/15 text-rose-300 border-rose-500/30',
-  L: 'bg-amber-500/15 text-amber-300 border-amber-500/30',
-  Late: 'bg-amber-500/15 text-amber-300 border-amber-500/30',
-  EL: 'bg-violet-500/15 text-violet-300 border-violet-500/30',
-  Excused: 'bg-violet-500/15 text-violet-300 border-violet-500/30',
-
-  // Session attendance roll-up status
-  done: 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30',
-  pending: 'bg-amber-500/15 text-amber-300 border-amber-500/30',
-  partial: 'bg-blue-500/15 text-blue-300 border-blue-500/30',
-  none: 'bg-slate-500/15 text-slate-400 border-slate-500/30',
-  future: 'bg-slate-500/15 text-slate-400 border-slate-500/30',
-
-  // Roles
-  Admin: 'bg-violet-500/15 text-violet-300 border-violet-500/30',
-  Leader: 'bg-blue-500/15 text-blue-300 border-blue-500/30',
-  Participant: 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30',
+const TONE_CLS = {
+  upcoming: 'bg-neutral-tint text-neutral border-border-strong',
+  warning:  'bg-warning-tint text-warning border-warning/30',
+  info:     'bg-info-tint text-info border-info/30',
+  success:  'bg-success-tint text-success border-success/30',
+  danger:   'bg-destructive-tint text-destructive border-destructive/30',
 };
 
-const STATUS_LABELS = {
-  done: 'Done',
-  pending: 'Pending',
-  partial: 'Partial',
-  none: 'No students',
-  future: 'Upcoming',
+const SIZE_CLS = {
+  sm: 'h-[18px] px-1.5 text-[11px] gap-1',
+  md: 'h-[22px] px-2 text-[12px] gap-1',
+};
+
+const ICON_PX = { sm: 11, md: 13 };
+
+// Mapping from status string → (tone, label). Add entries here, not in pages.
+// Keys follow Phase 0 §04 canonical names + backwards-compat aliases for the
+// previous server enum ('pending', 'partial', 'none', 'future').
+const STATUS_MAP = {
+  // ── Session attendance (§04 canonical lifecycle) ──
+  upcoming:    { tone: 'upcoming', label: 'Upcoming' },
+  toMark:      { tone: 'warning',  label: 'To mark' },
+  inProgress:  { tone: 'info',     label: 'In progress' },
+  done:        { tone: 'success',  label: 'Done' },
+  noRoster:    { tone: 'danger',   label: 'No roster' },
+
+  // ── Legacy server enum aliases (pre-taxonomy) ──
+  pending:     { tone: 'warning',  label: 'To mark' },
+  partial:     { tone: 'info',     label: 'In progress' },
+  none:        { tone: 'danger',   label: 'No roster' },
+  future:      { tone: 'upcoming', label: 'Upcoming' },
+
+  // ── User status ──
+  Active:               { tone: 'success',  label: 'Active' },
+  Inactive:             { tone: 'upcoming', label: 'Inactive' },
+  Dropped:              { tone: 'danger',   label: 'Dropped' },
+  Transferred:          { tone: 'info',     label: 'Transferred' },
+  'On-hold':            { tone: 'warning',  label: 'On hold' },
+  'Waiting for class':  { tone: 'warning',  label: 'Waiting for class' },
+
+  // ── Class lifecycle ──
+  Ongoing:    { tone: 'success', label: 'Ongoing' },
+  Completed:  { tone: 'info',    label: 'Completed' },
+
+  // ── Attendance per-record ──
+  P:       { tone: 'success', label: 'P' },
+  Present: { tone: 'success', label: 'Present' },
+  A:       { tone: 'danger',  label: 'A' },
+  Absent:  { tone: 'danger',  label: 'Absent' },
+  L:       { tone: 'warning', label: 'L' },
+  Late:    { tone: 'warning', label: 'Late' },
+  EL:      { tone: 'info',    label: 'EL' },
+  Excused: { tone: 'info',    label: 'Excused' },
+
+  // ── Roles ──
+  Admin:        { tone: 'info',    label: 'Admin' },
+  Teacher:      { tone: 'success', label: 'Teacher' },
+  Leader:       { tone: 'info',    label: 'Leader' },
+  Participant:  { tone: 'warning', label: 'Participant' },
 };
 
 /**
- * <StatusBadge status="Active" />        → green pill "Active"
- * <StatusBadge status="pending" />       → amber pill "Pending"
- * Falls back to the raw status string with neutral styling if not mapped.
+ * StatusBadge — Phase 1 §06.
+ *
+ * Two API styles:
+ *
+ *   1. Mapped (backwards-compat):
+ *      <StatusBadge status="Active" />
+ *      <StatusBadge status="toMark" icon={AlertCircle} count={3} />
+ *
+ *   2. Explicit tone:
+ *      <StatusBadge tone="warning" icon={AlertCircle}>To mark</StatusBadge>
+ *
+ * Props:
+ *   status   — known status string (see STATUS_MAP above)
+ *   tone     — explicit tone, overrides status mapping
+ *   size     — 'sm' (18px) or 'md' (22px, default)
+ *   icon     — Lucide icon component (sized to tone)
+ *   count    — optional numeric suffix "· N" with tabular-nums
+ *   children — override label text
  */
-export function StatusBadge({ status, className, children }) {
-  const cls = STATUS_STYLES[status] ?? 'bg-slate-500/15 text-slate-300 border-slate-500/30';
-  const label = children ?? STATUS_LABELS[status] ?? status;
+export function StatusBadge({
+  status,
+  tone,
+  size = 'md',
+  icon: Icon,
+  count,
+  children,
+  className,
+}) {
+  const mapping = status ? STATUS_MAP[status] : null;
+  const resolvedTone = tone ?? mapping?.tone ?? 'upcoming';
+  const resolvedLabel = children ?? mapping?.label ?? status ?? '';
+  const toneCls = TONE_CLS[resolvedTone] ?? TONE_CLS.upcoming;
+  const sizeCls = SIZE_CLS[size] ?? SIZE_CLS.md;
+  const iconPx = ICON_PX[size] ?? ICON_PX.md;
+
   return (
-    <Badge variant="outline" className={cn('gap-1 font-medium', cls, className)}>
-      {label}
-    </Badge>
+    <span
+      className={cn(
+        'inline-flex items-center rounded border font-medium leading-none whitespace-nowrap tabular-nums transition-colors duration-(--dur)',
+        sizeCls,
+        toneCls,
+        className,
+      )}
+    >
+      {Icon && (
+        <Icon
+          style={{ width: iconPx, height: iconPx }}
+          strokeWidth={2}
+          aria-hidden="true"
+        />
+      )}
+      {resolvedLabel && <span>{resolvedLabel}</span>}
+      {count != null && <span>· {count}</span>}
+    </span>
   );
 }
+
+// Re-export tone enum + map for consumers that need to introspect
+export const STATUS_BADGE_TONES = Object.keys(TONE_CLS);
+export { STATUS_MAP };
