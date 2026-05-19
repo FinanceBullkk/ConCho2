@@ -80,7 +80,7 @@ export function TodayHero() {
   if (isDismissedToday() || (cards.length === 0)) {
     if (cards.length === 0) {
       return (
-        <Card className="flex items-center gap-3 border-emerald-500/25 bg-emerald-500/5 px-5 py-4 text-emerald-300">
+        <Card className="flex items-center gap-3 border-success/25 bg-success/5 px-5 py-4 text-success">
           <CheckCircle2 className="size-5 shrink-0" />
           <div className="text-sm font-medium">All clear — nothing urgent for today.</div>
         </Card>
@@ -118,9 +118,9 @@ export function TodayHero() {
         {cards.map((c) => {
           const Icon = c.icon;
           const toneClasses = {
-            amber: 'border-amber-500/30 bg-amber-500/5 text-amber-200',
-            sky: 'border-sky-500/30 bg-sky-500/5 text-sky-200',
-            rose: 'border-rose-500/30 bg-rose-500/5 text-rose-200',
+            amber: 'border-warning/30 bg-warning/5 text-warning',
+            sky: 'border-info/30 bg-info/5 text-info',
+            rose: 'border-destructive/30 bg-destructive/5 text-destructive',
           }[c.tone];
           return (
             <Card key={c.key} className={`flex flex-col gap-3 ${toneClasses} p-5`}>

@@ -45,7 +45,7 @@ export default class ErrorBoundary extends Component {
               </button>
             </div>
             {process.env.NODE_ENV !== 'production' && this.state.error && (
-              <pre className="mt-4 text-xs text-left text-red-400/80 bg-red-500/10 rounded-lg p-3 overflow-auto max-h-40">
+              <pre className="mt-4 text-xs text-left text-destructive/80 bg-destructive/10 rounded-lg p-3 overflow-auto max-h-40">
                 {this.state.error.toString()}
               </pre>
             )}
