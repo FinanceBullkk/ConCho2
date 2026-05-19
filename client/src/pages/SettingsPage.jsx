@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
 import { toast } from 'sonner';
 import { useSettings, useUpdateSettings } from '../hooks/useSettings';
+import { Button } from '@/components/ui/button';
+import { Spinner } from '../components/Spinner';
 
 export default function SettingsPage() {
   const { data: settings = [], isLoading: loading } = useSettings();
@@ -40,7 +42,7 @@ export default function SettingsPage() {
   if (loading) {
     return (
       <div className="flex h-[50vh] items-center justify-center">
-        <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin" />
+        <Spinner size={32} />
       </div>
     );
   }
@@ -52,29 +54,25 @@ export default function SettingsPage() {
           <h1 className="text-h1 text-foreground flex items-center gap-2">
             ⚙️ Cấu hình hệ thống
           </h1>
-          <p className="text-slate-400 text-sm mt-1">Quản lý các biến cấu hình dùng chung (JSON format)</p>
+          <p className="text-muted-foreground text-sm mt-1">Quản lý các biến cấu hình dùng chung (JSON format)</p>
         </div>
-        <button
-          onClick={handleSave}
-          disabled={updateMutation.isPending}
-          className="px-4 py-2 bg-primary hover:bg-primary text-white rounded-xl font-medium shadow-lg shadow-primary/20 transition-all active:scale-95 disabled:opacity-50"
-        >
-          {updateMutation.isPending ? 'Đang lưu...' : 'Lưu thay đổi'}
-        </button>
+        <Button onClick={handleSave} disabled={updateMutation.isPending}>
+          {updateMutation.isPending ? <><Spinner size={14} />Đang lưu…</> : 'Lưu thay đổi'}
+        </Button>
       </div>
 
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
         {settings.map(s => (
-          <div key={s._id} className="bg-card border border-border rounded-2xl p-6 space-y-4">
+          <div key={s._id} className="bg-card border border-border rounded-lg p-6 space-y-4">
             <div className="flex justify-between items-start">
               <div>
-                <h3 className="text-lg font-bold text-white">{s.key}</h3>
-                {s.description && <p className="text-sm text-slate-400 mt-1">{s.description}</p>}
+                <h3 className="text-lg font-bold text-foreground">{s.key}</h3>
+                {s.description && <p className="text-sm text-muted-foreground mt-1">{s.description}</p>}
               </div>
             </div>
-            
+
             <textarea
-              className="w-full h-64 bg-slate-900/50 border border-white/10 rounded-xl p-4 text-sm font-mono text-emerald-400 focus:outline-none focus:border-primary/50 transition-colors"
+              className="w-full h-64 bg-background border border-input rounded-md p-4 text-sm font-mono text-success focus:outline-none focus:ring-2 focus:ring-ring transition-colors"
               value={formData[s.key] || ''}
               onChange={(e) => setFormData({...formData, [s.key]: e.target.value})}
               spellCheck="false"
