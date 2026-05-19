@@ -2,7 +2,8 @@ import { useState, useEffect } from 'react';
 import { Link, NavLink, useLocation } from 'react-router-dom';
 import {
   Home,
-  GraduationCap,
+  Users,
+  BookOpen,
   CalendarCheck,
   FileBarChart,
   ShieldCog,
@@ -23,16 +24,17 @@ import SearchPalette from './SearchPalette';
 
 const NAV_ITEMS = {
   Admin: [
-    { path: '/home', label: 'Home', icon: Home },
-    { path: '/academy', label: 'Academy', icon: GraduationCap },
+    { path: '/home',       label: 'Home',       icon: Home },
+    { path: '/people',     label: 'People',     icon: Users },
+    { path: '/programs',   label: 'Programs',   icon: BookOpen },
     { path: '/operations', label: 'Operations', icon: CalendarCheck },
-    { path: '/reports', label: 'Reports', icon: FileBarChart },
-    { path: '/admin', label: 'Admin', icon: ShieldCog },
+    { path: '/reports',    label: 'Reports',    icon: FileBarChart },
+    { path: '/system',     label: 'System',     icon: ShieldCog },
   ],
   Teacher: [
-    { path: '/home', label: 'Home', icon: Home },
+    { path: '/home',       label: 'Home',       icon: Home },
     { path: '/operations', label: 'Operations', icon: CalendarCheck },
-    { path: '/reports', label: 'Reports', icon: FileBarChart },
+    { path: '/reports',    label: 'Reports',    icon: FileBarChart },
   ],
   Participant: [
     { path: '/home', label: 'Home', icon: Home },
@@ -40,21 +42,29 @@ const NAV_ITEMS = {
   ],
 };
 
-const ROLE_GRADIENTS = {
-  Admin: 'from-primary to-purple-500',
-  Teacher: 'from-emerald-500 to-teal-400',
-  Participant: 'from-amber-500 to-orange-400',
+// Role accent color — used for the logo chip and the role label.
+// Solid tokens only (no gradients per Phase 0 §02).
+const ROLE_BG = {
+  Admin:       'bg-primary',
+  Teacher:     'bg-success',
+  Participant: 'bg-warning',
+};
+const ROLE_TEXT = {
+  Admin:       'text-primary',
+  Teacher:     'text-success',
+  Participant: 'text-warning',
 };
 
 // Routes that "live under" each top-level nav item — used to highlight active state
-// when a deeper page (e.g. /academy/classes/:id) is open.
+// when a deeper page (e.g. /classes/:id) is open.
 const NAV_PARENT_ROUTES = {
-  '/home': ['/home', '/dashboard'],
-  '/academy': ['/academy', '/people', '/classes', '/users', '/teams', '/courses'],
+  '/home':       ['/home', '/dashboard'],
+  '/people':     ['/people', '/users', '/teams'],
+  '/programs':   ['/programs', '/classes', '/courses'],
   '/operations': ['/operations', '/schedules', '/attendance'],
-  '/reports': ['/reports', '/data'],
-  '/admin': ['/admin', '/settings', '/database'],
-  '/book': ['/book'],
+  '/reports':    ['/reports', '/data'],
+  '/system':     ['/system', '/admin', '/settings', '/database'],
+  '/book':       ['/book'],
 };
 
 export default function Navbar() {
@@ -131,13 +141,13 @@ export default function Navbar() {
           <Link to="/home" className="group flex shrink-0 items-center gap-3">
             <div
               className={cn(
-                'flex size-9 items-center justify-center rounded-xl bg-gradient-to-br text-sm font-bold text-white shadow-lg transition-transform group-hover:scale-110',
-                ROLE_GRADIENTS[user.role]
+                'flex size-9 items-center justify-center rounded-xl text-sm font-bold text-primary-foreground transition-colors duration-(--dur)',
+                ROLE_BG[user.role] ?? 'bg-primary'
               )}
             >
               T
             </div>
-            <span className="hidden text-lg font-bold tracking-tight text-white sm:block">
+            <span className="hidden text-lg font-bold tracking-tight text-foreground sm:block">
               TMS<span className="text-primary">v2</span>
             </span>
           </Link>
@@ -152,12 +162,11 @@ export default function Navbar() {
                   key={item.path}
                   to={item.path}
                   className={cn(
-                    'flex items-center gap-2 whitespace-nowrap rounded-lg px-3 py-2 text-sm font-medium transition-all',
+                    'flex items-center gap-2 whitespace-nowrap rounded-lg px-3 py-2 text-sm font-medium transition-colors duration-(--dur)',
                     active
-                      ? 'bg-primary/15 text-primary-foreground/90'
-                      : 'text-slate-400 hover:bg-white/5 hover:text-white'
+                      ? 'bg-primary/15 text-primary'
+                      : 'text-muted-foreground hover:bg-accent hover:text-foreground'
                   )}
-                  style={active ? { color: 'hsl(217 91% 75%)' } : undefined}
                 >
                   <Icon className="size-4" />
                   <span>{item.label}</span>
@@ -169,13 +178,8 @@ export default function Navbar() {
           {/* User + Actions */}
           <div className="flex shrink-0 items-center gap-3">
             <div className="hidden flex-col items-end sm:flex">
-              <span className="text-sm font-medium text-white">{user.name}</span>
-              <span
-                className={cn(
-                  'bg-gradient-to-r bg-clip-text text-xs font-semibold text-transparent',
-                  ROLE_GRADIENTS[user.role]
-                )}
-              >
+              <span className="text-sm font-medium text-foreground">{user.name}</span>
+              <span className={cn('text-xs font-semibold', ROLE_TEXT[user.role] ?? 'text-primary')}>
                 {user.role} · {user.empCode}
               </span>
             </div>
@@ -183,16 +187,16 @@ export default function Navbar() {
               onClick={() => setSearchOpen(true)}
               aria-label="Open search (Ctrl+K)"
               title="Search (Ctrl+K)"
-              className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 text-xs text-slate-400 hover:text-white hover:bg-white/10 transition-all"
+              className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-lg bg-accent border border-border text-xs text-muted-foreground hover:text-foreground hover:bg-accent/80 transition-colors duration-(--dur)"
             >
               <Search className="size-3.5" aria-hidden="true" />
               <span>Search…</span>
-              <kbd className="ml-2 px-1.5 py-0.5 rounded bg-white/5 text-[10px] font-mono">Ctrl K</kbd>
+              <kbd className="ml-2 px-1.5 py-0.5 rounded bg-muted text-[10px] font-mono">Ctrl K</kbd>
             </button>
             <button
               onClick={() => setSearchOpen(true)}
               aria-label="Open search"
-              className="sm:hidden p-2 rounded-lg text-slate-400 hover:text-white hover:bg-white/10 transition-all"
+              className="sm:hidden p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-accent transition-colors duration-(--dur)"
             >
               <Search className="size-4" aria-hidden="true" />
             </button>
@@ -200,7 +204,7 @@ export default function Navbar() {
               onClick={toggle}
               aria-label={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
               title={isDark ? 'Light mode' : 'Dark mode'}
-              className="p-2 rounded-lg text-slate-400 hover:text-white hover:bg-white/10 transition-all"
+              className="p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-accent transition-colors duration-(--dur)"
             >
               {isDark ? <Sun className="size-4" aria-hidden="true" /> : <Moon className="size-4" aria-hidden="true" />}
             </button>
@@ -208,7 +212,7 @@ export default function Navbar() {
               <Button
                 variant="ghost"
                 size="icon"
-                className="text-slate-400 hover:bg-primary/10 hover:text-primary"
+                className="text-muted-foreground hover:bg-primary/10 hover:text-primary"
               >
                 <UserCog className="size-4" />
               </Button>
@@ -218,7 +222,7 @@ export default function Navbar() {
               size="icon"
               onClick={logout}
               title="Sign out"
-              className="text-slate-400 hover:bg-rose-500/10 hover:text-rose-400"
+              className="text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
             >
               <LogOut className="size-4" />
             </Button>
@@ -229,7 +233,7 @@ export default function Navbar() {
               aria-label={mobileOpen ? 'Close menu' : 'Open menu'}
               aria-expanded={mobileOpen}
               aria-controls="mobile-nav"
-              className="md:hidden p-2 rounded-lg text-slate-400 hover:text-white hover:bg-white/10 transition-all"
+              className="md:hidden p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-accent transition-colors duration-(--dur)"
             >
               {mobileOpen ? (
                 <X className="size-5" aria-hidden="true" />
@@ -245,18 +249,19 @@ export default function Navbar() {
           <nav
             id="mobile-nav"
             aria-label="Mobile navigation"
-            className="md:hidden border-t border-white/10 py-3 space-y-1 "
+            className="md:hidden border-t border-border py-3 space-y-1"
           >
             {items.map((item) => (
               <NavLink
                 key={item.path}
                 to={item.path}
                 className={({ isActive }) =>
-                  `flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-medium transition-all ${
+                  cn(
+                    'flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm font-medium transition-colors duration-(--dur)',
                     isActive
                       ? 'bg-primary/15 text-primary'
-                      : 'text-slate-400 hover:bg-white/5 hover:text-white'
-                  }`
+                      : 'text-muted-foreground hover:bg-accent hover:text-foreground'
+                  )
                 }
                 onClick={() => setMobileOpen(false)}
               >
