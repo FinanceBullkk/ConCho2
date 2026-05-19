@@ -277,4 +277,64 @@ const getDashboardStats = async (req, res) => {
   }
 };
 
-module.exports = { getDashboardStats, getFilterOptions };
+// ──────────────────────────────────────────────────────────
+// GET /api/dashboard/alerts
+// Fast actionable counts for the AlertBand widget.
+// No filter params — always returns org-wide numbers.
+// refetchOnWindowFocus: true on the client so it stays fresh.
+// ──────────────────────────────────────────────────────────
+const getAlerts = async (req, res) => {
+  try {
+    const now = new Date();
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+
+    const [toMarkAgg, teamsWithoutLeader, teamsUnassigned, todayCount] = await Promise.all([
+      // Past sessions that have enrolled students but attendance not fully marked.
+      // attendanceStatus is NOT stored — compute via Schedule + Attendance join.
+      Schedule.aggregate([
+        { $match: { endTime: { $lt: now } } },
+        // Count enrolled members from the array (virtual enrolledCount not available in agg)
+        { $addFields: { ec: { $size: { $ifNull: ['$enrolledUsers', []] } } } },
+        { $match: { ec: { $gt: 0 } } },
+        {
+          $lookup: {
+            from: 'attendances',
+            localField: '_id',
+            foreignField: 'scheduleId',
+            as: 'atts',
+          },
+        },
+        { $addFields: { mc: { $size: '$atts' } } },
+        // Not fully marked = markedCount < enrolledCount
+        { $match: { $expr: { $lt: ['$mc', '$ec'] } } },
+        { $count: 'total' },
+      ]),
+      // Active teams without a designated leader (leaderId null/missing)
+      Team.countDocuments({ leaderId: null, isDeleted: { $ne: true } }),
+      // Active teams not yet assigned to a class
+      Team.countDocuments({ classId: null, isDeleted: { $ne: true } }),
+      // Sessions scheduled for today (for TodayHero companion info)
+      Schedule.countDocuments({ startTime: { $gte: today, $lt: tomorrow } }),
+    ]);
+
+    const toMark = toMarkAgg[0]?.total || 0;
+
+    res.json({
+      success: true,
+      data: {
+        toMark,
+        teamsWithoutLeader,
+        teamsUnassigned,
+        todaySessionCount: todayCount,
+        totalAlerts: toMark + teamsWithoutLeader + teamsUnassigned,
+      },
+    });
+  } catch (error) {
+    handleError(res, error);
+  }
+};
+
+module.exports = { getDashboardStats, getFilterOptions, getAlerts };
