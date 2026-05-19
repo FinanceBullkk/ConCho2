@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { classesAPI, schedulesAPI } from '../api/api';
 import Portal from '../components/Portal';
+import { Spinner } from '../components/Spinner';
 
 // ──────────────────────────────────────────────────────────
 // Course Manager — Admin class/session editor
@@ -10,8 +11,8 @@ import Portal from '../components/Portal';
 // ──────────────────────────────────────────────────────────
 
 const STATUS_STYLES = {
-  Ongoing: 'bg-emerald-500/20 text-emerald-400 border-emerald-500/20',
-  Completed: 'bg-blue-500/20 text-blue-400 border-blue-500/20',
+  Ongoing: 'bg-success/20 text-success border-success/20',
+  Completed: 'bg-info/20 text-info border-info/20',
 };
 
 const formatDate = (d) => {
@@ -106,27 +107,27 @@ function SessionPanel({ classId, classInfo, onClose, onClassUpdated }) {
 
   return (
     <Portal>
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm" onClick={onClose}>
-      <div className="bg-card border border-border rounded-2xl w-full max-w-3xl mx-4 max-h-[90vh] flex flex-col" onClick={e => e.stopPropagation()}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60" onClick={onClose}>
+      <div className="bg-card border border-border rounded-lg w-full max-w-3xl mx-4 max-h-[90vh] flex flex-col" onClick={e => e.stopPropagation()}>
         {/* Header */}
-        <div className="p-6 border-b border-white/10">
+        <div className="p-6 border-b border-border">
           <div className="flex items-start justify-between">
             <div>
               <div className="flex items-center gap-3 mb-1">
-                <h2 className="text-xl font-bold text-white">{classInfo.classCode}</h2>
+                <h2 className="text-xl font-bold text-foreground">{classInfo.classCode}</h2>
                 <span className={`px-2.5 py-0.5 rounded-full text-xs font-semibold border ${STATUS_STYLES[classInfo.status]}`}>
                   {classInfo.status}
                 </span>
               </div>
-              <p className="text-slate-400">{classInfo.courseName}</p>
+              <p className="text-muted-foreground">{classInfo.courseName}</p>
             </div>
-            <button onClick={onClose} className="text-slate-500 hover:text-white text-xl transition-colors">✕</button>
+            <button onClick={onClose} className="text-subtle-foreground hover:text-foreground text-xl transition-colors">✕</button>
           </div>
 
           {/* Class meta - editable */}
-          <div className="mt-4 bg-muted border border-border rounded-xl p-4">
+          <div className="mt-4 bg-muted border border-border rounded-md p-4">
             <div className="flex items-center justify-between mb-3">
-              <h3 className="text-sm font-semibold text-slate-300">📊 Course Settings</h3>
+              <h3 className="text-sm font-semibold text-muted-foreground">📊 Course Settings</h3>
               {!editingClass ? (
                 <button onClick={() => setEditingClass(true)}
                   className="px-3 py-1 rounded-lg text-xs text-primary hover:bg-primary/10 transition-all">
@@ -135,9 +136,9 @@ function SessionPanel({ classId, classInfo, onClose, onClassUpdated }) {
               ) : (
                 <div className="flex gap-2">
                   <button onClick={() => setEditingClass(false)}
-                    className="px-3 py-1 rounded-lg text-xs text-slate-400 hover:bg-white/5 transition-all">Cancel</button>
+                    className="px-3 py-1 rounded-lg text-xs text-muted-foreground hover:bg-accent transition-all">Cancel</button>
                   <button onClick={handleSaveClass} disabled={savingClass}
-                    className="px-3 py-1 rounded-lg text-xs bg-primary/20 text-primary hover:bg-primary/30 transition-all disabled:opacity-50">
+                    className="px-3 py-1 rounded-lg text-xs bg-primary/15 text-primary hover:bg-primary/30 transition-all disabled:opacity-50">
                     {savingClass ? 'Saving...' : '💾 Save'}
                   </button>
                 </div>
@@ -146,12 +147,12 @@ function SessionPanel({ classId, classInfo, onClose, onClassUpdated }) {
 
             <div className="grid grid-cols-3 gap-4">
               <div>
-                <span className="text-[10px] text-slate-500 uppercase tracking-wider">Status</span>
+                <span className="text-[10px] text-subtle-foreground uppercase tracking-wider">Status</span>
                 {editingClass ? (
                   <select value={classForm.status} onChange={e => setClassForm(p => ({ ...p, status: e.target.value }))}
-                    className="mt-1 w-full px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-white text-sm focus:outline-none focus:ring-2 focus:ring-primary/50">
-                    <option value="Ongoing" className="bg-slate-800">Ongoing</option>
-                    <option value="Completed" className="bg-slate-800">Completed</option>
+                    className="mt-1 w-full px-3 py-2 rounded-md bg-background border border-input text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring transition-colors">
+                    <option value="Ongoing" className="bg-popover">Ongoing</option>
+                    <option value="Completed" className="bg-popover">Completed</option>
                   </select>
                 ) : (
                   <div className={`mt-1 px-2.5 py-1.5 rounded-lg text-sm font-semibold border ${STATUS_STYLES[classInfo.status]}`}>
@@ -160,23 +161,23 @@ function SessionPanel({ classId, classInfo, onClose, onClassUpdated }) {
                 )}
               </div>
               <div>
-                <span className="text-[10px] text-slate-500 uppercase tracking-wider">Total Sessions</span>
+                <span className="text-[10px] text-subtle-foreground uppercase tracking-wider">Total Sessions</span>
                 {editingClass ? (
                   <input type="number" min={1} value={classForm.totalSessions}
                     onChange={e => setClassForm(p => ({ ...p, totalSessions: Number(e.target.value) }))}
-                    className="mt-1 w-full px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-white text-sm focus:outline-none focus:ring-2 focus:ring-primary/50" />
+                    className="mt-1 w-full px-3 py-2 rounded-md bg-background border border-input text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring transition-colors" />
                 ) : (
-                  <div className="mt-1 text-white text-lg font-bold">{classInfo.totalSessions}</div>
+                  <div className="mt-1 text-foreground text-lg font-bold">{classInfo.totalSessions}</div>
                 )}
               </div>
               <div>
-                <span className="text-[10px] text-slate-500 uppercase tracking-wider">Progress</span>
-                <div className="mt-1 text-white text-lg font-bold">
+                <span className="text-[10px] text-subtle-foreground uppercase tracking-wider">Progress</span>
+                <div className="mt-1 text-foreground text-lg font-bold">
                   {classInfo.bookedSessions} / {classInfo.totalSessions}
-                  <span className="text-xs text-slate-500 ml-2">({progress}%)</span>
+                  <span className="text-xs text-subtle-foreground ml-2">({progress}%)</span>
                 </div>
-                <div className="mt-1 h-1.5 rounded-full bg-white/5 overflow-hidden">
-                  <div className={`h-full rounded-full transition-all ${progress >= 100 ? 'bg-blue-500' : progress >= 50 ? 'bg-emerald-500' : 'bg-amber-500'}`}
+                <div className="mt-1 h-1.5 rounded-full bg-muted overflow-hidden">
+                  <div className={`h-full rounded-full transition-all ${progress >= 100 ? 'bg-info' : progress >= 50 ? 'bg-success' : 'bg-warning'}`}
                     style={{ width: `${Math.min(100, progress)}%` }} />
                 </div>
               </div>
@@ -186,25 +187,25 @@ function SessionPanel({ classId, classInfo, onClose, onClassUpdated }) {
 
         {/* Sessions list */}
         <div className="flex-1 overflow-y-auto p-6 pt-4">
-          <h3 className="text-sm font-semibold text-slate-300 mb-3">
+          <h3 className="text-sm font-semibold text-muted-foreground mb-3">
             📅 Sessions ({sessions.length})
           </h3>
 
           {loading ? (
             <div className="flex items-center justify-center py-10">
-              <div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+              <Spinner size={24} />
             </div>
           ) : sessions.length === 0 ? (
-            <div className="py-10 text-center text-slate-500">No sessions scheduled yet</div>
+            <div className="py-10 text-center text-subtle-foreground">No sessions scheduled yet</div>
           ) : (
             <div className="space-y-2">
               {sessions.map((s, idx) => {
                 const isEditing = editingSession === s._id;
                 return (
-                  <div key={s._id} className={`rounded-xl border transition-all ${
+                  <div key={s._id} className={`rounded-md border transition-all ${
                     isEditing
                       ? 'bg-primary/10 border-primary/20'
-                      : 'bg-muted border border-border border-white/5 hover:border-white/10'
+                      : 'bg-muted border border-border hover:border-border'
                   }`}>
                     <div className="flex items-center gap-3 px-4 py-3">
                       {/* Session number */}
@@ -216,24 +217,24 @@ function SessionPanel({ classId, classInfo, onClose, onClassUpdated }) {
                       {isEditing ? (
                         <div className="flex-1 flex items-center gap-3">
                           <div className="flex-1">
-                            <label className="text-[10px] text-slate-500">Start</label>
+                            <label className="text-[10px] text-subtle-foreground">Start</label>
                             <input type="datetime-local" value={sessionForm.startTime}
                               onChange={e => setSessionForm(p => ({ ...p, startTime: e.target.value }))}
-                              className="w-full px-2 py-1.5 rounded-lg bg-white/5 border border-white/10 text-white text-sm focus:outline-none focus:ring-2 focus:ring-primary/50" />
+                              className="w-full px-2 py-1.5 rounded-md bg-background border border-input text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring transition-colors" />
                           </div>
                           <div className="flex-1">
-                            <label className="text-[10px] text-slate-500">End</label>
+                            <label className="text-[10px] text-subtle-foreground">End</label>
                             <input type="datetime-local" value={sessionForm.endTime}
                               onChange={e => setSessionForm(p => ({ ...p, endTime: e.target.value }))}
-                              className="w-full px-2 py-1.5 rounded-lg bg-white/5 border border-white/10 text-white text-sm focus:outline-none focus:ring-2 focus:ring-primary/50" />
+                              className="w-full px-2 py-1.5 rounded-md bg-background border border-input text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring transition-colors" />
                           </div>
                         </div>
                       ) : (
                         <div className="flex-1 min-w-0">
-                          <div className="text-white text-sm font-medium">
+                          <div className="text-foreground text-sm font-medium">
                             {formatDate(s.startTime)}
                           </div>
-                          <div className="text-slate-400 text-xs">
+                          <div className="text-muted-foreground text-xs">
                             {formatTime(s.startTime)} — {formatTime(s.endTime)}
                           </div>
                         </div>
@@ -248,8 +249,8 @@ function SessionPanel({ classId, classInfo, onClose, onClassUpdated }) {
 
                       {/* Enrolled count */}
                       <div className="shrink-0 text-center">
-                        <div className="text-xs text-slate-500">Enrolled</div>
-                        <div className="text-sm font-bold text-white">
+                        <div className="text-xs text-subtle-foreground">Enrolled</div>
+                        <div className="text-sm font-bold text-foreground">
                           {s.enrolledUsers?.length || s.enrolledCount || 0}
                         </div>
                       </div>
@@ -259,17 +260,17 @@ function SessionPanel({ classId, classInfo, onClose, onClassUpdated }) {
                         {isEditing ? (
                           <>
                             <button onClick={() => setEditingSession(null)}
-                              className="px-2.5 py-1.5 rounded-lg text-xs text-slate-400 hover:bg-white/5 transition-all">
+                              className="px-2.5 py-1.5 rounded-lg text-xs text-muted-foreground hover:bg-accent transition-all">
                               Cancel
                             </button>
                             <button onClick={() => handleSaveSession(s._id)} disabled={savingSession}
-                              className="px-2.5 py-1.5 rounded-lg text-xs bg-primary/20 text-primary hover:bg-primary/30 transition-all disabled:opacity-50">
+                              className="px-2.5 py-1.5 rounded-lg text-xs bg-primary/15 text-primary hover:bg-primary/30 transition-all disabled:opacity-50">
                               {savingSession ? '...' : '💾 Save'}
                             </button>
                           </>
                         ) : (
                           <button onClick={() => startEditSession(s)}
-                            className="px-2 py-1.5 rounded-lg text-xs text-slate-400 hover:text-primary hover:bg-primary/10 transition-all">
+                            className="px-2 py-1.5 rounded-lg text-xs text-muted-foreground hover:text-primary hover:bg-primary/10 transition-all">
                             ✏️
                           </button>
                         )}
@@ -338,99 +339,99 @@ export default function CourseManager() {
     <div className="space-y-4">
       {/* Stats cards */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <div className="bg-card border border-border rounded-xl p-4">
-          <div className="text-xs text-slate-500 mb-1">Total Classes</div>
+        <div className="bg-card border border-border rounded-md p-4">
+          <div className="text-xs text-subtle-foreground mb-1">Total Classes</div>
           <div className="text-h1 text-foreground">{stats.total}</div>
         </div>
-        <div className="bg-card border border-border rounded-xl p-4">
-          <div className="text-xs text-emerald-400 mb-1">🟢 Ongoing</div>
-          <div className="text-2xl font-bold text-emerald-300">{stats.ongoing}</div>
+        <div className="bg-card border border-border rounded-md p-4">
+          <div className="text-xs text-success mb-1">🟢 Ongoing</div>
+          <div className="text-2xl font-bold text-success">{stats.ongoing}</div>
         </div>
-        <div className="bg-card border border-border rounded-xl p-4">
-          <div className="text-xs text-blue-400 mb-1">✅ Completed</div>
-          <div className="text-2xl font-bold text-blue-300">{stats.completed}</div>
+        <div className="bg-card border border-border rounded-md p-4">
+          <div className="text-xs text-info mb-1">✅ Completed</div>
+          <div className="text-2xl font-bold text-info">{stats.completed}</div>
         </div>
-        <div className="bg-card border border-border rounded-xl p-4">
-          <div className="text-xs text-slate-500 mb-1">Total Sessions</div>
+        <div className="bg-card border border-border rounded-md p-4">
+          <div className="text-xs text-subtle-foreground mb-1">Total Sessions</div>
           <div className="text-h1 text-foreground">
-            {stats.bookedSessions} <span className="text-sm text-slate-500">/ {stats.totalSessions}</span>
+            {stats.bookedSessions} <span className="text-sm text-subtle-foreground">/ {stats.totalSessions}</span>
           </div>
         </div>
       </div>
 
       {/* Search & Filter */}
-      <div className="bg-card border border-border rounded-2xl px-5 py-4 flex flex-col sm:flex-row gap-3 items-stretch sm:items-center">
+      <div className="bg-card border border-border rounded-lg px-5 py-4 flex flex-col sm:flex-row gap-3 items-stretch sm:items-center">
         <div className="relative flex-1">
-          <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+          <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-subtle-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
           </svg>
           <input type="text" value={search} onChange={e => setSearch(e.target.value)}
             placeholder="Search class code or course name..."
-            className="w-full pl-10 pr-8 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white text-sm placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all" />
+            className="w-full pl-10 pr-8 py-2.5 rounded-md bg-background border border-input text-foreground text-sm placeholder:text-subtle-foreground focus:outline-none focus:ring-2 focus:ring-ring transition-colors" />
           {search && (
-            <button onClick={() => setSearch('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-white text-sm">✕</button>
+            <button onClick={() => setSearch('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground text-sm">✕</button>
           )}
         </div>
 
-        <div className="flex rounded-xl border border-white/10 overflow-hidden shrink-0">
+        <div className="flex rounded-md border border-border overflow-hidden shrink-0">
           {['all', 'Ongoing', 'Completed'].map(s => (
             <button key={s} onClick={() => setStatusFilter(s)}
               className={`px-3 py-2 text-xs font-medium transition-all ${
-                statusFilter === s ? 'bg-primary/20 text-primary' : 'text-slate-500 hover:text-slate-300 hover:bg-white/5'
-              } ${s !== 'all' ? 'border-l border-white/10' : ''}`}>
+                statusFilter === s ? 'bg-primary/15 text-primary' : 'text-subtle-foreground hover:text-foreground hover:bg-accent'
+              } ${s !== 'all' ? 'border-l border-border' : ''}`}>
               {s === 'all' ? 'All' : s}
             </button>
           ))}
         </div>
 
-        <div className="text-xs text-slate-500 shrink-0">{filtered.length} classes</div>
+        <div className="text-xs text-subtle-foreground shrink-0">{filtered.length} classes</div>
       </div>
 
       {/* Class table */}
       {loading ? (
         <div className="flex items-center justify-center py-20">
-          <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+          <Spinner size={28} />
         </div>
       ) : (
-        <div className="bg-card border border-border rounded-2xl overflow-hidden border border-white/5">
+        <div className="bg-card border border-border rounded-lg overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full border-collapse min-w-[700px]">
               <thead>
                 <tr>
-                  <th className="sticky left-0 z-20 bg-slate-900/95 backdrop-blur-sm px-4 py-3 border-b border-white/10 text-left text-xs text-slate-400 font-semibold uppercase tracking-wider">Class</th>
-                  <th className="px-4 py-3 border-b border-white/10 text-left text-xs text-slate-400 font-semibold uppercase tracking-wider">Course</th>
-                  <th className="px-4 py-3 border-b border-white/10 text-center text-xs text-slate-400 font-semibold uppercase tracking-wider">Status</th>
-                  <th className="px-4 py-3 border-b border-white/10 text-center text-xs text-slate-400 font-semibold uppercase tracking-wider">Sessions</th>
-                  <th className="px-4 py-3 border-b border-white/10 text-center text-xs text-slate-400 font-semibold uppercase tracking-wider w-48">Progress</th>
-                  <th className="px-4 py-3 border-b border-white/10 text-center text-xs text-slate-400 font-semibold uppercase tracking-wider">Actions</th>
+                  <th className="sticky left-0 z-20 bg-card px-4 py-3 border-b border-border text-left text-xs text-muted-foreground font-semibold uppercase tracking-wider">Class</th>
+                  <th className="px-4 py-3 border-b border-border text-left text-xs text-muted-foreground font-semibold uppercase tracking-wider">Course</th>
+                  <th className="px-4 py-3 border-b border-border text-center text-xs text-muted-foreground font-semibold uppercase tracking-wider">Status</th>
+                  <th className="px-4 py-3 border-b border-border text-center text-xs text-muted-foreground font-semibold uppercase tracking-wider">Sessions</th>
+                  <th className="px-4 py-3 border-b border-border text-center text-xs text-muted-foreground font-semibold uppercase tracking-wider w-48">Progress</th>
+                  <th className="px-4 py-3 border-b border-border text-center text-xs text-muted-foreground font-semibold uppercase tracking-wider">Actions</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-white/5">
+              <tbody className="divide-y divide-border">
                 {filtered.map(c => {
                   const pct = c.totalSessions > 0 ? Math.round((c.bookedSessions / c.totalSessions) * 100) : 0;
                   return (
-                    <tr key={c._id} className="hover:bg-white/[0.03] transition-colors cursor-pointer"
+                    <tr key={c._id} className="hover:bg-muted/20 transition-colors cursor-pointer"
                       onClick={() => setSelectedClass(c)}>
-                      <td className="sticky left-0 z-10 bg-slate-900/95 backdrop-blur-sm px-4 py-3 border-r border-white/5">
+                      <td className="sticky left-0 z-10 bg-card px-4 py-3 border-r border-border">
                         <span className="font-mono font-bold text-primary">{c.classCode}</span>
                       </td>
-                      <td className="px-4 py-3 text-white text-sm">{c.courseName}</td>
+                      <td className="px-4 py-3 text-foreground text-sm">{c.courseName}</td>
                       <td className="px-4 py-3 text-center">
                         <span className={`px-2.5 py-1 rounded-full text-[10px] font-semibold border ${STATUS_STYLES[c.status]}`}>
                           {c.status}
                         </span>
                       </td>
                       <td className="px-4 py-3 text-center">
-                        <span className="text-white font-bold">{c.bookedSessions}</span>
-                        <span className="text-slate-500"> / {c.totalSessions}</span>
+                        <span className="text-foreground font-bold">{c.bookedSessions}</span>
+                        <span className="text-subtle-foreground"> / {c.totalSessions}</span>
                       </td>
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-2">
-                          <div className="flex-1 h-2 rounded-full bg-white/5 overflow-hidden">
-                            <div className={`h-full rounded-full transition-all ${pct >= 100 ? 'bg-blue-500' : pct >= 50 ? 'bg-emerald-500' : 'bg-amber-500'}`}
+                          <div className="flex-1 h-2 rounded-full bg-muted overflow-hidden">
+                            <div className={`h-full rounded-full transition-all ${pct >= 100 ? 'bg-info' : pct >= 50 ? 'bg-success' : 'bg-warning'}`}
                               style={{ width: `${Math.min(100, pct)}%` }} />
                           </div>
-                          <span className="text-xs text-slate-400 w-10 text-right">{pct}%</span>
+                          <span className="text-xs text-muted-foreground w-10 text-right">{pct}%</span>
                         </div>
                       </td>
                       <td className="px-4 py-3 text-center">
