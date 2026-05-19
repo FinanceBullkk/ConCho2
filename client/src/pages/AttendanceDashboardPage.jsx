@@ -1,9 +1,10 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useAttendanceAnalyticsByEmployee, useAttendanceAnalyticsByTeam, useAttendanceAnalyticsByClass } from '../hooks/useAttendance';
 import { useClasses } from '../hooks/useClasses';
 import { useExportStats, useDownloadAttendance } from '../hooks/useExport';
 import { Button } from '@/components/ui/button';
 import { Spinner } from '../components/Spinner';
+import { DataTable } from '../components/DataTable';
 
 export default function AttendanceDashboardPage() {
   const [activeTab, setActiveTab] = useState('employee'); // employee, team, class
@@ -81,6 +82,35 @@ export default function AttendanceDashboardPage() {
       </div>
     );
   };
+
+  const employeeColumns = useMemo(() => [
+    {
+      key: 'name',
+      header: 'Employee',
+      render: (row) => (
+        <div>
+          <div className="font-semibold text-foreground">{row.name}</div>
+          <div className="text-xs text-subtle-foreground">{row.empCode} · {row.department}</div>
+        </div>
+      ),
+    },
+    { key: 'totalSessions', header: 'Total' },
+    { key: 'present',  header: 'P',  headerCls: 'text-success' },
+    { key: 'absent',   header: 'A',  headerCls: 'text-destructive' },
+    { key: 'late',     header: 'L',  headerCls: 'text-warning' },
+    { key: 'excused',  header: 'EL', headerCls: 'text-info' },
+    {
+      key: 'attendanceRate',
+      header: 'Rate',
+      cellCls: 'w-44',
+      render: (row) => (
+        <div>
+          <span className="text-xs text-muted-foreground">{row.attendanceRate}%</span>
+          {renderProgressBar(row.attendanceRate)}
+        </div>
+      ),
+    },
+  ], []);
 
   return (
     <div className="space-y-6 ">
@@ -167,47 +197,13 @@ export default function AttendanceDashboardPage() {
 
           {/* Employee Tab */}
           {activeTab === 'employee' && (
-            <div className="bg-card border border-border rounded-lg overflow-hidden">
-              <div className="overflow-x-auto">
-                <table className="w-full text-left border-collapse">
-                  <thead>
-                    <tr className="bg-accent border-b border-border text-muted-foreground text-sm">
-                      <th className="p-4 font-semibold">Employee</th>
-                      <th className="p-4 font-semibold">Total Sessions</th>
-                      <th className="p-4 font-semibold text-success">P</th>
-                      <th className="p-4 font-semibold text-destructive">A</th>
-                      <th className="p-4 font-semibold text-warning">L</th>
-                      <th className="p-4 font-semibold text-info">EL</th>
-                      <th className="p-4 font-semibold">Attendance Rate</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-border text-muted-foreground">
-                    {Array.isArray(data) && data.map((row, idx) => (
-                      <tr key={idx} className="hover:bg-accent transition-colors">
-                        <td className="p-4">
-                          <div className="font-semibold text-foreground">{row.name}</div>
-                          <div className="text-xs text-subtle-foreground">{row.empCode} • {row.department}</div>
-                        </td>
-                        <td className="p-4">{row.totalSessions}</td>
-                        <td className="p-4">{row.present}</td>
-                        <td className="p-4">{row.absent}</td>
-                        <td className="p-4">{row.late}</td>
-                        <td className="p-4">{row.excused}</td>
-                        <td className="p-4 w-48">
-                          <div className="flex justify-between text-xs mb-1">
-                            <span>{row.attendanceRate}%</span>
-                          </div>
-                          {renderProgressBar(row.attendanceRate)}
-                        </td>
-                      </tr>
-                    ))}
-                    {(!Array.isArray(data) || data.length === 0) && (
-                      <tr><td colSpan="7" className="p-4 text-center text-subtle-foreground">No data found</td></tr>
-                    )}
-                  </tbody>
-                </table>
-              </div>
-            </div>
+            <DataTable
+              columns={employeeColumns}
+              data={Array.isArray(data) ? data : []}
+              rowKey="empCode"
+              emptyTitle="No attendance data"
+              emptyMessage="No records found."
+            />
           )}
 
           {/* Team Tab */}
