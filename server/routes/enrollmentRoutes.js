@@ -6,6 +6,8 @@ const {
   updateEnrollment,
   checkConflicts,
   transferEnrollment,
+  bulkUpdateEnrollmentStatus,
+  bulkTransferEnrollment,
 } = require('../controllers/enrollmentController');
 const { protect } = require('../middleware/auth');
 const { roleGuard } = require('../middleware/roleGuard');
@@ -15,6 +17,9 @@ router.use(protect, roleGuard('Admin'));
 
 router.get('/', getEnrollments);
 router.post('/check-conflicts', checkConflicts);
+// ── Bulk operations (Screen 4 Roster tab) ─────────────────
+router.post('/bulk-transfer', bulkTransferEnrollment);
+router.patch('/bulk-status', bulkUpdateEnrollmentStatus);
 router.get('/team/:teamId', getTeamEnrollments);
 router.get('/user/:userId', getUserEnrollments);
 router.put('/:id', updateEnrollment);

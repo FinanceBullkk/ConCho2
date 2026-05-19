@@ -382,4 +382,116 @@ const transferEnrollment = async (req, res) => {
   }
 };
 
-module.exports = { getEnrollments, getTeamEnrollments, getUserEnrollments, updateEnrollment, checkConflicts, transferEnrollment };
+// ──────────────────────────────────────────────────────────
+// PATCH /api/enrollments/bulk-status
+// Bulk status change (Active / On-hold / Dropped) for N enrollments.
+// Body: { enrollmentIds: [string], status: string, note?: string }
+// ──────────────────────────────────────────────────────────
+const bulkUpdateEnrollmentStatus = async (req, res) => {
+  try {
+    const { enrollmentIds, status, note } = req.body;
+    if (!Array.isArray(enrollmentIds) || enrollmentIds.length === 0) {
+      return res.status(400).json({ success: false, message: 'enrollmentIds must be a non-empty array' });
+    }
+    const ALLOWED = ['Active', 'On-hold', 'Dropped'];
+    if (!ALLOWED.includes(status)) {
+      return res.status(400).json({ success: false, message: `status must be one of ${ALLOWED.join(', ')}` });
+    }
+
+    const update = { status };
+    if (status === 'Active') update.leftAt = null;
+    else                     update.leftAt = new Date();
+    if (note !== undefined) update.note = note;
+
+    const result = await Enrollment.updateMany(
+      { _id: { $in: enrollmentIds } },
+      update,
+    );
+
+    auditService.record({
+      req, action: 'bulk-status-change', entity: 'Enrollment',
+      entityId: null, diff: { enrollmentIds, status, modifiedCount: result.modifiedCount },
+    });
+    invalidateAnalyticsCache();
+
+    res.json({
+      success: true,
+      modifiedCount: result.modifiedCount,
+      message: `${result.modifiedCount} enrollment(s) updated to ${status}`,
+    });
+  } catch (error) {
+    handleError(res, error);
+  }
+};
+
+// ──────────────────────────────────────────────────────────
+// POST /api/enrollments/bulk-transfer
+// Sequentially transfers N enrollments to the same target team.
+// Body: { enrollmentIds: [string], toTeamId: string, note?: string }
+// Returns: { success: true, results: [{enrollmentId, status, message?}] }
+//
+// Uses the existing single-transfer logic per id (correct + auditable).
+// Performance: O(N); acceptable for typical bulk size (1–20 students).
+// ──────────────────────────────────────────────────────────
+const bulkTransferEnrollment = async (req, res) => {
+  try {
+    const { enrollmentIds, toTeamId, note } = req.body;
+    if (!Array.isArray(enrollmentIds) || enrollmentIds.length === 0) {
+      return res.status(400).json({ success: false, message: 'enrollmentIds must be a non-empty array' });
+    }
+    if (!toTeamId) {
+      return res.status(400).json({ success: false, message: 'toTeamId is required' });
+    }
+
+    const results = [];
+    let ok = 0, failed = 0;
+    for (const id of enrollmentIds) {
+      // Reuse the single-transfer controller by shimming a minimal req/res.
+      // It already handles validation, transactions, audit and cache invalidation.
+      let captured = null;
+      const shimRes = {
+        status(code) { this._code = code; return this; },
+        json(payload) { captured = { code: this._code || 200, payload }; },
+      };
+      const shimReq = {
+        ...req,
+        params: { id },
+        body: { toTeamId, note },
+      };
+      try {
+        await transferEnrollment(shimReq, shimRes);
+        if (captured?.payload?.success) {
+          results.push({ enrollmentId: id, status: 'ok' });
+          ok += 1;
+        } else {
+          results.push({
+            enrollmentId: id, status: 'error',
+            message: captured?.payload?.message || 'Unknown error',
+          });
+          failed += 1;
+        }
+      } catch (err) {
+        results.push({ enrollmentId: id, status: 'error', message: err.message });
+        failed += 1;
+      }
+    }
+
+    logger.info({ enrollmentIds, toTeamId, ok, failed }, 'Bulk transfer complete');
+    invalidateAnalyticsCache();
+
+    res.json({ success: true, results, ok, failed });
+  } catch (error) {
+    handleError(res, error);
+  }
+};
+
+module.exports = {
+  getEnrollments,
+  getTeamEnrollments,
+  getUserEnrollments,
+  updateEnrollment,
+  checkConflicts,
+  transferEnrollment,
+  bulkUpdateEnrollmentStatus,
+  bulkTransferEnrollment,
+};
