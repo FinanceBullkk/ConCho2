@@ -74,7 +74,9 @@ export default function BookClassPage() {
     const handler = (e) => { if (e.key === 'Escape') closeDrawer(); };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
-  });
+  // closeDrawer only calls stable state setters — [] is safe
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const weekDays = useMemo(() =>
     Array.from({ length: 7 }, (_, i) => new Date(weekStart.getTime() + i * 86400000)),

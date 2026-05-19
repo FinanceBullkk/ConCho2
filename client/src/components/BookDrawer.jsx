@@ -130,7 +130,7 @@ function BookDrawerContent({
                 [c.bookedTeamId?.name, c.classId?.classCode].filter(Boolean).join(' · ') || 'another session'
               ).join(', ')}
               {conflicts.length > 3 ? ` +${conflicts.length - 3} more` : ''}.
-              {' '}You can still book.
+              {' '}Save is still allowed.
             </span>
           </div>
         )}
