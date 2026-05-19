@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react';
 import { useAttendanceAnalyticsByEmployee, useAttendanceAnalyticsByTeam, useAttendanceAnalyticsByClass } from '../hooks/useAttendance';
 import { useClasses } from '../hooks/useClasses';
 import { useExportStats, useDownloadAttendance } from '../hooks/useExport';
+import { Button } from '@/components/ui/button';
+import { Spinner } from '../components/Spinner';
 
 export default function AttendanceDashboardPage() {
   const [activeTab, setActiveTab] = useState('employee'); // employee, team, class
@@ -69,12 +71,12 @@ export default function AttendanceDashboardPage() {
   };
 
   const renderProgressBar = (rate) => {
-    let color = 'bg-red-500';
-    if (rate >= 90) color = 'bg-emerald-500';
-    else if (rate >= 75) color = 'bg-amber-500';
+    let color = 'bg-destructive';
+    if (rate >= 90) color = 'bg-success';
+    else if (rate >= 75) color = 'bg-warning';
 
     return (
-      <div className="w-full h-2 bg-white/10 rounded-full overflow-hidden mt-1">
+      <div className="w-full h-2 bg-muted rounded-full overflow-hidden mt-1">
         <div className={`h-full ${color} transition-all`} style={{ width: `${rate}%` }} />
       </div>
     );
@@ -85,44 +87,44 @@ export default function AttendanceDashboardPage() {
       <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
         <div>
           <h1 className="text-h1 text-foreground">Attendance Analytics</h1>
-          <p className="text-slate-400 mt-1">Track participation across employees, teams, and classes</p>
+          <p className="text-muted-foreground mt-1">Track participation across employees, teams, and classes</p>
         </div>
       </div>
 
       {/* ── Export Banner ──────────────────────────────────── */}
-      <div className="bg-card border border-border rounded-2xl p-5 border border-white/5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+      <div className="bg-card border border-border rounded-lg p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div className="flex items-center gap-4">
-          <div className="w-12 h-12 rounded-xl bg-emerald-500/10 flex items-center justify-center text-2xl">
+          <div className="w-12 h-12 rounded-md bg-success/10 flex items-center justify-center text-2xl">
             📥
           </div>
           <div>
-            <h3 className="text-white font-semibold">Xuất Dữ Liệu Điểm Danh (HR Export)</h3>
-            <p className="text-sm text-slate-400 mt-0.5">
+            <h3 className="text-foreground font-semibold">Xuất Dữ Liệu Điểm Danh (HR Export)</h3>
+            <p className="text-sm text-muted-foreground mt-0.5">
               {exportStats.pending > 0 ? (
-                <>Có <span className="text-emerald-400 font-bold">{exportStats.pending}</span> bản ghi mới chưa xuất</>
+                <>Có <span className="text-success font-bold">{exportStats.pending}</span> bản ghi mới chưa xuất</>
               ) : (
-                <>Tất cả đã được xuất · <span className="text-slate-500">{exportStats.exported} bản ghi đã xử lý</span></>
+                <>Tất cả đã được xuất · <span className="text-subtle-foreground">{exportStats.exported} bản ghi đã xử lý</span></>
               )}
             </p>
           </div>
         </div>
         <div className="flex items-center gap-3 w-full sm:w-auto">
           {exportMsg && (
-            <span className={`text-sm ${exportMsg.startsWith('✅') ? 'text-emerald-400' : 'text-red-400'}`}>
+            <span className={`text-sm ${exportMsg.startsWith('✅') ? 'text-success' : 'text-destructive'}`}>
               {exportMsg}
             </span>
           )}
-          <button
+          <Button
             onClick={handleExport}
             disabled={downloadMutation.isPending || exportStats.pending === 0}
-            className="flex items-center gap-2 px-5 py-2.5 rounded-xl font-semibold text-sm transition-all
-              bg-emerald-500 hover:bg-emerald-400 text-white shadow-lg shadow-emerald-500/20
-              disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-emerald-500
+            className="flex items-center gap-2 px-5 py-2.5 rounded-md font-semibold text-sm transition-all
+              bg-success hover:bg-success/90 text-success-foreground
+              disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-success
               whitespace-nowrap w-full sm:w-auto justify-center"
           >
             {downloadMutation.isPending ? (
               <>
-                <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                <Spinner size={16} />
                 Đang tải...
               </>
             ) : (
@@ -131,12 +133,12 @@ export default function AttendanceDashboardPage() {
                 Tải Excel ({exportStats.pending})
               </>
             )}
-          </button>
+          </Button>
         </div>
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-2 border-b border-white/10 pb-px">
+      <div className="flex gap-2 border-b border-border pb-px">
         {[
           { id: 'employee', label: 'By Employee' },
           { id: 'team', label: 'By Team' },
@@ -146,9 +148,9 @@ export default function AttendanceDashboardPage() {
             key={tab.id}
             onClick={() => setActiveTab(tab.id)}
             className={`px-4 py-2 text-sm font-semibold border-b-2 transition-all ${
-              activeTab === tab.id 
-                ? 'border-primary text-primary bg-primary/5' 
-                : 'border-transparent text-slate-400 hover:text-slate-200 hover:bg-white/5'
+              activeTab === tab.id
+                ? 'border-primary text-primary bg-primary/5'
+                : 'border-transparent text-muted-foreground hover:text-foreground hover:bg-accent'
             }`}
           >
             {tab.label}
@@ -159,32 +161,32 @@ export default function AttendanceDashboardPage() {
 
 
       {loading ? (
-        <div className="flex items-center justify-center py-20"><div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" /></div>
+        <div className="flex items-center justify-center py-20"><Spinner size={32} /></div>
       ) : (
         <div className="space-y-6">
-          
+
           {/* Employee Tab */}
           {activeTab === 'employee' && (
-            <div className="bg-card border border-border rounded-2xl overflow-hidden">
+            <div className="bg-card border border-border rounded-lg overflow-hidden">
               <div className="overflow-x-auto">
                 <table className="w-full text-left border-collapse">
                   <thead>
-                    <tr className="bg-white/5 border-b border-white/10 text-slate-300 text-sm">
+                    <tr className="bg-accent border-b border-border text-muted-foreground text-sm">
                       <th className="p-4 font-semibold">Employee</th>
                       <th className="p-4 font-semibold">Total Sessions</th>
-                      <th className="p-4 font-semibold text-emerald-400">P</th>
-                      <th className="p-4 font-semibold text-red-400">A</th>
-                      <th className="p-4 font-semibold text-amber-400">L</th>
-                      <th className="p-4 font-semibold text-blue-400">EL</th>
+                      <th className="p-4 font-semibold text-success">P</th>
+                      <th className="p-4 font-semibold text-destructive">A</th>
+                      <th className="p-4 font-semibold text-warning">L</th>
+                      <th className="p-4 font-semibold text-info">EL</th>
                       <th className="p-4 font-semibold">Attendance Rate</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-white/5 text-slate-300">
+                  <tbody className="divide-y divide-border text-muted-foreground">
                     {Array.isArray(data) && data.map((row, idx) => (
-                      <tr key={idx} className="hover:bg-white/5 transition-colors">
+                      <tr key={idx} className="hover:bg-accent transition-colors">
                         <td className="p-4">
-                          <div className="font-semibold text-white">{row.name}</div>
-                          <div className="text-xs text-slate-500">{row.empCode} • {row.department}</div>
+                          <div className="font-semibold text-foreground">{row.name}</div>
+                          <div className="text-xs text-subtle-foreground">{row.empCode} • {row.department}</div>
                         </td>
                         <td className="p-4">{row.totalSessions}</td>
                         <td className="p-4">{row.present}</td>
@@ -200,7 +202,7 @@ export default function AttendanceDashboardPage() {
                       </tr>
                     ))}
                     {(!Array.isArray(data) || data.length === 0) && (
-                      <tr><td colSpan="7" className="p-4 text-center text-slate-500">No data found</td></tr>
+                      <tr><td colSpan="7" className="p-4 text-center text-subtle-foreground">No data found</td></tr>
                     )}
                   </tbody>
                 </table>
@@ -212,36 +214,36 @@ export default function AttendanceDashboardPage() {
           {activeTab === 'team' && (
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
               {Array.isArray(data) && data.map(team => (
-                <div key={team._id} className="bg-card border border-border rounded-2xl p-6 border border-white/5 hover:border-white/10 transition-all">
+                <div key={team._id} className="bg-card border border-border rounded-lg p-6 hover:border-border transition-all">
                   <div className="flex justify-between items-start mb-4">
                     <div>
-                      <h3 className="font-bold text-lg text-white">{team.name}</h3>
-                      <p className="text-sm text-slate-400">{team.memberCount} members</p>
+                      <h3 className="font-bold text-lg text-foreground">{team.name}</h3>
+                      <p className="text-sm text-muted-foreground">{team.memberCount} members</p>
                     </div>
                     <div className="text-2xl font-bold text-primary">{team.stats?.attendanceRate ?? 0}%</div>
                   </div>
                   {renderProgressBar(team.stats?.attendanceRate ?? 0)}
                   <div className="grid grid-cols-4 gap-2 mt-6 text-center text-sm">
-                    <div className="bg-emerald-500/10 rounded-lg p-2">
-                      <div className="text-emerald-400 font-bold">{team.stats?.present ?? 0}</div>
-                      <div className="text-xs text-slate-500">P</div>
+                    <div className="bg-success/10 rounded-lg p-2">
+                      <div className="text-success font-bold">{team.stats?.present ?? 0}</div>
+                      <div className="text-xs text-subtle-foreground">P</div>
                     </div>
-                    <div className="bg-red-500/10 rounded-lg p-2">
-                      <div className="text-red-400 font-bold">{team.stats?.absent ?? 0}</div>
-                      <div className="text-xs text-slate-500">A</div>
+                    <div className="bg-destructive/10 rounded-lg p-2">
+                      <div className="text-destructive font-bold">{team.stats?.absent ?? 0}</div>
+                      <div className="text-xs text-subtle-foreground">A</div>
                     </div>
-                    <div className="bg-amber-500/10 rounded-lg p-2">
-                      <div className="text-amber-400 font-bold">{team.stats?.late ?? 0}</div>
-                      <div className="text-xs text-slate-500">L</div>
+                    <div className="bg-warning/10 rounded-lg p-2">
+                      <div className="text-warning font-bold">{team.stats?.late ?? 0}</div>
+                      <div className="text-xs text-subtle-foreground">L</div>
                     </div>
-                    <div className="bg-blue-500/10 rounded-lg p-2">
-                      <div className="text-blue-400 font-bold">{team.stats?.excused ?? 0}</div>
-                      <div className="text-xs text-slate-500">EL</div>
+                    <div className="bg-info/10 rounded-lg p-2">
+                      <div className="text-info font-bold">{team.stats?.excused ?? 0}</div>
+                      <div className="text-xs text-subtle-foreground">EL</div>
                     </div>
                   </div>
                 </div>
               ))}
-              {(!Array.isArray(data) || data.length === 0) && <div className="text-slate-500">No teams found</div>}
+              {(!Array.isArray(data) || data.length === 0) && <div className="text-subtle-foreground">No teams found</div>}
             </div>
           )}
 
@@ -249,57 +251,57 @@ export default function AttendanceDashboardPage() {
           {activeTab === 'class' && data?.schedules && (
             <div className="space-y-4">
               <div className="flex items-center gap-3">
-                <label className="text-sm text-slate-300">Select Class:</label>
-                <select 
-                  value={selectedClass} 
+                <label className="text-sm text-muted-foreground">Select Class:</label>
+                <select
+                  value={selectedClass}
                   onChange={(e) => setSelectedClass(e.target.value)}
-                  className="px-4 py-2 rounded-xl bg-white/5 border border-white/10 text-white focus:outline-none focus:ring-2 focus:ring-primary/50"
+                  className="px-4 py-2 rounded-md bg-accent border border-border text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
                 >
                   {classes.map(c => (
-                    <option key={c._id} value={c._id} className="bg-slate-800">{c.classCode} - {c.courseName}</option>
+                    <option key={c._id} value={c._id}>{c.classCode} - {c.courseName}</option>
                   ))}
                 </select>
               </div>
 
-              <div className="bg-card border border-border rounded-2xl overflow-hidden">
+              <div className="bg-card border border-border rounded-lg overflow-hidden">
                 <div className="overflow-x-auto">
                   <table className="w-full text-left border-collapse">
                     <thead>
-                      <tr className="bg-white/5 border-b border-white/10 text-slate-300 text-sm">
-                        <th className="p-4 font-semibold sticky left-0 bg-slate-900/90 backdrop-blur-sm border-r border-white/10 z-10 w-48">Student</th>
+                      <tr className="bg-accent border-b border-border text-muted-foreground text-sm">
+                        <th className="p-4 font-semibold sticky left-0 bg-card border-r border-border z-10 w-48">Student</th>
                         <th className="p-4 font-semibold w-24">Rate</th>
                         {data.schedules.map((s, i) => (
-                          <th key={s._id} className="p-4 font-semibold min-w-[80px] text-center border-l border-white/5">
-                            <div className="text-xs text-slate-400">S{i+1}</div>
+                          <th key={s._id} className="p-4 font-semibold min-w-[80px] text-center border-l border-border">
+                            <div className="text-xs text-muted-foreground">S{i+1}</div>
                             <div className="text-xs">{new Date(s.startTime).toLocaleDateString('en', { month: 'numeric', day: 'numeric' })}</div>
                           </th>
                         ))}
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-white/5 text-slate-300">
+                    <tbody className="divide-y divide-border text-muted-foreground">
                       {data.roster.map((row, idx) => (
-                        <tr key={idx} className="hover:bg-white/5 transition-colors">
-                          <td className="p-4 sticky left-0 bg-slate-900/90 backdrop-blur-sm border-r border-white/10 z-10">
-                            <div className="font-semibold text-white whitespace-nowrap">{row.user.name}</div>
-                            <div className="text-xs text-slate-500">{row.user.empCode}</div>
+                        <tr key={idx} className="hover:bg-accent transition-colors">
+                          <td className="p-4 sticky left-0 bg-card border-r border-border z-10">
+                            <div className="font-semibold text-foreground whitespace-nowrap">{row.user.name}</div>
+                            <div className="text-xs text-subtle-foreground">{row.user.empCode}</div>
                           </td>
                           <td className="p-4 font-bold text-primary">{row.attendanceRate}%</td>
                           {data.schedules.map(s => {
                             const status = row.sessions[s._id];
-                            let colors = 'text-slate-600';
-                            if (status === 'P') colors = 'text-emerald-400 bg-emerald-400/10';
-                            if (status === 'A') colors = 'text-red-400 bg-red-400/10';
-                            if (status === 'L') colors = 'text-amber-400 bg-amber-400/10';
-                            if (status === 'EL') colors = 'text-blue-400 bg-blue-400/10';
-                            
+                            let colors = 'text-subtle-foreground';
+                            if (status === 'P') colors = 'text-success bg-success/10';
+                            if (status === 'A') colors = 'text-destructive bg-destructive/10';
+                            if (status === 'L') colors = 'text-warning bg-warning/10';
+                            if (status === 'EL') colors = 'text-info bg-info/10';
+
                             return (
-                              <td key={s._id} className="p-2 border-l border-white/5 text-center">
+                              <td key={s._id} className="p-2 border-l border-border text-center">
                                 {status ? (
                                   <span className={`inline-flex items-center justify-center w-8 h-8 rounded-lg font-bold text-sm ${colors}`}>
                                     {status}
                                   </span>
                                 ) : (
-                                  <span className="text-slate-600">-</span>
+                                  <span className="text-subtle-foreground">-</span>
                                 )}
                               </td>
                             );
@@ -307,7 +309,7 @@ export default function AttendanceDashboardPage() {
                         </tr>
                       ))}
                       {data.roster.length === 0 && (
-                        <tr><td colSpan={data.schedules.length + 2} className="p-4 text-center text-slate-500">No attendance data found for this class</td></tr>
+                        <tr><td colSpan={data.schedules.length + 2} className="p-4 text-center text-subtle-foreground">No attendance data found for this class</td></tr>
                       )}
                     </tbody>
                   </table>
