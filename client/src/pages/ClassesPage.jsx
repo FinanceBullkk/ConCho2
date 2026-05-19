@@ -6,6 +6,8 @@ import { useTeams } from '../hooks/useTeams';
 import { useRole } from '../hooks/useRole';
 import QueryError from '../components/QueryError';
 import TableSkeleton from '../components/TableSkeleton';
+import { Button } from '@/components/ui/button';
+import { Spinner } from '../components/Spinner';
 
 // ──────────────────────────────────────────────────────────
 // Classes Page (v2 — Matrix View)
@@ -53,24 +55,24 @@ function NewCohortModal({ courseNames, onClose, onSaved }) {
 
   return (
     <Portal>
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm" onClick={onClose}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60" onClick={onClose}>
       <form onSubmit={handleSubmit} onClick={(e) => e.stopPropagation()}
-        className="bg-card border border-border rounded-2xl p-6 w-full max-w-md mx-4 space-y-4 ">
-        <h2 className="text-lg font-bold text-white">🆕 Create New Cohort</h2>
-        <p className="text-sm text-slate-400">A new class code (e.g. EL002) will be auto-generated.</p>
-        {error && <div className="px-4 py-2 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-sm">{error}</div>}
+        className="bg-card border border-border rounded-lg p-6 w-full max-w-md mx-4 space-y-4 ">
+        <h2 className="text-h3 text-foreground">🆕 Create New Cohort</h2>
+        <p className="text-sm text-muted-foreground">A new class code (e.g. EL002) will be auto-generated.</p>
+        {error && <div className="px-4 py-2 rounded-md bg-destructive-tint border border-destructive/30 text-destructive text-sm">{error}</div>}
         <div>
-          <label className="block text-sm text-slate-300 mb-1">First Course</label>
+          <label className="block text-small text-muted-foreground mb-1">First Course</label>
           <select value={courseName} onChange={(e) => setCourseName(e.target.value)}
-            className="w-full px-3 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all">
-            {courseNames.map((c) => <option key={c} value={c} className="bg-slate-800">{c}</option>)}
+            className="w-full px-3 h-[--control-h] rounded-md bg-background border border-input text-foreground focus:outline-none focus:ring-2 focus:ring-ring transition-colors">
+            {courseNames.map((c) => <option key={c} value={c} className="bg-popover">{c}</option>)}
           </select>
         </div>
         <div className="flex gap-3 pt-2">
-          <button type="button" onClick={onClose} className="flex-1 py-2.5 rounded-xl border border-white/10 text-slate-400 hover:bg-white/5 transition-all">Cancel</button>
-          <button type="submit" disabled={createMutation.isPending} className="flex-1 py-2.5 rounded-xl bg-gradient-to-r from-primary to-primary text-white font-semibold disabled:opacity-50 transition-all">
+          <Button type="button" variant="outline" onClick={onClose} className="flex-1">Cancel</Button>
+          <Button type="submit" disabled={createMutation.isPending} className="flex-1">
             {createMutation.isPending ? 'Creating...' : 'Create Cohort'}
-          </button>
+          </Button>
         </div>
       </form>
     </div>
@@ -112,71 +114,63 @@ function EditClassModal({ cls, onClose }) {
 
   return (
     <Portal>
-      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm" onClick={onClose}>
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60" onClick={onClose}>
         <form onSubmit={handleSubmit} onClick={(e) => e.stopPropagation()}
-          className="bg-card border border-border rounded-2xl p-6 w-full max-w-md mx-4 space-y-4 ">
+          className="bg-card border border-border rounded-lg p-6 w-full max-w-md mx-4 space-y-4 ">
           <div>
-            <h2 className="text-lg font-bold text-white">
+            <h2 className="text-h3 text-foreground">
               ✏️ Chỉnh sửa lớp
             </h2>
-            <p className="text-sm text-slate-400 mt-0.5">
+            <p className="text-sm text-muted-foreground mt-0.5">
               <span className="font-mono text-primary">{cls.classCode}</span>
-              <span className="text-slate-600 mx-1.5">·</span>
+              <span className="text-subtle-foreground mx-1.5">·</span>
               {cls.courseName}
             </p>
           </div>
 
-          {error && <div className="px-4 py-2 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-sm">{error}</div>}
+          {error && <div className="px-4 py-2 rounded-md bg-destructive-tint border border-destructive/30 text-destructive text-sm">{error}</div>}
 
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm text-slate-300 mb-1">Trạng thái</label>
+              <label className="block text-small text-muted-foreground mb-1">Trạng thái</label>
               <select value={status} onChange={(e) => setStatus(e.target.value)}
-                className="w-full px-3 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all">
-                <option value="Ongoing" className="bg-slate-800">🟢 Đang học</option>
-                <option value="Completed" className="bg-slate-800">✓ Đã hoàn thành</option>
+                className="w-full px-3 h-[--control-h] rounded-md bg-background border border-input text-foreground focus:outline-none focus:ring-2 focus:ring-ring transition-colors">
+                <option value="Ongoing" className="bg-popover">🟢 Đang học</option>
+                <option value="Completed" className="bg-popover">✓ Đã hoàn thành</option>
               </select>
             </div>
             <div>
-              <label className="block text-sm text-slate-300 mb-1">Tổng số buổi</label>
+              <label className="block text-small text-muted-foreground mb-1">Tổng số buổi</label>
               <input type="number" value={totalSessions} onChange={(e) => setTotalSessions(Number(e.target.value))} min={1}
-                className="w-full px-4 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all" />
+                className="w-full px-3 h-[--control-h] rounded-md bg-background border border-input text-foreground focus:outline-none focus:ring-2 focus:ring-ring transition-colors" />
             </div>
           </div>
 
           <div className="pt-1 flex items-center justify-between">
             <Link to={`/classes/${cls._id}`}
-              className="text-xs text-slate-500 hover:text-primary transition-colors flex items-center gap-1">
+              className="text-xs text-subtle-foreground hover:text-primary transition-colors flex items-center gap-1">
               Xem chi tiết (Sessions, Roster...) →
             </Link>
           </div>
 
           <div className="flex gap-3 pt-1">
-            <button type="button" onClick={handleDelete} disabled={deleteMutation.isPending}
-              className={`py-2.5 px-4 rounded-xl border transition-all text-sm font-semibold ${
-                confirmDelete
-                  ? 'bg-red-500/30 text-red-300 border-red-500/40 hover:bg-red-500/40'
-                  : 'bg-red-500/10 text-red-400 border-red-500/20 hover:bg-red-500/20'
-              }`}>
+            <Button type="button" variant="destructive" onClick={handleDelete} disabled={deleteMutation.isPending} className="py-2.5 px-4 text-sm font-semibold">
               {deleteMutation.isPending ? 'Đang xoá...' : confirmDelete ? '⚠ Xác nhận xoá?' : 'Xoá'}
-            </button>
+            </Button>
             {!confirmDelete && (
               <>
-                <button type="button" onClick={onClose}
-                  className="flex-1 py-2.5 rounded-xl border border-white/10 text-slate-400 hover:bg-white/5 transition-all">
+                <Button type="button" variant="outline" onClick={onClose} className="flex-1">
                   Huỷ
-                </button>
-                <button type="submit" disabled={updateMutation.isPending}
-                  className="flex-1 py-2.5 rounded-xl bg-gradient-to-r from-primary to-primary text-white font-semibold disabled:opacity-50 transition-all">
+                </Button>
+                <Button type="submit" disabled={updateMutation.isPending} className="flex-1">
                   {updateMutation.isPending ? 'Đang lưu...' : 'Lưu'}
-                </button>
+                </Button>
               </>
             )}
             {confirmDelete && (
-              <button type="button" onClick={() => setConfirmDelete(false)}
-                className="flex-1 py-2.5 rounded-xl border border-white/10 text-slate-400 hover:bg-white/5 transition-all">
+              <Button type="button" variant="outline" onClick={() => setConfirmDelete(false)} className="flex-1">
                 Không xoá
-              </button>
+              </Button>
             )}
           </div>
         </form>
@@ -279,7 +273,7 @@ export default function ClassesPage() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-h1 text-foreground">Class Management</h1>
-          <p className="text-slate-400 mt-1">
+          <p className="text-muted-foreground mt-1">
             {classCodes.length} cohort{classCodes.length !== 1 ? 's' : ''}
             {hasActiveFilter && ` (filtered from ${new Set(classes.map(c => c.classCode)).size})`}
             {' · '}{filteredClasses.length} class{filteredClasses.length !== 1 ? 'es' : ''}
@@ -287,17 +281,16 @@ export default function ClassesPage() {
           </p>
         </div>
         {canCreate && (
-          <button onClick={() => setCohortModal(true)}
-            className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-primary to-primary text-white font-semibold hover:from-primary hover:to-primary transition-all shadow-lg shadow-primary/20 self-start">
+          <Button onClick={() => setCohortModal(true)} className="self-start">
             + New Cohort
-          </button>
+          </Button>
         )}
       </div>
 
       {/* ── Search & Filter Bar ───────────────────────────── */}
-      <div className="bg-card border border-border rounded-2xl px-5 py-4 flex flex-wrap gap-3 items-center">
+      <div className="bg-card border border-border rounded-lg px-5 py-4 flex flex-wrap gap-3 items-center">
         <div className="relative flex-1 min-w-[200px] max-w-sm">
-          <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+          <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-subtle-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
           </svg>
           <input
@@ -306,79 +299,79 @@ export default function ClassesPage() {
             onChange={(e) => setParam('q', e.target.value)}
             placeholder="Search by class code, course, or team..."
             aria-label="Search classes"
-            className="w-full pl-10 pr-4 py-2 rounded-xl bg-white/5 border border-white/10 text-white text-sm placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all"
+            className="w-full pl-10 pr-4 py-2 rounded-md bg-background border border-input text-foreground text-sm placeholder:text-subtle-foreground focus:outline-none focus:ring-2 focus:ring-ring transition-colors"
           />
         </div>
         <select
           value={statusFilter}
           onChange={(e) => setParam('status', e.target.value)}
           aria-label="Filter by status"
-          className="px-3 py-2 rounded-xl bg-white/5 border border-white/10 text-white text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+          className="px-3 h-[--control-h] rounded-md bg-background border border-input text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring transition-colors"
         >
-          <option value="" className="bg-slate-800">Tất cả</option>
-          <option value="Ongoing" className="bg-slate-800">🟢 Đang học</option>
-          <option value="Completed" className="bg-slate-800">✓ Đã hoàn thành</option>
+          <option value="" className="bg-popover">Tất cả</option>
+          <option value="Ongoing" className="bg-popover">🟢 Đang học</option>
+          <option value="Completed" className="bg-popover">✓ Đã hoàn thành</option>
         </select>
         {hasActiveFilter && (
           <button
             onClick={clearFilters}
-            className="px-3 py-2 rounded-xl bg-white/5 border border-white/10 text-slate-300 text-sm hover:bg-white/10 transition-all"
+            className="px-3 py-2 rounded-md bg-accent border border-border text-muted-foreground text-sm hover:bg-accent/80 transition-all"
           >
             ✕ Clear
           </button>
         )}
-        <button onClick={refetchClasses} className="ml-auto px-3 py-2 rounded-xl bg-white/5 border border-white/10 text-slate-300 text-sm hover:bg-white/10 transition-all">
+        <button onClick={refetchClasses} className="ml-auto px-3 py-2 rounded-md bg-accent border border-border text-muted-foreground text-sm hover:bg-accent/80 transition-all">
           ↻ Refresh
         </button>
       </div>
 
       {/* ── Matrix Table ──────────────────────────────────── */}
       {loading ? (
-        <div className="bg-card border border-border rounded-2xl p-6"><TableSkeleton rows={6} cols={5} /></div>
+        <div className="bg-card border border-border rounded-lg p-6"><TableSkeleton rows={6} cols={5} /></div>
       ) : classesError ? (
-        <div className="bg-card border border-border rounded-2xl"><QueryError error={classesErrorObj} onRetry={refetchClasses} /></div>
+        <div className="bg-card border border-border rounded-lg"><QueryError error={classesErrorObj} onRetry={refetchClasses} /></div>
       ) : classCodes.length === 0 ? (
-        <div className="bg-card border border-border rounded-2xl py-16 text-center">
+        <div className="bg-card border border-border rounded-lg py-16 text-center">
           <div className="text-4xl mb-4">{hasActiveFilter ? '🔍' : '📭'}</div>
           {hasActiveFilter ? (
             <>
-              <p className="text-slate-400">No cohorts match your filters.</p>
-              <button onClick={clearFilters} className="mt-3 px-4 py-2 rounded-xl bg-primary/20 text-primary text-sm hover:bg-primary/30 transition-all">
+              <p className="text-muted-foreground">No cohorts match your filters.</p>
+              <button onClick={clearFilters} className="mt-3 px-4 py-2 rounded-md bg-primary/15 text-primary text-sm hover:bg-primary/30 transition-all">
                 Clear filters
               </button>
             </>
           ) : (
-            <p className="text-slate-400">No cohorts yet. Click "+ New Cohort" to get started.</p>
+            <p className="text-muted-foreground">No cohorts yet. Click "+ New Cohort" to get started.</p>
           )}
         </div>
       ) : (
-        <div className="bg-card border border-border rounded-2xl overflow-hidden border border-white/5">
+        <div className="bg-card border border-border rounded-lg overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full border-collapse min-w-[900px]">
               <thead>
                 <tr>
-                  <th className="sticky left-0 z-20 bg-slate-900/95 backdrop-blur-sm px-4 py-3 border-b border-r border-white/10 text-left text-xs text-slate-400 font-semibold uppercase tracking-wider w-28">
+                  <th className="sticky left-0 z-20 bg-card px-4 py-3 border-b border-r border-border text-left text-xs text-muted-foreground font-semibold uppercase tracking-wider w-28">
                     Code
                   </th>
                   {courseNames.map((course) => (
-                    <th key={course} className="px-3 py-3 border-b border-white/10 text-center text-xs text-slate-400 font-semibold uppercase tracking-wider">
+                    <th key={course} className="px-3 py-3 border-b border-border text-center text-xs text-muted-foreground font-semibold uppercase tracking-wider">
                       {SHORT_NAMES[course] || course}
                     </th>
                   ))}
                 </tr>
               </thead>
-              <tbody className="divide-y divide-white/5">
+              <tbody className="divide-y divide-border">
                 {classCodes.map((code) => (
-                  <tr key={code} className="hover:bg-white/[0.02] transition-colors">
+                  <tr key={code} className="hover:bg-muted/20 transition-colors">
                     {/* Row header — Class Code + Team Name */}
-                    <td className="sticky left-0 z-10 bg-slate-900/95 backdrop-blur-sm px-4 py-3 border-r border-white/10">
+                    <td className="sticky left-0 z-10 bg-card px-4 py-3 border-r border-border">
                       <span className="font-mono font-bold text-primary text-sm">{code}</span>
                       {teamByClassCode[code] ? (
-                        <div className="text-[11px] text-slate-500 mt-0.5 truncate max-w-[120px]" title={teamByClassCode[code].name}>
+                        <div className="text-[11px] text-subtle-foreground mt-0.5 truncate max-w-[120px]" title={teamByClassCode[code].name}>
                           👥 {teamByClassCode[code].name}
                         </div>
                       ) : (
-                        <div className="text-[11px] text-slate-600 mt-0.5 italic">No team</div>
+                        <div className="text-[11px] text-subtle-foreground mt-0.5 italic">No team</div>
                       )}
                     </td>
 
@@ -398,41 +391,41 @@ export default function ClassesPage() {
                         const hasTeam = !!teamByClassCode[code];
                         const showWarning = noSessions && !hasTeam;
                         const barColor = isComplete
-                          ? 'bg-slate-500'
-                          : pct >= 80 ? 'bg-amber-500' : 'bg-emerald-500';
+                          ? 'bg-muted-foreground'
+                          : pct >= 80 ? 'bg-warning' : 'bg-success';
 
                         return (
                           <td key={course} className="px-2 py-2 text-center">
                             <button
                               onClick={() => canEdit ? setEditModal(cls) : undefined}
                               title={canEdit ? 'Click để chỉnh sửa' : showWarning ? 'Chưa có nhóm' : undefined}
-                              className={`w-full rounded-xl px-3 py-2.5 transition-all text-left hover:scale-[1.02] ${
+                              className={`w-full rounded-md px-3 py-2.5 transition-all text-left ${
                                 showWarning
-                                  ? 'bg-amber-500/10 border border-amber-500/30 hover:border-amber-400/50'
+                                  ? 'bg-warning/10 border border-warning/30 hover:border-warning/50'
                                   : isComplete
-                                  ? 'bg-slate-500/10 border border-slate-500/15 hover:border-slate-400/30'
-                                  : 'bg-emerald-500/10 border border-emerald-500/15 hover:border-emerald-400/30'
+                                  ? 'bg-muted border border-border hover:border-muted-foreground/30'
+                                  : 'bg-success/10 border border-success/15 hover:border-success/30'
                               }`}
                             >
                               {/* Status badge */}
                               <span className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-semibold ${
                                 showWarning
-                                  ? 'bg-amber-500/20 text-amber-300'
+                                  ? 'bg-warning/20 text-warning'
                                   : isComplete
-                                  ? 'bg-slate-500/20 text-slate-400'
-                                  : 'bg-emerald-500/20 text-emerald-400'
+                                  ? 'bg-muted text-muted-foreground'
+                                  : 'bg-success/20 text-success'
                               }`}>
                                 {showWarning ? '⚠️ No team' : cls.status}
                               </span>
 
                               {/* Session progress */}
                               <div className="mt-2 flex items-baseline gap-1">
-                                <span className="text-lg font-bold text-white">{cls.bookedSessions}</span>
-                                <span className="text-xs text-slate-500">/ {cls.totalSessions}</span>
+                                <span className="text-lg font-bold text-foreground">{cls.bookedSessions}</span>
+                                <span className="text-xs text-subtle-foreground">/ {cls.totalSessions}</span>
                               </div>
 
                               {/* Progress bar */}
-                              <div className="mt-1.5 h-1 rounded-full bg-white/5 overflow-hidden">
+                              <div className="mt-1.5 h-1 rounded-full bg-muted overflow-hidden">
                                 <div className={`h-full rounded-full ${barColor} transition-all`} style={{ width: `${Math.min(pct, 100)}%` }} />
                               </div>
                             </button>
@@ -447,16 +440,16 @@ export default function ClassesPage() {
                             <button
                               onClick={() => handleQuickCreate(code, course)}
                               disabled={isCreating}
-                              className="w-full rounded-xl px-3 py-4 border border-dashed border-white/10 hover:border-primary/30 hover:bg-primary/5 transition-all group disabled:opacity-50"
+                              className="w-full rounded-md px-3 py-4 border border-dashed border-border hover:border-primary/30 hover:bg-primary/5 transition-all group disabled:opacity-50"
                             >
                               {isCreating ? (
-                                <div className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin mx-auto" />
+                                <Spinner size={16} className="mx-auto" />
                               ) : (
-                                <span className="text-slate-600 group-hover:text-primary text-lg transition-colors">+</span>
+                                <span className="text-subtle-foreground group-hover:text-primary text-lg transition-colors">+</span>
                               )}
                             </button>
                           ) : (
-                            <div className="w-full rounded-xl px-3 py-4 border border-dashed border-white/5 text-slate-700 text-xs italic">—</div>
+                            <div className="w-full rounded-md px-3 py-4 border border-dashed border-border text-subtle-foreground text-xs italic">—</div>
                           )}
                         </td>
                       );
@@ -470,17 +463,17 @@ export default function ClassesPage() {
       )}
 
       {/* ── Legend ──────────────────────────────────────────── */}
-      <div className="flex flex-wrap gap-4 text-xs text-slate-400">
+      <div className="flex flex-wrap gap-4 text-xs text-muted-foreground">
         <div className="flex items-center gap-2">
-          <div className="w-3.5 h-3.5 rounded bg-emerald-500/15 border border-emerald-500/20" />
+          <div className="w-3.5 h-3.5 rounded bg-success/15 border border-success/20" />
           <span>Ongoing (click to open)</span>
         </div>
         <div className="flex items-center gap-2">
-          <div className="w-3.5 h-3.5 rounded bg-slate-500/15 border border-slate-500/20" />
+          <div className="w-3.5 h-3.5 rounded bg-muted border border-border" />
           <span>Completed</span>
         </div>
         <div className="flex items-center gap-2">
-          <div className="w-3.5 h-3.5 rounded border border-dashed border-white/15" />
+          <div className="w-3.5 h-3.5 rounded border border-dashed border-border" />
           <span>Not started — click + to create</span>
         </div>
       </div>
