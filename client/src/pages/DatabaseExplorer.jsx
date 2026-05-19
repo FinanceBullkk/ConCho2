@@ -76,7 +76,7 @@ const formatValue = (key, value) => {
   if (typeof value === 'boolean') return <span className={value ? 'text-emerald-400' : 'text-red-400'}>{value.toString()}</span>;
   if (ID_FIELDS.includes(key)) {
     const displayId = typeof value === 'object' ? (value.name || value.classCode || value._id) : value;
-    return <span className="font-mono text-[10px] text-primary-300 bg-primary-500/10 px-1.5 py-0.5 rounded">{shortId(displayId)}</span>;
+    return <span className="font-mono text-[10px] text-primary bg-primary/10 px-1.5 py-0.5 rounded">{shortId(displayId)}</span>;
   }
   if (DATE_FIELDS.includes(key)) return <span className="text-slate-400 text-xs">{formatDate(value)}</span>;
   if (STATUS_COLORS[value]) return <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold ${STATUS_COLORS[value]}`}>{value}</span>;
@@ -129,7 +129,7 @@ function EditModal({ doc, fields, collection, onClose, onSaved }) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm" onClick={onClose}>
       <form onSubmit={handleSubmit} onClick={e => e.stopPropagation()}
-        className="glass rounded-2xl p-6 w-full max-w-2xl mx-4 space-y-4 animate-fade-in max-h-[90vh] overflow-y-auto">
+        className="bg-card border border-border rounded-2xl p-6 w-full max-w-2xl mx-4 space-y-4 max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between">
           <h2 className="text-lg font-bold text-white">✏️ Edit {collection} Document</h2>
           <span className="font-mono text-xs text-slate-500">{doc._id}</span>
@@ -145,14 +145,14 @@ function EditModal({ doc, fields, collection, onClose, onSaved }) {
                   value={form[field]}
                   onChange={e => setForm(p => ({ ...p, [field]: e.target.value }))}
                   rows={3}
-                  className="w-full px-3 py-2 rounded-xl bg-white/5 border border-white/10 text-white text-sm font-mono focus:outline-none focus:ring-2 focus:ring-primary-500/50 transition-all resize-y"
+                  className="w-full px-3 py-2 rounded-xl bg-white/5 border border-white/10 text-white text-sm font-mono focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all resize-y"
                 />
               ) : (
                 <input
                   type="text"
                   value={form[field] === null || form[field] === undefined ? '' : form[field]}
                   onChange={e => setForm(p => ({ ...p, [field]: e.target.value }))}
-                  className="w-full px-3 py-2 rounded-xl bg-white/5 border border-white/10 text-white text-sm font-mono focus:outline-none focus:ring-2 focus:ring-primary-500/50 transition-all"
+                  className="w-full px-3 py-2 rounded-xl bg-white/5 border border-white/10 text-white text-sm font-mono focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all"
                 />
               )}
             </div>
@@ -161,7 +161,7 @@ function EditModal({ doc, fields, collection, onClose, onSaved }) {
 
         <div className="flex gap-3 pt-2">
           <button type="button" onClick={onClose} className="flex-1 py-2.5 rounded-xl border border-white/10 text-slate-400 hover:bg-white/5 transition-all">Cancel</button>
-          <button type="submit" disabled={saving} className="flex-1 py-2.5 rounded-xl bg-gradient-to-r from-primary-600 to-primary-500 text-white font-semibold disabled:opacity-50 transition-all">
+          <button type="submit" disabled={saving} className="flex-1 py-2.5 rounded-xl bg-gradient-to-r from-primary to-primary text-white font-semibold disabled:opacity-50 transition-all">
             {saving ? 'Saving...' : 'Save Changes'}
           </button>
         </div>
@@ -287,21 +287,21 @@ export default function DatabaseExplorer() {
             onClick={() => setActiveCollection(c.name)}
             className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium transition-all border ${
               activeCollection === c.name
-                ? 'bg-primary-500/20 text-primary-300 border-primary-500/30 shadow-sm shadow-primary-500/10'
+                ? 'bg-primary/20 text-primary border-primary/30 shadow-sm shadow-primary/10'
                 : 'text-slate-400 hover:text-white hover:bg-white/5 border-white/5'
             }`}
           >
             <span>{COLLECTION_ICONS[c.name] || '📄'}</span>
             <span>{c.name}</span>
             <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${
-              activeCollection === c.name ? 'bg-primary-500/30 text-primary-200' : 'bg-white/5 text-slate-500'
+              activeCollection === c.name ? 'bg-primary/30 text-primary' : 'bg-white/5 text-slate-500'
             }`}>{c.count}</span>
           </button>
         ))}
       </div>
 
       {/* ── Search & Controls ─────────────────────────────── */}
-      <div className="glass rounded-2xl px-5 py-4 flex flex-col sm:flex-row gap-3 items-stretch sm:items-center">
+      <div className="bg-card border border-border rounded-2xl px-5 py-4 flex flex-col sm:flex-row gap-3 items-stretch sm:items-center">
         <div className="relative flex-1">
           <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
@@ -310,7 +310,7 @@ export default function DatabaseExplorer() {
             type="text" value={search}
             onChange={e => setSearch(e.target.value)}
             placeholder={`Search in ${activeCollection || ''}...`}
-            className="w-full pl-10 pr-8 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white text-sm placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-primary-500/50 transition-all"
+            className="w-full pl-10 pr-8 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white text-sm placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all"
           />
           {search && (
             <button onClick={() => setSearch('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-white text-sm">✕</button>
@@ -320,7 +320,7 @@ export default function DatabaseExplorer() {
         <div className="flex items-center gap-2 shrink-0">
           <span className="text-xs text-slate-500">Sort:</span>
           <select value={sortField} onChange={e => setSortField(e.target.value)}
-            className="px-3 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/50 cursor-pointer">
+            className="px-3 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 cursor-pointer">
             <option value="-updatedAt" className="bg-slate-800">Latest Updated</option>
             <option value="-createdAt" className="bg-slate-800">Latest Created</option>
             <option value="createdAt" className="bg-slate-800">Oldest First</option>
@@ -330,7 +330,7 @@ export default function DatabaseExplorer() {
 
         <label className="flex items-center gap-2 shrink-0 cursor-pointer">
           <input type="checkbox" checked={includeDeleted} onChange={e => setIncludeDeleted(e.target.checked)}
-            className="w-4 h-4 rounded accent-primary-500" />
+            className="w-4 h-4 rounded accent-primary" />
           <span className="text-xs text-slate-400">Include deleted</span>
         </label>
 
@@ -342,10 +342,10 @@ export default function DatabaseExplorer() {
       {/* ── Data Table ─────────────────────────────────────── */}
       {loading ? (
         <div className="flex items-center justify-center py-20">
-          <div className="w-8 h-8 border-2 border-primary-400 border-t-transparent rounded-full animate-spin" />
+          <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
         </div>
       ) : (
-        <div className="glass rounded-2xl overflow-hidden border border-white/5">
+        <div className="bg-card border border-border rounded-2xl overflow-hidden border border-white/5">
           <div className="overflow-x-auto">
             <table className="w-full border-collapse text-sm">
               <thead>
@@ -379,20 +379,20 @@ export default function DatabaseExplorer() {
                         else if (e.key === 'Escape') { e.preventDefault(); cancelCellEdit(); }
                       };
                       if (isEditing) return (
-                        <td key={f} className="px-2 py-1 bg-primary-500/10 border border-primary-500/40 min-w-[140px]">
+                        <td key={f} className="px-2 py-1 bg-primary/10 border border-primary/40 min-w-[140px]">
                           {editingCell.mode === 'datetime' && (
                             <input type="datetime-local" autoFocus disabled={savingCell}
                               value={editingCell.value}
                               onChange={e => setEditingCell(c => ({ ...c, value: e.target.value }))}
                               onBlur={saveCellEdit} onKeyDown={onKey}
-                              className="w-full px-2 py-1 rounded bg-slate-900 border border-white/10 text-white text-xs focus:outline-none focus:ring-1 focus:ring-primary-400" />
+                              className="w-full px-2 py-1 rounded bg-slate-900 border border-white/10 text-white text-xs focus:outline-none focus:ring-1 focus:ring-primary" />
                           )}
                           {editingCell.mode === 'select' && (
                             <select autoFocus disabled={savingCell}
                               value={editingCell.value}
                               onChange={e => setEditingCell(c => ({ ...c, value: e.target.value }))}
                               onBlur={saveCellEdit} onKeyDown={onKey}
-                              className="w-full px-2 py-1 rounded bg-slate-900 border border-white/10 text-white text-xs focus:outline-none focus:ring-1 focus:ring-primary-400">
+                              className="w-full px-2 py-1 rounded bg-slate-900 border border-white/10 text-white text-xs focus:outline-none focus:ring-1 focus:ring-primary">
                               {STATUS_ENUMS[f].map(opt => <option key={opt} value={opt} className="bg-slate-800">{opt}</option>)}
                             </select>
                           )}
@@ -401,7 +401,7 @@ export default function DatabaseExplorer() {
                               value={String(editingCell.value)}
                               onChange={e => setEditingCell(c => ({ ...c, value: e.target.value === 'true' }))}
                               onBlur={saveCellEdit} onKeyDown={onKey}
-                              className="w-full px-2 py-1 rounded bg-slate-900 border border-white/10 text-white text-xs focus:outline-none focus:ring-1 focus:ring-primary-400">
+                              className="w-full px-2 py-1 rounded bg-slate-900 border border-white/10 text-white text-xs focus:outline-none focus:ring-1 focus:ring-primary">
                               <option value="true" className="bg-slate-800">true</option>
                               <option value="false" className="bg-slate-800">false</option>
                             </select>
@@ -411,7 +411,7 @@ export default function DatabaseExplorer() {
                               value={editingCell.value}
                               onChange={e => setEditingCell(c => ({ ...c, value: e.target.value }))}
                               onBlur={saveCellEdit} onKeyDown={onKey}
-                              className="w-full px-2 py-1 rounded bg-slate-900 border border-white/10 text-white text-xs font-mono focus:outline-none focus:ring-1 focus:ring-primary-400" />
+                              className="w-full px-2 py-1 rounded bg-slate-900 border border-white/10 text-white text-xs font-mono focus:outline-none focus:ring-1 focus:ring-primary" />
                           )}
                           {errHere && <div className="text-[10px] text-red-400 mt-0.5">{cellError.message}</div>}
                         </td>
@@ -421,7 +421,7 @@ export default function DatabaseExplorer() {
                           onClick={editable ? () => beginCellEdit(doc, f) : undefined}
                           title={editable ? 'Click để sửa · Enter lưu · Esc hủy' : undefined}
                           className={`px-3 py-2.5 text-slate-300 whitespace-nowrap max-w-[200px] truncate transition-colors ${
-                            editable ? 'cursor-pointer hover:bg-primary-500/10 hover:ring-1 hover:ring-inset hover:ring-primary-500/30' : ''
+                            editable ? 'cursor-pointer hover:bg-primary/10 hover:ring-1 hover:ring-inset hover:ring-primary/30' : ''
                           } ${errHere ? 'ring-1 ring-red-500/60 bg-red-500/10' : ''}`}>
                           {formatValue(f, doc[f])}
                         </td>
@@ -430,7 +430,7 @@ export default function DatabaseExplorer() {
                     <td className="sticky right-0 z-10 bg-slate-900/95 backdrop-blur-sm px-3 py-2.5 text-center border-l border-white/5">
                       <div className="flex items-center justify-center gap-1">
                         <button onClick={() => setEditDoc(doc)}
-                          className="px-2 py-1 rounded-lg text-slate-400 hover:text-primary-300 hover:bg-primary-500/10 transition-all text-xs"
+                          className="px-2 py-1 rounded-lg text-slate-400 hover:text-primary hover:bg-primary/10 transition-all text-xs"
                           title="Edit all fields (modal)">✏️</button>
                         <button onClick={() => setDeleteTarget(doc)}
                           className="px-2 py-1 rounded-lg text-slate-400 hover:text-red-400 hover:bg-red-500/10 transition-all text-xs"
@@ -470,7 +470,7 @@ export default function DatabaseExplorer() {
                     <button key={p} onClick={() => setPage(p)}
                       className={`px-3 py-1.5 rounded-lg text-xs transition-all border ${
                         p === page
-                          ? 'bg-primary-500/20 text-primary-300 border-primary-500/30'
+                          ? 'bg-primary/20 text-primary border-primary/30'
                           : 'bg-white/5 text-slate-400 hover:bg-white/10 border-white/10'
                       }`}>
                       {p}
@@ -501,7 +501,7 @@ export default function DatabaseExplorer() {
       {/* ── Delete Confirmation ─────────────────────────────── */}
       {deleteTarget && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
-          <div className="glass rounded-2xl p-6 max-w-sm mx-4 text-center space-y-4 animate-fade-in">
+          <div className="bg-card border border-border rounded-2xl p-6 max-w-sm mx-4 text-center space-y-4 ">
             <div className="text-3xl">⚠️</div>
             <h3 className="text-lg font-bold text-white">Hard Delete?</h3>
             <p className="text-sm text-slate-400">

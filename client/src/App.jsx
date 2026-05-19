@@ -1,7 +1,8 @@
 import { useState, useEffect, lazy, Suspense } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { Toaster } from '@/components/ui/sonner';
-import { AlarmClock } from 'lucide-react';
+import { AlarmClock, KeyRound } from 'lucide-react';
+import { Spinner } from './components/Spinner';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { authAPI } from './api/api';
 import ProtectedRoute from './components/ProtectedRoute';
@@ -28,7 +29,7 @@ const UserSettingsPage = lazy(() => import('./pages/UserSettingsPage'));
 function RouteFallback() {
   return (
     <div className="min-h-[60vh] flex items-center justify-center">
-      <div className="w-8 h-8 border-2 border-primary-400 border-t-transparent rounded-full animate-spin" />
+      <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
     </div>
   );
 }
@@ -45,17 +46,19 @@ function AuthExpiredModal() {
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-sm">
-      <div className="glass animate-fade-in mx-4 max-w-sm space-y-4 rounded-2xl border border-rose-500/30 p-6 text-center">
-        <AlarmClock className="mx-auto size-10 text-rose-400" />
-        <h3 className="text-xl font-bold text-white">Your session has expired</h3>
-        <p className="text-sm text-slate-300">
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 p-4">
+      <div className="bg-card border border-border w-full max-w-sm space-y-4 rounded-lg p-6 text-center shadow-lg">
+        <div className="flex items-center justify-center w-12 h-12 mx-auto rounded-md bg-warning-tint">
+          <AlarmClock className="size-6 text-warning" aria-hidden="true" />
+        </div>
+        <h3 className="text-h2 text-foreground">Your session has expired</h3>
+        <p className="text-body text-muted-foreground">
           Open a new tab to sign in again, then come back here to continue without losing your work.
         </p>
         <div className="flex gap-3 pt-2">
           <Button
-            variant="outline"
-            className="flex-1 border-primary-500/30 bg-primary-500/15 text-primary-300 hover:bg-primary-500/25"
+            variant="default"
+            className="flex-1"
             onClick={() => window.open('/login', '_blank')}
           >
             Sign in (new tab)
@@ -109,71 +112,76 @@ function ForceChangePasswordModal() {
     }
   };
 
+  const inputCls =
+    'w-full px-3 h-10 rounded-md bg-background border border-border text-foreground placeholder:text-subtle-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-ring transition-colors duration-(--dur-fast)';
+
   return (
-    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/75 backdrop-blur-sm">
-      <div className="glass animate-fade-in mx-4 max-w-md w-full rounded-2xl border border-amber-500/40 p-8">
-        <div className="text-4xl text-center mb-3">🔐</div>
-        <h3 className="text-xl font-bold text-white text-center mb-1">Đổi mật khẩu bắt buộc</h3>
-        <p className="text-sm text-slate-400 text-center mb-6">
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 p-4">
+      <div className="bg-card border border-border w-full max-w-md rounded-lg p-6 shadow-lg">
+        <div className="flex items-center justify-center w-12 h-12 mx-auto rounded-md bg-primary-tint mb-3">
+          <KeyRound className="size-6 text-primary" aria-hidden="true" />
+        </div>
+        <h3 className="text-h2 text-foreground text-center">Đổi mật khẩu bắt buộc</h3>
+        <p className="text-body text-muted-foreground text-center mt-2 mb-6">
           Tài khoản của bạn đang dùng mật khẩu mặc định. Vui lòng đặt mật khẩu cá nhân trước khi tiếp tục.
         </p>
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="block text-xs font-medium text-slate-400 mb-1.5">Mật khẩu hiện tại</label>
+            <label className="block text-overline text-muted-foreground mb-1.5">Mật khẩu hiện tại</label>
             <input
               type="password"
               value={currentPwd}
               onChange={(e) => setCurrentPwd(e.target.value)}
               required
               autoComplete="current-password"
-              className="w-full px-4 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-amber-500/40 transition-all"
+              className={inputCls}
               placeholder="Nhập mật khẩu hiện tại"
             />
           </div>
           <div>
-            <label className="block text-xs font-medium text-slate-400 mb-1.5">Mật khẩu mới</label>
+            <label className="block text-overline text-muted-foreground mb-1.5">Mật khẩu mới</label>
             <input
               type="password"
               value={newPwd}
               onChange={(e) => setNewPwd(e.target.value)}
               required
               autoComplete="new-password"
-              className="w-full px-4 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-amber-500/40 transition-all"
+              className={inputCls}
               placeholder="Tối thiểu 10 ký tự"
             />
           </div>
           <div>
-            <label className="block text-xs font-medium text-slate-400 mb-1.5">Xác nhận mật khẩu mới</label>
+            <label className="block text-overline text-muted-foreground mb-1.5">Xác nhận mật khẩu mới</label>
             <input
               type="password"
               value={confirmPwd}
               onChange={(e) => setConfirmPwd(e.target.value)}
               required
               autoComplete="new-password"
-              className="w-full px-4 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-amber-500/40 transition-all"
+              className={inputCls}
               placeholder="Nhập lại mật khẩu mới"
             />
           </div>
 
           {error && (
-            <p className="text-sm text-red-400 bg-red-500/10 border border-red-500/20 rounded-xl px-4 py-2.5">
+            <p className="text-small text-destructive bg-destructive-tint border border-destructive/30 rounded-md px-3 py-2">
               {error}
             </p>
           )}
 
-          <button
+          <Button
             type="submit"
             disabled={loading || !currentPwd || !newPwd || !confirmPwd}
-            className="w-full py-3 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 text-white font-semibold hover:from-amber-400 hover:to-orange-400 transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-amber-500/20 mt-2"
+            className="w-full mt-2"
           >
             {loading ? (
-              <span className="flex items-center justify-center gap-2">
-                <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+              <>
+                <Spinner size={16} />
                 Đang xử lý...
-              </span>
+              </>
             ) : 'Đổi mật khẩu & Tiếp tục'}
-          </button>
+          </Button>
         </form>
       </div>
     </div>

@@ -81,16 +81,16 @@ export default function AttendanceDashboardPage() {
   };
 
   return (
-    <div className="space-y-6 animate-fade-in">
+    <div className="space-y-6 ">
       <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-white">📈 Attendance Analytics</h1>
+          <h1 className="text-h1 text-foreground">Attendance Analytics</h1>
           <p className="text-slate-400 mt-1">Track participation across employees, teams, and classes</p>
         </div>
       </div>
 
       {/* ── Export Banner ──────────────────────────────────── */}
-      <div className="glass rounded-2xl p-5 border border-white/5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+      <div className="bg-card border border-border rounded-2xl p-5 border border-white/5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div className="flex items-center gap-4">
           <div className="w-12 h-12 rounded-xl bg-emerald-500/10 flex items-center justify-center text-2xl">
             📥
@@ -147,7 +147,7 @@ export default function AttendanceDashboardPage() {
             onClick={() => setActiveTab(tab.id)}
             className={`px-4 py-2 text-sm font-semibold border-b-2 transition-all ${
               activeTab === tab.id 
-                ? 'border-primary-400 text-primary-300 bg-primary-500/5' 
+                ? 'border-primary text-primary bg-primary/5' 
                 : 'border-transparent text-slate-400 hover:text-slate-200 hover:bg-white/5'
             }`}
           >
@@ -159,13 +159,13 @@ export default function AttendanceDashboardPage() {
 
 
       {loading ? (
-        <div className="flex items-center justify-center py-20"><div className="w-8 h-8 border-2 border-primary-400 border-t-transparent rounded-full animate-spin" /></div>
+        <div className="flex items-center justify-center py-20"><div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" /></div>
       ) : (
         <div className="space-y-6">
           
           {/* Employee Tab */}
           {activeTab === 'employee' && (
-            <div className="glass rounded-2xl overflow-hidden">
+            <div className="bg-card border border-border rounded-2xl overflow-hidden">
               <div className="overflow-x-auto">
                 <table className="w-full text-left border-collapse">
                   <thead>
@@ -212,13 +212,13 @@ export default function AttendanceDashboardPage() {
           {activeTab === 'team' && (
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
               {Array.isArray(data) && data.map(team => (
-                <div key={team._id} className="glass rounded-2xl p-6 border border-white/5 hover:border-white/10 transition-all">
+                <div key={team._id} className="bg-card border border-border rounded-2xl p-6 border border-white/5 hover:border-white/10 transition-all">
                   <div className="flex justify-between items-start mb-4">
                     <div>
                       <h3 className="font-bold text-lg text-white">{team.name}</h3>
                       <p className="text-sm text-slate-400">{team.memberCount} members</p>
                     </div>
-                    <div className="text-2xl font-bold text-primary-300">{team.stats?.attendanceRate ?? 0}%</div>
+                    <div className="text-2xl font-bold text-primary">{team.stats?.attendanceRate ?? 0}%</div>
                   </div>
                   {renderProgressBar(team.stats?.attendanceRate ?? 0)}
                   <div className="grid grid-cols-4 gap-2 mt-6 text-center text-sm">
@@ -253,7 +253,7 @@ export default function AttendanceDashboardPage() {
                 <select 
                   value={selectedClass} 
                   onChange={(e) => setSelectedClass(e.target.value)}
-                  className="px-4 py-2 rounded-xl bg-white/5 border border-white/10 text-white focus:outline-none focus:ring-2 focus:ring-primary-500/50"
+                  className="px-4 py-2 rounded-xl bg-white/5 border border-white/10 text-white focus:outline-none focus:ring-2 focus:ring-primary/50"
                 >
                   {classes.map(c => (
                     <option key={c._id} value={c._id} className="bg-slate-800">{c.classCode} - {c.courseName}</option>
@@ -261,7 +261,7 @@ export default function AttendanceDashboardPage() {
                 </select>
               </div>
 
-              <div className="glass rounded-2xl overflow-hidden">
+              <div className="bg-card border border-border rounded-2xl overflow-hidden">
                 <div className="overflow-x-auto">
                   <table className="w-full text-left border-collapse">
                     <thead>
@@ -283,7 +283,7 @@ export default function AttendanceDashboardPage() {
                             <div className="font-semibold text-white whitespace-nowrap">{row.user.name}</div>
                             <div className="text-xs text-slate-500">{row.user.empCode}</div>
                           </td>
-                          <td className="p-4 font-bold text-primary-300">{row.attendanceRate}%</td>
+                          <td className="p-4 font-bold text-primary">{row.attendanceRate}%</td>
                           {data.schedules.map(s => {
                             const status = row.sessions[s._id];
                             let colors = 'text-slate-600';
