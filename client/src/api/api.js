@@ -175,6 +175,7 @@ export const enrollmentsAPI = {
 export const dashboardAPI = {
   getStats: (params) => api.get('/dashboard/stats', { params }),
   getFilterOptions: () => api.get('/dashboard/filter-options'),
+  getAlerts: () => api.get('/dashboard/alerts'),
 };
 
 // ── Admin Database Explorer ───────────────────────────────
