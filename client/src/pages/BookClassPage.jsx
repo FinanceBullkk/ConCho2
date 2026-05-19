@@ -194,7 +194,7 @@ export default function BookClassPage() {
       {/* ── Header ─────────────────────────────────────── */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-white">📅 Schedule & Book</h1>
+          <h1 className="text-h1 text-foreground">Schedule & Book</h1>
           <p className="text-slate-400 mt-1">Click an empty slot to create a session, click your booking to cancel</p>
         </div>
 

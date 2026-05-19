@@ -370,7 +370,7 @@ export default function UserSettingsPage() {
   return (
     <div className="space-y-6 max-w-2xl">
       <div>
-        <h1 className="text-2xl font-bold text-white">Account settings</h1>
+        <h1 className="text-h1 text-foreground">Account settings</h1>
         <p className="text-slate-400 mt-1">{user.name} · {user.empCode}</p>
       </div>
 

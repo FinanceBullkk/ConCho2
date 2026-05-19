@@ -242,7 +242,7 @@ export default function EnrollmentPage() {
       {/* ── Header ─────────────────────────────────────── */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-white">📋 Enrollment & Learning History</h1>
+          <h1 className="text-h1 text-foreground">Enrollment & Learning History</h1>
           <p className="text-slate-400 mt-1">Track team membership and attendance progress</p>
         </div>
       </div>
