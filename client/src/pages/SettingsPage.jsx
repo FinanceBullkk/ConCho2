@@ -65,7 +65,7 @@ export default function SettingsPage() {
 
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
         {settings.map(s => (
-          <div key={s._id} className="glass rounded-2xl p-6 space-y-4">
+          <div key={s._id} className="bg-card border border-border rounded-2xl p-6 space-y-4">
             <div className="flex justify-between items-start">
               <div>
                 <h3 className="text-lg font-bold text-white">{s.key}</h3>

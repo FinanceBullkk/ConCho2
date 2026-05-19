@@ -101,7 +101,7 @@ export default function DashboardPage() {
   const visibleClasses = showAllClasses ? sortedClasses : sortedClasses.slice(0, 10);
 
   return (
-    <div className="space-y-5 animate-fade-in">
+    <div className="space-y-5 ">
       <PageHeader
         title={`Welcome back, ${user?.name?.split(' ')[0] || 'there'}`}
         description={new Date().toLocaleDateString('en-GB', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' })}
@@ -130,7 +130,7 @@ export default function DashboardPage() {
       {/* ═══ Today hero — actionable items ═══ */}
       <TodayHero />
 
-      <div className="glass rounded-xl px-3 py-2 flex items-center gap-2 flex-wrap">
+      <div className="bg-card border border-border rounded-xl px-3 py-2 flex items-center gap-2 flex-wrap">
         <FilterSelect label="All BUs" value={filters.department || ''} options={filterOpts?.departments} onChange={v => setFilter('department', v)} />
         <FilterSelect label="All Positions" value={filters.position || ''} options={filterOpts?.positions} onChange={v => setFilter('position', v)} />
         <FilterSelect label="Entrance Level" value={filters.entranceLevel || ''} options={filterOpts?.entranceLevels} onChange={v => setFilter('entranceLevel', v)} />
@@ -157,7 +157,7 @@ export default function DashboardPage() {
           { label: 'At Risk', value: o.atRisk || 0, sub: 'no activity 30d', color: o.atRisk > 0 ? '#ef4444' : '#64748b', icon: '⚠️' },
           { label: 'Inactive / Waiting', value: `${o.inactive || 0}`, sub: `${o.waiting || 0} waiting`, color: '#64748b', icon: '⏸️' },
         ].map((c, i) => (
-          <div key={c.label} className="glass rounded-xl p-4 relative overflow-hidden">
+          <div key={c.label} className="bg-card border border-border rounded-xl p-4 relative overflow-hidden">
             <div className="absolute top-0 right-0 w-14 h-14 rounded-bl-[36px] opacity-10" style={{ background: c.color }} />
             <div className="text-sm mb-0.5">{c.icon}</div>
             <div className="text-2xl font-bold text-white">{c.value}</div>
@@ -170,7 +170,7 @@ export default function DashboardPage() {
       {/* ═══ ROW 2: Course + BU/Position (tabbed) ═══ */}
       <div className="grid lg:grid-cols-2 gap-4">
         {/* Students by Course */}
-        <div className="glass rounded-xl p-5">
+        <div className="bg-card border border-border rounded-xl p-5">
           <h3 className="text-sm font-semibold text-white mb-3 flex items-center gap-2">
             <span className="w-1 h-4 rounded-full bg-primary inline-block" />
             Students by Course
@@ -205,7 +205,7 @@ export default function DashboardPage() {
         </div>
 
         {/* Tabbed: BU | Position */}
-        <div className="glass rounded-xl p-5">
+        <div className="bg-card border border-border rounded-xl p-5">
           <div className="flex items-center justify-between mb-3">
             <h3 className="text-sm font-semibold text-white flex items-center gap-2">
               <span className={`w-1 h-4 rounded-full inline-block ${orgTab === 'bu' ? 'bg-cyan-500' : 'bg-amber-500'}`} />
@@ -269,7 +269,7 @@ export default function DashboardPage() {
 
       {/* ═══ ROW 3: Level Progression (grouped chart) ═══ */}
       {allLevels.length > 0 && (
-        <div className="glass rounded-xl p-5">
+        <div className="bg-card border border-border rounded-xl p-5">
           <div className="flex items-center justify-between mb-3">
             <h3 className="text-sm font-semibold text-white flex items-center gap-2">
               <span className="w-1 h-4 rounded-full bg-violet-500 inline-block" />
@@ -316,7 +316,7 @@ export default function DashboardPage() {
       )}
 
       {/* ═══ ROW 4: Class Progress (compact, expandable) ═══ */}
-      <div className="glass rounded-xl p-5">
+      <div className="bg-card border border-border rounded-xl p-5">
         <div className="flex items-center justify-between mb-3">
           <h3 className="text-sm font-semibold text-white flex items-center gap-2">
             <span className="w-1 h-4 rounded-full bg-emerald-500 inline-block" />

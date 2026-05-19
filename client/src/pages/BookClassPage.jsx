@@ -164,7 +164,7 @@ export default function BookClassPage() {
   // ── Guards ──────────────────────────────────────────────
   if (!loading && myTeams.length === 0) {
     return (
-      <div className="glass rounded-2xl p-10 text-center animate-fade-in">
+      <div className="bg-card border border-border rounded-2xl p-10 text-center ">
         <h2 className="text-xl font-bold text-white mb-2">Chưa thuộc nhóm nào</h2>
         <p className="text-slate-400">Bạn cần được phân vào một nhóm để có thể xem và đặt lịch học.</p>
       </div>
@@ -175,7 +175,7 @@ export default function BookClassPage() {
     // User is a member but NOT a leader of any team
     const teamNames = myTeams.map(t => t.name).join(', ');
     return (
-      <div className="glass rounded-2xl p-10 text-center animate-fade-in space-y-3">
+      <div className="bg-card border border-border rounded-2xl p-10 text-center space-y-3">
         <div className="text-4xl">🔒</div>
         <h2 className="text-xl font-bold text-white">Bạn không phải Team Leader</h2>
         <p className="text-slate-400">
@@ -190,7 +190,7 @@ export default function BookClassPage() {
   }
 
   return (
-    <div className="space-y-5 animate-fade-in">
+    <div className="space-y-5 ">
       {/* ── Header ─────────────────────────────────────── */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
@@ -214,7 +214,7 @@ export default function BookClassPage() {
 
       {/* ── Error ──────────────────────────────────────── */}
       {error && (
-        <div className="px-4 py-3 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-sm flex items-center gap-2 animate-fade-in">
+        <div className="px-4 py-3 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-sm flex items-center gap-2 ">
           <span>⚠️</span> {error}
           <button onClick={() => setError('')} className="ml-auto text-red-400 hover:text-red-300">×</button>
         </div>
@@ -239,7 +239,7 @@ export default function BookClassPage() {
         </div>
       ) : (
         /* ── Timetable Grid ──────────────────────────── */
-        <div className="glass rounded-2xl overflow-hidden border border-white/5">
+        <div className="bg-card border border-border rounded-2xl overflow-hidden border border-white/5">
           <div className="overflow-x-auto">
             <table className="w-full border-collapse min-w-[800px]">
               <thead>
@@ -376,8 +376,8 @@ export default function BookClassPage() {
       {/* ── Create Booking Modal ───────────────────────── */}
       {bookModal && (
         <Portal>
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm animate-fade-in">
-          <div className="glass rounded-2xl p-6 max-w-sm mx-4 space-y-4 border border-white/10 shadow-2xl">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm ">
+          <div className="bg-card border border-border rounded-2xl p-6 max-w-sm mx-4 space-y-4 border border-white/10 shadow-2xl">
             <h3 className="text-lg font-bold text-white text-center">Create Session</h3>
 
             <div className="bg-white/5 rounded-xl p-4 space-y-2">
@@ -429,8 +429,8 @@ export default function BookClassPage() {
       {/* ── Cancel Booking Modal ───────────────────────── */}
       {cancelModal && (
         <Portal>
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm animate-fade-in">
-          <div className="glass rounded-2xl p-6 max-w-sm mx-4 space-y-4 border border-white/10 shadow-2xl">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm ">
+          <div className="bg-card border border-border rounded-2xl p-6 max-w-sm mx-4 space-y-4 border border-white/10 shadow-2xl">
             <h3 className="text-lg font-bold text-white text-center">Cancel Session</h3>
 
             <div className="bg-red-500/5 border border-red-500/10 rounded-xl p-4 space-y-2">

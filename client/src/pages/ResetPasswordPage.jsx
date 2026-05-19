@@ -34,7 +34,7 @@ export default function ResetPasswordPage() {
   if (!token) {
     return (
       <div className="min-h-screen flex items-center justify-center px-4">
-        <div className="glass rounded-2xl p-8 max-w-md w-full text-center space-y-4">
+        <div className="bg-card border border-border rounded-2xl p-8 max-w-md w-full text-center space-y-4">
           <XCircle className="size-12 text-red-400 mx-auto" aria-hidden="true" />
           <h2 className="text-xl font-semibold text-white">Invalid reset link</h2>
           <p className="text-slate-400 text-sm">This link is missing a reset token. Please request a new one.</p>
@@ -48,7 +48,7 @@ export default function ResetPasswordPage() {
 
   return (
     <div className="min-h-screen flex items-center justify-center px-4">
-      <div className="w-full max-w-md animate-fade-in">
+      <div className="w-full max-w-md ">
         <div className="text-center mb-8">
           <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br from-primary to-purple-600 text-white text-2xl font-bold mb-4 shadow-lg shadow-primary/25">
             T
@@ -56,7 +56,7 @@ export default function ResetPasswordPage() {
           <h1 className="text-3xl font-bold text-white tracking-tight">TMS <span className="text-primary">v2</span></h1>
         </div>
 
-        <div className="glass rounded-2xl p-8 glow-primary">
+        <div className="bg-card border border-border rounded-2xl p-8 ">
           {done ? (
             <div className="text-center space-y-4">
               <CheckCircle className="size-12 text-emerald-400 mx-auto" aria-hidden="true" />
