@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '../context/AuthContext';
+import { useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
 import Portal from '../components/Portal';
 import { useAvailability, useBookSlot, useCancelSlot } from '../hooks/useSchedules';
@@ -42,6 +43,7 @@ const scheduleToKey = (s) => {
 
 export default function BookClassPage() {
   const { user } = useAuth();
+  const [searchParams, setSearchParams] = useSearchParams();
   const TIME_SLOTS = useTimeSlots(); // fetched from DB settings (falls back to hardcoded defaults)
   const bookMutation = useBookSlot();
   const cancelMutation = useCancelSlot();
@@ -50,8 +52,19 @@ export default function BookClassPage() {
   const [bookModal, setBookModal] = useState(null);   // { day, slot } for creating
   const [cancelModal, setCancelModal] = useState(null); // schedule obj for deleting
 
-  // Week navigation
-  const [weekStart, setWeekStart] = useState(() => getMonday(new Date()));
+  // Week navigation — persisted in URL (?week=YYYY-MM-DD)
+  const [weekStart, setWeekStart] = useState(() => {
+    const param = searchParams.get('week');
+    if (param) { const d = new Date(param); if (!isNaN(d)) return getMonday(d); }
+    return getMonday(new Date());
+  });
+
+  const setWeek = (monday) => {
+    setWeekStart(monday);
+    const next = new URLSearchParams(searchParams);
+    next.set('week', toDateKey(monday));
+    setSearchParams(next, { replace: true });
+  };
 
   // ── Data loading ────────────────────────────────────────
   const { data: schedules = [], isLoading: loadingSched } = useAvailability();
@@ -139,9 +152,9 @@ export default function BookClassPage() {
   };
 
   // ── Week navigation helpers ─────────────────────────────
-  const prevWeek = () => setWeekStart(new Date(weekStart.getTime() - 7 * 86400000));
-  const nextWeek = () => setWeekStart(new Date(weekStart.getTime() + 7 * 86400000));
-  const goToday = () => setWeekStart(getMonday(new Date()));
+  const prevWeek = () => setWeek(new Date(weekStart.getTime() - 7 * 86400000));
+  const nextWeek = () => setWeek(new Date(weekStart.getTime() + 7 * 86400000));
+  const goToday  = () => setWeek(getMonday(new Date()));
 
   const today = toDateKey(new Date());
   const selectedTeamObj = myTeams.find(t => t._id === selectedTeam);

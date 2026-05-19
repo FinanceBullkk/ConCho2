@@ -116,6 +116,23 @@ function ForceChangePasswordModal() {
   const inputCls =
     'w-full px-3 h-10 rounded-md bg-background border border-border text-foreground placeholder:text-subtle-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-ring transition-colors duration-(--dur-fast)';
 
+  const pwdStrength = (() => {
+    if (!newPwd) return 0;
+    let s = 0;
+    if (newPwd.length >= 10) s++;
+    if (/[A-Z]/.test(newPwd)) s++;
+    if (/[0-9]/.test(newPwd)) s++;
+    if (/[^A-Za-z0-9]/.test(newPwd)) s++;
+    return s;
+  })();
+  const strengthMeta = [
+    { label: 'Quá yếu',   bar: 'bg-destructive' },
+    { label: 'Yếu',       bar: 'bg-orange-500'  },
+    { label: 'Trung bình', bar: 'bg-yellow-500' },
+    { label: 'Tốt',       bar: 'bg-emerald-500' },
+    { label: 'Mạnh',      bar: 'bg-emerald-600' },
+  ];
+
   return (
     <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 p-4">
       <div className="bg-card border border-border w-full max-w-md rounded-lg p-6 shadow-lg">
@@ -151,6 +168,21 @@ function ForceChangePasswordModal() {
               className={inputCls}
               placeholder="Tối thiểu 10 ký tự"
             />
+            {newPwd && (
+              <div className="mt-2 space-y-1">
+                <div className="flex gap-1">
+                  {[1, 2, 3, 4].map((n) => (
+                    <div
+                      key={n}
+                      className={`h-1 flex-1 rounded-full transition-colors duration-200 ${
+                        pwdStrength >= n ? strengthMeta[pwdStrength].bar : 'bg-muted'
+                      }`}
+                    />
+                  ))}
+                </div>
+                <p className="text-xs text-muted-foreground">{strengthMeta[pwdStrength].label}</p>
+              </div>
+            )}
           </div>
           <div>
             <label className="block text-overline text-muted-foreground mb-1.5">Xác nhận mật khẩu mới</label>

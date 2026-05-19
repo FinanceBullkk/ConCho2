@@ -1,12 +1,13 @@
 import { useEffect, useMemo, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Users, BarChart3, AlertTriangle, PauseCircle, RefreshCw } from 'lucide-react';
+import { Users, BarChart3, AlertTriangle, PauseCircle, RefreshCw, BookOpen, Building2, UserCog } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useDashboardStats, useDashboardFilterOptions } from '../hooks/useDashboard';
 import { TodayHero } from '@/components/home/TodayHero';
 import { PageHeader } from '@/components/PageHeader';
 import { KPICard } from '@/components/KPICard';
 import { FilterBar } from '@/components/FilterBar';
+import { EmptyState } from '@/components/EmptyState';
 import { Spinner } from '@/components/Spinner';
 import { Button } from '@/components/ui/button';
 import ParticipantDashboard from './ParticipantDashboard';
@@ -179,7 +180,7 @@ export default function DashboardPage() {
                 );
               })}
             </div>
-          ) : <p className="text-subtle-foreground text-sm">No course data</p>}
+          ) : <EmptyState icon={BookOpen} title="No course data" variant="firstTime" className="py-8" />}
         </div>
 
         {/* Tabbed: BU | Position */}
@@ -217,7 +218,7 @@ export default function DashboardPage() {
                   );
                 })}
               </div>
-            ) : <p className="text-subtle-foreground text-sm">No BU data</p>
+            ) : <EmptyState icon={Building2} title="No department data" variant="firstTime" className="py-8" />
           ) : (
             stats?.positionBreakdown?.length > 0 ? (
               <div className="space-y-1.5">
@@ -240,7 +241,7 @@ export default function DashboardPage() {
                   );
                 })}
               </div>
-            ) : <p className="text-subtle-foreground text-sm">No position data</p>
+            ) : <EmptyState icon={UserCog} title="No position data" variant="firstTime" className="py-8" />
           )}
         </div>
       </div>
@@ -361,7 +362,7 @@ export default function DashboardPage() {
               </button>
             )}
           </>
-        ) : <p className="text-subtle-foreground text-sm">No class data</p>}
+        ) : <EmptyState icon={BookOpen} title="No class data" variant="firstTime" className="py-8" />}
       </div>
     </div>
   );
