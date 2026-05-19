@@ -3,6 +3,7 @@ import { useAuth } from '../context/AuthContext';
 import { useMyClassSchedules } from '../hooks/useSchedules';
 import { useMyAttendanceStats, useAttendanceByUser } from '../hooks/useAttendance';
 import { Spinner } from '../components/Spinner';
+import { DataTable } from '../components/DataTable';
 
 // ──────────────────────────────────────────────────────────
 // Participant Dashboard
@@ -31,6 +32,94 @@ export default function ParticipantDashboard() {
   const schedules = schedData?.data || [];
   const teamName = schedData?.team || '';
   const leader = schedData?.leader || null;
+
+  const historyColumns = useMemo(() => [
+    {
+      key: null,
+      header: 'Ngày',
+      render: (record) => {
+        const sched = record.scheduleId;
+        const start = sched?.startTime ? new Date(sched.startTime) : null;
+        const dateStr = start
+          ? start.toLocaleDateString('vi-VN', { weekday: 'short', day: '2-digit', month: '2-digit', year: 'numeric' })
+          : '—';
+        return (
+          <div className="flex items-center gap-2">
+            {start && (
+              <div className="w-9 h-9 rounded-lg bg-primary/10 flex flex-col items-center justify-center shrink-0">
+                <span className="text-[9px] font-bold text-primary leading-tight">
+                  {start.toLocaleDateString('en', { month: 'short' })}
+                </span>
+                <span className="text-sm font-bold text-primary leading-tight">{start.getDate()}</span>
+              </div>
+            )}
+            <span className="text-muted-foreground text-xs whitespace-nowrap">{dateStr}</span>
+          </div>
+        );
+      },
+    },
+    {
+      key: null,
+      header: 'Giờ học',
+      className: 'hidden sm:table-cell',
+      render: (record) => {
+        const sched = record.scheduleId;
+        const start = sched?.startTime ? new Date(sched.startTime) : null;
+        const end = sched?.endTime ? new Date(sched.endTime) : null;
+        const timeStr = start && end
+          ? `${String(start.getHours()).padStart(2, '0')}:${String(start.getMinutes()).padStart(2, '0')} – ${String(end.getHours()).padStart(2, '0')}:${String(end.getMinutes()).padStart(2, '0')}`
+          : '—';
+        return <span className="font-mono text-xs">{timeStr}</span>;
+      },
+    },
+    {
+      key: null,
+      header: 'Mã lớp',
+      render: (record) => (
+        <span className="text-foreground font-medium">{record.scheduleId?.classId?.classCode || '—'}</span>
+      ),
+    },
+    {
+      key: null,
+      header: 'Khóa học',
+      className: 'hidden sm:table-cell',
+      render: (record) => (
+        <span className="text-muted-foreground text-xs">{record.scheduleId?.classId?.courseName || '—'}</span>
+      ),
+    },
+    {
+      key: null,
+      header: 'Giáo viên',
+      className: 'hidden md:table-cell',
+      render: (record) => (
+        <span className="text-muted-foreground text-xs">
+          {record.scheduleId?.teacherId?.name || <span className="text-subtle-foreground italic">—</span>}
+        </span>
+      ),
+    },
+    {
+      key: null,
+      header: 'Trạng thái',
+      headerCls: 'text-center',
+      cellCls: 'text-center',
+      render: (record) => {
+        const cfg = STATUS_CONFIG[record.status] || STATUS_CONFIG.A;
+        return (
+          <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold border ${cfg.bg} ${cfg.text} ${cfg.border}`}>
+            {cfg.label}
+          </span>
+        );
+      },
+    },
+    {
+      key: null,
+      header: 'Ghi chú',
+      className: 'hidden lg:table-cell',
+      render: (record) => (
+        <span className="text-subtle-foreground text-xs">{record.remark || '—'}</span>
+      ),
+    },
+  ], []);
 
   // Sort by schedule date (newest first) — backend can't sort by populated fields
   const history = useMemo(() => {
@@ -233,110 +322,13 @@ export default function ParticipantDashboard() {
           </span>
         </div>
 
-        {history.length === 0 ? (
-          <div className="text-center py-10">
-            <div className="text-4xl mb-3 opacity-50">📭</div>
-            <p className="text-muted-foreground">Chưa có lịch sử điểm danh</p>
-            <p className="text-subtle-foreground text-sm mt-1">Kết quả sẽ hiện sau khi giáo viên chấm công</p>
-          </div>
-        ) : (
-          <div className="overflow-x-auto -mx-2">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-border">
-                  <th className="text-left py-3 px-3 text-muted-foreground font-medium text-xs uppercase tracking-wider">Ngày</th>
-                  <th className="text-left py-3 px-3 text-muted-foreground font-medium text-xs uppercase tracking-wider">Giờ học</th>
-                  <th className="text-left py-3 px-3 text-muted-foreground font-medium text-xs uppercase tracking-wider">Mã lớp</th>
-                  <th className="text-left py-3 px-3 text-muted-foreground font-medium text-xs uppercase tracking-wider hidden sm:table-cell">Khóa học</th>
-                  <th className="text-left py-3 px-3 text-muted-foreground font-medium text-xs uppercase tracking-wider hidden md:table-cell">Giáo viên</th>
-                  <th className="text-center py-3 px-3 text-muted-foreground font-medium text-xs uppercase tracking-wider">Trạng thái</th>
-                  <th className="text-left py-3 px-3 text-muted-foreground font-medium text-xs uppercase tracking-wider hidden lg:table-cell">Ghi chú</th>
-                </tr>
-              </thead>
-              <tbody>
-                {history.map((record, i) => {
-                  const sched = record.scheduleId;
-                  const start = sched?.startTime ? new Date(sched.startTime) : null;
-                  const end = sched?.endTime ? new Date(sched.endTime) : null;
-                  const cfg = STATUS_CONFIG[record.status] || STATUS_CONFIG.A;
-
-                  const dateStr = start
-                    ? start.toLocaleDateString('vi-VN', { weekday: 'short', day: '2-digit', month: '2-digit', year: 'numeric' })
-                    : '—';
-                  const timeStr = start && end
-                    ? `${String(start.getHours()).padStart(2, '0')}:${String(start.getMinutes()).padStart(2, '0')} – ${String(end.getHours()).padStart(2, '0')}:${String(end.getMinutes()).padStart(2, '0')}`
-                    : '—';
-
-                  return (
-                    <tr
-                      key={record._id}
-                      className={`border-b border-border hover:bg-accent/30 transition-colors ${i === 0 ? '' : ''}`}
-                    >
-                      {/* Date */}
-                      <td className="py-3 px-3">
-                        <div className="flex items-center gap-2">
-                          {start && (
-                            <div className="w-9 h-9 rounded-lg bg-primary/10 flex flex-col items-center justify-center shrink-0">
-                              <span className="text-[9px] font-bold text-primary leading-tight">
-                                {start.toLocaleDateString('en', { month: 'short' })}
-                              </span>
-                              <span className="text-sm font-bold text-primary leading-tight">
-                                {start.getDate()}
-                              </span>
-                            </div>
-                          )}
-                          <span className="text-muted-foreground text-xs whitespace-nowrap">
-                            {dateStr}
-                          </span>
-                        </div>
-                      </td>
-
-                      {/* Time */}
-                      <td className="py-3 px-3 text-muted-foreground whitespace-nowrap font-mono text-xs">
-                        {timeStr}
-                      </td>
-
-                      {/* Class Code */}
-                      <td className="py-3 px-3">
-                        <span className="text-foreground font-medium">
-                          {sched?.classId?.classCode || '—'}
-                        </span>
-                      </td>
-
-                      {/* Course Name (hidden on mobile) */}
-                      <td className="py-3 px-3 hidden sm:table-cell">
-                        <span className="text-muted-foreground text-xs">
-                          {sched?.classId?.courseName || '—'}
-                        </span>
-                      </td>
-
-                      {/* Teacher (hidden on small) */}
-                      <td className="py-3 px-3 hidden md:table-cell">
-                        <span className="text-muted-foreground text-xs">
-                          {sched?.teacherId?.name || <span className="text-subtle-foreground italic">—</span>}
-                        </span>
-                      </td>
-
-                      {/* Status Badge */}
-                      <td className="py-3 px-3 text-center">
-                        <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold border ${cfg.bg} ${cfg.text} ${cfg.border}`}>
-                          {cfg.label}
-                        </span>
-                      </td>
-
-                      {/* Remark (hidden on small) */}
-                      <td className="py-3 px-3 hidden lg:table-cell">
-                        <span className="text-subtle-foreground text-xs">
-                          {record.remark || '—'}
-                        </span>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        )}
+        <DataTable
+          columns={historyColumns}
+          data={history}
+          rowKey="_id"
+          emptyTitle="Chưa có lịch sử điểm danh"
+          emptyMessage="Kết quả sẽ hiện sau khi giáo viên chấm công."
+        />
       </div>
     </div>
   );
