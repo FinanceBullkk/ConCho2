@@ -20,7 +20,6 @@ const ResetPasswordPage  = lazy(() => import('./pages/ResetPasswordPage'));
 const DashboardPage    = lazy(() => import('./pages/DashboardPage'));
 const PeoplePage       = lazy(() => import('./pages/PeoplePage'));
 const ProgramsPage     = lazy(() => import('./pages/ProgramsPage'));
-const OperationsPage   = lazy(() => import('./pages/OperationsPage'));
 const ReportsPage      = lazy(() => import('./pages/ReportsPage'));
 const SystemPage       = lazy(() => import('./pages/SystemPage'));
 const CalendarPage     = lazy(() => import('./pages/CalendarPage'));
@@ -204,6 +203,7 @@ const LEGACY_REDIRECTS = [
   { from: '/schedules',  to: '/calendar?tab=schedules' },
   { from: '/attendance', to: '/calendar?tab=attendance' },
   { from: '/operations', to: '/calendar' },
+  { from: '/operations/analytics', to: '/reports?tab=analytics' },
   { from: '/book',       to: '/calendar?tab=book' },
 ];
 
@@ -230,12 +230,9 @@ export default function App() {
                   <ProtectedRoute roles={['Admin']}><PeoplePage /></ProtectedRoute>
                 } />
                 <Route path="/programs" element={
-                  <ProtectedRoute roles={['Admin']}><ProgramsPage /></ProtectedRoute>
+                  <ProtectedRoute roles={['Admin', 'Teacher']}><ProgramsPage /></ProtectedRoute>
                 } />
                 <Route path="/calendar" element={<CalendarPage />} />
-                <Route path="/operations" element={
-                  <ProtectedRoute roles={['Admin', 'Teacher']}><OperationsPage /></ProtectedRoute>
-                } />
                 <Route path="/reports" element={
                   <ProtectedRoute roles={['Admin', 'Teacher']}><ReportsPage /></ProtectedRoute>
                 } />
