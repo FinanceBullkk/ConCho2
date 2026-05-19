@@ -81,7 +81,7 @@ export default function HRExportPage() {
   };
 
   return (
-    <div className="space-y-6 animate-fade-in">
+    <div className="space-y-6 ">
       <div>
         <h1 className="text-2xl font-bold text-white">📤 HR Export</h1>
         <p className="text-slate-400 mt-1">Download attendance data as Excel for HR processing</p>
@@ -89,19 +89,19 @@ export default function HRExportPage() {
 
       {/* Stats Cards */}
       <div className="grid gap-4 sm:grid-cols-3">
-        <div className="glass rounded-2xl p-6 text-center">
+        <div className="bg-card border border-border rounded-2xl p-6 text-center">
           <div className="text-4xl mb-2">📋</div>
           <div className="text-3xl font-bold text-warning">{loading ? '...' : stats.pending}</div>
           <div className="text-sm text-slate-400 mt-1">Pending Export</div>
           <div className="text-xs text-slate-500 mt-1">New records not yet downloaded</div>
         </div>
-        <div className="glass rounded-2xl p-6 text-center">
+        <div className="bg-card border border-border rounded-2xl p-6 text-center">
           <div className="text-4xl mb-2">✅</div>
           <div className="text-3xl font-bold text-success">{loading ? '...' : stats.exported}</div>
           <div className="text-sm text-slate-400 mt-1">Already Exported</div>
           <div className="text-xs text-slate-500 mt-1">Previously downloaded records</div>
         </div>
-        <div className="glass rounded-2xl p-6 text-center">
+        <div className="bg-card border border-border rounded-2xl p-6 text-center">
           <div className="text-4xl mb-2">📊</div>
           <div className="text-3xl font-bold text-white">{loading ? '...' : stats.pending + stats.exported}</div>
           <div className="text-sm text-slate-400 mt-1">Total Records</div>
@@ -110,7 +110,7 @@ export default function HRExportPage() {
       </div>
 
       {/* Export Action */}
-      <div className="glass rounded-2xl p-6">
+      <div className="bg-card border border-border rounded-2xl p-6">
         <h2 className="text-sm font-semibold text-slate-300 uppercase tracking-wider mb-4">Download Attendance Report</h2>
         <p className="text-sm text-slate-400 mb-5">
           Clicking "Export" will download all <strong className="text-warning">{stats.pending}</strong> pending records as an Excel file 
@@ -142,7 +142,7 @@ export default function HRExportPage() {
         </div>
 
         {exportMsg && (
-          <div className={`mt-4 px-4 py-3 rounded-xl text-sm animate-fade-in ${
+          <div className={`mt-4 px-4 py-3 rounded-xl text-sm ${
             exportMsg.startsWith('✅')
               ? 'bg-success/10 border border-success/20 text-success'
               : 'bg-destructive/10 border border-destructive/20 text-destructive'
@@ -153,7 +153,7 @@ export default function HRExportPage() {
       </div>
 
       {/* Evaluation Export */}
-      <div className="glass rounded-2xl p-6">
+      <div className="bg-card border border-border rounded-2xl p-6">
         <h2 className="text-sm font-semibold text-slate-300 uppercase tracking-wider mb-4">Download Evaluation Report</h2>
         <p className="text-sm text-slate-400 mb-5">
           Export all evaluations (grammar, vocabulary, pronunciation, fluency scores + teacher comments)
@@ -179,7 +179,7 @@ export default function HRExportPage() {
         </div>
 
         {evalMsg && (
-          <div className={`mt-4 px-4 py-3 rounded-xl text-sm animate-fade-in ${
+          <div className={`mt-4 px-4 py-3 rounded-xl text-sm ${
             evalMsg.startsWith('✅')
               ? 'bg-success/10 border border-success/20 text-success'
               : 'bg-destructive/10 border border-destructive/20 text-destructive'
@@ -190,7 +190,7 @@ export default function HRExportPage() {
       </div>
 
       {/* Instructions */}
-      <div className="glass rounded-2xl p-6">
+      <div className="bg-card border border-border rounded-2xl p-6">
         <h2 className="text-sm font-semibold text-slate-300 uppercase tracking-wider mb-3">📖 How It Works</h2>
         <div className="space-y-3 text-sm text-slate-400">
           <div className="flex items-start gap-3">

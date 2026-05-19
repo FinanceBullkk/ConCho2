@@ -35,14 +35,14 @@ export default function SyncPage() {
   };
 
   return (
-    <div className="space-y-6 animate-fade-in">
+    <div className="space-y-6 ">
       <div>
         <h1 className="text-2xl font-bold text-white">📊 Google Sheets Sync</h1>
         <p className="text-slate-400 mt-1">Pull team registrations from your Master Google Sheet</p>
       </div>
 
       {/* Config Status */}
-      <div className={`glass rounded-2xl p-5 flex items-center gap-4 ${
+      <div className={`bg-card border border-border rounded-2xl p-5 flex items-center gap-4 ${
         configured === false ? 'border border-warning/20' : ''
       }`}>
         <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-lg ${
@@ -63,7 +63,7 @@ export default function SyncPage() {
       </div>
 
       {/* Sync Form */}
-      <form onSubmit={handleSync} className="glass rounded-2xl p-6">
+      <form onSubmit={handleSync} className="bg-card border border-border rounded-2xl p-6">
         <h2 className="text-sm font-semibold text-slate-300 uppercase tracking-wider mb-4">Sync Settings</h2>
 
         <div className="grid gap-4 sm:grid-cols-3">
@@ -123,7 +123,7 @@ export default function SyncPage() {
 
       {/* Error */}
       {error && (
-        <div className="glass rounded-2xl p-5 border border-destructive/20 animate-fade-in">
+        <div className="bg-card border border-border rounded-2xl p-5 border border-destructive/20 ">
           <div className="flex items-center gap-3">
             <span className="text-lg">❌</span>
             <div>
@@ -136,20 +136,20 @@ export default function SyncPage() {
 
       {/* Sync Report */}
       {report && (
-        <div className="glass rounded-2xl p-6 animate-fade-in">
+        <div className="bg-card border border-border rounded-2xl p-6 ">
           <h2 className="text-lg font-semibold text-white mb-4">📋 Sync Report</h2>
 
           {/* Summary Cards */}
           <div className="grid gap-3 grid-cols-3 mb-6">
-            <div className="glass-light rounded-xl p-4 text-center">
+            <div className="bg-muted border border-border rounded-xl p-4 text-center">
               <div className="text-2xl font-bold text-white">{report.processed}</div>
               <div className="text-xs text-slate-400">Processed</div>
             </div>
-            <div className="glass-light rounded-xl p-4 text-center">
+            <div className="bg-muted border border-border rounded-xl p-4 text-center">
               <div className="text-2xl font-bold text-success">{report.enrolled}</div>
               <div className="text-xs text-slate-400">Enrolled</div>
             </div>
-            <div className="glass-light rounded-xl p-4 text-center">
+            <div className="bg-muted border border-border rounded-xl p-4 text-center">
               <div className="text-2xl font-bold text-warning">{report.skipped}</div>
               <div className="text-xs text-slate-400">Skipped</div>
             </div>
@@ -160,7 +160,7 @@ export default function SyncPage() {
             <div className="space-y-2 mb-4">
               <h3 className="text-sm font-medium text-slate-300">Details</h3>
               {report.details.map((d, i) => (
-                <div key={i} className={`glass-light rounded-lg p-3 text-sm flex items-center gap-2 ${
+                <div key={i} className={`bg-muted border border-border rounded-lg p-3 text-sm flex items-center gap-2 ${
                   d.status === 'enrolled' ? 'border-l-2 border-success' : 'border-l-2 border-warning'
                 }`}>
                   <span className="text-xs text-slate-500">Row {d.row}</span>
@@ -180,7 +180,7 @@ export default function SyncPage() {
             <div className="space-y-2">
               <h3 className="text-sm font-medium text-destructive">Errors</h3>
               {report.errors.map((err, i) => (
-                <div key={i} className="glass-light rounded-lg p-3 text-sm border-l-2 border-destructive">
+                <div key={i} className="bg-muted border border-border rounded-lg p-3 text-sm border-l-2 border-destructive">
                   <span className="text-xs text-slate-500">Row {err.row}: </span>
                   <span className="text-destructive">{err.error}</span>
                 </div>
@@ -191,7 +191,7 @@ export default function SyncPage() {
       )}
 
       {/* Instructions */}
-      <div className="glass rounded-2xl p-6">
+      <div className="bg-card border border-border rounded-2xl p-6">
         <h2 className="text-sm font-semibold text-slate-300 uppercase tracking-wider mb-3">📖 Sheet Format Guide</h2>
         <div className="overflow-x-auto">
           <table className="w-full text-sm">

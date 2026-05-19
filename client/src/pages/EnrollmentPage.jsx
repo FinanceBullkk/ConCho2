@@ -80,7 +80,7 @@ function EditModal({ enrollment, allTeams = [], onClose, onSaved }) {
     <Portal>
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm" onClick={onClose}>
       <div onClick={(e) => e.stopPropagation()}
-        className="glass rounded-2xl p-6 w-full max-w-md mx-4 space-y-4 animate-fade-in">
+        className="bg-card border border-border rounded-2xl p-6 w-full max-w-md mx-4 space-y-4 ">
         <h2 className="text-lg font-bold text-white">
           ✏️ {enrollment.userId?.name}
         </h2>
@@ -238,7 +238,7 @@ export default function EnrollmentPage() {
   const totalCount = enrollments.length;
 
   return (
-    <div className="space-y-6 animate-fade-in">
+    <div className="space-y-6 ">
       {/* ── Header ─────────────────────────────────────── */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
@@ -283,7 +283,7 @@ export default function EnrollmentPage() {
 
       {/* ── Team Info Card ──────────────────────────────── */}
       {selectedTeamObj && (
-        <div className="glass rounded-2xl p-5 flex items-center gap-4">
+        <div className="bg-card border border-border rounded-2xl p-5 flex items-center gap-4">
           <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-primary to-purple-500 flex items-center justify-center text-xl">
             👥
           </div>
@@ -306,12 +306,12 @@ export default function EnrollmentPage() {
           <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
         </div>
       ) : enrollments.length === 0 ? (
-        <div className="glass rounded-2xl py-16 text-center">
+        <div className="bg-card border border-border rounded-2xl py-16 text-center">
           <div className="text-4xl mb-4">📭</div>
           <p className="text-slate-400">No enrollment records found for this team.</p>
         </div>
       ) : (
-        <div className="glass rounded-2xl overflow-hidden border border-white/5">
+        <div className="bg-card border border-border rounded-2xl overflow-hidden border border-white/5">
           <div className="overflow-x-auto">
             <table className="w-full border-collapse min-w-[800px]">
               <thead>
