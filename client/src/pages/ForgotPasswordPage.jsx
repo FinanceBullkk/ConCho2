@@ -5,6 +5,9 @@ import { Link } from 'react-router-dom';
 import { Mail, ArrowLeft } from 'lucide-react';
 import { forgotPasswordSchema } from '../lib/validations';
 import api from '../api/api';
+import { Button } from '@/components/ui/button';
+import { Spinner } from '../components/Spinner';
+import { cn } from '@/lib/utils';
 
 export default function ForgotPasswordPage() {
   const [sent, setSent] = useState(false);
@@ -24,13 +27,16 @@ export default function ForgotPasswordPage() {
     }
   });
 
-  const inputCls = 'w-full px-4 py-3 rounded-xl bg-muted/60 border border-white/10 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all';
+  const INPUT_CLS =
+    'w-full px-4 h-12 rounded-md bg-background border border-input text-foreground placeholder:text-subtle-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-ring transition-colors';
+  const ERR_CLS = 'mt-1 text-xs text-destructive';
 
   return (
     <div className="min-h-screen flex items-center justify-center px-4">
-      <div className="w-full max-w-md ">
+      <div className="w-full max-w-md">
+        {/* Logo */}
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br from-primary to-purple-600 text-white text-2xl font-bold mb-4 shadow-lg shadow-primary/25">
+          <div className="inline-flex items-center justify-center size-16 rounded-lg bg-primary text-primary-foreground text-2xl font-bold mb-4">
             T
           </div>
           <h1 className="text-h1 text-foreground tracking-tight">
@@ -38,19 +44,19 @@ export default function ForgotPasswordPage() {
           </h1>
         </div>
 
-        <div className="bg-card border border-border rounded-2xl p-8 ">
+        <div className="bg-card border border-border rounded-lg p-8">
           {sent ? (
             <div className="text-center space-y-4">
-              <div className="inline-flex items-center justify-center w-12 h-12 rounded-xl bg-emerald-500/10 border border-emerald-500/20 mb-2">
-                <Mail className="size-6 text-emerald-400" aria-hidden="true" />
+              <div className="inline-flex items-center justify-center size-12 rounded-lg bg-success/10 border border-success/20 mb-2">
+                <Mail className="size-6 text-success" aria-hidden="true" />
               </div>
-              <h2 className="text-xl font-semibold text-white">Check your email</h2>
-              <p className="text-sm text-slate-400">
+              <h2 className="text-h3 text-foreground">Check your email</h2>
+              <p className="text-body text-muted-foreground">
                 If that employee code exists and has an email on file, a reset link has been sent. Check your inbox (and spam folder).
               </p>
               <Link
                 to="/login"
-                className="inline-flex items-center gap-2 mt-4 text-sm text-primary hover:text-primary transition-colors"
+                className="inline-flex items-center gap-2 mt-4 text-sm text-primary hover:text-primary/80 transition-colors"
               >
                 <ArrowLeft className="size-4" aria-hidden="true" />
                 Back to sign in
@@ -58,50 +64,41 @@ export default function ForgotPasswordPage() {
             </div>
           ) : (
             <>
-              <h2 className="text-xl font-semibold text-white mb-2">Forgot password?</h2>
-              <p className="text-sm text-slate-400 mb-6">
+              <h2 className="text-h3 text-foreground mb-2">Forgot password?</h2>
+              <p className="text-body text-muted-foreground mb-6">
                 Enter your employee code and we'll send a reset link to your registered email.
               </p>
 
               <form onSubmit={onSubmit} noValidate>
                 <div className="mb-5">
-                  <label htmlFor="empCode" className="block text-sm font-medium text-slate-300 mb-1.5">
+                  <label htmlFor="empCode" className="block text-small font-medium text-muted-foreground mb-1.5">
                     Employee Code
                   </label>
                   <input
                     id="empCode"
                     type="text"
                     placeholder="e.g. 000001"
-                    autoFocus
+                    autoFocus // eslint-disable-line jsx-a11y/no-autofocus
                     aria-invalid={!!errors.empCode}
                     aria-describedby={errors.empCode ? 'empCode-error' : undefined}
-                    className={`${inputCls} ${errors.empCode ? 'border-red-500/50' : ''}`}
+                    className={cn(INPUT_CLS, errors.empCode && 'border-destructive')}
                     {...register('empCode')}
                   />
                   {errors.empCode && (
-                    <p id="empCode-error" role="alert" className="mt-1 text-xs text-red-400">
+                    <p id="empCode-error" role="alert" className={ERR_CLS}>
                       {errors.empCode.message}
                     </p>
                   )}
                 </div>
 
-                <button
-                  type="submit"
-                  disabled={isSubmitting}
-                  className="w-full px-4 py-3 rounded-xl bg-gradient-to-r from-primary to-primary text-white font-semibold hover:from-primary hover:to-primary focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-primary/20"
-                >
+                <Button type="submit" className="w-full h-12" disabled={isSubmitting}>
                   {isSubmitting ? (
-                    <span className="flex items-center justify-center gap-2">
-                      <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" aria-hidden="true" />
-                      Sending…
-                    </span>
-                  ) : (
-                    'Send reset link'
-                  )}
-                </button>
+                    <><Spinner size={16} />Sending…</>
+                  ) : 'Send reset link'}
+                </Button>
 
                 <div className="mt-4 text-center">
-                  <Link to="/login" className="inline-flex items-center gap-2 text-sm text-slate-400 hover:text-white transition-colors">
+                  <Link to="/login" className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors">
                     <ArrowLeft className="size-4" aria-hidden="true" />
                     Back to sign in
                   </Link>

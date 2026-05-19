@@ -78,8 +78,8 @@ function EditClassModal({ cls, onClose, onDeleted }) {
             <label className="block text-small text-muted-foreground mb-1">Status</label>
             <select value={status} onChange={(e) => setStatus(e.target.value)}
               className="w-full px-3 h-(--control-h) rounded-md bg-background border border-input text-foreground placeholder:text-subtle-foreground focus:outline-none focus:ring-2 focus:ring-ring transition-colors">
-              <option value="Ongoing" className="bg-slate-800">Ongoing</option>
-              <option value="Completed" className="bg-slate-800">Completed</option>
+              <option value="Ongoing">Ongoing</option>
+              <option value="Completed">Completed</option>
             </select>
           </div>
           <div>
