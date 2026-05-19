@@ -14,6 +14,8 @@ import { useBulkMarkAttendance } from '../hooks/useAttendance';
 import { useTimeSlots } from '../hooks/useTimeSlots';
 import { Spinner } from '../components/Spinner';
 import { StatusBadge } from '../components/StatusBadge';
+import { CalendarGrid, getMonday, toDateKey } from '../components/CalendarGrid';
+import { Button } from '@/components/ui/button';
 
 // ──────────────────────────────────────────────────────────
 // AttendancePage — Calendar View
@@ -85,21 +87,6 @@ function deriveSessionState(schedule) {
 }
 
 // ── Helpers ─────────────────────────────────────────────
-
-const getMonday = (date) => {
-  const d = new Date(date);
-  const day = d.getDay();
-  const diff = d.getDate() - day + (day === 0 ? -6 : 1);
-  const mon = new Date(d);
-  mon.setDate(diff);
-  mon.setHours(0, 0, 0, 0);
-  return mon;
-};
-
-const toDateKey = (d) => {
-  const dt = new Date(d);
-  return `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}-${String(dt.getDate()).padStart(2, '0')}`;
-};
 
 // Key on start-time only so the map lookup matches cellKey regardless of duration.
 const scheduleToKey = (s) => {
@@ -233,10 +220,15 @@ export default function AttendancePage() {
     }
   };
 
+  // ── timeRows for CalendarGrid ────────────────────────
+  const timeRows = useMemo(() =>
+    TIME_SLOTS.map(slot => parseInt(slot.split(':')[0], 10)),
+  [TIME_SLOTS]);
+
   if (loading) {
     return (
-      <div className="flex items-center justify-center py-20">
-        <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+      <div className="flex items-center justify-center py-20 text-muted-foreground">
+        <Spinner size={28} />
       </div>
     );
   }
@@ -247,168 +239,118 @@ export default function AttendancePage() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-h1 text-foreground">Attendance Marking</h1>
-          <p className="text-slate-400 mt-1">
+          <p className="text-muted-foreground mt-1">
             Click a session on the calendar to mark attendance
           </p>
         </div>
       </div>
 
       {/* ── Week Stats Banner ──────────────────────────── */}
-      <div className="bg-card border border-border rounded-2xl px-5 py-4 flex flex-wrap gap-4 items-center">
+      <div className="bg-card border border-border rounded-lg px-5 py-4 flex flex-wrap gap-4 items-center">
         <div className="flex items-center gap-4 flex-wrap">
           {weekStats.pending > 0 && (
-            <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-warning/10 border border-warning/20">
+            <div className="flex items-center gap-2 px-3 py-1.5 rounded-md bg-warning/10 border border-warning/20">
               <span className="text-warning text-sm font-semibold">{weekStats.pending}</span>
               <span className="text-xs text-warning/70">pending</span>
             </div>
           )}
           {weekStats.partial > 0 && (
-            <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-blue-500/10 border border-blue-500/20">
-              <span className="text-blue-400 text-sm font-semibold">{weekStats.partial}</span>
-              <span className="text-xs text-blue-400/70">partial</span>
+            <div className="flex items-center gap-2 px-3 py-1.5 rounded-md bg-info/10 border border-info/20">
+              <span className="text-info text-sm font-semibold">{weekStats.partial}</span>
+              <span className="text-xs text-info/70">partial</span>
             </div>
           )}
-          <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-success/10 border border-success/20">
+          <div className="flex items-center gap-2 px-3 py-1.5 rounded-md bg-success/10 border border-success/20">
             <span className="text-success text-sm font-semibold">{weekStats.done}</span>
             <span className="text-xs text-success/70">done</span>
           </div>
-          <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-white/5 border border-white/10">
-            <span className="text-slate-400 text-sm font-semibold">{weekStats.total}</span>
-            <span className="text-xs text-slate-500">total this week</span>
+          <div className="flex items-center gap-2 px-3 py-1.5 rounded-md bg-muted border border-border">
+            <span className="text-muted-foreground text-sm font-semibold">{weekStats.total}</span>
+            <span className="text-xs text-subtle-foreground">total this week</span>
           </div>
         </div>
       </div>
 
-      {/* ── Week Navigation ────────────────────────────── */}
-      <div className="flex items-center justify-between">
-        <button onClick={prevWeek} className="px-4 py-2 rounded-xl bg-white/5 text-slate-300 hover:bg-white/10 transition-all text-sm border border-white/10">← Prev</button>
-        <div className="flex items-center gap-3">
-          <h2 className="text-white font-semibold">
-            {weekDays[0].toLocaleDateString('en', { month: 'short', day: 'numeric' })} — {weekDays[6].toLocaleDateString('en', { month: 'short', day: 'numeric', year: 'numeric' })}
-          </h2>
-          <button onClick={goToday} className="px-3 py-1 rounded-lg bg-primary/20 text-primary text-xs border border-primary/20 hover:bg-primary/30 transition-all">Today</button>
-        </div>
-        <button onClick={nextWeek} className="px-4 py-2 rounded-xl bg-white/5 text-slate-300 hover:bg-white/10 transition-all text-sm border border-white/10">Next →</button>
-      </div>
-
       {/* ── Timetable Calendar ─────────────────────────── */}
-      <div className="bg-card border border-border rounded-md overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full border-collapse min-w-[800px]">
-            <thead>
-              <tr>
-                <th className="sticky left-0 z-20 bg-card px-3 py-3 border-b border-r border-border text-overline text-muted-foreground w-24 text-left">Time</th>
-                {weekDays.map((day, i) => {
-                  const dateKey = toDateKey(day);
-                  const isToday = dateKey === today;
+      <CalendarGrid
+        weekDays={weekDays}
+        timeRows={timeRows}
+        isLoading={false}
+        onPrev={prevWeek}
+        onNext={nextWeek}
+        onToday={goToday}
+        weekLabel={`${weekDays[0].toLocaleDateString('en', { month: 'short', day: 'numeric' })} — ${weekDays[6].toLocaleDateString('en', { month: 'short', day: 'numeric', year: 'numeric' })}`}
+        renderCell={(day, hour) => {
+          const dateKey = toDateKey(day);
+          const slotStartTime = `${String(hour).padStart(2, '0')}:00`;
+          const cellKey = `${dateKey}|${slotStartTime}`;
+          const cellSchedules = scheduleMap[cellKey] || [];
+          const isToday = dateKey === today;
+          const isPast = new Date(day) < new Date(new Date().setHours(0, 0, 0, 0));
+
+          if (cellSchedules.length > 0) {
+            return (
+              <div className="flex flex-col gap-1 h-full">
+                {cellSchedules.map((schedule) => {
+                  const { state, noRoster } = deriveSessionState(schedule);
+                  const cell = STATE_CELL_STYLE[state];
+                  const isSelected = selectedSchedule?._id === schedule._id;
+                  const progressPct = schedule.enrolledCount > 0
+                    ? Math.round(((schedule.markedCount || 0) / schedule.enrolledCount) * 100)
+                    : 0;
+
                   return (
-                    <th key={i} className={`px-2 py-3 border-b border-white/10 text-center ${isToday ? 'bg-primary/10' : ''}`}>
-                      <div className={`text-xs font-bold ${isToday ? 'text-primary' : 'text-slate-400'}`}>{DAY_NAMES[i]}</div>
-                      <div className={`text-xl font-bold ${isToday ? 'text-primary' : 'text-white'}`}>{day.getDate()}</div>
-                      <div className="text-[10px] text-slate-500">{day.toLocaleDateString('en', { month: 'short' })}</div>
-                    </th>
+                    <div
+                      key={schedule._id}
+                      className={`rounded-md p-2.5 pl-3 cursor-pointer relative overflow-hidden border border-border transition-colors duration-(--dur-fast) ${cell.cellBg} ${cell.opacity} ${
+                        cellSchedules.length === 1 ? 'min-h-[80px]' : 'min-h-[60px]'
+                      } ${
+                        isSelected
+                          ? 'ring-2 ring-ring ring-offset-2 ring-offset-card !opacity-100'
+                          : 'hover:!opacity-100'
+                      }`}
+                      style={{ borderLeftWidth: '4px', borderLeftColor: cell.leftColor }}
+                      onClick={() => handleSelectSchedule(schedule)}
+                    >
+                      <div className="flex flex-wrap items-center gap-1">
+                        <StatusBadge status={state} icon={cell.icon} size="sm" />
+                        {noRoster && <StatusBadge status="noRoster" icon={UserX} size="sm" />}
+                      </div>
+                      <div className="text-xs font-semibold text-foreground mt-1.5 truncate">
+                        {schedule.classId?.classCode}
+                      </div>
+                      <div className="text-[10px] text-muted-foreground truncate">
+                        {schedule.classId?.courseName}
+                      </div>
+                      <div className="text-[10px] text-subtle-foreground mt-1 flex items-center gap-1 truncate">
+                        <Users className="size-2.5" strokeWidth={2} aria-hidden="true" />
+                        {schedule.enrolledCount || 0}
+                      </div>
+                      {state !== 'upcoming' && !noRoster && (
+                        <div className="mt-1.5">
+                          <div className="flex justify-between text-[9px] text-subtle-foreground mb-0.5 tabular-nums">
+                            <span>{schedule.markedCount || 0}/{schedule.enrolledCount || 0}</span>
+                          </div>
+                          <div className="h-1 rounded-full bg-muted overflow-hidden">
+                            <div
+                              className={`h-full rounded-full transition-[width] duration-(--dur) ${cell.progressBar}`}
+                              style={{ width: `${progressPct}%` }}
+                            />
+                          </div>
+                        </div>
+                      )}
+                    </div>
                   );
                 })}
-              </tr>
-            </thead>
+              </div>
+            );
+          }
 
-            <tbody>
-              {TIME_SLOTS.map((slot) => (
-                <tr key={slot} className="group">
-                  <td className="sticky left-0 z-10 bg-card px-3 py-2 border-r border-b border-border text-mono text-muted-foreground whitespace-nowrap align-middle">
-                    {slot}
-                  </td>
-
-                  {weekDays.map((day, dayIdx) => {
-                    const dateKey = toDateKey(day);
-                    const slotStartTime = slot.split('-')[0]; // "10:00-11:00" → "10:00"
-                    const cellKey = `${dateKey}|${slotStartTime}`;
-                    const cellSchedules = scheduleMap[cellKey] || [];
-                    const isToday = dateKey === today;
-                    const isPast = new Date(day) < new Date(new Date().setHours(0, 0, 0, 0));
-
-                    if (cellSchedules.length > 0) {
-                      return (
-                        <td key={dayIdx} className={`border-b border-border p-1 align-top ${isToday ? 'bg-primary-tint/30' : ''}`}>
-                          <div className="flex flex-col gap-1 h-full">
-                            {cellSchedules.map((schedule) => {
-                              const { state, noRoster } = deriveSessionState(schedule);
-                              const cell = STATE_CELL_STYLE[state];
-                              const isSelected = selectedSchedule?._id === schedule._id;
-                              const progressPct = schedule.enrolledCount > 0
-                                ? Math.round(((schedule.markedCount || 0) / schedule.enrolledCount) * 100)
-                                : 0;
-
-                              return (
-                                <div
-                                  key={schedule._id}
-                                  className={`rounded-md p-2.5 pl-3 cursor-pointer relative overflow-hidden border border-border transition-colors duration-(--dur-fast) ${cell.cellBg} ${cell.opacity} ${
-                                    cellSchedules.length === 1 ? 'min-h-[80px]' : 'min-h-[60px]'
-                                  } ${
-                                    isSelected
-                                      ? 'ring-2 ring-ring ring-offset-2 ring-offset-card !opacity-100'
-                                      : 'hover:!opacity-100'
-                                  }`}
-                                  style={{ borderLeftWidth: '4px', borderLeftColor: cell.leftColor }}
-                                  onClick={() => handleSelectSchedule(schedule)}
-                                >
-                                  {/* Status badges — state + optional No-roster flag */}
-                                  <div className="flex flex-wrap items-center gap-1">
-                                    <StatusBadge status={state} icon={cell.icon} size="sm" />
-                                    {noRoster && (
-                                      <StatusBadge status="noRoster" icon={UserX} size="sm" />
-                                    )}
-                                  </div>
-
-                                  {/* Class info */}
-                                  <div className="text-xs font-semibold text-foreground mt-1.5 truncate">
-                                    {schedule.classId?.classCode}
-                                  </div>
-                                  <div className="text-[10px] text-muted-foreground truncate">
-                                    {schedule.classId?.courseName}
-                                  </div>
-
-                                  {/* Roster size */}
-                                  <div className="text-[10px] text-subtle-foreground mt-1 flex items-center gap-1 truncate">
-                                    <Users className="size-2.5" strokeWidth={2} aria-hidden="true" />
-                                    {schedule.enrolledCount || 0}
-                                  </div>
-
-                                  {/* Marked progress (only when relevant) */}
-                                  {state !== 'upcoming' && !noRoster && (
-                                    <div className="mt-1.5">
-                                      <div className="flex justify-between text-[9px] text-subtle-foreground mb-0.5 tabular-nums">
-                                        <span>{schedule.markedCount || 0}/{schedule.enrolledCount || 0}</span>
-                                      </div>
-                                      <div className="h-1 rounded-full bg-muted overflow-hidden">
-                                        <div
-                                          className={`h-full rounded-full transition-[width] duration-(--dur) ${cell.progressBar}`}
-                                          style={{ width: `${progressPct}%` }}
-                                        />
-                                      </div>
-                                    </div>
-                                  )}
-                                </div>
-                              );
-                            })}
-                          </div>
-                        </td>
-                      );
-                    }
-
-                    // ── Empty cell ──
-                    return (
-                      <td key={dayIdx} className={`border-b border-white/5 p-1 align-top ${isToday ? 'bg-primary/5' : ''}`}>
-                        <div className="rounded-xl h-full min-h-[80px] bg-white/[0.02]" />
-                      </td>
-                    );
-                  })}
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
+          return (
+            <div className="h-full min-h-[80px] rounded-md bg-muted/20" />
+          );
+        }}
+      />
 
       {/* ── Legend ──────────────────────────────────────── */}
       <div className="flex flex-wrap gap-2">
@@ -449,13 +391,13 @@ export default function AttendancePage() {
                 <StatusBadge status={state} icon={cell.icon} size="md" />
                 {noRoster && <StatusBadge status="noRoster" icon={UserX} size="md" />}
               </div>
-              <p className="text-sm text-slate-400">
+              <p className="text-body text-muted-foreground">
                 {records.length} students enrolled · {selectedSchedule.classId?.courseName}
                 {(() => {
                   const unmarked = records.filter((r) => !r.isMarked).length;
                   if (unmarked === 0) return null;
                   return (
-                    <span className="ml-2 px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-400 border border-amber-500/30 text-xs font-semibold">
+                    <span className="ml-2 px-2 py-0.5 rounded-full bg-warning-tint text-warning border border-warning/30 text-xs font-semibold">
                       {unmarked} chưa điểm danh
                     </span>
                   );
@@ -464,7 +406,7 @@ export default function AttendancePage() {
             </div>
             {/* Quick mark all buttons */}
             <div className="flex gap-2">
-              <span className="text-xs text-slate-500 self-center mr-1">Mark all:</span>
+              <span className="text-xs text-muted-foreground self-center mr-1">Mark all:</span>
               {STATUS_OPTIONS.map((opt) => (
                 <button
                   key={opt.value}
@@ -482,26 +424,26 @@ export default function AttendancePage() {
             {records.map((record, idx) => (
               <div
                 key={record.userId}
-                className={`bg-muted border border-border rounded-xl p-4 flex flex-col sm:flex-row sm:items-center gap-3 ${
-                  !record.isMarked ? 'border border-amber-500/30 bg-amber-500/5' : ''
+                className={`bg-muted border border-border rounded-md p-4 flex flex-col sm:flex-row sm:items-center gap-3 ${
+                  !record.isMarked ? 'border border-warning/30 bg-warning/5' : ''
                 }`}
               >
                 {/* Student info */}
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">
-                    <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-primary/20 to-purple-500/20 flex items-center justify-center text-xs font-bold text-primary">
+                    <div className="w-8 h-8 rounded-lg bg-primary/15 flex items-center justify-center text-xs font-bold text-primary">
                       {record.empCode?.slice(-2)}
                     </div>
                     <div>
-                      <div className="font-medium text-white text-sm truncate flex items-center gap-2">
+                      <div className="font-medium text-foreground text-sm truncate flex items-center gap-2">
                         {record.name}
                         {!record.isMarked && (
-                          <span className="px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-400 border border-amber-500/30 text-[10px] font-semibold">
+                          <span className="px-1.5 py-0.5 rounded bg-warning-tint text-warning border border-warning/30 text-[10px] font-semibold">
                             chưa điểm danh
                           </span>
                         )}
                       </div>
-                      <div className="text-xs text-slate-500">{record.empCode} • {record.department}</div>
+                      <div className="text-xs text-muted-foreground">{record.empCode} • {record.department}</div>
                     </div>
                   </div>
                 </div>
@@ -515,7 +457,7 @@ export default function AttendancePage() {
                       className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all ${
                         record.isMarked && record.status === opt.value
                           ? opt.color + ' scale-105 shadow-md'
-                          : 'border-white/5 text-slate-500 hover:border-white/15 hover:text-slate-300'
+                          : 'border-border text-muted-foreground hover:border-border/80 hover:text-foreground'
                       }`}
                     >
                       {opt.value}
@@ -529,7 +471,7 @@ export default function AttendancePage() {
                   placeholder="Remark..."
                   value={record.remark}
                   onChange={(e) => updateRecord(idx, 'remark', e.target.value)}
-                  className="w-full sm:w-40 px-3 py-1.5 rounded-lg bg-muted/60 border border-white/5 text-sm text-white placeholder-slate-600 focus:outline-none focus:ring-1 focus:ring-primary/50 transition-all"
+                  className="w-full sm:w-40 px-3 py-1.5 rounded-md bg-background border border-input text-sm text-foreground placeholder:text-subtle-foreground focus:outline-none focus:ring-1 focus:ring-ring transition-colors"
                 />
               </div>
             ))}

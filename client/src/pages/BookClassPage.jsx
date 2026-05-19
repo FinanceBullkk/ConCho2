@@ -5,6 +5,9 @@ import Portal from '../components/Portal';
 import { useAvailability, useBookSlot, useCancelSlot } from '../hooks/useSchedules';
 import { useMyTeams } from '../hooks/useTeams';
 import { useTimeSlots } from '../hooks/useTimeSlots';
+import { CalendarGrid, getMonday, toDateKey } from '../components/CalendarGrid';
+import { Button } from '@/components/ui/button';
+import { Spinner } from '../components/Spinner';
 
 // ──────────────────────────────────────────────────────────
 // BookClassPage (v2 — Leader-Created Sessions)
@@ -12,29 +15,6 @@ import { useTimeSlots } from '../hooks/useTimeSlots';
 // Timetable grid where Team Leaders click empty slots to
 // CREATE new schedule sessions, or click their own to cancel.
 // ──────────────────────────────────────────────────────────
-
-const DAY_NAMES = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-
-/**
- * Get the Monday of the current week in LOCAL time.
- */
-const getMonday = (date) => {
-  const d = new Date(date);
-  const day = d.getDay();
-  const diff = d.getDate() - day + (day === 0 ? -6 : 1);
-  const mon = new Date(d);
-  mon.setDate(diff);
-  mon.setHours(0, 0, 0, 0);
-  return mon;
-};
-
-/**
- * Format a Date to 'YYYY-MM-DD' using LOCAL time.
- */
-const toDateKey = (d) => {
-  const dt = new Date(d);
-  return `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}-${String(dt.getDate()).padStart(2, '0')}`;
-};
 
 /**
  * Parse a time slot string "HH:MM-HH:MM" into start/end hours+minutes.
@@ -115,6 +95,11 @@ export default function BookClassPage() {
     return map;
   }, [schedules]);
 
+  // ── Derive integer hour rows from TIME_SLOTS ─────────────
+  const timeRows = useMemo(() =>
+    TIME_SLOTS.map(slot => parseInt(slot.split(':')[0], 10)),
+  [TIME_SLOTS]);
+
   // ── Create schedule handler (click empty slot) ──────────
   const handleBookSlot = async () => {
     if (!selectedTeam || !bookModal) return;
@@ -164,9 +149,9 @@ export default function BookClassPage() {
   // ── Guards ──────────────────────────────────────────────
   if (!loading && myTeams.length === 0) {
     return (
-      <div className="bg-card border border-border rounded-2xl p-10 text-center ">
-        <h2 className="text-xl font-bold text-white mb-2">Chưa thuộc nhóm nào</h2>
-        <p className="text-slate-400">Bạn cần được phân vào một nhóm để có thể xem và đặt lịch học.</p>
+      <div className="bg-card border border-border rounded-lg p-10 text-center">
+        <h2 className="text-h3 text-foreground mb-2">Chưa thuộc nhóm nào</h2>
+        <p className="text-muted-foreground">Bạn cần được phân vào một nhóm để có thể xem và đặt lịch học.</p>
       </div>
     );
   }
@@ -175,14 +160,13 @@ export default function BookClassPage() {
     // User is a member but NOT a leader of any team
     const teamNames = myTeams.map(t => t.name).join(', ');
     return (
-      <div className="bg-card border border-border rounded-2xl p-10 text-center space-y-3">
-        <div className="text-4xl">🔒</div>
-        <h2 className="text-xl font-bold text-white">Bạn không phải Team Leader</h2>
-        <p className="text-slate-400">
+      <div className="bg-card border border-border rounded-lg p-10 text-center space-y-3">
+        <h2 className="text-h3 text-foreground">Bạn không phải Team Leader</h2>
+        <p className="text-muted-foreground">
           Bạn là thành viên của nhóm <span className="text-primary font-semibold">{teamNames}</span>,
           nhưng chỉ Team Leader mới có thể đặt lịch học.
         </p>
-        <p className="text-slate-500 text-sm">
+        <p className="text-small text-subtle-foreground">
           Vui lòng liên hệ Team Leader của bạn để đặt lịch.
         </p>
       </div>
@@ -190,23 +174,23 @@ export default function BookClassPage() {
   }
 
   return (
-    <div className="space-y-5 ">
+    <div className="space-y-5">
       {/* ── Header ─────────────────────────────────────── */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h1 className="text-h1 text-foreground">Schedule & Book</h1>
-          <p className="text-slate-400 mt-1">Click an empty slot to create a session, click your booking to cancel</p>
+          <p className="text-muted-foreground mt-1">Click an empty slot to create a session, click your booking to cancel</p>
         </div>
 
         <div className="flex items-center gap-3">
-          <label className="text-sm text-slate-400">Booking for:</label>
+          <label className="text-sm text-muted-foreground">Booking for:</label>
           <select
             value={selectedTeam}
             onChange={e => setSelectedTeam(e.target.value)}
-            className="px-3 py-2 rounded-xl bg-white/5 border border-white/10 text-white text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all"
+            className="px-3 h-(--control-h) rounded-md border border-input bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring transition-colors"
           >
             {leaderTeams.map(t => (
-              <option key={t._id} value={t._id} className="bg-slate-800">{t.name}</option>
+              <option key={t._id} value={t._id} className="bg-popover">{t.name}</option>
             ))}
           </select>
         </div>
@@ -214,161 +198,97 @@ export default function BookClassPage() {
 
       {/* ── Error ──────────────────────────────────────── */}
       {error && (
-        <div className="px-4 py-3 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-sm flex items-center gap-2 ">
-          <span>⚠️</span> {error}
-          <button onClick={() => setError('')} className="ml-auto text-red-400 hover:text-red-300">×</button>
+        <div className="px-4 py-3 rounded-md bg-destructive-tint border border-destructive/30 text-destructive text-sm flex items-center gap-2">
+          {error}
+          <button onClick={() => setError('')} className="ml-auto text-destructive hover:text-destructive/70">×</button>
         </div>
       )}
 
-      {/* ── Week navigation ────────────────────────────── */}
-      <div className="flex items-center justify-between">
-        <button onClick={prevWeek} className="px-4 py-2 rounded-xl bg-white/5 text-slate-300 hover:bg-white/10 transition-all text-sm border border-white/10">← Prev</button>
-        <div className="flex items-center gap-3">
-          <h2 className="text-white font-semibold">
-            {weekDays[0].toLocaleDateString('en', { month: 'short', day: 'numeric' })} — {weekDays[6].toLocaleDateString('en', { month: 'short', day: 'numeric', year: 'numeric' })}
-          </h2>
-          <button onClick={goToday} className="px-3 py-1 rounded-lg bg-primary/20 text-primary text-xs border border-primary/20 hover:bg-primary/30 transition-all">Today</button>
-        </div>
-        <button onClick={nextWeek} className="px-4 py-2 rounded-xl bg-white/5 text-slate-300 hover:bg-white/10 transition-all text-sm border border-white/10">Next →</button>
-      </div>
+      {/* ── Calendar Grid ──────────────────────────────── */}
+      <CalendarGrid
+        weekDays={weekDays}
+        timeRows={timeRows}
+        isLoading={loading}
+        onPrev={prevWeek}
+        onNext={nextWeek}
+        onToday={goToday}
+        weekLabel={`${weekDays[0].toLocaleDateString('en', { month: 'short', day: 'numeric' })} — ${weekDays[6].toLocaleDateString('en', { month: 'short', day: 'numeric', year: 'numeric' })}`}
+        renderCell={(day, hour) => {
+          const dateKey = toDateKey(day);
+          const slotStartTime = `${String(hour).padStart(2, '0')}:00`;
+          const slot = `${slotStartTime}-${String(hour + 1).padStart(2, '0')}:00`;
+          const cellKey = `${dateKey}|${slotStartTime}`;
+          const scheduleList = scheduleMap[cellKey] || [];
+          const isPast = dateKey < today;
 
-      {/* ── Loading ────────────────────────────────────── */}
-      {loading ? (
-        <div className="flex items-center justify-center py-20">
-          <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
-        </div>
-      ) : (
-        /* ── Timetable Grid ──────────────────────────── */
-        <div className="bg-card border border-border rounded-2xl overflow-hidden border border-white/5">
-          <div className="overflow-x-auto">
-            <table className="w-full border-collapse min-w-[800px]">
-              <thead>
-                <tr>
-                  <th className="sticky left-0 z-20 bg-slate-900/95 backdrop-blur-sm px-3 py-3 border-b border-r border-white/10 text-xs text-slate-500 w-24">Time</th>
-                  {weekDays.map((day, i) => {
-                    const dateKey = toDateKey(day);
-                    const isToday = dateKey === today;
-                    return (
-                      <th key={i} className={`px-2 py-3 border-b border-white/10 text-center ${isToday ? 'bg-primary/10' : ''}`}>
-                        <div className={`text-xs font-bold ${isToday ? 'text-primary' : 'text-slate-400'}`}>{DAY_NAMES[i]}</div>
-                        <div className={`text-xl font-bold ${isToday ? 'text-primary' : 'text-white'}`}>{day.getDate()}</div>
-                        <div className="text-[10px] text-slate-500">{day.toLocaleDateString('en', { month: 'short' })}</div>
-                      </th>
-                    );
-                  })}
-                </tr>
-              </thead>
+          const mySchedule = scheduleList.find(
+            s => s.bookedTeamId?._id === selectedTeam || s.bookedTeamId === selectedTeam
+          );
+          const blockerSchedule = !mySchedule && scheduleList.find(
+            s => s.bookedTeamId?._id !== selectedTeam && s.bookedTeamId !== selectedTeam
+          );
 
-              <tbody>
-                {TIME_SLOTS.map((slot) => (
-                  <tr key={slot} className="group">
-                    <td className="sticky left-0 z-10 bg-slate-900/95 backdrop-blur-sm px-3 py-2 border-r border-b border-white/10 text-xs font-mono text-slate-400 whitespace-nowrap align-middle">
-                      {slot}
-                    </td>
+          if (mySchedule) {
+            return (
+              <div
+                className="rounded-md p-2.5 h-full min-h-[80px] bg-primary/15 border border-primary/30 transition-colors duration-(--dur) cursor-pointer hover:border-destructive/40"
+                onClick={() => { if (!isPast) setCancelModal(mySchedule); }}
+              >
+                <div className="text-xs font-bold truncate text-primary">{mySchedule.classId?.classCode}</div>
+                <div className="text-[10px] text-muted-foreground truncate mt-0.5">{mySchedule.classId?.courseName}</div>
+                <div className="mt-1.5">
+                  <span className="inline-flex items-center gap-1 text-[10px] font-bold text-primary bg-primary/20 px-2 py-0.5 rounded">
+                    Your team · Click to cancel
+                  </span>
+                </div>
+              </div>
+            );
+          }
 
-                    {weekDays.map((day, dayIdx) => {
-                      const dateKey = toDateKey(day);
-                      const slotStartTime = slot.split('-')[0]; // "10:00-11:00" → "10:00"
-                      const cellKey = `${dateKey}|${slotStartTime}`;
-                      const scheduleList = scheduleMap[cellKey] || [];
-                      const isToday = dateKey === today;
-                      const isPast = dateKey < today;
+          if (blockerSchedule) {
+            const teamName = blockerSchedule.bookedTeamId?.name || 'Another team';
+            return (
+              <div className="rounded-md p-2.5 h-full min-h-[80px] bg-destructive/10 border border-destructive/15">
+                <div className="text-xs font-bold truncate text-destructive">{blockerSchedule.classId?.classCode}</div>
+                <div className="text-[10px] text-muted-foreground truncate mt-0.5">{blockerSchedule.classId?.courseName}</div>
+                <div className="mt-1.5">
+                  <span className="inline-flex items-center text-[10px] font-bold text-destructive bg-destructive/20 px-2 py-0.5 rounded">
+                    {teamName}
+                  </span>
+                </div>
+              </div>
+            );
+          }
 
-                      // My team's session at this slot (if any)
-                      const mySchedule = scheduleList.find(
-                        s => s.bookedTeamId?._id === selectedTeam || s.bookedTeamId === selectedTeam
-                      );
-                      // Any other team's session at this slot
-                      const blockerSchedule = !mySchedule && scheduleList.find(
-                        s => s.bookedTeamId?._id !== selectedTeam && s.bookedTeamId !== selectedTeam
-                      );
-
-                      if (mySchedule) {
-                        // ── MY TEAM'S SESSION — blue, cancellable ──
-                        return (
-                          <td key={dayIdx} className={`border-b border-white/5 p-1 align-top ${isToday ? 'bg-primary/5' : ''}`}>
-                            <div
-                              className="rounded-xl p-2.5 h-full min-h-[80px] transition-all bg-gradient-to-br from-primary/25 to-purple-500/15 border border-primary/30 shadow-sm shadow-primary/10 cursor-pointer hover:border-red-400/40"
-                              onClick={() => { if (!isPast) setCancelModal(mySchedule); }}
-                            >
-                              <div className="text-xs font-bold truncate text-primary">
-                                {mySchedule.classId?.classCode}
-                              </div>
-                              <div className="text-[10px] text-slate-400 truncate mt-0.5">
-                                {mySchedule.classId?.courseName}
-                              </div>
-                              <div className="mt-1.5">
-                                <span className="inline-flex items-center gap-1 text-[10px] font-bold text-primary bg-primary/20 px-2 py-0.5 rounded-full">
-                                  ✓ Your team · Click to cancel
-                                </span>
-                              </div>
-                            </div>
-                          </td>
-                        );
-                      }
-
-                      if (blockerSchedule) {
-                        // ── ANOTHER TEAM'S SESSION — red, slot is taken ──
-                        const teamName = blockerSchedule.bookedTeamId?.name || 'Another team';
-                        return (
-                          <td key={dayIdx} className={`border-b border-white/5 p-1 align-top ${isToday ? 'bg-primary/5' : ''}`}>
-                            <div className="rounded-xl p-2.5 h-full min-h-[80px] bg-red-500/10 border border-red-500/15 cursor-default">
-                              <div className="text-xs font-bold truncate text-red-400">
-                                {blockerSchedule.classId?.classCode}
-                              </div>
-                              <div className="text-[10px] text-slate-400 truncate mt-0.5">
-                                {blockerSchedule.classId?.courseName}
-                              </div>
-                              <div className="mt-1.5">
-                                <span className="inline-flex items-center text-[10px] font-bold text-red-400 bg-red-500/20 px-2 py-0.5 rounded-full">
-                                  🔒 {teamName}
-                                </span>
-                              </div>
-                            </div>
-                          </td>
-                        );
-                      }
-
-                      // ── EMPTY CELL — clickable to book ──
-                      return (
-                        <td key={dayIdx} className={`border-b border-white/5 p-1 align-top ${isToday ? 'bg-primary/5' : ''}`}>
-                          <div
-                            className={`rounded-xl h-full min-h-[80px] flex items-center justify-center transition-all ${
-                              isPast
-                                ? 'bg-white/[0.02] cursor-default'
-                                : 'bg-white/[0.02] hover:bg-emerald-500/10 hover:border-emerald-500/20 border border-transparent cursor-pointer group/cell'
-                            }`}
-                            onClick={() => { if (!isPast) setBookModal({ day, slot }); }}
-                          >
-                            {!isPast && (
-                              <span className="text-[10px] text-slate-600 opacity-0 group-hover/cell:opacity-100 transition-opacity font-medium">
-                                + Book
-                              </span>
-                            )}
-                          </div>
-                        </td>
-                      );
-                    })}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      )}
+          return (
+            <div
+              className={`rounded-md h-full min-h-[80px] flex items-center justify-center transition-colors duration-(--dur) ${
+                isPast
+                  ? 'bg-muted/20 cursor-default'
+                  : 'bg-muted/20 hover:bg-success/10 hover:border-success/20 border border-transparent cursor-pointer group/cell'
+              }`}
+              onClick={() => { if (!isPast) setBookModal({ day, slot }); }}
+            >
+              {!isPast && (
+                <span className="text-[10px] text-subtle-foreground opacity-0 group-hover/cell:opacity-100 transition-opacity font-medium">+ Book</span>
+              )}
+            </div>
+          );
+        }}
+      />
 
       {/* ── Legend ──────────────────────────────────────── */}
-      <div className="flex flex-wrap gap-4 text-xs text-slate-400">
+      <div className="flex flex-wrap gap-4 text-xs text-muted-foreground">
         <div className="flex items-center gap-2">
-          <div className="w-3.5 h-3.5 rounded bg-gradient-to-br from-primary/30 to-purple-500/20 border border-primary/30" />
+          <div className="w-3.5 h-3.5 rounded bg-primary/15 border border-primary/20" />
           <span>Your team's session</span>
         </div>
         <div className="flex items-center gap-2">
-          <div className="w-3.5 h-3.5 rounded bg-white/[0.03] border border-dashed border-emerald-500/30" />
+          <div className="w-3.5 h-3.5 rounded border border-dashed border-success/30" />
           <span>Available — click to book</span>
         </div>
         <div className="flex items-center gap-2">
-          <div className="w-3.5 h-3.5 rounded bg-red-500/15 border border-red-500/20" />
+          <div className="w-3.5 h-3.5 rounded bg-destructive/15 border border-destructive/20" />
           <span>Taken by another team</span>
         </div>
       </div>
@@ -376,107 +296,79 @@ export default function BookClassPage() {
       {/* ── Create Booking Modal ───────────────────────── */}
       {bookModal && (
         <Portal>
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm ">
-          <div className="bg-card border border-border rounded-2xl p-6 max-w-sm mx-4 space-y-4 border border-white/10 shadow-2xl">
-            <h3 className="text-lg font-bold text-white text-center">Create Session</h3>
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
+            <div className="bg-card border border-border rounded-lg p-6 max-w-sm mx-4 space-y-4">
+              <h3 className="text-h3 text-foreground text-center">Create Session</h3>
 
-            <div className="bg-white/5 rounded-xl p-4 space-y-2">
-              <div className="flex justify-between text-sm">
-                <span className="text-slate-400">Day</span>
-                <span className="text-white font-semibold">
-                  {bookModal.day.toLocaleDateString('en', { weekday: 'short', month: 'short', day: 'numeric' })}
-                </span>
-              </div>
-              <div className="flex justify-between text-sm">
-                <span className="text-slate-400">Time</span>
-                <span className="text-white">{bookModal.slot}</span>
-              </div>
-              <div className="flex justify-between text-sm">
-                <span className="text-slate-400">Team</span>
-                <span className="text-primary font-semibold">{selectedTeamObj?.name}</span>
-              </div>
-              <div className="flex justify-between text-sm">
-                <span className="text-slate-400">Class</span>
-                <span className="text-slate-300">{selectedTeamObj?.classId?.classCode || 'Auto-assigned'}</span>
-              </div>
-            </div>
-
-            <div className="flex gap-3">
-              <button
-                onClick={() => setBookModal(null)}
-                className="flex-1 py-2.5 rounded-xl border border-white/10 text-slate-400 hover:bg-white/5 transition-all"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleBookSlot}
-                disabled={bookMutation.isPending}
-                className="flex-1 py-2.5 rounded-xl bg-gradient-to-r from-primary to-primary text-white font-semibold hover:from-primary hover:to-primary transition-all disabled:opacity-50 shadow-lg shadow-primary/20"
-              >
-                {bookMutation.isPending ? (
-                  <span className="flex items-center justify-center gap-2">
-                    <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                    Creating...
+              <div className="bg-muted rounded-md p-4 space-y-2">
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">Day</span>
+                  <span className="text-foreground font-semibold">
+                    {bookModal.day.toLocaleDateString('en', { weekday: 'short', month: 'short', day: 'numeric' })}
                   </span>
-                ) : 'Create Session'}
-              </button>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">Time</span>
+                  <span className="text-foreground">{bookModal.slot}</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">Team</span>
+                  <span className="text-primary font-semibold">{selectedTeamObj?.name}</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">Class</span>
+                  <span className="text-muted-foreground">{selectedTeamObj?.classId?.classCode || 'Auto-assigned'}</span>
+                </div>
+              </div>
+
+              <div className="flex gap-3">
+                <Button variant="outline" className="flex-1" onClick={() => setBookModal(null)}>Cancel</Button>
+                <Button className="flex-1" onClick={handleBookSlot} disabled={bookMutation.isPending}>
+                  {bookMutation.isPending ? <><Spinner size={14} />Creating…</> : 'Create Session'}
+                </Button>
+              </div>
             </div>
           </div>
-        </div>
         </Portal>
       )}
 
       {/* ── Cancel Booking Modal ───────────────────────── */}
       {cancelModal && (
         <Portal>
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm ">
-          <div className="bg-card border border-border rounded-2xl p-6 max-w-sm mx-4 space-y-4 border border-white/10 shadow-2xl">
-            <h3 className="text-lg font-bold text-white text-center">Cancel Session</h3>
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
+            <div className="bg-card border border-border rounded-lg p-6 max-w-sm mx-4 space-y-4">
+              <h3 className="text-h3 text-foreground text-center">Cancel Session</h3>
 
-            <div className="bg-red-500/5 border border-red-500/10 rounded-xl p-4 space-y-2">
-              <div className="flex justify-between text-sm">
-                <span className="text-slate-400">Class</span>
-                <span className="text-white font-semibold">{cancelModal.classId?.classCode}</span>
-              </div>
-              <div className="flex justify-between text-sm">
-                <span className="text-slate-400">Course</span>
-                <span className="text-white">{cancelModal.classId?.courseName}</span>
-              </div>
-              <div className="flex justify-between text-sm">
-                <span className="text-slate-400">Time</span>
-                <span className="text-white">
-                  {new Date(cancelModal.startTime).toLocaleDateString('en', { weekday: 'short', month: 'short', day: 'numeric' })}
-                  {' '}
-                  {new Date(cancelModal.startTime).toLocaleTimeString('en', { hour: '2-digit', minute: '2-digit', hour12: false })}
-                  –
-                  {new Date(cancelModal.endTime).toLocaleTimeString('en', { hour: '2-digit', minute: '2-digit', hour12: false })}
-                </span>
-              </div>
-              <p className="text-xs text-red-400 mt-2">⚠️ This will permanently delete this session.</p>
-            </div>
-
-            <div className="flex gap-3">
-              <button
-                onClick={() => setCancelModal(null)}
-                className="flex-1 py-2.5 rounded-xl border border-white/10 text-slate-400 hover:bg-white/5 transition-all"
-              >
-                Keep
-              </button>
-              <button
-                onClick={handleCancel}
-                disabled={cancelMutation.isPending}
-                className="flex-1 py-2.5 rounded-xl bg-red-500/20 text-red-400 border border-red-500/20 hover:bg-red-500/30 font-semibold transition-all disabled:opacity-50"
-              >
-                {cancelMutation.isPending ? (
-                  <span className="flex items-center justify-center gap-2">
-                    <span className="w-3.5 h-3.5 border-2 border-red-400/30 border-t-red-400 rounded-full animate-spin" />
-                    Cancelling...
+              <div className="bg-destructive-tint border border-destructive/20 rounded-md p-4 space-y-2">
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">Class</span>
+                  <span className="text-foreground font-semibold">{cancelModal.classId?.classCode}</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">Course</span>
+                  <span className="text-foreground">{cancelModal.classId?.courseName}</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">Time</span>
+                  <span className="text-foreground">
+                    {new Date(cancelModal.startTime).toLocaleDateString('en', { weekday: 'short', month: 'short', day: 'numeric' })}
+                    {' '}
+                    {new Date(cancelModal.startTime).toLocaleTimeString('en', { hour: '2-digit', minute: '2-digit', hour12: false })}
+                    –
+                    {new Date(cancelModal.endTime).toLocaleTimeString('en', { hour: '2-digit', minute: '2-digit', hour12: false })}
                   </span>
-                ) : 'Cancel Session'}
-              </button>
+                </div>
+                <p className="text-small text-destructive mt-2">This will permanently delete this session.</p>
+              </div>
+
+              <div className="flex gap-3">
+                <Button variant="outline" className="flex-1" onClick={() => setCancelModal(null)}>Keep</Button>
+                <Button variant="destructive" className="flex-1" onClick={handleCancel} disabled={cancelMutation.isPending}>
+                  {cancelMutation.isPending ? <><Spinner size={14} />Cancelling…</> : 'Cancel Session'}
+                </Button>
+              </div>
             </div>
           </div>
-        </div>
         </Portal>
       )}
     </div>
