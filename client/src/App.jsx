@@ -18,10 +18,11 @@ const ForgotPasswordPage = lazy(() => import('./pages/ForgotPasswordPage'));
 const ResetPasswordPage  = lazy(() => import('./pages/ResetPasswordPage'));
 
 const DashboardPage    = lazy(() => import('./pages/DashboardPage'));
-const AcademyPage      = lazy(() => import('./pages/AcademyPage'));
+const PeoplePage       = lazy(() => import('./pages/PeoplePage'));
+const ProgramsPage     = lazy(() => import('./pages/ProgramsPage'));
 const OperationsPage   = lazy(() => import('./pages/OperationsPage'));
 const ReportsPage      = lazy(() => import('./pages/ReportsPage'));
-const AdminPage        = lazy(() => import('./pages/AdminPage'));
+const SystemPage       = lazy(() => import('./pages/SystemPage'));
 const BookClassPage    = lazy(() => import('./pages/BookClassPage'));
 const ClassDetailPage  = lazy(() => import('./pages/ClassDetailPage'));
 const UserSettingsPage = lazy(() => import('./pages/UserSettingsPage'));
@@ -191,13 +192,15 @@ function ForceChangePasswordModal() {
 // Routes that previously lived at top level — keep them working as deep redirects
 // to the new section pages (preserves bookmarks for one release).
 const LEGACY_REDIRECTS = [
-  { from: '/dashboard', to: '/home' },
-  { from: '/people', to: '/academy?tab=users' },
-  { from: '/classes', to: '/academy?tab=classes' },
-  { from: '/schedules', to: '/operations?tab=schedules' },
+  { from: '/dashboard',  to: '/home' },
+  // IA-S2 renames: old top-level paths → new section tabs
+  { from: '/academy',    to: '/people' },
+  { from: '/admin',      to: '/system' },
+  { from: '/classes',    to: '/programs?tab=classes' },
+  { from: '/schedules',  to: '/operations?tab=schedules' },
   { from: '/attendance', to: '/operations?tab=attendance' },
-  { from: '/data', to: '/reports?tab=hr-export' },
-  { from: '/settings', to: '/admin?tab=settings' },
+  { from: '/data',       to: '/reports?tab=hr-export' },
+  { from: '/settings',   to: '/system?tab=settings' },
 ];
 
 export default function App() {
@@ -219,8 +222,11 @@ export default function App() {
               <Route element={<ProtectedRoute><Layout /></ProtectedRoute>}>
                 <Route path="/home" element={<DashboardPage />} />
 
-                <Route path="/academy" element={
-                  <ProtectedRoute roles={['Admin']}><AcademyPage /></ProtectedRoute>
+                <Route path="/people" element={
+                  <ProtectedRoute roles={['Admin']}><PeoplePage /></ProtectedRoute>
+                } />
+                <Route path="/programs" element={
+                  <ProtectedRoute roles={['Admin']}><ProgramsPage /></ProtectedRoute>
                 } />
                 <Route path="/operations" element={
                   <ProtectedRoute roles={['Admin', 'Teacher']}><OperationsPage /></ProtectedRoute>
@@ -228,8 +234,8 @@ export default function App() {
                 <Route path="/reports" element={
                   <ProtectedRoute roles={['Admin', 'Teacher']}><ReportsPage /></ProtectedRoute>
                 } />
-                <Route path="/admin" element={
-                  <ProtectedRoute roles={['Admin']}><AdminPage /></ProtectedRoute>
+                <Route path="/system" element={
+                  <ProtectedRoute roles={['Admin']}><SystemPage /></ProtectedRoute>
                 } />
 
                 {/* Participant booking calendar */}
