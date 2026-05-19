@@ -278,7 +278,7 @@ export default function ClassesPage() {
     <div className="space-y-6 ">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-white">📚 Class Management</h1>
+          <h1 className="text-h1 text-foreground">Class Management</h1>
           <p className="text-slate-400 mt-1">
             {classCodes.length} cohort{classCodes.length !== 1 ? 's' : ''}
             {hasActiveFilter && ` (filtered from ${new Set(classes.map(c => c.classCode)).size})`}
