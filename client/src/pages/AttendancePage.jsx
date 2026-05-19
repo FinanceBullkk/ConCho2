@@ -62,22 +62,32 @@ export default function AttendancePage() {
   const [isLoadingRoster, setIsLoadingRoster]   = useState(false);
   const [records, setRecords]                   = useState([]);
   const [result, setResult]                     = useState(null);
+  const [isDirty, setIsDirty]                   = useState(false);
+  const [confirmingClose, setConfirmingClose]   = useState(false);
   const [weekStart, setWeekStart]               = useState(() => getMonday(new Date()));
 
   useEffect(() => { document.title = 'TMS — Attendance'; }, []);
 
-  // ESC closes drawer
+  const doClose = useCallback(() => {
+    setSelectedSchedule(null);
+    setRecords([]);
+    setResult(null);
+    setIsDirty(false);
+    setConfirmingClose(false);
+  }, []);
+
+  const requestClose = useCallback(() => {
+    if (isDirty) { setConfirmingClose(true); } else { doClose(); }
+  }, [isDirty, doClose]);
+
+  // ESC closes drawer (with guard when dirty)
   useEffect(() => {
     const handler = (e) => {
-      if (e.key === 'Escape' && selectedSchedule) {
-        setSelectedSchedule(null);
-        setRecords([]);
-        setResult(null);
-      }
+      if (e.key === 'Escape' && selectedSchedule) requestClose();
     };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
-  }, [selectedSchedule]);
+  }, [selectedSchedule, requestClose]);
 
   const { data: schedules = [], isLoading: loading } = useAttendanceCalendar();
 
@@ -123,14 +133,14 @@ export default function AttendancePage() {
   const handleSelectSchedule = useCallback(async (schedule) => {
     // Toggle: clicking the same cell closes the drawer
     if (selectedSchedule?._id === schedule._id) {
-      setSelectedSchedule(null);
-      setRecords([]);
-      setResult(null);
+      requestClose();
       return;
     }
     setSelectedSchedule(schedule);
     setResult(null);
     setRecords([]);
+    setIsDirty(false);
+    setConfirmingClose(false);
     setIsLoadingRoster(true);
     try {
       const scheduleRes = await schedulesAPI.getById(schedule._id);
@@ -169,11 +179,13 @@ export default function AttendancePage() {
 
   const updateRecord = useCallback((idx, field, value) => {
     setRecords(prev => prev.map((r, i) => i === idx ? { ...r, [field]: value, isMarked: true } : r));
+    setIsDirty(true);
     setResult(null);
   }, []);
 
   const markAll = useCallback((status) => {
     setRecords(prev => prev.map(r => ({ ...r, status, isMarked: true })));
+    setIsDirty(true);
     setResult(null);
   }, []);
 
@@ -183,6 +195,7 @@ export default function AttendancePage() {
     try {
       const payload = records.map(r => ({ userId: r.userId, status: r.status, remark: r.remark }));
       await bulkMarkMutation.mutateAsync({ scheduleId: selectedSchedule._id, records: payload });
+      setIsDirty(false);
       setResult({ success: true, message: 'Saved' });
     } catch (err) {
       setResult({ success: false, message: err.response?.data?.message || 'Failed to save' });
@@ -351,7 +364,11 @@ export default function AttendancePage() {
             result={result}
             isStale={isStale}
             isAdmin={isAdmin}
-            onClose={() => { setSelectedSchedule(null); setRecords([]); setResult(null); }}
+            isDirty={isDirty}
+            confirmingClose={confirmingClose}
+            onCloseRequest={requestClose}
+            onCancelClose={() => setConfirmingClose(false)}
+            onDiscardAndClose={doClose}
             onMarkAll={markAll}
             onRecordUpdate={updateRecord}
             onSubmit={handleSubmit}
