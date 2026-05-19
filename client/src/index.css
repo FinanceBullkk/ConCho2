@@ -4,28 +4,7 @@
 /* Dark mode is toggled via the .dark class on <html> */
 @custom-variant dark (&:is(.dark *));
 
-/* ── Brand tokens (kept from original design) ───────────── */
 @theme {
-  --color-primary-50: #eff6ff;
-  --color-primary-100: #dbeafe;
-  --color-primary-200: #bfdbfe;
-  --color-primary-300: #93c5fd;
-  --color-primary-400: #60a5fa;
-  --color-primary-500: #3b82f6;
-  --color-primary-600: #2563eb;
-  --color-primary-700: #1d4ed8;
-  --color-primary-800: #1e40af;
-  --color-primary-900: #1e3a8a;
-
-  --color-surface: #0f172a;
-  --color-surface-light: #1e293b;
-  --color-surface-lighter: #334155;
-
-  --color-accent-green: #10b981;
-  --color-accent-red: #ef4444;
-  --color-accent-amber: #f59e0b;
-  --color-accent-purple: #8b5cf6;
-
   --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
   --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
 }
@@ -37,7 +16,7 @@
   --radius: 0.625rem;
 
   /* Primary / accent colours — unchanged across themes */
-  --primary: hsl(217 91% 60%);              /* primary-500 */
+  --primary: hsl(217 91% 60%);
   --primary-foreground: hsl(0 0% 100%);
   --destructive: hsl(0 72% 60%);
   --destructive-foreground: hsl(0 0% 100%);
@@ -87,7 +66,7 @@
 
 /* Dark theme tokens — active when <html> has .dark class */
 html.dark {
-  --background: hsl(222 47% 7%);            /* near surface */
+  --background: hsl(222 47% 7%);
   --foreground: hsl(210 40% 92%);
   --card: hsl(222 40% 11%);
   --card-foreground: hsl(210 40% 92%);

@@ -2,9 +2,9 @@ import { Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 /**
- * Inline spinner. Replaces 30+ hand-rolled
- *   `border-2 border-primary-400 border-t-transparent rounded-full animate-spin`
- * patterns scattered across pages.
+ * Inline spinner. Replaces 30+ hand-rolled CSS-only spinners that previously
+ * lived inline in pages (`border-2 ... border-t-transparent rounded-full
+ * animate-spin`). Use `<Spinner size={...} />` everywhere now.
  *
  * Sizes (Phase 1 §02 binding):
  *   16 — inline next to text, default
