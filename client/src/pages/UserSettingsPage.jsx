@@ -6,6 +6,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { useAuth } from '../context/AuthContext';
 import { authAPI } from '../api/api';
 import { changePasswordSchema } from '../lib/validations';
+import { Button } from '@/components/ui/button';
 
 // ──────────────────────────────────────────────────────────
 // User Settings — change password, manage MFA
@@ -32,22 +33,22 @@ function ChangePasswordSection() {
     }
   });
 
-  const inputCls = 'w-full px-4 py-2.5 rounded-xl bg-white/5 border text-white focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all';
+  const inputCls = 'w-full px-4 py-2.5 rounded-md bg-background border text-foreground placeholder:text-subtle-foreground focus:outline-none focus:ring-2 focus:ring-ring transition-all';
 
   return (
-    <form onSubmit={submit} className="bg-card border border-border rounded-2xl p-6 space-y-4" noValidate>
+    <form onSubmit={submit} className="bg-card border border-border rounded-lg p-6 space-y-4" noValidate>
       <div className="flex items-center gap-2">
         <KeyRound className="size-5 text-primary" aria-hidden="true" />
-        <h2 className="text-lg font-semibold text-white">Change password</h2>
+        <h2 className="text-lg font-semibold text-foreground">Change password</h2>
       </div>
 
       {errors.root && (
-        <div role="alert" className="px-3 py-2 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 text-sm">
+        <div role="alert" className="px-3 py-2 rounded-lg bg-destructive-tint border border-destructive/20 text-destructive text-sm">
           {errors.root.message}
         </div>
       )}
       {ok && (
-        <div role="status" className="px-3 py-2 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-sm">
+        <div role="status" className="px-3 py-2 rounded-lg bg-success/10 border border-success/20 text-success text-sm">
           {ok}
         </div>
       )}
@@ -58,28 +59,27 @@ function ChangePasswordSection() {
         { name: 'confirm', label: 'Confirm new password' },
       ].map(({ name, label, hint }) => (
         <div key={name}>
-          <label htmlFor={name} className="block text-sm text-slate-300 mb-1">{label}</label>
+          <label htmlFor={name} className="block text-sm text-muted-foreground mb-1">{label}</label>
           <input
             id={name}
             type="password"
             aria-invalid={!!errors[name]}
             aria-describedby={errors[name] ? `${name}-error` : undefined}
-            className={`${inputCls} ${errors[name] ? 'border-red-500/50' : 'border-white/10'}`}
+            className={`${inputCls} ${errors[name] ? 'border-destructive/50' : 'border-input'}`}
             {...register(name)}
           />
           {errors[name] && (
-            <p id={`${name}-error`} role="alert" className="mt-1 text-xs text-red-400">
+            <p id={`${name}-error`} role="alert" className="mt-1 text-xs text-destructive">
               {errors[name].message}
             </p>
           )}
-          {hint && !errors[name] && <p className="text-xs text-slate-500 mt-1">{hint}</p>}
+          {hint && !errors[name] && <p className="text-xs text-subtle-foreground mt-1">{hint}</p>}
         </div>
       ))}
 
-      <button type="submit" disabled={isSubmitting}
-        className="w-full py-2.5 rounded-xl bg-gradient-to-r from-primary to-primary text-white font-semibold hover:from-primary hover:to-primary transition-all disabled:opacity-50">
+      <Button type="submit" disabled={isSubmitting} className="w-full">
         {isSubmitting ? 'Updating…' : 'Update password'}
-      </button>
+      </Button>
     </form>
   );
 }
@@ -99,29 +99,27 @@ function BackupCodesPanel({ codes, onClose }) {
   };
 
   return (
-    <div className="rounded-xl border border-amber-500/30 bg-amber-500/5 p-4 space-y-3">
+    <div className="rounded-md border border-warning/30 bg-warning/5 p-4 space-y-3">
       <div className="flex items-start gap-2">
-        <AlertTriangle className="size-5 text-amber-400 shrink-0 mt-0.5" />
-        <div className="text-sm text-amber-200">
+        <AlertTriangle className="size-5 text-warning shrink-0 mt-0.5" />
+        <div className="text-sm text-warning">
           <strong>Save these backup codes now.</strong> Each works once. They will not be shown again. Use them if you lose access to your authenticator app.
         </div>
       </div>
 
       <div className="font-mono text-sm bg-black/30 rounded-lg p-3 space-y-1">
         {codes.map((c) => (
-          <div key={c} className="text-emerald-300">{c}</div>
+          <div key={c} className="text-success">{c}</div>
         ))}
       </div>
 
       <div className="flex gap-2">
-        <button type="button" onClick={copy}
-          className="flex-1 py-2 rounded-lg bg-white/10 text-white text-sm hover:bg-white/15 transition-all flex items-center justify-center gap-2">
+        <Button type="button" variant="outline" onClick={copy} className="flex-1 flex items-center justify-center gap-2">
           {copied ? <><Check className="size-4" /> Copied</> : <><Copy className="size-4" /> Copy all</>}
-        </button>
-        <button type="button" onClick={onClose}
-          className="flex-1 py-2 rounded-lg bg-emerald-500/20 text-emerald-300 text-sm hover:bg-emerald-500/30 transition-all">
+        </Button>
+        <Button type="button" onClick={onClose} className="flex-1">
           I've saved them
-        </button>
+        </Button>
       </div>
     </div>
   );
@@ -194,68 +192,65 @@ function MfaSection({ user, onMfaChange, forceEnroll = false, onEnrollComplete }
   };
 
   return (
-    <div className="bg-card border border-border rounded-2xl p-6 space-y-4">
+    <div className="bg-card border border-border rounded-lg p-6 space-y-4">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           {enabled ? (
-            <ShieldCheck className="size-5 text-emerald-400" />
+            <ShieldCheck className="size-5 text-success" />
           ) : (
-            <Shield className="size-5 text-slate-400" />
+            <Shield className="size-5 text-muted-foreground" />
           )}
-          <h2 className="text-lg font-semibold text-white">Two-factor authentication</h2>
+          <h2 className="text-lg font-semibold text-foreground">Two-factor authentication</h2>
         </div>
         <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${
           enabled
-            ? 'bg-emerald-500/20 text-emerald-300'
-            : 'bg-slate-500/20 text-slate-400'
+            ? 'bg-success/20 text-success'
+            : 'bg-muted text-muted-foreground'
         }`}>
           {enabled ? 'Enabled' : 'Disabled'}
         </span>
       </div>
 
-      <p className="text-sm text-slate-400">
+      <p className="text-sm text-muted-foreground">
         Add a second factor with an authenticator app (Google Authenticator, Microsoft Authenticator, 1Password, etc.). Your password alone will no longer be enough to sign in.
       </p>
 
-      {error && <div className="px-3 py-2 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 text-sm">{error}</div>}
+      {error && <div className="px-3 py-2 rounded-lg bg-destructive-tint border border-destructive/20 text-destructive text-sm">{error}</div>}
 
       {/* ── Disabled state — show Setup CTA ─────────────────── */}
       {!enabled && stage === 'idle' && (
-        <button onClick={startSetup} disabled={busy}
-          className="w-full py-2.5 rounded-xl bg-gradient-to-r from-primary to-primary text-white font-semibold hover:from-primary hover:to-primary transition-all disabled:opacity-50">
+        <Button onClick={startSetup} disabled={busy} className="w-full">
           {busy ? 'Preparing…' : 'Enable two-factor authentication'}
-        </button>
+        </Button>
       )}
 
       {/* ── Setup verify — show QR + code input ─────────────── */}
       {stage === 'verify' && setup && (
         <div className="space-y-4">
-          <div className="rounded-xl border border-white/10 bg-white/5 p-4 space-y-3">
-            <p className="text-sm text-slate-300">1. Scan this QR code with your authenticator app:</p>
+          <div className="rounded-md border border-border bg-muted p-4 space-y-3">
+            <p className="text-sm text-muted-foreground">1. Scan this QR code with your authenticator app:</p>
             <img src={setup.qrCodeDataUrl} alt="MFA QR code" className="mx-auto h-48 w-48 rounded-lg bg-white p-2" />
-            <details className="text-xs text-slate-400">
-              <summary className="cursor-pointer hover:text-slate-200">Can't scan? Enter the secret manually</summary>
-              <div className="mt-2 font-mono text-emerald-300 break-all bg-black/30 p-2 rounded">{setup.secretBase32}</div>
+            <details className="text-xs text-muted-foreground">
+              <summary className="cursor-pointer hover:text-foreground">Can't scan? Enter the secret manually</summary>
+              <div className="mt-2 font-mono text-success break-all bg-black/30 p-2 rounded">{setup.secretBase32}</div>
             </details>
           </div>
 
           <form onSubmit={verifySetup} className="space-y-3">
-            <p className="text-sm text-slate-300">2. Enter the 6-digit code shown in your app:</p>
+            <p className="text-sm text-muted-foreground">2. Enter the 6-digit code shown in your app:</p>
             {/* eslint-disable jsx-a11y/no-autofocus */}
             <input type="text" inputMode="numeric" autoComplete="one-time-code" value={code}
               onChange={(e) => setCode(e.target.value)} placeholder="123456" required minLength={6} maxLength={10}
-              className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all font-mono tracking-widest text-center text-lg" autoFocus />
+              className="w-full px-4 py-3 rounded-md bg-background border border-input text-foreground placeholder:text-subtle-foreground focus:outline-none focus:ring-2 focus:ring-ring transition-all font-mono tracking-widest text-center text-lg" autoFocus />
             {/* eslint-enable jsx-a11y/no-autofocus */}
 
             <div className="flex gap-3">
-              <button type="button" onClick={cancel}
-                className="flex-1 py-2.5 rounded-xl border border-white/10 text-slate-400 hover:bg-white/5 transition-all">
+              <Button type="button" variant="outline" onClick={cancel} className="flex-1">
                 Cancel
-              </button>
-              <button type="submit" disabled={busy || code.length < 6}
-                className="flex-1 py-2.5 rounded-xl bg-gradient-to-r from-primary to-primary text-white font-semibold hover:from-primary hover:to-primary transition-all disabled:opacity-50">
+              </Button>
+              <Button type="submit" disabled={busy || code.length < 6} className="flex-1">
                 {busy ? 'Verifying…' : 'Verify & enable'}
-              </button>
+              </Button>
             </div>
           </form>
         </div>
@@ -278,30 +273,27 @@ function MfaSection({ user, onMfaChange, forceEnroll = false, onEnrollComplete }
 
       {/* ── Enabled — Disable flow ──────────────────────────── */}
       {enabled && stage === 'idle' && (
-        <button onClick={() => setStage('disable')}
-          className="w-full py-2.5 rounded-xl border border-rose-500/30 bg-rose-500/10 text-rose-300 font-semibold hover:bg-rose-500/20 transition-all">
+        <Button variant="outline" onClick={() => setStage('disable')} className="w-full border-destructive/30 bg-destructive-tint text-destructive font-semibold hover:bg-destructive/20">
           Disable two-factor authentication
-        </button>
+        </Button>
       )}
 
       {stage === 'disable' && (
         <form onSubmit={disable} className="space-y-3">
-          <p className="text-sm text-slate-300">Enter a current 6-digit code or a backup code to confirm:</p>
+          <p className="text-sm text-muted-foreground">Enter a current 6-digit code or a backup code to confirm:</p>
           {/* eslint-disable jsx-a11y/no-autofocus */}
           <input type="text" inputMode="text" autoComplete="one-time-code" value={code}
             onChange={(e) => setCode(e.target.value)} placeholder="123456 or XXXXX-XXXXX" required minLength={6} maxLength={20}
-            className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all font-mono tracking-widest text-center text-lg" autoFocus />
+            className="w-full px-4 py-3 rounded-md bg-background border border-input text-foreground placeholder:text-subtle-foreground focus:outline-none focus:ring-2 focus:ring-ring transition-all font-mono tracking-widest text-center text-lg" autoFocus />
           {/* eslint-enable jsx-a11y/no-autofocus */}
 
           <div className="flex gap-3">
-            <button type="button" onClick={cancel}
-              className="flex-1 py-2.5 rounded-xl border border-white/10 text-slate-400 hover:bg-white/5 transition-all">
+            <Button type="button" variant="outline" onClick={cancel} className="flex-1">
               Keep enabled
-            </button>
-            <button type="submit" disabled={busy || code.length < 6}
-              className="flex-1 py-2.5 rounded-xl bg-rose-500/20 text-rose-300 font-semibold hover:bg-rose-500/30 transition-all disabled:opacity-50">
+            </Button>
+            <Button type="submit" disabled={busy || code.length < 6} className="flex-1 bg-destructive-tint text-destructive hover:bg-destructive/20">
               {busy ? 'Disabling…' : 'Disable MFA'}
-            </button>
+            </Button>
           </div>
         </form>
       )}
@@ -344,12 +336,12 @@ export default function UserSettingsPage() {
   if (lockdownActive) {
     return (
       <div className="space-y-6 max-w-2xl">
-        <div className="rounded-2xl p-6 border border-amber-500/30 bg-amber-500/10">
+        <div className="rounded-lg p-6 border border-warning/30 bg-warning/10">
           <div className="flex items-start gap-3">
-            <Lock className="size-6 text-amber-300 shrink-0 mt-0.5" />
+            <Lock className="size-6 text-warning shrink-0 mt-0.5" />
             <div>
-              <h1 className="text-lg font-bold text-white">Two-factor authentication required</h1>
-              <p className="text-sm text-amber-200/90 mt-1">
+              <h1 className="text-lg font-bold text-foreground">Two-factor authentication required</h1>
+              <p className="text-sm text-warning/90 mt-1">
                 Your role ({user.role}) requires 2FA before you can access the system.
                 Set it up below — it takes about a minute. After enrollment you'll be
                 returned to the app and won't see this screen again.
@@ -371,34 +363,34 @@ export default function UserSettingsPage() {
     <div className="space-y-6 max-w-2xl">
       <div>
         <h1 className="text-h1 text-foreground">Account settings</h1>
-        <p className="text-slate-400 mt-1">{user.name} · {user.empCode}</p>
+        <p className="text-muted-foreground mt-1">{user.name} · {user.empCode}</p>
       </div>
 
       {/* Read-only profile card */}
-      <div className="bg-card border border-border rounded-2xl p-6">
-        <h2 className="text-lg font-semibold text-white mb-4">Profile</h2>
+      <div className="bg-card border border-border rounded-lg p-6">
+        <h2 className="text-lg font-semibold text-foreground mb-4">Profile</h2>
         <dl className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
           <div>
-            <dt className="text-slate-500 text-xs uppercase tracking-wider">Employee code</dt>
-            <dd className="text-white font-mono mt-1">{user.empCode}</dd>
+            <dt className="text-subtle-foreground text-xs uppercase tracking-wider">Employee code</dt>
+            <dd className="text-foreground font-mono mt-1">{user.empCode}</dd>
           </div>
           <div>
-            <dt className="text-slate-500 text-xs uppercase tracking-wider">Role</dt>
-            <dd className="text-white mt-1">{user.role}</dd>
+            <dt className="text-subtle-foreground text-xs uppercase tracking-wider">Role</dt>
+            <dd className="text-foreground mt-1">{user.role}</dd>
           </div>
           <div className="sm:col-span-2">
-            <dt className="text-slate-500 text-xs uppercase tracking-wider">Email</dt>
-            <dd className={`mt-1 ${user.email ? 'text-white' : 'text-amber-400 italic'}`}>
+            <dt className="text-subtle-foreground text-xs uppercase tracking-wider">Email</dt>
+            <dd className={`mt-1 ${user.email ? 'text-foreground' : 'text-warning italic'}`}>
               {user.email || 'Not set — ask admin to add one for Google Calendar invites'}
             </dd>
           </div>
           <div>
-            <dt className="text-slate-500 text-xs uppercase tracking-wider">Department</dt>
-            <dd className="text-white mt-1">{user.department || '—'}</dd>
+            <dt className="text-subtle-foreground text-xs uppercase tracking-wider">Department</dt>
+            <dd className="text-foreground mt-1">{user.department || '—'}</dd>
           </div>
           <div>
-            <dt className="text-slate-500 text-xs uppercase tracking-wider">Status</dt>
-            <dd className="text-white mt-1">{user.status}</dd>
+            <dt className="text-subtle-foreground text-xs uppercase tracking-wider">Status</dt>
+            <dd className="text-foreground mt-1">{user.status}</dd>
           </div>
         </dl>
       </div>
