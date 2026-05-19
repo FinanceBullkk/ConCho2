@@ -81,15 +81,15 @@ function UserModal({ user, onClose, onSaved }) {
     }
   });
 
-  const inputCls = 'w-full px-4 py-2.5 rounded-xl bg-white/5 border text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-primary-500/50 disabled:opacity-40 transition-all';
+  const inputCls = 'w-full px-4 py-2.5 rounded-xl bg-white/5 border text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-primary/50 disabled:opacity-40 transition-all';
 
   return (
     <Portal>
     {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions */}
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm animate-fade-in p-4" onClick={onClose}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4" onClick={onClose}>
       {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-noninteractive-element-interactions */}
       <form onSubmit={onSubmit} onClick={(e) => e.stopPropagation()} noValidate
-        className="glass rounded-2xl w-full max-w-md flex flex-col max-h-[92vh] animate-fade-in">
+        className="bg-card border border-border rounded-2xl w-full max-w-md flex flex-col max-h-[92vh] ">
 
         {/* ── Sticky header ── */}
         <div className="px-6 pt-6 pb-4 border-b border-white/8 shrink-0">
@@ -138,7 +138,7 @@ function UserModal({ user, onClose, onSaved }) {
               <label htmlFor="role" className="block text-sm text-slate-300 mb-1">Role</label>
               <select
                 id="role"
-                className="w-full px-3 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white focus:outline-none focus:ring-2 focus:ring-primary-500/50 transition-all"
+                className="w-full px-3 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all"
                 {...register('role')}
               >
                 {ROLES.map((r) => <option key={r} value={r} className="bg-slate-800">{r}</option>)}
@@ -148,7 +148,7 @@ function UserModal({ user, onClose, onSaved }) {
               <label htmlFor="status" className="block text-sm text-slate-300 mb-1">Status</label>
               <select
                 id="status"
-                className="w-full px-3 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white focus:outline-none focus:ring-2 focus:ring-primary-500/50 transition-all"
+                className="w-full px-3 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all"
                 {...register('status')}
               >
                 {STATUSES.map((s) => <option key={s} value={s} className="bg-slate-800">{s}</option>)}
@@ -204,7 +204,7 @@ function UserModal({ user, onClose, onSaved }) {
         {/* ── Sticky footer ── */}
         <div className="px-6 pb-6 pt-4 border-t border-white/8 shrink-0 flex gap-3">
           <button type="button" onClick={onClose} className="flex-1 py-2.5 rounded-xl border border-white/10 text-slate-400 hover:bg-white/5 transition-all">Cancel</button>
-          <button type="submit" disabled={saving} className="flex-1 py-2.5 rounded-xl bg-gradient-to-r from-primary-600 to-primary-500 text-white font-semibold hover:from-primary-500 hover:to-primary-400 transition-all disabled:opacity-50">
+          <button type="submit" disabled={saving} className="flex-1 py-2.5 rounded-xl bg-gradient-to-r from-primary to-primary text-white font-semibold hover:from-primary hover:to-primary transition-all disabled:opacity-50">
             {saving ? 'Saving...' : isEdit ? 'Update' : 'Create'}
           </button>
         </div>
@@ -223,7 +223,7 @@ const STATUS_BADGE = {
   'Waiting for class': 'bg-blue-500/15 text-blue-400',
 };
 const ROLE_BADGE = {
-  Admin: 'bg-primary-500/15 text-primary-300',
+  Admin: 'bg-primary/15 text-primary',
   Teacher: 'bg-purple-500/15 text-purple-300',
   Participant: 'bg-teal-500/15 text-teal-300',
 };
@@ -299,7 +299,7 @@ export default function UsersPage() {
 
   const SortIcon = ({ col }) => {
     if (sortBy !== col) return <span className="text-slate-600 ml-0.5">↕</span>;
-    return <span className="text-primary-400 ml-0.5">{sortOrder === 'asc' ? '↑' : '↓'}</span>;
+    return <span className="text-primary ml-0.5">{sortOrder === 'asc' ? '↑' : '↓'}</span>;
   };
 
   const { data: usersData, isLoading: loading, isError, error, refetch } = useUsers(queryParams);
@@ -413,22 +413,22 @@ export default function UsersPage() {
   };
 
   return (
-    <div className="space-y-6 animate-fade-in">
+    <div className="space-y-6 ">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-white">👤 User Management</h1>
+          <h1 className="text-h1 text-foreground">User Management</h1>
           <p className="text-slate-400 mt-1">{total} users total</p>
         </div>
         {can('create:user') && (
           <button onClick={() => setModal('create')}
-            className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-primary-600 to-primary-500 text-white font-semibold hover:from-primary-500 hover:to-primary-400 transition-all shadow-lg shadow-primary-500/20 self-start">
+            className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-primary to-primary text-white font-semibold hover:from-primary hover:to-primary transition-all shadow-lg shadow-primary/20 self-start">
             + New User
           </button>
         )}
       </div>
 
       {/* Search + Filters */}
-      <div className="glass rounded-2xl px-5 py-4 flex flex-wrap gap-3 items-center">
+      <div className="bg-card border border-border rounded-2xl px-5 py-4 flex flex-wrap gap-3 items-center">
         <div className="relative flex-1 min-w-[200px] max-w-sm">
           <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
@@ -438,16 +438,16 @@ export default function UsersPage() {
             value={search}
             onChange={(e) => setParam('search', e.target.value)}
             placeholder="Search by name, code, or department..."
-            className="w-full pl-10 pr-4 py-2 rounded-xl bg-white/5 border border-white/10 text-white text-sm placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-primary-500/50 transition-all"
+            className="w-full pl-10 pr-4 py-2 rounded-xl bg-white/5 border border-white/10 text-white text-sm placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all"
           />
         </div>
         <select value={filterRole} onChange={(e) => setParam('role', e.target.value)}
-          className="px-3 py-2 rounded-xl bg-white/5 border border-white/10 text-white text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/50">
+          className="px-3 py-2 rounded-xl bg-white/5 border border-white/10 text-white text-sm focus:outline-none focus:ring-2 focus:ring-primary/50">
           <option value="" className="bg-slate-800">All Roles</option>
           {ROLES.map((r) => <option key={r} value={r} className="bg-slate-800">{r}</option>)}
         </select>
         <select value={filterStatus} onChange={(e) => setParam('status', e.target.value)}
-          className="px-3 py-2 rounded-xl bg-white/5 border border-white/10 text-white text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/50">
+          className="px-3 py-2 rounded-xl bg-white/5 border border-white/10 text-white text-sm focus:outline-none focus:ring-2 focus:ring-primary/50">
           <option value="" className="bg-slate-800">All Statuses</option>
           {STATUSES.map((s) => <option key={s} value={s} className="bg-slate-800">{s}</option>)}
         </select>
@@ -456,8 +456,8 @@ export default function UsersPage() {
 
       {/* Bulk action toolbar — visible only when rows are selected */}
       {selectedIds.size > 0 && (
-        <div className="flex items-center gap-3 px-4 py-2.5 rounded-xl bg-primary-500/10 border border-primary-500/20 animate-fade-in">
-          <span className="text-sm text-primary-300 font-medium">
+        <div className="flex items-center gap-3 px-4 py-2.5 rounded-xl bg-primary/10 border border-primary/20 ">
+          <span className="text-sm text-primary font-medium">
             {selectedIds.size} selected
           </span>
           <div className="flex-1" />
@@ -465,7 +465,7 @@ export default function UsersPage() {
             value={bulkAction}
             onChange={(e) => setBulkAction(e.target.value)}
             aria-label="Bulk action"
-            className="px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 text-white text-sm focus:outline-none focus:ring-1 focus:ring-primary-500/50"
+            className="px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 text-white text-sm focus:outline-none focus:ring-1 focus:ring-primary/50"
           >
             <option value="">Choose action…</option>
             <option value="status:Active">Set Active</option>
@@ -476,7 +476,7 @@ export default function UsersPage() {
           <button
             onClick={executeBulkAction}
             disabled={!bulkAction}
-            className="px-3 py-1.5 rounded-lg bg-primary-600 text-white text-sm font-medium hover:bg-primary-500 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
+            className="px-3 py-1.5 rounded-lg bg-primary text-white text-sm font-medium hover:bg-primary disabled:opacity-40 disabled:cursor-not-allowed transition-all"
           >
             Apply
           </button>
@@ -491,7 +491,7 @@ export default function UsersPage() {
       )}
 
       {/* Table */}
-      <div className="glass rounded-2xl overflow-hidden">
+      <div className="bg-card border border-border rounded-2xl overflow-hidden">
         {loading ? (
           <div className="p-6"><TableSkeleton rows={8} cols={6} /></div>
         ) : isError ? (
@@ -507,7 +507,7 @@ export default function UsersPage() {
                     ref={(el) => { if (el) el.indeterminate = selectedIds.size > 0 && selectedIds.size < users.length; }}
                     onChange={toggleSelectAll}
                     aria-label="Select all users"
-                    className="w-4 h-4 rounded border-white/20 bg-white/5 text-primary-500 focus:ring-primary-500/50 cursor-pointer"
+                    className="w-4 h-4 rounded border-white/20 bg-white/5 text-primary focus:ring-primary/50 cursor-pointer"
                   />
                 </th>
                 {[
@@ -529,7 +529,7 @@ export default function UsersPage() {
                 ))}
               </tr>
             </thead>
-            <tbody className="divide-y divide-white/5 stagger">
+            <tbody className="divide-y divide-white/5 ">
               {users.map((u) => (
                 <tr key={u._id} className="hover:bg-white/3 transition-colors">
                   <td className="px-3 py-3">
@@ -538,10 +538,10 @@ export default function UsersPage() {
                       checked={selectedIds.has(u._id)}
                       onChange={() => toggleSelect(u._id)}
                       aria-label={`Select ${u.name}`}
-                      className="w-4 h-4 rounded border-white/20 bg-white/5 text-primary-500 focus:ring-primary-500/50 cursor-pointer"
+                      className="w-4 h-4 rounded border-white/20 bg-white/5 text-primary focus:ring-primary/50 cursor-pointer"
                     />
                   </td>
-                  <td className="px-4 py-3 font-mono text-primary-300 font-medium text-xs">{u.empCode}</td>
+                  <td className="px-4 py-3 font-mono text-primary font-medium text-xs">{u.empCode}</td>
                   <td className="px-4 py-3 text-white font-medium">
                     <button onClick={() => setProgressModal({ id: u._id, name: u.name })} className="hover:text-teal-400 hover:underline transition-colors text-left text-sm">
                       {u.name}
@@ -611,7 +611,7 @@ export default function UsersPage() {
                         className="px-2 py-1 rounded-lg bg-white/5 text-slate-300 text-xs hover:bg-teal-500/20 hover:text-teal-300 transition-all" title="View Progress">📊</button>
                       {can('update:user') && (
                         <button onClick={() => setModal(u)}
-                          className="px-2 py-1 rounded-lg bg-white/5 text-slate-300 text-xs hover:bg-primary-500/20 hover:text-primary-300 transition-all" title="Edit user">✏️</button>
+                          className="px-2 py-1 rounded-lg bg-white/5 text-slate-300 text-xs hover:bg-primary/20 hover:text-primary transition-all" title="Edit user">✏️</button>
                       )}
                       {can('delete:user') && (
                         <button onClick={() => setDeleteId(u._id)}
@@ -662,7 +662,7 @@ export default function UsersPage() {
       {deleteId && (
         <Portal>
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
-          <div className="glass rounded-2xl p-6 max-w-sm mx-4 text-center space-y-4 animate-fade-in">
+          <div className="bg-card border border-border rounded-2xl p-6 max-w-sm mx-4 text-center space-y-4 ">
             <div className="text-3xl">🗑️</div>
             <h3 className="text-lg font-bold text-white">Delete this user?</h3>
             <p className="text-slate-400 text-sm">This action cannot be undone.</p>
@@ -691,7 +691,7 @@ export default function UsersPage() {
       {adminAction && (
         <Portal>
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
-            <div className="glass rounded-2xl p-6 max-w-sm mx-4 space-y-4 animate-fade-in">
+            <div className="bg-card border border-border rounded-2xl p-6 max-w-sm mx-4 space-y-4 ">
               <div className="text-3xl text-center">
                 {adminAction.type === 'force-logout' ? '🔒' : '🛡️'}
               </div>
