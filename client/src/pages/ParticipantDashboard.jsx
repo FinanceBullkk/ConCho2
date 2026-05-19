@@ -118,7 +118,7 @@ export default function ParticipantDashboard() {
               const timeStr = `${String(start.getHours()).padStart(2, '0')}:${String(start.getMinutes()).padStart(2, '0')}-${String(end.getHours()).padStart(2, '0')}:${String(end.getMinutes()).padStart(2, '0')}`;
               const isToday = new Date().toDateString() === start.toDateString();
               return (
-                <div key={s._id} className={`bg-muted border border-border rounded-md p-4 flex items-center justify-between transition-colors ${isToday ? 'border border-primary/30 shadow-sm shadow-primary/10' : ''}`}>
+                <div key={s._id} className={`bg-muted border border-border rounded-md p-4 flex items-center justify-between transition-colors ${isToday ? 'border border-primary/30' : ''}`}>
                   <div className="flex items-center gap-4">
                     <div className={`w-14 h-14 rounded-md flex flex-col items-center justify-center shrink-0 ${isToday ? 'bg-primary/20 text-primary' : 'bg-primary/10 text-primary'}`}>
                       <span className="text-xs font-bold">{start.toLocaleDateString('en', { month: 'short' })}</span>

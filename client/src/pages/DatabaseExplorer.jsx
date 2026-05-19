@@ -288,7 +288,7 @@ export default function DatabaseExplorer() {
             onClick={() => setActiveCollection(c.name)}
             className={`flex items-center gap-2 px-4 py-2.5 rounded-md text-sm font-medium transition-all border ${
               activeCollection === c.name
-                ? 'bg-primary/20 text-primary border-primary/30 shadow-sm shadow-primary/10'
+                ? 'bg-primary/20 text-primary border-primary/30'
                 : 'text-muted-foreground hover:text-foreground hover:bg-accent border-border'
             }`}
           >
@@ -431,7 +431,7 @@ export default function DatabaseExplorer() {
                     <td className="sticky right-0 z-10 bg-card px-3 py-2.5 text-center border-l border-border">
                       <div className="flex items-center justify-center gap-1">
                         <button onClick={() => setEditDoc(doc)}
-                          className="px-2 py-1 rounded-lg text-slate-400 hover:text-primary hover:bg-primary/10 transition-all text-xs"
+                          className="px-2 py-1 rounded-lg text-muted-foreground hover:text-primary hover:bg-primary/10 transition-all text-xs"
                           title="Edit all fields (modal)">✏️</button>
                         <button onClick={() => setDeleteTarget(doc)}
                           className="px-2 py-1 rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-all text-xs"
