@@ -1,5 +1,6 @@
 import { Navigate, Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { Spinner } from './Spinner';
 
 export default function ProtectedRoute({ children, roles }) {
   const { user, loading } = useAuth();
@@ -8,7 +9,7 @@ export default function ProtectedRoute({ children, roles }) {
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+        <Spinner size={32} />
       </div>
     );
   }
@@ -27,11 +28,10 @@ export default function ProtectedRoute({ children, roles }) {
   if (roles && !roles.includes(user.role)) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <div className="bg-card border border-border rounded-2xl p-8 text-center max-w-md">
-          <div className="text-4xl mb-4">🚫</div>
-          <h2 className="text-xl font-bold text-white mb-2">Access Denied</h2>
-          <p className="text-slate-400">Your role ({user.role}) does not have access to this page.</p>
-          <Link to="/dashboard" className="inline-block mt-5 px-5 py-2.5 rounded-xl bg-primary/20 text-primary text-sm font-medium hover:bg-primary/30 transition-all">
+        <div className="bg-card border border-border rounded-lg p-8 text-center max-w-md">
+          <h2 className="text-h3 text-foreground mb-2">Access Denied</h2>
+          <p className="text-muted-foreground text-body">Your role ({user.role}) does not have access to this page.</p>
+          <Link to="/dashboard" className="inline-block mt-5 px-5 py-2.5 rounded-md bg-primary/15 text-primary text-sm font-medium hover:bg-primary/25 transition-colors">
             ← Back to Dashboard
           </Link>
         </div>
