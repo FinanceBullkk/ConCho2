@@ -35,7 +35,7 @@ function ChangePasswordSection() {
   const inputCls = 'w-full px-4 py-2.5 rounded-xl bg-white/5 border text-white focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all';
 
   return (
-    <form onSubmit={submit} className="glass rounded-2xl p-6 space-y-4" noValidate>
+    <form onSubmit={submit} className="bg-card border border-border rounded-2xl p-6 space-y-4" noValidate>
       <div className="flex items-center gap-2">
         <KeyRound className="size-5 text-primary" aria-hidden="true" />
         <h2 className="text-lg font-semibold text-white">Change password</h2>
@@ -194,7 +194,7 @@ function MfaSection({ user, onMfaChange, forceEnroll = false, onEnrollComplete }
   };
 
   return (
-    <div className="glass rounded-2xl p-6 space-y-4">
+    <div className="bg-card border border-border rounded-2xl p-6 space-y-4">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           {enabled ? (
@@ -343,7 +343,7 @@ export default function UserSettingsPage() {
   // enrollment flow with a prominent banner explaining why.
   if (lockdownActive) {
     return (
-      <div className="space-y-6 animate-fade-in max-w-2xl">
+      <div className="space-y-6 max-w-2xl">
         <div className="rounded-2xl p-6 border border-amber-500/30 bg-amber-500/10">
           <div className="flex items-start gap-3">
             <Lock className="size-6 text-amber-300 shrink-0 mt-0.5" />
@@ -368,14 +368,14 @@ export default function UserSettingsPage() {
   }
 
   return (
-    <div className="space-y-6 animate-fade-in max-w-2xl">
+    <div className="space-y-6 max-w-2xl">
       <div>
         <h1 className="text-2xl font-bold text-white">Account settings</h1>
         <p className="text-slate-400 mt-1">{user.name} · {user.empCode}</p>
       </div>
 
       {/* Read-only profile card */}
-      <div className="glass rounded-2xl p-6">
+      <div className="bg-card border border-border rounded-2xl p-6">
         <h2 className="text-lg font-semibold text-white mb-4">Profile</h2>
         <dl className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
           <div>

@@ -107,7 +107,7 @@ function SessionPanel({ classId, classInfo, onClose, onClassUpdated }) {
   return (
     <Portal>
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm" onClick={onClose}>
-      <div className="glass rounded-2xl w-full max-w-3xl mx-4 animate-fade-in max-h-[90vh] flex flex-col" onClick={e => e.stopPropagation()}>
+      <div className="bg-card border border-border rounded-2xl w-full max-w-3xl mx-4 max-h-[90vh] flex flex-col" onClick={e => e.stopPropagation()}>
         {/* Header */}
         <div className="p-6 border-b border-white/10">
           <div className="flex items-start justify-between">
@@ -124,7 +124,7 @@ function SessionPanel({ classId, classInfo, onClose, onClassUpdated }) {
           </div>
 
           {/* Class meta - editable */}
-          <div className="mt-4 glass-light rounded-xl p-4">
+          <div className="mt-4 bg-muted border border-border rounded-xl p-4">
             <div className="flex items-center justify-between mb-3">
               <h3 className="text-sm font-semibold text-slate-300">📊 Course Settings</h3>
               {!editingClass ? (
@@ -204,7 +204,7 @@ function SessionPanel({ classId, classInfo, onClose, onClassUpdated }) {
                   <div key={s._id} className={`rounded-xl border transition-all ${
                     isEditing
                       ? 'bg-primary/10 border-primary/20'
-                      : 'glass-light border-white/5 hover:border-white/10'
+                      : 'bg-muted border border-border border-white/5 hover:border-white/10'
                   }`}>
                     <div className="flex items-center gap-3 px-4 py-3">
                       {/* Session number */}
@@ -338,19 +338,19 @@ export default function CourseManager() {
     <div className="space-y-4">
       {/* Stats cards */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <div className="glass rounded-xl p-4">
+        <div className="bg-card border border-border rounded-xl p-4">
           <div className="text-xs text-slate-500 mb-1">Total Classes</div>
           <div className="text-2xl font-bold text-white">{stats.total}</div>
         </div>
-        <div className="glass rounded-xl p-4">
+        <div className="bg-card border border-border rounded-xl p-4">
           <div className="text-xs text-emerald-400 mb-1">🟢 Ongoing</div>
           <div className="text-2xl font-bold text-emerald-300">{stats.ongoing}</div>
         </div>
-        <div className="glass rounded-xl p-4">
+        <div className="bg-card border border-border rounded-xl p-4">
           <div className="text-xs text-blue-400 mb-1">✅ Completed</div>
           <div className="text-2xl font-bold text-blue-300">{stats.completed}</div>
         </div>
-        <div className="glass rounded-xl p-4">
+        <div className="bg-card border border-border rounded-xl p-4">
           <div className="text-xs text-slate-500 mb-1">Total Sessions</div>
           <div className="text-2xl font-bold text-white">
             {stats.bookedSessions} <span className="text-sm text-slate-500">/ {stats.totalSessions}</span>
@@ -359,7 +359,7 @@ export default function CourseManager() {
       </div>
 
       {/* Search & Filter */}
-      <div className="glass rounded-2xl px-5 py-4 flex flex-col sm:flex-row gap-3 items-stretch sm:items-center">
+      <div className="bg-card border border-border rounded-2xl px-5 py-4 flex flex-col sm:flex-row gap-3 items-stretch sm:items-center">
         <div className="relative flex-1">
           <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
@@ -392,7 +392,7 @@ export default function CourseManager() {
           <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
         </div>
       ) : (
-        <div className="glass rounded-2xl overflow-hidden border border-white/5">
+        <div className="bg-card border border-border rounded-2xl overflow-hidden border border-white/5">
           <div className="overflow-x-auto">
             <table className="w-full border-collapse min-w-[700px]">
               <thead>

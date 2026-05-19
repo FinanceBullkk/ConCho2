@@ -86,10 +86,10 @@ function UserModal({ user, onClose, onSaved }) {
   return (
     <Portal>
     {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions */}
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm animate-fade-in p-4" onClick={onClose}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4" onClick={onClose}>
       {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-noninteractive-element-interactions */}
       <form onSubmit={onSubmit} onClick={(e) => e.stopPropagation()} noValidate
-        className="glass rounded-2xl w-full max-w-md flex flex-col max-h-[92vh] animate-fade-in">
+        className="bg-card border border-border rounded-2xl w-full max-w-md flex flex-col max-h-[92vh] ">
 
         {/* ── Sticky header ── */}
         <div className="px-6 pt-6 pb-4 border-b border-white/8 shrink-0">
@@ -413,7 +413,7 @@ export default function UsersPage() {
   };
 
   return (
-    <div className="space-y-6 animate-fade-in">
+    <div className="space-y-6 ">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-white">👤 User Management</h1>
@@ -428,7 +428,7 @@ export default function UsersPage() {
       </div>
 
       {/* Search + Filters */}
-      <div className="glass rounded-2xl px-5 py-4 flex flex-wrap gap-3 items-center">
+      <div className="bg-card border border-border rounded-2xl px-5 py-4 flex flex-wrap gap-3 items-center">
         <div className="relative flex-1 min-w-[200px] max-w-sm">
           <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
@@ -456,7 +456,7 @@ export default function UsersPage() {
 
       {/* Bulk action toolbar — visible only when rows are selected */}
       {selectedIds.size > 0 && (
-        <div className="flex items-center gap-3 px-4 py-2.5 rounded-xl bg-primary/10 border border-primary/20 animate-fade-in">
+        <div className="flex items-center gap-3 px-4 py-2.5 rounded-xl bg-primary/10 border border-primary/20 ">
           <span className="text-sm text-primary font-medium">
             {selectedIds.size} selected
           </span>
@@ -491,7 +491,7 @@ export default function UsersPage() {
       )}
 
       {/* Table */}
-      <div className="glass rounded-2xl overflow-hidden">
+      <div className="bg-card border border-border rounded-2xl overflow-hidden">
         {loading ? (
           <div className="p-6"><TableSkeleton rows={8} cols={6} /></div>
         ) : isError ? (
@@ -529,7 +529,7 @@ export default function UsersPage() {
                 ))}
               </tr>
             </thead>
-            <tbody className="divide-y divide-white/5 stagger">
+            <tbody className="divide-y divide-white/5 ">
               {users.map((u) => (
                 <tr key={u._id} className="hover:bg-white/3 transition-colors">
                   <td className="px-3 py-3">
@@ -662,7 +662,7 @@ export default function UsersPage() {
       {deleteId && (
         <Portal>
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
-          <div className="glass rounded-2xl p-6 max-w-sm mx-4 text-center space-y-4 animate-fade-in">
+          <div className="bg-card border border-border rounded-2xl p-6 max-w-sm mx-4 text-center space-y-4 ">
             <div className="text-3xl">🗑️</div>
             <h3 className="text-lg font-bold text-white">Delete this user?</h3>
             <p className="text-slate-400 text-sm">This action cannot be undone.</p>
@@ -691,7 +691,7 @@ export default function UsersPage() {
       {adminAction && (
         <Portal>
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
-            <div className="glass rounded-2xl p-6 max-w-sm mx-4 space-y-4 animate-fade-in">
+            <div className="bg-card border border-border rounded-2xl p-6 max-w-sm mx-4 space-y-4 ">
               <div className="text-3xl text-center">
                 {adminAction.type === 'force-logout' ? '🔒' : '🛡️'}
               </div>

@@ -25,7 +25,7 @@ export default class ErrorBoundary extends Component {
     if (this.state.hasError) {
       return (
         <div className="min-h-screen flex items-center justify-center p-4">
-          <div className="glass rounded-2xl p-8 text-center max-w-md animate-fade-in">
+          <div className="bg-card border border-border rounded-2xl p-8 text-center max-w-md ">
             <div className="text-5xl mb-4">💥</div>
             <h2 className="text-xl font-bold text-white mb-2">Đã xảy ra lỗi</h2>
             <p className="text-slate-400 text-sm mb-6">
