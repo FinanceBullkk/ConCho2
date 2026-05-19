@@ -24,7 +24,7 @@ export default function PeoplePage() {
             onClick={() => setActiveTab(tab.id)}
             className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
               activeTab === tab.id
-                ? 'bg-primary-500/20 text-primary-300 shadow-sm'
+                ? 'bg-primary/20 text-primary shadow-sm'
                 : 'text-slate-400 hover:text-white hover:bg-white/5'
             }`}
           >

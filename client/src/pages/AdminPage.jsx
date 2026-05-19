@@ -76,7 +76,7 @@ function AuditLogTab() {
   return (
     <div className="space-y-4">
       {/* Filter bar */}
-      <div className="glass-card rounded-2xl p-4">
+      <div className="bg-card border border-border-card rounded-2xl p-4">
         <div className="flex flex-wrap gap-3 items-end">
           {/* Entity filter */}
           <div className="flex flex-col gap-1 min-w-[140px]">
@@ -84,7 +84,7 @@ function AuditLogTab() {
             <select
               value={entity}
               onChange={(e) => handleEntity(e.target.value)}
-              className="bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-sm text-slate-200 focus:outline-none focus:ring-1 focus:ring-primary-500"
+              className="bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-sm text-slate-200 focus:outline-none focus:ring-1 focus:ring-primary"
             >
               <option value="">All</option>
               <option value="User">User</option>
@@ -104,7 +104,7 @@ function AuditLogTab() {
               value={action}
               onChange={(e) => handleAction(e.target.value)}
               placeholder="e.g. user.create"
-              className="bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-sm text-slate-200 placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+              className="bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-sm text-slate-200 placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-primary"
             />
           </div>
 
@@ -115,7 +115,7 @@ function AuditLogTab() {
               type="date"
               value={from}
               onChange={(e) => handleFrom(e.target.value)}
-              className="bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-sm text-slate-200 focus:outline-none focus:ring-1 focus:ring-primary-500"
+              className="bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-sm text-slate-200 focus:outline-none focus:ring-1 focus:ring-primary"
             />
           </div>
 
@@ -126,14 +126,14 @@ function AuditLogTab() {
               type="date"
               value={to}
               onChange={(e) => handleTo(e.target.value)}
-              className="bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-sm text-slate-200 focus:outline-none focus:ring-1 focus:ring-primary-500"
+              className="bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-sm text-slate-200 focus:outline-none focus:ring-1 focus:ring-primary"
             />
           </div>
         </div>
       </div>
 
       {/* Table */}
-      <div className="glass-card rounded-2xl overflow-hidden">
+      <div className="bg-card border border-border-card rounded-2xl overflow-hidden">
         {isLoading ? (
           <div className="p-6">
             <TableSkeleton rows={8} cols={5} />

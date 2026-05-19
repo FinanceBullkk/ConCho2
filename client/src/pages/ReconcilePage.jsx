@@ -55,7 +55,7 @@ function SummaryCard({ checkKey, count, onClick, active }) {
   return (
     <button
       onClick={() => onClick(checkKey)}
-      className={`glass rounded-2xl p-4 text-left transition-all hover:bg-white/5 ${active ? 'ring-2 ring-primary-500/50' : ''}`}
+      className={`bg-card border border-border rounded-2xl p-4 text-left transition-all hover:bg-white/5 ${active ? 'ring-2 ring-primary/50' : ''}`}
     >
       <div className="flex items-start justify-between gap-2">
         <span className="text-2xl">{meta.icon}</span>
@@ -107,7 +107,7 @@ function RunHistoryBar({ history, onSelect, selectedId }) {
           title={`${r.summary?.total ?? 0} issues — ${new Date(r.runAt).toLocaleString()}`}
           className={`shrink-0 flex flex-col items-center gap-1 px-3 py-2 rounded-xl border transition-all text-xs ${
             selectedId === r._id
-              ? 'border-primary-500/50 bg-primary-500/10 text-primary-300'
+              ? 'border-primary/50 bg-primary/10 text-primary'
               : 'border-white/10 bg-white/3 text-slate-400 hover:bg-white/5'
           }`}
         >
@@ -173,7 +173,7 @@ export default function ReconcilePage() {
   const CHECK_KEYS = Object.keys(CHECK_META);
 
   return (
-    <div className="space-y-6 animate-fade-in">
+    <div className="space-y-6 ">
       {/* Header row */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
@@ -184,7 +184,7 @@ export default function ReconcilePage() {
         <button
           onClick={() => runMutation.mutate()}
           disabled={runMutation.isPending}
-          className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-primary-600 to-primary-500 text-white font-semibold hover:from-primary-500 hover:to-primary-400 transition-all shadow-lg shadow-primary-500/20 disabled:opacity-50 self-start flex items-center gap-2"
+          className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-primary to-primary text-white font-semibold hover:from-primary hover:to-primary transition-all shadow-lg shadow-primary/20 disabled:opacity-50 self-start flex items-center gap-2"
         >
           {runMutation.isPending ? (
             <><span className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />Running…</>
@@ -196,7 +196,7 @@ export default function ReconcilePage() {
 
       {/* Run history bar */}
       {historyData?.length > 0 && (
-        <div className="glass rounded-2xl px-4 py-3 space-y-2">
+        <div className="bg-card border border-border rounded-2xl px-4 py-3 space-y-2">
           <p className="text-xs text-slate-500 uppercase tracking-wider">Run History</p>
           <RunHistoryBar
             history={historyData}
@@ -208,7 +208,7 @@ export default function ReconcilePage() {
 
       {/* No report yet */}
       {!reportQuery.isLoading && !report && (
-        <div className="glass rounded-2xl py-20 text-center space-y-3">
+        <div className="bg-card border border-border rounded-2xl py-20 text-center space-y-3">
           <div className="text-4xl">🔍</div>
           <p className="text-slate-400">No reconciliation report yet.</p>
           <p className="text-slate-500 text-sm">Click <strong className="text-white">Run Now</strong> to scan for data issues.</p>
@@ -217,8 +217,8 @@ export default function ReconcilePage() {
 
       {/* Loading */}
       {reportQuery.isLoading && (
-        <div className="glass rounded-2xl py-20 flex items-center justify-center">
-          <div className="w-8 h-8 border-2 border-primary-400 border-t-transparent rounded-full animate-spin" />
+        <div className="bg-card border border-border rounded-2xl py-20 flex items-center justify-center">
+          <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
         </div>
       )}
 
@@ -249,7 +249,7 @@ export default function ReconcilePage() {
 
           {/* Issue list */}
           {report.summary.total > 0 && (
-            <div className="glass rounded-2xl overflow-hidden">
+            <div className="bg-card border border-border rounded-2xl overflow-hidden">
               <div className="px-4 py-3 border-b border-white/5 flex items-center justify-between">
                 <span className="text-sm font-medium text-white">
                   {filterCheck
@@ -277,7 +277,7 @@ export default function ReconcilePage() {
           )}
 
           {report.status === 'ok' && (
-            <div className="glass rounded-2xl py-12 text-center space-y-2">
+            <div className="bg-card border border-border rounded-2xl py-12 text-center space-y-2">
               <div className="text-4xl">✅</div>
               <p className="text-emerald-400 font-medium">All clear — no data drift detected</p>
               <p className="text-slate-500 text-sm">Checked {Object.keys(CHECK_META).length} integrity rules across all collections.</p>
