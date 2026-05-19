@@ -84,7 +84,7 @@ export default function AttendanceDashboardPage() {
     <div className="space-y-6 ">
       <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-white">📈 Attendance Analytics</h1>
+          <h1 className="text-h1 text-foreground">Attendance Analytics</h1>
           <p className="text-slate-400 mt-1">Track participation across employees, teams, and classes</p>
         </div>
       </div>

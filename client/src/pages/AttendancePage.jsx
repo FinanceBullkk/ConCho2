@@ -194,7 +194,7 @@ export default function AttendancePage() {
       {/* ── Header ─────────────────────────────────────── */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-white">✅ Attendance Marking</h1>
+          <h1 className="text-h1 text-foreground">Attendance Marking</h1>
           <p className="text-slate-400 mt-1">
             Click a session on the calendar to mark attendance
           </p>

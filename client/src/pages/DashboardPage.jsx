@@ -160,7 +160,7 @@ export default function DashboardPage() {
           <div key={c.label} className="bg-card border border-border rounded-xl p-4 relative overflow-hidden">
             <div className="absolute top-0 right-0 w-14 h-14 rounded-bl-[36px] opacity-10" style={{ background: c.color }} />
             <div className="text-sm mb-0.5">{c.icon}</div>
-            <div className="text-2xl font-bold text-white">{c.value}</div>
+            <div className="text-h1 text-foreground">{c.value}</div>
             <div className="text-[10px] text-slate-400 mt-0.5">{c.label}</div>
             <div className="text-[10px] text-slate-500">{c.sub}</div>
           </div>

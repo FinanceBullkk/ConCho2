@@ -73,7 +73,7 @@ export default function LoginPage() {
           <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br from-primary to-purple-600 text-white text-2xl font-bold mb-4 shadow-lg shadow-primary/25">
             T
           </div>
-          <h1 className="text-3xl font-bold text-white tracking-tight">
+          <h1 className="text-h1 text-foreground tracking-tight">
             TMS <span className="text-primary">v2</span>
           </h1>
           <p className="text-slate-400 mt-1">Training Management System</p>

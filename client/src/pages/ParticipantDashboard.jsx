@@ -71,7 +71,7 @@ export default function ParticipantDashboard() {
     <div className="space-y-8 ">
       {/* ── Header ───────────────────────────────────────── */}
       <div>
-        <h1 className="text-2xl font-bold text-white">🎓 My Learning Dashboard</h1>
+        <h1 className="text-h1 text-foreground">My Learning Dashboard</h1>
         <p className="text-slate-400 mt-1">
           Welcome back, {user.name}
           {teamName && <span className="text-primary"> · {teamName}</span>}
@@ -207,7 +207,7 @@ export default function ParticipantDashboard() {
           {statCards.map((card, i) => (
             <div key={card.label} className="bg-muted border border-border rounded-xl p-4 text-center hover:scale-[1.03] transition-transform" style={{ animationDelay: `${i * 0.05}s` }}>
               <div className="text-2xl mb-2">{card.icon}</div>
-              <div className="text-2xl font-bold text-white">{card.value}</div>
+              <div className="text-h1 text-foreground">{card.value}</div>
               <div className="text-xs text-slate-400 mt-1">{card.label}</div>
               <div className={`h-1 rounded-full bg-gradient-to-r ${card.color} mt-3 opacity-40`} />
             </div>

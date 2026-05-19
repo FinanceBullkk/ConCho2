@@ -340,7 +340,7 @@ export default function CourseManager() {
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         <div className="bg-card border border-border rounded-xl p-4">
           <div className="text-xs text-slate-500 mb-1">Total Classes</div>
-          <div className="text-2xl font-bold text-white">{stats.total}</div>
+          <div className="text-h1 text-foreground">{stats.total}</div>
         </div>
         <div className="bg-card border border-border rounded-xl p-4">
           <div className="text-xs text-emerald-400 mb-1">🟢 Ongoing</div>
@@ -352,7 +352,7 @@ export default function CourseManager() {
         </div>
         <div className="bg-card border border-border rounded-xl p-4">
           <div className="text-xs text-slate-500 mb-1">Total Sessions</div>
-          <div className="text-2xl font-bold text-white">
+          <div className="text-h1 text-foreground">
             {stats.bookedSessions} <span className="text-sm text-slate-500">/ {stats.totalSessions}</span>
           </div>
         </div>
