@@ -1,7 +1,13 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
+import {
+  ClipboardList, CalendarDays, Users, BarChart3,
+  BookOpen, AlertTriangle, Pencil, ArrowLeft, Users2,
+} from 'lucide-react';
 import Portal from '../components/Portal';
 import { Breadcrumbs } from '@/components/Breadcrumbs';
+import { StatusBadge } from '../components/StatusBadge';
+import { EmptyState } from '../components/EmptyState';
 import { useClass, useUpdateClass, useDeleteClass } from '../hooks/useClasses';
 import { useTeams } from '../hooks/useTeams';
 import { useSchedules } from '../hooks/useSchedules';
@@ -19,10 +25,10 @@ import { Button } from '@/components/ui/button';
 // ──────────────────────────────────────────────────────────
 
 const TABS = [
-  { id: 'overview', label: 'Overview', icon: '📋' },
-  { id: 'sessions', label: 'Sessions', icon: '📅' },
-  { id: 'roster', label: 'Roster', icon: '👥' },
-  { id: 'analytics', label: 'Analytics', icon: '📈' },
+  { id: 'overview',   label: 'Overview',   icon: ClipboardList },
+  { id: 'sessions',   label: 'Schedules',  icon: CalendarDays  },
+  { id: 'roster',     label: 'Roster',     icon: Users         },
+  { id: 'analytics',  label: 'Attendance', icon: BarChart3     },
 ];
 
 const STATUS_COLORS = {
@@ -72,7 +78,7 @@ function EditClassModal({ cls, onClose, onDeleted }) {
       <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60" onClick={onClose}>
         <form onSubmit={handleSubmit} onClick={(e) => e.stopPropagation()}
           className="bg-card border border-border rounded-lg p-6 w-full max-w-md mx-4 space-y-4 ">
-          <h2 className="text-lg font-bold text-foreground">✏️ Edit {cls.classCode} — {cls.courseName}</h2>
+          <h2 className="text-lg font-bold text-foreground flex items-center gap-2"><Pencil className="size-4" /> Edit {cls.classCode} — {cls.courseName}</h2>
           {error && <div className="px-4 py-2 rounded-md bg-destructive/10 border border-destructive/20 text-destructive text-sm">{error}</div>}
           <div>
             <label className="block text-small text-muted-foreground mb-1">Status</label>
@@ -128,7 +134,7 @@ function OverviewTab({ cls, team, onEdit }) {
             style={{ width: `${Math.min(pct, 100)}%` }} />
         </div>
         <p className="text-xs text-subtle-foreground">
-          {isComplete ? 'This class is marked Completed.' : noSessions ? '⚠️ No schedules yet — likely no team assigned.' : `${cls.totalSessions - cls.bookedSessions} session(s) remaining.`}
+          {isComplete ? 'This class is marked Completed.' : noSessions ? 'No schedules yet — likely no team assigned.' : `${cls.totalSessions - cls.bookedSessions} session(s) remaining.`}
         </p>
       </div>
 
@@ -138,7 +144,9 @@ function OverviewTab({ cls, team, onEdit }) {
         {team ? (
           <div className="space-y-2">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-md bg-primary flex items-center justify-center text-base">👥</div>
+              <div className="w-10 h-10 rounded-md bg-primary/15 flex items-center justify-center">
+                <Users2 className="size-5 text-primary" />
+              </div>
               <div>
                 <div className="text-base font-bold text-foreground">{team.name}</div>
                 <div className="text-xs text-muted-foreground">
@@ -146,12 +154,15 @@ function OverviewTab({ cls, team, onEdit }) {
                 </div>
               </div>
             </div>
-            <Link to="/people" className="block w-full text-center py-2 rounded-md bg-chart-6/10 text-chart-6 text-xs font-semibold border border-chart-6/20 hover:bg-chart-6/20 transition-all">
-              👥 Manage Team & Members
+            <Link to="/people" className="block w-full text-center py-2 rounded-md bg-muted text-muted-foreground text-xs font-semibold border border-border hover:bg-accent transition-all">
+              Manage Team & Members
             </Link>
           </div>
         ) : (
-          <p className="text-sm text-warning">⚠️ No team assigned to this class. Schedules and attendance cannot be created without one.</p>
+          <div className="flex items-start gap-2 text-sm text-warning">
+            <AlertTriangle className="size-4 mt-0.5 shrink-0" strokeWidth={2} />
+            <span>No team assigned. Schedules and attendance cannot be created without one.</span>
+          </div>
         )}
       </div>
 
@@ -171,7 +182,7 @@ function OverviewTab({ cls, team, onEdit }) {
               </div>
               <div>
                 <div className="text-xs text-subtle-foreground">Status</div>
-                <div className={isComplete ? 'text-muted-foreground' : 'text-success'}>{cls.status}</div>
+                <StatusBadge status={cls.status} size="sm" />
               </div>
               <div>
                 <div className="text-xs text-subtle-foreground">Created</div>
@@ -179,8 +190,8 @@ function OverviewTab({ cls, team, onEdit }) {
               </div>
             </div>
           </div>
-          <Button onClick={onEdit} variant="outline" size="sm">
-            ✏️ Edit
+          <Button onClick={onEdit} variant="outline" size="sm" className="gap-1.5">
+            <Pencil className="size-3.5" /> Edit
           </Button>
         </div>
       </div>
@@ -200,12 +211,7 @@ function SessionsTab({ classId }) {
   }
 
   if (schedules.length === 0) {
-    return (
-      <div className="bg-card border border-border rounded-lg py-16 text-center">
-        <div className="text-4xl mb-3">📭</div>
-        <p className="text-muted-foreground">No schedules for this class yet.</p>
-      </div>
-    );
+    return <EmptyState icon={CalendarDays} title="No schedules yet" description="Sessions will appear here once they are booked." />;
   }
 
   // Sort by startTime ascending
@@ -278,12 +284,7 @@ function RosterTab({ classId }) {
   }
 
   if (enrollments.length === 0) {
-    return (
-      <div className="bg-card border border-border rounded-lg py-16 text-center">
-        <div className="text-4xl mb-3">📭</div>
-        <p className="text-muted-foreground">No enrollment records for this class yet.</p>
-      </div>
-    );
+    return <EmptyState icon={Users} title="No roster" description="Enrollment records will appear here once students join." />;
   }
 
   return (
@@ -357,12 +358,7 @@ function AnalyticsTab({ classId }) {
   }
 
   if (!data?.schedules || data.schedules.length === 0 || data.roster?.length === 0) {
-    return (
-      <div className="bg-card border border-border rounded-lg py-16 text-center">
-        <div className="text-4xl mb-3">📊</div>
-        <p className="text-muted-foreground">No attendance data yet for this class.</p>
-      </div>
-    );
+    return <EmptyState icon={BarChart3} title="No attendance data" description="Attendance records will appear here once sessions are marked." />;
   }
 
   return (
@@ -441,11 +437,11 @@ export default function ClassDetailPage() {
 
   if (classError || !cls) {
     return (
-      <div className="bg-card border border-border rounded-lg py-16 text-center space-y-3">
-        <div className="text-4xl">❌</div>
-        <p className="text-muted-foreground">Class not found.</p>
-        <Link to="/academy?tab=classes" className="inline-block px-4 py-2 rounded-md bg-muted border border-border text-muted-foreground text-sm hover:bg-accent transition-all">← Back to Classes</Link>
-      </div>
+      <EmptyState
+        icon={BookOpen}
+        title="Class not found"
+        action={<Button variant="outline" asChild><Link to="/programs?tab=classes"><ArrowLeft className="size-4 mr-1.5" />Back to Classes</Link></Button>}
+      />
     );
   }
 
@@ -459,19 +455,21 @@ export default function ClassDetailPage() {
       <Breadcrumbs
         items={[
           { label: 'Home', to: '/home' },
-          { label: 'Academy', to: '/academy?tab=classes' },
-          { label: 'Classes', to: '/academy?tab=classes' },
+          { label: 'Programs', to: '/programs?tab=classes' },
+          { label: 'Classes', to: '/programs?tab=classes' },
           { label: cls.classCode },
         ]}
       />
-      <Link to="/academy?tab=classes" className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-primary transition-colors">
-        ← Back to Classes
+      <Link to="/programs?tab=classes" className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-primary transition-colors">
+        <ArrowLeft className="size-3.5" /> Back to Classes
       </Link>
 
       {/* ── Header ─────────────────────────────────────── */}
       <div className="bg-card border border-border rounded-lg p-5 flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div className="flex items-center gap-4">
-          <div className="w-14 h-14 rounded-md bg-primary flex items-center justify-center text-2xl shrink-0">📚</div>
+          <div className="w-14 h-14 rounded-md bg-primary/15 flex items-center justify-center shrink-0">
+            <BookOpen className="size-7 text-primary" />
+          </div>
           <div>
             <h1 className="text-h1 text-foreground">
               <span className="font-mono text-primary">{cls.classCode}</span>
@@ -479,16 +477,14 @@ export default function ClassDetailPage() {
               {cls.courseName}
             </h1>
             <div className="flex flex-wrap items-center gap-2 mt-1.5">
-              <span className={`inline-block px-2 py-0.5 rounded-full text-[11px] font-semibold ${
-                noSessions ? 'bg-warning/20 text-warning'
-                : isComplete ? 'bg-muted text-muted-foreground'
-                : 'bg-success/20 text-success'
-              }`}>
-                {noSessions ? '⚠️ No team' : cls.status}
-              </span>
+              {noSessions ? (
+                <StatusBadge tone="warning" icon={AlertTriangle}>No team</StatusBadge>
+              ) : (
+                <StatusBadge status={cls.status} size="sm" />
+              )}
               {team && (
-                <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-chart-6 bg-chart-6/15 px-2 py-0.5 rounded-full">
-                  👥 {team.name}
+                <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-muted-foreground bg-muted px-2 py-0.5 rounded-full border border-border">
+                  <Users2 className="size-3" />{team.name}
                 </span>
               )}
               <span className="text-xs text-subtle-foreground">
@@ -497,24 +493,27 @@ export default function ClassDetailPage() {
             </div>
           </div>
         </div>
-        <Button variant="outline" onClick={() => setEditOpen(true)}>
-          ✏️ Edit
+        <Button variant="outline" onClick={() => setEditOpen(true)} className="gap-1.5">
+          <Pencil className="size-3.5" /> Edit
         </Button>
       </div>
 
       {/* ── Subtab bar ─────────────────────────────────── */}
       <div className="flex items-center gap-1 p-1 bg-muted/20 rounded-md w-fit border border-border">
-        {TABS.map((tab) => (
-          <button key={tab.id} onClick={() => setActiveTab(tab.id)}
-            className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-all ${
-              activeTab === tab.id
-                ? 'bg-primary/20 text-primary shadow-sm'
-                : 'text-muted-foreground hover:text-foreground hover:bg-accent'
-            }`}>
-            <span className="text-base">{tab.icon}</span>
-            <span>{tab.label}</span>
-          </button>
-        ))}
+        {TABS.map((tab) => {
+          const Icon = tab.icon;
+          return (
+            <button key={tab.id} onClick={() => setActiveTab(tab.id)}
+              className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-all ${
+                activeTab === tab.id
+                  ? 'bg-primary/20 text-primary shadow-sm'
+                  : 'text-muted-foreground hover:text-foreground hover:bg-accent'
+              }`}>
+              <Icon className="size-4" strokeWidth={2} />
+              {tab.label}
+            </button>
+          );
+        })}
       </div>
 
       {/* ── Tab content ────────────────────────────────── */}

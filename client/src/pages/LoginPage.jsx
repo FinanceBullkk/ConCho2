@@ -71,15 +71,12 @@ export default function LoginPage() {
   return (
     <div className="min-h-screen flex items-center justify-center px-4">
       <div className="w-full max-w-md">
-        {/* Logo */}
+        {/* Wordmark */}
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center size-16 rounded-lg bg-primary text-primary-foreground text-2xl font-bold mb-4">
-            T
-          </div>
-          <h1 className="text-h1 text-foreground tracking-tight">
-            TMS <span className="text-primary">v2</span>
+          <h1 className="text-[2.5rem] font-bold tracking-tight text-foreground leading-none">
+            TMS<span className="text-primary">.</span>
           </h1>
-          <p className="text-muted-foreground mt-1">Training Management System</p>
+          <p className="text-muted-foreground mt-2">Training Management System</p>
         </div>
 
         {/* ── Credentials step ─────────────────────────────── */}
