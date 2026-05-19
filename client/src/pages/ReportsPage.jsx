@@ -1,17 +1,19 @@
 import { useSearchParams } from 'react-router-dom';
-import { Download, RefreshCw } from 'lucide-react';
+import { Download, RefreshCw, ClipboardEdit } from 'lucide-react';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { PageHeader } from '@/components/PageHeader';
 import HRExportPage from './HRExportPage';
 import SyncPage from './SyncPage';
+import EvaluationPage from './EvaluationPage';
 
 // ──────────────────────────────────────────────────────────
-// Reports — section shell for HR Export + Sheets Sync.
+// Reports — section shell for HR Export, Sheets Sync, and Evaluations.
 // ──────────────────────────────────────────────────────────
 
 const TABS = [
   { id: 'hr-export', label: 'HR Export', icon: Download, description: 'Download attendance data as Excel for HR.' },
-  { id: 'sheets-sync', label: 'Sheets Sync', icon: RefreshCw, description: 'Sync team enrollments from Google Sheets.' },
+  { id: 'sheets-sync',  label: 'Sheets Sync',  icon: RefreshCw,     description: 'Sync team enrollments from Google Sheets.' },
+  { id: 'evaluations',  label: 'Evaluations',  icon: ClipboardEdit, description: 'Enter and review learner evaluation scores.' },
 ];
 
 export default function ReportsPage() {
@@ -45,6 +47,9 @@ export default function ReportsPage() {
         </TabsContent>
         <TabsContent value="sheets-sync" hidden={activeTab !== 'sheets-sync'}>
           {activeTab === 'sheets-sync' && <SyncPage />}
+        </TabsContent>
+        <TabsContent value="evaluations" hidden={activeTab !== 'evaluations'}>
+          {activeTab === 'evaluations' && <EvaluationPage />}
         </TabsContent>
       </Tabs>
     </div>
