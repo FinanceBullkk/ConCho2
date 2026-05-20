@@ -7,6 +7,7 @@ import { resetPasswordSchema } from '../lib/validations';
 import api from '../api/api';
 import { Button } from '@/components/ui/button';
 import { FormField, FormLabel, FormInput, FormError } from '@/components/ui/form';
+import { PasswordStrength, scorePassword } from '@/components/PasswordStrength';
 import { Spinner } from '../components/Spinner';
 
 // Wordmark used across all 3 public-auth surfaces (LoginPage, Forgot, Reset).
@@ -32,7 +33,9 @@ export default function ResetPasswordPage() {
     resolver: zodResolver(resetPasswordSchema),
     defaultValues: { password: '', confirm: '' },
   });
-  const { handleSubmit, formState: { errors, isSubmitting }, setError } = methods;
+  const { handleSubmit, formState: { errors, isSubmitting }, setError, watch } = methods;
+  const passwordValue = watch('password');
+  const meetsStrength = scorePassword(passwordValue) >= 2;
 
   const onSubmit = handleSubmit(async ({ password }) => {
     try {
@@ -95,23 +98,35 @@ export default function ResetPasswordPage() {
 
               <FormProvider {...methods}>
                 <form onSubmit={onSubmit} noValidate className="space-y-4">
-                  {[
-                    { name: 'password', label: 'New password' },
-                    { name: 'confirm',  label: 'Confirm password' },
-                  ].map(({ name, label }) => (
-                    <FormField key={name} name={name}>
-                      <FormLabel>{label}</FormLabel>
-                      <FormInput
-                        type="password"
-                        placeholder="••••••••••"
-                        autoComplete="new-password"
-                        className="h-12"
-                      />
-                      <FormError />
-                    </FormField>
-                  ))}
+                  <FormField name="password">
+                    <FormLabel>New password</FormLabel>
+                    <FormInput
+                      type="password"
+                      placeholder="••••••••••"
+                      autoComplete="new-password"
+                      className="h-12"
+                    />
+                    <FormError />
+                    <PasswordStrength value={passwordValue} className="mt-1" />
+                  </FormField>
 
-                  <Button type="submit" className="w-full h-12 mt-2" disabled={isSubmitting}>
+                  <FormField name="confirm">
+                    <FormLabel>Confirm password</FormLabel>
+                    <FormInput
+                      type="password"
+                      placeholder="••••••••••"
+                      autoComplete="new-password"
+                      className="h-12"
+                    />
+                    <FormError />
+                  </FormField>
+
+                  <Button
+                    type="submit"
+                    className="w-full h-12 mt-2"
+                    disabled={isSubmitting || !meetsStrength}
+                    title={!meetsStrength ? 'Password too weak — needs at least 2 strength criteria' : undefined}
+                  >
                     {isSubmitting ? (
                       <><Spinner size={16} />Resetting…</>
                     ) : 'Reset password'}
