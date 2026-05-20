@@ -1,11 +1,16 @@
 import { useState, useEffect, useMemo } from 'react';
-import { Link, useSearchParams } from 'react-router-dom';
+import { Link } from 'react-router-dom';
+import { RefreshCw } from 'lucide-react';
 import Portal from '../components/Portal';
 import { useClasses, useCourses, useCreateClass, useUpdateClass, useDeleteClass } from '../hooks/useClasses';
 import { useTeams } from '../hooks/useTeams';
 import { useRole } from '../hooks/useRole';
+import { useListUrlState } from '../hooks/useListUrlState';
 import QueryError from '../components/QueryError';
 import TableSkeleton from '../components/TableSkeleton';
+import { FilterBar } from '../components/FilterBar';
+import { StatusChips } from '../components/StatusChips';
+import { ActiveFilterChips } from '../components/ActiveFilterChips';
 import { Button } from '@/components/ui/button';
 import { Spinner } from '../components/Spinner';
 
@@ -189,17 +194,10 @@ export default function ClassesPage() {
   const [editModal, setEditModal] = useState(null); // class object to edit
   const [creating, setCreating] = useState(null);
 
-  // ── URL-synced filters (Sprint follow-up) ─────────────
-  // Keeps the user's search/status filter in the URL so refresh / share
-  // preserves their view — same UX pattern as UsersPage.
-  const [searchParams, setSearchParams] = useSearchParams();
-  const search = searchParams.get('q') || '';
-  const statusFilter = searchParams.get('status') || '';
-  const setParam = (key, val) => {
-    const next = new URLSearchParams(searchParams);
-    if (val) next.set(key, val); else next.delete(key);
-    setSearchParams(next, { replace: true });
-  };
+  // URL-synced filters via shared list-state hook (Phase 3 Screen 5 §F).
+  const list = useListUrlState();
+  const search = list.debouncedSearch;
+  const statusFilter = list.status;
 
   const { data: classes = [], isLoading: loadingClasses, isError: classesError, error: classesErrorObj, refetch: refetchClasses } = useClasses();
   const { data: courseMeta } = useCourses();
@@ -248,13 +246,8 @@ export default function ClassesPage() {
     };
   }, [filteredClasses]);
 
-  const hasActiveFilter = !!(search || statusFilter);
-  const clearFilters = () => {
-    const next = new URLSearchParams(searchParams);
-    next.delete('q');
-    next.delete('status');
-    setSearchParams(next, { replace: true });
-  };
+  const hasActiveFilter = list.hasActiveFilters;
+  const clearFilters = list.clearAll;
 
   const quickCreateMutation = useCreateClass();
 
@@ -287,42 +280,36 @@ export default function ClassesPage() {
         )}
       </div>
 
-      {/* ── Search & Filter Bar ───────────────────────────── */}
-      <div className="bg-card border border-border rounded-lg px-5 py-4 flex flex-wrap gap-3 items-center">
-        <div className="relative flex-1 min-w-[200px] max-w-sm">
-          <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-subtle-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-          </svg>
-          <input
-            type="text"
-            value={search}
-            onChange={(e) => setParam('q', e.target.value)}
-            placeholder="Search by class code, course, or team..."
-            aria-label="Search classes"
-            className="w-full pl-10 pr-4 py-2 rounded-md bg-background border border-input text-foreground text-sm placeholder:text-subtle-foreground focus:outline-none focus:ring-2 focus:ring-ring transition-colors"
-          />
-        </div>
-        <select
+      {/* ── Search + Filters (canonical FilterBar) ────────── */}
+      <FilterBar
+        search={list.search}
+        onSearch={list.setSearch}
+        searchPlaceholder="Search by class code, course, or team…"
+      >
+        <Button variant="outline" size="sm" onClick={refetchClasses} aria-label="Refresh">
+          <RefreshCw className="size-3.5 mr-1.5" />Refresh
+        </Button>
+      </FilterBar>
+
+      {/* ── Status chips (primary axis) + active filter chips ── */}
+      <div className="flex flex-wrap items-center gap-3">
+        <StatusChips
           value={statusFilter}
-          onChange={(e) => setParam('status', e.target.value)}
-          aria-label="Filter by status"
-          className="px-3 h-[--control-h] rounded-md bg-background border border-input text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring transition-colors"
-        >
-          <option value="" className="bg-popover">Tất cả</option>
-          <option value="Ongoing" className="bg-popover">🟢 Đang học</option>
-          <option value="Completed" className="bg-popover">✓ Đã hoàn thành</option>
-        </select>
+          onChange={list.setStatus}
+          options={[
+            { value: '',          label: 'All' },
+            { value: 'Ongoing',   label: 'Ongoing' },
+            { value: 'Completed', label: 'Completed' },
+          ]}
+        />
         {hasActiveFilter && (
-          <button
-            onClick={clearFilters}
-            className="px-3 py-2 rounded-md bg-accent border border-border text-muted-foreground text-sm hover:bg-accent/80 transition-all"
-          >
-            ✕ Clear
-          </button>
+          <ActiveFilterChips
+            filters={[
+              ...(list.search ? [{ key: 'q', label: `Search: ${list.search}`, onRemove: () => list.setSearch('') }] : []),
+            ]}
+            onClearAll={clearFilters}
+          />
         )}
-        <button onClick={refetchClasses} className="ml-auto px-3 py-2 rounded-md bg-accent border border-border text-muted-foreground text-sm hover:bg-accent/80 transition-all">
-          ↻ Refresh
-        </button>
       </div>
 
       {/* ── Matrix Table ──────────────────────────────────── */}
