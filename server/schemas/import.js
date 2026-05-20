@@ -11,7 +11,7 @@ const importUserItem = z.object({
   email: z.string().email('email must be a valid email address').max(254).optional(),
   role: z.enum(['Admin', 'Teacher', 'Participant']).optional(),
   department: z.string().max(100).optional(),
-  status: z.enum(['Active', 'Dropped', 'Transferred', 'On-hold']).optional(),
+  status: z.enum(['Active', 'Inactive', 'Dropped', 'Transferred', 'On-hold', 'Waiting for class']).optional(),
   password: z.string().min(10).optional(),
 }).strict();
 
