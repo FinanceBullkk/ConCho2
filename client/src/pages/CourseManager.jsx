@@ -1,7 +1,13 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
+import { RefreshCw } from 'lucide-react';
 import { classesAPI, schedulesAPI } from '../api/api';
 import Portal from '../components/Portal';
 import { Spinner } from '../components/Spinner';
+import { FilterBar } from '../components/FilterBar';
+import { StatusChips } from '../components/StatusChips';
+import { ActiveFilterChips } from '../components/ActiveFilterChips';
+import { Button } from '@/components/ui/button';
+import { useListUrlState } from '../hooks/useListUrlState';
 
 // ──────────────────────────────────────────────────────────
 // Course Manager — Admin class/session editor
@@ -292,9 +298,12 @@ function SessionPanel({ classId, classInfo, onClose, onClassUpdated }) {
 export default function CourseManager() {
   const [classes, setClasses] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [search, setSearch] = useState('');
-  const [statusFilter, setStatusFilter] = useState('all');
   const [selectedClass, setSelectedClass] = useState(null);
+
+  // URL-synced filter state (Phase 3 Screen 5 §F).
+  const list = useListUrlState();
+  const search = list.debouncedSearch;
+  const statusFilter = list.status || 'all';
 
   const fetchClasses = useCallback(async () => {
     setLoading(true);
@@ -359,32 +368,34 @@ export default function CourseManager() {
         </div>
       </div>
 
-      {/* Search & Filter */}
-      <div className="bg-card border border-border rounded-lg px-5 py-4 flex flex-col sm:flex-row gap-3 items-stretch sm:items-center">
-        <div className="relative flex-1">
-          <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-subtle-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-          </svg>
-          <input type="text" value={search} onChange={e => setSearch(e.target.value)}
-            placeholder="Search class code or course name..."
-            className="w-full pl-10 pr-8 py-2.5 rounded-md bg-background border border-input text-foreground text-sm placeholder:text-subtle-foreground focus:outline-none focus:ring-2 focus:ring-ring transition-colors" />
-          {search && (
-            <button onClick={() => setSearch('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground text-sm">✕</button>
-          )}
-        </div>
+      {/* Search + filters (canonical FilterBar) */}
+      <FilterBar
+        search={list.search}
+        onSearch={list.setSearch}
+        searchPlaceholder="Search by class code or course name…"
+      >
+        <Button variant="outline" size="sm" onClick={fetchClasses} aria-label="Refresh">
+          <RefreshCw className="size-3.5 mr-1.5" />Refresh
+        </Button>
+        <span className="text-xs text-subtle-foreground tabular-nums">{filtered.length} classes</span>
+      </FilterBar>
 
-        <div className="flex rounded-md border border-border overflow-hidden shrink-0">
-          {['all', 'Ongoing', 'Completed'].map(s => (
-            <button key={s} onClick={() => setStatusFilter(s)}
-              className={`px-3 py-2 text-xs font-medium transition-all ${
-                statusFilter === s ? 'bg-primary/15 text-primary' : 'text-subtle-foreground hover:text-foreground hover:bg-accent'
-              } ${s !== 'all' ? 'border-l border-border' : ''}`}>
-              {s === 'all' ? 'All' : s}
-            </button>
-          ))}
-        </div>
-
-        <div className="text-xs text-subtle-foreground shrink-0">{filtered.length} classes</div>
+      <div className="flex flex-wrap items-center gap-3">
+        <StatusChips
+          value={list.status}
+          onChange={list.setStatus}
+          options={[
+            { value: '',          label: 'All' },
+            { value: 'Ongoing',   label: 'Ongoing' },
+            { value: 'Completed', label: 'Completed' },
+          ]}
+        />
+        {list.hasActiveFilters && (
+          <ActiveFilterChips
+            filters={list.search ? [{ key: 'q', label: `Search: ${list.search}`, onRemove: () => list.setSearch('') }] : []}
+            onClearAll={list.clearAll}
+          />
+        )}
       </div>
 
       {/* Class table */}

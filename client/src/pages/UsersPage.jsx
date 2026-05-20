@@ -1,10 +1,9 @@
 import { useState, useEffect, useMemo } from 'react';
-import { useSearchParams } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { ShieldAlert, LogOut, BarChart3, Pencil, Trash2, X, RefreshCw, Download } from 'lucide-react';
+import { ShieldAlert, LogOut, BarChart3, Pencil, Trash2, RefreshCw, Download } from 'lucide-react';
 import StudentProgressModal from '../components/Progress/StudentProgressModal';
 import Portal from '../components/Portal';
 import { useUsers, useCreateUser, useUpdateUser, useDeleteUser } from '../hooks/useUsers';
@@ -12,19 +11,30 @@ import { useTeams } from '../hooks/useTeams';
 import { qk } from '../hooks/queryKeys';
 import { useAuth } from '../context/AuthContext';
 import { useRole } from '../hooks/useRole';
+import { useListUrlState } from '../hooks/useListUrlState';
 import { authAPI, usersAPI } from '../api/api';
 import { createUserSchema, editUserSchema } from '../lib/validations';
 import { DataTable } from '../components/DataTable';
 import { FilterBar } from '../components/FilterBar';
 import { StatusBadge } from '../components/StatusBadge';
+import { StatusChips } from '../components/StatusChips';
+import { ActiveFilterChips } from '../components/ActiveFilterChips';
+import { SelectionBar } from '../components/SelectionBar';
+import { BulkDeleteConfirm } from '../components/BulkDeleteConfirm';
 import { Button } from '@/components/ui/button';
+import {
+  DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem,
+} from '@/components/ui/dropdown-menu';
 import { Spinner } from '../components/Spinner';
-import { useDebounce } from '../hooks/useDebounce';
 import { cn } from '@/lib/utils';
 
-const ROLES    = ['Admin', 'Teacher', 'Participant'];
-const STATUSES = ['Active', 'Inactive', 'Dropped', 'Transferred', 'On-hold', 'Waiting for class'];
-const PAGE_SIZE = 50;
+// Per Screen 5 §E (Users variant):
+//   facets: status · role · BU · level    bulk: change status · change role · export · delete
+const ROLES         = ['Admin', 'Teacher', 'Participant'];
+const STATUSES      = ['Active', 'Inactive', 'Dropped', 'Transferred', 'On-hold', 'Waiting for class'];
+const STATUS_CHIPS  = ['Active', 'Inactive', 'On-hold'];   // primary axis per design
+const PAGE_SIZE     = 50;
+const BULK_TYPE_CONFIRM_THRESHOLD = 5;   // §D rule 10
 
 // ── Shared input class for UserModal ──────────────────────
 const INPUT_CLS =
@@ -99,7 +109,6 @@ function UserModal({ user, onClose, onSaved }) {
       {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-noninteractive-element-interactions */}
       <form onSubmit={onSubmit} onClick={(e) => e.stopPropagation()} noValidate
         className="bg-card border border-border rounded-lg w-full max-w-md flex flex-col max-h-[92vh]"
-        aria-modal="true"
         aria-label={isEdit ? 'Edit user' : 'Create user'}
       >
         {/* ── Sticky header ── */}
@@ -219,98 +228,38 @@ export default function UsersPage() {
   const { can } = useRole();
   const deleteMutation = useDeleteUser();
   const updateMutation = useUpdateUser();
+
+  // Modal / drawer state
   const [modal, setModal]               = useState(null);        // null | 'create' | userObject
   const [deleteId, setDeleteId]         = useState(null);
   const [progressModal, setProgressModal] = useState(null);      // { id, name }
   const [adminAction, setAdminAction]   = useState(null);        // { type, userId, userName }
   const [adminActionLoading, setAdminActionLoading] = useState(false);
   const [adminActionError, setAdminActionError]     = useState('');
+
+  // Selection survives filter changes (per §D rule 8)
   const [selectedIds, setSelectedIds]   = useState(new Set());
-  const [bulkAction, setBulkAction]     = useState('');
+  const [bulkDeleting, setBulkDeleting] = useState(false);
+  const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
 
-  const [searchParams, setSearchParams] = useSearchParams();
-
-  const search       = searchParams.get('search')    || '';
-  const filterRole   = searchParams.get('role')      || '';
-  const filterStatus = searchParams.get('status')    || '';
-  const sortBy       = searchParams.get('sortBy')    || 'lastActive';
-  const sortOrder    = searchParams.get('sortOrder') || 'desc';
-  const page         = Number(searchParams.get('page') || 1);
-
-  const debouncedSearch = useDebounce(search, 300);
-
-  const setParam = (key, value) => {
-    setSearchParams((prev) => {
-      const next = new URLSearchParams(prev);
-      if (value) next.set(key, value); else next.delete(key);
-      if (key !== 'page') next.delete('page');
-      return next;
-    }, { replace: true });
-  };
+  // URL state via shared hook (per §F handoff)
+  const list = useListUrlState({
+    defaults: { sortBy: 'lastActive', sortOrder: 'desc' },
+    facets:   ['role'],
+  });
 
   useEffect(() => { document.title = 'TMS — Users'; }, []);
 
-  const queryParams = useMemo(() => {
-    const params = { page, limit: PAGE_SIZE, sortBy, sortOrder };
-    if (filterRole)                params.role   = filterRole;
-    if (filterStatus)              params.status = filterStatus;
-    if (debouncedSearch.trim())    params.search = debouncedSearch.trim();
-    return params;
-  }, [page, filterRole, filterStatus, debouncedSearch, sortBy, sortOrder]);
-
-  const handleSort = (col) => {
-    if (sortBy === col) {
-      setParam('sortOrder', sortOrder === 'asc' ? 'desc' : 'asc');
-    } else {
-      setSearchParams((prev) => {
-        const next = new URLSearchParams(prev);
-        next.set('sortBy', col);
-        next.set('sortOrder', 'asc');
-        next.delete('page');
-        return next;
-      }, { replace: true });
-    }
-  };
+  // Backend takes `role` directly as a query param (hook puts it under facets)
+  const queryParams = useMemo(
+    () => ({ ...list.queryParams, limit: PAGE_SIZE }),
+    [list.queryParams],
+  );
 
   const { data: usersData, isLoading: loading, isError, error, refetch } = useUsers(queryParams);
   const users  = usersData?.data  || [];
   const total  = usersData?.total ?? usersData?.count ?? 0;
   const pages  = usersData?.pages ?? 1;
-
-  // BUG #17: only clear selection on page/role/status change, not on every search keystroke
-  useEffect(() => { setSelectedIds(new Set()); }, [page, filterRole, filterStatus]);
-
-  const executeBulkAction = async () => {
-    if (!bulkAction || selectedIds.size === 0) return;
-    const ids = [...selectedIds];
-    const n = ids.length;
-    try {
-      if (bulkAction === 'delete') {
-        if (!window.confirm(`Delete ${n} users? This cannot be undone.`)) return;
-        await Promise.all(ids.map((id) => deleteMutation.mutateAsync(id)));
-        toast.success(`${n} user${n > 1 ? 's' : ''} deleted`);
-      } else if (bulkAction.startsWith('status:')) {
-        const status = bulkAction.replace('status:', '');
-        await Promise.all(ids.map((id) => updateMutation.mutateAsync({ id, data: { status } })));
-        toast.success(`${n} user${n > 1 ? 's' : ''} set to ${status}`);
-      } else if (bulkAction.startsWith('role:')) {
-        const role = bulkAction.replace('role:', '');
-        await Promise.all(ids.map((id) => updateMutation.mutateAsync({ id, data: { role } })));
-        toast.success(`${n} user${n > 1 ? 's' : ''} set to ${role}`);
-      } else if (bulkAction === 'export') {
-        const selected = users.filter((u) => selectedIds.has(u._id));
-        downloadCSV(selected);
-        toast.success(`Exported ${selected.length} user${selected.length > 1 ? 's' : ''}`);
-      } else if (bulkAction === 'invite') {
-        await Promise.all(ids.map((id) => usersAPI.sendInvite?.(id)));
-        toast.success(`Invite queued for ${n} user${n > 1 ? 's' : ''}`);
-      }
-      setSelectedIds(new Set());
-      setBulkAction('');
-    } catch {
-      toast.error('Bulk action failed — some updates may not have applied');
-    }
-  };
 
   const { data: allTeams = [] } = useTeams();
   const teamsByUser = useMemo(() => {
@@ -326,6 +275,55 @@ export default function UsersPage() {
 
   const reload = () => queryClient.invalidateQueries({ queryKey: qk.users.all });
 
+  // ── Bulk action handlers ──────────────────────────────
+  const runBulk = async (kind, value) => {
+    const ids = [...selectedIds];
+    const n = ids.length;
+    if (n === 0) return;
+    try {
+      if (kind === 'status') {
+        await Promise.all(ids.map((id) => updateMutation.mutateAsync({ id, data: { status: value } })));
+        toast.success(`${n} user${n > 1 ? 's' : ''} set to ${value}`);
+      } else if (kind === 'role') {
+        await Promise.all(ids.map((id) => updateMutation.mutateAsync({ id, data: { role: value } })));
+        toast.success(`${n} user${n > 1 ? 's' : ''} set to role ${value}`);
+      } else if (kind === 'invite') {
+        await Promise.all(ids.map((id) => usersAPI.sendInvite?.(id)));
+        toast.success(`Invite queued for ${n} user${n > 1 ? 's' : ''}`);
+      }
+      setSelectedIds(new Set());
+    } catch {
+      toast.error('Bulk action failed — some updates may not have applied');
+    }
+  };
+
+  const handleBulkDelete = async () => {
+    const ids = [...selectedIds];
+    const n = ids.length;
+    setBulkDeleting(true);
+    try {
+      await Promise.all(ids.map((id) => deleteMutation.mutateAsync(id)));
+      toast.success(`${n} user${n > 1 ? 's' : ''} deleted`);
+      setSelectedIds(new Set());
+      setBulkDeleteOpen(false);
+    } catch {
+      toast.error('Bulk delete failed — some users may remain.');
+    } finally {
+      setBulkDeleting(false);
+    }
+  };
+
+  const requestBulkDelete = () => {
+    const n = selectedIds.size;
+    if (n === 0) return;
+    if (n > BULK_TYPE_CONFIRM_THRESHOLD) {
+      setBulkDeleteOpen(true);                                            // §D rule 10
+    } else if (window.confirm(`Delete ${n} user${n > 1 ? 's' : ''}? This cannot be undone.`)) {
+      handleBulkDelete();
+    }
+  };
+
+  // ── Export — respects current filter + selection (§D rule 11) ──
   const downloadCSV = (rows) => {
     const header = ['Code', 'Name', 'Email', 'BU', 'Position', 'Role', 'Status', 'Last Active'];
     const escape = (v) => `"${String(v ?? '').replace(/"/g, '""')}"`;
@@ -341,6 +339,15 @@ export default function UsersPage() {
     const a    = Object.assign(document.createElement('a'), { href: url, download: `users-${new Date().toISOString().slice(0, 10)}.csv` });
     a.click();
     URL.revokeObjectURL(url);
+  };
+
+  const handleExport = () => {
+    const rows = selectedIds.size > 0
+      ? users.filter((u) => selectedIds.has(u._id))
+      : users;
+    if (rows.length === 0) { toast.info('Nothing to export'); return; }
+    downloadCSV(rows);
+    toast.success(`Exported ${rows.length} user${rows.length > 1 ? 's' : ''}`);
   };
 
   const handleDelete = async (id) => {
@@ -363,6 +370,19 @@ export default function UsersPage() {
       setAdminActionLoading(false);
     }
   };
+
+  // ── Active filter chips for the row above the table ──
+  const activeFilterChips = useMemo(() => {
+    const chips = [];
+    if (list.facets.role) {
+      chips.push({
+        key: 'role',
+        label: `Role: ${list.facets.role}`,
+        onRemove: () => list.setFacet('role', ''),
+      });
+    }
+    return chips;
+  }, [list]);
 
   // ── DataTable column definitions ────────────────────────
   const columns = useMemo(() => [
@@ -513,80 +533,95 @@ export default function UsersPage() {
   ], [teamsByUser, can, currentUser?._id]);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
       {/* ── Header ─────────────────────────────────────── */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-h1 text-foreground">User Management</h1>
-          <p className="text-muted-foreground mt-1">{total} users total</p>
+          <p className="text-muted-foreground mt-1 tabular-nums">{total} users total</p>
         </div>
         <div className="flex items-center gap-2 self-start">
-          <Button variant="outline" size="sm" onClick={() => downloadCSV(users)} title="Export current view as CSV">
-            <Download className="size-3.5 mr-1.5" />CSV
-          </Button>
           {can('create:user') && (
             <Button onClick={() => setModal('create')}>+ New User</Button>
           )}
         </div>
       </div>
 
-      {/* ── Search + Filters ────────────────────────────── */}
+      {/* ── Search + Filters (FilterBar primitive) ─────── */}
       <FilterBar
-        search={search}
-        onSearch={(v) => setParam('search', v)}
-        searchPlaceholder="Search by name, code, or department…"
+        search={list.search}
+        onSearch={list.setSearch}
+        searchPlaceholder="Search by name, code, email, or department…"
         filters={[
           {
             key: 'role',
             placeholder: 'All Roles',
             options: ROLES,
-            value: filterRole,
-            onChange: (v) => setParam('role', v),
-          },
-          {
-            key: 'status',
-            placeholder: 'All Statuses',
-            options: STATUSES,
-            value: filterStatus,
-            onChange: (v) => setParam('status', v),
+            value: list.facets.role,
+            onChange: (v) => list.setFacet('role', v),
           },
         ]}
       >
+        <Button variant="outline" size="sm" onClick={handleExport} title="Export current view as CSV">
+          <Download className="size-3.5 mr-1.5" />Export
+        </Button>
         <Button variant="outline" size="sm" onClick={reload} aria-label="Refresh">
           <RefreshCw className="size-3.5 mr-1.5" />Refresh
         </Button>
       </FilterBar>
 
-      {/* ── Bulk action toolbar ──────────────────────────── */}
+      {/* ── Status chips (primary axis) + active filter chips ── */}
+      <div className="flex flex-wrap items-center gap-3">
+        <StatusChips
+          value={list.status}
+          onChange={list.setStatus}
+          options={[
+            { value: '', label: 'All' },
+            ...STATUS_CHIPS.map((s) => ({ value: s, label: s })),
+          ]}
+        />
+        {activeFilterChips.length > 0 && (
+          <ActiveFilterChips filters={activeFilterChips} onClearAll={list.clearAll} />
+        )}
+      </div>
+
+      {/* ── Selection bar (sticky-ish, appears on ≥1 selected) ── */}
       {selectedIds.size > 0 && (
-        <div className="flex items-center gap-3 px-4 py-2.5 rounded-md bg-primary/10 border border-primary/20">
-          <span className="text-sm text-primary font-medium">{selectedIds.size} selected</span>
-          <div className="flex-1" />
-          <select
-            value={bulkAction}
-            onChange={(e) => setBulkAction(e.target.value)}
-            aria-label="Bulk action"
-            className="px-3 h-8 rounded-md bg-background border border-input text-foreground text-sm focus:outline-none focus:ring-1 focus:ring-ring"
-          >
-            <option value="">Choose action…</option>
-            <option value="status:Active">Set Active</option>
-            <option value="status:Inactive">Set Inactive</option>
-            <option value="status:On-hold">Set On-hold</option>
-            <option value="role:Admin">Set Role → Admin</option>
-            <option value="role:Teacher">Set Role → Teacher</option>
-            <option value="role:Participant">Set Role → Participant</option>
-            <option value="export">Export selected (CSV)</option>
-            <option value="invite">Send invite email</option>
-            {isAdmin && <option value="delete">Delete selected</option>}
-          </select>
-          <Button size="sm" disabled={!bulkAction} onClick={executeBulkAction}>Apply</Button>
-          <Button
-            size="sm" variant="ghost"
-            onClick={() => setSelectedIds(new Set())}
-            aria-label="Clear selection"
-            className="text-muted-foreground"
-          ><X className="size-3.5" /></Button>
-        </div>
+        <SelectionBar count={selectedIds.size} onClear={() => setSelectedIds(new Set())}>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="sm" type="button">Change status…</Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start" className="min-w-[180px]">
+              {STATUSES.map((s) => (
+                <DropdownMenuItem key={s} onSelect={() => runBulk('status', s)}>
+                  {s}
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
+
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="sm" type="button">Change role…</Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start" className="min-w-[180px]">
+              {ROLES.map((r) => (
+                <DropdownMenuItem key={r} onSelect={() => runBulk('role', r)}>
+                  {r}
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
+
+          <Button variant="outline" size="sm" onClick={handleExport}>Export selected</Button>
+
+          {isAdmin && (
+            <Button variant="destructive" size="sm" onClick={requestBulkDelete}>
+              Delete
+            </Button>
+          )}
+        </SelectionBar>
       )}
 
       {/* ── DataTable ───────────────────────────────────── */}
@@ -594,9 +629,9 @@ export default function UsersPage() {
         columns={columns}
         data={users}
         rowKey="_id"
-        sortBy={sortBy}
-        sortOrder={sortOrder}
-        onSort={handleSort}
+        sortBy={list.sortBy}
+        sortOrder={list.sortOrder}
+        onSort={list.setSort}
         selectable
         selected={selectedIds}
         onSelectChange={setSelectedIds}
@@ -605,15 +640,17 @@ export default function UsersPage() {
         error={error}
         onRetry={refetch}
         skeletonRows={8}
-        page={page}
+        page={list.page}
         totalPages={pages}
         total={total}
-        onPageChange={(p) => setParam('page', p > 1 ? String(p) : '')}
-        emptyTitle="No users found"
-        emptyMessage="Try adjusting your search or filters."
+        onPageChange={list.setPage}
+        emptyTitle={list.hasActiveFilters ? 'No users match your filters' : 'No users yet'}
+        emptyMessage={list.hasActiveFilters
+          ? 'Try clearing filters or adjusting your search.'
+          : 'Create your first user with the "+ New User" button.'}
       />
 
-      {/* ── Delete confirm ───────────────────────────────── */}
+      {/* ── Delete confirm (single-row) ───────────────────── */}
       {deleteId && (
         <Portal>
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
@@ -628,6 +665,16 @@ export default function UsersPage() {
         </div>
         </Portal>
       )}
+
+      {/* ── Bulk delete type-confirmation (§D rule 10) ──── */}
+      <BulkDeleteConfirm
+        open={bulkDeleteOpen}
+        count={selectedIds.size}
+        entityName="user"
+        onClose={() => setBulkDeleteOpen(false)}
+        onConfirm={handleBulkDelete}
+        isDeleting={bulkDeleting}
+      />
 
       {/* ── UserModal ────────────────────────────────────── */}
       {(modal === 'create' || (modal && modal._id)) && (
