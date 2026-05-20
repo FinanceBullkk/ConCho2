@@ -125,12 +125,14 @@ function ForceChangePasswordModal() {
     if (/[^A-Za-z0-9]/.test(newPwd)) s++;
     return s;
   })();
+  // Phase 3 Screen 7 §F · token mapping (no raw colors per Phase 0 §02).
+  // Score 0 has no bars rendered (newPwd is empty); index 0 stays for label only.
   const strengthMeta = [
-    { label: 'Quá yếu',   bar: 'bg-destructive' },
-    { label: 'Yếu',       bar: 'bg-orange-500'  },
-    { label: 'Trung bình', bar: 'bg-yellow-500' },
-    { label: 'Tốt',       bar: 'bg-emerald-500' },
-    { label: 'Mạnh',      bar: 'bg-emerald-600' },
+    { label: 'Quá yếu',    bar: 'bg-destructive', text: 'text-destructive' },
+    { label: 'Yếu',        bar: 'bg-destructive', text: 'text-destructive' },
+    { label: 'Trung bình', bar: 'bg-warning',     text: 'text-warning' },
+    { label: 'Tốt',        bar: 'bg-success',     text: 'text-success' },
+    { label: 'Mạnh',       bar: 'bg-success',     text: 'text-success' },
   ];
 
   return (
@@ -180,7 +182,9 @@ function ForceChangePasswordModal() {
                     />
                   ))}
                 </div>
-                <p className="text-xs text-muted-foreground">{strengthMeta[pwdStrength].label}</p>
+                <p className={`text-xs font-medium ${strengthMeta[pwdStrength].text}`}>
+                  {strengthMeta[pwdStrength].label}
+                </p>
               </div>
             )}
           </div>
