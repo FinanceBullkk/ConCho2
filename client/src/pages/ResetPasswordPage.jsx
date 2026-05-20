@@ -18,7 +18,7 @@ function AuthWordmark() {
       <h1 className="text-[2.5rem] font-bold tracking-tight text-foreground leading-none">
         TMS<span className="text-primary">.</span>
       </h1>
-      <p className="text-muted-foreground mt-2">Training Management System</p>
+      <p className="text-muted-foreground mt-2">Hệ thống Quản lý Đào tạo</p>
     </div>
   );
 }
@@ -44,7 +44,7 @@ export default function ResetPasswordPage() {
       setTimeout(() => navigate('/login', { replace: true }), 3000);
     } catch (err) {
       setError('root', {
-        message: err.response?.data?.message || 'Reset failed. The link may have expired.',
+        message: err.response?.data?.message || 'Đặt lại thất bại. Liên kết có thể đã hết hạn.',
       });
     }
   });
@@ -58,12 +58,12 @@ export default function ResetPasswordPage() {
           <AuthWordmark />
           <div className="bg-card border border-border rounded-lg p-8 text-center space-y-4">
             <XCircle className="size-12 text-destructive mx-auto" aria-hidden="true" />
-            <h2 className="text-h3 text-foreground">Invalid reset link</h2>
+            <h2 className="text-h3 text-foreground">Liên kết đặt lại không hợp lệ</h2>
             <p className="text-body text-muted-foreground">
-              This link is missing a reset token. Please request a new one.
+              Liên kết này thiếu token đặt lại. Vui lòng yêu cầu một liên kết mới.
             </p>
             <Button asChild className="mt-2">
-              <Link to="/forgot-password">Request reset link</Link>
+              <Link to="/forgot-password">Yêu cầu liên kết đặt lại</Link>
             </Button>
           </div>
         </div>
@@ -80,14 +80,14 @@ export default function ResetPasswordPage() {
           {done ? (
             <div className="text-center space-y-4">
               <CheckCircle className="size-12 text-success mx-auto" aria-hidden="true" />
-              <h2 className="text-h3 text-foreground">Password updated!</h2>
-              <p className="text-body text-muted-foreground">Redirecting you to sign in…</p>
+              <h2 className="text-h3 text-foreground">Đã cập nhật mật khẩu!</h2>
+              <p className="text-body text-muted-foreground">Đang chuyển đến trang đăng nhập…</p>
             </div>
           ) : (
             <>
-              <h2 className="text-h3 text-foreground mb-2">Set new password</h2>
+              <h2 className="text-h3 text-foreground mb-2">Đặt mật khẩu mới</h2>
               <p className="text-body text-muted-foreground mb-6">
-                Choose a strong password (at least 10 characters).
+                Chọn mật khẩu mạnh (ít nhất 10 ký tự).
               </p>
 
               {errors.root && (
@@ -99,7 +99,7 @@ export default function ResetPasswordPage() {
               <FormProvider {...methods}>
                 <form onSubmit={onSubmit} noValidate className="space-y-4">
                   <FormField name="password">
-                    <FormLabel>New password</FormLabel>
+                    <FormLabel>Mật khẩu mới</FormLabel>
                     <FormInput
                       type="password"
                       placeholder="••••••••••"
@@ -107,11 +107,11 @@ export default function ResetPasswordPage() {
                       className="h-12"
                     />
                     <FormError />
-                    <PasswordStrength value={passwordValue} className="mt-1" />
+                    <PasswordStrength value={passwordValue} labels={['', 'Yếu', 'Trung bình', 'Tốt', 'Mạnh']} className="mt-1" />
                   </FormField>
 
                   <FormField name="confirm">
-                    <FormLabel>Confirm password</FormLabel>
+                    <FormLabel>Xác nhận mật khẩu</FormLabel>
                     <FormInput
                       type="password"
                       placeholder="••••••••••"
@@ -125,11 +125,11 @@ export default function ResetPasswordPage() {
                     type="submit"
                     className="w-full h-12 mt-2"
                     disabled={isSubmitting || !meetsStrength}
-                    title={!meetsStrength ? 'Password too weak — needs at least 2 strength criteria' : undefined}
+                    title={!meetsStrength ? 'Mật khẩu quá yếu — cần đạt ít nhất 2 tiêu chí về độ mạnh' : undefined}
                   >
                     {isSubmitting ? (
-                      <><Spinner size={16} />Resetting…</>
-                    ) : 'Reset password'}
+                      <><Spinner size={16} />Đang đặt lại…</>
+                    ) : 'Đặt lại mật khẩu'}
                   </Button>
                 </form>
               </FormProvider>
