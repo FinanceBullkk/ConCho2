@@ -1,13 +1,17 @@
-import { useState } from 'react';
+import { Fragment, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { Settings, Database, RefreshCw, ShieldCheck, ScrollText } from 'lucide-react';
+import { useQueryClient } from '@tanstack/react-query';
+import { Settings, Database, RefreshCw, ShieldCheck, ScrollText, ChevronDown } from 'lucide-react';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
+import { Button } from '@/components/ui/button';
 import { PageHeader } from '@/components/PageHeader';
 import { StatusBadge } from '@/components/StatusBadge';
 import TableSkeleton from '@/components/TableSkeleton';
 import QueryError from '@/components/QueryError';
 import Pagination from '@/components/Pagination';
 import { useAuditLog } from '@/hooks/useAuditLog';
+import { diffJson } from '@/lib/jsonDiff';
+import { cn } from '@/lib/utils';
 import SettingsPage from './SettingsPage';
 import DatabaseExplorer from './DatabaseExplorer';
 import SyncPage from './SyncPage';
@@ -48,17 +52,34 @@ function actionTone(action) {
 }
 
 // ──────────────────────────────────────────────────────────
-// AuditLogTab
+// AuditLogTab — Phase 4 Surface 9 §G
+//   • Filter state in URL (entity · action · from · to · page) per 9H
+//   • Row click → inline accordion · metadata + JSON diff (9C/P4)
+//   • Manual refresh button (9F)
 // ──────────────────────────────────────────────────────────
 
 function AuditLogTab() {
-  const [page, setPage]     = useState(1);
-  const [entity, setEntity] = useState('');
-  const [action, setAction] = useState('');
-  const [from, setFrom]     = useState('');
-  const [to, setTo]         = useState('');
+  const [searchParams, setSearchParams] = useSearchParams();
+  const queryClient = useQueryClient();
 
-  const resetPage = (fn) => (v) => { fn(v); setPage(1); };
+  // 'tab' is owned by the umbrella SystemPage; everything else here is ours.
+  const entity = searchParams.get('audit_entity') ?? '';
+  const action = searchParams.get('audit_action') ?? '';
+  const from   = searchParams.get('audit_from')   ?? '';
+  const to     = searchParams.get('audit_to')     ?? '';
+  const page   = Number(searchParams.get('audit_page') || '1') || 1;
+
+  const setParam = (key) => (value) => {
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev);
+      if (value) next.set(key, value); else next.delete(key);
+      if (key !== 'audit_page') next.delete('audit_page');  // reset on filter change
+      return next;
+    }, { replace: true });
+  };
+
+  const [expandedId, setExpandedId] = useState(null);
+  const toggleRow = (id) => setExpandedId((prev) => (prev === id ? null : id));
 
   const { data, isLoading, isError, error, refetch, isFetching } = useAuditLog({
     page, limit: 50, entity, action, from, to,
@@ -79,10 +100,11 @@ function AuditLogTab() {
       <div className="bg-card border border-border rounded-lg p-4">
         <div className="flex flex-wrap gap-3 items-end">
           <div className="flex flex-col gap-1 min-w-[140px]">
-            <label className="text-overline text-muted-foreground">Entity</label>
+            <label htmlFor="audit-entity" className="text-overline text-muted-foreground">Entity</label>
             <select
+              id="audit-entity"
               value={entity}
-              onChange={(e) => resetPage(setEntity)(e.target.value)}
+              onChange={(e) => setParam('audit_entity')(e.target.value)}
               className={inputCls}
             >
               <option value="">All</option>
@@ -96,35 +118,48 @@ function AuditLogTab() {
           </div>
 
           <div className="flex flex-col gap-1 min-w-[180px]">
-            <label className="text-overline text-muted-foreground">Action</label>
+            <label htmlFor="audit-action" className="text-overline text-muted-foreground">Action</label>
             <input
+              id="audit-action"
               type="text"
               value={action}
-              onChange={(e) => resetPage(setAction)(e.target.value)}
+              onChange={(e) => setParam('audit_action')(e.target.value)}
               placeholder="e.g. user.create"
               className={inputCls}
             />
           </div>
 
           <div className="flex flex-col gap-1">
-            <label className="text-overline text-muted-foreground">From</label>
+            <label htmlFor="audit-from" className="text-overline text-muted-foreground">From</label>
             <input
+              id="audit-from"
               type="date"
               value={from}
-              onChange={(e) => resetPage(setFrom)(e.target.value)}
+              onChange={(e) => setParam('audit_from')(e.target.value)}
               className={inputCls}
             />
           </div>
 
           <div className="flex flex-col gap-1">
-            <label className="text-overline text-muted-foreground">To</label>
+            <label htmlFor="audit-to" className="text-overline text-muted-foreground">To</label>
             <input
+              id="audit-to"
               type="date"
               value={to}
-              onChange={(e) => resetPage(setTo)(e.target.value)}
+              onChange={(e) => setParam('audit_to')(e.target.value)}
               className={inputCls}
             />
           </div>
+
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => queryClient.invalidateQueries({ queryKey: ['admin-audit'] })}
+            className="ml-auto"
+          >
+            <RefreshCw className="size-3.5" aria-hidden="true" />
+            Refresh
+          </Button>
         </div>
       </div>
 
@@ -132,7 +167,7 @@ function AuditLogTab() {
       <div className="bg-card border border-border rounded-lg overflow-hidden">
         {isLoading ? (
           <div className="p-6">
-            <TableSkeleton rows={8} cols={5} />
+            <TableSkeleton rows={8} cols={6} />
           </div>
         ) : isError ? (
           <QueryError error={error} onRetry={refetch} />
@@ -146,42 +181,74 @@ function AuditLogTab() {
                   <th className="text-left px-4 py-3 text-overline text-muted-foreground whitespace-nowrap">Action</th>
                   <th className="text-left px-4 py-3 text-overline text-muted-foreground whitespace-nowrap">Entity</th>
                   <th className="text-left px-4 py-3 text-overline text-muted-foreground whitespace-nowrap">Entity ID</th>
+                  <th className="w-8" />
                 </tr>
               </thead>
               <tbody>
                 {entries.length === 0 ? (
                   <tr>
-                    <td colSpan={5} className="px-4 py-12 text-center text-subtle-foreground text-sm">
-                      No audit entries found.
+                    <td colSpan={6} className="px-4 py-12 text-center text-subtle-foreground text-sm">
+                      No audit entries match these filters.
                     </td>
                   </tr>
                 ) : (
-                  entries.map((entry) => (
-                    <tr key={entry._id} className="border-b border-border hover:bg-accent/50 transition-colors duration-(--dur-fast)">
-                      <td className="px-4 py-3 text-foreground whitespace-nowrap">
-                        {fmtDate(entry.createdAt)}
-                      </td>
-                      <td className="px-4 py-3 whitespace-nowrap">
-                        <span className="text-foreground">{entry.actorId?.name ?? 'System'}</span>
-                        {entry.actorId?.empCode && (
-                          <span className="block text-xs text-subtle-foreground">{entry.actorId.empCode}</span>
+                  entries.map((entry) => {
+                    const isOpen = expandedId === entry._id;
+                    return (
+                      <Fragment key={entry._id}>
+                        <tr
+                          onClick={() => toggleRow(entry._id)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter' || e.key === ' ') {
+                              e.preventDefault();
+                              toggleRow(entry._id);
+                            }
+                          }}
+                          tabIndex={0}
+                          role="button"
+                          aria-expanded={isOpen}
+                          aria-controls={`audit-detail-${entry._id}`}
+                          className="border-b border-border hover:bg-accent/50 transition-colors duration-(--dur-fast) cursor-pointer focus:outline-none focus:bg-accent/50"
+                        >
+                          <td className="px-4 py-3 text-foreground whitespace-nowrap">
+                            {fmtDate(entry.createdAt)}
+                          </td>
+                          <td className="px-4 py-3 whitespace-nowrap">
+                            <span className="text-foreground">{entry.actorId?.name ?? 'System'}</span>
+                            {entry.actorId?.empCode && (
+                              <span className="block text-xs text-subtle-foreground">{entry.actorId.empCode}</span>
+                            )}
+                          </td>
+                          <td className="px-4 py-3 whitespace-nowrap">
+                            <StatusBadge tone={actionTone(entry.action)} size="sm">
+                              {entry.action}
+                            </StatusBadge>
+                          </td>
+                          <td className="px-4 py-3 text-foreground whitespace-nowrap">
+                            {entry.entity}
+                          </td>
+                          <td className="px-4 py-3 whitespace-nowrap">
+                            <span className="text-mono text-subtle-foreground">
+                              {entry.entityId ? `${String(entry.entityId).slice(0, 8)}…` : '—'}
+                            </span>
+                          </td>
+                          <td className="px-2 py-3 text-right">
+                            <ChevronDown
+                              className={cn('size-4 text-subtle-foreground transition-transform duration-(--dur-fast)', isOpen && 'rotate-180')}
+                              aria-hidden="true"
+                            />
+                          </td>
+                        </tr>
+                        {isOpen && (
+                          <tr id={`audit-detail-${entry._id}`} className="bg-muted/30">
+                            <td colSpan={6} className="px-4 py-4">
+                              <AuditDetail entry={entry} />
+                            </td>
+                          </tr>
                         )}
-                      </td>
-                      <td className="px-4 py-3 whitespace-nowrap">
-                        <StatusBadge tone={actionTone(entry.action)} size="sm">
-                          {entry.action}
-                        </StatusBadge>
-                      </td>
-                      <td className="px-4 py-3 text-foreground whitespace-nowrap">
-                        {entry.entity}
-                      </td>
-                      <td className="px-4 py-3 whitespace-nowrap">
-                        <span className="text-mono text-subtle-foreground">
-                          {entry.entityId ? `${String(entry.entityId).slice(0, 8)}…` : '—'}
-                        </span>
-                      </td>
-                    </tr>
-                  ))
+                      </Fragment>
+                    );
+                  })
                 )}
               </tbody>
             </table>
@@ -194,10 +261,83 @@ function AuditLogTab() {
           <Pagination
             page={page}
             totalPages={totalPages}
-            onPageChange={setPage}
+            onPageChange={(p) => setParam('audit_page')(p > 1 ? String(p) : '')}
             isLoading={isFetching}
           />
         </div>
+      )}
+    </div>
+  );
+}
+
+// ──────────────────────────────────────────────────────────
+// AuditDetail — Phase 4 Surface 9 §G rule 4
+//   Metadata + diff renderer (color-coded add/remove)
+// ──────────────────────────────────────────────────────────
+
+function AuditDetail({ entry }) {
+  const diff = entry.diff;
+  const before = diff?.before ?? null;
+  const after  = diff?.after  ?? null;
+  const hasDiff = before != null || after != null;
+
+  const lines = hasDiff ? diffJson(before, after) : [];
+
+  return (
+    <div className="space-y-3 text-sm">
+      <dl className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
+        <div>
+          <dt className="text-overline text-muted-foreground">Actor</dt>
+          <dd className="text-foreground mt-0.5">
+            {entry.actorId?.name ?? 'System'}
+            {entry.actorEmpCode && <span className="text-subtle-foreground"> · {entry.actorEmpCode}</span>}
+            <span className="block text-subtle-foreground">{entry.actorRole ?? '—'}</span>
+          </dd>
+        </div>
+        <div>
+          <dt className="text-overline text-muted-foreground">IP / Agent</dt>
+          <dd className="text-foreground mt-0.5 font-mono">
+            {entry.ip ?? '—'}
+            {entry.userAgent && (
+              <span className="block text-subtle-foreground text-[10px] truncate max-w-[28ch]" title={entry.userAgent}>
+                {entry.userAgent}
+              </span>
+            )}
+          </dd>
+        </div>
+        <div>
+          <dt className="text-overline text-muted-foreground">Entity ID</dt>
+          <dd className="text-foreground mt-0.5 font-mono break-all">{entry.entityId ?? '—'}</dd>
+        </div>
+        {entry.note && (
+          <div className="sm:col-span-3">
+            <dt className="text-overline text-muted-foreground">Note</dt>
+            <dd className="text-foreground mt-0.5">{entry.note}</dd>
+          </div>
+        )}
+      </dl>
+
+      {hasDiff ? (
+        <pre className="bg-slate-900 rounded-md p-3 text-xs font-mono leading-relaxed overflow-x-auto">
+          {lines.map((l, i) => (
+            <div
+              key={i}
+              className={cn(
+                'whitespace-pre',
+                l.type === 'add' && 'bg-success/15 text-success',
+                l.type === 'del' && 'bg-destructive/15 text-destructive',
+                l.type === 'eq'  && 'text-slate-300',
+              )}
+            >
+              <span className="select-none mr-2 text-slate-500">
+                {l.type === 'add' ? '+' : l.type === 'del' ? '-' : ' '}
+              </span>
+              {l.line}
+            </div>
+          ))}
+        </pre>
+      ) : (
+        <p className="text-xs text-subtle-foreground italic">No diff data on this entry.</p>
       )}
     </div>
   );
