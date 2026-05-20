@@ -31,10 +31,10 @@ function ChangePasswordSection() {
   const submit = handleSubmit(async ({ current, next }) => {
     try {
       await authAPI.changePassword(current, next);
-      toast.success('Password updated');
+      toast.success('Đã cập nhật mật khẩu');
       reset();
     } catch (err) {
-      setError('root', { message: err.response?.data?.message || 'Failed to change password' });
+      setError('root', { message: err.response?.data?.message || 'Đổi mật khẩu thất bại' });
     }
   });
 
@@ -43,7 +43,7 @@ function ChangePasswordSection() {
       <form onSubmit={submit} className="bg-card border border-border rounded-lg p-6 space-y-4" noValidate>
         <div className="flex items-center gap-2">
           <KeyRound className="size-5 text-primary" aria-hidden="true" />
-          <h2 className="text-lg font-semibold text-foreground">Change password</h2>
+          <h2 className="text-lg font-semibold text-foreground">Đổi mật khẩu</h2>
         </div>
 
         {errors.root && (
@@ -53,21 +53,21 @@ function ChangePasswordSection() {
         )}
 
         <FormField name="current">
-          <FormLabel>Current password</FormLabel>
+          <FormLabel>Mật khẩu hiện tại</FormLabel>
           <FormInput type="password" autoComplete="current-password" className="h-11" />
           <FormError />
         </FormField>
 
         <FormField name="next">
-          <FormLabel>New password</FormLabel>
+          <FormLabel>Mật khẩu mới</FormLabel>
           <FormInput type="password" autoComplete="new-password" className="h-11" />
           <FormError />
-          <FormDescription>Min 10 characters · uppercase + digit + symbol for full strength.</FormDescription>
-          <PasswordStrength value={nextValue} className="mt-1" />
+          <FormDescription>Ít nhất 10 ký tự · chữ hoa + chữ số + ký tự đặc biệt để đạt độ mạnh tối đa.</FormDescription>
+          <PasswordStrength value={nextValue} labels={['', 'Yếu', 'Trung bình', 'Tốt', 'Mạnh']} className="mt-1" />
         </FormField>
 
         <FormField name="confirm">
-          <FormLabel>Confirm new password</FormLabel>
+          <FormLabel>Xác nhận mật khẩu mới</FormLabel>
           <FormInput type="password" autoComplete="new-password" className="h-11" />
           <FormError />
         </FormField>
@@ -76,9 +76,9 @@ function ChangePasswordSection() {
           type="submit"
           disabled={isSubmitting || !meetsStrength}
           className="w-full"
-          title={!meetsStrength ? 'Password too weak — needs at least 2 strength criteria' : undefined}
+          title={!meetsStrength ? 'Mật khẩu quá yếu — cần đạt ít nhất 2 tiêu chí về độ mạnh' : undefined}
         >
-          {isSubmitting ? 'Updating…' : 'Update password'}
+          {isSubmitting ? 'Đang cập nhật…' : 'Cập nhật mật khẩu'}
         </Button>
       </form>
     </FormProvider>
@@ -104,7 +104,7 @@ function BackupCodesPanel({ codes, onClose }) {
       <div className="flex items-start gap-2">
         <AlertTriangle className="size-5 text-warning shrink-0 mt-0.5" />
         <div className="text-sm text-warning">
-          <strong>Save these backup codes now.</strong> Each works once. They will not be shown again. Use them if you lose access to your authenticator app.
+          <strong>Lưu các mã dự phòng này ngay.</strong> Mỗi mã chỉ dùng được một lần. Sẽ không được hiển thị lại. Dùng chúng khi bạn mất quyền truy cập ứng dụng xác thực.
         </div>
       </div>
 
@@ -116,10 +116,10 @@ function BackupCodesPanel({ codes, onClose }) {
 
       <div className="flex gap-2">
         <Button type="button" variant="outline" onClick={copy} className="flex-1 flex items-center justify-center gap-2">
-          {copied ? <><Check className="size-4" /> Copied</> : <><Copy className="size-4" /> Copy all</>}
+          {copied ? <><Check className="size-4" /> Đã sao chép</> : <><Copy className="size-4" /> Sao chép tất cả</>}
         </Button>
         <Button type="button" onClick={onClose} className="flex-1">
-          I've saved them
+          Đã lưu
         </Button>
       </div>
     </div>
@@ -142,7 +142,7 @@ function MfaSection({ user, onMfaChange, forceEnroll = false, onEnrollComplete }
       setSetup(res.data.data);
       setStage('verify');
     } catch (err) {
-      setError(err.response?.data?.message || 'Failed to start MFA setup');
+      setError(err.response?.data?.message || 'Không khởi động được thiết lập MFA');
     } finally {
       setBusy(false);
     }
@@ -163,7 +163,7 @@ function MfaSection({ user, onMfaChange, forceEnroll = false, onEnrollComplete }
       // mid-flow — losing the backup codes the user hasn't saved yet.
       if (!forceEnroll) onMfaChange();
     } catch (err) {
-      setError(err.response?.data?.message || 'Invalid code');
+      setError(err.response?.data?.message || 'Mã không hợp lệ');
     } finally {
       setBusy(false);
     }
@@ -178,7 +178,7 @@ function MfaSection({ user, onMfaChange, forceEnroll = false, onEnrollComplete }
       setStage('idle');
       onMfaChange();
     } catch (err) {
-      setError(err.response?.data?.message || 'Invalid code');
+      setError(err.response?.data?.message || 'Mã không hợp lệ');
     } finally {
       setBusy(false);
     }
@@ -201,15 +201,15 @@ function MfaSection({ user, onMfaChange, forceEnroll = false, onEnrollComplete }
           ) : (
             <Shield className="size-5 text-muted-foreground" />
           )}
-          <h2 className="text-lg font-semibold text-foreground">Two-factor authentication</h2>
+          <h2 className="text-lg font-semibold text-foreground">Xác thực 2 yếu tố</h2>
         </div>
         <StatusBadge tone={enabled ? 'success' : 'upcoming'} size="sm">
-          {enabled ? 'Enabled' : 'Disabled'}
+          {enabled ? 'Đã bật' : 'Đã tắt'}
         </StatusBadge>
       </div>
 
       <p className="text-sm text-muted-foreground">
-        Add a second factor with an authenticator app (Google Authenticator, Microsoft Authenticator, 1Password, etc.). Your password alone will no longer be enough to sign in.
+        Thêm yếu tố xác thực thứ hai với ứng dụng xác thực (Google Authenticator, Microsoft Authenticator, 1Password, v.v.). Mật khẩu một mình sẽ không còn đủ để đăng nhập.
       </p>
 
       {error && <div className="px-3 py-2 rounded-lg bg-destructive-tint border border-destructive/20 text-destructive text-sm">{error}</div>}
@@ -217,7 +217,7 @@ function MfaSection({ user, onMfaChange, forceEnroll = false, onEnrollComplete }
       {/* ── Disabled state — show Setup CTA ─────────────────── */}
       {!enabled && stage === 'idle' && (
         <Button onClick={startSetup} disabled={busy} className="w-full">
-          {busy ? 'Preparing…' : 'Enable two-factor authentication'}
+          {busy ? 'Đang chuẩn bị…' : 'Bật xác thực 2 yếu tố'}
         </Button>
       )}
 
@@ -225,16 +225,16 @@ function MfaSection({ user, onMfaChange, forceEnroll = false, onEnrollComplete }
       {stage === 'verify' && setup && (
         <div className="space-y-4">
           <div className="rounded-md border border-border bg-muted p-4 space-y-3">
-            <p className="text-sm text-muted-foreground">1. Scan this QR code with your authenticator app:</p>
-            <img src={setup.qrCodeDataUrl} alt="MFA QR code" className="mx-auto h-48 w-48 rounded-lg bg-white p-2" />
+            <p className="text-sm text-muted-foreground">1. Quét mã QR này bằng ứng dụng xác thực:</p>
+            <img src={setup.qrCodeDataUrl} alt="Mã QR cho MFA" className="mx-auto h-48 w-48 rounded-lg bg-white p-2" />
             <details className="text-xs text-muted-foreground">
-              <summary className="cursor-pointer hover:text-foreground">Can't scan? Enter the secret manually</summary>
+              <summary className="cursor-pointer hover:text-foreground">Không quét được? Nhập mã bí mật thủ công</summary>
               <div className="mt-2 font-mono text-success break-all bg-muted border border-border p-2 rounded">{setup.secretBase32}</div>
             </details>
           </div>
 
           <form onSubmit={verifySetup} className="space-y-3">
-            <p className="text-sm text-muted-foreground">2. Enter the 6-digit code shown in your app:</p>
+            <p className="text-sm text-muted-foreground">2. Nhập mã 6 chữ số hiển thị trong ứng dụng:</p>
             {/* eslint-disable jsx-a11y/no-autofocus */}
             <input type="text" inputMode="numeric" autoComplete="one-time-code" value={code}
               onChange={(e) => setCode(e.target.value)} placeholder="123456" required minLength={6} maxLength={10}
@@ -243,10 +243,10 @@ function MfaSection({ user, onMfaChange, forceEnroll = false, onEnrollComplete }
 
             <div className="flex gap-3">
               <Button type="button" variant="outline" onClick={cancel} className="flex-1">
-                Cancel
+                Hủy
               </Button>
               <Button type="submit" disabled={busy || code.length < 6} className="flex-1">
-                {busy ? 'Verifying…' : 'Verify & enable'}
+                {busy ? 'Đang xác thực…' : 'Xác thực & Bật'}
               </Button>
             </div>
           </form>
@@ -271,25 +271,25 @@ function MfaSection({ user, onMfaChange, forceEnroll = false, onEnrollComplete }
       {/* ── Enabled — Disable flow ──────────────────────────── */}
       {enabled && stage === 'idle' && (
         <Button variant="outline" onClick={() => setStage('disable')} className="w-full border-destructive/30 bg-destructive-tint text-destructive font-semibold hover:bg-destructive/20">
-          Disable two-factor authentication
+          Tắt xác thực 2 yếu tố
         </Button>
       )}
 
       {stage === 'disable' && (
         <form onSubmit={disable} className="space-y-3">
-          <p className="text-sm text-muted-foreground">Enter a current 6-digit code or a backup code to confirm:</p>
+          <p className="text-sm text-muted-foreground">Nhập mã 6 chữ số hiện tại hoặc mã dự phòng để xác nhận:</p>
           {/* eslint-disable jsx-a11y/no-autofocus */}
           <input type="text" inputMode="text" autoComplete="one-time-code" value={code}
-            onChange={(e) => setCode(e.target.value)} placeholder="123456 or XXXXX-XXXXX" required minLength={6} maxLength={20}
+            onChange={(e) => setCode(e.target.value)} placeholder="123456 hoặc XXXXX-XXXXX" required minLength={6} maxLength={20}
             className="w-full px-4 py-3 rounded-md bg-background border border-input text-foreground placeholder:text-subtle-foreground focus:outline-none focus:ring-2 focus:ring-ring transition-all font-mono tracking-widest text-center text-lg" autoFocus />
           {/* eslint-enable jsx-a11y/no-autofocus */}
 
           <div className="flex gap-3">
             <Button type="button" variant="outline" onClick={cancel} className="flex-1">
-              Keep enabled
+              Giữ bật
             </Button>
             <Button type="submit" disabled={busy || code.length < 6} className="flex-1 bg-destructive-tint text-destructive hover:bg-destructive/20">
-              {busy ? 'Disabling…' : 'Disable MFA'}
+              {busy ? 'Đang tắt…' : 'Tắt MFA'}
             </Button>
           </div>
         </form>
@@ -312,7 +312,7 @@ export default function UserSettingsPage() {
     () => searchParams.get('force') === 'mfa' && !!user?.mfaEnrollmentRequired
   );
 
-  useEffect(() => { document.title = 'TMS — Account Settings'; }, []);
+  useEffect(() => { document.title = 'TMS — Cài đặt tài khoản'; }, []);
   // Refresh once on mount so we see fresh mfaEnabled state if it changed elsewhere.
   // Skip in lockdown mode — refreshing here would clear the flag prematurely
   // before the user finishes enrollment.
@@ -337,11 +337,11 @@ export default function UserSettingsPage() {
           <div className="flex items-start gap-3">
             <Lock className="size-6 text-warning shrink-0 mt-0.5" />
             <div>
-              <h1 className="text-lg font-bold text-foreground">Two-factor authentication required</h1>
+              <h1 className="text-lg font-bold text-foreground">Cần xác thực 2 yếu tố</h1>
               <p className="text-sm text-warning/90 mt-1">
-                Your role ({user.role}) requires 2FA before you can access the system.
-                Set it up below — it takes about a minute. After enrollment you'll be
-                returned to the app and won't see this screen again.
+                Vai trò của bạn ({user.role}) yêu cầu 2FA trước khi truy cập hệ thống.
+                Vui lòng thiết lập bên dưới — chỉ mất khoảng một phút. Sau khi đăng ký
+                xong bạn sẽ được đưa trở lại ứng dụng và không thấy màn hình này nữa.
               </p>
             </div>
           </div>
@@ -359,34 +359,34 @@ export default function UserSettingsPage() {
   return (
     <div className="space-y-6 max-w-2xl">
       <div>
-        <h1 className="text-h1 text-foreground">Account settings</h1>
+        <h1 className="text-h1 text-foreground">Cài đặt tài khoản</h1>
         <p className="text-muted-foreground mt-1">{user.name} · {user.empCode}</p>
       </div>
 
       {/* Read-only profile card */}
       <div className="bg-card border border-border rounded-lg p-6">
-        <h2 className="text-lg font-semibold text-foreground mb-4">Profile</h2>
+        <h2 className="text-lg font-semibold text-foreground mb-4">Thông tin cá nhân</h2>
         <dl className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
           <div>
-            <dt className="text-subtle-foreground text-xs uppercase tracking-wider">Employee code</dt>
+            <dt className="text-subtle-foreground text-xs uppercase tracking-wider">Mã nhân viên</dt>
             <dd className="text-foreground font-mono mt-1">{user.empCode}</dd>
           </div>
           <div>
-            <dt className="text-subtle-foreground text-xs uppercase tracking-wider">Role</dt>
+            <dt className="text-subtle-foreground text-xs uppercase tracking-wider">Vai trò</dt>
             <dd className="text-foreground mt-1">{user.role}</dd>
           </div>
           <div className="sm:col-span-2">
             <dt className="text-subtle-foreground text-xs uppercase tracking-wider">Email</dt>
             <dd className={`mt-1 ${user.email ? 'text-foreground' : 'text-warning italic'}`}>
-              {user.email || 'Not set — ask admin to add one for Google Calendar invites'}
+              {user.email || 'Chưa thiết lập — đề nghị admin thêm email để nhận lời mời Google Calendar'}
             </dd>
           </div>
           <div>
-            <dt className="text-subtle-foreground text-xs uppercase tracking-wider">Department</dt>
+            <dt className="text-subtle-foreground text-xs uppercase tracking-wider">Phòng ban</dt>
             <dd className="text-foreground mt-1">{user.department || '—'}</dd>
           </div>
           <div>
-            <dt className="text-subtle-foreground text-xs uppercase tracking-wider">Status</dt>
+            <dt className="text-subtle-foreground text-xs uppercase tracking-wider">Trạng thái</dt>
             <dd className="text-foreground mt-1">{user.status}</dd>
           </div>
         </dl>
