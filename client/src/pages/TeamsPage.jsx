@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
+import { RefreshCw } from 'lucide-react';
 import TeamProgressModal from '../components/Progress/TeamProgressModal';
 import StudentProgressModal from '../components/Progress/StudentProgressModal';
 import Portal from '../components/Portal';
@@ -7,9 +8,13 @@ import { useUsers } from '../hooks/useUsers';
 import { useClasses } from '../hooks/useClasses';
 import { useCheckEnrollmentConflicts } from '../hooks/useEnrollments';
 import { useRole } from '../hooks/useRole';
+import { useListUrlState } from '../hooks/useListUrlState';
 import { Button } from '@/components/ui/button';
 import { Spinner } from '../components/Spinner';
 import { DataTable } from '../components/DataTable';
+import { FilterBar } from '../components/FilterBar';
+import { StatusChips } from '../components/StatusChips';
+import { ActiveFilterChips } from '../components/ActiveFilterChips';
 
 function TeamModal({ team, participants, classes, teams, onClose, onSaved }) {
   const isEdit = !!team?._id;
@@ -411,10 +416,15 @@ export default function TeamsPage() {
   const [progressModal, setProgressModal] = useState(null);
   const [studentProgressModal, setStudentProgressModal] = useState(null);
 
-  // ── Search, Sort & Status filter ──────────────────────
-  const [search, setSearch] = useState('');
+  // ── URL-synced filter state (Phase 3 Screen 5 §F) ─────
+  // status: 'all' | 'active' | 'completed' — stored explicitly so URL is shareable.
+  const list = useListUrlState({ defaults: { status: 'active' } });
+  const search       = list.debouncedSearch;
+  const statusFilter = list.status || 'active';
+  // Write status explicitly via setParam (bypasses chip-toggle-off behavior).
+  const setStatusFilter = (v) => list.setParam('status', v);
+
   const [sortBy, setSortBy] = useState('name-asc');
-  const [statusFilter, setStatusFilter] = useState('active'); // 'active' | 'completed' | 'all'
   const [viewMode, setViewMode] = useState('cards');
 
   const { data: teams = [], isLoading: loadingTeams } = useTeams();
@@ -609,80 +619,55 @@ export default function TeamsPage() {
         )}
       </div>
 
-      {/* ── Toolbar ───────────────────────────────────────── */}
-      <div className="bg-card border border-border rounded-lg px-4 py-3 space-y-3">
-        {/* Status filter pills */}
-        <div className="flex gap-2 flex-wrap">
-          {[
-            { key: 'active',    label: 'Đang học',       color: 'emerald' },
-            { key: 'completed', label: 'Đã hoàn thành',  color: 'slate'   },
-            { key: 'all',       label: 'Tất cả',         color: 'primary' },
-          ].map(({ key, label, color }) => {
-            const count = key === 'active' ? activeCount : key === 'completed' ? completedCount : teams.length;
-            const isActive = statusFilter === key;
-            return (
-              <button
-                key={key}
-                onClick={() => setStatusFilter(key)}
-                className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all flex items-center gap-1.5 ${
-                  isActive
-                    ? color === 'emerald'
-                      ? 'bg-success/20 text-success border border-success/30'
-                      : color === 'slate'
-                        ? 'bg-muted text-muted-foreground border border-border'
-                        : 'bg-primary/20 text-primary border border-primary/30'
-                    : 'text-subtle-foreground hover:text-foreground hover:bg-accent border border-transparent'
-                }`}
-              >
-                {key === 'active' && <span className="w-1.5 h-1.5 rounded-full bg-success" />}
-                {key === 'completed' && <span className="w-1.5 h-1.5 rounded-full bg-muted-foreground" />}
-                {label}
-                <span className={`text-xs px-1.5 py-0.5 rounded-md ${isActive ? 'bg-accent' : 'bg-muted/30'}`}>{count}</span>
-              </button>
-            );
-          })}
+      {/* ── Search + filters (canonical FilterBar §05) ───── */}
+      <FilterBar
+        search={list.search}
+        onSearch={list.setSearch}
+        searchPlaceholder="Tìm theo tên nhóm, leader, thành viên, mã lớp…"
+      >
+        <select value={sortBy} onChange={(e) => setSortBy(e.target.value)}
+          aria-label="Sort"
+          className="h-(--control-h) px-3 rounded-md border border-input bg-background text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring transition-colors duration-(--dur-fast)">
+          <option value="name-asc" className="bg-popover">Tên A → Z</option>
+          <option value="name-desc" className="bg-popover">Tên Z → A</option>
+          <option value="class" className="bg-popover">Mã lớp</option>
+          <option value="members-desc" className="bg-popover">Nhiều thành viên nhất</option>
+          <option value="members-asc" className="bg-popover">Ít thành viên nhất</option>
+        </select>
+
+        <div className="flex rounded-md border border-border overflow-hidden shrink-0">
+          <button type="button" onClick={() => setViewMode('cards')}
+            className={`px-3 py-1.5 text-xs font-medium transition-all ${viewMode === 'cards' ? 'bg-primary/15 text-primary' : 'text-subtle-foreground hover:text-foreground hover:bg-accent'}`}>
+            ▦ Cards
+          </button>
+          <button type="button" onClick={() => setViewMode('table')}
+            className={`px-3 py-1.5 text-xs font-medium transition-all border-l border-border ${viewMode === 'table' ? 'bg-primary/15 text-primary' : 'text-subtle-foreground hover:text-foreground hover:bg-accent'}`}>
+            ☰ Bảng
+          </button>
         </div>
+      </FilterBar>
 
-        {/* Search + Sort + View */}
-        <div className="flex flex-col sm:flex-row gap-2 items-stretch sm:items-center">
-          <div className="relative flex-1">
-            <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-subtle-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-            </svg>
-            <input
-              type="text" value={search} onChange={(e) => setSearch(e.target.value)}
-              placeholder="Tìm theo tên nhóm, leader, thành viên, mã lớp..."
-              className="w-full pl-10 pr-8 py-2 rounded-md bg-background border border-input text-foreground text-sm placeholder:text-subtle-foreground focus:outline-none focus:ring-2 focus:ring-ring transition-colors"
-            />
-            {search && <button onClick={() => setSearch('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground text-sm">✕</button>}
-          </div>
-
-          <select value={sortBy} onChange={(e) => setSortBy(e.target.value)}
-            className="px-3 h-[--control-h] rounded-md bg-background border border-input text-foreground text-sm focus:outline-none shrink-0">
-            <option value="name-asc" className="bg-popover">Tên A → Z</option>
-            <option value="name-desc" className="bg-popover">Tên Z → A</option>
-            <option value="class" className="bg-popover">Mã lớp</option>
-            <option value="members-desc" className="bg-popover">Nhiều thành viên nhất</option>
-            <option value="members-asc" className="bg-popover">Ít thành viên nhất</option>
-          </select>
-
-          <div className="flex rounded-md border border-border overflow-hidden shrink-0">
-            <button onClick={() => setViewMode('cards')}
-              className={`px-3 py-2 text-xs font-medium transition-all ${viewMode === 'cards' ? 'bg-primary/15 text-primary' : 'text-subtle-foreground hover:text-foreground hover:bg-accent'}`}>
-              ▦ Cards
-            </button>
-            <button onClick={() => setViewMode('table')}
-              className={`px-3 py-2 text-xs font-medium transition-all border-l border-border ${viewMode === 'table' ? 'bg-primary/15 text-primary' : 'text-subtle-foreground hover:text-foreground hover:bg-accent'}`}>
-              ☰ Bảng
-            </button>
-          </div>
-
-          {search && (
-            <span className="text-xs text-muted-foreground self-center whitespace-nowrap shrink-0">
-              {filteredTeams.length} / {teams.length}
-            </span>
-          )}
-        </div>
+      {/* ── Status chips (primary axis) + active filter chips ── */}
+      <div className="flex flex-wrap items-center gap-3">
+        <StatusChips
+          value={statusFilter}
+          onChange={setStatusFilter}
+          options={[
+            { value: 'active',    label: 'Đang học',      count: activeCount },
+            { value: 'completed', label: 'Đã hoàn thành', count: completedCount },
+            { value: 'all',       label: 'Tất cả',         count: teams.length },
+          ]}
+        />
+        {list.search && (
+          <ActiveFilterChips
+            filters={[{ key: 'q', label: `Search: ${list.search}`, onRemove: () => list.setSearch('') }]}
+          />
+        )}
+        {list.search && (
+          <span className="text-xs text-muted-foreground tabular-nums">
+            {filteredTeams.length} / {teams.length}
+          </span>
+        )}
       </div>
 
       {/* ── Content ───────────────────────────────────────── */}
@@ -701,7 +686,7 @@ export default function TeamsPage() {
                 : 'Chưa có nhóm nào đang học'}
           </p>
           {(search || statusFilter !== 'all') && (
-            <button onClick={() => { setSearch(''); setStatusFilter('all'); }}
+            <button onClick={() => { list.clearAll(); }}
               className="mt-3 px-4 py-2 rounded-md bg-primary/15 text-primary text-sm hover:bg-primary/30 transition-all">
               Xem tất cả
             </button>
