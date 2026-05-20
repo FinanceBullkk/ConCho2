@@ -1,40 +1,45 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import {
+  ClipboardList, Unlink, UserMinus, CalendarX, UserX, ScanSearch,
+} from 'lucide-react';
 import { reconcileAPI } from '../api/api';
 import { Button } from '@/components/ui/button';
 import { Spinner } from '../components/Spinner';
+import { StatusBadge } from '../components/StatusBadge';
+import { EmptyState } from '../components/EmptyState';
 
 // ──────────────────────────────────────────────────────────
 // Labels and styling for each check type
 // ──────────────────────────────────────────────────────────
 const CHECK_META = {
   missing_attendance: {
-    label: 'Missing Attendance',
-    icon: '📋',
+    label: 'Missing attendance',
+    icon: ClipboardList,
     color: 'amber',
     description: 'Past sessions where not all enrolled users have been marked',
   },
   orphaned_enrollment: {
-    label: 'Orphaned Enrollment',
-    icon: '🔗',
+    label: 'Orphaned enrollment',
+    icon: Unlink,
     color: 'red',
     description: 'Active enrollment but the user is no longer in the team',
   },
   ghost_member: {
-    label: 'Ghost Member',
-    icon: '👻',
+    label: 'Ghost member',
+    icon: UserMinus,
     color: 'orange',
     description: 'User is in team members but has no Active enrollment record',
   },
   empty_future_schedule: {
-    label: 'Empty Future Schedule',
-    icon: '📅',
+    label: 'Empty future schedule',
+    icon: CalendarX,
     color: 'red',
     description: 'Future session with 0 enrolled users (should have been auto-deleted)',
   },
   unattached_participant: {
-    label: 'Unattached Participant',
-    icon: '🧩',
+    label: 'Unattached participant',
+    icon: UserX,
     color: 'slate',
     description: 'Active participant not assigned to any team or enrollment',
   },
@@ -54,13 +59,14 @@ const COLOR_CLASSES = {
 function SummaryCard({ checkKey, count, onClick, active }) {
   const meta = CHECK_META[checkKey];
   const colors = COLOR_CLASSES[meta.color];
+  const Icon = meta.icon;
   return (
     <button
       onClick={() => onClick(checkKey)}
       className={`bg-card border border-border rounded-lg p-4 text-left transition-all hover:bg-accent ${active ? 'ring-2 ring-primary/50' : ''}`}
     >
       <div className="flex items-start justify-between gap-2">
-        <span className="text-2xl">{meta.icon}</span>
+        <Icon aria-hidden="true" className="size-4 mt-0.5 text-muted-foreground" strokeWidth={2} />
         <span className={`px-2 py-0.5 rounded-md text-sm font-bold ${count > 0 ? colors.badge : 'bg-success/15 text-success'}`}>
           {count}
         </span>
@@ -74,9 +80,10 @@ function SummaryCard({ checkKey, count, onClick, active }) {
 function IssueRow({ issue }) {
   const meta = CHECK_META[issue.check];
   const colors = COLOR_CLASSES[meta.color];
+  const Icon = meta.icon;
   return (
-    <div className={`flex items-start gap-3 py-3 px-4 border-b border-border last:border-0`}>
-      <span className="text-base mt-0.5">{meta.icon}</span>
+    <div className="flex items-start gap-3 py-3 px-4 border-b border-border last:border-0">
+      <Icon aria-hidden="true" className="size-4 mt-0.5 shrink-0 text-muted-foreground" strokeWidth={2} />
       <div className="flex-1 min-w-0">
         <div className="text-sm text-foreground">{issue.description}</div>
         {issue.detail && (
@@ -132,17 +139,15 @@ function RunHistoryBar({ history, onSelect, selectedId }) {
 
 export default function ReconcilePage() {
   const queryClient = useQueryClient();
-  const [filterCheck, setFilterCheck] = useState(null); // which check to show in detail
-  const [selectedReportId, setSelectedReportId] = useState(null); // null = show latest
+  const [filterCheck, setFilterCheck] = useState(null);
+  const [selectedReportId, setSelectedReportId] = useState(null);
 
-  // Fetch history (no issues array — just summaries)
   const { data: historyData } = useQuery({
     queryKey: ['reconcile', 'history'],
     queryFn: () => reconcileAPI.getHistory().then((r) => r.data.data),
     staleTime: 60_000,
   });
 
-  // Fetch the selected or latest report
   const reportQuery = useQuery({
     queryKey: ['reconcile', 'report', selectedReportId ?? 'latest'],
     queryFn: () =>
@@ -157,17 +162,15 @@ export default function ReconcilePage() {
 
   const report = reportQuery.data;
 
-  // Trigger a new run
   const runMutation = useMutation({
     mutationFn: () => reconcileAPI.triggerRun().then((r) => r.data.data),
-    onSuccess: (newReport) => {
+    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['reconcile'] });
-      setSelectedReportId(null); // jump to latest (which is now the new one)
+      setSelectedReportId(null);
       setFilterCheck(null);
     },
   });
 
-  // Filtered issues for the detail panel
   const visibleIssues = report?.issues
     ? (filterCheck ? report.issues.filter((i) => i.check === filterCheck) : report.issues)
     : [];
@@ -175,19 +178,14 @@ export default function ReconcilePage() {
   const CHECK_KEYS = Object.keys(CHECK_META);
 
   return (
-    <div className="space-y-6 ">
-      {/* Header row */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <p className="text-muted-foreground text-sm mt-1">
-            Detect data drift between Schedule ↔ Attendance ↔ Enrollment ↔ Team
-          </p>
-        </div>
-        <Button onClick={() => runMutation.mutate()} disabled={runMutation.isPending} className="self-start">
+    <div className="space-y-6">
+      {/* Action bar */}
+      <div className="flex justify-end">
+        <Button onClick={() => runMutation.mutate()} disabled={runMutation.isPending}>
           {runMutation.isPending ? (
             <><Spinner size={16} />Running…</>
           ) : (
-            <>▶ Run Now</>
+            'Run now'
           )}
         </Button>
       </div>
@@ -195,7 +193,7 @@ export default function ReconcilePage() {
       {/* Run history bar */}
       {historyData?.length > 0 && (
         <div className="bg-card border border-border rounded-lg px-4 py-3 space-y-2">
-          <p className="text-xs text-subtle-foreground uppercase tracking-wider">Run History</p>
+          <p className="text-xs text-subtle-foreground uppercase tracking-wider">Run history</p>
           <RunHistoryBar
             history={historyData}
             onSelect={(id) => { setSelectedReportId(id); setFilterCheck(null); }}
@@ -206,11 +204,12 @@ export default function ReconcilePage() {
 
       {/* No report yet */}
       {!reportQuery.isLoading && !report && (
-        <div className="bg-card border border-border rounded-lg py-20 text-center space-y-3">
-          <div className="text-4xl">🔍</div>
-          <p className="text-muted-foreground">No reconciliation report yet.</p>
-          <p className="text-subtle-foreground text-sm">Click <strong className="text-foreground">Run Now</strong> to scan for data issues.</p>
-        </div>
+        <EmptyState
+          variant="firstTime"
+          icon={ScanSearch}
+          title="No reconciliation report yet"
+          description={<>Click <strong className="text-foreground">Run now</strong> to scan for data issues.</>}
+        />
       )}
 
       {/* Loading */}
@@ -227,9 +226,9 @@ export default function ReconcilePage() {
             <span>Run: <span className="text-muted-foreground">{new Date(report.runAt).toLocaleString()}</span></span>
             <span>Duration: <span className="text-muted-foreground">{report.durationMs}ms</span></span>
             <span>Triggered: <span className="text-muted-foreground">{report.triggeredBy}</span></span>
-            <span className={`px-2 py-0.5 rounded-lg font-medium ${report.status === 'ok' ? 'bg-success/15 text-success' : 'bg-warning/15 text-warning'}`}>
-              {report.status === 'ok' ? '✓ All clear' : `⚠ ${report.summary.total} issue(s)`}
-            </span>
+            <StatusBadge tone={report.status === 'ok' ? 'success' : 'warning'}>
+              {report.status === 'ok' ? 'All clear' : `${report.summary.total} issue(s)`}
+            </StatusBadge>
           </div>
 
           {/* Summary cards */}
@@ -275,11 +274,11 @@ export default function ReconcilePage() {
           )}
 
           {report.status === 'ok' && (
-            <div className="bg-card border border-border rounded-lg py-12 text-center space-y-2">
-              <div className="text-4xl">✅</div>
-              <p className="text-success font-medium">All clear — no data drift detected</p>
-              <p className="text-subtle-foreground text-sm">Checked {Object.keys(CHECK_META).length} integrity rules across all collections.</p>
-            </div>
+            <EmptyState
+              variant="success"
+              title="All clear"
+              description={`Checked ${CHECK_KEYS.length} integrity rules across all collections. No data drift detected.`}
+            />
           )}
         </>
       )}

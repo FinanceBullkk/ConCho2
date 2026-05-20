@@ -49,15 +49,9 @@ export default function SettingsPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-        <div>
-          <h1 className="text-h1 text-foreground flex items-center gap-2">
-            ⚙️ Cấu hình hệ thống
-          </h1>
-          <p className="text-muted-foreground text-sm mt-1">Quản lý các biến cấu hình dùng chung (JSON format)</p>
-        </div>
+      <div className="flex justify-end">
         <Button onClick={handleSave} disabled={updateMutation.isPending}>
-          {updateMutation.isPending ? <><Spinner size={14} />Đang lưu…</> : 'Lưu thay đổi'}
+          {updateMutation.isPending ? <><Spinner size={14} />Saving…</> : 'Save changes'}
         </Button>
       </div>
 
@@ -72,7 +66,7 @@ export default function SettingsPage() {
             </div>
 
             <textarea
-              className="w-full h-64 bg-background border border-input rounded-md p-4 text-sm font-mono text-success focus:outline-none focus:ring-2 focus:ring-ring transition-colors"
+              className="w-full h-64 bg-background border border-input rounded-md p-4 text-sm font-mono text-foreground focus:outline-none focus:ring-2 focus:ring-ring transition-colors"
               value={formData[s.key] || ''}
               onChange={(e) => setFormData({...formData, [s.key]: e.target.value})}
               spellCheck="false"
