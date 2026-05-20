@@ -268,7 +268,33 @@ const getExportStats = async () => {
 
   const exported = await Attendance.countDocuments({ syncStatus: 'EXPORTED' });
 
-  return { pending, exported, total: pending + exported };
+  // Phase 4 Surface 8 — "Last export" KPI: most recent exportedAt + how
+  // many records share that batch (records updated together get the same
+  // timestamp). Bucket within ±1s to tolerate per-row timestamp jitter.
+  let lastExportAt = null;
+  let lastExportCount = 0;
+  const lastDoc = await Attendance
+    .findOne({ syncStatus: 'EXPORTED', exportedAt: { $ne: null } })
+    .select('exportedAt')
+    .sort({ exportedAt: -1 })
+    .lean();
+  if (lastDoc?.exportedAt) {
+    lastExportAt = lastDoc.exportedAt;
+    const windowStart = new Date(lastExportAt.getTime() - 1000);
+    const windowEnd   = new Date(lastExportAt.getTime() + 1000);
+    lastExportCount = await Attendance.countDocuments({
+      syncStatus: 'EXPORTED',
+      exportedAt: { $gte: windowStart, $lte: windowEnd },
+    });
+  }
+
+  return {
+    pending,
+    exported,
+    total: pending + exported,
+    lastExportAt,
+    lastExportCount,
+  };
 };
 
 // ──────────────────────────────────────────────────────────
