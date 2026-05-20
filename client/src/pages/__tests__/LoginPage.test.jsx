@@ -51,7 +51,7 @@ describe('LoginPage', () => {
     await userEvent.click(screen.getByRole('button', { name: /sign in/i }));
     await waitFor(() => {
       expect(mockLogin).toHaveBeenCalledWith('000001', 'secret');
-      expect(mockNavigate).toHaveBeenCalledWith('/dashboard', { replace: true });
+      expect(mockNavigate).toHaveBeenCalledWith('/home', { replace: true });
     });
   });
 
