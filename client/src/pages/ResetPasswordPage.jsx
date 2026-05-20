@@ -1,4 +1,4 @@
-import { useForm } from 'react-hook-form';
+import { useForm, FormProvider } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useState } from 'react';
 import { useSearchParams, Link, useNavigate } from 'react-router-dom';
@@ -7,7 +7,7 @@ import { resetPasswordSchema } from '../lib/validations';
 import api from '../api/api';
 import { Button } from '@/components/ui/button';
 import { Spinner } from '../components/Spinner';
-import { cn } from '@/lib/utils';
+import { FormField } from '@/components/ui/form';
 
 export default function ResetPasswordPage() {
   const [searchParams] = useSearchParams();
@@ -15,10 +15,11 @@ export default function ResetPasswordPage() {
   const navigate = useNavigate();
   const [done, setDone] = useState(false);
 
-  const { register, handleSubmit, formState: { errors, isSubmitting }, setError } = useForm({
+  const methods = useForm({
     resolver: zodResolver(resetPasswordSchema),
     defaultValues: { password: '', confirm: '' },
   });
+  const { handleSubmit, formState: { errors, isSubmitting }, setError } = methods;
 
   const onSubmit = handleSubmit(async ({ password }) => {
     try {
@@ -32,20 +33,24 @@ export default function ResetPasswordPage() {
     }
   });
 
-  const INPUT_CLS =
-    'w-full px-4 h-12 rounded-md bg-background border border-input text-foreground placeholder:text-subtle-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-ring transition-colors';
-  const ERR_CLS = 'mt-1 text-xs text-destructive';
-
   if (!token) {
     return (
       <div className="min-h-screen flex items-center justify-center px-4">
-        <div className="bg-card border border-border rounded-lg p-8 max-w-md w-full text-center space-y-4">
-          <XCircle className="size-12 text-destructive mx-auto" aria-hidden="true" />
-          <h2 className="text-h3 text-foreground">Invalid reset link</h2>
-          <p className="text-body text-muted-foreground">This link is missing a reset token. Please request a new one.</p>
-          <Button asChild className="mt-2">
-            <Link to="/forgot-password">Request reset link</Link>
-          </Button>
+        <div className="w-full max-w-md">
+          <div className="text-center mb-8">
+            <h1 className="text-[2.5rem] font-bold tracking-tight text-foreground leading-none">
+              TMS<span className="text-primary">.</span>
+            </h1>
+            <p className="text-muted-foreground mt-2">Training Management System</p>
+          </div>
+          <div className="bg-card border border-border rounded-lg p-8 text-center space-y-4">
+            <XCircle className="size-12 text-destructive mx-auto" aria-hidden="true" />
+            <h2 className="text-h3 text-foreground">Invalid reset link</h2>
+            <p className="text-body text-muted-foreground">This link is missing a reset token. Please request a new one.</p>
+            <Button asChild className="mt-2">
+              <Link to="/forgot-password">Request reset link</Link>
+            </Button>
+          </div>
         </div>
       </div>
     );
@@ -54,12 +59,11 @@ export default function ResetPasswordPage() {
   return (
     <div className="min-h-screen flex items-center justify-center px-4">
       <div className="w-full max-w-md">
-        {/* Logo */}
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center size-16 rounded-lg bg-primary text-primary-foreground text-2xl font-bold mb-4">
-            T
-          </div>
-          <h1 className="text-h1 text-foreground tracking-tight">TMS <span className="text-primary">v2</span></h1>
+          <h1 className="text-[2.5rem] font-bold tracking-tight text-foreground leading-none">
+            TMS<span className="text-primary">.</span>
+          </h1>
+          <p className="text-muted-foreground mt-2">Training Management System</p>
         </div>
 
         <div className="bg-card border border-border rounded-lg p-8">
@@ -80,36 +84,28 @@ export default function ResetPasswordPage() {
                 </div>
               )}
 
-              <form onSubmit={onSubmit} noValidate className="space-y-4">
-                {[
-                  { name: 'password', label: 'New password' },
-                  { name: 'confirm', label: 'Confirm password' },
-                ].map(({ name, label }) => (
-                  <div key={name}>
-                    <label htmlFor={name} className="block text-small font-medium text-muted-foreground mb-1.5">{label}</label>
-                    <input
-                      id={name}
+              <FormProvider {...methods}>
+                <form onSubmit={onSubmit} noValidate className="space-y-4">
+                  {[
+                    { name: 'password', label: 'New password' },
+                    { name: 'confirm', label: 'Confirm password' },
+                  ].map(({ name, label }) => (
+                    <FormField
+                      key={name}
+                      name={name}
+                      label={label}
                       type="password"
                       placeholder="••••••••••"
-                      aria-invalid={!!errors[name]}
-                      aria-describedby={errors[name] ? `${name}-error` : undefined}
-                      className={cn(INPUT_CLS, errors[name] && 'border-destructive')}
-                      {...register(name)}
                     />
-                    {errors[name] && (
-                      <p id={`${name}-error`} role="alert" className={ERR_CLS}>
-                        {errors[name].message}
-                      </p>
-                    )}
-                  </div>
-                ))}
+                  ))}
 
-                <Button type="submit" className="w-full h-12 mt-2" disabled={isSubmitting}>
-                  {isSubmitting ? (
-                    <><Spinner size={16} />Updating…</>
-                  ) : 'Reset password'}
-                </Button>
-              </form>
+                  <Button type="submit" className="w-full h-12 mt-2" disabled={isSubmitting}>
+                    {isSubmitting ? (
+                      <><Spinner size={16} />Resetting…</>
+                    ) : 'Reset password'}
+                  </Button>
+                </form>
+              </FormProvider>
             </>
           )}
         </div>
