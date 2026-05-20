@@ -35,7 +35,8 @@
       "Read(//mnt/**)",
       "Read(//e//**)",
       "Bash(cmd.exe /c \"cd E:\\\\ConCho2\\\\server && npm test -- --passWithNoTests 2>&1\")",
-      "Bash(git checkout *)"
+      "Bash(git checkout *)",
+      "mcp__f59a2a8a-b401-4f0f-927a-345f52cb89e4__search_files"
     ]
   }
 }
