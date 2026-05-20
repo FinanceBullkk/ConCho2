@@ -9,6 +9,9 @@ import ProtectedRoute from './components/ProtectedRoute';
 import ErrorBoundary from './components/ErrorBoundary';
 import Layout from './components/Layout';
 import { Button } from '@/components/ui/button';
+import { PasswordStrength, scorePassword } from '@/components/PasswordStrength';
+
+const FORCE_CHANGE_LABELS_VN = ['', 'Yếu', 'Trung bình', 'Tốt', 'Mạnh'];
 
 // Login is kept eager — first paint for unauthenticated users should not
 // pay a chunk-fetch round-trip. Everything behind auth is lazy.
@@ -116,24 +119,9 @@ function ForceChangePasswordModal() {
   const inputCls =
     'w-full px-3 h-10 rounded-md bg-background border border-border text-foreground placeholder:text-subtle-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-ring transition-colors duration-(--dur-fast)';
 
-  const pwdStrength = (() => {
-    if (!newPwd) return 0;
-    let s = 0;
-    if (newPwd.length >= 10) s++;
-    if (/[A-Z]/.test(newPwd)) s++;
-    if (/[0-9]/.test(newPwd)) s++;
-    if (/[^A-Za-z0-9]/.test(newPwd)) s++;
-    return s;
-  })();
-  // Phase 3 Screen 7 §F · token mapping (no raw colors per Phase 0 §02).
-  // Score 0 has no bars rendered (newPwd is empty); index 0 stays for label only.
-  const strengthMeta = [
-    { label: 'Quá yếu',    bar: 'bg-destructive', text: 'text-destructive' },
-    { label: 'Yếu',        bar: 'bg-destructive', text: 'text-destructive' },
-    { label: 'Trung bình', bar: 'bg-warning',     text: 'text-warning' },
-    { label: 'Tốt',        bar: 'bg-success',     text: 'text-success' },
-    { label: 'Mạnh',       bar: 'bg-success',     text: 'text-success' },
-  ];
+  // Phase 4 Surface 10 §D — share scorer + meter with UserSettings & Reset.
+  const newPwdScore = scorePassword(newPwd);
+  const meetsStrength = newPwdScore >= 2;
 
   return (
     <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 p-4">
@@ -170,23 +158,7 @@ function ForceChangePasswordModal() {
               className={inputCls}
               placeholder="Tối thiểu 10 ký tự"
             />
-            {newPwd && (
-              <div className="mt-2 space-y-1">
-                <div className="flex gap-1">
-                  {[1, 2, 3, 4].map((n) => (
-                    <div
-                      key={n}
-                      className={`h-1 flex-1 rounded-full transition-colors duration-200 ${
-                        pwdStrength >= n ? strengthMeta[pwdStrength].bar : 'bg-muted'
-                      }`}
-                    />
-                  ))}
-                </div>
-                <p className={`text-xs font-medium ${strengthMeta[pwdStrength].text}`}>
-                  {strengthMeta[pwdStrength].label}
-                </p>
-              </div>
-            )}
+            <PasswordStrength value={newPwd} labels={FORCE_CHANGE_LABELS_VN} className="mt-2" />
           </div>
           <div>
             <label className="block text-overline text-muted-foreground mb-1.5">Xác nhận mật khẩu mới</label>
@@ -209,7 +181,7 @@ function ForceChangePasswordModal() {
 
           <Button
             type="submit"
-            disabled={loading || !currentPwd || !newPwd || !confirmPwd}
+            disabled={loading || !currentPwd || !newPwd || !confirmPwd || !meetsStrength}
             className="w-full mt-2"
           >
             {loading ? (
