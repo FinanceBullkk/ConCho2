@@ -225,7 +225,14 @@ export default function Navbar() {
 
   if (!user) return null;
 
-  const items = NAV_ITEMS[user.role] || [];
+  // Filter the flat NAV_ITEMS array using each item's per-role access map
+  // (set up in commit a5770e8e). `access: 'full'|'read'` → visible link,
+  // `'none'` → render disabled span with tooltip so the user knows the
+  // feature exists but is restricted (Phase 2 IA).
+  const items = NAV_ITEMS.map((item) => ({
+    ...item,
+    accessLevel: item.access?.[user.role] ?? 'none',
+  }));
 
   const isActive = (path) => {
     const prefixes = NAV_PARENT_ROUTES[path] || [path];
@@ -257,12 +264,27 @@ export default function Navbar() {
             {items.map((item) => {
               const Icon = item.icon;
               const active = isActive(item.path);
+              const disabled = item.accessLevel === 'none';
+              const baseCls = 'flex items-center gap-2 whitespace-nowrap rounded-lg px-3 py-2 text-sm font-medium transition-colors duration-(--dur)';
+              if (disabled) {
+                return (
+                  <span
+                    key={item.path}
+                    aria-disabled="true"
+                    title={item.disabledTitle || `${item.label} unavailable for your role`}
+                    className={cn(baseCls, 'text-subtle-foreground/60 cursor-not-allowed')}
+                  >
+                    <Icon className="size-4" />
+                    <span>{item.label}</span>
+                  </span>
+                );
+              }
               return (
                 <Link
                   key={item.path}
                   to={item.path}
                   className={cn(
-                    'flex items-center gap-2 whitespace-nowrap rounded-lg px-3 py-2 text-sm font-medium transition-colors duration-(--dur)',
+                    baseCls,
                     active
                       ? 'bg-primary/15 text-primary'
                       : 'text-muted-foreground hover:bg-accent hover:text-foreground'
@@ -334,24 +356,40 @@ export default function Navbar() {
             aria-label="Mobile navigation"
             className="md:hidden border-t border-border py-3 space-y-1"
           >
-            {items.map((item) => (
-              <NavLink
-                key={item.path}
-                to={item.path}
-                className={({ isActive }) =>
-                  cn(
-                    'flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm font-medium transition-colors duration-(--dur)',
-                    isActive
-                      ? 'bg-primary/15 text-primary'
-                      : 'text-muted-foreground hover:bg-accent hover:text-foreground'
-                  )
-                }
-                onClick={() => setMobileOpen(false)}
-              >
-                {item.icon && <item.icon className="size-4" aria-hidden="true" />}
-                {item.label}
-              </NavLink>
-            ))}
+            {items.map((item) => {
+              const baseCls = 'flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm font-medium transition-colors duration-(--dur)';
+              if (item.accessLevel === 'none') {
+                return (
+                  <span
+                    key={item.path}
+                    aria-disabled="true"
+                    title={item.disabledTitle || `${item.label} unavailable for your role`}
+                    className={cn(baseCls, 'text-subtle-foreground/60 cursor-not-allowed')}
+                  >
+                    {item.icon && <item.icon className="size-4" aria-hidden="true" />}
+                    {item.label}
+                  </span>
+                );
+              }
+              return (
+                <NavLink
+                  key={item.path}
+                  to={item.path}
+                  className={({ isActive }) =>
+                    cn(
+                      baseCls,
+                      isActive
+                        ? 'bg-primary/15 text-primary'
+                        : 'text-muted-foreground hover:bg-accent hover:text-foreground'
+                    )
+                  }
+                  onClick={() => setMobileOpen(false)}
+                >
+                  {item.icon && <item.icon className="size-4" aria-hidden="true" />}
+                  {item.label}
+                </NavLink>
+              );
+            })}
           </nav>
         )}
       </div>
