@@ -1,50 +1,57 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import {
+  Play, Search, ClipboardList, Link2, UserX, CalendarX, UserMinus, CheckCircle2,
+} from 'lucide-react';
 import { reconcileAPI } from '../api/api';
 import { Button } from '@/components/ui/button';
+import { StatusBadge } from '../components/StatusBadge';
 import { Spinner } from '../components/Spinner';
 
 // ──────────────────────────────────────────────────────────
-// Labels and styling for each check type
+// Reconcile — Phase 4 Surface 9 §G/F (9D)
+//
+// Each check type maps to a severity tier; rows + summary cards
+// render via StatusBadge with destructive/warning/upcoming tones.
+// Sort order = severity DESC so the most-urgent drift surfaces first.
+// API doesn't expose `severity` per row, so we derive it from the
+// check key — equivalent in practice + zero backend churn.
 // ──────────────────────────────────────────────────────────
+
+const SEVERITY_RANK = { critical: 3, warning: 2, info: 1 };
+const SEVERITY_TONE = { critical: 'danger', warning: 'warning', info: 'upcoming' };
+
 const CHECK_META = {
-  missing_attendance: {
-    label: 'Missing Attendance',
-    icon: '📋',
-    color: 'amber',
-    description: 'Past sessions where not all enrolled users have been marked',
-  },
   orphaned_enrollment: {
     label: 'Orphaned Enrollment',
-    icon: '🔗',
-    color: 'red',
+    icon: Link2,
+    severity: 'critical',
     description: 'Active enrollment but the user is no longer in the team',
-  },
-  ghost_member: {
-    label: 'Ghost Member',
-    icon: '👻',
-    color: 'orange',
-    description: 'User is in team members but has no Active enrollment record',
   },
   empty_future_schedule: {
     label: 'Empty Future Schedule',
-    icon: '📅',
-    color: 'red',
+    icon: CalendarX,
+    severity: 'critical',
     description: 'Future session with 0 enrolled users (should have been auto-deleted)',
+  },
+  missing_attendance: {
+    label: 'Missing Attendance',
+    icon: ClipboardList,
+    severity: 'warning',
+    description: 'Past sessions where not all enrolled users have been marked',
+  },
+  ghost_member: {
+    label: 'Ghost Member',
+    icon: UserX,
+    severity: 'warning',
+    description: 'User is in team members but has no Active enrollment record',
   },
   unattached_participant: {
     label: 'Unattached Participant',
-    icon: '🧩',
-    color: 'slate',
+    icon: UserMinus,
+    severity: 'info',
     description: 'Active participant not assigned to any team or enrollment',
   },
-};
-
-const COLOR_CLASSES = {
-  amber:  { badge: 'bg-warning/15 text-warning',         dot: 'bg-warning',              row: 'border-warning/20'     },
-  red:    { badge: 'bg-destructive/15 text-destructive',  dot: 'bg-destructive',          row: 'border-destructive/20' },
-  orange: { badge: 'bg-warning/10 text-warning',          dot: 'bg-warning/80',           row: 'border-warning/15'     },
-  slate:  { badge: 'bg-muted text-muted-foreground',      dot: 'bg-muted-foreground/50',  row: 'border-border'         },
 };
 
 // ──────────────────────────────────────────────────────────
@@ -53,17 +60,19 @@ const COLOR_CLASSES = {
 
 function SummaryCard({ checkKey, count, onClick, active }) {
   const meta = CHECK_META[checkKey];
-  const colors = COLOR_CLASSES[meta.color];
+  const Icon = meta.icon;
+  const tone = count > 0 ? SEVERITY_TONE[meta.severity] : 'success';
   return (
     <button
+      type="button"
       onClick={() => onClick(checkKey)}
       className={`bg-card border border-border rounded-lg p-4 text-left transition-all hover:bg-accent ${active ? 'ring-2 ring-primary/50' : ''}`}
     >
       <div className="flex items-start justify-between gap-2">
-        <span className="text-2xl">{meta.icon}</span>
-        <span className={`px-2 py-0.5 rounded-md text-sm font-bold ${count > 0 ? colors.badge : 'bg-success/15 text-success'}`}>
-          {count}
-        </span>
+        <Icon className="size-5 text-muted-foreground" aria-hidden="true" />
+        <StatusBadge tone={tone} size="sm">
+          {String(count)}
+        </StatusBadge>
       </div>
       <div className="mt-2 text-sm font-medium text-foreground">{meta.label}</div>
       <div className="mt-0.5 text-xs text-subtle-foreground leading-snug">{meta.description}</div>
@@ -73,10 +82,10 @@ function SummaryCard({ checkKey, count, onClick, active }) {
 
 function IssueRow({ issue }) {
   const meta = CHECK_META[issue.check];
-  const colors = COLOR_CLASSES[meta.color];
+  const Icon = meta.icon;
   return (
-    <div className={`flex items-start gap-3 py-3 px-4 border-b border-border last:border-0`}>
-      <span className="text-base mt-0.5">{meta.icon}</span>
+    <div className="flex items-start gap-3 py-3 px-4 border-b border-border last:border-0">
+      <Icon className="size-4 mt-0.5 text-muted-foreground shrink-0" aria-hidden="true" />
       <div className="flex-1 min-w-0">
         <div className="text-sm text-foreground">{issue.description}</div>
         {issue.detail && (
@@ -91,9 +100,9 @@ function IssueRow({ issue }) {
           {issue.refs?.classId    && <span>Class: <span className="text-muted-foreground font-mono">{String(issue.refs.classId).slice(-6)}</span></span>}
         </div>
       </div>
-      <span className={`shrink-0 px-2 py-0.5 rounded text-[11px] font-medium ${colors.badge}`}>
+      <StatusBadge tone={SEVERITY_TONE[meta.severity]} size="sm" className="shrink-0">
         {meta.label}
-      </span>
+      </StatusBadge>
     </div>
   );
 }
@@ -160,34 +169,45 @@ export default function ReconcilePage() {
   // Trigger a new run
   const runMutation = useMutation({
     mutationFn: () => reconcileAPI.triggerRun().then((r) => r.data.data),
-    onSuccess: (newReport) => {
+    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['reconcile'] });
       setSelectedReportId(null); // jump to latest (which is now the new one)
       setFilterCheck(null);
     },
   });
 
-  // Filtered issues for the detail panel
+  // Filtered + severity-sorted issues for the detail panel
   const visibleIssues = report?.issues
     ? (filterCheck ? report.issues.filter((i) => i.check === filterCheck) : report.issues)
+        .slice()
+        .sort((a, b) => {
+          const sa = SEVERITY_RANK[CHECK_META[a.check]?.severity] ?? 0;
+          const sb = SEVERITY_RANK[CHECK_META[b.check]?.severity] ?? 0;
+          return sb - sa;
+        })
     : [];
 
-  const CHECK_KEYS = Object.keys(CHECK_META);
+  // Summary cards ordered by severity DESC then alphabetical so critical
+  // categories surface first (matches §F Reconcile spec).
+  const CHECK_KEYS = Object.keys(CHECK_META).sort((a, b) => {
+    const sa = SEVERITY_RANK[CHECK_META[a].severity] ?? 0;
+    const sb = SEVERITY_RANK[CHECK_META[b].severity] ?? 0;
+    if (sa !== sb) return sb - sa;
+    return a.localeCompare(b);
+  });
 
   return (
     <div className="space-y-6 ">
       {/* Header row */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <p className="text-muted-foreground text-sm mt-1">
-            Detect data drift between Schedule ↔ Attendance ↔ Enrollment ↔ Team
-          </p>
-        </div>
+        <p className="text-muted-foreground text-sm">
+          Detect data drift between Schedule ↔ Attendance ↔ Enrollment ↔ Team
+        </p>
         <Button onClick={() => runMutation.mutate()} disabled={runMutation.isPending} className="self-start">
           {runMutation.isPending ? (
             <><Spinner size={16} />Running…</>
           ) : (
-            <>▶ Run Now</>
+            <><Play className="size-3.5" aria-hidden="true" />Run reconciliation</>
           )}
         </Button>
       </div>
@@ -206,10 +226,10 @@ export default function ReconcilePage() {
 
       {/* No report yet */}
       {!reportQuery.isLoading && !report && (
-        <div className="bg-card border border-border rounded-lg py-20 text-center space-y-3">
-          <div className="text-4xl">🔍</div>
+        <div className="bg-card border border-border rounded-lg py-16 text-center space-y-3">
+          <Search className="size-8 text-subtle-foreground mx-auto" aria-hidden="true" />
           <p className="text-muted-foreground">No reconciliation report yet.</p>
-          <p className="text-subtle-foreground text-sm">Click <strong className="text-foreground">Run Now</strong> to scan for data issues.</p>
+          <p className="text-subtle-foreground text-sm">Click <strong className="text-foreground">Run reconciliation</strong> to scan for data issues.</p>
         </div>
       )}
 
@@ -227,9 +247,9 @@ export default function ReconcilePage() {
             <span>Run: <span className="text-muted-foreground">{new Date(report.runAt).toLocaleString()}</span></span>
             <span>Duration: <span className="text-muted-foreground">{report.durationMs}ms</span></span>
             <span>Triggered: <span className="text-muted-foreground">{report.triggeredBy}</span></span>
-            <span className={`px-2 py-0.5 rounded-lg font-medium ${report.status === 'ok' ? 'bg-success/15 text-success' : 'bg-warning/15 text-warning'}`}>
-              {report.status === 'ok' ? '✓ All clear' : `⚠ ${report.summary.total} issue(s)`}
-            </span>
+            <StatusBadge tone={report.status === 'ok' ? 'success' : 'warning'} size="sm">
+              {report.status === 'ok' ? 'All clear' : `${report.summary.total} issue${report.summary.total === 1 ? '' : 's'}`}
+            </StatusBadge>
           </div>
 
           {/* Summary cards */}
@@ -275,8 +295,8 @@ export default function ReconcilePage() {
           )}
 
           {report.status === 'ok' && (
-            <div className="bg-card border border-border rounded-lg py-12 text-center space-y-2">
-              <div className="text-4xl">✅</div>
+            <div className="bg-card border border-border rounded-lg py-10 text-center space-y-2">
+              <CheckCircle2 className="size-8 text-success mx-auto" aria-hidden="true" />
               <p className="text-success font-medium">All clear — no data drift detected</p>
               <p className="text-subtle-foreground text-sm">Checked {Object.keys(CHECK_META).length} integrity rules across all collections.</p>
             </div>
