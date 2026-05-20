@@ -1,4 +1,9 @@
 import { useState, useEffect, useCallback } from 'react';
+import {
+  Users, UsersRound, BookOpen, Calendar, ClipboardCheck,
+  ClipboardList, FileText, Hash, Settings, File,
+  Pencil, Trash2, AlertTriangle,
+} from 'lucide-react';
 import { adminDbAPI } from '../api/api';
 import { Spinner } from '../components/Spinner';
 
@@ -7,9 +12,15 @@ import { Spinner } from '../components/Spinner';
 // ──────────────────────────────────────────────────────────
 
 const COLLECTION_ICONS = {
-  User: '👤', Team: '👥', Class: '📚', Schedule: '📅',
-  Attendance: '✅', Enrollment: '📋', Evaluation: '📝',
-  Counter: '🔢', Setting: '⚙️',
+  User:       Users,
+  Team:       UsersRound,
+  Class:      BookOpen,
+  Schedule:   Calendar,
+  Attendance: ClipboardCheck,
+  Enrollment: ClipboardList,
+  Evaluation: FileText,
+  Counter:    Hash,
+  Setting:    Settings,
 };
 
 // Fields to show as badges/colored
@@ -132,7 +143,10 @@ function EditModal({ doc, fields, collection, onClose, onSaved }) {
       <form onSubmit={handleSubmit} onClick={e => e.stopPropagation()}
         className="bg-card border border-border rounded-lg p-6 w-full max-w-2xl mx-4 space-y-4 max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between">
-          <h2 className="text-lg font-bold text-foreground">✏️ Edit {collection} Document</h2>
+          <h2 className="text-lg font-bold text-foreground flex items-center gap-2">
+            <Pencil aria-hidden="true" className="size-4 text-muted-foreground" strokeWidth={2} />
+            Edit {collection} document
+          </h2>
           <span className="font-mono text-xs text-subtle-foreground">{doc._id}</span>
         </div>
         {error && <div className="px-4 py-2 rounded-md bg-destructive/10 border border-destructive/20 text-destructive text-sm">{error}</div>}
@@ -292,7 +306,7 @@ export default function DatabaseExplorer() {
                 : 'text-muted-foreground hover:text-foreground hover:bg-accent border-border'
             }`}
           >
-            <span>{COLLECTION_ICONS[c.name] || '📄'}</span>
+            {(() => { const Icon = COLLECTION_ICONS[c.name] || File; return <Icon aria-hidden="true" className="size-3.5 shrink-0" strokeWidth={2} />; })()}
             <span>{c.name}</span>
             <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${
               activeCollection === c.name ? 'bg-primary/30 text-primary' : 'bg-muted text-subtle-foreground'
@@ -432,10 +446,10 @@ export default function DatabaseExplorer() {
                       <div className="flex items-center justify-center gap-1">
                         <button onClick={() => setEditDoc(doc)}
                           className="px-2 py-1 rounded-lg text-muted-foreground hover:text-primary hover:bg-primary/10 transition-all text-xs"
-                          title="Edit all fields (modal)">✏️</button>
+                          title="Edit all fields (modal)"><Pencil aria-hidden="true" className="size-3.5" strokeWidth={2} /></button>
                         <button onClick={() => setDeleteTarget(doc)}
                           className="px-2 py-1 rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-all text-xs"
-                          title="Delete">🗑</button>
+                          title="Delete"><Trash2 aria-hidden="true" className="size-3.5" strokeWidth={2} /></button>
                       </div>
                     </td>
                   </tr>
@@ -503,7 +517,7 @@ export default function DatabaseExplorer() {
       {deleteTarget && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
           <div className="bg-card border border-border rounded-lg p-6 max-w-sm mx-4 text-center space-y-4 ">
-            <div className="text-3xl">⚠️</div>
+            <AlertTriangle aria-hidden="true" className="size-8 text-warning mx-auto" strokeWidth={2} />
             <h3 className="text-lg font-bold text-foreground">Hard Delete?</h3>
             <p className="text-sm text-muted-foreground">
               This will <span className="text-destructive font-semibold">permanently remove</span> this {activeCollection} document.

@@ -1,13 +1,19 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
+import {
+  CheckCircle2, AlertTriangle, XCircle, ClipboardList,
+  RefreshCw, BookOpen, SkipForward,
+} from 'lucide-react';
+import { toast } from 'sonner';
 import { useSyncStatus, useGoogleSheetsSync } from '../hooks/useSync';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { Spinner } from '../components/Spinner';
+import { KPICard } from '../components/KPICard';
+import { StatusBadge } from '../components/StatusBadge';
 
 // ──────────────────────────────────────────────────────────
-// Google Sheets Sync Page (Admin Only)
-// ──────────────────────────────────────────────────────────
-// Admin enters a Spreadsheet ID, clicks Sync, and sees
-// a real-time report of which teams were enrolled.
+// Google Sheets Sync (Admin only)
+// Pull team registrations from a Master Google Sheet.
 // ──────────────────────────────────────────────────────────
 
 export default function SyncPage() {
@@ -19,42 +25,44 @@ export default function SyncPage() {
   const [sheetName, setSheetName] = useState('Sheet1');
   const [range, setRange] = useState('A2:D');
   const [report, setReport] = useState(null);
-  const [error, setError] = useState('');
-
-  useEffect(() => { document.title = 'TMS — Sheets Sync'; }, []);
 
   const handleSync = async (e) => {
     e.preventDefault();
     if (!spreadsheetId.trim()) return;
-    setError('');
     setReport(null);
     try {
       const data = await syncMutation.mutateAsync({ spreadsheetId, sheetName, range });
       setReport(data.data);
     } catch (err) {
-      setError(err.response?.data?.message || 'Sync failed');
+      toast.error(err.response?.data?.message || 'Sync failed. Please try again.');
     }
   };
 
-  return (
-    <div className="space-y-6 ">
-      <div>
-        <h1 className="text-h1 text-foreground">Google Sheets Sync</h1>
-        <p className="text-muted-foreground mt-1">Pull team registrations from your Master Google Sheet</p>
-      </div>
+  // Config status indicator
+  const ConfigIcon = configured === null ? RefreshCw : configured ? CheckCircle2 : AlertTriangle;
+  const configTone = configured ? 'success' : 'warning';
 
-      {/* Config Status */}
-      <div className={`bg-card border border-border rounded-lg p-5 flex items-center gap-4 ${
-        configured === false ? 'border border-warning/20' : ''
+  return (
+    <div className="space-y-6">
+      {/* Config status */}
+      <div className={`bg-card border rounded-lg p-5 flex items-center gap-4 ${
+        configured === false ? 'border-warning/30' : 'border-border'
       }`}>
-        <div className={`w-10 h-10 rounded-md flex items-center justify-center text-lg ${
+        <div className={`size-10 rounded-md flex items-center justify-center ${
           configured ? 'bg-success/10' : 'bg-warning/10'
         }`}>
-          {configured === null ? '⏳' : configured ? '✅' : '⚠️'}
+          {configured === null
+            ? <Spinner size={18} />
+            : <ConfigIcon aria-hidden="true" className={`size-5 ${configured ? 'text-success' : 'text-warning'}`} strokeWidth={2} />
+          }
         </div>
         <div>
           <div className="font-medium text-foreground text-sm">
-            {configured === null ? 'Checking...' : configured ? 'Google Sheets integration is configured' : 'Not configured yet'}
+            {configured === null
+              ? 'Checking configuration…'
+              : configured
+              ? 'Google Sheets integration is configured'
+              : 'Not configured yet'}
           </div>
           {!configured && configured !== null && (
             <p className="text-xs text-muted-foreground mt-0.5">
@@ -62,115 +70,102 @@ export default function SyncPage() {
             </p>
           )}
         </div>
+        {configured !== null && (
+          <div className="ml-auto">
+            <StatusBadge tone={configTone} size="sm">
+              {configured ? 'Active' : 'Inactive'}
+            </StatusBadge>
+          </div>
+        )}
       </div>
 
-      {/* Sync Form */}
+      {/* Sync form */}
       <form onSubmit={handleSync} className="bg-card border border-border rounded-lg p-6">
-        <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-4">Sync Settings</h2>
+        <h2 className="text-overline text-muted-foreground mb-4">Sync settings</h2>
 
         <div className="grid gap-4 sm:grid-cols-3">
-          <div className="sm:col-span-3">
-            <label className="block text-sm font-medium text-muted-foreground mb-1.5">Spreadsheet ID</label>
-            <input
+          <div className="sm:col-span-3 space-y-1.5">
+            <label className="text-overline text-muted-foreground">Spreadsheet ID</label>
+            <Input
               type="text"
               value={spreadsheetId}
               onChange={(e) => setSpreadsheetId(e.target.value)}
               placeholder="e.g. 1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgVE2upms"
-              className="w-full px-4 py-3 rounded-md bg-background border border-input text-foreground placeholder:text-subtle-foreground focus:outline-none focus:ring-2 focus:ring-ring transition-colors font-mono text-sm"
               required
+              className="font-mono text-sm"
             />
-            <p className="text-xs text-subtle-foreground mt-1">
-              Find this in your Google Sheet URL: docs.google.com/spreadsheets/d/<strong className="text-muted-foreground">THIS_PART</strong>/edit
+            <p className="text-xs text-subtle-foreground">
+              From your sheet URL: docs.google.com/spreadsheets/d/<strong className="text-muted-foreground">THIS_PART</strong>/edit
             </p>
           </div>
 
-          <div>
-            <label className="block text-sm font-medium text-muted-foreground mb-1.5">Sheet Name</label>
-            <input
+          <div className="space-y-1.5">
+            <label className="text-overline text-muted-foreground">Sheet name</label>
+            <Input
               type="text"
               value={sheetName}
               onChange={(e) => setSheetName(e.target.value)}
-              className="w-full px-4 py-3 rounded-md bg-background border border-input text-foreground focus:outline-none focus:ring-2 focus:ring-ring transition-colors"
             />
           </div>
 
-          <div>
-            <label className="block text-sm font-medium text-muted-foreground mb-1.5">Cell Range</label>
-            <input
+          <div className="space-y-1.5">
+            <label className="text-overline text-muted-foreground">Cell range</label>
+            <Input
               type="text"
               value={range}
               onChange={(e) => setRange(e.target.value)}
-              className="w-full px-4 py-3 rounded-md bg-background border border-input text-foreground focus:outline-none focus:ring-2 focus:ring-ring transition-colors"
             />
           </div>
 
           <div className="flex items-end">
             <Button
               type="submit"
-              className="w-full h-12"
+              className="w-full"
               disabled={syncMutation.isPending || !spreadsheetId.trim()}
             >
               {syncMutation.isPending ? (
-                <span className="flex items-center justify-center gap-2">
-                  <Spinner size={16} />
-                  Syncing...
-                </span>
+                <><Spinner size={16} />Syncing…</>
               ) : (
-                '🔄 Run Sync'
+                <><RefreshCw className="size-4" aria-hidden="true" />Run sync</>
               )}
             </Button>
           </div>
         </div>
       </form>
 
-      {/* Error */}
-      {error && (
-        <div className="bg-card border border-destructive/20 rounded-lg p-5">
-          <div className="flex items-center gap-3">
-            <span className="text-lg">❌</span>
-            <div>
-              <div className="font-medium text-destructive text-sm">Sync Failed</div>
-              <div className="text-xs text-muted-foreground mt-0.5">{error}</div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Sync Report */}
+      {/* Sync report */}
       {report && (
-        <div className="bg-card border border-border rounded-lg p-6 ">
-          <h2 className="text-lg font-semibold text-foreground mb-4">📋 Sync Report</h2>
+        <div className="bg-card border border-border rounded-lg p-6 space-y-6">
+          <div className="flex items-center gap-2">
+            <ClipboardList aria-hidden="true" className="size-4 text-muted-foreground" strokeWidth={2} />
+            <h2 className="text-sm font-semibold text-foreground">Sync report</h2>
+          </div>
 
-          {/* Summary Cards */}
-          <div className="grid gap-3 grid-cols-3 mb-6">
-            <div className="bg-muted border border-border rounded-md p-4 text-center">
-              <div className="text-h1 text-foreground">{report.processed}</div>
-              <div className="text-xs text-muted-foreground">Processed</div>
-            </div>
-            <div className="bg-muted border border-border rounded-md p-4 text-center">
-              <div className="text-2xl font-bold text-success">{report.enrolled}</div>
-              <div className="text-xs text-muted-foreground">Enrolled</div>
-            </div>
-            <div className="bg-muted border border-border rounded-md p-4 text-center">
-              <div className="text-2xl font-bold text-warning">{report.skipped}</div>
-              <div className="text-xs text-muted-foreground">Skipped</div>
-            </div>
+          {/* KPI strip */}
+          <div className="grid gap-3 grid-cols-3">
+            <KPICard label="Processed" value={report.processed} icon={ClipboardList} tone="neutral" />
+            <KPICard label="Enrolled"  value={report.enrolled}  icon={CheckCircle2}  tone="success" />
+            <KPICard label="Skipped"   value={report.skipped}   icon={SkipForward}   tone="warning" />
           </div>
 
           {/* Detail rows */}
-          {report.details && report.details.length > 0 && (
-            <div className="space-y-2 mb-4">
-              <h3 className="text-sm font-medium text-muted-foreground">Details</h3>
+          {report.details?.length > 0 && (
+            <div className="space-y-2">
+              <h3 className="text-overline text-muted-foreground">Details</h3>
               {report.details.map((d, i) => (
-                <div key={i} className={`bg-muted border border-border rounded-lg p-3 text-sm flex items-center gap-2 ${
-                  d.status === 'enrolled' ? 'border-l-2 border-success' : 'border-l-2 border-warning'
-                }`}>
-                  <span className="text-xs text-subtle-foreground">Row {d.row}</span>
-                  <span className={d.status === 'enrolled' ? 'text-success' : 'text-warning'}>
-                    {d.status === 'enrolled' ? '✅' : '⏭️'}
-                  </span>
+                <div
+                  key={i}
+                  className={`bg-muted border border-border rounded-lg p-3 text-sm flex items-start gap-2 ${
+                    d.status === 'enrolled' ? 'border-l-2 border-success' : 'border-l-2 border-warning'
+                  }`}
+                >
+                  {d.status === 'enrolled'
+                    ? <CheckCircle2 aria-hidden="true" className="size-4 shrink-0 mt-0.5 text-success" strokeWidth={2} />
+                    : <SkipForward aria-hidden="true" className="size-4 shrink-0 mt-0.5 text-warning" strokeWidth={2} />
+                  }
+                  <span className="text-xs text-subtle-foreground shrink-0">Row {d.row}</span>
                   <span className="text-foreground">
-                    {d.team || d.reason} {d.membersAdded !== undefined && `— ${d.membersAdded} members added`}
+                    {d.team || d.reason}{d.membersAdded !== undefined ? ` — ${d.membersAdded} members added` : ''}
                   </span>
                 </div>
               ))}
@@ -178,13 +173,16 @@ export default function SyncPage() {
           )}
 
           {/* Errors */}
-          {report.errors && report.errors.length > 0 && (
+          {report.errors?.length > 0 && (
             <div className="space-y-2">
-              <h3 className="text-sm font-medium text-destructive">Errors</h3>
+              <h3 className="text-overline text-destructive">Errors</h3>
               {report.errors.map((err, i) => (
-                <div key={i} className="bg-muted border border-border rounded-lg p-3 text-sm border-l-2 border-destructive">
-                  <span className="text-xs text-subtle-foreground">Row {err.row}: </span>
-                  <span className="text-destructive">{err.error}</span>
+                <div key={i} className="bg-muted border border-border rounded-lg p-3 text-sm border-l-2 border-destructive flex items-start gap-2">
+                  <XCircle aria-hidden="true" className="size-4 shrink-0 mt-0.5 text-destructive" strokeWidth={2} />
+                  <span>
+                    <span className="text-xs text-subtle-foreground">Row {err.row}: </span>
+                    <span className="text-destructive">{err.error}</span>
+                  </span>
                 </div>
               ))}
             </div>
@@ -192,9 +190,12 @@ export default function SyncPage() {
         </div>
       )}
 
-      {/* Instructions */}
+      {/* Sheet format guide */}
       <div className="bg-card border border-border rounded-lg p-6">
-        <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-3">📖 Sheet Format Guide</h2>
+        <div className="flex items-center gap-2 mb-4">
+          <BookOpen aria-hidden="true" className="size-4 text-muted-foreground" strokeWidth={2} />
+          <h2 className="text-overline text-muted-foreground">Sheet format guide</h2>
+        </div>
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
