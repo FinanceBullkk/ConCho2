@@ -1,45 +1,79 @@
 import { useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
+import {
+  CalendarDays, BarChart3, CheckCircle2, XCircle, Target,
+  ClipboardList, CalendarPlus, Clock, MapPin, Users2, ChevronRight,
+} from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useMyClassSchedules } from '../hooks/useSchedules';
 import { useMyAttendanceStats, useAttendanceByUser } from '../hooks/useAttendance';
 import { useEvaluations } from '../hooks/useEvaluations';
-import {
-  CalendarDays, BarChart3, ClipboardList, Target,
-  BookOpen, Clock, Calendar, TrendingUp, Users2,
-} from 'lucide-react';
+import { useNextClass } from '../hooks/useNextClass';
 import { Spinner } from '../components/Spinner';
 import { KPICard } from '../components/KPICard';
 import { StatusBadge } from '../components/StatusBadge';
 import { EmptyState } from '../components/EmptyState';
 import { DataTable } from '../components/DataTable';
+import { NextClassCard } from '../components/NextClassCard';
+import { Button } from '@/components/ui/button';
 
 // ──────────────────────────────────────────────────────────
-// Participant Dashboard — Phase 3 Screen 6
+// Participant Dashboard — Phase 3 Screen 6 (Home Participant)
 //
-// Sections:
-//   1. Attendance KPIs (rate, present, absent) — KPICard ×3
-//   2. Next class card + link to /calendar
-//   3. Attendance history table
-//   4. Evaluation scores
+// Canonical 4-band layout per design §D:
+//   1. Header — "Good morning/afternoon/evening, {firstName}" + team line
+//   2. NextClassCard — prominent next session + countdown + Add to calendar
+//   3. KPI strip ×3 — Attendance rate · Sessions attended · Absent
+//   4. Upcoming sessions list (next 5 own only) + Leader-only "+ Book a slot"
+//
+// Secondary bands kept below: Attendance history table · Evaluation scores.
+// Participant-only data — no teammate comparison (Q6A privacy).
 // ──────────────────────────────────────────────────────────
+
+function greeting(now = new Date()) {
+  const h = now.getHours();
+  if (h < 12) return 'Good morning';
+  if (h < 18) return 'Good afternoon';
+  return 'Good evening';
+}
+
+function firstName(name) {
+  if (!name) return '';
+  // Vietnamese names end with given name; English names begin with it.
+  // We pick the last token for VN-friendliness — matches the "Tâm" / "An" mocks.
+  const tokens = String(name).trim().split(/\s+/).filter(Boolean);
+  return tokens.length ? tokens[tokens.length - 1] : '';
+}
+
+function pad(n) { return String(n).padStart(2, '0'); }
 
 export default function ParticipantDashboard() {
   const { user } = useAuth();
 
   const { data: schedData, isLoading: loadingSched } = useMyClassSchedules();
-  const { data: stats, isLoading: loadingStats } = useMyAttendanceStats();
+  const { data: stats,    isLoading: loadingStats }   = useMyAttendanceStats();
   const { data: rawHistory, isLoading: loadingHistory } = useAttendanceByUser(user._id);
   const { data: rawEvals = [], isLoading: loadingEvals } = useEvaluations();
 
-  const schedules = schedData?.data || [];
-  const teamName = schedData?.team || '';
-  const leader = schedData?.leader || null;
+  const { nextClass, upcoming } = useNextClass();
 
+  const schedules = schedData?.data || [];
+  const teamName  = schedData?.team || '';
+  const leader    = schedData?.leader || null;
+
+  // Leader CTA visibility: this participant is the team leader.
+  const isLeader = !!leader && leader._id && String(leader._id) === String(user._id);
+
+  // Class code shown in the team line is taken from the next/first session.
+  const classCode = nextClass?.classId?.classCode || schedules[0]?.classId?.classCode || '';
+
+  useEffect(() => { document.title = 'TMS — Home'; }, []);
+
+  // ── Attendance history (kept as secondary band) ──────────
   const historyColumns = useMemo(() => [
     {
       key: null,
-      header: 'Ngày',
+      header: 'Date',
       render: (record) => {
         const sched = record.scheduleId;
         const start = sched?.startTime ? new Date(sched.startTime) : null;
@@ -49,11 +83,11 @@ export default function ParticipantDashboard() {
         return (
           <div className="flex items-center gap-2">
             {start && (
-              <div className="w-9 h-9 rounded-lg bg-primary/10 flex flex-col items-center justify-center shrink-0">
-                <span className="text-[9px] font-bold text-primary leading-tight">
+              <div className="w-9 h-9 rounded-md bg-primary/10 flex flex-col items-center justify-center shrink-0">
+                <span className="text-[9px] font-bold text-primary leading-tight uppercase">
                   {start.toLocaleDateString('en', { month: 'short' })}
                 </span>
-                <span className="text-sm font-bold text-primary leading-tight">{start.getDate()}</span>
+                <span className="text-sm font-bold text-primary leading-tight tabular-nums">{start.getDate()}</span>
               </div>
             )}
             <span className="text-muted-foreground text-xs whitespace-nowrap">{dateStr}</span>
@@ -63,28 +97,28 @@ export default function ParticipantDashboard() {
     },
     {
       key: null,
-      header: 'Giờ học',
+      header: 'Time',
       className: 'hidden sm:table-cell',
       render: (record) => {
         const sched = record.scheduleId;
         const start = sched?.startTime ? new Date(sched.startTime) : null;
-        const end = sched?.endTime ? new Date(sched.endTime) : null;
+        const end   = sched?.endTime   ? new Date(sched.endTime)   : null;
         const timeStr = start && end
-          ? `${String(start.getHours()).padStart(2, '0')}:${String(start.getMinutes()).padStart(2, '0')} – ${String(end.getHours()).padStart(2, '0')}:${String(end.getMinutes()).padStart(2, '0')}`
+          ? `${pad(start.getHours())}:${pad(start.getMinutes())} – ${pad(end.getHours())}:${pad(end.getMinutes())}`
           : '—';
-        return <span className="font-mono text-xs">{timeStr}</span>;
+        return <span className="font-mono text-xs tabular-nums">{timeStr}</span>;
       },
     },
     {
       key: null,
-      header: 'Mã lớp',
+      header: 'Class',
       render: (record) => (
         <span className="text-foreground font-medium">{record.scheduleId?.classId?.classCode || '—'}</span>
       ),
     },
     {
       key: null,
-      header: 'Khóa học',
+      header: 'Course',
       className: 'hidden sm:table-cell',
       render: (record) => (
         <span className="text-muted-foreground text-xs">{record.scheduleId?.classId?.courseName || '—'}</span>
@@ -92,14 +126,14 @@ export default function ParticipantDashboard() {
     },
     {
       key: null,
-      header: 'Trạng thái',
+      header: 'Status',
       headerCls: 'text-center',
       cellCls: 'text-center',
       render: (record) => <StatusBadge status={record.status} size="sm" />,
     },
     {
       key: null,
-      header: 'Ghi chú',
+      header: 'Note',
       className: 'hidden lg:table-cell',
       render: (record) => (
         <span className="text-subtle-foreground text-xs">{record.remark || '—'}</span>
@@ -115,8 +149,6 @@ export default function ParticipantDashboard() {
       return dateB - dateA;
     });
   }, [rawHistory]);
-
-  useEffect(() => { document.title = 'TMS — My Dashboard'; }, []);
 
   const evaluations = useMemo(() => {
     const list = Array.isArray(rawEvals) ? rawEvals : rawEvals?.data ?? [];
@@ -134,152 +166,181 @@ export default function ParticipantDashboard() {
   }
 
   const rate = stats?.attendanceRate ?? 0;
-  const rateColor = rate >= 80 ? 'text-success' : rate >= 60 ? 'text-warning' : 'text-destructive';
   const rateTone = rate >= 80 ? 'success' : rate >= 60 ? 'warning' : 'danger';
+  const absent   = stats?.absent ?? 0;
 
-  // Next upcoming session
-  const now = new Date();
-  const nextSession = schedules
-    .filter(s => new Date(s.startTime) >= now)
-    .sort((a, b) => new Date(a.startTime) - new Date(b.startTime))[0] || null;
+  // No team enrolled — show full-card empty state per §E rule 8.
+  if (!teamName && schedules.length === 0) {
+    return (
+      <div className="space-y-6">
+        <div>
+          <h1 className="text-h1 text-foreground">{greeting()}, {firstName(user.name) || user.name}</h1>
+        </div>
+        <EmptyState
+          icon={Users2}
+          title="You're not enrolled in a class yet"
+          description="Contact your manager to get assigned to a team and class."
+        />
+      </div>
+    );
+  }
 
   return (
-    <div className="space-y-6">
-      {/* ── Header ─────────────────────────────────────── */}
-      <div>
-        <h1 className="text-h1 text-foreground">My Dashboard</h1>
-        <p className="text-muted-foreground mt-1">
-          Welcome back, {user.name}
-          {teamName && <span className="text-primary"> · {teamName}</span>}
+    <div className="space-y-5">
+      {/* ── Band 1 · Header ──────────────────────────────── */}
+      <header>
+        <h1 className="text-h1 text-foreground">
+          {greeting()}, {firstName(user.name) || user.name}
+        </h1>
+        <p className="text-body text-muted-foreground mt-1 truncate">
+          {teamName && <span className="font-medium">{teamName}</span>}
+          {classCode && <> · <span className="font-mono text-primary">{classCode}</span></>}
+          {isLeader && <span className="text-warning"> · Team Leader</span>}
         </p>
-        {leader && (
-          <div className="mt-3 inline-flex items-center gap-2 rounded-md border border-border bg-muted px-3 py-1.5 text-xs text-muted-foreground">
-            <Users2 className="size-3.5 text-subtle-foreground" />
-            <span className="text-subtle-foreground">Team Leader:</span>
-            <span className="font-medium text-foreground">{leader.name}</span>
-            {leader.email && (
-              <a href={`mailto:${leader.email}`} className="text-primary hover:underline underline-offset-2">
-                {leader.email}
-              </a>
-            )}
-            {leader.empCode && <span className="text-subtle-foreground">· {leader.empCode}</span>}
-          </div>
-        )}
-      </div>
+      </header>
 
-      {/* ── Section 1: Attendance KPIs ─────────────────── */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+      {/* ── Band 2 · Next class card ────────────────────── */}
+      {nextClass ? (
+        <NextClassCard schedule={nextClass} teacher={null /* not yet wired through API */} />
+      ) : (
+        <EmptyState
+          icon={CalendarDays}
+          title="No upcoming sessions"
+          description="Your team leader can book sessions from the Schedule & Book page."
+          action={(
+            <Link to="/calendar" className="text-sm text-primary font-medium hover:underline underline-offset-2">
+              Go to calendar →
+            </Link>
+          )}
+        />
+      )}
+
+      {/* ── Band 3 · KPI strip ×3 (no emoji, Lucide-only) ── */}
+      <div className="grid grid-cols-3 gap-3">
         <KPICard
-          label="Attendance Rate"
+          label="My attendance"
           value={`${rate}%`}
-          sub={`${stats?.present ?? 0} / ${stats?.totalSessions ?? 0} sessions`}
-          icon={TrendingUp}
+          sub={`${stats?.present ?? 0} of ${stats?.totalSessions ?? 0} sessions`}
+          icon={BarChart3}
           tone={rateTone}
+          href="/calendar"
         />
         <KPICard
-          label="Present"
+          label="Sessions attended"
           value={stats?.present ?? 0}
-          sub={`${stats?.late ?? 0} late · ${stats?.excused ?? 0} excused`}
-          icon={BarChart3}
+          sub={stats?.late ? `${stats.late} late` : 'on time'}
+          icon={CheckCircle2}
           tone="success"
         />
         <KPICard
           label="Absent"
-          value={stats?.absent ?? 0}
-          sub="sessions missed"
-          icon={ClipboardList}
-          tone={(stats?.absent ?? 0) > 0 ? 'danger' : 'neutral'}
+          value={absent}
+          sub={stats?.excused ? `${stats.excused} excused` : 'sessions missed'}
+          icon={XCircle}
+          tone={absent > 0 ? 'danger' : 'neutral'}
         />
       </div>
 
-      {/* ── Section 2: Next class ──────────────────────── */}
-      <div className="bg-card border border-border rounded-lg p-5">
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-sm font-semibold text-foreground flex items-center gap-2">
-            <CalendarDays className="size-4 text-primary" strokeWidth={2} />
-            Next Class
+      {/* ── Band 4 · Upcoming sessions list ──────────────── */}
+      <section>
+        <div className="flex items-center justify-between mb-2">
+          <h2 className="text-overline text-muted-foreground">
+            Upcoming sessions · my schedule
           </h2>
-          <Link
-            to="/calendar"
-            className="text-xs text-primary hover:text-primary/80 transition-colors font-medium"
-          >
-            View full calendar →
-          </Link>
+          {isLeader && (
+            <Button asChild size="sm" variant="outline">
+              <Link to="/calendar?tab=book">
+                <CalendarPlus className="size-3.5" aria-hidden="true" />
+                Book a slot
+              </Link>
+            </Button>
+          )}
         </div>
 
-        {nextSession ? (
-          (() => {
-            const start = new Date(nextSession.startTime);
-            const end = new Date(nextSession.endTime);
-            const isToday = now.toDateString() === start.toDateString();
-            const timeStr = `${String(start.getHours()).padStart(2, '0')}:${String(start.getMinutes()).padStart(2, '0')} – ${String(end.getHours()).padStart(2, '0')}:${String(end.getMinutes()).padStart(2, '0')}`;
-            return (
-              <div className={`flex items-center gap-4 rounded-md border p-4 ${isToday ? 'border-primary/30 bg-primary/5' : 'border-border bg-muted/40'}`}>
-                <div className={`w-14 h-14 rounded-md flex flex-col items-center justify-center shrink-0 ${isToday ? 'bg-primary/20 text-primary' : 'bg-primary/10 text-primary'}`}>
-                  <span className="text-xs font-bold">{start.toLocaleDateString('en', { month: 'short' })}</span>
-                  <span className="text-xl font-bold leading-none">{start.getDate()}</span>
-                </div>
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <span className="font-semibold text-foreground">{nextSession.classId?.classCode}</span>
-                    {isToday && <span className="text-[10px] font-bold text-primary bg-primary/20 px-2 py-0.5 rounded-full">TODAY</span>}
-                  </div>
-                  <div className="text-sm text-muted-foreground mt-0.5">{nextSession.classId?.courseName}</div>
-                  <div className="text-xs text-subtle-foreground mt-0.5 flex items-center gap-2">
-                    <Clock className="size-3" />
-                    <span>{timeStr}</span>
-                    <span>·</span>
-                    <span>{start.toLocaleDateString('en', { weekday: 'long' })}</span>
-                  </div>
-                </div>
-                <Link
-                  to="/calendar"
-                  className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
-                >
-                  <Calendar className="size-3.5" /> Calendar
-                </Link>
-              </div>
-            );
-          })()
-        ) : (
+        {upcoming.length === 0 ? (
           <EmptyState
             icon={CalendarDays}
-            title="No upcoming classes"
-            description="Your Team Leader can book sessions from the Schedule & Book page."
-            action={<Link to="/calendar" className="text-xs text-primary font-medium hover:underline">Go to calendar</Link>}
+            title="No upcoming sessions"
+            description={isLeader
+              ? 'Tap "Book a slot" to schedule one for your team.'
+              : 'Your team leader can book sessions from the Schedule & Book page.'}
           />
+        ) : (
+          <ul className="bg-card border border-border rounded-lg overflow-hidden divide-y divide-border">
+            {upcoming.map((s) => {
+              const start = new Date(s.startTime);
+              const weekday = start.toLocaleDateString('en', { weekday: 'short' });
+              const cls = s.classId;
+              return (
+                <li key={s._id}>
+                  <Link
+                    to={cls?._id ? `/classes/${cls._id}` : '/calendar'}
+                    className="grid grid-cols-[40px_1fr_auto_auto] items-center gap-3 px-3 py-2.5 hover:bg-accent transition-colors duration-(--dur-fast)"
+                  >
+                    <div className="text-center bg-muted rounded-md py-1">
+                      <div className="text-[9px] font-semibold uppercase tracking-wide text-muted-foreground leading-none">
+                        {weekday}
+                      </div>
+                      <div className="text-sm font-semibold text-foreground tabular-nums leading-none mt-0.5">
+                        {start.getDate()}
+                      </div>
+                    </div>
+                    <div className="min-w-0">
+                      <div className="text-sm text-foreground truncate">
+                        <span className="font-medium">{cls?.classCode || '—'}</span>
+                        {cls?.courseName && (
+                          <span className="text-muted-foreground"> · {cls.courseName}</span>
+                        )}
+                      </div>
+                      {(s.room || cls?.room) && (
+                        <div className="text-xs text-subtle-foreground inline-flex items-center gap-1 mt-0.5">
+                          <MapPin className="size-3" aria-hidden="true" />
+                          {s.room || cls.room}
+                        </div>
+                      )}
+                    </div>
+                    <span className="text-xs font-mono text-muted-foreground tabular-nums inline-flex items-center gap-1">
+                      <Clock className="size-3" aria-hidden="true" />
+                      {pad(start.getHours())}:{pad(start.getMinutes())}
+                    </span>
+                    <ChevronRight className="size-4 text-subtle-foreground" aria-hidden="true" />
+                  </Link>
+                </li>
+              );
+            })}
+          </ul>
         )}
-      </div>
+      </section>
 
-      {/* ── Section 3: Attendance History ─────────────── */}
-      <div className="bg-card border border-border rounded-lg p-5">
-        <div className="flex items-center justify-between mb-5">
-          <h2 className="text-sm font-semibold text-foreground flex items-center gap-2">
-            <ClipboardList className="size-4 text-primary" strokeWidth={2} />
-            Lịch Sử Điểm Danh
+      {/* ── Secondary · Attendance history (preserved) ──── */}
+      <section className="bg-card border border-border rounded-lg p-5">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-sm font-semibold text-foreground inline-flex items-center gap-2">
+            <ClipboardList className="size-4 text-primary" strokeWidth={2} aria-hidden="true" />
+            Attendance history
           </h2>
-          <span className="text-xs text-subtle-foreground bg-muted px-3 py-1 rounded-md">
-            {history.length} buổi
+          <span className="text-xs text-subtle-foreground bg-muted px-2.5 py-0.5 rounded-md tabular-nums">
+            {history.length} sessions
           </span>
         </div>
         <DataTable
           columns={historyColumns}
           data={history}
           rowKey="_id"
-          emptyTitle="Chưa có lịch sử điểm danh"
-          emptyMessage="Kết quả sẽ hiện sau khi giáo viên chấm công."
+          emptyTitle="No attendance history yet"
+          emptyMessage="Results appear after the teacher marks attendance."
         />
-      </div>
+      </section>
 
-      {/* ── Section 4: Evaluation Scores ──────────────── */}
-      <div className="bg-card border border-border rounded-lg p-5">
-        <div className="flex items-center justify-between mb-5">
-          <h2 className="text-sm font-semibold text-foreground flex items-center gap-2">
-            <Target className="size-4 text-primary" strokeWidth={2} />
-            Kết Quả Đánh Giá
+      {/* ── Secondary · Evaluation scores (preserved) ───── */}
+      <section className="bg-card border border-border rounded-lg p-5">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-sm font-semibold text-foreground inline-flex items-center gap-2">
+            <Target className="size-4 text-primary" strokeWidth={2} aria-hidden="true" />
+            Evaluation scores
           </h2>
-          <span className="text-xs text-subtle-foreground bg-muted px-3 py-1 rounded-md">
-            {evaluations.length} lớp
+          <span className="text-xs text-subtle-foreground bg-muted px-2.5 py-0.5 rounded-md tabular-nums">
+            {evaluations.length} classes
           </span>
         </div>
 
@@ -288,8 +349,8 @@ export default function ParticipantDashboard() {
         ) : evaluations.length === 0 ? (
           <EmptyState
             icon={Target}
-            title="Chưa có kết quả đánh giá"
-            description="Điểm sẽ xuất hiện sau khi giáo viên nhập đánh giá"
+            title="No evaluations yet"
+            description="Scores appear after the teacher enters an evaluation."
           />
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -337,7 +398,7 @@ export default function ParticipantDashboard() {
                         />
                       </svg>
                       <div className="absolute inset-0 flex flex-col items-center justify-center">
-                        <span className={`text-sm font-bold leading-none ${avgColor}`}>
+                        <span className={`text-sm font-bold leading-none tabular-nums ${avgColor}`}>
                           {avg > 0 ? avg.toFixed(1) : '—'}
                         </span>
                         <span className="text-[9px] text-subtle-foreground mt-0.5">avg</span>
@@ -366,7 +427,7 @@ export default function ParticipantDashboard() {
                   {ev.teacherComment && (
                     <div className="pt-1 border-t border-border">
                       <p className="text-xs text-muted-foreground leading-relaxed italic">
-                        "{ev.teacherComment}"
+                        &ldquo;{ev.teacherComment}&rdquo;
                       </p>
                     </div>
                   )}
@@ -375,7 +436,7 @@ export default function ParticipantDashboard() {
             })}
           </div>
         )}
-      </div>
+      </section>
     </div>
   );
 }
