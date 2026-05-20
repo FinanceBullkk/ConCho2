@@ -2,6 +2,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
+import { KeyRound } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { loginSchema, mfaSchema } from '../lib/validations';
 import { Button } from '@/components/ui/button';
@@ -33,7 +34,7 @@ export default function LoginPage() {
         setMfaPendingToken(result.mfaPendingToken);
         setStep('mfa');
       } else {
-        navigate('/dashboard', { replace: true });
+        navigate('/home', { replace: true });
       }
     } catch (err) {
       credForm.setError('root', {
@@ -45,7 +46,7 @@ export default function LoginPage() {
   const handleMfaSubmit = mfaForm.handleSubmit(async ({ mfaCode }) => {
     try {
       await verifyMfa(mfaPendingToken, mfaCode.trim());
-      navigate('/dashboard', { replace: true });
+      navigate('/home', { replace: true });
     } catch (err) {
       const msg = err.response?.data?.message || 'MFA verification failed';
       mfaForm.setError('root', { message: msg });
@@ -69,7 +70,7 @@ export default function LoginPage() {
   const ERR_CLS = 'mt-1 text-xs text-destructive';
 
   return (
-    <div className="min-h-screen flex items-center justify-center px-4">
+    <div className="min-h-screen flex items-center justify-center px-4 bg-background">
       <div className="w-full max-w-md">
         {/* Wordmark */}
         <div className="text-center mb-8">
@@ -151,8 +152,8 @@ export default function LoginPage() {
 
             {import.meta.env.DEV && (
               <div className="mt-6 pt-5 border-t border-border">
-                <p className="text-xs text-subtle-foreground mb-2">Test accounts:</p>
-                <div className="flex flex-wrap gap-2">
+                <p className="text-overline text-subtle-foreground mb-2">Test accounts (dev only)</p>
+                <div className="flex flex-wrap gap-1.5">
                   {[
                     { code: '000001', pw: 'admin12345',    label: 'Admin' },
                     { code: '000004', pw: 'participant123', label: 'Participant' },
@@ -164,7 +165,7 @@ export default function LoginPage() {
                         credForm.setValue('empCode', acc.code);
                         credForm.setValue('password', acc.pw);
                       }}
-                      className="px-2.5 py-1 rounded-md bg-muted text-xs text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
+                      className="px-2 py-0.5 rounded font-mono text-[11px] bg-muted text-subtle-foreground hover:bg-accent hover:text-foreground transition-colors"
                     >
                       {acc.label}
                     </button>
@@ -176,8 +177,11 @@ export default function LoginPage() {
         ) : (
           /* ── MFA step ────────────────────────────────────── */
           <form onSubmit={handleMfaSubmit} className="bg-card border border-border rounded-lg p-8" noValidate>
-            <h2 className="text-h3 text-foreground mb-2">Two-Factor Authentication</h2>
-            <p className="text-body text-muted-foreground mb-6">
+            <div className="flex items-center justify-center size-10 mx-auto rounded-md bg-primary-tint mb-3">
+              <KeyRound className="size-5 text-primary" aria-hidden="true" />
+            </div>
+            <h2 className="text-h3 text-foreground text-center mb-2">Two-Factor Authentication</h2>
+            <p className="text-body text-muted-foreground text-center mb-6">
               Enter the 6-digit code from your authenticator app, or a backup code (XXXXX-XXXXX).
             </p>
 
