@@ -36,7 +36,7 @@ export default function ForgotPasswordPage() {
           <h1 className="text-[2.5rem] font-bold tracking-tight text-foreground leading-none">
             TMS<span className="text-primary">.</span>
           </h1>
-          <p className="text-muted-foreground mt-2">Training Management System</p>
+          <p className="text-muted-foreground mt-2">Hệ thống Quản lý Đào tạo</p>
         </div>
 
         <div className="bg-card border border-border rounded-lg p-8">
@@ -45,32 +45,32 @@ export default function ForgotPasswordPage() {
               <div className="inline-flex items-center justify-center size-12 rounded-lg bg-success/10 border border-success/20 mb-2">
                 <Mail className="size-6 text-success" aria-hidden="true" />
               </div>
-              <h2 className="text-h3 text-foreground">Check your email</h2>
+              <h2 className="text-h3 text-foreground">Kiểm tra email của bạn</h2>
               <p className="text-body text-muted-foreground">
-                If that employee code exists and has an email on file, a reset link has been sent. Check your inbox (and spam folder).
+                Nếu mã nhân viên tồn tại và có email đăng ký, liên kết đặt lại đã được gửi. Vui lòng kiểm tra hộp thư (và mục spam).
               </p>
               <Link
                 to="/login"
                 className="inline-flex items-center gap-2 mt-4 text-sm text-primary hover:text-primary/80 transition-colors"
               >
                 <ArrowLeft className="size-4" aria-hidden="true" />
-                Back to sign in
+                Quay lại đăng nhập
               </Link>
             </div>
           ) : (
             <>
-              <h2 className="text-h3 text-foreground mb-2">Forgot password?</h2>
+              <h2 className="text-h3 text-foreground mb-2">Quên mật khẩu?</h2>
               <p className="text-body text-muted-foreground mb-6">
-                Enter your employee code and we&apos;ll send a reset link to your registered email.
+                Nhập mã nhân viên của bạn và chúng tôi sẽ gửi liên kết đặt lại tới email đã đăng ký.
               </p>
 
               <FormProvider {...methods}>
                 <form onSubmit={onSubmit} noValidate>
                   <FormField name="empCode" className="mb-5">
-                    <FormLabel>Employee Code</FormLabel>
+                    <FormLabel>Mã nhân viên</FormLabel>
                     <FormInput
                       type="text"
-                      placeholder="e.g. 000001"
+                      placeholder="vd: 000001"
                       autoFocus  // eslint-disable-line jsx-a11y/no-autofocus
                       className="h-12"
                     />
@@ -79,14 +79,14 @@ export default function ForgotPasswordPage() {
 
                   <Button type="submit" className="w-full h-12" disabled={isSubmitting}>
                     {isSubmitting ? (
-                      <><Spinner size={16} />Sending…</>
-                    ) : 'Send reset link'}
+                      <><Spinner size={16} />Đang gửi…</>
+                    ) : 'Gửi liên kết đặt lại'}
                   </Button>
 
                   <div className="mt-4 text-center">
                     <Link to="/login" className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors">
                       <ArrowLeft className="size-4" aria-hidden="true" />
-                      Back to sign in
+                      Quay lại đăng nhập
                     </Link>
                   </div>
                 </form>
