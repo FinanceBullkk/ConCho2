@@ -1,4 +1,4 @@
-import { useForm } from 'react-hook-form';
+import { useForm, FormProvider } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
@@ -6,16 +6,17 @@ import { Mail, ArrowLeft } from 'lucide-react';
 import { forgotPasswordSchema } from '../lib/validations';
 import api from '../api/api';
 import { Button } from '@/components/ui/button';
+import { FormField, FormLabel, FormInput, FormError } from '@/components/ui/form';
 import { Spinner } from '../components/Spinner';
-import { cn } from '@/lib/utils';
 
 export default function ForgotPasswordPage() {
   const [sent, setSent] = useState(false);
 
-  const { register, handleSubmit, formState: { errors, isSubmitting } } = useForm({
+  const methods = useForm({
     resolver: zodResolver(forgotPasswordSchema),
     defaultValues: { empCode: '' },
   });
+  const { handleSubmit, formState: { isSubmitting } } = methods;
 
   const onSubmit = handleSubmit(async ({ empCode }) => {
     try {
@@ -27,21 +28,15 @@ export default function ForgotPasswordPage() {
     }
   });
 
-  const INPUT_CLS =
-    'w-full px-4 h-12 rounded-md bg-background border border-input text-foreground placeholder:text-subtle-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-ring transition-colors';
-  const ERR_CLS = 'mt-1 text-xs text-destructive';
-
   return (
-    <div className="min-h-screen flex items-center justify-center px-4">
+    <div className="min-h-screen flex items-center justify-center px-4 bg-background">
       <div className="w-full max-w-md">
-        {/* Logo */}
+        {/* Wordmark — matches LoginPage v2 / Phase 3 Screen 7 */}
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center size-16 rounded-lg bg-primary text-primary-foreground text-2xl font-bold mb-4">
-            T
-          </div>
-          <h1 className="text-h1 text-foreground tracking-tight">
-            TMS <span className="text-primary">v2</span>
+          <h1 className="text-[2.5rem] font-bold tracking-tight text-foreground leading-none">
+            TMS<span className="text-primary">.</span>
           </h1>
+          <p className="text-muted-foreground mt-2">Training Management System</p>
         </div>
 
         <div className="bg-card border border-border rounded-lg p-8">
@@ -66,44 +61,36 @@ export default function ForgotPasswordPage() {
             <>
               <h2 className="text-h3 text-foreground mb-2">Forgot password?</h2>
               <p className="text-body text-muted-foreground mb-6">
-                Enter your employee code and we'll send a reset link to your registered email.
+                Enter your employee code and we&apos;ll send a reset link to your registered email.
               </p>
 
-              <form onSubmit={onSubmit} noValidate>
-                <div className="mb-5">
-                  <label htmlFor="empCode" className="block text-small font-medium text-muted-foreground mb-1.5">
-                    Employee Code
-                  </label>
-                  <input
-                    id="empCode"
-                    type="text"
-                    placeholder="e.g. 000001"
-                    autoFocus // eslint-disable-line jsx-a11y/no-autofocus
-                    aria-invalid={!!errors.empCode}
-                    aria-describedby={errors.empCode ? 'empCode-error' : undefined}
-                    className={cn(INPUT_CLS, errors.empCode && 'border-destructive')}
-                    {...register('empCode')}
-                  />
-                  {errors.empCode && (
-                    <p id="empCode-error" role="alert" className={ERR_CLS}>
-                      {errors.empCode.message}
-                    </p>
-                  )}
-                </div>
+              <FormProvider {...methods}>
+                <form onSubmit={onSubmit} noValidate>
+                  <FormField name="empCode" className="mb-5">
+                    <FormLabel>Employee Code</FormLabel>
+                    <FormInput
+                      type="text"
+                      placeholder="e.g. 000001"
+                      autoFocus  // eslint-disable-line jsx-a11y/no-autofocus
+                      className="h-12"
+                    />
+                    <FormError />
+                  </FormField>
 
-                <Button type="submit" className="w-full h-12" disabled={isSubmitting}>
-                  {isSubmitting ? (
-                    <><Spinner size={16} />Sending…</>
-                  ) : 'Send reset link'}
-                </Button>
+                  <Button type="submit" className="w-full h-12" disabled={isSubmitting}>
+                    {isSubmitting ? (
+                      <><Spinner size={16} />Sending…</>
+                    ) : 'Send reset link'}
+                  </Button>
 
-                <div className="mt-4 text-center">
-                  <Link to="/login" className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors">
-                    <ArrowLeft className="size-4" aria-hidden="true" />
-                    Back to sign in
-                  </Link>
-                </div>
-              </form>
+                  <div className="mt-4 text-center">
+                    <Link to="/login" className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors">
+                      <ArrowLeft className="size-4" aria-hidden="true" />
+                      Back to sign in
+                    </Link>
+                  </div>
+                </form>
+              </FormProvider>
             </>
           )}
         </div>
