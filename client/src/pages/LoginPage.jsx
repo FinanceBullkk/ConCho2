@@ -38,7 +38,7 @@ export default function LoginPage() {
       }
     } catch (err) {
       credForm.setError('root', {
-        message: err.response?.data?.message || 'Login failed',
+        message: err.response?.data?.message || 'Đăng nhập thất bại',
       });
     }
   });
@@ -48,7 +48,7 @@ export default function LoginPage() {
       await verifyMfa(mfaPendingToken, mfaCode.trim());
       navigate('/home', { replace: true });
     } catch (err) {
-      const msg = err.response?.data?.message || 'MFA verification failed';
+      const msg = err.response?.data?.message || 'Xác thực MFA thất bại';
       mfaForm.setError('root', { message: msg });
       if (msg.toLowerCase().includes('expired')) {
         setStep('credentials');
@@ -77,13 +77,13 @@ export default function LoginPage() {
           <h1 className="text-[2.5rem] font-bold tracking-tight text-foreground leading-none">
             TMS<span className="text-primary">.</span>
           </h1>
-          <p className="text-muted-foreground mt-2">Training Management System</p>
+          <p className="text-muted-foreground mt-2">Hệ thống Quản lý Đào tạo</p>
         </div>
 
         {/* ── Credentials step ─────────────────────────────── */}
         {step === 'credentials' ? (
           <form onSubmit={handleCredSubmit} className="bg-card border border-border rounded-lg p-8" noValidate>
-            <h2 className="text-h3 text-foreground mb-6">Sign In</h2>
+            <h2 className="text-h3 text-foreground mb-6">Đăng nhập</h2>
 
             {credForm.formState.errors.root && (
               <div role="alert" className="mb-4 px-3 py-2.5 rounded-md bg-destructive-tint border border-destructive/30 text-destructive text-sm">
@@ -94,12 +94,12 @@ export default function LoginPage() {
             <div className="space-y-5">
               <div>
                 <label htmlFor="empCode" className="block text-small font-medium text-muted-foreground mb-1.5">
-                  Employee Code
+                  Mã nhân viên
                 </label>
                 <input
                   id="empCode"
                   type="text"
-                  placeholder="e.g. 000001"
+                  placeholder="vd: 000001"
                   autoFocus // eslint-disable-line jsx-a11y/no-autofocus
                   aria-invalid={!!credForm.formState.errors.empCode}
                   aria-describedby={credForm.formState.errors.empCode ? 'empCode-error' : undefined}
@@ -115,7 +115,7 @@ export default function LoginPage() {
 
               <div>
                 <label htmlFor="password" className="block text-small font-medium text-muted-foreground mb-1.5">
-                  Password
+                  Mật khẩu
                 </label>
                 <input
                   id="password"
@@ -136,7 +136,7 @@ export default function LoginPage() {
 
             <div className="flex justify-end mt-2 mb-1">
               <Link to="/forgot-password" className="text-xs text-primary hover:text-primary/80 transition-colors">
-                Forgot password?
+                Quên mật khẩu?
               </Link>
             </div>
 
@@ -146,17 +146,17 @@ export default function LoginPage() {
               disabled={credForm.formState.isSubmitting}
             >
               {credForm.formState.isSubmitting ? (
-                <><Spinner size={16} />Signing in…</>
-              ) : 'Sign In'}
+                <><Spinner size={16} />Đang đăng nhập…</>
+              ) : 'Đăng nhập'}
             </Button>
 
             {import.meta.env.DEV && (
               <div className="mt-6 pt-5 border-t border-border">
-                <p className="text-overline text-subtle-foreground mb-2">Test accounts (dev only)</p>
+                <p className="text-overline text-subtle-foreground mb-2">Tài khoản test (chỉ dev)</p>
                 <div className="flex flex-wrap gap-1.5">
                   {[
-                    { code: '000001', pw: 'admin12345',    label: 'Admin' },
-                    { code: '000004', pw: 'participant123', label: 'Participant' },
+                    { code: '000001', pw: 'admin12345',    label: 'Quản trị' },
+                    { code: '000004', pw: 'participant123', label: 'Học viên' },
                   ].map((acc) => (
                     <button
                       key={acc.code}
@@ -180,9 +180,9 @@ export default function LoginPage() {
             <div className="flex items-center justify-center size-10 mx-auto rounded-md bg-primary-tint mb-3">
               <KeyRound className="size-5 text-primary" aria-hidden="true" />
             </div>
-            <h2 className="text-h3 text-foreground text-center mb-2">Two-Factor Authentication</h2>
+            <h2 className="text-h3 text-foreground text-center mb-2">Xác thực 2 yếu tố</h2>
             <p className="text-body text-muted-foreground text-center mb-6">
-              Enter the 6-digit code from your authenticator app, or a backup code (XXXXX-XXXXX).
+              Nhập mã 6 chữ số từ ứng dụng xác thực, hoặc mã dự phòng (XXXXX-XXXXX).
             </p>
 
             {mfaForm.formState.errors.root && (
@@ -193,14 +193,14 @@ export default function LoginPage() {
 
             <div>
               <label htmlFor="mfaCode" className="block text-small font-medium text-muted-foreground mb-1.5">
-                Verification code
+                Mã xác thực
               </label>
               <input
                 id="mfaCode"
                 type="text"
                 inputMode="text"
                 autoComplete="one-time-code"
-                placeholder="123456 or XXXXX-XXXXX"
+                placeholder="123456 hoặc XXXXX-XXXXX"
                 autoFocus // eslint-disable-line jsx-a11y/no-autofocus
                 aria-invalid={!!mfaForm.formState.errors.mfaCode}
                 aria-describedby={mfaForm.formState.errors.mfaCode ? 'mfaCode-error' : undefined}
@@ -220,8 +220,8 @@ export default function LoginPage() {
               disabled={mfaForm.formState.isSubmitting}
             >
               {mfaForm.formState.isSubmitting ? (
-                <><Spinner size={16} />Verifying…</>
-              ) : 'Verify & Sign In'}
+                <><Spinner size={16} />Đang xác thực…</>
+              ) : 'Xác thực & Đăng nhập'}
             </Button>
 
             <Button
@@ -230,7 +230,7 @@ export default function LoginPage() {
               className="w-full mt-3"
               onClick={handleBackToCreds}
             >
-              ← Back to sign in
+              ← Quay lại đăng nhập
             </Button>
           </form>
         )}
