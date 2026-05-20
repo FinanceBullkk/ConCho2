@@ -1,12 +1,16 @@
 import { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { Shield, ShieldCheck, KeyRound, Copy, Check, AlertTriangle, Lock } from 'lucide-react';
-import { useForm } from 'react-hook-form';
+import { useForm, FormProvider } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
+import { toast } from 'sonner';
 import { useAuth } from '../context/AuthContext';
 import { authAPI } from '../api/api';
 import { changePasswordSchema } from '../lib/validations';
 import { Button } from '@/components/ui/button';
+import { FormField, FormLabel, FormInput, FormError, FormDescription } from '@/components/ui/form';
+import { PasswordStrength, scorePassword } from '@/components/PasswordStrength';
+import { StatusBadge } from '@/components/StatusBadge';
 
 // ──────────────────────────────────────────────────────────
 // User Settings — change password, manage MFA
@@ -16,71 +20,68 @@ import { Button } from '@/components/ui/button';
 // ──────────────────────────────────────────────────────────
 
 function ChangePasswordSection() {
-  const { register, handleSubmit, reset, setError, formState: { errors, isSubmitting } } = useForm({
+  const methods = useForm({
     resolver: zodResolver(changePasswordSchema),
     defaultValues: { current: '', next: '', confirm: '' },
   });
-  const [ok, setOk] = useState('');
+  const { handleSubmit, reset, setError, watch, formState: { errors, isSubmitting } } = methods;
+  const nextValue = watch('next');
+  const meetsStrength = scorePassword(nextValue) >= 2;
 
   const submit = handleSubmit(async ({ current, next }) => {
-    setOk('');
     try {
       await authAPI.changePassword(current, next);
-      setOk('Password updated.');
+      toast.success('Password updated');
       reset();
     } catch (err) {
       setError('root', { message: err.response?.data?.message || 'Failed to change password' });
     }
   });
 
-  const inputCls = 'w-full px-4 py-2.5 rounded-md bg-background border text-foreground placeholder:text-subtle-foreground focus:outline-none focus:ring-2 focus:ring-ring transition-all';
-
   return (
-    <form onSubmit={submit} className="bg-card border border-border rounded-lg p-6 space-y-4" noValidate>
-      <div className="flex items-center gap-2">
-        <KeyRound className="size-5 text-primary" aria-hidden="true" />
-        <h2 className="text-lg font-semibold text-foreground">Change password</h2>
-      </div>
-
-      {errors.root && (
-        <div role="alert" className="px-3 py-2 rounded-lg bg-destructive-tint border border-destructive/20 text-destructive text-sm">
-          {errors.root.message}
+    <FormProvider {...methods}>
+      <form onSubmit={submit} className="bg-card border border-border rounded-lg p-6 space-y-4" noValidate>
+        <div className="flex items-center gap-2">
+          <KeyRound className="size-5 text-primary" aria-hidden="true" />
+          <h2 className="text-lg font-semibold text-foreground">Change password</h2>
         </div>
-      )}
-      {ok && (
-        <div role="status" className="px-3 py-2 rounded-lg bg-success/10 border border-success/20 text-success text-sm">
-          {ok}
-        </div>
-      )}
 
-      {[
-        { name: 'current', label: 'Current password' },
-        { name: 'next', label: 'New password', hint: 'Min 10 characters.' },
-        { name: 'confirm', label: 'Confirm new password' },
-      ].map(({ name, label, hint }) => (
-        <div key={name}>
-          <label htmlFor={name} className="block text-sm text-muted-foreground mb-1">{label}</label>
-          <input
-            id={name}
-            type="password"
-            aria-invalid={!!errors[name]}
-            aria-describedby={errors[name] ? `${name}-error` : undefined}
-            className={`${inputCls} ${errors[name] ? 'border-destructive/50' : 'border-input'}`}
-            {...register(name)}
-          />
-          {errors[name] && (
-            <p id={`${name}-error`} role="alert" className="mt-1 text-xs text-destructive">
-              {errors[name].message}
-            </p>
-          )}
-          {hint && !errors[name] && <p className="text-xs text-subtle-foreground mt-1">{hint}</p>}
-        </div>
-      ))}
+        {errors.root && (
+          <div role="alert" className="px-3 py-2 rounded-lg bg-destructive-tint border border-destructive/20 text-destructive text-sm">
+            {errors.root.message}
+          </div>
+        )}
 
-      <Button type="submit" disabled={isSubmitting} className="w-full">
-        {isSubmitting ? 'Updating…' : 'Update password'}
-      </Button>
-    </form>
+        <FormField name="current">
+          <FormLabel>Current password</FormLabel>
+          <FormInput type="password" autoComplete="current-password" className="h-11" />
+          <FormError />
+        </FormField>
+
+        <FormField name="next">
+          <FormLabel>New password</FormLabel>
+          <FormInput type="password" autoComplete="new-password" className="h-11" />
+          <FormError />
+          <FormDescription>Min 10 characters · uppercase + digit + symbol for full strength.</FormDescription>
+          <PasswordStrength value={nextValue} className="mt-1" />
+        </FormField>
+
+        <FormField name="confirm">
+          <FormLabel>Confirm new password</FormLabel>
+          <FormInput type="password" autoComplete="new-password" className="h-11" />
+          <FormError />
+        </FormField>
+
+        <Button
+          type="submit"
+          disabled={isSubmitting || !meetsStrength}
+          className="w-full"
+          title={!meetsStrength ? 'Password too weak — needs at least 2 strength criteria' : undefined}
+        >
+          {isSubmitting ? 'Updating…' : 'Update password'}
+        </Button>
+      </form>
+    </FormProvider>
   );
 }
 
@@ -107,7 +108,7 @@ function BackupCodesPanel({ codes, onClose }) {
         </div>
       </div>
 
-      <div className="font-mono text-sm bg-black/30 rounded-lg p-3 space-y-1">
+      <div className="font-mono text-sm bg-muted border border-success/20 rounded-lg p-3 space-y-1 tabular-nums">
         {codes.map((c) => (
           <div key={c} className="text-success">{c}</div>
         ))}
@@ -202,13 +203,9 @@ function MfaSection({ user, onMfaChange, forceEnroll = false, onEnrollComplete }
           )}
           <h2 className="text-lg font-semibold text-foreground">Two-factor authentication</h2>
         </div>
-        <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${
-          enabled
-            ? 'bg-success/20 text-success'
-            : 'bg-muted text-muted-foreground'
-        }`}>
+        <StatusBadge tone={enabled ? 'success' : 'upcoming'} size="sm">
           {enabled ? 'Enabled' : 'Disabled'}
-        </span>
+        </StatusBadge>
       </div>
 
       <p className="text-sm text-muted-foreground">
@@ -232,7 +229,7 @@ function MfaSection({ user, onMfaChange, forceEnroll = false, onEnrollComplete }
             <img src={setup.qrCodeDataUrl} alt="MFA QR code" className="mx-auto h-48 w-48 rounded-lg bg-white p-2" />
             <details className="text-xs text-muted-foreground">
               <summary className="cursor-pointer hover:text-foreground">Can't scan? Enter the secret manually</summary>
-              <div className="mt-2 font-mono text-success break-all bg-black/30 p-2 rounded">{setup.secretBase32}</div>
+              <div className="mt-2 font-mono text-success break-all bg-muted border border-border p-2 rounded">{setup.secretBase32}</div>
             </details>
           </div>
 
