@@ -1,5 +1,6 @@
 const rateLimit = require('express-rate-limit');
 const { ipKeyGenerator } = require('express-rate-limit');
+const jwt = require('jsonwebtoken');
 
 // In test environment, disable rate limiting entirely so test suites
 // that make many requests for the same user don't get throttled.
@@ -242,6 +243,45 @@ const reconcileLimiter = rateLimit({
   validate: validateOpts,
 });
 
+/**
+ * mfaVerifyLimiter — dedicated limiter for POST /auth/mfa/verify.
+ *
+ * Keys on the userId embedded inside the `mfaPendingToken` JWT body field,
+ * falling back to IP if the token is absent or unparseable. This correctly
+ * throttles per-user even when multiple users share the same IP (office NAT),
+ * and closes the P2 degradation bug where `loginLimiter` was keyed on
+ * `req.body.empCode` — a field that /mfa/verify doesn't send.
+ *
+ * We only jwt.decode() (no signature verification) here: the limiter fires
+ * BEFORE the route handler, and we only need the userId for bucketing.
+ * Full verification still happens inside verifyMfaLogin().
+ *
+ * 5 failed attempts per 15 minutes per user (mirrors loginLimiter).
+ */
+const mfaVerifyLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 5,
+  skipSuccessfulRequests: true,
+  standardHeaders: true,
+  legacyHeaders: false,
+  skip: skipInTest,
+  message: {
+    success: false,
+    message: 'Too many MFA attempts. Please try again in 15 minutes.',
+  },
+  validate: validateOpts,
+  keyGenerator: (req) => {
+    try {
+      const raw = req.body?.mfaPendingToken;
+      if (raw) {
+        const payload = jwt.decode(raw);
+        if (payload?.id) return `mfa|${payload.id}`;
+      }
+    } catch (_) { /* fall through to IP */ }
+    return `mfa|${ipKeyGenerator(req)}`;
+  },
+});
+
 module.exports = {
   globalLimiter,
   globalWriteLimiter,
@@ -252,6 +292,7 @@ module.exports = {
   loginLimiter,
   changePasswordLimiter,
   mfaLimiter,
+  mfaVerifyLimiter,
   forgotPasswordLimiter,
   exportLimiter,
   reconcileLimiter,

@@ -53,8 +53,9 @@ const protect = async (req, res, next) => {
       });
     }
 
-    // Verify token
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    // Verify token. Algorithm is pinned to HS256 to prevent algorithm-confusion
+    // attacks (e.g. 'none' or RS256-with-public-key-as-secret).
+    const decoded = jwt.verify(token, process.env.JWT_SECRET, { algorithms: ['HS256'] });
 
     // Reject MFA-pending tokens on normal protected routes.
     // A pending token only authorizes /api/auth/mfa/verify; using it
