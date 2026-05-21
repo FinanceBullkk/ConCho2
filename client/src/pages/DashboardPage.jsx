@@ -50,7 +50,7 @@ export default function DashboardPage() {
   const { data: stats, isLoading: loadingStats, isError, error, isFetching, refetch, dataUpdatedAt } = useDashboardStats(filters, { enabled: isAdmin });
   const { data: filterOpts } = useDashboardFilterOptions({ enabled: isAdmin });
 
-  useEffect(() => { document.title = 'TMS — Dashboard'; }, []);
+  useEffect(() => { document.title = 'TMS — Trang chủ'; }, []);
   if (isParticipant) return <ParticipantDashboard />;
 
   if (loadingStats) {
@@ -95,13 +95,13 @@ export default function DashboardPage() {
   return (
     <div className="space-y-5">
       <PageHeader
-        title={`Welcome back, ${user?.name?.split(' ')[0] || 'there'}`}
-        description={new Date().toLocaleDateString('en-GB', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' })}
+        title={`Chào ${user?.name?.split(' ')[0] || 'bạn'}`}
+        description={new Date().toLocaleDateString('vi-VN', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' })}
         actions={
           <div className="flex items-center gap-2">
             {dataUpdatedAt > 0 && !isFetching && (
               <span className="text-small text-subtle-foreground" title={new Date(dataUpdatedAt).toLocaleTimeString()}>
-                Updated {Math.round((Date.now() - dataUpdatedAt) / 60000) || '<1'}m ago
+                Cập nhật {Math.round((Date.now() - dataUpdatedAt) / 60000) || '<1'} phút trước
               </span>
             )}
             <Button
@@ -109,11 +109,11 @@ export default function DashboardPage() {
               size="sm"
               onClick={() => refetch()}
               disabled={isFetching}
-              title="Refresh dashboard data"
+              title="Làm mới dữ liệu"
               className="gap-1.5"
             >
               {isFetching ? <Spinner size={13} /> : <RefreshCw style={{ width: 13, height: 13 }} />}
-              <span className="hidden sm:inline">{isFetching ? 'Loading…' : 'Refresh'}</span>
+              <span className="hidden sm:inline">{isFetching ? 'Đang tải…' : 'Làm mới'}</span>
             </Button>
           </div>
         }
@@ -127,26 +127,26 @@ export default function DashboardPage() {
 
       <FilterBar
         filters={[
-          { key: 'department',    placeholder: 'All BUs',          options: filterOpts?.departments   || [], value: filters.department    || '', onChange: v => setFilter('department', v) },
-          { key: 'position',      placeholder: 'All Positions',    options: filterOpts?.positions      || [], value: filters.position      || '', onChange: v => setFilter('position', v) },
-          { key: 'entranceLevel', placeholder: 'Entrance Level',   options: filterOpts?.entranceLevels || [], value: filters.entranceLevel || '', onChange: v => setFilter('entranceLevel', v) },
-          { key: 'currentLevel',  placeholder: 'Current Level',    options: filterOpts?.currentLevels  || [], value: filters.currentLevel  || '', onChange: v => setFilter('currentLevel', v) },
-          { key: 'status',        placeholder: 'All Statuses',     options: filterOpts?.statuses       || [], value: filters.status        || '', onChange: v => setFilter('status', v) },
+          { key: 'department',    placeholder: 'Tất cả BU',        options: filterOpts?.departments   || [], value: filters.department    || '', onChange: v => setFilter('department', v) },
+          { key: 'position',      placeholder: 'Tất cả vị trí',    options: filterOpts?.positions      || [], value: filters.position      || '', onChange: v => setFilter('position', v) },
+          { key: 'entranceLevel', placeholder: 'Trình độ đầu vào', options: filterOpts?.entranceLevels || [], value: filters.entranceLevel || '', onChange: v => setFilter('entranceLevel', v) },
+          { key: 'currentLevel',  placeholder: 'Trình độ hiện tại', options: filterOpts?.currentLevels  || [], value: filters.currentLevel  || '', onChange: v => setFilter('currentLevel', v) },
+          { key: 'status',        placeholder: 'Tất cả trạng thái', options: filterOpts?.statuses       || [], value: filters.status        || '', onChange: v => setFilter('status', v) },
         ]}
       >
         {activeFilterCount > 0 && (
           <Button variant="ghost" size="sm" onClick={resetFilters} className="text-destructive hover:text-destructive hover:bg-destructive/10">
-            Reset filters
+            Xóa bộ lọc
           </Button>
         )}
       </FilterBar>
 
       {/* ═══ KPI ROW ═══ */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        <KPICard label="Active Students"    value={o.active}                   sub={`/ ${o.totalStudents || 0} total`}                           icon={Users}         tone="success" />
-        <KPICard label="Attendance Rate"    value={pct(o.attendanceRate || 0)} sub={`${o.presentSessions || 0} / ${o.totalSessions || 0} sessions`} icon={BarChart3}     tone="info" />
-        <KPICard label="At Risk"            value={o.atRisk || 0}              sub="no activity 30 days"                                          icon={AlertTriangle}  tone={o.atRisk > 0 ? 'danger' : 'neutral'} />
-        <KPICard label="Inactive / Waiting" value={o.inactive || 0}            sub={`${o.waiting || 0} waiting`}                                  icon={PauseCircle}   tone="neutral" />
+        <KPICard label="Học viên đang học"   value={o.active}                   sub={`/ ${o.totalStudents || 0} tổng`}                            icon={Users}         tone="success" />
+        <KPICard label="Tỷ lệ điểm danh"     value={pct(o.attendanceRate || 0)} sub={`${o.presentSessions || 0} / ${o.totalSessions || 0} buổi`}  icon={BarChart3}     tone="info" />
+        <KPICard label="Có nguy cơ"          value={o.atRisk || 0}              sub="không hoạt động 30 ngày"                                     icon={AlertTriangle}  tone={o.atRisk > 0 ? 'danger' : 'neutral'} />
+        <KPICard label="Không hoạt động / Chờ" value={o.inactive || 0}          sub={`${o.waiting || 0} đang chờ`}                                icon={PauseCircle}   tone="neutral" />
       </div>
 
       {/* ═══ ROW 2: Course + BU/Position (tabbed) ═══ */}
@@ -155,7 +155,7 @@ export default function DashboardPage() {
         <div className="bg-card border border-border rounded-lg p-5">
           <h3 className="text-sm font-semibold text-foreground mb-3 flex items-center gap-2">
             <span className="w-1 h-4 rounded-full bg-primary inline-block" />
-            Students by Course
+            Học viên theo khóa
           </h3>
           {stats?.courseBreakdown?.length > 0 ? (
             <div className="space-y-2.5">
@@ -170,7 +170,7 @@ export default function DashboardPage() {
                       <div className="flex gap-2 text-[10px]">
                         <span style={{ color }}>●{c.active}</span>
                         <span className="text-subtle-foreground">{c.inactive}</span>
-                        {c.waiting > 0 && <span className="text-info">{c.waiting} wait</span>}
+                        {c.waiting > 0 && <span className="text-info">{c.waiting} chờ</span>}
                       </div>
                     </div>
                     <div className="w-full bg-muted rounded-full h-3.5 overflow-hidden">
@@ -183,7 +183,7 @@ export default function DashboardPage() {
                 );
               })}
             </div>
-          ) : <EmptyState icon={BookOpen} title="No course data" variant="firstTime" className="py-8" />}
+          ) : <EmptyState icon={BookOpen} title="Chưa có dữ liệu khóa học" variant="firstTime" className="py-8" />}
         </div>
 
         {/* Tabbed: BU | Position */}
@@ -191,11 +191,11 @@ export default function DashboardPage() {
           <div className="flex items-center justify-between mb-3">
             <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
               <span className={`w-1 h-4 rounded-full inline-block ${orgTab === 'bu' ? 'bg-info' : 'bg-warning'}`} />
-              Students by {orgTab === 'bu' ? 'Department' : 'Position'}
+              Học viên theo {orgTab === 'bu' ? 'phòng ban' : 'vị trí'}
             </h3>
             <div className="flex rounded-md overflow-hidden border border-border">
               <button onClick={() => setOrgTab('bu')} className={`text-[10px] px-3 py-1 transition-colors duration-(--dur-fast) ${orgTab === 'bu' ? 'bg-accent text-foreground' : 'text-subtle-foreground hover:text-muted-foreground'}`}>BU</button>
-              <button onClick={() => setOrgTab('position')} className={`text-[10px] px-3 py-1 transition-colors duration-(--dur-fast) ${orgTab === 'position' ? 'bg-accent text-foreground' : 'text-subtle-foreground hover:text-muted-foreground'}`}>Position</button>
+              <button onClick={() => setOrgTab('position')} className={`text-[10px] px-3 py-1 transition-colors duration-(--dur-fast) ${orgTab === 'position' ? 'bg-accent text-foreground' : 'text-subtle-foreground hover:text-muted-foreground'}`}>Vị trí</button>
             </div>
           </div>
 
@@ -221,7 +221,7 @@ export default function DashboardPage() {
                   );
                 })}
               </div>
-            ) : <EmptyState icon={Building2} title="No department data" variant="firstTime" className="py-8" />
+            ) : <EmptyState icon={Building2} title="Chưa có dữ liệu phòng ban" variant="firstTime" className="py-8" />
           ) : (
             stats?.positionBreakdown?.length > 0 ? (
               <div className="space-y-1.5">
@@ -244,7 +244,7 @@ export default function DashboardPage() {
                   );
                 })}
               </div>
-            ) : <EmptyState icon={UserCog} title="No position data" variant="firstTime" className="py-8" />
+            ) : <EmptyState icon={UserCog} title="Chưa có dữ liệu vị trí" variant="firstTime" className="py-8" />
           )}
         </div>
       </div>
@@ -255,16 +255,16 @@ export default function DashboardPage() {
           <div className="flex items-center justify-between mb-3">
             <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
               <span className="w-1 h-4 rounded-full bg-chart-2 inline-block" />
-              Level Distribution
+              Phân bố trình độ
             </h3>
             {lp.total > 0 && (
               <div className="flex items-center gap-3">
                 <div className="flex items-center gap-4 text-[10px] text-muted-foreground">
-                  <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-sm bg-chart-2/70 inline-block" /> Entrance</span>
-                  <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-sm bg-chart-4/70 inline-block" /> Current</span>
+                  <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-sm bg-chart-2/70 inline-block" /> Đầu vào</span>
+                  <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-sm bg-chart-4/70 inline-block" /> Hiện tại</span>
                 </div>
                 <span className="text-[10px] px-2 py-0.5 rounded-md bg-success-tint text-success font-medium">
-                  {Math.round((lp.progressed / lp.total) * 100)}% progressed
+                  {Math.round((lp.progressed / lp.total) * 100)}% đã tiến bộ
                 </span>
               </div>
             )}
@@ -302,9 +302,9 @@ export default function DashboardPage() {
         <div className="flex items-center justify-between mb-3">
           <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
             <span className="w-1 h-4 rounded-full bg-success inline-block" />
-            Class Progress
+            Tiến độ lớp học
           </h3>
-          <span className="text-[10px] text-subtle-foreground">{classData.length} classes</span>
+          <span className="text-[10px] text-subtle-foreground">{classData.length} lớp</span>
         </div>
         {visibleClasses.length > 0 ? (
           <>
@@ -312,7 +312,7 @@ export default function DashboardPage() {
               <table className="w-full text-xs">
                 <thead>
                   <tr className="text-left border-b border-border">
-                    {['Class', 'Course', 'Done', 'Total', 'Progress', 'Status'].map(h => (
+                    {['Lớp', 'Khóa', 'Đã xong', 'Tổng', 'Tiến độ', 'Trạng thái'].map(h => (
                       <th key={h} className="px-2 py-1.5 text-overline text-muted-foreground">{h}</th>
                     ))}
                   </tr>
@@ -333,7 +333,7 @@ export default function DashboardPage() {
                         key={i}
                         onClick={() => c._id && navigate(`/classes/${c._id}`)}
                         className={`transition-colors duration-(--dur-fast) ${c._id ? 'cursor-pointer hover:bg-accent/50' : ''}`}
-                        title={c._id ? 'Click to open class detail' : undefined}
+                        title={c._id ? 'Nhấp để xem chi tiết lớp' : undefined}
                       >
                         <td className="px-2 py-2 text-mono text-primary">{c.classCode}</td>
                         <td className="px-2 py-2 text-foreground text-xs">{c.courseName}</td>
@@ -361,11 +361,11 @@ export default function DashboardPage() {
             {classData.length > 10 && (
               <button onClick={() => setShowAllClasses(!showAllClasses)}
                 className="mt-2 w-full text-center text-small text-primary hover:text-primary py-1.5 rounded-md hover:bg-accent/50 transition-colors duration-(--dur-fast)">
-                {showAllClasses ? 'Show less ↑' : `Show all ${classData.length} classes ↓`}
+                {showAllClasses ? 'Thu gọn ↑' : `Hiển thị tất cả ${classData.length} lớp ↓`}
               </button>
             )}
           </>
-        ) : <EmptyState icon={BookOpen} title="No class data" variant="firstTime" className="py-8" />}
+        ) : <EmptyState icon={BookOpen} title="Chưa có dữ liệu lớp" variant="firstTime" className="py-8" />}
       </div>
 
       {/* ═══ ROW 5: Laggard Classes — Ongoing with < 40% completion ═══ */}
@@ -374,18 +374,18 @@ export default function DashboardPage() {
           <div className="flex items-center justify-between mb-3">
             <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
               <span className="w-1 h-4 rounded-full bg-warning inline-block" />
-              Needs Attention
+              Cần chú ý
               <span className="text-[10px] font-normal text-warning bg-warning/10 px-1.5 py-0.5 rounded">
-                &lt;40% sessions done
+                &lt;40% buổi đã xong
               </span>
             </h3>
-            <span className="text-[10px] text-subtle-foreground">{laggardClasses.length} ongoing class{laggardClasses.length !== 1 ? 'es' : ''}</span>
+            <span className="text-[10px] text-subtle-foreground">{laggardClasses.length} lớp đang học</span>
           </div>
           <div className="overflow-x-auto">
             <table className="w-full text-xs">
               <thead>
                 <tr className="text-left border-b border-border">
-                  {['Class', 'Course', 'Done', 'Total', 'Progress'].map(h => (
+                  {['Lớp', 'Khóa', 'Đã xong', 'Tổng', 'Tiến độ'].map(h => (
                     <th key={h} className="px-2 py-1.5 text-overline text-muted-foreground">{h}</th>
                   ))}
                 </tr>
@@ -398,7 +398,7 @@ export default function DashboardPage() {
                       key={i}
                       onClick={() => c._id && navigate(`/classes/${c._id}`)}
                       className={`transition-colors duration-(--dur-fast) ${c._id ? 'cursor-pointer hover:bg-accent/50' : ''}`}
-                      title={c._id ? 'Click to open class detail' : undefined}
+                      title={c._id ? 'Nhấp để xem chi tiết lớp' : undefined}
                     >
                       <td className="px-2 py-2 text-mono text-primary">{c.classCode}</td>
                       <td className="px-2 py-2 text-foreground">{c.courseName}</td>
