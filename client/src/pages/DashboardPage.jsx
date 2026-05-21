@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Users, BarChart3, AlertTriangle, PauseCircle, RefreshCw, BookOpen, Building2, UserCog } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { useAuth } from '../context/AuthContext';
 import { useDashboardStats, useDashboardFilterOptions } from '../hooks/useDashboard';
 import { AlertBand } from '@/components/home/AlertBand';
@@ -19,6 +20,7 @@ import QueryError from '../components/QueryError';
 const chartVar = (i) => `var(--color-chart-${(i % 5) + 1})`;
 
 export default function DashboardPage() {
+  const { t, i18n } = useTranslation();
   const { user, isAdmin, isParticipant } = useAuth();
   const navigate = useNavigate();
 
@@ -50,7 +52,7 @@ export default function DashboardPage() {
   const { data: stats, isLoading: loadingStats, isError, error, isFetching, refetch, dataUpdatedAt } = useDashboardStats(filters, { enabled: isAdmin });
   const { data: filterOpts } = useDashboardFilterOptions({ enabled: isAdmin });
 
-  useEffect(() => { document.title = 'TMS — Trang chủ'; }, []);
+  useEffect(() => { document.title = t('dashboard.docTitle'); }, [t]);
   if (isParticipant) return <ParticipantDashboard />;
 
   if (loadingStats) {
@@ -67,6 +69,12 @@ export default function DashboardPage() {
 
   const o = stats?.overview || {};
   const pct = (n) => (n * 100).toFixed(1) + '%';
+
+  const dateLocale = i18n.language === 'vi' ? 'vi-VN' : 'en-US';
+  const minutesAgo = Math.round((Date.now() - dataUpdatedAt) / 60000);
+  const updatedText = minutesAgo
+    ? t('dashboard.updatedMinutesAgo', { count: minutesAgo })
+    : t('dashboard.updatedLessThanMinute');
 
   // ── Level data: merge entrance + current for grouped chart ──
   const levelOrder = {};
@@ -92,16 +100,33 @@ export default function DashboardPage() {
     c => c.status === 'Ongoing' && c.totalSessions > 0 && c.progress < 0.4,
   ).sort((a, b) => a.progress - b.progress);
 
+  const classHeaders = [
+    t('dashboard.classProgress.headers.class'),
+    t('dashboard.classProgress.headers.course'),
+    t('dashboard.classProgress.headers.done'),
+    t('dashboard.classProgress.headers.total'),
+    t('dashboard.classProgress.headers.progress'),
+    t('dashboard.classProgress.headers.status'),
+  ];
+
+  const laggardHeaders = [
+    t('dashboard.laggard.headers.class'),
+    t('dashboard.laggard.headers.course'),
+    t('dashboard.laggard.headers.done'),
+    t('dashboard.laggard.headers.total'),
+    t('dashboard.laggard.headers.progress'),
+  ];
+
   return (
     <div className="space-y-5">
       <PageHeader
-        title={`Chào ${user?.name?.split(' ')[0] || 'bạn'}`}
-        description={new Date().toLocaleDateString('vi-VN', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' })}
+        title={t('dashboard.greeting', { name: user?.name?.split(' ')[0] || t('dashboard.greetingFallback') })}
+        description={new Date().toLocaleDateString(dateLocale, { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' })}
         actions={
           <div className="flex items-center gap-2">
             {dataUpdatedAt > 0 && !isFetching && (
               <span className="text-small text-subtle-foreground" title={new Date(dataUpdatedAt).toLocaleTimeString()}>
-                Cập nhật {Math.round((Date.now() - dataUpdatedAt) / 60000) || '<1'} phút trước
+                {updatedText}
               </span>
             )}
             <Button
@@ -109,11 +134,11 @@ export default function DashboardPage() {
               size="sm"
               onClick={() => refetch()}
               disabled={isFetching}
-              title="Làm mới dữ liệu"
+              title={t('dashboard.refreshTitle')}
               className="gap-1.5"
             >
               {isFetching ? <Spinner size={13} /> : <RefreshCw style={{ width: 13, height: 13 }} />}
-              <span className="hidden sm:inline">{isFetching ? 'Đang tải…' : 'Làm mới'}</span>
+              <span className="hidden sm:inline">{isFetching ? t('dashboard.refreshing') : t('dashboard.refresh')}</span>
             </Button>
           </div>
         }
@@ -127,26 +152,26 @@ export default function DashboardPage() {
 
       <FilterBar
         filters={[
-          { key: 'department',    placeholder: 'Tất cả BU',        options: filterOpts?.departments   || [], value: filters.department    || '', onChange: v => setFilter('department', v) },
-          { key: 'position',      placeholder: 'Tất cả vị trí',    options: filterOpts?.positions      || [], value: filters.position      || '', onChange: v => setFilter('position', v) },
-          { key: 'entranceLevel', placeholder: 'Trình độ đầu vào', options: filterOpts?.entranceLevels || [], value: filters.entranceLevel || '', onChange: v => setFilter('entranceLevel', v) },
-          { key: 'currentLevel',  placeholder: 'Trình độ hiện tại', options: filterOpts?.currentLevels  || [], value: filters.currentLevel  || '', onChange: v => setFilter('currentLevel', v) },
-          { key: 'status',        placeholder: 'Tất cả trạng thái', options: filterOpts?.statuses       || [], value: filters.status        || '', onChange: v => setFilter('status', v) },
+          { key: 'department',    placeholder: t('dashboard.filters.allBU'),        options: filterOpts?.departments   || [], value: filters.department    || '', onChange: v => setFilter('department', v) },
+          { key: 'position',      placeholder: t('dashboard.filters.allPositions'), options: filterOpts?.positions      || [], value: filters.position      || '', onChange: v => setFilter('position', v) },
+          { key: 'entranceLevel', placeholder: t('dashboard.filters.entranceLevel'),options: filterOpts?.entranceLevels || [], value: filters.entranceLevel || '', onChange: v => setFilter('entranceLevel', v) },
+          { key: 'currentLevel',  placeholder: t('dashboard.filters.currentLevel'), options: filterOpts?.currentLevels  || [], value: filters.currentLevel  || '', onChange: v => setFilter('currentLevel', v) },
+          { key: 'status',        placeholder: t('dashboard.filters.allStatuses'),  options: filterOpts?.statuses       || [], value: filters.status        || '', onChange: v => setFilter('status', v) },
         ]}
       >
         {activeFilterCount > 0 && (
           <Button variant="ghost" size="sm" onClick={resetFilters} className="text-destructive hover:text-destructive hover:bg-destructive/10">
-            Xóa bộ lọc
+            {t('dashboard.filters.clearFilters')}
           </Button>
         )}
       </FilterBar>
 
       {/* ═══ KPI ROW ═══ */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        <KPICard label="Học viên đang học"   value={o.active}                   sub={`/ ${o.totalStudents || 0} tổng`}                            icon={Users}         tone="success" />
-        <KPICard label="Tỷ lệ điểm danh"     value={pct(o.attendanceRate || 0)} sub={`${o.presentSessions || 0} / ${o.totalSessions || 0} buổi`}  icon={BarChart3}     tone="info" />
-        <KPICard label="Có nguy cơ"          value={o.atRisk || 0}              sub="không hoạt động 30 ngày"                                     icon={AlertTriangle}  tone={o.atRisk > 0 ? 'danger' : 'neutral'} />
-        <KPICard label="Không hoạt động / Chờ" value={o.inactive || 0}          sub={`${o.waiting || 0} đang chờ`}                                icon={PauseCircle}   tone="neutral" />
+        <KPICard label={t('dashboard.kpi.activeStudents')}   value={o.active}                   sub={t('dashboard.kpi.totalSuffix', { total: o.totalStudents || 0 })}                                                      icon={Users}         tone="success" />
+        <KPICard label={t('dashboard.kpi.attendanceRate')}   value={pct(o.attendanceRate || 0)} sub={t('dashboard.kpi.sessionsSuffix', { present: o.presentSessions || 0, total: o.totalSessions || 0 })}                  icon={BarChart3}     tone="info" />
+        <KPICard label={t('dashboard.kpi.atRisk')}           value={o.atRisk || 0}              sub={t('dashboard.kpi.atRiskSub')}                                                                                          icon={AlertTriangle} tone={o.atRisk > 0 ? 'danger' : 'neutral'} />
+        <KPICard label={t('dashboard.kpi.inactive')}         value={o.inactive || 0}            sub={t('dashboard.kpi.waitingSuffix', { count: o.waiting || 0 })}                                                          icon={PauseCircle}   tone="neutral" />
       </div>
 
       {/* ═══ ROW 2: Course + BU/Position (tabbed) ═══ */}
@@ -155,7 +180,7 @@ export default function DashboardPage() {
         <div className="bg-card border border-border rounded-lg p-5">
           <h3 className="text-sm font-semibold text-foreground mb-3 flex items-center gap-2">
             <span className="w-1 h-4 rounded-full bg-primary inline-block" />
-            Học viên theo khóa
+            {t('dashboard.courseBreakdown.title')}
           </h3>
           {stats?.courseBreakdown?.length > 0 ? (
             <div className="space-y-2.5">
@@ -170,7 +195,7 @@ export default function DashboardPage() {
                       <div className="flex gap-2 text-[10px]">
                         <span style={{ color }}>●{c.active}</span>
                         <span className="text-subtle-foreground">{c.inactive}</span>
-                        {c.waiting > 0 && <span className="text-info">{c.waiting} chờ</span>}
+                        {c.waiting > 0 && <span className="text-info">{t('dashboard.courseBreakdown.waiting', { count: c.waiting })}</span>}
                       </div>
                     </div>
                     <div className="w-full bg-muted rounded-full h-3.5 overflow-hidden">
@@ -183,7 +208,7 @@ export default function DashboardPage() {
                 );
               })}
             </div>
-          ) : <EmptyState icon={BookOpen} title="Chưa có dữ liệu khóa học" variant="firstTime" className="py-8" />}
+          ) : <EmptyState icon={BookOpen} title={t('dashboard.courseBreakdown.empty')} variant="firstTime" className="py-8" />}
         </div>
 
         {/* Tabbed: BU | Position */}
@@ -191,11 +216,11 @@ export default function DashboardPage() {
           <div className="flex items-center justify-between mb-3">
             <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
               <span className={`w-1 h-4 rounded-full inline-block ${orgTab === 'bu' ? 'bg-info' : 'bg-warning'}`} />
-              Học viên theo {orgTab === 'bu' ? 'phòng ban' : 'vị trí'}
+              {orgTab === 'bu' ? t('dashboard.orgBreakdown.byBU') : t('dashboard.orgBreakdown.byPosition')}
             </h3>
             <div className="flex rounded-md overflow-hidden border border-border">
               <button onClick={() => setOrgTab('bu')} className={`text-[10px] px-3 py-1 transition-colors duration-(--dur-fast) ${orgTab === 'bu' ? 'bg-accent text-foreground' : 'text-subtle-foreground hover:text-muted-foreground'}`}>BU</button>
-              <button onClick={() => setOrgTab('position')} className={`text-[10px] px-3 py-1 transition-colors duration-(--dur-fast) ${orgTab === 'position' ? 'bg-accent text-foreground' : 'text-subtle-foreground hover:text-muted-foreground'}`}>Vị trí</button>
+              <button onClick={() => setOrgTab('position')} className={`text-[10px] px-3 py-1 transition-colors duration-(--dur-fast) ${orgTab === 'position' ? 'bg-accent text-foreground' : 'text-subtle-foreground hover:text-muted-foreground'}`}>{t('dashboard.orgBreakdown.positionTab')}</button>
             </div>
           </div>
 
@@ -221,7 +246,7 @@ export default function DashboardPage() {
                   );
                 })}
               </div>
-            ) : <EmptyState icon={Building2} title="Chưa có dữ liệu phòng ban" variant="firstTime" className="py-8" />
+            ) : <EmptyState icon={Building2} title={t('dashboard.orgBreakdown.emptyBU')} variant="firstTime" className="py-8" />
           ) : (
             stats?.positionBreakdown?.length > 0 ? (
               <div className="space-y-1.5">
@@ -244,7 +269,7 @@ export default function DashboardPage() {
                   );
                 })}
               </div>
-            ) : <EmptyState icon={UserCog} title="Chưa có dữ liệu vị trí" variant="firstTime" className="py-8" />
+            ) : <EmptyState icon={UserCog} title={t('dashboard.orgBreakdown.emptyPosition')} variant="firstTime" className="py-8" />
           )}
         </div>
       </div>
@@ -255,16 +280,16 @@ export default function DashboardPage() {
           <div className="flex items-center justify-between mb-3">
             <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
               <span className="w-1 h-4 rounded-full bg-chart-2 inline-block" />
-              Phân bố trình độ
+              {t('dashboard.levelBreakdown.title')}
             </h3>
             {lp.total > 0 && (
               <div className="flex items-center gap-3">
                 <div className="flex items-center gap-4 text-[10px] text-muted-foreground">
-                  <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-sm bg-chart-2/70 inline-block" /> Đầu vào</span>
-                  <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-sm bg-chart-4/70 inline-block" /> Hiện tại</span>
+                  <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-sm bg-chart-2/70 inline-block" /> {t('dashboard.levelBreakdown.entrance')}</span>
+                  <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-sm bg-chart-4/70 inline-block" /> {t('dashboard.levelBreakdown.current')}</span>
                 </div>
                 <span className="text-[10px] px-2 py-0.5 rounded-md bg-success-tint text-success font-medium">
-                  {Math.round((lp.progressed / lp.total) * 100)}% đã tiến bộ
+                  {t('dashboard.levelBreakdown.progressedPct', { pct: Math.round((lp.progressed / lp.total) * 100) })}
                 </span>
               </div>
             )}
@@ -302,9 +327,9 @@ export default function DashboardPage() {
         <div className="flex items-center justify-between mb-3">
           <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
             <span className="w-1 h-4 rounded-full bg-success inline-block" />
-            Tiến độ lớp học
+            {t('dashboard.classProgress.title')}
           </h3>
-          <span className="text-[10px] text-subtle-foreground">{classData.length} lớp</span>
+          <span className="text-[10px] text-subtle-foreground">{t('dashboard.classProgress.classCount', { count: classData.length })}</span>
         </div>
         {visibleClasses.length > 0 ? (
           <>
@@ -312,7 +337,7 @@ export default function DashboardPage() {
               <table className="w-full text-xs">
                 <thead>
                   <tr className="text-left border-b border-border">
-                    {['Lớp', 'Khóa', 'Đã xong', 'Tổng', 'Tiến độ', 'Trạng thái'].map(h => (
+                    {classHeaders.map(h => (
                       <th key={h} className="px-2 py-1.5 text-overline text-muted-foreground">{h}</th>
                     ))}
                   </tr>
@@ -333,7 +358,7 @@ export default function DashboardPage() {
                         key={i}
                         onClick={() => c._id && navigate(`/classes/${c._id}`)}
                         className={`transition-colors duration-(--dur-fast) ${c._id ? 'cursor-pointer hover:bg-accent/50' : ''}`}
-                        title={c._id ? 'Nhấp để xem chi tiết lớp' : undefined}
+                        title={c._id ? t('dashboard.classProgress.clickToView') : undefined}
                       >
                         <td className="px-2 py-2 text-mono text-primary">{c.classCode}</td>
                         <td className="px-2 py-2 text-foreground text-xs">{c.courseName}</td>
@@ -361,11 +386,11 @@ export default function DashboardPage() {
             {classData.length > 10 && (
               <button onClick={() => setShowAllClasses(!showAllClasses)}
                 className="mt-2 w-full text-center text-small text-primary hover:text-primary py-1.5 rounded-md hover:bg-accent/50 transition-colors duration-(--dur-fast)">
-                {showAllClasses ? 'Thu gọn ↑' : `Hiển thị tất cả ${classData.length} lớp ↓`}
+                {showAllClasses ? t('dashboard.classProgress.collapse') : t('dashboard.classProgress.showAll', { count: classData.length })}
               </button>
             )}
           </>
-        ) : <EmptyState icon={BookOpen} title="Chưa có dữ liệu lớp" variant="firstTime" className="py-8" />}
+        ) : <EmptyState icon={BookOpen} title={t('dashboard.classProgress.empty')} variant="firstTime" className="py-8" />}
       </div>
 
       {/* ═══ ROW 5: Laggard Classes — Ongoing with < 40% completion ═══ */}
@@ -374,18 +399,18 @@ export default function DashboardPage() {
           <div className="flex items-center justify-between mb-3">
             <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
               <span className="w-1 h-4 rounded-full bg-warning inline-block" />
-              Cần chú ý
+              {t('dashboard.laggard.title')}
               <span className="text-[10px] font-normal text-warning bg-warning/10 px-1.5 py-0.5 rounded">
-                &lt;40% buổi đã xong
+                {t('dashboard.laggard.badge')}
               </span>
             </h3>
-            <span className="text-[10px] text-subtle-foreground">{laggardClasses.length} lớp đang học</span>
+            <span className="text-[10px] text-subtle-foreground">{t('dashboard.laggard.count', { count: laggardClasses.length })}</span>
           </div>
           <div className="overflow-x-auto">
             <table className="w-full text-xs">
               <thead>
                 <tr className="text-left border-b border-border">
-                  {['Lớp', 'Khóa', 'Đã xong', 'Tổng', 'Tiến độ'].map(h => (
+                  {laggardHeaders.map(h => (
                     <th key={h} className="px-2 py-1.5 text-overline text-muted-foreground">{h}</th>
                   ))}
                 </tr>
@@ -398,7 +423,7 @@ export default function DashboardPage() {
                       key={i}
                       onClick={() => c._id && navigate(`/classes/${c._id}`)}
                       className={`transition-colors duration-(--dur-fast) ${c._id ? 'cursor-pointer hover:bg-accent/50' : ''}`}
-                      title={c._id ? 'Nhấp để xem chi tiết lớp' : undefined}
+                      title={c._id ? t('dashboard.classProgress.clickToView') : undefined}
                     >
                       <td className="px-2 py-2 text-mono text-primary">{c.classCode}</td>
                       <td className="px-2 py-2 text-foreground">{c.courseName}</td>

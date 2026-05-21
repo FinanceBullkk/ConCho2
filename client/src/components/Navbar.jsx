@@ -15,7 +15,9 @@ import {
   X,
   Search,
   ChevronDown,
+  Globe,
 } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../hooks/useTheme';
 import { Button } from '@/components/ui/button';
@@ -37,36 +39,36 @@ import SearchPalette from './SearchPalette';
 const NAV_ITEMS = [
   {
     path: '/home',
-    label: 'Home',
+    labelKey: 'nav.home',
     icon: Home,
     access: { Admin: 'full', Teacher: 'full', Participant: 'full' },
   },
   {
     path: '/people',
-    label: 'People',
+    labelKey: 'nav.people',
     icon: Users,
     access: { Admin: 'full', Teacher: 'none', Participant: 'none' },
-    disabledTitle: 'Admin access required',
+    disabledTitleKey: 'nav.adminOnly',
   },
   {
     path: '/programs',
-    label: 'Programs',
+    labelKey: 'nav.programs',
     icon: BookOpen,
     access: { Admin: 'full', Teacher: 'read', Participant: 'none' },
-    disabledTitle: 'Admin access required',
+    disabledTitleKey: 'nav.adminOnly',
   },
   {
     path: '/calendar',
-    label: 'Calendar',
+    labelKey: 'nav.calendar',
     icon: CalendarDays,
     access: { Admin: 'full', Teacher: 'full', Participant: 'full' },
   },
   {
     path: '/reports',
-    label: 'Reports',
+    labelKey: 'nav.reports',
     icon: FileBarChart,
     access: { Admin: 'full', Teacher: 'full', Participant: 'none' },
-    disabledTitle: 'Not available for participants',
+    disabledTitleKey: 'nav.participantUnavailable',
   },
 ];
 
@@ -96,6 +98,8 @@ const NAV_PARENT_ROUTES = {
 
 // ── Avatar dropdown ───────────────────────────────────────
 function AvatarMenu({ user, onLogout }) {
+  const { t } = useTranslation();
+
   const initials = (user?.name || '?')
     .split(' ')
     .map((w) => w[0])
@@ -109,7 +113,7 @@ function AvatarMenu({ user, onLogout }) {
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <button
-          aria-label="Open account menu"
+          aria-label={t('nav.openAccountMenu')}
           className="flex items-center gap-1.5 rounded-lg px-1.5 py-1 hover:bg-accent transition-colors duration-(--dur) focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
           {/* Avatar chip */}
@@ -140,7 +144,7 @@ function AvatarMenu({ user, onLogout }) {
         <DropdownMenuItem asChild>
           <Link to="/me/settings" className="flex items-center gap-2 cursor-pointer">
             <Settings className="size-4 text-muted-foreground" aria-hidden="true" />
-            Account settings
+            {t('nav.accountSettings')}
           </Link>
         </DropdownMenuItem>
 
@@ -148,7 +152,7 @@ function AvatarMenu({ user, onLogout }) {
           <DropdownMenuItem asChild>
             <Link to="/system" className="flex items-center gap-2 cursor-pointer">
               <ShieldCog className="size-4 text-muted-foreground" aria-hidden="true" />
-              System
+              {t('nav.system')}
             </Link>
           </DropdownMenuItem>
         )}
@@ -160,7 +164,7 @@ function AvatarMenu({ user, onLogout }) {
           className="flex items-center gap-2 cursor-pointer text-destructive focus:text-destructive focus:bg-destructive/10"
         >
           <LogOut className="size-4" aria-hidden="true" />
-          Sign out
+          {t('nav.signOut')}
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
@@ -171,8 +175,11 @@ export default function Navbar() {
   const { user, logout } = useAuth();
   const location = useLocation();
   const { isDark, toggle } = useTheme();
+  const { t, i18n } = useTranslation();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
+
+  const toggleLang = () => i18n.changeLanguage(i18n.language === 'vi' ? 'en' : 'vi');
 
   // Close on route change
   useEffect(() => setMobileOpen(false), [location.pathname]);
@@ -265,17 +272,21 @@ export default function Navbar() {
               const Icon = item.icon;
               const active = isActive(item.path);
               const disabled = item.accessLevel === 'none';
+              const label = t(item.labelKey);
+              const disabledTitle = item.disabledTitleKey
+                ? t(item.disabledTitleKey)
+                : t('nav.unavailableForRole', { label });
               const baseCls = 'flex items-center gap-2 whitespace-nowrap rounded-lg px-3 py-2 text-sm font-medium transition-colors duration-(--dur)';
               if (disabled) {
                 return (
                   <span
                     key={item.path}
                     aria-disabled="true"
-                    title={item.disabledTitle || `${item.label} unavailable for your role`}
+                    title={disabledTitle}
                     className={cn(baseCls, 'text-subtle-foreground/60 cursor-not-allowed')}
                   >
                     <Icon className="size-4" />
-                    <span>{item.label}</span>
+                    <span>{label}</span>
                   </span>
                 );
               }
@@ -291,7 +302,7 @@ export default function Navbar() {
                   )}
                 >
                   <Icon className="size-4" />
-                  <span>{item.label}</span>
+                  <span>{label}</span>
                 </Link>
               );
             })}
@@ -307,25 +318,33 @@ export default function Navbar() {
             </div>
             <button
               onClick={() => setSearchOpen(true)}
-              aria-label="Open search (Ctrl+K)"
-              title="Search (Ctrl+K)"
+              aria-label={t('nav.openSearch')}
+              title={t('nav.openSearch')}
               className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-lg bg-accent border border-border text-xs text-muted-foreground hover:text-foreground hover:bg-accent/80 transition-colors duration-(--dur)"
             >
               <Search className="size-3.5" aria-hidden="true" />
-              <span>Search…</span>
+              <span>{t('nav.searchPlaceholder')}</span>
               <kbd className="ml-2 px-1.5 py-0.5 rounded bg-muted text-[10px] font-mono">Ctrl K</kbd>
             </button>
             <button
               onClick={() => setSearchOpen(true)}
-              aria-label="Open search"
+              aria-label={t('nav.openSearchMobile')}
               className="sm:hidden p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-accent transition-colors duration-(--dur)"
             >
               <Search className="size-4" aria-hidden="true" />
             </button>
             <button
+              onClick={toggleLang}
+              aria-label={t('nav.switchLanguage')}
+              title={t('nav.switchLanguage')}
+              className="p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-accent transition-colors duration-(--dur) text-xs font-semibold"
+            >
+              <Globe className="size-4" aria-hidden="true" />
+            </button>
+            <button
               onClick={toggle}
-              aria-label={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
-              title={isDark ? 'Light mode' : 'Dark mode'}
+              aria-label={isDark ? t('nav.switchLight') : t('nav.switchDark')}
+              title={isDark ? t('nav.lightMode') : t('nav.darkMode')}
               className="p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-accent transition-colors duration-(--dur)"
             >
               {isDark ? <Sun className="size-4" aria-hidden="true" /> : <Moon className="size-4" aria-hidden="true" />}
@@ -335,7 +354,7 @@ export default function Navbar() {
             {/* Hamburger button — mobile only */}
             <button
               onClick={() => setMobileOpen((o) => !o)}
-              aria-label={mobileOpen ? 'Close menu' : 'Open menu'}
+              aria-label={mobileOpen ? t('nav.closeMenu') : t('nav.openMenu')}
               aria-expanded={mobileOpen}
               aria-controls="mobile-nav"
               className="md:hidden p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-accent transition-colors duration-(--dur)"
@@ -357,17 +376,21 @@ export default function Navbar() {
             className="md:hidden border-t border-border py-3 space-y-1"
           >
             {items.map((item) => {
+              const label = t(item.labelKey);
+              const disabledTitle = item.disabledTitleKey
+                ? t(item.disabledTitleKey)
+                : t('nav.unavailableForRole', { label });
               const baseCls = 'flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm font-medium transition-colors duration-(--dur)';
               if (item.accessLevel === 'none') {
                 return (
                   <span
                     key={item.path}
                     aria-disabled="true"
-                    title={item.disabledTitle || `${item.label} unavailable for your role`}
+                    title={disabledTitle}
                     className={cn(baseCls, 'text-subtle-foreground/60 cursor-not-allowed')}
                   >
                     {item.icon && <item.icon className="size-4" aria-hidden="true" />}
-                    {item.label}
+                    {label}
                   </span>
                 );
               }
@@ -386,7 +409,7 @@ export default function Navbar() {
                   onClick={() => setMobileOpen(false)}
                 >
                   {item.icon && <item.icon className="size-4" aria-hidden="true" />}
-                  {item.label}
+                  {label}
                 </NavLink>
               );
             })}
