@@ -63,6 +63,10 @@ const bulkImportHistory = async (req, res) => {
 
     for (const s of sessions) {
       try {
+        // P2-06: Use local counters inside the closure, only commit to outer
+        // counters after the transaction succeeds. If the transaction rolls back,
+        // the outer counters are never incremented — no overreport.
+        let sessionSchedules = 0, sessionAttendance = 0;
         await dbSession.withTransaction(async () => {
           // Create schedule directly (no validation — historical data)
           const [schedule] = await Schedule.create(
@@ -76,7 +80,7 @@ const bulkImportHistory = async (req, res) => {
             }],
             { session: dbSession }
           );
-          schedulesCreated++;
+          sessionSchedules = 1;
 
           // Create attendance records in the same transaction so a failure rolls back the schedule too
           if (s.students && s.students.length > 0) {
@@ -86,9 +90,12 @@ const bulkImportHistory = async (req, res) => {
               status: st.status,
             }));
             const result = await Attendance.insertMany(records, { session: dbSession });
-            attendanceCreated += result.length;
+            sessionAttendance = result.length;
           }
         });
+        // Transaction committed — now safe to update outer counters
+        schedulesCreated += sessionSchedules;
+        attendanceCreated += sessionAttendance;
       } catch (err) {
         // Transaction rolled back — schedule was not persisted
         errors.push(err.message);
