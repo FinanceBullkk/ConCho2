@@ -2,6 +2,7 @@ import { useState, useEffect, lazy, Suspense } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { Toaster } from '@/components/ui/sonner';
 import { AlarmClock, KeyRound } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { Spinner } from './components/Spinner';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { authAPI } from './api/api';
@@ -10,8 +11,6 @@ import ErrorBoundary from './components/ErrorBoundary';
 import Layout from './components/Layout';
 import { Button } from '@/components/ui/button';
 import { PasswordStrength, scorePassword } from '@/components/PasswordStrength';
-
-const FORCE_CHANGE_LABELS_VN = ['', 'Yếu', 'Trung bình', 'Tốt', 'Mạnh'];
 
 // Login is kept eager — first paint for unauthenticated users should not
 // pay a chunk-fetch round-trip. Everything behind auth is lazy.
@@ -39,6 +38,7 @@ function RouteFallback() {
 }
 
 function AuthExpiredModal() {
+  const { t } = useTranslation();
   const [open, setOpen] = useState(false);
 
   useEffect(() => {
@@ -55,9 +55,9 @@ function AuthExpiredModal() {
         <div className="flex items-center justify-center w-12 h-12 mx-auto rounded-md bg-warning-tint">
           <AlarmClock className="size-6 text-warning" aria-hidden="true" />
         </div>
-        <h3 className="text-h2 text-foreground">Your session has expired</h3>
+        <h3 className="text-h2 text-foreground">{t('modals.authExpired.title')}</h3>
         <p className="text-body text-muted-foreground">
-          Open a new tab to sign in again, then come back here to continue without losing your work.
+          {t('modals.authExpired.body')}
         </p>
         <div className="flex gap-3 pt-2">
           <Button
@@ -65,10 +65,10 @@ function AuthExpiredModal() {
             className="flex-1"
             onClick={() => window.open('/login', '_blank')}
           >
-            Sign in (new tab)
+            {t('modals.authExpired.signIn')}
           </Button>
           <Button variant="ghost" onClick={() => setOpen(false)}>
-            Dismiss
+            {t('modals.authExpired.dismiss')}
           </Button>
         </div>
       </div>
@@ -81,6 +81,7 @@ function AuthExpiredModal() {
 // (e.g. first login with a seed/default password). Blocks ALL navigation
 // until the user sets a personal password.
 function ForceChangePasswordModal() {
+  const { t } = useTranslation();
   const { user, refreshUser } = useAuth();
   const [currentPwd, setCurrentPwd] = useState('');
   const [newPwd, setNewPwd] = useState('');
@@ -94,15 +95,15 @@ function ForceChangePasswordModal() {
     e.preventDefault();
     setError('');
     if (newPwd !== confirmPwd) {
-      setError('Mật khẩu xác nhận không khớp');
+      setError(t('modals.forceChange.errMismatch'));
       return;
     }
     if (newPwd.length < 10) {
-      setError('Mật khẩu mới phải có ít nhất 10 ký tự');
+      setError(t('modals.forceChange.errTooShort'));
       return;
     }
     if (newPwd === currentPwd) {
-      setError('Mật khẩu mới phải khác mật khẩu hiện tại');
+      setError(t('modals.forceChange.errSameAsCurrent'));
       return;
     }
     setLoading(true);
@@ -110,7 +111,7 @@ function ForceChangePasswordModal() {
       await authAPI.changePassword(currentPwd, newPwd);
       await refreshUser(); // Clears mustChangePassword from context
     } catch (err) {
-      setError(err.response?.data?.message || 'Đổi mật khẩu thất bại. Vui lòng thử lại.');
+      setError(err.response?.data?.message || t('modals.forceChange.errGeneric'));
     } finally {
       setLoading(false);
     }
@@ -129,14 +130,14 @@ function ForceChangePasswordModal() {
         <div className="flex items-center justify-center w-12 h-12 mx-auto rounded-md bg-primary-tint mb-3">
           <KeyRound className="size-6 text-primary" aria-hidden="true" />
         </div>
-        <h3 className="text-h2 text-foreground text-center">Đổi mật khẩu bắt buộc</h3>
+        <h3 className="text-h2 text-foreground text-center">{t('modals.forceChange.title')}</h3>
         <p className="text-body text-muted-foreground text-center mt-2 mb-6">
-          Tài khoản của bạn đang dùng mật khẩu mặc định. Vui lòng đặt mật khẩu cá nhân trước khi tiếp tục.
+          {t('modals.forceChange.subtitle')}
         </p>
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="block text-overline text-muted-foreground mb-1.5">Mật khẩu hiện tại</label>
+            <label className="block text-overline text-muted-foreground mb-1.5">{t('modals.forceChange.currentPwd')}</label>
             <input
               type="password"
               value={currentPwd}
@@ -144,11 +145,11 @@ function ForceChangePasswordModal() {
               required
               autoComplete="current-password"
               className={inputCls}
-              placeholder="Nhập mật khẩu hiện tại"
+              placeholder={t('modals.forceChange.currentPwdPlaceholder')}
             />
           </div>
           <div>
-            <label className="block text-overline text-muted-foreground mb-1.5">Mật khẩu mới</label>
+            <label className="block text-overline text-muted-foreground mb-1.5">{t('modals.forceChange.newPwd')}</label>
             <input
               type="password"
               value={newPwd}
@@ -156,12 +157,12 @@ function ForceChangePasswordModal() {
               required
               autoComplete="new-password"
               className={inputCls}
-              placeholder="Tối thiểu 10 ký tự"
+              placeholder={t('modals.forceChange.newPwdPlaceholder')}
             />
-            <PasswordStrength value={newPwd} labels={FORCE_CHANGE_LABELS_VN} className="mt-2" />
+            <PasswordStrength value={newPwd} labels={t('passwordStrength', { returnObjects: true })} className="mt-2" />
           </div>
           <div>
-            <label className="block text-overline text-muted-foreground mb-1.5">Xác nhận mật khẩu mới</label>
+            <label className="block text-overline text-muted-foreground mb-1.5">{t('modals.forceChange.confirmPwd')}</label>
             <input
               type="password"
               value={confirmPwd}
@@ -169,7 +170,7 @@ function ForceChangePasswordModal() {
               required
               autoComplete="new-password"
               className={inputCls}
-              placeholder="Nhập lại mật khẩu mới"
+              placeholder={t('modals.forceChange.confirmPwdPlaceholder')}
             />
           </div>
 
@@ -187,9 +188,9 @@ function ForceChangePasswordModal() {
             {loading ? (
               <>
                 <Spinner size={16} />
-                Đang xử lý...
+                {t('modals.forceChange.submitting')}
               </>
-            ) : 'Đổi mật khẩu & Tiếp tục'}
+            ) : t('modals.forceChange.submit')}
           </Button>
         </form>
       </div>

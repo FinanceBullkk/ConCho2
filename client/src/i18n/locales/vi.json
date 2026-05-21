@@ -1,0 +1,233 @@
+{
+  "nav": {
+    "home": "Trang chủ",
+    "people": "Nhân sự",
+    "programs": "Chương trình",
+    "calendar": "Lịch",
+    "reports": "Báo cáo",
+    "adminOnly": "Chỉ dành cho Admin",
+    "participantUnavailable": "Không khả dụng cho Học viên",
+    "unavailableForRole": "{{label}} không khả dụng cho vai trò của bạn",
+    "openAccountMenu": "Mở menu tài khoản",
+    "accountSettings": "Cài đặt tài khoản",
+    "system": "Hệ thống",
+    "signOut": "Đăng xuất",
+    "openSearch": "Mở tìm kiếm (Ctrl+K)",
+    "openSearchMobile": "Mở tìm kiếm",
+    "searchPlaceholder": "Tìm kiếm…",
+    "switchLight": "Chuyển sang chế độ sáng",
+    "switchDark": "Chuyển sang chế độ tối",
+    "lightMode": "Chế độ sáng",
+    "darkMode": "Chế độ tối",
+    "switchLanguage": "Chuyển sang tiếng Anh",
+    "openMenu": "Mở menu",
+    "closeMenu": "Đóng menu"
+  },
+  "modals": {
+    "authExpired": {
+      "title": "Phiên đăng nhập đã hết hạn",
+      "body": "Mở tab mới để đăng nhập lại, sau đó quay lại đây để tiếp tục mà không mất dữ liệu.",
+      "signIn": "Đăng nhập (tab mới)",
+      "dismiss": "Bỏ qua"
+    },
+    "forceChange": {
+      "title": "Đổi mật khẩu bắt buộc",
+      "subtitle": "Tài khoản của bạn đang dùng mật khẩu mặc định. Vui lòng đặt mật khẩu cá nhân trước khi tiếp tục.",
+      "currentPwd": "Mật khẩu hiện tại",
+      "currentPwdPlaceholder": "Nhập mật khẩu hiện tại",
+      "newPwd": "Mật khẩu mới",
+      "newPwdPlaceholder": "Tối thiểu 10 ký tự",
+      "confirmPwd": "Xác nhận mật khẩu mới",
+      "confirmPwdPlaceholder": "Nhập lại mật khẩu mới",
+      "errMismatch": "Mật khẩu xác nhận không khớp",
+      "errTooShort": "Mật khẩu mới phải có ít nhất 10 ký tự",
+      "errSameAsCurrent": "Mật khẩu mới phải khác mật khẩu hiện tại",
+      "errGeneric": "Đổi mật khẩu thất bại. Vui lòng thử lại.",
+      "submitting": "Đang xử lý...",
+      "submit": "Đổi mật khẩu & Tiếp tục"
+    }
+  },
+  "passwordStrength": ["", "Yếu", "Trung bình", "Tốt", "Mạnh"],
+  "dashboard": {
+    "docTitle": "TMS — Trang chủ",
+    "greeting": "Chào {{name}}",
+    "greetingFallback": "bạn",
+    "updatedMinutesAgo": "Cập nhật {{count}} phút trước",
+    "updatedLessThanMinute": "Cập nhật <1 phút trước",
+    "refreshTitle": "Làm mới dữ liệu",
+    "refreshing": "Đang tải…",
+    "refresh": "Làm mới",
+    "filters": {
+      "allBU": "Tất cả BU",
+      "allPositions": "Tất cả vị trí",
+      "entranceLevel": "Trình độ đầu vào",
+      "currentLevel": "Trình độ hiện tại",
+      "allStatuses": "Tất cả trạng thái",
+      "clearFilters": "Xóa bộ lọc"
+    },
+    "kpi": {
+      "activeStudents": "Học viên đang học",
+      "totalSuffix": "/ {{total}} tổng",
+      "attendanceRate": "Tỷ lệ điểm danh",
+      "sessionsSuffix": "{{present}} / {{total}} buổi",
+      "atRisk": "Có nguy cơ",
+      "atRiskSub": "không hoạt động 30 ngày",
+      "inactive": "Không hoạt động / Chờ",
+      "waitingSuffix": "{{count}} đang chờ"
+    },
+    "courseBreakdown": {
+      "title": "Học viên theo khóa",
+      "waiting": "{{count}} chờ",
+      "empty": "Chưa có dữ liệu khóa học"
+    },
+    "orgBreakdown": {
+      "byBU": "Học viên theo phòng ban",
+      "byPosition": "Học viên theo vị trí",
+      "emptyBU": "Chưa có dữ liệu phòng ban",
+      "emptyPosition": "Chưa có dữ liệu vị trí",
+      "positionTab": "Vị trí"
+    },
+    "levelBreakdown": {
+      "title": "Phân bố trình độ",
+      "entrance": "Đầu vào",
+      "current": "Hiện tại",
+      "progressedPct": "{{pct}}% đã tiến bộ"
+    },
+    "classProgress": {
+      "title": "Tiến độ lớp học",
+      "classCount": "{{count}} lớp",
+      "headers": {
+        "class": "Lớp",
+        "course": "Khóa",
+        "done": "Đã xong",
+        "total": "Tổng",
+        "progress": "Tiến độ",
+        "status": "Trạng thái"
+      },
+      "clickToView": "Nhấp để xem chi tiết lớp",
+      "showAll": "Hiển thị tất cả {{count}} lớp ↓",
+      "collapse": "Thu gọn ↑",
+      "empty": "Chưa có dữ liệu lớp"
+    },
+    "laggard": {
+      "title": "Cần chú ý",
+      "badge": "<40% buổi đã xong",
+      "count": "{{count}} lớp đang học",
+      "headers": {
+        "class": "Lớp",
+        "course": "Khóa",
+        "done": "Đã xong",
+        "total": "Tổng",
+        "progress": "Tiến độ"
+      }
+    }
+  },
+  "userSettings": {
+    "pageTitle": "Cài đặt tài khoản",
+    "docTitle": "TMS — Cài đặt tài khoản",
+    "profile": {
+      "title": "Thông tin cá nhân",
+      "empCode": "Mã nhân viên",
+      "role": "Vai trò",
+      "email": "Email",
+      "emailNotSet": "Chưa thiết lập — đề nghị admin thêm email để nhận lời mời Google Calendar",
+      "department": "Phòng ban",
+      "status": "Trạng thái"
+    },
+    "changePwd": {
+      "title": "Đổi mật khẩu",
+      "currentPwd": "Mật khẩu hiện tại",
+      "newPwd": "Mật khẩu mới",
+      "newPwdHint": "Ít nhất 10 ký tự · chữ hoa + chữ số + ký tự đặc biệt để đạt độ mạnh tối đa.",
+      "confirmPwd": "Xác nhận mật khẩu mới",
+      "submit": "Cập nhật mật khẩu",
+      "submitting": "Đang cập nhật…",
+      "weakTooltip": "Mật khẩu quá yếu — cần đạt ít nhất 2 tiêu chí về độ mạnh",
+      "successToast": "Đã cập nhật mật khẩu",
+      "errFallback": "Đổi mật khẩu thất bại"
+    },
+    "mfa": {
+      "title": "Xác thực 2 yếu tố",
+      "statusOn": "Đã bật",
+      "statusOff": "Đã tắt",
+      "description": "Thêm yếu tố xác thực thứ hai với ứng dụng xác thực (Google Authenticator, Microsoft Authenticator, 1Password, v.v.). Mật khẩu một mình sẽ không còn đủ để đăng nhập.",
+      "enableBtn": "Bật xác thực 2 yếu tố",
+      "enableBusy": "Đang chuẩn bị…",
+      "disableBtn": "Tắt xác thực 2 yếu tố",
+      "disableInstruction": "Nhập mã 6 chữ số hiện tại hoặc mã dự phòng để xác nhận:",
+      "disableBusy": "Đang tắt…",
+      "disableSubmit": "Tắt MFA",
+      "keepEnabled": "Giữ bật",
+      "step1": "1. Quét mã QR này bằng ứng dụng xác thực:",
+      "qrAlt": "Mã QR cho MFA",
+      "manualEntry": "Không quét được? Nhập mã bí mật thủ công",
+      "step2": "2. Nhập mã 6 chữ số hiển thị trong ứng dụng:",
+      "verifyBusy": "Đang xác thực…",
+      "verifySubmit": "Xác thực & Bật",
+      "cancel": "Hủy",
+      "errSetupFallback": "Không khởi động được thiết lập MFA",
+      "errCodeFallback": "Mã không hợp lệ"
+    },
+    "backupCodes": {
+      "warning": "Lưu các mã dự phòng này ngay.",
+      "warningBody": "Mỗi mã chỉ dùng được một lần. Sẽ không được hiển thị lại. Dùng chúng khi bạn mất quyền truy cập ứng dụng xác thực.",
+      "copied": "Đã sao chép",
+      "copyAll": "Sao chép tất cả",
+      "saved": "Đã lưu"
+    },
+    "lockdown": {
+      "title": "Cần xác thực 2 yếu tố",
+      "description": "Vai trò của bạn ({{role}}) yêu cầu 2FA trước khi truy cập hệ thống. Vui lòng thiết lập bên dưới — chỉ mất khoảng một phút. Sau khi đăng ký xong bạn sẽ được đưa trở lại ứng dụng và không thấy màn hình này nữa."
+    }
+  },
+  "auth": {
+    "login": {
+      "subtitle": "Hệ thống Quản lý Đào tạo",
+      "title": "Đăng nhập",
+      "empCode": "Mã nhân viên",
+      "empCodePlaceholder": "vd: 000001",
+      "password": "Mật khẩu",
+      "forgotPassword": "Quên mật khẩu?",
+      "submitting": "Đang đăng nhập…",
+      "submit": "Đăng nhập",
+      "errFallback": "Đăng nhập thất bại",
+      "devAccounts": "Tài khoản test (chỉ dev)",
+      "roleAdmin": "Quản trị",
+      "roleParticipant": "Học viên"
+    },
+    "mfa": {
+      "title": "Xác thực 2 yếu tố",
+      "description": "Nhập mã 6 chữ số từ ứng dụng xác thực, hoặc mã dự phòng (XXXXX-XXXXX).",
+      "codeLabel": "Mã xác thực",
+      "codePlaceholder": "123456 hoặc XXXXX-XXXXX",
+      "submitting": "Đang xác thực…",
+      "submit": "Xác thực & Đăng nhập",
+      "backToLogin": "← Quay lại đăng nhập",
+      "errFallback": "Xác thực MFA thất bại"
+    },
+    "forgotPassword": {
+      "title": "Quên mật khẩu?",
+      "subtitle": "Nhập mã nhân viên của bạn và chúng tôi sẽ gửi liên kết đặt lại tới email đã đăng ký.",
+      "submit": "Gửi liên kết đặt lại",
+      "submitting": "Đang gửi…",
+      "sentTitle": "Kiểm tra email của bạn",
+      "sentBody": "Nếu mã nhân viên tồn tại và có email đăng ký, liên kết đặt lại đã được gửi. Vui lòng kiểm tra hộp thư (và mục spam).",
+      "backToLogin": "Quay lại đăng nhập"
+    },
+    "resetPassword": {
+      "title": "Đặt mật khẩu mới",
+      "subtitle": "Chọn mật khẩu mạnh (ít nhất 10 ký tự).",
+      "newPwd": "Mật khẩu mới",
+      "confirmPwd": "Xác nhận mật khẩu",
+      "submit": "Đặt lại mật khẩu",
+      "submitting": "Đang đặt lại…",
+      "weakPasswordTooltip": "Mật khẩu quá yếu — cần đạt ít nhất 2 tiêu chí về độ mạnh",
+      "errFallback": "Đặt lại thất bại. Liên kết có thể đã hết hạn.",
+      "invalidTitle": "Liên kết đặt lại không hợp lệ",
+      "invalidBody": "Liên kết này thiếu token đặt lại. Vui lòng yêu cầu một liên kết mới.",
+      "invalidButton": "Yêu cầu liên kết đặt lại",
+      "successTitle": "Đã cập nhật mật khẩu!",
+      "successBody": "Đang chuyển đến trang đăng nhập…"
+    }
+  }
+}
