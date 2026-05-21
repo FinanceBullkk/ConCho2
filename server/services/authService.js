@@ -265,7 +265,7 @@ const verifyMfaLogin = async (mfaPendingToken, code) => {
 
   let decoded;
   try {
-    decoded = jwt.verify(mfaPendingToken, process.env.JWT_SECRET);
+    decoded = jwt.verify(mfaPendingToken, process.env.JWT_SECRET, { algorithms: ['HS256'] });
   } catch (err) {
     throw new ServiceError('MFA challenge expired. Please log in again.', 401);
   }
@@ -274,16 +274,30 @@ const verifyMfaLogin = async (mfaPendingToken, code) => {
   }
 
   const user = await User.findById(decoded.id)
-    .select('+mfaSecret +mfaBackupCodes');
-  if (!user || !user.mfaEnabled || !user.mfaSecret) {
-    // Don't leak whether the account exists or has MFA configured.
+    .select('+mfaSecret +mfaBackupCodes +mfaLastUsedCounter');
+  // P2 fix: also check account is Active — a suspended account must not be
+  // able to complete the MFA second-leg and obtain a full session token.
+  if (!user || !user.mfaEnabled || !user.mfaSecret || user.status !== 'Active') {
+    // Generic message — don't reveal why (account existence / MFA state / suspension).
     throw new ServiceError('Invalid MFA challenge', 401);
   }
 
-  // Try TOTP first; fall back to backup codes.
-  let ok = mfaService.verifyToken(user.mfaSecret, code);
+  // Try TOTP first (with replay protection); fall back to backup codes.
   let backupCodeUsed = false;
-  if (!ok) {
+  let ok = false;
+
+  const { valid: totpValid, delta } = mfaService.verifyTokenWithReplay(
+    user.mfaSecret,
+    code,
+    user.mfaLastUsedCounter,
+  );
+
+  if (totpValid) {
+    // Persist the used delta so the same code cannot be replayed (P1 fix).
+    user.mfaLastUsedCounter = delta;
+    await user.save();
+    ok = true;
+  } else {
     const remaining = await mfaService.consumeBackupCode(user.mfaBackupCodes || [], code);
     if (remaining) {
       user.mfaBackupCodes = remaining;
