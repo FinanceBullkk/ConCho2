@@ -62,6 +62,8 @@
       "allPositions": "All positions",
       "entranceLevel": "Entrance level",
       "currentLevel": "Current level",
+      "allEntranceLevels": "All entrance levels",
+      "allCurrentLevels": "All current levels",
       "allStatuses": "All statuses",
       "clearFilters": "Clear filters"
     },
