@@ -253,30 +253,48 @@ const exportAttendance = async (opts = {}) => {
     return { buffer, filename, recordCount: records.length, markedCount: 0 };
   }
 
-  // 1. Build the date filter to apply at claim time (mirrors buildExportPipeline
-  //    but operates on Attendance directly — schedule join happens in step 2).
-  // We claim by syncStatus only here; the pipeline handles startTime filtering.
-  const batchId = uuidv4();
-  const claimResult = await Attendance.updateMany(
-    { syncStatus: 'PENDING' },
-    { $set: { syncStatus: 'EXPORTING', exportBatchId: batchId } }
-  );
+  // 1. Find IDs of PENDING records that fall within the requested date range.
+  //    We do this BEFORE claiming so we only claim what will actually appear
+  //    in the file — records outside the range are never touched (P2-08R fix).
+  const { from, to } = opts;
+  const idPipeline = [
+    { $match: { syncStatus: 'PENDING' } },
+    { $lookup: { from: 'schedules', localField: 'scheduleId', foreignField: '_id', as: 'schedule' } },
+    { $unwind: '$schedule' },
+  ];
+  if (from || to) {
+    const dateFilter = {};
+    if (from) dateFilter.$gte = new Date(from);
+    if (to)   dateFilter.$lte = new Date(to);
+    idPipeline.push({ $match: { 'schedule.startTime': dateFilter } });
+  }
+  idPipeline.push({ $project: { _id: 1 } });
 
-  if (claimResult.modifiedCount === 0) {
+  const matchingDocs = await Attendance.aggregate(idPipeline);
+  const idsToExport = matchingDocs.map(d => d._id);
+
+  if (idsToExport.length === 0) {
     throw new ServiceError('Không có bản ghi nào để xuất (No pending records found)', 404);
   }
 
-  // 2. Query only our claimed records (by batchId), with full pipeline joins.
-  // Pass the date filter through opts so buildExportPipeline applies it on
-  // schedule.startTime (Stage 2b) after the $lookup.
+  // 2. Atomically claim only those specific IDs (PENDING → EXPORTING + batchId).
+  //    Using { _id: $in } + { syncStatus: PENDING } ensures we only claim records
+  //    that are still PENDING even if a concurrent export ran between step 1 and 2.
+  const batchId = uuidv4();
+  await Attendance.updateMany(
+    { _id: { $in: idsToExport }, syncStatus: 'PENDING' },
+    { $set: { syncStatus: 'EXPORTING', exportBatchId: batchId } }
+  );
+
+  // 3. Query our claimed records with full pipeline joins for Excel generation.
   const records = await queryExportData({ ...opts, batchId });
 
-  // 3. Generate Excel
+  // 4. Generate Excel
   const buffer = await generateExcel(records);
 
-  // 4. Mark claimed records as EXPORTED (whether they passed the date filter or not).
-  // Records that were claimed but filtered out (outside date range) also get
-  // EXPORTED so they don't sit in EXPORTING forever.
+  // 5. Mark only our claimed records as EXPORTED.
+  //    Because we claimed exactly the records we'll export, every claimed
+  //    record appears in the file — no silent "marked but not included" records.
   const markedResult = await Attendance.updateMany(
     { exportBatchId: batchId },
     { $set: { syncStatus: 'EXPORTED', exportedAt: new Date() } }
