@@ -93,4 +93,27 @@ const getCsrfToken = (req, res) => {
   res.json({ success: true, data: { csrfToken: token } });
 };
 
-module.exports = { csrfProtection, getCsrfToken };
+/**
+ * Force-rotate the CSRF cookie. Call this after any session boundary —
+ * login success, MFA second-leg success, and logout — so the pre-login
+ * CSRF token cannot be reused in the new (or cleared) session.
+ *
+ * The SPA must read the new cookie value and update its in-memory copy.
+ * It can do this either by listening to Set-Cookie on the login response,
+ * or by calling GET /api/auth/csrf immediately after login/logout.
+ *
+ * @param {import('express').Response} res
+ * @returns {string} The new token (also set as a cookie on `res`)
+ */
+const rotateCsrfToken = (res) => {
+  const token = generateToken();
+  res.cookie(CSRF_COOKIE, token, {
+    httpOnly: false,      // Readable by JS — required for double-submit pattern
+    sameSite: 'strict',
+    secure: process.env.NODE_ENV === 'production',
+    maxAge: 24 * 60 * 60 * 1000,
+  });
+  return token;
+};
+
+module.exports = { csrfProtection, getCsrfToken, rotateCsrfToken };

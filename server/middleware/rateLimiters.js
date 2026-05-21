@@ -2,6 +2,26 @@ const rateLimit = require('express-rate-limit');
 const { ipKeyGenerator } = require('express-rate-limit');
 const jwt = require('jsonwebtoken');
 
+// Cookie name must stay in sync with authService.MFA_PENDING_COOKIE.
+// We duplicate the string here to avoid importing authService (would create
+// a circular dependency chain: rateLimiters → authService → models → ...).
+const MFA_PENDING_COOKIE = 'tms_mfa_pending';
+
+// ── Redis note (#10) ───────────────────────────────────────────────────────
+// All limiters below use the default in-process MemoryStore. This is correct
+// for single-instance deploys (Render free tier). If the app ever scales to
+// multiple server instances, the per-instance counters become independent and
+// an attacker can spread requests to bypass limits.
+//
+// To switch to a shared Redis store when that time comes:
+//   npm install rate-limit-redis ioredis
+//   const RedisStore = require('rate-limit-redis');
+//   const Redis = require('ioredis');
+//   const redisClient = new Redis(process.env.REDIS_URL);
+//   store: new RedisStore({ sendCommand: (...args) => redisClient.call(...args) })
+// Add REDIS_URL to Render env vars and the above store: option to each limiter.
+// ──────────────────────────────────────────────────────────────────────────
+
 // In test environment, disable rate limiting entirely so test suites
 // that make many requests for the same user don't get throttled.
 const IS_TEST = process.env.NODE_ENV === 'test';
@@ -272,7 +292,8 @@ const mfaVerifyLimiter = rateLimit({
   validate: validateOpts,
   keyGenerator: (req) => {
     try {
-      const raw = req.body?.mfaPendingToken;
+      // P3 fix: token is now an HttpOnly cookie, not a body field.
+      const raw = req.cookies?.[MFA_PENDING_COOKIE];
       if (raw) {
         const payload = jwt.decode(raw);
         if (payload?.id) return `mfa|${payload.id}`;

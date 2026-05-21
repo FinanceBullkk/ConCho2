@@ -49,10 +49,10 @@ const generateSetup = async (empCode) => {
 /**
  * Verify a 6-digit TOTP code against a secret.
  *
- * window: 2 accepts codes for the current 30-s step ± 2 steps (= ±60 s).
- * RFC 6238 recommends window ≤ 1, but cloud servers and mobile clocks can
- * drift by 30–60 s in practice, so 2 is a pragmatic production default
- * while still blocking brute-force (only 5 valid windows at any moment).
+ * window: 1 accepts the current 30-s step ± 1 step (= ±30 s clock skew).
+ * RFC 6238 recommends window ≤ 1; this is the exact recommended value.
+ * Most authenticator apps stay within ±5 s; ±30 s covers even sluggish
+ * hardware clocks without opening a meaningful brute-force window.
  *
  * NOTE: This function has NO replay protection. Use it only for TOTP setup
  * verification (mfa/verify-setup) where the user is proving possession of
@@ -64,7 +64,7 @@ const verifyToken = (secretBase32, token) => {
     secret: secretBase32,
     encoding: 'base32',
     token: String(token).replace(/\s+/g, ''),
-    window: 2,
+    window: 1,
   });
 };
 
@@ -95,7 +95,7 @@ const verifyTokenWithReplay = (secretBase32, token, lastUsedCounter) => {
     secret: secretBase32,
     encoding: 'base32',
     token: String(token).replace(/\s+/g, ''),
-    window: 2,
+    window: 1,
   });
 
   if (!result) return { valid: false, delta: null };

@@ -27,8 +27,9 @@ const changePasswordBody = z.object({
 
 // MFA validation. Codes are 6 digits or a backup of the form XXXXX-XXXXX.
 const mfaCodeSchema = z.string().min(6).max(20);
+// mfaPendingToken is no longer in the request body — it is sent automatically
+// by the browser as the HttpOnly tms_mfa_pending cookie (P3 fix).
 const mfaVerifyLoginBody = z.object({
-  mfaPendingToken: z.string().min(10),
   code: mfaCodeSchema,
 });
 const mfaCodeBody = z.object({ code: mfaCodeSchema });
