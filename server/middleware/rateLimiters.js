@@ -219,7 +219,7 @@ const forgotPasswordLimiter = rateLimit({
 const exportLimiter = rateLimit({
   windowMs: 60 * 60 * 1000, // 1 hour
   max: 10,
-  keyGenerator: (req) => (req.user?._id ? req.user._id.toString() : req.ip),
+  keyGenerator: (req) => userOrIpKey(req),
   standardHeaders: true,
   legacyHeaders: false,
   skip: skipInTest,
