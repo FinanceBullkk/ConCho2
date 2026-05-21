@@ -62,6 +62,26 @@ const generateMfaPendingToken = (userId) => {
 };
 
 /**
+ * Cookie name for the MFA-pending token (P3 fix: stored as HttpOnly cookie
+ * instead of JSON body so XSS cannot steal the pending token and attempt
+ * the second factor from a different browser/device).
+ */
+const MFA_PENDING_COOKIE = 'tms_mfa_pending';
+
+/**
+ * Cookie options for the MFA-pending token.
+ * Short TTL (5 min) mirrors the JWT's own expiry.
+ * HttpOnly prevents JS access; sameSite Strict blocks CSRF on this cookie.
+ */
+const getMfaPendingCookieOptions = () => ({
+  httpOnly: true,
+  secure: process.env.NODE_ENV === 'production',
+  sameSite: 'Strict',
+  maxAge: 5 * 60 * 1000, // 5 minutes — same as MFA_PENDING_EXPIRE
+  path: '/',
+});
+
+/**
  * Generate an enrollment-required token. Issued when a user logs in
  * with the right credentials but their role REQUIRES MFA and they have
  * not yet enrolled. The token authorizes ONLY: /me, /logout, /mfa/setup,
@@ -337,6 +357,8 @@ module.exports = {
   authenticate,
   verifyMfaLogin,
   getCookieOptions,
+  MFA_PENDING_COOKIE,
+  getMfaPendingCookieOptions,
   generateToken,
   revokeToken,
   isTokenRevoked,
