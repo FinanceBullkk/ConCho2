@@ -133,3 +133,47 @@ describe('Role-based Access Control', () => {
     expect(res.status).toBe(403);
   });
 });
+
+// ── Forced password change ─────────────────────────────────
+
+describe('Forced password change enforcement', () => {
+  test('surfaces mustChangePassword and blocks non-auth routes until password is changed', async () => {
+    const User = require('../../models/User');
+    const jwt = require('jsonwebtoken');
+
+    const forced = await User.create({
+      empCode: `9${Date.now().toString().slice(-5)}`,
+      name: 'Forced Change Admin',
+      role: 'Admin',
+      department: 'Security',
+      password: 'temporary12345',
+      mustChangePassword: true,
+    });
+    const forcedToken = jwt.sign({ id: forced._id.toString() }, process.env.JWT_SECRET, { expiresIn: '1h' });
+
+    const me = await request(app)
+      .get('/api/auth/me')
+      .set('Authorization', `Bearer ${forcedToken}`);
+
+    expect(me.status).toBe(200);
+    expect(me.body.data.mustChangePassword).toBe(true);
+
+    const blocked = await request(app)
+      .get('/api/users')
+      .set('Authorization', `Bearer ${forcedToken}`);
+
+    expect(blocked.status).toBe(403);
+    expect(blocked.body.mustChangePassword).toBe(true);
+
+    const changed = await request(app)
+      .put('/api/auth/change-password')
+      .set('Authorization', `Bearer ${forcedToken}`)
+      .set(csrf)
+      .send({ currentPassword: 'temporary12345', newPassword: 'rotated12345' });
+
+    expect(changed.status).toBe(200);
+
+    const after = await User.findById(forced._id).lean();
+    expect(after.mustChangePassword).toBe(false);
+  });
+});
