@@ -27,6 +27,25 @@ dayjs.extend(timezone);
 
 const VN_TZ = 'Asia/Ho_Chi_Minh';
 
+// ══════════════════════════════════════════════════════════
+//  AUDIT EXCEPTIONS
+//  Known, approved deviations from business rules.
+//  Add an entry here when a violation is intentional and has
+//  been reviewed by management. The audit will skip matching
+//  cases and report them as "excepted" rather than errors.
+// ══════════════════════════════════════════════════════════
+const EXCEPTIONS = {
+  // weekly_limit: teams approved to run more than 2 sessions in a given week.
+  // Fields: teamId (string), weekStart (YYYY-MM-DD Monday), reason (string).
+  weekly_limit: [
+    {
+      teamId: '69f3c7de40bf0158acac3a45',
+      weekStart: '2024-12-09',
+      reason: 'Approved make-up session — Q4 2024 catch-up week',
+    },
+  ],
+};
+
 // ── Load Models ─────────────────────────────────────────
 require('../models/Setting');
 const User = require('../models/User');
@@ -295,6 +314,10 @@ async function auditBusinessRules() {
   const allSchedules = await Schedule.find().sort({ startTime: 1 }).lean();
   const weekMap = {}; // "teamId|weekStart" → count
   let weeklyViolations = 0;
+  let weeklyExcepted = 0;
+  const weeklyExceptionSet = new Set(
+    EXCEPTIONS.weekly_limit.map(e => `${e.teamId}|${e.weekStart}`)
+  );
   for (const s of allSchedules) {
     if (!s.bookedTeamId) continue;
     const d = dayjs(s.startTime).tz(VN_TZ);
@@ -305,6 +328,12 @@ async function auditBusinessRules() {
   for (const [key, count] of Object.entries(weekMap)) {
     if (count > 2) {
       const [teamId, week] = key.split('|');
+      if (weeklyExceptionSet.has(key)) {
+        const exc = EXCEPTIONS.weekly_limit.find(e => e.teamId === teamId && e.weekStart === week);
+        weeklyExcepted++;
+        console.log(`  ⚠️  EXCEPTED weekly limit: team ${teamId}, week ${week} (${count} sessions) — ${exc?.reason || 'no reason given'}`);
+        continue;
+      }
       weeklyViolations++;
       addError('business_weekly_limit', {
         teamId, weekStart: week, sessionCount: count,
@@ -323,6 +352,7 @@ async function auditBusinessRules() {
   console.log(`  ❌ Duplicate empCodes: ${dupAgg.length}`);
   console.log(`  ❌ enrolledCount mismatch: ${enrollMismatch}`);
   console.log(`  ❌ Weekly limit violations (>2/week): ${weeklyViolations}`);
+  if (weeklyExcepted > 0) console.log(`  ⚠️  Weekly limit excepted (approved): ${weeklyExcepted}`);
 }
 
 // ══════════════════════════════════════════════════════════
