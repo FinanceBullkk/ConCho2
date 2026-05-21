@@ -14,7 +14,8 @@
     "start": "cd server && node server.js",
     "dev:server": "cd server && npm run dev",
     "dev:client": "cd client && npm run dev",
-    "seed": "cd server && node seed.js"
+    "seed": "cd server && node seed.js",
+    "scripts:check": "node --check server/scripts/*.js server/import_students.js server/seed.js"
   },
   "devDependencies": {
     "xlsx": "^0.18.5"

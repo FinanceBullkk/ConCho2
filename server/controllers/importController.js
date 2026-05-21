@@ -59,41 +59,43 @@ const bulkImportHistory = async (req, res) => {
     }
 
     let schedulesCreated = 0, attendanceCreated = 0, errors = [];
+    const dbSession = await Schedule.startSession();
 
     for (const s of sessions) {
       try {
-        // Create schedule directly (no validation)
-        const schedule = await Schedule.create({
-          classId: s.classId,
-          bookedTeamId: s.teamId,
-          startTime: new Date(s.startTime),
-          endTime: new Date(s.endTime),
-          capacity: Math.max(s.students?.length || 0, 9),
-          enrolledUsers: (s.students || []).map(st => st.userId),
-        });
-        schedulesCreated++;
+        await dbSession.withTransaction(async () => {
+          // Create schedule directly (no validation — historical data)
+          const [schedule] = await Schedule.create(
+            [{
+              classId: s.classId,
+              bookedTeamId: s.teamId,
+              startTime: new Date(s.startTime),
+              endTime: new Date(s.endTime),
+              capacity: Math.max(s.students?.length || 0, 9),
+              enrolledUsers: (s.students || []).map(st => st.userId),
+            }],
+            { session: dbSession }
+          );
+          schedulesCreated++;
 
-        // Create attendance records
-        if (s.students && s.students.length > 0) {
-          const records = s.students.map(st => ({
-            scheduleId: schedule._id,
-            userId: st.userId,
-            status: st.status,
-          }));
-          
-          // Use insertMany with ordered:false to skip duplicates
-          try {
-            const result = await Attendance.insertMany(records, { ordered: false });
+          // Create attendance records in the same transaction so a failure rolls back the schedule too
+          if (s.students && s.students.length > 0) {
+            const records = s.students.map(st => ({
+              scheduleId: schedule._id,
+              userId: st.userId,
+              status: st.status,
+            }));
+            const result = await Attendance.insertMany(records, { session: dbSession });
             attendanceCreated += result.length;
-          } catch (bulkErr) {
-            // Partial insert — count what succeeded
-            if (bulkErr.insertedDocs) attendanceCreated += bulkErr.insertedDocs.length;
           }
-        }
+        });
       } catch (err) {
+        // Transaction rolled back — schedule was not persisted
         errors.push(err.message);
       }
     }
+
+    dbSession.endSession();
 
     invalidateAnalyticsCache();
     res.json({

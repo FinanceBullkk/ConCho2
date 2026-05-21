@@ -21,18 +21,21 @@ const bcrypt = require('bcryptjs');
 
     const result = await User.collection.updateOne(
       { empCode: '000001' },
-      { $set: { password: hashed, passwordChangedAt: null } }
+      { $set: { password: hashed, passwordChangedAt: new Date() } }
     );
 
     if (result.matchedCount === 0) {
       console.log('❌ User 000001 not found!');
-    } else {
-      console.log('✅ Admin password reset to "admin12345"');
+      await mongoose.disconnect();
+      process.exit(1);
     }
-  } catch (err) {
-    console.error('❌ Error:', err.message);
-  } finally {
+    console.log('✅ Admin password reset to "admin12345"');
+    console.log('   Existing sessions are now invalidated (passwordChangedAt updated).');
     await mongoose.disconnect();
     process.exit(0);
+  } catch (err) {
+    console.error('❌ Error:', err.message);
+    try { await mongoose.disconnect(); } catch (_) {}
+    process.exit(1);
   }
 })();

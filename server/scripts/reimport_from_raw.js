@@ -35,6 +35,7 @@ const Schedule = require('../models/Schedule');
 const Attendance = require('../models/Attendance');
 const Enrollment = require('../models/Enrollment');
 const Counter = require('../models/Counter');
+const dangerousScriptGuard = require('./lib/dangerousScriptGuard');
 
 const RAW_PATH = process.env.RAW_PATH || 'C:/Users/anhha/Downloads/okok_FIXED_v2 (1).xlsx';
 const CONFIRMED = process.env.CONFIRM_WIPE === 'YES';
@@ -153,6 +154,7 @@ async function main() {
 
   if (!process.env.MONGO_URI) { console.error('❌ MONGO_URI missing'); process.exit(1); }
   await connectDB();
+  dangerousScriptGuard({ scriptName: 'reimport_from_raw.js — wipes attendance/schedules/enrollments/teams/classes/non-admin users', mongoose });
 
   // ── Resolve PIC name → leader empCode ──
   // Strategy:
@@ -248,8 +250,7 @@ async function main() {
     users: await mongoose.connection.db.collection('users').deleteMany({ role: { $ne: 'Admin' } }),
   };
   for (const [k, r] of Object.entries(drops)) log(`  ${k}: deleted ${r.deletedCount}`);
-  await Counter.updateMany({ _id: { $in: ['empCode', 'classCode'] } }, { $set: { seq: 0 } });
-  log('  counters reset');
+  // Counters are re-synced to actual max AFTER import to avoid collision (see FINAL REPORT step).
 
   // ────────────────────────────────────────────────────────
   // STEP 2 — USERS (Participants + Teachers)
@@ -346,8 +347,10 @@ async function main() {
   const enrollmentDocs = [];
   const now = new Date();
   for (const { teamId, memberIds, classId } of teamMap.values()) {
+    // All classes derived from raw data are historical (status: 'Completed'),
+    // so enrollments are also Completed.
     for (const userId of memberIds) {
-      enrollmentDocs.push({ userId, teamId, classId, status: 'Active', joinedAt: now });
+      enrollmentDocs.push({ userId, teamId, classId, status: 'Completed', joinedAt: now });
     }
   }
   let enrollmentCreated = 0;
@@ -366,6 +369,9 @@ async function main() {
   const scheduleDocsToInsert = [];
   const scheduleKeyToIndex = new Map(); // `${classCode}|${courseName}|${serial}` → index in scheduleDocsToInsert
 
+  // Pre-generate _id for each schedule so the attendance mapping is order-independent.
+  // With ordered:false on partial failure the result array is shorter than the input;
+  // using a pre-known _id + Set<insertedId> avoids mis-mapping attendance to wrong schedules.
   for (const [k, s] of sessionKeys.entries()) {
     const classKey = `${s.classCode}|${s.courseName}`;
     const team = teamMap.get(classKey);
@@ -375,6 +381,7 @@ async function main() {
     if (!startTime || isNaN(startTime)) continue;
     const endTime = new Date(startTime.getTime() + 60 * 60 * 1000); // 1h
     scheduleDocsToInsert.push({
+      _id: new mongoose.Types.ObjectId(),   // pre-generate
       classId,
       bookedTeamId: team.teamId,
       startTime,
@@ -385,19 +392,28 @@ async function main() {
     scheduleKeyToIndex.set(k, scheduleDocsToInsert.length - 1);
   }
 
-  let scheduleResult = [];
+  const insertedScheduleIds = new Set();
+  let scheduleCreated = 0;
   try {
-    scheduleResult = await Schedule.insertMany(scheduleDocsToInsert, { ordered: false });
+    const result = await Schedule.insertMany(scheduleDocsToInsert, { ordered: false });
+    scheduleCreated = result.length;
+    result.forEach(d => insertedScheduleIds.add(d._id.toString()));
   } catch (err) {
     log(`  ⚠ insert err: ${err.message}`);
-    if (err.insertedDocs) scheduleResult = err.insertedDocs;
+    if (err.insertedDocs) {
+      scheduleCreated = err.insertedDocs.length;
+      err.insertedDocs.forEach(d => insertedScheduleIds.add(d._id.toString()));
+    }
   }
-  log(`  created=${scheduleResult.length} of ${scheduleDocsToInsert.length}`);
+  log(`  created=${scheduleCreated} of ${scheduleDocsToInsert.length}`);
 
-  // Map session key → scheduleId
+  // Map session key → scheduleId (only for actually-inserted schedules)
   const sessionKeyToScheduleId = new Map();
   for (const [k, idx] of scheduleKeyToIndex.entries()) {
-    if (scheduleResult[idx]) sessionKeyToScheduleId.set(k, scheduleResult[idx]._id);
+    const doc = scheduleDocsToInsert[idx];
+    if (doc && insertedScheduleIds.has(doc._id.toString())) {
+      sessionKeyToScheduleId.set(k, doc._id);
+    }
   }
 
   // ────────────────────────────────────────────────────────
@@ -427,6 +443,27 @@ async function main() {
     attCreated = err.insertedDocs ? err.insertedDocs.length : 0;
   }
   log(`  log_rows=${attLog.length} after_dedup=${attDocs.length} created=${attCreated} skipped=${JSON.stringify(skip)}`);
+
+  // ────────────────────────────────────────────────────────
+  // SYNC COUNTERS TO ACTUAL MAX
+  // ────────────────────────────────────────────────────────
+  section('SYNC COUNTERS');
+  const allUserCodes = await User.find({}, { empCode: 1 }).lean();
+  const maxEmpSeq = allUserCodes.reduce((max, u) => {
+    const n = parseInt(u.empCode, 10);
+    return isFinite(n) && n > max ? n : max;
+  }, 0);
+  await Counter.findOneAndUpdate({ _id: 'empCode' }, { $set: { seq: maxEmpSeq } }, { upsert: true });
+  log(`  empCode counter → ${maxEmpSeq}`);
+
+  const allClassCodes = await Class.find({}, { classCode: 1 }).lean();
+  const maxClassSeq = allClassCodes.reduce((max, c) => {
+    const m = c.classCode.match(/^EL(\d+)$/i);
+    if (m) { const n = parseInt(m[1], 10); return n > max ? n : max; }
+    return max;
+  }, 0);
+  await Counter.findOneAndUpdate({ _id: 'classCode' }, { $set: { seq: maxClassSeq } }, { upsert: true });
+  log(`  classCode counter → ${maxClassSeq} (next will be EL${String(maxClassSeq + 1).padStart(3, '0')})`);
 
   // ────────────────────────────────────────────────────────
   // FINAL REPORT
