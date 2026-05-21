@@ -122,7 +122,7 @@ export default function AttendancePage() {
   const prevWeek = () => setWeekStart(new Date(weekStart.getTime() - 7 * 86400000));
   const nextWeek = () => setWeekStart(new Date(weekStart.getTime() + 7 * 86400000));
   const goToday  = () => setWeekStart(getMonday(new Date()));
-  const today    = toDateKey(new Date());
+  const _today   = toDateKey(new Date()); // intentionally unused — reserved for future "go to today" highlight
 
   // The selected cell key for CalendarGrid ring (format "YYYY-MM-DD|HH:00")
   const selectedCellKey = useMemo(() => {

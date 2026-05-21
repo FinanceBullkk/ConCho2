@@ -281,10 +281,21 @@ const exportAttendance = async (opts = {}) => {
   //    Using { _id: $in } + { syncStatus: PENDING } ensures we only claim records
   //    that are still PENDING even if a concurrent export ran between step 1 and 2.
   const batchId = uuidv4();
-  await Attendance.updateMany(
+  const claimedResult = await Attendance.updateMany(
     { _id: { $in: idsToExport }, syncStatus: 'PENDING' },
     { $set: { syncStatus: 'EXPORTING', exportBatchId: batchId } }
   );
+
+  // P2R-01: A concurrent export may have claimed all matching records between
+  // our ID scan (step 1) and this updateMany (step 2). If modifiedCount === 0
+  // we won zero records — returning an empty Excel and 200 would be misleading.
+  // Throw 404 so the caller knows there is nothing to export right now.
+  if (claimedResult.modifiedCount === 0) {
+    throw new ServiceError(
+      'Không có bản ghi nào để xuất — có thể đã được export đồng thời (No records claimed — concurrent export may have taken them)',
+      404,
+    );
+  }
 
   // 3. Query our claimed records with full pipeline joins for Excel generation.
   const records = await queryExportData({ ...opts, batchId });

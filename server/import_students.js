@@ -1,7 +1,20 @@
 /**
- * Import STUDENTS data from Excel into MongoDB
+ * LEGACY ONE-OFF SCRIPT — DO NOT RUN IN PRODUCTION
+ * ──────────────────────────────────────────────────────────
+ * Import STUDENTS data from Excel into MongoDB.
  * Run from: e:\ConCho2\server> node import_students.js
+ *
+ * P3-09: This script hardcodes a default password ('default12345').
+ * For production imports use POST /api/import/users (importService.js)
+ * which reads IMPORT_DEFAULT_PASSWORD from the environment and enforces
+ * mustChangePassword on every new user.
+ * ──────────────────────────────────────────────────────────
  */
+
+if (process.env.NODE_ENV === 'production') {
+  console.error('❌ This legacy script must NOT be run in production. Use the /api/import/users endpoint instead.');
+  process.exit(1);
+}
 
 const XLSX = require('../node_modules/xlsx');
 const mongoose = require('mongoose');
