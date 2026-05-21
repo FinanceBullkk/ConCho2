@@ -196,7 +196,7 @@ const mfaLimiter = rateLimit({
 const forgotPasswordLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 5,
-  keyGenerator: (req) => req.ip,
+  keyGenerator: (req) => ipKeyGenerator(req),
   standardHeaders: true,
   legacyHeaders: false,
   skip: skipInTest,
@@ -234,7 +234,7 @@ const exportLimiter = rateLimit({
 const reconcileLimiter = rateLimit({
   windowMs: 60 * 60 * 1000,
   max: 10,
-  keyGenerator: (req) => req.ip,
+  keyGenerator: (req) => ipKeyGenerator(req),
   standardHeaders: true,
   legacyHeaders: false,
   skip: skipInTest,
