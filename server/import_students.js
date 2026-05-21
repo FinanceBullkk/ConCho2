@@ -5,7 +5,6 @@
 
 const XLSX = require('../node_modules/xlsx');
 const mongoose = require('mongoose');
-const bcrypt = require('bcryptjs');
 require('dotenv').config();
 
 const MONGO_URI = process.env.MONGODB_URI || process.env.MONGO_URI;
@@ -26,14 +25,7 @@ const STATUS_MAP = {
 async function main() {
   console.log('🔗 Connecting to MongoDB...');
   // Fallback: if SRV fails, use direct connection
-  let uri = MONGO_URI;
-  try {
-    await mongoose.connect(uri, { family: 4, serverSelectionTimeoutMS: 5000 });
-  } catch (e) {
-    console.log('⚠️  SRV failed, trying direct connection...');
-    uri = 'mongodb://***REMOVED***:***REMOVED***@ac-sqbvndx-shard-00-00.mhtjnsw.mongodb.net:27017,ac-sqbvndx-shard-00-01.mhtjnsw.mongodb.net:27017,ac-sqbvndx-shard-00-02.mhtjnsw.mongodb.net:27017/tms2?ssl=true&replicaSet=atlas-5cxnjr-shard-0&authSource=admin&retryWrites=true&w=majority';
-    await mongoose.connect(uri, { family: 4 });
-  }
+  await mongoose.connect(MONGO_URI, { family: 4, serverSelectionTimeoutMS: 15000 });
   console.log('✅ Connected\n');
 
   const User = require('./models/User');
@@ -69,7 +61,8 @@ async function main() {
     dropDefine: headers.findIndex(h => h && String(h).includes('Define of drop')),
   };
 
-  const defaultHash = await bcrypt.hash('default12345', 12);
+  // Pass plaintext — User model pre-save hook hashes it. Do NOT pre-hash here.
+  const DEFAULT_PASSWORD = 'default12345';
 
   let created = 0, updated = 0, skipped = 0, errors = 0;
   const rows = data.slice(headerIdx + 1).filter(r => r[COL.empCode]);
@@ -109,7 +102,7 @@ async function main() {
           empCode, name,
           role: 'Participant',
           department, position, status, dropReason,
-          password: defaultHash,
+          password: DEFAULT_PASSWORD,
         });
         created++;
         if (created <= 5) console.log('  ✨ Created: ' + empCode + ' — ' + name);

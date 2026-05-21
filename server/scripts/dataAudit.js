@@ -17,9 +17,6 @@
 
 require('dotenv').config();
 const mongoose = require('mongoose');
-
-// Fallback: if SRV lookup fails, use direct connection string
-const DIRECT_URI = 'mongodb://***REMOVED***:***REMOVED***@ac-sqbvndx-shard-00-00.mhtjnsw.mongodb.net:27017,ac-sqbvndx-shard-00-01.mhtjnsw.mongodb.net:27017,ac-sqbvndx-shard-00-02.mhtjnsw.mongodb.net:27017/tms2?ssl=true&replicaSet=atlas-dj2517-shard-0&authSource=admin&retryWrites=true&w=majority';
 const fs = require('fs');
 const path = require('path');
 const dayjs = require('dayjs');

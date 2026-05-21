@@ -71,30 +71,22 @@ const SEP = '═'.repeat(60);
     console.log('   ✅ All teams have leaders');
   }
 
-  // ── CHECK 3: Class.bookedSessions vs actual Schedule count ──
-  console.log('\n📋 CHECK 3: Class.bookedSessions vs actual Schedule count');
+  // ── CHECK 3: Classes with 0 actual schedules (potential orphans) ──
+  // NOTE: Class.bookedSessions was removed (UX-04) — derive count from Schedule collection.
+  console.log('\n📋 CHECK 3: Classes with 0 schedules (potential orphans)');
   const schedCountByClass = {};
   allScheds.forEach(s => {
     const cid = s.classId?._id?.toString() || s.classId?.toString();
     if (cid) schedCountByClass[cid] = (schedCountByClass[cid] || 0) + 1;
   });
-  let mismatchCount = 0;
-  const mismatchExamples = [];
-  for (const c of allClasses) {
-    const actual = schedCountByClass[c._id.toString()] || 0;
-    if (c.bookedSessions !== actual) {
-      mismatchCount++;
-      if (mismatchExamples.length < 10) {
-        mismatchExamples.push(`${c.classCode} ${c.courseName} | bookedSessions=${c.bookedSessions} actual=${actual}`);
-      }
-    }
-  }
-  if (mismatchCount > 0) {
-    issues.push({ check: 'BOOKED_SESSIONS_MISMATCH', severity: 'HIGH', count: mismatchCount });
-    console.log(`   ❌ ${mismatchCount} class(es) have mismatched bookedSessions`);
-    mismatchExamples.forEach(e => console.log(`      ${e}`));
+  const emptyClasses = allClasses.filter(c => !schedCountByClass[c._id.toString()]);
+  if (emptyClasses.length > 0) {
+    issues.push({ check: 'CLASSES_NO_SCHEDULES', severity: 'LOW', count: emptyClasses.length });
+    console.log(`   ⚠️  ${emptyClasses.length} class(es) have 0 schedules`);
+    emptyClasses.slice(0, 10).forEach(c => console.log(`      ${c.classCode} ${c.courseName} (${c.status})`));
+    if (emptyClasses.length > 10) console.log(`      ... and ${emptyClasses.length - 10} more`);
   } else {
-    console.log('   ✅ All Class.bookedSessions match actual Schedule count');
+    console.log('   ✅ All classes have at least one schedule');
   }
 
   // ── CHECK 4: Schedule.enrolledCount vs enrolledUsers.length ──

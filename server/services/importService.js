@@ -137,10 +137,18 @@ const importClasses = async (classes) => {
     );
   }
 
+  // Validate courseName presence — required for compound-unique upsert
+  const missingCourseName = classes.filter(c => !c.courseName);
+  if (missingCourseName.length > 0) {
+    throw new ServiceError(
+      `${missingCourseName.length} record(s) are missing the required "courseName" field`
+    );
+  }
+
   const operations = classes.map((c) => {
     const classCode = c.classCode.trim().toUpperCase();
-    const setFields = { classCode };
-    if (c.courseName !== undefined) setFields.courseName = c.courseName;
+    const courseName = String(c.courseName).trim();
+    const setFields = { classCode, courseName };
     if (c.status !== undefined) setFields.status = c.status;
 
     const setOnInsert = {};
@@ -148,7 +156,8 @@ const importClasses = async (classes) => {
 
     return {
       updateOne: {
-        filter: { classCode },
+        // Use compound key matching the { classCode, courseName } unique index
+        filter: { classCode, courseName },
         update: { $set: setFields, $setOnInsert: setOnInsert },
         upsert: true,
       },
