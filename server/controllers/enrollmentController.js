@@ -132,6 +132,22 @@ const getUserEnrollments = async (req, res) => {
 };
 
 /**
+ * Remove userIds from all future Schedule.enrolledUsers when they are Dropped.
+ * Shared by updateEnrollment (single) and bulkUpdateEnrollmentStatus (bulk).
+ * On-hold is intentionally excluded — reversible status, keep in schedules.
+ *
+ * @param {Array<ObjectId|string>} userIds
+ */
+const pullDroppedUsersFromFutureSchedules = async (userIds) => {
+  if (!userIds || userIds.length === 0) return;
+  const now = new Date();
+  await Schedule.updateMany(
+    { startTime: { $gt: now }, enrolledUsers: { $in: userIds } },
+    { $pull: { enrolledUsers: { $in: userIds } } },
+  );
+};
+
+/**
  * PUT /api/enrollments/:id
  * Update enrollment status/note (Admin manual override).
  * E.g. mark as Completed or Dropped.
@@ -164,6 +180,13 @@ const updateEnrollment = async (req, res) => {
 
     if (!enrollment) {
       return res.status(404).json({ success: false, message: 'Enrollment not found' });
+    }
+
+    // P2-03R: when status → Dropped, pull user from all future schedules
+    // (mirrors bulkUpdateEnrollmentStatus behaviour — single-update parity).
+    if (status === 'Dropped') {
+      const uid = enrollment.userId?._id ?? enrollment.userId;
+      await pullDroppedUsersFromFutureSchedules([uid]);
     }
 
     invalidateAnalyticsCache();
@@ -421,11 +444,7 @@ const bulkUpdateEnrollmentStatus = async (req, res) => {
     );
 
     if (droppedUserIds.length > 0) {
-      const now = new Date();
-      await Schedule.updateMany(
-        { startTime: { $gt: now }, enrolledUsers: { $in: droppedUserIds } },
-        { $pull: { enrolledUsers: { $in: droppedUserIds } } }
-      );
+      await pullDroppedUsersFromFutureSchedules(droppedUserIds);
     }
 
     auditService.record({

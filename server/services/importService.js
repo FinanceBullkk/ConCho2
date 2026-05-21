@@ -19,11 +19,30 @@ const CHUNK_SIZE = 50;
  */
 const generateSecurePassword = () => crypto.randomBytes(12).toString('base64url');
 
-// Known default password for new users imported without an explicit password.
-// mustChangePassword is set to true alongside it, so the P1 server-side gate
-// forces them to rotate on first login. The admin communicates this default
-// out-of-band (e.g. onboarding email / HR letter) before accounts go live.
-const IMPORT_DEFAULT_PASSWORD = process.env.IMPORT_DEFAULT_PASSWORD || 'default12345';
+/**
+ * Return the configured import default password.
+ *
+ * P2-05R: In production IMPORT_DEFAULT_PASSWORD MUST be set explicitly —
+ * no silent fallback to a guessable string.  Throw ServiceError at request
+ * time (not module load) so the admin sees a clear 500 with a fix hint.
+ * In non-production (dev / test) the fallback 'default12345' is still
+ * allowed so local seeds continue to work without extra env setup.
+ */
+const getImportDefaultPassword = () => {
+  const pwd = process.env.IMPORT_DEFAULT_PASSWORD;
+  if (!pwd) {
+    if (process.env.NODE_ENV === 'production') {
+      throw new ServiceError(
+        'Server misconfiguration: IMPORT_DEFAULT_PASSWORD environment variable is not set. ' +
+        'Configure it in Render → Environment Variables before importing users.',
+        500,
+      );
+    }
+    // Dev-only fallback — never reaches production.
+    return 'default12345';
+  }
+  return pwd;
+};
 
 /**
  * Bulk import/update users by empCode (atomic, chunked bcrypt).
@@ -87,7 +106,7 @@ const importUsers = async (users) => {
         const setOnInsert = {};
         if (!existingSet.has(empCode)) {
           const usingDefault = !u.password;
-          const raw = u.password || IMPORT_DEFAULT_PASSWORD;
+          const raw = u.password || getImportDefaultPassword();
           const salt = await bcrypt.genSalt(12);
           setOnInsert.password = await bcrypt.hash(raw, salt);
           if (usingDefault) setOnInsert.mustChangePassword = true;
