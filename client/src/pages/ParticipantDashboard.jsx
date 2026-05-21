@@ -32,9 +32,9 @@ import { Button } from '@/components/ui/button';
 
 function greeting(now = new Date()) {
   const h = now.getHours();
-  if (h < 12) return 'Good morning';
-  if (h < 18) return 'Good afternoon';
-  return 'Good evening';
+  if (h < 12) return 'Chào buổi sáng';
+  if (h < 18) return 'Chào buổi chiều';
+  return 'Chào buổi tối';
 }
 
 function firstName(name) {
@@ -67,13 +67,13 @@ export default function ParticipantDashboard() {
   // Class code shown in the team line is taken from the next/first session.
   const classCode = nextClass?.classId?.classCode || schedules[0]?.classId?.classCode || '';
 
-  useEffect(() => { document.title = 'TMS — Home'; }, []);
+  useEffect(() => { document.title = 'TMS — Trang chủ'; }, []);
 
   // ── Attendance history (kept as secondary band) ──────────
   const historyColumns = useMemo(() => [
     {
       key: null,
-      header: 'Date',
+      header: 'Ngày',
       render: (record) => {
         const sched = record.scheduleId;
         const start = sched?.startTime ? new Date(sched.startTime) : null;
@@ -97,7 +97,7 @@ export default function ParticipantDashboard() {
     },
     {
       key: null,
-      header: 'Time',
+      header: 'Giờ',
       className: 'hidden sm:table-cell',
       render: (record) => {
         const sched = record.scheduleId;
@@ -111,14 +111,14 @@ export default function ParticipantDashboard() {
     },
     {
       key: null,
-      header: 'Class',
+      header: 'Lớp',
       render: (record) => (
         <span className="text-foreground font-medium">{record.scheduleId?.classId?.classCode || '—'}</span>
       ),
     },
     {
       key: null,
-      header: 'Course',
+      header: 'Khóa học',
       className: 'hidden sm:table-cell',
       render: (record) => (
         <span className="text-muted-foreground text-xs">{record.scheduleId?.classId?.courseName || '—'}</span>
@@ -126,14 +126,14 @@ export default function ParticipantDashboard() {
     },
     {
       key: null,
-      header: 'Status',
+      header: 'Trạng thái',
       headerCls: 'text-center',
       cellCls: 'text-center',
       render: (record) => <StatusBadge status={record.status} size="sm" />,
     },
     {
       key: null,
-      header: 'Note',
+      header: 'Ghi chú',
       className: 'hidden lg:table-cell',
       render: (record) => (
         <span className="text-subtle-foreground text-xs">{record.remark || '—'}</span>
@@ -178,8 +178,8 @@ export default function ParticipantDashboard() {
         </div>
         <EmptyState
           icon={Users2}
-          title="You're not enrolled in a class yet"
-          description="Contact your manager to get assigned to a team and class."
+          title="Bạn chưa được ghi danh vào lớp nào"
+          description="Liên hệ quản lý để được phân vào nhóm và lớp."
         />
       </div>
     );
@@ -195,7 +195,7 @@ export default function ParticipantDashboard() {
         <p className="text-body text-muted-foreground mt-1 truncate">
           {teamName && <span className="font-medium">{teamName}</span>}
           {classCode && <> · <span className="font-mono text-primary">{classCode}</span></>}
-          {isLeader && <span className="text-warning"> · Team Leader</span>}
+          {isLeader && <span className="text-warning"> · Trưởng nhóm</span>}
         </p>
       </header>
 
@@ -205,11 +205,11 @@ export default function ParticipantDashboard() {
       ) : (
         <EmptyState
           icon={CalendarDays}
-          title="No upcoming sessions"
-          description="Your team leader can book sessions from the Schedule & Book page."
+          title="Không có buổi học sắp tới"
+          description="Trưởng nhóm của bạn có thể đặt buổi học từ trang Lịch & Đặt lớp."
           action={(
             <Link to="/calendar" className="text-sm text-primary font-medium hover:underline underline-offset-2">
-              Go to calendar →
+              Đi tới Lịch →
             </Link>
           )}
         />
@@ -218,24 +218,24 @@ export default function ParticipantDashboard() {
       {/* ── Band 3 · KPI strip ×3 (no emoji, Lucide-only) ── */}
       <div className="grid grid-cols-3 gap-3">
         <KPICard
-          label="My attendance"
+          label="Điểm danh của tôi"
           value={`${rate}%`}
-          sub={`${stats?.present ?? 0} of ${stats?.totalSessions ?? 0} sessions`}
+          sub={`${stats?.present ?? 0} / ${stats?.totalSessions ?? 0} buổi`}
           icon={BarChart3}
           tone={rateTone}
           href="/calendar"
         />
         <KPICard
-          label="Sessions attended"
+          label="Buổi đã tham gia"
           value={stats?.present ?? 0}
-          sub={stats?.late ? `${stats.late} late` : 'on time'}
+          sub={stats?.late ? `${stats.late} muộn` : 'đúng giờ'}
           icon={CheckCircle2}
           tone="success"
         />
         <KPICard
-          label="Absent"
+          label="Vắng mặt"
           value={absent}
-          sub={stats?.excused ? `${stats.excused} excused` : 'sessions missed'}
+          sub={stats?.excused ? `${stats.excused} có phép` : 'đã vắng'}
           icon={XCircle}
           tone={absent > 0 ? 'danger' : 'neutral'}
         />
@@ -245,13 +245,13 @@ export default function ParticipantDashboard() {
       <section>
         <div className="flex items-center justify-between mb-2">
           <h2 className="text-overline text-muted-foreground">
-            Upcoming sessions · my schedule
+            Buổi học sắp tới · lịch của tôi
           </h2>
           {isLeader && (
             <Button asChild size="sm" variant="outline">
               <Link to="/calendar?tab=book">
                 <CalendarPlus className="size-3.5" aria-hidden="true" />
-                Book a slot
+                Đặt lịch
               </Link>
             </Button>
           )}
@@ -260,10 +260,10 @@ export default function ParticipantDashboard() {
         {upcoming.length === 0 ? (
           <EmptyState
             icon={CalendarDays}
-            title="No upcoming sessions"
+            title="Không có buổi học sắp tới"
             description={isLeader
-              ? 'Tap "Book a slot" to schedule one for your team.'
-              : 'Your team leader can book sessions from the Schedule & Book page.'}
+              ? 'Nhấn "Đặt lịch" để đặt một buổi cho nhóm của bạn.'
+              : 'Trưởng nhóm của bạn có thể đặt buổi học từ trang Lịch & Đặt lớp.'}
           />
         ) : (
           <ul className="bg-card border border-border rounded-lg overflow-hidden divide-y divide-border">
@@ -317,18 +317,18 @@ export default function ParticipantDashboard() {
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-sm font-semibold text-foreground inline-flex items-center gap-2">
             <ClipboardList className="size-4 text-primary" strokeWidth={2} aria-hidden="true" />
-            Attendance history
+            Lịch sử điểm danh
           </h2>
           <span className="text-xs text-subtle-foreground bg-muted px-2.5 py-0.5 rounded-md tabular-nums">
-            {history.length} sessions
+            {history.length} buổi
           </span>
         </div>
         <DataTable
           columns={historyColumns}
           data={history}
           rowKey="_id"
-          emptyTitle="No attendance history yet"
-          emptyMessage="Results appear after the teacher marks attendance."
+          emptyTitle="Chưa có lịch sử điểm danh"
+          emptyMessage="Kết quả hiển thị sau khi PIC điểm danh."
         />
       </section>
 
@@ -337,10 +337,10 @@ export default function ParticipantDashboard() {
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-sm font-semibold text-foreground inline-flex items-center gap-2">
             <Target className="size-4 text-primary" strokeWidth={2} aria-hidden="true" />
-            Evaluation scores
+            Điểm đánh giá
           </h2>
           <span className="text-xs text-subtle-foreground bg-muted px-2.5 py-0.5 rounded-md tabular-nums">
-            {evaluations.length} classes
+            {evaluations.length} lớp
           </span>
         </div>
 
@@ -349,8 +349,8 @@ export default function ParticipantDashboard() {
         ) : evaluations.length === 0 ? (
           <EmptyState
             icon={Target}
-            title="No evaluations yet"
-            description="Scores appear after the teacher enters an evaluation."
+            title="Chưa có đánh giá"
+            description="Điểm hiển thị sau khi PIC nhập đánh giá."
           />
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -360,10 +360,10 @@ export default function ParticipantDashboard() {
               const ringColor = avg >= 8 ? '#22c55e' : avg >= 6 ? '#f59e0b' : avg > 0 ? '#ef4444' : 'currentColor';
 
               const scoreItems = [
-                { label: 'Grammar',       value: ev.grammarScore },
-                { label: 'Vocabulary',    value: ev.vocabularyScore },
-                { label: 'Pronunciation', value: ev.pronunciationScore },
-                { label: 'Fluency',       value: ev.fluencyScore },
+                { label: 'Ngữ pháp',  value: ev.grammarScore },
+                { label: 'Từ vựng',   value: ev.vocabularyScore },
+                { label: 'Phát âm',   value: ev.pronunciationScore },
+                { label: 'Lưu loát',  value: ev.fluencyScore },
               ];
 
               return (
