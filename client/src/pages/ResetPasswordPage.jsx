@@ -3,6 +3,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { useState } from 'react';
 import { useSearchParams, Link, useNavigate } from 'react-router-dom';
 import { CheckCircle, XCircle } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { resetPasswordSchema } from '../lib/validations';
 import api from '../api/api';
 import { Button } from '@/components/ui/button';
@@ -13,17 +14,19 @@ import { Spinner } from '../components/Spinner';
 // Wordmark used across all 3 public-auth surfaces (LoginPage, Forgot, Reset).
 // Kept inline rather than a shared component — only 3 callers, intentional copy.
 function AuthWordmark() {
+  const { t } = useTranslation();
   return (
     <div className="text-center mb-8">
       <h1 className="text-[2.5rem] font-bold tracking-tight text-foreground leading-none">
         TMS<span className="text-primary">.</span>
       </h1>
-      <p className="text-muted-foreground mt-2">Hệ thống Quản lý Đào tạo</p>
+      <p className="text-muted-foreground mt-2">{t('auth.login.subtitle')}</p>
     </div>
   );
 }
 
 export default function ResetPasswordPage() {
+  const { t } = useTranslation();
   const [searchParams] = useSearchParams();
   const token = searchParams.get('token');
   const navigate = useNavigate();
@@ -44,7 +47,7 @@ export default function ResetPasswordPage() {
       setTimeout(() => navigate('/login', { replace: true }), 3000);
     } catch (err) {
       setError('root', {
-        message: err.response?.data?.message || 'Đặt lại thất bại. Liên kết có thể đã hết hạn.',
+        message: err.response?.data?.message || t('auth.resetPassword.errFallback'),
       });
     }
   });
@@ -58,12 +61,12 @@ export default function ResetPasswordPage() {
           <AuthWordmark />
           <div className="bg-card border border-border rounded-lg p-8 text-center space-y-4">
             <XCircle className="size-12 text-destructive mx-auto" aria-hidden="true" />
-            <h2 className="text-h3 text-foreground">Liên kết đặt lại không hợp lệ</h2>
+            <h2 className="text-h3 text-foreground">{t('auth.resetPassword.invalidTitle')}</h2>
             <p className="text-body text-muted-foreground">
-              Liên kết này thiếu token đặt lại. Vui lòng yêu cầu một liên kết mới.
+              {t('auth.resetPassword.invalidBody')}
             </p>
             <Button asChild className="mt-2">
-              <Link to="/forgot-password">Yêu cầu liên kết đặt lại</Link>
+              <Link to="/forgot-password">{t('auth.resetPassword.invalidButton')}</Link>
             </Button>
           </div>
         </div>
@@ -80,14 +83,14 @@ export default function ResetPasswordPage() {
           {done ? (
             <div className="text-center space-y-4">
               <CheckCircle className="size-12 text-success mx-auto" aria-hidden="true" />
-              <h2 className="text-h3 text-foreground">Đã cập nhật mật khẩu!</h2>
-              <p className="text-body text-muted-foreground">Đang chuyển đến trang đăng nhập…</p>
+              <h2 className="text-h3 text-foreground">{t('auth.resetPassword.successTitle')}</h2>
+              <p className="text-body text-muted-foreground">{t('auth.resetPassword.successBody')}</p>
             </div>
           ) : (
             <>
-              <h2 className="text-h3 text-foreground mb-2">Đặt mật khẩu mới</h2>
+              <h2 className="text-h3 text-foreground mb-2">{t('auth.resetPassword.title')}</h2>
               <p className="text-body text-muted-foreground mb-6">
-                Chọn mật khẩu mạnh (ít nhất 10 ký tự).
+                {t('auth.resetPassword.subtitle')}
               </p>
 
               {errors.root && (
@@ -99,7 +102,7 @@ export default function ResetPasswordPage() {
               <FormProvider {...methods}>
                 <form onSubmit={onSubmit} noValidate className="space-y-4">
                   <FormField name="password">
-                    <FormLabel>Mật khẩu mới</FormLabel>
+                    <FormLabel>{t('auth.resetPassword.newPwd')}</FormLabel>
                     <FormInput
                       type="password"
                       placeholder="••••••••••"
@@ -107,11 +110,11 @@ export default function ResetPasswordPage() {
                       className="h-12"
                     />
                     <FormError />
-                    <PasswordStrength value={passwordValue} labels={['', 'Yếu', 'Trung bình', 'Tốt', 'Mạnh']} className="mt-1" />
+                    <PasswordStrength value={passwordValue} labels={t('passwordStrength', { returnObjects: true })} className="mt-1" />
                   </FormField>
 
                   <FormField name="confirm">
-                    <FormLabel>Xác nhận mật khẩu</FormLabel>
+                    <FormLabel>{t('auth.resetPassword.confirmPwd')}</FormLabel>
                     <FormInput
                       type="password"
                       placeholder="••••••••••"
@@ -125,11 +128,11 @@ export default function ResetPasswordPage() {
                     type="submit"
                     className="w-full h-12 mt-2"
                     disabled={isSubmitting || !meetsStrength}
-                    title={!meetsStrength ? 'Mật khẩu quá yếu — cần đạt ít nhất 2 tiêu chí về độ mạnh' : undefined}
+                    title={!meetsStrength ? t('auth.resetPassword.weakPasswordTooltip') : undefined}
                   >
                     {isSubmitting ? (
-                      <><Spinner size={16} />Đang đặt lại…</>
-                    ) : 'Đặt lại mật khẩu'}
+                      <><Spinner size={16} />{t('auth.resetPassword.submitting')}</>
+                    ) : t('auth.resetPassword.submit')}
                   </Button>
                 </form>
               </FormProvider>
