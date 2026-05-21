@@ -251,6 +251,7 @@ const authenticate = async (empCode, password) => {
         department: user.department,
         status: user.status,
         mfaEnabled: false,
+        mustChangePassword: !!user.mustChangePassword,
         mfaEnrollmentRequired: true,
       },
     };
@@ -268,6 +269,7 @@ const authenticate = async (empCode, password) => {
       role: user.role,
       department: user.department,
       status: user.status,
+      mustChangePassword: !!user.mustChangePassword,
     },
   };
 };
@@ -348,6 +350,7 @@ const verifyMfaLogin = async (mfaPendingToken, code) => {
       role: user.role,
       department: user.department,
       status: user.status,
+      mustChangePassword: !!user.mustChangePassword,
     },
   };
 };

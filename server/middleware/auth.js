@@ -77,6 +77,7 @@ const protect = async (req, res, next) => {
       const ENROLLMENT_ALLOWED = new Set([
         '/api/auth/me',
         '/api/auth/logout',
+        '/api/auth/change-password',
         '/api/auth/mfa/setup',
         '/api/auth/mfa/verify-setup',
       ]);
@@ -113,7 +114,7 @@ const protect = async (req, res, next) => {
     let user = userCache.get(cacheKey);
     if (!user) {
       user = await User.findById(decoded.id)
-        .select('_id empCode name role department status passwordChangedAt mfaEnabled')
+        .select('_id empCode name role department status passwordChangedAt mfaEnabled mustChangePassword')
         .lean();
       if (user) userCache.set(cacheKey, user);
     }
@@ -140,6 +141,25 @@ const protect = async (req, res, next) => {
         return res.status(401).json({
           success: false,
           message: 'Password was recently changed. Please log in again.',
+        });
+      }
+    }
+
+    // Force default-password users into the password-change flow at the
+    // API layer. The frontend modal is helpful UX, but this server guard
+    // prevents direct API clients from using the app before rotating.
+    if (user.mustChangePassword) {
+      const path = (req.originalUrl || req.url || '').split('?')[0];
+      const PASSWORD_CHANGE_ALLOWED = new Set([
+        '/api/auth/me',
+        '/api/auth/logout',
+        '/api/auth/change-password',
+      ]);
+      if (!PASSWORD_CHANGE_ALLOWED.has(path)) {
+        return res.status(403).json({
+          success: false,
+          message: 'Password change is required before continuing.',
+          mustChangePassword: true,
         });
       }
     }
