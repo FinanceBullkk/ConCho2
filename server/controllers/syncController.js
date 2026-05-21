@@ -109,7 +109,7 @@ const syncFromGoogleSheets = async (req, res) => {
     // Schedule lookup: "classId|YYYY-MM-DD" → schedule documents for that day
     // We load ALL schedules (or filter to relevant date range if needed)
     const allSchedules = await Schedule.find()
-      .select('_id classId bookedTeamId startTime endTime enrolledUsers enrolledCount capacity')
+      .select('_id classId bookedTeamId startTime endTime enrolledUsers capacity')
       .lean();
 
     // Group schedules by classId + date for fast lookup
@@ -218,10 +218,11 @@ const syncFromGoogleSheets = async (req, res) => {
       );
 
       // ── Check capacity ──────────────────────────────────
-      if (schedule.enrolledCount + activeNew.length > schedule.capacity) {
+      const currentEnrolled = (schedule.enrolledUsers || []).length;
+      if (currentEnrolled + activeNew.length > schedule.capacity) {
         report.errors.push({
           row: rowNum,
-          error: `Capacity exceeded. Available: ${schedule.capacity - schedule.enrolledCount}, Needed: ${activeNew.length}`,
+          error: `Capacity exceeded. Available: ${schedule.capacity - currentEnrolled}, Needed: ${activeNew.length}`,
         });
         report.skipped++;
         continue;

@@ -135,14 +135,24 @@ const getUserEnrollments = async (req, res) => {
  * PUT /api/enrollments/:id
  * Update enrollment status/note (Admin manual override).
  * E.g. mark as Completed or Dropped.
+ *
+ * When status changes to Dropped: user is removed from Team.members and future
+ * Schedule.enrolledUsers atomically (same transaction).
+ * When status is re-set to Active from Dropped: user is re-added.
  */
 const updateEnrollment = async (req, res) => {
   try {
     const { status, note } = req.body;
+
+    // Load current enrollment first so we can diff the status and know userId/teamId.
+    const currentEnrollment = await Enrollment.findById(req.params.id).lean();
+    if (!currentEnrollment) {
+      return res.status(404).json({ success: false, message: 'Enrollment not found' });
+    }
+
     const update = {};
     if (status !== undefined) {
       update.status = status;
-      // If marking as non-Active, set leftAt
       if (status !== 'Active' && !req.body.leftAt) {
         update.leftAt = new Date();
       }
@@ -152,11 +162,54 @@ const updateEnrollment = async (req, res) => {
     }
     if (note !== undefined) update.note = note;
 
-    const enrollment = await Enrollment.findByIdAndUpdate(
-      req.params.id,
-      update,
-      { new: true, runValidators: true }
-    )
+    const statusChanging = status !== undefined && status !== currentEnrollment.status;
+    const isDropped = status === 'Dropped';
+    const isReactivate = status === 'Active';
+
+    if (statusChanging && (isDropped || isReactivate) && currentEnrollment.teamId) {
+      const userId = currentEnrollment.userId.toString();
+      const teamId = currentEnrollment.teamId.toString();
+
+      const session = await mongoose.startSession();
+      try {
+        await session.withTransaction(async () => {
+          await Enrollment.findByIdAndUpdate(req.params.id, update, { session });
+
+          const team = await Team.findById(teamId).session(session).lean();
+          if (team) {
+            const oldMembers = (team.members || []).map(id => id.toString());
+
+            if (isDropped && oldMembers.includes(userId)) {
+              await Team.findByIdAndUpdate(
+                teamId,
+                { $pull: { members: currentEnrollment.userId } },
+                { session }
+              );
+              const newMembers = oldMembers.filter(id => id !== userId);
+              await syncSchedulesForTeamUpdate({ teamId, oldMembers, newMembers, session });
+            } else if (isReactivate && !oldMembers.includes(userId)) {
+              await Team.findByIdAndUpdate(
+                teamId,
+                { $addToSet: { members: currentEnrollment.userId } },
+                { session }
+              );
+              const newMembers = [...oldMembers, userId];
+              await syncSchedulesForTeamUpdate({ teamId, oldMembers, newMembers, session });
+            }
+          }
+        });
+      } finally {
+        session.endSession();
+      }
+    } else {
+      const existing = await Enrollment.findByIdAndUpdate(req.params.id, update);
+      if (!existing) {
+        return res.status(404).json({ success: false, message: 'Enrollment not found' });
+      }
+    }
+
+    // Re-fetch with full population for response
+    const enrollment = await Enrollment.findById(req.params.id)
       .populate('userId', 'empCode name department status')
       .populate('teamId', 'name')
       .populate('classId', 'classCode courseName totalSessions')
@@ -386,6 +439,10 @@ const transferEnrollment = async (req, res) => {
 // PATCH /api/enrollments/bulk-status
 // Bulk status change (Active / On-hold / Dropped) for N enrollments.
 // Body: { enrollmentIds: [string], status: string, note?: string }
+//
+// When status → Dropped: users removed from Team.members and future
+// Schedule.enrolledUsers (grouped by team, single transaction).
+// When status → Active: users re-added to Team.members and schedules.
 // ──────────────────────────────────────────────────────────
 const bulkUpdateEnrollmentStatus = async (req, res) => {
   try {
@@ -403,21 +460,89 @@ const bulkUpdateEnrollmentStatus = async (req, res) => {
     else                     update.leftAt = new Date();
     if (note !== undefined) update.note = note;
 
-    const result = await Enrollment.updateMany(
-      { _id: { $in: enrollmentIds } },
-      update,
-    );
+    const isDropped = status === 'Dropped';
+    const isReactivate = status === 'Active';
+
+    let modifiedCount = 0;
+
+    if (isDropped || isReactivate) {
+      // Load current enrollments to find which ones change status and which teams they belong to.
+      const currentEnrollments = await Enrollment.find(
+        { _id: { $in: enrollmentIds } }
+      ).lean();
+
+      // Only process enrollments that are actually changing status and have a team.
+      const changing = currentEnrollments.filter(e => e.status !== status && e.teamId);
+
+      // Group affected users by teamId for efficient team/schedule sync.
+      const byTeam = new Map();
+      for (const e of changing) {
+        const teamId = e.teamId.toString();
+        if (!byTeam.has(teamId)) byTeam.set(teamId, []);
+        byTeam.get(teamId).push(e.userId.toString());
+      }
+
+      const session = await mongoose.startSession();
+      try {
+        await session.withTransaction(async () => {
+          const result = await Enrollment.updateMany(
+            { _id: { $in: enrollmentIds } },
+            update,
+            { session }
+          );
+          modifiedCount = result.modifiedCount;
+
+          for (const [teamId, userIds] of byTeam) {
+            const team = await Team.findById(teamId).session(session).lean();
+            if (!team) continue;
+
+            const oldMembers = (team.members || []).map(id => id.toString());
+            let newMembers;
+
+            if (isDropped) {
+              const toDrop = userIds.filter(id => oldMembers.includes(id));
+              if (toDrop.length === 0) continue;
+              newMembers = oldMembers.filter(id => !toDrop.includes(id));
+              await Team.updateOne(
+                { _id: teamId },
+                { $pull: { members: { $in: toDrop.map(id => new mongoose.Types.ObjectId(id)) } } },
+                { session }
+              );
+            } else {
+              const toAdd = userIds.filter(id => !oldMembers.includes(id));
+              if (toAdd.length === 0) continue;
+              newMembers = [...oldMembers, ...toAdd];
+              await Team.updateOne(
+                { _id: teamId },
+                { $addToSet: { members: { $each: toAdd.map(id => new mongoose.Types.ObjectId(id)) } } },
+                { session }
+              );
+            }
+
+            await syncSchedulesForTeamUpdate({ teamId, oldMembers, newMembers, session });
+          }
+        });
+      } finally {
+        session.endSession();
+      }
+    } else {
+      const result = await Enrollment.updateMany(
+        { _id: { $in: enrollmentIds } },
+        update,
+      );
+      modifiedCount = result.modifiedCount;
+    }
 
     auditService.record({
       req, action: 'bulk-status-change', entity: 'Enrollment',
-      entityId: null, diff: { enrollmentIds, status, modifiedCount: result.modifiedCount },
+      entityId: null, diff: { enrollmentIds, status, modifiedCount },
     });
     invalidateAnalyticsCache();
 
     res.json({
       success: true,
-      modifiedCount: result.modifiedCount,
-      message: `${result.modifiedCount} enrollment(s) updated to ${status}`,
+      modifiedCount,
+      message: `${modifiedCount} enrollment(s) updated to ${status}`,
     });
   } catch (error) {
     handleError(res, error);

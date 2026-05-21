@@ -53,6 +53,7 @@ const classSchema = new mongoose.Schema(
       },
       default: 'Ongoing',
     },
+    teacherIds: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
   },
   {
     timestamps: true,

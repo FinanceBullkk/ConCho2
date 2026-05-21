@@ -40,12 +40,13 @@ const seedEval = async ({ classId, userId, overrides = {} }) =>
   });
 
 let evalCounter = 0;
-const seedFreshClass = async () => {
+const seedFreshClass = async ({ teacherIds } = {}) => {
   evalCounter += 1;
   return Class.create({
     classCode: `EVAL_${Date.now()}_${evalCounter}`,
     courseName: 'Evaluation Test Class',
     totalSessions: 10,
+    ...(teacherIds ? { teacherIds } : {}),
   });
 };
 
@@ -95,8 +96,8 @@ describe('POST /api/evaluations', () => {
     expect(count).toBe(1);
   });
 
-  test('Teacher can upsert an evaluation', async () => {
-    const cls = await seedFreshClass();
+  test('Teacher can upsert an evaluation when assigned to the class', async () => {
+    const cls = await seedFreshClass({ teacherIds: [seed.teacher._id] });
     const res = await request(app)
       .post('/api/evaluations')
       .set('Authorization', `Bearer ${tokens.teacher}`)
@@ -108,6 +109,22 @@ describe('POST /api/evaluations', () => {
       });
 
     expect(res.status).toBe(200);
+  });
+
+  test('Fix 1: Teacher cannot upsert when NOT assigned to the class (403)', async () => {
+    const cls = await seedFreshClass();
+    const res = await request(app)
+      .post('/api/evaluations')
+      .set('Authorization', `Bearer ${tokens.teacher}`)
+      .set(csrf)
+      .send({
+        classId: cls._id.toString(),
+        userId: seed.member2._id.toString(),
+        grammarScore: 5, vocabularyScore: 5, pronunciationScore: 5, fluencyScore: 5,
+      });
+
+    expect(res.status).toBe(403);
+    expect(res.body.message).toMatch(/not assigned/i);
   });
 
   test('Participant cannot upsert (403)', async () => {
@@ -169,8 +186,8 @@ describe('GET /api/evaluations', () => {
     expect(res.body.data.length).toBeGreaterThanOrEqual(2);
   });
 
-  test('Teacher sees evaluations when classId is supplied', async () => {
-    const cls = await seedFreshClass();
+  test('Teacher sees evaluations when classId is supplied and is assigned to that class', async () => {
+    const cls = await seedFreshClass({ teacherIds: [seed.teacher._id] });
     await seedEval({ classId: cls._id, userId: seed.member1._id });
     await seedEval({ classId: cls._id, userId: seed.member2._id });
 
@@ -180,6 +197,18 @@ describe('GET /api/evaluations', () => {
 
     expect(res.status).toBe(200);
     expect(res.body.data.length).toBeGreaterThanOrEqual(2);
+  });
+
+  test('Fix 1: Teacher cannot list evaluations for an unassigned class (403)', async () => {
+    const cls = await seedFreshClass();
+    await seedEval({ classId: cls._id, userId: seed.member1._id });
+
+    const res = await request(app)
+      .get(`/api/evaluations?classId=${cls._id}`)
+      .set('Authorization', `Bearer ${tokens.teacher}`);
+
+    expect(res.status).toBe(403);
+    expect(res.body.message).toMatch(/not assigned/i);
   });
 
   test('BUG #3 fix: Teacher without classId is rejected (400) — prevents org-wide enumeration', async () => {
@@ -206,7 +235,7 @@ describe('GET /api/evaluations', () => {
   });
 
   test('BUG #3 fix: upsert records createdBy on first insert', async () => {
-    const cls = await seedFreshClass();
+    const cls = await seedFreshClass({ teacherIds: [seed.teacher._id] });
     const res = await request(app)
       .post('/api/evaluations')
       .set('Authorization', `Bearer ${tokens.teacher}`)
@@ -223,7 +252,7 @@ describe('GET /api/evaluations', () => {
   });
 
   test('BUG #3 fix: createdBy is NOT overwritten on subsequent updates by a different user', async () => {
-    const cls = await seedFreshClass();
+    const cls = await seedFreshClass({ teacherIds: [seed.teacher._id] });
     // First write by Teacher
     await request(app)
       .post('/api/evaluations')
@@ -305,8 +334,8 @@ describe('GET /api/evaluations/:id', () => {
     expect(res.body.data._id).toBe(ev._id.toString());
   });
 
-  test('Teacher can fetch any evaluation by id', async () => {
-    const cls = await seedFreshClass();
+  test('Teacher can fetch evaluation by id when assigned to the class', async () => {
+    const cls = await seedFreshClass({ teacherIds: [seed.teacher._id] });
     const ev = await seedEval({ classId: cls._id, userId: seed.member1._id });
 
     const res = await request(app)
@@ -314,6 +343,18 @@ describe('GET /api/evaluations/:id', () => {
       .set('Authorization', `Bearer ${tokens.teacher}`);
 
     expect(res.status).toBe(200);
+  });
+
+  test('Fix 1: Teacher cannot fetch evaluation by id when NOT assigned to the class (403)', async () => {
+    const cls = await seedFreshClass();
+    const ev = await seedEval({ classId: cls._id, userId: seed.member1._id });
+
+    const res = await request(app)
+      .get(`/api/evaluations/${ev._id}`)
+      .set('Authorization', `Bearer ${tokens.teacher}`);
+
+    expect(res.status).toBe(403);
+    expect(res.body.message).toMatch(/not assigned/i);
   });
 
   test('Participant cannot fetch by id (403 — Admin/Teacher only)', async () => {

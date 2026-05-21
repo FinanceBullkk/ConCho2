@@ -8,6 +8,8 @@ const { handleError } = require('../helpers/handleError');
 const auditService = require('../services/auditService');
 const { invalidateAnalyticsCache } = require('../middleware/analyticsCache');
 const logger = require('../lib/logger');
+const calendarService = require('../services/calendarService');
+const { todayVN } = require('../helpers/dayjsConfig');
 const User = require('../models/User');
 const {
   sendEnrollmentDropped,
@@ -506,9 +508,11 @@ const getMyTeams = async (req, res) => {
  *
  * Side-effects (reversible via restore):
  *   1. Close active Enrollment records (status → 'Dropped')
- *   2. Mark team as soft-deleted (isDeleted=true, deletedAt=now)
+ *   2. Cancel future Schedules (delete + cascade Attendance)
+ *   3. Mark team as soft-deleted (isDeleted=true, deletedAt=now)
  *
- * Schedules and Attendance are PRESERVED for audit trail.
+ * Past schedules and their Attendance PRESERVED for audit trail.
+ * Calendar events for future schedules deleted best-effort after commit.
  */
 const deleteTeam = async (req, res) => {
   try {
@@ -517,9 +521,21 @@ const deleteTeam = async (req, res) => {
       return res.status(404).json({ success: false, message: 'Team not found' });
     }
 
+    // Snapshot future schedules before transaction to collect calendar event IDs.
+    const todayBoundary = todayVN();
+    const futureSchedules = await Schedule.find(
+      { bookedTeamId: team._id, startTime: { $gte: todayBoundary } },
+      { _id: 1, googleEventId: 1 }
+    ).lean();
+    const futureScheduleIds = futureSchedules.map(s => s._id);
+    const calendarEventIds = futureSchedules
+      .filter(s => s.googleEventId)
+      .map(s => s.googleEventId);
+
     // ── TRANSACTION: Soft-delete (UX-03) ──────────────────
     const session = await mongoose.startSession();
     let closedEnrollments = 0;
+    let cancelledSchedules = 0;
 
     try {
       await session.withTransaction(async () => {
@@ -531,7 +547,21 @@ const deleteTeam = async (req, res) => {
         );
         closedEnrollments = enrollResult.modifiedCount;
 
-        // Step 2: Soft-delete the team (bypass auto-filter via raw update)
+        // Step 2: Delete future schedules and their attendance.
+        // Past schedules kept intact for historical reporting.
+        if (futureScheduleIds.length > 0) {
+          await Attendance.deleteMany(
+            { scheduleId: { $in: futureScheduleIds } },
+            { session }
+          );
+          const schedResult = await Schedule.deleteMany(
+            { _id: { $in: futureScheduleIds } },
+            { session }
+          );
+          cancelledSchedules = schedResult.deletedCount;
+        }
+
+        // Step 3: Soft-delete the team (bypass auto-filter via raw update)
         await Team.collection.updateOne(
           { _id: team._id },
           { $set: { isDeleted: true, deletedAt: new Date() } },
@@ -542,19 +572,30 @@ const deleteTeam = async (req, res) => {
       session.endSession();
     }
 
+    // Best-effort: remove calendar events after commit so attendees are notified.
+    for (const eventId of calendarEventIds) {
+      try {
+        if (calendarService.isConfigured()) {
+          await calendarService.deleteEventForSchedule(eventId);
+        }
+      } catch (err) {
+        logger.warn({ err, eventId }, 'Failed to delete calendar event after team deletion');
+      }
+    }
+
     auditService.record({
       req,
       action: 'soft-deleted',
       entity: 'Team',
       entityId: team._id,
-      note: `Closed ${closedEnrollments} enrollments`,
+      note: `Closed ${closedEnrollments} enrollments, cancelled ${cancelledSchedules} future schedules`,
     });
 
     invalidateAnalyticsCache();
     res.json({
       success: true,
       message: `Team "${team.name}" soft-deleted (can be restored)`,
-      cascade: { closedEnrollments },
+      cascade: { closedEnrollments, cancelledSchedules },
     });
   } catch (error) {
     handleError(res, error);
