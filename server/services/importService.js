@@ -19,6 +19,12 @@ const CHUNK_SIZE = 50;
  */
 const generateSecurePassword = () => crypto.randomBytes(12).toString('base64url');
 
+// Known default password for new users imported without an explicit password.
+// mustChangePassword is set to true alongside it, so the P1 server-side gate
+// forces them to rotate on first login. The admin communicates this default
+// out-of-band (e.g. onboarding email / HR letter) before accounts go live.
+const IMPORT_DEFAULT_PASSWORD = process.env.IMPORT_DEFAULT_PASSWORD || 'default12345';
+
 /**
  * Bulk import/update users by empCode (atomic, chunked bcrypt).
  *
@@ -75,12 +81,16 @@ const importUsers = async (users) => {
         if (u.department !== undefined) setFields.department = u.department;
         if (u.status !== undefined) setFields.status = u.status;
 
-        // Only hash password for NEW users (skip bcrypt for existing)
+        // Only hash password for NEW users (skip bcrypt for existing).
+        // If no explicit password is provided, use the org default and flag
+        // mustChangePassword so the user is forced to rotate on first login.
         const setOnInsert = {};
         if (!existingSet.has(empCode)) {
-          const raw = u.password || generateSecurePassword();
+          const usingDefault = !u.password;
+          const raw = u.password || IMPORT_DEFAULT_PASSWORD;
           const salt = await bcrypt.genSalt(12);
           setOnInsert.password = await bcrypt.hash(raw, salt);
+          if (usingDefault) setOnInsert.mustChangePassword = true;
         }
 
         return {
@@ -106,11 +116,18 @@ const importUsers = async (users) => {
     session.endSession();
   }
 
+  // Count how many new users received the default password (so admin knows
+  // who needs to be notified to change their password).
+  const defaultPasswordCount = users.filter(
+    u => !u.password && !existingSet.has(u.empCode.trim().toUpperCase())
+  ).length;
+
   return {
     total: users.length,
     created: result.upsertedCount,
     updated: result.modifiedCount,
     matched: result.matchedCount,
+    defaultPasswordCount,
   };
 };
 
@@ -149,6 +166,7 @@ const importClasses = async (classes) => {
     const classCode = c.classCode.trim().toUpperCase();
     const courseName = String(c.courseName).trim();
     const setFields = { classCode, courseName };
+    if (c.totalSessions !== undefined) setFields.totalSessions = c.totalSessions; // P2-04
     if (c.status !== undefined) setFields.status = c.status;
 
     const setOnInsert = {};

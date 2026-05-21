@@ -403,10 +403,30 @@ const bulkUpdateEnrollmentStatus = async (req, res) => {
     else                     update.leftAt = new Date();
     if (note !== undefined) update.note = note;
 
+    // P2-03: When Dropped, remove users from future schedule.enrolledUsers.
+    // On-hold is reversible — keep in schedules. Team.members is untouched
+    // (team is a booking unit, separate from enrollment status).
+    let droppedUserIds = [];
+    if (status === 'Dropped') {
+      const affected = await Enrollment.find(
+        { _id: { $in: enrollmentIds } },
+        { userId: 1 }
+      ).lean();
+      droppedUserIds = affected.map(e => e.userId);
+    }
+
     const result = await Enrollment.updateMany(
       { _id: { $in: enrollmentIds } },
       update,
     );
+
+    if (droppedUserIds.length > 0) {
+      const now = new Date();
+      await Schedule.updateMany(
+        { startTime: { $gt: now }, enrolledUsers: { $in: droppedUserIds } },
+        { $pull: { enrolledUsers: { $in: droppedUserIds } } }
+      );
+    }
 
     auditService.record({
       req, action: 'bulk-status-change', entity: 'Enrollment',

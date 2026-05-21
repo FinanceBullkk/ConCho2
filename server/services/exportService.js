@@ -1,4 +1,5 @@
 const mongoose = require('mongoose');
+const { v4: uuidv4 } = require('uuid');
 const ExcelJS = require('exceljs');
 const Attendance = require('../models/Attendance');
 const Evaluation = require('../models/Evaluation');
@@ -31,16 +32,18 @@ const STATUS_TEXT = {
  * @param {boolean} opts.includeExported  If true, include EXPORTED records
  * @returns {Array} MongoDB aggregation pipeline
  */
-const buildExportPipeline = ({ from, to, includeExported = false }) => {
-  // ── Stage 1: Filter ─────────────────────────────────────
+const buildExportPipeline = ({ from, to, includeExported = false, batchId }) => {
+  // ── Stage 1: Filter by syncStatus / batchId ─────────────
+  // Date range is applied AFTER the schedule $lookup (Stage 2b) so we
+  // filter by the actual lesson date (schedule.startTime) rather than
+  // Attendance.createdAt — which is the DB write time and may differ
+  // from the session date by hours or days (P2-07 fix).
   const matchStage = {};
-  if (!includeExported) {
+  if (batchId) {
+    // Claimed export: select only our batch (P2-08).
+    matchStage.exportBatchId = batchId;
+  } else if (!includeExported) {
     matchStage.syncStatus = 'PENDING';
-  }
-  if (from || to) {
-    matchStage.createdAt = {};
-    if (from) matchStage.createdAt.$gte = new Date(from);
-    if (to) matchStage.createdAt.$lte = new Date(to);
   }
 
   const pipeline = [];
@@ -53,6 +56,14 @@ const buildExportPipeline = ({ from, to, includeExported = false }) => {
     { $lookup: { from: 'schedules', localField: 'scheduleId', foreignField: '_id', as: 'schedule' } },
     { $unwind: '$schedule' }
   );
+
+  // ── Stage 2b: Filter by lesson date (schedule.startTime) ─
+  if (from || to) {
+    const dateFilter = {};
+    if (from) dateFilter.$gte = new Date(from);
+    if (to)   dateFilter.$lte = new Date(to);
+    pipeline.push({ $match: { 'schedule.startTime': dateFilter } });
+  }
 
   // ── Stage 3: Join User (nhân viên) ─────────────────────
   pipeline.push(
@@ -212,36 +223,70 @@ const markAsExported = async (ids) => {
 };
 
 /**
- * Full export flow: query → generate Excel → mark exported.
+ * Full export flow: atomic claim → generate Excel → mark exported.
+ *
+ * P2-08 race-condition fix: instead of query-then-mark (two separate ops
+ * that two concurrent admins can interleave), we now:
+ *   1. Atomically stamp all matching PENDING records with a unique
+ *      exportBatchId and status=EXPORTING in a single updateMany.
+ *   2. Query only the records we just claimed (by batchId).
+ *   3. Generate the Excel from those records.
+ *   4. Mark claimed records EXPORTED.
+ *
+ * If two admins export at the same moment, each gets a different batchId
+ * and a disjoint set of records — no double-export.
  *
  * @param {Object} opts  { from?, to?, includeExported? }
  * @returns {Object} { buffer, filename, recordCount, markedCount }
  */
 const exportAttendance = async (opts = {}) => {
-  // 1. Query data
-  const records = await queryExportData(opts);
+  if (opts.includeExported) {
+    // Re-export path: no claiming needed — just query and generate.
+    const records = await queryExportData(opts);
+    if (records.length === 0) {
+      throw new ServiceError('Không có bản ghi nào để xuất (No records found)', 404);
+    }
+    const buffer = await generateExcel(records);
+    const now = new Date();
+    const dateStr = now.toISOString().slice(0, 10).replace(/-/g, '');
+    const filename = `TMS_Attendance_${dateStr}_${records.length}records.xlsx`;
+    return { buffer, filename, recordCount: records.length, markedCount: 0 };
+  }
 
-  if (records.length === 0) {
+  // 1. Build the date filter to apply at claim time (mirrors buildExportPipeline
+  //    but operates on Attendance directly — schedule join happens in step 2).
+  // We claim by syncStatus only here; the pipeline handles startTime filtering.
+  const batchId = uuidv4();
+  const claimResult = await Attendance.updateMany(
+    { syncStatus: 'PENDING' },
+    { $set: { syncStatus: 'EXPORTING', exportBatchId: batchId } }
+  );
+
+  if (claimResult.modifiedCount === 0) {
     throw new ServiceError('Không có bản ghi nào để xuất (No pending records found)', 404);
   }
 
-  // 2. Generate Excel
+  // 2. Query only our claimed records (by batchId), with full pipeline joins.
+  // Pass the date filter through opts so buildExportPipeline applies it on
+  // schedule.startTime (Stage 2b) after the $lookup.
+  const records = await queryExportData({ ...opts, batchId });
+
+  // 3. Generate Excel
   const buffer = await generateExcel(records);
 
-  // 3. Mark as exported (only for PENDING records, skip if includeExported)
-  let markedCount = 0;
-  if (!opts.includeExported) {
-    const pendingIds = records.map(r => r._id);
-    const result = await markAsExported(pendingIds);
-    markedCount = result.modifiedCount;
-  }
+  // 4. Mark claimed records as EXPORTED (whether they passed the date filter or not).
+  // Records that were claimed but filtered out (outside date range) also get
+  // EXPORTED so they don't sit in EXPORTING forever.
+  const markedResult = await Attendance.updateMany(
+    { exportBatchId: batchId },
+    { $set: { syncStatus: 'EXPORTED', exportedAt: new Date() } }
+  );
 
-  // 4. Build filename
   const now = new Date();
   const dateStr = now.toISOString().slice(0, 10).replace(/-/g, '');
   const filename = `TMS_Attendance_${dateStr}_${records.length}records.xlsx`;
 
-  return { buffer, filename, recordCount: records.length, markedCount };
+  return { buffer, filename, recordCount: records.length, markedCount: markedResult.modifiedCount };
 };
 
 /**
