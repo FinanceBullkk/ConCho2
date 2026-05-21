@@ -13,7 +13,6 @@ import { cn } from '@/lib/utils';
 export default function LoginPage() {
   const { t } = useTranslation();
   const [step, setStep] = useState('credentials'); // 'credentials' | 'mfa'
-  const [mfaPendingToken, setMfaPendingToken] = useState('');
   const { login, verifyMfa } = useAuth();
   const navigate = useNavigate();
 
@@ -33,7 +32,6 @@ export default function LoginPage() {
     try {
       const result = await login(empCode, password);
       if (result.mfaRequired) {
-        setMfaPendingToken(result.mfaPendingToken);
         setStep('mfa');
       } else {
         navigate('/home', { replace: true });
@@ -47,14 +45,13 @@ export default function LoginPage() {
 
   const handleMfaSubmit = mfaForm.handleSubmit(async ({ mfaCode }) => {
     try {
-      await verifyMfa(mfaPendingToken, mfaCode.trim());
+      await verifyMfa(mfaCode.trim());
       navigate('/home', { replace: true });
     } catch (err) {
       const msg = err.response?.data?.message || t('auth.mfa.errFallback');
       mfaForm.setError('root', { message: msg });
       if (msg.toLowerCase().includes('expired')) {
         setStep('credentials');
-        setMfaPendingToken('');
         mfaForm.reset();
       }
     }
@@ -62,7 +59,6 @@ export default function LoginPage() {
 
   const handleBackToCreds = () => {
     setStep('credentials');
-    setMfaPendingToken('');
     mfaForm.reset();
     credForm.clearErrors();
   };
