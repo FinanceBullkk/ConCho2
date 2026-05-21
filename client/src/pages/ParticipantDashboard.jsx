@@ -401,7 +401,7 @@ export default function ParticipantDashboard() {
                         <span className={`text-sm font-bold leading-none tabular-nums ${avgColor}`}>
                           {avg > 0 ? avg.toFixed(1) : '—'}
                         </span>
-                        <span className="text-[9px] text-subtle-foreground mt-0.5">avg</span>
+                        <span className="text-[9px] text-subtle-foreground mt-0.5">TB</span>
                       </div>
                     </div>
 
