@@ -1,9 +1,22 @@
 /**
- * Import STUDENTS data from Excel via the running API server
+ * LEGACY ONE-OFF SCRIPT — DO NOT RUN IN PRODUCTION
+ * ──────────────────────────────────────────────────────────
+ * Import STUDENTS data from Excel via the running API server.
  * This bypasses the MongoDB connection issue by POSTing to the already-connected server.
- * 
- * Run from: e:\ConCho2\server> node import_via_api.js
+ *
+ * Run from: e:\ConCho2\server> node scripts/legacy/import_via_api.js
+ *
+ * P3-09: This script hardcodes password: 'default12345' on line 154.
+ * For production imports use POST /api/import/users (importService.js)
+ * which reads IMPORT_DEFAULT_PASSWORD from the environment and enforces
+ * mustChangePassword on every new user.
+ * ──────────────────────────────────────────────────────────
  */
+
+if (process.env.NODE_ENV === 'production') {
+  console.error('❌ This legacy script must NOT be run in production. Use the /api/import/users endpoint instead.');
+  process.exit(1);
+}
 
 const XLSX = require('../node_modules/xlsx');
 

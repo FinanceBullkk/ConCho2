@@ -118,10 +118,12 @@ const syncFromGoogleSheets = async (req, res) => {
       .select('_id classId bookedTeamId startTime endTime enrolledUsers enrolledCount capacity')
       .lean();
 
-    // Group schedules by classId + date for fast lookup
+    // Group schedules by classId + VN date for fast lookup.
+    // P3-02: Use VN timezone (Asia/Ho_Chi_Minh) so schedules starting before
+    // 07:00 VN (< 00:00 UTC next day) group under the correct VN calendar date.
     const scheduleMap = new Map();
     for (const s of allSchedules) {
-      const dateKey = new Date(s.startTime).toISOString().slice(0, 10); // YYYY-MM-DD
+      const dateKey = toVN(s.startTime).format('YYYY-MM-DD'); // VN calendar date
       const key = `${s.classId.toString()}|${dateKey}`;
       if (!scheduleMap.has(key)) scheduleMap.set(key, []);
       scheduleMap.get(key).push(s);
@@ -186,7 +188,9 @@ const syncFromGoogleSheets = async (req, res) => {
       }
 
       const [, sh, sm, eh, em] = slotParts.map(Number);
-      const dateKey = date.toISOString().slice(0, 10);
+      // P3-02: Use VN date from the sheet's date string so it matches the
+      // scheduleMap keys (which are also keyed by VN calendar date).
+      const dateKey = toVN(date).format('YYYY-MM-DD');
       const lookupKey = `${cls._id.toString()}|${dateKey}`;
 
       // ── Find matching schedule (from Map) ───────────────
