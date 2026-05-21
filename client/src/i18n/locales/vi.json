@@ -62,6 +62,8 @@
       "allPositions": "Tất cả vị trí",
       "entranceLevel": "Trình độ đầu vào",
       "currentLevel": "Trình độ hiện tại",
+      "allEntranceLevels": "Tất cả trình độ đầu vào",
+      "allCurrentLevels": "Tất cả trình độ hiện tại",
       "allStatuses": "Tất cả trạng thái",
       "clearFilters": "Xóa bộ lọc"
     },

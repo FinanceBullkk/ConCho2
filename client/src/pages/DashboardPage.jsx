@@ -164,8 +164,8 @@ export default function DashboardPage() {
         filters={[
           { key: 'department',    placeholder: t('dashboard.filters.allBU'),        options: filterOpts?.departments   || [], value: filters.department    || '', onChange: v => setFilter('department', v) },
           { key: 'position',      placeholder: t('dashboard.filters.allPositions'), options: filterOpts?.positions      || [], value: filters.position      || '', onChange: v => setFilter('position', v) },
-          { key: 'entranceLevel', placeholder: t('dashboard.filters.entranceLevel'),options: filterOpts?.entranceLevels || [], value: filters.entranceLevel || '', onChange: v => setFilter('entranceLevel', v) },
-          { key: 'currentLevel',  placeholder: t('dashboard.filters.currentLevel'), options: filterOpts?.currentLevels  || [], value: filters.currentLevel  || '', onChange: v => setFilter('currentLevel', v) },
+          { key: 'entranceLevel', placeholder: t('dashboard.filters.allEntranceLevels'), options: filterOpts?.entranceLevels || [], value: filters.entranceLevel || '', onChange: v => setFilter('entranceLevel', v) },
+          { key: 'currentLevel',  placeholder: t('dashboard.filters.allCurrentLevels'),  options: filterOpts?.currentLevels  || [], value: filters.currentLevel  || '', onChange: v => setFilter('currentLevel', v) },
           { key: 'status',        placeholder: t('dashboard.filters.allStatuses'),  options: filterOpts?.statuses       || [], value: filters.status        || '', onChange: v => setFilter('status', v) },
         ]}
       >
