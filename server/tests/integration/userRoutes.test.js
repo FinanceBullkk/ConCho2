@@ -18,7 +18,7 @@ const mongoose = require('mongoose');
 const { getApp, getTokens, getSeedData, getCsrfHeaders, teardown } = require('../setup');
 
 let app, tokens, seed, csrf;
-let User;
+let User, Schedule;
 
 beforeAll(async () => {
   app = await getApp();
@@ -26,6 +26,7 @@ beforeAll(async () => {
   seed = getSeedData();
   csrf = await getCsrfHeaders(app);
   User = require('../../models/User');
+  Schedule = require('../../models/Schedule');
 });
 
 afterAll(async () => {
@@ -446,5 +447,47 @@ describe('POST /api/users/:id/restore', () => {
       .set('Authorization', `Bearer ${tokens.admin}`)
       .set(csrf);
     expect(res.status).toBe(404);
+  });
+});
+
+// ── Fix 6: soft-delete only pulls from FUTURE schedules ──
+
+describe('DELETE /api/users/:id — future-only schedule pull', () => {
+  test('removes user from future schedules but preserves past schedule enrollment', async () => {
+    const target = await User.create({
+      empCode: nextCode(), name: 'Schedule Fixture', email: `${nextCode()}@x.com`,
+      role: 'Participant', password: 'pass12345678',
+    });
+
+    const past = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+    const pastEnd = new Date(past.getTime() + 90 * 60 * 1000);
+    const future = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+    const futureEnd = new Date(future.getTime() + 90 * 60 * 1000);
+
+    const pastSched = await Schedule.create({
+      classId: seed.class1._id, bookedTeamId: seed.team._id,
+      startTime: past, endTime: pastEnd, enrolledUsers: [target._id],
+    });
+    const futureSched = await Schedule.create({
+      classId: seed.class1._id, bookedTeamId: seed.team._id,
+      startTime: future, endTime: futureEnd, enrolledUsers: [target._id],
+    });
+
+    const res = await request(app)
+      .delete(`/api/users/${target._id}`)
+      .set('Authorization', `Bearer ${tokens.admin}`)
+      .set(csrf);
+
+    expect(res.status).toBe(200);
+
+    const pastCheck = await Schedule.findById(pastSched._id).lean();
+    const pastIds = (pastCheck.enrolledUsers || []).map(id => id.toString());
+    expect(pastIds).toContain(target._id.toString());
+
+    const futureCheck = await Schedule.findById(futureSched._id).lean();
+    const futureIds = (futureCheck.enrolledUsers || []).map(id => id.toString());
+    expect(futureIds).not.toContain(target._id.toString());
+
+    await Schedule.deleteMany({ _id: { $in: [pastSched._id, futureSched._id] } });
   });
 });

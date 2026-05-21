@@ -17,7 +17,7 @@ const mongoose = require('mongoose');
 const { getApp, getTokens, getSeedData, getCsrfHeaders, teardown } = require('../setup');
 
 let app, tokens, seed, csrf;
-let Enrollment, Team, Class;
+let Enrollment, Team, Class, Schedule, User;
 
 beforeAll(async () => {
   app = await getApp();
@@ -27,6 +27,8 @@ beforeAll(async () => {
   Enrollment = require('../../models/Enrollment');
   Team = require('../../models/Team');
   Class = require('../../models/Class');
+  Schedule = require('../../models/Schedule');
+  User = require('../../models/User');
 });
 
 afterAll(async () => {
@@ -309,5 +311,112 @@ describe('POST /api/enrollments/check-conflicts', () => {
 
     expect(res.status).toBe(200);
     expect(res.body.data).toEqual([]);
+  });
+});
+
+// ── Fix 2: status change syncs Team.members + Schedule.enrolledUsers ──
+
+describe('PUT /api/enrollments/:id — team and schedule sync on status change', () => {
+  let syncCounter = 0;
+
+  const setupSyncFixture = async () => {
+    syncCounter += 1;
+    const suffix = `${Date.now()}_${syncCounter}`;
+
+    const cls = await Class.create({
+      classCode: `SYNC_${suffix}`, courseName: 'Sync Test', totalSessions: 5,
+    });
+    const u = await User.create({
+      empCode: `SY${syncCounter}${Date.now() % 10000}`, name: `SyncMember-${suffix}`,
+      role: 'Participant', department: 'Sales', password: 'sync12345678',
+    });
+    const t = await Team.create({
+      name: `SyncTeam-${suffix}`, classId: cls._id,
+      leaderId: seed.leader._id, members: [seed.leader._id, u._id],
+    });
+    const enrollment = await Enrollment.create({
+      userId: u._id, teamId: t._id, classId: cls._id, status: 'Active',
+    });
+
+    const future = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+    const sched = await Schedule.create({
+      classId: cls._id, bookedTeamId: t._id,
+      startTime: future, endTime: new Date(future.getTime() + 90 * 60 * 1000),
+      enrolledUsers: [seed.leader._id, u._id],
+    });
+
+    return { cls, u, t, enrollment, sched };
+  };
+
+  test('Dropping enrollment removes user from team.members', async () => {
+    const { u, t, enrollment } = await setupSyncFixture();
+
+    const res = await request(app)
+      .put(`/api/enrollments/${enrollment._id}`)
+      .set('Authorization', `Bearer ${tokens.admin}`)
+      .set(csrf)
+      .send({ status: 'Dropped' });
+
+    expect(res.status).toBe(200);
+
+    const teamCheck = await Team.findById(t._id).lean();
+    const memberIds = (teamCheck.members || []).map(id => id.toString());
+    expect(memberIds).not.toContain(u._id.toString());
+  });
+
+  test('Dropping enrollment removes user from future schedule enrolledUsers', async () => {
+    const { u, enrollment, sched } = await setupSyncFixture();
+
+    await request(app)
+      .put(`/api/enrollments/${enrollment._id}`)
+      .set('Authorization', `Bearer ${tokens.admin}`)
+      .set(csrf)
+      .send({ status: 'Dropped' });
+
+    const schedCheck = await Schedule.findById(sched._id).lean();
+    const enrolledIds = (schedCheck.enrolledUsers || []).map(id => id.toString());
+    expect(enrolledIds).not.toContain(u._id.toString());
+  });
+
+  test('Reactivating a Dropped enrollment re-adds user to team.members', async () => {
+    const { u, t, enrollment } = await setupSyncFixture();
+
+    await request(app)
+      .put(`/api/enrollments/${enrollment._id}`)
+      .set('Authorization', `Bearer ${tokens.admin}`)
+      .set(csrf)
+      .send({ status: 'Dropped' });
+
+    const res = await request(app)
+      .put(`/api/enrollments/${enrollment._id}`)
+      .set('Authorization', `Bearer ${tokens.admin}`)
+      .set(csrf)
+      .send({ status: 'Active' });
+
+    expect(res.status).toBe(200);
+
+    const teamCheck = await Team.findById(t._id).lean();
+    const memberIds = (teamCheck.members || []).map(id => id.toString());
+    expect(memberIds).toContain(u._id.toString());
+  });
+
+  test('Reactivating a Dropped enrollment re-adds user to future schedule enrolledUsers', async () => {
+    const { u, enrollment, sched } = await setupSyncFixture();
+
+    await request(app)
+      .put(`/api/enrollments/${enrollment._id}`)
+      .set('Authorization', `Bearer ${tokens.admin}`)
+      .set(csrf)
+      .send({ status: 'Dropped' });
+
+    await request(app)
+      .put(`/api/enrollments/${enrollment._id}`)
+      .set('Authorization', `Bearer ${tokens.admin}`)
+      .set(csrf)
+      .send({ status: 'Active' });
+
+    const schedCheck = await Schedule.findById(sched._id).lean();
+    const enrolledIds = (schedCheck.enrolledUsers || []).map(id => id.toString());
+    expect(enrolledIds).toContain(u._id.toString());
   });
 });
