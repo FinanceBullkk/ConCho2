@@ -28,7 +28,9 @@ const importClassItem = z.object({
   classCode: z.string().min(1, 'classCode is required').max(20),
   courseName: z.string().min(1, 'Course name is required').max(100),
   totalSessions: z.coerce.number({ required_error: 'totalSessions is required' }).int().min(1).max(100),
-  status: z.enum(['Not Started', 'Ongoing', 'Completed']).optional(),
+  // P3-03: Class model only allows 'Ongoing' | 'Completed' — 'Not Started'
+  // was never a valid model value and would fail the Mongoose enum check.
+  status: z.enum(['Ongoing', 'Completed']).optional(),
 }).strict();
 
 const importClassesBody = z.object({

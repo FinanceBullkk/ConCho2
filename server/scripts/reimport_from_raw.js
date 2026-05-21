@@ -1,4 +1,7 @@
 /**
+ * LEGACY ONE-OFF SCRIPT — DO NOT RUN IN PRODUCTION (P3-09)
+ * Hardcodes DEFAULT_PASSWORD = 'default12345'. Use /api/import/users for production.
+ *
  * Wipe & Re-import TMS data DIRECTLY from raw spreadsheet.
  *
  * Source: C:/Users/anhha/Downloads/okok_FIXED_v2 (1).xlsx
@@ -19,6 +22,11 @@
  *   node server/scripts/reimport_from_raw.js                    # dry-run
  *   CONFIRM_WIPE=YES node server/scripts/reimport_from_raw.js   # execute
  */
+
+if (process.env.NODE_ENV === 'production') {
+  console.error('❌ This legacy script must NOT be run in production. Use the /api/import/users endpoint instead.');
+  process.exit(1);
+}
 
 const path = require('path');
 require('dotenv').config({ path: path.join(__dirname, '..', '.env') });

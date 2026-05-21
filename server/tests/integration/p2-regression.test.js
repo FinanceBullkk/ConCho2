@@ -91,7 +91,7 @@ describe('P2-08R — export date range only marks in-range records as EXPORTED',
     expect(outDb.syncStatus).toBe('PENDING');  // outside range: must be untouched
   });
 
-  test('concurrent exports: record is claimed exactly once, not stuck in EXPORTING', async () => {
+  test('concurrent exports: one gets 200, the other 404 — record EXPORTED exactly once (P2R-01)', async () => {
     const userId  = seed.member2._id;
     const classId = seed.class1._id;
     const teamId  = seed.team._id;
@@ -111,12 +111,13 @@ describe('P2-08R — export date range only marks in-range records as EXPORTED',
         .set('Authorization', `Bearer ${tokens.admin}`),
     ]);
 
-    // At least one request must succeed
-    const successes = [res1.status, res2.status].filter(s => s === 200);
-    expect(successes.length).toBeGreaterThanOrEqual(1);
+    // With P2R-01 fix: the loser claims 0 records (modifiedCount=0) and throws
+    // ServiceError(404) instead of returning an empty Excel. So one gets 200,
+    // the other gets 404 — never two 200s with a double-exported record.
+    const statuses = [res1.status, res2.status].sort((a, b) => a - b);
+    expect(statuses).toEqual([200, 404]);
 
-    // Key invariant: the record must be fully EXPORTED — never stuck in EXPORTING.
-    // This proves the claim-then-mark pattern is atomic and complete.
+    // The record must be fully EXPORTED — not stuck in EXPORTING.
     const inDb = await Attendance.findById(attendance._id).select('syncStatus').lean();
     expect(inDb.syncStatus).toBe('EXPORTED');
   });

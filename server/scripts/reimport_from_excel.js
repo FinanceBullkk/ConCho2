@@ -1,4 +1,6 @@
 /**
+ * LEGACY ONE-OFF SCRIPT — DO NOT RUN IN PRODUCTION
+ * ──────────────────────────────────────────────────────────
  * Wipe & Re-import TMS data from cleaned Excel file.
  *
  * Usage:
@@ -14,7 +16,16 @@
  *   - Schedule.startTime stored as UTC, assuming Excel times are Asia/Ho_Chi_Minh (UTC+7).
  *   - Attendance ambiguity (same classCode + date but different courseName) resolved by
  *     selecting the schedule whose enrolledUsers contains the empCode.
+ *
+ * P3-09: This script hardcodes DEFAULT_PASSWORD = 'default12345'.
+ * For production imports use POST /api/import/users instead.
+ * ──────────────────────────────────────────────────────────
  */
+
+if (process.env.NODE_ENV === 'production') {
+  console.error('❌ This legacy script must NOT be run in production. Use the /api/import/users endpoint instead.');
+  process.exit(1);
+}
 
 const path = require('path');
 require('dotenv').config({ path: path.join(__dirname, '..', '.env') });

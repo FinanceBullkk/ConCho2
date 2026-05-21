@@ -48,7 +48,7 @@ export default function SchedulesPage() {
   const { can } = useRole();
   const canCreate = can('create:schedule');
   const canUpdate = can('update:schedule');
-  const canDelete = can('delete:schedule');
+  const _canDelete = can('delete:schedule'); // reserved — delete UI not yet implemented
 
   const [drawerMode, setDrawerMode]             = useState(null);   // 'create' | 'edit' | null
   const [selectedSchedule, setSelectedSchedule] = useState(null);
