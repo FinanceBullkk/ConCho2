@@ -203,7 +203,14 @@ const mfaVerifySetup = async (req, res) => {
     // via an enrollment-required token), swap their cookie for a full
     // session token now — they shouldn't have to log in again after
     // completing the very flow we just forced them through.
+    // Revoke the enrollment token first so it cannot be reused (F3 audit fix).
     if (req.mfaEnrollmentRequired) {
+      if (req.tokenJti && req.tokenExp) {
+        await authService.revokeToken(req.tokenJti, req.tokenExp, {
+          userId: user._id,
+          reason: 'mfa-upgrade',
+        });
+      }
       const fullToken = authService.generateToken(user._id);
       res.cookie('tms_token', fullToken, authService.getCookieOptions());
     }
