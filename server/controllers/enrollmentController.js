@@ -138,12 +138,13 @@ const getUserEnrollments = async (req, res) => {
  *
  * @param {Array<ObjectId|string>} userIds
  */
-const pullDroppedUsersFromFutureSchedules = async (userIds) => {
+const pullDroppedUsersFromFutureSchedules = async (userIds, session = null) => {
   if (!userIds || userIds.length === 0) return;
   const now = new Date();
   await Schedule.updateMany(
     { startTime: { $gt: now }, enrolledUsers: { $in: userIds } },
     { $pull: { enrolledUsers: { $in: userIds } } },
+    session ? { session } : {},
   );
 };
 
@@ -168,26 +169,37 @@ const updateEnrollment = async (req, res) => {
     }
     if (note !== undefined) update.note = note;
 
-    const enrollment = await Enrollment.findByIdAndUpdate(
-      req.params.id,
-      update,
-      { new: true, runValidators: true }
-    )
-      .populate('userId', 'empCode name department status')
-      .populate('teamId', 'name')
-      .populate('classId', 'classCode courseName totalSessions')
-      .populate('transferredTo', 'name');
+    // Wrap enrollment update + schedule pull in one transaction so a crash
+    // between the two writes cannot leave a dropped user in future rosters (BUG #2 fix).
+    let enrollment = null;
+    const session = await mongoose.startSession();
+    try {
+      await session.withTransaction(async () => {
+        enrollment = await Enrollment.findByIdAndUpdate(
+          req.params.id,
+          update,
+          { new: true, runValidators: true, session },
+        );
+        if (!enrollment) return; // handled below after commit
+
+        if (status === 'Dropped') {
+          const uid = enrollment.userId?._id ?? enrollment.userId;
+          await pullDroppedUsersFromFutureSchedules([uid], session);
+        }
+      });
+    } finally {
+      session.endSession();
+    }
 
     if (!enrollment) {
       return res.status(404).json({ success: false, message: 'Enrollment not found' });
     }
 
-    // P2-03R: when status → Dropped, pull user from all future schedules
-    // (mirrors bulkUpdateEnrollmentStatus behaviour — single-update parity).
-    if (status === 'Dropped') {
-      const uid = enrollment.userId?._id ?? enrollment.userId;
-      await pullDroppedUsersFromFutureSchedules([uid]);
-    }
+    // Populate post-commit (populate does not run inside transactions).
+    await enrollment.populate('userId', 'empCode name department status');
+    await enrollment.populate('teamId', 'name');
+    await enrollment.populate('classId', 'classCode courseName totalSessions');
+    await enrollment.populate('transferredTo', 'name');
 
     invalidateAnalyticsCache();
     res.json({ success: true, data: enrollment });
@@ -418,13 +430,24 @@ const bulkUpdateEnrollmentStatus = async (req, res) => {
       droppedUserIds = affected.map(e => e.userId);
     }
 
-    const result = await Enrollment.updateMany(
-      { _id: { $in: enrollmentIds } },
-      update,
-    );
+    // Wrap both writes in one transaction — prevents ghost attendance records
+    // when server crashes between enrollment update and schedule pull (BUG #2 fix).
+    let result;
+    const session = await mongoose.startSession();
+    try {
+      await session.withTransaction(async () => {
+        result = await Enrollment.updateMany(
+          { _id: { $in: enrollmentIds } },
+          update,
+          { session },
+        );
 
-    if (droppedUserIds.length > 0) {
-      await pullDroppedUsersFromFutureSchedules(droppedUserIds);
+        if (droppedUserIds.length > 0) {
+          await pullDroppedUsersFromFutureSchedules(droppedUserIds, session);
+        }
+      });
+    } finally {
+      session.endSession();
     }
 
     auditService.record({
