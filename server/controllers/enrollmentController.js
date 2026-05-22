@@ -499,6 +499,11 @@ const bulkTransferEnrollment = async (req, res) => {
         ...req,
         params: { id },
         body: { toTeamId, note },
+        // Q3: Express getters (req.ip) and prototype methods (req.get) do not
+        // survive a plain object spread — re-bind them explicitly so that
+        // auditService.record() logs the real IP and user-agent instead of null.
+        ip: req.ip,
+        get: req.get.bind(req),
       };
       try {
         await transferEnrollment(shimReq, shimRes);

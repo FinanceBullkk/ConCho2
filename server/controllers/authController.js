@@ -500,47 +500,67 @@ const forgotPassword = async (req, res) => {
 
   // Background work — best-effort, never blocks or surfaces errors to the caller.
   // We intentionally do NOT await this from the request handler.
-  setImmediate(async () => {
-    try {
-      const User = require('../models/User');
-      const user = await User.findOne({ empCode: normalizedEmpCode, isDeleted: { $ne: true } });
-      if (!user || !user.email) {
-        logger.info({ empCode: normalizedEmpCode }, 'Forgot-password: no matching user (no-op)');
-        return;
-      }
-
-      const rawToken = crypto.randomBytes(32).toString('hex');
-      const hashedToken = crypto.createHash('sha256').update(rawToken).digest('hex');
-      const expires = new Date(Date.now() + 60 * 60 * 1000); // 1h
-
-      user.passwordResetToken = hashedToken;
-      user.passwordResetExpires = expires;
-      await user.save({ validateBeforeSave: false });
-
-      const clientOrigin = process.env.CLIENT_ORIGIN || 'http://localhost:5173';
-      const resetUrl = `${clientOrigin}/reset-password?token=${rawToken}`;
-
+  // Q1 fix: wrap the async IIFE with .catch() so that even if logger.warn
+  // itself throws inside the outer catch, the rejected Promise is still
+  // handled and cannot crash the process via unhandledRejection.
+  setImmediate(() => {
+    (async () => {
       try {
-        await sendMail({
-          to: user.email,
-          subject: 'TMS — Password Reset Request',
-          text: `Hi ${user.name},\n\nYou requested a password reset. Click the link below (valid for 1 hour):\n\n${resetUrl}\n\nIf you did not request this, ignore this email.`,
-          html: `<p>Hi <strong>${user.name}</strong>,</p>` +
-                `<p>You requested a password reset. Click the link below (valid for 1 hour):</p>` +
-                `<p><a href="${resetUrl}">${resetUrl}</a></p>` +
-                `<p>If you did not request this, ignore this email.</p>`,
-        });
-        logger.info({ empCode: normalizedEmpCode }, 'Password reset email sent');
-      } catch (mailErr) {
-        // Roll back the token so the user can retry without ambiguity.
-        user.passwordResetToken = null;
-        user.passwordResetExpires = null;
+        const User = require('../models/User');
+        const user = await User.findOne({ empCode: normalizedEmpCode, isDeleted: { $ne: true } });
+        if (!user || !user.email) {
+          logger.info({ empCode: normalizedEmpCode }, 'Forgot-password: no matching user (no-op)');
+          return;
+        }
+
+        // Q2: per-user 5-minute cooldown — prevents an attacker from spamming
+        // the endpoint to keep overwriting the victim's valid token, which would
+        // lock them out of self-service password reset for up to 1 hour.
+        const COOLDOWN_MS = 5 * 60 * 1000;
+        if (
+          user.passwordResetToken &&
+          user.passwordResetExpires > new Date(Date.now() + 60 * 60 * 1000 - COOLDOWN_MS)
+        ) {
+          logger.info({ empCode: normalizedEmpCode }, 'Forgot-password: cooldown active — skipping token overwrite');
+          return;
+        }
+
+        const rawToken = crypto.randomBytes(32).toString('hex');
+        const hashedToken = crypto.createHash('sha256').update(rawToken).digest('hex');
+        const expires = new Date(Date.now() + 60 * 60 * 1000); // 1h
+
+        user.passwordResetToken = hashedToken;
+        user.passwordResetExpires = expires;
         await user.save({ validateBeforeSave: false });
-        logger.warn({ err: mailErr, empCode: normalizedEmpCode }, 'Password reset email failed');
+
+        const clientOrigin = process.env.CLIENT_ORIGIN || 'http://localhost:5173';
+        const resetUrl = `${clientOrigin}/reset-password?token=${rawToken}`;
+
+        try {
+          await sendMail({
+            to: user.email,
+            subject: 'TMS — Password Reset Request',
+            text: `Hi ${user.name},\n\nYou requested a password reset. Click the link below (valid for 1 hour):\n\n${resetUrl}\n\nIf you did not request this, ignore this email.`,
+            html: `<p>Hi <strong>${user.name}</strong>,</p>` +
+                  `<p>You requested a password reset. Click the link below (valid for 1 hour):</p>` +
+                  `<p><a href="${resetUrl}">${resetUrl}</a></p>` +
+                  `<p>If you did not request this, ignore this email.</p>`,
+          });
+          logger.info({ empCode: normalizedEmpCode }, 'Password reset email sent');
+        } catch (mailErr) {
+          // Roll back the token so the user can retry without ambiguity.
+          user.passwordResetToken = null;
+          user.passwordResetExpires = null;
+          await user.save({ validateBeforeSave: false });
+          logger.warn({ err: mailErr, empCode: normalizedEmpCode }, 'Password reset email failed');
+        }
+      } catch (err) {
+        logger.warn({ err, empCode: normalizedEmpCode }, 'Forgot-password background flow errored');
       }
-    } catch (err) {
-      logger.warn({ err, empCode: normalizedEmpCode }, 'Forgot-password background flow errored');
-    }
+    })().catch((err) => {
+      // Safety net — only reachable if logger.warn itself threw inside the catch above.
+      console.error('[forgot-password] unhandled background error', err?.message || err); // eslint-disable-line no-console
+    });
   });
 };
 
