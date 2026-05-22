@@ -1,0 +1,369 @@
+const jwt = require('jsonwebtoken');
+const { v4: uuidv4 } = require('uuid');
+const User = require('../models/User');
+const TokenBlocklist = require('../models/TokenBlocklist');
+const mfaService = require('./mfaService');
+const logger = require('../lib/logger');
+
+// ──────────────────────────────────────────────────────────
+// Auth Service
+// ──────────────────────────────────────────────────────────
+
+const { ServiceError } = require('../helpers/ServiceError');
+
+// Defense-in-depth lockout. The express-rate-limit `loginLimiter` blocks
+// *requests* per IP+empCode; this lock is per-account, durable in DB,
+// and survives instance restarts. After MAX_FAILED consecutive failures,
+// the account is locked for LOCK_MINUTES regardless of source IP.
+const MAX_FAILED_ATTEMPTS = Number(process.env.LOGIN_MAX_FAILED || 10);
+const LOCK_MINUTES = Number(process.env.LOGIN_LOCK_MINUTES || 15);
+
+const JWT_EXPIRE = process.env.JWT_EXPIRE || '7d';
+
+/**
+ * Parse JWT_EXPIRE string (e.g. '7d', '1h') into milliseconds.
+ */
+const parseExpireToMs = (expire) => {
+  const match = expire.match(/^(\d+)([dhms])$/);
+  if (!match) return 7 * 24 * 60 * 60 * 1000;
+  const value = parseInt(match[1], 10);
+  const unit = match[2];
+  const multipliers = { d: 86400000, h: 3600000, m: 60000, s: 1000 };
+  return value * (multipliers[unit] || 86400000);
+};
+
+/**
+ * Generate a JWT token for a user.
+ *
+ * Includes a JTI (JWT ID) so individual tokens can be revoked without
+ * invalidating every token for the user (which is what passwordChangedAt
+ * would do).
+ */
+const generateToken = (userId) => {
+  return jwt.sign(
+    { id: userId, jti: uuidv4() },
+    process.env.JWT_SECRET,
+    { expiresIn: JWT_EXPIRE }
+  );
+};
+
+/**
+ * Generate a short-lived MFA-pending token. Carries `mfa: 'pending'`
+ * so the auth middleware (and helpers) can refuse to treat it as a
+ * fully-authenticated session. 5-minute TTL caps the exchange window.
+ */
+const MFA_PENDING_EXPIRE = '5m';
+const generateMfaPendingToken = (userId) => {
+  return jwt.sign(
+    { id: userId, jti: uuidv4(), mfa: 'pending' },
+    process.env.JWT_SECRET,
+    { expiresIn: MFA_PENDING_EXPIRE }
+  );
+};
+
+/**
+ * Cookie name for the MFA-pending token (P3 fix: stored as HttpOnly cookie
+ * instead of JSON body so XSS cannot steal the pending token and attempt
+ * the second factor from a different browser/device).
+ */
+const MFA_PENDING_COOKIE = 'tms_mfa_pending';
+
+/**
+ * Cookie options for the MFA-pending token.
+ * Short TTL (5 min) mirrors the JWT's own expiry.
+ * HttpOnly prevents JS access; sameSite Strict blocks CSRF on this cookie.
+ */
+const getMfaPendingCookieOptions = () => ({
+  httpOnly: true,
+  secure: process.env.NODE_ENV === 'production',
+  sameSite: 'Strict',
+  maxAge: 5 * 60 * 1000, // 5 minutes — same as MFA_PENDING_EXPIRE
+  path: '/',
+});
+
+/**
+ * Generate an enrollment-required token. Issued when a user logs in
+ * with the right credentials but their role REQUIRES MFA and they have
+ * not yet enrolled. The token authorizes ONLY: /me, /logout, /mfa/setup,
+ * /mfa/verify-setup. After successful verify-setup, the controller
+ * swaps it for a full-session token.
+ *
+ * 30-minute TTL — longer than mfa-pending because enrollment involves
+ * scanning a QR code and configuring an authenticator app.
+ */
+const MFA_ENROLLMENT_EXPIRE = '30m';
+const generateMfaEnrollmentToken = (userId) => {
+  return jwt.sign(
+    { id: userId, jti: uuidv4(), mfa: 'enrollment-required' },
+    process.env.JWT_SECRET,
+    { expiresIn: MFA_ENROLLMENT_EXPIRE }
+  );
+};
+
+/**
+ * Roles for which MFA is required (not just available).
+ * Configured via MFA_REQUIRED_ROLES env (comma-separated, e.g. "Admin").
+ * When a matching user logs in without MFA, they're forced through
+ * enrollment before they can use any other feature.
+ */
+const MFA_REQUIRED_ROLES = (process.env.MFA_REQUIRED_ROLES || '')
+  .split(',')
+  .map((r) => r.trim())
+  .filter(Boolean);
+
+const isMfaRequiredForRole = (role) => MFA_REQUIRED_ROLES.includes(role);
+
+/**
+ * Add a token JTI to the blocklist. Called on explicit logout and when
+ * an admin force-logs-out a user.
+ *
+ * @param {string} jti
+ * @param {number} expSeconds - the JWT `exp` claim in seconds since epoch
+ * @param {Object} [opts]
+ * @param {string} [opts.userId]
+ * @param {string} [opts.reason] - 'logout' | 'force-logout' | 'admin-action'
+ */
+const revokeToken = async (jti, expSeconds, opts = {}) => {
+  if (!jti || !expSeconds) return;
+  // upsert so a duplicate revocation (e.g. double-logout-click) is a no-op.
+  await TokenBlocklist.updateOne(
+    { jti },
+    {
+      $setOnInsert: {
+        jti,
+        userId: opts.userId || null,
+        expiresAt: new Date(expSeconds * 1000),
+        reason: opts.reason || 'logout',
+      },
+    },
+    { upsert: true }
+  );
+};
+
+/**
+ * Check whether a JTI has been revoked. Returns boolean.
+ * Auth middleware calls this on every request, so it's a single
+ * indexed lookup (~1ms with the unique index on jti).
+ */
+const isTokenRevoked = async (jti) => {
+  if (!jti) return false;
+  const hit = await TokenBlocklist.findOne({ jti }).select('_id').lean();
+  return !!hit;
+};
+
+/**
+ * Get cookie options for the JWT.
+ */
+const getCookieOptions = () => ({
+  httpOnly: true,
+  secure: process.env.NODE_ENV === 'production',
+  sameSite: 'Strict',
+  maxAge: parseExpireToMs(JWT_EXPIRE),
+  path: '/',
+});
+
+/**
+ * Authenticate a user with empCode + password.
+ *
+ * @param {string} empCode
+ * @param {string} password
+ * @returns {Object} { token, user, cookieOptions }
+ */
+const authenticate = async (empCode, password) => {
+  if (!empCode || !password) {
+    throw new ServiceError('Please provide empCode and password');
+  }
+
+  const normalizedCode = empCode.trim().toUpperCase();
+
+  const user = await User.findOne({ empCode: normalizedCode })
+    .select('+password +failedLoginAttempts +lockUntil +mfaSecret');
+  if (!user) {
+    // Generic message — do not reveal whether the account exists.
+    throw new ServiceError('Invalid credentials', 401);
+  }
+
+  // Honor active lockout. Generic 401 (not 423) so attackers can't
+  // distinguish "locked" from "wrong password" via status code.
+  if (user.lockUntil && user.lockUntil > new Date()) {
+    logger.warn({ empCode: normalizedCode, lockUntil: user.lockUntil }, 'Login attempt on locked account');
+    throw new ServiceError('Invalid credentials', 401);
+  }
+
+  if (user.status !== 'Active') {
+    throw new ServiceError(`Account is ${user.status}. Contact admin.`, 403);
+  }
+
+  const isMatch = await user.matchPassword(password);
+  if (!isMatch) {
+    // Atomically increment failed attempts; lock on threshold.
+    const newAttempts = (user.failedLoginAttempts || 0) + 1;
+    const update = { $set: { failedLoginAttempts: newAttempts } };
+    if (newAttempts >= MAX_FAILED_ATTEMPTS) {
+      update.$set.lockUntil = new Date(Date.now() + LOCK_MINUTES * 60 * 1000);
+      update.$set.failedLoginAttempts = 0; // reset for next window
+      logger.warn(
+        { empCode: normalizedCode, attempts: newAttempts },
+        'Account locked due to repeated failed login attempts'
+      );
+    }
+    await User.updateOne({ _id: user._id }, update);
+    throw new ServiceError('Invalid credentials', 401);
+  }
+
+  // Successful login — clear any failure state.
+  if (user.failedLoginAttempts > 0 || user.lockUntil) {
+    await User.updateOne(
+      { _id: user._id },
+      { $set: { failedLoginAttempts: 0, lockUntil: null } }
+    );
+  }
+
+  // If MFA is enabled, do NOT issue a full session. Issue a short-lived
+  // pending token; the client must call /api/auth/mfa/verify with a TOTP
+  // (or backup) code to complete login.
+  if (user.mfaEnabled) {
+    return {
+      mfaRequired: true,
+      mfaPendingToken: generateMfaPendingToken(user._id),
+    };
+  }
+
+  // MFA enforcement: this user's role requires MFA but they haven't enrolled.
+  // Issue an enrollment-required token; the controller will set it as the
+  // session cookie. Auth middleware restricts this token to MFA setup
+  // endpoints only — the user is locked out of everything else until they
+  // complete enrollment.
+  if (isMfaRequiredForRole(user.role)) {
+    logger.info(
+      { empCode: user.empCode, role: user.role },
+      'User logged in but MFA enrollment is required by policy'
+    );
+    return {
+      mfaEnrollmentRequired: true,
+      enrollmentToken: generateMfaEnrollmentToken(user._id),
+      cookieOptions: getCookieOptions(),
+      user: {
+        _id: user._id,
+        empCode: user.empCode,
+        name: user.name,
+        role: user.role,
+        department: user.department,
+        status: user.status,
+        mfaEnabled: false,
+        mustChangePassword: !!user.mustChangePassword,
+        mfaEnrollmentRequired: true,
+      },
+    };
+  }
+
+  const token = generateToken(user._id);
+
+  return {
+    token,
+    cookieOptions: getCookieOptions(),
+    user: {
+      _id: user._id,
+      empCode: user.empCode,
+      name: user.name,
+      role: user.role,
+      department: user.department,
+      status: user.status,
+      mustChangePassword: !!user.mustChangePassword,
+    },
+  };
+};
+
+/**
+ * Second leg of MFA-protected login. Caller passes the mfa-pending token
+ * (issued by authenticate()) plus a 6-digit TOTP code or a backup code.
+ *
+ * On success: returns the same shape as a normal authenticate() response.
+ */
+const verifyMfaLogin = async (mfaPendingToken, code) => {
+  if (!mfaPendingToken || !code) {
+    throw new ServiceError('mfaPendingToken and code are required');
+  }
+
+  let decoded;
+  try {
+    decoded = jwt.verify(mfaPendingToken, process.env.JWT_SECRET, { algorithms: ['HS256'] });
+  } catch (err) {
+    throw new ServiceError('MFA challenge expired. Please log in again.', 401);
+  }
+  if (decoded.mfa !== 'pending') {
+    throw new ServiceError('Invalid MFA challenge token', 401);
+  }
+
+  const user = await User.findById(decoded.id)
+    .select('+mfaSecret +mfaBackupCodes +mfaLastUsedCounter');
+  // P2 fix: also check account is Active — a suspended account must not be
+  // able to complete the MFA second-leg and obtain a full session token.
+  if (!user || !user.mfaEnabled || !user.mfaSecret || user.status !== 'Active') {
+    // Generic message — don't reveal why (account existence / MFA state / suspension).
+    throw new ServiceError('Invalid MFA challenge', 401);
+  }
+
+  // Try TOTP first (with replay protection); fall back to backup codes.
+  let backupCodeUsed = false;
+  let ok = false;
+
+  const { valid: totpValid, delta } = mfaService.verifyTokenWithReplay(
+    user.mfaSecret,
+    code,
+    user.mfaLastUsedCounter,
+  );
+
+  if (totpValid) {
+    // Persist the used delta so the same code cannot be replayed (P1 fix).
+    user.mfaLastUsedCounter = delta;
+    await user.save();
+    ok = true;
+  } else {
+    const remaining = await mfaService.consumeBackupCode(user.mfaBackupCodes || [], code);
+    if (remaining) {
+      user.mfaBackupCodes = remaining;
+      await user.save();
+      backupCodeUsed = true;
+      ok = true;
+      logger.warn(
+        { userId: user._id.toString(), remaining: remaining.length },
+        'MFA backup code consumed'
+      );
+    }
+  }
+
+  if (!ok) {
+    throw new ServiceError('Invalid MFA code', 401);
+  }
+
+  const token = generateToken(user._id);
+
+  return {
+    token,
+    cookieOptions: getCookieOptions(),
+    backupCodeUsed,
+    user: {
+      _id: user._id,
+      empCode: user.empCode,
+      name: user.name,
+      role: user.role,
+      department: user.department,
+      status: user.status,
+      mustChangePassword: !!user.mustChangePassword,
+    },
+  };
+};
+
+module.exports = {
+  ServiceError,
+  authenticate,
+  verifyMfaLogin,
+  getCookieOptions,
+  MFA_PENDING_COOKIE,
+  getMfaPendingCookieOptions,
+  generateToken,
+  revokeToken,
+  isTokenRevoked,
+  isMfaRequiredForRole,
+};
