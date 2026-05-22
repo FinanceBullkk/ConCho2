@@ -153,6 +153,7 @@ export function AttendanceDrawer({
               return (
                 <div
                   key={record.userId}
+                  role="button"
                   tabIndex={0}
                   onKeyDown={makeRowKeyHandler(idx)}
                   className="px-4 py-2.5 focus:outline-none focus:bg-primary/5 transition-colors"

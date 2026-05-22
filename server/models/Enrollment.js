@@ -40,7 +40,7 @@ const enrollmentSchema = new mongoose.Schema(
     status: {
       type: String,
       enum: {
-        values: ['Active', 'Completed', 'Dropped', 'Transferred'],
+        values: ['Active', 'On-hold', 'Completed', 'Dropped', 'Transferred'],
         message: '{VALUE} is not a valid enrollment status',
       },
       default: 'Active',

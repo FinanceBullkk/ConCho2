@@ -38,9 +38,12 @@ const futureDateTime = (daysFromNow, hour, minute = 0) => {
   return d;
 };
 
+const dangerousScriptGuard = require('./scripts/lib/dangerousScriptGuard');
+
 const seed = async () => {
   try {
     await connectDB();
+    dangerousScriptGuard({ scriptName: 'seed.js — drops ALL collections', mongoose });
     console.log('\n🌱 Seeding TMS v2 database...\n');
 
     // ── Drop all collections ──────────────────────────────

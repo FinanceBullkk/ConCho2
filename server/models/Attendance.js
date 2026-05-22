@@ -49,10 +49,18 @@ const attendanceSchema = new mongoose.Schema(
     syncStatus: {
       type: String,
       enum: {
-        values: ['PENDING', 'EXPORTED'],
+        // PENDING   → not yet exported
+        // EXPORTING → claimed by an in-flight export (P2-08: prevents race)
+        // EXPORTED  → included in a completed export file
+        values: ['PENDING', 'EXPORTING', 'EXPORTED'],
         message: '{VALUE} is not a valid sync status',
       },
       default: 'PENDING',
+    },
+    // Set when status moves to EXPORTING so each export job owns its records.
+    exportBatchId: {
+      type: String,
+      default: null,
     },
     exportedAt: {
       type: Date,

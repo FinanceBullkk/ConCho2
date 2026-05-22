@@ -60,8 +60,9 @@ export const authAPI = {
     api.put('/auth/change-password', { currentPassword, newPassword }),
 
   // MFA / TOTP
-  mfaVerifyLogin: (mfaPendingToken, code) =>
-    api.post('/auth/mfa/verify', { mfaPendingToken, code }),
+  // mfaPendingToken is now an HttpOnly cookie — browser sends it automatically.
+  mfaVerifyLogin: (code) =>
+    api.post('/auth/mfa/verify', { code }),
   mfaSetup: () => api.post('/auth/mfa/setup'),
   mfaVerifySetup: (code) => api.post('/auth/mfa/verify-setup', { code }),
   mfaDisable: (code) => api.post('/auth/mfa/disable', { code }),

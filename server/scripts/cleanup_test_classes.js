@@ -1,40 +1,54 @@
 /**
  * Cleanup: Remove accidentally created EL008 Foundation and EL009 Business English
  * that were created during browser testing.
- * 
+ *
+ * Dry-run by default. Set CONFIRM_CLEANUP=YES to actually delete.
+ *
  * Run: node server/scripts/cleanup_test_classes.js
+ *      CONFIRM_CLEANUP=YES node server/scripts/cleanup_test_classes.js
  */
 require('dotenv').config();
 const mongoose = require('mongoose');
 const connectDB = require('../config/db');
 const Class = require('../models/Class');
+const Schedule = require('../models/Schedule');
+
+// Exact targets — must match both classCode AND courseName to avoid deleting legitimate classes.
+const TARGETS = [
+  { classCode: 'EL008', courseName: 'Foundation' },
+  { classCode: 'EL009', courseName: 'Business English' },
+];
+
+const CONFIRMED = process.env.CONFIRM_CLEANUP === 'YES';
 
 const run = async () => {
   await connectDB();
-  
-  // Check what was accidentally created
-  const el008 = await Class.find({ classCode: 'EL008' }).lean();
-  const el009 = await Class.find({ classCode: 'EL009' }).lean();
+  console.log('Mode: ' + (CONFIRMED ? '🔥 EXECUTE' : '🧪 DRY RUN'));
 
-  console.log('EL008 classes:', el008.map(c => `${c.classCode} - ${c.courseName}`));
-  console.log('EL009 classes:', el009.map(c => `${c.classCode} - ${c.courseName}`));
+  for (const { classCode, courseName } of TARGETS) {
+    const cls = await Class.findOne({ classCode, courseName }).lean();
+    if (!cls) {
+      console.log(`  ℹ️  Not found: ${classCode} - ${courseName}`);
+      continue;
+    }
 
-  // Only remove Foundation from EL008 and Business English from EL009
-  // if they were accidentally created and have 0 booked sessions
-  const Schedule = require('../models/Schedule');
-  
-  for (const cls of [...el008, ...el009]) {
     const schedCount = await Schedule.countDocuments({ classId: cls._id });
-    if (schedCount === 0) {
+    if (schedCount > 0) {
+      console.log(`  ⚠️  Skipped: ${classCode} - ${courseName} (${schedCount} session(s) exist)`);
+      continue;
+    }
+
+    if (CONFIRMED) {
       await Class.findByIdAndDelete(cls._id);
-      console.log(`🗑️  Removed: ${cls.classCode} - ${cls.courseName} (0 sessions)`);
+      console.log(`  🗑️  Removed: ${classCode} - ${courseName}`);
     } else {
-      console.log(`⚠️  Skipped: ${cls.classCode} - ${cls.courseName} (${schedCount} sessions)`);
+      console.log(`  [dry-run] Would delete: ${classCode} - ${courseName} (0 sessions)`);
     }
   }
 
   await mongoose.disconnect();
-  console.log('✅ Cleanup complete.');
+  if (!CONFIRMED) console.log('\nRe-run with CONFIRM_CLEANUP=YES to apply.');
+  console.log('✅ Done.');
 };
 
 run().catch(err => {

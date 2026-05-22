@@ -58,7 +58,7 @@ export default function SyncPage() {
           </div>
           {!configured && configured !== null && (
             <p className="text-xs text-muted-foreground mt-0.5">
-              Set <code className="bg-muted px-1 rounded">GOOGLE_SERVICE_ACCOUNT_KEY</code> in <code className="bg-muted px-1 rounded">.env</code> to enable
+              Set <code className="bg-muted px-1 rounded">GOOGLE_SERVICE_ACCOUNT_KEY_JSON</code> (Render) or <code className="bg-muted px-1 rounded">GOOGLE_SERVICE_ACCOUNT_KEY</code> (local .env) to enable
             </p>
           )}
         </div>

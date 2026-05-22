@@ -20,6 +20,31 @@ const CHUNK_SIZE = 50;
 const generateSecurePassword = () => crypto.randomBytes(12).toString('base64url');
 
 /**
+ * Return the configured import default password.
+ *
+ * P2-05R: In production IMPORT_DEFAULT_PASSWORD MUST be set explicitly —
+ * no silent fallback to a guessable string.  Throw ServiceError at request
+ * time (not module load) so the admin sees a clear 500 with a fix hint.
+ * In non-production (dev / test) the fallback 'default12345' is still
+ * allowed so local seeds continue to work without extra env setup.
+ */
+const getImportDefaultPassword = () => {
+  const pwd = process.env.IMPORT_DEFAULT_PASSWORD;
+  if (!pwd) {
+    if (process.env.NODE_ENV === 'production') {
+      throw new ServiceError(
+        'Server misconfiguration: IMPORT_DEFAULT_PASSWORD environment variable is not set. ' +
+        'Configure it in Render → Environment Variables before importing users.',
+        500,
+      );
+    }
+    // Dev-only fallback — never reaches production.
+    return 'default12345';
+  }
+  return pwd;
+};
+
+/**
  * Bulk import/update users by empCode (atomic, chunked bcrypt).
  *
  * @param {Array} users  Array of user objects with empCode, name, role, etc.
@@ -75,12 +100,16 @@ const importUsers = async (users) => {
         if (u.department !== undefined) setFields.department = u.department;
         if (u.status !== undefined) setFields.status = u.status;
 
-        // Only hash password for NEW users (skip bcrypt for existing)
+        // Only hash password for NEW users (skip bcrypt for existing).
+        // If no explicit password is provided, use the org default and flag
+        // mustChangePassword so the user is forced to rotate on first login.
         const setOnInsert = {};
         if (!existingSet.has(empCode)) {
-          const raw = u.password || generateSecurePassword();
+          const usingDefault = !u.password;
+          const raw = u.password || getImportDefaultPassword();
           const salt = await bcrypt.genSalt(12);
           setOnInsert.password = await bcrypt.hash(raw, salt);
+          if (usingDefault) setOnInsert.mustChangePassword = true;
         }
 
         return {
@@ -106,11 +135,18 @@ const importUsers = async (users) => {
     session.endSession();
   }
 
+  // Count how many new users received the default password (so admin knows
+  // who needs to be notified to change their password).
+  const defaultPasswordCount = users.filter(
+    u => !u.password && !existingSet.has(u.empCode.trim().toUpperCase())
+  ).length;
+
   return {
     total: users.length,
     created: result.upsertedCount,
     updated: result.modifiedCount,
     matched: result.matchedCount,
+    defaultPasswordCount,
   };
 };
 
@@ -137,10 +173,19 @@ const importClasses = async (classes) => {
     );
   }
 
+  // Validate courseName presence — required for compound-unique upsert
+  const missingCourseName = classes.filter(c => !c.courseName);
+  if (missingCourseName.length > 0) {
+    throw new ServiceError(
+      `${missingCourseName.length} record(s) are missing the required "courseName" field`
+    );
+  }
+
   const operations = classes.map((c) => {
     const classCode = c.classCode.trim().toUpperCase();
-    const setFields = { classCode };
-    if (c.courseName !== undefined) setFields.courseName = c.courseName;
+    const courseName = String(c.courseName).trim();
+    const setFields = { classCode, courseName };
+    if (c.totalSessions !== undefined) setFields.totalSessions = c.totalSessions; // P2-04
     if (c.status !== undefined) setFields.status = c.status;
 
     const setOnInsert = {};
@@ -148,7 +193,8 @@ const importClasses = async (classes) => {
 
     return {
       updateOne: {
-        filter: { classCode },
+        // Use compound key matching the { classCode, courseName } unique index
+        filter: { classCode, courseName },
         update: { $set: setFields, $setOnInsert: setOnInsert },
         upsert: true,
       },
