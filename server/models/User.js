@@ -207,6 +207,18 @@ for (const hook of SOFT_DELETE_HOOKS) {
   });
 }
 
+// Soft-delete filter for aggregate() pipelines (Architecture smell D fix).
+// Injects { isDeleted: { $ne: true } } at the front of the pipeline unless
+// any existing $match stage already references isDeleted (explicit override).
+userSchema.pre('aggregate', function () {
+  const hasExplicitFilter = this.pipeline().some(
+    (stage) => stage.$match && stage.$match.isDeleted !== undefined,
+  );
+  if (!hasExplicitFilter) {
+    this.pipeline().unshift({ $match: { isDeleted: { $ne: true } } });
+  }
+});
+
 // ── Indexes ───────────────────────────────────────────────
 userSchema.index({ role: 1, status: 1 });
 userSchema.index({ department: 1 });

@@ -291,8 +291,10 @@ async function auditBusinessRules() {
     }
   }
 
-  // 4b. Duplicate empCode
+  // 4b. Duplicate empCode — include deleted users intentionally so soft-deleted
+  // records with clashing empCodes are still surfaced (explicit isDeleted override).
   const dupAgg = await User.aggregate([
+    { $match: { isDeleted: { $in: [true, false, null] } } },
     { $group: { _id: '$empCode', count: { $sum: 1 }, ids: { $push: '$_id' } } },
     { $match: { count: { $gt: 1 } } },
   ]);
