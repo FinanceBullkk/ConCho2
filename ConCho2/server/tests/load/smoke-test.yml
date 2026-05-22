@@ -1,0 +1,42 @@
+# ──────────────────────────────────────────────────────────
+# TMS v2 — Quick Smoke Test (Artillery)
+# ──────────────────────────────────────────────────────────
+# Lightweight test to verify endpoints respond correctly.
+# Run:  npx artillery run tests/load/smoke-test.yml
+# ──────────────────────────────────────────────────────────
+
+config:
+  target: "http://localhost:5000"
+  phases:
+    # Light load: 3 users/sec for 15 seconds (45 total users)
+    - duration: 15
+      arrivalRate: 3
+      name: "Smoke Test"
+  defaults:
+    headers:
+      Content-Type: "application/json"
+  plugins:
+    expect: {}
+
+scenarios:
+  - name: "Health + Auth Smoke"
+    flow:
+      - get:
+          url: "/api/health"
+          expect:
+            - statusCode: 200
+      - post:
+          url: "/api/auth/login"
+          json:
+            empCode: "000001"
+            password: "admin12345!"
+          expect:
+            - statusCode: 200
+      - get:
+          url: "/api/auth/me"
+          expect:
+            - statusCode: 200
+      - get:
+          url: "/api/classes"
+          expect:
+            - statusCode: 200

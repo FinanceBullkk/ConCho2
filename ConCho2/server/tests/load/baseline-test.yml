@@ -1,0 +1,40 @@
+# ──────────────────────────────────────────────────────────
+# TMS v2 — Load Test (No Auth Required)
+# ──────────────────────────────────────────────────────────
+# Tests only public/health endpoints — no login needed.
+# Perfect for baseline performance measurement.
+#
+# Run:  npx artillery run tests/load/baseline-test.yml
+# ──────────────────────────────────────────────────────────
+
+config:
+  target: "http://localhost:5000"
+  phases:
+    # Phase 1: Warm-up — 10 users/sec for 15 seconds
+    - duration: 15
+      arrivalRate: 10
+      name: "Warm-up"
+    # Phase 2: Ramp-up — 10 → 100 users/sec over 30 seconds
+    - duration: 30
+      arrivalRate: 10
+      rampTo: 100
+      name: "Ramp-up"
+    # Phase 3: Peak — 100 users/sec for 30 seconds
+    - duration: 30
+      arrivalRate: 100
+      name: "Peak Load (100 req/s)"
+    # Phase 4: Cool-down — 100 → 10 users/sec over 15 seconds
+    - duration: 15
+      arrivalRate: 100
+      rampTo: 10
+      name: "Cool-down"
+  plugins:
+    expect: {}
+
+scenarios:
+  - name: "Health Check Stress"
+    flow:
+      - get:
+          url: "/api/health"
+          expect:
+            - statusCode: 200
