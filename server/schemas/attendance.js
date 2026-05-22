@@ -7,7 +7,6 @@ const { objectId } = require('./common');
 const attendanceRecord = z.object({
   userId: objectId,
   status: z.enum(['P', 'A', 'L', 'EL']),
-  note: z.string().max(500).optional(),
   remark: z.string().max(500).optional(),
   photoUrl: z.string().url().optional(),
 });
