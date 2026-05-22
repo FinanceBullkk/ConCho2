@@ -489,7 +489,7 @@ const getMyTeams = async (req, res) => {
         { members: req.user._id },
       ],
     })
-      .populate('classId', 'classCode courseName')
+      .populate('classId', 'classCode courseName status')
       .populate('leaderId', 'empCode name department status')
       .populate('members', 'empCode name department status')
       .sort({ name: 1 });

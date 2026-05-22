@@ -12,7 +12,7 @@ const importUserItem = z.object({
   role: z.enum(['Admin', 'Teacher', 'Participant'], { required_error: 'role is required' }),
   email: z.string().email('email must be a valid email address').max(254).optional(),
   department: z.string().max(100).optional(),
-  status: z.enum(['Active', 'Dropped', 'Transferred', 'On-hold']).optional(),
+  status: z.enum(['Active', 'Inactive', 'Dropped', 'Transferred', 'On-hold', 'Waiting for class']).optional(),
   // If omitted, a default password is assigned and mustChangePassword is set.
   password: z.string().min(10).optional(),
 }).strict();
