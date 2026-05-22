@@ -293,20 +293,22 @@ const transferEnrollment = async (req, res) => {
       });
     }
 
-    // ── TRANSACTION (target team + its schedules only) ──────
-    // syncEnrollments (run outside the transaction) handles source-side
-    // cleanup: it closes the old Active enrollment, sets transferredTo,
-    // pulls the user from fromTeam.members, and creates the new Active
-    // enrollment in toTeam. This mirrors how teamController.updateTeam
-    // works (transactional team/schedule writes, post-commit enrollment sync)
-    // — keeping behavior consistent and avoiding write conflicts on
-    // fromTeam.members between the session and syncEnrollments.
+    // Snapshot member arrays before the transaction — syncEnrollments will
+    // mutate fromTeam.members inside the session, so we need stable old/new
+    // values for syncSchedulesForTeamUpdate on the source side.
+    const toOld = (toTeam.members || []).map((id) => id.toString());
+    const toNew = [...toOld, userIdStr];
+    const fromOldMembers = (fromTeam.members || []).map((id) => id.toString());
+    const fromNewMembers = fromOldMembers.filter((id) => id !== userIdStr);
+    const classId = toTeam.classId ? toTeam.classId.toString() : null;
+
+    // ── SINGLE ATOMIC TRANSACTION ────────────────────────────
+    // All four steps run inside one session so any failure rolls back
+    // completely — no dual-membership half-state (BUG #1 fix).
+    let pendingEmails = [];
     const session = await mongoose.startSession();
     try {
       await session.withTransaction(async () => {
-        const toOld = (toTeam.members || []).map(id => id.toString());
-        const toNew = [...toOld, userIdStr];
-
         // Step 1: Add user to target team
         await Team.findByIdAndUpdate(
           toTeamId,
@@ -318,57 +320,35 @@ const transferEnrollment = async (req, res) => {
         await syncSchedulesForTeamUpdate({
           teamId: toTeamId, oldMembers: toOld, newMembers: toNew, session,
         });
+
+        // Step 3: Close source enrollment, remove user from source team,
+        // create new Active enrollment in target team.
+        // syncEnrollments accepts session — fully transactional.
+        ({ pendingEmails } = await syncEnrollments(
+          toTeamId,
+          [userIdStr],
+          [],
+          classId,
+          { session },
+        ));
+
+        // Step 4: Sync source team's future schedules (member removed)
+        if (fromOldMembers.length !== fromNewMembers.length) {
+          await syncSchedulesForTeamUpdate({
+            teamId: fromTeamId,
+            oldMembers: fromOldMembers,
+            newMembers: fromNewMembers,
+            session,
+          });
+        }
       });
     } finally {
       session.endSession();
     }
 
-    // ── POST-COMMIT enrollment sync ─────────────────────────
-    // Closes source enrollment (Transferred + transferredTo + leftAt),
-    // pulls user from fromTeam.members, creates new Active enrollment in toTeam.
-    // Runs WITHOUT a session (post-commit, by design). Emails are queued
-    // and flushed below (BUG #7 fix: same pattern as createTeam/updateTeam).
-    const { pendingEmails } = await syncEnrollments(
-      toTeamId,
-      [userIdStr],
-      [],
-      toTeam.classId ? toTeam.classId.toString() : null,
-    );
+    // Post-commit: flush queued emails and attach optional transfer note.
     flushPendingEmails(pendingEmails);
 
-    // BUG #8 fix: previously only toTeam's future schedules were synced.
-    // Without this, the user remained in fromTeam's future
-    // Schedule.enrolledUsers — they could still be marked attendance for
-    // a team they no longer belong to. Now sync fromTeam too, in its own
-    // transaction (kept separate so a fromTeam-side failure doesn't undo
-    // the already-committed target-side state).
-    const fromOldMembers = (fromTeam.members || []).map((id) => id.toString());
-    const fromNewMembers = fromOldMembers.filter((id) => id !== userIdStr);
-    if (fromOldMembers.length !== fromNewMembers.length) {
-      const fromSession = await mongoose.startSession();
-      try {
-        await fromSession.withTransaction(async () => {
-          await syncSchedulesForTeamUpdate({
-            teamId: fromTeamId,
-            oldMembers: fromOldMembers,
-            newMembers: fromNewMembers,
-            session: fromSession,
-          });
-        });
-      } catch (err) {
-        // Source-side schedule sync failure is logged but does NOT fail the
-        // transfer — the membership/enrollment changes are already committed.
-        // A reconciliation pass can heal divergence later.
-        logger.warn(
-          { err, fromTeamId, toTeamId, userId: userIdStr },
-          'Transfer source-team schedule sync failed (membership changes already committed)',
-        );
-      } finally {
-        fromSession.endSession();
-      }
-    }
-
-    // Attach optional transfer reason to the new Active enrollment
     if (note) {
       await Enrollment.findOneAndUpdate(
         { userId: enrollment.userId, teamId: toTeamId, status: 'Active' },
