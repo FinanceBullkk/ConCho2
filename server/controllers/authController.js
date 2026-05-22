@@ -1,4 +1,5 @@
 const crypto = require('crypto');
+const bcrypt = require('bcryptjs');
 const authService = require('../services/authService');
 const auditService = require('../services/auditService');
 const { handleError } = require('../helpers/handleError');
@@ -534,21 +535,34 @@ const resetPassword = async (req, res) => {
     const User = require('../models/User');
     const hashedToken = crypto.createHash('sha256').update(token).digest('hex');
 
-    const user = await User.findOne({
-      passwordResetToken: hashedToken,
-      passwordResetExpires: { $gt: new Date() },
-      isDeleted: { $ne: true },
-    });
+    // Hash password before the atomic update — findOneAndUpdate does not
+    // trigger pre-save hooks, so bcrypt must run here (F4 audit fix).
+    const salt = await bcrypt.genSalt(12);
+    const hashedPassword = await bcrypt.hash(password, salt);
+
+    // Atomic find-and-clear: first concurrent request nulls the token;
+    // any subsequent request finds no matching document → 400.
+    // Prevents double-spend race condition.
+    const user = await User.findOneAndUpdate(
+      {
+        passwordResetToken: hashedToken,
+        passwordResetExpires: { $gt: new Date() },
+        isDeleted: { $ne: true },
+      },
+      {
+        $set: {
+          password: hashedPassword,
+          passwordResetToken: null,
+          passwordResetExpires: null,
+          passwordChangedAt: new Date(),
+        },
+      },
+      { new: true },
+    );
 
     if (!user) {
       return res.status(400).json({ success: false, message: 'Reset token is invalid or has expired' });
     }
-
-    user.password = password;
-    user.passwordResetToken = null;
-    user.passwordResetExpires = null;
-    user.passwordChangedAt = new Date();
-    await user.save();
 
     // Invalidate any cached user state
     const { invalidateUserCache } = require('../middleware/auth');
