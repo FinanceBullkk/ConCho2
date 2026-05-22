@@ -65,8 +65,8 @@ const updateUserBody = z.object({
 });
 
 const listUsersQuery = paginationQuery.extend({
-  role: fields.role.optional(),
-  status: fields.status.optional(),
+  role: z.preprocess((v) => (v === '' ? undefined : v), fields.role.optional()),
+  status: z.preprocess((v) => (v === '' ? undefined : v), fields.status.optional()),
   department: z.string().trim().max(120).optional(),
 });
 

@@ -58,7 +58,10 @@ export default function BookClassPage() {
   const loading = loadingSched || loadingTeams;
 
   const leaderTeams = useMemo(
-    () => myTeams.filter(t => t.leaderId?._id === user._id || t.leaderId === user._id),
+    () => myTeams.filter(t =>
+      (t.leaderId?._id === user._id || t.leaderId === user._id) &&
+      t.classId?.status === 'Ongoing'
+    ),
     [myTeams, user._id],
   );
   const isLeaderOfAny = leaderTeams.length > 0;
