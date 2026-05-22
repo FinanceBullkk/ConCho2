@@ -196,18 +196,33 @@ const authenticate = async (empCode, password) => {
 
   const isMatch = await user.matchPassword(password);
   if (!isMatch) {
-    // Atomically increment failed attempts; lock on threshold.
-    const newAttempts = (user.failedLoginAttempts || 0) + 1;
-    const update = { $set: { failedLoginAttempts: newAttempts } };
-    if (newAttempts >= MAX_FAILED_ATTEMPTS) {
-      update.$set.lockUntil = new Date(Date.now() + LOCK_MINUTES * 60 * 1000);
-      update.$set.failedLoginAttempts = 0; // reset for next window
-      logger.warn(
-        { empCode: normalizedCode, attempts: newAttempts },
-        'Account locked due to repeated failed login attempts'
-      );
+    // Single atomic pipeline update — avoids read-modify-write race when
+    // concurrent bad-login requests arrive simultaneously (F2 audit fix).
+    const updated = await User.findOneAndUpdate(
+      { _id: user._id },
+      [
+        { $set: { _na: { $add: [{ $ifNull: ['$failedLoginAttempts', 0] }, 1] } } },
+        {
+          $set: {
+            failedLoginAttempts: {
+              $cond: [{ $gte: ['$_na', MAX_FAILED_ATTEMPTS] }, 0, '$_na'],
+            },
+            lockUntil: {
+              $cond: [
+                { $gte: ['$_na', MAX_FAILED_ATTEMPTS] },
+                { $add: ['$$NOW', LOCK_MINUTES * 60 * 1000] },
+                '$lockUntil',
+              ],
+            },
+          },
+        },
+        { $unset: '_na' },
+      ],
+      { new: true, select: '+failedLoginAttempts +lockUntil' },
+    );
+    if (updated?.lockUntil && updated.lockUntil > new Date()) {
+      logger.warn({ empCode: normalizedCode }, 'Account locked due to repeated failed login attempts');
     }
-    await User.updateOne({ _id: user._id }, update);
     throw new ServiceError('Invalid credentials', 401);
   }
 
