@@ -106,8 +106,8 @@ export function FilterBar({
       )}
 
       {/* Select filters */}
-      {filters.map((f) => (
-        <FilterSelect key={f.key} {...f} />
+      {filters.map(({ key: fKey, ...fProps }) => (
+        <FilterSelect key={fKey} {...fProps} />
       ))}
 
       {/* Trailing actions */}
