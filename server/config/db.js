@@ -32,6 +32,29 @@ const connectDB = async () => {
       });
 
       logger.info({ host: conn.connection.host, attempt }, 'MongoDB connected');
+
+      // ── P2: Replica set topology check ───────────────────
+      // Transactions require a replica set (or Atlas sharded cluster).
+      // A standalone mongod will silently ignore session options and
+      // multi-document atomicity is lost. Warn loudly at startup.
+      try {
+        await mongoose.connection.db.admin().command({ replSetGetStatus: 1 });
+        logger.info('MongoDB topology: replica set detected — transactions supported');
+      } catch (topoErr) {
+        if (topoErr.code === 76 || topoErr.codeName === 'NoReplicationEnabled') {
+          logger.warn(
+            'MongoDB topology: STANDALONE node detected — multi-document TRANSACTIONS are NOT supported. ' +
+            'Atomic enrollment/attendance writes will lose atomicity guarantees. ' +
+            'Start mongod with --replSet rs0 or switch to MongoDB Atlas.'
+          );
+        } else {
+          logger.warn(
+            { err: topoErr.message },
+            'MongoDB topology check inconclusive — could not determine replica set status'
+          );
+        }
+      }
+
       return conn;
     } catch (error) {
       lastError = error;
