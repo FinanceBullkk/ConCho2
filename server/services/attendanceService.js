@@ -74,7 +74,7 @@ const bulkMark = async (scheduleId, records) => {
           scheduleId,
           userId: record.userId,
           status: record.status,
-          remark: record.remark || '',
+          remark: record.remark || record.note || '',
           photoUrl: record.photoUrl || '',
         },
       },
