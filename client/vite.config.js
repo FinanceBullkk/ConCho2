@@ -20,6 +20,7 @@ const sentryRelease = process.env.VITE_SENTRY_RELEASE
 const enableSentryUpload = !!(sentryAuth && sentryOrg && sentryProject)
 
 export default defineConfig({
+  cacheDir: path.resolve(__dirname, '.vite-cache'),
   plugins: [
     react(),
     tailwindcss(),
