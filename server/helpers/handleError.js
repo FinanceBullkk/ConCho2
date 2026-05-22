@@ -12,11 +12,6 @@ const handleError = (res, error) => {
     return res.status(400).json({ success: false, message });
   }
 
-  // Mongoose cast error — malformed ObjectId or type mismatch
-  if (error.name === 'CastError') {
-    return res.status(400).json({ success: false, message: `Invalid value for '${error.path}': ${error.value}` });
-  }
-
   // MongoDB duplicate key
   if (error.code === 11000) {
     const field = Object.keys(error.keyValue || {})[0] || 'field';

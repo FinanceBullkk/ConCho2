@@ -134,3 +134,14 @@ client/test-results/
 client/playwright-report/
 client/playwright/.cache/
 client/blob-report/
+
+# ── Secret hygiene ────────────────────────────────────────────────────────────
+# These patterns prevent accidentally committing credential rotation scratch
+# files, filter-repo replacement lists, and Windows "New Text Document" drafts.
+secrets-to-remove.txt
+secrets*.txt
+*-secrets.txt
+filter-secrets*.txt
+*-to-remove.txt
+New Text Document.txt
+New Text Document*.txt

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Users, BarChart3, AlertTriangle, PauseCircle, RefreshCw, BookOpen, Building2, UserCog } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
@@ -55,7 +55,12 @@ export default function DashboardPage() {
   useEffect(() => { document.title = t('dashboard.docTitle'); }, [t]);
   if (isParticipant) return <ParticipantDashboard />;
 
-  if (loadingStats) {
+  // UX-01: Only show the full-page spinner on the FIRST load (no data yet).
+  // On subsequent filter changes, `placeholderData: keepPreviousData` keeps the
+  // previous stats in `stats`, so we keep rendering the dashboard and only
+  // show a subtle dim + the refresh-button spinner. This eliminates the
+  // "screen goes blank on every filter click" flash.
+  if (loadingStats && !stats) {
     return (
       <div className="flex items-center justify-center py-20 text-muted-foreground">
         <Spinner size={32} />
@@ -63,7 +68,7 @@ export default function DashboardPage() {
     );
   }
 
-  if (isError) {
+  if (isError && !stats) {
     return <QueryError error={error} onRetry={refetch} className="py-32" />;
   }
 
@@ -117,8 +122,13 @@ export default function DashboardPage() {
     t('dashboard.laggard.headers.progress'),
   ];
 
+  // UX-01: When refetching after a filter change, dim the content slightly so
+  // the user sees that the dashboard is updating. The PageHeader stays at full
+  // opacity so the spinner in the Refresh button remains clearly visible.
+  const isRefreshingFilters = isFetching && !loadingStats;
+
   return (
-    <div className="space-y-5">
+    <div className="space-y-5" aria-busy={isFetching}>
       <PageHeader
         title={t('dashboard.greeting', { name: user?.name?.split(' ')[0] || t('dashboard.greetingFallback') })}
         description={new Date().toLocaleDateString(dateLocale, { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' })}
@@ -154,8 +164,8 @@ export default function DashboardPage() {
         filters={[
           { key: 'department',    placeholder: t('dashboard.filters.allBU'),        options: filterOpts?.departments   || [], value: filters.department    || '', onChange: v => setFilter('department', v) },
           { key: 'position',      placeholder: t('dashboard.filters.allPositions'), options: filterOpts?.positions      || [], value: filters.position      || '', onChange: v => setFilter('position', v) },
-          { key: 'entranceLevel', placeholder: t('dashboard.filters.entranceLevel'),options: filterOpts?.entranceLevels || [], value: filters.entranceLevel || '', onChange: v => setFilter('entranceLevel', v) },
-          { key: 'currentLevel',  placeholder: t('dashboard.filters.currentLevel'), options: filterOpts?.currentLevels  || [], value: filters.currentLevel  || '', onChange: v => setFilter('currentLevel', v) },
+          { key: 'entranceLevel', placeholder: t('dashboard.filters.allEntranceLevels'), options: filterOpts?.entranceLevels || [], value: filters.entranceLevel || '', onChange: v => setFilter('entranceLevel', v) },
+          { key: 'currentLevel',  placeholder: t('dashboard.filters.allCurrentLevels'),  options: filterOpts?.currentLevels  || [], value: filters.currentLevel  || '', onChange: v => setFilter('currentLevel', v) },
           { key: 'status',        placeholder: t('dashboard.filters.allStatuses'),  options: filterOpts?.statuses       || [], value: filters.status        || '', onChange: v => setFilter('status', v) },
         ]}
       >
@@ -165,6 +175,11 @@ export default function DashboardPage() {
           </Button>
         )}
       </FilterBar>
+
+      {/* UX-01: dim/disable everything BELOW the filter bar while a new filter
+          query is in flight. The FilterBar itself stays fully interactive so
+          the user can chain filter changes without waiting. */}
+      <div className={`space-y-5 transition-opacity duration-(--dur-fast) ${isRefreshingFilters ? 'opacity-60' : 'opacity-100'}`}>
 
       {/* ═══ KPI ROW ═══ */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
@@ -445,6 +460,8 @@ export default function DashboardPage() {
           </div>
         </div>
       )}
+
+      </div> {/* /UX-01 dim wrapper */}
     </div>
   );
 }

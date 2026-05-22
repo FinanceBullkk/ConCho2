@@ -69,7 +69,7 @@ describe('LoginPage', () => {
   });
 
   it('switches to MFA step when mfaRequired', async () => {
-    mockLogin.mockResolvedValueOnce({ mfaRequired: true, mfaPendingToken: 'tok123' });
+    mockLogin.mockResolvedValueOnce({ mfaRequired: true });
     renderLogin();
     await userEvent.type(screen.getByLabelText(/employee code/i), '000001');
     await userEvent.type(screen.getByLabelText(/password/i), 'secret');

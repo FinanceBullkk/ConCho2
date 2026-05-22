@@ -25,7 +25,6 @@ const updateClassBody = z.object({
   courseName: z.enum(COURSE_NAMES).optional(),
   status: z.enum(['Ongoing', 'Completed']).optional(),
   totalSessions: z.number().int().min(1).optional(),
-  teacherIds: z.array(objectId).optional(),
 }).refine(data => Object.keys(data).length > 0, {
   message: 'At least one field is required',
 });

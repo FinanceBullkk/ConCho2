@@ -179,24 +179,14 @@ const analyticsByEmployee = async (filterUserId, { page = 1, limit = 100, skip =
  * @param {object} pagination  { page, limit, skip }
  */
 const analyticsByTeam = async ({ page = 1, limit = 100, skip = 0 } = {}) => {
-  // Anchor to the team's schedules so that transferred/dropped members'
-  // attendance doesn't bleed across teams (the old query used team.members
-  // which changes with roster edits — schedule-anchored is authoritative).
   const basePipeline = [
-    {
-      $lookup: {
-        from: 'schedules',
-        localField: '_id',
-        foreignField: 'bookedTeamId',
-        as: 'teamSchedules',
-      },
-    },
+    // For each team, fetch all attendance records for its members
     {
       $lookup: {
         from: 'attendances',
-        let: { scheduleIds: '$teamSchedules._id' },
+        let: { memberIds: '$members' },
         pipeline: [
-          { $match: { $expr: { $in: ['$scheduleId', '$$scheduleIds'] } } },
+          { $match: { $expr: { $in: ['$userId', '$$memberIds'] } } },
         ],
         as: 'attendanceRecords',
       },

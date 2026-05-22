@@ -3,9 +3,9 @@
  *
  * Backup Verification Tool — TMS (Training Management System)
  *
- * Connects to MongoDB via MONGODB_URI, checks connectivity, reports database
- * stats and document counts for key collections, and confirms recent data
- * exists. Designed to be run as part of the monthly backup verification drill.
+ * Connects to MongoDB, checks connectivity, reports database stats and document
+ * counts for key collections, and confirms recent data exists. Designed to be
+ * run as part of the monthly backup verification drill.
  *
  * Usage:
  *   node server/scripts/verify-backup.js
@@ -15,7 +15,8 @@
  *   1 — one or more checks failed (connection error, empty critical collection, etc.)
  *
  * Requires:
- *   MONGODB_URI in environment (or .env file at project root)
+ *   MONGO_URI in environment (or .env file at project root).
+ *   Also accepts MONGODB_URI for backwards compatibility.
  */
 
 'use strict';
@@ -27,7 +28,7 @@ const mongoose = require('mongoose');
 
 // ─── Configuration ────────────────────────────────────────────────────────────
 
-const MONGODB_URI = process.env.MONGODB_URI;
+const MONGODB_URI = process.env.MONGO_URI || process.env.MONGODB_URI;
 
 // Collections to check document counts for
 const COLLECTIONS = [
@@ -87,14 +88,14 @@ async function main() {
   section('Environment');
 
   if (!MONGODB_URI) {
-    fail('MONGODB_URI is not set');
+    fail('MONGO_URI (or MONGODB_URI) is not set');
     console.log('\n  Cannot continue without a connection string.\n');
     process.exit(1);
   }
 
   // Mask credentials in the URI for display
   const maskedUri = MONGODB_URI.replace(/:\/\/([^:]+):([^@]+)@/, '://<user>:<pass>@');
-  pass(`MONGODB_URI is set  →  ${maskedUri}`);
+  pass(`MONGO_URI is set  →  ${maskedUri}`);
   results.passed++;
 
   // ── 2. Connectivity check ───────────────────────────────────────────────────

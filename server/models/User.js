@@ -135,6 +135,16 @@ const userSchema = new mongoose.Schema(
       default: [],
       select: false,
     },
+    // Replay-attack protection (P1 fix): stores the `delta` returned by the
+    // last successful speakeasy.totp.verifyDelta() call. Any future code
+    // whose delta ≤ this value is rejected, even if it is cryptographically
+    // valid — preventing the same TOTP window from being used twice.
+    // Null means no successful TOTP verification has occurred yet.
+    mfaLastUsedCounter: {
+      type: Number,
+      default: null,
+      select: false,
+    },
 
     // ── Brute-force defense (Phase 0.4) ─────────────────────
     // Counts consecutive failed login attempts. Reset to 0 on success

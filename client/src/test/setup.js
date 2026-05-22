@@ -1,27 +1,43 @@
 import '@testing-library/jest-dom';
 import { cleanup } from '@testing-library/react';
-import { afterEach, beforeEach, beforeAll, afterAll, vi } from 'vitest';
+import { afterEach, beforeEach, beforeAll, afterAll } from 'vitest';
 import { server } from './server';
 
-// Initialize i18n synchronously for tests so components that call
-// useTranslation() receive real translated strings, not raw keys.
-import i18n from 'i18next';
-import { initReactI18next } from 'react-i18next';
-import en from '../i18n/locales/en.json';
-import vi_locale from '../i18n/locales/vi.json';
+// ── P3-05: i18n stub ──────────────────────────────────────
+// LoginPage (and all translated components) call useTranslation().
+// Without an initialised i18next instance in tests, t('auth.login.title')
+// returns the raw key string "auth.login.title", causing assertions like
+// getByRole('heading', { name: /sign in/i }) to fail.
+//
+// Fix: mock react-i18next with a t() backed by the real EN translation file.
+// t('auth.login.title') → 'Sign in'  (matches /sign in/i)
+// Unknown keys fall back to the key string itself.
+import { vi } from 'vitest';
+import enLocale from '../i18n/locales/en.json';
 
-if (!i18n.isInitialized) {
-  i18n
-    .use(initReactI18next)
-    .init({
-      resources: { en: { translation: en }, vi: { translation: vi_locale } },
-      lng: 'en',
-      fallbackLng: 'en',
-      defaultNS: 'translation',
-      interpolation: { escapeValue: false },
-      initImmediate: false,
-    });
-}
+/** Flatten nested object to dot-notation keys: { 'auth.login.title': 'Sign in' } */
+const flattenTranslations = (obj, prefix = '') =>
+  Object.entries(obj).reduce((acc, [k, v]) => {
+    const key = prefix ? `${prefix}.${k}` : k;
+    if (v !== null && typeof v === 'object' && !Array.isArray(v)) {
+      Object.assign(acc, flattenTranslations(v, key));
+    } else {
+      acc[key] = Array.isArray(v) ? v.join(', ') : String(v ?? '');
+    }
+    return acc;
+  }, {});
+
+const translations = flattenTranslations(enLocale);
+const mockT = (key) => translations[key] ?? key;
+
+vi.mock('react-i18next', () => ({
+  useTranslation: () => ({
+    t: mockT,
+    i18n: { changeLanguage: vi.fn(), language: 'en' },
+  }),
+  Trans: ({ i18nKey, children }) => children ?? mockT(i18nKey),
+  initReactI18next: { type: '3rdParty', init: vi.fn() },
+}));
 
 // Automatically unmount components after each test
 afterEach(cleanup);

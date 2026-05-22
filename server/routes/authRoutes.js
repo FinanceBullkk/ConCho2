@@ -17,7 +17,7 @@ const {
 const { protect } = require('../middleware/auth');
 const { roleGuard } = require('../middleware/roleGuard');
 const { validate } = require('../middleware/validate');
-const { loginLimiter, changePasswordLimiter, mfaLimiter, forgotPasswordLimiter } = require('../middleware/rateLimiters');
+const { loginLimiter, changePasswordLimiter, mfaLimiter, mfaVerifyLimiter, forgotPasswordLimiter } = require('../middleware/rateLimiters');
 const { loginBody } = require('../schemas/auth');
 
 const changePasswordBody = z.object({
@@ -27,8 +27,9 @@ const changePasswordBody = z.object({
 
 // MFA validation. Codes are 6 digits or a backup of the form XXXXX-XXXXX.
 const mfaCodeSchema = z.string().min(6).max(20);
+// mfaPendingToken is no longer in the request body — it is sent automatically
+// by the browser as the HttpOnly tms_mfa_pending cookie (P3 fix).
 const mfaVerifyLoginBody = z.object({
-  mfaPendingToken: z.string().min(10),
   code: mfaCodeSchema,
 });
 const mfaCodeBody = z.object({ code: mfaCodeSchema });
@@ -77,12 +78,14 @@ router.put('/change-password', changePasswordLimiter, protect, validate({ body: 
 router.post('/admin/force-logout/:userId', protect, roleGuard('Admin'), adminForceLogout);
 
 // ── MFA / TOTP (Phase 1.3) ────────────────────────────────
-// Login second-factor. Rate-limited identically to /login since each
-// attempt is effectively a login attempt.
+// Login second-factor.
+// mfaVerifyLimiter keys on the userId in the mfaPendingToken body field
+// (5 failures / 15 min per user). mfaLimiter provides a broader IP-level
+// backstop across all MFA endpoints.
 router.post(
   '/mfa/verify',
   mfaLimiter,
-  loginLimiter,
+  mfaVerifyLimiter,
   validate({ body: mfaVerifyLoginBody }),
   mfaVerifyLogin
 );
