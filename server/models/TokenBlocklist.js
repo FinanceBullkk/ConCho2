@@ -42,7 +42,7 @@ const tokenBlocklistSchema = new mongoose.Schema(
     },
     reason: {
       type: String,
-      enum: ['logout', 'force-logout', 'password-change', 'admin-action'],
+      enum: ['logout', 'force-logout', 'password-change', 'admin-action', 'mfa-upgrade'],
       default: 'logout',
     },
   },
