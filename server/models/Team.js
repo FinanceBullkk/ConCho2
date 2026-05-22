@@ -67,7 +67,7 @@ for (const hook of SOFT_DELETE_HOOKS) {
 
 // ── Indexes ───────────────────────────────────────────────
 teamSchema.index({ leaderId: 1 });
-teamSchema.index({ classId: 1 }, { unique: true, partialFilterExpression: { classId: { $type: 'objectId' } } }); // 1:1 Team ↔ Class (nulls allowed)
+teamSchema.index({ classId: 1 }); // multiple teams per class allowed (booking competition)
 
 // ──────────────────────────────────────────────────────────
 // SCHEDULE SYNC — Explicit, Session-Aware
