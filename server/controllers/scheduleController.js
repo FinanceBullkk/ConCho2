@@ -3,7 +3,6 @@ const scheduleService = require('../services/scheduleService');
 const calendarService = require('../services/calendarService');
 const Schedule = require('../models/Schedule');
 const Attendance = require('../models/Attendance');
-const Team = require('../models/Team');
 const { parsePagination, paginatedResponse } = require('../helpers/pagination');
 const { handleError } = require('../helpers/handleError');
 const auditService = require('../services/auditService');
@@ -209,6 +208,33 @@ const updateSchedule = async (req, res) => {
           }
         }
 
+        // ── Attendance block: cannot reassign if attendance records exist ──
+        if (req.body.bookedTeamId && req.body.bookedTeamId !== existing.bookedTeamId?.toString()) {
+          const Attendance = require('../models/Attendance');
+          const hasAttendance = await Attendance.exists({ scheduleId: existing._id }).session(session);
+          if (hasAttendance) {
+            throw Object.assign(
+              new Error('Cannot reassign schedule — attendance records already exist for this session'),
+              { statusCode: 409 }
+            );
+          }
+        }
+
+        // ── Cross-class guard: new team must belong to the same class ──
+        if (req.body.bookedTeamId && req.body.bookedTeamId !== existing.bookedTeamId?.toString()) {
+          const TeamModel = require('../models/Team');
+          const targetTeam = await TeamModel.findById(req.body.bookedTeamId).select('classId').lean().session(session);
+          if (!targetTeam) {
+            throw Object.assign(new Error('Target team not found'), { statusCode: 400 });
+          }
+          if (targetTeam.classId.toString() !== existing.classId.toString()) {
+            throw Object.assign(
+              new Error('Cannot reassign schedule — target team belongs to a different class'),
+              { statusCode: 400 }
+            );
+          }
+        }
+
         // ── Also check weekly limit when changing bookedTeamId ──
         if (req.body.bookedTeamId && req.body.bookedTeamId !== existing.bookedTeamId?.toString()) {
           const start = new Date(req.body.startTime || existing.startTime);
@@ -250,50 +276,12 @@ const updateSchedule = async (req, res) => {
           if (req.body[k] !== undefined) updateData[k] = req.body[k];
         }
 
-        // Item 4 fix: When bookedTeamId changes, rebuild enrolledUsers from the target
-        // team's active members. Also validate that the team's classId matches the
-        // schedule's final classId to prevent cross-class reassignment.
-        const newTeamId = req.body.bookedTeamId;
-        const existingTeamId = existing.bookedTeamId?.toString();
-        const teamIsChanging = newTeamId && newTeamId !== existingTeamId;
-
-        if (teamIsChanging) {
-          const finalClassId = (req.body.classId || existing.classId).toString();
-          const targetTeam = await Team.findById(newTeamId)
-            .populate('members', '_id status')
-            .session(session);
-          if (!targetTeam) {
-            throw Object.assign(new Error('Target team not found'), { statusCode: 404 });
-          }
-          if (targetTeam.classId && targetTeam.classId.toString() !== finalClassId) {
-            throw Object.assign(
-              new Error('Cannot reassign: team is assigned to a different class'),
-              { statusCode: 400 }
-            );
-          }
-          // Block reassignment when attendance already exists — past roster is authoritative.
-          const hasAttendance = await Attendance.findOne(
-            { scheduleId: existing._id }
-          ).session(session);
-          if (hasAttendance) {
-            throw Object.assign(
-              new Error('Cannot reassign team: attendance records exist for this schedule'),
-              { statusCode: 409 }
-            );
-          }
-          const activeMembers = targetTeam.members.filter(m => m.status === 'Active');
-          updateData.enrolledUsers = activeMembers.map(m => m._id);
-        } else if (req.body.classId && req.body.classId !== existing.classId?.toString()) {
-          // classId only change (team stays the same) — validate new classId matches existing team's class.
-          if (existingTeamId) {
-            const existingTeam = await Team.findById(existingTeamId).session(session).lean();
-            if (existingTeam && existingTeam.classId &&
-                existingTeam.classId.toString() !== req.body.classId) {
-              throw Object.assign(
-                new Error('Cannot change class: existing team is assigned to a different class'),
-                { statusCode: 400 }
-              );
-            }
+        // ── Roster rebuild: when team changes, sync enrolledUsers from new team ──
+        if (req.body.bookedTeamId && req.body.bookedTeamId !== existing.bookedTeamId?.toString()) {
+          const TeamModel = require('../models/Team');
+          const newTeam = await TeamModel.findById(req.body.bookedTeamId).select('members').lean().session(session);
+          if (newTeam) {
+            updateData.enrolledUsers = newTeam.members || [];
           }
         }
 

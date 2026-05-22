@@ -12,11 +12,52 @@ services:
     buildCommand: npm run build
     startCommand: npm start
     envVars:
+      # ── Core ──────────────────────────────────────────────
       - key: NODE_ENV
         value: production
       - key: JWT_SECRET
         generateValue: true
       - key: MONGO_URI
-        sync: false            # You must set this manually in Render dashboard
+        sync: false            # Set manually: mongodb+srv://user:pass@cluster/tms2?...
+
+      # ── CORS / origins ────────────────────────────────────
       - key: CORS_ORIGINS
-        sync: false            # Set to your Render URL, e.g. https://tms-v2.onrender.com
+        sync: false            # e.g. https://tms-v2.onrender.com
+      - key: CLIENT_ORIGIN
+        sync: false            # same as CORS_ORIGINS (used by cookie/redirect helpers)
+
+      # ── Cron / scheduled tasks ────────────────────────────
+      - key: CRON_TOKEN
+        generateValue: true    # Bearer token required by /api/cron/* routes
+
+      # ── MFA / TOTP ────────────────────────────────────────
+      - key: MFA_ISSUER
+        sync: false            # e.g. "TMS" — shown in authenticator app
+      - key: MFA_REQUIRED_ROLES
+        sync: false            # Comma-separated roles that must enroll, e.g. "Admin"
+      - key: IMPORT_DEFAULT_PASSWORD
+        sync: false            # REQUIRED in production — import fails with 500 if unset (no fallback)
+
+      # ── Email / SMTP ──────────────────────────────────────
+      - key: SMTP_HOST
+        sync: false
+      - key: SMTP_PORT
+        sync: false
+      - key: SMTP_USER
+        sync: false
+      - key: SMTP_PASS
+        sync: false
+      - key: EMAIL_FROM
+        sync: false            # e.g. "TMS <noreply@yourdomain.com>"
+
+      # ── Google Workspace / Calendar ───────────────────────
+      - key: GOOGLE_SERVICE_ACCOUNT_KEY_JSON
+        sync: false            # Full JSON key of the service account (single line)
+      - key: GOOGLE_CALENDAR_IMPERSONATE
+        sync: false            # Email of the calendar owner to impersonate
+      - key: TMS_TIMEZONE
+        value: Asia/Ho_Chi_Minh
+
+      # ── Observability ─────────────────────────────────────
+      - key: SENTRY_DSN
+        sync: false            # Optional — leave blank to disable Sentry

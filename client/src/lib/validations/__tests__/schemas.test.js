@@ -2,7 +2,6 @@ import { describe, it, expect } from 'vitest';
 import {
   loginSchema,
   createUserSchema,
-  editUserSchema,
   changePasswordSchema,
 } from '../index';
 

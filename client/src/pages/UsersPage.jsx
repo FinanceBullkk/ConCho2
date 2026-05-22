@@ -387,16 +387,19 @@ export default function UsersPage() {
   // ── DataTable column definitions ────────────────────────
   const columns = useMemo(() => [
     {
-      key: 'empCode', header: 'Code', sortable: true,
+      key: 'empCode', header: 'Code', sortable: true, width: 90,
       render: (u) => <span className="font-mono text-primary font-medium text-xs">{u.empCode}</span>,
     },
     {
-      key: 'name', header: 'Name', sortable: true,
+      // UX-02: cap name width so very long Vietnamese names don't widen the
+      // whole row when sort puts them at the top.
+      key: 'name', header: 'Name', sortable: true, width: 220,
       render: (u) => (
-        <div>
+        <div className="min-w-0">
           <button
             onClick={() => setProgressModal({ id: u._id, name: u.name })}
-            className="font-medium text-foreground text-sm hover:text-info hover:underline transition-colors text-left"
+            className="font-medium text-foreground text-sm hover:text-info hover:underline transition-colors text-left truncate max-w-full"
+            title={u.name}
           >
             {u.name}
           </button>
@@ -407,34 +410,37 @@ export default function UsersPage() {
       ),
     },
     {
-      key: 'email', header: 'Email', sortable: true,
+      // UX-02: cap email column width to keep table layout stable when sort
+      // brings users with long emails to the top — otherwise the email cell
+      // expanded and pushed the ACTIONS column off-screen.
+      key: 'email', header: 'Email', sortable: true, width: 200,
       render: (u) => u.email
-        ? <span className="font-mono text-xs text-muted-foreground">{u.email}</span>
+        ? <span className="font-mono text-xs text-muted-foreground block truncate max-w-[180px]" title={u.email}>{u.email}</span>
         : <span className="text-warning/70 text-xs" title="No email set — won't receive Calendar invites">—</span>,
     },
     {
-      key: 'department', header: 'BU', sortable: true,
-      render: (u) => <span className="text-muted-foreground text-xs">{u.department || '—'}</span>,
+      key: 'department', header: 'BU', sortable: true, width: 110,
+      render: (u) => <span className="text-muted-foreground text-xs truncate block max-w-full" title={u.department}>{u.department || '—'}</span>,
     },
     {
-      key: 'position', header: 'Position', sortable: true,
-      render: (u) => <span className="text-muted-foreground text-xs">{u.position || '—'}</span>,
+      key: 'position', header: 'Position', sortable: true, width: 110,
+      render: (u) => <span className="text-muted-foreground text-xs truncate block max-w-full" title={u.position}>{u.position || '—'}</span>,
     },
     {
-      key: 'currentLevel', header: 'Level', sortable: true,
+      key: 'currentLevel', header: 'Level', sortable: true, width: 130,
       render: (u) => (u.entranceLevel || u.currentLevel) ? (
-        <div>
-          {u.currentLevel && <div className="text-xs font-medium text-foreground">{u.currentLevel}</div>}
+        <div className="min-w-0">
+          {u.currentLevel && <div className="text-xs font-medium text-foreground truncate" title={u.currentLevel}>{u.currentLevel}</div>}
           {u.entranceLevel && u.entranceLevel !== u.currentLevel && (
-            <div className="text-[10px] text-subtle-foreground">from {u.entranceLevel}</div>
+            <div className="text-[10px] text-subtle-foreground truncate" title={`from ${u.entranceLevel}`}>from {u.entranceLevel}</div>
           )}
         </div>
       ) : <span className="text-xs text-subtle-foreground">—</span>,
     },
     {
-      key: 'status', header: 'Status', sortable: true,
+      key: 'status', header: 'Status', sortable: true, width: 130,
       render: (u) => (
-        <div>
+        <div className="min-w-0">
           <StatusBadge status={u.status} size="sm" />
           {u.dropReason && (
             <div className="text-[10px] text-subtle-foreground mt-0.5 truncate max-w-[120px]" title={u.dropReason}>
@@ -445,12 +451,12 @@ export default function UsersPage() {
       ),
     },
     {
-      key: '_team', header: 'Team / Class',
+      key: '_team', header: 'Team / Class', width: 170,
       render: (u) => teamsByUser[u._id] ? (
-        <div>
-          <div className="text-xs font-medium text-foreground">{teamsByUser[u._id].teamName}</div>
+        <div className="min-w-0">
+          <div className="text-xs font-medium text-foreground truncate" title={teamsByUser[u._id].teamName}>{teamsByUser[u._id].teamName}</div>
           {teamsByUser[u._id].classCode && (
-            <div className="text-[10px] text-subtle-foreground">
+            <div className="text-[10px] text-subtle-foreground truncate" title={`${teamsByUser[u._id].classCode} — ${teamsByUser[u._id].courseName}`}>
               {teamsByUser[u._id].classCode} — {teamsByUser[u._id].courseName}
             </div>
           )}
@@ -458,7 +464,7 @@ export default function UsersPage() {
       ) : <span className="text-xs text-subtle-foreground italic">—</span>,
     },
     {
-      key: 'lastActive', header: 'Last Active',
+      key: 'lastActive', header: 'Last Active', width: 100,
       render: (u) => u.lastActive ? (
         <div>
           <div className="text-xs text-foreground">
@@ -471,7 +477,7 @@ export default function UsersPage() {
       ) : <span className="text-xs text-subtle-foreground">—</span>,
     },
     {
-      key: '_actions', header: 'Actions',
+      key: '_actions', header: 'Actions', width: 170,
       render: (u) => (
         <div className="flex gap-1 flex-wrap">
           <Button
@@ -625,6 +631,11 @@ export default function UsersPage() {
       )}
 
       {/* ── DataTable ───────────────────────────────────── */}
+      {/* UX-02: table-fixed locks column widths to the declared `width` on
+          each column definition. Without this, table-layout: auto would let
+          cells stretch to fit content — so sorting by Code (putting the admin
+          with a long email first) would widen the Email column and push the
+          Actions column off-screen. */}
       <DataTable
         columns={columns}
         data={users}
@@ -644,6 +655,7 @@ export default function UsersPage() {
         totalPages={pages}
         total={total}
         onPageChange={list.setPage}
+        tableClassName="table-fixed w-full"
         emptyTitle={list.hasActiveFilters ? 'No users match your filters' : 'No users yet'}
         emptyMessage={list.hasActiveFilters
           ? 'Try clearing filters or adjusting your search.'

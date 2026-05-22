@@ -10,7 +10,6 @@ const { parsePagination, paginatedResponse } = require('../helpers/pagination');
 const { escapeRegex } = require('../helpers/escapeRegex');
 const { invalidateUserCache } = require('../middleware/auth');
 const { handleError } = require('../helpers/handleError');
-const { todayVN } = require('../helpers/dayjsConfig');
 const auditService = require('../services/auditService');
 const { invalidateAnalyticsCache } = require('../middleware/analyticsCache');
 
@@ -338,11 +337,9 @@ const deleteUser = async (req, res) => {
         );
         pulledFromTeams = teamResult.modifiedCount;
 
-        // Step 2: Pull from FUTURE Schedule.enrolledUsers only.
-        // Past schedules are preserved for audit trail and historical attendance.
-        const todayBoundary = todayVN();
+        // Step 2: Pull from future Schedule.enrolledUsers
         const schedResult = await Schedule.updateMany(
-          { enrolledUsers: user._id, startTime: { $gte: todayBoundary } },
+          { enrolledUsers: user._id },
           { $pull: { enrolledUsers: user._id } },
           { session }
         );

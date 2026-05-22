@@ -49,10 +49,14 @@ const generateSetup = async (empCode) => {
 /**
  * Verify a 6-digit TOTP code against a secret.
  *
- * window: 2 accepts codes for the current 30-s step ± 2 steps (= ±60 s).
- * RFC 6238 recommends window ≤ 1, but cloud servers and mobile clocks can
- * drift by 30–60 s in practice, so 2 is a pragmatic production default
- * while still blocking brute-force (only 5 valid windows at any moment).
+ * window: 1 accepts the current 30-s step ± 1 step (= ±30 s clock skew).
+ * RFC 6238 recommends window ≤ 1; this is the exact recommended value.
+ * Most authenticator apps stay within ±5 s; ±30 s covers even sluggish
+ * hardware clocks without opening a meaningful brute-force window.
+ *
+ * NOTE: This function has NO replay protection. Use it only for TOTP setup
+ * verification (mfa/verify-setup) where the user is proving possession of
+ * a new secret for the first time. For login, use verifyTokenWithReplay().
  */
 const verifyToken = (secretBase32, token) => {
   if (!secretBase32 || !token) return false;
@@ -60,8 +64,49 @@ const verifyToken = (secretBase32, token) => {
     secret: secretBase32,
     encoding: 'base32',
     token: String(token).replace(/\s+/g, ''),
-    window: 2,
+    window: 1,
   });
+};
+
+/**
+ * Verify a TOTP code with replay-attack protection (P1 fix).
+ *
+ * Uses verifyDelta() to get the window offset (`delta`) of the matched code.
+ * Returns { valid: true, delta: <number> } on success, or { valid: false, delta: null }.
+ *
+ * Replay protection:
+ *   - `lastUsedCounter` is the `delta` persisted from the last successful login.
+ *   - We reject any code whose delta ≤ lastUsedCounter — meaning the same
+ *     30-second window (or an earlier one) was already accepted.
+ *   - Each TOTP step has exactly one valid 6-digit code, so a code cannot be
+ *     reused within the acceptance window once it has been consumed.
+ *   - The caller MUST persist the returned `delta` to User.mfaLastUsedCounter
+ *     on every successful verification.
+ *
+ * @param {string} secretBase32 - Base32-encoded TOTP secret
+ * @param {string} token        - 6-digit code submitted by user
+ * @param {number|null} lastUsedCounter - Most recently accepted delta (null if never used)
+ * @returns {{ valid: boolean, delta: number|null }}
+ */
+const verifyTokenWithReplay = (secretBase32, token, lastUsedCounter) => {
+  if (!secretBase32 || !token) return { valid: false, delta: null };
+
+  const result = speakeasy.totp.verifyDelta({
+    secret: secretBase32,
+    encoding: 'base32',
+    token: String(token).replace(/\s+/g, ''),
+    window: 1,
+  });
+
+  if (!result) return { valid: false, delta: null };
+
+  // Reject if this delta is not strictly newer than the last used one.
+  // lastUsedCounter === null means no code has been verified yet — allow any delta.
+  if (lastUsedCounter !== null && lastUsedCounter !== undefined && result.delta <= lastUsedCounter) {
+    return { valid: false, delta: null };
+  }
+
+  return { valid: true, delta: result.delta };
 };
 
 /**
@@ -106,6 +151,7 @@ const consumeBackupCode = async (storedHashes, submittedCode) => {
 module.exports = {
   generateSetup,
   verifyToken,
+  verifyTokenWithReplay,
   generateBackupCodes,
   consumeBackupCode,
   BACKUP_CODE_COUNT,

@@ -1,5 +1,26 @@
 const rateLimit = require('express-rate-limit');
 const { ipKeyGenerator } = require('express-rate-limit');
+const jwt = require('jsonwebtoken');
+
+// Cookie name must stay in sync with authService.MFA_PENDING_COOKIE.
+// We duplicate the string here to avoid importing authService (would create
+// a circular dependency chain: rateLimiters → authService → models → ...).
+const MFA_PENDING_COOKIE = 'tms_mfa_pending';
+
+// ── Redis note (#10) ───────────────────────────────────────────────────────
+// All limiters below use the default in-process MemoryStore. This is correct
+// for single-instance deploys (Render free tier). If the app ever scales to
+// multiple server instances, the per-instance counters become independent and
+// an attacker can spread requests to bypass limits.
+//
+// To switch to a shared Redis store when that time comes:
+//   npm install rate-limit-redis ioredis
+//   const RedisStore = require('rate-limit-redis');
+//   const Redis = require('ioredis');
+//   const redisClient = new Redis(process.env.REDIS_URL);
+//   store: new RedisStore({ sendCommand: (...args) => redisClient.call(...args) })
+// Add REDIS_URL to Render env vars and the above store: option to each limiter.
+// ──────────────────────────────────────────────────────────────────────────
 
 // In test environment, disable rate limiting entirely so test suites
 // that make many requests for the same user don't get throttled.
@@ -219,7 +240,7 @@ const forgotPasswordLimiter = rateLimit({
 const exportLimiter = rateLimit({
   windowMs: 60 * 60 * 1000, // 1 hour
   max: 10,
-  keyGenerator: (req) => (req.user?._id ? req.user._id.toString() : req.ip),
+  keyGenerator: (req) => userOrIpKey(req),
   standardHeaders: true,
   legacyHeaders: false,
   skip: skipInTest,
@@ -242,6 +263,46 @@ const reconcileLimiter = rateLimit({
   validate: validateOpts,
 });
 
+/**
+ * mfaVerifyLimiter — dedicated limiter for POST /auth/mfa/verify.
+ *
+ * Keys on the userId embedded inside the `mfaPendingToken` JWT body field,
+ * falling back to IP if the token is absent or unparseable. This correctly
+ * throttles per-user even when multiple users share the same IP (office NAT),
+ * and closes the P2 degradation bug where `loginLimiter` was keyed on
+ * `req.body.empCode` — a field that /mfa/verify doesn't send.
+ *
+ * We only jwt.decode() (no signature verification) here: the limiter fires
+ * BEFORE the route handler, and we only need the userId for bucketing.
+ * Full verification still happens inside verifyMfaLogin().
+ *
+ * 5 failed attempts per 15 minutes per user (mirrors loginLimiter).
+ */
+const mfaVerifyLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 5,
+  skipSuccessfulRequests: true,
+  standardHeaders: true,
+  legacyHeaders: false,
+  skip: skipInTest,
+  message: {
+    success: false,
+    message: 'Too many MFA attempts. Please try again in 15 minutes.',
+  },
+  validate: validateOpts,
+  keyGenerator: (req) => {
+    try {
+      // P3 fix: token is now an HttpOnly cookie, not a body field.
+      const raw = req.cookies?.[MFA_PENDING_COOKIE];
+      if (raw) {
+        const payload = jwt.decode(raw);
+        if (payload?.id) return `mfa|${payload.id}`;
+      }
+    } catch (_) { /* fall through to IP */ }
+    return `mfa|${ipKeyGenerator(req)}`;
+  },
+});
+
 module.exports = {
   globalLimiter,
   globalWriteLimiter,
@@ -252,6 +313,7 @@ module.exports = {
   loginLimiter,
   changePasswordLimiter,
   mfaLimiter,
+  mfaVerifyLimiter,
   forgotPasswordLimiter,
   exportLimiter,
   reconcileLimiter,

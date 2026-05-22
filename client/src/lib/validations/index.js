@@ -23,25 +23,25 @@ export const createUserSchema = z.object({
     .min(1, 'Employee code is required')
     .max(20, 'Max 20 characters'),
   name: z.string().min(2, 'Name must be at least 2 characters').max(100),
-  email: z
-    .string()
-    .email('Must be a valid email address')
-    .or(z.literal(''))
-    .optional(),
+  // P3-04: email is required on create (server requires it for Calendar invites).
+  // Was optional/empty-string-allowed — now must be a valid email address.
+  email: z.string().email('Must be a valid email address').max(254),
   role: z.enum(['Admin', 'Teacher', 'Participant']),
   department: z.string().max(100).optional().or(z.literal('')),
   position: z.string().max(100).optional().or(z.literal('')),
   status: z.enum(['Active', 'Inactive', 'Dropped', 'Transferred', 'On-hold', 'Waiting for class']),
-  password: z.string().min(8, 'Password must be at least 8 characters'),
+  // P3-04: password min aligned with server (min 10, was 8).
+  password: z.string().min(10, 'Password must be at least 10 characters'),
   dropReason: z.string().max(500).optional().or(z.literal('')),
 });
 
 export const editUserSchema = createUserSchema
   .omit({ password: true })
   .extend({
+    // P3-04: min aligned with server (10). Optional on edit — blank = keep current.
     password: z
       .string()
-      .min(8, 'Password must be at least 8 characters')
+      .min(10, 'Password must be at least 10 characters')
       .optional()
       .or(z.literal('')),
     currentPassword: z

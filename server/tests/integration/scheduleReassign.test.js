@@ -35,7 +35,9 @@ afterAll(async () => {
 });
 
 let ctr = 0;
-const uniq = () => `${Date.now()}_${++ctr}`;
+// Use counter only — Date.now() gets sliced away by .slice(0,10) on empCodes,
+// causing duplicate key errors when multiple fixtures run in the same millisecond.
+const uniq = () => String(++ctr).padStart(8, '0');
 
 const setupReassignFixture = async () => {
   const sfx = uniq();

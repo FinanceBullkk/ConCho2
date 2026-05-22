@@ -3,6 +3,8 @@ const Team = require('../models/Team');
 const Class = require('../models/Class');
 const { handleError } = require('../helpers/handleError');
 const logger = require('../lib/logger');
+const googleAuth = require('../lib/googleAuth');
+const { toVN } = require('../helpers/dayjsConfig');
 
 // ──────────────────────────────────────────────────────────
 // Google Sheets Sync Controller (v2 — Optimized)
@@ -18,27 +20,31 @@ const logger = require('../lib/logger');
 // ──────────────────────────────────────────────────────────
 
 /**
- * Initialize Google Sheets API client
- * Uses a service account JSON key file (path in .env)
+ * Initialize Google Sheets API client.
+ *
+ * P3-01: Reuses googleAuth.js credential resolution so both
+ * GOOGLE_SERVICE_ACCOUNT_KEY_JSON (production/Render) and
+ * GOOGLE_SERVICE_ACCOUNT_KEY (local file path) are supported.
+ * Previously this function only read the file-path variant and
+ * would always fail on Render where credentials are supplied
+ * as an inline JSON string.
  */
 const getGoogleSheetsClient = async () => {
   const { google } = require('googleapis');
-  const credentialsPath = process.env.GOOGLE_SERVICE_ACCOUNT_KEY;
 
-  if (!credentialsPath) {
-    throw new Error(
-      'GOOGLE_SERVICE_ACCOUNT_KEY environment variable is not set. ' +
-      'Set it to the path of your Google Cloud service account JSON key file.'
-    );
-  }
-
-  const auth = new google.auth.GoogleAuth({
-    keyFile: credentialsPath,
+  const authClient = googleAuth.getAuthClient({
     scopes: ['https://www.googleapis.com/auth/spreadsheets.readonly'],
   });
 
-  const client = await auth.getClient();
-  return google.sheets({ version: 'v4', auth: client });
+  if (!authClient) {
+    throw new Error(
+      'Google service-account credentials are not configured. ' +
+      'Set GOOGLE_SERVICE_ACCOUNT_KEY_JSON (Render/production) or ' +
+      'GOOGLE_SERVICE_ACCOUNT_KEY (local file path) in your environment.'
+    );
+  }
+
+  return google.sheets({ version: 'v4', auth: authClient });
 };
 
 /**
@@ -109,13 +115,15 @@ const syncFromGoogleSheets = async (req, res) => {
     // Schedule lookup: "classId|YYYY-MM-DD" → schedule documents for that day
     // We load ALL schedules (or filter to relevant date range if needed)
     const allSchedules = await Schedule.find()
-      .select('_id classId bookedTeamId startTime endTime enrolledUsers capacity')
+      .select('_id classId bookedTeamId startTime endTime enrolledUsers enrolledCount capacity')
       .lean();
 
-    // Group schedules by classId + date for fast lookup
+    // Group schedules by classId + VN date for fast lookup.
+    // P3-02: Use VN timezone (Asia/Ho_Chi_Minh) so schedules starting before
+    // 07:00 VN (< 00:00 UTC next day) group under the correct VN calendar date.
     const scheduleMap = new Map();
     for (const s of allSchedules) {
-      const dateKey = new Date(s.startTime).toISOString().slice(0, 10); // YYYY-MM-DD
+      const dateKey = toVN(s.startTime).format('YYYY-MM-DD'); // VN calendar date
       const key = `${s.classId.toString()}|${dateKey}`;
       if (!scheduleMap.has(key)) scheduleMap.set(key, []);
       scheduleMap.get(key).push(s);
@@ -180,14 +188,19 @@ const syncFromGoogleSheets = async (req, res) => {
       }
 
       const [, sh, sm, eh, em] = slotParts.map(Number);
-      const dateKey = date.toISOString().slice(0, 10);
+      // P3-02: Use VN date from the sheet's date string so it matches the
+      // scheduleMap keys (which are also keyed by VN calendar date).
+      const dateKey = toVN(date).format('YYYY-MM-DD');
       const lookupKey = `${cls._id.toString()}|${dateKey}`;
 
       // ── Find matching schedule (from Map) ───────────────
+      // P3-02: Compare using VN timezone (Asia/Ho_Chi_Minh) so time-slot
+      // "10:00" in the sheet matches the schedule's startTime correctly
+      // on the Render server (UTC+0). Using getUTCHours() was off by 7 h.
       const daySchedules = scheduleMap.get(lookupKey) || [];
       const schedule = daySchedules.find(s => {
-        const sStart = new Date(s.startTime);
-        return sStart.getUTCHours() === sh && sStart.getUTCMinutes() === sm;
+        const sVN = toVN(s.startTime);
+        return sVN.hour() === sh && sVN.minute() === sm;
       });
 
       if (!schedule) {
@@ -218,11 +231,10 @@ const syncFromGoogleSheets = async (req, res) => {
       );
 
       // ── Check capacity ──────────────────────────────────
-      const currentEnrolled = (schedule.enrolledUsers || []).length;
-      if (currentEnrolled + activeNew.length > schedule.capacity) {
+      if (schedule.enrolledCount + activeNew.length > schedule.capacity) {
         report.errors.push({
           row: rowNum,
-          error: `Capacity exceeded. Available: ${schedule.capacity - currentEnrolled}, Needed: ${activeNew.length}`,
+          error: `Capacity exceeded. Available: ${schedule.capacity - schedule.enrolledCount}, Needed: ${activeNew.length}`,
         });
         report.skipped++;
         continue;
@@ -276,14 +288,15 @@ const syncFromGoogleSheets = async (req, res) => {
  * Check if Google Sheets integration is configured
  */
 const getSyncStatus = async (_req, res) => {
-  const configured = !!process.env.GOOGLE_SERVICE_ACCOUNT_KEY;
+  // P3-01: check both credential sources (JSON inline + file path)
+  const configured = googleAuth.isConfigured();
   res.json({
     success: true,
     data: {
       configured,
       message: configured
         ? 'Google Sheets integration is configured'
-        : 'Set GOOGLE_SERVICE_ACCOUNT_KEY in .env to enable sync',
+        : 'Set GOOGLE_SERVICE_ACCOUNT_KEY_JSON (production) or GOOGLE_SERVICE_ACCOUNT_KEY (local) to enable sync',
     },
   });
 };
