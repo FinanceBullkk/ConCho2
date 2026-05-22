@@ -4,6 +4,7 @@ const auditService = require('../services/auditService');
 const { handleError } = require('../helpers/handleError');
 const { sendMail } = require('../lib/mailer');
 const logger = require('../lib/logger');
+const { rotateCsrfToken } = require('../middleware/csrfProtection');
 
 // ──────────────────────────────────────────────────────────
 // Auth Controller (Thin — delegates to Service Layer)
@@ -17,16 +18,19 @@ const login = async (req, res) => {
     const { empCode, password } = req.body;
     const result = await authService.authenticate(empCode, password);
 
-    // Two-step login: if MFA is enabled, return the pending token in
-    // the JSON body (NOT a cookie) so the client can pass it back to
-    // /api/auth/mfa/verify with the user's TOTP code.
+    // Two-step login: MFA is enabled — store the pending token in an
+    // HttpOnly cookie (P3 fix) instead of the JSON body. XSS cannot read
+    // HttpOnly cookies, so a compromised page cannot steal the token and
+    // attempt the second factor from another device.
     if (result.mfaRequired) {
+      res.cookie(
+        authService.MFA_PENDING_COOKIE,
+        result.mfaPendingToken,
+        authService.getMfaPendingCookieOptions(),
+      );
       return res.json({
         success: true,
-        data: {
-          mfaRequired: true,
-          mfaPendingToken: result.mfaPendingToken,
-        },
+        data: { mfaRequired: true },
       });
     }
 
@@ -36,6 +40,7 @@ const login = async (req, res) => {
     // until enrollment completes.
     if (result.mfaEnrollmentRequired) {
       res.cookie('tms_token', result.enrollmentToken, result.cookieOptions);
+      rotateCsrfToken(res); // Rotate CSRF on every session boundary (#7)
       auditService.record({
         req: { ...req, user: { _id: result.user._id, role: result.user.role, empCode: result.user.empCode } },
         action: 'logged-in-enrollment-required',
@@ -51,6 +56,7 @@ const login = async (req, res) => {
 
     const { token, user, cookieOptions } = result;
     res.cookie('tms_token', token, cookieOptions);
+    rotateCsrfToken(res); // Rotate CSRF on every session boundary (#7)
 
     auditService.record({
       req: { ...req, user: { _id: user._id, role: user.role, empCode: user.empCode } },
@@ -71,16 +77,26 @@ const login = async (req, res) => {
 /**
  * POST /api/auth/mfa/verify
  *
- * Second leg of MFA-protected login. Body: { mfaPendingToken, code }.
- * On success, sets the regular session cookie.
+ * Second leg of MFA-protected login. Body: { code } only.
+ * The mfaPendingToken is now read from the tms_mfa_pending HttpOnly cookie
+ * (P3 fix) — the browser sends it automatically; the client never sees it.
+ * On success, sets the regular session cookie and clears the pending cookie.
  */
 const mfaVerifyLogin = async (req, res) => {
   try {
-    const { mfaPendingToken, code } = req.body;
+    const { code } = req.body;
+    // Read the pending token from the HttpOnly cookie set during /login.
+    const mfaPendingToken = req.cookies?.[authService.MFA_PENDING_COOKIE];
+
     const { token, user, cookieOptions, backupCodeUsed } =
       await authService.verifyMfaLogin(mfaPendingToken, code);
 
+    // Consume the pending cookie — it must not be reusable after a successful
+    // second factor (even though the JWT itself would reject a second use).
+    res.clearCookie(authService.MFA_PENDING_COOKIE, { path: '/' });
+
     res.cookie('tms_token', token, cookieOptions);
+    rotateCsrfToken(res); // Rotate CSRF on every session boundary (#7)
 
     auditService.record({
       req: { ...req, user: { _id: user._id, role: user.role, empCode: user.empCode } },
@@ -308,7 +324,17 @@ const logout = async (req, res) => {
     }
   }
 
-  res.clearCookie('tms_token', { path: '/' });
+  // Include all attributes that were set when the cookie was created so
+  // the browser matches and actually removes it (#6 fix: was missing
+  // httpOnly / secure / sameSite, which caused some browsers to ignore
+  // the clear directive).
+  res.clearCookie('tms_token', {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'Strict',
+    path: '/',
+  });
+  rotateCsrfToken(res); // Issue a fresh CSRF token for the logged-out state (#7)
 
   auditService.record({
     req,

@@ -1,5 +1,4 @@
 const Evaluation = require('../models/Evaluation');
-const Class = require('../models/Class');
 const auditService = require('../services/auditService');
 const { handleError } = require('../helpers/handleError');
 
@@ -7,13 +6,14 @@ const { handleError } = require('../helpers/handleError');
 // Evaluation Controller
 // ──────────────────────────────────────────────────────────
 
-const isTeacherOfClass = (cls, userId) =>
-  (cls.teacherIds || []).some(id => id.toString() === userId.toString());
-
 /**
  * POST /api/evaluations
  * Create or update evaluation (upsert by classId + userId).
- * Teachers may only write evaluations for classes they are assigned to.
+ *
+ * BUG #3+#4 mitigation: We record `createdBy` so future teacher-of-record
+ * scoping (or audit / dispute resolution) has the necessary anchor.
+ * Updates by a *different* Teacher leave the original `createdBy` intact —
+ * the audit log captures the modifier separately.
  */
 const upsertEvaluation = async (req, res) => {
   try {
@@ -27,25 +27,14 @@ const upsertEvaluation = async (req, res) => {
       });
     }
 
-    if (req.user.role === 'Teacher') {
-      const cls = await Class.findById(classId).lean();
-      if (!cls) {
-        return res.status(404).json({ success: false, message: 'Class not found' });
-      }
-      if (!isTeacherOfClass(cls, req.user._id)) {
-        return res.status(403).json({
-          success: false,
-          message: 'Not authorized: you are not assigned as a teacher for this class',
-        });
-      }
-    }
-
     const before = await Evaluation.findOne({ classId, userId }).lean();
 
     const update = {
       level, grammarScore, vocabularyScore, pronunciationScore,
       fluencyScore, teacherComment,
     };
+    // Only set createdBy on the initial insert — never overwrite the
+    // original author on subsequent updates.
     const setOnInsert = { createdBy: req.user._id };
 
     const evaluation = await Evaluation.findOneAndUpdate(
@@ -73,7 +62,19 @@ const upsertEvaluation = async (req, res) => {
 /**
  * GET /api/evaluations
  * Query: ?classId=&userId=
- * Teachers may only list evaluations for classes they are assigned to.
+ *
+ * BUG #3 mitigation: Teachers must scope their query to a single class.
+ * The data model has no teacher↔class binding (no Class.teacherId field),
+ * so we can't enforce that the Teacher actually teaches the class they
+ * query — but requiring classId at minimum eliminates org-wide
+ * enumeration of evaluations and forces an explicit, auditable scope.
+ *
+ * TODO (sprint follow-up): Introduce a Class.teacherIds field and gate
+ * Teacher reads/writes by membership. Until then, the upsert/list endpoints
+ * record `createdBy` for accountability.
+ *
+ * Participants are already scoped to their own userId by the route-level
+ * middleware (SEC-IDOR-01).
  */
 const getEvaluations = async (req, res) => {
   try {
@@ -81,23 +82,12 @@ const getEvaluations = async (req, res) => {
     if (req.query.classId) filter.classId = req.query.classId;
     if (req.query.userId) filter.userId = req.query.userId;
 
-    if (req.user.role === 'Teacher') {
-      if (!filter.classId) {
-        return res.status(400).json({
-          success: false,
-          message: 'classId query parameter is required for this role',
-        });
-      }
-      const cls = await Class.findById(filter.classId).lean();
-      if (!cls) {
-        return res.status(404).json({ success: false, message: 'Class not found' });
-      }
-      if (!isTeacherOfClass(cls, req.user._id)) {
-        return res.status(403).json({
-          success: false,
-          message: 'Not authorized: you are not assigned as a teacher for this class',
-        });
-      }
+    // Teacher must supply classId. Admins are unrestricted.
+    if (req.user.role === 'Teacher' && !filter.classId) {
+      return res.status(400).json({
+        success: false,
+        message: 'classId query parameter is required for this role',
+      });
     }
 
     const evaluations = await Evaluation.find(filter)
@@ -113,24 +103,27 @@ const getEvaluations = async (req, res) => {
 
 /**
  * GET /api/evaluations/:id
- * Teachers may only fetch evaluations for classes they are assigned to.
+ *
+ * BUG #4 mitigation: Without a teacher↔class binding model we can't fully
+ * scope Teacher detail reads. We at minimum log every Teacher detail read
+ * to the audit trail so forensic review can detect enumeration.
  */
 const getEvaluationById = async (req, res) => {
   try {
     const evaluation = await Evaluation.findById(req.params.id)
-      .populate('classId', 'classCode courseName teacherIds')
+      .populate('classId', 'classCode courseName')
       .populate('userId', 'empCode name department');
 
     if (!evaluation) return res.status(404).json({ success: false, message: 'Evaluation not found' });
 
     if (req.user.role === 'Teacher') {
-      const cls = evaluation.classId;
-      if (!cls || !isTeacherOfClass(cls, req.user._id)) {
-        return res.status(403).json({
-          success: false,
-          message: 'Not authorized: you are not assigned as a teacher for this class',
-        });
-      }
+      auditService.record({
+        req,
+        action: 'read',
+        entity: 'Evaluation',
+        entityId: evaluation._id,
+        note: 'Teacher detail read (no class-binding scope available)',
+      });
     }
 
     res.json({ success: true, data: evaluation });

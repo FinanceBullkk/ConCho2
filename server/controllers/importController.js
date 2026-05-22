@@ -59,41 +59,50 @@ const bulkImportHistory = async (req, res) => {
     }
 
     let schedulesCreated = 0, attendanceCreated = 0, errors = [];
+    const dbSession = await Schedule.startSession();
 
     for (const s of sessions) {
       try {
-        // Create schedule directly (no validation)
-        const schedule = await Schedule.create({
-          classId: s.classId,
-          bookedTeamId: s.teamId,
-          startTime: new Date(s.startTime),
-          endTime: new Date(s.endTime),
-          capacity: Math.max(s.students?.length || 0, 9),
-          enrolledUsers: (s.students || []).map(st => st.userId),
-        });
-        schedulesCreated++;
+        // P2-06: Use local counters inside the closure, only commit to outer
+        // counters after the transaction succeeds. If the transaction rolls back,
+        // the outer counters are never incremented — no overreport.
+        let sessionSchedules = 0, sessionAttendance = 0;
+        await dbSession.withTransaction(async () => {
+          // Create schedule directly (no validation — historical data)
+          const [schedule] = await Schedule.create(
+            [{
+              classId: s.classId,
+              bookedTeamId: s.teamId,
+              startTime: new Date(s.startTime),
+              endTime: new Date(s.endTime),
+              capacity: Math.max(s.students?.length || 0, 9),
+              enrolledUsers: (s.students || []).map(st => st.userId),
+            }],
+            { session: dbSession }
+          );
+          sessionSchedules = 1;
 
-        // Create attendance records
-        if (s.students && s.students.length > 0) {
-          const records = s.students.map(st => ({
-            scheduleId: schedule._id,
-            userId: st.userId,
-            status: st.status,
-          }));
-          
-          // Use insertMany with ordered:false to skip duplicates
-          try {
-            const result = await Attendance.insertMany(records, { ordered: false });
-            attendanceCreated += result.length;
-          } catch (bulkErr) {
-            // Partial insert — count what succeeded
-            if (bulkErr.insertedDocs) attendanceCreated += bulkErr.insertedDocs.length;
+          // Create attendance records in the same transaction so a failure rolls back the schedule too
+          if (s.students && s.students.length > 0) {
+            const records = s.students.map(st => ({
+              scheduleId: schedule._id,
+              userId: st.userId,
+              status: st.status,
+            }));
+            const result = await Attendance.insertMany(records, { session: dbSession });
+            sessionAttendance = result.length;
           }
-        }
+        });
+        // Transaction committed — now safe to update outer counters
+        schedulesCreated += sessionSchedules;
+        attendanceCreated += sessionAttendance;
       } catch (err) {
+        // Transaction rolled back — schedule was not persisted
         errors.push(err.message);
       }
     }
+
+    dbSession.endSession();
 
     invalidateAnalyticsCache();
     res.json({

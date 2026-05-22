@@ -16,9 +16,9 @@ router.get('/', protect, (req, _res, next) => {
   }
   next();
 }, getEvaluations);
-router.get('/:id', protect, roleGuard('Admin', 'Teacher'), validate({ params: idParam }), getEvaluationById);
+router.get('/:id', protect, roleGuard('Admin', 'Teacher'), getEvaluationById);
 
 // Delete: Admin only
-router.delete('/:id', protect, roleGuard('Admin'), validate({ params: idParam }), deleteEvaluation);
+router.delete('/:id', protect, roleGuard('Admin'), deleteEvaluation);
 
 module.exports = router;

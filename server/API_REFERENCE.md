@@ -12,8 +12,8 @@
 
 ### 2. How Authentication Works
 - The `baseUrl` variable is pre-set to `http://localhost:5000/api`
-- **Login first** → the Login requests have a **Test Script** that automatically saves the JWT token to the `{{token}}` collection variable
-- All subsequent requests use `{{token}}` in the Authorization header (inherited from the collection-level Bearer auth)
+- **Login first** → `POST /api/auth/login` sets an **HttpOnly cookie** (`token`) and a `XSRF-TOKEN` cookie
+- Postman forwards cookies automatically; all subsequent requests are authenticated via the HttpOnly cookie + `X-XSRF-TOKEN` request header (the collection-level Pre-request Script reads `XSRF-TOKEN` and adds the header)
 - **To switch roles**: simply run a different Login request (Admin/Teacher/Participant)
 
 ### 3. Testing Workflow
@@ -54,8 +54,8 @@
 
 | Method | Endpoint | Auth | Description |
 |--------|----------|------|-------------|
-| POST | `/api/auth/login` | None | Login with empCode + password |
-| GET | `/api/auth/me` | Bearer | Get current user info |
+| POST | `/api/auth/login` | None | Login — sets HttpOnly `token` cookie + `XSRF-TOKEN` cookie |
+| GET | `/api/auth/me` | Cookie | Get current user info |
 
 **Login Request Body:**
 ```json
@@ -64,7 +64,7 @@
   "password": "admin12345"
 }
 ```
-**Response:** Returns `{ token, user }`. The token is valid for 7 days.
+**Response:** Returns `{ success, user }`. JWT is stored in an HttpOnly cookie (not in the response body); `XSRF-TOKEN` is a readable cookie used for CSRF protection. Both expire in 7 days.
 
 ---
 
@@ -249,7 +249,9 @@ The response includes a computed `averageScore` virtual field.
 1. Create a Google Cloud project
 2. Enable the Google Sheets API
 3. Create a Service Account and download the JSON key
-4. Add to `.env`: `GOOGLE_SERVICE_ACCOUNT_KEY=./path-to-key.json`
+4. Configure credentials (pick one):
+   - **Local dev:** Add to `.env`: `GOOGLE_SERVICE_ACCOUNT_KEY=./path-to-key.json`
+   - **Render (production):** Set env var `GOOGLE_SERVICE_ACCOUNT_KEY_JSON` to the full JSON key content (single line)
 5. Share the Google Sheet with the service account email
 
 ---

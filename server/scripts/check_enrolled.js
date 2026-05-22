@@ -1,5 +1,4 @@
 require('dotenv').config();
-require('dns').setServers(['8.8.8.8', '8.8.4.4']);
 const mongoose = require('mongoose');
 require('../models/Schedule');
 
@@ -13,42 +12,27 @@ async function run() {
   const nonEmpty = total - empty;
   console.log(`Total schedules: ${total}, Empty enrolledUsers: ${empty}, Non-empty: ${nonEmpty}`);
   
-  // Sample some schedules with lean (like attendance calendar does)
-  const samples = await Schedule.find()
-    .limit(5)
-    .lean({ virtuals: true });
-  
+  // Sample some schedules — use plain .lean() and derive count from array length
+  // (enrolledCount is a virtual that may not survive lean without plugin support)
+  const samples = await Schedule.find().limit(5).lean();
+
   for (const s of samples) {
-    console.log(`  Schedule ${s._id}: enrolledUsers.length=${(s.enrolledUsers||[]).length}, enrolledCount=${s.enrolledCount}`);
+    const count = (s.enrolledUsers || []).length;
+    console.log(`  Schedule ${s._id}: enrolledUsers.length=${count}`);
   }
-  
-  // Now test getAttendanceCalendar specifically
+
+  // Query in the style of getAttendanceCalendar
   const allSchedules = await Schedule.find()
     .populate('classId', 'classCode courseName totalSessions')
     .populate('bookedTeamId', 'name')
     .sort({ startTime: 1 })
-    .lean({ virtuals: true });
-  
-  const noneCount = allSchedules.filter(s => (s.enrolledCount || 0) === 0).length;
-  const hasStudents = allSchedules.filter(s => (s.enrolledCount || 0) > 0).length;
+    .lean();
+
+  const noneCount    = allSchedules.filter(s => (s.enrolledUsers || []).length === 0).length;
+  const hasStudents  = allSchedules.filter(s => (s.enrolledUsers || []).length > 0).length;
   console.log(`\nIn getAttendanceCalendar style query:`);
-  console.log(`  enrolledCount=0 (none): ${noneCount}`);
-  console.log(`  enrolledCount>0 (has students): ${hasStudents}`);
-  
-  // Check if enrolledUsers array actually has data but enrolledCount is wrong
-  const mismatch = allSchedules.filter(s => {
-    const arrLen = (s.enrolledUsers || []).length;
-    const vc = s.enrolledCount;
-    return arrLen !== vc;
-  });
-  console.log(`  Mismatches (enrolledUsers.length !== enrolledCount): ${mismatch.length}`);
-  
-  if (mismatch.length > 0) {
-    console.log('  Sample mismatches:');
-    mismatch.slice(0, 3).forEach(s => {
-      console.log(`    ${s._id}: arr=${(s.enrolledUsers||[]).length} vc=${s.enrolledCount}`);
-    });
-  }
+  console.log(`  enrolledUsers.length=0 (none): ${noneCount}`);
+  console.log(`  enrolledUsers.length>0 (has students): ${hasStudents}`);
   
   await mongoose.disconnect();
 }

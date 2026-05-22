@@ -73,15 +73,18 @@ Critical env vars to document:
 
 | Variable | Description |
 |---|---|
-| `MONGODB_URI` | Atlas connection string |
+| `MONGO_URI` | Atlas connection string (used by main server) |
 | `JWT_SECRET` | JWT signing secret |
 | `REFRESH_SECRET` | Refresh token secret |
 | `MFA_ENCRYPTION_KEY` | TOTP encryption key |
-| `CRON_SECRET` | Cron endpoint auth token |
-| `GOOGLE_SERVICE_ACCOUNT_KEY` | Google Calendar service account JSON |
-| `GOOGLE_CALENDAR_ID` | Target Google Calendar |
+| `CRON_TOKEN` | Cron endpoint auth token — must be ≥ 16 characters |
+| `GOOGLE_SERVICE_ACCOUNT_KEY_JSON` | Service account credentials as a JSON string — **use this in Render** |
+| `GOOGLE_SERVICE_ACCOUNT_KEY` | Path to service account JSON file — local dev only; leave unset in Render |
+| `GOOGLE_CALENDAR_IMPERSONATE` | Email of the Google Workspace user the service account impersonates as calendar organiser |
+| `TMS_TIMEZONE` | IANA timezone for calendar events (optional; defaults to `Asia/Ho_Chi_Minh`) |
 | `SENTRY_DSN` | Sentry error reporting DSN |
-| `CLIENT_ORIGIN` | Allowed CORS origin / frontend URL for password-reset links (e.g. `https://yourtms.onrender.com`) |
+| `CORS_ORIGINS` | Comma-separated allowed CORS origins (e.g. `https://tms-v2.onrender.com`) |
+| `CLIENT_ORIGIN` | Base URL used in password-reset email links (e.g. `https://tms-v2.onrender.com`) |
 | `NODE_ENV` | `production` |
 | `SMTP_HOST` | SMTP server hostname (e.g. `smtp.gmail.com`) |
 | `SMTP_PORT` | SMTP port — `587` (STARTTLS) or `465` (SSL) |
@@ -101,8 +104,8 @@ Document these values in a secure note in case the service must be recreated:
 
 | Setting | Value |
 |---|---|
-| Build command | `cd server && npm install` |
-| Start command | `node server/index.js` |
+| Build command | `npm run build` |
+| Start command | `npm start` |
 | Region | (note your current region, e.g., Singapore) |
 | Node version | (check Render → Environment → Node version) |
 
@@ -136,14 +139,14 @@ Use this procedure when data loss is confirmed or when restoring to a new cluste
    - **Restore to new cluster** — creates a fresh cluster from the snapshot. Use when the original cluster is corrupted or deleted.
 6. Confirm the restore. Atlas will show progress; M0 restores typically complete in 10–30 minutes.
 
-#### Step 3 — Update MONGODB_URI (new cluster only)
+#### Step 3 — Update MONGO_URI (new cluster only)
 
 If you restored to a **new cluster**:
 
 1. In Atlas, go to **Clusters** → **Connect** → **Connect your application**.
 2. Copy the new connection string (replace `<password>` with the actual DB user password).
 3. In Render dashboard → TMS service → **Environment** tab:
-   - Update `MONGODB_URI` with the new connection string.
+   - Update `MONGO_URI` with the new connection string.
    - Click **Save Changes** (Render will auto-redeploy).
 
 If you restored to the **same cluster**, the connection string does not change — skip this step.
@@ -155,10 +158,14 @@ If you restored to the **same cluster**, the connection string does not change �
    ```
    GET https://<your-render-url>/ready
    ```
-   Expected response: `200 OK` with `{ "status": "ok" }` (or similar).
+   Expected `200 OK` body:
+   ```json
+   { "status": "ready", "db": "connected", "dbName": "<db>", "uptime": <n>, "timestamp": "..." }
+   ```
+   A `503` with `{ "status": "not_ready", "reason": "mongo_disconnected" }` means MongoDB has not yet reconnected — wait and retry before proceeding.
 3. Run the backup verification script to confirm data integrity:
    ```bash
-   node server/scripts/verify-backup.js
+   MONGO_URI="<atlas-connection-string>" node server/scripts/verify-backup.js
    ```
 4. Log in to the TMS UI and perform a quick smoke test:
    - Can you log in?
@@ -173,13 +180,15 @@ If you restored to the **same cluster**, the connection string does not change �
 
 ---
 
-## 6. Backup Verification Drill (Monthly)
+## 6. Backup Verification Drills
+
+### 6.1 Monthly backup health check
 
 Run this checklist on the **first Monday of each month**.
 
 - [ ] **Run verify-backup script**
   ```bash
-  node server/scripts/verify-backup.js
+  MONGO_URI="<atlas-connection-string>" node server/scripts/verify-backup.js
   ```
   Confirm exit code 0 and review collection document counts for anomalies.
 
@@ -199,12 +208,71 @@ Run this checklist on the **first Monday of each month**.
   ```
   GET https://<your-render-url>/ready
   ```
+  Confirm `200 OK` with `{ "status": "ready", "db": "connected" }`.
 
-### Drill log
+### Monthly drill log
 
 | Date | Run by | Snapshot timestamp confirmed | verify-backup result | Notes |
 |---|---|---|---|---|
 | <!-- fill in --> | <!-- fill in --> | <!-- fill in --> | <!-- fill in --> | |
+
+---
+
+### 6.2 Quarterly dry-run restore on staging
+
+Run this checklist **once per quarter** to verify the full restore path end-to-end before you need it in an incident. This drill targets a **staging** environment so production is never touched.
+
+#### Prerequisites
+
+- A staging Atlas cluster (separate free M0 is sufficient; cluster name e.g. `tms-staging`)
+- A staging Render service (`tms-v2-staging` or similar) with the same env vars as production **except**:
+  - `MONGO_URI` → staging Atlas connection string
+  - `NODE_ENV` → `staging` (or `production` — either works for functionality testing)
+  - `CRON_TOKEN` → a different value from production
+
+#### Steps
+
+- [ ] **Restore production snapshot to staging cluster**
+  - In Atlas, go to your production cluster → **Backup** tab.
+  - Click **Restore** → choose **Restore to different cluster** → select the staging cluster.
+  - Wait for restore to complete (typically 10–30 min on M0).
+
+- [ ] **Redeploy staging Render service**
+  - In Render, trigger a manual deploy on the staging service (same git commit as production).
+  - Wait for deploy to succeed.
+
+- [ ] **Health check on staging**
+  ```
+  GET https://<staging-render-url>/ready
+  ```
+  Confirm `200 OK` with `{ "status": "ready", "db": "connected" }`.
+
+- [ ] **Run verify-backup script against staging**
+  ```bash
+  MONGO_URI="<staging-atlas-connection-string>" node server/scripts/verify-backup.js
+  ```
+  Confirm exit code 0 and that collection document counts match expectations.
+
+- [ ] **Smoke test staging UI**
+  - Log in with a known user account.
+  - Confirm classes and schedules are visible.
+  - Confirm attendance records are accessible.
+
+- [ ] **Record result in drill log below**
+
+#### Pass criteria
+
+| Check | Pass condition |
+|---|---|
+| `/ready` response | `200` with `{ "status": "ready", "db": "connected" }` |
+| verify-backup.js | Exit code `0`, no `FAIL` lines |
+| UI smoke test | Login, classes, schedules, and attendance all load |
+
+#### Quarterly drill log
+
+| Date | Run by | Staging cluster | Snapshot used | verify-backup result | Smoke test | Notes |
+|---|---|---|---|---|---|---|
+| <!-- fill in --> | <!-- fill in --> | <!-- fill in --> | <!-- fill in --> | <!-- fill in --> | pass/fail | |
 
 ---
 
@@ -223,7 +291,7 @@ Run this checklist on the **first Monday of each month**.
 3. If data loss is confirmed, begin restore procedure (Section 5) immediately.
 4. Notify team lead / system owner within 30 minutes of detection.
 5. Post status updates every 30 minutes until resolved.
-6. After restore, run `verify-backup.js` and complete smoke test.
+6. After restore, run `MONGO_URI="<connection-string>" node server/scripts/verify-backup.js` and complete smoke test.
 7. Write post-mortem within 48 hours.
 
 **Contacts:** See Section 8.

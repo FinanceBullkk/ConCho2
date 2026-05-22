@@ -41,7 +41,9 @@ export function AuthProvider({ children }) {
   }, []);
 
   // login() returns one of three shapes:
-  //   { mfaRequired: true, mfaPendingToken }      — collect TOTP, call verifyMfa()
+  //   { mfaRequired: true }                       — collect TOTP, call verifyMfa()
+  //                                                 mfaPendingToken is an HttpOnly cookie;
+  //                                                 the client never sees or stores it.
   //   { mfaEnrollmentRequired: true, user }       — role enforces MFA, user must enroll
   //                                                 before accessing anything else
   //   { mfaRequired: false, user }                — session fully established
@@ -51,7 +53,7 @@ export function AuthProvider({ children }) {
 
     if (data.mfaRequired) {
       // Don't set user — user is not authenticated until MFA verified.
-      return { mfaRequired: true, mfaPendingToken: data.mfaPendingToken };
+      return { mfaRequired: true };
     }
 
     if (data.mfaEnrollmentRequired) {
@@ -70,8 +72,10 @@ export function AuthProvider({ children }) {
   };
 
   // Second leg of MFA-protected login.
-  const verifyMfa = async (mfaPendingToken, code) => {
-    const res = await authAPI.mfaVerifyLogin(mfaPendingToken, code);
+  // mfaPendingToken is sent automatically as an HttpOnly cookie — caller
+  // only needs to pass the TOTP/backup code.
+  const verifyMfa = async (code) => {
+    const res = await authAPI.mfaVerifyLogin(code);
     const userData = res.data.data.user;
     localStorage.setItem('tms_user', JSON.stringify(userData));
     setUser(userData);

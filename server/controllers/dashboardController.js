@@ -5,6 +5,7 @@ const Attendance = require('../models/Attendance');
 const Team = require('../models/Team');
 const { handleError } = require('../helpers/handleError');
 const logger = require('../lib/logger');
+const { todayVN } = require('../helpers/dayjsConfig');
 
 // ──────────────────────────────────────────────────────────
 // Dashboard Controller — Admin Analytics (Interactive Filters)
@@ -117,8 +118,11 @@ const getDashboardStats = async (req, res) => {
       // 7: All classes
       Class.find().sort({ classCode: 1 }).lean(),
       // 8: Schedule counts by class
+      // Note: teacherId was removed from this aggregate (P2-09) — the field
+      // does not exist on the Schedule schema and always returned null.
+      // Teacher-of-record is not tracked at the schedule level in this version.
       Schedule.aggregate([
-        { $group: { _id: '$classId', total: { $sum: 1 }, done: { $sum: { $cond: [{ $lt: ['$endTime', now] }, 1, 0] } }, teacherId: { $first: '$teacherId' } } },
+        { $group: { _id: '$classId', total: { $sum: 1 }, done: { $sum: { $cond: [{ $lt: ['$endTime', now] }, 1, 0] } } } },
       ]),
       // 9: BU (department) breakdown (filtered)
       User.aggregate([
@@ -209,16 +213,10 @@ const getDashboardStats = async (req, res) => {
 
     // Class progress (no N+1)
     const schedMap = {};
-    const teacherIds = new Set();
     scheduleCountsByClass.forEach(s => {
       const cid = s._id?.toString();
-      if (cid) { schedMap[cid] = s; if (s.teacherId) teacherIds.add(s.teacherId.toString()); }
+      if (cid) schedMap[cid] = s;
     });
-    let teacherMap = {};
-    if (teacherIds.size > 0) {
-      const teachers = await User.find({ _id: { $in: [...teacherIds] } }).select('name').lean();
-      teachers.forEach(t => { teacherMap[t._id.toString()] = t.name; });
-    }
 
     res.json({
       success: true,
@@ -246,8 +244,8 @@ const getDashboardStats = async (req, res) => {
         dropReasons: dropReasonAgg.map(d => ({ reason: d._id, count: d.count })),
         dropClassifications: dropClassificationAgg.map(d => ({ classification: d._id, count: d.count })),
         classProgress: classes.map(cls => {
-          const s = schedMap[cls._id.toString()] || { done: 0, teacherId: null };
-          return { _id: cls._id, classCode: cls.classCode, courseName: cls.courseName, totalSessions: cls.totalSessions, doneSessions: s.done, progress: cls.totalSessions > 0 ? s.done / cls.totalSessions : 0, status: cls.status, teacher: s.teacherId ? teacherMap[s.teacherId.toString()] || null : null };
+          const s = schedMap[cls._id.toString()] || { done: 0 };
+          return { _id: cls._id, classCode: cls.classCode, courseName: cls.courseName, totalSessions: cls.totalSessions, doneSessions: s.done, progress: cls.totalSessions > 0 ? s.done / cls.totalSessions : 0, status: cls.status };
         }),
         departmentBreakdown: departmentAgg.map(d => {
           const obj = { department: d._id, total: d.total, active: 0, inactive: 0, waiting: 0 };
@@ -286,8 +284,9 @@ const getDashboardStats = async (req, res) => {
 const getAlerts = async (req, res) => {
   try {
     const now = new Date();
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
+    // P2-10: use Vietnam timezone helper so "today" boundaries are correct
+    // on the Render server (UTC) — avoids off-by-one on sessions near midnight VN.
+    const today = todayVN();
     const tomorrow = new Date(today);
     tomorrow.setDate(tomorrow.getDate() + 1);
 
