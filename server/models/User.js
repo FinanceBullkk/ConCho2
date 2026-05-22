@@ -130,6 +130,19 @@ const userSchema = new mongoose.Schema(
       default: null,
       select: false,
     },
+    // Temporary secret during MFA enrollment — only copied to mfaSecret
+    // after the user proves possession via verify-setup (F5 audit fix).
+    // Expires after 15 minutes; cleared on successful or abandoned setup.
+    mfaPendingSecret: {
+      type: String,
+      default: null,
+      select: false,
+    },
+    mfaPendingSecretExpires: {
+      type: Date,
+      default: null,
+      select: false,
+    },
     mfaBackupCodes: {
       type: [String],
       default: [],

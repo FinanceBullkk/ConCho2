@@ -133,12 +133,17 @@ const mfaSetup = async (req, res) => {
 
     const setup = await mfaService.generateSetup(req.user.empCode);
 
-    // Persist the secret immediately (so verify-setup can read it) but
-    // keep mfaEnabled=false. If the user abandons the flow, the secret
-    // sits unused and is overwritten on the next setup attempt.
+    // Store in mfaPendingSecret only — mfaSecret is written in verify-setup
+    // after the user proves possession of the device (F5 audit fix).
+    // 15-minute window is enough to scan a QR code and enter a code.
     await User.updateOne(
       { _id: req.user._id },
-      { $set: { mfaSecret: setup.base32 } }
+      {
+        $set: {
+          mfaPendingSecret: setup.base32,
+          mfaPendingSecretExpires: new Date(Date.now() + 15 * 60 * 1000),
+        },
+      },
     );
 
     res.json({
@@ -146,8 +151,7 @@ const mfaSetup = async (req, res) => {
       data: {
         qrCodeDataUrl: setup.qrCodeDataUrl,
         otpauthUrl: setup.otpauthUrl,
-        // base32 is also returned so users with apps that can't scan
-        // a QR code can manually enter the secret.
+        // base32 returned for authenticator apps that cannot scan QR codes.
         secretBase32: setup.base32,
       },
     });
@@ -168,19 +172,35 @@ const mfaVerifySetup = async (req, res) => {
     const User = require('../models/User');
     const { code } = req.body;
 
-    const user = await User.findById(req.user._id).select('+mfaSecret');
-    if (!user || !user.mfaSecret) {
+    const user = await User.findById(req.user._id)
+      .select('+mfaPendingSecret +mfaPendingSecretExpires');
+    if (!user || !user.mfaPendingSecret) {
       return res.status(400).json({
         success: false,
         message: 'No pending MFA setup. Call /mfa/setup first.',
       });
     }
 
-    if (!mfaService.verifyToken(user.mfaSecret, code)) {
+    if (user.mfaPendingSecretExpires < new Date()) {
+      await User.updateOne(
+        { _id: user._id },
+        { $set: { mfaPendingSecret: null, mfaPendingSecretExpires: null } },
+      );
+      return res.status(400).json({
+        success: false,
+        message: 'MFA setup expired. Call /mfa/setup again.',
+      });
+    }
+
+    if (!mfaService.verifyToken(user.mfaPendingSecret, code)) {
       return res.status(401).json({ success: false, message: 'Invalid code' });
     }
 
+    // User proved possession — promote pending secret to permanent and enable MFA.
     const { plain, hashed } = await mfaService.generateBackupCodes();
+    user.mfaSecret = user.mfaPendingSecret;
+    user.mfaPendingSecret = null;
+    user.mfaPendingSecretExpires = null;
     user.mfaEnabled = true;
     user.mfaBackupCodes = hashed;
     await user.save();
