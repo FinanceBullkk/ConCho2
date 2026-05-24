@@ -77,8 +77,30 @@ const classSchema = new mongoose.Schema(
 // One classCode can only have ONE instance of each course.
 classSchema.index({ classCode: 1, courseName: 1 }, { unique: true });
 
-// Multikey index — reverse lookup "which classes does Teacher X teach?".
-// Used by the policy module and future Teacher dashboard scoping.
+// DATA-002 (audit PR 6): at most ONE Ongoing class per classCode.
+// Previously two concurrent POST /api/classes with the same classCode
+// could both pass the controller-level `findOne` check and insert,
+// leaving two Ongoing cohorts for the same code. Mongo enforces this
+// at the storage engine level — the second insert fails with E11000,
+// which controllers already convert to a 409 response.
+//
+// NOTE on data migration: any pre-existing duplicates would cause
+// `db.classes.createIndex` to fail at build time. Production rollout
+// must be preceded by a dedup pass:
+//   db.classes.aggregate([
+//     { $match: { status: 'Ongoing' } },
+//     { $group: { _id: '$classCode', n: { $sum: 1 } } },
+//     { $match: { n: { $gt: 1 } } },
+//   ])
+// Resolve manually before deploying this PR to prod.
+classSchema.index(
+  { classCode: 1, status: 1 },
+  { unique: true, partialFilterExpression: { status: 'Ongoing' } },
+);
+
+// AUDIT PR 5 (AUTHZ-001): multikey index — reverse lookup
+// "which classes does Teacher X teach?" — used by the policy module
+// and future Teacher dashboard scoping.
 classSchema.index({ teacherIds: 1 });
 
 // No static COURSE_SESSIONS exported anymore (fetch from Setting)
