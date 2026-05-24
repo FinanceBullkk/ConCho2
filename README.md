@@ -357,7 +357,11 @@ npm install
 cd client && npm install && cd ..
 cd server && npm install && cd ..
 
-# 3. Tạo file cấu hình server/.env (xem bảng biến môi trường bên dưới)
+# 3. Tạo file cấu hình server/.env (sao chép từ template)
+cp server/.env.example server/.env
+# Mở server/.env và điền JWT_SECRET, MONGO_URI, CRON_TOKEN, ... theo bảng bên dưới
+# QUAN TRỌNG: server/.env nằm trong .gitignore — không bao giờ commit file này.
+# Nếu bạn lỡ commit, ROTATE ngay tất cả secret bị lộ.
 
 # 4. Tạo dữ liệu mẫu (admin + 2 giáo viên + 6 học viên + 2 lớp + lịch học)
 cd server && npm run seed && cd ..
