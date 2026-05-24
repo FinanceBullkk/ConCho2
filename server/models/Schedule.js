@@ -97,6 +97,18 @@ const scheduleSchema = new mongoose.Schema(
   }
 );
 
+// ── Validators ────────────────────────────────────────────
+// DATA-013 (audit PR 6): defence-in-depth — startTime < endTime must hold
+// at the schema layer, not only at the service layer. Catches direct
+// inserts (e.g. via migrations / admin DB tools / future seed scripts)
+// that bypass scheduleService.bookSlot validation.
+scheduleSchema.pre('validate', function (next) {
+  if (this.startTime && this.endTime && this.endTime <= this.startTime) {
+    return next(new Error('Schedule.endTime must be strictly greater than startTime'));
+  }
+  next();
+});
+
 // ── Virtuals ──────────────────────────────────────────────
 // enrolledCount is derived from the actual array — never drifts.
 scheduleSchema.virtual('enrolledCount').get(function () {
