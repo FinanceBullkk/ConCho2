@@ -2,6 +2,7 @@ const crypto = require('crypto');
 const bcrypt = require('bcryptjs');
 const authService = require('../services/authService');
 const auditService = require('../services/auditService');
+const authPolicy = require('../policy/auth');
 const { handleError } = require('../helpers/handleError');
 const { sendMail } = require('../lib/mailer');
 const logger = require('../lib/logger');
@@ -305,6 +306,18 @@ const mfaDisable = async (req, res) => {
  */
 const mfaAdminDisable = async (req, res) => {
   try {
+    // Audit PR 7 (SEC-009): require the admin to re-enter their OWN
+    // password. A stolen admin session cookie without the password
+    // cannot use this to silently drop MFA from a victim account.
+    const gate = await authPolicy.requireReauth(req);
+    if (!gate.allowed) {
+      return res.status(gate.status).json({
+        success: false,
+        message: gate.message,
+        reason: gate.reason,
+      });
+    }
+
     const User = require('../models/User');
     const user = await User.findById(req.params.userId);
     if (!user) {
@@ -437,6 +450,18 @@ const changePassword = async (req, res) => {
  */
 const adminForceLogout = async (req, res) => {
   try {
+    // Audit PR 7 (SEC-009): require the admin to re-enter their OWN
+    // password before killing all sessions of another user. Without
+    // this gate, a stolen admin cookie could boot any user offline.
+    const gate = await authPolicy.requireReauth(req);
+    if (!gate.allowed) {
+      return res.status(gate.status).json({
+        success: false,
+        message: gate.message,
+        reason: gate.reason,
+      });
+    }
+
     const User = require('../models/User');
     const { userId } = req.params;
     const user = await User.findById(userId).select('_id empCode role');
