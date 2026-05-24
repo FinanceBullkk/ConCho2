@@ -1,0 +1,54 @@
+# ─────────────────────────────────────────────────────────────
+# gitleaks configuration for TMS v2
+# ─────────────────────────────────────────────────────────────
+# Used by .github/workflows/ci.yml (`secrets-scan` job).
+# Extends the upstream default ruleset and adds repo-specific
+# allowlist entries for test fixtures / example placeholders.
+# ─────────────────────────────────────────────────────────────
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Allowed paths and patterns (test fixtures, env templates, docs)"
+
+paths = [
+  # Env template — placeholders only, must contain "replace-me" or empty values
+  '''server/\.env\.example$''',
+  # Audit report intentionally references file paths and patterns
+  '''docs/audit/.*\.md$''',
+  # Postman collection contains template variables
+  '''server/TMS_v2_API\.postman_collection\.json$''',
+  # Vendored node_modules — never scan
+  '''node_modules/.*''',
+  # CI test JWT placeholder (intentionally fake)
+  '''\.github/workflows/.*\.yml$''',
+  # Existing security audit doc references redacted examples
+  '''server/security_audit\.js$''',
+  # Test fixtures use deterministic, throwaway passwords (e.g.
+  # 'bound-a-pwd-12345', 'teacher12345'). These are NEVER deployed —
+  # the in-memory replica set test harness creates these users in
+  # MongoMemoryReplSet and tears them down per suite. Exclude the
+  # entire tests tree to avoid false positives on every new test.
+  '''server/tests/.*''',
+  '''client/src/.*__tests__.*''',
+  '''client/e2e/.*''',
+]
+
+regexes = [
+  # Allow obvious placeholder strings
+  '''replace-me''',
+  '''change-me''',
+  '''your-.*-here''',
+  '''ci-test-secret''',
+  # Allow seed admin test password used by Jest harness
+  '''admin12345''',
+]
+
+# Repo-specific custom rules can go here if we ever need them.
+# Example (commented):
+# [[rules]]
+# id = "tms-internal-token"
+# description = "TMS internal API token"
+# regex = '''tms_[a-z0-9]{32}'''
+# tags = ["secret", "tms"]

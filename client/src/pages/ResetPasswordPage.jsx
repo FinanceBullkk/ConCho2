@@ -1,7 +1,7 @@
 import { useForm, FormProvider } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useState } from 'react';
-import { useSearchParams, Link, useNavigate } from 'react-router-dom';
+import { useSearchParams, useParams, Link, useNavigate } from 'react-router-dom';
 import { CheckCircle, XCircle } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { resetPasswordSchema } from '../lib/validations';
@@ -27,8 +27,12 @@ function AuthWordmark() {
 
 export default function ResetPasswordPage() {
   const { t } = useTranslation();
+  // SEC-005: prefer path-style /reset-password/:token. Fall back to
+  // legacy ?token=... so emails sent before the path-style rolled out
+  // (max 1h in flight) still work.
+  const { token: pathToken } = useParams();
   const [searchParams] = useSearchParams();
-  const token = searchParams.get('token');
+  const token = pathToken || searchParams.get('token');
   const navigate = useNavigate();
   const [done, setDone] = useState(false);
 
@@ -42,7 +46,10 @@ export default function ResetPasswordPage() {
 
   const onSubmit = handleSubmit(async ({ password }) => {
     try {
-      await api.post('/auth/reset-password', { token, password });
+      // SEC-005: post to the path-style endpoint so the token never travels
+      // in the request body. The body now carries only the new password.
+      // Both server routes still accept body-token for legacy clients.
+      await api.post(`/auth/reset-password/${encodeURIComponent(token)}`, { password });
       setDone(true);
       setTimeout(() => navigate('/login', { replace: true }), 3000);
     } catch (err) {

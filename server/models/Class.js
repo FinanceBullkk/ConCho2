@@ -53,6 +53,20 @@ const classSchema = new mongoose.Schema(
       },
       default: 'Ongoing',
     },
+    // ── Teacher-class binding (audit PR 5 — AUTHZ-001) ───────────────
+    // The list of teachers assigned to this class. When empty (legacy /
+    // unbacked classes) the policy module is permissive — any Teacher
+    // can read/write attendance + evaluations against this class. Once
+    // populated, only listed teachers can.
+    //
+    // This is a graceful-migration design: existing classes continue to
+    // work; admins enforce binding by editing teacherIds on each class.
+    // See docs/audit/findings.md → AUTHZ-001 + scripts/migrate-teacherIds.js
+    // for the recommended backfill heuristic.
+    teacherIds: {
+      type: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
+      default: [],
+    },
   },
   {
     timestamps: true,
@@ -83,6 +97,11 @@ classSchema.index(
   { classCode: 1, status: 1 },
   { unique: true, partialFilterExpression: { status: 'Ongoing' } },
 );
+
+// AUDIT PR 5 (AUTHZ-001): multikey index — reverse lookup
+// "which classes does Teacher X teach?" — used by the policy module
+// and future Teacher dashboard scoping.
+classSchema.index({ teacherIds: 1 });
 
 // No static COURSE_SESSIONS exported anymore (fetch from Setting)
 
