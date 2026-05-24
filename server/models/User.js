@@ -241,6 +241,19 @@ userSchema.pre('save', async function (next) {
   if (!this.isModified('password')) return next();
   const salt = await bcrypt.genSalt(12);
   this.password = await bcrypt.hash(this.password, salt);
+
+  // DATA-014 (audit PR A): bump passwordChangedAt automatically whenever
+  // the password changes. The middleware/auth.js JTI check (auth.js:138-146)
+  // rejects tokens whose iat is earlier than passwordChangedAt — without
+  // this auto-bump, any code path that mutates `password` without explicitly
+  // setting the timestamp (e.g. an admin DB tool, a future migration, the
+  // reset-password handler which already does it but isn't enforced) would
+  // leave old tokens valid.
+  //
+  // Subtract 1s as a clock-skew guard so a token issued in the SAME second
+  // as the change is still invalidated (iat is in seconds; otherwise floor
+  // rounding could produce a token with iat === changedAt).
+  this.passwordChangedAt = new Date(Date.now() - 1000);
   next();
 });
 

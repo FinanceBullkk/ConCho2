@@ -91,12 +91,20 @@ const importUsers = async (users) => {
     const chunkOps = await Promise.all(
       chunk.map(async (u) => {
         const empCode = u.empCode.trim().toUpperCase();
+        const isExisting = existingSet.has(empCode);
+
         const setFields = { empCode };
         if (u.name !== undefined) setFields.name = u.name;
         if (u.email !== undefined && u.email !== null && u.email !== '') {
           setFields.email = String(u.email).trim().toLowerCase();
         }
-        if (u.role !== undefined) setFields.role = u.role;
+        // DATA-010 (audit PR A): role is a privilege-escalation primitive.
+        // A crafted CSV with role=Admin on an existing empCode would silently
+        // promote that user — bypassing the dedicated userController re-auth
+        // gate. Only allow `role` to be set on NEWLY CREATED users via
+        // $setOnInsert; existing users keep whatever role they had. To
+        // change a role, admins must go through PUT /api/users/:id (which
+        // requires currentPassword for cross-user changes).
         if (u.department !== undefined) setFields.department = u.department;
         if (u.status !== undefined) setFields.status = u.status;
 
@@ -104,13 +112,16 @@ const importUsers = async (users) => {
         // If no explicit password is provided, use the org default and flag
         // mustChangePassword so the user is forced to rotate on first login.
         const setOnInsert = {};
-        if (!existingSet.has(empCode)) {
+        if (!isExisting) {
           const usingDefault = !u.password;
           const raw = u.password || getImportDefaultPassword();
           const salt = await bcrypt.genSalt(12);
           setOnInsert.password = await bcrypt.hash(raw, salt);
           if (usingDefault) setOnInsert.mustChangePassword = true;
+          // Role is allowed on insert (it's a new user).
+          if (u.role !== undefined) setOnInsert.role = u.role;
         }
+        // For existing users, role is NEVER promoted via import.
 
         return {
           updateOne: {

@@ -134,8 +134,18 @@ const analyticsByEmployee = async (filterUserId, { page = 1, limit = 100, skip =
       },
     },
     {
+      // DATA-009 (audit PR A): the $lookup pipeline form is required so we
+      // can $match isDeleted at the join layer. Mongoose `pre('find')` and
+      // `pre('aggregate')` hooks do NOT fire inside a $lookup's sub-pipeline,
+      // so without this explicit filter soft-deleted users would surface in
+      // analytics rollups.
       $lookup: {
-        from: 'users', localField: '_id', foreignField: '_id', as: 'user',
+        from: 'users',
+        let: { uid: '$_id' },
+        pipeline: [
+          { $match: { $expr: { $eq: ['$_id', '$$uid'] }, isDeleted: { $ne: true } } },
+        ],
+        as: 'user',
       },
     },
     { $unwind: '$user' },
