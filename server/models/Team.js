@@ -86,6 +86,16 @@ teamSchema.pre('aggregate', function () {
 teamSchema.index({ leaderId: 1 });
 teamSchema.index({ classId: 1 }); // multiple teams per class allowed (booking competition)
 
+// PERF-010 (audit PR D): Team.members is queried as
+// `Team.find({ members: userId })` from:
+//   - scheduleService.js:481   (booking — find user's team for slot)
+//   - dashboardController.js:201 (course-stats per user)
+//   - searchService.js:100     (participant scope)
+//   - userController.js:333    (soft-delete cascade)
+// Multikey index lets each call hit the planned IXSCAN instead of
+// COLLSCAN. Critical once team count grows past a few hundred.
+teamSchema.index({ members: 1 });
+
 // ──────────────────────────────────────────────────────────
 // SCHEDULE SYNC — Explicit, Session-Aware
 // ──────────────────────────────────────────────────────────

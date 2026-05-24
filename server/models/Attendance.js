@@ -85,4 +85,10 @@ attendanceSchema.index({ userId: 1, status: 1 });
 attendanceSchema.index({ createdAt: 1, userId: 1 });
 attendanceSchema.index({ syncStatus: 1, createdAt: 1 });  // Export queries
 
+// PERF-010 (audit PR D): exportService claims a batch by updateMany
+// {syncStatus:'PENDING'...} setting exportBatchId, then queries
+// {exportBatchId: batchId} to mark-as-exported. Without this sparse
+// index, that second pass full-scans the attendance collection.
+attendanceSchema.index({ exportBatchId: 1 }, { sparse: true });
+
 module.exports = mongoose.model('Attendance', attendanceSchema);
