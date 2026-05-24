@@ -25,6 +25,14 @@ paths = [
   '''\.github/workflows/.*\.yml$''',
   # Existing security audit doc references redacted examples
   '''server/security_audit\.js$''',
+  # Test fixtures use deterministic, throwaway passwords (e.g.
+  # 'bound-a-pwd-12345', 'teacher12345'). These are NEVER deployed —
+  # the in-memory replica set test harness creates these users in
+  # MongoMemoryReplSet and tears them down per suite. Exclude the
+  # entire tests tree to avoid false positives on every new test.
+  '''server/tests/.*''',
+  '''client/src/.*__tests__.*''',
+  '''client/e2e/.*''',
 ]
 
 regexes = [
