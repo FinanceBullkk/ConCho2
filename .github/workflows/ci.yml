@@ -4,12 +4,16 @@ name: CI
 # Gate jobs (REQUIRED — block merging / signal bad deploy):
 #   server-tests   — Jest suite with mongodb-memory-server
 #   client-build   — vite production build must compile clean
+#   secrets-scan   — gitleaks scan; fails if any secret pattern matches
+#                    (added in audit PR 1 — SEC-001 prevention)
 #
 # Informational jobs (NON-BLOCKING — report only):
 #   client-lint    — surface new lint errors without failing CI
 #                    (codebase has ~30 pre-existing issues; clean up
 #                    via a dedicated PR, don't block unrelated work)
 #   audit          — npm audit at high+ level for both packages
+#                    (will become REQUIRED in audit PR 2 once advisories
+#                    are resolved)
 # ──────────────────────────────────────────────────────────
 
 on:
@@ -110,7 +114,7 @@ jobs:
         run: npm run lint
 
   # ──────────────────────────────────────────────────────────
-  # INFO: npm audit (non-blocking)
+  # INFO: npm audit (non-blocking until PR 2 lands)
   # ──────────────────────────────────────────────────────────
   audit:
     name: npm audit (informational)
@@ -126,10 +130,45 @@ jobs:
         with:
           node-version: '20'
 
-      - name: Audit server (high+)
+      - name: Audit server (high+, prod-only)
         working-directory: server
-        run: npm audit --audit-level=high
+        run: npm audit --omit=dev --audit-level=high
 
       - name: Audit client (high+)
         working-directory: client
         run: npm audit --audit-level=high
+
+  # ──────────────────────────────────────────────────────────
+  # GATE: secret scan (blocks if any credential pattern matches)
+  # Added in audit PR 1 — SEC-001 prevention.
+  # ──────────────────────────────────────────────────────────
+  secrets-scan:
+    name: Secrets scan (gitleaks)
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # full history for accurate scan
+
+      - name: Run gitleaks
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # GITLEAKS_LICENSE not set — using free OSS edition (sufficient for our scope)
+          GITLEAKS_ENABLE_UPLOAD_ARTIFACT: true
+          GITLEAKS_ENABLE_SUMMARY: true
+
+      - name: Fail if server/.env was committed
+        # Belt and braces: gitleaks should catch this, but assert directly.
+        run: |
+          if git ls-files --error-unmatch server/.env 2>/dev/null; then
+            echo "::error::server/.env is tracked by git. Add it to .gitignore and remove from history."
+            exit 1
+          fi
+          if git ls-files --error-unmatch .env 2>/dev/null; then
+            echo "::error::.env is tracked by git."
+            exit 1
+          fi
+          echo "OK: no .env files tracked."
