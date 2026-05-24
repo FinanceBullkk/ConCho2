@@ -55,7 +55,7 @@ scenarios:
           url: "/api/auth/login"
           json:
             empCode: "000001"
-            password: "admin12345!"
+            password: "admin12345"
       - get:
           url: "/api/classes"
       - get:
