@@ -4,6 +4,8 @@ const Attendance = require('../models/Attendance');
 const Enrollment = require('../models/Enrollment');
 const Team = require('../models/Team');
 const User = require('../models/User');
+const Class = require('../models/Class');
+const Counter = require('../models/Counter');
 const ReconcileReport = require('../models/ReconcileReport');
 const logger = require('../lib/logger');
 
@@ -236,6 +238,205 @@ async function checkUnattachedParticipants() {
 }
 
 // ──────────────────────────────────────────────────────────
+// Audit PR C (DATA-011) — 5 new HIGH/MED severity checks
+// ──────────────────────────────────────────────────────────
+
+/**
+ * CHECK 6 — Two or more Active enrollments for the same user.
+ * Invariant #2 says a user may have at most one Active enrollment
+ * globally. DATA-001's partial unique index would enforce this at the
+ * DB level, but that requires a dedup migration first. Reconcile is the
+ * safety net until the index lands.
+ */
+async function checkDuplicateActiveEnrollments() {
+  const issues = [];
+
+  const dupes = await Enrollment.aggregate([
+    { $match: { status: 'Active' } },
+    { $group: { _id: '$userId', count: { $sum: 1 }, enrollmentIds: { $push: '$_id' }, teamIds: { $push: '$teamId' } } },
+    { $match: { count: { $gt: 1 } } },
+  ]);
+
+  for (const dupe of dupes) {
+    issues.push({
+      check: 'duplicate_active_enrollment',
+      description: `User ${dupe._id} has ${dupe.count} Active enrollments (one expected)`,
+      refs: { userId: dupe._id },
+      detail: {
+        count: dupe.count,
+        enrollmentIds: dupe.enrollmentIds.map(String),
+        teamIds: dupe.teamIds.map(String),
+      },
+    });
+  }
+  return issues;
+}
+
+/**
+ * CHECK 7 — Schedule.classId references a Class that no longer exists.
+ * Hard-delete of a Class via the dedicated route would have cascaded;
+ * direct admin-DB ops or partial migrations can leave dangling refs.
+ */
+async function checkOrphanScheduleClass() {
+  const issues = [];
+
+  // Distinct classIds referenced by ANY schedule (past or future)
+  const referencedClassIds = await Schedule.distinct('classId');
+  if (referencedClassIds.length === 0) return issues;
+
+  // Class model auto-filters soft-deleted via pre('find'); we explicitly
+  // include them by overriding the filter so we only flag truly missing.
+  const existing = await Class.find(
+    { _id: { $in: referencedClassIds }, isDeleted: { $in: [true, false, null] } }
+  ).select('_id').lean();
+  const existingSet = new Set(existing.map((c) => String(c._id)));
+
+  const orphanIds = referencedClassIds.filter((id) => !existingSet.has(String(id)));
+  if (orphanIds.length === 0) return issues;
+
+  const orphanSchedules = await Schedule.find({ classId: { $in: orphanIds } })
+    .select('_id classId bookedTeamId startTime')
+    .lean();
+
+  for (const sched of orphanSchedules) {
+    issues.push({
+      check: 'orphan_schedule_class',
+      description: `Schedule ${sched._id} points to deleted Class ${sched.classId}`,
+      refs: { scheduleId: sched._id, classId: sched.classId, teamId: sched.bookedTeamId },
+      detail: { startTime: sched.startTime },
+    });
+  }
+  return issues;
+}
+
+/**
+ * CHECK 8 — Two or more non-deleted teams claim the same classId.
+ * Invariant #14 says a class is assigned to at most one team.
+ * DATA-003's partial unique was deferred for dedup reasons.
+ */
+async function checkMultiTeamClass() {
+  const issues = [];
+
+  // Team.aggregate auto-filters soft-deleted (added in audit PR 6 / DATA-007).
+  const dupes = await Team.aggregate([
+    { $match: { classId: { $ne: null } } },
+    { $group: { _id: '$classId', count: { $sum: 1 }, teamIds: { $push: '$_id' }, teamNames: { $push: '$name' } } },
+    { $match: { count: { $gt: 1 } } },
+  ]);
+
+  for (const dupe of dupes) {
+    issues.push({
+      check: 'multi_team_class',
+      description: `Class ${dupe._id} is claimed by ${dupe.count} teams (one expected)`,
+      refs: { classId: dupe._id },
+      detail: {
+        count: dupe.count,
+        teamIds: dupe.teamIds.map(String),
+        teamNames: dupe.teamNames,
+      },
+    });
+  }
+  return issues;
+}
+
+/**
+ * CHECK 9 — Counter sequence is less than the max code already in use.
+ * Indicates the counter was reset (e.g. DB restore from an older snapshot
+ * without the corresponding User/Class re-import) and the NEXT create
+ * will produce a duplicate code — a hard production incident.
+ *
+ * Checks both empCode (User) and classCode (Class). The counter helper
+ * uses _id like '<empCode>' / '<classCode>' as the document key.
+ */
+async function checkCounterDrift() {
+  const issues = [];
+
+  const numericFrom = (s) => {
+    if (!s || typeof s !== 'string') return 0;
+    const m = s.match(/(\d+)$/); // trailing digits
+    return m ? parseInt(m[1], 10) : 0;
+  };
+
+  // ── empCode counter ─────────────────────────────────────
+  const empCodeCounter = await Counter.findById('empCode').lean();
+  if (empCodeCounter) {
+    const maxUser = await User.findOne({ empCode: { $regex: /\d+$/ } })
+      .sort({ empCode: -1 }).select('empCode').lean();
+    const maxNum = numericFrom(maxUser?.empCode);
+    if (empCodeCounter.seq < maxNum) {
+      issues.push({
+        check: 'counter_drift',
+        description: `Counter 'empCode' seq=${empCodeCounter.seq} < max in-use empCode numeric=${maxNum}`,
+        refs: {},
+        detail: { counter: 'empCode', seq: empCodeCounter.seq, maxInUse: maxNum, sampleMaxEmpCode: maxUser?.empCode },
+      });
+    }
+  }
+
+  // ── classCode counter ───────────────────────────────────
+  const classCodeCounter = await Counter.findById('classCode').lean();
+  if (classCodeCounter) {
+    const maxClass = await Class.findOne({ classCode: { $regex: /\d+$/ } })
+      .sort({ classCode: -1 }).select('classCode').lean();
+    const maxNum = numericFrom(maxClass?.classCode);
+    if (classCodeCounter.seq < maxNum) {
+      issues.push({
+        check: 'counter_drift',
+        description: `Counter 'classCode' seq=${classCodeCounter.seq} < max in-use classCode numeric=${maxNum}`,
+        refs: {},
+        detail: { counter: 'classCode', seq: classCodeCounter.seq, maxInUse: maxNum, sampleMaxClassCode: maxClass?.classCode },
+      });
+    }
+  }
+  return issues;
+}
+
+/**
+ * CHECK 10 — Team.members contains a userId whose User document has
+ * isDeleted:true. Populated members surface as null in the UI; analytics
+ * pipelines that bypass populate (the team-aggregate hook from PR 6
+ * filters teams, NOT user references inside team.members) see ghost rows.
+ */
+async function checkSoftDeletedInTeamMembers() {
+  const issues = [];
+
+  const teams = await Team.find({ $expr: { $gt: [{ $size: '$members' }, 0] } })
+    .select('_id members')
+    .lean();
+  if (teams.length === 0) return issues;
+
+  // Collect every userId across all teams (deduped).
+  const allMemberIds = [...new Set(teams.flatMap((t) => t.members.map(String)))];
+
+  // Use the User collection directly (override soft-delete filter) so we
+  // can identify which IDs point to a deleted user.
+  const usersRaw = await mongoose.connection.db.collection('users')
+    .find({ _id: { $in: allMemberIds.map((id) => new mongoose.Types.ObjectId(id)) } })
+    .project({ _id: 1, isDeleted: 1 })
+    .toArray();
+  const deletedSet = new Set(
+    usersRaw.filter((u) => u.isDeleted === true).map((u) => String(u._id)),
+  );
+
+  if (deletedSet.size === 0) return issues;
+
+  for (const team of teams) {
+    for (const memberId of team.members) {
+      const idStr = String(memberId);
+      if (deletedSet.has(idStr)) {
+        issues.push({
+          check: 'soft_deleted_in_team_members',
+          description: `Team ${team._id} has soft-deleted user ${idStr} in members[]`,
+          refs: { teamId: team._id, userId: memberId },
+          detail: null,
+        });
+      }
+    }
+  }
+  return issues;
+}
+
+// ──────────────────────────────────────────────────────────
 // Main entry point
 // ──────────────────────────────────────────────────────────
 
@@ -249,34 +450,34 @@ async function runReconciliation(triggeredBy = 'manual') {
   const start = Date.now();
   logger.info({ triggeredBy }, 'Reconciliation run started');
 
-  // Run all 5 checks in parallel — they are independent read-only queries
+  // Run all 10 checks in parallel — they are independent read-only queries.
+  // PR C added the bottom 5 (DATA-011 reconcile expansion).
+  const swallow = (label) => (err) => {
+    logger.error({ err }, `reconcile: ${label} failed`);
+    return [];
+  };
   const [
     missingAttendance,
     orphanedEnrollments,
     ghostMembers,
     emptyFutureSchedules,
     unattachedParticipants,
+    duplicateActiveEnrollments,
+    orphanScheduleClass,
+    multiTeamClass,
+    counterDrift,
+    softDeletedInTeamMembers,
   ] = await Promise.all([
-    checkMissingAttendance().catch((err) => {
-      logger.error({ err }, 'reconcile: check_missing_attendance failed');
-      return [];
-    }),
-    checkOrphanedEnrollments().catch((err) => {
-      logger.error({ err }, 'reconcile: check_orphaned_enrollments failed');
-      return [];
-    }),
-    checkGhostMembers().catch((err) => {
-      logger.error({ err }, 'reconcile: check_ghost_members failed');
-      return [];
-    }),
-    checkEmptyFutureSchedules().catch((err) => {
-      logger.error({ err }, 'reconcile: check_empty_future_schedules failed');
-      return [];
-    }),
-    checkUnattachedParticipants().catch((err) => {
-      logger.error({ err }, 'reconcile: check_unattached_participants failed');
-      return [];
-    }),
+    checkMissingAttendance().catch(swallow('check_missing_attendance')),
+    checkOrphanedEnrollments().catch(swallow('check_orphaned_enrollments')),
+    checkGhostMembers().catch(swallow('check_ghost_members')),
+    checkEmptyFutureSchedules().catch(swallow('check_empty_future_schedules')),
+    checkUnattachedParticipants().catch(swallow('check_unattached_participants')),
+    checkDuplicateActiveEnrollments().catch(swallow('check_duplicate_active_enrollment')),
+    checkOrphanScheduleClass().catch(swallow('check_orphan_schedule_class')),
+    checkMultiTeamClass().catch(swallow('check_multi_team_class')),
+    checkCounterDrift().catch(swallow('check_counter_drift')),
+    checkSoftDeletedInTeamMembers().catch(swallow('check_soft_deleted_in_team_members')),
   ]);
 
   const allIssues = [
@@ -285,15 +486,25 @@ async function runReconciliation(triggeredBy = 'manual') {
     ...ghostMembers,
     ...emptyFutureSchedules,
     ...unattachedParticipants,
+    ...duplicateActiveEnrollments,
+    ...orphanScheduleClass,
+    ...multiTeamClass,
+    ...counterDrift,
+    ...softDeletedInTeamMembers,
   ];
 
   const summary = {
-    missing_attendance:     missingAttendance.length,
-    orphaned_enrollment:    orphanedEnrollments.length,
-    ghost_member:           ghostMembers.length,
-    empty_future_schedule:  emptyFutureSchedules.length,
-    unattached_participant: unattachedParticipants.length,
-    total:                  allIssues.length,
+    missing_attendance:           missingAttendance.length,
+    orphaned_enrollment:          orphanedEnrollments.length,
+    ghost_member:                 ghostMembers.length,
+    empty_future_schedule:        emptyFutureSchedules.length,
+    unattached_participant:       unattachedParticipants.length,
+    duplicate_active_enrollment:  duplicateActiveEnrollments.length,
+    orphan_schedule_class:        orphanScheduleClass.length,
+    multi_team_class:             multiTeamClass.length,
+    counter_drift:                counterDrift.length,
+    soft_deleted_in_team_members: softDeletedInTeamMembers.length,
+    total:                        allIssues.length,
   };
 
   const durationMs = Date.now() - start;
