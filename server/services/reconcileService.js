@@ -83,13 +83,15 @@ async function checkMissingAttendance() {
  * in the team's members array.
  * Indicates the admin removed someone from a team without
  * closing (or transferring) their Enrollment record.
+ *
+ * PERF-004 (audit PR G): activeEnrollments is now passed in as
+ * `ctx.activeEnrollments` from runReconciliation so checks 2 and 3
+ * share a single Enrollment.find() (each previously refetched).
  */
-async function checkOrphanedEnrollments() {
+async function checkOrphanedEnrollments(ctx = {}) {
   const issues = [];
-
-  const activeEnrollments = await Enrollment.find({ status: 'Active' })
-    .select('_id userId teamId')
-    .lean();
+  const activeEnrollments = ctx.activeEnrollments
+    ?? await Enrollment.find({ status: 'Active' }).select('_id userId teamId').lean();
 
   if (activeEnrollments.length === 0) return issues;
 
@@ -133,8 +135,11 @@ async function checkOrphanedEnrollments() {
  * for that team.
  * Inverse of CHECK 2: the team was edited directly without
  * creating (or restoring) an Enrollment record.
+ *
+ * PERF-004 (audit PR G): accepts ctx.activeEnrollments to share the
+ * fetch with check 2.
  */
-async function checkGhostMembers() {
+async function checkGhostMembers(ctx = {}) {
   const issues = [];
 
   // Fetch all teams that have at least one member
@@ -144,10 +149,8 @@ async function checkGhostMembers() {
 
   if (teams.length === 0) return issues;
 
-  // Fetch all Active enrollments (one query)
-  const activeEnrollments = await Enrollment.find({ status: 'Active' })
-    .select('userId teamId')
-    .lean();
+  const activeEnrollments = ctx.activeEnrollments
+    ?? await Enrollment.find({ status: 'Active' }).select('userId teamId').lean();
   const enrolledSet = new Set(
     activeEnrollments.map((e) => `${e.userId}|${e.teamId}`)
   );
@@ -450,6 +453,18 @@ async function runReconciliation(triggeredBy = 'manual') {
   const start = Date.now();
   logger.info({ triggeredBy }, 'Reconciliation run started');
 
+  // PERF-004 (audit PR G): memoise the Active-enrollments fetch.
+  // Checks 2 (orphaned), 3 (ghost members), and 5 (unattached
+  // participants) all need the same list — pre-fetching once and
+  // passing via ctx eliminates 2 redundant full-collection reads.
+  const activeEnrollments = await Enrollment.find({ status: 'Active' })
+    .select('_id userId teamId').lean()
+    .catch((err) => {
+      logger.error({ err }, 'reconcile: pre-fetch active enrollments failed');
+      return [];
+    });
+  const ctx = { activeEnrollments };
+
   // Run all 10 checks in parallel — they are independent read-only queries.
   // PR C added the bottom 5 (DATA-011 reconcile expansion).
   const swallow = (label) => (err) => {
@@ -468,16 +483,16 @@ async function runReconciliation(triggeredBy = 'manual') {
     counterDrift,
     softDeletedInTeamMembers,
   ] = await Promise.all([
-    checkMissingAttendance().catch(swallow('check_missing_attendance')),
-    checkOrphanedEnrollments().catch(swallow('check_orphaned_enrollments')),
-    checkGhostMembers().catch(swallow('check_ghost_members')),
-    checkEmptyFutureSchedules().catch(swallow('check_empty_future_schedules')),
-    checkUnattachedParticipants().catch(swallow('check_unattached_participants')),
-    checkDuplicateActiveEnrollments().catch(swallow('check_duplicate_active_enrollment')),
-    checkOrphanScheduleClass().catch(swallow('check_orphan_schedule_class')),
-    checkMultiTeamClass().catch(swallow('check_multi_team_class')),
-    checkCounterDrift().catch(swallow('check_counter_drift')),
-    checkSoftDeletedInTeamMembers().catch(swallow('check_soft_deleted_in_team_members')),
+    checkMissingAttendance(ctx).catch(swallow('check_missing_attendance')),
+    checkOrphanedEnrollments(ctx).catch(swallow('check_orphaned_enrollments')),
+    checkGhostMembers(ctx).catch(swallow('check_ghost_members')),
+    checkEmptyFutureSchedules(ctx).catch(swallow('check_empty_future_schedules')),
+    checkUnattachedParticipants(ctx).catch(swallow('check_unattached_participants')),
+    checkDuplicateActiveEnrollments(ctx).catch(swallow('check_duplicate_active_enrollment')),
+    checkOrphanScheduleClass(ctx).catch(swallow('check_orphan_schedule_class')),
+    checkMultiTeamClass(ctx).catch(swallow('check_multi_team_class')),
+    checkCounterDrift(ctx).catch(swallow('check_counter_drift')),
+    checkSoftDeletedInTeamMembers(ctx).catch(swallow('check_soft_deleted_in_team_members')),
   ]);
 
   const allIssues = [

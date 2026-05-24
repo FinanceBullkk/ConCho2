@@ -185,85 +185,90 @@ const analyticsByEmployee = async (filterUserId, { page = 1, limit = 100, skip =
 
 /**
  * Analytics: attendance stats grouped by team.
- * Uses a single aggregation pipeline — no in-memory fan-out.
+ *
+ * PERF-003 (audit PR G): old impl used a `$lookup` with
+ * `$expr: $in $userId $$memberIds`. `$expr` inside a sub-pipeline
+ * cannot use the index on `attendances.userId` — Mongo scans the
+ * entire attendances collection for EACH team. At 1000 teams ×
+ * 100k attendance records that's catastrophic.
+ *
+ * New strategy (invert the join):
+ *   1. Fetch non-deleted teams with members (uses Team.aggregate
+ *      soft-delete hook + the team.members index from PR D).
+ *   2. Aggregate attendance ONCE by userId (uses the
+ *      {userId, status} index).
+ *   3. Roll up per-team in memory.
+ *
+ * For 1000 teams + 100k attendance: one indexed Team scan + one
+ * indexed Attendance group-by + O(n) JS rollup. ~10× faster than
+ * the previous cross-product $lookup.
+ *
  * @param {object} pagination  { page, limit, skip }
  */
 const analyticsByTeam = async ({ page = 1, limit = 100, skip = 0 } = {}) => {
-  const basePipeline = [
-    // For each team, fetch all attendance records for its members
-    {
-      $lookup: {
-        from: 'attendances',
-        let: { memberIds: '$members' },
-        pipeline: [
-          { $match: { $expr: { $in: ['$userId', '$$memberIds'] } } },
-        ],
-        as: 'attendanceRecords',
-      },
-    },
-    {
-      $project: {
-        name: 1,
-        memberCount: { $size: '$members' },
-        totalSessions: { $size: '$attendanceRecords' },
-        present: {
-          $size: {
-            $filter: { input: '$attendanceRecords', as: 'a', cond: { $eq: ['$$a.status', 'P'] } },
-          },
-        },
-        absent: {
-          $size: {
-            $filter: { input: '$attendanceRecords', as: 'a', cond: { $eq: ['$$a.status', 'A'] } },
-          },
-        },
-        late: {
-          $size: {
-            $filter: { input: '$attendanceRecords', as: 'a', cond: { $eq: ['$$a.status', 'L'] } },
-          },
-        },
-        excused: {
-          $size: {
-            $filter: { input: '$attendanceRecords', as: 'a', cond: { $eq: ['$$a.status', 'EL'] } },
-          },
-        },
-      },
-    },
-    {
-      $addFields: {
-        attendanceRate: {
-          $cond: [
-            { $gt: ['$totalSessions', 0] },
-            { $round: [{ $multiply: [{ $divide: ['$present', '$totalSessions'] }, 100] }, 1] },
-            0,
-          ],
-        },
-      },
-    },
-    { $sort: { attendanceRate: -1, name: 1 } },
-  ];
-
-  const [countResult] = await Team.aggregate([...basePipeline, { $count: 'total' }]);
-  const total = countResult ? countResult.total : 0;
-
-  const results = await Team.aggregate([
-    ...basePipeline,
-    { $skip: skip },
-    { $limit: limit },
+  // ── Step 1: fetch teams ────────────────────────────────────
+  // Team.aggregate pre-hook auto-injects { isDeleted: { $ne: true } }.
+  // Project only what we need to keep working set small.
+  const teamsRaw = await Team.aggregate([
+    { $project: { _id: 1, name: 1, members: 1 } },
   ]);
 
-  const data = results.map(r => ({
-    _id: r._id,
-    name: r.name,
-    memberCount: r.memberCount,
-    stats: {
-      totalSessions: r.totalSessions,
-      present: r.present,
-      absent: r.absent,
-      late: r.late,
-      excused: r.excused,
-      attendanceRate: r.attendanceRate,
-    },
-  }));
+  // ── Step 2: per-user attendance counters ───────────────────
+  // Union of all member IDs across teams (deduped).
+  const allMemberIds = [...new Set(
+    teamsRaw.flatMap((t) => (t.members || []).map((m) => String(m))),
+  )].map((id) => new mongoose.Types.ObjectId(id));
+
+  let perUser = new Map(); // userIdString → { total, present, absent, late, excused }
+
+  if (allMemberIds.length > 0) {
+    const grouped = await Attendance.aggregate([
+      { $match: { userId: { $in: allMemberIds } } },
+      {
+        $group: {
+          _id: '$userId',
+          total:   { $sum: 1 },
+          present: { $sum: { $cond: [{ $eq: ['$status', 'P'] }, 1, 0] } },
+          absent:  { $sum: { $cond: [{ $eq: ['$status', 'A'] }, 1, 0] } },
+          late:    { $sum: { $cond: [{ $eq: ['$status', 'L'] }, 1, 0] } },
+          excused: { $sum: { $cond: [{ $eq: ['$status', 'EL'] }, 1, 0] } },
+        },
+      },
+    ]);
+    perUser = new Map(grouped.map((g) => [String(g._id), g]));
+  }
+
+  // ── Step 3: roll up per team in JS ─────────────────────────
+  const rolled = teamsRaw.map((t) => {
+    let total = 0, present = 0, absent = 0, late = 0, excused = 0;
+    for (const memberId of t.members || []) {
+      const u = perUser.get(String(memberId));
+      if (!u) continue;
+      total   += u.total;
+      present += u.present;
+      absent  += u.absent;
+      late    += u.late;
+      excused += u.excused;
+    }
+    const attendanceRate = total > 0
+      ? Math.round((present / total) * 1000) / 10
+      : 0;
+    return {
+      _id: t._id,
+      name: t.name,
+      memberCount: (t.members || []).length,
+      stats: { totalSessions: total, present, absent, late, excused, attendanceRate },
+    };
+  });
+
+  // Sort by attendance rate desc, then name asc (matches old behaviour).
+  rolled.sort((a, b) =>
+    b.stats.attendanceRate - a.stats.attendanceRate ||
+    a.name.localeCompare(b.name),
+  );
+
+  const total = rolled.length;
+  const data = rolled.slice(skip, skip + limit);
 
   return { data, total, page, limit };
 };
