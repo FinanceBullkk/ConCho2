@@ -21,9 +21,10 @@ export function initSentry() {
     release: import.meta.env.VITE_SENTRY_RELEASE || undefined,
 
     integrations: [
-      // Session-replay-lite: only auto-capture when an error fires.
-      // Cheap on quota and zero PII unless we opt in.
       Sentry.browserTracingIntegration(),
+      // Audit PR 10 (FE-013): the old code comment promised "session-replay-
+      // lite" but never actually configured replay. Either we ship replay or
+      // we drop the claim; we drop it for now and revisit when quota allows.
     ],
 
     // Performance sampling — 10% of sessions in prod, 100% in dev
@@ -38,6 +39,10 @@ export function initSentry() {
       // Browser noise
       'ResizeObserver loop limit exceeded',
       'ResizeObserver loop completed with undelivered notifications',
+      // Stale-deploy chunk-load failures — happen when a long-lived tab
+      // tries to lazy-load a chunk we no longer serve. User reload fixes.
+      /Loading chunk \d+ failed/i,
+      /Failed to fetch dynamically imported module/i,
     ],
 
     beforeSend(event, hint) {
@@ -45,6 +50,23 @@ export function initSentry() {
       // `auth-expired` event. Sending them just adds noise.
       const err = hint?.originalException;
       if (err?.response?.status === 401) return null;
+      // Audit PR 10 (FE-013): strip request.data on captured events. The
+      // default Sentry browser integration captures axios bodies into
+      // breadcrumbs — anything posted to /auth/login or /auth/change-
+      // password leaks plaintext credentials. We clear the body field on
+      // every captured event before transport.
+      if (event.request && 'data' in event.request) {
+        event.request.data = '[REDACTED]';
+      }
+      if (Array.isArray(event.breadcrumbs)) {
+        event.breadcrumbs = event.breadcrumbs.map((b) => {
+          if (b.category === 'xhr' || b.category === 'fetch') {
+            const { data, ...rest } = b.data || {};
+            return { ...b, data: { ...rest, body: data ? '[REDACTED]' : undefined } };
+          }
+          return b;
+        });
+      }
       return event;
     },
   });

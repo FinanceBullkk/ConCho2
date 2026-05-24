@@ -11,6 +11,9 @@ services:
     plan: free
     buildCommand: npm run build
     startCommand: npm start
+    # Audit PR 10 (OPS-001): probe /ready (Mongo-aware) not '/'. /ready
+    # returns 503 when Mongo is disconnected so Render rotates the instance.
+    healthCheckPath: /ready
     envVars:
       # ── Core ──────────────────────────────────────────────
       - key: NODE_ENV
