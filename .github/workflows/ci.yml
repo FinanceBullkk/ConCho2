@@ -4,12 +4,14 @@ name: CI
 # Gate jobs (REQUIRED — block merging / signal bad deploy):
 #   server-tests   — Jest suite with mongodb-memory-server
 #   client-build   — vite production build must compile clean
+#   audit          — npm audit at high+ level (production deps only on
+#                    the server; full deps on the client). Promoted from
+#                    informational to REQUIRED in audit PR 2 — SEC-002.
 #
 # Informational jobs (NON-BLOCKING — report only):
 #   client-lint    — surface new lint errors without failing CI
 #                    (codebase has ~30 pre-existing issues; clean up
 #                    via a dedicated PR, don't block unrelated work)
-#   audit          — npm audit at high+ level for both packages
 # ──────────────────────────────────────────────────────────
 
 on:
@@ -110,13 +112,16 @@ jobs:
         run: npm run lint
 
   # ──────────────────────────────────────────────────────────
-  # INFO: npm audit (non-blocking)
+  # GATE: npm audit (REQUIRED — promoted from informational
+  # in audit PR 2 once critical + high advisories were resolved).
+  #
+  # Server step uses --omit=dev so test-only advisories (e.g. jest /
+  # supertest) don't gate production deploys.
   # ──────────────────────────────────────────────────────────
   audit:
-    name: npm audit (informational)
+    name: npm audit (high+)
     runs-on: ubuntu-latest
     timeout-minutes: 5
-    continue-on-error: true
 
     steps:
       - uses: actions/checkout@v4
@@ -126,9 +131,9 @@ jobs:
         with:
           node-version: '20'
 
-      - name: Audit server (high+)
+      - name: Audit server (high+, production deps only)
         working-directory: server
-        run: npm audit --audit-level=high
+        run: npm audit --omit=dev --audit-level=high
 
       - name: Audit client (high+)
         working-directory: client
