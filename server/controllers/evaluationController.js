@@ -1,14 +1,28 @@
 const Evaluation = require('../models/Evaluation');
+const Class = require('../models/Class');
 const auditService = require('../services/auditService');
+const evaluationPolicy = require('../policy/evaluation');
 const { handleError } = require('../helpers/handleError');
 
 // ──────────────────────────────────────────────────────────
 // Evaluation Controller
 // ──────────────────────────────────────────────────────────
 
+const policyDeny = (res, decision) =>
+  res.status(403).json({
+    success: false,
+    message: 'You are not permitted to access this evaluation',
+    reason: decision.reason,
+  });
+
 /**
  * POST /api/evaluations
  * Create or update evaluation (upsert by classId + userId).
+ *
+ * Audit PR 5 (AUTHZ-001): writes now go through policy.canWrite, which
+ * checks the actor is bound to the class via Class.teacherIds. When a
+ * class has empty teacherIds (legacy data) the policy is permissive —
+ * this preserves the existing behaviour during the migration window.
  *
  * BUG #3+#4 mitigation: We record `createdBy` so future teacher-of-record
  * scoping (or audit / dispute resolution) has the necessary anchor.
@@ -26,6 +40,14 @@ const upsertEvaluation = async (req, res) => {
         message: 'classId and userId are required',
       });
     }
+
+    // Audit PR 5: per-class teacher binding check.
+    const cls = await Class.findById(classId).lean();
+    if (!cls) {
+      return res.status(404).json({ success: false, message: 'Class not found' });
+    }
+    const decision = evaluationPolicy.canWrite(req.user, cls);
+    if (!decision.allowed) return policyDeny(res, decision);
 
     const before = await Evaluation.findOne({ classId, userId }).lean();
 
@@ -63,16 +85,14 @@ const upsertEvaluation = async (req, res) => {
  * GET /api/evaluations
  * Query: ?classId=&userId=
  *
- * BUG #3 mitigation: Teachers must scope their query to a single class.
- * The data model has no teacher↔class binding (no Class.teacherId field),
- * so we can't enforce that the Teacher actually teaches the class they
- * query — but requiring classId at minimum eliminates org-wide
+ * Audit PR 5 (AUTHZ-001): Teacher reads now require Class.teacherIds
+ * membership (per-class binding). When teacherIds is empty (legacy /
+ * not-yet-configured class) the policy is permissive — same behaviour as
+ * before. When teacherIds is populated, only bound teachers can list
+ * evaluations for that class.
+ *
+ * Teachers must still supply classId at minimum — eliminates org-wide
  * enumeration of evaluations and forces an explicit, auditable scope.
- *
- * TODO (sprint follow-up): Introduce a Class.teacherIds field and gate
- * Teacher reads/writes by membership. Until then, the upsert/list endpoints
- * record `createdBy` for accountability.
- *
  * Participants are already scoped to their own userId by the route-level
  * middleware (SEC-IDOR-01).
  */
@@ -90,10 +110,21 @@ const getEvaluations = async (req, res) => {
       });
     }
 
+    // Audit PR 5: if the request scopes to a single class AND the actor
+    // is a Teacher, gate by teacherIds binding.
+    if (req.user.role === 'Teacher' && filter.classId) {
+      const cls = await Class.findById(filter.classId).lean();
+      if (!cls) return res.status(404).json({ success: false, message: 'Class not found' });
+      const decision = evaluationPolicy.canRead(req.user, cls);
+      if (!decision.allowed) return policyDeny(res, decision);
+    }
+
     const evaluations = await Evaluation.find(filter)
       .populate('classId', 'classCode courseName')
-      .populate('userId', 'empCode name department')
-      .sort({ createdAt: -1 });
+      .populate('userId', 'empCode name department');
+
+    // Sort separately so we don't need to specify both indexes
+    evaluations.sort((a, b) => b.createdAt - a.createdAt);
 
     res.json({ success: true, count: evaluations.length, data: evaluations });
   } catch (error) {
@@ -104,9 +135,10 @@ const getEvaluations = async (req, res) => {
 /**
  * GET /api/evaluations/:id
  *
- * BUG #4 mitigation: Without a teacher↔class binding model we can't fully
- * scope Teacher detail reads. We at minimum log every Teacher detail read
- * to the audit trail so forensic review can detect enumeration.
+ * Audit PR 5 (AUTHZ-001): Teacher detail reads now respect the per-class
+ * binding policy. When teacherIds is empty the policy is permissive (legacy
+ * behaviour); when populated, only bound teachers can read evaluations
+ * belonging to that class. Either way the read is still audit-logged.
  */
 const getEvaluationById = async (req, res) => {
   try {
@@ -117,12 +149,18 @@ const getEvaluationById = async (req, res) => {
     if (!evaluation) return res.status(404).json({ success: false, message: 'Evaluation not found' });
 
     if (req.user.role === 'Teacher') {
+      // The populated classId may be the doc or the id depending on whether
+      // populate matched — fetch a lean doc explicitly for the policy check.
+      const cls = await Class.findById(evaluation.classId._id || evaluation.classId).lean();
+      const decision = evaluationPolicy.canRead(req.user, cls, evaluation.toObject ? evaluation.toObject() : evaluation);
+      if (!decision.allowed) return policyDeny(res, decision);
+
       auditService.record({
         req,
         action: 'read',
         entity: 'Evaluation',
         entityId: evaluation._id,
-        note: 'Teacher detail read (no class-binding scope available)',
+        note: `Teacher detail read (policy: ${decision.reason})`,
       });
     }
 
@@ -134,6 +172,7 @@ const getEvaluationById = async (req, res) => {
 
 /**
  * DELETE /api/evaluations/:id
+ * Admin-only (per evaluationRoutes.js).
  */
 const deleteEvaluation = async (req, res) => {
   try {
