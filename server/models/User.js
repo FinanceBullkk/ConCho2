@@ -186,6 +186,21 @@ const userSchema = new mongoose.Schema(
       default: null,
       select: false,
     },
+
+    // ── Last-active write-through cache (audit PR H / PERF-008) ─
+    // Stored on the user document so getUsers doesn't have to run a
+    // Schedule×Attendance aggregation per page render. Updated from
+    // attendanceService.bulkMark when a P/L (present/late) is recorded
+    // — the only statuses that count as "active" in the dashboard.
+    //
+    // Schema is denormalised: source of truth is still
+    // max(Attendance{status:'P'|'L'} → Schedule.startTime). The
+    // reconciler can re-derive it if drift is suspected; getUsers
+    // simply reads this field as an O(1) projection.
+    lastActiveAt: {
+      type: Date,
+      default: null,
+    },
   },
   {
     timestamps: true,
