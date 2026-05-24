@@ -114,15 +114,55 @@ describe('Team CRUD', () => {
 // via the controller logic (which falls back gracefully).
 
 describe('Team Delete', () => {
-  // NOTE: deleteTeam uses mongoose transactions (startSession + withTransaction)
-  // which require a MongoDB replica set. MongoMemoryServer runs as standalone
-  // by default, so cascade delete returns 500 in test env.
-  // The cascade logic is verified manually and works in production (Atlas).
+  // AUDIT PR 9 (QA-005): un-skipped. The skip reason ("MongoMemoryServer
+  // runs as standalone") was wrong — setup.js:36 now uses
+  // MongoMemoryReplSet, so transactions work in the test harness.
+  // This test exercises the cascade-soft-delete path: closes active
+  // enrollments and pulls members from future schedules.
+  test('DELETE /api/teams/:id soft-deletes the team + closes Active enrollments', async () => {
+    const Team = require('../../models/Team');
+    const Enrollment = require('../../models/Enrollment');
 
-  test.skip('DELETE /api/teams/:id removes the team (requires replica set)', async () => {
-    // This test is skipped because MongoMemoryServer standalone doesn't support
-    // transactions. To enable: use MongoMemoryReplSet or run tests against
-    // a real MongoDB replica set.
+    // Build a disposable team with a fresh leader + members so the global
+    // seed (Alpha Team) is preserved for other suites.
+    const User = require('../../models/User');
+    const leaderForDel = await User.create({
+      empCode: 'TD-LEAD-' + Math.random().toString(16).slice(2, 6),
+      name: 'Disposable Leader', role: 'Participant', password: 'del-pwd-12345',
+    });
+    const memberForDel = await User.create({
+      empCode: 'TD-MEM-' + Math.random().toString(16).slice(2, 6),
+      name: 'Disposable Member', role: 'Participant', password: 'del-mem-12345',
+    });
+    const target = await Team.create({
+      name: 'TeamToDelete-' + Math.random().toString(16).slice(2, 8),
+      classId: seed.class1._id,
+      leaderId: leaderForDel._id,
+      members: [leaderForDel._id, memberForDel._id],
+    });
+    // Plant an Active enrollment for one member so we can verify the cascade.
+    await Enrollment.create({
+      userId: memberForDel._id, teamId: target._id, classId: seed.class1._id,
+      status: 'Active', joinedAt: new Date(),
+    });
+
+    const res = await request(app)
+      .delete(`/api/teams/${target._id}`)
+      .set('Authorization', `Bearer ${tokens.admin}`).set(csrf);
+
+    expect(res.status).toBe(200);
+    expect(res.body.success).toBe(true);
+
+    // Team is soft-deleted, not removed.
+    const stillThere = await Team.findOne({ _id: target._id, isDeleted: true });
+    expect(stillThere).not.toBeNull();
+    expect(stillThere.deletedAt).toBeTruthy();
+
+    // Cascade: the Active enrollment is closed (status flips off Active).
+    const enrolls = await Enrollment.find({ teamId: target._id });
+    for (const e of enrolls) {
+      expect(e.status).not.toBe('Active');
+    }
   });
 });
 

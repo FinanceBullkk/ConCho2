@@ -3,13 +3,18 @@ name: CI
 # ──────────────────────────────────────────────────────────
 # Gate jobs (REQUIRED — block merging / signal bad deploy):
 #   server-tests   — Jest suite with mongodb-memory-server
+#   client-tests   — Vitest unit + hook suite                  (added in audit PR 9)
 #   client-build   — vite production build must compile clean
+#   secrets-scan   — gitleaks scan; fails if any secret pattern matches
+#                    (added in audit PR 1 — SEC-001 prevention)
+#   audit          — npm audit at high+ level (production deps only on
+#                    the server; full deps on the client). Promoted from
+#                    informational to REQUIRED in audit PR 2 — SEC-002.
 #
 # Informational jobs (NON-BLOCKING — report only):
 #   client-lint    — surface new lint errors without failing CI
 #                    (codebase has ~30 pre-existing issues; clean up
 #                    via a dedicated PR, don't block unrelated work)
-#   audit          — npm audit at high+ level for both packages
 # ──────────────────────────────────────────────────────────
 
 on:
@@ -61,6 +66,34 @@ jobs:
           JWT_SECRET: ci-test-secret-not-used-for-anything-real
           # Disable Sentry in CI so we don't pollute the dashboard
           SENTRY_DSN: ''
+
+  # ──────────────────────────────────────────────────────────
+  # GATE: client unit + hook tests (Vitest)
+  # Added in audit PR 9 (QA-001). Previously only the build was gated,
+  # so client logic regressions could land on main undetected.
+  # ──────────────────────────────────────────────────────────
+  client-tests:
+    name: Client tests (Vitest)
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: client/package-lock.json
+
+      - name: Install client dependencies
+        working-directory: client
+        run: npm ci --include=dev
+
+      - name: Run Vitest
+        working-directory: client
+        run: npm run test:run
 
   # ──────────────────────────────────────────────────────────
   # GATE: client build must compile
@@ -116,13 +149,16 @@ jobs:
         run: npm run lint
 
   # ──────────────────────────────────────────────────────────
-  # INFO: npm audit (non-blocking)
+  # GATE: npm audit (REQUIRED — promoted from informational in audit
+  # PR 2 once critical + high advisories were resolved).
+  #
+  # Server step uses --omit=dev so test-only advisories (e.g. jest /
+  # supertest) don't gate production deploys.
   # ──────────────────────────────────────────────────────────
   audit:
-    name: npm audit (informational)
+    name: npm audit (high+)
     runs-on: ubuntu-latest
     timeout-minutes: 5
-    continue-on-error: true
 
     steps:
       - uses: actions/checkout@v4
@@ -132,10 +168,53 @@ jobs:
         with:
           node-version: '22'
 
-      - name: Audit server (high+)
+      - name: Audit server (high+, production deps only)
         working-directory: server
-        run: npm audit --audit-level=high
+        run: npm audit --omit=dev --audit-level=high
 
       - name: Audit client (high+)
         working-directory: client
         run: npm audit --audit-level=high
+
+  # ──────────────────────────────────────────────────────────
+  # GATE: secret scan (blocks if any credential pattern matches)
+  # Added in audit PR 1 — SEC-001 prevention.
+  # ──────────────────────────────────────────────────────────
+  secrets-scan:
+    name: Secrets scan (gitleaks)
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    # gitleaks-action posts a PR comment + uploads artifact + writes a job
+    # summary. The default GITHUB_TOKEN only has contents:read, so the action
+    # 403'd with "Resource not accessible by integration". Grant the minimum
+    # extra perms it needs.
+    permissions:
+      contents: read
+      pull-requests: write
+      security-events: write
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # full history for accurate scan
+
+      - name: Run gitleaks
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # GITLEAKS_LICENSE not set — using free OSS edition (sufficient for our scope)
+          GITLEAKS_ENABLE_UPLOAD_ARTIFACT: true
+          GITLEAKS_ENABLE_SUMMARY: true
+
+      - name: Fail if server/.env was committed
+        # Belt and braces: gitleaks should catch this, but assert directly.
+        run: |
+          if git ls-files --error-unmatch server/.env 2>/dev/null; then
+            echo "::error::server/.env is tracked by git. Add it to .gitignore and remove from history."
+            exit 1
+          fi
+          if git ls-files --error-unmatch .env 2>/dev/null; then
+            echo "::error::.env is tracked by git."
+            exit 1
+          fi
+          echo "OK: no .env files tracked."

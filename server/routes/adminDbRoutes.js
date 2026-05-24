@@ -3,19 +3,24 @@ const mongoSanitize = require('express-mongo-sanitize');
 const { protect } = require('../middleware/auth');
 const { roleGuard } = require('../middleware/roleGuard');
 const { escapeRegex } = require('../helpers/escapeRegex');
+const auditService = require('../services/auditService');
 const router = require('express').Router();
 
 // ──────────────────────────────────────────────────────────
-// Admin Database Explorer API (Hardened — SEC-INJ-01/02, SEC-ADD-02/03)
+// Admin Database Explorer API (Hardened — SEC-INJ-01/02, SEC-ADD-02/03,
+// and audit PR 3 → SEC-003 + SEC-010)
 // ──────────────────────────────────────────────────────────
-// Generic CRUD for any registered Mongoose model.
-// Admin-only. Powers the "Database" tab in the Data page.
+// Generic CRUD for any registered Mongoose model. Admin-only.
+// Powers the "Database" tab in the Data page.
 //
 // SECURITY HARDENING:
 //   - Parsed JSON filters are re-sanitized (SEC-INJ-01)
 //   - Search input is regex-escaped (SEC-INJ-02)
-//   - Sensitive fields are blacklisted on update (SEC-ADD-02)
-//   - Hard delete is restricted to non-critical collections (SEC-ADD-03)
+//   - Sensitive fields are blacklisted on update (SEC-ADD-02 + audit SEC-003)
+//   - Hard delete is restricted to non-critical collections (SEC-ADD-03 +
+//     audit SEC-010)
+//   - Every mutation writes an AuditLog row with full before/after diff
+//     so forensic queries can reconstruct who flipped what (audit SEC-003)
 // ──────────────────────────────────────────────────────────
 
 router.use(protect, roleGuard('Admin'));
@@ -30,16 +35,67 @@ const ALLOWED_MODELS = [
 // ── Security: Fields that MUST NOT be modified via generic update ──
 // These fields require dedicated endpoints with proper validation,
 // hashing (passwords), or cascade logic (soft-delete flags).
+//
+// Audit PR 3 (SEC-003): expanded to cover every auth / MFA / lockout
+// field. A compromised admin session previously could flip mfaEnabled,
+// inject a passwordResetToken, or rewrite email to silently take over
+// any account — all without triggering the userController re-auth gate
+// at userController.js:215-245. Each field below MUST stay listed.
 const FORBIDDEN_UPDATE_FIELDS = [
-  'password', 'passwordChangedAt',     // Auth — requires bcrypt hashing
-  'isDeleted', 'deletedAt',            // Soft-delete — requires cascade logic
-  'role',                              // Privilege escalation prevention
+  // Auth (existing — bcrypt + token revocation)
+  'password', 'passwordChangedAt',
+
+  // Soft-delete (existing — requires cascade)
+  'isDeleted', 'deletedAt',
+
+  // Role (existing — privilege escalation)
+  'role',
+
+  // ── Added in audit PR 3 (SEC-003) ──────────────────────────────────
+  // MFA: flipping these silently disables second factor for the victim
+  'mfaEnabled', 'mfaSecret', 'mfaBackupCodes',
+  'mfaPendingSecret', 'mfaPendingSecretExpires', 'mfaLastUsedCounter',
+
+  // Password reset: injecting a known token bypasses email delivery
+  'passwordResetToken', 'passwordResetExpires',
+
+  // Lockout: zeroing these unblocks a brute-forced account
+  'failedLoginAttempts', 'lockUntil',
+
+  // Forced password change: clearing this bypasses the mustChangePassword
+  // middleware lockdown (auth.js:151-165)
+  'mustChangePassword',
+
+  // Identity: changing these is an account-swap primitive that defeats
+  // every audit trail. Use dedicated PUT /api/users/:id (which re-auths).
+  'email', 'empCode',
 ];
 
 // ── Security: Collections that cannot be hard-deleted via this API ──
-// Hard delete on these skips cascade cleanup (orphaned refs).
+// Hard delete on these skips cascade cleanup (orphaned refs) or
+// destroys integrity-critical metadata.
 // Use dedicated endpoints (DELETE /api/users/:id, etc.) instead.
-const HARD_DELETE_BLOCKED = ['User', 'Team', 'Class', 'Schedule'];
+const HARD_DELETE_BLOCKED = [
+  // Existing — cascade required
+  'User', 'Team', 'Class', 'Schedule',
+
+  // ── Added in audit PR 3 (SEC-010) ──────────────────────────────────
+  // Counter — deleting the sequence document resets empCode/classCode
+  // generation to 1, creating duplicate codes on the next import.
+  'Counter',
+
+  // Setting — keys are referenced by booking validation, time-slot
+  // enforcement, and dashboard cache TTL. Use PUT /api/settings (which
+  // applies the ALLOWED_SETTING_KEYS whitelist) instead.
+  'Setting',
+
+  // Attendance / Enrollment / Evaluation — historical roll-call,
+  // enrollment audit trail, and grading record. Hard delete destroys
+  // compliance history and silently invalidates downstream reports.
+  // Future: when a soft-delete pattern lands on these collections,
+  // remove them here and add an admin-confirmable purge endpoint.
+  'Attendance', 'Enrollment', 'Evaluation',
+];
 
 // Resolve model name from param (case-insensitive)
 const resolveModel = (name) => {
@@ -48,6 +104,9 @@ const resolveModel = (name) => {
   try { return mongoose.model(match); }
   catch { return null; }
 };
+
+const matchModelName = (name) =>
+  ALLOWED_MODELS.find(m => m.toLowerCase() === name.toLowerCase()) || null;
 
 // GET /api/admin-db/collections — List all collection stats
 router.get('/collections', async (_req, res) => {
@@ -135,17 +194,29 @@ router.get('/:collection', async (req, res) => {
   }
 });
 
+// Audit helper — picks an entity name acceptable by AuditLog enum.
+// Counter is added to the enum in this PR; Setting/User/etc. already exist.
+const auditEntityFor = (modelName) => {
+  // AuditLog.entity enum (see models/AuditLog.js) accepts these exact names.
+  const known = new Set([
+    'User', 'Team', 'Class', 'Schedule', 'Attendance', 'Evaluation',
+    'Enrollment', 'Setting', 'Counter',
+  ]);
+  return known.has(modelName) ? modelName : 'AdminDb';
+};
+
 // PUT /api/admin-db/:collection/:id — Update a single document
 router.put('/:collection/:id', async (req, res) => {
   try {
     const Model = resolveModel(req.params.collection);
     if (!Model) return res.status(404).json({ success: false, message: 'Collection not found' });
+    const matchedModel = matchModelName(req.params.collection);
 
     // Strip protected fields
     const { _id, __v, createdAt, ...updateData } = req.body;
 
-    // SEC-ADD-02: Remove sensitive fields that require dedicated
-    // endpoints with proper validation/hashing/cascade logic.
+    // SEC-ADD-02 + audit SEC-003: Remove sensitive fields that require
+    // dedicated endpoints with proper validation/hashing/cascade logic.
     const stripped = [];
     for (const field of FORBIDDEN_UPDATE_FIELDS) {
       if (field in updateData) {
@@ -154,13 +225,29 @@ router.put('/:collection/:id', async (req, res) => {
       }
     }
 
+    // Audit PR 3 (SEC-003): capture the pre-update document so we can
+    // record the actual diff (post-strip). Without this, a hostile admin
+    // could mutate a field and leave only an "I called the endpoint" trace.
+    const before = await Model.findById(req.params.id).lean();
+    if (!before) return res.status(404).json({ success: false, message: 'Document not found' });
+
     const doc = await Model.findByIdAndUpdate(
       req.params.id,
       updateData,
       { new: true, runValidators: true }
     ).lean();
 
-    if (!doc) return res.status(404).json({ success: false, message: 'Document not found' });
+    // Fire audit write (non-blocking — see auditService.js docs)
+    auditService.record({
+      req,
+      action: 'db-admin-updated',
+      entity: auditEntityFor(matchedModel),
+      entityId: req.params.id,
+      diff: auditService.diff(before, doc),
+      note: stripped.length
+        ? `adminDb PUT ${matchedModel}; ignored protected fields: ${stripped.join(', ')}`
+        : `adminDb PUT ${matchedModel}`,
+    });
 
     const response = { success: true, data: doc };
     if (stripped.length > 0) {
@@ -173,16 +260,16 @@ router.put('/:collection/:id', async (req, res) => {
 });
 
 // DELETE /api/admin-db/:collection/:id — Hard delete a document
-// SEC-ADD-03: Restricted to non-critical collections only.
-// Core entities (User, Team, Class, Schedule) must use their
-// dedicated DELETE endpoints which run proper cascade cleanup.
+// SEC-ADD-03 + audit SEC-010: Restricted to non-critical collections.
+// Core entities (User, Team, Class, Schedule, Counter, Setting, Attendance,
+// Enrollment, Evaluation) MUST use their dedicated DELETE endpoints which
+// run proper cascade cleanup and preserve historical / referential integrity.
 router.delete('/:collection/:id', async (req, res) => {
   try {
     const Model = resolveModel(req.params.collection);
     if (!Model) return res.status(404).json({ success: false, message: 'Collection not found' });
 
-    // Block hard delete on collections that require cascade logic
-    const matchedModel = ALLOWED_MODELS.find(m => m.toLowerCase() === req.params.collection.toLowerCase());
+    const matchedModel = matchModelName(req.params.collection);
     if (HARD_DELETE_BLOCKED.includes(matchedModel)) {
       return res.status(403).json({
         success: false,
@@ -192,6 +279,15 @@ router.delete('/:collection/:id', async (req, res) => {
 
     const doc = await Model.findByIdAndDelete(req.params.id);
     if (!doc) return res.status(404).json({ success: false, message: 'Document not found' });
+
+    auditService.record({
+      req,
+      action: 'db-admin-deleted',
+      entity: auditEntityFor(matchedModel),
+      entityId: req.params.id,
+      diff: auditService.diff(doc.toObject ? doc.toObject() : doc, {}),
+      note: `adminDb DELETE ${matchedModel}`,
+    });
 
     res.json({ success: true, message: 'Deleted' });
   } catch (err) {

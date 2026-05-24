@@ -18,56 +18,73 @@
 
 import { useAuth } from '../context/AuthContext';
 
-// Permission → roles that hold it
+// ──────────────────────────────────────────────────────────
+// Permission → roles that hold it.
+// AUDIT PR 8 (AUTHZ-003 / FE-002): this matrix was drifting from the
+// server's actual route guards. Teachers used to see schedule create/
+// update + read-users buttons that 403'd on submit. Each row below is
+// now anchored to a specific server route file — if you add a perm
+// here, name the route at end-of-line so future drift is obvious.
+// ──────────────────────────────────────────────────────────
 const PERMISSION_MAP = {
-  // User management
-  'create:user':       ['Admin'],
-  'update:user':       ['Admin'],
-  'delete:user':       ['Admin'],
-  'read:users':        ['Admin', 'Teacher'],
-  'force-logout:user': ['Admin'],
-  'disable-mfa:user':  ['Admin'],
+  // User management ─ server: server/routes/userRoutes.js
+  'create:user':       ['Admin'],                  // POST   /api/users
+  'update:user':       ['Admin'],                  // PUT    /api/users/:id
+  'delete:user':       ['Admin'],                  // DELETE /api/users/:id
+  'read:users':        ['Admin'],                  // GET    /api/users  (Admin-only at route)
+  'force-logout:user': ['Admin'],                  // POST   /api/auth/admin/force-logout/:userId
+  'disable-mfa:user':  ['Admin'],                  // POST   /api/auth/mfa/admin-disable/:userId
 
-  // Class management
-  'create:class':      ['Admin'],
-  'update:class':      ['Admin'],
-  'delete:class':      ['Admin'],
-  'read:classes':      ['Admin', 'Teacher', 'Participant'],
+  // Class management ─ server: server/routes/classRoutes.js
+  'create:class':      ['Admin'],                  // POST   /api/classes
+  'update:class':      ['Admin'],                  // PUT    /api/classes/:id
+  'delete:class':      ['Admin'],                  // DELETE /api/classes/:id
+  'read:classes':      ['Admin', 'Teacher', 'Participant'], // GET /api/classes
 
-  // Schedule management
-  'create:schedule':   ['Admin', 'Teacher'],
-  'update:schedule':   ['Admin', 'Teacher'],
-  'delete:schedule':   ['Admin'],
-  'read:schedules':    ['Admin', 'Teacher', 'Participant'],
+  // Schedule management ─ server: server/routes/scheduleRoutes.js
+  // Teacher does NOT have schedule write — admin-only on book/admin-create/update/delete.
+  // (The server route mounts roleGuard('Admin','Participant') on book-slot and
+  // roleGuard('Admin') on admin-create / update / delete.)
+  'create:schedule':   ['Admin'],                  // POST   /api/schedules (admin-create)
+  'update:schedule':   ['Admin'],                  // PUT    /api/schedules/:id
+  'delete:schedule':   ['Admin'],                  // DELETE /api/schedules/:id
+  'read:schedules':    ['Admin', 'Teacher', 'Participant'], // GET /api/schedules (Teacher scoped server-side)
 
-  // Attendance
-  'record:attendance': ['Admin', 'Teacher'],
-  'read:attendance':   ['Admin', 'Teacher'],
+  // Attendance ─ server: server/routes/attendanceRoutes.js
+  'record:attendance': ['Admin', 'Teacher'],       // POST /api/attendance/:scheduleId
+  'read:attendance':   ['Admin', 'Teacher'],       // GET  /api/attendance/schedule/:id, analytics/*
 
-  // Team management
-  'create:team':       ['Admin'],
-  'update:team':       ['Admin'],
-  'delete:team':       ['Admin'],
-  'read:teams':        ['Admin', 'Teacher', 'Participant'],
+  // Team management ─ server: server/routes/teamRoutes.js
+  // Teacher does NOT have team read at the API — only Admin (+ Participant /my-teams).
+  'create:team':       ['Admin'],                  // POST   /api/teams
+  'update:team':       ['Admin'],                  // PUT    /api/teams/:id
+  'delete:team':       ['Admin'],                  // DELETE /api/teams/:id
+  'read:teams':        ['Admin', 'Participant'],   // GET /api/teams (Admin) + /my-teams (Participant)
 
-  // Enrollment
+  // Enrollment ─ server: server/routes/enrollmentRoutes.js (Admin-only)
   'manage:enrollment': ['Admin'],
+
+  // Bookings ─ server: server/routes/scheduleRoutes.js POST /book-slot
+  // roleGuard('Admin','Participant') + leader check in scheduleService
   'book:class':        ['Admin', 'Participant'],
 
-  // Evaluations
-  'create:evaluation': ['Admin', 'Teacher'],
-  'read:evaluations':  ['Admin', 'Teacher'],
+  // Evaluations ─ server: server/routes/evaluationRoutes.js
+  // Teacher write is now ALSO gated by Class.teacherIds policy (audit PR 5)
+  'create:evaluation': ['Admin', 'Teacher'],       // POST /api/evaluations
+  'read:evaluations':  ['Admin', 'Teacher', 'Participant'], // GET /api/evaluations (Participant scoped server-side)
+  'delete:evaluation': ['Admin'],                  // DELETE /api/evaluations/:id
 
-  // Admin panel
+  // Admin panel ─ Admin-only
   'access:admin':      ['Admin'],
-  'run:reconcile':     ['Admin'],
-  'read:audit':        ['Admin'],
-  'read:database':     ['Admin'],
-  'manage:settings':   ['Admin'],
+  'run:reconcile':     ['Admin'],                  // POST /api/admin/reconcile/run
+  'read:audit':        ['Admin'],                  // GET  /api/admin/audit/*
+  'read:database':     ['Admin'],                  // GET  /api/admin-db/*
+  'manage:settings':   ['Admin'],                  // PUT  /api/settings
 
-  // Export / import
-  'export:data':       ['Admin'],
-  'import:data':       ['Admin'],
+  // Export / import ─ Admin-only
+  'export:data':       ['Admin'],                  // GET  /api/export/*
+  'import:data':       ['Admin'],                  // POST /api/import/*
+  'sync:sheets':       ['Admin'],                  // POST /api/sync/google-sheets
 };
 
 export function useRole() {

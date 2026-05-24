@@ -1,7 +1,26 @@
 const attendanceService = require('../services/attendanceService');
 const auditService = require('../services/auditService');
+const attendancePolicy = require('../policy/attendance');
+const Schedule = require('../models/Schedule');
+const Class = require('../models/Class');
 const { handleError } = require('../helpers/handleError');
 const { parsePagination, paginatedResponse } = require('../helpers/pagination');
+
+// Audit PR 5 (AUTHZ-001) — resolve a schedule's class so the policy can
+// gate Teacher access by Class.teacherIds. Returns the lean class doc,
+// or null when the schedule / class is missing.
+const loadClassForSchedule = async (scheduleId) => {
+  const sch = await Schedule.findById(scheduleId).select('classId').lean();
+  if (!sch) return null;
+  return Class.findById(sch.classId).lean();
+};
+
+const policyDeny = (res, decision) =>
+  res.status(403).json({
+    success: false,
+    message: 'You are not permitted to mark or read attendance for this class',
+    reason: decision.reason,
+  });
 
 // Max rows allowed per analytics page (prevents enormous memory spikes)
 const ANALYTICS_MAX_LIMIT = 500;
@@ -20,6 +39,13 @@ const parseAnalyticsPagination = (req) => {
 
 const bulkMarkAttendance = async (req, res) => {
   try {
+    // Audit PR 5 (AUTHZ-001): only Admin or a Teacher bound to the
+    // schedule's class may mark attendance.
+    const cls = await loadClassForSchedule(req.params.scheduleId);
+    if (!cls) return res.status(404).json({ success: false, message: 'Schedule or class not found' });
+    const decision = attendancePolicy.canMark(req.user, cls);
+    if (!decision.allowed) return policyDeny(res, decision);
+
     const result = await attendanceService.bulkMark(req.params.scheduleId, req.body.records);
 
     auditService.record({
@@ -42,6 +68,13 @@ const bulkMarkAttendance = async (req, res) => {
 
 const getAttendanceBySchedule = async (req, res) => {
   try {
+    // Audit PR 5 (AUTHZ-001): same gate as bulkMark — viewing the roster
+    // exposes participant identities + attendance state.
+    const cls = await loadClassForSchedule(req.params.scheduleId);
+    if (!cls) return res.status(404).json({ success: false, message: 'Schedule or class not found' });
+    const decision = attendancePolicy.canReadBySchedule(req.user, cls);
+    if (!decision.allowed) return policyDeny(res, decision);
+
     const records = await attendanceService.getBySchedule(req.params.scheduleId);
     res.json({ success: true, count: records.length, data: records });
   } catch (error) {
