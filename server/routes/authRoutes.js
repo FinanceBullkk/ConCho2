@@ -152,7 +152,14 @@ router.post('/forgot-password', forgotPasswordLimiter, forgotPassword);
  *       400:
  *         description: Invalid or expired token
  */
-// POST /reset-password — rate limited, no auth required
+// POST /reset-password — rate limited, no auth required.
+//
+// SEC-005: prefer the path-style variant. Both routes accept the same
+// request shape (password in body); the path variant reads the token
+// from req.params.token, the legacy body variant reads it from
+// req.body.token. Legacy is kept for ~1h after deploy to drain in-flight
+// reset emails sent before the path-style rolled out.
+router.post('/reset-password/:token', forgotPasswordLimiter, resetPassword);
 router.post('/reset-password', forgotPasswordLimiter, resetPassword);
 
 module.exports = router;
