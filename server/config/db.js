@@ -29,6 +29,14 @@ const connectDB = async () => {
         heartbeatFrequencyMS: 10000,
         retryWrites: true,
         retryReads: true,
+        // PERF-009 (audit PR D): Mongoose 8 default maxPoolSize is 100,
+        // which is wasteful for a single-instance Render free service
+        // (one worker can never use 100 simultaneous connections) and
+        // burns the Atlas M0 free-tier connection cap (~80–100 effective).
+        // 20 covers bursty traffic comfortably; raise via MONGO_POOL_SIZE
+        // if we ever scale horizontally past one instance.
+        maxPoolSize: Number(process.env.MONGO_POOL_SIZE) || 20,
+        minPoolSize: Number(process.env.MONGO_MIN_POOL_SIZE) || 2,
       });
 
       logger.info({ host: conn.connection.host, attempt }, 'MongoDB connected');

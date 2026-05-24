@@ -134,4 +134,17 @@ scheduleSchema.index({ bookedTeamId: 1, startTime: 1 });         // Weekly count
 // team-sync (syncSchedulesForTeamUpdate) which both filter on enrolledUsers + startTime.
 scheduleSchema.index({ enrolledUsers: 1, startTime: 1 });
 
+// PERF-010 (audit PR D): reconcileService.checkMissingAttendance
+// (services/reconcileService.js:42) filters
+// `endTime: { $lt: now, $gte: lookback }` across all schedules.
+// Without an endTime index this is a full-coll scan once history
+// grows past a few thousand schedules.
+scheduleSchema.index({ endTime: 1 });
+
+// PERF-010: reminderService scans for schedules due in the next 24h
+// where remindersSentAt is null. The compound
+// (remindersSentAt, startTime) lets the cron walk a narrow window
+// without scanning the whole future calendar.
+scheduleSchema.index({ remindersSentAt: 1, startTime: 1 });
+
 module.exports = mongoose.model('Schedule', scheduleSchema);
