@@ -3,6 +3,7 @@ name: CI
 # ──────────────────────────────────────────────────────────
 # Gate jobs (REQUIRED — block merging / signal bad deploy):
 #   server-tests   — Jest suite with mongodb-memory-server
+#   client-tests   — Vitest unit + hook suite                  (added in audit PR 9)
 #   client-build   — vite production build must compile clean
 #
 # Informational jobs (NON-BLOCKING — report only):
@@ -10,6 +11,7 @@ name: CI
 #                    (codebase has ~30 pre-existing issues; clean up
 #                    via a dedicated PR, don't block unrelated work)
 #   audit          — npm audit at high+ level for both packages
+#                    (PR 1/2 will promote to REQUIRED once landed.)
 # ──────────────────────────────────────────────────────────
 
 on:
@@ -55,6 +57,34 @@ jobs:
           JWT_SECRET: ci-test-secret-not-used-for-anything-real
           # Disable Sentry in CI so we don't pollute the dashboard
           SENTRY_DSN: ''
+
+  # ──────────────────────────────────────────────────────────
+  # GATE: client unit + hook tests (Vitest)
+  # Added in audit PR 9 (QA-001). Previously only the build was gated,
+  # so client logic regressions could land on main undetected.
+  # ──────────────────────────────────────────────────────────
+  client-tests:
+    name: Client tests (Vitest)
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: client/package-lock.json
+
+      - name: Install client dependencies
+        working-directory: client
+        run: npm ci --include=dev
+
+      - name: Run Vitest
+        working-directory: client
+        run: npm run test:run
 
   # ──────────────────────────────────────────────────────────
   # GATE: client build must compile
@@ -110,7 +140,8 @@ jobs:
         run: npm run lint
 
   # ──────────────────────────────────────────────────────────
-  # INFO: npm audit (non-blocking)
+  # INFO: npm audit (non-blocking until PR 2 lands).
+  # Server step uses --omit=dev so test-only advisories don't gate.
   # ──────────────────────────────────────────────────────────
   audit:
     name: npm audit (informational)
@@ -126,9 +157,9 @@ jobs:
         with:
           node-version: '20'
 
-      - name: Audit server (high+)
+      - name: Audit server (high+, prod-only)
         working-directory: server
-        run: npm audit --audit-level=high
+        run: npm audit --omit=dev --audit-level=high
 
       - name: Audit client (high+)
         working-directory: client
