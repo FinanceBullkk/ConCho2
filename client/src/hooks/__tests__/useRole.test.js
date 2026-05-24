@@ -61,4 +61,46 @@ describe('useRole', () => {
     expect(renderAsRole('Admin').isAdmin).toBe(true);
     expect(renderAsRole('Teacher').isAdmin).toBe(false);
   });
+
+  // ── AUDIT PR 8 (AUTHZ-003 / FE-002) ──────────────────────────
+  // Server route reality check: server/routes/scheduleRoutes.js mounts
+  // roleGuard('Admin') on admin-create / update / delete. Teacher does
+  // NOT have these permissions. Previously the UI claimed they did,
+  // which surfaced buttons that 403'd on submit.
+  describe('Teacher schedule write permissions match server', () => {
+    it('Teacher cannot create:schedule', () => {
+      expect(renderAsRole('Teacher').can('create:schedule')).toBe(false);
+    });
+    it('Teacher cannot update:schedule', () => {
+      expect(renderAsRole('Teacher').can('update:schedule')).toBe(false);
+    });
+    it('Teacher cannot delete:schedule', () => {
+      expect(renderAsRole('Teacher').can('delete:schedule')).toBe(false);
+    });
+    it('Teacher can still read:schedules', () => {
+      expect(renderAsRole('Teacher').can('read:schedules')).toBe(true);
+    });
+    it('Teacher cannot read:users (Admin-only at route)', () => {
+      expect(renderAsRole('Teacher').can('read:users')).toBe(false);
+    });
+    it('Teacher cannot read:teams (Admin + Participant my-teams only)', () => {
+      expect(renderAsRole('Teacher').can('read:teams')).toBe(false);
+    });
+    it('Admin retains all schedule write permissions', () => {
+      const { can } = renderAsRole('Admin');
+      expect(can('create:schedule')).toBe(true);
+      expect(can('update:schedule')).toBe(true);
+      expect(can('delete:schedule')).toBe(true);
+    });
+    it('Participant can read:teams via /my-teams', () => {
+      expect(renderAsRole('Participant').can('read:teams')).toBe(true);
+    });
+  });
+
+  // ── AUDIT PR 8 — new perm wired ─────────────────────────────
+  it('only Admin holds sync:sheets', () => {
+    expect(renderAsRole('Admin').can('sync:sheets')).toBe(true);
+    expect(renderAsRole('Teacher').can('sync:sheets')).toBe(false);
+    expect(renderAsRole('Participant').can('sync:sheets')).toBe(false);
+  });
 });

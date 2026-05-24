@@ -19,10 +19,14 @@ import { Spinner } from './Spinner';
 //   Cmd/Ctrl+K   — open / close (handled by the Navbar host)
 // ──────────────────────────────────────────────────────────
 
+// AUDIT PR 8 (FE-001): The legacy /users, /teams, /classes routes have been
+// redirected to /people and /programs. The previous targets dropped the
+// query string on redirect, so Cmd+K landed users on an unfiltered list.
+// We now build the modern URL directly so the search filter survives.
 const ROUTE_FOR = {
-  users:   (u) => `/users?search=${encodeURIComponent(u.empCode)}`,
-  teams:   (t) => `/teams?search=${encodeURIComponent(t.name)}`,
-  classes: (c) => `/classes?q=${encodeURIComponent(c.classCode)}`,
+  users:   (u) => `/people?tab=users&search=${encodeURIComponent(u.empCode)}`,
+  teams:   (t) => `/people?tab=teams&search=${encodeURIComponent(t.name)}`,
+  classes: (c) => `/programs?tab=classes&search=${encodeURIComponent(c.classCode)}`,
 };
 
 const ICON_FOR = {
