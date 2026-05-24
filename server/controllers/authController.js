@@ -2,6 +2,7 @@ const crypto = require('crypto');
 const bcrypt = require('bcryptjs');
 const authService = require('../services/authService');
 const auditService = require('../services/auditService');
+const authPolicy = require('../policy/auth');
 const { handleError } = require('../helpers/handleError');
 const { sendMail } = require('../lib/mailer');
 const logger = require('../lib/logger');
@@ -305,6 +306,18 @@ const mfaDisable = async (req, res) => {
  */
 const mfaAdminDisable = async (req, res) => {
   try {
+    // Audit PR 7 (SEC-009): require the admin to re-enter their OWN
+    // password. A stolen admin session cookie without the password
+    // cannot use this to silently drop MFA from a victim account.
+    const gate = await authPolicy.requireReauth(req);
+    if (!gate.allowed) {
+      return res.status(gate.status).json({
+        success: false,
+        message: gate.message,
+        reason: gate.reason,
+      });
+    }
+
     const User = require('../models/User');
     const user = await User.findById(req.params.userId);
     if (!user) {
@@ -437,6 +450,18 @@ const changePassword = async (req, res) => {
  */
 const adminForceLogout = async (req, res) => {
   try {
+    // Audit PR 7 (SEC-009): require the admin to re-enter their OWN
+    // password before killing all sessions of another user. Without
+    // this gate, a stolen admin cookie could boot any user offline.
+    const gate = await authPolicy.requireReauth(req);
+    if (!gate.allowed) {
+      return res.status(gate.status).json({
+        success: false,
+        message: gate.message,
+        reason: gate.reason,
+      });
+    }
+
     const User = require('../models/User');
     const { userId } = req.params;
     const user = await User.findById(userId).select('_id empCode role');
@@ -472,6 +497,13 @@ const adminForceLogout = async (req, res) => {
  * Generates a reset token, stores its hash on the user, emails the raw token.
  * Always returns 200 to avoid user-enumeration (don't reveal if empCode exists).
  */
+// SEC-008: hash empCode before logging so ops can correlate per-attacker
+// activity without storing the raw empCode in log aggregators. Short hash
+// is sufficient — collisions only need to be rare across a single rate-limit
+// window (~5 attempts / 15 min per IP).
+const hashEmpCodeForLog = (empCode) =>
+  crypto.createHash('sha256').update(String(empCode || '')).digest('hex').slice(0, 12);
+
 const forgotPassword = async (req, res) => {
   // BUG #15 fix: previously a real user took ~hundreds of ms (DB save +
   // bcrypt-equivalent crypto + SMTP roundtrip) while a non-existent user
@@ -509,7 +541,9 @@ const forgotPassword = async (req, res) => {
         const User = require('../models/User');
         const user = await User.findOne({ empCode: normalizedEmpCode, isDeleted: { $ne: true } });
         if (!user || !user.email) {
-          logger.info({ empCode: normalizedEmpCode }, 'Forgot-password: no matching user (no-op)');
+          // SEC-008: do NOT log raw empCode. Use a short SHA-256 prefix so
+          // ops can correlate without enabling enumeration via log aggregator.
+          logger.info({ empCodeHash: hashEmpCodeForLog(normalizedEmpCode) }, 'Forgot-password: completed background flow');
           return;
         }
 
@@ -521,7 +555,10 @@ const forgotPassword = async (req, res) => {
           user.passwordResetToken &&
           user.passwordResetExpires > new Date(Date.now() + 60 * 60 * 1000 - COOLDOWN_MS)
         ) {
-          logger.info({ empCode: normalizedEmpCode }, 'Forgot-password: cooldown active — skipping token overwrite');
+          // SEC-008: same identical message text for the cooldown branch —
+          // attackers cannot distinguish "user does not exist" from "user
+          // exists but cooled down" via log content.
+          logger.info({ empCodeHash: hashEmpCodeForLog(normalizedEmpCode) }, 'Forgot-password: completed background flow');
           return;
         }
 
@@ -534,7 +571,12 @@ const forgotPassword = async (req, res) => {
         await user.save({ validateBeforeSave: false });
 
         const clientOrigin = process.env.CLIENT_ORIGIN || 'http://localhost:5173';
-        const resetUrl = `${clientOrigin}/reset-password?token=${rawToken}`;
+        // SEC-005: token in URL PATH (not query string) — reduces leak via
+        // access-log query-string fields and shared-bookmark accidents.
+        // The token is still single-use + 1h expiry; combined with
+        // Referrer-Policy: no-referrer (server.js:103) and the page's
+        // POST-form pattern, the leak surface is materially reduced.
+        const resetUrl = `${clientOrigin}/reset-password/${rawToken}`;
 
         try {
           await sendMail({
@@ -546,16 +588,18 @@ const forgotPassword = async (req, res) => {
                   `<p><a href="${resetUrl}">${resetUrl}</a></p>` +
                   `<p>If you did not request this, ignore this email.</p>`,
           });
-          logger.info({ empCode: normalizedEmpCode }, 'Password reset email sent');
+          // SEC-008: log only the empCode hash; same message text as the
+          // not-found / cooldown branches so log content does not enumerate.
+          logger.info({ empCodeHash: hashEmpCodeForLog(normalizedEmpCode) }, 'Forgot-password: completed background flow');
         } catch (mailErr) {
           // Roll back the token so the user can retry without ambiguity.
           user.passwordResetToken = null;
           user.passwordResetExpires = null;
           await user.save({ validateBeforeSave: false });
-          logger.warn({ err: mailErr, empCode: normalizedEmpCode }, 'Password reset email failed');
+          logger.warn({ err: mailErr, empCodeHash: hashEmpCodeForLog(normalizedEmpCode) }, 'Password reset email failed');
         }
       } catch (err) {
-        logger.warn({ err, empCode: normalizedEmpCode }, 'Forgot-password background flow errored');
+        logger.warn({ err, empCodeHash: hashEmpCodeForLog(normalizedEmpCode) }, 'Forgot-password background flow errored');
       }
     })().catch((err) => {
       // Safety net — only reachable if logger.warn itself threw inside the catch above.
@@ -571,7 +615,13 @@ const forgotPassword = async (req, res) => {
  */
 const resetPassword = async (req, res) => {
   try {
-    const { token, password } = req.body;
+    // SEC-005: token may arrive either:
+    //   - in body (legacy clients, posted from /reset-password?token=...)
+    //   - in URL params (current clients, posted from /reset-password/:token)
+    // We accept both to maintain a graceful transition window (1 hour) for
+    // emails sent before this code shipped.
+    const token = (req.params && req.params.token) || (req.body && req.body.token);
+    const { password } = req.body || {};
     if (!token || !password) {
       return res.status(400).json({ success: false, message: 'token and password are required' });
     }

@@ -52,7 +52,12 @@ const auditLogSchema = new mongoose.Schema(
     entity: {
       type: String,
       enum: ['User', 'Team', 'Class', 'Schedule', 'Attendance', 'Evaluation',
-             'Enrollment', 'Setting', 'Auth', 'Import', 'Export'],
+             'Enrollment', 'Setting', 'Auth', 'Import', 'Export',
+             // Added in audit PR 3 — adminDb writes audit lines for Counter
+             // mutations and any future collection we whitelist for direct
+             // admin editing. Adding entries here is a one-way ratchet:
+             // never remove a value or downstream queries will reject.
+             'Counter', 'AdminDb'],
       required: true,
     },
     entityId: {
