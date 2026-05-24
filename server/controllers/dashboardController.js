@@ -1,3 +1,4 @@
+const NodeCache = require('node-cache');
 const User = require('../models/User');
 const Class = require('../models/Class');
 const Schedule = require('../models/Schedule');
@@ -6,6 +7,19 @@ const Team = require('../models/Team');
 const { handleError } = require('../helpers/handleError');
 const logger = require('../lib/logger');
 const { todayVN } = require('../helpers/dayjsConfig');
+
+// PERF-002 (audit PR E): The /alerts endpoint was hit on every admin
+// browser-tab focus (refetchOnWindowFocus:true on the client) and
+// scanned EVERY past schedule in the database via a $lookup-on-
+// attendances aggregation. Two-part fix:
+//   1. Bound the $match to a 30-day lookback — same window as the
+//      reconcile job (reconcileService.js:28).
+//   2. Cache the result for 30 seconds per process; alerts don't need
+//      to be real-time, and 30s caps the worst-case load to 2 runs/min
+//      regardless of how many admins focus their browser tab.
+const ALERTS_LOOKBACK_DAYS = Number(process.env.ALERTS_LOOKBACK_DAYS) || 30;
+const alertsCache = new NodeCache({ stdTTL: 30, checkperiod: 60 });
+const ALERTS_CACHE_KEY = 'dashboard:alerts';
 
 // ──────────────────────────────────────────────────────────
 // Dashboard Controller — Admin Analytics (Interactive Filters)
@@ -283,6 +297,12 @@ const getDashboardStats = async (req, res) => {
 // ──────────────────────────────────────────────────────────
 const getAlerts = async (req, res) => {
   try {
+    // PERF-002 cache hit
+    const cached = alertsCache.get(ALERTS_CACHE_KEY);
+    if (cached) {
+      return res.json({ success: true, data: cached, cached: true });
+    }
+
     const now = new Date();
     // P2-10: use Vietnam timezone helper so "today" boundaries are correct
     // on the Render server (UTC) — avoids off-by-one on sessions near midnight VN.
@@ -290,11 +310,14 @@ const getAlerts = async (req, res) => {
     const tomorrow = new Date(today);
     tomorrow.setDate(tomorrow.getDate() + 1);
 
+    // PERF-002: 30-day lookback bounds the scan. Sessions older than this
+    // have either been marked or aged out of operational interest.
+    const lookback = new Date(now.getTime() - ALERTS_LOOKBACK_DAYS * 24 * 3600_000);
+
     const [toMarkAgg, teamsWithoutLeader, teamsUnassigned, todayCount] = await Promise.all([
-      // Past sessions that have enrolled students but attendance not fully marked.
-      // attendanceStatus is NOT stored — compute via Schedule + Attendance join.
+      // Past sessions in the last 30 days with incomplete attendance.
       Schedule.aggregate([
-        { $match: { endTime: { $lt: now } } },
+        { $match: { endTime: { $lt: now, $gte: lookback } } },
         // Count enrolled members from the array (virtual enrolledCount not available in agg)
         { $addFields: { ec: { $size: { $ifNull: ['$enrolledUsers', []] } } } },
         { $match: { ec: { $gt: 0 } } },
@@ -321,19 +344,26 @@ const getAlerts = async (req, res) => {
 
     const toMark = toMarkAgg[0]?.total || 0;
 
-    res.json({
-      success: true,
-      data: {
-        toMark,
-        teamsWithoutLeader,
-        teamsUnassigned,
-        todaySessionCount: todayCount,
-        totalAlerts: toMark + teamsWithoutLeader + teamsUnassigned,
-      },
-    });
+    const data = {
+      toMark,
+      teamsWithoutLeader,
+      teamsUnassigned,
+      todaySessionCount: todayCount,
+      totalAlerts: toMark + teamsWithoutLeader + teamsUnassigned,
+      lookbackDays: ALERTS_LOOKBACK_DAYS,
+    };
+    alertsCache.set(ALERTS_CACHE_KEY, data);
+    res.json({ success: true, data, cached: false });
   } catch (error) {
     handleError(res, error);
   }
 };
 
-module.exports = { getDashboardStats, getFilterOptions, getAlerts };
+// Exposed so the dashboard mutation paths (e.g. POST /attendance/:scheduleId
+// bulkMark) can bust the cache after a mark — keeps the alert toMark counter
+// from showing stale data right after the admin marked the missing sessions.
+const invalidateAlertsCache = () => {
+  alertsCache.del(ALERTS_CACHE_KEY);
+};
+
+module.exports = { getDashboardStats, getFilterOptions, getAlerts, invalidateAlertsCache };

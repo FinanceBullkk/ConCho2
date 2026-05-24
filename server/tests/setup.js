@@ -31,6 +31,13 @@ const setup = async () => {
   process.env.NODE_ENV = 'test';
   process.env.JWT_SECRET = 'test-secret-key-for-jest-only';
   process.env.JWT_EXPIRE = '1h';
+  // SEC-006 (audit PR E) — supertest never sets an Origin header. The
+  // production no-origin guard is enabled in server.js based on
+  // NODE_ENV=production. Some tests legitimately toggle NODE_ENV for a
+  // single assertion (e.g. p2-regression.test.js verifies the import
+  // env fail-fast). Set the bypass flag here so those tests don't have
+  // to add an Origin header to every request.
+  process.env.CORS_BYPASS_NO_ORIGIN = 'true';
 
   // Start in-memory MongoDB replica set (single node) — required for transactions.
   mongoServer = await MongoMemoryReplSet.create({ replSet: { count: 1 } });

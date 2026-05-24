@@ -134,16 +134,45 @@ const allowedOrigins = (process.env.CORS_ORIGINS || 'http://localhost:5173,http:
   .map((s) => s.trim())
   .filter(Boolean);
 
+// SEC-006 (audit PR E) — pre-CORS guard for no-origin requests.
+//
+// The `cors()` middleware below does NOT get `req`, only the `origin`
+// header value, so the original code accepted EVERY no-origin request
+// to keep same-origin SPA navigation working. That meant a non-browser
+// tool with a stolen cookie (curl, attacker Node script) could call
+// the API with `credentials: true` and pass through.
+//
+// Fix: in production, reject /api/* writes (POST/PUT/PATCH/DELETE) that
+// arrive without an Origin header. Same-origin GETs from the address
+// bar are still allowed (read-only browser navigation). /health and
+// /ready remain allow-listed for Render's probe (no Origin header on
+// server-side probes).
+const NO_ORIGIN_ALLOWLIST = new Set(['/health', '/ready', '/api/health', '/api/ready']);
+const isSafeMethod = (m) => m === 'GET' || m === 'HEAD' || m === 'OPTIONS';
+
+app.use((req, res, next) => {
+  if (process.env.NODE_ENV !== 'production') return next();
+  // Test harness escape hatch — supertest never sets an Origin header, so
+  // integration tests that temporarily toggle NODE_ENV=production for a
+  // single assertion would otherwise 403 before reaching their target.
+  // Production deploys must NOT set this.
+  if (process.env.CORS_BYPASS_NO_ORIGIN === 'true') return next();
+  if (req.headers.origin) return next();              // Origin present → CORS handles it
+  if (isSafeMethod(req.method)) return next();         // GET/HEAD/OPTIONS without origin = browser nav or probe
+  if (NO_ORIGIN_ALLOWLIST.has(req.path)) return next();
+  return res.status(403).json({
+    success: false,
+    message: 'Cross-origin write requests require a valid Origin header in production',
+  });
+});
+
 app.use(
   cors({
     origin: (origin, cb) => {
       // No-origin requests (same-origin browser GETs, curl, monitoring,
-      // server-side health probes) must be allowed. Browsers only set
-      // the Origin header on cross-origin or non-simple requests, so
-      // rejecting no-origin here breaks legitimate same-origin traffic
-      // (e.g. typing the URL into the address bar to load the SPA).
-      // The cross-origin protection comes from the allowedOrigins
-      // check below — that's where actual CORS enforcement happens.
+      // server-side health probes) are gated by the pre-CORS guard above
+      // in production. Here we just allow them so the cors middleware
+      // doesn't re-reject them.
       if (!origin) return cb(null, true);
       if (allowedOrigins.includes(origin)) return cb(null, true);
       return cb(new Error(`CORS: origin ${origin} not allowed`));
