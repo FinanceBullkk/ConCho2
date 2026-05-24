@@ -24,12 +24,13 @@ const { spec } = require('./lib/swagger');
 // TMS v2 — Express Server
 // ──────────────────────────────────────────────────────────
 
-// Fail fast if required secrets are missing — prevents silently
-// signing tokens with `undefined` and confusing login failures.
-if (!process.env.JWT_SECRET) {
-  logger.fatal('JWT_SECRET is not set. Refusing to start.');
-  process.exit(1);
-}
+// Audit PR 10 (OPS-001 launch checklist): production deploys must carry
+// JWT_SECRET (always) plus MONGO_URI / CRON_TOKEN / IMPORT_DEFAULT_PASSWORD
+// (production only). Failing at boot is louder + faster to diagnose than
+// failing at first request. The extracted helper is unit-tested in
+// tests/unit/envValidator.test.js.
+const { validateEnvOrExit } = require('./lib/envValidator');
+validateEnvOrExit(logger);
 
 const app = express();
 
@@ -288,17 +289,41 @@ if (process.env.NODE_ENV !== 'test') {
       logger.info({ port: PORT }, 'TMS v2 API running');
     });
 
-    // Graceful shutdown on SIGTERM (sent by Render, Kubernetes, systemd on deploy/stop).
-    // Give in-flight requests up to 10s to complete before forcing exit.
+    // Start background jobs after DB is connected. We hold a handle so the
+    // shutdown path can stop them cleanly (OPS-005).
+    const { startReconcileJob, stopReconcileJob } = require('./jobs/reconcileJob');
+    startReconcileJob();
+
+    // Graceful shutdown on SIGTERM (sent by Render, Kubernetes, systemd on
+    // deploy/stop). Give in-flight requests up to 10s to complete, then
+    // also stop the in-process cron + close the Mongo connection before
+    // exiting (audit PR 10 / OPS-005).
+    let shuttingDown = false;
     const shutdown = (signal) => {
+      if (shuttingDown) return; // re-entrancy guard — SIGTERM may fire twice
+      shuttingDown = true;
       logger.info({ signal }, 'Shutdown signal received — draining connections');
-      server.close((err) => {
+
+      // Stop scheduled jobs synchronously so no new DB work begins.
+      try { if (typeof stopReconcileJob === 'function') stopReconcileJob(); } catch (e) {
+        logger.warn({ err: e?.message }, 'stopReconcileJob threw');
+      }
+
+      server.close(async (err) => {
         if (err) {
           logger.error({ err }, 'Error during server close');
-          process.exit(1);
+        }
+        try {
+          // Close the Mongoose connection so the orchestrator's SIGKILL
+          // window doesn't truncate writes mid-flush. Mongoose 8 returns
+          // a promise; await it before exit.
+          await require('mongoose').connection.close(false);
+          logger.info('Mongo connection closed cleanly');
+        } catch (e) {
+          logger.warn({ err: e?.message }, 'Mongo close threw during shutdown');
         }
         logger.info('Server closed cleanly');
-        process.exit(0);
+        process.exit(err ? 1 : 0);
       });
 
       // Force-kill after 10s so we don't hang indefinitely
@@ -310,10 +335,6 @@ if (process.env.NODE_ENV !== 'test') {
 
     process.on('SIGTERM', () => shutdown('SIGTERM'));
     process.on('SIGINT',  () => shutdown('SIGINT'));
-
-    // Start background jobs after DB is connected
-    const { startReconcileJob } = require('./jobs/reconcileJob');
-    startReconcileJob();
   };
 
   startServer().catch((err) => {
