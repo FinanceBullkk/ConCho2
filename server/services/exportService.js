@@ -91,8 +91,21 @@ const buildExportPipeline = ({ from, to, includeExported = false, batchId }) => 
   }
 
   // ── Stage 3: Join User (nhân viên) ─────────────────────
+  // DATA-009 (audit PR A): use the pipeline form of $lookup so we can
+  // $match isDeleted at the join. Mongoose pre('find')/pre('aggregate')
+  // hooks do NOT fire inside $lookup sub-pipelines, so without this
+  // explicit filter soft-deleted users would appear in exports.
   pipeline.push(
-    { $lookup: { from: 'users', localField: 'userId', foreignField: '_id', as: 'user' } },
+    {
+      $lookup: {
+        from: 'users',
+        let: { uid: '$userId' },
+        pipeline: [
+          { $match: { $expr: { $eq: ['$_id', '$$uid'] }, isDeleted: { $ne: true } } },
+        ],
+        as: 'user',
+      },
+    },
     { $unwind: '$user' }
   );
 
@@ -418,7 +431,17 @@ const buildEvaluationPipeline = ({ from, to, classId } = {}) => {
   if (Object.keys(matchStage).length > 0) pipeline.push({ $match: matchStage });
 
   pipeline.push(
-    { $lookup: { from: 'users', localField: 'userId', foreignField: '_id', as: 'user' } },
+    // DATA-009 (audit PR A): filter soft-deleted users at the join.
+    {
+      $lookup: {
+        from: 'users',
+        let: { uid: '$userId' },
+        pipeline: [
+          { $match: { $expr: { $eq: ['$_id', '$$uid'] }, isDeleted: { $ne: true } } },
+        ],
+        as: 'user',
+      },
+    },
     { $unwind: '$user' },
     { $lookup: { from: 'classes', localField: 'classId', foreignField: '_id', as: 'class' } },
     { $unwind: '$class' },
