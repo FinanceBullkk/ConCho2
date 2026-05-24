@@ -60,31 +60,19 @@ const getUsers = async (req, res) => {
       User.countDocuments(filter),
     ]);
 
-    // Compute lastActive date for each user via their most recent attended session
-    // We join Attendance → Schedule to get the actual session date (startTime),
-    // NOT Attendance.createdAt which is when the admin marked attendance.
-    const userIds = users.map(u => u._id);
-    const lastActiveAgg = await Attendance.aggregate([
-      { $match: { userId: { $in: userIds }, status: { $in: ['P', 'L'] } } },
-      { $lookup: { from: 'schedules', localField: 'scheduleId', foreignField: '_id', as: 'schedule' } },
-      { $unwind: '$schedule' },
-      { $group: { _id: '$userId', lastDate: { $max: '$schedule.startTime' } } },
-    ]);
-    const lastActiveMap = {};
-    for (const a of lastActiveAgg) {
-      lastActiveMap[a._id.toString()] = a.lastDate;
-    }
-
-    // Merge lastActive into user objects
-    const enrichedUsers = users.map(u => {
+    // PERF-008 (audit PR H): lastActiveAt is now denormalised onto the
+    // User document by attendanceService.bulkMark (write-through cache).
+    // No more per-page Attendance×Schedule aggregation. For users who
+    // existed BEFORE the cache was wired (lastActiveAt === null) the
+    // value will populate on the next bulkMark; if you need a fresh
+    // snapshot today, run `node server/scripts/backfill-lastActiveAt.js`.
+    const enrichedUsers = users.map((u) => {
       const obj = u.toObject();
-      const lastDate = lastActiveMap[u._id.toString()] || null;
+      const lastDate = u.lastActiveAt || null;
       obj.lastActive = lastDate;
-      if (lastDate) {
-        obj.daysSince = Math.floor((Date.now() - new Date(lastDate).getTime()) / (1000 * 60 * 60 * 24));
-      } else {
-        obj.daysSince = null;
-      }
+      obj.daysSince = lastDate
+        ? Math.floor((Date.now() - new Date(lastDate).getTime()) / (1000 * 60 * 60 * 24))
+        : null;
       return obj;
     });
 

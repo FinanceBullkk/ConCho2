@@ -85,6 +85,28 @@ const bulkMark = async (scheduleId, records) => {
   const result = await Attendance.bulkWrite(operations);
   invalidateAnalyticsCache();
 
+  // PERF-008 (audit PR H): denormalise lastActiveAt onto User for
+  // the getUsers list page. Only P (present) + L (late) count as
+  // active; A (absent) + EL (excused) don't bump the timestamp.
+  // schedule.startTime is the actual session time — Attendance.createdAt
+  // is when the admin marked, which can be much later.
+  const activeUserIds = records
+    .filter((r) => r.status === 'P' || r.status === 'L')
+    .map((r) => r.userId);
+  if (activeUserIds.length > 0) {
+    const User = mongoose.model('User');
+    // $max guarantees we never move lastActiveAt backwards if someone
+    // re-marks an OLD session that pre-dates a more recent one.
+    await User.bulkWrite(
+      activeUserIds.map((uid) => ({
+        updateOne: {
+          filter: { _id: uid },
+          update: { $max: { lastActiveAt: schedule.startTime } },
+        },
+      })),
+    );
+  }
+
   return {
     matched: result.matchedCount,
     modified: result.modifiedCount,

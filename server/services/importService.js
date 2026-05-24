@@ -10,8 +10,23 @@ const Class = require('../models/Class');
 
 const { ServiceError } = require('../helpers/ServiceError');
 
-const MAX_IMPORT_BATCH = 2000;
+// PERF-006 (audit PR H): MAX_IMPORT_BATCH lowered from 2000 → 500.
+// bcrypt (pure JS, single-threaded) at cost 12 takes ~50ms/op. At 2000
+// users a chunked-parallel pass takes 2s+; combined with the bulkWrite
+// + transaction it can exceed Atlas's default transactionLifetimeLimit
+// (60s) under contention. 500 keeps a single import comfortably under
+// 1 s on the bcrypt path. Operators who need bigger imports can split
+// into multiple batches.
+//
+// Operator override via env so we can raise temporarily without a
+// redeploy if needed.
+const MAX_IMPORT_BATCH = Number(process.env.IMPORT_MAX_BATCH) || 500;
 const CHUNK_SIZE = 50;
+// PERF-006: explicit transaction-lifetime ceiling. The bcrypt work
+// runs OUTSIDE the transaction already (see comment below) but the
+// bulkWrite + audit-write at the tail can still drag past the
+// default 60 s ceiling under load — bump to 120 s for headroom.
+const IMPORT_TX_MAX_MS = Number(process.env.IMPORT_TX_MAX_MS) || 120_000;
 
 /**
  * Generate a cryptographically secure random password (DI-09).
@@ -136,12 +151,19 @@ const importUsers = async (users) => {
   }
 
   // ── Atomic execution ────────────────────────────────────
+  // PERF-006: bcrypt has already finished above (operations[] is fully
+  // built). The transaction below only carries the bulkWrite — no CPU
+  // work — so it commits in milliseconds. maxCommitTimeMS guards
+  // against pathological cases (e.g. Mongo paused for a step-down).
   const session = await mongoose.startSession();
   let result;
   try {
-    await session.withTransaction(async () => {
-      result = await User.bulkWrite(operations, { session });
-    });
+    await session.withTransaction(
+      async () => {
+        result = await User.bulkWrite(operations, { session });
+      },
+      { maxCommitTimeMS: IMPORT_TX_MAX_MS },
+    );
   } finally {
     session.endSession();
   }
