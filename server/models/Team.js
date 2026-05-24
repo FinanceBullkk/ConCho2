@@ -65,6 +65,23 @@ for (const hook of SOFT_DELETE_HOOKS) {
   });
 }
 
+// DATA-007 (audit PR 6): Team.aggregate did NOT receive a soft-delete
+// filter. Analytics pipelines (attendanceService.analyticsByTeam,
+// dashboardController) were silently including soft-deleted teams.
+// User.js has the same hook (User.js:213-220); this mirrors it.
+//
+// We only inject the $match if the caller did not already constrain
+// isDeleted explicitly — leaves room for "show me deleted teams" queries.
+teamSchema.pre('aggregate', function () {
+  const pipeline = this.pipeline();
+  const hasExplicitFilter = pipeline.some(
+    (stage) => stage && stage.$match && stage.$match.isDeleted !== undefined,
+  );
+  if (!hasExplicitFilter) {
+    pipeline.unshift({ $match: { isDeleted: { $ne: true } } });
+  }
+});
+
 // ── Indexes ───────────────────────────────────────────────
 teamSchema.index({ leaderId: 1 });
 teamSchema.index({ classId: 1 }); // multiple teams per class allowed (booking competition)
