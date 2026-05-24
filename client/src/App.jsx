@@ -229,6 +229,10 @@ export default function App() {
               {/* Public */}
               <Route path="/login" element={<LoginPage />} />
               <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+              {/* SEC-005: path-style is the canonical route; query-string
+                  variant is kept so emails sent before the rollout (≤1h
+                  in flight) still work. */}
+              <Route path="/reset-password/:token" element={<ResetPasswordPage />} />
               <Route path="/reset-password" element={<ResetPasswordPage />} />
 
               {/* Protected — wrapped in Layout */}
