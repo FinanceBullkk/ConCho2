@@ -74,10 +74,16 @@ const protect = async (req, res, next) => {
     // frontend knows to redirect to the settings page.
     if (decoded.mfa === 'enrollment-required') {
       const path = (req.originalUrl || req.url || '').split('?')[0];
+      // Audit PR 7 (SEC-007): /api/auth/change-password REMOVED from this
+      // allowlist. A phished password used to give the attacker an
+      // enrollment-required cookie which still permitted changing the
+      // password — enabling full takeover with attacker-chosen TOTP. The
+      // legitimate user must complete enrollment (which mints a full-
+      // session token via /mfa/verify-setup) BEFORE they can rotate
+      // credentials.
       const ENROLLMENT_ALLOWED = new Set([
         '/api/auth/me',
         '/api/auth/logout',
-        '/api/auth/change-password',
         '/api/auth/mfa/setup',
         '/api/auth/mfa/verify-setup',
       ]);
