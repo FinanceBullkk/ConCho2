@@ -356,6 +356,21 @@ const cancelSlot = async (scheduleId, requestUser) => {
     .populate('enrolledUsers', 'name email');
   if (!schedule) throw new ServiceError('Schedule not found', 404);
 
+  // Audit PR 6 (DATA-005): cancelSlot used to cascade-delete the schedule's
+  // attendance unconditionally. For a PAST session that means roll-call
+  // history is destroyed — compliance + reporting evidence vanishes.
+  //
+  // Policy: a schedule that has already started CANNOT be cancelled via
+  // this endpoint. If admins need to remove a botched past session, they
+  // must go through the admin-db tools (which preserve audit + history
+  // collections — see SEC-010 in audit PR 3).
+  if (new Date(schedule.startTime) <= new Date()) {
+    throw new ServiceError(
+      'Cannot cancel a session that has already started. Past attendance is preserved for reporting.',
+      409,
+    );
+  }
+
   if (requestUser.role !== 'Admin') {
     const team = await Team.findById(schedule.bookedTeamId);
     if (!team || !team.leaderId || team.leaderId.toString() !== requestUser._id.toString()) {

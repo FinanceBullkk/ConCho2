@@ -275,3 +275,148 @@ describe('POST /api/auth/reset-password', () => {
     expect(second.body.success).toBe(false);
   });
 });
+
+// ──────────────────────────────────────────────────────────
+// SEC-005 — token in URL path (not query string)
+// ──────────────────────────────────────────────────────────
+
+describe('POST /api/auth/reset-password/:token (SEC-005 path-style)', () => {
+  const User = require('../../models/User');
+
+  const plantToken = async (userId, raw) => {
+    const hashed = crypto.createHash('sha256').update(raw).digest('hex');
+    await User.findByIdAndUpdate(userId, {
+      passwordResetToken: hashed,
+      passwordResetExpires: new Date(Date.now() + 3600_000),
+    });
+  };
+
+  test('path-style endpoint accepts token from URL params', async () => {
+    const raw = 'sec005-path-token-' + crypto.randomBytes(8).toString('hex');
+    await plantToken(seed.member1._id, raw);
+
+    const csrf = await getCsrfHeaders(app);
+    const res = await request(app)
+      .post(`/api/auth/reset-password/${raw}`)
+      .set(csrf)
+      .send({ password: 'newpassword12345' });
+
+    expect(res.status).toBe(200);
+    expect(res.body.success).toBe(true);
+
+    // token consumed
+    const after = await User.findById(seed.member1._id);
+    expect(after.passwordResetToken).toBeNull();
+  });
+
+  test('legacy body-style endpoint still works (backward compat)', async () => {
+    const raw = 'sec005-body-token-' + crypto.randomBytes(8).toString('hex');
+    await plantToken(seed.member2._id, raw);
+
+    const csrf = await getCsrfHeaders(app);
+    const res = await request(app)
+      .post('/api/auth/reset-password')
+      .set(csrf)
+      .send({ token: raw, password: 'newpassword12345' });
+
+    expect(res.status).toBe(200);
+    expect(res.body.success).toBe(true);
+  });
+
+  test('forgot-password email URL uses /reset-password/<token> path-style', async () => {
+    // Give admin an email + clear any cooldown state left by earlier tests
+    // (the 5-min cooldown skips overwrite if a token is already valid).
+    await User.findByIdAndUpdate(seed.admin._id, {
+      email: 'admin-sec005@test.com',
+      passwordResetToken: null,
+      passwordResetExpires: null,
+    });
+
+    const csrf = await getCsrfHeaders(app);
+    const res = await request(app)
+      .post('/api/auth/forgot-password')
+      .set(csrf)
+      .send({ empCode: seed.admin.empCode });
+
+    expect(res.status).toBe(200);
+    await flushBackground();
+    await flushBackground();
+
+    expect(sendMail).toHaveBeenCalledTimes(1);
+    const arg = sendMail.mock.calls[0][0];
+    // The link in both text + html must be path-style, not ?token=
+    expect(arg.text).toMatch(/\/reset-password\/[a-f0-9]{64}/);
+    expect(arg.text).not.toMatch(/\?token=/);
+    expect(arg.html).toMatch(/\/reset-password\/[a-f0-9]{64}/);
+    expect(arg.html).not.toMatch(/\?token=/);
+  });
+});
+
+// ──────────────────────────────────────────────────────────
+// SEC-008 — log scrub (no raw empCode in info logs)
+// ──────────────────────────────────────────────────────────
+
+describe('forgot-password logger scrub (SEC-008)', () => {
+  const logger = require('../../lib/logger');
+  const User = require('../../models/User');
+
+  let infoSpy;
+  let warnSpy;
+
+  beforeEach(() => {
+    infoSpy = jest.spyOn(logger, 'info').mockImplementation(() => {});
+    warnSpy = jest.spyOn(logger, 'warn').mockImplementation(() => {});
+  });
+  afterEach(() => {
+    infoSpy.mockRestore();
+    warnSpy.mockRestore();
+  });
+
+  const allLogPayloads = () =>
+    [...infoSpy.mock.calls, ...warnSpy.mock.calls].map((c) => c[0] || {});
+
+  test('no logger call records the raw empCode', async () => {
+    // Make a known empCode "stand out" so we'd notice if it appears anywhere.
+    const distinctive = 'SEC008-XYZ-' + crypto.randomBytes(2).toString('hex').toUpperCase();
+    await User.findByIdAndUpdate(seed.member1._id, { empCode: distinctive, email: 'm1@test.com' });
+
+    const csrf = await getCsrfHeaders(app);
+    await request(app).post('/api/auth/forgot-password').set(csrf).send({ empCode: distinctive });
+    await flushBackground();
+    await flushBackground();
+
+    const payloads = allLogPayloads();
+    expect(payloads.length).toBeGreaterThan(0);
+    for (const p of payloads) {
+      const serialised = JSON.stringify(p);
+      expect(serialised).not.toMatch(new RegExp(distinctive));
+    }
+    // And at least one payload should carry the hashed form.
+    const hashed = payloads.some((p) => typeof p.empCodeHash === 'string' && p.empCodeHash.length === 12);
+    expect(hashed).toBe(true);
+  });
+
+  test('found and not-found branches emit IDENTICAL message text', async () => {
+    // Found branch
+    await User.findByIdAndUpdate(seed.member2._id, { email: 'm2@test.com' });
+    const csrf1 = await getCsrfHeaders(app);
+    await request(app).post('/api/auth/forgot-password').set(csrf1).send({ empCode: seed.member2.empCode });
+    await flushBackground();
+    await flushBackground();
+
+    // Not-found branch
+    const csrf2 = await getCsrfHeaders(app);
+    await request(app).post('/api/auth/forgot-password').set(csrf2).send({ empCode: 'NOPE_SEC008_NOPE' });
+    await flushBackground();
+    await flushBackground();
+
+    const messages = infoSpy.mock.calls.map((c) => c[1]).filter(Boolean);
+    const distinct = Array.from(new Set(messages));
+    // All distinct messages should be "Forgot-password: completed background flow"
+    expect(distinct).toContain('Forgot-password: completed background flow');
+    // The old leaky strings must NOT be in the message list.
+    expect(distinct).not.toContain('Forgot-password: no matching user (no-op)');
+    expect(distinct).not.toContain('Forgot-password: cooldown active — skipping token overwrite');
+    expect(distinct).not.toContain('Password reset email sent');
+  });
+});
