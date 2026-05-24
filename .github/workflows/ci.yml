@@ -40,13 +40,19 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '22'
           cache: 'npm'
           cache-dependency-path: server/package-lock.json
 
       - name: Install server dependencies
         working-directory: server
-        run: npm ci
+        # Use `npm install` (not `npm ci`) because the lockfile drifts on
+        # every googleapis transitive bump — '^' ranges in package.json
+        # resolve to newer versions over time. Strict `npm ci` would fail
+        # without an out-of-band lockfile regen on every transitive update.
+        # Reproducibility trade-off accepted; switch back to `npm ci` once
+        # we pin googleapis to an exact version or use the overrides field.
+        run: npm install --no-audit --no-fund --no-progress
 
       - name: Run Jest test suite
         working-directory: server
@@ -100,7 +106,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '22'
           cache: 'npm'
           cache-dependency-path: client/package-lock.json
 
@@ -127,7 +133,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '22'
           cache: 'npm'
           cache-dependency-path: client/package-lock.json
 
@@ -155,7 +161,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '22'
 
       - name: Audit server (high+, prod-only)
         working-directory: server
