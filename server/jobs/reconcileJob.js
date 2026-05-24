@@ -22,6 +22,12 @@ const logger = require('../lib/logger');
 
 const CRON_SCHEDULE = process.env.RECONCILE_CRON || '0 2 * * *';
 
+// Audit PR 10 (OPS-005): hold a handle to the running task so the
+// SIGTERM path can stop it cleanly. Without this the worker keeps
+// firing on the next tick after process.exit was scheduled, which
+// occasionally leaves Mongo connections in a half-closed state.
+let task = null;
+
 function startReconcileJob() {
   if (process.env.NODE_ENV === 'test') return; // never run in test
 
@@ -30,7 +36,7 @@ function startReconcileJob() {
     return;
   }
 
-  cron.schedule(CRON_SCHEDULE, async () => {
+  task = cron.schedule(CRON_SCHEDULE, async () => {
     logger.info({ schedule: CRON_SCHEDULE }, 'Reconciliation cron fired');
     try {
       await runReconciliation('scheduled');
@@ -44,4 +50,20 @@ function startReconcileJob() {
   logger.info({ schedule: CRON_SCHEDULE }, 'Reconciliation cron job scheduled');
 }
 
-module.exports = { startReconcileJob };
+/**
+ * Stop the in-process cron task (called from server.js shutdown handler).
+ * Safe to call multiple times or when the task was never started.
+ */
+function stopReconcileJob() {
+  if (!task) return;
+  try {
+    // node-cron exposes .stop(); some versions also have .destroy()
+    if (typeof task.stop === 'function') task.stop();
+    if (typeof task.destroy === 'function') task.destroy();
+  } finally {
+    task = null;
+  }
+  logger.info('Reconciliation cron job stopped');
+}
+
+module.exports = { startReconcileJob, stopReconcileJob };
