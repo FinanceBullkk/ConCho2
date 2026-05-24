@@ -355,6 +355,16 @@ const deleteSchedule = async (req, res) => {
     const schedule = await Schedule.findById(req.params.id);
     if (!schedule) return res.status(404).json({ success: false, message: 'Schedule not found' });
 
+    // DATA-005 (audit PR 6): admin DELETE used to cascade-delete the
+    // schedule's attendance unconditionally. For PAST sessions that
+    // destroys roll-call evidence. Same policy as cancelSlot.
+    if (new Date(schedule.startTime) <= new Date()) {
+      return res.status(409).json({
+        success: false,
+        message: 'Cannot delete a session that has already started. Past attendance is preserved for reporting.',
+      });
+    }
+
     // ── TRANSACTION: Cascade delete Attendance → Schedule (DI-01) ──
     const googleEventId = schedule.googleEventId; // capture before delete
     const session = await mongoose.startSession();
