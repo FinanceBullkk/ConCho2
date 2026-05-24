@@ -65,10 +65,16 @@ const toLocalDateTime = (d) => {
   return `${dt.getFullYear()}-${pad(dt.getMonth() + 1)}-${pad(dt.getDate())}T${pad(dt.getHours())}:${pad(dt.getMinutes())}`;
 };
 
-// Known enum values per field — rendered as <select> in inline edit
+// Known enum values per field — rendered as <select> in inline edit.
+//
+// AUDIT PR 8 (FE-004): `role` previously listed 'Leader' which is NOT a
+// server-recognised enum value (server/models/User.js:48 enumerates
+// ['Admin','Teacher','Participant']). Saving with 'Leader' selected
+// stored an invalid role and broke every downstream auth check until
+// manually fixed in Mongo. Aligned with the User schema.
 const STATUS_ENUMS = {
   status: ['Active', 'Inactive', 'Dropped', 'Transferred', 'On-hold', 'Waiting for class', 'Ongoing', 'Completed'],
-  role: ['Admin', 'Leader', 'Participant'],
+  role: ['Admin', 'Teacher', 'Participant'],
 };
 
 // Returns inline edit mode for a field/value pair, or null if not editable inline
