@@ -21,7 +21,7 @@ export default function StudentProgressModal({ userId, userName, onClose }) {
 
   if (loading) return (
     <Portal>
-      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60" aria-hidden="true">
         <Spinner size={32} />
       </div>
     </Portal>
@@ -51,7 +51,7 @@ export default function StudentProgressModal({ userId, userName, onClose }) {
 
   return (
     <Portal>
-      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" onClick={onClose}>
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" onClick={onClose} aria-hidden="true">
         <div
           className="bg-card rounded-lg w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col shadow-2xl border border-border"
           onClick={e => e.stopPropagation()}

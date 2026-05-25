@@ -224,7 +224,7 @@ function TeamModal({ team, participants, classes, teams, onClose, onSaved }) {
 
       {/* Swap confirmation dialog */}
       {swapConfirm && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/70" onClick={() => setSwapConfirm(null)}>
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/70" onClick={() => setSwapConfirm(null)} aria-hidden="true">
           <div className="bg-card border border-border rounded-lg p-6 max-w-sm mx-4 space-y-4 " onClick={(e) => e.stopPropagation()}>
             <h3 className="text-h3 text-foreground text-center">Swap Class Assignment?</h3>
             <p className="text-sm text-muted-foreground text-center">
@@ -245,7 +245,7 @@ function TeamModal({ team, participants, classes, teams, onClose, onSaved }) {
 
       {/* Transfer confirmation dialog */}
       {transferConfirm && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/70" onClick={() => setTransferConfirm(null)}>
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/70" onClick={() => setTransferConfirm(null)} aria-hidden="true">
           <div className="bg-card border border-border rounded-lg p-6 max-w-md mx-4 space-y-4 " onClick={(e) => e.stopPropagation()}>
             <h3 className="text-h3 text-foreground text-center">Transfer Members?</h3>
             <p className="text-sm text-muted-foreground text-center">

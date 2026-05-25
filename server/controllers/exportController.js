@@ -33,10 +33,24 @@ const exportAttendance = async (req, res) => {
       return res.json({ success: true, count: records.length, data: records });
     }
 
-    // Excel download mode (default)
+    // PERF-001: Excel download mode — stream directly to response
+    // to avoid buffering the entire workbook in server memory.
+    // Content-Type must be set before any data is written to res.
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+
+    // beforeWrite callback: the service calls this BEFORE streaming the
+    // workbook, so we can set the remaining headers that must precede data.
+    const beforeWrite = ({ filename: fn, recordCount: rc, markedCount: mc }) => {
+      res.setHeader('Content-Disposition', `attachment; filename="${fn}"`);
+      res.setHeader('X-TMS-Record-Count', rc);
+      res.setHeader('X-TMS-Marked-Exported', mc);
+    };
+
     const { buffer, filename, recordCount, markedCount } = await exportService.exportAttendance({
       from, to,
       includeExported: includeExported === 'true',
+      res,
+      beforeWrite,
     });
 
     auditService.record({
@@ -46,12 +60,14 @@ const exportAttendance = async (req, res) => {
       note: `attendance.xlsx — ${recordCount} rows, ${markedCount} marked-exported, range=${from || '-'}..${to || '-'}`,
     });
 
-    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
-    res.setHeader('X-TMS-Record-Count', recordCount);
-    res.setHeader('X-TMS-Marked-Exported', markedCount);
-
-    res.send(buffer);
+    // If streaming succeeded (buffer is null), data was already written.
+    // Otherwise send the buffer (headers still need setting for non-stream).
+    if (buffer) {
+      res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+      res.setHeader('X-TMS-Record-Count', recordCount);
+      res.setHeader('X-TMS-Marked-Exported', markedCount);
+      res.send(buffer);
+    }
   } catch (error) {
     handleError(res, error);
   }
@@ -90,8 +106,17 @@ const exportEvaluations = async (req, res) => {
       return res.json({ success: true, count: records.length, data: records });
     }
 
+    // PERF-001: Stream directly to response to avoid buffering in memory.
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+
+    const beforeWriteEval = ({ filename: fn, recordCount: rc }) => {
+      res.setHeader('Content-Disposition', `attachment; filename="${fn}"`);
+      res.setHeader('X-TMS-Record-Count', rc);
+    };
+
     const { buffer, filename, recordCount } = await exportService.exportEvaluations({
-      from, to, classId,
+      from, to, classId, res,
+      beforeWrite: beforeWriteEval,
     });
 
     auditService.record({
@@ -101,11 +126,11 @@ const exportEvaluations = async (req, res) => {
       note: `evaluations.xlsx — ${recordCount} rows, classId=${classId || '-'}, range=${from || '-'}..${to || '-'}`,
     });
 
-    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
-    res.setHeader('X-TMS-Record-Count', recordCount);
-
-    res.send(buffer);
+    if (buffer) {
+      res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+      res.setHeader('X-TMS-Record-Count', recordCount);
+      res.send(buffer);
+    }
   } catch (error) {
     handleError(res, error);
   }

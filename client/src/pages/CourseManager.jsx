@@ -113,7 +113,7 @@ function SessionPanel({ classId, classInfo, onClose, onClassUpdated }) {
 
   return (
     <Portal>
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60" onClick={onClose}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60" onClick={onClose} aria-hidden="true">
       <div className="bg-card border border-border rounded-lg w-full max-w-3xl mx-4 max-h-[90vh] flex flex-col" onClick={e => e.stopPropagation()}>
         {/* Header */}
         <div className="p-6 border-b border-border">
