@@ -1,8 +1,14 @@
 const exportService = require('../services/exportService');
+const auditService = require('../services/auditService');
 const { handleError } = require('../helpers/handleError');
 
 // ──────────────────────────────────────────────────────────
 // Export Controller (Thin — delegates to Service Layer)
+//
+// Audit PR L (SEC-013): every Excel download writes an audit line. The
+// JSON preview (?format=json) is NOT audited — it's a paginated read
+// and the request is already covered by the standard request log. Only
+// the side-effecting Excel build / "marked-exported" mutation is audited.
 // ──────────────────────────────────────────────────────────
 
 /**
@@ -31,6 +37,13 @@ const exportAttendance = async (req, res) => {
     const { buffer, filename, recordCount, markedCount } = await exportService.exportAttendance({
       from, to,
       includeExported: includeExported === 'true',
+    });
+
+    auditService.record({
+      req,
+      action: 'exported',
+      entity: 'Export',
+      note: `attendance.xlsx — ${recordCount} rows, ${markedCount} marked-exported, range=${from || '-'}..${to || '-'}`,
     });
 
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
@@ -79,6 +92,13 @@ const exportEvaluations = async (req, res) => {
 
     const { buffer, filename, recordCount } = await exportService.exportEvaluations({
       from, to, classId,
+    });
+
+    auditService.record({
+      req,
+      action: 'exported',
+      entity: 'Export',
+      note: `evaluations.xlsx — ${recordCount} rows, classId=${classId || '-'}, range=${from || '-'}..${to || '-'}`,
     });
 
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
