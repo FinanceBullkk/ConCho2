@@ -24,6 +24,9 @@
 | 1 | SEC-013 | Cron reconcile giờ có audit log | `server/jobs/reconcileJob.js` |
 | 2 | PERF-001 | Export Excel giờ streaming (không buffer toàn bộ vào RAM) | `server/services/exportService.js`, `server/controllers/exportController.js` |
 | 3 | CODE-007 | Modal backdrops có `aria-hidden="true"`, filter chips có keyboard nav | `client/src/pages/DashboardPage.jsx`, `CourseManager.jsx`, `DatabaseExplorer.jsx`, `TeamsPage.jsx`, `client/src/components/Progress/StudentProgressModal.jsx` |
+| 4 | API-002 | `GET /api/teams` chấp nhận `?page=`, `?limit=`, `?slim=true` (backward compat) | `server/controllers/teamController.js`, `server/tests/integration/teams.test.js` (PR T) |
+| 5 | CODE-007 | Lint ratchet 138 → 113 (-5 từ autofix + -20 từ FE-010 modal migrations) | `client/package.json`, `client/eslint.config.js` (PR U) |
+| 6 | P2-09 (infra) | Playwright job vào CI với Mongo replica set, server boot, seed, browser install. CI hạ-tầng đã sẵn — đang INFORMATIONAL chờ rewrite specs (xem mục 2.4) | `.github/workflows/ci.yml` (PR V) |
 
 ---
 
@@ -61,6 +64,17 @@
 | **Cách kiểm tra** | Tạo test mock DB fail → verify log được gọi, response vẫn 200. |
 | **Effort** | S (30 phút) |
 | **Priority** | P3 |
+
+### 2.4 P2-09 — Rewrite Playwright specs để promote E2E gate
+
+| Thông tin | Chi tiết |
+|-----------|----------|
+| **File cần kiểm tra** | `client/e2e/auth.spec.js`, `navigation.spec.js`, `permissions.spec.js`, `users-crud.spec.js`, `theme.spec.js`; `.github/workflows/ci.yml` |
+| **Bối cảnh** | PR V đã setup xong CI infrastructure (Mongo replica set, server boot, seed, browser install). Specs hiện tại fail vì DashboardPage giờ render `t('dashboard.greeting', { name })` = "Hello, Admin User" thay vì heading "Dashboard". Tương tự UsersPage/TeamsPage có thể đã i18n hóa. |
+| **Việc cần làm** | (1) Force browser locale `en` trong playwright.config.js: `use: { locale: 'en-US' }`. (2) Update selectors trong specs để match i18n strings hiện tại (xem `en.json` cho copy chính xác). (3) Sau khi specs pass local, xóa `continue-on-error: true` ở job `e2e-tests` trong `ci.yml` để promote thành required gate. |
+| **Cách kiểm tra** | Chạy `cd server && npm run seed && npm run dev` (terminal 1), `cd client && npm run test:e2e` (terminal 2). Tất cả 5 spec files pass thì sửa CI. |
+| **Effort** | M (2-3 giờ — chủ yếu là rewrite selectors) |
+| **Priority** | P2 |
 
 ---
 
