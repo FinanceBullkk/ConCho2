@@ -3,6 +3,9 @@ import { RefreshCw } from 'lucide-react';
 import TeamProgressModal from '../components/Progress/TeamProgressModal';
 import StudentProgressModal from '../components/Progress/StudentProgressModal';
 import Portal from '../components/Portal';
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle,
+} from '@/components/ui/dialog';
 import { useTeams, useCreateTeam, useUpdateTeam, useDeleteTeam } from '../hooks/useTeams';
 import { useUsers } from '../hooks/useUsers';
 import { useClasses } from '../hooks/useClasses';
@@ -101,12 +104,20 @@ function TeamModal({ team, participants, classes, teams, onClose, onSaved }) {
     }
   };
 
+  // Audit PR R (FE-010): hand-rolled overlay replaced with Radix Dialog
+  // (focus-trap, ESC, ARIA, aria-modal — all free). The nested swap +
+  // transfer confirmations remain as inline conditional renders for now;
+  // we'll migrate those in a follow-up so this PR is reviewable in one sit.
   return (
-    <Portal>
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60" onClick={onClose}>
-      <form onSubmit={(e) => handleSubmit(e)} onClick={(e) => e.stopPropagation()}
-        className="bg-card border border-border rounded-lg p-6 w-full max-w-2xl mx-4 space-y-4 max-h-[92vh] overflow-y-auto">
-        <h2 className="text-xl font-bold text-foreground">{isEdit ? '✏️ Edit Team' : '➕ Create Team'}</h2>
+    <Dialog open onOpenChange={(open) => { if (!open) onClose(); }}>
+      <DialogContent
+        className="max-w-2xl p-6 space-y-4 max-h-[92vh] overflow-y-auto"
+        aria-label={isEdit ? 'Edit team' : 'Create team'}
+      >
+      <form onSubmit={(e) => handleSubmit(e)} className="space-y-4">
+        <DialogHeader>
+          <DialogTitle className="text-xl font-bold text-foreground">{isEdit ? '✏️ Edit Team' : '➕ Create Team'}</DialogTitle>
+        </DialogHeader>
         {error && <div className="px-4 py-2 rounded-md bg-destructive-tint border border-destructive/30 text-destructive text-sm">{error}</div>}
 
         {/* ── Top fields: 2-column layout ─────────────── */}
@@ -262,8 +273,8 @@ function TeamModal({ team, participants, classes, teams, onClose, onSaved }) {
           </div>
         </div>
       )}
-    </div>
-    </Portal>
+      </DialogContent>
+    </Dialog>
   );
 }
 
