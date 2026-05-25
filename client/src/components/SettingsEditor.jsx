@@ -1,8 +1,21 @@
-import Editor from 'react-simple-code-editor';
+// react-simple-code-editor ships as CommonJS (`exports.default = Editor`).
+// Vite's CJS→ESM interop normally unwraps the default, but on the CI dev
+// server the dynamic-import chunk for SystemPage sometimes lands with the
+// whole module object as the "default" instead of the unwrapped function.
+// The resulting "Element type is invalid: ... got: object" crash brought
+// down the entire SystemPage subtree via ErrorBoundary (caught by Playwright
+// E2E on PR X — audit PR X follow-up #4).
+//
+// Namespace + default-or-self fallback is the canonical fix for this
+// shape: handles ESM, CJS-with-__esModule, and CJS-without-__esModule all
+// at once without depending on Vite's interop heuristics.
+import * as ReactSimpleCodeEditor from 'react-simple-code-editor';
 import Prism from 'prismjs';
 import 'prismjs/components/prism-json';
 import 'prismjs/themes/prism-tomorrow.css';
 import { cn } from '@/lib/utils';
+
+const Editor = ReactSimpleCodeEditor.default ?? ReactSimpleCodeEditor;
 
 // ──────────────────────────────────────────────────────────
 // SettingsEditor — Phase 4 Surface 9 §H
