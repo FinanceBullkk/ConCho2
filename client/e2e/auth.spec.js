@@ -9,7 +9,7 @@ import { test, expect } from '@playwright/test';
  */
 
 test.describe('Authentication', () => {
-  test('admin can sign in and lands on /dashboard', async ({ page }) => {
+  test('admin can sign in and lands on the home dashboard', async ({ page }) => {
     await page.goto('/login');
 
     // Header is visible
@@ -20,12 +20,14 @@ test.describe('Authentication', () => {
     await page.getByLabel(/password/i).fill('admin12345');
     await page.getByRole('button', { name: /sign in/i }).click();
 
-    // Lands on dashboard (or MFA challenge — skip if so)
+    // Lands on dashboard (or MFA challenge — skip if so). The router
+    // currently lands authenticated users on /home; older builds used
+    // /dashboard. Accept either for forward-compat.
     const mfa = page.getByRole('heading', { name: /two-factor authentication/i });
     if (await mfa.isVisible().catch(() => false)) {
       test.skip(true, 'Admin has MFA enabled in this env — disable before running E2E');
     }
-    await expect(page).toHaveURL(/\/dashboard$/);
+    await expect(page).toHaveURL(/\/(home|dashboard)$/);
   });
 
   test('wrong password shows a visible error and stays on /login', async ({ page }) => {

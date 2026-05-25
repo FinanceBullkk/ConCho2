@@ -30,7 +30,7 @@ export async function loginViaUI(page, { empCode, password }) {
 
   // Wait for either successful nav to dashboard OR the MFA step.
   await Promise.race([
-    page.waitForURL(/\/dashboard$/, { timeout: 10_000 }).catch(() => {}),
+    page.waitForURL(/\/(home|dashboard)$/, { timeout: 10_000 }).catch(() => {}),
     page.getByRole('heading', { name: /two-factor authentication/i })
       .waitFor({ timeout: 10_000 }).catch(() => {}),
   ]);
@@ -46,13 +46,13 @@ export async function loginViaUI(page, { empCode, password }) {
 export const test = base.extend({
   adminPage: async ({ page }, use) => {
     await loginViaUI(page, { empCode: ADMIN_CODE, password: ADMIN_PASS });
-    await expect(page).toHaveURL(/\/dashboard$/);
+    await expect(page).toHaveURL(/\/(home|dashboard)$/);
     await use(page);
   },
 
   participantPage: async ({ page }, use) => {
     await loginViaUI(page, { empCode: PARTICIPANT_CODE, password: PARTICIPANT_PASS });
-    await expect(page).toHaveURL(/\/dashboard$/);
+    await expect(page).toHaveURL(/\/(home|dashboard)$/);
     await use(page);
   },
 });
