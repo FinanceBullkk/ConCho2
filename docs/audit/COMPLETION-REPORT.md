@@ -248,7 +248,7 @@ These cannot be done by code change — require console access.
 
 | # | Action | Console | Status |
 |---|--------|---------|--------|
-| 1 | Gmail app password rotation | Google Workspace → myaccount.google.com → Security → App passwords | **⏳ Pending** |
+| 1 | Gmail app password rotation | Google Workspace → myaccount.google.com → Security → App passwords | ✅ Done 2026-05-25 |
 | 2 | Rotate seed admin password `admin12345` (empCode 000001) | TMS admin UI → Users → 000001 → Change password | **⏳ Pending before first customer** |
 | 3 | Quarterly Atlas backup restore drill | Atlas → Backup → Restore to staging | 🔧 Schedule quarterly |
 | 4 | `CORS_ORIGINS`, `CLIENT_ORIGIN`, `CRON_TOKEN`, `IMPORT_DEFAULT_PASSWORD` set in Render | Render → Environment | Verify before launch |
