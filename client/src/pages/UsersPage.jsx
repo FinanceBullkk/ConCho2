@@ -547,7 +547,6 @@ export default function UsersPage() {
         </div>
       ),
     },
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   ], [teamsByUser, can, currentUser?._id]);
 
   return (

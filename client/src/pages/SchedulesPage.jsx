@@ -75,7 +75,6 @@ export default function SchedulesPage() {
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
   // closeDrawer only calls stable state setters — [] is safe
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const schedParams = useMemo(() => ({ limit: 2000 }), []);
