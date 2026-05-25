@@ -41,6 +41,51 @@ describe('Team CRUD', () => {
     expect(res.body.data.length).toBeGreaterThan(0);
   });
 
+  // ── Audit PR T (API-002) — optional pagination + slim modes ─────────────
+
+  test('GET /api/teams?page=1&limit=1 returns paginated shape', async () => {
+    const res = await request(app)
+      .get('/api/teams?page=1&limit=1')
+      .set('Authorization', `Bearer ${tokens.admin}`).set(csrf);
+
+    expect(res.status).toBe(200);
+    expect(res.body.success).toBe(true);
+    expect(res.body).toHaveProperty('total');
+    expect(res.body).toHaveProperty('pages');
+    expect(res.body).toHaveProperty('page', 1);
+    expect(res.body).toHaveProperty('limit', 1);
+    expect(res.body.data.length).toBeLessThanOrEqual(1);
+  });
+
+  test('GET /api/teams?slim=true skips the members populate', async () => {
+    const res = await request(app)
+      .get('/api/teams?slim=true')
+      .set('Authorization', `Bearer ${tokens.admin}`).set(csrf);
+
+    expect(res.status).toBe(200);
+    expect(res.body.success).toBe(true);
+    expect(res.body.data.length).toBeGreaterThan(0);
+    // In slim mode `members` should remain as raw ObjectId strings, not
+    // populated user documents. Each entry should be a 24-char hex id
+    // (no `name`/`empCode` keys).
+    const sample = res.body.data.find((t) => Array.isArray(t.members) && t.members.length > 0);
+    if (sample) {
+      const m = sample.members[0];
+      // Populated would be an object with `name` etc; slim should be string.
+      expect(typeof m === 'string' || !m.name).toBe(true);
+    }
+  });
+
+  test('GET /api/teams (no query) keeps legacy shape (no `total`/`pages`)', async () => {
+    const res = await request(app)
+      .get('/api/teams')
+      .set('Authorization', `Bearer ${tokens.admin}`).set(csrf);
+
+    expect(res.status).toBe(200);
+    expect(res.body).toHaveProperty('count');
+    expect(res.body).not.toHaveProperty('pages');
+  });
+
   test('POST /api/teams creates a new team', async () => {
     // Create a fresh class + fresh user to avoid conflicts
     const freshClass = await Class.create({
