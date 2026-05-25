@@ -249,6 +249,8 @@ export default function DashboardPage() {
                   const isActive = filters.department === d.department;
                   return (
                     <div key={d.department} onClick={() => toggleFilter('department', d.department)}
+                      role="button" tabIndex={0} aria-pressed={isActive}
+                      onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleFilter('department', d.department); } }}
                       className={`cursor-pointer rounded-lg px-2 py-1 -mx-2 transition-colors duration-(--dur-fast) ${isActive ? 'bg-info/10 ring-1 ring-info/30' : 'hover:bg-accent/50'}`}>
                       <div className="flex items-center justify-between text-xs mb-0.5">
                         <span className={`font-medium truncate max-w-[180px] ${isActive ? 'text-info' : 'text-foreground'}`}>{d.department}</span>
@@ -272,6 +274,8 @@ export default function DashboardPage() {
                   const isActive = filters.position === p.position;
                   return (
                     <div key={p.position} onClick={() => toggleFilter('position', p.position)}
+                      role="button" tabIndex={0} aria-pressed={isActive}
+                      onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleFilter('position', p.position); } }}
                       className={`cursor-pointer rounded-lg px-2 py-1 -mx-2 transition-colors duration-(--dur-fast) ${isActive ? 'bg-warning/10 ring-1 ring-warning/30' : 'hover:bg-accent/50'}`}>
                       <div className="flex items-center justify-between text-xs mb-0.5">
                         <span className={`font-medium truncate max-w-[180px] ${isActive ? 'text-warning' : 'text-foreground'}`}>{p.position}</span>

@@ -193,7 +193,7 @@ const queryExportData = async (opts = {}) => {
  * @param {Array} records  Output from queryExportData
  * @returns {Buffer} Excel file as a Buffer
  */
-const generateExcel = async (records) => {
+const generateExcel = async (records, streamRes = null) => {
   const workbook = new ExcelJS.Workbook();
   workbook.creator = 'TMS Export';
   workbook.created = new Date();
@@ -263,7 +263,13 @@ const generateExcel = async (records) => {
     to: { row: 1, column: sheet.columns.length },
   };
 
-  // ── Generate buffer ──────────────────────────────────────
+  // ── Generate output ──────────────────────────────────────
+  // PERF-001: If a writable stream (Express res) is provided,
+  // stream directly to it instead of buffering in memory.
+  if (streamRes && typeof streamRes.pipe === 'function') {
+    await workbook.xlsx.write(streamRes);
+    return null; // caller must not call res.send()
+  }
   return workbook.xlsx.writeBuffer();
 };
 
@@ -312,10 +318,16 @@ const exportAttendance = async (opts = {}) => {
       throw new ServiceError('Không có bản ghi nào để xuất (No records found)', 404);
     }
     enforceRowCap(records.length, 'attendance');
-    const buffer = await generateExcel(records);
     const now = new Date();
     const dateStr = now.toISOString().slice(0, 10).replace(/-/g, '');
     const filename = `TMS_Attendance_${dateStr}_${records.length}records.xlsx`;
+    // PERF-001: stream if res provided
+    if (opts.res && typeof opts.res.pipe === 'function') {
+      if (opts.beforeWrite) opts.beforeWrite({ filename, recordCount: records.length, markedCount: 0 });
+      await generateExcel(records, opts.res);
+      return { buffer: null, filename, recordCount: records.length, markedCount: 0 };
+    }
+    const buffer = await generateExcel(records);
     return { buffer, filename, recordCount: records.length, markedCount: 0 };
   }
 
@@ -371,8 +383,29 @@ const exportAttendance = async (opts = {}) => {
   // 3. Query our claimed records with full pipeline joins for Excel generation.
   const records = await queryExportData({ ...opts, batchId });
 
-  // 4. Generate Excel
-  const buffer = await generateExcel(records);
+  // 4. Generate Excel (PERF-001: stream if res provided)
+  //    All response headers MUST be set before workbook.xlsx.write(res)
+  //    because Express flushes headers on the first write().
+  const now2 = new Date();
+  const dateStr2 = now2.toISOString().slice(0, 10).replace(/-/g, '');
+  const filename2 = `TMS_Attendance_${dateStr2}_${records.length}records.xlsx`;
+
+  let buffer;
+  if (opts.res && typeof opts.res.pipe === 'function') {
+    // Call the beforeWrite callback so the controller can set all headers
+    // before the stream starts writing data.
+    if (opts.beforeWrite) {
+      opts.beforeWrite({
+        filename: filename2,
+        recordCount: records.length,
+        markedCount: claimedResult.modifiedCount,
+      });
+    }
+    await generateExcel(records, opts.res);
+    buffer = null;
+  } else {
+    buffer = await generateExcel(records);
+  }
 
   // 5. Mark only our claimed records as EXPORTED.
   //    Because we claimed exactly the records we'll export, every claimed
@@ -382,11 +415,7 @@ const exportAttendance = async (opts = {}) => {
     { $set: { syncStatus: 'EXPORTED', exportedAt: new Date() } }
   );
 
-  const now = new Date();
-  const dateStr = now.toISOString().slice(0, 10).replace(/-/g, '');
-  const filename = `TMS_Attendance_${dateStr}_${records.length}records.xlsx`;
-
-  return { buffer, filename, recordCount: records.length, markedCount: markedResult.modifiedCount };
+  return { buffer, filename: filename2, recordCount: records.length, markedCount: markedResult.modifiedCount };
 };
 
 /**
@@ -507,7 +536,7 @@ const buildEvaluationPipeline = ({ from, to, classId } = {}) => {
 
 const queryEvaluationData = async (opts = {}) => Evaluation.aggregate(buildEvaluationPipeline(opts));
 
-const generateEvaluationExcel = async (records) => {
+const generateEvaluationExcel = async (records, streamRes = null) => {
   const workbook = new ExcelJS.Workbook();
   workbook.creator = 'TMS Export';
   workbook.created = new Date();
@@ -563,6 +592,12 @@ const generateEvaluationExcel = async (records) => {
     to: { row: 1, column: sheet.columns.length },
   };
 
+  // PERF-001: If a writable stream (Express res) is provided,
+  // stream directly to it instead of buffering in memory.
+  if (streamRes && typeof streamRes.pipe === 'function') {
+    await workbook.xlsx.write(streamRes);
+    return null; // caller must not call res.send()
+  }
   return workbook.xlsx.writeBuffer();
 };
 
@@ -576,11 +611,18 @@ const exportEvaluations = async (opts = {}) => {
   // PERF-001 (audit PR D): same hard cap as attendance export.
   enforceRowCap(records.length, 'evaluations');
 
-  const buffer = await generateEvaluationExcel(records);
   const now = new Date();
   const dateStr = now.toISOString().slice(0, 10).replace(/-/g, '');
   const filename = `TMS_Evaluations_${dateStr}_${records.length}records.xlsx`;
 
+  // PERF-001: stream directly to response if res provided
+  if (opts.res && typeof opts.res.pipe === 'function') {
+    if (opts.beforeWrite) opts.beforeWrite({ filename, recordCount: records.length });
+    await generateEvaluationExcel(records, opts.res);
+    return { buffer: null, filename, recordCount: records.length };
+  }
+
+  const buffer = await generateEvaluationExcel(records);
   return { buffer, filename, recordCount: records.length };
 };
 
