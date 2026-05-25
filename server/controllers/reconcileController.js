@@ -1,5 +1,6 @@
 const ReconcileReport = require('../models/ReconcileReport');
 const { runReconciliation } = require('../services/reconcileService');
+const auditService = require('../services/auditService');
 const { handleError } = require('../helpers/handleError');
 
 // ──────────────────────────────────────────────────────────
@@ -78,6 +79,15 @@ const getReportById = async (req, res) => {
 const triggerRun = async (req, res) => {
   try {
     const report = await runReconciliation('manual');
+    // Audit PR L (SEC-013): manual reconcile runs are audited so an admin
+    // can answer "who kicked off that 02:14 reconcile" without grep.
+    auditService.record({
+      req,
+      action: 'reconciled',
+      entity: 'Reconcile',
+      entityId: report._id || null,
+      note: `manual run — status=${report.status}, total issues=${report.summary?.total ?? '?'}`,
+    });
     const statusCode = report.status === 'ok' ? 200 : 200; // always 200; client reads report.status
     res.status(statusCode).json({ success: true, data: report });
   } catch (err) {
