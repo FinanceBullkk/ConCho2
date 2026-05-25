@@ -30,12 +30,17 @@ test.describe('Permissions / RBAC', () => {
       .toBeVisible();
   });
 
-  test('Admin sees "+ New Team" button on People → Teams tab', async ({ adminPage }) => {
+  test('Admin sees the create-team action on People → Teams tab', async ({ adminPage }) => {
     await adminPage.goto('/people?tab=teams');
     await expect(adminPage.getByRole('heading', { name: /^Teams$/ }))
       .toBeVisible({ timeout: 10_000 });
-    await expect(adminPage.getByRole('button', { name: /\+ new team/i }).first())
-      .toBeVisible();
+    // TeamsPage's create button text is still Vietnamese ("+ Tạo nhóm")
+    // because page-level i18n on TeamsPage has not landed yet (tracked as
+    // part of FE-015). Match either copy so the test does not block the
+    // pending i18n migration.
+    await expect(
+      adminPage.getByRole('button', { name: /\+ (new team|tạo nhóm)/i }).first(),
+    ).toBeVisible();
   });
 
   test('Participant cannot reach the People section (Admin-only)', async ({ participantPage }) => {
@@ -50,18 +55,17 @@ test.describe('Permissions / RBAC', () => {
 
   test('Participant landing on /home shows the participant-scoped dashboard', async ({ participantPage }) => {
     await expect(participantPage).toHaveURL(/\/(home|dashboard)$/);
-    // Sign-out (i18n key nav.signOut → "Sign out" in EN) should be reachable
-    // for any authenticated user. The navbar exposes it inside the account
-    // menu, so click the menu opener first.
-    const accountTrigger = participantPage.getByRole('button', { name: /open account menu|account/i }).first();
-    if (await accountTrigger.isVisible().catch(() => false)) {
-      await accountTrigger.click();
-    }
+    // Sign-out (i18n key nav.signOut → "Sign out" in EN) lives inside the
+    // AvatarMenu Radix DropdownMenu (Navbar.jsx:162-168). Open the menu by
+    // clicking the trigger button (aria-label "Open account menu"), then
+    // the menuitem becomes visible.
+    const accountTrigger = participantPage.getByRole('button', { name: /open account menu/i });
+    await expect(accountTrigger).toBeVisible({ timeout: 10_000 });
+    await accountTrigger.click();
+    // Radix renders the menu item with role="menuitem". The icon is
+    // aria-hidden so the accessible name is exactly the i18n string.
     await expect(
-      participantPage.getByRole('button', { name: /^Sign out$/i })
-        .or(participantPage.getByRole('menuitem', { name: /^Sign out$/i }))
-        .or(participantPage.getByRole('link', { name: /^Sign out$/i }))
-        .first(),
+      participantPage.getByRole('menuitem', { name: /sign out/i }).first(),
     ).toBeVisible({ timeout: 5_000 });
   });
 });
