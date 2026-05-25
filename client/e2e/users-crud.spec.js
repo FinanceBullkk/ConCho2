@@ -18,6 +18,11 @@ import { test, expect } from './fixtures.js';
  *
  * Pre-req: server seeded (npm run seed) and reachable; MFA disabled on
  * the seed admin (default).
+ *
+ * Audit PR X (P2-09): updated for the IA-S2 route move
+ *   /users → /people?tab=users  (UsersPage is now a tab inside PeoplePage)
+ * The inner page's "User Management" heading and "+ New User" button are
+ * unchanged — only the URL we navigate to changed.
  */
 
 const uniqueCode = () =>
@@ -34,13 +39,20 @@ test.describe('Users — CRUD smoke', () => {
 
     try {
       // ── 1) Navigate ────────────────────────────────────
-      await adminPage.goto('/users');
+      await adminPage.goto('/people?tab=users');
+      // PeoplePage's PageHeader emits "People" as h1; the nested
+      // UsersPage emits "User Management" as its own h1. Asserting on
+      // the inner one proves the tab content actually rendered (the
+      // outer header would be visible even with a tab-loading error).
       await expect(
-        adminPage.getByRole('heading', { name: /user management/i }),
-      ).toBeVisible();
+        adminPage.getByRole('heading', { name: /^User Management$/ }),
+      ).toBeVisible({ timeout: 10_000 });
 
       // ── 2) Open the Create modal ───────────────────────
-      await adminPage.getByRole('button', { name: /\+ New User/i }).click();
+      // The page may include other "New User"-named controls in
+      // alternate UI surfaces; scope to the first match (the primary
+      // action button in the PageHeader-adjacent actions row).
+      await adminPage.getByRole('button', { name: /\+ New User/i }).first().click();
       await expect(
         adminPage.getByRole('heading', { name: /create user/i }),
       ).toBeVisible();
@@ -61,7 +73,7 @@ test.describe('Users — CRUD smoke', () => {
       // ── 5) Find the row by searching for the empCode ───
       // Search is debounced & URL-synced; wait for the URL update so we
       // know the query has run.
-      const search = adminPage.getByPlaceholder(/search/i);
+      const search = adminPage.getByPlaceholder(/search/i).first();
       await search.fill(empCode);
       await expect(adminPage).toHaveURL(new RegExp(`[?&]search=${empCode}`), {
         timeout: 5_000,
