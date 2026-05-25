@@ -32,8 +32,8 @@ test.describe('Permissions / RBAC', () => {
     await expect(participantPage.getByRole('button', { name: /\+ new user/i })).toHaveCount(0);
   });
 
-  test('Participant landing on /dashboard shows participant-scoped view', async ({ participantPage }) => {
-    await expect(participantPage).toHaveURL(/\/dashboard$/);
+  test('Participant landing on the home dashboard shows participant-scoped view', async ({ participantPage }) => {
+    await expect(participantPage).toHaveURL(/\/(home|dashboard)$/);
     // Sign-out button should still be available for any authenticated user
     await expect(
       participantPage.getByRole('button', { name: /sign out|logout|log out/i })

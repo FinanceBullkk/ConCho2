@@ -33,10 +33,28 @@ const exportAttendance = async (req, res) => {
       return res.json({ success: true, count: records.length, data: records });
     }
 
-    // Excel download mode (default)
+    // PERF-001: Excel download mode — stream directly to response
+    // to avoid buffering the entire workbook in server memory.
+    //
+    // beforeWrite callback: the service calls this only when it has
+    // confirmed there are records to write, then sets ALL of the
+    // streaming headers atomically. Setting Content-Type up front broke
+    // the empty-DB error path: handleError(res, ServiceError(404))
+    // would emit a JSON body but the xlsx Content-Type was already
+    // committed, so supertest parsed the body as Buffer and assertions
+    // on res.body.success failed.
+    const beforeWrite = ({ filename: fn, recordCount: rc, markedCount: mc }) => {
+      res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+      res.setHeader('Content-Disposition', `attachment; filename="${fn}"`);
+      res.setHeader('X-TMS-Record-Count', rc);
+      res.setHeader('X-TMS-Marked-Exported', mc);
+    };
+
     const { buffer, filename, recordCount, markedCount } = await exportService.exportAttendance({
       from, to,
       includeExported: includeExported === 'true',
+      res,
+      beforeWrite,
     });
 
     auditService.record({
@@ -46,12 +64,15 @@ const exportAttendance = async (req, res) => {
       note: `attendance.xlsx — ${recordCount} rows, ${markedCount} marked-exported, range=${from || '-'}..${to || '-'}`,
     });
 
-    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
-    res.setHeader('X-TMS-Record-Count', recordCount);
-    res.setHeader('X-TMS-Marked-Exported', markedCount);
-
-    res.send(buffer);
+    // If streaming succeeded (buffer is null), data was already written.
+    // Otherwise send the buffer (headers still need setting for non-stream).
+    if (buffer) {
+      res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+      res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+      res.setHeader('X-TMS-Record-Count', recordCount);
+      res.setHeader('X-TMS-Marked-Exported', markedCount);
+      res.send(buffer);
+    }
   } catch (error) {
     handleError(res, error);
   }
@@ -90,8 +111,19 @@ const exportEvaluations = async (req, res) => {
       return res.json({ success: true, count: records.length, data: records });
     }
 
+    // PERF-001: Stream directly to response. Same pattern as
+    // exportAttendance — defer ALL headers to beforeWrite so an early
+    // ServiceError(404) lets handleError emit a JSON body without a
+    // pre-committed xlsx Content-Type confusing the client.
+    const beforeWriteEval = ({ filename: fn, recordCount: rc }) => {
+      res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+      res.setHeader('Content-Disposition', `attachment; filename="${fn}"`);
+      res.setHeader('X-TMS-Record-Count', rc);
+    };
+
     const { buffer, filename, recordCount } = await exportService.exportEvaluations({
-      from, to, classId,
+      from, to, classId, res,
+      beforeWrite: beforeWriteEval,
     });
 
     auditService.record({
@@ -101,11 +133,12 @@ const exportEvaluations = async (req, res) => {
       note: `evaluations.xlsx — ${recordCount} rows, classId=${classId || '-'}, range=${from || '-'}..${to || '-'}`,
     });
 
-    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
-    res.setHeader('X-TMS-Record-Count', recordCount);
-
-    res.send(buffer);
+    if (buffer) {
+      res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+      res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+      res.setHeader('X-TMS-Record-Count', recordCount);
+      res.send(buffer);
+    }
   } catch (error) {
     handleError(res, error);
   }

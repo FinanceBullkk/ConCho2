@@ -1,5 +1,6 @@
 const cron = require('node-cron');
 const { runReconciliation } = require('../services/reconcileService');
+const auditService = require('../services/auditService');
 const logger = require('../lib/logger');
 
 // ──────────────────────────────────────────────────────────
@@ -39,9 +40,28 @@ function startReconcileJob() {
   task = cron.schedule(CRON_SCHEDULE, async () => {
     logger.info({ schedule: CRON_SCHEDULE }, 'Reconciliation cron fired');
     try {
-      await runReconciliation('scheduled');
+      const report = await runReconciliation('scheduled');
+
+      // SEC-013: audit-log the scheduled reconcile run
+      // auditService.record() accepts undefined req — defaults to actorRole: 'System'
+      await auditService.record({
+        req: undefined,
+        action: 'reconciled',
+        entity: 'Reconcile',
+        entityId: report?._id || null,
+        note: `scheduled run — status=${report?.status}, total issues=${report?.summary?.total ?? '?'}`,
+      });
     } catch (err) {
       logger.error({ err }, 'Reconciliation cron job failed');
+
+      // Audit-log the failure too for compliance
+      await auditService.record({
+        req: undefined,
+        action: 'reconcile-failed',
+        entity: 'Reconcile',
+        entityId: null,
+        note: `scheduled run failed — ${err.message}`,
+      }).catch(() => {}); // swallow audit errors so they don't mask the original failure
     }
   }, {
     timezone: 'UTC',
