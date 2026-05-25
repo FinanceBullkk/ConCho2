@@ -68,18 +68,19 @@ describe('csrfProtection — safe methods pass through', () => {
 });
 
 // ── Exempt routes ─────────────────────────────────────────
-// csrfProtection is mounted as app.use('/api', csrfProtection).
-// Express strips the '/api' prefix, so req.path = '/cron/reconcile'.
-// EXEMPT_PREFIXES = ['/cron/'] matches these stripped paths correctly.
+// csrfProtection exempts cron routes by checking req.originalUrl
+// (full path, never stripped). EXEMPT_PREFIXES = ['/api/cron/'].
 
 describe('csrfProtection — cron routes are exempt', () => {
-  test('POST /cron/reconcile passes without X-CSRF-Token (Express-stripped path)', () => {
+  test('POST /api/cron/reconcile passes without X-CSRF-Token', () => {
     const req = mockReq({
       method: 'POST',
-      path: '/cron/reconcile', // after /api mount strip
+      path: '/cron/reconcile',         // Express-stripped path (kept for reference)
       cookies: { [CSRF_COOKIE]: VALID_TOKEN },
       headers: {},
     });
+    // Override originalUrl to the full path the middleware now checks
+    req.originalUrl = '/api/cron/reconcile';
     const res = mockRes();
     const next = jest.fn();
     csrfProtection(req, res, next);
@@ -87,13 +88,14 @@ describe('csrfProtection — cron routes are exempt', () => {
     expect(res.statusCode).toBe(200);
   });
 
-  test('POST /cron/health passes without X-CSRF-Token', () => {
+  test('POST /api/cron/health passes without X-CSRF-Token', () => {
     const req = mockReq({
       method: 'POST',
       path: '/cron/health',
       cookies: { [CSRF_COOKIE]: VALID_TOKEN },
       headers: {},
     });
+    req.originalUrl = '/api/cron/health';
     const res = mockRes();
     const next = jest.fn();
     csrfProtection(req, res, next);
