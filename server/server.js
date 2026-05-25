@@ -160,6 +160,10 @@ app.use((req, res, next) => {
   if (req.headers.origin) return next();              // Origin present → CORS handles it
   if (isSafeMethod(req.method)) return next();         // GET/HEAD/OPTIONS without origin = browser nav or probe
   if (NO_ORIGIN_ALLOWLIST.has(req.path)) return next();
+  // Cron endpoints are called by cron-job.org (an HTTP client, not a browser)
+  // so they never carry an Origin header. They are authenticated by CRON_TOKEN
+  // via cronAuth — safe to exempt from the no-origin write guard.
+  if (req.path.startsWith('/api/cron/')) return next();
   return res.status(403).json({
     success: false,
     message: 'Cross-origin write requests require a valid Origin header in production',
