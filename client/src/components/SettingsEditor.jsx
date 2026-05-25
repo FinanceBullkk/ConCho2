@@ -21,7 +21,16 @@ import { cn } from '@/lib/utils';
 function unwrapComponent(mod) {
   let cur = mod;
   // Bounded to 4 hops — any reasonable interop wraps at most twice.
-  for (let i = 0; i < 4 && cur && typeof cur !== 'function'; i++) {
+  for (let i = 0; i < 4; i++) {
+    if (cur == null) return cur;
+    // Stop at any valid React element type: a plain function (function or
+    // class component), or an object with `$$typeof` (forwardRef / memo /
+    // lazy result — react-simple-code-editor's Editor is a forwardRef so
+    // this is the path the unwrap usually exits through).
+    if (typeof cur === 'function') return cur;
+    if (typeof cur === 'object' && cur.$$typeof) return cur;
+    // Nothing further to unwrap.
+    if (!('default' in cur)) return cur;
     cur = cur.default;
   }
   return cur;
