@@ -6,7 +6,13 @@ export default function ProtectedRoute({ children, roles }) {
   const { user, loading } = useAuth();
   const location = useLocation();
 
-  if (loading) {
+  // Audit PR O (FE-006): only show the loading spinner when there is NO
+  // cached user. AuthContext seeds `user` from localStorage on boot, so
+  // a returning user can render the protected page optimistically while
+  // /auth/me is still in-flight. If /auth/me later fails the response
+  // interceptor (api.js) dispatches `auth-expired` and the user is
+  // booted to /login — same result as before, just without the FOUC.
+  if (loading && !user) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <Spinner size={32} />

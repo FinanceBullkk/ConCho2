@@ -1,8 +1,16 @@
 import axios from 'axios';
 
+// ── Audit PR O (FE-011): 30s default timeout ─────────────
+// Without a timeout, a stalled connection (Render cold start, dropped
+// keep-alive, slow network) leaves the request hanging indefinitely;
+// the spinner spins forever and users smash refresh. 30 seconds is
+// the same ceiling we set on `exportLimiter` server-side. Per-call
+// overrides (e.g. uploads) can pass `{ timeout: 60_000 }` on the
+// individual axios call.
 const api = axios.create({
   baseURL: '/api',
   headers: { 'Content-Type': 'application/json' },
+  timeout: 30_000,
   // ── SECURITY FIX (SEC-03): Send HttpOnly cookies with every request ──
   // The JWT is now stored in an HttpOnly cookie set by the server.
   // withCredentials tells axios to include cookies on cross-origin requests.
@@ -30,14 +38,24 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
-// ── Response interceptor: Handle 401 globally ─────────────
-// Skip for /auth/me — AuthContext handles that gracefully
-// to avoid a hard-redirect loop on page load.
+// ── Response interceptor: 401 expired sessions + 403 CSRF refresh ─────────
+// Skip /auth/me for the 401 branch — AuthContext handles that gracefully
+// so we don't hard-redirect on page load.
+//
+// Audit PR O (FE-012): the CSRF cookie has a 24h maxAge but is also
+// rotated on every login/logout. If a tab is left open across a rotation
+// (or a logout in another tab) the next write hits 403 "CSRF token
+// invalid or missing". Fetching /api/auth/csrf sets a fresh cookie via
+// Set-Cookie; we then re-emit the original request once. The retry is
+// marked with config.__csrfRetried so we never loop indefinitely.
 api.interceptors.response.use(
   (res) => res,
-  (error) => {
-    if (error.response?.status === 401) {
-      const url = error.config?.url || '';
+  async (error) => {
+    const status = error.response?.status;
+    const config = error.config || {};
+
+    if (status === 401) {
+      const url = config.url || '';
       // Skip auth endpoints — login/me failures are handled by their own UI.
       // Only fire auth-expired for protected API calls that fail mid-session.
       if (!url.includes('/auth/')) {
@@ -46,7 +64,31 @@ api.interceptors.response.use(
         localStorage.removeItem('tms_user');
         window.dispatchEvent(new Event('auth-expired'));
       }
+      return Promise.reject(error);
     }
+
+    if (status === 403 && !config.__csrfRetried) {
+      // CSRF middleware returns the literal message below on mismatch
+      // (see server/middleware/csrfProtection.js). Match on substring so
+      // copy tweaks don't silently break the refresh path.
+      const msg = error.response?.data?.message || '';
+      if (msg.toLowerCase().includes('csrf')) {
+        try {
+          await api.get('/auth/csrf'); // Set-Cookie refreshes csrf-token
+          config.__csrfRetried = true;
+          // Replace the (now-stale) header with the fresh token before retry.
+          const fresh = getCsrfCookie();
+          if (fresh) config.headers['X-CSRF-Token'] = fresh;
+          return api(config);
+        } catch {
+          // Surface the original 403 if the refresh itself failed (e.g.
+          // server down). Don't replace it with a less-informative
+          // network error — the user still needs to see the auth failure.
+          return Promise.reject(error);
+        }
+      }
+    }
+
     return Promise.reject(error);
   }
 );
