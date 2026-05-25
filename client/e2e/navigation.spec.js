@@ -9,8 +9,10 @@ import { test, expect } from './fixtures.js';
  * uncaught errors in initial render.
  */
 
+// Router uses /home as the authenticated landing page; legacy
+// /dashboard redirects there. Listing /home avoids the redirect hop.
 const ADMIN_PAGES = [
-  { path: '/dashboard', heading: /dashboard|overview/i },
+  { path: '/home',      heading: /dashboard|overview|home/i },
   { path: '/users',     heading: /user management/i },
   { path: '/teams',     heading: /team management/i },
   { path: '/classes',   heading: /class management/i },

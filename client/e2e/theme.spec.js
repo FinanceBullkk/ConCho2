@@ -13,7 +13,7 @@ import { test, expect } from './fixtures.js';
 
 test.describe('Theme toggle', () => {
   test('toggles dark mode and persists across reload', async ({ adminPage }) => {
-    await adminPage.goto('/dashboard');
+    await adminPage.goto('/home');
 
     // Read initial state
     const initialDark = await adminPage.evaluate(() =>
