@@ -286,6 +286,27 @@ jobs:
           NODE_ENV: test
         run: node seed.js
 
+      - name: Clear mustChangePassword on seed users
+        # Seed admin (000001) is normally created with mustChangePassword=true
+        # so the first real login forces a password change — but in E2E that
+        # modal (z-9999, click-event eating overlay) blocks every test. Flip
+        # it off for the seeded users before Playwright starts.
+        working-directory: server
+        env:
+          MONGO_URI: mongodb://localhost:27017/tms_e2e?replicaSet=rs0
+        run: |
+          node -e "
+          (async () => {
+            const m = require('mongoose');
+            await m.connect(process.env.MONGO_URI);
+            const r = await m.connection.db.collection('users').updateMany(
+              {}, { \$set: { mustChangePassword: false } }
+            );
+            console.log('Cleared mustChangePassword on', r.modifiedCount, 'users');
+            await m.disconnect();
+          })().catch((e) => { console.error(e); process.exit(1); });
+          "
+
       - name: Start API server in background
         working-directory: server
         env:
