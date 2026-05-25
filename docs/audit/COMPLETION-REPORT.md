@@ -1,9 +1,9 @@
 # Audit Completion Report
 
 **Session dates:** 2026-05-24 → 2026-05-25
-**Last update:** 2026-05-25 — Sprint 1 of P1 backlog merged (PRs K, L, M, N).
-**Total PRs merged:** 23 code PRs + 2 CI hotfixes + 4 hot-fixes (cron / CORS / CSRF / output cap) = **29 commits on main**
-**Findings resolved:** 55 of 71 tracked finding IDs (was 47 at end of audit session)
+**Last update:** 2026-05-25 — Sprint 2 merged (PRs O, P, Q, R, S).
+**Total PRs merged:** 28 code PRs + 2 CI hotfixes + 4 hot-fixes (cron / CORS / CSRF / output cap) + 1 PR-P CI fix = **35 commits on main**
+**Findings resolved:** 64 of 71 tracked finding IDs (was 55 after Sprint 1)
 
 ---
 
@@ -34,8 +34,18 @@
 | #29 | `audit/pr-l-sec013-audit-logging`     | security: expand audit log to 10 sensitive endpoints (import/export/sync/settings/reconcile/passwordReset/lockout/MFA-fail/CSRF/cron-auth) | SEC-013 |
 | #30 | `audit/pr-m-authz004-class-read-gate` | authz: gate GET /api/classes/:id for Participant by enrollment existence | AUTHZ-004 |
 | #31 | `audit/pr-n-fe010-radix-dialog`       | fe: migrate UsersPage modal to Radix Dialog (focus-trap + ARIA) | FE-010 (partial — UsersPage only) |
+| #32 | `audit/pr-o-fe-plumbing`              | fe: axios timeout + CSRF refresh on 403 + ProtectedRoute optimistic render | FE-006, FE-011, FE-012 |
+| #33 | `audit/pr-p-fe009-errorboundary-i18n` | fe: localise ErrorBoundary via react-i18next | FE-009 |
+| #34 | `audit/pr-q-data008-soft-delete-suffix` | data: free empCode + email slots on soft-delete (suffix approach) | DATA-008 |
+| #35 | `audit/pr-r-fe010-modals-teams-classes` | fe: migrate TeamsPage + ClassesPage modals to Radix Dialog | FE-010 (continued) |
+| #36 | `audit/pr-s-fe010-modals-classdetail-eval` | fe: migrate ClassDetailPage + EvaluationPage modals to Radix Dialog | FE-010 (final — all 5 modals done) |
 
-> **Note — PR i (DATA-008) was abandoned:** Attempted to add partial unique index on
+> **Note — PR i (DATA-008) was abandoned and superseded by PR Q:**
+> PR i used partial-unique indexes; that crashed MongoMemoryReplSet on
+> Windows. PR Q uses a suffix-mutation approach instead — works in CI,
+> works on Windows, doesn't touch the index spec.
+>
+> **Note — original PR i comment:** Attempted to add partial unique index on
 > `User.empCode`/`email` excluding soft-deleted rows. Both `{ isDeleted: { $ne: true } }`
 > and `{ isDeleted: false }` caused `MongoMemoryReplSet` fassert crash on Windows.
 > Decision: revert. DATA-008 is hardening (empCode reuse after soft-delete), not a launch
@@ -104,7 +114,7 @@ Legend: ✅ Done · ⚠️ Partial · ❌ Not done · 🔧 Out-of-band (operator
 | DATA-005 | cancelSlot deletes past attendance | ✅ Past-guard added | #13 |
 | DATA-006 | Class hard-delete cascades Evaluations | ✅ Soft-delete added | #13 |
 | DATA-007 | Team.aggregate lacks soft-delete hook | ✅ Pre-hook added | #13 |
-| DATA-008 | User.empCode/email partial unique (soft-delete aware) | ❌ **Abandoned** (PR i crashed MongoMemoryReplSet) | — |
+| DATA-008 | User.empCode/email partial unique (soft-delete aware) | ✅ via suffix-mutation (sidesteps the partial-index crash from PR i) | #34 |
 | DATA-009 | $lookup to users ignores soft-delete | ✅ | #19 |
 | DATA-010 | importService can silently elevate roles | ✅ Role scrub added | #19 |
 | DATA-011 | Reconcile misses 14 drift classes | ✅ 5 new checks added | #21 |
@@ -131,13 +141,15 @@ Legend: ✅ Done · ⚠️ Partial · ❌ Not done · 🔧 Out-of-band (operator
 | FE-003 | AuthContext multi-tab unsafe + no queryClient.clear | ✅ | #15 |
 | FE-004 | DatabaseExplorer.STATUS_ENUMS.role wrong | ✅ | #15 |
 | FE-005 | Default mutation double-toasts + retry | ✅ retry off + meta opt-out | #28 |
-| FE-006 | ProtectedRoute blocks until /auth/me | ❌ High — deferred |
+| FE-006 | ProtectedRoute blocks until /auth/me | ✅ optimistic render with cached user | #32 |
 | FE-007 | Reports tab routes Teacher to admin tabs | ✅ per-tab perm filter | #28 |
 | FE-008 | usersAPI.sendInvite does not exist | ✅ dead branch removed | #28 |
-| FE-009 | ErrorBoundary hard-codes Vietnamese | ❌ High — deferred |
-| FE-010 | Hand-rolled modals lack focus-trap / ARIA | ⚠️ Partial — UsersPage migrated to Radix Dialog (#31); TeamsPage/ClassesPage/ClassDetailPage/EvaluationPage still hand-rolled |
-| FE-011 | axios has no timeout | ❌ Medium — deferred |
-| FE-012 | CSRF token not refreshed on expiry | ❌ Medium — deferred |
+| FE-009 | ErrorBoundary hard-codes Vietnamese | ✅ migrated to i18n keys | #33 |
+| FE-010 | Hand-rolled modals lack focus-trap / ARIA | ✅ all 5 modals on Radix Dialog | #31, #35, #36 |
+| FE-011 | axios has no timeout | ✅ 30s default timeout | #32 |
+| FE-012 | CSRF token not refreshed on expiry | ✅ refresh-and-retry on 403 | #32 |
+| FE-011 | (duplicate row — see above for closure status) | — |
+| FE-012 | (duplicate row — see above for closure status) | — |
 | FE-013 | Client Sentry incomplete | ✅ setUser + source-map upload + beforeSend scrub | #17 |
 | FE-014 | useTheme.js competes with next-themes | ❌ Medium — deferred |
 | FE-015 | i18n migration ~30% complete | ❌ Medium — continuous, Phase 5 |
