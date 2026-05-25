@@ -1,7 +1,9 @@
 import { useState, useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { RefreshCw } from 'lucide-react';
-import Portal from '../components/Portal';
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription,
+} from '@/components/ui/dialog';
 import { useClasses, useCourses, useCreateClass, useUpdateClass, useDeleteClass } from '../hooks/useClasses';
 import { useTeams } from '../hooks/useTeams';
 import { useRole } from '../hooks/useRole';
@@ -58,30 +60,34 @@ function NewCohortModal({ courseNames, onClose, onSaved }) {
     }
   };
 
+  // Audit PR R (FE-010): Radix Dialog — focus-trap, ESC, ARIA.
   return (
-    <Portal>
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60" onClick={onClose}>
-      <form onSubmit={handleSubmit} onClick={(e) => e.stopPropagation()}
-        className="bg-card border border-border rounded-lg p-6 w-full max-w-md mx-4 space-y-4 ">
-        <h2 className="text-h3 text-foreground">🆕 Create New Cohort</h2>
-        <p className="text-sm text-muted-foreground">A new class code (e.g. EL002) will be auto-generated.</p>
-        {error && <div className="px-4 py-2 rounded-md bg-destructive-tint border border-destructive/30 text-destructive text-sm">{error}</div>}
-        <div>
-          <label className="block text-small text-muted-foreground mb-1">First Course</label>
-          <select value={courseName} onChange={(e) => setCourseName(e.target.value)}
-            className="w-full px-3 h-[--control-h] rounded-md bg-background border border-input text-foreground focus:outline-none focus:ring-2 focus:ring-ring transition-colors">
-            {courseNames.map((c) => <option key={c} value={c} className="bg-popover">{c}</option>)}
-          </select>
-        </div>
-        <div className="flex gap-3 pt-2">
-          <Button type="button" variant="outline" onClick={onClose} className="flex-1">Cancel</Button>
-          <Button type="submit" disabled={createMutation.isPending} className="flex-1">
-            {createMutation.isPending ? 'Creating...' : 'Create Cohort'}
-          </Button>
-        </div>
-      </form>
-    </div>
-    </Portal>
+    <Dialog open onOpenChange={(open) => { if (!open) onClose(); }}>
+      <DialogContent className="max-w-md p-6 space-y-4" aria-label="Create cohort">
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <DialogHeader>
+            <DialogTitle className="text-h3 text-foreground">🆕 Create New Cohort</DialogTitle>
+            <DialogDescription className="text-sm text-muted-foreground">
+              A new class code (e.g. EL002) will be auto-generated.
+            </DialogDescription>
+          </DialogHeader>
+          {error && <div className="px-4 py-2 rounded-md bg-destructive-tint border border-destructive/30 text-destructive text-sm">{error}</div>}
+          <div>
+            <label className="block text-small text-muted-foreground mb-1">First Course</label>
+            <select value={courseName} onChange={(e) => setCourseName(e.target.value)}
+              className="w-full px-3 h-[--control-h] rounded-md bg-background border border-input text-foreground focus:outline-none focus:ring-2 focus:ring-ring transition-colors">
+              {courseNames.map((c) => <option key={c} value={c} className="bg-popover">{c}</option>)}
+            </select>
+          </div>
+          <div className="flex gap-3 pt-2">
+            <Button type="button" variant="outline" onClick={onClose} className="flex-1">Cancel</Button>
+            <Button type="submit" disabled={createMutation.isPending} className="flex-1">
+              {createMutation.isPending ? 'Creating...' : 'Create Cohort'}
+            </Button>
+          </div>
+        </form>
+      </DialogContent>
+    </Dialog>
   );
 }
 
@@ -117,21 +123,19 @@ function EditClassModal({ cls, onClose }) {
     }
   };
 
+  // Audit PR R (FE-010): Radix Dialog — focus-trap, ESC, ARIA.
   return (
-    <Portal>
-      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60" onClick={onClose}>
-        <form onSubmit={handleSubmit} onClick={(e) => e.stopPropagation()}
-          className="bg-card border border-border rounded-lg p-6 w-full max-w-md mx-4 space-y-4 ">
-          <div>
-            <h2 className="text-h3 text-foreground">
-              ✏️ Chỉnh sửa lớp
-            </h2>
-            <p className="text-sm text-muted-foreground mt-0.5">
+    <Dialog open onOpenChange={(open) => { if (!open) onClose(); }}>
+      <DialogContent className="max-w-md p-6 space-y-4" aria-label={`Edit class ${cls.classCode}`}>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <DialogHeader>
+            <DialogTitle className="text-h3 text-foreground">✏️ Chỉnh sửa lớp</DialogTitle>
+            <DialogDescription className="text-sm text-muted-foreground mt-0.5">
               <span className="font-mono text-primary">{cls.classCode}</span>
               <span className="text-subtle-foreground mx-1.5">·</span>
               {cls.courseName}
-            </p>
-          </div>
+            </DialogDescription>
+          </DialogHeader>
 
           {error && <div className="px-4 py-2 rounded-md bg-destructive-tint border border-destructive/30 text-destructive text-sm">{error}</div>}
 
@@ -179,8 +183,8 @@ function EditClassModal({ cls, onClose }) {
             )}
           </div>
         </form>
-      </div>
-    </Portal>
+      </DialogContent>
+    </Dialog>
   );
 }
 
