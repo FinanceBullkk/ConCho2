@@ -1,9 +1,9 @@
 # Audit Completion Report
 
 **Session dates:** 2026-05-24 → 2026-05-25
-**Final commit:** `6cbe75f` — PR #27 merged on `main`
-**Total PRs merged:** 19 code PRs + 2 CI hotfixes = **21 commits on main**
-**Findings resolved:** 47 of 71 tracked finding IDs
+**Last update:** 2026-05-25 — Sprint 1 of P1 backlog merged (PRs K, L, M, N).
+**Total PRs merged:** 23 code PRs + 2 CI hotfixes + 4 hot-fixes (cron / CORS / CSRF / output cap) = **29 commits on main**
+**Findings resolved:** 55 of 71 tracked finding IDs (was 47 at end of audit session)
 
 ---
 
@@ -30,6 +30,10 @@
 | #25 | `audit/pr-g-analytics-reconcile-perf` | perf: invert analyticsByTeam join + memoise reconcile active enrollments | PERF-003, PERF-004 |
 | #26 | `audit/pr-h-import-getusers-perf`     | perf: bulk import batch cap + User.lastActiveAt write-through cache | PERF-006, PERF-008 |
 | #27 | `audit/pr-j-phase5-maintainability`   | chore: promote client-lint to required + lint ratchet + users CRUD e2e | CODE-007 (ratchet), QA-002 (e2e spec) |
+| #28 | `audit/pr-k-fe-quick-wins`            | fe: disable mutation retry + permission-gate report tabs + remove dead invite branch | FE-005, FE-007, FE-008 |
+| #29 | `audit/pr-l-sec013-audit-logging`     | security: expand audit log to 10 sensitive endpoints (import/export/sync/settings/reconcile/passwordReset/lockout/MFA-fail/CSRF/cron-auth) | SEC-013 |
+| #30 | `audit/pr-m-authz004-class-read-gate` | authz: gate GET /api/classes/:id for Participant by enrollment existence | AUTHZ-004 |
+| #31 | `audit/pr-n-fe010-radix-dialog`       | fe: migrate UsersPage modal to Radix Dialog (focus-trap + ARIA) | FE-010 (partial — UsersPage only) |
 
 > **Note — PR i (DATA-008) was abandoned:** Attempted to add partial unique index on
 > `User.empCode`/`email` excluding soft-deleted rows. Both `{ isDeleted: { $ne: true } }`
@@ -73,7 +77,7 @@ Legend: ✅ Done · ⚠️ Partial · ❌ Not done · 🔧 Out-of-band (operator
 | SEC-010 | urlencoded body limits | ✅ | #10 |
 | SEC-011 | enrollmentRoutes lacks Zod | ✅ | #23 |
 | SEC-012 | create-admin ships admin12345 | ✅ | #23 |
-| SEC-013 | Audit-log gaps on 13 sensitive endpoints | ⚠️ Partial | adminDb path in #10; import/export/sync/settings/reconcile/reset/lockout/MFA-fail/CSRF/cron-auth **not yet added** |
+| SEC-013 | Audit-log gaps on 13 sensitive endpoints | ✅ | All 13 paths now audited — adminDb in #10, remaining 10 in #29 |
 | SEC-014 | getUsers schema drift (search param) | ❌ Low — not done | — |
 | SEC-015 | MFA verifyTokenWithReplay gap | ❌ Low — not done | — |
 | SEC-016 | forgotPassword swallows DB failures silently | ❌ Low — not done | — |
@@ -87,7 +91,7 @@ Legend: ✅ Done · ⚠️ Partial · ❌ Not done · 🔧 Out-of-band (operator
 | AUTHZ-001 | Evaluation has no teacher-class binding | ✅ | #12 |
 | AUTHZ-002 | Schedule unrestricted for Teacher | ✅ | #12 |
 | AUTHZ-003 | useRole disagrees with server | ✅ | #15 |
-| AUTHZ-004 | GET /api/classes/:id not gated for Participant | ❌ Medium — deferred | — |
+| AUTHZ-004 | GET /api/classes/:id not gated for Participant | ✅ | #30 |
 
 ### C-DATA — Data Integrity
 
@@ -126,12 +130,12 @@ Legend: ✅ Done · ⚠️ Partial · ❌ Not done · 🔧 Out-of-band (operator
 | FE-002 | useRole permission map lies | ✅ | #15 |
 | FE-003 | AuthContext multi-tab unsafe + no queryClient.clear | ✅ | #15 |
 | FE-004 | DatabaseExplorer.STATUS_ENUMS.role wrong | ✅ | #15 |
-| FE-005 | Default mutation double-toasts + retry | ❌ High — deferred |
+| FE-005 | Default mutation double-toasts + retry | ✅ retry off + meta opt-out | #28 |
 | FE-006 | ProtectedRoute blocks until /auth/me | ❌ High — deferred |
-| FE-007 | Reports tab routes Teacher to admin tabs | ❌ High — deferred |
-| FE-008 | usersAPI.sendInvite does not exist | ❌ High — deferred |
+| FE-007 | Reports tab routes Teacher to admin tabs | ✅ per-tab perm filter | #28 |
+| FE-008 | usersAPI.sendInvite does not exist | ✅ dead branch removed | #28 |
 | FE-009 | ErrorBoundary hard-codes Vietnamese | ❌ High — deferred |
-| FE-010 | Hand-rolled modals lack focus-trap / ARIA | ❌ High — deferred |
+| FE-010 | Hand-rolled modals lack focus-trap / ARIA | ⚠️ Partial — UsersPage migrated to Radix Dialog (#31); TeamsPage/ClassesPage/ClassDetailPage/EvaluationPage still hand-rolled |
 | FE-011 | axios has no timeout | ❌ Medium — deferred |
 | FE-012 | CSRF token not refreshed on expiry | ❌ Medium — deferred |
 | FE-013 | Client Sentry incomplete | ✅ setUser + source-map upload + beforeSend scrub | #17 |
