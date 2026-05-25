@@ -6,6 +6,9 @@ import { useEvaluations, useUpsertEvaluation, useDeleteEvaluation } from '../hoo
 import { useUsers } from '../hooks/useUsers';
 import { useDebounce } from '../hooks/useDebounce';
 import { DataTable } from '../components/DataTable';
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle,
+} from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Spinner } from '../components/Spinner';
 
@@ -137,29 +140,21 @@ function EvalModal({ classId, existingEval, preselectedUser, onClose }) {
     </div>
   );
 
+  // Audit PR S (FE-010): Radix Dialog — focus-trap, ESC, ARIA + a
+  // built-in close button (showCloseButton default true) replaces the
+  // hand-rolled X svg button in the header.
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
-      onClick={onClose}
-    >
-      <div
-        className="bg-card border border-border rounded-lg w-full max-w-lg shadow-xl"
-        onClick={(e) => e.stopPropagation()}
+    <Dialog open onOpenChange={(open) => { if (!open) onClose(); }}>
+      <DialogContent
+        className="max-w-lg p-0 gap-0"
+        aria-label={isEdit ? 'Edit evaluation' : 'Add evaluation'}
       >
         {/* Header */}
-        <div className="flex items-center justify-between p-5 border-b border-border">
-          <h3 className="text-base font-semibold text-foreground">
+        <DialogHeader className="p-5 border-b border-border">
+          <DialogTitle className="text-base font-semibold text-foreground">
             {isEdit ? 'Sửa đánh giá' : 'Thêm đánh giá'}
-          </h3>
-          <button
-            onClick={onClose}
-            className="text-muted-foreground hover:text-foreground transition-colors"
-          >
-            <svg className="size-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
-              <path d="M18 6 6 18M6 6l12 12" />
-            </svg>
-          </button>
-        </div>
+          </DialogTitle>
+        </DialogHeader>
 
         <form onSubmit={handleSubmit} className="p-5 space-y-4">
           {/* User */}
@@ -271,8 +266,8 @@ function EvalModal({ classId, existingEval, preselectedUser, onClose }) {
             </Button>
           </div>
         </form>
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   );
 }
 
