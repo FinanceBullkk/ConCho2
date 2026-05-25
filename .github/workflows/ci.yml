@@ -294,7 +294,10 @@ jobs:
           CRON_TOKEN: e2e-test-cron-token-not-used-anywhere-real-1234
           IMPORT_DEFAULT_PASSWORD: e2e-import-default-12345
           PORT: 5000
-          NODE_ENV: test
+          NODE_ENV: development
+          # pino defaults to silent when NODE_ENV=test; force info so we
+          # see Mongo connection + Express listen events in server.log.
+          LOG_LEVEL: info
           # SEC-006 server.js rejects no-origin in production; tests use
           # supertest-style requests via Playwright that DO send Origin,
           # but the bypass keeps us safe if NODE_ENV ever flips.
