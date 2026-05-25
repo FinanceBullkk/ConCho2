@@ -71,9 +71,15 @@ test.describe('Users — CRUD smoke', () => {
       await adminPage.getByRole('button', { name: /^Create$/ }).click();
 
       // ── 5) Find the row by searching for the empCode ───
-      // Search is debounced & URL-synced; wait for the URL update so we
-      // know the query has run.
-      const search = adminPage.getByPlaceholder(/search/i).first();
+      // Search is URL-synced via useListUrlState — wait for the URL
+      // update so we know the query has run. Pin to the UsersPage
+      // FilterBar's canonical placeholder copy (not generic /search/i)
+      // so we never accidentally match the navbar's Ctrl+K search button
+      // text on some breakpoints.
+      const search = adminPage.getByPlaceholder(
+        /Search by name, code, email, or department/i,
+      );
+      await expect(search).toBeVisible({ timeout: 7_000 });
       await search.fill(empCode);
       await expect(adminPage).toHaveURL(new RegExp(`[?&]search=${empCode}`), {
         timeout: 5_000,

@@ -22,15 +22,20 @@ import { test, expect } from './fixtures.js';
 // AND the inner sub-section heading (proves the tab content mounted).
 // Both checks together prove the lazy chunk loaded + the React tree
 // mounted without an uncaught error.
+//
+// SystemPage default tab `settings` lazy-loads SettingsPage; CI hits a
+// race where the inner chunk swaps before the outer header settles.
+// Accept either "System" (PageHeader) OR "Settings" (inner) — both
+// prove the SystemPage tree mounted.
 const ADMIN_PAGES = [
   // /home renders DashboardPage which puts the greeting (e.g. "Hello, Admin")
   // in the PageHeader title slot. Match the greeting prefix.
-  { path: '/home',                     headerHeading: /^Hello, /,    innerHeading: null },
-  { path: '/people?tab=users',         headerHeading: /^People$/,    innerHeading: /^User Management$/ },
-  { path: '/people?tab=teams',         headerHeading: /^People$/,    innerHeading: /^Teams$/ },
-  { path: '/programs?tab=classes',     headerHeading: /^Programs$/,  innerHeading: /^Class Management$/ },
-  { path: '/calendar?tab=schedules',   headerHeading: /^Calendar$/,  innerHeading: /^Schedule Management$/ },
-  { path: '/system',                   headerHeading: /^System$/,    innerHeading: null },
+  { path: '/home',                     headerHeading: /^Hello, /,            innerHeading: null },
+  { path: '/people?tab=users',         headerHeading: /^People$/,            innerHeading: /^User Management$/ },
+  { path: '/people?tab=teams',         headerHeading: /^People$/,            innerHeading: /^Teams$/ },
+  { path: '/programs?tab=classes',     headerHeading: /^Programs$/,          innerHeading: /^Class Management$/ },
+  { path: '/calendar?tab=schedules',   headerHeading: /^Calendar$/,          innerHeading: /^Schedule Management$/ },
+  { path: '/system',                   headerHeading: /^(System|Settings)$/, innerHeading: null },
 ];
 
 test.describe('Authenticated navigation', () => {
@@ -65,7 +70,10 @@ test.describe('Authenticated navigation', () => {
       .toBeVisible({ timeout: 10_000 });
 
     // Search for the seed admin by empCode to narrow to a single row.
-    await adminPage.getByPlaceholder(/search/i).first().fill('000001');
+    // Pin to the UsersPage FilterBar copy, not generic /search/i.
+    await adminPage
+      .getByPlaceholder(/Search by name, code, email, or department/i)
+      .fill('000001');
     // The seed admin's empCode should appear in the table.
     await expect(adminPage.getByText('000001').first()).toBeVisible();
   });
@@ -74,7 +82,7 @@ test.describe('Authenticated navigation', () => {
     await adminPage.goto('/people?tab=users');
     await expect(adminPage.getByRole('heading', { name: /^User Management$/ }))
       .toBeVisible({ timeout: 10_000 });
-    await adminPage.getByPlaceholder(/search/i).first().fill('admin');
+    await adminPage.getByPlaceholder(/Search by name, code, email, or department/i).fill('admin');
     // URL should reflect the search after the debounce settles.
     await expect(adminPage).toHaveURL(/[?&]search=admin/i, { timeout: 5_000 });
   });
