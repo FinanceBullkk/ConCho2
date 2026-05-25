@@ -23,6 +23,12 @@
     "openMenu": "Mở menu",
     "closeMenu": "Đóng menu"
   },
+  "errorBoundary": {
+    "title": "Đã xảy ra lỗi",
+    "body": "Ứng dụng gặp lỗi không mong muốn. Vui lòng tải lại trang.",
+    "reload": "Tải lại trang",
+    "retry": "Thử lại"
+  },
   "modals": {
     "authExpired": {
       "title": "Phiên đăng nhập đã hết hạn",
