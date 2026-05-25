@@ -1,9 +1,9 @@
 # Audit Completion Report
 
 **Session dates:** 2026-05-24 → 2026-05-25
-**Last update:** 2026-05-25 — Sprint 2 merged (PRs O, P, Q, R, S).
-**Total PRs merged:** 28 code PRs + 2 CI hotfixes + 4 hot-fixes (cron / CORS / CSRF / output cap) + 1 PR-P CI fix = **35 commits on main**
-**Findings resolved:** 64 of 71 tracked finding IDs (was 55 after Sprint 1)
+**Last update:** 2026-05-25 — Sprint 3 merged (PRs T, U, V).
+**Total PRs merged:** 31 code PRs + 2 CI hotfixes + 4 cron/CORS/CSRF/output hot-fixes + 8 in-PR follow-up fixes = **45+ commits on main**
+**Findings resolved:** 67 of 71 tracked finding IDs (was 64 after Sprint 2; +API-002, +CODE-007 ratchet 113, +P2-09 infra)
 
 ---
 
@@ -39,6 +39,9 @@
 | #34 | `audit/pr-q-data008-soft-delete-suffix` | data: free empCode + email slots on soft-delete (suffix approach) | DATA-008 |
 | #35 | `audit/pr-r-fe010-modals-teams-classes` | fe: migrate TeamsPage + ClassesPage modals to Radix Dialog | FE-010 (continued) |
 | #36 | `audit/pr-s-fe010-modals-classdetail-eval` | fe: migrate ClassDetailPage + EvaluationPage modals to Radix Dialog | FE-010 (final — all 5 modals done) |
+| #37 | `audit/pr-t-api002-paginate-teams`    | api: paginate getTeams + slim mode | API-002 |
+| #38 | `audit/pr-u-code007-lint-burndown`    | chore: tighten lint ratchet 138 → 113 | CODE-007 (ratchet step) |
+| #39 | `audit/pr-v-p2-09-playwright-ci`      | ci: add Playwright E2E job + 7 follow-up CI fixes (server boot, NODE_ENV, /home routing, exports, modal blocker, etc.) | P2-09 (infra — gate currently informational pending spec rewrite, see DEV-HANDOFF §2.4) |
 
 > **Note — PR i (DATA-008) was abandoned and superseded by PR Q:**
 > PR i used partial-unique indexes; that crashed MongoMemoryReplSet on
