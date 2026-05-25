@@ -23,6 +23,12 @@
     "openMenu": "Open menu",
     "closeMenu": "Close menu"
   },
+  "errorBoundary": {
+    "title": "Something went wrong",
+    "body": "The app hit an unexpected error. Please reload the page.",
+    "reload": "Reload page",
+    "retry": "Try again"
+  },
   "modals": {
     "authExpired": {
       "title": "Your session has expired",
