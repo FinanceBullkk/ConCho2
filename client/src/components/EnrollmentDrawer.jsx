@@ -44,7 +44,6 @@ function EnrollmentDrawerContent({
 
   // Reset when mode or selection changes. State setters are stable; this
   // is the standard "sync form to incoming props" pattern.
-  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => {
     setError('');
     setNote('');
