@@ -6,14 +6,20 @@ name: CI
 #   client-tests   — Vitest unit + hook suite                  (added in audit PR 9)
 #   client-build   — vite production build must compile clean
 #   client-lint    — eslint with ratchet cap (promoted to REQUIRED in audit
-#                    PR J — CODE-007). The cap (`--max-warnings 138`) is
-#                    documented in `client/eslint.config.js`; lower it over
-#                    time as warnings are resolved, never raise it.
+#                    PR J — CODE-007). Current cap lives in
+#                    `client/package.json` (`npm run lint`); ratchet history
+#                    + downgraded-rule rationale live in
+#                    `client/eslint.config.js`. Lower the cap as warnings
+#                    are resolved, never raise it.
 #   secrets-scan   — gitleaks scan; fails if any secret pattern matches
 #                    (added in audit PR 1 — SEC-001 prevention)
 #   audit          — npm audit at high+ level (production deps only on
 #                    the server; full deps on the client). Promoted from
 #                    informational to REQUIRED in audit PR 2 — SEC-002.
+#   e2e-tests      — Playwright spec suite against a real (seeded) backend +
+#                    Mongo replica set (audit PR V — P2-09). Catches
+#                    regressions that unit tests alone can't (full auth +
+#                    permission + UI flows). Slowest gate (~5-10 min).
 # ──────────────────────────────────────────────────────────
 
 on:
@@ -220,3 +226,123 @@ jobs:
             exit 1
           fi
           echo "OK: no .env files tracked."
+
+  # ──────────────────────────────────────────────────────────
+  # GATE: Playwright E2E (REQUIRED — audit PR V / P2-09)
+  #
+  # Boots the real backend against a single-node MongoDB replica set,
+  # seeds the canonical test users (000001/000004), then runs the
+  # Playwright specs in client/e2e/. Catches regressions in the full
+  # auth → role guard → UI flow that Vitest unit tests can't see.
+  #
+  # Why a replica set (not a standalone mongod):
+  #   server.js + scheduleService use `session.withTransaction(...)` on
+  #   the soft-delete + booking paths. Transactions require a replica
+  #   set; supercharge/mongodb-github-action initialises rs0 in one
+  #   line, sparing us the manual `mongod --replSet ... + rs.initiate()`
+  #   dance.
+  #
+  # Failure artifacts:
+  #   playwright-report/   uploaded on failure for debugging.
+  #   server.log           uploaded on failure so a crash is visible
+  #                        without re-running the workflow locally.
+  # ──────────────────────────────────────────────────────────
+  e2e-tests:
+    name: E2E tests (Playwright)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Start MongoDB (single-node replica set rs0)
+        uses: supercharge/mongodb-github-action@1.11.0
+        with:
+          mongodb-version: '7.0'
+          mongodb-replica-set: rs0
+
+      - name: Install server dependencies
+        working-directory: server
+        run: npm install --no-audit --no-fund --no-progress
+
+      - name: Install client dependencies
+        working-directory: client
+        run: npm ci --include=dev
+
+      - name: Install Playwright browsers
+        working-directory: client
+        run: npx playwright install --with-deps chromium
+
+      - name: Seed database
+        working-directory: server
+        env:
+          MONGO_URI: mongodb://localhost:27017/tms_e2e?replicaSet=rs0
+          JWT_SECRET: e2e-test-secret-not-used-anywhere-real
+          NODE_ENV: test
+        run: node seed.js
+
+      - name: Start API server in background
+        working-directory: server
+        env:
+          MONGO_URI: mongodb://localhost:27017/tms_e2e?replicaSet=rs0
+          JWT_SECRET: e2e-test-secret-not-used-anywhere-real
+          CRON_TOKEN: e2e-test-cron-token-not-used-anywhere-real-1234
+          IMPORT_DEFAULT_PASSWORD: e2e-import-default-12345
+          PORT: 5000
+          NODE_ENV: test
+          # SEC-006 server.js rejects no-origin in production; tests use
+          # supertest-style requests via Playwright that DO send Origin,
+          # but the bypass keeps us safe if NODE_ENV ever flips.
+          CORS_BYPASS_NO_ORIGIN: 'true'
+          # Disable Sentry — no DSN, no noise.
+          SENTRY_DSN: ''
+        run: |
+          node server.js > server.log 2>&1 &
+          echo $! > server.pid
+          # Wait up to 30s for /health to respond.
+          for i in $(seq 1 30); do
+            if curl -fs http://localhost:5000/health > /dev/null; then
+              echo "Server ready after ${i}s"
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "::error::Server did not become ready within 30s"
+          tail -50 server.log
+          exit 1
+
+      - name: Run Playwright E2E suite
+        working-directory: client
+        env:
+          CI: '1'
+        run: npm run test:e2e
+
+      - name: Stop API server
+        if: always()
+        working-directory: server
+        run: |
+          if [ -f server.pid ]; then
+            kill "$(cat server.pid)" 2>/dev/null || true
+            rm -f server.pid
+          fi
+
+      - name: Upload Playwright report on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: client/playwright-report/
+          retention-days: 7
+
+      - name: Upload server log on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-server-log
+          path: server/server.log
+          retention-days: 7
