@@ -4,6 +4,7 @@ const Team = require('../models/Team');
 const Schedule = require('../models/Schedule');
 const Enrollment = require('../models/Enrollment');
 const Evaluation = require('../models/Evaluation');
+const classPolicy = require('../policy/class');
 const { getNextSequence } = require('../helpers/counter');
 const { handleError } = require('../helpers/handleError');
 const auditService = require('../services/auditService');
@@ -65,11 +66,37 @@ const getCourseList = async (req, res) => {
 
 /**
  * GET /api/classes/:id
+ *
+ * Audit PR M (AUTHZ-004): Participant must be enrolled in this class to
+ * read its detail. Admin always allowed; Teacher follows the same
+ * teacherIds binding used by evaluation/attendance/schedule policies.
  */
 const getClassById = async (req, res) => {
   try {
     const cls = await Class.findById(req.params.id).lean();
     if (!cls) return res.status(404).json({ success: false, message: 'Class not found' });
+
+    // Per-user gate. For Participant we look up enrollment existence.
+    let participantEnrollmentExists = false;
+    if (req.user?.role === 'Participant') {
+      const teamIds = await Team.find({
+        classId: cls._id,
+        isDeleted: { $ne: true },
+      }).distinct('_id');
+      if (teamIds.length > 0) {
+        participantEnrollmentExists = !!(await Enrollment.exists({
+          userId: req.user._id,
+          teamId: { $in: teamIds },
+        }));
+      }
+    }
+
+    const policy = classPolicy.canRead(req.user, cls, { participantEnrollmentExists });
+    if (!policy.allowed) {
+      // 404 (not 403) to avoid leaking class existence to non-members.
+      // Same pattern Gmail / GitHub use for unauthorized reads.
+      return res.status(404).json({ success: false, message: 'Class not found' });
+    }
 
     // Attach booked session count
     const bookedSessions = await Schedule.countDocuments({ classId: cls._id });
