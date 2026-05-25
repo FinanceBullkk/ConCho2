@@ -41,6 +41,15 @@ const userOrIpKey = (req) =>
 // Rate Limiters (SEC-04 + SEC-RL-01/02)
 // ──────────────────────────────────────────────────────────
 
+// Cron routes are exempt from both global limiters because:
+//   1. They authenticate via CRON_TOKEN (cronAuth middleware) — not user sessions.
+//   2. cron-job.org fires from shared egress IPs; those IPs would otherwise
+//      exhaust the per-IP write budget and get 429 despite being legitimate.
+//   3. The reconcile route has its own reconcileLimiter (10/hour).
+// NOTE: these middlewares are mounted at app.use('/api', ...) so req.path
+// is relative to /api — use '/cron/' not '/api/cron/'.
+const skipCron = (req) => req.path.startsWith('/cron/');
+
 /**
  * Global API rate limiter: max 200 requests/min per IP.
  * Prevents scraping, enumeration, and brute-force across all endpoints.
@@ -51,7 +60,7 @@ const globalLimiter = rateLimit({
   max: 200,
   standardHeaders: true,
   legacyHeaders: false,
-  skip: skipInTest,
+  skip: (req) => IS_TEST || skipCron(req),
   message: { success: false, message: 'Too many requests. Please slow down.' },
   validate: validateOpts,
 });
@@ -66,7 +75,7 @@ const globalWriteLimiter = rateLimit({
   max: 60,
   standardHeaders: true,
   legacyHeaders: false,
-  skip: (req) => IS_TEST || req.method === 'GET',
+  skip: (req) => IS_TEST || req.method === 'GET' || skipCron(req),
   message: { success: false, message: 'Too many write requests. Please slow down.' },
   validate: validateOpts,
   keyGenerator: userOrIpKey,
