@@ -70,16 +70,31 @@ test.describe('Users — CRUD smoke', () => {
       // ── 4) Submit ──────────────────────────────────────
       await adminPage.getByRole('button', { name: /^Create$/ }).click();
 
-      // ── 5) Find the row by searching for the empCode ───
-      // Search is URL-synced via useListUrlState — wait for the URL
-      // update so we know the query has run. Pin to the UsersPage
+      // ── 5) Wait for the modal to close ─────────────────
+      // Critical: until the Radix Dialog unmounts, focus stays trapped
+      // inside the modal and key/input events sent to the FilterBar
+      // below silently target the modal's still-mounted form fields.
+      // The CI failure on this test was exactly this — the empCode
+      // typed into FilterBar.fill() was being absorbed by the modal's
+      // input until the unmount completed, by which point setSearch
+      // had never fired so the URL never gained `?search=...`.
+      await expect(
+        adminPage.getByRole('heading', { name: /create user/i }),
+      ).toHaveCount(0, { timeout: 10_000 });
+
+      // ── 6) Find the row by searching for the empCode ───
+      // Search is URL-synced via useListUrlState. Pin to the UsersPage
       // FilterBar's canonical placeholder copy (not generic /search/i)
-      // so we never accidentally match the navbar's Ctrl+K search button
-      // text on some breakpoints.
+      // so we never accidentally match the navbar's Ctrl+K search
+      // button text on some breakpoints.
       const search = adminPage.getByPlaceholder(
         /Search by name, code, email, or department/i,
       );
       await expect(search).toBeVisible({ timeout: 7_000 });
+      // Click before fill so focus is firmly on the FilterBar input —
+      // belt-and-braces in case any focus-trap fragment lingers from
+      // the freshly-unmounted modal.
+      await search.click();
       await search.fill(empCode);
       await expect(adminPage).toHaveURL(new RegExp(`[?&]search=${empCode}`), {
         timeout: 5_000,
