@@ -35,12 +35,16 @@ const exportAttendance = async (req, res) => {
 
     // PERF-001: Excel download mode — stream directly to response
     // to avoid buffering the entire workbook in server memory.
-    // Content-Type must be set before any data is written to res.
-    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-
-    // beforeWrite callback: the service calls this BEFORE streaming the
-    // workbook, so we can set the remaining headers that must precede data.
+    //
+    // beforeWrite callback: the service calls this only when it has
+    // confirmed there are records to write, then sets ALL of the
+    // streaming headers atomically. Setting Content-Type up front broke
+    // the empty-DB error path: handleError(res, ServiceError(404))
+    // would emit a JSON body but the xlsx Content-Type was already
+    // committed, so supertest parsed the body as Buffer and assertions
+    // on res.body.success failed.
     const beforeWrite = ({ filename: fn, recordCount: rc, markedCount: mc }) => {
+      res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
       res.setHeader('Content-Disposition', `attachment; filename="${fn}"`);
       res.setHeader('X-TMS-Record-Count', rc);
       res.setHeader('X-TMS-Marked-Exported', mc);
@@ -63,6 +67,7 @@ const exportAttendance = async (req, res) => {
     // If streaming succeeded (buffer is null), data was already written.
     // Otherwise send the buffer (headers still need setting for non-stream).
     if (buffer) {
+      res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
       res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
       res.setHeader('X-TMS-Record-Count', recordCount);
       res.setHeader('X-TMS-Marked-Exported', markedCount);
@@ -106,10 +111,12 @@ const exportEvaluations = async (req, res) => {
       return res.json({ success: true, count: records.length, data: records });
     }
 
-    // PERF-001: Stream directly to response to avoid buffering in memory.
-    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-
+    // PERF-001: Stream directly to response. Same pattern as
+    // exportAttendance — defer ALL headers to beforeWrite so an early
+    // ServiceError(404) lets handleError emit a JSON body without a
+    // pre-committed xlsx Content-Type confusing the client.
     const beforeWriteEval = ({ filename: fn, recordCount: rc }) => {
+      res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
       res.setHeader('Content-Disposition', `attachment; filename="${fn}"`);
       res.setHeader('X-TMS-Record-Count', rc);
     };
@@ -127,6 +134,7 @@ const exportEvaluations = async (req, res) => {
     });
 
     if (buffer) {
+      res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
       res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
       res.setHeader('X-TMS-Record-Count', recordCount);
       res.send(buffer);
