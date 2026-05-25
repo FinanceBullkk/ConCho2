@@ -1,5 +1,6 @@
 const crypto = require('crypto');
 const logger = require('../lib/logger');
+const auditService = require('../services/auditService');
 
 // ──────────────────────────────────────────────────────────
 // Cron Auth Middleware
@@ -52,6 +53,16 @@ const cronAuth = (req, res, next) => {
       { ip: req.ip, ua: req.headers['user-agent'], path: req.originalUrl },
       'Cron auth failed'
     );
+    // Audit PR L (SEC-013): persistent cron-auth failures are signal — either
+    // an external pinger has gone stale (CRON_TOKEN rotated and not updated
+    // upstream) or someone is scanning for the endpoint. Audit row makes
+    // both diagnosable from the admin UI without log access.
+    auditService.record({
+      req,
+      action: 'cron-auth-failed',
+      entity: 'Auth',
+      note: `${req.method} ${req.originalUrl}`,
+    });
     return res.status(401).json({ success: false, message: 'Invalid cron token' });
   }
 

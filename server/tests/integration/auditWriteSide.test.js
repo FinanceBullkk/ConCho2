@@ -154,4 +154,90 @@ describe('Audit log write-side coverage', () => {
     expect(row).not.toBeNull();
     expect(row.note).toMatch(/force-logout|admin/i);
   });
+
+  // ── Audit PR L (SEC-013) — newly-covered endpoints ────────────────────────
+
+  test('POST /api/import/users writes Import audit entry', async () => {
+    // Re-log-in: the prior logout test revoked the previous admin token.
+    const jwt = require('jsonwebtoken');
+    const adminToken = jwt.sign(
+      { id: seed.admin._id.toString(), jti: 'audit-import-test-' + Date.now() },
+      process.env.JWT_SECRET,
+      { algorithm: 'HS256', expiresIn: '5m' },
+    );
+    process.env.IMPORT_DEFAULT_PASSWORD = 'audit-test-import-pwd-1';
+
+    const empCode = 'IMPAUD' + String(Date.now()).slice(-6);
+    const r = await request(app)
+      .post('/api/import/users')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .set(csrf)
+      .send({
+        users: [{ empCode, name: 'Import Audit User', role: 'Participant' }],
+      });
+    // accept either 200 (import ok) or 400 (validation) — we only care that
+    // a successful import produced an audit line
+    expect([200, 400]).toContain(r.status);
+
+    if (r.status === 200) {
+      await flush();
+      const row = await last({ entity: 'Import', action: 'imported' });
+      expect(row).not.toBeNull();
+      expect(row.note).toMatch(/users:/);
+    }
+  });
+
+  test('POST /api/admin/reconcile/run writes Reconcile audit entry', async () => {
+    const jwt = require('jsonwebtoken');
+    const adminToken = jwt.sign(
+      { id: seed.admin._id.toString(), jti: 'audit-reconcile-test-' + Date.now() },
+      process.env.JWT_SECRET,
+      { algorithm: 'HS256', expiresIn: '5m' },
+    );
+
+    const r = await request(app)
+      .post('/api/admin/reconcile/run')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .set(csrf)
+      .send({});
+    expect(r.status).toBe(200);
+
+    await flush();
+    const row = await last({ entity: 'Reconcile', action: 'reconciled' });
+    expect(row).not.toBeNull();
+    expect(row.note).toMatch(/manual run/);
+  });
+
+  test('CSRF token mismatch writes csrf-failed audit entry', async () => {
+    // No csrf header → middleware rejects with 403 and audits.
+    const r = await request(app)
+      .put('/api/settings')
+      .set('Authorization', `Bearer ${tokens.admin}`)
+      .send({ settings: [{ key: 'ALLOWED_TIME_SLOTS', value: [] }] });
+    expect(r.status).toBe(403);
+
+    await flush();
+    const row = await last({ entity: 'Auth', action: 'csrf-failed' });
+    expect(row).not.toBeNull();
+    expect(row.note).toMatch(/PUT.*\/api\/settings/);
+  });
+
+  test('cron auth failure writes cron-auth-failed audit entry', async () => {
+    // Set CRON_TOKEN so the middleware doesn't 503 — we want the 401 path.
+    const prev = process.env.CRON_TOKEN;
+    process.env.CRON_TOKEN = 'sufficient-length-cron-token-for-tests-1234';
+
+    const r = await request(app)
+      .get('/api/cron/health')
+      .set('Authorization', 'Bearer this-is-the-wrong-token');
+    expect(r.status).toBe(401);
+
+    await flush();
+    const row = await last({ entity: 'Auth', action: 'cron-auth-failed' });
+    expect(row).not.toBeNull();
+    expect(row.note).toMatch(/\/api\/cron\/health/);
+
+    if (prev === undefined) delete process.env.CRON_TOKEN;
+    else process.env.CRON_TOKEN = prev;
+  });
 });

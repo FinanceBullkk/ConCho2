@@ -12,6 +12,7 @@
  */
 const crypto = require('crypto');
 const logger = require('../lib/logger');
+const auditService = require('../services/auditService');
 
 const CSRF_COOKIE = 'csrf-token';
 const CSRF_HEADER = 'x-csrf-token';
@@ -63,6 +64,15 @@ const csrfProtection = (req, res, next) => {
       { ip: req.ip, method: req.method, path: req.originalUrl },
       'CSRF token mismatch'
     );
+    // Audit PR L (SEC-013): CSRF mismatches in production almost always
+    // indicate either a stale tab or an attempted CSRF; persist a row so
+    // we can detect spikes the same way we'd detect login lockout spikes.
+    auditService.record({
+      req,
+      action: 'csrf-failed',
+      entity: 'Auth',
+      note: `${req.method} ${req.originalUrl} — header=${headerToken ? 'present' : 'missing'}`,
+    });
     return res.status(403).json({
       success: false,
       message: 'CSRF token invalid or missing',

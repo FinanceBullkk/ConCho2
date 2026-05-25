@@ -3,6 +3,7 @@ const { v4: uuidv4 } = require('uuid');
 const User = require('../models/User');
 const TokenBlocklist = require('../models/TokenBlocklist');
 const mfaService = require('./mfaService');
+const auditService = require('./auditService');
 const logger = require('../lib/logger');
 
 // ──────────────────────────────────────────────────────────
@@ -167,9 +168,11 @@ const getCookieOptions = () => ({
  *
  * @param {string} empCode
  * @param {string} password
+ * @param {Object} [req] - Optional Express request for audit context (IP/UA).
+ *                         Service-level callers (cron, scripts) may omit it.
  * @returns {Object} { token, user, cookieOptions }
  */
-const authenticate = async (empCode, password) => {
+const authenticate = async (empCode, password, req = null) => {
   if (!empCode || !password) {
     throw new ServiceError('Please provide empCode and password');
   }
@@ -222,6 +225,17 @@ const authenticate = async (empCode, password) => {
     );
     if (updated?.lockUntil && updated.lockUntil > new Date()) {
       logger.warn({ empCode: normalizedCode }, 'Account locked due to repeated failed login attempts');
+      // Audit PR L (SEC-013): record the lockout transition (not every failed
+      // login — too noisy). Tied to the user so the audit trail shows the
+      // account's history; req captures the IP that triggered the final
+      // failure so we can correlate with the rate-limit logs.
+      auditService.record({
+        req,
+        action: 'account-locked',
+        entity: 'Auth',
+        entityId: user._id,
+        note: `empCode=${normalizedCode}, lockUntil=${updated.lockUntil.toISOString()}`,
+      });
     }
     throw new ServiceError('Invalid credentials', 401);
   }
@@ -294,8 +308,12 @@ const authenticate = async (empCode, password) => {
  * (issued by authenticate()) plus a 6-digit TOTP code or a backup code.
  *
  * On success: returns the same shape as a normal authenticate() response.
+ *
+ * @param {string} mfaPendingToken
+ * @param {string} code
+ * @param {Object} [req] - Optional Express request for audit context.
  */
-const verifyMfaLogin = async (mfaPendingToken, code) => {
+const verifyMfaLogin = async (mfaPendingToken, code, req = null) => {
   if (!mfaPendingToken || !code) {
     throw new ServiceError('mfaPendingToken and code are required');
   }
@@ -349,6 +367,17 @@ const verifyMfaLogin = async (mfaPendingToken, code) => {
   }
 
   if (!ok) {
+    // Audit PR L (SEC-013): MFA second-leg failures are interesting because
+    // a streak indicates either a forgotten authenticator or an attempted
+    // brute-force after password compromise. Rate-limiter (mfaVerifyLimiter)
+    // already bucket-limits these; the audit row gives a durable trail.
+    auditService.record({
+      req,
+      action: 'mfa-verify-failed',
+      entity: 'Auth',
+      entityId: user._id,
+      note: `empCode=${user.empCode}`,
+    });
     throw new ServiceError('Invalid MFA code', 401);
   }
 

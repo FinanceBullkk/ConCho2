@@ -1,6 +1,7 @@
 const Schedule = require('../models/Schedule');
 const Team = require('../models/Team');
 const Class = require('../models/Class');
+const auditService = require('../services/auditService');
 const { handleError } = require('../helpers/handleError');
 const logger = require('../lib/logger');
 const googleAuth = require('../lib/googleAuth');
@@ -271,6 +272,15 @@ const syncFromGoogleSheets = async (req, res) => {
     }
 
     logger.info({ ...report }, 'Google Sheets sync complete');
+
+    // Audit PR L (SEC-013): record who triggered the sync + summary.
+    // spreadsheetId is included so a reviewer can trace which source was used.
+    auditService.record({
+      req,
+      action: 'synced',
+      entity: 'Sync',
+      note: `google-sheets ${spreadsheetId} ${sheetName}!${range} — enrolled ${report.enrolled}/${report.processed}, skipped ${report.skipped}`,
+    });
 
     res.json({
       success: true,

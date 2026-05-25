@@ -18,7 +18,9 @@ const { rotateCsrfToken } = require('../middleware/csrfProtection');
 const login = async (req, res) => {
   try {
     const { empCode, password } = req.body;
-    const result = await authService.authenticate(empCode, password);
+    // Pass req so the service can write audit lines (lockout) with the
+    // calling IP/UA — see audit PR L (SEC-013).
+    const result = await authService.authenticate(empCode, password, req);
 
     // Two-step login: MFA is enabled — store the pending token in an
     // HttpOnly cookie (P3 fix) instead of the JSON body. XSS cannot read
@@ -91,7 +93,7 @@ const mfaVerifyLogin = async (req, res) => {
     const mfaPendingToken = req.cookies?.[authService.MFA_PENDING_COOKIE];
 
     const { token, user, cookieOptions, backupCodeUsed } =
-      await authService.verifyMfaLogin(mfaPendingToken, code);
+      await authService.verifyMfaLogin(mfaPendingToken, code, req);
 
     // Consume the pending cookie — it must not be reusable after a successful
     // second factor (even though the JWT itself would reject a second use).
@@ -666,6 +668,18 @@ const resetPassword = async (req, res) => {
     if (typeof invalidateUserCache === 'function') {
       invalidateUserCache(user._id);
     }
+
+    // Audit PR L (SEC-013): password reset is a credential-changing event;
+    // record it even though the "actor" is unauthenticated (only the holder
+    // of the emailed token can complete this path). We pass `req` without a
+    // user; auditService will record actorRole='System' and capture IP/UA.
+    auditService.record({
+      req,
+      action: 'password-reset-completed',
+      entity: 'Auth',
+      entityId: user._id,
+      note: `empCode=${user.empCode}`,
+    });
 
     logger.info({ userId: user._id }, 'Password reset successful');
     res.json({ success: true, message: 'Password reset successful. Please sign in with your new password.' });

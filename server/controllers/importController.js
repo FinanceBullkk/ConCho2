@@ -1,4 +1,5 @@
 const importService = require('../services/importService');
+const auditService = require('../services/auditService');
 const { handleError } = require('../helpers/handleError');
 const Schedule = require('../models/Schedule');
 const Attendance = require('../models/Attendance');
@@ -6,12 +7,21 @@ const { invalidateAnalyticsCache } = require('../middleware/analyticsCache');
 
 // ──────────────────────────────────────────────────────────
 // Import Controller (Thin — delegates to Service Layer)
+//
+// Audit PR L (SEC-013): every bulk import writes an audit line so a
+// reviewer can answer "who imported what, when" without grepping logs.
 // ──────────────────────────────────────────────────────────
 
 const bulkImportUsers = async (req, res) => {
   try {
     const result = await importService.importUsers(req.body.users);
     invalidateAnalyticsCache();
+    auditService.record({
+      req,
+      action: 'imported',
+      entity: 'Import',
+      note: `users: ${result.created} created, ${result.updated} updated, ${result.skipped || 0} skipped`,
+    });
     res.json({
       success: true,
       message: `Import complete: ${result.created} created, ${result.updated} updated`,
@@ -26,6 +36,12 @@ const bulkImportClasses = async (req, res) => {
   try {
     const result = await importService.importClasses(req.body.classes);
     invalidateAnalyticsCache();
+    auditService.record({
+      req,
+      action: 'imported',
+      entity: 'Import',
+      note: `classes: ${result.created} created, ${result.updated} updated`,
+    });
     res.json({
       success: true,
       message: `Import complete: ${result.created} created, ${result.updated} updated`,
@@ -105,6 +121,12 @@ const bulkImportHistory = async (req, res) => {
     dbSession.endSession();
 
     invalidateAnalyticsCache();
+    auditService.record({
+      req,
+      action: 'imported',
+      entity: 'Import',
+      note: `history: ${schedulesCreated} schedules + ${attendanceCreated} attendance, ${errors.length} errors`,
+    });
     res.json({
       success: true,
       message: `Imported ${schedulesCreated} schedules, ${attendanceCreated} attendance records`,

@@ -57,7 +57,11 @@ const auditLogSchema = new mongoose.Schema(
              // mutations and any future collection we whitelist for direct
              // admin editing. Adding entries here is a one-way ratchet:
              // never remove a value or downstream queries will reject.
-             'Counter', 'AdminDb'],
+             'Counter', 'AdminDb',
+             // Added in audit PR L (SEC-013) — sheets-sync run + reconcile run
+             // produce their own audit lines so reviewers can reconstruct
+             // operator activity without grepping pino logs.
+             'Sync', 'Reconcile'],
       required: true,
     },
     entityId: {
