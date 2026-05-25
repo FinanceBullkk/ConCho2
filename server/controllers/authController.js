@@ -520,6 +520,17 @@ const forgotPassword = async (req, res) => {
   // error — but `loginLimiter` already caps abuse to 5/15min and email
   // failures are logged for ops follow-up. The anti-enumeration property
   // is more valuable than the inline error reporting here.
+  //
+  // SEC-016 (audit PR W): DB-layer failures along the background flow
+  // are now emitted at `error` severity instead of `warn`, so ops
+  // monitoring (Sentry / alerting rules keyed on `level >= error`) will
+  // surface silent data-integrity issues. The HTTP response stays a
+  // constant 200 OK to preserve the anti-enumeration property — only
+  // the log severity changed. Email-send failures keep `warn` because
+  // they are operationally retry-able (SMTP outage, throttle) and do
+  // NOT indicate corrupted state. The distinction matters: a DB save
+  // failure means the user can never complete the reset; an email send
+  // failure means they may need to retry.
 
   const okMsg = 'If that employee code exists and has an email on file, a reset link has been sent.';
 
@@ -534,14 +545,23 @@ const forgotPassword = async (req, res) => {
 
   // Background work — best-effort, never blocks or surfaces errors to the caller.
   // We intentionally do NOT await this from the request handler.
-  // Q1 fix: wrap the async IIFE with .catch() so that even if logger.warn
+  // Q1 fix: wrap the async IIFE with .catch() so that even if logger
   // itself throws inside the outer catch, the rejected Promise is still
   // handled and cannot crash the process via unhandledRejection.
   setImmediate(() => {
     (async () => {
       try {
         const User = require('../models/User');
-        const user = await User.findOne({ empCode: normalizedEmpCode, isDeleted: { $ne: true } });
+        let user;
+        // SEC-016: DB read failures get their own catch so they emit at
+        // error severity (ops needs to see Mongo unavailability) and do
+        // not fall through to the generic outer warn-catch.
+        try {
+          user = await User.findOne({ empCode: normalizedEmpCode, isDeleted: { $ne: true } });
+        } catch (dbErr) {
+          logger.error({ err: dbErr, empCodeHash: hashEmpCodeForLog(normalizedEmpCode) }, 'Forgot-password: DB lookup failed');
+          return;
+        }
         if (!user || !user.email) {
           // SEC-008: do NOT log raw empCode. Use a short SHA-256 prefix so
           // ops can correlate without enabling enumeration via log aggregator.
@@ -570,7 +590,15 @@ const forgotPassword = async (req, res) => {
 
         user.passwordResetToken = hashedToken;
         user.passwordResetExpires = expires;
-        await user.save({ validateBeforeSave: false });
+        // SEC-016: token persist failure is the worst silent bug here — the
+        // user will never receive a working link. Log at error severity and
+        // bail (do NOT proceed to sendMail with an unsaved token).
+        try {
+          await user.save({ validateBeforeSave: false });
+        } catch (saveErr) {
+          logger.error({ err: saveErr, empCodeHash: hashEmpCodeForLog(normalizedEmpCode) }, 'Forgot-password: token persist failed');
+          return;
+        }
 
         const clientOrigin = process.env.CLIENT_ORIGIN || 'http://localhost:5173';
         // SEC-005: token in URL PATH (not query string) — reduces leak via
@@ -595,16 +623,27 @@ const forgotPassword = async (req, res) => {
           logger.info({ empCodeHash: hashEmpCodeForLog(normalizedEmpCode) }, 'Forgot-password: completed background flow');
         } catch (mailErr) {
           // Roll back the token so the user can retry without ambiguity.
+          // SEC-016: if the rollback save itself fails, that leaves a stale
+          // token in the DB until expiry (1h) — log at error severity so
+          // ops know data is in an inconsistent state, but still emit the
+          // original mail warning so the root cause stays visible.
           user.passwordResetToken = null;
           user.passwordResetExpires = null;
-          await user.save({ validateBeforeSave: false });
+          try {
+            await user.save({ validateBeforeSave: false });
+          } catch (rollbackErr) {
+            logger.error({ err: rollbackErr, empCodeHash: hashEmpCodeForLog(normalizedEmpCode) }, 'Forgot-password: token rollback after email failure also failed (stale token in DB until 1h expiry)');
+          }
           logger.warn({ err: mailErr, empCodeHash: hashEmpCodeForLog(normalizedEmpCode) }, 'Password reset email failed');
         }
       } catch (err) {
-        logger.warn({ err, empCodeHash: hashEmpCodeForLog(normalizedEmpCode) }, 'Forgot-password background flow errored');
+        // SEC-016: promoted warn → error. This catches truly unexpected
+        // failures (e.g. crypto.randomBytes, getrandom unavailable) that
+        // would otherwise be invisible to ops.
+        logger.error({ err, empCodeHash: hashEmpCodeForLog(normalizedEmpCode) }, 'Forgot-password background flow errored');
       }
     })().catch((err) => {
-      // Safety net — only reachable if logger.warn itself threw inside the catch above.
+      // Safety net — only reachable if logger itself threw inside the catch above.
       console.error('[forgot-password] unhandled background error', err?.message || err); // eslint-disable-line no-console
     });
   });

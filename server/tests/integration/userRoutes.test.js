@@ -89,6 +89,59 @@ describe('GET /api/users', () => {
     const res = await request(app).get('/api/users');
     expect(res.status).toBe(401);
   });
+
+  // ── SEC-014 (audit PR W) — list query schema strictening ──────────────
+
+  test('SEC-014: accepts sortBy=lastActive (client default, mapped to lastActiveAt)', async () => {
+    const res = await request(app)
+      .get('/api/users?sortBy=lastActive&sortOrder=desc')
+      .set('Authorization', `Bearer ${tokens.admin}`);
+    expect(res.status).toBe(200);
+    expect(res.body.success).toBe(true);
+  });
+
+  test('SEC-014: rejects sortBy outside the whitelist with 400', async () => {
+    const res = await request(app)
+      .get('/api/users?sortBy=__proto__')
+      .set('Authorization', `Bearer ${tokens.admin}`);
+    expect(res.status).toBe(400);
+    expect(res.body.success).toBe(false);
+  });
+
+  test('SEC-014: rejects sortOrder outside asc/desc with 400', async () => {
+    const res = await request(app)
+      .get('/api/users?sortOrder=evil')
+      .set('Authorization', `Bearer ${tokens.admin}`);
+    expect(res.status).toBe(400);
+    expect(res.body.success).toBe(false);
+  });
+
+  test('SEC-014: caps search length at 120 chars (rejects DoS-sized payload)', async () => {
+    const huge = 'a'.repeat(10_000);
+    const res = await request(app)
+      .get(`/api/users?search=${huge}`)
+      .set('Authorization', `Bearer ${tokens.admin}`);
+    expect(res.status).toBe(400);
+    expect(res.body.success).toBe(false);
+  });
+
+  test('SEC-014: empty-string sortBy is coerced to undefined (still 200)', async () => {
+    // The schema preprocess converts '' to undefined so the optional()
+    // enum does not fire on legitimately empty URL state.
+    const res = await request(app)
+      .get('/api/users?sortBy=&sortOrder=')
+      .set('Authorization', `Bearer ${tokens.admin}`);
+    expect(res.status).toBe(200);
+    expect(res.body.success).toBe(true);
+  });
+
+  test('SEC-014: rejects unknown query keys (strict mode)', async () => {
+    const res = await request(app)
+      .get('/api/users?evilParam=1')
+      .set('Authorization', `Bearer ${tokens.admin}`);
+    expect(res.status).toBe(400);
+    expect(res.body.success).toBe(false);
+  });
 });
 
 // ── GET /api/users/:id ───────────────────────────────────

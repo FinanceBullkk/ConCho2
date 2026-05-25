@@ -420,3 +420,133 @@ describe('forgot-password logger scrub (SEC-008)', () => {
     expect(distinct).not.toContain('Password reset email sent');
   });
 });
+
+// ──────────────────────────────────────────────────────────
+// SEC-016 — DB failures must emit at error severity (audit PR W)
+//
+// The whole point of this fix is that operators get an Sentry / log-alert
+// ping when the background flow silently corrupts state (token saved but
+// not delivered, or token-mint save itself failing). The HTTP response
+// stays 200 OK either way so the anti-enumeration property is preserved
+// — only the log severity changed.
+// ──────────────────────────────────────────────────────────
+
+describe('forgot-password DB failure severity (SEC-016)', () => {
+  const logger = require('../../lib/logger');
+  const User = require('../../models/User');
+
+  let errorSpy;
+  let warnSpy;
+  let infoSpy;
+
+  beforeEach(() => {
+    errorSpy = jest.spyOn(logger, 'error').mockImplementation(() => {});
+    warnSpy = jest.spyOn(logger, 'warn').mockImplementation(() => {});
+    infoSpy = jest.spyOn(logger, 'info').mockImplementation(() => {});
+  });
+  afterEach(() => {
+    errorSpy.mockRestore();
+    warnSpy.mockRestore();
+    infoSpy.mockRestore();
+  });
+
+  test('DB lookup failure logs at error severity (caller still gets 200)', async () => {
+    // Force the very first User.findOne in the background flow to reject.
+    // Any other model lookups outside this request are untouched because we
+    // use mockImplementationOnce.
+    const findOneSpy = jest.spyOn(User, 'findOne').mockImplementationOnce(() => {
+      const err = new Error('simulated mongo network error');
+      err.name = 'MongoNetworkError';
+      throw err;
+    });
+
+    const csrf = await getCsrfHeaders(app);
+    const res = await request(app)
+      .post('/api/auth/forgot-password')
+      .set(csrf)
+      .send({ empCode: '000001' });
+
+    // Anti-enumeration: response is still 200 with the same message.
+    expect(res.status).toBe(200);
+    expect(res.body.success).toBe(true);
+
+    await flushBackground();
+    await flushBackground();
+
+    // Ops sees an error-severity log, not a warn.
+    expect(errorSpy).toHaveBeenCalled();
+    const errorMsgs = errorSpy.mock.calls.map((c) => c[1]);
+    expect(errorMsgs.some((m) => /DB lookup failed/.test(m))).toBe(true);
+
+    findOneSpy.mockRestore();
+  });
+
+  test('token persist failure logs at error severity and aborts BEFORE sendMail', async () => {
+    const distinctive = 'SEC016-PERSIST-' + crypto.randomBytes(2).toString('hex').toUpperCase();
+    await User.findByIdAndUpdate(seed.member2._id, {
+      empCode: distinctive,
+      email: 'persist-fail@test.com',
+      passwordResetToken: null,
+      passwordResetExpires: null,
+    });
+
+    // Reject the first save (the token-mint persist). Any later save (none
+    // expected, since we should return early) would use the real impl.
+    const saveSpy = jest.spyOn(User.prototype, 'save')
+      .mockRejectedValueOnce(new Error('simulated write conflict'));
+
+    const csrf = await getCsrfHeaders(app);
+    const res = await request(app)
+      .post('/api/auth/forgot-password')
+      .set(csrf)
+      .send({ empCode: distinctive });
+
+    expect(res.status).toBe(200);
+    await flushBackground();
+    await flushBackground();
+
+    // Error-severity log for the persist failure.
+    expect(errorSpy).toHaveBeenCalled();
+    const errorMsgs = errorSpy.mock.calls.map((c) => c[1]);
+    expect(errorMsgs.some((m) => /token persist failed/.test(m))).toBe(true);
+
+    // Critical: we MUST NOT send a reset email if the token never persisted —
+    // the user would receive a link that does not work.
+    expect(sendMail).not.toHaveBeenCalled();
+
+    saveSpy.mockRestore();
+  });
+
+  test('email-send failure stays at warn severity (retry-able, not data corruption)', async () => {
+    const distinctive = 'SEC016-EMAIL-' + crypto.randomBytes(2).toString('hex').toUpperCase();
+    await User.findByIdAndUpdate(seed.member1._id, {
+      empCode: distinctive,
+      email: 'mail-fail@test.com',
+      passwordResetToken: null,
+      passwordResetExpires: null,
+    });
+
+    sendMail.mockRejectedValueOnce(new Error('simulated SMTP outage'));
+
+    const csrf = await getCsrfHeaders(app);
+    const res = await request(app)
+      .post('/api/auth/forgot-password')
+      .set(csrf)
+      .send({ empCode: distinctive });
+
+    expect(res.status).toBe(200);
+    await flushBackground();
+    await flushBackground();
+
+    // Email failure is warn (operationally retry-able, not data corruption).
+    expect(warnSpy).toHaveBeenCalled();
+    const warnMsgs = warnSpy.mock.calls.map((c) => c[1]);
+    expect(warnMsgs.some((m) => /email failed/i.test(m))).toBe(true);
+
+    // And specifically NOT an error log for the DB-side paths — the
+    // rollback save succeeded normally.
+    const errorMsgs = errorSpy.mock.calls.map((c) => c[1]);
+    expect(errorMsgs.some((m) => /token persist failed/.test(m))).toBe(false);
+    expect(errorMsgs.some((m) => /DB lookup failed/.test(m))).toBe(false);
+  });
+});

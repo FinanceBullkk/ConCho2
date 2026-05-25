@@ -64,10 +64,41 @@ const updateUserBody = z.object({
   currentPassword: z.string().min(1).max(128).optional(),
 });
 
+// SEC-014 (audit PR W): list query was missing `search`, `sortBy` and
+// `sortOrder` even though userController.getUsers reads them. With the
+// keys absent from the schema, an attacker could send a 10 MB `search`
+// string that would survive validation and only get bounded later by
+// regex execution. Add them with explicit length / enum caps.
+//
+// `lastActive` is the alias the client sends (UsersPage default sort) —
+// the controller maps it to the underlying `lastActiveAt` field on the
+// User document. Keep it in the enum so the strict validator accepts
+// the existing UI default; the controller-side whitelist remains the
+// last line of defence against arbitrary collation keys.
+const SORTABLE_FIELDS = [
+  'empCode', 'name', 'department', 'position', 'status', 'role',
+  'entranceLevel', 'currentLevel', 'lastActive',
+];
+
 const listUsersQuery = paginationQuery.extend({
   role: z.preprocess((v) => (v === '' ? undefined : v), fields.role.optional()),
   status: z.preprocess((v) => (v === '' ? undefined : v), fields.status.optional()),
   department: z.string().trim().max(120).optional(),
-});
+  // Free-text search across empCode/name/department/position.
+  // Length capped at 120 to mirror the longest free-text field and
+  // bound the worst-case regex input. No min — single-character queries
+  // are operationally useless but should not 400 a UI typing race;
+  // clients already debounce + gate on min length where it matters
+  // (EvaluationPage uses `debouncedSearch.length >= 2`).
+  search: z
+    .preprocess((v) => (v === '' ? undefined : v),
+                z.string().trim().max(120).optional()),
+  sortBy: z
+    .preprocess((v) => (v === '' ? undefined : v),
+                z.enum(SORTABLE_FIELDS).optional()),
+  sortOrder: z
+    .preprocess((v) => (v === '' ? undefined : v),
+                z.enum(['asc', 'desc']).optional()),
+}).strict();  // Reject unknown query keys — defence-in-depth against schema drift.
 
 module.exports = { createUserBody, updateUserBody, listUsersQuery };

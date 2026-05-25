@@ -50,9 +50,15 @@ const getUsers = async (req, res) => {
 
     const { page, limit, skip } = parsePagination(req);
 
-    // Sortable columns whitelist
-    const SORTABLE = ['empCode', 'name', 'department', 'position', 'status', 'role', 'entranceLevel', 'currentLevel'];
-    const sortBy = SORTABLE.includes(req.query.sortBy) ? req.query.sortBy : 'empCode';
+    // Sortable columns whitelist. The schema-level enum (SEC-014) caps
+    // the surface to known keys; this list is the controller-side last
+    // line of defence so a future drift in the schema cannot inject an
+    // arbitrary collation key. The `lastActive` alias maps to the
+    // underlying `lastActiveAt` field that PERF-008 (audit PR H)
+    // denormalised onto the User document.
+    const SORTABLE = ['empCode', 'name', 'department', 'position', 'status', 'role', 'entranceLevel', 'currentLevel', 'lastActive'];
+    const requestedSort = SORTABLE.includes(req.query.sortBy) ? req.query.sortBy : 'empCode';
+    const sortBy = requestedSort === 'lastActive' ? 'lastActiveAt' : requestedSort;
     const sortOrder = req.query.sortOrder === 'desc' ? -1 : 1;
 
     const [users, total] = await Promise.all([
