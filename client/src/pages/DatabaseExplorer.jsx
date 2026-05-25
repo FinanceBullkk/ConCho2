@@ -145,7 +145,7 @@ function EditModal({ doc, fields, collection, onClose, onSaved }) {
   const editableFields = fields.filter(f => f !== '_id' && f !== '__v' && f !== 'createdAt');
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60" onClick={onClose}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60" onClick={onClose} aria-hidden="true">
       <form onSubmit={handleSubmit} onClick={e => e.stopPropagation()}
         className="bg-card border border-border rounded-lg p-6 w-full max-w-2xl mx-4 space-y-4 max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between">
