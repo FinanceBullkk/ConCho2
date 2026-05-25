@@ -45,10 +45,15 @@ test.describe('Authenticated navigation', () => {
       adminPage.on('pageerror', (e) => errors.push(e.message));
 
       await adminPage.goto(path);
+      // Wait for in-flight XHR/fetch to settle. /system in particular
+      // fans out to /api/settings, /api/audit-logs, /api/sync etc. while
+      // it boots; without this, the heading poll can race the React
+      // tree's first render on slow CI.
+      await adminPage.waitForLoadState('networkidle', { timeout: 15_000 });
 
       // PageHeader (shared chrome) — proves the section component mounted.
       await expect(adminPage.getByRole('heading', { name: headerHeading }).first())
-        .toBeVisible({ timeout: 10_000 });
+        .toBeVisible({ timeout: 15_000 });
 
       // Inner section heading — proves the tab content actually rendered.
       // Some pages (Dashboard, System) don't have a stable inner heading;
