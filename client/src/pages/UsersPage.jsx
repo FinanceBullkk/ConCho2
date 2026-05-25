@@ -6,6 +6,9 @@ import { toast } from 'sonner';
 import { ShieldAlert, LogOut, BarChart3, Pencil, Trash2, RefreshCw, Download } from 'lucide-react';
 import StudentProgressModal from '../components/Progress/StudentProgressModal';
 import Portal from '../components/Portal';
+import {
+  Dialog, DialogContent, DialogHeader, DialogFooter, DialogTitle,
+} from '@/components/ui/dialog';
 import { useUsers, useCreateUser, useUpdateUser, useDeleteUser } from '../hooks/useUsers';
 import { useTeams } from '../hooks/useTeams';
 import { qk } from '../hooks/queryKeys';
@@ -102,19 +105,27 @@ function UserModal({ user, onClose, onSaved }) {
   const SELECT_CLS =
     'w-full px-3 h-(--control-h) rounded-md bg-background border border-input text-foreground focus:outline-none focus:ring-2 focus:ring-ring transition-colors duration-(--dur-fast)';
 
+  // Audit PR N (FE-010): hand-rolled overlay replaced with Radix Dialog.
+  // Radix handles focus-trap, ESC-to-close, click-outside-to-close, ARIA
+  // labelling and aria-modal natively. Open state is controlled — closing
+  // the dialog calls back to the parent's setEditing(null) via onClose.
   return (
-    <Portal>
-    {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions */}
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" onClick={onClose}>
-      {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-noninteractive-element-interactions */}
-      <form onSubmit={onSubmit} onClick={(e) => e.stopPropagation()} noValidate
-        className="bg-card border border-border rounded-lg w-full max-w-md flex flex-col max-h-[92vh]"
+    <Dialog open onOpenChange={(open) => { if (!open) onClose(); }}>
+      <DialogContent
+        className="max-w-md max-h-[92vh] grid-rows-[auto_minmax(0,1fr)_auto] p-0 gap-0"
         aria-label={isEdit ? 'Edit user' : 'Create user'}
+        onOpenAutoFocus={(e) => {
+          // First field is empCode (disabled on edit). Let Radix default-focus
+          // the first focusable element. Prevent autofocus jump on edit so
+          // the dialog opens neutral instead of grabbing the name field.
+          if (isEdit) e.preventDefault();
+        }}
       >
+        <form onSubmit={onSubmit} noValidate className="flex flex-col min-h-0">
         {/* ── Sticky header ── */}
-        <div className="px-6 pt-6 pb-4 border-b border-border shrink-0">
-          <h2 className="text-h3 text-foreground">{isEdit ? 'Edit User' : 'Create User'}</h2>
-        </div>
+        <DialogHeader className="px-6 pt-6 pb-4 border-b border-border shrink-0">
+          <DialogTitle className="text-h3 text-foreground">{isEdit ? 'Edit User' : 'Create User'}</DialogTitle>
+        </DialogHeader>
 
         {/* ── Scrollable body ── */}
         <div className="overflow-y-auto flex-1 px-6 py-4 space-y-4">
@@ -208,15 +219,15 @@ function UserModal({ user, onClose, onSaved }) {
         </div>
 
         {/* ── Sticky footer ── */}
-        <div className="px-6 pb-6 pt-4 border-t border-border shrink-0 flex gap-3">
+        <DialogFooter className="px-6 pb-6 pt-4 border-t border-border shrink-0 flex flex-row gap-3 sm:justify-stretch">
           <Button type="button" variant="outline" className="flex-1" onClick={onClose}>Cancel</Button>
           <Button type="submit" className="flex-1" disabled={saving}>
             {saving ? <><Spinner size={14} />Saving…</> : isEdit ? 'Update' : 'Create'}
           </Button>
-        </div>
-      </form>
-    </div>
-    </Portal>
+        </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
   );
 }
 
