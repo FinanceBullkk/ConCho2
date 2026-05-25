@@ -101,8 +101,8 @@
 
 | ID | Việc | File cần kiểm tra | Effort |
 |----|------|-------------------|--------|
-| API-002 + PERF-011 | Paginate `getTeams` | `server/controllers/teamController.js`, `server/routes/teamRoutes.js` | M |
-| CODE-007 | Burn down a11y warnings (hiện 138, target 0) | Chạy `npm run lint` trong `client/` để xem danh sách warnings | L |
+| ~~API-002 + PERF-011~~ | ✅ DONE in PR T — `?page&limit&slim=true` with backward-compat | `server/controllers/teamController.js` | — |
+| CODE-007 | Burn down a11y warnings further (cap 113, live 81 — target 0) | Chạy `npm run lint` trong `client/` để xem danh sách warnings | L |
 | FE-017 | Dynamic `document.title` trên tất cả pages | `client/src/pages/*.jsx` (8 pages) | M |
 | FE-019 | Dirty-check khi đóng modal | `client/src/pages/UsersPage.jsx`, `TeamsPage.jsx`, `ClassesPage.jsx` | M |
 | SEC-017 | Migrate `mongoSanitize` → `express-mongo-sanitize` v2+ | `server/server.js`, `server/package.json` | M |
