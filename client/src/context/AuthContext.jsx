@@ -111,7 +111,6 @@ export function AuthProvider({ children }) {
     };
     window.addEventListener('storage', onStorage);
     return () => window.removeEventListener('storage', onStorage);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?._id]);
 
   // login() returns one of three shapes:
