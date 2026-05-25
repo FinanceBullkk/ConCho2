@@ -5,7 +5,9 @@ import {
   BookOpen, AlertTriangle, Pencil, ArrowLeft, Users2,
   Search, MoreHorizontal, X as XIcon,
 } from 'lucide-react';
-import Portal from '../components/Portal';
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle,
+} from '@/components/ui/dialog';
 import { Breadcrumbs } from '@/components/Breadcrumbs';
 import { PageHeader } from '@/components/PageHeader';
 import { KPICard } from '@/components/KPICard';
@@ -80,14 +82,16 @@ function EditClassModal({ cls, onClose }) {
     }
   };
 
+  // Audit PR S (FE-010): Radix Dialog — focus-trap, ESC, ARIA.
   return (
-    <Portal>
-      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60" onClick={onClose}>
-        <form onSubmit={handleSubmit} onClick={(e) => e.stopPropagation()}
-          className="bg-card border border-border rounded-lg p-6 w-full max-w-md mx-4 space-y-4">
-          <h2 className="text-lg font-bold text-foreground flex items-center gap-2">
-            <Pencil className="size-4" /> Edit {cls.classCode}
-          </h2>
+    <Dialog open onOpenChange={(open) => { if (!open) onClose(); }}>
+      <DialogContent className="max-w-md p-6 space-y-4" aria-label={`Edit class ${cls.classCode}`}>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <DialogHeader>
+            <DialogTitle className="text-lg font-bold text-foreground flex items-center gap-2">
+              <Pencil className="size-4" /> Edit {cls.classCode}
+            </DialogTitle>
+          </DialogHeader>
           {error && <div className="px-4 py-2 rounded-md bg-destructive/10 border border-destructive/20 text-destructive text-sm">{error}</div>}
           <div>
             <label className="block text-small text-muted-foreground mb-1">Status</label>
@@ -116,8 +120,8 @@ function EditClassModal({ cls, onClose }) {
             )}
           </div>
         </form>
-      </div>
-    </Portal>
+      </DialogContent>
+    </Dialog>
   );
 }
 
