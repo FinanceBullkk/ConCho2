@@ -17,9 +17,10 @@ const CSRF_COOKIE = 'csrf-token';
 const CSRF_HEADER = 'x-csrf-token';
 const TOKEN_BYTES = 32;
 const SAFE_METHODS = new Set(['GET', 'HEAD', 'OPTIONS']);
-// NOTE: This middleware is mounted at app.use('/api', ...) so req.path is
-// relative to /api. Use paths WITHOUT the /api prefix here.
-const EXEMPT_PREFIXES = ['/cron/'];
+// Use req.originalUrl (always the full path, never stripped) so the exempt
+// check is reliable regardless of mount-point path-stripping behaviour.
+// Include the /api prefix.
+const EXEMPT_PREFIXES = ['/api/cron/'];
 
 /**
  * Generates a cryptographically random hex token.
@@ -51,7 +52,7 @@ const csrfProtection = (req, res, next) => {
   if (SAFE_METHODS.has(req.method)) return next();
 
   // Exempt specific routes (cron endpoints use their own token auth).
-  if (EXEMPT_PREFIXES.some((prefix) => req.path.startsWith(prefix))) {
+  if (EXEMPT_PREFIXES.some((prefix) => req.originalUrl.startsWith(prefix))) {
     return next();
   }
 
