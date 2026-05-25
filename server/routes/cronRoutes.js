@@ -42,11 +42,14 @@ router.use(cronAuth);
  *         description: Invalid cron token
  */
 // POST /api/cron/reconcile
-// Fires the reconciliation suite immediately and returns the report.
+// Fires the reconciliation suite immediately and returns a compact summary.
+// Full report is logged server-side; we return only the summary so the
+// response stays under cron-job.org's ~4 KB output limit.
 router.post('/reconcile', reconcileLimiter, async (req, res) => {
   try {
     const report = await runReconciliation('scheduled');
-    res.json({ success: true, data: report });
+    const { summary, ranAt, triggeredBy } = report;
+    res.json({ success: true, data: { summary, ranAt, triggeredBy } });
   } catch (err) {
     handleError(res, err);
   }
