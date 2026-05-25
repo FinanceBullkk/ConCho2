@@ -6,7 +6,7 @@ import jsxA11y from 'eslint-plugin-jsx-a11y'
 import { defineConfig, globalIgnores } from 'eslint/config'
 
 // ──────────────────────────────────────────────────────────
-// Lint policy (audit PR J — CODE-007)
+// Lint policy (audit PR J — CODE-007; ratcheted in PR U)
 //
 // CI's `client-lint` job is now a REQUIRED gate. To make that
 // safe without forcing a 29-file refactor in this PR, we use
@@ -19,6 +19,11 @@ import { defineConfig, globalIgnores } from 'eslint/config'
 //   - New rule violations on existing files surface as warnings
 //     (developer feedback) but don't break CI until they push
 //     the total above the cap.
+//
+// Cap history:
+//   PR J  — 138 (initial baseline)
+//   PR U  — 113 (after FE-010 modal migrations + autofix removed
+//                redundant eslint-disable comments)
 //
 // Specifically downgraded from `error` (plugin default) → `warn`:
 //   - jsx-a11y/*   — 92 pre-existing violations (P3-06 follow-up)
