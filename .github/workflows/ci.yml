@@ -5,16 +5,15 @@ name: CI
 #   server-tests   — Jest suite with mongodb-memory-server
 #   client-tests   — Vitest unit + hook suite                  (added in audit PR 9)
 #   client-build   — vite production build must compile clean
+#   client-lint    — eslint with ratchet cap (promoted to REQUIRED in audit
+#                    PR J — CODE-007). The cap (`--max-warnings 138`) is
+#                    documented in `client/eslint.config.js`; lower it over
+#                    time as warnings are resolved, never raise it.
 #   secrets-scan   — gitleaks scan; fails if any secret pattern matches
 #                    (added in audit PR 1 — SEC-001 prevention)
 #   audit          — npm audit at high+ level (production deps only on
 #                    the server; full deps on the client). Promoted from
 #                    informational to REQUIRED in audit PR 2 — SEC-002.
-#
-# Informational jobs (NON-BLOCKING — report only):
-#   client-lint    — surface new lint errors without failing CI
-#                    (codebase has ~30 pre-existing issues; clean up
-#                    via a dedicated PR, don't block unrelated work)
 # ──────────────────────────────────────────────────────────
 
 on:
@@ -122,13 +121,16 @@ jobs:
         run: npm run build
 
   # ──────────────────────────────────────────────────────────
-  # INFO: lint (non-blocking)
+  # GATE: client lint (REQUIRED — promoted in audit PR J)
+  # The `lint` script runs eslint with `--max-warnings 138`, the
+  # ratchet cap reflecting the warning count on main at promotion
+  # time. PR that pushes the count above the cap fails CI; PRs
+  # that lower it should also lower the cap in the same commit.
   # ──────────────────────────────────────────────────────────
   client-lint:
-    name: Client lint (informational)
+    name: Client lint (eslint, ratchet)
     runs-on: ubuntu-latest
     timeout-minutes: 5
-    continue-on-error: true
 
     steps:
       - uses: actions/checkout@v4

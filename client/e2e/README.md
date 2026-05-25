@@ -51,6 +51,7 @@ npx playwright test -g "wrong password"
 | `permissions.spec.js` | `useRole`/`can()` UI gating — Admin sees admin actions, Participant doesn't |
 | `navigation.spec.js`  | Every major admin page loads without errors; URL-synced filters work |
 | `theme.spec.js`       | Dark/light toggle flips `html.dark` and survives reload              |
+| `users-crud.spec.js`  | Create a user via the modal, search for them, then delete them — exercises the full mutation + react-query invalidation path (audit PR J — QA-002) |
 
 ## Fixtures
 
