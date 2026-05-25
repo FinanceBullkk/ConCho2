@@ -301,19 +301,28 @@ jobs:
           CORS_BYPASS_NO_ORIGIN: 'true'
           # Disable Sentry — no DSN, no noise.
           SENTRY_DSN: ''
+        # Disable bash -e so a missing server.log (race) doesn't pre-empt
+        # the diagnostic tail at the end.
+        shell: bash --noprofile --norc -o pipefail {0}
         run: |
+          touch server.log
           node server.js > server.log 2>&1 &
           echo $! > server.pid
-          # Wait up to 30s for /health to respond.
-          for i in $(seq 1 30); do
+          # Server.js retries Mongo connection 5× with 2s/4s/8s/16s
+          # exponential backoff — up to ~30s in the worst case. Plus Express
+          # boot. 60s ceiling gives headroom.
+          for i in $(seq 1 60); do
             if curl -fs http://localhost:5000/health > /dev/null; then
               echo "Server ready after ${i}s"
+              echo "── server.log (first ${i}s) ──"
+              sed -n '1,40p' server.log || true
               exit 0
             fi
             sleep 1
           done
-          echo "::error::Server did not become ready within 30s"
-          tail -50 server.log
+          echo "::error::Server did not become ready within 60s"
+          echo "── server.log (full) ──"
+          cat server.log || echo "(no server.log)"
           exit 1
 
       - name: Run Playwright E2E suite
