@@ -342,9 +342,29 @@ const deleteUser = async (req, res) => {
         closedEnrollments = enrollResult.modifiedCount;
 
         // Step 4: Soft-delete the user (bypass auto-filter via raw update)
+        //
+        // Audit PR Q (DATA-008): mutate empCode + park email so the
+        // original identifier slots are freed up for reuse. The unique
+        // constraint on empCode and the partial-unique on email both
+        // stay in place; the suffix `__DEL_<ts36>` is reversible via the
+        // restore handler. Done as a raw collection update so we bypass
+        // the soft-delete auto-filter (which would otherwise hide the
+        // row from the update query).
+        const tagSuffix = `__DEL_${Date.now().toString(36).toUpperCase()}`;
+        const releasedEmpCode = `${user.empCode}${tagSuffix}`;
+        const releasedEmail = user.email || null;
         await User.collection.updateOne(
           { _id: user._id },
-          { $set: { isDeleted: true, deletedAt: new Date(), status: 'Dropped' } },
+          {
+            $set: {
+              isDeleted: true,
+              deletedAt: new Date(),
+              status: 'Dropped',
+              empCode: releasedEmpCode,
+              email: null,
+              _softDeletedEmail: releasedEmail,
+            },
+          },
           { session }
         );
       });
@@ -383,7 +403,7 @@ const restoreUser = async (req, res) => {
   try {
     // Must bypass auto-filter to find deleted users
     const user = await User.findOne({ _id: req.params.id, isDeleted: true })
-      .select('+isDeleted +deletedAt')
+      .select('+isDeleted +deletedAt +_softDeletedEmail')
       .lean();
 
     if (!user) {
@@ -393,9 +413,53 @@ const restoreUser = async (req, res) => {
       });
     }
 
+    // Audit PR Q (DATA-008): reverse the empCode / email mutation that
+    // deleteUser applied. If a replacement now holds either identifier,
+    // refuse the restore with a 409 so the admin can rename one side
+    // explicitly rather than silently losing the original value.
+    const tagMatch = user.empCode.match(/^(.*)__DEL_[A-Z0-9]+$/);
+    const originalEmpCode = tagMatch ? tagMatch[1] : user.empCode;
+    const originalEmail = user._softDeletedEmail || null;
+
+    // Conflict check — use raw collection (not Mongoose) to bypass the
+    // pre-find soft-delete filter; active replacements must be visible.
+    if (tagMatch) {
+      const empClash = await User.collection.findOne({
+        empCode: originalEmpCode,
+        isDeleted: { $ne: true },
+      });
+      if (empClash) {
+        return res.status(409).json({
+          success: false,
+          message: `Cannot restore: empCode "${originalEmpCode}" is now in use. Rename the active user first.`,
+        });
+      }
+    }
+    if (originalEmail) {
+      const emailClash = await User.collection.findOne({
+        email: originalEmail,
+        isDeleted: { $ne: true },
+      });
+      if (emailClash) {
+        return res.status(409).json({
+          success: false,
+          message: `Cannot restore: email "${originalEmail}" is now in use. Rename the active user first.`,
+        });
+      }
+    }
+
     await User.collection.updateOne(
       { _id: new mongoose.Types.ObjectId(req.params.id) },
-      { $set: { isDeleted: false, deletedAt: null, status: 'Inactive' } }
+      {
+        $set: {
+          isDeleted: false,
+          deletedAt: null,
+          status: 'Inactive',
+          empCode: originalEmpCode,
+          email: originalEmail,
+          _softDeletedEmail: null,
+        },
+      }
     );
 
     invalidateUserCache(req.params.id);
@@ -405,12 +469,13 @@ const restoreUser = async (req, res) => {
       action: 'restored',
       entity: 'User',
       entityId: user._id,
+      note: `Restored empCode=${originalEmpCode}` + (originalEmail ? ` + email` : ''),
     });
 
     invalidateAnalyticsCache();
     res.json({
       success: true,
-      message: `User ${user.empCode} restored (status set to Inactive — admin can re-activate)`,
+      message: `User ${originalEmpCode} restored (status set to Inactive — admin can re-activate)`,
     });
   } catch (error) {
     handleError(res, error);

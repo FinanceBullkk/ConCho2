@@ -186,6 +186,17 @@ const userSchema = new mongoose.Schema(
       default: null,
       select: false,
     },
+    // Audit PR Q (DATA-008): on soft-delete the live `empCode` is mutated
+    // to `<original>__DEL_<timestamp36>` so the original slot can be
+    // reused by a new hire. The email partial unique excludes nulls, so
+    // we move the original email here and null out the live field at the
+    // same time. Restore reverses both moves (or 409s if the original
+    // empCode / email is already taken by a replacement).
+    _softDeletedEmail: {
+      type: String,
+      default: null,
+      select: false,
+    },
 
     // ── Last-active write-through cache (audit PR H / PERF-008) ─
     // Stored on the user document so getUsers doesn't have to run a
