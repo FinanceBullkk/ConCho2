@@ -5,6 +5,7 @@ const Schedule = require('../models/Schedule');
 const Attendance = require('../models/Attendance');
 const Enrollment = require('../models/Enrollment');
 const { handleError } = require('../helpers/handleError');
+const { parsePagination, paginatedResponse } = require('../helpers/pagination');
 const auditService = require('../services/auditService');
 const { invalidateAnalyticsCache } = require('../middleware/analyticsCache');
 const logger = require('../lib/logger');
@@ -203,15 +204,50 @@ const flushPendingEmails = (pendingEmails) => {
 
 /**
  * GET /api/teams
+ *
+ * Audit PR T (API-002): two optional query modes for the
+ * "1000 teams × 9 members ≈ 9000 user docs" payload problem.
+ *
+ *   ?page=&limit=        — paginated response with {data, total, pages, …}
+ *                          (default behaviour when caller supplies either)
+ *   ?slim=true           — skip the deep populate of `members`. Useful for
+ *                          lookups (userId → teamName) where the caller
+ *                          only needs name + classCode + leaderId.
+ *
+ * When neither pagination param is present, the legacy shape is kept
+ * verbatim so existing client callers (useTeams() in TeamsPage,
+ * ClassesPage, UsersPage, SchedulesPage, ClassDetailPage) work unchanged.
+ * Future clients can opt into pagination + slim mode incrementally.
  */
 const getTeams = async (req, res) => {
   try {
-    const teams = await Team.find()
-      .populate('classId', 'classCode courseName status')
-      .populate('leaderId', 'empCode name department status')
-      .populate('members', 'empCode name department status')
-      .sort({ name: 1 });
+    const isPaginated = req.query.page !== undefined || req.query.limit !== undefined;
+    const slim = req.query.slim === 'true';
 
+    let query = Team.find()
+      .populate('classId', 'classCode courseName status')
+      .populate('leaderId', 'empCode name department status');
+    if (!slim) {
+      query = query.populate('members', 'empCode name department status');
+    }
+    query = query.sort({ name: 1 });
+
+    if (isPaginated) {
+      // teamRoutes has no zod schema on GET so query params come through as
+      // strings. Coerce to numbers ourselves before handing off to
+      // parsePagination so the response shape carries numeric page/limit
+      // (matches other paginated endpoints that DO have zod schemas).
+      const page = Number(req.query.page) || 1;
+      const limit = Math.min(Number(req.query.limit) || 50, 200);
+      const skip = (page - 1) * limit;
+      const [teams, total] = await Promise.all([
+        query.clone().skip(skip).limit(limit),
+        Team.countDocuments(),
+      ]);
+      return res.json(paginatedResponse({ data: teams, total, page, limit }));
+    }
+
+    const teams = await query;
     res.json({ success: true, count: teams.length, data: teams });
   } catch (error) {
     handleError(res, error);
