@@ -12,7 +12,7 @@ import { qk } from '../hooks/queryKeys';
 import { useAuth } from '../context/AuthContext';
 import { useRole } from '../hooks/useRole';
 import { useListUrlState } from '../hooks/useListUrlState';
-import { authAPI, usersAPI } from '../api/api';
+import { authAPI } from '../api/api';
 import { createUserSchema, editUserSchema } from '../lib/validations';
 import { DataTable } from '../components/DataTable';
 import { FilterBar } from '../components/FilterBar';
@@ -276,6 +276,10 @@ export default function UsersPage() {
   const reload = () => queryClient.invalidateQueries({ queryKey: qk.users.all });
 
   // ── Bulk action handlers ──────────────────────────────
+  // Audit PR K (FE-008): removed `kind === 'invite'` branch — usersAPI.sendInvite
+  // does not exist server-side. The branch was unreachable from the UI but
+  // tempted future devs to wire up a button that would silently no-op. If
+  // an invite flow is added, model it as `inviteMutation` and add the UI.
   const runBulk = async (kind, value) => {
     const ids = [...selectedIds];
     const n = ids.length;
@@ -287,9 +291,6 @@ export default function UsersPage() {
       } else if (kind === 'role') {
         await Promise.all(ids.map((id) => updateMutation.mutateAsync({ id, data: { role: value } })));
         toast.success(`${n} user${n > 1 ? 's' : ''} set to role ${value}`);
-      } else if (kind === 'invite') {
-        await Promise.all(ids.map((id) => usersAPI.sendInvite?.(id)));
-        toast.success(`Invite queued for ${n} user${n > 1 ? 's' : ''}`);
       }
       setSelectedIds(new Set());
     } catch {
