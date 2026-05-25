@@ -1,21 +1,32 @@
 // react-simple-code-editor ships as CommonJS (`exports.default = Editor`).
-// Vite's CJS→ESM interop normally unwraps the default, but on the CI dev
-// server the dynamic-import chunk for SystemPage sometimes lands with the
-// whole module object as the "default" instead of the unwrapped function.
-// The resulting "Element type is invalid: ... got: object" crash brought
-// down the entire SystemPage subtree via ErrorBoundary (caught by Playwright
-// E2E on PR X — audit PR X follow-up #4).
+// Vite's CJS→ESM interop on the dev server occasionally double-wraps the
+// default for lazy-loaded chunks (SystemPage is lazy), producing
+// `{ default: { default: Editor } }` instead of `{ default: Editor }`.
+// A single-level `mod.default ?? mod` is not enough — it returns the
+// inner object, React then throws "Element type is invalid ... got:
+// object", and the whole SystemPage subtree falls into the top-level
+// ErrorBoundary. The Playwright E2E gate on PR X surfaced this; the
+// audit PR V `continue-on-error: true` was hiding it.
 //
-// Namespace + default-or-self fallback is the canonical fix for this
-// shape: handles ESM, CJS-with-__esModule, and CJS-without-__esModule all
-// at once without depending on Vite's interop heuristics.
+// Walk `.default` until we land on a function (the actual component).
+// Handles all of ESM, CJS-with-__esModule, CJS-without-__esModule, and
+// the double-wrapped Vite case without committing to any specific interop
+// behaviour.
 import * as ReactSimpleCodeEditor from 'react-simple-code-editor';
 import Prism from 'prismjs';
 import 'prismjs/components/prism-json';
 import 'prismjs/themes/prism-tomorrow.css';
 import { cn } from '@/lib/utils';
 
-const Editor = ReactSimpleCodeEditor.default ?? ReactSimpleCodeEditor;
+function unwrapComponent(mod) {
+  let cur = mod;
+  // Bounded to 4 hops — any reasonable interop wraps at most twice.
+  for (let i = 0; i < 4 && cur && typeof cur !== 'function'; i++) {
+    cur = cur.default;
+  }
+  return cur;
+}
+const Editor = unwrapComponent(ReactSimpleCodeEditor);
 
 // ──────────────────────────────────────────────────────────
 // SettingsEditor — Phase 4 Surface 9 §H
