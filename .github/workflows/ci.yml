@@ -128,7 +128,7 @@ jobs:
 
   # ──────────────────────────────────────────────────────────
   # GATE: client lint (REQUIRED — promoted in audit PR J)
-  # The `lint` script runs eslint with `--max-warnings 138`, the
+  # The `lint` script runs eslint with `--max-warnings 81`, the
   # ratchet cap reflecting the warning count on main at promotion
   # time. PR that pushes the count above the cap fails CI; PRs
   # that lower it should also lower the cap in the same commit.
