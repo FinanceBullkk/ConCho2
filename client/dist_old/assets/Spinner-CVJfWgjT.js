@@ -1,1 +1,0 @@
-import{z as e}from"./icons-vendor-DprNWvCp.js";import{o as t}from"./query-vendor-BQnge_IG.js";import{r as n}from"./button-BM_cJlXf.js";var r=t();function i({size:t=16,className:i,label:a=`Loading`,...o}){return(0,r.jsx)(e,{role:`status`,"aria-label":a,style:{width:t,height:t},strokeWidth:2,className:n(`animate-spin motion-reduce:animate-none`,i),...o})}export{i as t};
