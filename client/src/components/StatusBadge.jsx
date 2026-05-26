@@ -131,5 +131,6 @@ export function StatusBadge({
 }
 
 // Re-export tone enum + map for consumers that need to introspect
+// eslint-disable-next-line react-refresh/only-export-components
 export const STATUS_BADGE_TONES = Object.keys(TONE_CLS);
 export { STATUS_MAP };

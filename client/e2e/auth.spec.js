@@ -6,6 +6,12 @@ import { test, expect } from '@playwright/test';
  *
  * Exercises the LoginPage end-to-end against the real API + DB.
  * Pre-req: server running and seeded (npm run seed in server/).
+ *
+ * Audit PR X (P2-09): playwright.config.js pins `use.locale = 'en-US'`
+ * so the i18n LanguageDetector falls back to `en`. All selectors in
+ * this file match the en.json strings (auth.login.empCode = "Employee
+ * code", auth.login.title = "Sign in", auth.mfa.title = "Two-factor
+ * authentication", auth.login.forgotPassword = "Forgot password?").
  */
 
 test.describe('Authentication', () => {

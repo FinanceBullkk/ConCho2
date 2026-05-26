@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useId } from 'react';
 import { X, TriangleAlert, ArrowRightLeft, AlertOctagon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Spinner } from './Spinner';
@@ -44,6 +44,7 @@ function EnrollmentDrawerContent({
 
   // Reset when mode or selection changes. State setters are stable; this
   // is the standard "sync form to incoming props" pattern.
+  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     setError('');
     setNote('');
@@ -51,6 +52,7 @@ function EnrollmentDrawerContent({
     if (mode === 'transfer') setToTeamId('');
     if (mode === 'status')   setStatus('Active');
   }, [mode, selected]);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   const enrollmentIds = useMemo(() => selected.map((e) => e._id), [selected]);
   const count         = selected.length;
@@ -159,8 +161,9 @@ function EnrollmentDrawerContent({
         {mode === 'transfer' && (
           <>
             <div>
-              <label className="block text-[11px] text-muted-foreground mb-1 font-medium">Target team</label>
+              <label htmlFor="enrollment-target-team" className="block text-[11px] text-muted-foreground mb-1 font-medium">Target team</label>
               <select
+                id="enrollment-target-team"
                 value={toTeamId}
                 onChange={(e) => setToTeamId(e.target.value)}
                 required
@@ -182,7 +185,7 @@ function EnrollmentDrawerContent({
         {mode === 'status' && (
           <>
             <div>
-              <label className="block text-[11px] text-muted-foreground mb-1 font-medium">New status</label>
+              <label className="block text-[11px] text-muted-foreground mb-1 font-medium">New status
               <div className="grid grid-cols-3 gap-1.5">
                 {STATUSES.map((s) => (
                   <button
@@ -205,6 +208,7 @@ function EnrollmentDrawerContent({
                   </button>
                 ))}
               </div>
+              </label>
             </div>
             <NoteField note={note} setNote={setNote} />
           </>
@@ -221,8 +225,9 @@ function EnrollmentDrawerContent({
               </span>
             </div>
             <div>
-              <label className="block text-[11px] text-muted-foreground mb-1 font-medium">Type DROP to confirm</label>
+              <label htmlFor="enrollment-drop-confirm" className="block text-[11px] text-muted-foreground mb-1 font-medium">Type DROP to confirm</label>
               <input
+                id="enrollment-drop-confirm"
                 type="text"
                 value={confirmText}
                 onChange={(e) => setConfirmText(e.target.value)}
@@ -283,12 +288,14 @@ function EnrollmentDrawerContent({
 }
 
 function NoteField({ note, setNote, placeholder = 'Optional note' }) {
+  const noteId = useId();
   return (
     <div>
-      <label className="block text-[11px] text-muted-foreground mb-1 font-medium">
+      <label htmlFor={noteId} className="block text-[11px] text-muted-foreground mb-1 font-medium">
         Note <span className="font-normal text-subtle-foreground">(optional)</span>
       </label>
       <textarea
+        id={noteId}
         value={note}
         onChange={(e) => setNote(e.target.value)}
         placeholder={placeholder}
