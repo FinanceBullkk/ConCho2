@@ -136,6 +136,10 @@ client/playwright-report/
 client/playwright/.cache/
 client/blob-report/
 
+# Test result artifacts (temporary output from CI/local runs)
+*_results.txt
+*_results.json
+
 # ── Secret hygiene ────────────────────────────────────────────────────────────
 # These patterns prevent accidentally committing credential rotation scratch
 # files, filter-repo replacement lists, and Windows "New Text Document" drafts.
