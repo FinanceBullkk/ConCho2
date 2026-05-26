@@ -44,7 +44,7 @@ export default defineConfig([
   // `.vite-cache` is Vite's dependency pre-bundling cache (regenerated on
   // every `npm run dev`); it contains transpiled vendor JS that should not
   // be linted. `dist` is the production build output.
-  globalIgnores(['dist', '.vite-cache', 'playwright-report', 'test-results']),
+  globalIgnores(['dist', 'dist_old', '.vite-cache', 'playwright-report', 'test-results']),
 
   // ── Application source ───────────────────────────────────
   {

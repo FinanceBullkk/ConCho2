@@ -1,0 +1,703 @@
+
+> tms-server@2.0.0 test
+> jest --runInBand --forceExit --detectOpenHandles
+
+(node:6992) [DEP0169] DeprecationWarning: `url.parse()` behavior is not standardized and prone to errors that have security implications. Use the WHATWG URL API instead. CVEs are not issued for `url.parse()` vulnerabilities.
+(Use `node --trace-deprecation ...` to show where the warning was created)
+PASS tests/integration/booking.test.js (6.054 s)
+  POST /api/schedules/book-slot
+    √ leader can book a valid time slot (97 ms)
+    √ enrolled users are auto-populated from active team members (55 ms)
+    √ 3rd booking in same week is rejected (weekly limit = 2) (113 ms)
+    √ overlapping time slot is rejected (409) (65 ms)
+    √ non-leader participant cannot book for a team they do not lead (14 ms)
+    √ unauthenticated request returns 401 (10 ms)
+    √ invalid time slot (not in ALLOWED_TIME_SLOTS) is rejected (11 ms)
+  DELETE /api/schedules/:id/cancel
+    √ leader can cancel their own booking (73 ms)
+    √ admin can cancel any booking (68 ms)
+  Schedule.enrolledCount virtual (ARCH-02)
+    √ enrolledCount equals enrolledUsers.length — never stored, never drifts (45 ms)
+
+PASS tests/integration/teacherBinding.test.js
+  Class.teacherIds binding — evaluation
+    √ Teacher A (bound) CAN upsert evaluation for boundClass → 200 (33 ms)
+    √ Teacher B (NOT bound) CANNOT upsert evaluation for boundClass → 403 (13 ms)
+    √ Teacher B (NOT bound) CANNOT list evaluations for boundClass → 403 (9 ms)
+    √ Teacher A (bound) CAN list evaluations for boundClass → 200 (19 ms)
+    √ Any Teacher CAN upsert for unboundClass (empty teacherIds → graceful) → 200 (36 ms)
+    √ Admin CAN upsert regardless of binding → 200 (43 ms)
+  Class.teacherIds binding — attendance
+    √ Teacher A (bound) CAN bulk-mark schedule of boundClass → 200 (48 ms)
+    √ Teacher B (NOT bound) CANNOT bulk-mark schedule of boundClass → 403 (18 ms)
+    √ Teacher B (NOT bound) CANNOT read roster of boundClass schedule → 403 (17 ms)
+    √ Any Teacher CAN bulk-mark schedule of unboundClass (graceful) → 200 (29 ms)
+    √ Admin CAN bulk-mark any schedule → 200 (28 ms)
+
+PASS tests/integration/attendance.test.js
+  POST /api/attendance/:scheduleId (bulk mark)
+    √ marks attendance for past schedule successfully (36 ms)
+    √ rejects marking for future schedule (26 ms)
+    √ rejects invalid attendance status (9 ms)
+    √ rejects empty records array (7 ms)
+    √ rejects non-existent schedule (9 ms)
+    √ rejects userId not enrolled in schedule (BUG-02 fix) (15 ms)
+  GET /api/attendance/analytics/*
+    √ by-employee returns array (17 ms)
+    √ by-team returns array with team structure (12 ms)
+
+PASS tests/integration/mfa.test.js (7.681 s)
+  MFA setup → verify-setup
+    √ POST /mfa/setup returns QR + base32 secret and stores pending secret (241 ms)
+    √ POST /mfa/verify-setup with wrong code returns 401 and does NOT enable MFA (19 ms)
+    √ POST /mfa/verify-setup with valid code enables MFA and returns backup codes (529 ms)
+  MFA login flow
+    √ POST /login with MFA-enabled user returns mfaRequired:true and sets pending cookie (260 ms)
+    √ POST /mfa/verify with valid TOTP returns full session (269 ms)
+    √ POST /mfa/verify with replayed TOTP within the same window returns 401 (1023 ms)
+    √ POST /mfa/verify with backup code consumes it on first use (775 ms)
+    √ POST /mfa/verify with already-consumed backup code returns 401 (686 ms)
+  MFA admin-disable (re-auth gate from PR 7 / SEC-009)
+    √ admin can disable MFA with currentPassword; MFA fields are cleared (269 ms)
+
+PASS tests/integration/dataIntegrity.test.js
+  DATA-002 — Class Ongoing partial unique
+    √ two Ongoing classes with same classCode fail with E11000 (15 ms)
+    √ one Ongoing + one Completed for same classCode is allowed (24 ms)
+  DATA-005 — cancelSlot refuses past schedules
+    √ cancelling a schedule whose startTime is in the past returns 409 and preserves attendance (40 ms)
+    √ cancelling a future schedule succeeds (existing behaviour) (34 ms)
+  DATA-007 — Team.aggregate filters soft-deleted
+    √ soft-deleted team does NOT appear in plain aggregate (15 ms)
+    √ caller-supplied $match: { isDeleted: true } still works (override) (12 ms)
+  DATA-013 — Schedule cross-field validator
+    √ endTime <= startTime is rejected on save (2 ms)
+    √ endTime === startTime is rejected (strict inequality) (1 ms)
+    √ endTime > startTime is accepted (12 ms)
+
+PASS tests/integration/evaluationRoutes.test.js
+  POST /api/evaluations
+    √ Admin can upsert an evaluation (create branch) (33 ms)
+    √ upsert updates an existing evaluation (update branch) (40 ms)
+    √ Teacher can upsert an evaluation (30 ms)
+    √ Participant cannot upsert (403) (18 ms)
+    √ rejects out-of-range score (>10) (16 ms)
+    √ returns 401 without auth (17 ms)
+  GET /api/evaluations
+    √ Admin sees all evaluations (42 ms)
+    √ Teacher sees evaluations when classId is supplied (38 ms)
+    √ BUG #3 fix: Teacher without classId is rejected (400) — prevents org-wide enumeration (22 ms)
+    √ Admin without classId is allowed (sees all) (30 ms)
+    √ BUG #3 fix: upsert records createdBy on first insert (30 ms)
+    √ BUG #3 fix: createdBy is NOT overwritten on subsequent updates by a different user (53 ms)
+    √ SEC-IDOR-01: Participant only sees own evaluations (32 ms)
+    √ SEC-IDOR-01: Participant cannot fetch another user's evaluations by userId override (34 ms)
+    √ returns 401 without auth (6 ms)
+  GET /api/evaluations/:id
+    √ Admin can fetch any evaluation by id (28 ms)
+    √ Teacher can fetch any evaluation by id (30 ms)
+    √ Participant cannot fetch by id (403 — Admin/Teacher only) (19 ms)
+    √ returns 404 for unknown id (9 ms)
+  DELETE /api/evaluations/:id
+    √ Admin can delete an evaluation (30 ms)
+    √ Teacher cannot delete (403 — Admin only) (19 ms)
+    √ Participant cannot delete (403) (19 ms)
+    √ returns 404 for unknown id (9 ms)
+
+PASS tests/integration/phaseAHardening.test.js (8.199 s)
+  DATA-014 — User.pre(save) bumps passwordChangedAt automatically
+    √ saving a user with a NEW password bumps passwordChangedAt (1673 ms)
+    √ saving a user with NO password change does NOT bump passwordChangedAt (1474 ms)
+    √ saved passwordChangedAt is slightly in the past (clock-skew guard) (360 ms)
+  DATA-010 — importService.importUsers cannot elevate role on existing users
+    √ existing Participant cannot be promoted to Admin via import payload (351 ms)
+    √ NEW user inserted via import does inherit the payload role (legit new admin) (326 ms)
+    √ existing Admin cannot be silently demoted to Participant via import (326 ms)
+  DATA-009 — soft-deleted user is excluded from analytics + export joins
+    √ analyticsByEmployee aggregation skips soft-deleted users (361 ms)
+    √ attendance export pipeline excludes soft-deleted users (344 ms)
+
+PASS tests/integration/scheduleAuthz.test.js
+  GET /api/schedules — Participant scoping
+    √ Admin sees all schedules (37 ms)
+    √ Teacher sees all schedules (no Participant filter) (25 ms)
+    √ Participant ONLY sees schedules where they are enrolled (19 ms)
+  GET /api/schedules/:id — Participant IDOR guard
+    √ Admin can fetch any schedule by id (17 ms)
+    √ Teacher can fetch any schedule by id (15 ms)
+    √ Participant fetching a schedule they are enrolled in: 200 (18 ms)
+    √ Participant fetching a schedule they are NOT enrolled in: 403 (16 ms)
+    √ returns 401 without auth (5 ms)
+
+PASS tests/integration/auditRoutes.test.js
+  GET /api/admin/audit
+    √ returns 200 with paginated results for Admin (18 ms)
+    √ returns 403 when called by a Teacher (9 ms)
+    √ returns 403 when called by a Participant (8 ms)
+    √ returns 401 without authentication (6 ms)
+    √ accepts entity filter and returns 200 (12 ms)
+    √ respects page and limit query params (10 ms)
+  GET /api/admin/audit/entity/:entity/:entityId
+    √ returns 200 with history array for a known entity + id (Admin) (8 ms)
+    √ returns 200 with empty array for an entity that has no log entries (8 ms)
+    √ returns 403 when called by a Teacher (6 ms)
+    √ returns 401 without authentication (6 ms)
+
+PASS tests/integration/passwordReset.test.js (5.918 s)
+  POST /api/auth/forgot-password
+    √ returns 200 with valid empCode that has an email on file (82 ms)
+    √ returns 200 (anti-enumeration) for unknown empCode (74 ms)
+    √ returns 200 (anti-enumeration) for empCode with no email (76 ms)
+    √ returns 400 when body is missing empCode (12 ms)
+    √ BUG #15 fix: response time for valid vs unknown empCode is similar (anti-enumeration) (57 ms)
+  POST /api/auth/reset-password
+    √ returns 200 and resets password with a valid token (272 ms)
+    √ returns 400 with an invalid (non-existent) token (253 ms)
+    √ returns 400 with an expired token (263 ms)
+    √ returns 400 when new password is too short (under 10 chars) (18 ms)
+    √ returns 400 when token or password fields are missing (11 ms)
+    √ token is consumed — second use returns 400 (520 ms)
+  POST /api/auth/reset-password/:token (SEC-005 path-style)
+    √ path-style endpoint accepts token from URL params (270 ms)
+    √ legacy body-style endpoint still works (backward compat) (271 ms)
+    √ forgot-password email URL uses /reset-password/<token> path-style (145 ms)
+  forgot-password logger scrub (SEC-008)
+    √ no logger call records the raw empCode (138 ms)
+    √ found and not-found branches emit IDENTICAL message text (275 ms)
+
+PASS tests/integration/p2-regression.test.js
+  P2-08R — export date range only marks in-range records as EXPORTED
+    √ record with schedule.startTime inside range → EXPORTED; outside → stays PENDING (92 ms)
+    √ concurrent exports: one gets 200, the other 404 — record EXPORTED exactly once (P2R-01) (49 ms)
+  P2-03R — single PUT Dropped removes user from future Schedule.enrolledUsers
+    √ user is pulled from future schedules after single enrollment Dropped (63 ms)
+    √ past schedules are NOT affected when enrollment is Dropped (46 ms)
+  P2-05R — IMPORT_DEFAULT_PASSWORD production guard
+    √ returns 500 in production when IMPORT_DEFAULT_PASSWORD is not set (12 ms)
+    √ succeeds in test/dev when IMPORT_DEFAULT_PASSWORD is not set (fallback active) (258 ms)
+    √ succeeds in production when IMPORT_DEFAULT_PASSWORD is explicitly set (258 ms)
+
+PASS tests/integration/adminDb.test.js
+  PUT /api/admin-db/User/:id — forbidden-field blocklist (SEC-003)
+    √ ignores mfaEnabled silently and surfaces warning (33 ms)
+    √ ignores mfaSecret silently and surfaces warning (25 ms)
+    √ ignores mfaBackupCodes silently and surfaces warning (22 ms)
+    √ ignores mfaPendingSecret silently and surfaces warning (23 ms)
+    √ ignores mfaLastUsedCounter silently and surfaces warning (23 ms)
+    √ ignores passwordResetToken silently and surfaces warning (26 ms)
+    √ ignores passwordResetExpires silently and surfaces warning (23 ms)
+    √ ignores failedLoginAttempts silently and surfaces warning (23 ms)
+    √ ignores lockUntil silently and surfaces warning (24 ms)
+    √ ignores mustChangePassword silently and surfaces warning (23 ms)
+    √ ignores email silently and surfaces warning (23 ms)
+    √ ignores empCode silently and surfaces warning (23 ms)
+    √ ignores password silently and surfaces warning (24 ms)
+    √ ignores passwordChangedAt silently and surfaces warning (22 ms)
+    √ ignores role silently and surfaces warning (23 ms)
+    √ ignores isDeleted silently and surfaces warning (23 ms)
+    √ ignores deletedAt silently and surfaces warning (24 ms)
+  DELETE /api/admin-db/:collection/:id — hard-delete blocklist (SEC-010)
+    √ Counter delete is blocked with 403 (17 ms)
+    √ Setting delete is blocked with 403 (16 ms)
+    √ Attendance delete is blocked with 403 (6 ms)
+    √ Enrollment delete is blocked with 403 (6 ms)
+    √ Evaluation delete is blocked with 403 (6 ms)
+    √ previously-blocked User / Team / Class / Schedule still 403 (22 ms)
+  adminDb writes AuditLog on every mutation (SEC-013)
+    √ PUT writes db-admin-updated with full diff (85 ms)
+    √ PUT records ignored-field note when stripping protected fields (92 ms)
+    √ DELETE on a non-blocked collection writes db-admin-deleted (61 ms)
+  adminDb existing functionality regression
+    √ non-Admin gets 403 (8 ms)
+    √ unauth gets 401 (6 ms)
+    √ GET /collections returns stats (28 ms)
+    √ GET /:collection paginates + escapes regex search (14 ms)
+
+PASS tests/integration/lastActivePerf.test.js
+  PERF-008 — lastActiveAt write-through
+    √ bulkMark with status:P updates lastActiveAt on the user (54 ms)
+    √ $max guard: re-marking an OLDER session does NOT move lastActiveAt backwards (86 ms)
+    √ Late (L) status also updates lastActiveAt (42 ms)
+    √ EL (excused) does NOT update lastActiveAt (38 ms)
+    √ GET /users surfaces lastActive + daysSince from the cached field (54 ms)
+  PERF-006 — import batch cap
+    √ 501-row payload returns 400 (default cap 500) (22 ms)
+
+PASS tests/integration/authHardening.test.js
+  SEC-007 — MFA enrollment-required cookie cannot change password
+    √ PUT /api/auth/change-password with enrollment-required token returns 403 (10 ms)
+    √ full-session token can still change password (regression) (501 ms)
+    √ enrollment-required token can still hit /api/auth/me, /mfa/setup, /mfa/verify-setup, logout (10 ms)
+  SEC-009 — admin force-logout + mfa admin-disable require re-auth
+    √ force-logout without currentPassword returns 403 reauth-missing (6 ms)
+    √ force-logout with WRONG currentPassword returns 403 reauth-failed (247 ms)
+    √ force-logout with CORRECT currentPassword returns 200 (258 ms)
+    √ mfa admin-disable without currentPassword returns 403 reauth-missing (8 ms)
+    √ mfa admin-disable with wrong currentPassword returns 403 reauth-failed (247 ms)
+    √ mfa admin-disable with CORRECT currentPassword returns 200 + clears MFA (273 ms)
+    √ non-Admin still blocked by route-level roleGuard (regression) (9 ms)
+
+PASS tests/integration/misc-pr-e.test.js
+  SEC-006 — production no-origin guard
+    √ POST /api/users without Origin returns 403 in production (6 ms)
+    √ GET /api/users without Origin is ALLOWED (safe method, browser nav) (16 ms)
+    √ GET /ready without Origin is ALLOWED (Render probe path) (11 ms)
+    √ POST /api/users WITH Origin is allowed (real browser) (11 ms)
+  SEC-011 — enrollment Zod validation
+    √ PATCH /bulk-status with empty enrollmentIds returns 400 (9 ms)
+    √ PATCH /bulk-status with oversize enrollmentIds returns 400 (8 ms)
+    √ PUT /:id with unknown field returns 400 (strict mode) (7 ms)
+    √ PUT /:id with invalid status returns 400 (7 ms)
+  PERF-002 — /dashboard/alerts cache
+    √ first call returns cached:false; second within 30s returns cached:true (21 ms)
+
+PASS tests/integration/enrollmentRoutes.test.js
+  GET /api/enrollments
+    √ Admin lists enrollments (52 ms)
+    √ filters by teamId (43 ms)
+    √ filters by status (45 ms)
+    √ enriches with attendance summary when classId is supplied (45 ms)
+    √ returns 403 for non-Admin (9 ms)
+    √ returns 401 without auth (6 ms)
+  GET /api/enrollments/team/:teamId
+    √ returns enrollments for the team with attendance summary (48 ms)
+    √ filters by ?status=Active (44 ms)
+    √ returns empty array for unknown teamId (8 ms)
+  GET /api/enrollments/user/:userId
+    √ returns the user's full enrollment timeline (42 ms)
+    √ returns empty array for a user with no enrollments (8 ms)
+  PUT /api/enrollments/:id
+    √ updates status to Completed and auto-sets leftAt (50 ms)
+    √ resetting status to Active clears leftAt (47 ms)
+    √ updating only the note leaves status intact (47 ms)
+    √ returns 404 for unknown id (15 ms)
+    √ returns 403 for non-Admin (35 ms)
+  POST /api/enrollments/check-conflicts
+    √ returns conflicts for users already Active in another team (53 ms)
+    √ returns 400 when memberIds is missing (8 ms)
+    √ returns empty list when no conflicts (9 ms)
+
+PASS tests/integration/auditWriteSide.test.js (6.248 s)
+  Audit log write-side coverage
+    √ PUT /api/users/:id name change writes action=updated entity=User (128 ms)
+    √ DELETE /api/users/:id writes a soft-delete audit entry (355 ms)
+    √ POST /api/evaluations writes an evaluation audit entry on first save (123 ms)
+    √ PUT /api/settings writes Setting audit entry (104 ms)
+    √ POST /api/auth/logout revokes JTI and writes logged-out audit (96 ms)
+    √ admin force-logout writes force-logged-out audit (343 ms)
+    √ POST /api/import/users writes Import audit entry (340 ms)
+    √ POST /api/admin/reconcile/run writes Reconcile audit entry (170 ms)
+    √ CSRF token mismatch writes csrf-failed audit entry (109 ms)
+    √ cron auth failure writes cron-auth-failed audit entry (108 ms)
+
+PASS tests/integration/auth.test.js
+  POST /api/auth/login
+    √ succeeds with valid credentials (252 ms)
+    √ rejects wrong password with 401 (255 ms)
+    √ rejects non-existent empCode with 401 (9 ms)
+    √ rejects inactive user with 403 (10 ms)
+    √ rejects missing fields (7 ms)
+  Protected Route Access
+    √ rejects unauthenticated request with 401 (6 ms)
+    √ accepts valid Bearer token (14 ms)
+    √ rejects invalid token with 401 (6 ms)
+  Role-based Access Control
+    √ Admin can access admin-only routes (11 ms)
+    √ Participant cannot access admin-only routes (403) (8 ms)
+    √ Teacher cannot access admin-only routes (403) (10 ms)
+  Forced password change enforcement
+    √ surfaces mustChangePassword and blocks non-auth routes until password is changed (763 ms)
+
+PASS tests/integration/analyticsPerf.test.js
+  PERF-003 — analyticsByTeam inverted join
+    √ rollup matches expected per-team totals (522 ms)
+    √ soft-deleted teams are NOT included (DATA-007 hook respected) (276 ms)
+    √ pagination skip + limit slice works (771 ms)
+  PERF-004 — reconcile shared activeEnrollments
+    √ reconcile completes without errors when ctx is pre-populated (80 ms)
+    √ Enrollment.find is called ONCE for active enrollments (57 ms)
+
+PASS tests/integration/settings.test.js
+  GET /api/settings
+    √ returns 200 with settings array for Admin (14 ms)
+    √ returns 403 when called by a Teacher (8 ms)
+    √ returns 401 without authentication (5 ms)
+    √ returns 403 when called by a Participant (8 ms)
+  PUT /api/settings
+    √ returns 200 and updates an allowed setting key as Admin (27 ms)
+    √ returns 200 with a warning when an unknown key is supplied (17 ms)
+    √ returns 400 when settings field is not an array (12 ms)
+    √ returns 403 when called by a Participant (role block before body check) (11 ms)
+    √ returns 401 without authentication (12 ms)
+
+PASS tests/integration/searchRoutes.test.js
+  GET /api/search
+    √ returns 401 without auth (9 ms)
+    √ returns empty result when q is too short (10 ms)
+    √ Admin: finds users by name (13 ms)
+    √ Admin: finds users by empCode (12 ms)
+    √ Admin: finds team by name (19 ms)
+    √ Admin: finds class by classCode (14 ms)
+    √ respects per-entity limit (6 ms)
+    √ clamps absurd limit values (12 ms)
+    √ regex metacharacters are escaped (no ReDoS / no all-match) (11 ms)
+    √ Teacher: finds only Participants (not Admins/Teachers) (14 ms)
+    √ Participant: sees only their own user record (16 ms)
+    √ Participant: sees their own record when name matches (16 ms)
+    √ Participant: sees teams they belong to (19 ms)
+
+PASS tests/integration/scheduleReassign.test.js (7.743 s)
+  Schedule reassignment — roster rebuild
+    √ reassigning to a new team rebuilds enrolledUsers from that team (1046 ms)
+    √ old team members are not in enrolledUsers after reassignment (1036 ms)
+  Schedule reassignment — attendance block
+    √ returns 409 when attendance records already exist for the schedule (1067 ms)
+  Schedule reassignment — cross-class guard
+    √ returns 400 when target team belongs to a different class (1287 ms)
+
+PASS tests/integration/reconcileDrift.test.js
+  reconcile: duplicate_active_enrollment
+    √ plants two Active enrollments for same user → flagged (80 ms)
+  reconcile: orphan_schedule_class
+    √ schedule pointing to a non-existent classId is flagged (67 ms)
+  reconcile: multi_team_class
+    √ two non-deleted teams sharing a classId are flagged (85 ms)
+  reconcile: counter_drift
+    √ Counter.seq lower than max in-use empCode numeric → flagged (312 ms)
+    √ Counter.seq higher than max in-use is NOT flagged (healthy) (320 ms)
+  reconcile: soft_deleted_in_team_members
+    √ soft-deleted user lingering in Team.members is flagged (313 ms)
+  reconcile: original 5 checks still produce summary keys
+    √ summary contains all 10 check counters (5 original + 5 new) (63 ms)
+
+PASS tests/integration/userRoutes.test.js (7.326 s)
+  GET /api/users
+    √ Admin lists users with default pagination (16 ms)
+    √ filters by role (12 ms)
+    √ filters by status (11 ms)
+    √ search returns matching users (by name) (11 ms)
+    √ returns 403 for non-Admin (8 ms)
+    √ returns 401 without auth (5 ms)
+  GET /api/users/:id
+    √ returns the user (8 ms)
+    √ returns 404 for unknown id (9 ms)
+    √ returns 400 for malformed id (9 ms)
+  POST /api/users
+    √ creates a user with valid payload (270 ms)
+    √ rejects duplicate empCode with 4xx (505 ms)
+    √ rejects payload missing required field (email) (8 ms)
+    √ rejects short password (7 ms)
+    √ returns 403 for non-Admin (10 ms)
+  PUT /api/users/:id
+    √ updates name and department (266 ms)
+    √ returns 404 for unknown id (11 ms)
+    √ rejects invalid role enum value (7 ms)
+    √ BUG #9 fix: resetting another user's password WITHOUT currentPassword is 403 (259 ms)
+    √ BUG #9 fix: resetting another user's password WITH wrong currentPassword is 403 (492 ms)
+    √ BUG #9 fix: resetting another user's password WITH correct currentPassword succeeds (746 ms)
+    √ BUG #9 fix: changing another user's role WITHOUT currentPassword is 403 (253 ms)
+    √ BUG #9 fix: non-sensitive update (name only) does NOT require currentPassword (262 ms)
+    √ BUG #13 fix: entranceLevel and currentLevel persist on create + update (281 ms)
+  DELETE /api/users/:id
+    √ soft-deletes a user (and cascades through team membership) (289 ms)
+    √ blocks deletion of a team leader (11 ms)
+    √ returns 403 for non-Admin (6 ms)
+  POST /api/users/:id/restore
+    √ restores a soft-deleted user (306 ms)
+    √ returns 404 when restoring a user that is not deleted (9 ms)
+
+PASS tests/integration/softDeleteEmpCodeReuse.test.js (6.148 s)
+  Soft-delete frees empCode + email (PR Q / DATA-008)
+    √ a NEW user with the freed empCode succeeds after soft-delete (546 ms)
+    √ a NEW user with the freed email succeeds after soft-delete (538 ms)
+    √ the soft-deleted user keeps the suffixed empCode in the trash view (284 ms)
+    √ restore with no clash returns the original empCode + email (299 ms)
+    √ restore with an empCode clash returns 409 (admin must rename first) (553 ms)
+    √ restore with an email clash returns 409 (546 ms)
+
+PASS tests/integration/teams.test.js
+  Team CRUD
+    √ GET /api/teams returns all teams (28 ms)
+    √ GET /api/teams?page=1&limit=1 returns paginated shape (20 ms)
+    √ GET /api/teams?slim=true skips the members populate (13 ms)
+    √ GET /api/teams (no query) keeps legacy shape (no `total`/`pages`) (16 ms)
+    √ POST /api/teams creates a new team (322 ms)
+    √ non-Admin cannot create team (403) (9 ms)
+    √ rejects creating team with already-assigned classId (409) (266 ms)
+  Team Delete
+    √ DELETE /api/teams/:id soft-deletes the team + closes Active enrollments (526 ms)
+  User Delete Guard (Team Leader)
+    √ cannot delete a user who is a team leader (10 ms)
+
+PASS tests/integration/exportRowCap.test.js (6.152 s)
+  PERF-001 — export row cap
+    √ exports under the cap succeed normally (798 ms)
+    √ exports OVER the cap throw 413 ServiceError and do NOT claim any rows (1261 ms)
+    √ re-export (includeExported:true) also respects the cap (1013 ms)
+
+PASS tests/integration/classReadGate.test.js
+  GET /api/classes/:id — per-role read gate (AUTHZ-004)
+    √ Admin can read any class (28 ms)
+    √ Teacher can read any class (graceful-migration — no teacherIds bound) (21 ms)
+    √ Participant enrolled in the class can read it (46 ms)
+    √ Participant NOT enrolled gets 404 (not 403) — existence not leaked (20 ms)
+    √ Participant requesting a nonexistent class id also gets 404 (uniform response) (8 ms)
+
+PASS tests/integration/exportFormulaInjection.test.js
+  safeCell() (SEC-004 helper)
+    √ prepends apostrophe when string starts with = (1 ms)
+    √ prepends apostrophe when string starts with + (1 ms)
+    √ prepends apostrophe when string starts with - (1 ms)
+    √ prepends apostrophe when string starts with @
+    √ prepends apostrophe when string starts with tab (1 ms)
+    √ prepends apostrophe when string starts with carriage return
+    √ handles HYPERLINK exfil payload (1 ms)
+    √ handles WEBSERVICE exfil payload
+    √ passes through normal text unchanged (1 ms)
+    √ passes through empty string unchanged
+    √ passes through numbers unchanged (no transform) (1 ms)
+    √ passes through null/undefined unchanged
+    √ passes through Date unchanged
+  exportAttendance (SEC-004 generateExcel)
+    √ user.name = "=1+1" is written as literal string in workbook (90 ms)
+
+PASS tests/integration/exportRoutes.test.js
+  GET /api/export/stats
+    √ returns 200 with { pending, exported } shape for Admin (22 ms)
+    √ returns 403 when called by a Participant (9 ms)
+    √ returns 401 when called without authentication (6 ms)
+    √ returns 403 when called by a Teacher (9 ms)
+  GET /api/export/attendance
+    √ returns 200 (xlsx) or 404 (no data) for Admin — xlsx mode (8 ms)
+    √ returns 200 with JSON array when ?format=json (9 ms)
+    √ returns 200 with JSON array when date filters are supplied (8 ms)
+    √ returns 403 when called by a Teacher (6 ms)
+    √ returns 401 when called without authentication (5 ms)
+  GET /api/export/evaluations
+    √ returns 200 (xlsx) or 404 (no data) for Admin — xlsx mode (9 ms)
+    √ returns 200 with JSON array when ?format=json (10 ms)
+    √ accepts date and classId filters in JSON mode (9 ms)
+    √ returns 403 when called by a Teacher (6 ms)
+    √ returns 401 when called without authentication (6 ms)
+
+PASS tests/integration/reminderPerf.test.js
+  PERF-005 — reminder bulk claim
+    √ first run notifies all candidates within the window (37 ms)
+    √ subsequent run within the same window is a no-op (claims 0) (28 ms)
+    √ concurrent runs leave every schedule reminded — no missed claims (54 ms)
+  PERF-007 — search anchored prefix + cache
+    √ prefix match works for short queries (≤3 chars) (259 ms)
+    √ long query (≥4 chars) ALSO matches substring (not just prefix) (253 ms)
+    √ repeat query hits the cache (cached:true on second call) (9 ms)
+    √ cache key includes Participant identity (no cross-user leak) (30 ms)
+
+PASS tests/integration/enrollmentTransfer.test.js (5.732 s)
+  POST /api/enrollments/:id/transfer
+    √ transfers an Active enrollment and updates both teams atomically (132 ms)
+    √ returns 400 when toTeamId is missing (39 ms)
+    √ returns 400 when source and target teams are the same (41 ms)
+    √ returns 400 when source enrollment is not Active (e.g. already Transferred) (43 ms)
+    √ returns 404 when enrollment does not exist (9 ms)
+    √ returns 404 when target team does not exist (44 ms)
+    √ returns 409 when user is already in target team (55 ms)
+    √ returns 401 without auth (36 ms)
+    √ returns 403 when called by a non-Admin (38 ms)
+
+PASS tests/integration/autoReleaseScope.test.js
+  √ BUG #1 fix: dropping a user does NOT delete empty schedules of other teams (519 ms)
+
+PASS tests/integration/cronRoutes.test.js
+  GET /api/cron/health
+    √ returns 401 when no token is provided (11 ms)
+    √ returns 401 with a wrong token (9 ms)
+    √ returns 200 with correct token in Authorization: Bearer header (10 ms)
+    √ returns 200 with correct token in X-Cron-Token header (6 ms)
+    √ returns 200 with correct token as query param (6 ms)
+  GET /api/cron/health — CRON_TOKEN unset
+    √ returns 503 when CRON_TOKEN env var is not set (5 ms)
+  POST /api/cron/reconcile
+    √ returns 401 without a token (8 ms)
+    √ returns 200 with a report when authenticated (58 ms)
+  POST /api/cron/attendance-reminders
+    √ returns 401 without a token (9 ms)
+    √ returns 200 with a summary when authenticated (12 ms)
+    √ accepts ?hours= query and clamps to [1, 168] (10 ms)
+    √ is idempotent — second call notifies 0 (everything already reminded) (40 ms)
+
+PASS tests/integration/bookingRace.test.js
+  Booking race — Promise.all double-fire on identical slot
+    √ two concurrent bookings of the same (team, slot) → exactly one 201, one 409 (101 ms)
+    √ three concurrent bookings of the same slot → one 201, two 409 (111 ms)
+  Booking race — weekly 2-session cap
+    √ two slots already booked + Promise.all of two more → both fail with 400 weekly-cap (140 ms)
+
+PASS tests/unit/google-auth.test.js
+  Google auth helper smoke
+    √ requires without throwing (190 ms)
+    √ isConfigured() returns false when no credentials env is set (182 ms)
+    √ getAuthClient() returns null when not configured (187 ms)
+    √ throws clear error on invalid JSON in GOOGLE_SERVICE_ACCOUNT_KEY_JSON (284 ms)
+
+PASS tests/unit/emailTemplates.test.js
+  templates
+    √ booking confirmation includes user name + class (1 ms)
+    √ class cancellation mentions canceller when provided
+    √ schedule reminder omits roomLink line when not provided
+    √ schedule reminder includes roomLink line when provided
+    √ enrollment dropped without course name skips parens (1 ms)
+    √ enrollment transferred renders both team names + optional note (1 ms)
+  senders
+    √ sendBookingConfirmation calls sendMail with composed payload (3 ms)
+    √ no-ops silently when `to` is missing (1 ms)
+    √ fail-soft: swallows sendMail errors and returns null (1 ms)
+    √ sendEnrollmentDropped forwards team + course name (1 ms)
+    √ sendEnrollmentTransferred forwards both team names (1 ms)
+    √ sendScheduleReminder forwards roomLink when supplied (1 ms)
+
+
+ReferenceError: You are trying to `import` a file after the Jest environment has been torn down. From tests/unit/cronAuth.test.js.
+
+      at model.Document.$getAllSubdocs (node_modules/mongoose/lib/document.js:3754:37)
+      at model.saveSubdocsPreSave (node_modules/mongoose/lib/plugins/saveSubdocs.js:18:26)
+      at callMiddlewareFunction (node_modules/kareem/index.js:628:27)
+      at model.next (node_modules/kareem/index.js:93:7)
+      at _next (node_modules/kareem/index.js:146:10)
+      at node_modules/kareem/index.js:653:30
+PASS tests/unit/cronAuth.test.js
+  cronAuth middleware
+    √ returns 503 when CRON_TOKEN is not set (1 ms)
+    √ returns 503 when CRON_TOKEN is shorter than 16 characters (1 ms)
+    √ returns 401 when no token is provided (2 ms)
+    √ returns 401 when wrong Bearer token is provided (1 ms)
+    √ calls next() with correct Bearer token (1 ms)
+    √ calls next() with X-Cron-Token header
+    √ calls next() with ?token query param
+    √ is case-insensitive for Bearer prefix (1 ms)
+
+
+ReferenceError: You are trying to `import` a file after the Jest environment has been torn down. From tests/unit/csrfProtection.test.js.
+
+      at model.Document.$getAllSubdocs (node_modules/mongoose/lib/document.js:3754:37)
+      at model.saveSubdocsPreSave (node_modules/mongoose/lib/plugins/saveSubdocs.js:18:26)
+      at callMiddlewareFunction (node_modules/kareem/index.js:628:27)
+      at model.next (node_modules/kareem/index.js:93:7)
+      at _next (node_modules/kareem/index.js:146:10)
+      at node_modules/kareem/index.js:653:30
+PASS tests/unit/csrfProtection.test.js
+  csrfProtection — safe methods pass through
+    √ GET passes without CSRF check (9 ms)
+    √ HEAD passes without CSRF check
+    √ OPTIONS passes without CSRF check
+  csrfProtection — cron routes are exempt
+    √ POST /api/cron/reconcile passes without X-CSRF-Token (1 ms)
+    √ POST /api/cron/health passes without X-CSRF-Token
+  csrfProtection — POST without valid X-CSRF-Token is rejected
+    √ POST with no X-CSRF-Token header returns 403 (4 ms)
+    √ POST with mismatched X-CSRF-Token returns 403 (1 ms)
+    √ PUT with mismatched X-CSRF-Token returns 403 (1 ms)
+    √ DELETE with no X-CSRF-Token returns 403 (1 ms)
+  csrfProtection — POST with matching X-CSRF-Token passes
+    √ POST with header === cookie calls next() (1 ms)
+    √ PATCH with header === cookie calls next()
+  csrfProtection — sets cookie when not present
+    √ sets csrf-token cookie when request has no cookie (1 ms)
+    √ does NOT override an existing csrf-token cookie
+  getCsrfToken handler
+    √ returns token from existing cookie (1 ms)
+    √ generates and sets a new token when cookie is absent
+
+PASS tests/unit/policy.test.js
+  evaluation.canWrite
+    √ Admin always allowed (1 ms)
+    √ Teacher bound to class is allowed
+    √ Teacher NOT bound is denied with reason teacher-not-bound-to-class
+    √ Teacher on a class with empty teacherIds falls through (graceful migration) (1 ms)
+    √ Participant is denied
+    √ No actor is denied
+  evaluation.canRead
+    √ Admin always allowed
+    √ Teacher bound is allowed (1 ms)
+    √ Teacher not bound is denied
+    √ Participant own-only — denied without eval (1 ms)
+    √ Participant reading own eval is allowed
+    √ Participant reading another user is denied (1 ms)
+  attendance.canMark
+    √ Admin always allowed
+    √ Teacher bound is allowed (1 ms)
+    √ Teacher not bound is denied
+    √ Empty teacherIds → graceful permissive
+    √ Participant denied
+  attendance.canReadBySchedule
+    √ alias for canMark — same decision
+
+PASS tests/unit/secrets.test.js
+  Secret hygiene
+    √ server/.env must not be tracked by git (1 ms)
+    √ server/.env.example exists and contains all required keys (2 ms)
+    √ no obvious live secrets in source files (7 ms)
+
+PASS tests/unit/helpers.test.js
+  parsePagination
+    √ returns defaults when no query params (1 ms)
+    √ calculates skip correctly for page 3 (1 ms)
+    √ handles page 1 correctly (1 ms)
+  paginatedResponse
+    √ produces correct response shape
+    √ calculates pages correctly (ceiling) (1 ms)
+    √ handles zero total
+  ServiceError
+    √ defaults statusCode to 400 (1 ms)
+    √ accepts custom statusCode (1 ms)
+    √ is an instance of Error
+  handleError
+    √ maps ServiceError.statusCode to res.status() (1 ms)
+    √ defaults to 500 for unknown errors (1 ms)
+
+PASS tests/unit/envValidator.test.js
+  validateEnv()
+    √ non-production: only JWT_SECRET is required (1 ms)
+    √ non-production: missing JWT_SECRET fails (1 ms)
+    √ production: all four required vars present → ok (1 ms)
+    √ production: missing CRON_TOKEN reports failure with missing list
+    √ production: missing IMPORT_DEFAULT_PASSWORD reports failure (1 ms)
+    √ production: empty-string env var counts as missing (1 ms)
+    √ production: ALLOW_MISSING_PROD_ENV=true flags bypass (1 ms)
+
+PASS tests/unit/middleware.test.js
+  roleGuard
+    √ allows matching role (Admin) (1 ms)
+    √ allows any of multiple roles
+    √ blocks non-matching role with 403 (1 ms)
+    √ returns 401 when no user attached (1 ms)
+
+Test Suites: 44 passed, 44 total
+Tests:       446 passed, 446 total
+Snapshots:   0 total
+Time:        163.129 s, estimated 206 s
+Ran all test suites.
+
+Jest has detected the following 1 open handle potentially keeping Jest from exiting:
+
+  ●  WORKER,MESSAGEPORT
+
+    [0m [90m  5 |[39m [36mconst[39m isTest [33m=[39m process[33m.[39menv[33m.[39m[33mNODE_ENV[39m [33m===[39m [32m'test'[39m[33m;[39m
+     [90m  6 |[39m
+    [31m[1m>[22m[39m[90m  7 |[39m [36mconst[39m logger [33m=[39m pino({
+     [90m    |[39m                [31m[1m^[22m[39m
+     [90m  8 |[39m   level[33m:[39m process[33m.[39menv[33m.[39m[33mLOG_LEVEL[39m [33m||[39m (isTest [33m?[39m [32m'silent'[39m [33m:[39m isProd [33m?[39m [32m'info'[39m [33m:[39m [32m'debug'[39m)[33m,[39m
+     [90m  9 |[39m   base[33m:[39m { service[33m:[39m [32m'tms-server'[39m }[33m,[39m
+     [90m 10 |[39m   redact[33m:[39m {[0m
+
+      at createWorker (node_modules/thread-stream/index.js:55:18)
+      at new ThreadStream (node_modules/thread-stream/index.js:232:19)
+      at buildStream (node_modules/pino/lib/transport.js:137:18)
+      at transport (node_modules/pino/lib/transport.js:252:10)
+      at normalizeArgs (node_modules/pino/lib/tools.js:349:16)
+      at pino (node_modules/pino/pino.js:91:28)
+      at Object.pino (lib/logger.js:7:16)
+      at Object.require (lib/googleAuth.js:3:16)
+      at require (tests/unit/google-auth.test.js:27:18)
+      at Object.<anonymous> (node_modules/expect/build/index.js:1824:9)
+      at Object.throwingMatcher [as toThrow] (node_modules/expect/build/index.js:2235:93)
+      at Object.toThrow (tests/unit/google-auth.test.js:27:55)
+

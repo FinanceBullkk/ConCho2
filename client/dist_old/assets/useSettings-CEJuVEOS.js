@@ -1,0 +1,1 @@
+import{a as e,n as t,r as n}from"./query-vendor-BQnge_IG.js";import{a as r}from"./button-BM_cJlXf.js";var i=[`settings`],a=(e={})=>n({queryKey:i,queryFn:()=>r.get(`/settings`).then(e=>e.data.data),...e}),o=()=>{let n=e();return t({mutationFn:e=>r.put(`/settings`,{settings:e}).then(e=>e.data.data),onSuccess:()=>{n.invalidateQueries({queryKey:i})}})};export{o as n,a as t};
