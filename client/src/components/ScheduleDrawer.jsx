@@ -74,12 +74,14 @@ function ScheduleDrawerContent({
   const [error, setError]             = useState('');
   const [deleteConfirm, setDeleteConfirm] = useState(false);
 
+  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     setForm(buildInitialForm());
     setError('');
     setDeleteConfirm(false);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [schedule?._id, prefill?.startTime]);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   const f = (k, v) => setForm(p => ({ ...p, [k]: v }));
 

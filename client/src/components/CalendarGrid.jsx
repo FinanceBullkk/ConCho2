@@ -56,6 +56,7 @@ const DAY_NAMES = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
 // ── Exported helpers ──────────────────────────────────────
 
+// eslint-disable-next-line react-refresh/only-export-components
 export function getMonday(date) {
   const d = new Date(date);
   const day = d.getDay();
@@ -65,6 +66,7 @@ export function getMonday(date) {
   return d;
 }
 
+// eslint-disable-next-line react-refresh/only-export-components
 export function toDateKey(date) {
   const d = new Date(date);
   return [
@@ -74,6 +76,7 @@ export function toDateKey(date) {
   ].join('-');
 }
 
+// eslint-disable-next-line react-refresh/only-export-components
 export function todayKey() {
   return toDateKey(new Date());
 }

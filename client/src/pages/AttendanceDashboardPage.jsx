@@ -20,11 +20,13 @@ export default function AttendanceDashboardPage() {
   );
 
   // Auto-select first class when classes load
+  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     if (activeTab === 'class' && !selectedClass && classesData?.length > 0) {
       setSelectedClass(classesData[0]._id);
     }
   }, [activeTab, classesData, selectedClass]);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   const classes = classesData || [];
   const data = activeTab === 'employee' ? employeeData

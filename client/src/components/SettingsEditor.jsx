@@ -1,8 +1,41 @@
-import Editor from 'react-simple-code-editor';
+// react-simple-code-editor ships as CommonJS (`exports.default = Editor`).
+// Vite's CJS→ESM interop on the dev server occasionally double-wraps the
+// default for lazy-loaded chunks (SystemPage is lazy), producing
+// `{ default: { default: Editor } }` instead of `{ default: Editor }`.
+// A single-level `mod.default ?? mod` is not enough — it returns the
+// inner object, React then throws "Element type is invalid ... got:
+// object", and the whole SystemPage subtree falls into the top-level
+// ErrorBoundary. The Playwright E2E gate on PR X surfaced this; the
+// audit PR V `continue-on-error: true` was hiding it.
+//
+// Walk `.default` until we land on a function (the actual component).
+// Handles all of ESM, CJS-with-__esModule, CJS-without-__esModule, and
+// the double-wrapped Vite case without committing to any specific interop
+// behaviour.
+import * as ReactSimpleCodeEditor from 'react-simple-code-editor';
 import Prism from 'prismjs';
 import 'prismjs/components/prism-json';
 import 'prismjs/themes/prism-tomorrow.css';
 import { cn } from '@/lib/utils';
+
+function unwrapComponent(mod) {
+  let cur = mod;
+  // Bounded to 4 hops — any reasonable interop wraps at most twice.
+  for (let i = 0; i < 4; i++) {
+    if (cur == null) return cur;
+    // Stop at any valid React element type: a plain function (function or
+    // class component), or an object with `$$typeof` (forwardRef / memo /
+    // lazy result — react-simple-code-editor's Editor is a forwardRef so
+    // this is the path the unwrap usually exits through).
+    if (typeof cur === 'function') return cur;
+    if (typeof cur === 'object' && cur.$$typeof) return cur;
+    // Nothing further to unwrap.
+    if (!('default' in cur)) return cur;
+    cur = cur.default;
+  }
+  return cur;
+}
+const Editor = unwrapComponent(ReactSimpleCodeEditor);
 
 // ──────────────────────────────────────────────────────────
 // SettingsEditor — Phase 4 Surface 9 §H

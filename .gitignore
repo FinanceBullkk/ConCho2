@@ -127,6 +127,7 @@ dist
 
 # Build outputs
 dist/
+dist_old/
 build/
 
 # Playwright (E2E tests)
