@@ -1,1 +1,0 @@
-function e(e,t){let n=new Date(t.startTime).getTime(),r=new Date(t.endTime).getTime();return!n||!r||isNaN(n)||isNaN(r)||r<=n?[]:e.filter(e=>{if(t._id&&e._id===t._id)return!1;let i=new Date(e.startTime).getTime(),a=new Date(e.endTime).getTime();return i<r&&a>n})}export{e as t};
