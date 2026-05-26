@@ -14,7 +14,7 @@
     "start": "cd server && node server.js",
     "dev:server": "cd server && npm run dev",
     "dev:client": "cd client && npm run dev",
-    "seed": "cd server && node seed.js",
+"seed": "cd server && node scripts/seed.js",
     "scripts:check": "node scripts/check-syntax.js"
   },
   "devDependencies": {

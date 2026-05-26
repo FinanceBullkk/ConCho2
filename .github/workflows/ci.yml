@@ -292,7 +292,7 @@ jobs:
           MONGO_URI: mongodb://localhost:27017/tms_e2e?replicaSet=rs0
           JWT_SECRET: e2e-test-secret-not-used-anywhere-real
           NODE_ENV: test
-        run: node seed.js
+        run: node scripts/seed.js
 
       - name: Clear mustChangePassword on seed users
         # Seed admin (000001) is normally created with mustChangePassword=true
