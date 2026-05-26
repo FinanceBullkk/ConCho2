@@ -44,6 +44,7 @@ const TONE_TEXT = [
  * Score a password 0-4 using the project's existing rule set.
  * Caller-friendly: also safe with non-string input (returns 0).
  */
+// eslint-disable-next-line react-refresh/only-export-components
 export function scorePassword(pwd) {
   if (typeof pwd !== 'string' || !pwd) return 0;
   let s = 0;

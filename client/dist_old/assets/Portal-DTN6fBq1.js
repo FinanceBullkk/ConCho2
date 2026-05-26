@@ -1,0 +1,1 @@
+import{r as e}from"./rolldown-runtime-Dw2cE7zH.js";import{p as t}from"./radix-vendor-DJe7eta9.js";var n=e(t(),1);function r({children:e}){return(0,n.createPortal)(e,document.body)}export{r as t};

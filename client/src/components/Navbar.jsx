@@ -182,7 +182,9 @@ export default function Navbar() {
   const toggleLang = () => i18n.changeLanguage(i18n.language === 'vi' ? 'en' : 'vi');
 
   // Close on route change
+  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => setMobileOpen(false), [location.pathname]);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   // Global keyboard shortcut: Cmd/Ctrl+K opens the search palette.
   // We listen at document level so the shortcut works regardless of focus.
