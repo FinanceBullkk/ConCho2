@@ -12,9 +12,9 @@
 ## Current status
 
 ~40% through the TMS → L&D migration. The catalog + cohort + session **read**
-path is live; session booking now **enforces `schedulingMode`** (foundation,
-`leader_booking` works, other 3 modes gated). Next: finish **Wave A**
-(remaining scheduling modes, cohort-based enrollment, Learning CRUD UI).
+path is live; session booking **enforces `schedulingMode`** — `leader_booking`
++ `admin_scheduled` work; `self_enroll`/`nomination` gated until cohort-based
+enrollment lands. Next: finish **Wave A** (those 2 modes via M2, Learning CRUD UI).
 
 ---
 
@@ -25,7 +25,7 @@ path is live; session booking now **enforces `schedulingMode`** (foundation,
 | 0 | Architecture baseline + safety net | ~92% | 🟢 near done |
 | 1 | Backend modular-monolith refactor | ~35% | 🟡 in progress |
 | 2 | Learning catalog + generic cohort model | ~95% | 🟢 near done |
-| 3 | Multi-program enrollment + session scheduling | ~40% | 🟡 in progress |
+| 3 | Multi-program enrollment + session scheduling | ~45% | 🟡 in progress |
 | 4 | Frontend L&D workspace (CRUD UI) | ~5% | 🔴 not started |
 | 5 | Reporting, completion, feedback | ~10% | 🔴 not started |
 | 6 | PostgreSQL decision gate | 0% | ⚪ gated |
@@ -45,7 +45,7 @@ path is live; session booking now **enforces `schedulingMode`** (foundation,
 
 | ID | Milestone | Acceptance | Status |
 |----|-----------|-----------|--------|
-| M1 | Enforce all 4 scheduling modes | leader/admin/self-enroll/nomination each have a real flow + tests; no 501 stubs | 🟡 1/4 (foundation shipped) |
+| M1 | Enforce all 4 scheduling modes | leader/admin/self-enroll/nomination each have a real flow + tests; no 501 stubs | 🟡 2/4 (leader + admin_scheduled; self_enroll/nomination need M2) |
 | M2 | Cohort-based enrollment | `/api/learning/enrollments` (cohort-based, multi-program) + self-enroll path | 🔴 |
 | M3 | Learning CRUD UI | Create/edit Program, create Cohort, enroll learners (not read-only) | 🔴 |
 | M4 | Capability-based authz scaffold | `program.manage`/`session.book` style checks behind `policy/` | 🔴 |
@@ -55,6 +55,10 @@ path is live; session booking now **enforces `schedulingMode`** (foundation,
 
 ## Recent progress (changelog)
 
+- **2026-06-02** — `admin_scheduled` mode shipped: Admin-only session creation;
+  team leaders rejected with 403 (reuses `bookSlot`). **M1 → 2/4 modes.**
+  `self_enroll`/`nomination` still 501 — they need cohort-based per-learner
+  enrollment (**M2**). Tests added (admin 201 / leader 403 / self_enroll 501).
 - **2026-06-02** — Enforce `schedulingMode` foundation (`ee7ba54`): leader_booking
   works, admin/self-enroll/nomination return 501 until built. Committed + pushed
   the full migration backlog (5 commits). Added `system-overview.md`,

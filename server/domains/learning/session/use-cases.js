@@ -62,15 +62,17 @@ const getSession = async (id, requestUser) => {
   return sessionDto(session);
 };
 
-// Only leader_booking has a working creation flow today. The other modes
-// (admin_scheduled, self_enroll, nomination) are persisted on LearningProgram
-// but need their own flows that don't exist yet. Resolve the program's mode and
-// reject the unsupported ones with a clear 501, instead of silently treating
-// every program as leader_booking.
-const SUPPORTED_SCHEDULING_MODES = new Set(['leader_booking']);
+// Scheduling modes with a working booking flow today:
+//   - leader_booking: the team leader (or an Admin) books for the team.
+//   - admin_scheduled: only an Admin books; leaders/participants cannot.
+// self_enroll and nomination need per-learner enrollment (cohort-based, not
+// team-based) which does not exist yet — they stay gated with a clear 501 until
+// that enrollment work lands.
+const SUPPORTED_SCHEDULING_MODES = new Set(['leader_booking', 'admin_scheduled']);
 
 const bookSession = async (payload, requestUser) => {
   const { schedulingMode } = await repository.findSchedulingContextByGroup(payload.groupId);
+
   if (!SUPPORTED_SCHEDULING_MODES.has(schedulingMode)) {
     throw new scheduleService.ServiceError(
       `Scheduling mode '${schedulingMode}' is not supported yet`,
@@ -78,6 +80,17 @@ const bookSession = async (payload, requestUser) => {
     );
   }
 
+  // admin_scheduled: the program is scheduled by Admins only — a team leader
+  // must not self-book here (the key difference from leader_booking).
+  if (schedulingMode === 'admin_scheduled' && requestUser?.role !== 'Admin') {
+    throw new scheduleService.ServiceError(
+      'This program is admin-scheduled — only an Admin can create its sessions',
+      403,
+    );
+  }
+
+  // bookSlot already lets an Admin book for any team (it only enforces the
+  // leader check for non-admins), so it serves both supported modes.
   const created = await scheduleService.bookSlot({
     teamId: payload.groupId,
     startTime: payload.startTime,
