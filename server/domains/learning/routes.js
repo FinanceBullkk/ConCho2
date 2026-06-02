@@ -17,6 +17,8 @@ const {
   listSessionsQuery,
   bookSessionBody,
 } = require('./session/schemas');
+const enrollmentController = require('./enrollment/controller');
+const { enrollBody, listEnrollmentsQuery } = require('./enrollment/schemas');
 
 router.use(protect);
 
@@ -62,5 +64,26 @@ router.delete(
 router
   .route('/sessions/:id')
   .get(validate({ params: idParam }), sessionController.getSession);
+
+// ── Cohort-based enrollment (L&D) ─────────────────────────
+router
+  .route('/enrollments')
+  .get(
+    roleGuard('Admin', 'Teacher', 'Participant'),
+    validate({ query: listEnrollmentsQuery }),
+    enrollmentController.list,
+  )
+  .post(
+    roleGuard('Admin', 'Participant'),
+    validate({ body: enrollBody }),
+    enrollmentController.enroll,
+  );
+
+router.delete(
+  '/enrollments/:id',
+  roleGuard('Admin', 'Participant'),
+  validate({ params: idParam }),
+  enrollmentController.withdraw,
+);
 
 module.exports = router;

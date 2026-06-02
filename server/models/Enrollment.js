@@ -21,12 +21,12 @@ const enrollmentSchema = new mongoose.Schema(
     teamId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'Team',
-      required: [true, 'Team reference is required'],
+      default: null, // null = cohort-based (L&D) enrollment, enrolled directly into a cohort
     },
     classId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'Class',
-      default: null, // Team might not have a class when member joins
+      default: null, // Team might not have a class when member joins; required for cohort-based enrollment
     },
     joinedAt: {
       type: Date,
@@ -68,11 +68,16 @@ enrollmentSchema.index({ userId: 1, joinedAt: -1 }); // User timeline
 enrollmentSchema.index({ classId: 1 });               // Course-based queries
 
 // DI-05: Prevent duplicate Active enrollments for same user+team.
-// partialFilterExpression ensures the constraint only applies when status='Active',
-// so historical records (Dropped, Transferred, Completed) are unrestricted.
+// Scoped to records with a real teamId ($type objectId) so cohort-based
+// enrollments (teamId = null) are excluded — otherwise multiple null-team
+// cohort enrollments for one user would collide on { userId, null }.
 enrollmentSchema.index(
   { userId: 1, teamId: 1 },
-  { unique: true, partialFilterExpression: { status: 'Active' } }
+  { unique: true, partialFilterExpression: { status: 'Active', teamId: { $type: 'objectId' } } }
 );
+
+// Cohort-based (L&D) enrollment uniqueness is enforced in the enrollment
+// use-case (findActiveCohortEnrollment) rather than a partial index, because a
+// reliable "teamId is null" partial filter is brittle across Mongo versions.
 
 module.exports = mongoose.model('Enrollment', enrollmentSchema);
