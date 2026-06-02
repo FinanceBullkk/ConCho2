@@ -29,7 +29,7 @@ router.use(protect, roleGuard('Admin'));
 const ALLOWED_MODELS = [
   'User', 'Team', 'Class', 'Schedule',
   'Attendance', 'Enrollment', 'Evaluation',
-  'Counter', 'Setting',
+  'LearningProgram', 'Counter', 'Setting',
 ];
 
 // ── Security: Fields that MUST NOT be modified via generic update ──
@@ -77,7 +77,7 @@ const FORBIDDEN_UPDATE_FIELDS = [
 // Use dedicated endpoints (DELETE /api/users/:id, etc.) instead.
 const HARD_DELETE_BLOCKED = [
   // Existing — cascade required
-  'User', 'Team', 'Class', 'Schedule',
+  'User', 'Team', 'Class', 'LearningProgram', 'Schedule',
 
   // ── Added in audit PR 3 (SEC-010) ──────────────────────────────────
   // Counter — deleting the sequence document resets empCode/classCode

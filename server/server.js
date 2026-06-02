@@ -233,6 +233,7 @@ app.use('/api/auth', require('./routes/authRoutes'));
 app.use('/api/users', require('./routes/userRoutes'));
 app.use('/api/teams', require('./routes/teamRoutes'));
 app.use('/api/classes', require('./routes/classRoutes'));
+app.use('/api/learning', require('./domains/learning/routes'));
 app.use('/api/schedules', require('./routes/scheduleRoutes'));
 app.use('/api/attendance', require('./routes/attendanceRoutes'));
 app.use('/api/evaluations', require('./routes/evaluationRoutes'));

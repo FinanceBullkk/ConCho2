@@ -726,5 +726,6 @@ module.exports = {
   getById,
   getMyClassSchedules,
   getAttendanceCalendar,
+  attachSessionNumbers,
   invalidateSessionOrderCache,
 };

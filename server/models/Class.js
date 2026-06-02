@@ -1,4 +1,5 @@
 const mongoose = require('mongoose');
+require('./LearningProgram');
 
 // ──────────────────────────────────────────────────────────
 // Class Model (v2 — Cohort / Matrix Architecture)
@@ -31,11 +32,22 @@ const classSchema = new mongoose.Schema(
         validator: async function(value) {
           const Setting = mongoose.model('Setting');
           const setting = await Setting.findOne({ key: 'COURSE_SESSIONS' });
-          if (!setting || !setting.value) return true; // fail open if no setting
-          return Object.keys(setting.value).includes(value);
+          if (!setting || !setting.value) return true; // fail open if no legacy catalog exists
+          if (setting?.value && Object.keys(setting.value).includes(value)) return true;
+          const LearningProgram = mongoose.model('LearningProgram');
+          const existing = await LearningProgram.exists({
+            name: value,
+            status: { $ne: 'archived' },
+          }).collation({ locale: 'en', strength: 2 });
+          return !!existing;
         },
         message: '{VALUE} is not a valid course name',
       },
+    },
+    programId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'LearningProgram',
+      default: null,
     },
     totalSessions: {
       type: Number,
@@ -76,6 +88,7 @@ const classSchema = new mongoose.Schema(
 // ── Compound Unique Index ─────────────────────────────────
 // One classCode can only have ONE instance of each course.
 classSchema.index({ classCode: 1, courseName: 1 }, { unique: true });
+classSchema.index({ programId: 1, status: 1 });
 
 // DATA-002 (audit PR 6): at most ONE Ongoing class per classCode.
 // Previously two concurrent POST /api/classes with the same classCode

@@ -69,6 +69,9 @@ describe('POST /api/schedules/book-slot', () => {
     expect(res.status).toBe(201);
     expect(res.body.success).toBe(true);
     expect(res.body.data.bookedTeamId).toBeTruthy();
+    expect(res.body.data.enrolledUsers).toBeTruthy();
+    expect(res.body.data.group).toBeUndefined();
+    expect(res.body.data.enrolledLearners).toBeUndefined();
   });
 
   test('enrolled users are auto-populated from active team members', async () => {

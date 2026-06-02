@@ -17,18 +17,19 @@
 
 require('dotenv').config();
 const mongoose = require('mongoose');
-const connectDB = require('./config/db');
+const connectDB = require('../config/db');
 
 // Import all models
-const User = require('./models/User');
-const Team = require('./models/Team');
-const Class = require('./models/Class');
-const Schedule = require('./models/Schedule');
-const Attendance = require('./models/Attendance');
-const Evaluation = require('./models/Evaluation');
-const Enrollment = require('./models/Enrollment');
-const Counter = require('./models/Counter');
-const Setting = require('./models/Setting');
+const User = require('../models/User');
+const Team = require('../models/Team');
+const Class = require('../models/Class');
+const LearningProgram = require('../models/LearningProgram');
+const Schedule = require('../models/Schedule');
+const Attendance = require('../models/Attendance');
+const Evaluation = require('../models/Evaluation');
+const Enrollment = require('../models/Enrollment');
+const Counter = require('../models/Counter');
+const Setting = require('../models/Setting');
 
 // ── Helper: future date + time ────────────────────────────
 const futureDateTime = (daysFromNow, hour, minute = 0) => {
@@ -38,7 +39,7 @@ const futureDateTime = (daysFromNow, hour, minute = 0) => {
   return d;
 };
 
-const dangerousScriptGuard = require('./scripts/lib/dangerousScriptGuard');
+const dangerousScriptGuard = require('./lib/dangerousScriptGuard');
 
 const seed = async () => {
   try {
@@ -56,6 +57,7 @@ const seed = async () => {
       dropIfExists(User),
       dropIfExists(Team),
       dropIfExists(Class),
+      dropIfExists(LearningProgram),
       dropIfExists(Schedule),
       dropIfExists(Attendance),
       dropIfExists(Evaluation),
@@ -94,6 +96,28 @@ const seed = async () => {
         },
       }
     ]);
+
+    console.log('📘 Creating learning programs...');
+    const businessEnglishProgram = await LearningProgram.create({
+      code: 'ENG_BUSINESS_ENGLISH',
+      name: 'Business English',
+      category: 'english',
+      defaultSessionCount: 16,
+      deliveryMode: 'online',
+      schedulingMode: 'leader_booking',
+      completionPolicy: { attendanceThresholdPercent: 0, requiresAssessment: true, requiresFeedback: false },
+      legacyCourseName: 'Business English',
+    });
+    const communication2Program = await LearningProgram.create({
+      code: 'ENG_COMMUNICATION_2',
+      name: 'Communication 2',
+      category: 'english',
+      defaultSessionCount: 16,
+      deliveryMode: 'online',
+      schedulingMode: 'leader_booking',
+      completionPolicy: { attendanceThresholdPercent: 0, requiresAssessment: true, requiresFeedback: false },
+      legacyCourseName: 'Communication 2',
+    });
 
     // ── Create Users ──────────────────────────────────────
     console.log('👤 Creating users...');
@@ -186,6 +210,7 @@ const seed = async () => {
     const class1 = await Class.create({
       classCode: 'EL001',
       courseName: 'Business English',
+      programId: businessEnglishProgram._id,
       totalSessions: 16,
       status: 'Ongoing',
     });
@@ -193,6 +218,7 @@ const seed = async () => {
     const class2 = await Class.create({
       classCode: 'EL002',
       courseName: 'Communication 2',
+      programId: communication2Program._id,
       totalSessions: 16,
       status: 'Ongoing',
     });

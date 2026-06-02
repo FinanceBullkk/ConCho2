@@ -8,6 +8,7 @@ const classPolicy = require('../policy/class');
 const { getNextSequence } = require('../helpers/counter');
 const { handleError } = require('../helpers/handleError');
 const auditService = require('../services/auditService');
+const learningUseCases = require('../domains/learning/use-cases');
 
 /**
  * GET /api/classes
@@ -50,6 +51,23 @@ const getClasses = async (req, res) => {
  */
 const getCourseList = async (req, res) => {
   try {
+    const programs = await learningUseCases.listPrograms({ status: 'active' });
+    if (programs.length > 0) {
+      const courseSessions = {};
+      programs.forEach((program) => {
+        courseSessions[program.name] = program.defaultSessionCount;
+      });
+      return res.json({
+        success: true,
+        data: {
+          courseNames: programs.map((program) => program.name),
+          courseSessions,
+          programs,
+          source: 'learning-programs',
+        },
+      });
+    }
+
     const Setting = mongoose.model('Setting');
     const setting = await Setting.findOne({ key: 'COURSE_SESSIONS' });
     const courseSessions = setting ? setting.value : {};
@@ -57,7 +75,7 @@ const getCourseList = async (req, res) => {
 
     res.json({
       success: true,
-      data: { courseNames, courseSessions },
+      data: { courseNames, courseSessions, programs: [], source: 'settings' },
     });
   } catch (error) {
     handleError(res, error);
@@ -129,11 +147,13 @@ const createClass = async (req, res) => {
     const Setting = mongoose.model('Setting');
     const setting = await Setting.findOne({ key: 'COURSE_SESSIONS' });
     const courseSessions = setting ? setting.value : {};
-    const totalSessions = courseSessions[courseName];
+    let totalSessions = courseSessions[courseName];
+    let program = null;
 
     if (!totalSessions) {
       return res.status(400).json({ success: false, message: `Unknown course: ${courseName}` });
     }
+    program = await learningUseCases.ensureProgramForLegacyCourse(courseName, totalSessions);
 
     // ── Rule: Only 1 Ongoing course per classCode ──────────
     const effectiveStatus = status || 'Ongoing';
@@ -150,7 +170,13 @@ const createClass = async (req, res) => {
       }
     }
 
-    const cls = await Class.create({ classCode: classCode.toUpperCase(), courseName, totalSessions, status });
+    const cls = await Class.create({
+      classCode: classCode.toUpperCase(),
+      courseName,
+      programId: program?._id || null,
+      totalSessions,
+      status,
+    });
 
     auditService.record({
       req,
@@ -187,6 +213,8 @@ const updateClass = async (req, res) => {
       const setting = await Setting.findOne({ key: 'COURSE_SESSIONS' });
       if (setting && setting.value[req.body.courseName]) {
         req.body.totalSessions = setting.value[req.body.courseName];
+        const program = await learningUseCases.ensureProgramForLegacyCourse(req.body.courseName, req.body.totalSessions);
+        req.body.programId = program?._id || existingCls.programId || null;
       }
     }
 
