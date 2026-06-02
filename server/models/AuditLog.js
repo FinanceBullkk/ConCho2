@@ -51,7 +51,7 @@ const auditLogSchema = new mongoose.Schema(
     // Which entity changed.
     entity: {
       type: String,
-      enum: ['User', 'Team', 'Class', 'Schedule', 'Attendance', 'Evaluation',
+      enum: ['User', 'Team', 'Class', 'LearningProgram', 'Schedule', 'Attendance', 'Evaluation',
              'Enrollment', 'Setting', 'Auth', 'Import', 'Export',
              // Added in audit PR 3 — adminDb writes audit lines for Counter
              // mutations and any future collection we whitelist for direct

@@ -150,3 +150,6 @@ filter-secrets*.txt
 *-to-remove.txt
 New Text Document.txt
 New Text Document*.txt
+
+# ── Personal / scratch docs (kept local, not part of the project repo) ────────
+PROMOTION_IMPACT_REPORT.md
