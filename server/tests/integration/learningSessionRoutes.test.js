@@ -219,9 +219,53 @@ describe('Learning Platform API — sessions', () => {
     expect(res.body.success).toBe(true);
   });
 
-  test('non-leader_booking program is rejected with 501 until its flow exists', async () => {
+  test('admin_scheduled program: Admin can create a session', async () => {
     const program = await LearningProgram.create({
       code: 'AS001', name: 'Admin Scheduled Program', schedulingMode: 'admin_scheduled',
+    });
+    await Class.findByIdAndUpdate(seed.class1._id, { programId: program._id });
+
+    const { start, end } = vnSlot();
+    const res = await request(app)
+      .post('/api/learning/sessions/book-slot')
+      .set('Authorization', `Bearer ${tokens.admin}`)
+      .set(csrf)
+      .send({
+        groupId: seed.team._id.toString(),
+        startTime: start.toISOString(),
+        endTime: end.toISOString(),
+      });
+
+    expect(res.status).toBe(201);
+    expect(res.body.success).toBe(true);
+    expect(res.body.data.scheduleId).toBeTruthy();
+  });
+
+  test('admin_scheduled program: a team leader is rejected with 403', async () => {
+    const program = await LearningProgram.create({
+      code: 'AS002', name: 'Admin Scheduled Program 2', schedulingMode: 'admin_scheduled',
+    });
+    await Class.findByIdAndUpdate(seed.class1._id, { programId: program._id });
+
+    const { start, end } = vnSlot();
+    const res = await request(app)
+      .post('/api/learning/sessions/book-slot')
+      .set('Authorization', `Bearer ${tokens.leader}`)
+      .set(csrf)
+      .send({
+        groupId: seed.team._id.toString(),
+        startTime: start.toISOString(),
+        endTime: end.toISOString(),
+      });
+
+    expect(res.status).toBe(403);
+    expect(res.body.success).toBe(false);
+    expect(res.body.message).toMatch(/admin-scheduled/i);
+  });
+
+  test('unsupported scheduling mode (self_enroll) is rejected with 501', async () => {
+    const program = await LearningProgram.create({
+      code: 'SE001', name: 'Self Enroll Program', schedulingMode: 'self_enroll',
     });
     await Class.findByIdAndUpdate(seed.class1._id, { programId: program._id });
 
@@ -238,6 +282,6 @@ describe('Learning Platform API — sessions', () => {
 
     expect(res.status).toBe(501);
     expect(res.body.success).toBe(false);
-    expect(res.body.message).toMatch(/admin_scheduled/);
+    expect(res.body.message).toMatch(/self_enroll/);
   });
 });
