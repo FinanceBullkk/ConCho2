@@ -217,6 +217,18 @@ export const enrollmentsAPI = {
   bulkUpdateStatus: (data) => api.patch('/enrollments/bulk-status', data),
 };
 
+// ── Learning Platform ─────────────────────────────────────
+export const learningAPI = {
+  getPrograms: (params) => api.get('/learning/programs', { params }),
+  getProgram: (id) => api.get(`/learning/programs/${id}`),
+  createProgram: (data) => api.post('/learning/programs', data),
+  updateProgram: (id, data) => api.put(`/learning/programs/${id}`, data),
+  archiveProgram: (id) => api.delete(`/learning/programs/${id}`),
+  getCohorts: (params) => api.get('/learning/cohorts', { params }),
+  getCohort: (id) => api.get(`/learning/cohorts/${id}`),
+  createCohort: (data) => api.post('/learning/cohorts', data),
+};
+
 // ── Dashboard Analytics ───────────────────────────────────
 export const dashboardAPI = {
   getStats: (params) => api.get('/dashboard/stats', { params }),

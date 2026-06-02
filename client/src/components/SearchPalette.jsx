@@ -20,13 +20,13 @@ import { Spinner } from './Spinner';
 // ──────────────────────────────────────────────────────────
 
 // AUDIT PR 8 (FE-001): The legacy /users, /teams, /classes routes have been
-// redirected to /people and /programs. The previous targets dropped the
+// redirected to /people and /learning. The previous targets dropped the
 // query string on redirect, so Cmd+K landed users on an unfiltered list.
 // We now build the modern URL directly so the search filter survives.
 const ROUTE_FOR = {
   users:   (u) => `/people?tab=users&search=${encodeURIComponent(u.empCode)}`,
   teams:   (t) => `/people?tab=teams&search=${encodeURIComponent(t.name)}`,
-  classes: (c) => `/programs?tab=classes&search=${encodeURIComponent(c.classCode)}`,
+  classes: (c) => `/learning?tab=cohorts&search=${encodeURIComponent(c.classCode)}`,
 };
 
 const ICON_FOR = {
