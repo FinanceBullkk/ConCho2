@@ -13,6 +13,7 @@ Guidance for Claude Code when working in this repo. Read `./README.md` for produ
 - **Don't fight the migration** — when a `domains/<domain>/` module exists, extend it; don't pile new logic into the legacy controller.
 - **Tests are gates, not suggestions** — never skip/weaken tests or fake a pass. 7 CI gates must stay green; the eslint ratchet cap only goes down.
 - **Never commit secrets.** `server/.env` is gitignored; rotate immediately if leaked.
+- **Implementing? Follow `.claude/rules/implementation-workflow.md`** — work from `docs/development-roadmap.md`; updating the tracker is part of Definition of Done (don't wait to be asked). Run `/next` to execute the next milestone.
 - Follow **YAGNI / KISS / DRY**. Keep files focused (~200 line guideline → extract toward `domains/`).
 
 ## Detailed rules
@@ -24,6 +25,7 @@ Guidance for Claude Code when working in this repo. Read `./README.md` for produ
 @.claude/rules/security-and-auth.md
 @.claude/rules/testing-and-ci.md
 @.claude/rules/domain-model-and-migration.md
+@.claude/rules/implementation-workflow.md
 
 ## Key references
 - Migration status & next tasks: `docs/handoff-2026-06-01.md`
