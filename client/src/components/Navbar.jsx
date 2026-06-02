@@ -51,8 +51,8 @@ const NAV_ITEMS = [
     disabledTitleKey: 'nav.adminOnly',
   },
   {
-    path: '/programs',
-    labelKey: 'nav.programs',
+    path: '/learning',
+    labelKey: 'nav.learning',
     icon: BookOpen,
     access: { Admin: 'full', Teacher: 'read', Participant: 'none' },
     disabledTitleKey: 'nav.adminOnly',
@@ -90,7 +90,7 @@ const ROLE_TEXT = {
 const NAV_PARENT_ROUTES = {
   '/home':     ['/home', '/dashboard'],
   '/people':   ['/people', '/users', '/teams'],
-  '/programs': ['/programs', '/classes', '/courses'],
+  '/learning': ['/learning', '/programs', '/classes', '/courses'],
   '/calendar': ['/calendar', '/operations', '/schedules', '/attendance', '/book'],
   '/reports':  ['/reports', '/data'],
   '/system':   ['/system', '/admin', '/settings', '/database'],

@@ -21,7 +21,7 @@ const ResetPasswordPage  = lazy(() => import('./pages/ResetPasswordPage'));
 
 const DashboardPage    = lazy(() => import('./pages/DashboardPage'));
 const PeoplePage       = lazy(() => import('./pages/PeoplePage'));
-const ProgramsPage     = lazy(() => import('./pages/ProgramsPage'));
+const LearningPage     = lazy(() => import('./pages/LearningPage'));
 const ReportsPage      = lazy(() => import('./pages/ReportsPage'));
 const SystemPage       = lazy(() => import('./pages/SystemPage'));
 const CalendarPage     = lazy(() => import('./pages/CalendarPage'));
@@ -205,7 +205,8 @@ const LEGACY_REDIRECTS = [
   // IA-S2 renames
   { from: '/academy',    to: '/people' },
   { from: '/admin',      to: '/system' },
-  { from: '/classes',    to: '/programs?tab=classes' },
+  { from: '/programs',   to: '/learning' },
+  { from: '/classes',    to: '/learning?tab=cohorts' },
   { from: '/data',       to: '/reports?tab=hr-export' },
   { from: '/settings',   to: '/system?tab=settings' },
   // IA-S3: Schedules + Attendance + Book → unified /calendar
@@ -242,8 +243,8 @@ export default function App() {
                 <Route path="/people" element={
                   <ProtectedRoute roles={['Admin']}><PeoplePage /></ProtectedRoute>
                 } />
-                <Route path="/programs" element={
-                  <ProtectedRoute roles={['Admin', 'Teacher']}><ProgramsPage /></ProtectedRoute>
+                <Route path="/learning" element={
+                  <ProtectedRoute roles={['Admin', 'Teacher']}><LearningPage /></ProtectedRoute>
                 } />
                 <Route path="/calendar" element={<CalendarPage />} />
                 <Route path="/reports" element={

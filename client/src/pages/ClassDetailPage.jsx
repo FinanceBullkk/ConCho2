@@ -75,7 +75,7 @@ function EditClassModal({ cls, onClose }) {
     setError('');
     try {
       await deleteMutation.mutateAsync(cls._id);
-      navigate('/programs?tab=classes');
+      navigate('/learning?tab=cohorts');
     } catch (err) {
       setError(err.response?.data?.message || 'Delete failed');
       setConfirmDelete(false);
@@ -761,7 +761,7 @@ export default function ClassDetailPage() {
       <EmptyState
         icon={BookOpen}
         title="Class not found"
-        action={<Button variant="outline" asChild><Link to="/programs?tab=classes"><ArrowLeft className="size-4 mr-1.5" />Back to Classes</Link></Button>}
+        action={<Button variant="outline" asChild><Link to="/learning?tab=cohorts"><ArrowLeft className="size-4 mr-1.5" />Back to Cohorts</Link></Button>}
       />
     );
   }
@@ -778,8 +778,8 @@ export default function ClassDetailPage() {
       {/* ── Breadcrumb ─────────────────────────────────── */}
       <Breadcrumbs
         items={[
-          { label: 'Programs', to: '/programs?tab=classes' },
-          { label: 'Classes',  to: '/programs?tab=classes' },
+          { label: 'Learning', to: '/learning?tab=cohorts' },
+          { label: 'Cohorts',  to: '/learning?tab=cohorts' },
           { label: cls.classCode },
         ]}
       />
