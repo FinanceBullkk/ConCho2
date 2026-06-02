@@ -62,7 +62,22 @@ const getSession = async (id, requestUser) => {
   return sessionDto(session);
 };
 
+// Only leader_booking has a working creation flow today. The other modes
+// (admin_scheduled, self_enroll, nomination) are persisted on LearningProgram
+// but need their own flows that don't exist yet. Resolve the program's mode and
+// reject the unsupported ones with a clear 501, instead of silently treating
+// every program as leader_booking.
+const SUPPORTED_SCHEDULING_MODES = new Set(['leader_booking']);
+
 const bookSession = async (payload, requestUser) => {
+  const { schedulingMode } = await repository.findSchedulingContextByGroup(payload.groupId);
+  if (!SUPPORTED_SCHEDULING_MODES.has(schedulingMode)) {
+    throw new scheduleService.ServiceError(
+      `Scheduling mode '${schedulingMode}' is not supported yet`,
+      501,
+    );
+  }
+
   const created = await scheduleService.bookSlot({
     teamId: payload.groupId,
     startTime: payload.startTime,

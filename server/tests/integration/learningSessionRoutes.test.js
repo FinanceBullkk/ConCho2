@@ -3,6 +3,7 @@ const { getApp, getTokens, getSeedData, getCsrfHeaders, teardown } = require('..
 const Schedule = require('../../models/Schedule');
 const Setting = require('../../models/Setting');
 const Class = require('../../models/Class');
+const LearningProgram = require('../../models/LearningProgram');
 
 let app, tokens, seed, csrf;
 
@@ -26,8 +27,9 @@ afterEach(async () => {
   await Schedule.deleteMany({});
   await Class.updateMany(
     { _id: { $in: [seed.class1._id, seed.class2._id] } },
-    { $set: { teacherIds: [] } },
+    { $set: { teacherIds: [], programId: null } },
   );
+  await LearningProgram.deleteMany({});
 });
 
 const vnSlot = (offsetDays = 0) => {
@@ -194,5 +196,48 @@ describe('Learning Platform API — sessions', () => {
       .set('Authorization', `Bearer ${tokens.teacher}`)
       .set(csrf)
       .expect(403);
+  });
+
+  test('leader_booking program is enforced and still books', async () => {
+    const program = await LearningProgram.create({
+      code: 'LB001', name: 'Leader Booking Program', schedulingMode: 'leader_booking',
+    });
+    await Class.findByIdAndUpdate(seed.class1._id, { programId: program._id });
+
+    const { start, end } = vnSlot();
+    const res = await request(app)
+      .post('/api/learning/sessions/book-slot')
+      .set('Authorization', `Bearer ${tokens.leader}`)
+      .set(csrf)
+      .send({
+        groupId: seed.team._id.toString(),
+        startTime: start.toISOString(),
+        endTime: end.toISOString(),
+      });
+
+    expect(res.status).toBe(201);
+    expect(res.body.success).toBe(true);
+  });
+
+  test('non-leader_booking program is rejected with 501 until its flow exists', async () => {
+    const program = await LearningProgram.create({
+      code: 'AS001', name: 'Admin Scheduled Program', schedulingMode: 'admin_scheduled',
+    });
+    await Class.findByIdAndUpdate(seed.class1._id, { programId: program._id });
+
+    const { start, end } = vnSlot();
+    const res = await request(app)
+      .post('/api/learning/sessions/book-slot')
+      .set('Authorization', `Bearer ${tokens.leader}`)
+      .set(csrf)
+      .send({
+        groupId: seed.team._id.toString(),
+        startTime: start.toISOString(),
+        endTime: end.toISOString(),
+      });
+
+    expect(res.status).toBe(501);
+    expect(res.body.success).toBe(false);
+    expect(res.body.message).toMatch(/admin_scheduled/);
   });
 });
