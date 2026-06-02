@@ -91,7 +91,7 @@ async function checkMissingAttendance() {
 async function checkOrphanedEnrollments(ctx = {}) {
   const issues = [];
   const activeEnrollments = ctx.activeEnrollments
-    ?? await Enrollment.find({ status: 'Active' }).select('_id userId teamId').lean();
+    ?? await Enrollment.find({ status: 'Active' }).select('_id userId teamId classId').lean();
 
   if (activeEnrollments.length === 0) return issues;
 
@@ -108,12 +108,15 @@ async function checkOrphanedEnrollments(ctx = {}) {
   for (const enr of activeEnrollments) {
     const teamId = enr.teamId?.toString();
     if (!teamId) {
-      // Team was hard-deleted — definitely orphaned
+      // No team. A cohort-based enrollment (classId set, teamId null) is valid
+      // under the L&D model — not an orphan. Only flag when there is no cohort
+      // either (genuinely dangling record).
+      if (enr.classId) continue;
       issues.push({
         check: 'orphaned_enrollment',
-        description: `Active enrollment ${enr._id} references a team that no longer exists`,
+        description: `Active enrollment ${enr._id} has neither a team nor a cohort`,
         refs: { enrollmentId: enr._id, userId: enr.userId },
-        detail: { reason: 'team_not_found' },
+        detail: { reason: 'no_team_no_cohort' },
       });
       continue;
     }
@@ -458,7 +461,7 @@ async function runReconciliation(triggeredBy = 'manual') {
   // participants) all need the same list — pre-fetching once and
   // passing via ctx eliminates 2 redundant full-collection reads.
   const activeEnrollments = await Enrollment.find({ status: 'Active' })
-    .select('_id userId teamId').lean()
+    .select('_id userId teamId classId').lean()
     .catch((err) => {
       logger.error({ err }, 'reconcile: pre-fetch active enrollments failed');
       return [];
