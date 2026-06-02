@@ -7,10 +7,9 @@ import { test, expect } from './fixtures.js';
  * Verifies the `useRole`/`can()` permission system actually hides admin-only
  * actions for participants and shows them for admins.
  *
- * Audit PR X (P2-09): rewritten for the IA-S2 routes. Section pages
- * (/people, /programs) host the old single-purpose pages (UsersPage,
- * TeamsPage, ClassesPage) inside tabs, so the admin-only action buttons
- * still live inside them — only the URL changed.
+ * Audit PR X (P2-09): rewritten for the IA-S2 routes. People still hosts
+ * the old Users/Teams pages, while the old Classes surface now appears as
+ * Learning cohorts.
  */
 
 test.describe('Permissions / RBAC', () => {
@@ -22,11 +21,11 @@ test.describe('Permissions / RBAC', () => {
       .toBeVisible();
   });
 
-  test('Admin sees "+ New Cohort" button on Programs → Classes tab', async ({ adminPage }) => {
-    await adminPage.goto('/programs?tab=classes');
-    await expect(adminPage.getByRole('heading', { name: /^Class Management$/ }))
+  test('Admin can access Learning → Cohorts tab', async ({ adminPage }) => {
+    await adminPage.goto('/learning?tab=cohorts');
+    await expect(adminPage.getByRole('heading', { name: /^Learning$/ }))
       .toBeVisible({ timeout: 10_000 });
-    await expect(adminPage.getByRole('button', { name: /\+ new cohort/i }).first())
+    await expect(adminPage.getByRole('columnheader', { name: /^Cohort$/ }).first())
       .toBeVisible();
   });
 

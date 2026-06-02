@@ -11,7 +11,7 @@ import { test, expect } from './fixtures.js';
  * Audit PR X (P2-09): rewritten for the IA-S2/S3 routes
  *   - /users  → /people?tab=users        (PeoplePage hosts UsersPage in a tab)
  *   - /teams  → /people?tab=teams        (PeoplePage hosts TeamsPage)
- *   - /classes → /programs?tab=classes   (ProgramsPage hosts ClassesPage)
+ *   - /classes → /learning?tab=cohorts   (LearningPage hosts legacy classes as cohorts)
  *   - /schedules → /calendar?tab=schedules (CalendarPage hosts SchedulesPage)
  *   - /admin → /system
  * The legacy redirects in App.jsx keep the old paths working as a bookmark
@@ -33,7 +33,7 @@ const ADMIN_PAGES = [
   { path: '/home',                     headerHeading: /^Hello, /,            innerHeading: null },
   { path: '/people?tab=users',         headerHeading: /^People$/,            innerHeading: /^User Management$/ },
   { path: '/people?tab=teams',         headerHeading: /^People$/,            innerHeading: /^Teams$/ },
-  { path: '/programs?tab=classes',     headerHeading: /^Programs$/,          innerHeading: /^Class Management$/ },
+  { path: '/learning?tab=cohorts',     headerHeading: /^Learning$/,          innerHeading: null },
   { path: '/calendar?tab=schedules',   headerHeading: /^Calendar$/,          innerHeading: /^Schedule Management$/ },
   { path: '/system',                   headerHeading: /^(System|Settings)$/, innerHeading: null },
 ];
@@ -100,9 +100,9 @@ test.describe('Authenticated navigation', () => {
     await expect(adminPage).toHaveURL(/\/(people|home|users)/);
   });
 
-  test('Legacy /classes redirects to /programs?tab=classes', async ({ adminPage }) => {
+  test('Legacy /classes redirects to /learning?tab=cohorts', async ({ adminPage }) => {
     // This redirect IS configured (App.jsx LEGACY_REDIRECTS) — verify it.
     await adminPage.goto('/classes');
-    await expect(adminPage).toHaveURL(/\/programs(\?|$)/);
+    await expect(adminPage).toHaveURL(/\/learning\?tab=cohorts$/);
   });
 });
