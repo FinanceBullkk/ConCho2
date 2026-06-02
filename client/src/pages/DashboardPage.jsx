@@ -14,6 +14,7 @@ import { Spinner } from '@/components/Spinner';
 import { Button } from '@/components/ui/button';
 import ParticipantDashboard from './ParticipantDashboard';
 import QueryError from '../components/QueryError';
+import { activeRatioBarWidth } from '../lib/dashboard-bar-width';
 
 // Indexed chart-1…5 (guaranteed tokens in Phase 0 §04 palette).
 // Use (i % 5) + 1 inline — no static array needed.
@@ -243,8 +244,7 @@ export default function DashboardPage() {
             stats?.departmentBreakdown?.length > 0 ? (
               <div className="space-y-1.5">
                 {stats.departmentBreakdown.map((d, i) => {
-                  const maxTotal = Math.max(...stats.departmentBreakdown.map(x => x.total));
-                  const barWidth = maxTotal > 0 ? (d.total / maxTotal) * 100 : 0;
+                  const barWidth = activeRatioBarWidth(d.active, d.total);
                   const color = chartVar(i);
                   const isActive = filters.department === d.department;
                   return (
@@ -268,8 +268,7 @@ export default function DashboardPage() {
             stats?.positionBreakdown?.length > 0 ? (
               <div className="space-y-1.5">
                 {stats.positionBreakdown.map((p, i) => {
-                  const maxTotal = Math.max(...stats.positionBreakdown.map(x => x.total));
-                  const barWidth = maxTotal > 0 ? (p.total / maxTotal) * 100 : 0;
+                  const barWidth = activeRatioBarWidth(p.active, p.total);
                   const color = chartVar(i);
                   const isActive = filters.position === p.position;
                   return (
