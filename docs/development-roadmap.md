@@ -17,7 +17,10 @@
 write-capable (Admins create/edit Programs, create Cohorts, enroll learners);
 and a **capability-based authz scaffold** (`program.manage`/`session.book` …) now
 gates the learning routes behind `policy/capabilities.js` + `requireCapability`.
-Next: **Wave B — Assessment & Certification** (generalize `Evaluation`).
+**Wave B has started:** `completionPolicy` is now enforced and **certificates**
+are issued on completion (`/api/learning/completion`, `/api/learning/certificates`
++ a public verification endpoint). Next in Wave B: the generic assessment engine
+(build-vs-buy) and a Feedback model.
 
 ---
 
@@ -30,7 +33,7 @@ Next: **Wave B — Assessment & Certification** (generalize `Evaluation`).
 | 2 | Learning catalog + generic cohort model | ~95% | 🟢 near done |
 | 3 | Multi-program enrollment + session scheduling | ~75% | 🟡 in progress |
 | 4 | Frontend L&D workspace (CRUD UI) | ~45% | 🟡 in progress |
-| 5 | Reporting, completion, feedback | ~10% | 🔴 not started |
+| 5 | Reporting, completion, feedback | ~30% | 🟡 in progress |
 | 6 | PostgreSQL decision gate | 0% | ⚪ gated |
 
 ## LMS waves (forward — see [`lms-roadmap.md`](lms-roadmap.md))
@@ -38,7 +41,7 @@ Next: **Wave B — Assessment & Certification** (generalize `Evaluation`).
 | Wave | Goal | Status | Depends on |
 |------|------|--------|-----------|
 | A — Foundation | Generic learning core works E2E (scheduling modes, cohort enrollment, CRUD UI, capability authz) | 🟢 done (M1–M4) | — |
-| B — Assessment & Certification | Generic assessment engine, completion enforcement, certificates | 🔴 planned | A |
+| B — Assessment & Certification | Generic assessment engine, completion enforcement, certificates | 🟡 in progress (completion + certificates done; assessment engine next) | A |
 | C — Catalog, Paths & Self-service | Learner catalog, self-enroll, learning paths/prerequisites | 🔴 planned | A |
 | D — Platform & Scale | SSO, HRIS sync, advanced analytics, mobile, Postgres gate | 🔴 planned | B, C |
 
@@ -52,12 +55,23 @@ Next: **Wave B — Assessment & Certification** (generalize `Evaluation`).
 | M2 | Cohort-based enrollment | `/api/learning/enrollments` (cohort-based, multi-program) + self-enroll path | 🟢 done (enroll/self-enroll/withdraw/list; bulk + session-roster wiring deferred) |
 | M3 | Learning CRUD UI | Create/edit Program, create Cohort, enroll learners (not read-only) | 🟢 done (Programs create/edit/archive; Cohort create; per-cohort enroll/withdraw; Admin-gated; i18n en+vi) |
 | M4 | Capability-based authz scaffold | `program.manage`/`session.book` style checks behind `policy/` | 🟢 done (`policy/capabilities.js` + `requireCapability`; learning routes wired; Admin superuser, behavior-preserving) |
-| → | **Wave B kickoff** | Generic Assessment domain design started | 🔴 ready (Wave A complete) |
+| → | **Wave B kickoff** | Completion enforcement + certificates (issue/revoke/verify) | 🟢 done — `completionPolicy` enforced; `Certificate` model + public verification. Assessment engine (build-vs-buy) still open |
 
 ---
 
 ## Recent progress (changelog)
 
+- **2026-06-03** — **Wave B kickoff — completion enforcement + certificates.**
+  `LearningProgram.completionPolicy` is now enforced: a new
+  `domains/learning/completion/` sub-domain computes completion (attendance %
+  from `Attendance` P/L vs cohort sessions + `requiresAssessment` via
+  `Evaluation`; `requiresFeedback` honestly reported unmet — no Feedback model
+  yet). New `Certificate` model (immutable snapshot, soft-delete) + endpoints:
+  `GET /api/learning/completion`, `GET/POST/DELETE /api/learning/certificates`
+  (issue 422-gated on completion, revoke = soft status), and a **public**
+  `GET /api/learning/certificates/verify/:code`. New capabilities
+  (`completion.read`, `certificate.read/manage`). 9 integration tests; server
+  suite 492 green. Build-vs-buy assessment engine + Feedback model deferred.
 - **2026-06-03** — **M4 capability-based authz scaffold — Wave A (Foundation)
   complete.** New `server/policy/capabilities.js` (role→capability map; Admin
   superuser) + `middleware/requireCapability.js` (coarse, any-of gate). Learning

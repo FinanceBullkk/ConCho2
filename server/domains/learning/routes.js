@@ -19,6 +19,24 @@ const {
 } = require('./session/schemas');
 const enrollmentController = require('./enrollment/controller');
 const { enrollBody, listEnrollmentsQuery } = require('./enrollment/schemas');
+const completionController = require('./completion/controller');
+const {
+  completionQuery,
+  issueCertificateBody,
+  listCertificatesQuery,
+  revokeCertificateBody,
+  verifyCertificateParams,
+} = require('./completion/schemas');
+
+// ── PUBLIC: certificate verification (no auth) ────────────
+// Registered BEFORE router.use(protect) so anyone can verify a certificate by
+// its code, and before '/certificates/:id'-style routes so 'verify' is not
+// swallowed as an id.
+router.get(
+  '/certificates/verify/:code',
+  validate({ params: verifyCertificateParams }),
+  completionController.verifyCertificate,
+);
 
 router.use(protect);
 
@@ -84,6 +102,34 @@ router.delete(
   requireCapability('enrollment.manage', 'enrollment.self'),
   validate({ params: idParam }),
   enrollmentController.withdraw,
+);
+
+// ── Completion & certificates (Wave B) ────────────────────
+router.get(
+  '/completion',
+  requireCapability('completion.read'),
+  validate({ query: completionQuery }),
+  completionController.getCompletion,
+);
+
+router
+  .route('/certificates')
+  .get(
+    requireCapability('certificate.read'),
+    validate({ query: listCertificatesQuery }),
+    completionController.listCertificates,
+  )
+  .post(
+    requireCapability('certificate.manage'),
+    validate({ body: issueCertificateBody }),
+    completionController.issueCertificate,
+  );
+
+router.delete(
+  '/certificates/:id',
+  requireCapability('certificate.manage'),
+  validate({ params: idParam, body: revokeCertificateBody }),
+  completionController.revokeCertificate,
 );
 
 module.exports = router;
