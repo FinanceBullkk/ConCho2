@@ -1,6 +1,7 @@
 const auditService = require('../../services/auditService');
 const { handleError } = require('../../helpers/handleError');
 const useCases = require('./use-cases');
+const manualGradingUseCases = require('./manual-grading-use-cases');
 const { assessmentDto, attemptDto } = require('./dto');
 
 const createAssessment = async (req, res) => {
@@ -97,7 +98,29 @@ const submitAttempt = async (req, res) => {
 const listAttempts = async (req, res) => {
   try {
     const attempts = await useCases.listAttempts(req.query, req.user);
-    res.json({ success: true, count: attempts.length, data: attempts.map(attemptDto) });
+    const includeManualMetadata = req.user.role === 'Admin' || req.user.role === 'Teacher';
+    res.json({
+      success: true,
+      count: attempts.length,
+      data: attempts.map((attempt) => attemptDto(attempt, { includeManualMetadata })),
+    });
+  } catch (error) {
+    handleError(res, error);
+  }
+};
+
+const manualGradeAttempt = async (req, res) => {
+  try {
+    const attempt = await manualGradingUseCases.manualGradeAttempt(req.params.id, req.body, req.user);
+    auditService.record({
+      req,
+      action: 'updated',
+      entity: 'AssessmentAttempt',
+      entityId: req.params.id,
+      diff: { after: { scorePercent: attempt.scorePercent, passed: attempt.passed } },
+      note: 'Assessment attempt manually graded',
+    });
+    res.json({ success: true, data: attemptDto(attempt, { includeManualMetadata: true }) });
   } catch (error) {
     handleError(res, error);
   }
@@ -111,4 +134,5 @@ module.exports = {
   archiveAssessment,
   submitAttempt,
   listAttempts,
+  manualGradeAttempt,
 };

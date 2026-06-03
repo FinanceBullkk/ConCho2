@@ -30,7 +30,7 @@ const {
 const feedbackController = require('./feedback/controller');
 const { submitFeedbackBody, listFeedbackQuery } = require('./feedback/schemas');
 const reportsController = require('./reports/controller');
-const { completionReportQuery } = require('./reports/schemas');
+const { completionReportQuery, completionRollupQuery } = require('./reports/schemas');
 const { exportLimiter } = require('../../middleware/rateLimiters');
 
 // ── PUBLIC: certificate verification (no auth) ────────────
@@ -138,6 +138,13 @@ router.delete(
 );
 
 // ── Completion reporting + export (Wave B — Phase 5) ──────
+router.get(
+  '/reports/completion/rollup',
+  requireCapability('report.read'),
+  validate({ query: completionRollupQuery }),
+  reportsController.getCompletionRollup,
+);
+
 router.get(
   '/reports/completion',
   requireCapability('report.read'),

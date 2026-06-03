@@ -9,6 +9,11 @@ const { ACTIVE_ENROLLMENT_STATUSES } = require('../../../helpers/cohortMembershi
 const findCohort = (cohortId) =>
   Class.findById(cohortId).select('_id classCode courseName programId isDeleted').lean();
 
+const listActiveCohorts = () =>
+  Class.find({ isDeleted: { $ne: true } })
+    .select('_id classCode courseName programId isDeleted')
+    .lean();
+
 const findProgramName = async (programId) => {
   if (!programId) return '';
   const program = await LearningProgram.findById(programId).select('name').lean();
@@ -39,6 +44,7 @@ const listCohortCertificates = (cohortId) =>
 
 module.exports = {
   findCohort,
+  listActiveCohorts,
   findProgramName,
   listCohortLearnerIds,
   findUsers,

@@ -59,11 +59,13 @@ export const qk = {
     enrollments: (params) => ['learning', 'enrollments', params],
     feedback: (params) => ['learning', 'feedback', params],
     completionReport: (cohortId) => ['learning', 'completion-report', cohortId],
+    completionRollup: ['learning', 'completion-rollup'],
   },
   assessment: {
     all: ['assessment'],
     assessments: (params) => ['assessment', 'assessments', params],
     assessment: (id) => ['assessment', 'assessment', id],
+    questionBank: (params) => ['assessment', 'question-bank', params],
     attempts: (params) => ['assessment', 'attempts', params],
   },
   dashboard: {

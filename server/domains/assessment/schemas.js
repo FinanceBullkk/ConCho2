@@ -13,6 +13,7 @@ const itemSchema = z
     options: z.array(z.string().trim().min(1).max(500)).min(2).max(20).optional(),
     correctOptionIndexes: optionIndexes.optional(),
     acceptedAnswers: z.array(z.string().trim().min(1).max(500)).min(1).max(20).optional(),
+    questionBankItemId: objectId.optional(),
     points: z.coerce.number().min(0).max(100).optional(),
   })
   .superRefine((item, ctx) => {
@@ -38,10 +39,20 @@ const createAssessmentBody = z.object({
   title: z.string().trim().min(1).max(200),
   description: z.string().trim().max(2000).optional(),
   cohortId: objectId,
-  items: z.array(itemSchema).min(1).max(100),
+  items: z.array(itemSchema).max(100).optional(),
+  questionBankItemIds: z.array(objectId).max(100).optional(),
   passingScorePercent: z.coerce.number().min(0).max(100).optional(),
   maxAttempts: z.coerce.number().int().min(0).optional(),
   isPublished: z.coerce.boolean().optional(),
+}).superRefine((body, ctx) => {
+  const authored = body.items?.length || 0;
+  const imported = body.questionBankItemIds?.length || 0;
+  if (authored + imported < 1) {
+    ctx.addIssue({ code: 'custom', message: 'An assessment needs at least one item' });
+  }
+  if (authored + imported > 100) {
+    ctx.addIssue({ code: 'custom', message: 'An assessment can contain at most 100 items' });
+  }
 });
 
 const updateAssessmentBody = createAssessmentBody;
@@ -69,10 +80,20 @@ const listAttemptsQuery = z.object({
   learnerId: objectId.optional(),
 });
 
+const manualGradeAttemptBody = z.object({
+  answers: z.array(z.object({
+    itemId: objectId,
+    pointsEarned: z.coerce.number().min(0).max(100),
+    note: z.string().trim().max(1000).optional(),
+  })).min(1),
+});
+
 module.exports = {
+  itemSchema,
   createAssessmentBody,
   updateAssessmentBody,
   listAssessmentsQuery,
   submitAttemptBody,
   listAttemptsQuery,
+  manualGradeAttemptBody,
 };

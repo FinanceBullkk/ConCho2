@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Archive, Pencil, Plus } from 'lucide-react';
+import { Archive, ClipboardCheck, Pencil, Plus } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -12,6 +12,8 @@ import { useAssessments, useArchiveAssessment } from '../../hooks/useAssessment'
 import { useLearningCohorts } from '../../hooks/useLearning';
 import { useRole } from '../../hooks/useRole';
 import AssessmentFormModal from './AssessmentFormModal';
+import QuestionBankPanel from './QuestionBankPanel';
+import ManualGradingModal from './ManualGradingModal';
 
 export default function AssessmentsTab() {
   const { t } = useTranslation();
@@ -20,6 +22,7 @@ export default function AssessmentsTab() {
   const [cohortId, setCohortId] = useState('');
   const [createOpen, setCreateOpen] = useState(false);
   const [editingAssessment, setEditingAssessment] = useState(null);
+  const [reviewAssessment, setReviewAssessment] = useState(null);
   const [confirmArchiveId, setConfirmArchiveId] = useState('');
 
   const { data: cohortData } = useLearningCohorts();
@@ -109,6 +112,10 @@ export default function AssessmentsTab() {
                       <Pencil className="size-4 mr-1.5" aria-hidden="true" />
                       {t('learning.assessments.edit')}
                     </Button>
+                    <Button size="sm" variant="outline" onClick={() => setReviewAssessment(assessment)}>
+                      <ClipboardCheck className="size-4 mr-1.5" aria-hidden="true" />
+                      {t('learning.assessments.review')}
+                    </Button>
                     <Button
                       size="sm"
                       variant="outline"
@@ -149,6 +156,13 @@ export default function AssessmentsTab() {
           onClose={() => setEditingAssessment(null)}
         />
       )}
+      {reviewAssessment && (
+        <ManualGradingModal
+          assessment={reviewAssessment}
+          onClose={() => setReviewAssessment(null)}
+        />
+      )}
+      {canManage && <div className="mt-4"><QuestionBankPanel /></div>}
     </>
   );
 }

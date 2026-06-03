@@ -14,6 +14,7 @@ import {
   blankAssessmentItem,
   itemPayload,
 } from './assessment-form-utils';
+import QuestionBankImportPicker from './QuestionBankImportPicker';
 
 export default function AssessmentFormModal({
   cohorts,
@@ -28,6 +29,7 @@ export default function AssessmentFormModal({
   const pending = createMutation.isPending || updateMutation.isPending;
   const [form, setForm] = useState(() => assessmentFormValue(assessment, selectedCohortId));
   const [items, setItems] = useState(() => assessmentItemsValue(assessment));
+  const [questionBankItemIds, setQuestionBankItemIds] = useState([]);
   const [error, setError] = useState('');
 
   const set = (key) => (value) => setForm((f) => ({ ...f, [key]: value }));
@@ -48,6 +50,7 @@ export default function AssessmentFormModal({
       maxAttempts: Number(form.maxAttempts) || 0,
       isPublished: Boolean(form.isPublished),
       items: items.map(itemPayload),
+      questionBankItemIds,
     };
     try {
       if (isEdit) {
@@ -104,6 +107,13 @@ export default function AssessmentFormModal({
           </label>
 
           <div className="space-y-3">
+            <LearningField label={t('learning.assessments.bankImport')} hint={t('learning.assessments.bankImportHint')}>
+              <QuestionBankImportPicker
+                selectedIds={questionBankItemIds}
+                onChange={setQuestionBankItemIds}
+              />
+            </LearningField>
+
             {items.map((item, idx) => (
               <div key={idx} className="rounded-md border border-border p-3 space-y-3">
                 <div className="flex items-center justify-between gap-3">

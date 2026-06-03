@@ -8,6 +8,7 @@ export" gaps. Read-only.
 | Method | Path | Capability | Returns |
 |--------|------|-----------|---------|
 | GET | `/reports/completion?cohortId=` | `report.read` | JSON: cohort meta + summary + per-learner rows |
+| GET | `/reports/completion/rollup` | `report.read` | JSON: program + department aggregates |
 | GET | `/reports/completion/export?cohortId=` | `report.read` | `.xlsx` attachment (same data) |
 
 `report.read` is held by Admin + Teacher (not Participant — cohort-wide views).
@@ -30,7 +31,7 @@ schemas.js     → zod (cohortId)
 ```
 
 ## Iterate (deferred)
-Program-level rollups (across cohorts), department/learner cross-cuts, date
-ranges, streaming for very large cohorts (current path buffers — fine per-cohort),
-dashboard surfacing. The per-learner `evaluateCompletion` loop is N queries per
-learner; batch if cohorts grow large.
+Learner cross-program history, date ranges, rollup export, streaming for very
+large cohorts (current path buffers — fine per-cohort), dashboard surfacing. The
+per-learner `evaluateCompletion` loop is N queries per learner; batch if cohorts
+grow large.

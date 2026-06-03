@@ -32,6 +32,13 @@ const itemSchema = new mongoose.Schema(
     // short_text: accepted answers (compared case-insensitively, trimmed).
     acceptedAnswers: { type: [String], default: undefined },
 
+    // Optional source link when an item was imported from the question bank.
+    questionBankItemId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'AssessmentQuestion',
+      default: null,
+    },
+
     points: { type: Number, default: 1, min: [0, 'Points cannot be negative'] },
   },
   { _id: true }

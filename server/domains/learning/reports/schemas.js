@@ -6,4 +6,6 @@ const completionReportQuery = z.object({
   cohortId: objectId,
 });
 
-module.exports = { completionReportQuery };
+const completionRollupQuery = z.object({});
+
+module.exports = { completionReportQuery, completionRollupQuery };

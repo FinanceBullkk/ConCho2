@@ -1,5 +1,6 @@
 const Assessment = require('../../models/Assessment');
 const AssessmentAttempt = require('../../models/AssessmentAttempt');
+const AssessmentQuestion = require('../../models/AssessmentQuestion');
 const Class = require('../../models/Class');
 
 const findCohort = (cohortId) =>
@@ -59,6 +60,22 @@ const listAttempts = ({ cohortId, assessmentId, learnerId }) => {
     .lean();
 };
 
+const findAttemptById = (id) =>
+  AssessmentAttempt.findOne({ _id: id, isDeleted: false }).lean();
+
+const updateAttemptGrade = (id, data) =>
+  AssessmentAttempt.findOneAndUpdate(
+    { _id: id, isDeleted: false },
+    { $set: data },
+    { new: true, runValidators: true },
+  )
+    .populate('userId', 'empCode name department')
+    .populate('assessmentId', 'title')
+    .lean();
+
+const findQuestionBankItemsByIds = (ids) =>
+  AssessmentQuestion.find({ _id: { $in: ids }, isDeleted: false }).lean();
+
 module.exports = {
   findCohort,
   createAssessment,
@@ -69,4 +86,7 @@ module.exports = {
   countAttempts,
   createAttempt,
   listAttempts,
+  findAttemptById,
+  updateAttemptGrade,
+  findQuestionBankItemsByIds,
 };

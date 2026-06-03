@@ -3,6 +3,7 @@ const jwt = require('jsonwebtoken');
 const { getApp, getTokens, getSeedData, getCsrfHeaders, teardown } = require('../setup');
 const Assessment = require('../../models/Assessment');
 const AssessmentAttempt = require('../../models/AssessmentAttempt');
+const AssessmentQuestion = require('../../models/AssessmentQuestion');
 const Schedule = require('../../models/Schedule');
 const Class = require('../../models/Class');
 const LearningProgram = require('../../models/LearningProgram');
@@ -24,6 +25,7 @@ afterEach(async () => {
   await Promise.all([
     Assessment.deleteMany({}),
     AssessmentAttempt.deleteMany({}),
+    AssessmentQuestion.deleteMany({}),
     Schedule.deleteMany({}),
     LearningProgram.deleteMany({}),
   ]);
@@ -68,6 +70,37 @@ const createQuiz = (token, overrides) =>
     .set(csrf)
     .send(quizBody(overrides));
 
+const createShortTextQuiz = (token, overrides = {}) =>
+  createQuiz(token, {
+    passingScorePercent: 100,
+    items: [
+      {
+        type: 'short_text',
+        prompt: 'Explain the safety rule',
+        acceptedAnswers: ['wear goggles'],
+        points: 2,
+      },
+    ],
+    ...overrides,
+  });
+
+const questionBody = (overrides = {}) => ({
+  type: 'single_choice',
+  prompt: 'What does LMS stand for?',
+  options: ['Learning Management System', 'Lesson Map Sheet'],
+  correctOptionIndexes: [0],
+  points: 2,
+  tags: ['lms'],
+  ...overrides,
+});
+
+const createQuestion = (token, overrides) =>
+  request(app)
+    .post('/api/assessment/question-bank')
+    .set('Authorization', `Bearer ${token}`)
+    .set(csrf)
+    .send(questionBody(overrides));
+
 const attempt = (token, assessmentId, answers) =>
   request(app)
     .post(`/api/assessment/assessments/${assessmentId}/attempts`)
@@ -75,7 +108,77 @@ const attempt = (token, assessmentId, answers) =>
     .set(csrf)
     .send({ answers });
 
+const manualGrade = (token, attemptId, answers) =>
+  request(app)
+    .put(`/api/assessment/attempts/${attemptId}/manual-grade`)
+    .set('Authorization', `Bearer ${token}`)
+    .set(csrf)
+    .send({ answers });
+
 describe('Assessment API — authoring, attempts, grading', () => {
+  test('admin manages question-bank items; participant is blocked', async () => {
+    const blocked = await createQuestion(tokens.leader);
+    expect(blocked.status).toBe(403);
+
+    const created = await createQuestion(tokens.admin);
+    expect(created.status).toBe(201);
+    expect(created.body.data.correctOptionIndexes).toEqual([0]);
+    expect(created.body.data.tags).toEqual(['lms']);
+
+    const updated = await request(app)
+      .put(`/api/assessment/question-bank/${created.body.data.id}`)
+      .set('Authorization', `Bearer ${tokens.admin}`)
+      .set(csrf)
+      .send(questionBody({ prompt: 'Updated prompt', tags: ['updated'] }));
+    expect(updated.status).toBe(200);
+    expect(updated.body.data.prompt).toBe('Updated prompt');
+
+    const list = await request(app)
+      .get('/api/assessment/question-bank?tag=updated')
+      .set('Authorization', `Bearer ${tokens.admin}`);
+    expect(list.status).toBe(200);
+    expect(list.body.count).toBe(1);
+
+    const archived = await request(app)
+      .delete(`/api/assessment/question-bank/${created.body.data.id}`)
+      .set('Authorization', `Bearer ${tokens.admin}`)
+      .set(csrf);
+    expect(archived.status).toBe(200);
+
+    const hidden = await request(app)
+      .get('/api/assessment/question-bank')
+      .set('Authorization', `Bearer ${tokens.admin}`);
+    expect(hidden.body.count).toBe(0);
+  });
+
+  test('admin creates an assessment by importing question-bank items', async () => {
+    const q = await createQuestion(tokens.admin);
+    const res = await createQuiz(tokens.admin, {
+      items: undefined,
+      questionBankItemIds: [q.body.data.id],
+    });
+
+    expect(res.status).toBe(201);
+    expect(res.body.data.itemCount).toBe(1);
+    expect(res.body.data.items[0].prompt).toBe('What does LMS stand for?');
+    expect(res.body.data.items[0].questionBankItemId).toBe(q.body.data.id);
+    expect(res.body.data.items[0].correctOptionIndexes).toEqual([0]);
+  });
+
+  test('archived question-bank items cannot be imported', async () => {
+    const q = await createQuestion(tokens.admin);
+    await request(app)
+      .delete(`/api/assessment/question-bank/${q.body.data.id}`)
+      .set('Authorization', `Bearer ${tokens.admin}`)
+      .set(csrf);
+
+    const res = await createQuiz(tokens.admin, {
+      items: undefined,
+      questionBankItemIds: [q.body.data.id],
+    });
+    expect(res.status).toBe(404);
+  });
+
   test('admin creates an assessment (201, answers visible to author)', async () => {
     const res = await createQuiz(tokens.admin);
     expect(res.status).toBe(201);
@@ -177,6 +280,65 @@ describe('Assessment API — authoring, attempts, grading', () => {
     expect(res.body.data.passed).toBe(false);
   });
 
+  test('admin manually grades a short_text answer and recomputes pass state', async () => {
+    await seedRoster(seed.leader._id);
+    const created = await createShortTextQuiz(tokens.admin);
+    const itemId = created.body.data.items[0].id;
+    const submitted = await attempt(tokens.leader, created.body.data.id, [
+      { itemId, text: 'almost right' },
+    ]);
+    expect(submitted.body.data.passed).toBe(false);
+
+    const graded = await manualGrade(tokens.admin, submitted.body.data.id, [
+      { itemId, pointsEarned: 2, note: 'Accepted by reviewer' },
+    ]);
+    expect(graded.status).toBe(200);
+    expect(graded.body.data.score).toBe(2);
+    expect(graded.body.data.scorePercent).toBe(100);
+    expect(graded.body.data.passed).toBe(true);
+    expect(graded.body.data.answers[0].manualPointsEarned).toBe(2);
+    expect(graded.body.data.answers[0].manualNote).toBe('Accepted by reviewer');
+
+    const stored = await AssessmentAttempt.findById(submitted.body.data.id).lean();
+    expect(stored.passed).toBe(true);
+    expect(stored.answers[0].manualGradedBy.toString()).toBe(seed.admin._id.toString());
+  });
+
+  test('teacher can manually grade; participant cannot', async () => {
+    await seedRoster(seed.leader._id);
+    const created = await createShortTextQuiz(tokens.admin);
+    const itemId = created.body.data.items[0].id;
+    const submitted = await attempt(tokens.leader, created.body.data.id, [{ itemId, text: 'no' }]);
+
+    const blocked = await manualGrade(tokens.leader, submitted.body.data.id, [{ itemId, pointsEarned: 1 }]);
+    expect(blocked.status).toBe(403);
+
+    const teacher = await manualGrade(tokens.teacher, submitted.body.data.id, [{ itemId, pointsEarned: 1 }]);
+    expect(teacher.status).toBe(200);
+    expect(teacher.body.data.score).toBe(1);
+  });
+
+  test('manual grading rejects choice items and out-of-range scores', async () => {
+    await seedRoster(seed.leader._id);
+    const choice = await createQuiz(tokens.admin);
+    const choiceItemId = choice.body.data.items[0].id;
+    const choiceAttempt = await attempt(tokens.leader, choice.body.data.id, [
+      { itemId: choiceItemId, selectedOptionIndexes: [0] },
+    ]);
+    const rejectedType = await manualGrade(tokens.admin, choiceAttempt.body.data.id, [
+      { itemId: choiceItemId, pointsEarned: 1 },
+    ]);
+    expect(rejectedType.status).toBe(422);
+
+    const short = await createShortTextQuiz(tokens.admin);
+    const shortItemId = short.body.data.items[0].id;
+    const shortAttempt = await attempt(tokens.leader, short.body.data.id, [{ itemId: shortItemId, text: 'no' }]);
+    const rejectedScore = await manualGrade(tokens.admin, shortAttempt.body.data.id, [
+      { itemId: shortItemId, pointsEarned: 3 },
+    ]);
+    expect(rejectedScore.status).toBe(422);
+  });
+
   test('a non-participant cannot attempt (403)', async () => {
     const created = await createQuiz(tokens.admin); // leader not on roster
     const itemId = created.body.data.items[0].id;
@@ -260,6 +422,34 @@ describe('Assessment API — authoring, attempts, grading', () => {
     const created = await createQuiz(tokens.admin);
     const itemId = created.body.data.items[0].id;
     await attempt(tokens.leader, created.body.data.id, [{ itemId, selectedOptionIndexes: [1] }]);
+
+    const after = await request(app)
+      .get(`/api/learning/completion?cohortId=${seed.class1._id}&learnerId=${seed.leader._id}`)
+      .set('Authorization', `Bearer ${tokens.admin}`);
+    expect(after.body.data.assessment.met).toBe(true);
+    expect(after.body.data.assessment.attemptScorePercent).toBe(100);
+    expect(after.body.data.complete).toBe(true);
+  });
+
+  test('manual grading can make a short_text attempt satisfy completion', async () => {
+    const program = await LearningProgram.create({
+      code: `MGR_${Date.now()}`,
+      name: 'Manual Grade Program',
+      completionPolicy: { attendanceThresholdPercent: 0, requiresAssessment: true },
+    });
+    await Class.findByIdAndUpdate(seed.class1._id, { programId: program._id });
+    await seedRoster(seed.leader._id);
+
+    const created = await createShortTextQuiz(tokens.admin);
+    const itemId = created.body.data.items[0].id;
+    const submitted = await attempt(tokens.leader, created.body.data.id, [{ itemId, text: 'wrong' }]);
+
+    const before = await request(app)
+      .get(`/api/learning/completion?cohortId=${seed.class1._id}&learnerId=${seed.leader._id}`)
+      .set('Authorization', `Bearer ${tokens.admin}`);
+    expect(before.body.data.assessment.met).toBe(false);
+
+    await manualGrade(tokens.admin, submitted.body.data.id, [{ itemId, pointsEarned: 2 }]);
 
     const after = await request(app)
       .get(`/api/learning/completion?cohortId=${seed.class1._id}&learnerId=${seed.leader._id}`)

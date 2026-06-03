@@ -6,18 +6,47 @@ const { actorHasCapability, CAPABILITIES } = require('../../policy/capabilities'
 
 const canManage = (actor) => actorHasCapability(actor, CAPABILITIES.ASSESSMENT_MANAGE);
 
+const itemFromBankQuestion = (question) => ({
+  type: question.type,
+  prompt: question.prompt,
+  options: question.options,
+  correctOptionIndexes: question.correctOptionIndexes,
+  acceptedAnswers: question.acceptedAnswers,
+  points: question.points,
+  questionBankItemId: question._id,
+});
+
+const resolveItems = async (body) => {
+  const authored = body.items || [];
+  const bankIds = body.questionBankItemIds || [];
+  if (!bankIds.length) {
+    return authored;
+  }
+
+  const bankItems = await repository.findQuestionBankItemsByIds(bankIds);
+  if (bankItems.length !== new Set(bankIds.map(String)).size) {
+    throw new ServiceError('One or more question bank items were not found', 404);
+  }
+  const byId = new Map(bankItems.map((item) => [item._id.toString(), item]));
+  return [
+    ...authored,
+    ...bankIds.map((id) => itemFromBankQuestion(byId.get(id.toString()))),
+  ];
+};
+
 // Author a cohort assessment. Manager-only at the route; the cohort must exist.
 const createAssessment = async (body, actor) => {
   const cohort = await repository.findCohort(body.cohortId);
   if (!cohort || cohort.isDeleted) {
     throw new ServiceError('Cohort not found', 404);
   }
+  const items = await resolveItems(body);
   return repository.createAssessment({
     title: body.title,
     description: body.description || '',
     cohortId: body.cohortId,
     programId: cohort.programId || null,
-    items: body.items,
+    items,
     passingScorePercent: body.passingScorePercent ?? 0,
     maxAttempts: body.maxAttempts ?? 0,
     isPublished: body.isPublished ?? false,
@@ -36,12 +65,13 @@ const updateAssessment = async (id, body) => {
   if (!cohort || cohort.isDeleted) {
     throw new ServiceError('Cohort not found', 404);
   }
+  const items = await resolveItems(body);
   const after = await repository.updateAssessment(id, {
     title: body.title,
     description: body.description || '',
     cohortId: body.cohortId,
     programId: cohort.programId || null,
-    items: body.items,
+    items,
     passingScorePercent: body.passingScorePercent ?? 0,
     maxAttempts: body.maxAttempts ?? 0,
     isPublished: body.isPublished ?? false,

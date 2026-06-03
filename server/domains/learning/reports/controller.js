@@ -12,6 +12,15 @@ const getCompletionReport = async (req, res) => {
   }
 };
 
+const getCompletionRollup = async (req, res) => {
+  try {
+    const report = await useCases.buildCompletionRollup();
+    res.json({ success: true, data: report });
+  } catch (error) {
+    handleError(res, error);
+  }
+};
+
 const exportCompletionReport = async (req, res) => {
   try {
     const report = await useCases.buildCompletionReport(req.query.cohortId);
@@ -35,4 +44,4 @@ const exportCompletionReport = async (req, res) => {
   }
 };
 
-module.exports = { getCompletionReport, exportCompletionReport };
+module.exports = { getCompletionReport, getCompletionRollup, exportCompletionReport };
