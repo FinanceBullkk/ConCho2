@@ -1,6 +1,6 @@
 const router = require('express').Router();
 const { protect } = require('../../middleware/auth');
-const { roleGuard } = require('../../middleware/roleGuard');
+const { requireCapability } = require('../../middleware/requireCapability');
 const { validate } = require('../../middleware/validate');
 const { bookingLimiter } = require('../../middleware/rateLimiters');
 const { idParam } = require('../../schemas/common');
@@ -25,18 +25,18 @@ router.use(protect);
 router
   .route('/programs')
   .get(validate({ query: listProgramsQuery }), controller.listPrograms)
-  .post(roleGuard('Admin'), validate({ body: createProgramBody }), controller.createProgram);
+  .post(requireCapability('program.manage'), validate({ body: createProgramBody }), controller.createProgram);
 
 router
   .route('/programs/:id')
   .get(validate({ params: idParam }), controller.getProgram)
-  .put(roleGuard('Admin'), validate({ params: idParam, body: updateProgramBody }), controller.updateProgram)
-  .delete(roleGuard('Admin'), validate({ params: idParam }), controller.archiveProgram);
+  .put(requireCapability('program.manage'), validate({ params: idParam, body: updateProgramBody }), controller.updateProgram)
+  .delete(requireCapability('program.manage'), validate({ params: idParam }), controller.archiveProgram);
 
 router
   .route('/cohorts')
   .get(validate({ query: listCohortsQuery }), controller.listCohorts)
-  .post(roleGuard('Admin'), validate({ body: createCohortBody }), controller.createCohort);
+  .post(requireCapability('cohort.manage'), validate({ body: createCohortBody }), controller.createCohort);
 
 router
   .route('/cohorts/:id')
@@ -48,7 +48,7 @@ router
 
 router.post(
   '/sessions/book-slot',
-  roleGuard('Admin', 'Participant'),
+  requireCapability('session.book'),
   bookingLimiter,
   validate({ body: bookSessionBody }),
   sessionController.bookSession,
@@ -56,7 +56,7 @@ router.post(
 
 router.delete(
   '/sessions/:id/cancel',
-  roleGuard('Admin', 'Participant'),
+  requireCapability('session.book'),
   validate({ params: idParam }),
   sessionController.cancelSession,
 );
@@ -69,19 +69,19 @@ router
 router
   .route('/enrollments')
   .get(
-    roleGuard('Admin', 'Teacher', 'Participant'),
+    requireCapability('enrollment.read'),
     validate({ query: listEnrollmentsQuery }),
     enrollmentController.list,
   )
   .post(
-    roleGuard('Admin', 'Participant'),
+    requireCapability('enrollment.manage', 'enrollment.self'),
     validate({ body: enrollBody }),
     enrollmentController.enroll,
   );
 
 router.delete(
   '/enrollments/:id',
-  roleGuard('Admin', 'Participant'),
+  requireCapability('enrollment.manage', 'enrollment.self'),
   validate({ params: idParam }),
   enrollmentController.withdraw,
 );

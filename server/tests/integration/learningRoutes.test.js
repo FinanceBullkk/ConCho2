@@ -108,6 +108,21 @@ describe('Learning Platform API — cohorts', () => {
     expect(stored.courseName).toBe('Technical Bootcamp');
   });
 
+  test('teacher cannot create a cohort (lacks cohort.manage capability)', async () => {
+    const program = await LearningProgram.create({
+      code: 'TEST_CAP_BLOCK', name: 'Capability Block', defaultSessionCount: 1,
+    });
+
+    const res = await request(app)
+      .post('/api/learning/cohorts')
+      .set('Authorization', `Bearer ${tokens.teacher}`)
+      .set(csrf)
+      .send({ cohortCode: 'LD_CAP_BLOCK', programId: program._id.toString() });
+
+    expect(res.status).toBe(403);
+    expect(res.body.success).toBe(false);
+  });
+
   test('legacy class course list is sourced from LearningProgram when catalog exists', async () => {
     await LearningProgram.create({
       code: 'TEST_WORKSHOP',
