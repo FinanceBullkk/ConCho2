@@ -172,7 +172,7 @@ From exactly where we are now (booking enforces `schedulingMode`, 3 modes gated)
 | Decision | When | Trade-off |
 |---|---|---|
 | Mongo vs PostgreSQL | Phase-6 gate (after paths/analytics pressure) | Relational fit vs migration cost; don't pre-migrate |
-| Assessment: build vs buy | Start of Wave B | In-house control vs speed; minimal build likely first |
+| Assessment: build vs buy | ✅ Decided 2026-06-03 — **build in-house** (minimal). `domains/assessment` v1 live; iterate from there | In-house control vs speed; minimal build first |
 | SCORM/courseware scope | Wave C/D or defer | Big surface; de-scoped for now — revisit if self-paced content needed |
 | How far to generalize | Continuous | Over-abstracting before need (YAGNI) vs legacy lock-in |
 | Capability vs role authz | Wave A | Up-front refactor cost vs unbounded role-check sprawl |

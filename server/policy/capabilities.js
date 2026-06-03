@@ -36,6 +36,9 @@ const CAPABILITIES = Object.freeze({
   CERTIFICATE_MANAGE: 'certificate.manage', // issue / revoke certificates (admin)
   FEEDBACK_SUBMIT: 'feedback.submit',   // submit cohort feedback (learner self / admin)
   FEEDBACK_READ: 'feedback.read',       // list cohort feedback (own for learners)
+  ASSESSMENT_MANAGE: 'assessment.manage', // author / archive assessments (admin/teacher)
+  ASSESSMENT_READ: 'assessment.read',   // list/get assessments + attempts
+  ASSESSMENT_ATTEMPT: 'assessment.attempt', // take an assessment (learner)
 });
 
 const ALL_CAPABILITIES = Object.freeze(Object.values(CAPABILITIES));
@@ -51,6 +54,8 @@ const ROLE_CAPABILITIES = Object.freeze({
     CAPABILITIES.COMPLETION_READ,
     CAPABILITIES.CERTIFICATE_READ,
     CAPABILITIES.FEEDBACK_READ,
+    CAPABILITIES.ASSESSMENT_MANAGE,
+    CAPABILITIES.ASSESSMENT_READ,
   ]),
   Participant: Object.freeze([
     CAPABILITIES.SESSION_BOOK,
@@ -60,6 +65,8 @@ const ROLE_CAPABILITIES = Object.freeze({
     CAPABILITIES.CERTIFICATE_READ,
     CAPABILITIES.FEEDBACK_SUBMIT,
     CAPABILITIES.FEEDBACK_READ,
+    CAPABILITIES.ASSESSMENT_READ,
+    CAPABILITIES.ASSESSMENT_ATTEMPT,
   ]),
 });
 

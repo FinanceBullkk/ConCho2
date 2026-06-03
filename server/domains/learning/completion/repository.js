@@ -5,6 +5,7 @@ const Attendance = require('../../../models/Attendance');
 const Evaluation = require('../../../models/Evaluation');
 const Certificate = require('../../../models/Certificate');
 const Feedback = require('../../../models/Feedback');
+const AssessmentAttempt = require('../../../models/AssessmentAttempt');
 
 // Statuses that count as "attended" — mirrors the dashboard convention
 // (Attendance index { userId, status } is used for status:{$in:['P','L']}).
@@ -54,6 +55,13 @@ const findEvaluation = (cohortId, userId) =>
 const findFeedback = (cohortId, userId) =>
   Feedback.findOne({ cohortId, userId, isDeleted: false }).lean();
 
+// Best passing assessment attempt for a learner in a cohort (generic engine).
+// Complements the legacy Evaluation path — either satisfies requiresAssessment.
+const findPassingAttempt = (cohortId, userId) =>
+  AssessmentAttempt.findOne({ cohortId, userId, passed: true, isDeleted: false })
+    .sort({ scorePercent: -1 })
+    .lean();
+
 const findLearnerName = async (userId) => {
   const User = require('../../../models/User');
   const user = await User.findById(userId).select('name empCode').lean();
@@ -101,6 +109,7 @@ module.exports = {
   countAttendedSessions,
   findEvaluation,
   findFeedback,
+  findPassingAttempt,
   findLearnerName,
   findActiveCertificate,
   createCertificate,
