@@ -7,8 +7,14 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import TableSkeleton from '@/components/TableSkeleton';
 import { EmptyState } from '@/components/EmptyState';
-import { useLearningCohorts, useCompletionReport, useDownloadCompletionReport } from '../../hooks/useLearning';
+import {
+  useLearningCohorts,
+  useCompletionReport,
+  useCompletionRollup,
+  useDownloadCompletionReport,
+} from '../../hooks/useLearning';
 import CompletionReportTable from './CompletionReportTable';
+import CompletionRollupTable from './CompletionRollupTable';
 
 // Trigger a browser download from the blob response, reading the filename from
 // Content-Disposition (mirrors the HR export flow).
@@ -37,6 +43,7 @@ export default function ReportsTab() {
   const cohorts = cohortData?.data || [];
 
   const { data: report, isLoading } = useCompletionReport(cohortId);
+  const { data: rollup, isLoading: rollupLoading } = useCompletionRollup();
   const download = useDownloadCompletionReport();
 
   const handleExport = async () => {
@@ -89,9 +96,19 @@ export default function ReportsTab() {
   }
 
   return (
-    <Card>
-      <CardHeader>{header}</CardHeader>
-      <CardContent>{body}</CardContent>
-    </Card>
+    <div className="space-y-4">
+      <Card>
+        <CardHeader>
+          <CardTitle>{t('learning.reports.rollup.title')}</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <CompletionRollupTable rollup={rollup} isLoading={rollupLoading} />
+        </CardContent>
+      </Card>
+      <Card>
+        <CardHeader>{header}</CardHeader>
+        <CardContent>{body}</CardContent>
+      </Card>
+    </div>
   );
 }

@@ -20,6 +20,15 @@ const answerSchema = new mongoose.Schema(
     pointsEarned: { type: Number, default: 0 },
     pointsPossible: { type: Number, default: 0 },
     correct: { type: Boolean, default: false },
+    manualPointsEarned: { type: Number, default: undefined },
+    manualCorrect: { type: Boolean, default: undefined },
+    manualNote: { type: String, trim: true, default: '' },
+    manualGradedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+      default: null,
+    },
+    manualGradedAt: { type: Date, default: null },
   },
   { _id: false }
 );

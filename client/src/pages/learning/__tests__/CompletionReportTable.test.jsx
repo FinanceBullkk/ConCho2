@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import CompletionReportTable from '../CompletionReportTable';
+import CompletionRollupTable from '../CompletionRollupTable';
 
 const report = {
   cohort: { id: 'c1', code: 'EL001', programName: 'English' },
@@ -54,5 +55,26 @@ describe('CompletionReportTable', () => {
     expect(screen.getByText('Unmet')).toBeInTheDocument();
     // feedback not required for either → N/A em dash appears (cohort + cells)
     expect(screen.getAllByText('—').length).toBeGreaterThanOrEqual(1);
+  });
+});
+
+describe('CompletionRollupTable', () => {
+  const rollup = {
+    summary: { cohorts: 2, learners: 5, complete: 3, completionRate: 60, certificatesIssued: 2 },
+    programs: [
+      { key: 'p1', label: 'Safety', cohorts: 1, learners: 3, complete: 2, completionRate: 66.67, certificatesIssued: 1 },
+    ],
+    departments: [
+      { key: 'Sales', label: 'Sales', cohorts: 1, learners: 2, complete: 1, completionRate: 50, certificatesIssued: 1 },
+    ],
+  };
+
+  it('renders program and department rollups', () => {
+    render(<CompletionRollupTable rollup={rollup} />);
+    expect(screen.getByText('By program')).toBeInTheDocument();
+    expect(screen.getByText('By department')).toBeInTheDocument();
+    expect(screen.getByText('Safety')).toBeInTheDocument();
+    expect(screen.getByText('Sales')).toBeInTheDocument();
+    expect(screen.getByText('60%')).toBeInTheDocument();
   });
 });

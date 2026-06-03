@@ -30,6 +30,13 @@ export const useAssessmentAttempts = (params = {}, options = {}) =>
     ...options,
   });
 
+export const useQuestionBank = (params = {}, options = {}) =>
+  useQuery({
+    queryKey: qk.assessment.questionBank(params),
+    queryFn: async () => (await assessmentAPI.getQuestionBank(params)).data,
+    ...options,
+  });
+
 export const useCreateAssessment = () => {
   const qc = useQueryClient();
   return useMutation({
@@ -52,6 +59,34 @@ export const useSubmitAssessmentAttempt = () => {
     mutationFn: ({ assessmentId, answers }) =>
       assessmentAPI.submitAttempt(assessmentId, { answers }).then((r) => r.data.data),
     onSettled: () => invalidateAssessments(qc),
+  });
+};
+
+export const useManualGradeAttempt = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ attemptId, answers }) =>
+      assessmentAPI.manualGradeAttempt(attemptId, { answers }).then((r) => r.data.data),
+    onSuccess: () => toast.success('Attempt graded'),
+    onSettled: () => invalidateAssessments(qc),
+  });
+};
+
+export const useCreateQuestionBankItem = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (data) => assessmentAPI.createQuestionBankItem(data).then((r) => r.data.data),
+    onSuccess: () => toast.success('Question saved'),
+    onSettled: () => qc.invalidateQueries({ queryKey: qk.assessment.all }),
+  });
+};
+
+export const useArchiveQuestionBankItem = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id) => assessmentAPI.archiveQuestionBankItem(id).then((r) => r.data.data),
+    onSuccess: () => toast.success('Question archived'),
+    onSettled: () => qc.invalidateQueries({ queryKey: qk.assessment.all }),
   });
 };
 

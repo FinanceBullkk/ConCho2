@@ -69,6 +69,11 @@ const report = (token) =>
     .get(`/api/learning/reports/completion?cohortId=${seed.class1._id}`)
     .set('Authorization', `Bearer ${token}`);
 
+const rollup = (token) =>
+  request(app)
+    .get('/api/learning/reports/completion/rollup')
+    .set('Authorization', `Bearer ${token}`);
+
 describe('Learning Platform API — completion reports', () => {
   test('report aggregates cohort learners with per-learner completion + summary', async () => {
     await linkProgram({ attendanceThresholdPercent: 50 });
@@ -109,6 +114,32 @@ describe('Learning Platform API — completion reports', () => {
 
     expect((await report(tokens.leader)).status).toBe(403);
     expect((await report(tokens.teacher)).status).toBe(200);
+  });
+
+  test('rollup aggregates completion by program and department', async () => {
+    await linkProgram({ attendanceThresholdPercent: 50 });
+    await seedCohort(4, 2);
+
+    const res = await rollup(tokens.admin);
+    expect(res.status).toBe(200);
+    expect(res.body.data.summary.learners).toBeGreaterThanOrEqual(2);
+    expect(res.body.data.summary.complete).toBeGreaterThanOrEqual(1);
+
+    const program = res.body.data.programs.find((row) => row.label === 'Report Program');
+    expect(program.learners).toBe(2);
+    expect(program.complete).toBe(1);
+    expect(program.completionRate).toBe(50);
+
+    const departmentsTotal = res.body.data.departments.reduce((sum, row) => sum + row.learners, 0);
+    expect(departmentsTotal).toBe(res.body.data.summary.learners);
+  });
+
+  test('a participant cannot read rollups (403); a teacher can (200)', async () => {
+    await linkProgram({ attendanceThresholdPercent: 0 });
+    await seedCohort(1, 0);
+
+    expect((await rollup(tokens.leader)).status).toBe(403);
+    expect((await rollup(tokens.teacher)).status).toBe(200);
   });
 
   test('export returns an xlsx attachment with the learner count header', async () => {

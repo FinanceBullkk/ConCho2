@@ -4,15 +4,48 @@ const { requireCapability } = require('../../middleware/requireCapability');
 const { validate } = require('../../middleware/validate');
 const { idParam } = require('../../schemas/common');
 const controller = require('./controller');
+const questionBankController = require('./question-bank-controller');
 const {
   createAssessmentBody,
   updateAssessmentBody,
   listAssessmentsQuery,
   submitAttemptBody,
   listAttemptsQuery,
+  manualGradeAttemptBody,
 } = require('./schemas');
+const {
+  questionBankBody,
+  questionBankQuery,
+} = require('./question-bank-schemas');
 
 router.use(protect);
+
+// ── Question bank ────────────────────────────────────────
+router
+  .route('/question-bank')
+  .get(
+    requireCapability('assessment.manage'),
+    validate({ query: questionBankQuery }),
+    questionBankController.listQuestions,
+  )
+  .post(
+    requireCapability('assessment.manage'),
+    validate({ body: questionBankBody }),
+    questionBankController.createQuestion,
+  );
+
+router
+  .route('/question-bank/:id')
+  .put(
+    requireCapability('assessment.manage'),
+    validate({ params: idParam, body: questionBankBody }),
+    questionBankController.updateQuestion,
+  )
+  .delete(
+    requireCapability('assessment.manage'),
+    validate({ params: idParam }),
+    questionBankController.archiveQuestion,
+  );
 
 // ── Assessments ───────────────────────────────────────────
 router
@@ -59,6 +92,13 @@ router.get(
   requireCapability('assessment.read'),
   validate({ query: listAttemptsQuery }),
   controller.listAttempts,
+);
+
+router.put(
+  '/attempts/:id/manual-grade',
+  requireCapability('assessment.manage'),
+  validate({ params: idParam, body: manualGradeAttemptBody }),
+  controller.manualGradeAttempt,
 );
 
 module.exports = router;

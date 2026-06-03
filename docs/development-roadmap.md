@@ -34,7 +34,17 @@ workspace, and learners take published quizzes from `/me/assessments`. Feedback
 UI is also live: Admins/Teachers review cohort submissions from `/learning`, and
 Participants submit/re-submit feedback from `/me/feedback`. First assessment
 iteration is now done too: managers can update assessment metadata, publication
-state, and item definitions after creation. Next: question banks/manual grading.
+state, and item definitions after creation. A backend question-bank foundation is
+now live: managers create/list/update/archive reusable questions and import them
+into assessments as immutable item snapshots. The Learning Assessments tab now
+surfaces this bank for managers and can import selected bank questions into
+assessment create/update. Manual grading v1 is also live: Admins/Teachers can
+review submitted short-text answers, override per-answer scores, and completion
+uses the updated pass state. Completion report rollups are now live too:
+`GET /api/learning/reports/completion/rollup` aggregates completion by program
+and department, and the Learning **Reports** tab shows those rollups above the
+cohort detail report. Next: Wave C catalog/self-service planning, plus advanced
+report filters/exports when needed.
 
 ---
 
@@ -47,7 +57,7 @@ state, and item definitions after creation. Next: question banks/manual grading.
 | 2 | Learning catalog + generic cohort model | ~95% | 🟢 near done |
 | 3 | Multi-program enrollment + session scheduling | ~75% | 🟡 in progress |
 | 4 | Frontend L&D workspace (CRUD UI) | ~72% | 🟡 in progress |
-| 5 | Reporting, completion, feedback | ~67% | 🟡 in progress |
+| 5 | Reporting, completion, feedback | ~72% | 🟡 in progress |
 | 6 | PostgreSQL decision gate | 0% | ⚪ gated |
 
 ## LMS waves (forward — see [`lms-roadmap.md`](lms-roadmap.md))
@@ -55,7 +65,7 @@ state, and item definitions after creation. Next: question banks/manual grading.
 | Wave | Goal | Status | Depends on |
 |------|------|--------|-----------|
 | A — Foundation | Generic learning core works E2E (scheduling modes, cohort enrollment, CRUD UI, capability authz) | 🟢 done (M1–M4) | — |
-| B — Assessment & Certification | Generic assessment engine, completion enforcement, certificates | 🟡 in progress (completion + certificates + feedback + assessment engine v1 + completion reporting + assessment UI + feedback UI + assessment edit done; question banks/manual grading next) | A |
+| B — Assessment & Certification | Generic assessment engine, completion enforcement, certificates | 🟡 in progress (completion + certificates + feedback + assessment engine v1 + completion reporting + rollups + assessment UI + feedback UI + assessment edit + question-bank backend/UI + manual grading v1 done) | A |
 | C — Catalog, Paths & Self-service | Learner catalog, self-enroll, learning paths/prerequisites | 🔴 planned | A |
 | D — Platform & Scale | SSO, HRIS sync, advanced analytics, mobile, Postgres gate | 🔴 planned | B, C |
 
@@ -78,11 +88,48 @@ state, and item definitions after creation. Next: question banks/manual grading.
 | → | **Phase 4 — learner assessment-taking UI** | Let learners take published assessments | 🟢 done — `/me/assessments` self-service page lists assessments for enrolled/scheduled cohorts, shows latest attempt status, and submits auto-graded answers; linked from Participant dashboard. 2 component tests |
 | → | **Phase 4/5 — feedback UI** | Let learners submit feedback and managers review it | 🟢 done — **Feedback tab** on `/learning` (Admin/Teacher via `read:feedback`) lists cohort submissions; `/me/feedback` lets Participants submit/re-submit ratings and comments for enrolled/scheduled cohorts. 2 component test files |
 | → | **Wave B — assessment edit support** | Let managers update existing assessments | 🟢 done — manager-only `PUT /api/assessment/assessments/:id` replaces assessment metadata/items atomically; Learning Assessments tab now opens existing quizzes in the authoring modal and saves edits. |
+| → | **Wave B — question bank foundation** | Reusable assessment questions | 🟢 done — manager-only `/api/assessment/question-bank` create/list/update/archive; assessment create/update imports bank items via `questionBankItemIds` as immutable snapshots. |
+| → | **Phase 4 — question bank UI** | Surface reusable questions in Learning | 🟢 done — manager-only Question Bank panel on Assessments tab; create/archive bank questions; assessment modal imports selected bank questions. |
+| → | **Wave B — manual grading v1** | Review short-text answers | 🟢 done — manager-only `PUT /api/assessment/attempts/:id/manual-grade`; Learning Assessments tab review modal updates short-text scores/notes and recomputes pass state. |
+| → | **Wave B — completion report rollups** | Aggregate completion by program and department | 🟢 done — `GET /api/learning/reports/completion/rollup` reuses cohort completion rows, returns program/department summaries, and Learning Reports shows rollup tables above cohort detail. |
 
 ---
 
 ## Recent progress (changelog)
 
+- **2026-06-03** — **Wave B — completion report rollups.**
+  Added `GET /api/learning/reports/completion/rollup` behind `report.read`.
+  The rollup reuses the existing cohort completion report path, groups active
+  cohorts by program and learners by department, and returns summary counts,
+  completion rates, and certificate counts. Learning **Reports** now shows
+  program and department rollup tables above the cohort report. Verified:
+  learning report integration **7 tests**, focused report UI **4 tests**, client
+  **120 tests**, lint 0 errors/81 warnings (at cap), production bundle clean.
+- **2026-06-03** — **Wave B — manual grading v1.**
+  Added manager-only short-text review overrides for assessment attempts.
+  `PUT /api/assessment/attempts/:id/manual-grade` accepts per-answer scores,
+  stores manual grading metadata, recomputes `scorePercent`/`passed`, and leaves
+  choice items immutable. Learning **Assessments** now has a Review Attempts
+  modal for Admins/Teachers to score submitted short-text answers with optional
+  notes. Completion/certificates use the updated pass state via the existing
+  passing-attempt lookup. Verified: assessment integration **20 tests**, client
+  **119 tests**, lint 0 errors/81 warnings (at cap), production bundle clean.
+- **2026-06-03** — **Phase 4 — assessment question bank UI.**
+  Surfaced the backend question bank in the Learning **Assessments** tab for
+  Admins/Teachers. Managers can create/archive reusable questions from a compact
+  panel, and the assessment authoring modal can import selected bank questions
+  through `questionBankItemIds` while preserving manual item authoring. Added
+  `assessmentAPI` methods, React Query hooks/keys, en+vi labels, and focused
+  tests. Client: **117 tests**, lint 0 errors/81 warnings (at cap), production
+  bundle clean.
+- **2026-06-03** — **Wave B — assessment question bank foundation.**
+  Added reusable question-bank items (`AssessmentQuestion`) and manager-only
+  `/api/assessment/question-bank` endpoints for create/list/update/archive.
+  Assessment create/update now accepts `questionBankItemIds`, materializes them
+  into immutable item snapshots, and returns `questionBankItemId` in item DTOs.
+  Focused tests cover manager CRUD, Participant block, import, and archived-item
+  rejection. Verified: assessment integration **16 tests**, root syntax check
+  **39 files**. Server lint unavailable (no `server` lint script).
 - **2026-06-03** — **Wave B — assessment edit support.**
   Added manager-only `PUT /api/assessment/assessments/:id` with audit diff,
   cohort revalidation, and full replacement of title/description/cohort,

@@ -8,6 +8,7 @@ const itemDto = (item, includeAnswers) => {
     type: item.type,
     prompt: item.prompt,
     options: item.options,
+    questionBankItemId: idOf(item.questionBankItemId),
     points: typeof item.points === 'number' ? item.points : 1,
   };
   if (includeAnswers) {
@@ -39,7 +40,26 @@ const assessmentDto = (a, { includeAnswers = false } = {}) => {
   };
 };
 
-const attemptDto = (att) => {
+const answerDto = (answer, includeManualMetadata) => {
+  const base = {
+    itemId: answer.itemId,
+    selectedOptionIndexes: answer.selectedOptionIndexes,
+    text: answer.text,
+    pointsEarned: answer.pointsEarned,
+    pointsPossible: answer.pointsPossible,
+    correct: answer.correct,
+  };
+  if (includeManualMetadata) {
+    base.manualPointsEarned = answer.manualPointsEarned;
+    base.manualCorrect = answer.manualCorrect;
+    base.manualNote = answer.manualNote;
+    base.manualGradedBy = idOf(answer.manualGradedBy);
+    base.manualGradedAt = answer.manualGradedAt;
+  }
+  return base;
+};
+
+const attemptDto = (att, { includeManualMetadata = false } = {}) => {
   if (!att) return null;
   const u = att.userId;
   const userPopulated = u && typeof u === 'object' && u.name !== undefined;
@@ -60,7 +80,9 @@ const attemptDto = (att) => {
     maxScore: att.maxScore,
     scorePercent: att.scorePercent,
     passed: att.passed,
-    answers: att.answers,
+    answers: Array.isArray(att.answers)
+      ? att.answers.map((answer) => answerDto(answer, includeManualMetadata))
+      : [],
     submittedAt: att.submittedAt,
   };
 };

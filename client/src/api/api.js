@@ -235,6 +235,7 @@ export const learningAPI = {
   submitFeedback: (data) => api.post('/learning/feedback', data),
   // Cohort completion reporting + xlsx export (Admin/Teacher).
   getCompletionReport: (params) => api.get('/learning/reports/completion', { params }),
+  getCompletionRollup: () => api.get('/learning/reports/completion/rollup'),
   downloadCompletionReport: (params) =>
     api.get('/learning/reports/completion/export', { params, responseType: 'blob' }),
 };
@@ -246,7 +247,11 @@ export const assessmentAPI = {
   createAssessment: (data) => api.post('/assessment/assessments', data),
   updateAssessment: (id, data) => api.put(`/assessment/assessments/${id}`, data),
   archiveAssessment: (id) => api.delete(`/assessment/assessments/${id}`),
+  getQuestionBank: (params) => api.get('/assessment/question-bank', { params }),
+  createQuestionBankItem: (data) => api.post('/assessment/question-bank', data),
+  archiveQuestionBankItem: (id) => api.delete(`/assessment/question-bank/${id}`),
   getAttempts: (params) => api.get('/assessment/attempts', { params }),
+  manualGradeAttempt: (attemptId, data) => api.put(`/assessment/attempts/${attemptId}/manual-grade`, data),
   submitAttempt: (assessmentId, data) => api.post(`/assessment/assessments/${assessmentId}/attempts`, data),
 };
 
