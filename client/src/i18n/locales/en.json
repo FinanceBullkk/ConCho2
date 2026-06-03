@@ -250,6 +250,8 @@
       "groupsDesc": "Learning groups and team leaders remain managed through existing Teams for now.",
       "assessments": "Assessments",
       "assessmentsDesc": "Evaluation workflows remain compatible while assessment is generalized.",
+      "feedback": "Feedback",
+      "feedbackDesc": "Learner cohort feedback submissions and ratings.",
       "reports": "Reports",
       "reportsDesc": "Cohort completion status — attendance, assessment, feedback, and certificates."
     },
@@ -283,6 +285,49 @@
         "feedback": "Feedback",
         "complete": "Complete",
         "certificate": "Certificate"
+      }
+    },
+    "assessments": {
+      "title": "Assessments",
+      "new": "New Assessment",
+      "create": "Create Assessment",
+      "edit": "Edit Assessment",
+      "created": "Assessment created",
+      "updated": "Assessment updated",
+      "allCohorts": "All cohorts",
+      "empty": "No assessments",
+      "emptyDesc": "Create a cohort assessment to start measuring completion.",
+      "emptyCohortDesc": "This cohort does not have assessments yet.",
+      "colAssessment": "Assessment",
+      "colStatus": "Status",
+      "colItems": "Items",
+      "colPassing": "Passing",
+      "published": "Published",
+      "draft": "Draft",
+      "archiveConfirm": "Confirm archive?",
+      "passing": "Passing score (%)",
+      "maxAttempts": "Max attempts",
+      "unlimitedHint": "0 means unlimited.",
+      "publishNow": "Publish now",
+      "item": "Item",
+      "addItem": "Add item",
+      "prompt": "Prompt",
+      "type": "Type",
+      "points": "Points",
+      "options": "Options",
+      "acceptedAnswers": "Accepted answers",
+      "correct": "Correct option numbers",
+      "correctHint": "Use 1-based numbers, comma-separated.",
+      "onePerLine": "One per line.",
+      "attemptDescription": "Answer each item, then submit to receive an automatic score.",
+      "attemptPassed": "Assessment passed",
+      "attemptSubmitted": "Assessment submitted",
+      "submit": "Submit assessment",
+      "submitting": "Submitting…",
+      "types": {
+        "single_choice": "Single choice",
+        "multiple_choice": "Multiple choice",
+        "short_text": "Short text"
       }
     },
     "programs": {
@@ -342,6 +387,7 @@
       "program": "Program",
       "selectProgram": "Select a program…",
       "cohortCode": "Cohort code",
+      "title": "Title",
       "totalSessions": "Total sessions",
       "cohortCodeHint": "Optional — auto-generated when left blank."
     },
@@ -377,7 +423,8 @@
       "save": "Save",
       "saving": "Saving…",
       "creating": "Creating…",
-      "create": "Create"
+      "create": "Create",
+      "remove": "Remove"
     },
     "saveFailed": "Save failed"
   }

@@ -23,6 +23,13 @@ export const useLearningEnrollments = (params = {}, options = {}) =>
     ...options,
   });
 
+export const useLearningFeedback = (params = {}, options = {}) =>
+  useQuery({
+    queryKey: qk.learning.feedback(params),
+    queryFn: async () => (await learningAPI.getFeedback(params)).data,
+    ...options,
+  });
+
 // Cohort completion report — only fetches once a cohort is chosen.
 export const useCompletionReport = (cohortId) =>
   useQuery({
@@ -93,6 +100,15 @@ export const useWithdrawEnrollment = () => {
   return useMutation({
     mutationFn: (id) => learningAPI.withdrawEnrollment(id),
     onSuccess: () => toast.success('Enrollment withdrawn'),
+    onSettled: () => invalidateLearning(qc),
+  });
+};
+
+export const useSubmitFeedback = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (data) => learningAPI.submitFeedback(data).then((r) => r.data.data),
+    onSuccess: () => toast.success('Feedback submitted'),
     onSettled: () => invalidateLearning(qc),
   });
 };

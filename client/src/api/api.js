@@ -231,10 +231,23 @@ export const learningAPI = {
   getEnrollments: (params) => api.get('/learning/enrollments', { params }),
   createEnrollment: (data) => api.post('/learning/enrollments', data),
   withdrawEnrollment: (id) => api.delete(`/learning/enrollments/${id}`),
+  getFeedback: (params) => api.get('/learning/feedback', { params }),
+  submitFeedback: (data) => api.post('/learning/feedback', data),
   // Cohort completion reporting + xlsx export (Admin/Teacher).
   getCompletionReport: (params) => api.get('/learning/reports/completion', { params }),
   downloadCompletionReport: (params) =>
     api.get('/learning/reports/completion/export', { params, responseType: 'blob' }),
+};
+
+// ── Generic Assessment Engine ────────────────────────────
+export const assessmentAPI = {
+  getAssessments: (params) => api.get('/assessment/assessments', { params }),
+  getAssessment: (id) => api.get(`/assessment/assessments/${id}`),
+  createAssessment: (data) => api.post('/assessment/assessments', data),
+  updateAssessment: (id, data) => api.put(`/assessment/assessments/${id}`, data),
+  archiveAssessment: (id) => api.delete(`/assessment/assessments/${id}`),
+  getAttempts: (params) => api.get('/assessment/attempts', { params }),
+  submitAttempt: (assessmentId, data) => api.post(`/assessment/assessments/${assessmentId}/attempts`, data),
 };
 
 // ── Dashboard Analytics ───────────────────────────────────

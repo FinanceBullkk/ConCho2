@@ -6,6 +6,7 @@ const { idParam } = require('../../schemas/common');
 const controller = require('./controller');
 const {
   createAssessmentBody,
+  updateAssessmentBody,
   listAssessmentsQuery,
   submitAttemptBody,
   listAttemptsQuery,
@@ -33,6 +34,11 @@ router
     requireCapability('assessment.read'),
     validate({ params: idParam }),
     controller.getAssessment,
+  )
+  .put(
+    requireCapability('assessment.manage'),
+    validate({ params: idParam, body: updateAssessmentBody }),
+    controller.updateAssessment,
   )
   .delete(
     requireCapability('assessment.manage'),

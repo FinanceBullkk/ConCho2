@@ -34,6 +34,23 @@ const listAssessments = async (req, res) => {
   }
 };
 
+const updateAssessment = async (req, res) => {
+  try {
+    const { before, after } = await useCases.updateAssessment(req.params.id, req.body);
+    auditService.record({
+      req,
+      action: 'updated',
+      entity: 'Assessment',
+      entityId: req.params.id,
+      diff: auditService.diff(before, after),
+      note: 'Assessment updated',
+    });
+    res.json({ success: true, data: assessmentDto(after, { includeAnswers: true }) });
+  } catch (error) {
+    handleError(res, error);
+  }
+};
+
 const getAssessment = async (req, res) => {
   try {
     const { assessment, includeAnswers } = await useCases.getAssessment(req.params.id, req.user);
@@ -89,6 +106,7 @@ const listAttempts = async (req, res) => {
 module.exports = {
   createAssessment,
   listAssessments,
+  updateAssessment,
   getAssessment,
   archiveAssessment,
   submitAttempt,

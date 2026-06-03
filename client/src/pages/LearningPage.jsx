@@ -1,12 +1,14 @@
 import { useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { BarChart3, BookOpen, Boxes, GraduationCap, Users } from 'lucide-react';
+import { BarChart3, BookOpen, Boxes, GraduationCap, MessageSquare, Users } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { PageHeader } from '@/components/PageHeader';
 import { useRole } from '../hooks/useRole';
 import ProgramsTab from './learning/ProgramsTab';
 import CohortsTab from './learning/CohortsTab';
+import AssessmentsTab from './learning/AssessmentsTab';
+import FeedbackTab from './learning/FeedbackTab';
 import ReportsTab from './learning/ReportsTab';
 
 // `perm` (optional) gates a tab to roles holding that permission.
@@ -15,6 +17,7 @@ const TABS = [
   { id: 'cohorts', icon: Boxes },
   { id: 'groups', icon: Users },
   { id: 'assessments', icon: GraduationCap },
+  { id: 'feedback', icon: MessageSquare, perm: 'read:feedback' },
   { id: 'reports', icon: BarChart3, perm: 'read:reports' },
 ];
 
@@ -75,7 +78,10 @@ export default function LearningPage() {
           {activeTab === 'groups' && <CompatibilityTab type="groups" />}
         </TabsContent>
         <TabsContent value="assessments" hidden={activeTab !== 'assessments'}>
-          {activeTab === 'assessments' && <CompatibilityTab type="assessments" />}
+          {activeTab === 'assessments' && <AssessmentsTab />}
+        </TabsContent>
+        <TabsContent value="feedback" hidden={activeTab !== 'feedback'}>
+          {activeTab === 'feedback' && <FeedbackTab />}
         </TabsContent>
         <TabsContent value="reports" hidden={activeTab !== 'reports'}>
           {activeTab === 'reports' && <ReportsTab />}

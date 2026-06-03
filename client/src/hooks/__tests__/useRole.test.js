@@ -42,6 +42,16 @@ describe('useRole', () => {
     expect(renderAsRole('Participant').can('book:class')).toBe(true);
   });
 
+  it('Teacher can manage assessments to match assessment.manage capability', () => {
+    expect(renderAsRole('Teacher').can('manage:assessment')).toBe(true);
+    expect(renderAsRole('Participant').can('manage:assessment')).toBe(false);
+  });
+
+  it('Teacher can read feedback while Participant uses self-service feedback UI', () => {
+    expect(renderAsRole('Teacher').can('read:feedback')).toBe(true);
+    expect(renderAsRole('Participant').can('read:feedback')).toBe(false);
+  });
+
   it('canAny returns true if any permission matches', () => {
     const { canAny } = renderAsRole('Teacher');
     expect(canAny(['delete:user', 'record:attendance'])).toBe(true);
