@@ -24,9 +24,10 @@ verification endpoint), and a **Feedback** foundation (`/api/learning/feedback`)
 unblocks `requiresFeedback`. The **generic assessment engine (v1)** is now live
 (build-vs-buy → **build in-house**): a new `domains/assessment` (`/api/assessment`)
 authors item-based, auto-graded quizzes; a passing attempt satisfies
-`requiresAssessment` alongside the legacy `Evaluation`. Next in Wave B:
-assessment engine iteration (question banks, item update, learner UI) and
-completion reports/export.
+`requiresAssessment` alongside the legacy `Evaluation`. **Completion reporting**
+is now live: `GET /api/learning/reports/completion` (per-learner breakdown +
+summary) plus an `.xlsx` export. Next in Wave B: assessment engine iteration
+(question banks, item update) and the learner-facing L&D UI (Phase 4).
 
 ---
 
@@ -39,7 +40,7 @@ completion reports/export.
 | 2 | Learning catalog + generic cohort model | ~95% | 🟢 near done |
 | 3 | Multi-program enrollment + session scheduling | ~75% | 🟡 in progress |
 | 4 | Frontend L&D workspace (CRUD UI) | ~45% | 🟡 in progress |
-| 5 | Reporting, completion, feedback | ~45% | 🟡 in progress |
+| 5 | Reporting, completion, feedback | ~60% | 🟡 in progress |
 | 6 | PostgreSQL decision gate | 0% | ⚪ gated |
 
 ## LMS waves (forward — see [`lms-roadmap.md`](lms-roadmap.md))
@@ -47,7 +48,7 @@ completion reports/export.
 | Wave | Goal | Status | Depends on |
 |------|------|--------|-----------|
 | A — Foundation | Generic learning core works E2E (scheduling modes, cohort enrollment, CRUD UI, capability authz) | 🟢 done (M1–M4) | — |
-| B — Assessment & Certification | Generic assessment engine, completion enforcement, certificates | 🟡 in progress (completion + certificates + feedback + assessment engine v1 done; iteration + reports next) | A |
+| B — Assessment & Certification | Generic assessment engine, completion enforcement, certificates | 🟡 in progress (completion + certificates + feedback + assessment engine v1 + completion reporting done; iteration + learner UI next) | A |
 | C — Catalog, Paths & Self-service | Learner catalog, self-enroll, learning paths/prerequisites | 🔴 planned | A |
 | D — Platform & Scale | SSO, HRIS sync, advanced analytics, mobile, Postgres gate | 🔴 planned | B, C |
 
@@ -64,11 +65,22 @@ completion reports/export.
 | → | **Wave B kickoff** | Completion enforcement + certificates (issue/revoke/verify) | 🟢 done — `completionPolicy` enforced; `Certificate` model + public verification. Assessment engine (build-vs-buy) still open |
 | → | **Wave B — feedback foundation** | `Feedback` model + submit/list; unblock `requiresFeedback` | 🟢 done — `/api/learning/feedback` (learner self-submit / Admin on-behalf); completion now honours `requiresFeedback`; `feedback.submit`/`feedback.read` capabilities |
 | → | **Wave B — assessment engine v1** | Generic item-based quizzes + auto-graded attempts; satisfy `requiresAssessment` | 🟢 done — new `domains/assessment` (`/api/assessment`): author/list/get/archive + attempt with pure auto-grading (single/multi-choice, short-text). Passing attempt OR legacy `Evaluation` meets completion. `assessment.manage/read/attempt` capabilities. Iteration (banks, item edit, UI) deferred |
+| → | **Wave B — completion reporting** | Cohort completion report (per-learner + summary) + `.xlsx` export | 🟢 done — `domains/learning/reports/`: `GET /api/learning/reports/completion` reuses the completion engine across the cohort roster ∪ enrollments, attaches certificate status, rolls up a summary; `/export` streams xlsx (exceljs). `report.read` capability (Admin/Teacher) |
 
 ---
 
 ## Recent progress (changelog)
 
+- **2026-06-03** — **Wave B — completion reporting + xlsx export.** New
+  `domains/learning/reports/` sub-domain: `GET /api/learning/reports/completion`
+  (`?cohortId=`) enumerates the cohort's learners (session roster ∪ non-dropped
+  enrollments), reuses the completion engine (`evaluateCompletion`) per learner,
+  attaches certificate status, and rolls up a summary (complete/total, completion
+  rate, certificates issued). `GET /reports/completion/export` returns the same
+  data as an `.xlsx` attachment (`exceljs`, `exportLimiter`). New `report.read`
+  capability (Admin/Teacher; learners excluded — cohort-wide view). Closes the
+  Phase 5 "reports" + "program completion export" gaps. 5 integration tests;
+  server suite **525 green**.
 - **2026-06-03** — **Wave B — generic assessment engine v1 (build-in-house).**
   New `domains/assessment` mounted at `/api/assessment` (own boundary, sibling to
   `learning/`). `Assessment` model = cohort-scoped, item-based quiz (v1 types:
