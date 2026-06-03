@@ -4,6 +4,7 @@ const Schedule = require('../../../models/Schedule');
 const Attendance = require('../../../models/Attendance');
 const Evaluation = require('../../../models/Evaluation');
 const Certificate = require('../../../models/Certificate');
+const Feedback = require('../../../models/Feedback');
 
 // Statuses that count as "attended" — mirrors the dashboard convention
 // (Attendance index { userId, status } is used for status:{$in:['P','L']}).
@@ -49,6 +50,9 @@ const countAttendedSessions = async (cohortId, userId) => {
 
 const findEvaluation = (cohortId, userId) =>
   Evaluation.findOne({ classId: cohortId, userId }).lean({ virtuals: true });
+
+const findFeedback = (cohortId, userId) =>
+  Feedback.findOne({ cohortId, userId, isDeleted: false }).lean();
 
 const findLearnerName = async (userId) => {
   const User = require('../../../models/User');
@@ -96,6 +100,7 @@ module.exports = {
   countCohortSessions,
   countAttendedSessions,
   findEvaluation,
+  findFeedback,
   findLearnerName,
   findActiveCertificate,
   createCertificate,

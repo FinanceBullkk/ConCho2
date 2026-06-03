@@ -27,6 +27,8 @@ const {
   revokeCertificateBody,
   verifyCertificateParams,
 } = require('./completion/schemas');
+const feedbackController = require('./feedback/controller');
+const { submitFeedbackBody, listFeedbackQuery } = require('./feedback/schemas');
 
 // ── PUBLIC: certificate verification (no auth) ────────────
 // Registered BEFORE router.use(protect) so anyone can verify a certificate by
@@ -131,5 +133,19 @@ router.delete(
   validate({ params: idParam, body: revokeCertificateBody }),
   completionController.revokeCertificate,
 );
+
+// ── Cohort feedback / surveys (Wave B — unblocks requiresFeedback) ────
+router
+  .route('/feedback')
+  .get(
+    requireCapability('feedback.read'),
+    validate({ query: listFeedbackQuery }),
+    feedbackController.listFeedback,
+  )
+  .post(
+    requireCapability('feedback.submit'),
+    validate({ body: submitFeedbackBody }),
+    feedbackController.submitFeedback,
+  );
 
 module.exports = router;

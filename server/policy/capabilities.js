@@ -34,6 +34,8 @@ const CAPABILITIES = Object.freeze({
   COMPLETION_READ: 'completion.read',   // view completion status for a cohort
   CERTIFICATE_READ: 'certificate.read', // list issued certificates
   CERTIFICATE_MANAGE: 'certificate.manage', // issue / revoke certificates (admin)
+  FEEDBACK_SUBMIT: 'feedback.submit',   // submit cohort feedback (learner self / admin)
+  FEEDBACK_READ: 'feedback.read',       // list cohort feedback (own for learners)
 });
 
 const ALL_CAPABILITIES = Object.freeze(Object.values(CAPABILITIES));
@@ -48,6 +50,7 @@ const ROLE_CAPABILITIES = Object.freeze({
     CAPABILITIES.ENROLLMENT_READ,
     CAPABILITIES.COMPLETION_READ,
     CAPABILITIES.CERTIFICATE_READ,
+    CAPABILITIES.FEEDBACK_READ,
   ]),
   Participant: Object.freeze([
     CAPABILITIES.SESSION_BOOK,
@@ -55,6 +58,8 @@ const ROLE_CAPABILITIES = Object.freeze({
     CAPABILITIES.ENROLLMENT_SELF,
     CAPABILITIES.COMPLETION_READ,
     CAPABILITIES.CERTIFICATE_READ,
+    CAPABILITIES.FEEDBACK_SUBMIT,
+    CAPABILITIES.FEEDBACK_READ,
   ]),
 });
 
