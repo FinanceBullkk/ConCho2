@@ -172,7 +172,7 @@ Re-architecture into an L&D platform runs in phases (full detail:
 | 1 | Backend modular-monolith refactor (extract legacy → `domains/`) | ~35% |
 | 2 | Learning catalog + generic cohort model (`LearningProgram`) | ~95% |
 | 3 | Multi-program enrollment + session scheduling | ~40% |
-| 4 | Frontend L&D workspace (catalog/cohort CRUD UI) | ~5% |
+| 4 | Frontend L&D workspace (catalog/cohort CRUD UI) | ~55% |
 | 5 | Reporting, completion, feedback | ~60% |
 | 6 | PostgreSQL decision gate | 0% |
 
@@ -190,7 +190,7 @@ iteration (banks), SSO/HRIS.
 → see [`lms-roadmap.md`](lms-roadmap.md).
 
 **Stack:** React 19 + Vite 8 + Tailwind 4 / Express 4 + Mongoose 8 + MongoDB;
-~525 server tests, ~100 client tests, Playwright e2e; 7 CI gates; deployed on Render.
+~525 server tests, ~103 client tests, Playwright e2e; 7 CI gates; deployed on Render.
 
 ---
 

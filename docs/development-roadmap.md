@@ -25,9 +25,11 @@ unblocks `requiresFeedback`. The **generic assessment engine (v1)** is now live
 (build-vs-buy → **build in-house**): a new `domains/assessment` (`/api/assessment`)
 authors item-based, auto-graded quizzes; a passing attempt satisfies
 `requiresAssessment` alongside the legacy `Evaluation`. **Completion reporting**
-is now live: `GET /api/learning/reports/completion` (per-learner breakdown +
-summary) plus an `.xlsx` export. Next in Wave B: assessment engine iteration
-(question banks, item update) and the learner-facing L&D UI (Phase 4).
+is live (`GET /api/learning/reports/completion` + `.xlsx` export) and now
+**surfaced in the UI**: a gated **Reports tab** on the Learning page lets
+Admins/Teachers pick a cohort and view the per-learner completion table +
+summary, with one-click Excel export (i18n en+vi). Next: more L&D UI (assessment
+authoring/taking, feedback) and assessment-engine iteration.
 
 ---
 
@@ -39,7 +41,7 @@ summary) plus an `.xlsx` export. Next in Wave B: assessment engine iteration
 | 1 | Backend modular-monolith refactor | ~42% | 🟡 in progress |
 | 2 | Learning catalog + generic cohort model | ~95% | 🟢 near done |
 | 3 | Multi-program enrollment + session scheduling | ~75% | 🟡 in progress |
-| 4 | Frontend L&D workspace (CRUD UI) | ~45% | 🟡 in progress |
+| 4 | Frontend L&D workspace (CRUD UI) | ~55% | 🟡 in progress |
 | 5 | Reporting, completion, feedback | ~60% | 🟡 in progress |
 | 6 | PostgreSQL decision gate | 0% | ⚪ gated |
 
@@ -66,11 +68,23 @@ summary) plus an `.xlsx` export. Next in Wave B: assessment engine iteration
 | → | **Wave B — feedback foundation** | `Feedback` model + submit/list; unblock `requiresFeedback` | 🟢 done — `/api/learning/feedback` (learner self-submit / Admin on-behalf); completion now honours `requiresFeedback`; `feedback.submit`/`feedback.read` capabilities |
 | → | **Wave B — assessment engine v1** | Generic item-based quizzes + auto-graded attempts; satisfy `requiresAssessment` | 🟢 done — new `domains/assessment` (`/api/assessment`): author/list/get/archive + attempt with pure auto-grading (single/multi-choice, short-text). Passing attempt OR legacy `Evaluation` meets completion. `assessment.manage/read/attempt` capabilities. Iteration (banks, item edit, UI) deferred |
 | → | **Wave B — completion reporting** | Cohort completion report (per-learner + summary) + `.xlsx` export | 🟢 done — `domains/learning/reports/`: `GET /api/learning/reports/completion` reuses the completion engine across the cohort roster ∪ enrollments, attaches certificate status, rolls up a summary; `/export` streams xlsx (exceljs). `report.read` capability (Admin/Teacher) |
+| → | **Phase 4 — completion report UI** | Surface the completion report in the Learning workspace | 🟢 done — gated **Reports tab** on `/learning` (Admin/Teacher via `read:reports`): cohort selector → per-learner completion table + summary tiles + one-click `.xlsx` export. i18n en+vi; React Query hooks; 3 component tests |
 
 ---
 
 ## Recent progress (changelog)
 
+- **2026-06-03** — **Phase 4 — completion report UI (first L&D reporting surface).**
+  A gated **Reports tab** on the Learning page (`/learning`, shown to Admin/Teacher
+  via a new `read:reports` permission) lets a user pick a cohort and view the
+  per-learner completion table (attendance %, assessment/feedback Met·Unmet·N-A,
+  complete, certificate) with summary tiles (learners, complete, completion rate,
+  certificates) and a one-click **Excel export**. New `learningAPI` methods +
+  `useCompletionReport`/`useDownloadCompletionReport` hooks +
+  `qk.learning.completionReport` key; presentational `CompletionReportTable`
+  split out for testability. Full i18n (en + vi). Client: **103 tests** (+3),
+  lint 0 errors/81 warnings (at cap), build clean. Frontend-only (reporting API
+  shipped previously).
 - **2026-06-03** — **Wave B — completion reporting + xlsx export.** New
   `domains/learning/reports/` sub-domain: `GET /api/learning/reports/completion`
   (`?cohortId=`) enumerates the cohort's learners (session roster ∪ non-dropped

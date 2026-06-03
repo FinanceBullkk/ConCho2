@@ -231,6 +231,10 @@ export const learningAPI = {
   getEnrollments: (params) => api.get('/learning/enrollments', { params }),
   createEnrollment: (data) => api.post('/learning/enrollments', data),
   withdrawEnrollment: (id) => api.delete(`/learning/enrollments/${id}`),
+  // Cohort completion reporting + xlsx export (Admin/Teacher).
+  getCompletionReport: (params) => api.get('/learning/reports/completion', { params }),
+  downloadCompletionReport: (params) =>
+    api.get('/learning/reports/completion/export', { params, responseType: 'blob' }),
 };
 
 // ── Dashboard Analytics ───────────────────────────────────

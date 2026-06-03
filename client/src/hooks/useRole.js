@@ -74,6 +74,8 @@ const PERMISSION_MAP = {
   // Enrolling another learner is Admin-only; learners self-enroll server-side
   // (gated by program schedulingMode), not via this UI permission.
   'enroll:learner':  ['Admin'],                    // POST/DELETE /api/learning/enrollments
+  // Cohort completion reports + xlsx export — server: report.read capability.
+  'read:reports':    ['Admin', 'Teacher'],         // GET /api/learning/reports/*
 
   // Bookings ─ server: server/routes/scheduleRoutes.js POST /book-slot
   // roleGuard('Admin','Participant') + leader check in scheduleService

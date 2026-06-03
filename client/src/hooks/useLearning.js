@@ -23,6 +23,21 @@ export const useLearningEnrollments = (params = {}, options = {}) =>
     ...options,
   });
 
+// Cohort completion report — only fetches once a cohort is chosen.
+export const useCompletionReport = (cohortId) =>
+  useQuery({
+    queryKey: qk.learning.completionReport(cohortId),
+    queryFn: async () => (await learningAPI.getCompletionReport({ cohortId })).data.data,
+    enabled: Boolean(cohortId),
+  });
+
+// Returns the raw axios response (responseType: 'blob') so the caller can read
+// the Content-Disposition filename and trigger a browser download.
+export const useDownloadCompletionReport = () =>
+  useMutation({
+    mutationFn: (cohortId) => learningAPI.downloadCompletionReport({ cohortId }),
+  });
+
 // Invalidate every learning list/detail after a write (programs, cohorts,
 // enrollments) plus dashboard stats which aggregate program/cohort counts.
 const invalidateLearning = (qc) => {

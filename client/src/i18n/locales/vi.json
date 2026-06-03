@@ -249,7 +249,41 @@
       "groups": "Nhóm",
       "groupsDesc": "Nhóm học tập và trưởng nhóm hiện vẫn được quản lý qua module Teams.",
       "assessments": "Đánh giá",
-      "assessmentsDesc": "Quy trình đánh giá vẫn tương thích trong khi mô hình đánh giá được tổng quát hóa."
+      "assessmentsDesc": "Quy trình đánh giá vẫn tương thích trong khi mô hình đánh giá được tổng quát hóa.",
+      "reports": "Báo cáo",
+      "reportsDesc": "Tình trạng hoàn thành theo cohort — điểm danh, đánh giá, phản hồi và chứng chỉ."
+    },
+    "reports": {
+      "title": "Báo cáo hoàn thành",
+      "cohortLabel": "Cohort",
+      "selectCohort": "Chọn một cohort…",
+      "selectPrompt": "Chọn một cohort để xem báo cáo hoàn thành.",
+      "noLearners": "Chưa có học viên",
+      "noLearnersDesc": "Cohort này chưa có học viên ghi danh hoặc danh sách buổi học.",
+      "export": "Xuất Excel",
+      "exporting": "Đang xuất…",
+      "exportError": "Xuất thất bại. Vui lòng thử lại.",
+      "met": "Đạt",
+      "unmet": "Chưa đạt",
+      "na": "—",
+      "yes": "Có",
+      "no": "Không",
+      "summary": {
+        "total": "Học viên",
+        "complete": "Hoàn thành",
+        "completionRate": "Tỷ lệ hoàn thành",
+        "certificates": "Chứng chỉ"
+      },
+      "col": {
+        "empCode": "Mã NV",
+        "name": "Tên",
+        "department": "Phòng ban",
+        "attendance": "Điểm danh",
+        "assessment": "Đánh giá",
+        "feedback": "Phản hồi",
+        "complete": "Hoàn thành",
+        "certificate": "Chứng chỉ"
+      }
     },
     "programs": {
       "catalog": "Danh mục chương trình",
