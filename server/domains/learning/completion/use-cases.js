@@ -17,11 +17,12 @@ const evaluateCompletion = async (cohortId, userId) => {
 
   const { policy, programId, programName } = await repository.resolveCompletionContext(cohort);
 
-  const [totalSessions, attendedSessions, evaluation, feedback] = await Promise.all([
+  const [totalSessions, attendedSessions, evaluation, feedback, passingAttempt] = await Promise.all([
     repository.countCohortSessions(cohortId),
     repository.countAttendedSessions(cohortId, userId),
     repository.findEvaluation(cohortId, userId),
     repository.findFeedback(cohortId, userId),
+    repository.findPassingAttempt(cohortId, userId),
   ]);
 
   const attendancePercent = totalSessions > 0
@@ -29,7 +30,9 @@ const evaluateCompletion = async (cohortId, userId) => {
     : 0;
   const attendanceMet = attendancePercent >= (policy.attendanceThresholdPercent || 0);
 
-  const assessmentMet = !policy.requiresAssessment || Boolean(evaluation);
+  // Assessment satisfied by the legacy 4-skill Evaluation OR a passing attempt
+  // from the generic assessment engine.
+  const assessmentMet = !policy.requiresAssessment || Boolean(evaluation) || Boolean(passingAttempt);
   const averageScore = evaluation ? evaluation.averageScore : null;
 
   // A required-feedback policy is satisfied once the learner submits feedback.
@@ -54,6 +57,7 @@ const evaluateCompletion = async (cohortId, userId) => {
       required: Boolean(policy.requiresAssessment),
       met: assessmentMet,
       averageScore,
+      attemptScorePercent: passingAttempt ? passingAttempt.scorePercent : null,
     },
     feedback: {
       required: Boolean(policy.requiresFeedback),

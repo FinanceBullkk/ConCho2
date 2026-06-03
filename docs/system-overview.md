@@ -180,13 +180,15 @@ Re-architecture into an L&D platform runs in phases (full detail:
 cohort-based enrollment + self-enroll live, the Learning page has CRUD, and a
 capability-based authz layer gates the learning routes. Wave B is progressing:
 `completionPolicy` is enforced (attendance % + assessment + feedback),
-certificates issue on completion with public verification, and a Feedback
-foundation unblocks `requiresFeedback`. Biggest gaps before "LMS": generic
-assessment engine, learner-facing catalog, completion reports, SSO/HRIS.
+certificates issue on completion with public verification, a Feedback
+foundation unblocks `requiresFeedback`, and a generic **assessment engine v1**
+(`/api/assessment`) authors auto-graded quizzes whose passing attempts satisfy
+`requiresAssessment`. Biggest gaps before "LMS": learner-facing catalog,
+completion reports, assessment iteration (banks/UI), SSO/HRIS.
 → see [`lms-roadmap.md`](lms-roadmap.md).
 
 **Stack:** React 19 + Vite 8 + Tailwind 4 / Express 4 + Mongoose 8 + MongoDB;
-~500 server tests, ~100 client tests, Playwright e2e; 7 CI gates; deployed on Render.
+~520 server tests, ~100 client tests, Playwright e2e; 7 CI gates; deployed on Render.
 
 ---
 

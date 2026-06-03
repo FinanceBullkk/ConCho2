@@ -20,10 +20,13 @@ gates the learning routes behind `policy/capabilities.js` + `requireCapability`.
 **Wave B is progressing:** `completionPolicy` is now fully enforced — attendance %,
 required assessment, **and required feedback**. Certificates are issued on
 completion (`/api/learning/completion`, `/api/learning/certificates` + a public
-verification endpoint), and a new **Feedback** foundation
-(`/api/learning/feedback`) unblocks `requiresFeedback` (no longer reported
-permanently unmet). Next in Wave B: the generic assessment engine (build-vs-buy)
-and completion reports/export.
+verification endpoint), and a **Feedback** foundation (`/api/learning/feedback`)
+unblocks `requiresFeedback`. The **generic assessment engine (v1)** is now live
+(build-vs-buy → **build in-house**): a new `domains/assessment` (`/api/assessment`)
+authors item-based, auto-graded quizzes; a passing attempt satisfies
+`requiresAssessment` alongside the legacy `Evaluation`. Next in Wave B:
+assessment engine iteration (question banks, item update, learner UI) and
+completion reports/export.
 
 ---
 
@@ -44,7 +47,7 @@ and completion reports/export.
 | Wave | Goal | Status | Depends on |
 |------|------|--------|-----------|
 | A — Foundation | Generic learning core works E2E (scheduling modes, cohort enrollment, CRUD UI, capability authz) | 🟢 done (M1–M4) | — |
-| B — Assessment & Certification | Generic assessment engine, completion enforcement, certificates | 🟡 in progress (completion + certificates + feedback done; assessment engine next) | A |
+| B — Assessment & Certification | Generic assessment engine, completion enforcement, certificates | 🟡 in progress (completion + certificates + feedback + assessment engine v1 done; iteration + reports next) | A |
 | C — Catalog, Paths & Self-service | Learner catalog, self-enroll, learning paths/prerequisites | 🔴 planned | A |
 | D — Platform & Scale | SSO, HRIS sync, advanced analytics, mobile, Postgres gate | 🔴 planned | B, C |
 
@@ -60,11 +63,27 @@ and completion reports/export.
 | M4 | Capability-based authz scaffold | `program.manage`/`session.book` style checks behind `policy/` | 🟢 done (`policy/capabilities.js` + `requireCapability`; learning routes wired; Admin superuser, behavior-preserving) |
 | → | **Wave B kickoff** | Completion enforcement + certificates (issue/revoke/verify) | 🟢 done — `completionPolicy` enforced; `Certificate` model + public verification. Assessment engine (build-vs-buy) still open |
 | → | **Wave B — feedback foundation** | `Feedback` model + submit/list; unblock `requiresFeedback` | 🟢 done — `/api/learning/feedback` (learner self-submit / Admin on-behalf); completion now honours `requiresFeedback`; `feedback.submit`/`feedback.read` capabilities |
+| → | **Wave B — assessment engine v1** | Generic item-based quizzes + auto-graded attempts; satisfy `requiresAssessment` | 🟢 done — new `domains/assessment` (`/api/assessment`): author/list/get/archive + attempt with pure auto-grading (single/multi-choice, short-text). Passing attempt OR legacy `Evaluation` meets completion. `assessment.manage/read/attempt` capabilities. Iteration (banks, item edit, UI) deferred |
 
 ---
 
 ## Recent progress (changelog)
 
+- **2026-06-03** — **Wave B — generic assessment engine v1 (build-in-house).**
+  New `domains/assessment` mounted at `/api/assessment` (own boundary, sibling to
+  `learning/`). `Assessment` model = cohort-scoped, item-based quiz (v1 types:
+  `single_choice` / `multiple_choice` / `short_text`; choice items keyed by
+  option index so an author writes the whole quiz in one request);
+  `AssessmentAttempt` = one-shot, auto-graded (pure `grading.js`). Endpoints:
+  author / list / get / archive (soft-delete) assessments + submit / list
+  attempts; learners see only published quizzes, never the answer keys, and are
+  scoped to their own attempts. A **passing attempt now satisfies
+  `completionPolicy.requiresAssessment`** alongside the legacy `Evaluation`
+  (untouched). New capabilities `assessment.manage` / `assessment.read` /
+  `assessment.attempt`. DRY: extracted shared `helpers/cohortMembership.js`
+  (feedback + assessment reuse it). 20 tests (8 grading unit + 12 integration);
+  server suite **520 green**. Iteration (question banks, item edit, learner UI)
+  deferred.
 - **2026-06-03** — **Wave B — feedback foundation (unblocks `requiresFeedback`).**
   New `Feedback` model (one per learner per cohort, soft-delete, upsert re-submit)
   + `domains/learning/feedback/` module and `/api/learning/feedback`
