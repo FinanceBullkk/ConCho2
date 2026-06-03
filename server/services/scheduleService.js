@@ -63,7 +63,35 @@ const getWeekBounds = (date) => {
  */
 const utcToday = () => todayVN();
 
-// isValidTimeSlot has been moved inside bookSlot to fetch dynamically
+/**
+ * Validate a booking window: valid dates, end > start, and the slot matches one
+ * of the dynamically-configured ALLOWED_TIME_SLOTS (stored in VN-hour terms).
+ * Shared by team booking (bookSlot) and cohort booking (bookCohortSlot).
+ * @throws {ServiceError} on invalid dates / range / disallowed slot
+ */
+const assertValidBookingSlot = async (start, end) => {
+  if (isNaN(start.getTime()) || isNaN(end.getTime())) {
+    throw new ServiceError('startTime and endTime must be valid ISO dates');
+  }
+  if (end <= start) {
+    throw new ServiceError('endTime must be after startTime');
+  }
+
+  const Setting = mongoose.model('Setting');
+  const allowedSlotsSetting = await Setting.findOne({ key: 'ALLOWED_TIME_SLOTS' });
+  const ALLOWED_TIME_SLOTS = allowedSlotsSetting ? allowedSlotsSetting.value : [];
+
+  // ALLOWED_TIME_SLOTS stores hours in VN time (e.g. sh:10 = 10:00 VN).
+  const startVN = toVN(start);
+  const endVN = toVN(end);
+  const sH = startVN.hour(), sM = startVN.minute();
+  const eH = endVN.hour(), eM = endVN.minute();
+  const isValid = ALLOWED_TIME_SLOTS.some(s => s.sh === sH && s.sm === sM && s.eh === eH && s.em === eM);
+
+  if (!isValid) {
+    throw new ServiceError('Khung giờ không hợp lệ — Please select an allowed time slot.');
+  }
+};
 
 /**
  * Attach `sessionNumber` to an array of schedule objects.
@@ -195,31 +223,8 @@ const bookSlot = async ({ teamId, startTime, endTime, requestUser }) => {
   const start = new Date(startTime);
   const end = new Date(endTime);
 
-  // ── Validate times ────────────────────────────────────
-  if (isNaN(start.getTime()) || isNaN(end.getTime())) {
-    throw new ServiceError('startTime and endTime must be valid ISO dates');
-  }
-  if (end <= start) {
-    throw new ServiceError('endTime must be after startTime');
-  }
-  // ── Fetch Allowed Time Slots from Settings ────────────
-  const Setting = mongoose.model('Setting');
-  const allowedSlotsSetting = await Setting.findOne({ key: 'ALLOWED_TIME_SLOTS' });
-  const ALLOWED_TIME_SLOTS = allowedSlotsSetting ? allowedSlotsSetting.value : [];
-
-  // Convert to VN timezone for time-slot validation
-  // (ALLOWED_TIME_SLOTS stores hours in VN time, e.g. sh:10 = 10:00 VN)
-  const startVN = toVN(start);
-  const endVN = toVN(end);
-  const sH = startVN.hour(), sM = startVN.minute();
-  const eH = endVN.hour(), eM = endVN.minute();
-  const isValid = ALLOWED_TIME_SLOTS.some(s => s.sh === sH && s.sm === sM && s.eh === eH && s.em === eM);
-
-  if (!isValid) {
-    throw new ServiceError(
-      'Khung giờ không hợp lệ — Please select an allowed time slot.'
-    );
-  }
+  // ── Validate times + allowed slot ─────────────────────
+  await assertValidBookingSlot(start, end);
 
   // ── TRANSACTION: Atomic booking ───────────────────────
   const session = await mongoose.startSession();
@@ -340,6 +345,87 @@ const bookSlot = async ({ teamId, startTime, endTime, requestUser }) => {
   }
 
   return populated;
+};
+
+/**
+ * Create a team-less session for a Cohort (self_enroll / nomination modes).
+ *
+ * Unlike bookSlot, there is no Team: an Admin schedules the session against a
+ * cohort and we snapshot the cohort's active cohort-based enrollments (passed in
+ * as enrolledUserIds) onto the session. No leader-auth and no per-team weekly
+ * limit apply — those are team-booking concepts. The {classId,startTime} unique
+ * index + collision check still guard against double-booking the cohort.
+ *
+ * @param {Object} args { cohortId, startTime, endTime, enrolledUserIds, requestUser }
+ * @returns {Promise<Object>} populated Schedule
+ * @throws {ServiceError} on validation/collision failures
+ */
+const bookCohortSlot = async ({ cohortId, startTime, endTime, enrolledUserIds = [], requestUser }) => {
+  const start = new Date(startTime);
+  const end = new Date(endTime);
+
+  await assertValidBookingSlot(start, end);
+
+  const session = await mongoose.startSession();
+  let created;
+  try {
+    await session.withTransaction(async () => {
+      // Collision — no overlapping schedule for this cohort.
+      const collision = await Schedule.findOne({
+        classId: cohortId,
+        startTime: { $lt: end },
+        endTime: { $gt: start },
+      }).session(session);
+
+      if (collision) {
+        throw new ServiceError(
+          'Khung giờ này đã bị đặt — This time slot is already taken',
+          409,
+        );
+      }
+
+      const [doc] = await Schedule.create(
+        [{
+          classId: cohortId,
+          bookedTeamId: null,
+          startTime: start,
+          endTime: end,
+          enrolledUsers: enrolledUserIds,
+        }],
+        { session },
+      );
+      created = doc;
+    });
+  } catch (err) {
+    if (err.code === 11000 || err.message?.includes('E11000')) {
+      throw new ServiceError(
+        'Khung giờ này đã bị đặt — This time slot is already taken (concurrent booking detected)',
+        409,
+      );
+    }
+    throw err;
+  } finally {
+    session.endSession();
+  }
+
+  invalidateSessionOrderCache(created.classId);
+
+  // Best-effort Google Calendar event (outside the transaction — same rationale
+  // as bookSlot: a calendar hiccup must not roll back the booking).
+  const calRes = await createCalendarEventForSchedule(created._id);
+  if (calRes) {
+    auditService.record({
+      req: { user: requestUser },
+      action: 'calendar-event-created',
+      entity: 'Schedule',
+      entityId: created._id,
+      note: `Google event ${calRes.eventId}; Meet: ${calRes.meetLink || 'n/a'}`,
+    });
+  }
+
+  return Schedule.findById(created._id)
+    .populate('classId', 'classCode courseName')
+    .populate('enrolledUsers', 'empCode name');
 };
 
 /**
@@ -719,6 +805,7 @@ const getAttendanceCalendar = async ({ from, to } = {}) => {
 module.exports = {
   ServiceError,
   bookSlot,
+  bookCohortSlot,
   adminCreate,
   cancelSlot,
   getAvailability,

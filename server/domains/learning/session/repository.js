@@ -2,6 +2,7 @@ const Schedule = require('../../../models/Schedule');
 const Class = require('../../../models/Class');
 const Team = require('../../../models/Team');
 const LearningProgram = require('../../../models/LearningProgram');
+const Enrollment = require('../../../models/Enrollment');
 const {
   attachSessionNumbers,
   invalidateSessionOrderCache,
@@ -72,9 +73,41 @@ const findSchedulingContextByGroup = async (groupId) => {
   };
 };
 
+// Resolve the scheduling mode directly from a Cohort (Class) — used by the
+// cohort-based booking path (self_enroll / nomination), which has no Team.
+// Chain: Class(cohort).programId -> LearningProgram.schedulingMode.
+// Falls back to 'leader_booking' when the cohort has no linked program.
+const findSchedulingContextByCohort = async (cohortId) => {
+  const fallback = { schedulingMode: 'leader_booking', programId: null, cohortId };
+
+  const cohort = await Class.findById(cohortId).select('programId isDeleted').lean();
+  if (!cohort) return { ...fallback, cohortId: null };
+  if (!cohort.programId) return fallback;
+
+  const program = await LearningProgram.findById(cohort.programId).select('schedulingMode').lean();
+  return {
+    schedulingMode: program?.schedulingMode || 'leader_booking',
+    programId: cohort.programId,
+    cohortId,
+  };
+};
+
+// Active cohort-based enrollments (teamId:null) for a cohort -> learner ids.
+// These are the learners a self_enroll/nomination session enrols at creation.
+const findActiveCohortLearnerIds = async (cohortId) => {
+  const rows = await Enrollment.find({
+    classId: cohortId,
+    teamId: null,
+    status: 'Active',
+  }).select('userId').lean();
+  return rows.map((row) => row.userId);
+};
+
 module.exports = {
   findSessions,
   findSessionById,
   findCohortIdsByTeacher,
   findSchedulingContextByGroup,
+  findSchedulingContextByCohort,
+  findActiveCohortLearnerIds,
 };

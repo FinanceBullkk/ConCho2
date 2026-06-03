@@ -4,6 +4,7 @@ const Schedule = require('../../models/Schedule');
 const Setting = require('../../models/Setting');
 const Class = require('../../models/Class');
 const LearningProgram = require('../../models/LearningProgram');
+const Enrollment = require('../../models/Enrollment');
 
 let app, tokens, seed, csrf;
 
@@ -25,6 +26,7 @@ afterAll(async () => {
 
 afterEach(async () => {
   await Schedule.deleteMany({});
+  await Enrollment.deleteMany({});
   await Class.updateMany(
     { _id: { $in: [seed.class1._id, seed.class2._id] } },
     { $set: { teacherIds: [], programId: null } },
@@ -263,7 +265,7 @@ describe('Learning Platform API — sessions', () => {
     expect(res.body.message).toMatch(/admin-scheduled/i);
   });
 
-  test('unsupported scheduling mode (self_enroll) is rejected with 501', async () => {
+  test('self_enroll program: booking against a GROUP is rejected (use the cohort)', async () => {
     const program = await LearningProgram.create({
       code: 'SE001', name: 'Self Enroll Program', schedulingMode: 'self_enroll',
     });
@@ -280,8 +282,122 @@ describe('Learning Platform API — sessions', () => {
         endTime: end.toISOString(),
       });
 
-    expect(res.status).toBe(501);
+    expect(res.status).toBe(400);
     expect(res.body.success).toBe(false);
-    expect(res.body.message).toMatch(/self_enroll/);
+    expect(res.body.message).toMatch(/cohort-based/i);
+  });
+
+  test('self_enroll program: Admin schedules a cohort session enrolling its active learners', async () => {
+    const program = await LearningProgram.create({
+      code: 'SE002', name: 'Self Enroll Program 2', schedulingMode: 'self_enroll',
+    });
+    await Class.findByIdAndUpdate(seed.class1._id, { programId: program._id });
+    await Enrollment.create([
+      { userId: seed.member1._id, classId: seed.class1._id, teamId: null, status: 'Active' },
+      { userId: seed.member2._id, classId: seed.class1._id, teamId: null, status: 'Active' },
+      // A dropped enrollment must NOT be carried onto the session.
+      { userId: seed.leader._id, classId: seed.class1._id, teamId: null, status: 'Dropped' },
+    ]);
+
+    const { start, end } = vnSlot();
+    const res = await request(app)
+      .post('/api/learning/sessions/book-slot')
+      .set('Authorization', `Bearer ${tokens.admin}`)
+      .set(csrf)
+      .send({
+        cohortId: seed.class1._id.toString(),
+        startTime: start.toISOString(),
+        endTime: end.toISOString(),
+      });
+
+    expect(res.status).toBe(201);
+    expect(res.body.success).toBe(true);
+    expect(res.body.data.cohortId).toBe(seed.class1._id.toString());
+    expect(res.body.data.groupId).toBeNull();
+    expect(res.body.data.enrolledLearnerCount).toBe(2);
+
+    const stored = await Schedule.findById(res.body.data.scheduleId).lean();
+    expect(stored.bookedTeamId).toBeNull();
+    expect(stored.enrolledUsers).toHaveLength(2);
+  });
+
+  test('nomination program: Admin schedules a cohort session', async () => {
+    const program = await LearningProgram.create({
+      code: 'NM001', name: 'Nomination Program', schedulingMode: 'nomination',
+    });
+    await Class.findByIdAndUpdate(seed.class1._id, { programId: program._id });
+    await Enrollment.create([
+      { userId: seed.member1._id, classId: seed.class1._id, teamId: null, status: 'Active' },
+    ]);
+
+    const { start, end } = vnSlot();
+    const res = await request(app)
+      .post('/api/learning/sessions/book-slot')
+      .set('Authorization', `Bearer ${tokens.admin}`)
+      .set(csrf)
+      .send({
+        cohortId: seed.class1._id.toString(),
+        startTime: start.toISOString(),
+        endTime: end.toISOString(),
+      });
+
+    expect(res.status).toBe(201);
+    expect(res.body.success).toBe(true);
+    expect(res.body.data.enrolledLearnerCount).toBe(1);
+  });
+
+  test('cohort booking by a non-admin (leader) is rejected with 403', async () => {
+    const program = await LearningProgram.create({
+      code: 'SE003', name: 'Self Enroll Program 3', schedulingMode: 'self_enroll',
+    });
+    await Class.findByIdAndUpdate(seed.class1._id, { programId: program._id });
+
+    const { start, end } = vnSlot();
+    const res = await request(app)
+      .post('/api/learning/sessions/book-slot')
+      .set('Authorization', `Bearer ${tokens.leader}`)
+      .set(csrf)
+      .send({
+        cohortId: seed.class1._id.toString(),
+        startTime: start.toISOString(),
+        endTime: end.toISOString(),
+      });
+
+    expect(res.status).toBe(403);
+    expect(res.body.success).toBe(false);
+  });
+
+  test('cohort booking against a team-based (leader_booking) cohort is rejected with 400', async () => {
+    const program = await LearningProgram.create({
+      code: 'LB900', name: 'Leader Booking Program', schedulingMode: 'leader_booking',
+    });
+    await Class.findByIdAndUpdate(seed.class1._id, { programId: program._id });
+
+    const { start, end } = vnSlot();
+    const res = await request(app)
+      .post('/api/learning/sessions/book-slot')
+      .set('Authorization', `Bearer ${tokens.admin}`)
+      .set(csrf)
+      .send({
+        cohortId: seed.class1._id.toString(),
+        startTime: start.toISOString(),
+        endTime: end.toISOString(),
+      });
+
+    expect(res.status).toBe(400);
+    expect(res.body.success).toBe(false);
+    expect(res.body.message).toMatch(/self_enroll\/nomination/);
+  });
+
+  test('booking with neither groupId nor cohortId fails validation (400)', async () => {
+    const { start, end } = vnSlot();
+    const res = await request(app)
+      .post('/api/learning/sessions/book-slot')
+      .set('Authorization', `Bearer ${tokens.admin}`)
+      .set(csrf)
+      .send({ startTime: start.toISOString(), endTime: end.toISOString() });
+
+    expect(res.status).toBe(400);
+    expect(res.body.success).toBe(false);
   });
 });

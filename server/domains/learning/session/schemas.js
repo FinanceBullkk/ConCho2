@@ -10,10 +10,19 @@ const listSessionsQuery = paginationQuery.extend({
   to: z.coerce.date().optional(),
 });
 
-const bookSessionBody = z.object({
-  groupId: objectId,
-  startTime: z.coerce.date(),
-  endTime: z.coerce.date(),
-});
+// Book against exactly one target:
+//   groupId  → team-based modes (leader_booking / admin_scheduled)
+//   cohortId → cohort-based modes (self_enroll / nomination)
+const bookSessionBody = z
+  .object({
+    groupId: objectId.optional(),
+    cohortId: objectId.optional(),
+    startTime: z.coerce.date(),
+    endTime: z.coerce.date(),
+  })
+  .refine((body) => Boolean(body.groupId) !== Boolean(body.cohortId), {
+    message: 'Provide exactly one of groupId (team booking) or cohortId (cohort booking)',
+    path: ['groupId'],
+  });
 
 module.exports = { listSessionsQuery, bookSessionBody };
