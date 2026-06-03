@@ -51,10 +51,12 @@ export const qk = {
     detail: (id) => ['evaluations', 'detail', id],
   },
   learning: {
+    all: ['learning'],
     programs: (params) => ['learning', 'programs', params],
     program: (id) => ['learning', 'program', id],
     cohorts: (params) => ['learning', 'cohorts', params],
     cohort: (id) => ['learning', 'cohort', id],
+    enrollments: (params) => ['learning', 'enrollments', params],
   },
   dashboard: {
     stats: ['dashboard', 'stats'],

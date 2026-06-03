@@ -227,6 +227,10 @@ export const learningAPI = {
   getCohorts: (params) => api.get('/learning/cohorts', { params }),
   getCohort: (id) => api.get(`/learning/cohorts/${id}`),
   createCohort: (data) => api.post('/learning/cohorts', data),
+  // Cohort-based (L&D) enrollments — distinct from legacy team-based enrollmentsAPI.
+  getEnrollments: (params) => api.get('/learning/enrollments', { params }),
+  createEnrollment: (data) => api.post('/learning/enrollments', data),
+  withdrawEnrollment: (id) => api.delete(`/learning/enrollments/${id}`),
 };
 
 // ── Dashboard Analytics ───────────────────────────────────

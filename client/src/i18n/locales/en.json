@@ -238,5 +238,113 @@
       "successTitle": "Password updated!",
       "successBody": "Redirecting to login…"
     }
+  },
+  "learning": {
+    "title": "Learning",
+    "tabs": {
+      "programs": "Programs",
+      "programsDesc": "Training catalog for English, onboarding, compliance, and internal learning.",
+      "cohorts": "Cohorts",
+      "cohortsDesc": "Program runs that replace the old class-centric view.",
+      "groups": "Groups",
+      "groupsDesc": "Learning groups and team leaders remain managed through existing Teams for now.",
+      "assessments": "Assessments",
+      "assessmentsDesc": "Evaluation workflows remain compatible while assessment is generalized."
+    },
+    "programs": {
+      "catalog": "Program Catalog",
+      "new": "New Program",
+      "edit": "Edit Program",
+      "create": "Create Program",
+      "empty": "No learning programs",
+      "emptyDesc": "Create your first program, or run the backfill script for legacy English courses.",
+      "colProgram": "Program",
+      "colCategory": "Category",
+      "colScheduling": "Scheduling",
+      "colDelivery": "Delivery",
+      "colSessions": "Sessions",
+      "created": "Program created",
+      "updated": "Program updated",
+      "archived": "Program archived",
+      "archive": "Archive",
+      "archiveConfirm": "Confirm archive?"
+    },
+    "cohorts": {
+      "title": "Cohorts",
+      "new": "New Cohort",
+      "create": "Create Cohort",
+      "empty": "No cohorts",
+      "emptyDesc": "Cohorts are program runs. Create one against a program to get started.",
+      "colCohort": "Cohort",
+      "colProgram": "Program",
+      "colStatus": "Status",
+      "colSessions": "Sessions",
+      "colBooked": "Booked",
+      "colActions": "Actions",
+      "created": "Cohort created",
+      "manage": "Enroll"
+    },
+    "enroll": {
+      "title": "Enroll learners",
+      "current": "Current learners",
+      "none": "No learners enrolled yet.",
+      "add": "Add learner",
+      "selectLearner": "Select a learner…",
+      "enroll": "Enroll",
+      "enrolling": "Enrolling…",
+      "enrolled": "Learner enrolled",
+      "withdraw": "Withdraw",
+      "withdrawn": "Enrollment withdrawn"
+    },
+    "fields": {
+      "code": "Code",
+      "name": "Name",
+      "description": "Description",
+      "category": "Category",
+      "schedulingMode": "Scheduling mode",
+      "deliveryMode": "Delivery mode",
+      "defaultSessionCount": "Default sessions",
+      "status": "Status",
+      "program": "Program",
+      "selectProgram": "Select a program…",
+      "cohortCode": "Cohort code",
+      "totalSessions": "Total sessions",
+      "cohortCodeHint": "Optional — auto-generated when left blank."
+    },
+    "category": {
+      "english": "English",
+      "onboarding": "Onboarding",
+      "compliance": "Compliance",
+      "soft_skills": "Soft skills",
+      "technical": "Technical",
+      "workshop": "Workshop",
+      "other": "Other"
+    },
+    "scheduling": {
+      "leader_booking": "Leader booking",
+      "admin_scheduled": "Admin scheduled",
+      "self_enroll": "Self-enroll",
+      "nomination": "Nomination"
+    },
+    "delivery": {
+      "online": "Online",
+      "offline": "Offline",
+      "hybrid": "Hybrid"
+    },
+    "status": {
+      "active": "Active",
+      "inactive": "Inactive",
+      "archived": "Archived",
+      "Ongoing": "Ongoing",
+      "Completed": "Completed"
+    },
+    "actions": {
+      "cancel": "Cancel",
+      "save": "Save",
+      "saving": "Saving…",
+      "creating": "Creating…",
+      "create": "Create"
+    },
+    "saveFailed": "Save failed"
   }
 }

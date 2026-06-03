@@ -11,11 +11,13 @@
 
 ## Current status
 
-~50% through the TMS → L&D migration. Catalog + cohort + session read path live;
+~55% through the TMS → L&D migration. Catalog + cohort + session read path live;
 session booking now enforces **all 4** `schedulingMode`s (`leader_booking`,
 `admin_scheduled`, `self_enroll`, `nomination` — no 501 stubs);
-**cohort-based enrollment is live** (`/api/learning/enrollments`, incl. self-enroll).
-Next in Wave A: Learning CRUD UI (M3), then capability-based authz scaffold (M4).
+**cohort-based enrollment is live** (`/api/learning/enrollments`, incl. self-enroll);
+**Learning page is now write-capable** — Admins create/edit Programs, create
+Cohorts, and enroll learners from the UI (M3). Next in Wave A: capability-based
+authz scaffold (M4) to close the foundation.
 
 ---
 
@@ -27,7 +29,7 @@ Next in Wave A: Learning CRUD UI (M3), then capability-based authz scaffold (M4)
 | 1 | Backend modular-monolith refactor | ~35% | 🟡 in progress |
 | 2 | Learning catalog + generic cohort model | ~95% | 🟢 near done |
 | 3 | Multi-program enrollment + session scheduling | ~75% | 🟡 in progress |
-| 4 | Frontend L&D workspace (CRUD UI) | ~5% | 🔴 not started |
+| 4 | Frontend L&D workspace (CRUD UI) | ~45% | 🟡 in progress |
 | 5 | Reporting, completion, feedback | ~10% | 🔴 not started |
 | 6 | PostgreSQL decision gate | 0% | ⚪ gated |
 
@@ -48,14 +50,24 @@ Next in Wave A: Learning CRUD UI (M3), then capability-based authz scaffold (M4)
 |----|-----------|-----------|--------|
 | M1 | Enforce all 4 scheduling modes | leader/admin/self-enroll/nomination each have a real flow + tests; no 501 stubs | 🟢 done 4/4 (leader/admin team-booking; self_enroll/nomination Admin-schedule cohort sessions over M2 enrollments) |
 | M2 | Cohort-based enrollment | `/api/learning/enrollments` (cohort-based, multi-program) + self-enroll path | 🟢 done (enroll/self-enroll/withdraw/list; bulk + session-roster wiring deferred) |
-| M3 | Learning CRUD UI | Create/edit Program, create Cohort, enroll learners (not read-only) | 🔴 |
+| M3 | Learning CRUD UI | Create/edit Program, create Cohort, enroll learners (not read-only) | 🟢 done (Programs create/edit/archive; Cohort create; per-cohort enroll/withdraw; Admin-gated; i18n en+vi) |
 | M4 | Capability-based authz scaffold | `program.manage`/`session.book` style checks behind `policy/` | 🔴 |
-| → | **Wave B kickoff** | Generic Assessment domain design started | ⚪ after M3 (M1+M2 done) |
+| → | **Wave B kickoff** | Generic Assessment domain design started | ⚪ after M4 (M1–M3 done) |
 
 ---
 
 ## Recent progress (changelog)
 
+- **2026-06-03** — **M3 Learning CRUD UI shipped — Learning page is no longer
+  read-only.** Admins can create/edit/archive **Programs**, create **Cohorts**,
+  and enroll/withdraw learners per cohort directly from `/learning`. New
+  `pages/learning/` modals (`ProgramFormModal`, `CohortFormModal`,
+  `EnrollLearnersModal`) + extracted `ProgramsTab`/`CohortsTab`; React Query
+  mutation hooks in `useLearning`; cohort-enrollment API methods; Admin-gated via
+  `useRole` (`create:program`/`create:cohort`/`enroll:learner`). Full i18n
+  `learning` namespace added to **en + vi** (86 keys each). Frontend-only (backend
+  CRUD endpoints already existed). Client: lint 0 errors/81 warnings, 100 tests,
+  build clean.
 - **2026-06-03** — **M1 complete — all 4 scheduling modes enforced (no 501 stubs).**
   `self_enroll`/`nomination` now have a real flow: an Admin schedules a **team-less
   cohort session** (`POST /api/learning/sessions/book-slot` with `cohortId`) that
