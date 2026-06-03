@@ -9,9 +9,6 @@ const round2 = (n) => Math.round(n * 100) / 100;
 // Evaluate a learner's completion of a cohort against its program's
 // completionPolicy. Pure read — never mutates. Returns the per-dimension
 // breakdown plus an overall `complete` flag.
-//
-// Honest gap: no Feedback model exists yet, so a `requiresFeedback` policy is
-// unverifiable — we report it unmet with a clear reason rather than faking it.
 const evaluateCompletion = async (cohortId, userId) => {
   const cohort = await repository.findCohort(cohortId);
   if (!cohort || cohort.isDeleted) {
@@ -20,10 +17,11 @@ const evaluateCompletion = async (cohortId, userId) => {
 
   const { policy, programId, programName } = await repository.resolveCompletionContext(cohort);
 
-  const [totalSessions, attendedSessions, evaluation] = await Promise.all([
+  const [totalSessions, attendedSessions, evaluation, feedback] = await Promise.all([
     repository.countCohortSessions(cohortId),
     repository.countAttendedSessions(cohortId, userId),
     repository.findEvaluation(cohortId, userId),
+    repository.findFeedback(cohortId, userId),
   ]);
 
   const attendancePercent = totalSessions > 0
@@ -34,8 +32,9 @@ const evaluateCompletion = async (cohortId, userId) => {
   const assessmentMet = !policy.requiresAssessment || Boolean(evaluation);
   const averageScore = evaluation ? evaluation.averageScore : null;
 
-  // No feedback subsystem yet → a required feedback policy cannot be satisfied.
-  const feedbackMet = !policy.requiresFeedback;
+  // A required-feedback policy is satisfied once the learner submits feedback.
+  const feedbackSubmitted = Boolean(feedback);
+  const feedbackMet = !policy.requiresFeedback || feedbackSubmitted;
 
   return {
     cohortId,
@@ -59,7 +58,8 @@ const evaluateCompletion = async (cohortId, userId) => {
     feedback: {
       required: Boolean(policy.requiresFeedback),
       met: feedbackMet,
-      reason: policy.requiresFeedback ? 'feedback-not-available' : undefined,
+      submitted: feedbackSubmitted,
+      reason: policy.requiresFeedback && !feedbackSubmitted ? 'feedback-not-submitted' : undefined,
     },
   };
 };

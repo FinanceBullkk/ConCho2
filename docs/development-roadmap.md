@@ -17,10 +17,13 @@
 write-capable (Admins create/edit Programs, create Cohorts, enroll learners);
 and a **capability-based authz scaffold** (`program.manage`/`session.book` …) now
 gates the learning routes behind `policy/capabilities.js` + `requireCapability`.
-**Wave B has started:** `completionPolicy` is now enforced and **certificates**
-are issued on completion (`/api/learning/completion`, `/api/learning/certificates`
-+ a public verification endpoint). Next in Wave B: the generic assessment engine
-(build-vs-buy) and a Feedback model.
+**Wave B is progressing:** `completionPolicy` is now fully enforced — attendance %,
+required assessment, **and required feedback**. Certificates are issued on
+completion (`/api/learning/completion`, `/api/learning/certificates` + a public
+verification endpoint), and a new **Feedback** foundation
+(`/api/learning/feedback`) unblocks `requiresFeedback` (no longer reported
+permanently unmet). Next in Wave B: the generic assessment engine (build-vs-buy)
+and completion reports/export.
 
 ---
 
@@ -33,7 +36,7 @@ are issued on completion (`/api/learning/completion`, `/api/learning/certificate
 | 2 | Learning catalog + generic cohort model | ~95% | 🟢 near done |
 | 3 | Multi-program enrollment + session scheduling | ~75% | 🟡 in progress |
 | 4 | Frontend L&D workspace (CRUD UI) | ~45% | 🟡 in progress |
-| 5 | Reporting, completion, feedback | ~30% | 🟡 in progress |
+| 5 | Reporting, completion, feedback | ~45% | 🟡 in progress |
 | 6 | PostgreSQL decision gate | 0% | ⚪ gated |
 
 ## LMS waves (forward — see [`lms-roadmap.md`](lms-roadmap.md))
@@ -41,7 +44,7 @@ are issued on completion (`/api/learning/completion`, `/api/learning/certificate
 | Wave | Goal | Status | Depends on |
 |------|------|--------|-----------|
 | A — Foundation | Generic learning core works E2E (scheduling modes, cohort enrollment, CRUD UI, capability authz) | 🟢 done (M1–M4) | — |
-| B — Assessment & Certification | Generic assessment engine, completion enforcement, certificates | 🟡 in progress (completion + certificates done; assessment engine next) | A |
+| B — Assessment & Certification | Generic assessment engine, completion enforcement, certificates | 🟡 in progress (completion + certificates + feedback done; assessment engine next) | A |
 | C — Catalog, Paths & Self-service | Learner catalog, self-enroll, learning paths/prerequisites | 🔴 planned | A |
 | D — Platform & Scale | SSO, HRIS sync, advanced analytics, mobile, Postgres gate | 🔴 planned | B, C |
 
@@ -56,11 +59,23 @@ are issued on completion (`/api/learning/completion`, `/api/learning/certificate
 | M3 | Learning CRUD UI | Create/edit Program, create Cohort, enroll learners (not read-only) | 🟢 done (Programs create/edit/archive; Cohort create; per-cohort enroll/withdraw; Admin-gated; i18n en+vi) |
 | M4 | Capability-based authz scaffold | `program.manage`/`session.book` style checks behind `policy/` | 🟢 done (`policy/capabilities.js` + `requireCapability`; learning routes wired; Admin superuser, behavior-preserving) |
 | → | **Wave B kickoff** | Completion enforcement + certificates (issue/revoke/verify) | 🟢 done — `completionPolicy` enforced; `Certificate` model + public verification. Assessment engine (build-vs-buy) still open |
+| → | **Wave B — feedback foundation** | `Feedback` model + submit/list; unblock `requiresFeedback` | 🟢 done — `/api/learning/feedback` (learner self-submit / Admin on-behalf); completion now honours `requiresFeedback`; `feedback.submit`/`feedback.read` capabilities |
 
 ---
 
 ## Recent progress (changelog)
 
+- **2026-06-03** — **Wave B — feedback foundation (unblocks `requiresFeedback`).**
+  New `Feedback` model (one per learner per cohort, soft-delete, upsert re-submit)
+  + `domains/learning/feedback/` module and `/api/learning/feedback`
+  (`GET` list, `POST` submit). A Participant self-submits for a cohort they
+  belong to (roster or enrollment); an Admin may submit on a learner's behalf;
+  a Teacher can read but not submit. The completion engine now reads feedback:
+  `completionPolicy.requiresFeedback` is honestly enforced (`feedback.met` flips
+  on submission; old `feedback-not-available` reason → `feedback-not-submitted`).
+  New capabilities `feedback.submit` / `feedback.read`. 8 integration tests;
+  server suite **500 green**. Backend foundation only — learner-facing feedback
+  UI deferred.
 - **2026-06-03** — **Wave B kickoff — completion enforcement + certificates.**
   `LearningProgram.completionPolicy` is now enforced: a new
   `domains/learning/completion/` sub-domain computes completion (attendance %

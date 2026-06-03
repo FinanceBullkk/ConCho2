@@ -173,17 +173,20 @@ Re-architecture into an L&D platform runs in phases (full detail:
 | 2 | Learning catalog + generic cohort model (`LearningProgram`) | ~95% |
 | 3 | Multi-program enrollment + session scheduling | ~40% |
 | 4 | Frontend L&D workspace (catalog/cohort CRUD UI) | ~5% |
-| 5 | Reporting, completion, feedback | ~10% |
+| 5 | Reporting, completion, feedback | ~45% |
 | 6 | PostgreSQL decision gate | 0% |
 
-**Today:** the catalog + cohort + session **read** path is live; booking now
-**enforces `schedulingMode`** (commit `ee7ba54`) — `leader_booking` works, the
-other 3 modes are explicitly gated (501) until built. Biggest gaps before "LMS":
-generic enrollment, assessment engine, learner-facing catalog/self-enroll,
-certifications, SSO/HRIS. → see [`lms-roadmap.md`](lms-roadmap.md).
+**Today:** Wave A (Foundation) is complete — all 4 `schedulingMode`s enforced,
+cohort-based enrollment + self-enroll live, the Learning page has CRUD, and a
+capability-based authz layer gates the learning routes. Wave B is progressing:
+`completionPolicy` is enforced (attendance % + assessment + feedback),
+certificates issue on completion with public verification, and a Feedback
+foundation unblocks `requiresFeedback`. Biggest gaps before "LMS": generic
+assessment engine, learner-facing catalog, completion reports, SSO/HRIS.
+→ see [`lms-roadmap.md`](lms-roadmap.md).
 
 **Stack:** React 19 + Vite 8 + Tailwind 4 / Express 4 + Mongoose 8 + MongoDB;
-~459 server tests, 98 client tests, Playwright e2e; 7 CI gates; deployed on Render.
+~500 server tests, ~100 client tests, Playwright e2e; 7 CI gates; deployed on Render.
 
 ---
 
