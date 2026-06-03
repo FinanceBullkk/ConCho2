@@ -62,18 +62,31 @@ const getSession = async (id, requestUser) => {
   return sessionDto(session);
 };
 
-// Scheduling modes with a working booking flow today:
-//   - leader_booking: the team leader (or an Admin) books for the team.
-//   - admin_scheduled: only an Admin books; leaders/participants cannot.
-// self_enroll and nomination need per-learner enrollment (cohort-based, not
-// team-based) which does not exist yet — they stay gated with a clear 501 until
-// that enrollment work lands.
-const SUPPORTED_SCHEDULING_MODES = new Set(['leader_booking', 'admin_scheduled']);
+// Scheduling modes split by how a session is created:
+//   Team-based (book against a Group/Team):
+//     - leader_booking: the team leader (or an Admin) books for the team.
+//     - admin_scheduled: only an Admin books; leaders/participants cannot.
+//   Cohort-based (book against a Cohort, no team — per-learner enrollment, M2):
+//     - self_enroll: learners self-enrol into the cohort; an Admin schedules
+//       the session, which snapshots the cohort's active enrollments.
+//     - nomination: an Admin nominates (enrols) learners, then schedules; same
+//       session-creation flow as self_enroll (the difference is the enrol gate).
+const TEAM_SCHEDULING_MODES = new Set(['leader_booking', 'admin_scheduled']);
+const COHORT_SCHEDULING_MODES = new Set(['self_enroll', 'nomination']);
 
-const bookSession = async (payload, requestUser) => {
+// Team-based booking (groupId): leader_booking / admin_scheduled.
+const bookGroupSession = async (payload, requestUser) => {
   const { schedulingMode } = await repository.findSchedulingContextByGroup(payload.groupId);
 
-  if (!SUPPORTED_SCHEDULING_MODES.has(schedulingMode)) {
+  // A cohort-based program must be scheduled against its cohort, not a group.
+  if (COHORT_SCHEDULING_MODES.has(schedulingMode)) {
+    throw new scheduleService.ServiceError(
+      `This program uses cohort-based enrollment (${schedulingMode}) — schedule its sessions against the cohort, not a group`,
+      400,
+    );
+  }
+  // Defensive: any future/unknown mode that is not a known team mode.
+  if (!TEAM_SCHEDULING_MODES.has(schedulingMode)) {
     throw new scheduleService.ServiceError(
       `Scheduling mode '${schedulingMode}' is not supported yet`,
       501,
@@ -90,7 +103,7 @@ const bookSession = async (payload, requestUser) => {
   }
 
   // bookSlot already lets an Admin book for any team (it only enforces the
-  // leader check for non-admins), so it serves both supported modes.
+  // leader check for non-admins), so it serves both supported team modes.
   const created = await scheduleService.bookSlot({
     teamId: payload.groupId,
     startTime: payload.startTime,
@@ -99,6 +112,43 @@ const bookSession = async (payload, requestUser) => {
   });
   return getSession(created._id, requestUser);
 };
+
+// Cohort-based booking (cohortId): self_enroll / nomination. Admin-only; the
+// session snapshots the cohort's active cohort-based enrollments.
+const bookCohortSession = async (payload, requestUser) => {
+  if (requestUser?.role !== 'Admin') {
+    throw new scheduleService.ServiceError(
+      'Only an Admin can schedule sessions for this program',
+      403,
+    );
+  }
+
+  const { schedulingMode, cohortId } = await repository.findSchedulingContextByCohort(payload.cohortId);
+  if (!cohortId) {
+    throw new scheduleService.ServiceError('Cohort not found', 404);
+  }
+  if (!COHORT_SCHEDULING_MODES.has(schedulingMode)) {
+    throw new scheduleService.ServiceError(
+      `Cohort-based scheduling is only for self_enroll/nomination programs (this cohort is '${schedulingMode}' — book against its group instead)`,
+      400,
+    );
+  }
+
+  const enrolledUserIds = await repository.findActiveCohortLearnerIds(payload.cohortId);
+  const created = await scheduleService.bookCohortSlot({
+    cohortId: payload.cohortId,
+    startTime: payload.startTime,
+    endTime: payload.endTime,
+    enrolledUserIds,
+    requestUser,
+  });
+  return getSession(created._id, requestUser);
+};
+
+const bookSession = (payload, requestUser) =>
+  (payload.cohortId
+    ? bookCohortSession(payload, requestUser)
+    : bookGroupSession(payload, requestUser));
 
 const cancelSession = (id, requestUser) => scheduleService.cancelSlot(id, requestUser);
 

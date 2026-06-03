@@ -34,13 +34,16 @@ const bookSession = async (req, res) => {
       entityId: data.scheduleId,
       diff: {
         after: {
-          groupId: req.body.groupId,
-          startTime: req.body.startTime,
-          endTime: req.body.endTime,
+          cohortId: data.cohortId,
+          groupId: data.groupId,
+          startTime: data.startTime,
+          endTime: data.endTime,
           enrolledLearnerCount: data.enrolledLearnerCount,
         },
       },
-      note: 'Booked through learning session API',
+      note: req.body.cohortId
+        ? 'Cohort session scheduled through learning session API'
+        : 'Booked through learning session API',
     });
     invalidateAnalyticsCache();
     res.status(201).json({ success: true, data });

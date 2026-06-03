@@ -5,17 +5,17 @@
 > - *Architecture / orientation* → [`system-overview.md`](system-overview.md)
 > - *Detailed task snapshot* → [`handoff-2026-06-01.md`](handoff-2026-06-01.md)
 >
-> **Last updated:** 2026-06-02
+> **Last updated:** 2026-06-03
 
 ---
 
 ## Current status
 
-~45% through the TMS → L&D migration. Catalog + cohort + session read path live;
-session booking enforces `schedulingMode` (`leader_booking` + `admin_scheduled`);
+~50% through the TMS → L&D migration. Catalog + cohort + session read path live;
+session booking now enforces **all 4** `schedulingMode`s (`leader_booking`,
+`admin_scheduled`, `self_enroll`, `nomination` — no 501 stubs);
 **cohort-based enrollment is live** (`/api/learning/enrollments`, incl. self-enroll).
-Next in Wave A: Learning CRUD UI (M3), then wire session-level
-`self_enroll`/`nomination` to close M1.
+Next in Wave A: Learning CRUD UI (M3), then capability-based authz scaffold (M4).
 
 ---
 
@@ -26,7 +26,7 @@ Next in Wave A: Learning CRUD UI (M3), then wire session-level
 | 0 | Architecture baseline + safety net | ~92% | 🟢 near done |
 | 1 | Backend modular-monolith refactor | ~35% | 🟡 in progress |
 | 2 | Learning catalog + generic cohort model | ~95% | 🟢 near done |
-| 3 | Multi-program enrollment + session scheduling | ~55% | 🟡 in progress |
+| 3 | Multi-program enrollment + session scheduling | ~75% | 🟡 in progress |
 | 4 | Frontend L&D workspace (CRUD UI) | ~5% | 🔴 not started |
 | 5 | Reporting, completion, feedback | ~10% | 🔴 not started |
 | 6 | PostgreSQL decision gate | 0% | ⚪ gated |
@@ -46,16 +46,25 @@ Next in Wave A: Learning CRUD UI (M3), then wire session-level
 
 | ID | Milestone | Acceptance | Status |
 |----|-----------|-----------|--------|
-| M1 | Enforce all 4 scheduling modes | leader/admin/self-enroll/nomination each have a real flow + tests; no 501 stubs | 🟡 2/4 (leader + admin_scheduled; self_enroll/nomination unblocked by M2 — session-level wiring next) |
+| M1 | Enforce all 4 scheduling modes | leader/admin/self-enroll/nomination each have a real flow + tests; no 501 stubs | 🟢 done 4/4 (leader/admin team-booking; self_enroll/nomination Admin-schedule cohort sessions over M2 enrollments) |
 | M2 | Cohort-based enrollment | `/api/learning/enrollments` (cohort-based, multi-program) + self-enroll path | 🟢 done (enroll/self-enroll/withdraw/list; bulk + session-roster wiring deferred) |
 | M3 | Learning CRUD UI | Create/edit Program, create Cohort, enroll learners (not read-only) | 🔴 |
 | M4 | Capability-based authz scaffold | `program.manage`/`session.book` style checks behind `policy/` | 🔴 |
-| → | **Wave B kickoff** | Generic Assessment domain design started | ⚪ after M1–M3 |
+| → | **Wave B kickoff** | Generic Assessment domain design started | ⚪ after M3 (M1+M2 done) |
 
 ---
 
 ## Recent progress (changelog)
 
+- **2026-06-03** — **M1 complete — all 4 scheduling modes enforced (no 501 stubs).**
+  `self_enroll`/`nomination` now have a real flow: an Admin schedules a **team-less
+  cohort session** (`POST /api/learning/sessions/book-slot` with `cohortId`) that
+  snapshots the cohort's active cohort-based enrollments (M2) as the roster.
+  `Schedule.bookedTeamId` made optional; new `scheduleService.bookCohortSlot`;
+  `bookSession` routes `groupId` (team modes) vs `cohortId` (cohort modes); a
+  team-based program booked via group is rejected, cohort-based via group → 400.
+  6 new/updated session tests (self_enroll/nomination 201 + roster, non-admin 403,
+  wrong-target 400, validation). Server 472 tests green; lint clean.
 - **2026-06-02** — **M2 cohort-based enrollment shipped.** `Enrollment.teamId`
   now optional; new `domains/learning/enrollment/` module + `/api/learning/enrollments`
   (list / enroll / withdraw-soft → `Dropped`). Admin enrolls anyone; learners

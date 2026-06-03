@@ -26,11 +26,15 @@ const scheduleSchema = new mongoose.Schema(
       required: [true, 'Class reference is required'],
     },
 
-    // The team that created/owns this session
+    // The team that created/owns this session. Optional: team-less sessions
+    // exist for cohort-based scheduling modes (self_enroll / nomination), where
+    // an Admin schedules a session against a Cohort and enrolls its per-learner
+    // (cohort-based) enrollments rather than a Team. Team-based modes
+    // (leader_booking / admin_scheduled) always set this.
     bookedTeamId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'Team',
-      required: [true, 'Team reference is required'],
+      default: null,
     },
 
     // ── Time range ─────────────────────────────────────────
