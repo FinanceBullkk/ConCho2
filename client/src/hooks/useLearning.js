@@ -38,10 +38,13 @@ export const useCompletionReport = (cohortId) =>
     enabled: Boolean(cohortId),
   });
 
-export const useCompletionRollup = () =>
+export const useCompletionRollup = (options = {}) =>
   useQuery({
     queryKey: qk.learning.completionRollup,
     queryFn: async () => (await learningAPI.getCompletionRollup()).data.data,
+    staleTime: 5 * 60 * 1000,
+    refetchOnMount: false,
+    ...options,
   });
 
 // Returns the raw axios response (responseType: 'blob') so the caller can read

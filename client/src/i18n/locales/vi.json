@@ -282,6 +282,12 @@
         "departments": "Theo phòng ban",
         "cohorts": "Cohort",
         "name": "Tên",
+        "load": "Tải tổng hợp",
+        "loading": "Đang tải...",
+        "refresh": "Tải lại",
+        "ready": "Tổng hợp chỉ tải khi cần",
+        "readyDesc": "Chỉ tải tổng hợp theo chương trình và phòng ban khi bạn cần báo cáo nặng này.",
+        "loadError": "Không tải được tổng hợp hoàn thành.",
         "empty": "Chưa có dữ liệu tổng hợp",
         "emptyDesc": "Tạo cohort có học viên để xem tổng hợp theo chương trình và phòng ban."
       },
