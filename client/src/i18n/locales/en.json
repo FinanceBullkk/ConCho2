@@ -282,6 +282,12 @@
         "departments": "By department",
         "cohorts": "Cohorts",
         "name": "Name",
+        "load": "Load rollups",
+        "loading": "Loading...",
+        "refresh": "Refresh",
+        "ready": "Rollups are ready on demand",
+        "readyDesc": "Load program and department rollups only when you need the heavier aggregate report.",
+        "loadError": "Could not load completion rollups.",
         "empty": "No rollup data",
         "emptyDesc": "Create cohorts with learners to see program and department rollups."
       },

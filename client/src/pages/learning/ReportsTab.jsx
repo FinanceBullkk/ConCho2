@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
-import { Download } from 'lucide-react';
+import { BarChart3, Download, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -43,7 +43,11 @@ export default function ReportsTab() {
   const cohorts = cohortData?.data || [];
 
   const { data: report, isLoading } = useCompletionReport(cohortId);
-  const { data: rollup, isLoading: rollupLoading } = useCompletionRollup();
+  const {
+    data: rollup,
+    isFetching: rollupLoading,
+    refetch: loadRollup,
+  } = useCompletionRollup({ enabled: false });
   const download = useDownloadCompletionReport();
 
   const handleExport = async () => {
@@ -52,6 +56,14 @@ export default function ReportsTab() {
       saveBlob(res, `completion-${cohortId}.xlsx`);
     } catch {
       toast.error(t('learning.reports.exportError'));
+    }
+  };
+
+  const handleLoadRollup = async () => {
+    try {
+      await loadRollup();
+    } catch {
+      toast.error(t('learning.reports.rollup.loadError'));
     }
   };
 
@@ -98,11 +110,28 @@ export default function ReportsTab() {
   return (
     <div className="space-y-4">
       <Card>
-        <CardHeader>
+        <CardHeader className="flex flex-row items-center justify-between gap-3">
           <CardTitle>{t('learning.reports.rollup.title')}</CardTitle>
+          <Button size="sm" variant="outline" disabled={rollupLoading} onClick={handleLoadRollup}>
+            {rollup ? (
+              <RefreshCw className="size-4 mr-1.5" aria-hidden="true" />
+            ) : (
+              <BarChart3 className="size-4 mr-1.5" aria-hidden="true" />
+            )}
+            {rollupLoading
+              ? t('learning.reports.rollup.loading')
+              : t(rollup ? 'learning.reports.rollup.refresh' : 'learning.reports.rollup.load')}
+          </Button>
         </CardHeader>
         <CardContent>
-          <CompletionRollupTable rollup={rollup} isLoading={rollupLoading} />
+          {rollup || rollupLoading ? (
+            <CompletionRollupTable rollup={rollup} isLoading={rollupLoading} />
+          ) : (
+            <EmptyState
+              title={t('learning.reports.rollup.ready')}
+              description={t('learning.reports.rollup.readyDesc')}
+            />
+          )}
         </CardContent>
       </Card>
       <Card>
