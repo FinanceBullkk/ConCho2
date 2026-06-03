@@ -31,6 +31,9 @@ const CAPABILITIES = Object.freeze({
   ENROLLMENT_READ: 'enrollment.read',   // list cohort enrollments
   ENROLLMENT_MANAGE: 'enrollment.manage', // enroll / withdraw any learner (admin)
   ENROLLMENT_SELF: 'enrollment.self',   // self-enroll / self-withdraw (learner)
+  COMPLETION_READ: 'completion.read',   // view completion status for a cohort
+  CERTIFICATE_READ: 'certificate.read', // list issued certificates
+  CERTIFICATE_MANAGE: 'certificate.manage', // issue / revoke certificates (admin)
 });
 
 const ALL_CAPABILITIES = Object.freeze(Object.values(CAPABILITIES));
@@ -41,11 +44,17 @@ const ALL_CAPABILITIES = Object.freeze(Object.values(CAPABILITIES));
 // changes nothing observable.
 const ROLE_CAPABILITIES = Object.freeze({
   Admin: ALL_CAPABILITIES,
-  Teacher: Object.freeze([CAPABILITIES.ENROLLMENT_READ]),
+  Teacher: Object.freeze([
+    CAPABILITIES.ENROLLMENT_READ,
+    CAPABILITIES.COMPLETION_READ,
+    CAPABILITIES.CERTIFICATE_READ,
+  ]),
   Participant: Object.freeze([
     CAPABILITIES.SESSION_BOOK,
     CAPABILITIES.ENROLLMENT_READ,
     CAPABILITIES.ENROLLMENT_SELF,
+    CAPABILITIES.COMPLETION_READ,
+    CAPABILITIES.CERTIFICATE_READ,
   ]),
 });
 
