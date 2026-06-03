@@ -238,5 +238,113 @@
       "successTitle": "Đã cập nhật mật khẩu!",
       "successBody": "Đang chuyển đến trang đăng nhập…"
     }
+  },
+  "learning": {
+    "title": "Học tập",
+    "tabs": {
+      "programs": "Chương trình",
+      "programsDesc": "Danh mục đào tạo cho tiếng Anh, hội nhập, tuân thủ và học tập nội bộ.",
+      "cohorts": "Khóa học",
+      "cohortsDesc": "Các đợt triển khai chương trình, thay cho cách xem theo lớp cũ.",
+      "groups": "Nhóm",
+      "groupsDesc": "Nhóm học tập và trưởng nhóm hiện vẫn được quản lý qua module Teams.",
+      "assessments": "Đánh giá",
+      "assessmentsDesc": "Quy trình đánh giá vẫn tương thích trong khi mô hình đánh giá được tổng quát hóa."
+    },
+    "programs": {
+      "catalog": "Danh mục chương trình",
+      "new": "Chương trình mới",
+      "edit": "Sửa chương trình",
+      "create": "Tạo chương trình",
+      "empty": "Chưa có chương trình học",
+      "emptyDesc": "Tạo chương trình đầu tiên, hoặc chạy script backfill cho các khóa tiếng Anh cũ.",
+      "colProgram": "Chương trình",
+      "colCategory": "Phân loại",
+      "colScheduling": "Lịch học",
+      "colDelivery": "Hình thức",
+      "colSessions": "Số buổi",
+      "created": "Đã tạo chương trình",
+      "updated": "Đã cập nhật chương trình",
+      "archived": "Đã lưu trữ chương trình",
+      "archive": "Lưu trữ",
+      "archiveConfirm": "Xác nhận lưu trữ?"
+    },
+    "cohorts": {
+      "title": "Khóa học",
+      "new": "Khóa học mới",
+      "create": "Tạo khóa học",
+      "empty": "Chưa có khóa học",
+      "emptyDesc": "Khóa học là các đợt triển khai chương trình. Tạo một khóa gắn với chương trình để bắt đầu.",
+      "colCohort": "Khóa học",
+      "colProgram": "Chương trình",
+      "colStatus": "Trạng thái",
+      "colSessions": "Số buổi",
+      "colBooked": "Đã đặt",
+      "colActions": "Thao tác",
+      "created": "Đã tạo khóa học",
+      "manage": "Ghi danh"
+    },
+    "enroll": {
+      "title": "Ghi danh học viên",
+      "current": "Học viên hiện tại",
+      "none": "Chưa có học viên nào được ghi danh.",
+      "add": "Thêm học viên",
+      "selectLearner": "Chọn học viên…",
+      "enroll": "Ghi danh",
+      "enrolling": "Đang ghi danh…",
+      "enrolled": "Đã ghi danh học viên",
+      "withdraw": "Rút khỏi",
+      "withdrawn": "Đã rút ghi danh"
+    },
+    "fields": {
+      "code": "Mã",
+      "name": "Tên",
+      "description": "Mô tả",
+      "category": "Phân loại",
+      "schedulingMode": "Chế độ lịch học",
+      "deliveryMode": "Hình thức học",
+      "defaultSessionCount": "Số buổi mặc định",
+      "status": "Trạng thái",
+      "program": "Chương trình",
+      "selectProgram": "Chọn chương trình…",
+      "cohortCode": "Mã khóa học",
+      "totalSessions": "Tổng số buổi",
+      "cohortCodeHint": "Tùy chọn — tự sinh nếu để trống."
+    },
+    "category": {
+      "english": "Tiếng Anh",
+      "onboarding": "Hội nhập",
+      "compliance": "Tuân thủ",
+      "soft_skills": "Kỹ năng mềm",
+      "technical": "Kỹ thuật",
+      "workshop": "Workshop",
+      "other": "Khác"
+    },
+    "scheduling": {
+      "leader_booking": "Trưởng nhóm đặt lịch",
+      "admin_scheduled": "Quản trị xếp lịch",
+      "self_enroll": "Tự ghi danh",
+      "nomination": "Chỉ định"
+    },
+    "delivery": {
+      "online": "Trực tuyến",
+      "offline": "Trực tiếp",
+      "hybrid": "Kết hợp"
+    },
+    "status": {
+      "active": "Đang hoạt động",
+      "inactive": "Ngừng hoạt động",
+      "archived": "Đã lưu trữ",
+      "Ongoing": "Đang diễn ra",
+      "Completed": "Đã hoàn thành"
+    },
+    "actions": {
+      "cancel": "Hủy",
+      "save": "Lưu",
+      "saving": "Đang lưu…",
+      "creating": "Đang tạo…",
+      "create": "Tạo"
+    },
+    "saveFailed": "Lưu thất bại"
   }
 }

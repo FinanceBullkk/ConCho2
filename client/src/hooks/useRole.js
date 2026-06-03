@@ -64,6 +64,17 @@ const PERMISSION_MAP = {
   // Enrollment ─ server: server/routes/enrollmentRoutes.js (Admin-only)
   'manage:enrollment': ['Admin'],
 
+  // Learning platform ─ server: server/domains/learning/routes.js
+  // Program/cohort writes are roleGuard('Admin'); reads are any authed user.
+  'create:program':  ['Admin'],                    // POST   /api/learning/programs
+  'update:program':  ['Admin'],                    // PUT    /api/learning/programs/:id
+  'archive:program': ['Admin'],                    // DELETE /api/learning/programs/:id
+  'create:cohort':   ['Admin'],                    // POST   /api/learning/cohorts
+  'read:learning':   ['Admin', 'Teacher', 'Participant'], // GET /api/learning/*
+  // Enrolling another learner is Admin-only; learners self-enroll server-side
+  // (gated by program schedulingMode), not via this UI permission.
+  'enroll:learner':  ['Admin'],                    // POST/DELETE /api/learning/enrollments
+
   // Bookings ─ server: server/routes/scheduleRoutes.js POST /book-slot
   // roleGuard('Admin','Participant') + leader check in scheduleService
   'book:class':        ['Admin', 'Participant'],
