@@ -28,6 +28,8 @@ const CalendarPage     = lazy(() => import('./pages/CalendarPage'));
 const BookClassPage    = lazy(() => import('./pages/BookClassPage'));
 const ClassDetailPage  = lazy(() => import('./pages/ClassDetailPage'));
 const UserSettingsPage = lazy(() => import('./pages/UserSettingsPage'));
+const MyAssessmentsPage = lazy(() => import('./pages/MyAssessmentsPage'));
+const MyFeedbackPage = lazy(() => import('./pages/MyFeedbackPage'));
 
 function RouteFallback() {
   return (
@@ -261,6 +263,12 @@ export default function App() {
 
                 {/* Self-service account settings — every authenticated user */}
                 <Route path="/me/settings" element={<UserSettingsPage />} />
+                <Route path="/me/assessments" element={
+                  <ProtectedRoute roles={['Participant']}><MyAssessmentsPage /></ProtectedRoute>
+                } />
+                <Route path="/me/feedback" element={
+                  <ProtectedRoute roles={['Participant']}><MyFeedbackPage /></ProtectedRoute>
+                } />
 
                 {/* Legacy redirects */}
                 {LEGACY_REDIRECTS.map(({ from, to }) => (

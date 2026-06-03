@@ -14,6 +14,13 @@ const createAssessment = async (data) => {
 const findAssessmentById = (id) =>
   Assessment.findOne({ _id: id, isDeleted: false }).lean();
 
+const updateAssessment = (id, data) =>
+  Assessment.findOneAndUpdate(
+    { _id: id, isDeleted: false },
+    { $set: data },
+    { new: true, runValidators: true },
+  ).lean();
+
 const listAssessments = ({ cohortId, publishedOnly }) => {
   const filter = { isDeleted: false };
   if (cohortId) filter.cohortId = cohortId;
@@ -56,6 +63,7 @@ module.exports = {
   findCohort,
   createAssessment,
   findAssessmentById,
+  updateAssessment,
   listAssessments,
   softDeleteAssessment,
   countAttempts,

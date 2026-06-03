@@ -2,7 +2,7 @@ import { useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import {
   CalendarDays, BarChart3, CheckCircle2, XCircle, Target,
-  ClipboardList, CalendarPlus, Clock, MapPin, Users2, ChevronRight,
+  ClipboardList, CalendarPlus, Clock, MapPin, Users2, ChevronRight, PlayCircle, MessageSquare,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useMyClassSchedules } from '../hooks/useSchedules';
@@ -239,6 +239,27 @@ export default function ParticipantDashboard() {
           icon={XCircle}
           tone={absent > 0 ? 'danger' : 'neutral'}
         />
+      </div>
+
+      <div className="grid gap-3 sm:grid-cols-2">
+        <Button asChild variant="outline" className="justify-between">
+          <Link to="/me/assessments">
+            <span className="inline-flex items-center gap-2">
+              <PlayCircle className="size-4" aria-hidden="true" />
+              Bài đánh giá của tôi
+            </span>
+            <ChevronRight className="size-4 text-muted-foreground" aria-hidden="true" />
+          </Link>
+        </Button>
+        <Button asChild variant="outline" className="justify-between">
+          <Link to="/me/feedback">
+            <span className="inline-flex items-center gap-2">
+              <MessageSquare className="size-4" aria-hidden="true" />
+              Phản hồi của tôi
+            </span>
+            <ChevronRight className="size-4 text-muted-foreground" aria-hidden="true" />
+          </Link>
+        </Button>
       </div>
 
       {/* ── Band 4 · Upcoming sessions list ──────────────── */}

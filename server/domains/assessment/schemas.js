@@ -44,6 +44,8 @@ const createAssessmentBody = z.object({
   isPublished: z.coerce.boolean().optional(),
 });
 
+const updateAssessmentBody = createAssessmentBody;
+
 const listAssessmentsQuery = z.object({
   cohortId: objectId.optional(),
 });
@@ -69,6 +71,7 @@ const listAttemptsQuery = z.object({
 
 module.exports = {
   createAssessmentBody,
+  updateAssessmentBody,
   listAssessmentsQuery,
   submitAttemptBody,
   listAttemptsQuery,

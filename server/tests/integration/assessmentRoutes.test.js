@@ -93,6 +93,46 @@ describe('Assessment API — authoring, attempts, grading', () => {
     expect(teacher.status).toBe(201);
   });
 
+  test('admin updates assessment metadata and items; participant cannot update', async () => {
+    const created = await createQuiz(tokens.admin);
+    const body = quizBody({
+      title: 'Updated quiz',
+      isPublished: false,
+      passingScorePercent: 80,
+      items: [
+        {
+          type: 'multiple_choice',
+          prompt: 'Pick even numbers',
+          options: ['1', '2', '4'],
+          correctOptionIndexes: [1, 2],
+          points: 2,
+        },
+      ],
+    });
+
+    const blocked = await request(app)
+      .put(`/api/assessment/assessments/${created.body.data.id}`)
+      .set('Authorization', `Bearer ${tokens.leader}`)
+      .set(csrf)
+      .send(body);
+    expect(blocked.status).toBe(403);
+
+    const updated = await request(app)
+      .put(`/api/assessment/assessments/${created.body.data.id}`)
+      .set('Authorization', `Bearer ${tokens.admin}`)
+      .set(csrf)
+      .send(body);
+    expect(updated.status).toBe(200);
+    expect(updated.body.data.title).toBe('Updated quiz');
+    expect(updated.body.data.isPublished).toBe(false);
+    expect(updated.body.data.items[0].type).toBe('multiple_choice');
+    expect(updated.body.data.items[0].correctOptionIndexes).toEqual([1, 2]);
+
+    const stored = await Assessment.findById(created.body.data.id).lean();
+    expect(stored.items).toHaveLength(1);
+    expect(stored.items[0].prompt).toBe('Pick even numbers');
+  });
+
   test('a learner sees published assessments but never the correct answers', async () => {
     await createQuiz(tokens.admin);
     const list = await request(app)

@@ -28,8 +28,13 @@ authors item-based, auto-graded quizzes; a passing attempt satisfies
 is live (`GET /api/learning/reports/completion` + `.xlsx` export) and now
 **surfaced in the UI**: a gated **Reports tab** on the Learning page lets
 Admins/Teachers pick a cohort and view the per-learner completion table +
-summary, with one-click Excel export (i18n en+vi). Next: more L&D UI (assessment
-authoring/taking, feedback) and assessment-engine iteration.
+summary, with one-click Excel export (i18n en+vi). Assessment UI is now usable
+end to end for v1: Admins/Teachers create/list/archive cohort quizzes in the Learning
+workspace, and learners take published quizzes from `/me/assessments`. Feedback
+UI is also live: Admins/Teachers review cohort submissions from `/learning`, and
+Participants submit/re-submit feedback from `/me/feedback`. First assessment
+iteration is now done too: managers can update assessment metadata, publication
+state, and item definitions after creation. Next: question banks/manual grading.
 
 ---
 
@@ -41,8 +46,8 @@ authoring/taking, feedback) and assessment-engine iteration.
 | 1 | Backend modular-monolith refactor | ~42% | 🟡 in progress |
 | 2 | Learning catalog + generic cohort model | ~95% | 🟢 near done |
 | 3 | Multi-program enrollment + session scheduling | ~75% | 🟡 in progress |
-| 4 | Frontend L&D workspace (CRUD UI) | ~55% | 🟡 in progress |
-| 5 | Reporting, completion, feedback | ~60% | 🟡 in progress |
+| 4 | Frontend L&D workspace (CRUD UI) | ~72% | 🟡 in progress |
+| 5 | Reporting, completion, feedback | ~67% | 🟡 in progress |
 | 6 | PostgreSQL decision gate | 0% | ⚪ gated |
 
 ## LMS waves (forward — see [`lms-roadmap.md`](lms-roadmap.md))
@@ -50,7 +55,7 @@ authoring/taking, feedback) and assessment-engine iteration.
 | Wave | Goal | Status | Depends on |
 |------|------|--------|-----------|
 | A — Foundation | Generic learning core works E2E (scheduling modes, cohort enrollment, CRUD UI, capability authz) | 🟢 done (M1–M4) | — |
-| B — Assessment & Certification | Generic assessment engine, completion enforcement, certificates | 🟡 in progress (completion + certificates + feedback + assessment engine v1 + completion reporting done; iteration + learner UI next) | A |
+| B — Assessment & Certification | Generic assessment engine, completion enforcement, certificates | 🟡 in progress (completion + certificates + feedback + assessment engine v1 + completion reporting + assessment UI + feedback UI + assessment edit done; question banks/manual grading next) | A |
 | C — Catalog, Paths & Self-service | Learner catalog, self-enroll, learning paths/prerequisites | 🔴 planned | A |
 | D — Platform & Scale | SSO, HRIS sync, advanced analytics, mobile, Postgres gate | 🔴 planned | B, C |
 
@@ -69,11 +74,53 @@ authoring/taking, feedback) and assessment-engine iteration.
 | → | **Wave B — assessment engine v1** | Generic item-based quizzes + auto-graded attempts; satisfy `requiresAssessment` | 🟢 done — new `domains/assessment` (`/api/assessment`): author/list/get/archive + attempt with pure auto-grading (single/multi-choice, short-text). Passing attempt OR legacy `Evaluation` meets completion. `assessment.manage/read/attempt` capabilities. Iteration (banks, item edit, UI) deferred |
 | → | **Wave B — completion reporting** | Cohort completion report (per-learner + summary) + `.xlsx` export | 🟢 done — `domains/learning/reports/`: `GET /api/learning/reports/completion` reuses the completion engine across the cohort roster ∪ enrollments, attaches certificate status, rolls up a summary; `/export` streams xlsx (exceljs). `report.read` capability (Admin/Teacher) |
 | → | **Phase 4 — completion report UI** | Surface the completion report in the Learning workspace | 🟢 done — gated **Reports tab** on `/learning` (Admin/Teacher via `read:reports`): cohort selector → per-learner completion table + summary tiles + one-click `.xlsx` export. i18n en+vi; React Query hooks; 3 component tests |
+| → | **Phase 4 — assessment authoring UI** | Surface generic assessment authoring in the Learning workspace | 🟢 done — **Assessments tab** on `/learning`: Admin/Teacher create/list/archive cohort quizzes (`single_choice`, `multiple_choice`, `short_text`). i18n en+vi; React Query hooks; 3 component tests |
+| → | **Phase 4 — learner assessment-taking UI** | Let learners take published assessments | 🟢 done — `/me/assessments` self-service page lists assessments for enrolled/scheduled cohorts, shows latest attempt status, and submits auto-graded answers; linked from Participant dashboard. 2 component tests |
+| → | **Phase 4/5 — feedback UI** | Let learners submit feedback and managers review it | 🟢 done — **Feedback tab** on `/learning` (Admin/Teacher via `read:feedback`) lists cohort submissions; `/me/feedback` lets Participants submit/re-submit ratings and comments for enrolled/scheduled cohorts. 2 component test files |
+| → | **Wave B — assessment edit support** | Let managers update existing assessments | 🟢 done — manager-only `PUT /api/assessment/assessments/:id` replaces assessment metadata/items atomically; Learning Assessments tab now opens existing quizzes in the authoring modal and saves edits. |
 
 ---
 
 ## Recent progress (changelog)
 
+- **2026-06-03** — **Wave B — assessment edit support.**
+  Added manager-only `PUT /api/assessment/assessments/:id` with audit diff,
+  cohort revalidation, and full replacement of title/description/cohort,
+  publication state, scoring settings, and item definitions. Existing attempts
+  remain immutable score snapshots. The Learning **Assessments** tab now has an
+  **Edit Assessment** action that reuses the authoring modal; form payload logic
+  moved into `assessment-form-utils.js` to keep the modal under 200 LOC. Added
+  `assessmentAPI.updateAssessment`, `useUpdateAssessment`, en+vi labels, and
+  focused tests. Verified: assessment integration **13 tests**, client
+  **115 tests**, lint 0 errors/81 warnings, build clean, `/learning` route 200.
+  Full server suite was attempted but hung silently in this session; cleaned up
+  leftover mongodb-memory-server processes.
+- **2026-06-03** — **Phase 4/5 — feedback UI.**
+  Added feedback surfaces over `/api/learning/feedback`: Admins/Teachers get a
+  **Feedback tab** in `/learning` with cohort filter + submitted ratings table;
+  Participants get `/me/feedback`, linked from the dashboard, to submit or update
+  overall/content/instructor ratings and comments for enrolled/scheduled cohorts.
+  Added `learningAPI.getFeedback/submitFeedback`, React Query hooks/keys,
+  `read:feedback` UI permission, and focused tests. Client: **114 tests** (+5),
+  lint 0 errors/81 warnings (at cap), build clean; `/me/feedback` route smoke
+  returned 200 OK.
+- **2026-06-03** — **Phase 4 — learner assessment-taking UI.**
+  Added a Participant-only `/me/assessments` route and dashboard CTA. The page
+  lists published assessments for the learner's cohort enrollments / scheduled
+  classes, shows latest attempt status and score, and opens an attempt dialog
+  for choice + short-text answers. Submits through
+  `/api/assessment/assessments/:id/attempts` and refreshes attempt state. Added
+  `getAssessment`, `useAssessmentAttempts`, `useSubmitAssessmentAttempt`, and
+  focused tests. Client: **109 tests** (+3), lint 0 errors/81 warnings (at cap),
+  build clean.
+- **2026-06-03** — **Phase 4 — assessment authoring UI.**
+  Replaced the placeholder Assessments tab on `/learning` with a real cohort
+  assessment surface over `/api/assessment`: Admins/Teachers can create published/draft
+  quizzes with v1 item types (`single_choice`, `multiple_choice`, `short_text`),
+  list by cohort/all cohorts, and archive after confirmation. Added `assessmentAPI`, `useAssessment` hooks,
+  `qk.assessment`, `manage/read:assessment` UI permissions, and en+vi i18n.
+  Client: **106 tests** (+3), lint 0 errors/81 warnings (at cap), build clean.
+  Learner attempt-taking UI remains next.
 - **2026-06-03** — **Phase 4 — completion report UI (first L&D reporting surface).**
   A gated **Reports tab** on the Learning page (`/learning`, shown to Admin/Teacher
   via a new `read:reports` permission) lets a user pick a cohort and view the

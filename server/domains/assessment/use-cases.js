@@ -25,6 +25,30 @@ const createAssessment = async (body, actor) => {
   });
 };
 
+// Update replaces the authored definition atomically. Attempts remain immutable;
+// existing attempt scores are historical snapshots of the old definition.
+const updateAssessment = async (id, body) => {
+  const before = await repository.findAssessmentById(id);
+  if (!before) {
+    throw new ServiceError('Assessment not found', 404);
+  }
+  const cohort = await repository.findCohort(body.cohortId);
+  if (!cohort || cohort.isDeleted) {
+    throw new ServiceError('Cohort not found', 404);
+  }
+  const after = await repository.updateAssessment(id, {
+    title: body.title,
+    description: body.description || '',
+    cohortId: body.cohortId,
+    programId: cohort.programId || null,
+    items: body.items,
+    passingScorePercent: body.passingScorePercent ?? 0,
+    maxAttempts: body.maxAttempts ?? 0,
+    isPublished: body.isPublished ?? false,
+  });
+  return { before, after };
+};
+
 // Managers see every assessment; learners see only published ones.
 const listAssessments = (query, actor) =>
   repository.listAssessments({ cohortId: query.cohortId, publishedOnly: !canManage(actor) });
@@ -100,6 +124,7 @@ const listAttempts = (query, actor) => {
 
 module.exports = {
   createAssessment,
+  updateAssessment,
   listAssessments,
   getAssessment,
   archiveAssessment,

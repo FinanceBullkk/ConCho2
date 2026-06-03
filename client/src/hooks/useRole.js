@@ -76,6 +76,10 @@ const PERMISSION_MAP = {
   'enroll:learner':  ['Admin'],                    // POST/DELETE /api/learning/enrollments
   // Cohort completion reports + xlsx export — server: report.read capability.
   'read:reports':    ['Admin', 'Teacher'],         // GET /api/learning/reports/*
+  'read:feedback':   ['Admin', 'Teacher'],         // GET /api/learning/feedback
+  // Generic assessments — server: server/domains/assessment/routes.js
+  'manage:assessment': ['Admin', 'Teacher'],        // POST/DELETE /api/assessment/assessments*
+  'read:assessment':   ['Admin', 'Teacher', 'Participant'], // GET /api/assessment/assessments*
 
   // Bookings ─ server: server/routes/scheduleRoutes.js POST /book-slot
   // roleGuard('Admin','Participant') + leader check in scheduleService
