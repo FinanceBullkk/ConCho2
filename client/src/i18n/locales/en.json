@@ -249,7 +249,41 @@
       "groups": "Groups",
       "groupsDesc": "Learning groups and team leaders remain managed through existing Teams for now.",
       "assessments": "Assessments",
-      "assessmentsDesc": "Evaluation workflows remain compatible while assessment is generalized."
+      "assessmentsDesc": "Evaluation workflows remain compatible while assessment is generalized.",
+      "reports": "Reports",
+      "reportsDesc": "Cohort completion status — attendance, assessment, feedback, and certificates."
+    },
+    "reports": {
+      "title": "Completion report",
+      "cohortLabel": "Cohort",
+      "selectCohort": "Select a cohort…",
+      "selectPrompt": "Select a cohort to view its completion report.",
+      "noLearners": "No learners",
+      "noLearnersDesc": "This cohort has no enrolled learners or session roster yet.",
+      "export": "Export Excel",
+      "exporting": "Exporting…",
+      "exportError": "Export failed. Please try again.",
+      "met": "Met",
+      "unmet": "Unmet",
+      "na": "—",
+      "yes": "Yes",
+      "no": "No",
+      "summary": {
+        "total": "Learners",
+        "complete": "Complete",
+        "completionRate": "Completion rate",
+        "certificates": "Certificates"
+      },
+      "col": {
+        "empCode": "Emp Code",
+        "name": "Name",
+        "department": "Department",
+        "attendance": "Attendance",
+        "assessment": "Assessment",
+        "feedback": "Feedback",
+        "complete": "Complete",
+        "certificate": "Certificate"
+      }
     },
     "programs": {
       "catalog": "Program Catalog",

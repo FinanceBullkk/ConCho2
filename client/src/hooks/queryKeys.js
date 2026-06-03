@@ -57,6 +57,7 @@ export const qk = {
     cohorts: (params) => ['learning', 'cohorts', params],
     cohort: (id) => ['learning', 'cohort', id],
     enrollments: (params) => ['learning', 'enrollments', params],
+    completionReport: (cohortId) => ['learning', 'completion-report', cohortId],
   },
   dashboard: {
     stats: ['dashboard', 'stats'],

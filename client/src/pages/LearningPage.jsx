@@ -1,17 +1,21 @@
 import { useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { BookOpen, Boxes, GraduationCap, Users } from 'lucide-react';
+import { BarChart3, BookOpen, Boxes, GraduationCap, Users } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { PageHeader } from '@/components/PageHeader';
+import { useRole } from '../hooks/useRole';
 import ProgramsTab from './learning/ProgramsTab';
 import CohortsTab from './learning/CohortsTab';
+import ReportsTab from './learning/ReportsTab';
 
+// `perm` (optional) gates a tab to roles holding that permission.
 const TABS = [
   { id: 'programs', icon: BookOpen },
   { id: 'cohorts', icon: Boxes },
   { id: 'groups', icon: Users },
   { id: 'assessments', icon: GraduationCap },
+  { id: 'reports', icon: BarChart3, perm: 'read:reports' },
 ];
 
 function CompatibilityTab({ type }) {
@@ -31,9 +35,14 @@ function CompatibilityTab({ type }) {
 
 export default function LearningPage() {
   const { t } = useTranslation();
+  const { can } = useRole();
   const [searchParams, setSearchParams] = useSearchParams();
-  const activeTab = searchParams.get('tab') ?? 'programs';
-  const current = TABS.find((tab) => tab.id === activeTab) ?? TABS[0];
+
+  const tabs = TABS.filter((tab) => !tab.perm || can(tab.perm));
+  const requested = searchParams.get('tab') ?? 'programs';
+  // Fall back to the first visible tab if the URL points at a hidden one.
+  const activeTab = tabs.some((tab) => tab.id === requested) ? requested : tabs[0].id;
+  const current = tabs.find((tab) => tab.id === activeTab) ?? tabs[0];
 
   const setTab = (tabId) => {
     const next = new URLSearchParams(searchParams);
@@ -46,7 +55,7 @@ export default function LearningPage() {
       <PageHeader title={t('learning.title')} description={t(`learning.tabs.${current.id}Desc`)} />
       <Tabs value={activeTab} onValueChange={setTab} className="space-y-6">
         <TabsList>
-          {TABS.map((tab) => {
+          {tabs.map((tab) => {
             const Icon = tab.icon;
             return (
               <TabsTrigger key={tab.id} value={tab.id} className="gap-2">
@@ -67,6 +76,9 @@ export default function LearningPage() {
         </TabsContent>
         <TabsContent value="assessments" hidden={activeTab !== 'assessments'}>
           {activeTab === 'assessments' && <CompatibilityTab type="assessments" />}
+        </TabsContent>
+        <TabsContent value="reports" hidden={activeTab !== 'reports'}>
+          {activeTab === 'reports' && <ReportsTab />}
         </TabsContent>
       </Tabs>
     </div>
