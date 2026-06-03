@@ -28,6 +28,7 @@ const CalendarPage     = lazy(() => import('./pages/CalendarPage'));
 const BookClassPage    = lazy(() => import('./pages/BookClassPage'));
 const ClassDetailPage  = lazy(() => import('./pages/ClassDetailPage'));
 const UserSettingsPage = lazy(() => import('./pages/UserSettingsPage'));
+const MyLearningCatalogPage = lazy(() => import('./pages/MyLearningCatalogPage'));
 const MyAssessmentsPage = lazy(() => import('./pages/MyAssessmentsPage'));
 const MyFeedbackPage = lazy(() => import('./pages/MyFeedbackPage'));
 
@@ -263,6 +264,9 @@ export default function App() {
 
                 {/* Self-service account settings — every authenticated user */}
                 <Route path="/me/settings" element={<UserSettingsPage />} />
+                <Route path="/me/catalog" element={
+                  <ProtectedRoute roles={['Participant']}><MyLearningCatalogPage /></ProtectedRoute>
+                } />
                 <Route path="/me/assessments" element={
                   <ProtectedRoute roles={['Participant']}><MyAssessmentsPage /></ProtectedRoute>
                 } />

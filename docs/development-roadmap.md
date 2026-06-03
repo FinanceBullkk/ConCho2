@@ -43,8 +43,11 @@ review submitted short-text answers, override per-answer scores, and completion
 uses the updated pass state. Completion report rollups are now live too:
 `GET /api/learning/reports/completion/rollup` aggregates completion by program
 and department, and the Learning **Reports** tab shows those rollups above the
-cohort detail report. Next: Wave C catalog/self-service planning, plus advanced
-report filters/exports when needed.
+cohort detail report. Wave C has started with a learner-facing catalog:
+Participants can open `/me/catalog`, browse/search active self-enroll programs,
+and enroll in available cohorts through the existing cohort-enrollment API.
+Next: learning paths/prerequisite gating, plus advanced report filters/exports
+when needed.
 
 ---
 
@@ -66,7 +69,7 @@ report filters/exports when needed.
 |------|------|--------|-----------|
 | A — Foundation | Generic learning core works E2E (scheduling modes, cohort enrollment, CRUD UI, capability authz) | 🟢 done (M1–M4) | — |
 | B — Assessment & Certification | Generic assessment engine, completion enforcement, certificates | 🟡 in progress (completion + certificates + feedback + assessment engine v1 + completion reporting + rollups + assessment UI + feedback UI + assessment edit + question-bank backend/UI + manual grading v1 done) | A |
-| C — Catalog, Paths & Self-service | Learner catalog, self-enroll, learning paths/prerequisites | 🔴 planned | A |
+| C — Catalog, Paths & Self-service | Learner catalog, self-enroll, learning paths/prerequisites | 🟡 in progress (learner catalog + self-enroll UI v1 done; paths/prerequisites next) | A |
 | D — Platform & Scale | SSO, HRIS sync, advanced analytics, mobile, Postgres gate | 🔴 planned | B, C |
 
 ---
@@ -92,11 +95,20 @@ report filters/exports when needed.
 | → | **Phase 4 — question bank UI** | Surface reusable questions in Learning | 🟢 done — manager-only Question Bank panel on Assessments tab; create/archive bank questions; assessment modal imports selected bank questions. |
 | → | **Wave B — manual grading v1** | Review short-text answers | 🟢 done — manager-only `PUT /api/assessment/attempts/:id/manual-grade`; Learning Assessments tab review modal updates short-text scores/notes and recomputes pass state. |
 | → | **Wave B — completion report rollups** | Aggregate completion by program and department | 🟢 done — `GET /api/learning/reports/completion/rollup` reuses cohort completion rows, returns program/department summaries, and Learning Reports shows rollup tables above cohort detail. |
+| → | **Wave C — learner catalog self-enroll v1** | Learners browse and enroll themselves | 🟢 done — Participant route `/me/catalog` lists active `self_enroll` programs with ongoing cohorts, search/category filters, existing-enrollment state, and enrollment action via `/api/learning/enrollments`. |
 
 ---
 
 ## Recent progress (changelog)
 
+- **2026-06-03** — **Wave C — learner catalog self-enroll v1.**
+  Added Participant self-service catalog at `/me/catalog`. The page lists active
+  programs with `schedulingMode: self_enroll`, joins ongoing cohorts, supports
+  search/category filters, marks already-enrolled cohorts, and enrolls through
+  the existing `/api/learning/enrollments` self-enroll path. Participant
+  dashboard now links to the catalog. Verified: focused catalog UI **2 tests**,
+  client **122 tests**, lint 0 errors/81 warnings (at cap), production bundle
+  clean.
 - **2026-06-03** — **Wave B — completion report rollups.**
   Added `GET /api/learning/reports/completion/rollup` behind `report.read`.
   The rollup reuses the existing cohort completion report path, groups active
