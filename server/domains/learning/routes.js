@@ -29,6 +29,9 @@ const {
 } = require('./completion/schemas');
 const feedbackController = require('./feedback/controller');
 const { submitFeedbackBody, listFeedbackQuery } = require('./feedback/schemas');
+const reportsController = require('./reports/controller');
+const { completionReportQuery } = require('./reports/schemas');
+const { exportLimiter } = require('../../middleware/rateLimiters');
 
 // ── PUBLIC: certificate verification (no auth) ────────────
 // Registered BEFORE router.use(protect) so anyone can verify a certificate by
@@ -132,6 +135,22 @@ router.delete(
   requireCapability('certificate.manage'),
   validate({ params: idParam, body: revokeCertificateBody }),
   completionController.revokeCertificate,
+);
+
+// ── Completion reporting + export (Wave B — Phase 5) ──────
+router.get(
+  '/reports/completion',
+  requireCapability('report.read'),
+  validate({ query: completionReportQuery }),
+  reportsController.getCompletionReport,
+);
+
+router.get(
+  '/reports/completion/export',
+  requireCapability('report.read'),
+  exportLimiter,
+  validate({ query: completionReportQuery }),
+  reportsController.exportCompletionReport,
 );
 
 // ── Cohort feedback / surveys (Wave B — unblocks requiresFeedback) ────

@@ -39,6 +39,7 @@ const CAPABILITIES = Object.freeze({
   ASSESSMENT_MANAGE: 'assessment.manage', // author / archive assessments (admin/teacher)
   ASSESSMENT_READ: 'assessment.read',   // list/get assessments + attempts
   ASSESSMENT_ATTEMPT: 'assessment.attempt', // take an assessment (learner)
+  REPORT_READ: 'report.read',           // cohort-wide completion reports + export (admin/teacher)
 });
 
 const ALL_CAPABILITIES = Object.freeze(Object.values(CAPABILITIES));
@@ -56,6 +57,7 @@ const ROLE_CAPABILITIES = Object.freeze({
     CAPABILITIES.FEEDBACK_READ,
     CAPABILITIES.ASSESSMENT_MANAGE,
     CAPABILITIES.ASSESSMENT_READ,
+    CAPABILITIES.REPORT_READ,
   ]),
   Participant: Object.freeze([
     CAPABILITIES.SESSION_BOOK,
