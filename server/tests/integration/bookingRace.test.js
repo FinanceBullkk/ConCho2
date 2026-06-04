@@ -101,6 +101,27 @@ describe('Booking race — Promise.all double-fire on identical slot', () => {
 });
 
 describe('Booking race — weekly 2-session cap', () => {
+  // Boundary race: from an empty week, fire three concurrent bookings on three
+  // DIFFERENT free slots. The unique index and collision check do NOT apply
+  // (distinct slots), so the cap is enforced solely by the team-document
+  // write-lock serializing the transactions. Exactly two must win.
+  test('three concurrent bookings on different slots (empty week) → exactly two 201, one 400 cap', async () => {
+    const s0 = vnSlotOnDay(0);
+    const s1 = vnSlotOnDay(1);
+    const s2 = vnSlotOnDay(2);
+    const [r0, r1, r2] = await Promise.all([
+      bookSlot(s0.start, s0.end),
+      bookSlot(s1.start, s1.end),
+      bookSlot(s2.start, s2.end),
+    ]);
+
+    expect([r0.status, r1.status, r2.status].sort((a, b) => a - b)).toEqual([201, 201, 400]);
+
+    const Schedule = require('../../models/Schedule');
+    const count = await Schedule.countDocuments({ bookedTeamId: seed.team._id });
+    expect(count).toBe(2);
+  });
+
   test('two slots already booked + Promise.all of two more → both fail with 400 weekly-cap', async () => {
     // Book two slots first (sequential — to fill the cap legitimately).
     const slot1 = vnSlotOnDay(0);
