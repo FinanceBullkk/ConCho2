@@ -18,8 +18,7 @@
  */
 
 const ExcelJS = require('exceljs');
-const mongoose = require('mongoose');
-const { getApp, getSeedData } = require('../setup');
+const { getApp, getSeedData, teardown } = require('../setup');
 
 let app, seed;
 
@@ -29,7 +28,7 @@ beforeAll(async () => {
 });
 
 afterAll(async () => {
-  await mongoose.disconnect();
+  await teardown();
 });
 
 // ── 1. Unit: safeCell() pure function ───────────────────────

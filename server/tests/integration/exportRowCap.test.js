@@ -11,8 +11,7 @@
  * seed 50,000 rows just to assert the gate fires.
  */
 
-const mongoose = require('mongoose');
-const { getApp, getSeedData } = require('../setup');
+const { getApp, getSeedData, teardown } = require('../setup');
 
 let seed;
 
@@ -25,7 +24,7 @@ beforeAll(async () => {
 
 afterAll(async () => {
   process.env = ORIGINAL_ENV;
-  await mongoose.disconnect();
+  await teardown();
 });
 
 const cleanup = async () => {
