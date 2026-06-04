@@ -32,6 +32,8 @@ const { submitFeedbackBody, listFeedbackQuery } = require('./feedback/schemas');
 const reportsController = require('./reports/controller');
 const { completionReportQuery, completionRollupQuery } = require('./reports/schemas');
 const { exportLimiter } = require('../../middleware/rateLimiters');
+const pathController = require('./path/controller');
+const { createPathBody, updatePathBody, listPathsQuery } = require('./path/schemas');
 
 // ── PUBLIC: certificate verification (no auth) ────────────
 // Registered BEFORE router.use(protect) so anyone can verify a certificate by
@@ -173,5 +175,35 @@ router
     validate({ body: submitFeedbackBody }),
     feedbackController.submitFeedback,
   );
+
+// ── Sequenced learning paths (Wave C v1) ──────────────────
+// Read is open to any authenticated learner (browse catalog + own progress);
+// manage (create/edit/archive) is Admin-only via the capability map.
+router
+  .route('/paths')
+  .get(
+    requireCapability('path.read'),
+    validate({ query: listPathsQuery }),
+    pathController.listPaths,
+  )
+  .post(
+    requireCapability('path.manage'),
+    validate({ body: createPathBody }),
+    pathController.createPath,
+  );
+
+// '/:id/progress' is registered before '/:id' so 'progress' is never read as an id.
+router.get(
+  '/paths/:id/progress',
+  requireCapability('path.read'),
+  validate({ params: idParam }),
+  pathController.getPathProgress,
+);
+
+router
+  .route('/paths/:id')
+  .get(requireCapability('path.read'), validate({ params: idParam }), pathController.getPath)
+  .put(requireCapability('path.manage'), validate({ params: idParam, body: updatePathBody }), pathController.updatePath)
+  .delete(requireCapability('path.manage'), validate({ params: idParam }), pathController.archivePath);
 
 module.exports = router;

@@ -52,7 +52,12 @@ and enroll in available cohorts through the existing cohort-enrollment API.
 or an Issued certificate counts; Admins may override. A **prerequisite-selector
 UI** now lets Admins set `prerequisitePrograms` on a Program from the Learning
 workspace (multi-select of other active programs; persists on create + edit).
-Next: sequenced learning paths, plus advanced report filters/exports when needed.
+**Sequenced learning paths v1** now exist as a backend foundation: a new
+`LearningPath` (`/api/learning/paths`) is an ordered curriculum of programs with
+Admin CRUD and a per-learner `…/progress` endpoint that derives step state
+(`completed`/`current`/`locked`) from program completion (reusing the
+prerequisite engine). Next: a learning-paths UI, plus advanced report
+filters/exports when needed.
 
 ---
 
@@ -74,7 +79,7 @@ Next: sequenced learning paths, plus advanced report filters/exports when needed
 |------|------|--------|-----------|
 | A — Foundation | Generic learning core works E2E (scheduling modes, cohort enrollment, CRUD UI, capability authz) | 🟢 done (M1–M4) | — |
 | B — Assessment & Certification | Generic assessment engine, completion enforcement, certificates | 🟡 in progress (completion + certificates + feedback + assessment engine v1 + completion reporting + rollups + assessment UI + feedback UI + assessment edit + question-bank backend/UI + manual grading v1 done) | A |
-| C — Catalog, Paths & Self-service | Learner catalog, self-enroll, learning paths/prerequisites | 🟡 in progress (learner catalog + self-enroll UI + prerequisite gating v1 + prereq selector UI done; sequenced paths next) | A |
+| C — Catalog, Paths & Self-service | Learner catalog, self-enroll, learning paths/prerequisites | 🟡 in progress (learner catalog + self-enroll UI + prerequisite gating v1 + prereq selector UI + sequenced learning paths v1 backend done; paths UI next) | A |
 | D — Platform & Scale | SSO, HRIS sync, advanced analytics, mobile, Postgres gate | 🔴 planned | B, C |
 
 ---
@@ -103,11 +108,23 @@ Next: sequenced learning paths, plus advanced report filters/exports when needed
 | → | **Wave C — learner catalog self-enroll v1** | Learners browse and enroll themselves | 🟢 done — Participant route `/me/catalog` lists active `self_enroll` programs with ongoing cohorts, search/category filters, existing-enrollment state, and enrollment action via `/api/learning/enrollments`. |
 | → | **Wave C — prerequisite gating v1** | Block enrollment until prerequisite programs are completed | 🟢 done — `LearningProgram.prerequisitePrograms`; enrollment chokepoint enforces direct prerequisites for self-enroll (422, names the unmet program) via `enrollment/prerequisites.js` (Issued certificate OR completion-engine signal); Admins override. DTO exposes the field. 5 integration tests. Sequenced paths + prereq selector UI deferred. |
 | → | **Phase 4 — prerequisite-selector UI** | Let Admins set program prerequisites from the UI | 🟢 done — `ProgramFormModal` now has a multi-select **Prerequisites** picker (other active programs, self excluded) wired to `prerequisitePrograms`; create + edit persist it. New presentational `PrerequisiteSelector`; i18n en+vi; 4 component tests. Closes the deferred prereq UI from gating v1. |
+| → | **Wave C — sequenced learning paths v1** | Ordered curriculum of programs + per-learner progress | 🟢 done — new `LearningPath` model + `domains/learning/path/` (`/api/learning/paths`): Admin CRUD (`path.manage`) of an ordered, de-duplicated program list; any learner reads (`path.read`). `GET /paths/:id/progress` derives `completed`/`current`/`locked` per step from the shared `hasCompletedProgram` engine (DRY) + a summary. Soft-delete + audit. 9 integration tests. Backend-only; paths UI + auto-enroll-next deferred. |
 
 ---
 
 ## Recent progress (changelog)
 
+- **2026-06-04** — **Wave C — sequenced learning paths v1 (backend foundation).**
+  New `LearningPath` model (ordered, de-duplicated program list; soft-delete) +
+  `domains/learning/path/` mounted at `/api/learning/paths`. Admin CRUD behind a
+  new `path.manage` capability; any authenticated learner reads behind `path.read`.
+  `GET /paths/:id/progress` walks the ordered programs and derives each step's
+  state — `completed` / `current` / `locked` — from the shared
+  `hasCompletedProgram` engine (DRY with prerequisite gating), plus a summary
+  (`completed`/`total`/`percentComplete`/`complete`). No enrollment side effects
+  yet (curriculum + progress view only — YAGNI). Audit on every mutation. 9
+  integration tests; full server suite green (exit 0, **549** — 540 + 9). Backend
+  only — a learning-paths UI and auto-enroll-into-next-step are deferred.
 - **2026-06-04** — **Phase 4 — prerequisite-selector UI.** The Program form
   (`ProgramFormModal`) now exposes a multi-select **Prerequisites** picker listing
   other active programs (self excluded); selections persist to
