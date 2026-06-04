@@ -37,7 +37,16 @@ const enroll = async ({ cohortId, userId }, actor) => {
     await assertPrerequisitesMet(cohort, targetUserId);
   }
 
-  return repository.createCohortEnrollment({ userId: targetUserId, cohortId });
+  try {
+    return await repository.createCohortEnrollment({ userId: targetUserId, cohortId });
+  } catch (error) {
+    // Lost a concurrent race against the partial unique index (DI-05b): the
+    // app-level check above passed for both callers, only one insert wins.
+    if (error && error.code === 11000) {
+      throw new ServiceError('Learner is already enrolled in this cohort', 409);
+    }
+    throw error;
+  }
 };
 
 // Withdraw (soft) a cohort enrollment: status -> Dropped. Admin or the learner.

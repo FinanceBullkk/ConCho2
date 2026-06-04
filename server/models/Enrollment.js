@@ -76,8 +76,15 @@ enrollmentSchema.index(
   { unique: true, partialFilterExpression: { status: 'Active', teamId: { $type: 'objectId' } } }
 );
 
-// Cohort-based (L&D) enrollment uniqueness is enforced in the enrollment
-// use-case (findActiveCohortEnrollment) rather than a partial index, because a
-// reliable "teamId is null" partial filter is brittle across Mongo versions.
+// DI-05b: Race-proof duplicate guard for cohort-based (teamId null) enrollments.
+// The use-case findActiveCohortEnrollment check is the friendly fast path; this
+// partial unique index is the concurrency backstop — two parallel enrolls can
+// both pass the app-level check, but only one can win the index. $type:'null'
+// (BSON type 10) scopes the index to cohort enrollments, mirroring the team
+// index above ($type:'objectId') so the two never overlap.
+enrollmentSchema.index(
+  { userId: 1, classId: 1 },
+  { unique: true, partialFilterExpression: { status: 'Active', teamId: { $type: 'null' } } }
+);
 
 module.exports = mongoose.model('Enrollment', enrollmentSchema);
