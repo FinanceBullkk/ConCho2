@@ -70,6 +70,9 @@ const PERMISSION_MAP = {
   'update:program':  ['Admin'],                    // PUT    /api/learning/programs/:id
   'archive:program': ['Admin'],                    // DELETE /api/learning/programs/:id
   'create:cohort':   ['Admin'],                    // POST   /api/learning/cohorts
+  // Learning paths (sequenced curricula) — server: path.manage / path.read.
+  'manage:path':     ['Admin'],                    // POST/PUT/DELETE /api/learning/paths
+  'read:path':       ['Admin', 'Teacher', 'Participant'], // GET /api/learning/paths*
   'read:learning':   ['Admin', 'Teacher', 'Participant'], // GET /api/learning/*
   // Enrolling another learner is Admin-only; learners self-enroll server-side
   // (gated by program schedulingMode), not via this UI permission.

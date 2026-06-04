@@ -56,8 +56,9 @@ workspace (multi-select of other active programs; persists on create + edit).
 `LearningPath` (`/api/learning/paths`) is an ordered curriculum of programs with
 Admin CRUD and a per-learner `…/progress` endpoint that derives step state
 (`completed`/`current`/`locked`) from program completion (reusing the
-prerequisite engine). Next: a learning-paths UI, plus advanced report
-filters/exports when needed.
+prerequisite engine). An **admin Paths tab** on `/learning` now lets Admins
+create/edit/archive paths with an ordered program picker. Next: a learner-facing
+path-progress view, plus advanced report filters/exports when needed.
 
 ---
 
@@ -69,7 +70,7 @@ filters/exports when needed.
 | 1 | Backend modular-monolith refactor | ~42% | 🟡 in progress |
 | 2 | Learning catalog + generic cohort model | ~95% | 🟢 near done |
 | 3 | Multi-program enrollment + session scheduling | ~78% | 🟡 in progress |
-| 4 | Frontend L&D workspace (CRUD UI) | ~74% | 🟡 in progress |
+| 4 | Frontend L&D workspace (CRUD UI) | ~76% | 🟡 in progress |
 | 5 | Reporting, completion, feedback | ~72% | 🟡 in progress |
 | 6 | PostgreSQL decision gate | 0% | ⚪ gated |
 
@@ -79,7 +80,7 @@ filters/exports when needed.
 |------|------|--------|-----------|
 | A — Foundation | Generic learning core works E2E (scheduling modes, cohort enrollment, CRUD UI, capability authz) | 🟢 done (M1–M4) | — |
 | B — Assessment & Certification | Generic assessment engine, completion enforcement, certificates | 🟡 in progress (completion + certificates + feedback + assessment engine v1 + completion reporting + rollups + assessment UI + feedback UI + assessment edit + question-bank backend/UI + manual grading v1 done) | A |
-| C — Catalog, Paths & Self-service | Learner catalog, self-enroll, learning paths/prerequisites | 🟡 in progress (learner catalog + self-enroll UI + prerequisite gating v1 + prereq selector UI + sequenced learning paths v1 backend done; paths UI next) | A |
+| C — Catalog, Paths & Self-service | Learner catalog, self-enroll, learning paths/prerequisites | 🟡 in progress (learner catalog + self-enroll UI + prerequisite gating v1 + prereq selector UI + sequenced learning paths v1 backend + admin paths UI done; learner path-progress view next) | A |
 | D — Platform & Scale | SSO, HRIS sync, advanced analytics, mobile, Postgres gate | 🔴 planned | B, C |
 
 ---
@@ -109,11 +110,23 @@ filters/exports when needed.
 | → | **Wave C — prerequisite gating v1** | Block enrollment until prerequisite programs are completed | 🟢 done — `LearningProgram.prerequisitePrograms`; enrollment chokepoint enforces direct prerequisites for self-enroll (422, names the unmet program) via `enrollment/prerequisites.js` (Issued certificate OR completion-engine signal); Admins override. DTO exposes the field. 5 integration tests. Sequenced paths + prereq selector UI deferred. |
 | → | **Phase 4 — prerequisite-selector UI** | Let Admins set program prerequisites from the UI | 🟢 done — `ProgramFormModal` now has a multi-select **Prerequisites** picker (other active programs, self excluded) wired to `prerequisitePrograms`; create + edit persist it. New presentational `PrerequisiteSelector`; i18n en+vi; 4 component tests. Closes the deferred prereq UI from gating v1. |
 | → | **Wave C — sequenced learning paths v1** | Ordered curriculum of programs + per-learner progress | 🟢 done — new `LearningPath` model + `domains/learning/path/` (`/api/learning/paths`): Admin CRUD (`path.manage`) of an ordered, de-duplicated program list; any learner reads (`path.read`). `GET /paths/:id/progress` derives `completed`/`current`/`locked` per step from the shared `hasCompletedProgram` engine (DRY) + a summary. Soft-delete + audit. 9 integration tests. Backend-only; paths UI + auto-enroll-next deferred. |
+| → | **Phase 4 — learning paths admin UI** | Manage learning paths from the Learning workspace | 🟢 done — gated **Paths tab** on `/learning` (`manage:path`): Admin list + create/edit/archive via `PathFormModal`; presentational `PathProgramsEditor` gives an ordered program picker (add/reorder/remove). `learningAPI` path methods + React Query hooks/keys + `manage:path`/`read:path` perms; i18n en+vi; 9 component tests. Learner path-progress view deferred. |
 
 ---
 
 ## Recent progress (changelog)
 
+- **2026-06-04** — **Wave C — learning paths admin UI.** Surfaced the
+  `/api/learning/paths` backend in the Learning workspace: a new **Paths tab**
+  on `/learning` (Admin-gated via `manage:path`) lists paths and lets Admins
+  create/edit/archive them. `PathFormModal` reuses the program/cohort modal
+  pattern; a presentational `PathProgramsEditor` provides an **ordered** program
+  picker (add from a dropdown, reorder up/down, remove) so the array order is the
+  curriculum sequence. New `learningAPI` path methods + `useLearningPaths`/
+  `useCreatePath`/`useUpdatePath`/`useArchivePath` hooks + `qk.learning.paths`
+  keys + `manage:path`/`read:path` UI permissions; i18n en+vi (parity 398/398).
+  Client **136 tests** (+9), lint 0 errors/81 warnings (at cap), build clean.
+  Frontend-only. Learner-facing path-progress view (`…/progress`) deferred.
 - **2026-06-04** — **Wave C — sequenced learning paths v1 (backend foundation).**
   New `LearningPath` model (ordered, de-duplicated program list; soft-delete) +
   `domains/learning/path/` mounted at `/api/learning/paths`. Admin CRUD behind a

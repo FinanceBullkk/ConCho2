@@ -86,6 +86,37 @@ export const useArchiveProgram = () => {
   });
 };
 
+// ── Learning path reads + mutations ───────────────────────
+export const useLearningPaths = (params = {}) =>
+  useQuery({
+    queryKey: qk.learning.paths(params),
+    queryFn: async () => (await learningAPI.getPaths(params)).data,
+  });
+
+export const useCreatePath = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (data) => learningAPI.createPath(data).then((r) => r.data.data),
+    onSettled: () => invalidateLearning(qc),
+  });
+};
+
+export const useUpdatePath = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, data }) => learningAPI.updatePath(id, data).then((r) => r.data.data),
+    onSettled: () => invalidateLearning(qc),
+  });
+};
+
+export const useArchivePath = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id) => learningAPI.archivePath(id),
+    onSettled: () => invalidateLearning(qc),
+  });
+};
+
 // ── Cohort mutations ──────────────────────────────────────
 export const useCreateCohort = () => {
   const qc = useQueryClient();
