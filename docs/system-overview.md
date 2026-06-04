@@ -1,19 +1,20 @@
-# System Overview — TMS v2 (becoming an internal LMS)
+# System Overview — TMS v2 (becoming an Internal LTMS)
 
 > **Purpose:** one orientation page — what the system is, how it works, how it's
 > built, and **where we are** on the journey from a Training Management System
-> to a generic internal Learning Management System. For exhaustive code-truth
-> detail see [`current-system-map.md`](current-system-map.md); for the forward
-> plan see [`lms-roadmap.md`](lms-roadmap.md).
+> to an Internal Learning/Training Management System for about 1000 employees.
+> For exhaustive code-truth detail see [`current-system-map.md`](current-system-map.md);
+> for the forward plan see [`lms-roadmap.md`](lms-roadmap.md).
 
 ---
 
 ## 1. What it is & who uses it
 
 TMS v2 is an **internal training platform**: it schedules classes, lets teams
-book sessions, records attendance, captures end-of-course evaluations, and
-exports HR reports — replacing scattered Excel/Sheets. It is mid-migration into
-a **generic L&D / LMS** platform (most code is still English-class shaped).
+book sessions, records attendance, captures assessments/feedback, issues
+certificates, and exports HR reports — replacing scattered Excel/Sheets. It is
+mid-migration into an **Internal LTMS** focused on training ops + compliance, not
+a commercial LMS clone or SCORM-first content platform.
 
 | Role | Who | Can do |
 |------|-----|--------|
@@ -135,8 +136,10 @@ erDiagram
 | `courseName` (enum) | **Program** (`LearningProgram`) | ✅ done (`Class.programId`) |
 | `Schedule` | **Session** | adapter `/api/learning/sessions` ✅ |
 | `Team` | **LearningGroup** | ❌ not migrated |
-| `Evaluation` | **Assessment** | ❌ not migrated |
-| `Enrollment` (team-based) | cohort-based enrollment | ❌ not migrated |
+| `Evaluation` | legacy English rubric | kept for compatibility; `Assessment` v1 is live ✅ |
+| `Enrollment` | cohort-based enrollment | ✅ live; legacy team enrollment still supported |
+| `Assessment`, `AssessmentAttempt`, `AssessmentQuestion` | quiz engine + question bank | ✅ v1 live |
+| `Certificate`, `Feedback`, `LearningPath` | compliance + learner path foundation | ✅ v1 live |
 
 Key unique indexes (final integrity guards): `Schedule {classId,startTime}`,
 `Attendance {scheduleId,userId}`, `Evaluation {classId,userId}`,
@@ -164,44 +167,59 @@ and [`route-permission-matrix.md`](route-permission-matrix.md).
 ## 7. You are here — migration scorecard
 
 Re-architecture into an L&D platform runs in phases (full detail:
-[`handoff-2026-06-01.md`](handoff-2026-06-01.md)).
+[`development-roadmap.md`](development-roadmap.md)).
 
 | Phase | Theme | Progress |
 |------|-------|---------:|
 | 0 | Architecture baseline + safety net (ADRs, tests, domain convention) | ~92% |
-| 1 | Backend modular-monolith refactor (extract legacy → `domains/`) | ~35% |
+| 1 | Backend modular-monolith refactor (extract legacy → `domains/`) | ~42% |
 | 2 | Learning catalog + generic cohort model (`LearningProgram`) | ~95% |
-| 3 | Multi-program enrollment + session scheduling | ~40% |
-| 4 | Frontend L&D workspace (catalog/cohort CRUD UI) | ~55% |
-| 5 | Reporting, completion, feedback | ~60% |
+| 3 | Multi-program enrollment + session scheduling | ~78% |
+| 4 | Frontend L&D workspace (CRUD UI) | ~76% |
+| 5 | Reporting, completion, feedback | ~72% |
 | 6 | PostgreSQL decision gate | 0% |
 
 **Today:** Wave A (Foundation) is complete — all 4 `schedulingMode`s enforced,
 cohort-based enrollment + self-enroll live, the Learning page has CRUD, and a
 capability-based authz layer gates the learning routes. Wave B is progressing:
-`completionPolicy` is enforced (attendance % + assessment + feedback),
-certificates issue on completion with public verification, a Feedback
-foundation unblocks `requiresFeedback`, and a generic **assessment engine v1**
-(`/api/assessment`) authors auto-graded quizzes whose passing attempts satisfy
-`requiresAssessment`, and a cohort **completion report + xlsx export**
-(`/api/learning/reports/completion`) closes the reporting gap. Biggest gaps
-before "LMS": the learner-facing L&D UI (surface all this), assessment
-iteration (banks), SSO/HRIS.
+`completionPolicy` is enforced (attendance % + assessment + feedback);
+certificates, public verification, feedback UI, assessment v1, question bank,
+manual grading, completion reports, and rollups are live. Wave C has started:
+learner catalog, self-enroll, prerequisite gating, sequenced paths backend, and
+admin paths UI are live. The key open loop is learner-facing path progress.
+For 1000 employees, next platform gaps are production readiness, Google OIDC,
+Google Directory sync, manager hierarchy, notifications, and compliance report
+depth.
 → see [`lms-roadmap.md`](lms-roadmap.md).
 
 **Stack:** React 19 + Vite 8 + Tailwind 4 / Express 4 + Mongoose 8 + MongoDB;
-~525 server tests, ~103 client tests, Playwright e2e; 7 CI gates; deployed on Render.
+server/client test suites, Playwright e2e, 7 CI gates, deployed on Render.
+
+## 8. Delivery discipline — no feature factory
+
+Every milestone must be wired before the next feature starts:
+
+- backend route/use-case works with real authz/capability rules;
+- frontend entrypoint exists when user value depends on UI;
+- i18n en+vi updated for user-facing strings;
+- mutations audit and soft-delete where applicable;
+- reports/completion/certificates/notifications consume new data when relevant;
+- tests cover happy path, permission denial, and one core edge case;
+- manual smoke flow is documented or run.
 
 ---
 
-## 8. Source-of-truth index
+## 9. Source-of-truth index
 
 | Doc | What |
 |-----|------|
+| [`../AGENTS.md`](../AGENTS.md) | Agent reference contract for Codex/Claude |
+| [`development-roadmap.md`](development-roadmap.md) | Living tracker and next work |
 | [`current-system-map.md`](current-system-map.md) | Exhaustive code-truth map (routes, models, services) |
 | [`route-permission-matrix.md`](route-permission-matrix.md) | Per-route read/write access |
 | [`handoff-2026-06-01.md`](handoff-2026-06-01.md) | Phase progress + prioritized task list |
-| [`lms-roadmap.md`](lms-roadmap.md) | Gap analysis + roadmap to a comprehensive LMS |
+| [`lms-roadmap.md`](lms-roadmap.md) | Internal LTMS strategy and 6-month direction |
+| [`ltms-gap-analysis.md`](ltms-gap-analysis.md) | LTMS gap analysis + proposed priority re-sequence (decision doc) |
 | [`decisions/`](decisions/) | Locked architecture decisions (ADRs) |
 | [`../CLAUDE.md`](../CLAUDE.md) + [`../.claude/rules/`](../.claude/rules/) | Engineering conventions |
 | `/api/docs` | Swagger UI (server running) |
