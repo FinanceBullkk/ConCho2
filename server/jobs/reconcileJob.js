@@ -1,6 +1,7 @@
 const cron = require('node-cron');
 const { runReconciliation } = require('../services/reconcileService');
 const auditService = require('../services/auditService');
+const { runMonitored, CRON_JOBS } = require('../lib/cronMonitor');
 const logger = require('../lib/logger');
 
 // ──────────────────────────────────────────────────────────
@@ -40,7 +41,13 @@ function startReconcileJob() {
   task = cron.schedule(CRON_SCHEDULE, async () => {
     logger.info({ schedule: CRON_SCHEDULE }, 'Reconciliation cron fired');
     try {
-      const report = await runReconciliation('scheduled');
+      // Self-monitoring: heartbeat (CronRun) + Sentry cron check-in. Fail-soft —
+      // the actual reconcile result/error still flows through to the audit logic below.
+      const report = await runMonitored(
+        CRON_JOBS.reconcile.jobName,
+        { ...CRON_JOBS.reconcile, schedule: CRON_SCHEDULE },
+        () => runReconciliation('scheduled')
+      );
 
       // SEC-013: audit-log the scheduled reconcile run
       // auditService.record() accepts undefined req — defaults to actorRole: 'System'

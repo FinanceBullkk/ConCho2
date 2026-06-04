@@ -62,8 +62,15 @@ path-progress view** (`/me/paths`) now closes the loop: learners see each path's
 ordered steps marked `completed`/`current`/`locked` with a progress bar (from the
 `…/progress` endpoint), linked from the Participant dashboard. **Wave C core is
 complete.** The UI is now **English-only** (single `en` locale; `vi.json` removed).
-Next per the locked plan: D1 production readiness → D2 Google OIDC/Directory sync
-→ D3 manager hierarchy → D4 assignment+due-dates.
+**Wave D1 has started (codeable slice):** scheduled jobs now **self-monitor** — a
+durable `CronRun` heartbeat (last run / status / duration / error, upserted per
+run) plus Sentry **cron check-ins** (in-progress→ok/error, fail-soft) wrap the
+nightly reconcile + attendance-reminders via `lib/cronMonitor.runMonitored`, and a
+gated **`GET /api/admin/cron/health`** + a **Scheduled jobs** panel on the
+Reconcile page answer "did cron actually fire?" on the sleeping free-tier. The
+remaining D1 work (paid always-on hosting, Sentry account/dashboard cron-monitor
+setup) is owner ops. Next per the locked plan: finish D1 hosting → D2 Google
+OIDC/Directory sync → D3 manager hierarchy → D4 assignment+due-dates.
 
 ---
 
@@ -71,7 +78,7 @@ Next per the locked plan: D1 production readiness → D2 Google OIDC/Directory s
 
 | Phase | Theme | Progress | Status |
 |------|-------|---------:|--------|
-| 0 | Architecture baseline + safety net | ~92% | 🟢 near done |
+| 0 | Architecture baseline + safety net | ~93% | 🟢 near done |
 | 1 | Backend modular-monolith refactor | ~42% | 🟡 in progress |
 | 2 | Learning catalog + generic cohort model | ~95% | 🟢 near done |
 | 3 | Multi-program enrollment + session scheduling | ~78% | 🟡 in progress |
@@ -86,7 +93,7 @@ Next per the locked plan: D1 production readiness → D2 Google OIDC/Directory s
 | A — Foundation | Generic learning core works E2E (scheduling modes, cohort enrollment, CRUD UI, capability authz) | 🟢 done (M1–M4) | — |
 | B — Assessment & Certification | Generic assessment engine, completion enforcement, certificates | 🟡 in progress (completion + certificates + feedback + assessment engine v1 + completion reporting + rollups + assessment UI + feedback UI + assessment edit + question-bank backend/UI + manual grading v1 done) | A |
 | C — Catalog, Paths & Self-service | Learner catalog, self-enroll, learning paths/prerequisites | 🟢 core done (learner catalog + self-enroll UI + prerequisite gating v1 + prereq selector UI + sequenced learning paths v1 + admin paths UI + learner path-progress view) | A |
-| D — Platform & Scale | Production readiness → Google OIDC + Directory sync → manager hierarchy (org model) → **mandatory assignment + due dates** → notifications/escalation → compliance reporting + recertification. Order locked 2026-06-04 (after C closes). | 🔴 planned | B, C |
+| D — Platform & Scale | Production readiness → Google OIDC + Directory sync → manager hierarchy (org model) → **mandatory assignment + due dates** → notifications/escalation → compliance reporting + recertification. Order locked 2026-06-04 (after C closes). | 🟡 in progress (D1 cron self-monitoring done — heartbeat + Sentry check-ins + admin health UI; paid hosting + Sentry-account cron-monitor setup = owner ops) | B, C |
 | E — Generic scheduling | Generalize booking beyond fixed English slots (session types, rooms, capacity, waitlists, instructors); keep leader-booking as one mode. Committed parallel track; large, own plan. | 🔴 planned | A |
 
 > **Direction locked 2026-06-04** — full rationale + gap analysis in
@@ -137,11 +144,28 @@ Bug fixing and integration review rank above net-new feature rollout.
 | → | **Wave C — sequenced learning paths v1** | Ordered curriculum of programs + per-learner progress | 🟢 done — new `LearningPath` model + `domains/learning/path/` (`/api/learning/paths`): Admin CRUD (`path.manage`) of an ordered, de-duplicated program list; any learner reads (`path.read`). `GET /paths/:id/progress` derives `completed`/`current`/`locked` per step from the shared `hasCompletedProgram` engine (DRY) + a summary. Soft-delete + audit. 9 integration tests. Backend-only; paths UI + auto-enroll-next deferred. |
 | → | **Phase 4 — learning paths admin UI** | Manage learning paths from the Learning workspace | 🟢 done — gated **Paths tab** on `/learning` (`manage:path`): Admin list + create/edit/archive via `PathFormModal`; presentational `PathProgramsEditor` gives an ordered program picker (add/reorder/remove). `learningAPI` path methods + React Query hooks/keys + `manage:path`/`read:path` perms; 9 component tests. |
 | → | **Wave C1 — learner path-progress view** | Let learners see their path progress (closes the paths loop) | 🟢 done — Participant `/me/paths`: lists active paths, each showing ordered steps marked `completed`/`current`/`locked` + a progress bar, from `GET /paths/:id/progress` via new `usePathProgress`. Presentational `PathProgressView` + `MyLearningPathsPage`; dashboard CTA; 4 component tests. English-only (no i18n keys, matches `/me/*` siblings). |
+| → | **Wave D1 — cron self-monitoring** | Confirm scheduled jobs actually run on the sleeping free-tier | 🟢 done (codeable slice) — `lib/cronMonitor.runMonitored` wraps the nightly reconcile + attendance-reminders (in-process job **and** pinger endpoints) with a durable `CronRun` heartbeat (last run/status/duration/error/counters, upserted per run) + Sentry **cron check-ins** (in-progress→ok/error) + `captureException`, all **fail-soft**. Gated `GET /api/admin/cron/health` derives an `ok`/`stale`/`error`/`never` verdict per job; a **Scheduled jobs** panel on `/reconcile` surfaces it. 10 tests (6 unit `deriveHealth`/config + 4 integration authz/heartbeat). Remaining D1 (paid hosting, Sentry-dashboard monitor setup) = owner ops. |
 
 ---
 
 ## Recent progress (changelog)
 
+- **2026-06-04** — **Wave D1 (start) — cron self-monitoring.** Scheduled jobs now
+  prove they ran. New `lib/cronMonitor.runMonitored(jobName, opts, fn)` wraps the
+  nightly **reconcile** and **attendance-reminders** jobs — at both call sites (the
+  in-process `node-cron` scheduler **and** the external-pinger endpoints) so
+  whichever path fires updates the same heartbeat. It persists a durable `CronRun`
+  doc (one per job: last run/status/duration/error, `lastSuccessAt`, run/fail
+  counters, expected cadence) and emits Sentry **cron check-ins**
+  (`in_progress`→`ok`/`error`) + `captureException` — every side-channel
+  **fail-soft** so monitoring can never break or mask the job. Admin-only
+  `GET /api/admin/cron/health` returns a per-job `ok`/`stale`/`error`/`never`
+  verdict (pure `deriveHealth`, stale = no success within 2× cadence) + an overall
+  flag; a new **Scheduled jobs** panel (`CronHealthPanel`) on the Reconcile page
+  answers "did cron fire?" on the sleeping Render free-tier. Verified: server
+  **559 tests** (+10), client **145 tests** (+5), lint 0 errors/81 warnings (at
+  cap). Remaining D1 (paid always-on hosting, Sentry-dashboard monitor config) is
+  owner ops, not code.
 - **2026-06-04** — **Wave C1 — learner path-progress view + English-only UI.**
   Closed the learning-paths loop: Participants open `/me/paths` to see each active
   path's ordered steps marked `completed`/`current`/`locked` with a progress bar,

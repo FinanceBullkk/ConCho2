@@ -3,6 +3,7 @@ const { cronAuth } = require('../middleware/cronAuth');
 const { reconcileLimiter } = require('../middleware/rateLimiters');
 const { runReconciliation } = require('../services/reconcileService');
 const { sendUpcomingReminders } = require('../services/reminderService');
+const { runMonitored, CRON_JOBS } = require('../lib/cronMonitor');
 const { handleError } = require('../helpers/handleError');
 
 // ──────────────────────────────────────────────────────────
@@ -47,7 +48,13 @@ router.use(cronAuth);
 // response stays under cron-job.org's ~4 KB output limit.
 router.post('/reconcile', reconcileLimiter, async (req, res) => {
   try {
-    const report = await runReconciliation('scheduled');
+    // Monitored so an external-pinger-driven run also updates the heartbeat
+    // and Sentry cron check-in (same job/slug as the in-process scheduler).
+    const report = await runMonitored(
+      CRON_JOBS.reconcile.jobName,
+      CRON_JOBS.reconcile,
+      () => runReconciliation('scheduled')
+    );
     const { summary, ranAt, triggeredBy } = report;
     res.json({ success: true, data: { summary, ranAt, triggeredBy } });
   } catch (err) {
@@ -102,7 +109,11 @@ router.get('/health', (req, res) => {
 router.post('/attendance-reminders', async (req, res) => {
   try {
     const lookaheadHours = Math.min(168, Math.max(1, Number(req.query.hours) || 24));
-    const summary = await sendUpcomingReminders({ lookaheadHours });
+    const summary = await runMonitored(
+      CRON_JOBS.reminders.jobName,
+      CRON_JOBS.reminders,
+      () => sendUpcomingReminders({ lookaheadHours })
+    );
     res.json({ success: true, data: summary });
   } catch (err) {
     handleError(res, err);
