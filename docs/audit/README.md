@@ -7,6 +7,17 @@
 
 ---
 
+> **Status (updated 2026-06-04): historical snapshot.** This report captures the
+> repo at `main @ e417212` on 2026-05-24. Several findings have since been
+> addressed by Wave A–D work and are **superseded** — most notably
+> **PROD-002 "No org hierarchy"**: the `Department` model + `User.managerId` /
+> `User.departmentId` + My Team manager scoping landed in **Wave D3**. That org
+> work currently lives in the working tree pending commit/baseline verification,
+> so treat PROD-002 as *implemented-in-worktree, not yet release-baselined*.
+> Always re-check against the current code before actioning any finding here.
+
+---
+
 ## Overall verdict
 
 > **NO-GO** to sell to an enterprise today.

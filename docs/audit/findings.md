@@ -574,6 +574,10 @@ These items are not "bugs" but block enterprise sale.
 - **Fix:** `passport-saml` or OIDC adapter; map IdP user to local User; provision via SCIM (PROD-009).
 
 ### PROD-002 — Critical — No org hierarchy (`managerId`, Department collection)
+- **Superseded (2026-06-04, Wave D3):** implemented in the working tree —
+  `Department` model, `User.managerId` / `User.departmentId`, `server/domains/org/*`,
+  and My Team manager scoping now exist. Pending commit/baseline verification
+  (see Session 04 People + Org). Original finding below kept for history.
 - **File:** `server/models/User.js:17-189` — no `managerId`. `department` is a free string (line 53).
 - **Fix:** Add `Department` collection; `User.managerId`; manager dashboard scoping in `dashboardController`.
 
