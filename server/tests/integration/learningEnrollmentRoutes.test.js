@@ -12,6 +12,7 @@ beforeAll(async () => {
   tokens = getTokens();
   seed = getSeedData();
   csrf = await getCsrfHeaders(app);
+  await Enrollment.init(); // build partial unique indexes before the race test
 });
 
 afterAll(async () => {
@@ -61,6 +62,18 @@ describe('Learning Platform API — cohort enrollments', () => {
       cohortId: seed.class1._id.toString(), userId: seed.member1._id.toString(),
     });
     expect(dup.status).toBe(409);
+  });
+
+  test('concurrent duplicate enroll → exactly one Active, the loser gets 409 (race-safe)', async () => {
+    const body = { cohortId: seed.class1._id.toString(), userId: seed.member1._id.toString() };
+    const [a, b] = await Promise.all([enroll(tokens.admin, body), enroll(tokens.admin, body)]);
+
+    expect([a.status, b.status].sort((x, y) => x - y)).toEqual([201, 409]);
+
+    const active = await Enrollment.countDocuments({
+      userId: seed.member1._id, classId: seed.class1._id, teamId: null, status: 'Active',
+    });
+    expect(active).toBe(1);
   });
 
   test('self-enroll only allowed when program schedulingMode is self_enroll', async () => {
