@@ -7,11 +7,11 @@
   <img src="https://img.shields.io/badge/License-MIT-yellow?style=for-the-badge" alt="License"/>
 </p>
 
-<h1 align="center">TMS v2 — Training Management System</h1>
+<h1 align="center">TMS v2 — Internal Training Management System (→ LTMS)</h1>
 
 <p align="center">
-  <strong>Hệ thống quản lý đào tạo nội bộ — thay thế hoàn toàn Excel và Google Sheets.</strong><br/>
-  Xếp lịch · Đặt slot · Điểm danh · Đánh giá · Báo cáo HR — tất cả trong một nơi.
+  <strong>Hệ thống quản lý đào tạo nội bộ (~1000 nhân viên) — thay thế hoàn toàn Excel và Google Sheets.</strong><br/>
+  Xếp lịch · Điểm danh · Đánh giá · Hoàn thành · Chứng chỉ · Audit · Báo cáo HR — tất cả trong một nơi.
 </p>
 
 ---
@@ -35,7 +35,7 @@
 
 ## 1. TMS là gì, và tại sao cần nó?
 
-TMS (Training Management System) v2 là **ứng dụng web nội bộ** để quản lý toàn bộ quy trình đào tạo tiếng Anh doanh nghiệp — từ lúc tạo lớp đến khi xuất báo cáo HR cuối tháng.
+TMS v2 là **ứng dụng web nội bộ** quản lý toàn bộ quy trình **đào tạo nội bộ** của doanh nghiệp (~1000 nhân viên) — xếp lịch, điểm danh, đánh giá, hoàn thành, chứng chỉ, audit và báo cáo HR. Khởi đầu từ quản lý lớp tiếng Anh, hệ thống đang chuyển thành **Internal LTMS** (Learning/Training Management System) đa loại chương trình — onboarding, compliance, kỹ năng mềm, kỹ thuật… — tập trung vào **vận hành đào tạo + tuân thủ (compliance)**, không phải LMS thương mại hay nền tảng nội dung SCORM. Định hướng chi tiết: [`docs/lms-roadmap.md`](docs/lms-roadmap.md) và [`docs/ltms-gap-analysis.md`](docs/ltms-gap-analysis.md).
 
 ### Vấn đề trước khi có TMS
 
@@ -700,6 +700,11 @@ Server bị "ngủ" sau 15 phút không có request. Giải pháp:
 
 | File | Nội dung |
 |------|----------|
+| `AGENTS.md` | Contract cho Codex/Claude: Internal LTMS, không feature factory, done means wired |
+| `CLAUDE.md` | Quy tắc làm việc cho Claude Code trong repo |
+| `docs/system-overview.md` | Tổng quan kiến trúc + trạng thái hiện tại |
+| `docs/development-roadmap.md` | Living tracker: milestone, changelog, quality gate |
+| `docs/lms-roadmap.md` | Roadmap Internal LTMS 6 tháng cho 1000 nhân viên |
 | `docs/backup-dr.md` | Quy trình xử lý sự cố, khôi phục dữ liệu |
 | `docs/cron-pinger-setup.md` | Cài đặt tác vụ tự động ban đêm |
 | `docs/google-calendar-setup.md` | Tích hợp Google Workspace |

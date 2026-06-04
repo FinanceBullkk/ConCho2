@@ -1,7 +1,7 @@
-# Development Roadmap — TMS v2 → Internal LMS (living tracker)
+# Development Roadmap — TMS v2 → Internal LTMS (living tracker)
 
 > **This is the canonical progress tracker.** Update it as milestones move.
-> - *Why / strategy / gap analysis* → [`lms-roadmap.md`](lms-roadmap.md)
+> - *Why / strategy / 6-month direction* → [`lms-roadmap.md`](lms-roadmap.md)
 > - *Architecture / orientation* → [`system-overview.md`](system-overview.md)
 > - *Detailed task snapshot* → [`handoff-2026-06-01.md`](handoff-2026-06-01.md)
 >
@@ -74,14 +74,34 @@ path-progress view, plus advanced report filters/exports when needed.
 | 5 | Reporting, completion, feedback | ~72% | 🟡 in progress |
 | 6 | PostgreSQL decision gate | 0% | ⚪ gated |
 
-## LMS waves (forward — see [`lms-roadmap.md`](lms-roadmap.md))
+## LTMS waves (forward — see [`lms-roadmap.md`](lms-roadmap.md))
 
 | Wave | Goal | Status | Depends on |
 |------|------|--------|-----------|
 | A — Foundation | Generic learning core works E2E (scheduling modes, cohort enrollment, CRUD UI, capability authz) | 🟢 done (M1–M4) | — |
 | B — Assessment & Certification | Generic assessment engine, completion enforcement, certificates | 🟡 in progress (completion + certificates + feedback + assessment engine v1 + completion reporting + rollups + assessment UI + feedback UI + assessment edit + question-bank backend/UI + manual grading v1 done) | A |
 | C — Catalog, Paths & Self-service | Learner catalog, self-enroll, learning paths/prerequisites | 🟡 in progress (learner catalog + self-enroll UI + prerequisite gating v1 + prereq selector UI + sequenced learning paths v1 backend + admin paths UI done; learner path-progress view next) | A |
-| D — Platform & Scale | SSO, HRIS sync, advanced analytics, mobile, Postgres gate | 🔴 planned | B, C |
+| D — Platform & Scale | Production readiness → Google OIDC + Directory sync → manager hierarchy (org model) → **mandatory assignment + due dates** → notifications/escalation → compliance reporting + recertification. Order locked 2026-06-04 (after C closes). | 🔴 planned | B, C |
+| E — Generic scheduling | Generalize booking beyond fixed English slots (session types, rooms, capacity, waitlists, instructors); keep leader-booking as one mode. Committed parallel track; large, own plan. | 🔴 planned | A |
+
+> **Direction locked 2026-06-04** — full rationale + gap analysis in
+> [`ltms-gap-analysis.md`](ltms-gap-analysis.md). Six-month order:
+> `C1 → D1 → D2 → D3(manager) → D4(assignment) → D5(notifications) → D6(compliance)` + Wave E parallel.
+
+## Quality gate — done means wired
+
+No feature factory. After each milestone, review wiring before starting new
+capability:
+
+- backend route/use-case works with real authz/capability rules;
+- frontend entrypoint exists when user value depends on UI;
+- i18n en+vi updated for user-facing strings;
+- audit log and soft-delete behavior correct for mutations;
+- reports/completion/certificates/notifications consume the new data when relevant;
+- tests cover happy path, permission denial, and one core edge case;
+- broken links/routes/buttons and stale docs/roadmap checked.
+
+Bug fixing and integration review rank above net-new feature rollout.
 
 ---
 
@@ -116,6 +136,15 @@ path-progress view, plus advanced report filters/exports when needed.
 
 ## Recent progress (changelog)
 
+- **2026-06-04** — **Direction locked: LTMS gap analysis + priority re-sequence.**
+  Added [`ltms-gap-analysis.md`](ltms-gap-analysis.md) (decision doc) and applied
+  owner-approved decisions to the roadmap: six-month order is now
+  `C1 → D1 → D2 → D3(manager hierarchy) → D4(mandatory assignment + due dates) →
+  D5(notifications) → D6(compliance + recertification)`, with **Wave E (generic
+  scheduling) promoted from deferred to a committed parallel track**. **Mandatory
+  assignment + due dates (G2)** added as a first-class milestone (was unrecorded).
+  `lms-roadmap.md` §1/§4/§5 and this waves table updated; `README.md` re-framed
+  from "corporate English training" to Internal LTMS. Docs-only; no code change.
 - **2026-06-04** — **Wave C — learning paths admin UI.** Surfaced the
   `/api/learning/paths` backend in the Learning workspace: a new **Paths tab**
   on `/learning` (Admin-gated via `manage:path`) lists paths and lets Admins
@@ -345,4 +374,5 @@ path-progress view, plus advanced report filters/exports when needed.
 
 After each milestone or significant change: update the phase/wave %, move the
 status emoji, add one changelog line (dated), and sync `handoff-2026-06-01.md`.
-Keep this doc lean — strategy detail stays in `lms-roadmap.md`.
+Also record whether the quality gate passed or what wiring bug remains. Keep
+this doc lean — strategy detail stays in `lms-roadmap.md`.

@@ -1,191 +1,209 @@
-# LMS Roadmap — scaling TMS v2 into a comprehensive internal LMS
+# Internal LTMS Roadmap — TMS v2 for 1000 internal employees
 
-> **Read first:** [`system-overview.md`](system-overview.md) (where we are today).
-> This doc answers: *what does a comprehensive internal LMS need, what's the gap,
-> and what do we do — in what order — to get there?*
-
----
-
-## 1. Vision & target
-
-Build a **comprehensive internal enterprise LMS** for our own organization —
-many program types, departments, and delivery modes — not a commercial product.
-
-**In scope** (your priorities, in weight order):
-1. **Assessment & certification** — quizzes/question banks, auto-grading,
-   completion rules, certificates, compliance tracking.
-2. **Catalog, learning paths & self-service** — learner-facing catalog,
-   self-enroll, prerequisites/curricula.
-3. **Platform & scale** — SSO (SAML/OIDC), HRIS sync, advanced analytics, mobile.
-
-**De-scoped (for now):**
-- SCORM/xAPI courseware authoring & video hosting → later option, not core yet.
-- Multi-tenant / billing / white-label → not needed for an internal LMS.
+> **Read first:** [`system-overview.md`](system-overview.md) for current shape,
+> then [`development-roadmap.md`](development-roadmap.md) for live status.
+> Filename stays `lms-roadmap.md` for link compatibility, but the product target
+> is **Internal LTMS**, not a broad commercial LMS.
 
 ---
 
-## 2. Capability gap analysis
+## 1. Vision and product boundary
 
-```mermaid
-flowchart LR
-    subgraph HAVE["✅ Have"]
-        H1[Instructor-led scheduling]
-        H2[Attendance tracking]
-        H3[Program catalog data model]
-        H4[Cohort model + DTO]
-        H5[Audit / soft-delete / RBAC]
-        H6[HR Excel export]
-    end
-    subgraph PARTIAL["🟡 Partial"]
-        P1[schedulingMode enforcement]
-        P2["End-of-course evaluation<br/>English 4-skill only"]
-        P3["Program/Cohort read API<br/>no CRUD UI"]
-        P4[Attendance analytics dashboard]
-    end
-    subgraph MISSING["❌ Missing"]
-        M1[Generic assessment / quiz engine]
-        M2[Certificates / compliance]
-        M3[Learner catalog + self-enroll]
-        M4[Learning paths / prerequisites]
-        M5[Cohort-based enrollment]
-        M6[SSO SAML/OIDC]
-        M7[HRIS sync]
-        M8[Learner/program analytics]
-        M9[Mobile / offline]
-    end
-    classDef have fill:#1f7a3d,color:#fff;
-    classDef partial fill:#9a6700,color:#fff;
-    classDef missing fill:#8a1f1f,color:#fff;
-    class H1,H2,H3,H4,H5,H6 have;
-    class P1,P2,P3,P4 partial;
-    class M1,M2,M3,M4,M5,M6,M7,M8,M9 missing;
-```
+Build an **Internal Learning/Training Management System (LTMS)** for our own
+organization, around 1000 employees. The product wins by making HR/L&D training
+operations reliable and auditable: schedule, attendance, assessment, completion,
+certificate, audit, and reports.
 
-| Capability | LMS expectation | Current state in code | Gap / what to build |
-|---|---|---|---|
-| **Enrollment** | Learner enrolls into cohort/program directly | `Enrollment` is team-based (`userId`+`teamId`) | Cohort-based enrollment + `/api/learning/enrollments`; self-enroll |
-| **Assessment** | Generic quizzes, question banks, auto-grade | `Evaluation` = fixed 4 English skills (0–10), manual | Generic **Assessment** domain (item types, scoring, attempts) |
-| **Certification** | Issue/track certificates, expiry, compliance | none | Certificate model + completion → issue + verify |
-| **Catalog (learner)** | Browse/search catalog, request/self-enroll | `LearningProgram` CRUD is **Admin read-only** | Learner-facing catalog page + self-enroll flow |
-| **Learning paths** | Sequenced curricula, prerequisites | none | Path/curriculum model + prerequisite gating |
-| **Completion** | Policy-driven completion (attendance %, assessment, feedback) | `completionPolicy` **stored, not enforced** | Completion engine reading the policy |
-| **Scheduling modes** | leader / admin / self-enroll / nomination | `leader_booking` only; others gated 501 | Build the 3 remaining flows |
-| **AuthN** | SSO (SAML/OIDC) for enterprise | password + TOTP MFA | Add SSO provider; keep MFA fallback |
-| **People sync** | HRIS-driven user/department provisioning | manual Excel import | HRIS connector + scheduled sync |
-| **Analytics** | Learner progress, program effectiveness | attendance-centric Admin dashboard | Learner/program analytics + completion metrics |
-| **Authorization** | Capability-based (`program.manage`, `session.book`) | role-based (Admin/Teacher/Participant) | Role → capability layer (already intended) |
-| **Mobile** | App or strong mobile UX/offline | responsive web only | PWA/offline or native (lowest priority) |
+Benchmark against the real replacement: spreadsheets, email, manual attendance,
+manual completion tracking, and monthly Excel compilation. Do **not** benchmark
+against Cornerstone, Docebo, SAP SuccessFactors, or other million-dollar LMS
+suites. Those products include procurement, support, SLA, SCORM/content
+ecosystems, marketplace, and integrations far outside the current target.
+
+**In scope for the next 6 months:**
+
+1. Ops + compliance core: reliable scheduling, attendance, assessment,
+   completion, certificates, audit, and HR/L&D reports.
+2. Production readiness: paid always-on hosting, reliable cron, Sentry monitors,
+   and Redis/managed store if multiple instances are introduced.
+3. Google Workspace identity: OIDC login and Google Directory sync for users,
+   departments, and managers.
+4. Close existing learner loops: learner path progress before starting more
+   broad LMS features.
+5. Manager/org visibility: manager hierarchy, team completion, overdue status,
+   and compliance reporting.
+6. Notification/escalation engine: reminders, overdue notices, manager
+   escalation, and auditable send logs.
+7. Mandatory assignment: assign a program/cohort/path to a department or user
+   list with a due date; status = assigned / not-started / in-progress /
+   complete / overdue. (The central compliance-training workflow.)
+8. Generic scheduling: generalize the booking model beyond the fixed English
+   slot rules — rooms, capacity, waitlists, session types, and instructor
+   management. (Promoted from deferred 2026-06-04 — see
+   [`ltms-gap-analysis.md`](ltms-gap-analysis.md) §6.)
+
+**Deferred unless explicitly requested:**
+
+- SCORM/xAPI/AICC courseware
+- video hosting or authoring
+- commercial LMS breadth
+- multi-tenant, billing, white-label, marketplace
+- native mobile/offline
+- gamification/social learning
 
 ---
 
-## 3. What to consider (strategic / architectural)
+## 2. Agent Reference Contract
 
-- **Finish the vocabulary generalization, don't restart it.** The migration
-  already abstracts `Class→Cohort`, `courseName→Program` via DTOs. Continue:
-  `Evaluation→Assessment`, team-based→cohort-based enrollment, `Team→LearningGroup`.
-  Physical collection renames stay **out of scope** (ADR) — migrate via DTOs.
-- **Policies are already modeled — enforce them.** `LearningProgram` carries
-  `schedulingMode`, `deliveryMode`, `completionPolicy`, `capacityPolicy`,
-  `facilitatorPolicy`. Today only `schedulingMode` is partly enforced. Each
-  enforced policy unlocks an LMS behavior (self-paced, self-enroll, completion).
-- **Role → capability authorization.** Hard-coded roles won't scale to many
-  program types. Introduce capabilities behind the existing two-layer authz
-  (`roleGuard` + `policy/`) so new flows don't multiply role checks.
-- **MongoDB → PostgreSQL (Phase-6 gate).** Learning paths, prerequisites, and
-  cross-program analytics are relational by nature. Decide at the gate, not now;
-  trigger = when path/prerequisite + reporting queries get painful on Mongo.
-- **Assessment: build vs buy.** A generic quiz/assessment engine is the biggest
-  net-new domain. Decide early: build minimal in-house vs integrate an engine.
-- **Integrations:** SSO (SAML/OIDC), HRIS sync, calendar/Zoom — design as a
-  thin `domains/integrations` boundary, keep fail-soft like Google Calendar.
-- **Infra/scale:** Render free-tier sleeps (cron needs external pinger);
-  plan observability + a real scheduler before relying on completion/cert jobs.
+Agents working in this repo must follow this contract:
 
----
+- No feature factory. Finish one milestone, then review wiring, UX flow,
+  permissions, data consistency, tests, and bugs before the next milestone.
+- Prefer closing incomplete loops over starting new capability. Latent value is
+  debt if users cannot click it or reports cannot consume it.
+- Preserve load-bearing controls: auth, CSRF, rate limits, capability/role
+  authorization, audit log, soft delete, validation, and i18n.
+- New work should extend `server/domains/<domain>/` when a domain exists. Do not
+  add fresh business logic to legacy controllers unless it is a deliberate
+  adapter step.
+- Legacy physical collection names can stay when ADRs say so. Layer LTMS
+  vocabulary through DTOs and domain boundaries.
 
-## 4. Sequenced roadmap (waves)
+**Done means wired checklist:**
 
-Continues the handoff's Phase 1–6, extended toward LMS. Each wave: **goal ·
-building blocks · code to extend**.
-
-### Wave A — Foundation *(in progress = handoff P0/P1)*
-- **Goal:** the generic learning core actually works end to end.
-- Finish `schedulingMode` flows (admin_scheduled → self_enroll → nomination) —
-  extend `server/domains/learning/session/use-cases.js` (501 stubs already there).
-- **Cohort-based enrollment** + `/api/learning/enrollments` — new use-cases over
-  `Enrollment`/`Class`.
-- **Catalog & cohort CRUD UI** — extend `client/src/pages/LearningPage.jsx`
-  (currently read-only) + `useLearning.js`.
-- Begin **capability-based authz** scaffolding in `server/policy/`.
-
-### Wave B — Assessment & certification *(your #1 priority)*
-- **Goal:** measure learning, certify completion.
-- New `domains/assessment` (generalize `Evaluation`): item types, question bank,
-  attempts, auto-grading; keep the English 4-skill rubric as one assessment type.
-- **Enforce `completionPolicy`** (attendance % + required assessment + feedback).
-- **Certificate** model + issue-on-completion + verification endpoint.
-
-### Wave C — Catalog, paths & self-service *(your #2 priority)*
-- **Goal:** learners drive their own learning.
-- Learner-facing **catalog** (browse/search) + **self-enroll** (uses Wave A
-  enrollment + `self_enroll` scheduling mode).
-- **Learning paths / curricula** with prerequisite gating (likely the trigger
-  for the Postgres decision).
-
-### Wave D — Platform & scale *(your #3 priority)*
-- **Goal:** enterprise-grade plumbing.
-- **SSO** (SAML/OIDC) alongside existing auth; **HRIS sync** for users/departments.
-- **Analytics** beyond attendance: learner progress, program effectiveness,
-  completion/compliance dashboards.
-- **Mobile** (PWA/offline) — lowest priority.
-- Evaluate **PostgreSQL** migration at the gate.
-
-```mermaid
-flowchart LR
-    A["Wave A<br/>Foundation"] --> B["Wave B<br/>Assessment + Cert"]
-    A --> C["Wave C<br/>Catalog + Paths"]
-    B --> D["Wave D<br/>Platform + Scale"]
-    C --> D
-```
+| Gate | Required check |
+|---|---|
+| Backend | Route/use-case works with real authz/capability rules |
+| Frontend | User-facing value has a reachable UI entrypoint |
+| Data | Mutations audit; soft-delete applies where appropriate |
+| Cross-feature | Reports/completion/certificates/notifications consume new data when relevant |
+| i18n | `en.json` and `vi.json` updated for user-facing strings |
+| Tests | Happy path, permission denial, and one core edge case covered |
+| Review | Broken routes/buttons, stale docs, and latent-value gaps checked |
 
 ---
 
-## 5. Immediate next 3 steps (this month)
+## 3. Current status snapshot
 
-From exactly where we are now (booking enforces `schedulingMode`, 3 modes gated):
+Wave A is complete: scheduling modes, cohort-based enrollment, Learning CRUD,
+and capability authz are live. Wave B has strong foundations: completion policy,
+feedback, certificates, public verification, assessment v1, question bank,
+manual grading, completion reports, and rollups are live. Wave C is underway:
+learner catalog, self-enroll, prerequisite gating, sequenced paths backend, and
+admin paths UI are live.
 
-1. **Build `admin_scheduled`** (most common next mode) — Admin creates a session
-   for a cohort without team-leader booking. Replace its 501 in
-   `domains/learning/session/use-cases.js`; needs a non-team creation path +
-   schema tweak (`groupId` optional).
-2. **Generalize enrollment** → `/api/learning/enrollments` (cohort-based,
-   multi-program), foundation for self-enroll.
-3. **Learning CRUD UI** — create/edit Program, create Cohort, enroll learners
-   (today the page is read-only).
+The biggest current open loop is learner-facing path progress. The biggest
+platform gaps for 1000 internal employees are reliability, Google OIDC,
+Directory sync, manager hierarchy, notifications, and compliance reporting depth.
 
-*(Matches handoff §4 P0. After these, Wave B assessment work begins.)*
+See [`development-roadmap.md`](development-roadmap.md) for exact progress and
+recent changelog.
 
 ---
 
-## 6. Risks & decision gates
+## 4. Six-month roadmap
 
-| Decision | When | Trade-off |
+**Committed order (locked 2026-06-04 — see [`ltms-gap-analysis.md`](ltms-gap-analysis.md)):**
+`C1 → D1 → D2 → D3 → D4 → D5 → D6`, with **Wave E (generic scheduling) as a
+committed parallel track**.
+
+### Wave C1 — Close current learning loops *(first — cheap, satisfies "done means wired")*
+
+- Ship learner path-progress view so paths are visible and useful to learners.
+- Review `/me/*` routes as one learner journey: catalog → enroll → assess →
+  feedback → completion/certificate → path progress.
+- Fix bugs and wiring gaps found during that review before adding new features.
+
+### Wave D1 — Production readiness for 1000 employees
+
+- Move away from Render free-tier production assumptions: paid always-on service
+  or equivalent.
+- Replace pinger-dependent cron with reliable scheduled jobs plus monitor.
+- Add Sentry alerts/cron monitors for reconcile, reminders, completion/cert
+  jobs, and unexpected 5xx spikes.
+- Introduce Redis/managed shared store only when multiple instances or durable
+  job locks need it. YAGNI before that.
+
+### Wave D2 — Google Workspace identity and people sync
+
+- Add Google Workspace OIDC login alongside existing password/MFA fallback.
+- Restrict login to approved Workspace domain and active internal users.
+- Add Google Directory sync for name, email, department, status, and manager
+  mapping when available.
+- Keep Excel import as fallback/manual override, not the long-term source of
+  truth.
+
+### Wave D3 — Manager hierarchy and visibility *(G1 — #1 missing LTMS capability)*
+
+- Introduce a real org model: `managerId` + a `Department` entity (replace the
+  free-text `department` string), fed by D2's Directory sync where available.
+- Add scoped manager dashboards: team completion, overdue learners, certificate
+  status, and upcoming obligations — visible only down the manager's reports.
+- Reuse the completion engine; respect the two-layer authz (capability +
+  resource policy) so a manager sees only their own org subtree.
+
+### Wave D4 — Mandatory assignment and due dates *(G2 — central compliance workflow)*
+
+- New `Assignment` concept over the cohort-enrollment chokepoint
+  (`server/domains/learning/enrollment/`): assign a Program/Cohort/Path to a
+  Department (needs D3) or an explicit user list, with a `dueDate`.
+- Status per learner: assigned / not-started / in-progress / complete / overdue —
+  derived from `hasCompletedProgram` / `evaluateCompletion` (DRY).
+- Capabilities `assignment.manage` / `assignment.read`; soft-delete + audit.
+- v1 against explicit user/cohort lists is shippable; dept-targeting lands once
+  D3 provides the org tree.
+
+### Wave D5 — Notification / escalation engine *(G3)*
+
+- Notification engine v1: session reminders, assessment due/overdue, certificate
+  issued, and manager escalation for overdue assignments (consumes D4).
+- Persist notification/job logs for audit and troubleshooting; keep sends
+  fail-soft like Google Calendar.
+
+### Wave D6 — Compliance reporting depth + recertification
+
+- Expand completion/assignment reports by department, manager, program, cohort,
+  overdue, completed, and certified.
+- Add certificate **expiry + recertification cycles** (G6): certificates carry a
+  validity window; expiring/expired status feeds reports and D5 reminders.
+- Keep exports reliable for 1000 employees; avoid memory-heavy report paths. Add
+  saved filters/presets only if HR repeats the same report monthly.
+
+### Wave E — Generic scheduling *(G7 — committed parallel track; large, own plan)*
+
+- Generalize the booking model beyond the fixed English slot rules (1h, 5 fixed
+  slots, max 2/wk/team): configurable session types, rooms, capacity, waitlists,
+  and instructor assignment.
+- **Scope warning:** this is large and touches the load-bearing `Schedule`
+  booking path (unique `{classId,startTime}` guard, team auto-enroll, Google
+  Calendar). It needs its own phase plan and must preserve the existing
+  leader-booking flow as one configurable mode. Sequence it so it does not stall
+  the D-series; treat as parallel, not blocking.
+
+---
+
+## 5. Decision gates
+
+| Decision | Default | Gate |
 |---|---|---|
-| Mongo vs PostgreSQL | Phase-6 gate (after paths/analytics pressure) | Relational fit vs migration cost; don't pre-migrate |
-| Assessment: build vs buy | ✅ Decided 2026-06-03 — **build in-house** (minimal). `domains/assessment` v1 live; iterate from there | In-house control vs speed; minimal build first |
-| SCORM/courseware scope | Wave C/D or defer | Big surface; de-scoped for now — revisit if self-paced content needed |
-| How far to generalize | Continuous | Over-abstracting before need (YAGNI) vs legacy lock-in |
-| Capability vs role authz | Wave A | Up-front refactor cost vs unbounded role-check sprawl |
+| Product label | Internal LTMS | Change only if business asks for commercial LMS scope |
+| Google identity | OIDC + Directory sync | Confirm exact Workspace domain/config during implementation |
+| Infrastructure | Paid minimal / always-on | Upgrade further only if load/ops data demands it |
+| Redis/shared store | Defer | Add when multi-instance, durable job locks, or rate-limit consistency require it |
+| PostgreSQL | Defer | Revisit when path/reporting queries become painful on MongoDB |
+| SCORM/content layer | Defer | Revisit only with a concrete self-paced content requirement |
+| Generic scheduling | **Committed (Wave E)** | Promoted from deferred 2026-06-04; large — own phase plan, keep leader-booking as one mode |
+| Mandatory assignment + due dates | **Committed (Wave D4)** | Central compliance workflow; dept-targeting depends on Wave D3 org model |
 
 ---
 
-## 7. Open questions
+## 6. Open questions
 
-1. **Self-paced e-learning:** you de-prioritized courseware/SCORM — confirm the
-   LMS is **instructor-led + assessments first**, content hosting later?
-2. **Certificate authority:** internal-only certs, or must they integrate with an
-   external compliance/HR system?
-3. **SSO provider:** which IdP (Azure AD / Google Workspace / Okta)? Drives the
-   SAML-vs-OIDC choice in Wave D.
-4. **Adopt a formal tracker?** Promote this roadmap into `development-roadmap.md`
-   + keep `handoff` updated as the living status doc?
+- What Google Workspace domain(s) are allowed for OIDC login?
+- Is manager data available in Google Directory, or must HR maintain it another
+  way?
+- What compliance reports does HR need monthly: by department, manager, program,
+  certification, overdue, or all of these?
+- Generic scheduling (Wave E): does the org actually run sessions needing rooms,
+  capacity, waitlists, or multiple instructors — or is the genericisation
+  pre-emptive? Confirm the concrete need before drafting the phase plan.
