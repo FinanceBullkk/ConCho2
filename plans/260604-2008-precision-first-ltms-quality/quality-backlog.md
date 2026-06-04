@@ -10,8 +10,8 @@ fix plan first.
 | QB-002 | P1 | 01 Baseline Truth | Roadmap says Wave D3 org model is live, but org model files are still untracked/modified in the dirty worktree. | resolved 2026-06-04 | Org model committed (`f98b36a`) on green gates (server 574, client 151, lint 0-err). Baselined; not yet pushed. |
 | QB-003 | P2 | 01 Baseline Truth | `docs/current-system-map.md` still describes EN/VI i18next language detection while actual locale files show only `en.json`. | resolved 2026-06-04 | `current-system-map.md` i18n section now matches code (single `en`, no detector/toggle; flags unused dep). |
 | QB-004 | P2 | 01 Baseline Truth | Audit docs still contain stale enterprise gaps such as missing Department/org hierarchy after Wave D3 work. | resolved 2026-06-04 | `docs/audit/README.md` marked historical snapshot; `findings.md` PROD-002 marked superseded (Wave D3, pending baseline verify in Session 04). |
+| QB-005 | P2 | 02 Auth + Session Security | Playwright auth smoke requires real API + seeded DB, but local `localhost:5000` was not TMS API during Session 02. | open | Release Gate should provide repeatable seeded backend startup before e2e auth smoke. |
 
 ## Unresolved Questions
 
 - None.
-

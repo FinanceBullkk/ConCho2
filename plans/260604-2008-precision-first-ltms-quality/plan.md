@@ -24,7 +24,7 @@ and either fixes a P0/P1 immediately or creates a focused follow-up plan.
 | # | Session | Status | Core Question |
 |---|---|---|---|
 | 01 | [Baseline Truth](sessions/01-baseline-truth.md) | completed | What is true now: docs, code, dirty tree, gates? |
-| 02 | [Auth + Session Security](sessions/02-auth-session-security.md) | pending | Can sessions be created, protected, revoked, and audited safely? |
+| 02 | [Auth + Session Security](sessions/02-auth-session-security.md) | completed | Can sessions be created, protected, revoked, and audited safely? |
 | 03 | [Role/Authz Matrix](sessions/03-role-authz-matrix.md) | pending | Do server policy and client permissions match for each role? |
 | 04 | [People + Org](sessions/04-people-org.md) | pending | Does user/org management preserve data and manager scope? |
 | 05 | [Learning Enrollment](sessions/05-learning-enrollment.md) | pending | Are enrollment, prerequisites, and paths truthful and consistent? |
@@ -48,5 +48,7 @@ Goal, Scope, Evidence, Verdict, Action, Verification, Backlog, Unresolved.
 ## Current Notes
 
 - Session 01 completed with repo/doc/worktree evidence and gate inventory.
+- Session 02 completed; one P1 client/backend auth mismatch fixed, focused
+  auth gates green, Playwright smoke deferred until seeded backend is available.
 - No code implementation belongs in this plan until a session identifies a concrete P0/P1 or approved focused fix.
 - Current dirty tree must be preserved; do not revert unrelated changes.
