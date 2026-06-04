@@ -4,6 +4,7 @@ const { toVN, todayVN } = require('../helpers/dayjsConfig');
 const Schedule = require('../models/Schedule');
 const Team = require('../models/Team');
 const Attendance = require('../models/Attendance');
+const Class = require('../models/Class');
 const calendarService = require('./calendarService');
 const auditService = require('./auditService');
 const logger = require('../lib/logger');
@@ -753,13 +754,25 @@ const adminCreate = async (data) => {
  *   "partial" — some attendance marked but count < enrolledCount
  *   "done"    — attendance count >= enrolledCount
  */
-const getAttendanceCalendar = async ({ from, to } = {}) => {
+const getAttendanceCalendar = async ({ from, to } = {}, requestUser = null) => {
   // Step 1: Build filter (optional date range for performance)
   const filter = {};
   if (from || to) {
     filter.startTime = {};
     if (from) filter.startTime.$gte = new Date(from);
     if (to) filter.startTime.$lte = new Date(to);
+  }
+
+  // Teachers see only classes they are assigned to. Empty teacherIds keeps the
+  // legacy graceful-migration behaviour used by attendance/evaluation policy.
+  if (requestUser?.role === 'Teacher') {
+    const classIds = await Class.find({
+      $or: [
+        { teacherIds: requestUser._id },
+        { teacherIds: { $size: 0 } },
+      ],
+    }).select('_id').lean();
+    filter.classId = { $in: classIds.map((c) => c._id) };
   }
 
   const schedules = await Schedule.find(filter)

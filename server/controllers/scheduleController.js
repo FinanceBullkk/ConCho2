@@ -167,7 +167,7 @@ const deleteSchedule = async (req, res) => {
 const getAttendanceCalendar = async (req, res) => {
   try {
     const { from, to } = req.query;
-    const data = await scheduleService.getAttendanceCalendar({ from, to });
+    const data = await scheduleService.getAttendanceCalendar({ from, to }, req.user);
     res.json({ success: true, count: data.length, data });
   } catch (error) {
     handleError(res, error);

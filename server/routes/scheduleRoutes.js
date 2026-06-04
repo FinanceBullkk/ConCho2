@@ -21,8 +21,8 @@ const {
 router.get('/availability', protect, validate({ query: availabilityQuery }), getAvailability);
 router.get('/my-class', protect, getMyClassSchedules);
 
-// ── Attendance calendar (Admin only) ──────────────────────
-router.get('/attendance-calendar', protect, roleGuard('Admin'), getAttendanceCalendar);
+// ── Attendance calendar (Admin all; Teacher scoped by Class.teacherIds) ────
+router.get('/attendance-calendar', protect, roleGuard('Admin', 'Teacher'), getAttendanceCalendar);
 
 router.post('/book-slot', protect, roleGuard('Admin', 'Participant'),
   bookingLimiter, validate({ body: bookTeamSlotBody }), bookTeamSlot);
