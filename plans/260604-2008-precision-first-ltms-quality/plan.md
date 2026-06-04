@@ -29,7 +29,7 @@ and either fixes a P0/P1 immediately or creates a focused follow-up plan.
 | 04 | [People + Org](sessions/04-people-org.md) | completed | Does user/org management preserve data and manager scope? |
 | 05 | [Learning Enrollment](sessions/05-learning-enrollment.md) | completed | Are enrollment, prerequisites, and paths truthful and consistent? |
 | 06 | [Scheduling + Attendance](sessions/06-scheduling-attendance.md) | completed | Are booking and attendance safe under races and downstream reports? |
-| 07 | [Assessment + Completion + Certificates](sessions/07-assessment-completion-certificates.md) | pending | Does completion truth match attempts, feedback, and certificates? |
+| 07 | [Assessment + Completion + Certificates](sessions/07-assessment-completion-certificates.md) | completed | Does completion truth match attempts, feedback, and certificates? |
 | 08 | [Reports + Export](sessions/08-reports-export.md) | pending | Are reports/export rows correct, safe, and scoped? |
 | 09 | [Cron + Reconcile + Observability](sessions/09-cron-reconcile-observability.md) | pending | Can operators know scheduled jobs and drift checks actually work? |
 | 10 | [Release Gate](sessions/10-release-gate.md) | pending | Is there any open P0/P1 blocking feature work? |
@@ -54,5 +54,11 @@ Goal, Scope, Evidence, Verdict, Action, Verification, Backlog, Unresolved.
   focused role/capability denial gates green.
 - Session 04 completed; one P1 user soft-delete schedule-history corruption
   fixed, focused People/Org and downstream rollup gates green.
+- Session 05 completed; cohort double-enroll race fixed (DI-05b partial unique
+  index), focused enrollment gates green; QB-006 dedupe noted.
+- Session 06 completed; OK verdict, weekly-cap boundary race test hardened,
+  QB-007 (teacher org-wide attendance reads) promoted.
+- Session 07 completed; OK verdict (37/37 focused tests green), QB-008
+  (certificate issue race — no DB unique guard) promoted; no code change.
 - No code implementation belongs in this plan until a session identifies a concrete P0/P1 or approved focused fix.
 - Current dirty tree must be preserved; do not revert unrelated changes.
