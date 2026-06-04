@@ -15,7 +15,6 @@ import {
   X,
   Search,
   ChevronDown,
-  Globe,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../context/AuthContext';
@@ -175,11 +174,9 @@ export default function Navbar() {
   const { user, logout } = useAuth();
   const location = useLocation();
   const { isDark, toggle } = useTheme();
-  const { t, i18n } = useTranslation();
+  const { t } = useTranslation();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
-
-  const toggleLang = () => i18n.changeLanguage(i18n.language === 'vi' ? 'en' : 'vi');
 
   // Close on route change
   /* eslint-disable react-hooks/set-state-in-effect */
@@ -334,14 +331,6 @@ export default function Navbar() {
               className="sm:hidden p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-accent transition-colors duration-(--dur)"
             >
               <Search className="size-4" aria-hidden="true" />
-            </button>
-            <button
-              onClick={toggleLang}
-              aria-label={t('nav.switchLanguage')}
-              title={t('nav.switchLanguage')}
-              className="p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-accent transition-colors duration-(--dur) text-xs font-semibold"
-            >
-              <Globe className="size-4" aria-hidden="true" />
             </button>
             <button
               onClick={toggle}

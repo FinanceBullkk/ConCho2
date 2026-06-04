@@ -37,9 +37,9 @@ describe('PasswordStrength component', () => {
   });
 
   it('respects custom labels prop', () => {
-    const VN = ['', 'Yếu', 'Trung bình', 'Tốt', 'Mạnh'];
-    const { getByText } = render(<PasswordStrength value="LongEnough1!" labels={VN} />);
-    expect(getByText('Mạnh')).toBeInTheDocument();
+    const labels = ['', 'Tiny', 'Small', 'Big', 'Huge'];
+    const { getByText } = render(<PasswordStrength value="LongEnough1!" labels={labels} />);
+    expect(getByText('Huge')).toBeInTheDocument();
   });
 
   it('uses tone-mapped bar classes (no raw colors)', () => {

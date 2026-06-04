@@ -152,14 +152,14 @@ function EvalModal({ classId, existingEval, preselectedUser, onClose }) {
         {/* Header */}
         <DialogHeader className="p-5 border-b border-border">
           <DialogTitle className="text-base font-semibold text-foreground">
-            {isEdit ? 'Sửa đánh giá' : 'Thêm đánh giá'}
+            {isEdit ? 'Edit evaluation' : 'Add evaluation'}
           </DialogTitle>
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="p-5 space-y-4">
           {/* User */}
           <div>
-            <label className="block text-xs text-muted-foreground mb-1">Học viên</label>
+            <label className="block text-xs text-muted-foreground mb-1">Learner</label>
             {selectedUser ? (
               <div className="flex items-center justify-between px-3 py-2 rounded-md bg-muted border border-border">
                 <div>
@@ -174,7 +174,7 @@ function EvalModal({ classId, existingEval, preselectedUser, onClose }) {
                     onClick={() => setSelectedUser(null)}
                     className="text-xs text-muted-foreground hover:text-foreground transition-colors"
                   >
-                    Đổi
+                    Change
                   </button>
                 )}
               </div>
@@ -184,7 +184,7 @@ function EvalModal({ classId, existingEval, preselectedUser, onClose }) {
                   type="text"
                   value={userSearch}
                   onChange={(e) => setUserSearch(e.target.value)}
-                  placeholder="Tìm theo tên hoặc mã nhân viên..."
+                  placeholder="Search by name or employee code..."
                   className={INPUT_CLS}
                   autoFocus
                 />
@@ -209,7 +209,7 @@ function EvalModal({ classId, existingEval, preselectedUser, onClose }) {
                   </div>
                 )}
                 {debouncedSearch.length >= 2 && searchResults.length === 0 && (
-                  <p className="mt-1 text-xs text-subtle-foreground">Không tìm thấy học viên nào.</p>
+                  <p className="mt-1 text-xs text-subtle-foreground">No learners found.</p>
                 )}
               </div>
             )}
@@ -223,7 +223,7 @@ function EvalModal({ classId, existingEval, preselectedUser, onClose }) {
               maxLength={120}
               value={form.level}
               onChange={(e) => set('level', e.target.value)}
-              placeholder="Ví dụ: A2, B1, Intermediate..."
+              placeholder="e.g. A2, B1, Intermediate..."
               className={INPUT_CLS}
             />
           </div>
@@ -238,13 +238,13 @@ function EvalModal({ classId, existingEval, preselectedUser, onClose }) {
 
           {/* Comment */}
           <div>
-            <label className="block text-xs text-muted-foreground mb-1">Nhận xét của giáo viên</label>
+            <label className="block text-xs text-muted-foreground mb-1">Teacher comment</label>
             <textarea
               rows={3}
               maxLength={2000}
               value={form.teacherComment}
               onChange={(e) => set('teacherComment', e.target.value)}
-              placeholder="Nhận xét, điểm mạnh/yếu, lời khuyên..."
+              placeholder="Comments, strengths/weaknesses, advice..."
               className="w-full px-3 py-2 rounded-md bg-background border border-input text-foreground placeholder:text-subtle-foreground focus:outline-none focus:ring-2 focus:ring-ring transition-colors text-sm resize-none"
             />
           </div>
@@ -252,16 +252,16 @@ function EvalModal({ classId, existingEval, preselectedUser, onClose }) {
           {/* Actions */}
           <div className="flex justify-end gap-2 pt-1">
             <Button type="button" variant="outline" onClick={onClose}>
-              Hủy
+              Cancel
             </Button>
             <Button
               type="submit"
               disabled={upsert.isPending || (!isEdit && !selectedUser)}
             >
               {upsert.isPending ? (
-                <><Spinner size={14} className="mr-1" /> Đang lưu...</>
+                <><Spinner size={14} className="mr-1" /> Saving...</>
               ) : (
-                'Lưu đánh giá'
+                'Save evaluation'
               )}
             </Button>
           </div>
@@ -328,7 +328,7 @@ export default function EvaluationPage() {
     () => [
       {
         key: null,
-        header: 'Học viên',
+        header: 'Learner',
         render: (row) => (
           <div>
             <div className="font-semibold text-foreground">{row.userId?.name ?? '—'}</div>
@@ -344,7 +344,7 @@ export default function EvaluationPage() {
         header: 'Level',
         render: (row) =>
           row._hasEval === false ? (
-            <span className="text-subtle-foreground italic text-xs">Chưa đánh giá</span>
+            <span className="text-subtle-foreground italic text-xs">Not evaluated</span>
           ) : (
             <span className="text-sm text-foreground">{row.level || <span className="text-subtle-foreground">—</span>}</span>
           ),
@@ -418,7 +418,7 @@ export default function EvaluationPage() {
       },
       {
         key: 'teacherComment',
-        header: 'Nhận xét',
+        header: 'Comment',
         className: 'hidden lg:table-cell',
         render: (row) => (
           <span className="text-xs text-muted-foreground line-clamp-2 max-w-xs">
@@ -443,16 +443,16 @@ export default function EvaluationPage() {
               }
               className="text-xs px-2.5 py-1 rounded-md border border-border text-muted-foreground hover:bg-accent transition-colors"
             >
-              {row._hasEval === false ? 'Chấm điểm' : 'Sửa'}
+              {row._hasEval === false ? 'Grade' : 'Edit'}
             </button>
             {row._id && !String(row._id).startsWith('__no-eval__') && (
               <button
                 onClick={() => {
-                  if (window.confirm('Xóa đánh giá này?')) deleteEval.mutate(row._id);
+                  if (window.confirm('Delete this evaluation?')) deleteEval.mutate(row._id);
                 }}
                 className="text-xs px-2.5 py-1 rounded-md border border-destructive/30 text-destructive hover:bg-destructive/10 transition-colors"
               >
-                Xóa
+                Delete
               </button>
             )}
           </div>
@@ -486,14 +486,14 @@ export default function EvaluationPage() {
       {/* Page header */}
       <div className="flex flex-col sm:flex-row items-start sm:items-end justify-between gap-4">
         <div>
-          <h2 className="text-lg font-semibold text-foreground">Đánh Giá Học Viên</h2>
+          <h2 className="text-lg font-semibold text-foreground">Learner Evaluations</h2>
           <p className="text-sm text-muted-foreground mt-0.5">
-            Nhập và theo dõi điểm grammar, vocabulary, pronunciation và fluency
+            Enter and track grammar, vocabulary, pronunciation, and fluency scores
           </p>
         </div>
         {selectedClass && (
           <Button onClick={() => setModal({ eval: null, user: null })} className="shrink-0">
-            + Thêm đánh giá
+            + Add evaluation
           </Button>
         )}
       </div>
@@ -501,7 +501,7 @@ export default function EvaluationPage() {
       {/* Class selector card */}
       <div className="flex flex-wrap items-center gap-4 bg-card border border-border rounded-lg p-4">
         <div className="flex items-center gap-2">
-          <label className="text-sm text-muted-foreground shrink-0">Lớp học:</label>
+          <label className="text-sm text-muted-foreground shrink-0">Class:</label>
           <select
             value={selectedClass}
             onChange={(e) => {
@@ -510,7 +510,7 @@ export default function EvaluationPage() {
             }}
             className="px-3 py-2 rounded-md bg-background border border-input text-foreground focus:outline-none focus:ring-2 focus:ring-ring text-sm"
           >
-            <option value="">— Chọn lớp —</option>
+            <option value="">— Select a class —</option>
             {classes.map((c) => (
               <option key={c._id} value={c._id}>
                 {c.classCode} — {c.courseName}
@@ -539,7 +539,7 @@ export default function EvaluationPage() {
               onChange={(e) => setShowAll(e.target.checked)}
               className="rounded"
             />
-            Hiển thị toàn bộ học viên đã đăng ký
+            Show all enrolled learners
           </label>
         )}
       </div>
@@ -548,9 +548,9 @@ export default function EvaluationPage() {
       {!selectedClass ? (
         <div className="flex flex-col items-center justify-center py-20 rounded-lg border border-border bg-muted/20">
           <div className="text-5xl mb-4 opacity-25">📋</div>
-          <p className="text-muted-foreground font-medium">Chọn một lớp để xem đánh giá</p>
+          <p className="text-muted-foreground font-medium">Select a class to view evaluations</p>
           <p className="text-subtle-foreground text-sm mt-1">
-            Dữ liệu điểm sẽ hiển thị sau khi bạn chọn lớp ở trên
+            Score data appears after you select a class above
           </p>
         </div>
       ) : loadingEvals ? (
@@ -564,22 +564,22 @@ export default function EvaluationPage() {
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
               {[
                 {
-                  label: 'Đã đánh giá',
+                  label: 'Evaluated',
                   value: classStats.total,
                   colorCls: 'text-primary',
                 },
                 {
-                  label: 'Điểm TB lớp',
+                  label: 'Class avg',
                   value: classStats.classAvg.toFixed(1),
                   colorCls: scoreColor(classStats.classAvg),
                 },
                 {
-                  label: 'Điểm cao nhất',
+                  label: 'Highest score',
                   value: classStats.best.toFixed(1),
                   colorCls: 'text-success',
                 },
                 {
-                  label: 'Đạt (≥ 6)',
+                  label: 'Passed (≥ 6)',
                   value: `${classStats.passCount}/${classStats.total}`,
                   colorCls: 'text-info',
                 },
@@ -599,8 +599,8 @@ export default function EvaluationPage() {
             columns={columns}
             data={tableData}
             rowKey="_id"
-            emptyTitle="Chưa có đánh giá nào"
-            emptyMessage="Nhấn '+ Thêm đánh giá' để bắt đầu nhập điểm cho học viên."
+            emptyTitle="No evaluations yet"
+            emptyMessage="Click '+ Add evaluation' to start entering scores for learners."
           />
         </>
       )}
