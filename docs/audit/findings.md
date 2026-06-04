@@ -148,6 +148,13 @@ const resetUrl = `${clientOrigin}/reset-password?token=${rawToken}`;
 - **File:** `server/middleware/auth.js:42-47`
 - **Fix:** Gate Bearer accept behind explicit env flag `ALLOW_BEARER_AUTH=true`; default false in production.
 
+### SEC-019 — Moderate — `uuid` buffer bounds advisory via `exceljs` / `googleapis` (residual)
+- **File:** `server/package.json` (transitive). 5 moderate advisories — GHSA-w5hq-g745-h8pq (missing buffer bounds check in uuid v3/v5/v6 `buf` arg).
+- **Path:** `exceljs → uuid`, `googleapis → googleapis-common → gaxios → uuid`. Not exploitable today (we never pass a `buf` arg to uuid), and below the `--audit-level=high` CI gate, so non-blocking.
+- **Fix:** `npm audit fix --force` bumps `exceljs` to a major (breaking — re-verify HR `.xlsx` export) and `googleapis` to current; OR pin `uuid@>=11.1.1` via an `overrides` block in `server/package.json` and smoke-test Calendar/Sheets + Excel export.
+- **Test:** `npm audit --omit=dev --audit-level=moderate` returns 0; existing Calendar smoke + Excel export integration tests stay green.
+- **Owner:** Backend. **Effort:** S–M. **Dep:** none. **Note:** discovered 2026-06-04 alongside the client react-router 7.16.0 bump (high advisories closed; client audit now clean).
+
 ---
 
 ## C-AUTHZ — RBAC / Resource Authorization
