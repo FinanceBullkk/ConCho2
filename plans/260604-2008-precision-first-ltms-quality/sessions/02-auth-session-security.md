@@ -1,5 +1,9 @@
 # Session 02 - Auth + Session Security
 
+**Status:** completed
+
+**Report:** [session-02-auth-session-security-report.md](../reports/session-02-auth-session-security-report.md)
+
 ## Goal
 
 Answer: can sessions be created, protected, revoked, and audited safely?
@@ -36,4 +40,3 @@ Out: role matrix outside auth, UI polish, org permissions.
 ## Unresolved Questions
 
 - None.
-

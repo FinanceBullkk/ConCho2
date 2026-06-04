@@ -108,10 +108,12 @@ export const authAPI = {
   mfaSetup: () => api.post('/auth/mfa/setup'),
   mfaVerifySetup: (code) => api.post('/auth/mfa/verify-setup', { code }),
   mfaDisable: (code) => api.post('/auth/mfa/disable', { code }),
-  mfaAdminDisable: (userId) => api.post(`/auth/mfa/admin-disable/${userId}`),
+  mfaAdminDisable: (userId, currentPassword) =>
+    api.post(`/auth/mfa/admin-disable/${userId}`, { currentPassword }),
 
   // Admin force-logout
-  adminForceLogout: (userId) => api.post(`/auth/admin/force-logout/${userId}`),
+  adminForceLogout: (userId, currentPassword) =>
+    api.post(`/auth/admin/force-logout/${userId}`, { currentPassword }),
 };
 
 // ── Users ─────────────────────────────────────────────────

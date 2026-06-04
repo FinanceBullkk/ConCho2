@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useQueryClient } from '@tanstack/react-query';
@@ -247,6 +247,7 @@ export default function UsersPage() {
   const [progressModal, setProgressModal] = useState(null);      // { id, name }
   const [assignModal, setAssignModal]   = useState(null);        // user being assigned a manager/department
   const [adminAction, setAdminAction]   = useState(null);        // { type, userId, userName }
+  const [adminActionPassword, setAdminActionPassword] = useState('');
   const [adminActionLoading, setAdminActionLoading] = useState(false);
   const [adminActionError, setAdminActionError]     = useState('');
 
@@ -369,15 +370,32 @@ export default function UsersPage() {
     setDeleteId(null);
   };
 
+  const openAdminAction = useCallback((action) => {
+    setAdminAction(action);
+    setAdminActionPassword('');
+    setAdminActionError('');
+  }, []);
+
+  const closeAdminAction = useCallback(() => {
+    setAdminAction(null);
+    setAdminActionPassword('');
+    setAdminActionError('');
+  }, []);
+
   const handleAdminAction = async () => {
     if (!adminAction) return;
+    const currentPassword = adminActionPassword.trim();
+    if (!currentPassword) {
+      setAdminActionError('Enter your admin password to confirm this action.');
+      return;
+    }
     setAdminActionLoading(true);
     setAdminActionError('');
     try {
-      if (adminAction.type === 'force-logout') await authAPI.adminForceLogout(adminAction.userId);
-      else if (adminAction.type === 'reset-mfa') await authAPI.mfaAdminDisable(adminAction.userId);
+      if (adminAction.type === 'force-logout') await authAPI.adminForceLogout(adminAction.userId, currentPassword);
+      else if (adminAction.type === 'reset-mfa') await authAPI.mfaAdminDisable(adminAction.userId, currentPassword);
       reload();
-      setAdminAction(null);
+      closeAdminAction();
     } catch (err) {
       setAdminActionError(err.response?.data?.message || 'Action failed. Please try again.');
     } finally {
@@ -537,7 +555,7 @@ export default function UsersPage() {
               {can('force-logout:user') && (
                 <Button
                   size="sm" variant="ghost"
-                  onClick={() => setAdminAction({ type: 'force-logout', userId: u._id, userName: u.name })}
+                  onClick={() => openAdminAction({ type: 'force-logout', userId: u._id, userName: u.name })}
                   title="Force logout — invalidate all active sessions"
                   className="h-7 px-2 text-muted-foreground hover:text-warning hover:bg-warning/10"
                 >
@@ -547,7 +565,7 @@ export default function UsersPage() {
               {u.mfaEnabled && can('disable-mfa:user') && (
                 <Button
                   size="sm" variant="ghost"
-                  onClick={() => setAdminAction({ type: 'reset-mfa', userId: u._id, userName: u.name })}
+                  onClick={() => openAdminAction({ type: 'reset-mfa', userId: u._id, userName: u.name })}
                   title="Disable MFA — user can log in without 2FA until re-enrolled"
                   className="h-7 px-2 text-muted-foreground hover:text-warning hover:bg-warning/10"
                 >
@@ -559,7 +577,7 @@ export default function UsersPage() {
         </div>
       ),
     },
-  ], [teamsByUser, can, currentUser?._id]);
+  ], [teamsByUser, can, currentUser?._id, openAdminAction]);
 
   return (
     <div className="space-y-5">
@@ -758,6 +776,20 @@ export default function UsersPage() {
                 : <>Disable 2FA for <span className="text-foreground font-medium">{adminAction.userName}</span>? They can log in without a code until they re-enroll.</>
               }
             </p>
+            <div className="space-y-2">
+              <label htmlFor="admin-action-password" className="block text-sm font-medium text-foreground">
+                Your admin password
+              </label>
+              <input
+                id="admin-action-password"
+                type="password"
+                autoComplete="current-password"
+                className={INPUT_CLS}
+                value={adminActionPassword}
+                onChange={(event) => setAdminActionPassword(event.target.value)}
+                disabled={adminActionLoading}
+              />
+            </div>
             {adminActionError && (
               <div className="px-3 py-2 rounded-md bg-destructive-tint border border-destructive/30 text-destructive text-sm text-center">
                 {adminActionError}
@@ -766,7 +798,7 @@ export default function UsersPage() {
             <div className="flex gap-3">
               <Button
                 variant="outline" className="flex-1"
-                onClick={() => { setAdminAction(null); setAdminActionError(''); }}
+                onClick={closeAdminAction}
                 disabled={adminActionLoading}
               >Cancel</Button>
               <Button
