@@ -15,7 +15,7 @@ Applies whenever the user asks to implement a milestone/feature, or runs `/next`
 2. **Plan if needed.** Large/ambiguous → draft a short plan in `plans/` (or
    `/ck:plan` → `/ck:cook`). Small & clear → implement directly.
 3. **Implement** per conventions — extend `domains/` (don't grow legacy),
-   i18n both locales, audit mutations, soft-delete. See `backend-conventions.md`,
+   English-only UI strings (`en.json`), audit mutations, soft-delete. See `backend-conventions.md`,
    `frontend-conventions.md`, `domain-model-and-migration.md`.
 4. **Verify** (`testing-and-ci.md`): `cd server && npm test`,
    `cd client && npm run test:run`, `cd client && npm run lint` (≤ cap).

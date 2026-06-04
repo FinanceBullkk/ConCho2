@@ -24,7 +24,7 @@ MERN monorepo. Node `>=18` (CI runs server on Node 22, client on Node 20).
 - **@tanstack/react-query 5** — all server state (see `client/src/hooks/queryKeys.js`)
 - **react-hook-form 7** + **@hookform/resolvers** + **zod 4** — forms & validation
 - **react-router-dom 7** — routing (lazy-loaded pages)
-- **i18next** + **react-i18next** — i18n (`en` / `vi`); detector for browser locale
+- **i18next** + **react-i18next** — i18n (English-only, single `en` locale; no detector)
 - **axios** — single instance w/ interceptors (`client/src/api/api.js`)
 - **sonner** / **react-hot-toast** — toasts
 - **next-themes** — dark/light mode
