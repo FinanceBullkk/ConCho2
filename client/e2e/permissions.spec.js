@@ -33,12 +33,10 @@ test.describe('Permissions / RBAC', () => {
     await adminPage.goto('/people?tab=teams');
     await expect(adminPage.getByRole('heading', { name: /^Teams$/ }))
       .toBeVisible({ timeout: 10_000 });
-    // TeamsPage's create button text is still Vietnamese ("+ Tạo nhóm")
-    // because page-level i18n on TeamsPage has not landed yet (tracked as
-    // part of FE-015). Match either copy so the test does not block the
-    // pending i18n migration.
+    // TeamsPage is English-only now ("+ Create team") after the UI
+    // English-only migration; the old "+ Tạo nhóm" copy is gone.
     await expect(
-      adminPage.getByRole('button', { name: /\+ (new team|tạo nhóm)/i }).first(),
+      adminPage.getByRole('button', { name: /\+ create team/i }).first(),
     ).toBeVisible();
   });
 
