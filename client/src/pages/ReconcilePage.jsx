@@ -3,10 +3,11 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   Play, Search, ClipboardList, Link2, UserX, CalendarX, UserMinus, CheckCircle2,
 } from 'lucide-react';
-import { reconcileAPI } from '../api/api';
+import { reconcileAPI, cronAPI } from '../api/api';
 import { Button } from '@/components/ui/button';
 import { StatusBadge } from '../components/StatusBadge';
 import { Spinner } from '../components/Spinner';
+import CronHealthPanel from '../components/CronHealthPanel';
 
 // ──────────────────────────────────────────────────────────
 // Reconcile — Phase 4 Surface 9 §G/F (9D)
@@ -151,6 +152,13 @@ export default function ReconcilePage() {
     staleTime: 60_000,
   });
 
+  // Cron-job heartbeats — "did the nightly reconcile / reminders actually run?"
+  const cronHealthQuery = useQuery({
+    queryKey: ['cron', 'health'],
+    queryFn: () => cronAPI.getHealth().then((r) => r.data.data),
+    staleTime: 60_000,
+  });
+
   // Fetch the selected or latest report
   const reportQuery = useQuery({
     queryKey: ['reconcile', 'report', selectedReportId ?? 'latest'],
@@ -211,6 +219,9 @@ export default function ReconcilePage() {
           )}
         </Button>
       </div>
+
+      {/* Cron-job health — heartbeats for the scheduled reconcile + reminders */}
+      <CronHealthPanel jobs={cronHealthQuery.data?.jobs} isLoading={cronHealthQuery.isLoading} />
 
       {/* Run history bar */}
       {historyData?.length > 0 && (

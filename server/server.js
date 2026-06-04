@@ -247,6 +247,7 @@ app.use('/api/dashboard', require('./routes/dashboardRoutes'));
 app.use('/api/admin-db', require('./routes/adminDbRoutes'));
 app.use('/api/admin/audit', require('./routes/auditRoutes'));
 app.use('/api/admin/reconcile', require('./routes/reconcileRoutes'));
+app.use('/api/admin/cron', require('./routes/cronHealthRoutes'));
 app.use('/api/cron', require('./routes/cronRoutes'));
 app.use('/api/search', require('./routes/searchRoutes'));
 

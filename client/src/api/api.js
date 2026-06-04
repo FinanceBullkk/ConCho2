@@ -285,4 +285,9 @@ export const reconcileAPI = {
   getById:        (id) => api.get(`/admin/reconcile/${id}`),
 };
 
+// ── Cron health (scheduled-job heartbeats) ───────────────
+export const cronAPI = {
+  getHealth:      () => api.get('/admin/cron/health'),
+};
+
 export default api;
