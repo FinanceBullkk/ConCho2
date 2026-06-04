@@ -235,6 +235,36 @@ describe('Class.teacherIds binding — attendance', () => {
     expect(res.status).toBe(403);
   });
 
+  test('Teacher A attendance calendar includes bound + unbound schedules → 200', async () => {
+    const res = await request(app)
+      .get('/api/schedules/attendance-calendar')
+      .set('Authorization', `Bearer ${tokenFor(teacherA._id)}`);
+
+    expect(res.status).toBe(200);
+    const ids = res.body.data.map((s) => s._id.toString());
+    expect(ids).toContain(schedBound._id.toString());
+    expect(ids).toContain(schedUnbound._id.toString());
+  });
+
+  test('Teacher B attendance calendar excludes another teacher bound schedule', async () => {
+    const res = await request(app)
+      .get('/api/schedules/attendance-calendar')
+      .set('Authorization', `Bearer ${tokenFor(teacherB._id)}`);
+
+    expect(res.status).toBe(200);
+    const ids = res.body.data.map((s) => s._id.toString());
+    expect(ids).not.toContain(schedBound._id.toString());
+    expect(ids).toContain(schedUnbound._id.toString());
+  });
+
+  test('Participant still cannot read attendance calendar → 403', async () => {
+    const res = await request(app)
+      .get('/api/schedules/attendance-calendar')
+      .set('Authorization', `Bearer ${tokens.leader}`);
+
+    expect(res.status).toBe(403);
+  });
+
   test('Any Teacher CAN bulk-mark schedule of unboundClass (graceful) → 200', async () => {
     const res = await request(app)
       .post(`/api/attendance/${schedUnbound._id}`)

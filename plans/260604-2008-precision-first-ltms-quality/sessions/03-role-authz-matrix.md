@@ -1,5 +1,9 @@
 # Session 03 - Role/Authz Matrix
 
+**Status:** completed
+
+**Report:** [session-03-role-authz-matrix-report.md](../reports/session-03-role-authz-matrix-report.md)
+
 ## Goal
 
 Answer: do server policy/capability rules and client `useRole` permissions match
@@ -38,4 +42,3 @@ Out: data correctness inside each workflow unless authz depends on it.
 ## Unresolved Questions
 
 - None.
-

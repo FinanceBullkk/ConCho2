@@ -14,7 +14,7 @@ Source: current route middleware. Keep this matrix updated when routes move into
 | `/api/learning/programs` | authenticated | Admin | new catalog API |
 | `/api/learning/cohorts` | authenticated | Admin | new cohort API backed by legacy Class |
 | `/api/learning/sessions` | Admin all; Teacher assigned cohorts; Participant enrolled sessions | Admin; leader booking/cancel | session DTO API backed by legacy Schedule; writes use `groupId` |
-| `/api/schedules` | authenticated scoped by controller | Admin; leader booking/cancel | booking allows Admin/Participant leader |
+| `/api/schedules` | Admin all; Teacher attendance calendar scoped by class binding; Participant own/my-class/availability | Admin; leader booking/cancel | booking allows Admin/Participant leader |
 | `/api/attendance` | Admin/Teacher; self stats authenticated | Admin/Teacher | teacher binding applies in policy/controller paths |
 | `/api/evaluations` | authenticated with controller role policy | Admin/Teacher write; Admin delete | participant read is self-scoped |
 | `/api/enrollments` | Admin | Admin | route-level Admin guard |
