@@ -132,15 +132,18 @@ Legacy redirects:
 
 ### i18n Current State
 
-The current code uses `i18next`, `react-i18next`, and `i18next-browser-languagedetector`.
+The product is **English-only**. `client/src/i18n/index.js` initializes
+`i18next` + `react-i18next` with a single `en` resource — no language detection
+and no runtime language switching.
 
-- Locale files: `client/src/i18n/locales/en.json`, `client/src/i18n/locales/vi.json`
-- Fallback language: `en`
-- Detection order: `localStorage`, then browser navigator
-- Storage key: `tms_lang`
-- Navbar includes a language toggle.
+- Locale file: `client/src/i18n/locales/en.json` (single locale; `vi.json` removed)
+- Language / fallback: `en` (hardcoded `lng: 'en'`, `fallbackLng: 'en'`)
+- No `i18next-browser-languagedetector` wired (the package still lingers in
+  `client/package.json` but is unused and can be dropped).
+- No language toggle in the Navbar (only a theme toggle).
 
-This differs from older phase docs that recommended no i18n framework.
+User-facing strings are routed through `t()`; some `/me/*` learner pages use
+English literals directly.
 
 ## Backend Map
 
@@ -308,7 +311,8 @@ No tests were run while creating this map.
 ## Current Mismatches To Watch
 
 - README and older phase docs may lag behind code.
-- i18n docs are stale: code now has runtime EN/VI i18next support.
+- i18n: product is English-only (single `en` locale; no detector, no toggle).
+  The unused `i18next-browser-languagedetector` dependency can be dropped.
 - Some protected routes/messages still contain English literals outside locale files.
 - Some API routes appear intentionally unauthenticated or route-level protected by controller/middleware assumptions; verify before changing security-sensitive endpoints.
 - `BookClassPage` is lazy-loaded but no direct active route points to it; `/book` redirects to `/calendar?tab=book`.
@@ -317,4 +321,5 @@ No tests were run while creating this map.
 
 - Which deployment URL and env set are canonical production?
 - Should future docs update replace README sections or keep this map as the code-truth companion?
-- Are all user-facing strings expected to move into i18n locale files, or only shared shell/auth/nav strings?
+- (Resolved) i18n scope: route user-facing strings through `t()` / `en.json`;
+  English literals are acceptable in `/me/*` learner pages. No Vietnamese strings.

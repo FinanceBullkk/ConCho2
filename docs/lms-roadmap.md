@@ -77,7 +77,7 @@ Agents working in this repo must follow this contract:
 | Frontend | User-facing value has a reachable UI entrypoint |
 | Data | Mutations audit; soft-delete applies where appropriate |
 | Cross-feature | Reports/completion/certificates/notifications consume new data when relevant |
-| i18n | `en.json` and `vi.json` updated for user-facing strings |
+| i18n | User-facing strings added to `en.json` (English-only; single `en` locale, no `vi.json`) |
 | Tests | Happy path, permission denial, and one core edge case covered |
 | Review | Broken routes/buttons, stale docs, and latent-value gaps checked |
 
