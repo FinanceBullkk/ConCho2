@@ -26,7 +26,7 @@ and either fixes a P0/P1 immediately or creates a focused follow-up plan.
 | 01 | [Baseline Truth](sessions/01-baseline-truth.md) | completed | What is true now: docs, code, dirty tree, gates? |
 | 02 | [Auth + Session Security](sessions/02-auth-session-security.md) | completed | Can sessions be created, protected, revoked, and audited safely? |
 | 03 | [Role/Authz Matrix](sessions/03-role-authz-matrix.md) | completed | Do server policy and client permissions match for each role? |
-| 04 | [People + Org](sessions/04-people-org.md) | pending | Does user/org management preserve data and manager scope? |
+| 04 | [People + Org](sessions/04-people-org.md) | completed | Does user/org management preserve data and manager scope? |
 | 05 | [Learning Enrollment](sessions/05-learning-enrollment.md) | pending | Are enrollment, prerequisites, and paths truthful and consistent? |
 | 06 | [Scheduling + Attendance](sessions/06-scheduling-attendance.md) | pending | Are booking and attendance safe under races and downstream reports? |
 | 07 | [Assessment + Completion + Certificates](sessions/07-assessment-completion-certificates.md) | pending | Does completion truth match attempts, feedback, and certificates? |
@@ -52,5 +52,7 @@ Goal, Scope, Evidence, Verdict, Action, Verification, Backlog, Unresolved.
   auth gates green, Playwright smoke deferred until seeded backend is available.
 - Session 03 completed; one P1 Teacher calendar/server authz mismatch fixed,
   focused role/capability denial gates green.
+- Session 04 completed; one P1 user soft-delete schedule-history corruption
+  fixed, focused People/Org and downstream rollup gates green.
 - No code implementation belongs in this plan until a session identifies a concrete P0/P1 or approved focused fix.
 - Current dirty tree must be preserved; do not revert unrelated changes.

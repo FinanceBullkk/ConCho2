@@ -270,19 +270,10 @@ const updateUser = async (req, res) => {
 
 /**
  * DELETE /api/users/:id
- * Delete a user — GUARD + CASCADE.
+ * SOFT DELETE — marks user as deleted but preserves history.
  *
  * Guards:
  *   - BLOCKS deletion if user is a Team Leader (must reassign first)
- *
- * Cascade:
- *   1. Pull user from all Teams' members arrays
- *   2. Pull user from all Schedules' enrolledUsers + decrement enrolledCount
- *   3. Delete all Attendance records for this user
- *   4. Delete the user
-/**
- * DELETE /api/users/:id
- * SOFT DELETE — marks user as deleted but preserves all data.
  *
  * Side-effects (reversible via restore):
  *   1. Pull user from all Teams' members arrays
@@ -326,8 +317,9 @@ const deleteUser = async (req, res) => {
         pulledFromTeams = teamResult.modifiedCount;
 
         // Step 2: Pull from future Schedule.enrolledUsers
+        const now = new Date();
         const schedResult = await Schedule.updateMany(
-          { enrolledUsers: user._id },
+          { startTime: { $gt: now }, enrolledUsers: user._id },
           { $pull: { enrolledUsers: user._id } },
           { session }
         );
