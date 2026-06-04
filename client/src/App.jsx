@@ -29,6 +29,7 @@ const BookClassPage    = lazy(() => import('./pages/BookClassPage'));
 const ClassDetailPage  = lazy(() => import('./pages/ClassDetailPage'));
 const UserSettingsPage = lazy(() => import('./pages/UserSettingsPage'));
 const MyLearningCatalogPage = lazy(() => import('./pages/MyLearningCatalogPage'));
+const MyLearningPathsPage = lazy(() => import('./pages/MyLearningPathsPage'));
 const MyAssessmentsPage = lazy(() => import('./pages/MyAssessmentsPage'));
 const MyFeedbackPage = lazy(() => import('./pages/MyFeedbackPage'));
 
@@ -266,6 +267,9 @@ export default function App() {
                 <Route path="/me/settings" element={<UserSettingsPage />} />
                 <Route path="/me/catalog" element={
                   <ProtectedRoute roles={['Participant']}><MyLearningCatalogPage /></ProtectedRoute>
+                } />
+                <Route path="/me/paths" element={
+                  <ProtectedRoute roles={['Participant']}><MyLearningPathsPage /></ProtectedRoute>
                 } />
                 <Route path="/me/assessments" element={
                   <ProtectedRoute roles={['Participant']}><MyAssessmentsPage /></ProtectedRoute>

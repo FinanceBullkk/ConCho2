@@ -93,6 +93,14 @@ export const useLearningPaths = (params = {}) =>
     queryFn: async () => (await learningAPI.getPaths(params)).data,
   });
 
+// Per-learner progress for one path (completed/current/locked per step + summary).
+export const usePathProgress = (id) =>
+  useQuery({
+    queryKey: qk.learning.pathProgress(id),
+    queryFn: async () => (await learningAPI.getPathProgress(id)).data,
+    enabled: !!id,
+  });
+
 export const useCreatePath = () => {
   const qc = useQueryClient();
   return useMutation({
