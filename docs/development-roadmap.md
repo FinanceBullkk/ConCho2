@@ -5,7 +5,7 @@
 > - *Architecture / orientation* → [`system-overview.md`](system-overview.md)
 > - *Detailed task snapshot* → [`handoff-2026-06-01.md`](handoff-2026-06-01.md)
 >
-> **Last updated:** 2026-06-03
+> **Last updated:** 2026-06-04
 
 ---
 
@@ -49,9 +49,10 @@ and enroll in available cohorts through the existing cohort-enrollment API.
 **Prerequisite gating v1** is now live: a `LearningProgram` can declare
 `prerequisitePrograms`, and self-enrollment (incl. `/me/catalog`) is blocked
 (422) until the learner has completed each prerequisite — a passing completion
-or an Issued certificate counts; Admins may override. Next: sequenced learning
-paths + a prerequisite-selector UI, plus advanced report filters/exports when
-needed.
+or an Issued certificate counts; Admins may override. A **prerequisite-selector
+UI** now lets Admins set `prerequisitePrograms` on a Program from the Learning
+workspace (multi-select of other active programs; persists on create + edit).
+Next: sequenced learning paths, plus advanced report filters/exports when needed.
 
 ---
 
@@ -63,7 +64,7 @@ needed.
 | 1 | Backend modular-monolith refactor | ~42% | 🟡 in progress |
 | 2 | Learning catalog + generic cohort model | ~95% | 🟢 near done |
 | 3 | Multi-program enrollment + session scheduling | ~78% | 🟡 in progress |
-| 4 | Frontend L&D workspace (CRUD UI) | ~72% | 🟡 in progress |
+| 4 | Frontend L&D workspace (CRUD UI) | ~74% | 🟡 in progress |
 | 5 | Reporting, completion, feedback | ~72% | 🟡 in progress |
 | 6 | PostgreSQL decision gate | 0% | ⚪ gated |
 
@@ -73,7 +74,7 @@ needed.
 |------|------|--------|-----------|
 | A — Foundation | Generic learning core works E2E (scheduling modes, cohort enrollment, CRUD UI, capability authz) | 🟢 done (M1–M4) | — |
 | B — Assessment & Certification | Generic assessment engine, completion enforcement, certificates | 🟡 in progress (completion + certificates + feedback + assessment engine v1 + completion reporting + rollups + assessment UI + feedback UI + assessment edit + question-bank backend/UI + manual grading v1 done) | A |
-| C — Catalog, Paths & Self-service | Learner catalog, self-enroll, learning paths/prerequisites | 🟡 in progress (learner catalog + self-enroll UI + prerequisite gating v1 done; sequenced paths + prereq UI next) | A |
+| C — Catalog, Paths & Self-service | Learner catalog, self-enroll, learning paths/prerequisites | 🟡 in progress (learner catalog + self-enroll UI + prerequisite gating v1 + prereq selector UI done; sequenced paths next) | A |
 | D — Platform & Scale | SSO, HRIS sync, advanced analytics, mobile, Postgres gate | 🔴 planned | B, C |
 
 ---
@@ -101,11 +102,21 @@ needed.
 | → | **Wave B — completion report rollups** | Aggregate completion by program and department | 🟢 done — `GET /api/learning/reports/completion/rollup` reuses cohort completion rows, returns program/department summaries, and Learning Reports shows rollup tables above cohort detail. |
 | → | **Wave C — learner catalog self-enroll v1** | Learners browse and enroll themselves | 🟢 done — Participant route `/me/catalog` lists active `self_enroll` programs with ongoing cohorts, search/category filters, existing-enrollment state, and enrollment action via `/api/learning/enrollments`. |
 | → | **Wave C — prerequisite gating v1** | Block enrollment until prerequisite programs are completed | 🟢 done — `LearningProgram.prerequisitePrograms`; enrollment chokepoint enforces direct prerequisites for self-enroll (422, names the unmet program) via `enrollment/prerequisites.js` (Issued certificate OR completion-engine signal); Admins override. DTO exposes the field. 5 integration tests. Sequenced paths + prereq selector UI deferred. |
+| → | **Phase 4 — prerequisite-selector UI** | Let Admins set program prerequisites from the UI | 🟢 done — `ProgramFormModal` now has a multi-select **Prerequisites** picker (other active programs, self excluded) wired to `prerequisitePrograms`; create + edit persist it. New presentational `PrerequisiteSelector`; i18n en+vi; 4 component tests. Closes the deferred prereq UI from gating v1. |
 
 ---
 
 ## Recent progress (changelog)
 
+- **2026-06-04** — **Phase 4 — prerequisite-selector UI.** The Program form
+  (`ProgramFormModal`) now exposes a multi-select **Prerequisites** picker listing
+  other active programs (self excluded); selections persist to
+  `LearningProgram.prerequisitePrograms` on create + edit (the field shipped
+  backend-only earlier on 2026-06-04). New presentational `PrerequisiteSelector`
+  component (checkbox list, value-as-source-of-truth), i18n en+vi (3 keys). Closes
+  the deferred prereq UI from gating v1; sequenced learning paths remain the next
+  Wave C step. Verified: client **127 tests** (+4), lint 0 errors/81 warnings (at
+  cap), build clean. Frontend-only — server untouched.
 - **2026-06-04** — **Wave C — prerequisite gating v1.** A `LearningProgram` can
   now declare `prerequisitePrograms`, and the cohort-enrollment chokepoint
   (`domains/learning/enrollment/`) blocks **self-enrollment** (incl. `/me/catalog`)

@@ -420,7 +420,10 @@
       "cohortCode": "Cohort code",
       "title": "Title",
       "totalSessions": "Total sessions",
-      "cohortCodeHint": "Optional — auto-generated when left blank."
+      "cohortCodeHint": "Optional — auto-generated when left blank.",
+      "prerequisites": "Prerequisites",
+      "prerequisitesHint": "Learners must complete these programs before self-enrolling.",
+      "prerequisitesNone": "No other active programs available."
     },
     "category": {
       "english": "English",

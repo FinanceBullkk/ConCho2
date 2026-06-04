@@ -5,8 +5,11 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { useCreateProgram, useUpdateProgram, useArchiveProgram } from '../../hooks/useLearning';
+import {
+  useLearningPrograms, useCreateProgram, useUpdateProgram, useArchiveProgram,
+} from '../../hooks/useLearning';
 import { LearningField, EnumSelect, controlClass, textareaClass } from './LearningField';
+import PrerequisiteSelector from './PrerequisiteSelector';
 
 const CATEGORIES = ['english', 'onboarding', 'compliance', 'soft_skills', 'technical', 'workshop', 'other'];
 const SCHEDULING = ['leader_booking', 'admin_scheduled', 'self_enroll', 'nomination'];
@@ -16,7 +19,7 @@ const STATUSES = ['active', 'inactive', 'archived'];
 const blank = {
   code: '', name: '', description: '', category: 'other',
   schedulingMode: 'admin_scheduled', deliveryMode: 'online',
-  defaultSessionCount: 1, status: 'active',
+  defaultSessionCount: 1, status: 'active', prerequisitePrograms: [],
 };
 
 // Create or edit a LearningProgram. `program` null = create mode.
@@ -30,6 +33,11 @@ export default function ProgramFormModal({ program, onClose }) {
   const [form, setForm] = useState(() => (isEdit ? { ...blank, ...program } : blank));
   const [error, setError] = useState('');
   const [confirmArchive, setConfirmArchive] = useState(false);
+
+  // Other active programs are the prerequisite candidates (a program can't
+  // require itself). Shares the ProgramsTab query key, so this is cache-served.
+  const { data: programData } = useLearningPrograms({ status: 'active' });
+  const prerequisiteOptions = (programData?.data || []).filter((p) => p._id !== program?._id);
 
   const set = (key) => (val) => setForm((f) => ({ ...f, [key]: val }));
 
@@ -45,6 +53,7 @@ export default function ProgramFormModal({ program, onClose }) {
       deliveryMode: form.deliveryMode,
       defaultSessionCount: Number(form.defaultSessionCount) || 1,
       status: form.status,
+      prerequisitePrograms: form.prerequisitePrograms || [],
     };
     try {
       if (isEdit) {
@@ -126,6 +135,14 @@ export default function ProgramFormModal({ program, onClose }) {
               <EnumSelect value={form.deliveryMode} onChange={set('deliveryMode')} options={DELIVERY} labelFor={(v) => t(`learning.delivery.${v}`)} />
             </LearningField>
           </div>
+
+          <LearningField label={t('learning.fields.prerequisites')} hint={t('learning.fields.prerequisitesHint')}>
+            <PrerequisiteSelector
+              options={prerequisiteOptions}
+              value={form.prerequisitePrograms || []}
+              onChange={set('prerequisitePrograms')}
+            />
+          </LearningField>
 
           <div className="flex gap-3 pt-2">
             {isEdit && (
