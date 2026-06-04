@@ -1,6 +1,6 @@
 /**
  * LEGACY ONE-OFF SCRIPT — DO NOT RUN IN PRODUCTION (P3-09)
- * Hardcodes DEFAULT_PASSWORD = 'default12345'. Use /api/import/users for production.
+ * Set IMPORT_DEFAULT_PASSWORD explicitly. Use /api/import/users for production.
  *
  * Wipe & Re-import TMS data DIRECTLY from raw spreadsheet.
  *
@@ -47,7 +47,7 @@ const dangerousScriptGuard = require('./lib/dangerousScriptGuard');
 
 const RAW_PATH = process.env.RAW_PATH || 'C:/Users/anhha/Downloads/okok_FIXED_v2 (1).xlsx';
 const CONFIRMED = process.env.CONFIRM_WIPE === 'YES';
-const DEFAULT_PASSWORD = 'default12345';
+const IMPORT_PASSWORD = process.env['IMPORT_DEFAULT_PASSWORD'];
 const EXTERNAL_LEADER_PREFIX = '900'; // 900001+ for external PIC leaders not in STUDENTS
 
 // Vietnamese name → ASCII transliteration
@@ -264,7 +264,11 @@ async function main() {
   // STEP 2 — USERS (Participants + Teachers)
   // ────────────────────────────────────────────────────────
   section('STEP 2 — IMPORT USERS');
-  const passwordHash = await bcrypt.hash(DEFAULT_PASSWORD, 12);
+  if (!IMPORT_PASSWORD) {
+    console.error('❌ IMPORT_DEFAULT_PASSWORD must be set before creating users.');
+    process.exit(1);
+  }
+  const passwordHash = await bcrypt.hash(IMPORT_PASSWORD, 12);
 
   // Participants from STUDENTS
   const participantOps = students

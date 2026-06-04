@@ -7,6 +7,8 @@
 
 const XLSX = require('../node_modules/xlsx');
 
+require('dotenv').config();
+
 const API_BASE = 'http://localhost:3000/api';
 let COOKIE = '';
 
@@ -44,6 +46,12 @@ async function apiPut(path, body) {
 }
 
 async function main() {
+  const importPassword = process.env['IMPORT_DEFAULT_PASSWORD'];
+  if (!importPassword) {
+    console.error('IMPORT_DEFAULT_PASSWORD must be set before creating users.');
+    process.exit(1);
+  }
+
   // Login
   console.log('🔐 Logging in...');
   const loginRes = await fetch(API_BASE + '/auth/login', {
@@ -151,7 +159,7 @@ async function main() {
           empCode, name,
           role: 'Participant',
           department, position, status, dropReason,
-          password: 'default12345',
+          password: importPassword,
         });
         created++;
         if (created <= 3) console.log('  ✨ Created: ' + empCode + ' — ' + name);
@@ -172,4 +180,3 @@ async function main() {
 }
 
 main().catch(err => { console.error('Fatal:', err.message); process.exit(1); });
-
