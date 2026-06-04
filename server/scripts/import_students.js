@@ -4,10 +4,9 @@
  * Import STUDENTS data from Excel into MongoDB.
  * Run from: e:\ConCho2\server> node import_students.js
  *
- * P3-09: This script hardcodes a default password ('default12345').
- * For production imports use POST /api/import/users (importService.js)
- * which reads IMPORT_DEFAULT_PASSWORD from the environment and enforces
- * mustChangePassword on every new user.
+ * P3-09: This script is legacy. Set IMPORT_DEFAULT_PASSWORD explicitly when
+ * running it. For production imports use POST /api/import/users
+ * (importService.js), which enforces mustChangePassword on every new user.
  * ──────────────────────────────────────────────────────────
  */
 
@@ -75,7 +74,11 @@ async function main() {
   };
 
   // Pass plaintext — User model pre-save hook hashes it. Do NOT pre-hash here.
-  const DEFAULT_PASSWORD = 'default12345';
+  const importPassword = process.env['IMPORT_DEFAULT_PASSWORD'];
+  if (!importPassword) {
+    console.error('❌ IMPORT_DEFAULT_PASSWORD must be set before creating users.');
+    process.exit(1);
+  }
 
   let created = 0, updated = 0, skipped = 0, errors = 0;
   const rows = data.slice(headerIdx + 1).filter(r => r[COL.empCode]);
@@ -115,7 +118,7 @@ async function main() {
           empCode, name,
           role: 'Participant',
           department, position, status, dropReason,
-          password: DEFAULT_PASSWORD,
+          password: importPassword,
         });
         created++;
         if (created <= 5) console.log('  ✨ Created: ' + empCode + ' — ' + name);
