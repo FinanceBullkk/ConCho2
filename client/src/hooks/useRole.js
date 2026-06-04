@@ -84,6 +84,12 @@ const PERMISSION_MAP = {
   'manage:assessment': ['Admin', 'Teacher'],        // POST/DELETE /api/assessment/assessments*
   'read:assessment':   ['Admin', 'Teacher', 'Participant'], // GET /api/assessment/assessments*
 
+  // Org model (Wave D3) ─ server: server/domains/org/routes.js
+  'read:department':   ['Admin', 'Teacher'],        // GET    /api/org/departments  (department.read)
+  'manage:department': ['Admin'],                   // POST/PUT/DELETE /api/org/departments (department.manage)
+  'assign:org':        ['Admin'],                   // PUT    /api/org/users/:id/assignment (org.manage)
+  'read:team':         ['Admin', 'Teacher', 'Participant'], // GET /api/org/my-team (team.read — self-scoped)
+
   // Bookings ─ server: server/routes/scheduleRoutes.js POST /book-slot
   // roleGuard('Admin','Participant') + leader check in scheduleService
   'book:class':        ['Admin', 'Participant'],

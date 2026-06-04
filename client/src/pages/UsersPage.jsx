@@ -3,8 +3,9 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { ShieldAlert, LogOut, BarChart3, Pencil, Trash2, RefreshCw, Download } from 'lucide-react';
+import { ShieldAlert, LogOut, BarChart3, Pencil, Trash2, RefreshCw, Download, Building2 } from 'lucide-react';
 import StudentProgressModal from '../components/Progress/StudentProgressModal';
+import OrgAssignmentModal from '../components/OrgAssignmentModal';
 import Portal from '../components/Portal';
 import {
   Dialog, DialogContent, DialogHeader, DialogFooter, DialogTitle,
@@ -244,6 +245,7 @@ export default function UsersPage() {
   const [modal, setModal]               = useState(null);        // null | 'create' | userObject
   const [deleteId, setDeleteId]         = useState(null);
   const [progressModal, setProgressModal] = useState(null);      // { id, name }
+  const [assignModal, setAssignModal]   = useState(null);        // user being assigned a manager/department
   const [adminAction, setAdminAction]   = useState(null);        // { type, userId, userName }
   const [adminActionLoading, setAdminActionLoading] = useState(false);
   const [adminActionError, setAdminActionError]     = useState('');
@@ -510,6 +512,16 @@ export default function UsersPage() {
               <Pencil className="size-3.5" aria-hidden="true" />
             </Button>
           )}
+          {can('assign:org') && (
+            <Button
+              size="sm" variant="ghost"
+              onClick={() => setAssignModal(u)}
+              title="Assign manager / department"
+              className="h-7 px-2 text-muted-foreground hover:text-primary hover:bg-primary/10"
+            >
+              <Building2 className="size-3.5" aria-hidden="true" />
+            </Button>
+          )}
           {can('delete:user') && (
             <Button
               size="sm" variant="ghost"
@@ -714,6 +726,15 @@ export default function UsersPage() {
           userId={progressModal.id}
           userName={progressModal.name}
           onClose={() => setProgressModal(null)}
+        />
+      )}
+
+      {/* ── Org assignment (manager + department) ─────────── */}
+      {assignModal && (
+        <OrgAssignmentModal
+          user={assignModal}
+          candidates={users}
+          onClose={() => setAssignModal(null)}
         />
       )}
 

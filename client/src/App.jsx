@@ -32,6 +32,7 @@ const MyLearningCatalogPage = lazy(() => import('./pages/MyLearningCatalogPage')
 const MyLearningPathsPage = lazy(() => import('./pages/MyLearningPathsPage'));
 const MyAssessmentsPage = lazy(() => import('./pages/MyAssessmentsPage'));
 const MyFeedbackPage = lazy(() => import('./pages/MyFeedbackPage'));
+const MyTeamPage = lazy(() => import('./pages/MyTeamPage'));
 
 function RouteFallback() {
   return (
@@ -243,6 +244,8 @@ export default function App() {
               {/* Protected — wrapped in Layout */}
               <Route element={<ProtectedRoute><Layout /></ProtectedRoute>}>
                 <Route path="/home" element={<DashboardPage />} />
+                {/* Manager dashboard — any authenticated user; self-scoped server-side */}
+                <Route path="/my-team" element={<MyTeamPage />} />
 
                 <Route path="/people" element={
                   <ProtectedRoute roles={['Admin']}><PeoplePage /></ProtectedRoute>

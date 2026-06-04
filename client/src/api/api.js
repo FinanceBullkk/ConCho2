@@ -290,4 +290,14 @@ export const cronAPI = {
   getHealth:      () => api.get('/admin/cron/health'),
 };
 
+// ── Org model (departments, manager hierarchy, my-team) ───
+export const orgAPI = {
+  getDepartments:    (params) => api.get('/org/departments', { params }),
+  createDepartment:  (data) => api.post('/org/departments', data),
+  updateDepartment:  (id, data) => api.put(`/org/departments/${id}`, data),
+  archiveDepartment: (id) => api.delete(`/org/departments/${id}`),
+  assignUser:        (id, data) => api.put(`/org/users/${id}/assignment`, data),
+  getMyTeam:         () => api.get('/org/my-team'),
+};
+
 export default api;

@@ -71,6 +71,11 @@ export const qk = {
     questionBank: (params) => ['assessment', 'question-bank', params],
     attempts: (params) => ['assessment', 'attempts', params],
   },
+  org: {
+    all: ['org'],
+    departments: (params) => ['org', 'departments', params],
+    myTeam: ['org', 'my-team'],
+  },
   dashboard: {
     stats: ['dashboard', 'stats'],
   },
