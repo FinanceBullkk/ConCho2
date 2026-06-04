@@ -34,6 +34,7 @@ const createProgramBody = z.object({
   completionPolicy,
   capacityPolicy,
   facilitatorPolicy,
+  prerequisitePrograms: z.array(objectId).max(20).optional(),
   status: z.enum(['active', 'inactive', 'archived']).default('active'),
 });
 

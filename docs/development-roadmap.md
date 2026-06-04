@@ -46,8 +46,12 @@ and department, and the Learning **Reports** tab shows those rollups above the
 cohort detail report. Wave C has started with a learner-facing catalog:
 Participants can open `/me/catalog`, browse/search active self-enroll programs,
 and enroll in available cohorts through the existing cohort-enrollment API.
-Next: learning paths/prerequisite gating, plus advanced report filters/exports
-when needed.
+**Prerequisite gating v1** is now live: a `LearningProgram` can declare
+`prerequisitePrograms`, and self-enrollment (incl. `/me/catalog`) is blocked
+(422) until the learner has completed each prerequisite — a passing completion
+or an Issued certificate counts; Admins may override. Next: sequenced learning
+paths + a prerequisite-selector UI, plus advanced report filters/exports when
+needed.
 
 ---
 
@@ -58,7 +62,7 @@ when needed.
 | 0 | Architecture baseline + safety net | ~92% | 🟢 near done |
 | 1 | Backend modular-monolith refactor | ~42% | 🟡 in progress |
 | 2 | Learning catalog + generic cohort model | ~95% | 🟢 near done |
-| 3 | Multi-program enrollment + session scheduling | ~75% | 🟡 in progress |
+| 3 | Multi-program enrollment + session scheduling | ~78% | 🟡 in progress |
 | 4 | Frontend L&D workspace (CRUD UI) | ~72% | 🟡 in progress |
 | 5 | Reporting, completion, feedback | ~72% | 🟡 in progress |
 | 6 | PostgreSQL decision gate | 0% | ⚪ gated |
@@ -69,7 +73,7 @@ when needed.
 |------|------|--------|-----------|
 | A — Foundation | Generic learning core works E2E (scheduling modes, cohort enrollment, CRUD UI, capability authz) | 🟢 done (M1–M4) | — |
 | B — Assessment & Certification | Generic assessment engine, completion enforcement, certificates | 🟡 in progress (completion + certificates + feedback + assessment engine v1 + completion reporting + rollups + assessment UI + feedback UI + assessment edit + question-bank backend/UI + manual grading v1 done) | A |
-| C — Catalog, Paths & Self-service | Learner catalog, self-enroll, learning paths/prerequisites | 🟡 in progress (learner catalog + self-enroll UI v1 done; paths/prerequisites next) | A |
+| C — Catalog, Paths & Self-service | Learner catalog, self-enroll, learning paths/prerequisites | 🟡 in progress (learner catalog + self-enroll UI + prerequisite gating v1 done; sequenced paths + prereq UI next) | A |
 | D — Platform & Scale | SSO, HRIS sync, advanced analytics, mobile, Postgres gate | 🔴 planned | B, C |
 
 ---
@@ -96,11 +100,22 @@ when needed.
 | → | **Wave B — manual grading v1** | Review short-text answers | 🟢 done — manager-only `PUT /api/assessment/attempts/:id/manual-grade`; Learning Assessments tab review modal updates short-text scores/notes and recomputes pass state. |
 | → | **Wave B — completion report rollups** | Aggregate completion by program and department | 🟢 done — `GET /api/learning/reports/completion/rollup` reuses cohort completion rows, returns program/department summaries, and Learning Reports shows rollup tables above cohort detail. |
 | → | **Wave C — learner catalog self-enroll v1** | Learners browse and enroll themselves | 🟢 done — Participant route `/me/catalog` lists active `self_enroll` programs with ongoing cohorts, search/category filters, existing-enrollment state, and enrollment action via `/api/learning/enrollments`. |
+| → | **Wave C — prerequisite gating v1** | Block enrollment until prerequisite programs are completed | 🟢 done — `LearningProgram.prerequisitePrograms`; enrollment chokepoint enforces direct prerequisites for self-enroll (422, names the unmet program) via `enrollment/prerequisites.js` (Issued certificate OR completion-engine signal); Admins override. DTO exposes the field. 5 integration tests. Sequenced paths + prereq selector UI deferred. |
 
 ---
 
 ## Recent progress (changelog)
 
+- **2026-06-04** — **Wave C — prerequisite gating v1.** A `LearningProgram` can
+  now declare `prerequisitePrograms`, and the cohort-enrollment chokepoint
+  (`domains/learning/enrollment/`) blocks **self-enrollment** (incl. `/me/catalog`)
+  with **422** until the learner has completed each prerequisite — satisfied by an
+  Issued certificate or a passing result from the completion engine
+  (`enrollment/prerequisites.js`). The error names the unmet program(s). **Admins
+  may override** (gate runs on the non-admin path only). Program DTO exposes the
+  field; self-reference is stripped on update. Direct prerequisites only —
+  sequenced learning paths, transitive/cycle handling, and a prerequisite-selector
+  UI are deferred. 5 integration tests; server suite **540 green**.
 - **2026-06-03** — **Wave C — learner catalog self-enroll v1.**
   Added Participant self-service catalog at `/me/catalog`. The page lists active
   programs with `schedulingMode: self_enroll`, joins ongoing cohorts, supports

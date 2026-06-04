@@ -1,4 +1,5 @@
 const repository = require('./repository');
+const { assertPrerequisitesMet } = require('./prerequisites');
 const { ServiceError } = require('../../../helpers/ServiceError');
 
 const sameId = (a, b) => a && b && a.toString() === b.toString();
@@ -29,6 +30,11 @@ const enroll = async ({ cohortId, userId }, actor) => {
   const existing = await repository.findActiveCohortEnrollment(targetUserId, cohortId);
   if (existing) {
     throw new ServiceError('Learner is already enrolled in this cohort', 409);
+  }
+
+  // Prerequisite gating applies to self-enrollment; Admins may override.
+  if (actor.role !== 'Admin') {
+    await assertPrerequisitesMet(cohort, targetUserId);
   }
 
   return repository.createCohortEnrollment({ userId: targetUserId, cohortId });

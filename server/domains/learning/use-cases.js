@@ -56,7 +56,14 @@ const createProgram = async (payload) => {
 };
 
 const updateProgram = async (id, payload) => {
-  const updated = await repository.updateProgramById(id, normalizeProgramPayload(payload));
+  const normalized = normalizeProgramPayload(payload);
+  // A program can never be its own prerequisite.
+  if (Array.isArray(normalized.prerequisitePrograms)) {
+    normalized.prerequisitePrograms = normalized.prerequisitePrograms.filter(
+      (pid) => pid.toString() !== id.toString(),
+    );
+  }
+  const updated = await repository.updateProgramById(id, normalized);
   return programDto(updated);
 };
 

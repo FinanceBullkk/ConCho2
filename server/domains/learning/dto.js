@@ -13,6 +13,7 @@ const programDto = (program) => {
     completionPolicy: p.completionPolicy,
     capacityPolicy: p.capacityPolicy,
     facilitatorPolicy: p.facilitatorPolicy,
+    prerequisitePrograms: (p.prerequisitePrograms || []).map((id) => id.toString()),
     status: p.status,
     legacyCourseName: p.legacyCourseName || '',
     createdAt: p.createdAt,
