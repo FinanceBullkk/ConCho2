@@ -30,7 +30,7 @@ and either fixes a P0/P1 immediately or creates a focused follow-up plan.
 | 05 | [Learning Enrollment](sessions/05-learning-enrollment.md) | completed | Are enrollment, prerequisites, and paths truthful and consistent? |
 | 06 | [Scheduling + Attendance](sessions/06-scheduling-attendance.md) | completed | Are booking and attendance safe under races and downstream reports? |
 | 07 | [Assessment + Completion + Certificates](sessions/07-assessment-completion-certificates.md) | completed | Does completion truth match attempts, feedback, and certificates? |
-| 08 | [Reports + Export](sessions/08-reports-export.md) | pending | Are reports/export rows correct, safe, and scoped? |
+| 08 | [Reports + Export](sessions/08-reports-export.md) | completed | Are reports/export rows correct, safe, and scoped? |
 | 09 | [Cron + Reconcile + Observability](sessions/09-cron-reconcile-observability.md) | pending | Can operators know scheduled jobs and drift checks actually work? |
 | 10 | [Release Gate](sessions/10-release-gate.md) | pending | Is there any open P0/P1 blocking feature work? |
 
@@ -60,5 +60,10 @@ Goal, Scope, Evidence, Verdict, Action, Verification, Backlog, Unresolved.
   QB-007 (teacher org-wide attendance reads) promoted.
 - Session 07 completed; OK verdict (37/37 focused tests green), QB-008
   (certificate issue race — no DB unique guard) promoted; no code change.
+- Session 08 completed; one P1 fixed (learning completion Excel export bypassed
+  the SEC-004 `safeCell` formula-injection guard — extracted shared
+  `helpers/excel-formula-guard.js`, applied it, added regression test). Focused
+  suites green (unit 2/2, exportFormulaInjection 14/14, learningReportsRoutes
+  7/7). QB-009 (soft-deleted users in completion denominator) promoted.
 - No code implementation belongs in this plan until a session identifies a concrete P0/P1 or approved focused fix.
 - Current dirty tree must be preserved; do not revert unrelated changes.
