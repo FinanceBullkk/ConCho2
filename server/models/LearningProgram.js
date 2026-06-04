@@ -71,6 +71,13 @@ const learningProgramSchema = new mongoose.Schema(
         default: 'all_facilitators',
       },
     },
+    // Programs a learner must complete before enrolling in this one (Wave C —
+    // prerequisite gating). Direct prerequisites only; enforced for self-enroll
+    // (admins may override). Transitive paths/cycle detection deferred.
+    prerequisitePrograms: {
+      type: [{ type: mongoose.Schema.Types.ObjectId, ref: 'LearningProgram' }],
+      default: [],
+    },
     status: {
       type: String,
       enum: statuses,
