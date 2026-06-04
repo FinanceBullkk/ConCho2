@@ -227,6 +227,13 @@ export const learningAPI = {
   getCohorts: (params) => api.get('/learning/cohorts', { params }),
   getCohort: (id) => api.get(`/learning/cohorts/${id}`),
   createCohort: (data) => api.post('/learning/cohorts', data),
+  // Sequenced learning paths (ordered curriculum of programs).
+  getPaths: (params) => api.get('/learning/paths', { params }),
+  getPath: (id) => api.get(`/learning/paths/${id}`),
+  createPath: (data) => api.post('/learning/paths', data),
+  updatePath: (id, data) => api.put(`/learning/paths/${id}`, data),
+  archivePath: (id) => api.delete(`/learning/paths/${id}`),
+  getPathProgress: (id) => api.get(`/learning/paths/${id}/progress`),
   // Cohort-based (L&D) enrollments — distinct from legacy team-based enrollmentsAPI.
   getEnrollments: (params) => api.get('/learning/enrollments', { params }),
   createEnrollment: (data) => api.post('/learning/enrollments', data),
