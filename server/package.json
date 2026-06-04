@@ -51,6 +51,8 @@
   "jest": {
     "testEnvironment": "node",
     "testTimeout": 30000,
+    "globalSetup": "<rootDir>/tests/global-setup.js",
+    "globalTeardown": "<rootDir>/tests/global-teardown.js",
     "testMatch": [
       "**/tests/**/*.test.js"
     ],
