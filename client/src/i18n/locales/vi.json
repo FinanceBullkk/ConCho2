@@ -420,7 +420,10 @@
       "cohortCode": "Mã khóa học",
       "title": "Tiêu đề",
       "totalSessions": "Tổng số buổi",
-      "cohortCodeHint": "Tùy chọn — tự sinh nếu để trống."
+      "cohortCodeHint": "Tùy chọn — tự sinh nếu để trống.",
+      "prerequisites": "Điều kiện tiên quyết",
+      "prerequisitesHint": "Học viên phải hoàn thành các chương trình này trước khi tự đăng ký.",
+      "prerequisitesNone": "Không có chương trình hoạt động nào khác."
     },
     "category": {
       "english": "Tiếng Anh",
