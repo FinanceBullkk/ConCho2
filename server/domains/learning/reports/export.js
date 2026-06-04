@@ -1,4 +1,5 @@
 const ExcelJS = require('exceljs');
+const { safeCell } = require('../../../helpers/excel-formula-guard');
 
 const yesNo = (b) => (b ? 'Yes' : 'No');
 const reqMet = (required, met) => (required ? (met ? 'Met' : 'Unmet') : 'N/A');
@@ -31,15 +32,18 @@ const buildCompletionWorkbookBuffer = async (report) => {
 
   report.rows.forEach((r) => {
     sheet.addRow([
-      r.learner.empCode,
-      r.learner.name,
-      r.learner.department,
+      // SEC-004: user-controlled strings (empCode/name/department, and the
+      // cert number which echoes stored data) pass through safeCell so a
+      // formula-leading value cannot auto-execute when HR opens the file.
+      safeCell(r.learner.empCode),
+      safeCell(r.learner.name),
+      safeCell(r.learner.department),
       r.attendancePercent,
       yesNo(r.attendanceMet),
       reqMet(r.assessmentRequired, r.assessmentMet),
       reqMet(r.feedbackRequired, r.feedbackMet),
       yesNo(r.complete),
-      r.certificate ? r.certificate.number : '',
+      safeCell(r.certificate ? r.certificate.number : ''),
       r.certificate ? r.certificate.status : '',
     ]);
   });
