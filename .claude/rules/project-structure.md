@@ -32,7 +32,7 @@ client/src/
 ├── context/        # AuthContext
 ├── lib/            # zod schemas, sentry, utils
 ├── api/            # axios instance + per-resource API objects
-└── i18n/locales/   # en.json, vi.json
+└── i18n/locales/   # en.json (English-only)
 ```
 
 ## Modularization rule

@@ -10,9 +10,13 @@ Client is **ESM** + React 19 + Vite. Pages are lazy-loaded route views; logic li
 ## Forms = react-hook-form + zod
 Define the zod schema (often in `client/src/lib/`), wire with `@hookform/resolvers/zod`. No manual `useState` form plumbing.
 
-## i18n (mandatory for user-facing text)
-- Every user-visible string goes through `react-i18next` `t('key')`. No hardcoded UI copy.
-- Add keys to BOTH `client/src/i18n/locales/en.json` and `vi.json`. Missing a locale breaks parity.
+## i18n (English-only)
+- The product is **English-only** — a single `en` locale, no Vietnamese, no
+  language detector/switcher (`vi.json` was removed).
+- Prefer routing user-facing strings through `react-i18next` `t('key')` backed by
+  `client/src/i18n/locales/en.json` (the dominant pattern). English literals are
+  acceptable in the `/me/*` learner pages, which were written that way; do not add
+  new Vietnamese strings anywhere.
 
 ## UI components
 - Build on Radix primitives + the shadcn-style components in `components/ui/`. Use `cn()` (clsx + tailwind-merge) for class composition.
