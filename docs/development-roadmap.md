@@ -69,8 +69,17 @@ nightly reconcile + attendance-reminders via `lib/cronMonitor.runMonitored`, and
 gated **`GET /api/admin/cron/health`** + a **Scheduled jobs** panel on the
 Reconcile page answer "did cron actually fire?" on the sleeping free-tier. The
 remaining D1 work (paid always-on hosting, Sentry account/dashboard cron-monitor
-setup) is owner ops. Next per the locked plan: finish D1 hosting → D2 Google
-OIDC/Directory sync → D3 manager hierarchy → D4 assignment+due-dates.
+setup) is owner ops. **Wave D3 v1 (org model) is now live** (built ahead of D2,
+whose user OIDC login is blocked on the owner's Google OAuth app + allowed
+Workspace domain): a `Department` entity + `User.managerId`/`departmentId` (added
+non-destructively alongside the legacy `department` string), an Admin
+`domains/org` module (`/api/org`) for department CRUD + manager/department
+assignment (cycle-guarded, audited), and a self-scoped **manager dashboard**
+(`GET /api/org/my-team`) that reuses certificates/enrollments for a per-report
+training rollup. UI: People → **Departments** tab, an org-assignment action on
+Users, and a conditional **My Team** nav entry → `/my-team` page. Next per the
+locked plan: D2 Google OIDC/Directory sync (needs owner inputs) → D4
+assignment+due-dates (org model now unblocks dept-targeting).
 
 ---
 
@@ -93,7 +102,7 @@ OIDC/Directory sync → D3 manager hierarchy → D4 assignment+due-dates.
 | A — Foundation | Generic learning core works E2E (scheduling modes, cohort enrollment, CRUD UI, capability authz) | 🟢 done (M1–M4) | — |
 | B — Assessment & Certification | Generic assessment engine, completion enforcement, certificates | 🟡 in progress (completion + certificates + feedback + assessment engine v1 + completion reporting + rollups + assessment UI + feedback UI + assessment edit + question-bank backend/UI + manual grading v1 done) | A |
 | C — Catalog, Paths & Self-service | Learner catalog, self-enroll, learning paths/prerequisites | 🟢 core done (learner catalog + self-enroll UI + prerequisite gating v1 + prereq selector UI + sequenced learning paths v1 + admin paths UI + learner path-progress view) | A |
-| D — Platform & Scale | Production readiness → Google OIDC + Directory sync → manager hierarchy (org model) → **mandatory assignment + due dates** → notifications/escalation → compliance reporting + recertification. Order locked 2026-06-04 (after C closes). | 🟡 in progress (D1 cron self-monitoring done — heartbeat + Sentry check-ins + admin health UI; paid hosting + Sentry-account cron-monitor setup = owner ops) | B, C |
+| D — Platform & Scale | Production readiness → Google OIDC + Directory sync → manager hierarchy (org model) → **mandatory assignment + due dates** → notifications/escalation → compliance reporting + recertification. Order locked 2026-06-04 (after C closes). | 🟡 in progress (D1 cron self-monitoring done; **D3 v1 org model done** — Department entity + managerId/departmentId + manager dashboard + admin UI, built ahead of D2; paid hosting + Sentry-account setup + D2 Google OAuth app = owner ops/inputs) | B, C |
 | E — Generic scheduling | Generalize booking beyond fixed English slots (session types, rooms, capacity, waitlists, instructors); keep leader-booking as one mode. Committed parallel track; large, own plan. | 🔴 planned | A |
 
 > **Direction locked 2026-06-04** — full rationale + gap analysis in
@@ -145,11 +154,35 @@ Bug fixing and integration review rank above net-new feature rollout.
 | → | **Phase 4 — learning paths admin UI** | Manage learning paths from the Learning workspace | 🟢 done — gated **Paths tab** on `/learning` (`manage:path`): Admin list + create/edit/archive via `PathFormModal`; presentational `PathProgramsEditor` gives an ordered program picker (add/reorder/remove). `learningAPI` path methods + React Query hooks/keys + `manage:path`/`read:path` perms; 9 component tests. |
 | → | **Wave C1 — learner path-progress view** | Let learners see their path progress (closes the paths loop) | 🟢 done — Participant `/me/paths`: lists active paths, each showing ordered steps marked `completed`/`current`/`locked` + a progress bar, from `GET /paths/:id/progress` via new `usePathProgress`. Presentational `PathProgressView` + `MyLearningPathsPage`; dashboard CTA; 4 component tests. English-only (no i18n keys, matches `/me/*` siblings). |
 | → | **Wave D1 — cron self-monitoring** | Confirm scheduled jobs actually run on the sleeping free-tier | 🟢 done (codeable slice) — `lib/cronMonitor.runMonitored` wraps the nightly reconcile + attendance-reminders (in-process job **and** pinger endpoints) with a durable `CronRun` heartbeat (last run/status/duration/error/counters, upserted per run) + Sentry **cron check-ins** (in-progress→ok/error) + `captureException`, all **fail-soft**. Gated `GET /api/admin/cron/health` derives an `ok`/`stale`/`error`/`never` verdict per job; a **Scheduled jobs** panel on `/reconcile` surfaces it. 10 tests (6 unit `deriveHealth`/config + 4 integration authz/heartbeat). Remaining D1 (paid hosting, Sentry-dashboard monitor setup) = owner ops. |
+| → | **Wave D3 v1 — org model (manager hierarchy + departments)** | Real org tree + manager-scoped training visibility | 🟢 done — `Department` model + `User.managerId`/`departmentId` (non-destructive, alongside legacy `department` string). New `domains/org` (`/api/org`): Admin department CRUD (`department.manage`/`read`), manager/department assignment (`org.manage`, self-/cycle-guarded, audited), and self-scoped `GET /api/org/my-team` (`team.read`, any role) with a batched per-report training rollup (active enrollments + certificates + completed programs, reusing the completion/cert data). UI: People → **Departments** tab, an org-assignment action on Users (`OrgAssignmentModal`), a conditional **My Team** nav entry → `/my-team` (`MyTeamPage` + `TeamRosterTable`). Built ahead of D2 (its OIDC login is blocked on owner Google setup). 15 server integration tests + 6 client component tests. Directory-sync population deferred to D2; transitive-cycle is bounded-guarded. |
 
 ---
 
 ## Recent progress (changelog)
 
+- **2026-06-04** — **Wave D3 v1 — org model (manager hierarchy + departments).**
+  Built ahead of D2 in the locked order because D2's user OIDC login is blocked on
+  owner-only inputs (a Google OAuth app + the allowed Workspace domain), while the
+  org model is the #1 missing LTMS capability and fully codeable now. Adds a
+  structured org tree: a new `Department` entity + `User.managerId`/`departmentId`
+  (added **non-destructively** alongside the legacy free-text `department` string —
+  "open until populated", to be fed by D2 Directory sync later). New `domains/org`
+  module (`/api/org`): Admin **department CRUD** (`department.manage`/`department.read`;
+  archive refuses while users are still assigned), **manager/department assignment**
+  (`org.manage`, audited, with self-manager + bounded reporting-**cycle** guards),
+  and a self-scoped **manager dashboard** `GET /api/org/my-team` (`team.read`, held
+  by every role since any user can have reports) returning each direct report's
+  training rollup — active enrollments, certificates, completed programs — via two
+  **batched aggregates** (no N+1, reuses the same enrollment/certificate signals as
+  the completion engine). UI: a People → **Departments** tab (`DepartmentsPage`), an
+  org-assignment action on the Users table (`OrgAssignmentModal`), and a **conditional
+  My Team nav entry** (only shown when the caller has reports) → `/my-team`
+  (`MyTeamPage` + presentational `TeamRosterTable`). New `useRole` perms
+  (`read:department`/`manage:department`/`assign:org`/`read:team`), `orgAPI`,
+  `useOrg` hooks, `qk.org` keys, `nav.myTeam` en string. Verified: server **574
+  tests** (+15), client **151 tests** (+6), lint 0 errors/81 warnings (at cap),
+  build clean. Department Directory-sync population lands with D2; "overdue" status
+  awaits D4 due dates.
 - **2026-06-04** — **Wave D1 (start) — cron self-monitoring.** Scheduled jobs now
   prove they ran. New `lib/cronMonitor.runMonitored(jobName, opts, fn)` wraps the
   nightly **reconcile** and **attendance-reminders** jobs — at both call sites (the

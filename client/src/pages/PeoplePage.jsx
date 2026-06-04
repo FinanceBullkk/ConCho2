@@ -1,20 +1,22 @@
 import { useSearchParams } from 'react-router-dom';
-import { Users, UsersRound } from 'lucide-react';
+import { Users, UsersRound, Building2 } from 'lucide-react';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { PageHeader } from '@/components/PageHeader';
 import UsersPage from './UsersPage';
 import TeamsPage from './TeamsPage';
+import DepartmentsPage from './DepartmentsPage';
 
 // ──────────────────────────────────────────────────────────
 // PeoplePage — Phase 2 IA-S2
 // Route: /people  (Admin only)
-// Tabs: Users · Teams
+// Tabs: Users · Teams · Departments
 // Replaces the old /academy?tab=users and /academy?tab=teams.
 // ──────────────────────────────────────────────────────────
 
 const TABS = [
   { id: 'users', label: 'Users', icon: Users,     description: 'All employees registered in the system.' },
   { id: 'teams', label: 'Teams', icon: UsersRound, description: 'Cohorts grouped under a Team Leader.' },
+  { id: 'departments', label: 'Departments', icon: Building2, description: 'Structured org units + the reporting hierarchy.' },
 ];
 
 export default function PeoplePage() {
@@ -48,6 +50,9 @@ export default function PeoplePage() {
         </TabsContent>
         <TabsContent value="teams" hidden={activeTab !== 'teams'}>
           {activeTab === 'teams' && <TeamsPage />}
+        </TabsContent>
+        <TabsContent value="departments" hidden={activeTab !== 'departments'}>
+          {activeTab === 'departments' && <DepartmentsPage />}
         </TabsContent>
       </Tabs>
     </div>

@@ -19,6 +19,7 @@ import {
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../hooks/useTheme';
+import { useMyTeam } from '../hooks/useOrg';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -177,6 +178,10 @@ export default function Navbar() {
   const { t } = useTranslation();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
+  // Manager dashboard entry — only surfaces for users who actually have
+  // direct reports (self-scoped, cheap, cached). Keeps nav uncluttered for
+  // the ~majority who aren't managers.
+  const { data: myTeam } = useMyTeam({ enabled: Boolean(user), staleTime: 5 * 60 * 1000 });
 
   // Close on route change
   /* eslint-disable react-hooks/set-state-in-effect */
@@ -235,7 +240,20 @@ export default function Navbar() {
   // (set up in commit a5770e8e). `access: 'full'|'read'` → visible link,
   // `'none'` → render disabled span with tooltip so the user knows the
   // feature exists but is restricted (Phase 2 IA).
-  const items = NAV_ITEMS.map((item) => ({
+  const navItems = [
+    ...NAV_ITEMS,
+    // Inject "My Team" only when the caller has direct reports.
+    ...(myTeam?.count > 0
+      ? [{
+          path: '/my-team',
+          labelKey: 'nav.myTeam',
+          icon: Users,
+          access: { Admin: 'full', Teacher: 'full', Participant: 'full' },
+        }]
+      : []),
+  ];
+
+  const items = navItems.map((item) => ({
     ...item,
     accessLevel: item.access?.[user.role] ?? 'none',
   }));

@@ -6,6 +6,7 @@
     "learning": "Learning",
     "calendar": "Calendar",
     "reports": "Reports",
+    "myTeam": "My Team",
     "adminOnly": "Admin access required",
     "participantUnavailable": "Not available for participants",
     "unavailableForRole": "{{label}} unavailable for your role",

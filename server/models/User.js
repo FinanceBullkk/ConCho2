@@ -55,6 +55,23 @@ const userSchema = new mongoose.Schema(
       trim: true,
       default: '',
     },
+    // ── Org model (Wave D3) ─────────────────────────────────
+    // Structured org hierarchy, added alongside the legacy free-text
+    // `department` string (non-destructive — "open until populated"). Both
+    // nullable; later fed by Google Directory sync (Wave D2). `managerId`
+    // makes the reporting tree queryable (manager dashboard scopes on it);
+    // `departmentId` points at the Department entity (replaces the string
+    // over time without a destructive rename).
+    managerId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+      default: null,
+    },
+    departmentId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Department',
+      default: null,
+    },
     position: {
       type: String,
       trim: true,
@@ -248,6 +265,9 @@ userSchema.pre('aggregate', function () {
 // ── Indexes ───────────────────────────────────────────────
 userSchema.index({ role: 1, status: 1 });
 userSchema.index({ department: 1 });
+// Org hierarchy lookups (manager dashboard scopes reports by managerId).
+userSchema.index({ managerId: 1 });
+userSchema.index({ departmentId: 1 });
 // Partial unique on email: enforce no duplicates among users that HAVE
 // an email (string-typed). A plain `sparse:true` is not enough here
 // because the field has `default: null` and MongoDB treats null values

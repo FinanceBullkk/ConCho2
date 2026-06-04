@@ -42,6 +42,11 @@ const CAPABILITIES = Object.freeze({
   REPORT_READ: 'report.read',           // cohort-wide completion reports + export (admin/teacher)
   PATH_READ: 'path.read',               // browse learning paths + own path progress
   PATH_MANAGE: 'path.manage',           // create / edit / archive learning paths (admin)
+  // ── Org model (Wave D3) ──────────────────────────────────
+  DEPARTMENT_READ: 'department.read',   // list departments (admin/teacher — pickers, reports)
+  DEPARTMENT_MANAGE: 'department.manage', // create / edit / archive departments (admin)
+  ORG_MANAGE: 'org.manage',             // set a user's manager / department (admin)
+  TEAM_READ: 'team.read',               // view OWN direct reports' training status (any role)
 });
 
 const ALL_CAPABILITIES = Object.freeze(Object.values(CAPABILITIES));
@@ -61,6 +66,8 @@ const ROLE_CAPABILITIES = Object.freeze({
     CAPABILITIES.ASSESSMENT_READ,
     CAPABILITIES.REPORT_READ,
     CAPABILITIES.PATH_READ,
+    CAPABILITIES.DEPARTMENT_READ,
+    CAPABILITIES.TEAM_READ,
   ]),
   Participant: Object.freeze([
     CAPABILITIES.SESSION_BOOK,
@@ -73,6 +80,9 @@ const ROLE_CAPABILITIES = Object.freeze({
     CAPABILITIES.ASSESSMENT_READ,
     CAPABILITIES.ASSESSMENT_ATTEMPT,
     CAPABILITIES.PATH_READ,
+    // A Participant can lead/manage others (e.g. team lead), so they may
+    // read their own direct reports. Endpoint is self-scoped — safe.
+    CAPABILITIES.TEAM_READ,
   ]),
 });
 
