@@ -57,8 +57,13 @@ workspace (multi-select of other active programs; persists on create + edit).
 Admin CRUD and a per-learner `…/progress` endpoint that derives step state
 (`completed`/`current`/`locked`) from program completion (reusing the
 prerequisite engine). An **admin Paths tab** on `/learning` now lets Admins
-create/edit/archive paths with an ordered program picker. Next: a learner-facing
-path-progress view, plus advanced report filters/exports when needed.
+create/edit/archive paths with an ordered program picker. A **learner
+path-progress view** (`/me/paths`) now closes the loop: learners see each path's
+ordered steps marked `completed`/`current`/`locked` with a progress bar (from the
+`…/progress` endpoint), linked from the Participant dashboard. **Wave C core is
+complete.** The UI is now **English-only** (single `en` locale; `vi.json` removed).
+Next per the locked plan: D1 production readiness → D2 Google OIDC/Directory sync
+→ D3 manager hierarchy → D4 assignment+due-dates.
 
 ---
 
@@ -70,7 +75,7 @@ path-progress view, plus advanced report filters/exports when needed.
 | 1 | Backend modular-monolith refactor | ~42% | 🟡 in progress |
 | 2 | Learning catalog + generic cohort model | ~95% | 🟢 near done |
 | 3 | Multi-program enrollment + session scheduling | ~78% | 🟡 in progress |
-| 4 | Frontend L&D workspace (CRUD UI) | ~76% | 🟡 in progress |
+| 4 | Frontend L&D workspace (CRUD UI) | ~78% | 🟡 in progress |
 | 5 | Reporting, completion, feedback | ~72% | 🟡 in progress |
 | 6 | PostgreSQL decision gate | 0% | ⚪ gated |
 
@@ -80,7 +85,7 @@ path-progress view, plus advanced report filters/exports when needed.
 |------|------|--------|-----------|
 | A — Foundation | Generic learning core works E2E (scheduling modes, cohort enrollment, CRUD UI, capability authz) | 🟢 done (M1–M4) | — |
 | B — Assessment & Certification | Generic assessment engine, completion enforcement, certificates | 🟡 in progress (completion + certificates + feedback + assessment engine v1 + completion reporting + rollups + assessment UI + feedback UI + assessment edit + question-bank backend/UI + manual grading v1 done) | A |
-| C — Catalog, Paths & Self-service | Learner catalog, self-enroll, learning paths/prerequisites | 🟡 in progress (learner catalog + self-enroll UI + prerequisite gating v1 + prereq selector UI + sequenced learning paths v1 backend + admin paths UI done; learner path-progress view next) | A |
+| C — Catalog, Paths & Self-service | Learner catalog, self-enroll, learning paths/prerequisites | 🟢 core done (learner catalog + self-enroll UI + prerequisite gating v1 + prereq selector UI + sequenced learning paths v1 + admin paths UI + learner path-progress view) | A |
 | D — Platform & Scale | Production readiness → Google OIDC + Directory sync → manager hierarchy (org model) → **mandatory assignment + due dates** → notifications/escalation → compliance reporting + recertification. Order locked 2026-06-04 (after C closes). | 🔴 planned | B, C |
 | E — Generic scheduling | Generalize booking beyond fixed English slots (session types, rooms, capacity, waitlists, instructors); keep leader-booking as one mode. Committed parallel track; large, own plan. | 🔴 planned | A |
 
@@ -130,12 +135,24 @@ Bug fixing and integration review rank above net-new feature rollout.
 | → | **Wave C — prerequisite gating v1** | Block enrollment until prerequisite programs are completed | 🟢 done — `LearningProgram.prerequisitePrograms`; enrollment chokepoint enforces direct prerequisites for self-enroll (422, names the unmet program) via `enrollment/prerequisites.js` (Issued certificate OR completion-engine signal); Admins override. DTO exposes the field. 5 integration tests. Sequenced paths + prereq selector UI deferred. |
 | → | **Phase 4 — prerequisite-selector UI** | Let Admins set program prerequisites from the UI | 🟢 done — `ProgramFormModal` now has a multi-select **Prerequisites** picker (other active programs, self excluded) wired to `prerequisitePrograms`; create + edit persist it. New presentational `PrerequisiteSelector`; i18n en+vi; 4 component tests. Closes the deferred prereq UI from gating v1. |
 | → | **Wave C — sequenced learning paths v1** | Ordered curriculum of programs + per-learner progress | 🟢 done — new `LearningPath` model + `domains/learning/path/` (`/api/learning/paths`): Admin CRUD (`path.manage`) of an ordered, de-duplicated program list; any learner reads (`path.read`). `GET /paths/:id/progress` derives `completed`/`current`/`locked` per step from the shared `hasCompletedProgram` engine (DRY) + a summary. Soft-delete + audit. 9 integration tests. Backend-only; paths UI + auto-enroll-next deferred. |
-| → | **Phase 4 — learning paths admin UI** | Manage learning paths from the Learning workspace | 🟢 done — gated **Paths tab** on `/learning` (`manage:path`): Admin list + create/edit/archive via `PathFormModal`; presentational `PathProgramsEditor` gives an ordered program picker (add/reorder/remove). `learningAPI` path methods + React Query hooks/keys + `manage:path`/`read:path` perms; i18n en+vi; 9 component tests. Learner path-progress view deferred. |
+| → | **Phase 4 — learning paths admin UI** | Manage learning paths from the Learning workspace | 🟢 done — gated **Paths tab** on `/learning` (`manage:path`): Admin list + create/edit/archive via `PathFormModal`; presentational `PathProgramsEditor` gives an ordered program picker (add/reorder/remove). `learningAPI` path methods + React Query hooks/keys + `manage:path`/`read:path` perms; 9 component tests. |
+| → | **Wave C1 — learner path-progress view** | Let learners see their path progress (closes the paths loop) | 🟢 done — Participant `/me/paths`: lists active paths, each showing ordered steps marked `completed`/`current`/`locked` + a progress bar, from `GET /paths/:id/progress` via new `usePathProgress`. Presentational `PathProgressView` + `MyLearningPathsPage`; dashboard CTA; 4 component tests. English-only (no i18n keys, matches `/me/*` siblings). |
 
 ---
 
 ## Recent progress (changelog)
 
+- **2026-06-04** — **Wave C1 — learner path-progress view + English-only UI.**
+  Closed the learning-paths loop: Participants open `/me/paths` to see each active
+  path's ordered steps marked `completed`/`current`/`locked` with a progress bar,
+  driven by `GET /api/learning/paths/:id/progress` via a new `usePathProgress`
+  hook. New presentational `PathProgressView` + `MyLearningPathsPage`, Participant
+  route, and a dashboard CTA. Separately, the **product is now English-only**: i18n
+  forced to a single `en` locale, language detector/toggle removed, `vi.json`
+  deleted, and all hard-coded Vietnamese UI strings translated to English across
+  the dashboard, teams, evaluation, classes, booking, attendance, and DB-explorer
+  pages (rule docs + golden rule updated to match). Verified: client **140 tests**
+  (+4), lint 0 errors/81 warnings (at cap), build clean. **Wave C core complete.**
 - **2026-06-04** — **Direction locked: LTMS gap analysis + priority re-sequence.**
   Added [`ltms-gap-analysis.md`](ltms-gap-analysis.md) (decision doc) and applied
   owner-approved decisions to the roadmap: six-month order is now
