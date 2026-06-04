@@ -40,6 +40,8 @@ const CAPABILITIES = Object.freeze({
   ASSESSMENT_READ: 'assessment.read',   // list/get assessments + attempts
   ASSESSMENT_ATTEMPT: 'assessment.attempt', // take an assessment (learner)
   REPORT_READ: 'report.read',           // cohort-wide completion reports + export (admin/teacher)
+  PATH_READ: 'path.read',               // browse learning paths + own path progress
+  PATH_MANAGE: 'path.manage',           // create / edit / archive learning paths (admin)
 });
 
 const ALL_CAPABILITIES = Object.freeze(Object.values(CAPABILITIES));
@@ -58,6 +60,7 @@ const ROLE_CAPABILITIES = Object.freeze({
     CAPABILITIES.ASSESSMENT_MANAGE,
     CAPABILITIES.ASSESSMENT_READ,
     CAPABILITIES.REPORT_READ,
+    CAPABILITIES.PATH_READ,
   ]),
   Participant: Object.freeze([
     CAPABILITIES.SESSION_BOOK,
@@ -69,6 +72,7 @@ const ROLE_CAPABILITIES = Object.freeze({
     CAPABILITIES.FEEDBACK_READ,
     CAPABILITIES.ASSESSMENT_READ,
     CAPABILITIES.ASSESSMENT_ATTEMPT,
+    CAPABILITIES.PATH_READ,
   ]),
 });
 
