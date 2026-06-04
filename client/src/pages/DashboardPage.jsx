@@ -21,7 +21,7 @@ import { activeRatioBarWidth } from '../lib/dashboard-bar-width';
 const chartVar = (i) => `var(--color-chart-${(i % 5) + 1})`;
 
 export default function DashboardPage() {
-  const { t, i18n } = useTranslation();
+  const { t } = useTranslation();
   const { user, isAdmin, isParticipant } = useAuth();
   const navigate = useNavigate();
 
@@ -76,7 +76,7 @@ export default function DashboardPage() {
   const o = stats?.overview || {};
   const pct = (n) => (n * 100).toFixed(1) + '%';
 
-  const dateLocale = i18n.language === 'vi' ? 'vi-VN' : 'en-US';
+  const dateLocale = 'en-US';
   const minutesAgo = Math.round((Date.now() - dataUpdatedAt) / 60000);
   const updatedText = minutesAgo
     ? t('dashboard.updatedMinutesAgo', { count: minutesAgo })

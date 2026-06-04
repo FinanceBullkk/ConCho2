@@ -302,7 +302,7 @@ function TeamCard({ t, canEdit, canDelete, onProgress, onEdit, onDelete, onMakeL
       }`}>
         <span className={`text-[11px] font-semibold flex items-center gap-1.5 ${isCompleted ? 'text-muted-foreground' : 'text-success'}`}>
           <span className={`w-1.5 h-1.5 rounded-full ${isCompleted ? 'bg-muted-foreground' : 'bg-success'}`} />
-          {isCompleted ? 'Đã hoàn thành' : 'Đang học'}
+          {isCompleted ? 'Completed' : 'Ongoing'}
         </span>
         {classInfo?.classCode && (
           <span className={`font-mono text-[11px] font-bold ${isCompleted ? 'text-subtle-foreground' : 'text-success'}`}>
@@ -310,7 +310,7 @@ function TeamCard({ t, canEdit, canDelete, onProgress, onEdit, onDelete, onMakeL
           </span>
         )}
         {!classInfo && (
-          <span className="text-[11px] text-warning/70">Chưa có lớp</span>
+          <span className="text-[11px] text-warning/70">No class yet</span>
         )}
       </div>
 
@@ -330,7 +330,7 @@ function TeamCard({ t, canEdit, canDelete, onProgress, onEdit, onDelete, onMakeL
             <button
               onClick={() => onProgress(t._id)}
               className="p-1.5 rounded-lg text-subtle-foreground hover:text-info hover:bg-info/10 transition-all"
-              title="Xem tiến độ"
+              title="View progress"
             >
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
@@ -340,7 +340,7 @@ function TeamCard({ t, canEdit, canDelete, onProgress, onEdit, onDelete, onMakeL
               <button
                 onClick={() => onEdit(t)}
                 className="p-1.5 rounded-lg text-subtle-foreground hover:text-primary hover:bg-primary/10 transition-all"
-                title="Chỉnh sửa"
+                title="Edit"
               >
                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
@@ -351,7 +351,7 @@ function TeamCard({ t, canEdit, canDelete, onProgress, onEdit, onDelete, onMakeL
               <button
                 onClick={() => onDelete(t._id)}
                 className="p-1.5 rounded-lg text-subtle-foreground hover:text-destructive hover:bg-destructive-tint transition-all"
-                title="Xoá"
+                title="Delete"
               >
                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
@@ -367,7 +367,7 @@ function TeamCard({ t, canEdit, canDelete, onProgress, onEdit, onDelete, onMakeL
           <div className="flex-1 min-w-0">
             <p className="text-[10px] text-subtle-foreground uppercase tracking-wider leading-none mb-0.5">Team Leader</p>
             <p className={`text-sm font-semibold truncate ${isCompleted ? 'text-muted-foreground' : 'text-warning'}`}>
-              {t.leaderId?.name || '— Chưa có'}
+              {t.leaderId?.name || '— None yet'}
             </p>
           </div>
           {t.leaderId?.empCode && (
@@ -378,7 +378,7 @@ function TeamCard({ t, canEdit, canDelete, onProgress, onEdit, onDelete, onMakeL
         {/* Members */}
         <div>
           <p className="text-[10px] text-subtle-foreground uppercase tracking-wider mb-1.5">
-            Thành viên · {t.members?.length || 0} người
+            Members · {t.members?.length || 0}
           </p>
           <div className="space-y-1">
             {(t.members || []).map((m) => {
@@ -397,7 +397,7 @@ function TeamCard({ t, canEdit, canDelete, onProgress, onEdit, onDelete, onMakeL
                     <button
                       onClick={() => onMakeLeader(t, m._id)}
                       className="opacity-0 group-hover:opacity-100 text-[10px] text-subtle-foreground hover:text-warning hover:bg-warning/10 px-1.5 py-0.5 rounded transition-all shrink-0"
-                      title={`Đặt ${m.name} làm Leader`}
+                      title={`Make ${m.name} the Leader`}
                     >
                       ★
                     </button>
@@ -406,7 +406,7 @@ function TeamCard({ t, canEdit, canDelete, onProgress, onEdit, onDelete, onMakeL
               );
             })}
             {(!t.members || t.members.length <= 1) && (
-              <p className="text-xs text-subtle-foreground px-3 py-1">Chỉ có Leader</p>
+              <p className="text-xs text-subtle-foreground px-3 py-1">Leader only</p>
             )}
           </div>
         </div>
@@ -494,7 +494,7 @@ export default function TeamsPage() {
 
   const handleMakeLeader = async (team, memberId) => {
     const memberName = team.members?.find(m => (m._id || m) === memberId)?.name || memberId;
-    if (!window.confirm(`Đặt "${memberName}" làm leader của "${team.name}"?`)) return;
+    if (!window.confirm(`Make "${memberName}" the leader of "${team.name}"?`)) return;
     try { await updateMutation.mutateAsync({ id: team._id, data: { leaderId: memberId } }); }
     catch { /* toast shown by global onError */ }
   };
@@ -502,7 +502,7 @@ export default function TeamsPage() {
   const teamTableColumns = useMemo(() => [
     {
       key: null,
-      header: 'Trạng thái',
+      header: 'Status',
       width: 140,
       render: (t) => {
         const status = teamStatus(t);
@@ -512,14 +512,14 @@ export default function TeamsPage() {
             isCompleted ? 'bg-muted text-muted-foreground' : 'bg-success/15 text-success'
           }`}>
             <span className={`w-1.5 h-1.5 rounded-full ${isCompleted ? 'bg-muted-foreground' : 'bg-success'}`} />
-            {isCompleted ? 'Hoàn thành' : 'Đang học'}
+            {isCompleted ? 'Completed' : 'Ongoing'}
           </span>
         );
       },
     },
     {
       key: 'name',
-      header: 'Tên nhóm',
+      header: 'Team name',
       render: (t) => {
         const isCompleted = teamStatus(t) === 'completed';
         return (
@@ -531,14 +531,14 @@ export default function TeamsPage() {
     },
     {
       key: null,
-      header: 'Lớp / Khóa',
+      header: 'Class / Course',
       render: (t) => t.classId ? (
         <div>
           <span className="font-mono text-sm text-primary">{t.classId.classCode}</span>
           <p className="text-xs text-subtle-foreground mt-0.5">{t.classId.courseName}</p>
         </div>
       ) : (
-        <span className="text-xs text-warning/70">Chưa có lớp</span>
+        <span className="text-xs text-warning/70">No class yet</span>
       ),
     },
     {
@@ -555,7 +555,7 @@ export default function TeamsPage() {
     },
     {
       key: null,
-      header: 'SL',
+      header: 'Qty',
       headerCls: 'text-center',
       cellCls: 'text-center',
       width: 56,
@@ -567,7 +567,7 @@ export default function TeamsPage() {
     },
     {
       key: null,
-      header: 'Thao tác',
+      header: 'Actions',
       headerCls: 'text-center',
       cellCls: 'text-center',
       width: 100,
@@ -575,7 +575,7 @@ export default function TeamsPage() {
         <div className="flex items-center justify-center gap-1">
           <button onClick={() => setProgressModal(t._id)}
             className="p-1.5 rounded-lg text-subtle-foreground hover:text-info hover:bg-info/10 transition-all"
-            title="Xem tiến độ">
+            title="View progress">
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
             </svg>
@@ -583,7 +583,7 @@ export default function TeamsPage() {
           {canEdit && (
             <button onClick={() => setModal(t)}
               className="p-1.5 rounded-lg text-subtle-foreground hover:text-primary hover:bg-primary/10 transition-all"
-              title="Chỉnh sửa">
+              title="Edit">
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
               </svg>
@@ -592,7 +592,7 @@ export default function TeamsPage() {
           {canDelete && (
             <button onClick={() => setDeleteId(t._id)}
               className="p-1.5 rounded-lg text-subtle-foreground hover:text-destructive hover:bg-destructive-tint transition-all"
-              title="Xoá">
+              title="Delete">
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
               </svg>
@@ -619,13 +619,13 @@ export default function TeamsPage() {
         <div>
           <h1 className="text-h1 text-foreground">Teams</h1>
           <p className="text-muted-foreground mt-1">
-            <span className="text-success font-medium">{activeCount} đang học</span>
-            {completedCount > 0 && <span className="text-subtle-foreground"> · {completedCount} đã hoàn thành</span>}
+            <span className="text-success font-medium">{activeCount} ongoing</span>
+            {completedCount > 0 && <span className="text-subtle-foreground"> · {completedCount} completed</span>}
           </p>
         </div>
         {canCreate && (
           <Button onClick={() => setModal('create')} className="self-start">
-            + Tạo nhóm
+            + Create team
           </Button>
         )}
       </div>
@@ -634,16 +634,16 @@ export default function TeamsPage() {
       <FilterBar
         search={list.search}
         onSearch={list.setSearch}
-        searchPlaceholder="Tìm theo tên nhóm, leader, thành viên, mã lớp…"
+        searchPlaceholder="Search by team name, leader, member, class code…"
       >
         <select value={sortBy} onChange={(e) => setSortBy(e.target.value)}
           aria-label="Sort"
           className="h-(--control-h) px-3 rounded-md border border-input bg-background text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring transition-colors duration-(--dur-fast)">
-          <option value="name-asc" className="bg-popover">Tên A → Z</option>
-          <option value="name-desc" className="bg-popover">Tên Z → A</option>
-          <option value="class" className="bg-popover">Mã lớp</option>
-          <option value="members-desc" className="bg-popover">Nhiều thành viên nhất</option>
-          <option value="members-asc" className="bg-popover">Ít thành viên nhất</option>
+          <option value="name-asc" className="bg-popover">Name A → Z</option>
+          <option value="name-desc" className="bg-popover">Name Z → A</option>
+          <option value="class" className="bg-popover">Class code</option>
+          <option value="members-desc" className="bg-popover">Most members</option>
+          <option value="members-asc" className="bg-popover">Fewest members</option>
         </select>
 
         <div className="flex rounded-md border border-border overflow-hidden shrink-0">
@@ -653,7 +653,7 @@ export default function TeamsPage() {
           </button>
           <button type="button" onClick={() => setViewMode('table')}
             className={`px-3 py-1.5 text-xs font-medium transition-all border-l border-border ${viewMode === 'table' ? 'bg-primary/15 text-primary' : 'text-subtle-foreground hover:text-foreground hover:bg-accent'}`}>
-            ☰ Bảng
+            ☰ Table
           </button>
         </div>
       </FilterBar>
@@ -664,9 +664,9 @@ export default function TeamsPage() {
           value={statusFilter}
           onChange={setStatusFilter}
           options={[
-            { value: 'active',    label: 'Đang học',      count: activeCount },
-            { value: 'completed', label: 'Đã hoàn thành', count: completedCount },
-            { value: 'all',       label: 'Tất cả',         count: teams.length },
+            { value: 'active',    label: 'Ongoing',   count: activeCount },
+            { value: 'completed', label: 'Completed', count: completedCount },
+            { value: 'all',       label: 'All',       count: teams.length },
           ]}
         />
         {list.search && (
@@ -691,15 +691,15 @@ export default function TeamsPage() {
           <div className="text-4xl mb-4">{search ? '🔍' : statusFilter === 'completed' ? '🎓' : '👥'}</div>
           <p className="text-muted-foreground">
             {search
-              ? `Không tìm thấy nhóm nào khớp với "${search}"`
+              ? `No teams match "${search}"`
               : statusFilter === 'completed'
-                ? 'Chưa có nhóm nào hoàn thành'
-                : 'Chưa có nhóm nào đang học'}
+                ? 'No completed teams yet'
+                : 'No ongoing teams yet'}
           </p>
           {(search || statusFilter !== 'all') && (
             <button onClick={() => { list.clearAll(); }}
               className="mt-3 px-4 py-2 rounded-md bg-primary/15 text-primary text-sm hover:bg-primary/30 transition-all">
-              Xem tất cả
+              View all
             </button>
           )}
         </div>
@@ -715,8 +715,8 @@ export default function TeamsPage() {
           columns={teamTableColumns}
           data={filteredTeams}
           rowKey="_id"
-          emptyTitle="Không có nhóm nào"
-          emptyMessage="Thử thay đổi bộ lọc hoặc tìm kiếm."
+          emptyTitle="No teams"
+          emptyMessage="Try changing the filter or search."
         />
       )}
 
@@ -725,11 +725,11 @@ export default function TeamsPage() {
         <Portal>
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
             <div className="bg-card border border-border rounded-lg p-6 max-w-sm mx-4 text-center space-y-4 ">
-              <h3 className="text-h3 text-foreground">Xoá nhóm này?</h3>
-              <p className="text-sm text-muted-foreground">Thao tác này không thể hoàn tác.</p>
+              <h3 className="text-h3 text-foreground">Delete this team?</h3>
+              <p className="text-sm text-muted-foreground">This action cannot be undone.</p>
               <div className="flex gap-3">
-                <Button type="button" variant="outline" onClick={() => setDeleteId(null)} className="flex-1">Huỷ</Button>
-                <Button type="button" variant="destructive" onClick={() => handleDelete(deleteId)} className="flex-1">Xoá</Button>
+                <Button type="button" variant="outline" onClick={() => setDeleteId(null)} className="flex-1">Cancel</Button>
+                <Button type="button" variant="destructive" onClick={() => handleDelete(deleteId)} className="flex-1">Delete</Button>
               </div>
             </div>
           </div>

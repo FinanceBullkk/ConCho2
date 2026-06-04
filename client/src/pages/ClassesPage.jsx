@@ -108,7 +108,7 @@ function EditClassModal({ cls, onClose }) {
       await updateMutation.mutateAsync({ id: cls._id, data: { status, totalSessions } });
       onClose();
     } catch (err) {
-      setError(err.response?.data?.message || 'Lưu thất bại');
+      setError(err.response?.data?.message || 'Save failed');
     }
   };
 
@@ -118,7 +118,7 @@ function EditClassModal({ cls, onClose }) {
       await deleteMutation.mutateAsync(cls._id);
       onClose();
     } catch (err) {
-      setError(err.response?.data?.message || 'Xoá thất bại');
+      setError(err.response?.data?.message || 'Delete failed');
       setConfirmDelete(false);
     }
   };
@@ -129,7 +129,7 @@ function EditClassModal({ cls, onClose }) {
       <DialogContent className="max-w-md p-6 space-y-4" aria-label={`Edit class ${cls.classCode}`}>
         <form onSubmit={handleSubmit} className="space-y-4">
           <DialogHeader>
-            <DialogTitle className="text-h3 text-foreground">✏️ Chỉnh sửa lớp</DialogTitle>
+            <DialogTitle className="text-h3 text-foreground">✏️ Edit class</DialogTitle>
             <DialogDescription className="text-sm text-muted-foreground mt-0.5">
               <span className="font-mono text-primary">{cls.classCode}</span>
               <span className="text-subtle-foreground mx-1.5">·</span>
@@ -141,15 +141,15 @@ function EditClassModal({ cls, onClose }) {
 
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-small text-muted-foreground mb-1">Trạng thái</label>
+              <label className="block text-small text-muted-foreground mb-1">Status</label>
               <select value={status} onChange={(e) => setStatus(e.target.value)}
                 className="w-full px-3 h-[--control-h] rounded-md bg-background border border-input text-foreground focus:outline-none focus:ring-2 focus:ring-ring transition-colors">
-                <option value="Ongoing" className="bg-popover">🟢 Đang học</option>
-                <option value="Completed" className="bg-popover">✓ Đã hoàn thành</option>
+                <option value="Ongoing" className="bg-popover">🟢 Ongoing</option>
+                <option value="Completed" className="bg-popover">✓ Completed</option>
               </select>
             </div>
             <div>
-              <label className="block text-small text-muted-foreground mb-1">Tổng số buổi</label>
+              <label className="block text-small text-muted-foreground mb-1">Total sessions</label>
               <input type="number" value={totalSessions} onChange={(e) => setTotalSessions(Number(e.target.value))} min={1}
                 className="w-full px-3 h-[--control-h] rounded-md bg-background border border-input text-foreground focus:outline-none focus:ring-2 focus:ring-ring transition-colors" />
             </div>
@@ -158,27 +158,27 @@ function EditClassModal({ cls, onClose }) {
           <div className="pt-1 flex items-center justify-between">
             <Link to={`/classes/${cls._id}`}
               className="text-xs text-subtle-foreground hover:text-primary transition-colors flex items-center gap-1">
-              Xem chi tiết (Sessions, Roster...) →
+              View details (Sessions, Roster...) →
             </Link>
           </div>
 
           <div className="flex gap-3 pt-1">
             <Button type="button" variant="destructive" onClick={handleDelete} disabled={deleteMutation.isPending} className="py-2.5 px-4 text-sm font-semibold">
-              {deleteMutation.isPending ? 'Đang xoá...' : confirmDelete ? '⚠ Xác nhận xoá?' : 'Xoá'}
+              {deleteMutation.isPending ? 'Deleting...' : confirmDelete ? '⚠ Confirm delete?' : 'Delete'}
             </Button>
             {!confirmDelete && (
               <>
                 <Button type="button" variant="outline" onClick={onClose} className="flex-1">
-                  Huỷ
+                  Cancel
                 </Button>
                 <Button type="submit" disabled={updateMutation.isPending} className="flex-1">
-                  {updateMutation.isPending ? 'Đang lưu...' : 'Lưu'}
+                  {updateMutation.isPending ? 'Saving...' : 'Save'}
                 </Button>
               </>
             )}
             {confirmDelete && (
               <Button type="button" variant="outline" onClick={() => setConfirmDelete(false)} className="flex-1">
-                Không xoá
+                Keep
               </Button>
             )}
           </div>
@@ -389,7 +389,7 @@ export default function ClassesPage() {
                           <td key={course} className="px-2 py-2 text-center">
                             <button
                               onClick={() => canEdit ? setEditModal(cls) : undefined}
-                              title={canEdit ? 'Click để chỉnh sửa' : showWarning ? 'Chưa có nhóm' : undefined}
+                              title={canEdit ? 'Click to edit' : showWarning ? 'No group yet' : undefined}
                               className={`w-full rounded-md px-3 py-2.5 transition-all text-left ${
                                 showWarning
                                   ? 'bg-warning/10 border border-warning/30 hover:border-warning/50'

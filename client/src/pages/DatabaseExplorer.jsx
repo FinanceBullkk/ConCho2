@@ -440,7 +440,7 @@ export default function DatabaseExplorer() {
                       return (
                         <td key={f}
                           onClick={editable ? () => beginCellEdit(doc, f) : undefined}
-                          title={editable ? 'Click để sửa · Enter lưu · Esc hủy' : undefined}
+                          title={editable ? 'Click to edit · Enter to save · Esc to cancel' : undefined}
                           className={`px-3 py-2.5 text-muted-foreground whitespace-nowrap max-w-[200px] truncate transition-colors ${
                             editable ? 'cursor-pointer hover:bg-primary/10 hover:ring-1 hover:ring-inset hover:ring-primary/30' : ''
                           } ${errHere ? 'ring-1 ring-destructive/60 bg-destructive/10' : ''}`}>

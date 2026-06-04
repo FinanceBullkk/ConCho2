@@ -64,11 +64,11 @@ export default function AttendanceDashboardPage() {
       a.click();
       a.remove();
       window.URL.revokeObjectURL(url);
-      setExportMsg(`✅ Đã tải ${filename} thành công!`);
+      setExportMsg(`✅ Downloaded ${filename} successfully!`);
     } catch (err) {
       const msg = err.response?.status === 404
-        ? 'Không có bản ghi nào để xuất.'
-        : 'Lỗi khi tải file. Vui lòng thử lại.';
+        ? 'No records to export.'
+        : 'Failed to download the file. Please try again.';
       setExportMsg(`❌ ${msg}`);
     }
   };
@@ -130,12 +130,12 @@ export default function AttendanceDashboardPage() {
             📥
           </div>
           <div>
-            <h3 className="text-foreground font-semibold">Xuất Dữ Liệu Điểm Danh (HR Export)</h3>
+            <h3 className="text-foreground font-semibold">Attendance Data Export (HR Export)</h3>
             <p className="text-sm text-muted-foreground mt-0.5">
               {exportStats.pending > 0 ? (
-                <>Có <span className="text-success font-bold">{exportStats.pending}</span> bản ghi mới chưa xuất</>
+                <><span className="text-success font-bold">{exportStats.pending}</span> new records not yet exported</>
               ) : (
-                <>Tất cả đã được xuất · <span className="text-subtle-foreground">{exportStats.exported} bản ghi đã xử lý</span></>
+                <>All exported · <span className="text-subtle-foreground">{exportStats.exported} records processed</span></>
               )}
             </p>
           </div>
@@ -157,12 +157,12 @@ export default function AttendanceDashboardPage() {
             {downloadMutation.isPending ? (
               <>
                 <Spinner size={16} />
-                Đang tải...
+                Downloading...
               </>
             ) : (
               <>
                 <span>📄</span>
-                Tải Excel ({exportStats.pending})
+                Download Excel ({exportStats.pending})
               </>
             )}
           </Button>

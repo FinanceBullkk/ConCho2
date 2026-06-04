@@ -145,8 +145,8 @@ export default function BookClassPage() {
   if (!loading && myTeams.length === 0) {
     return (
       <div className="bg-card border border-border rounded-lg p-10 text-center">
-        <h2 className="text-h3 text-foreground mb-2">Chưa thuộc nhóm nào</h2>
-        <p className="text-muted-foreground">Bạn cần được phân vào một nhóm để có thể xem và đặt lịch học.</p>
+        <h2 className="text-h3 text-foreground mb-2">Not in any group</h2>
+        <p className="text-muted-foreground">You need to be assigned to a group before you can view and book sessions.</p>
       </div>
     );
   }
@@ -155,12 +155,12 @@ export default function BookClassPage() {
     const teamNames = myTeams.map(t => t.name).join(', ');
     return (
       <div className="bg-card border border-border rounded-lg p-10 text-center space-y-3">
-        <h2 className="text-h3 text-foreground">Bạn không phải Team Leader</h2>
+        <h2 className="text-h3 text-foreground">You are not a Team Leader</h2>
         <p className="text-muted-foreground">
-          Bạn là thành viên của nhóm <span className="text-primary font-semibold">{teamNames}</span>,
-          nhưng chỉ Team Leader mới có thể đặt lịch học.
+          You are a member of <span className="text-primary font-semibold">{teamNames}</span>,
+          but only the Team Leader can book sessions.
         </p>
-        <p className="text-small text-subtle-foreground">Vui lòng liên hệ Team Leader của bạn để đặt lịch.</p>
+        <p className="text-small text-subtle-foreground">Please contact your Team Leader to book a session.</p>
       </div>
     );
   }
