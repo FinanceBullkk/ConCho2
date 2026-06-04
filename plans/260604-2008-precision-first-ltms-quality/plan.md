@@ -28,7 +28,7 @@ and either fixes a P0/P1 immediately or creates a focused follow-up plan.
 | 03 | [Role/Authz Matrix](sessions/03-role-authz-matrix.md) | completed | Do server policy and client permissions match for each role? |
 | 04 | [People + Org](sessions/04-people-org.md) | completed | Does user/org management preserve data and manager scope? |
 | 05 | [Learning Enrollment](sessions/05-learning-enrollment.md) | completed | Are enrollment, prerequisites, and paths truthful and consistent? |
-| 06 | [Scheduling + Attendance](sessions/06-scheduling-attendance.md) | pending | Are booking and attendance safe under races and downstream reports? |
+| 06 | [Scheduling + Attendance](sessions/06-scheduling-attendance.md) | completed | Are booking and attendance safe under races and downstream reports? |
 | 07 | [Assessment + Completion + Certificates](sessions/07-assessment-completion-certificates.md) | pending | Does completion truth match attempts, feedback, and certificates? |
 | 08 | [Reports + Export](sessions/08-reports-export.md) | pending | Are reports/export rows correct, safe, and scoped? |
 | 09 | [Cron + Reconcile + Observability](sessions/09-cron-reconcile-observability.md) | pending | Can operators know scheduled jobs and drift checks actually work? |
