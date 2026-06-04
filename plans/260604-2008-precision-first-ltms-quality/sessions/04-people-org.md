@@ -1,5 +1,9 @@
 # Session 04 - People + Org
 
+**Status:** completed
+
+**Report:** [session-04-people-org-report.md](../reports/session-04-people-org-report.md)
+
 ## Goal
 
 Answer: does user/org management preserve data integrity and enforce manager
@@ -38,4 +42,3 @@ Out: Google Directory sync, due dates, assignment engine.
 ## Unresolved Questions
 
 - None.
-
