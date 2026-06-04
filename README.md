@@ -10,462 +10,462 @@
 <h1 align="center">TMS v2 — Internal Training Management System (→ LTMS)</h1>
 
 <p align="center">
-  <strong>Hệ thống quản lý đào tạo nội bộ (~1000 nhân viên) — thay thế hoàn toàn Excel và Google Sheets.</strong><br/>
-  Xếp lịch · Điểm danh · Đánh giá · Hoàn thành · Chứng chỉ · Audit · Báo cáo HR — tất cả trong một nơi.
+  <strong>Internal training management system (~1000 employees) — a full replacement for Excel and Google Sheets.</strong><br/>
+  Scheduling · Attendance · Evaluation · Completion · Certificates · Audit · HR reports — all in one place.
 </p>
 
 ---
 
-## Mục lục
+## Table of contents
 
-1. [TMS là gì, và tại sao cần nó?](#1-tms-là-gì-và-tại-sao-cần-nó)
-2. [Ai dùng, làm được gì?](#2-ai-dùng-làm-được-gì)
-3. [Tính năng chi tiết](#3-tính-năng-chi-tiết)
-4. [Hướng dẫn sử dụng theo vai trò](#4-hướng-dẫn-sử-dụng-theo-vai-trò)
-5. [Bảo mật — hệ thống được bảo vệ như thế nào?](#5-bảo-mật--hệ-thống-được-bảo-vệ-như-thế-nào)
-6. [Cài đặt & Triển khai](#6-cài-đặt--triển-khai)
-7. [Vận hành hằng ngày](#7-vận-hành-hằng-ngày)
-8. [Kiến trúc kỹ thuật (dành cho developer)](#8-kiến-trúc-kỹ-thuật-dành-cho-developer)
-9. [Testing & Chất lượng](#9-testing--chất-lượng)
-10. [Xử lý sự cố thường gặp](#10-xử-lý-sự-cố-thường-gặp)
-11. [Tài liệu liên quan](#11-tài-liệu-liên-quan)
-12. [Lịch sử phát triển](#12-lịch-sử-phát-triển)
-
----
-
-## 1. TMS là gì, và tại sao cần nó?
-
-TMS v2 là **ứng dụng web nội bộ** quản lý toàn bộ quy trình **đào tạo nội bộ** của doanh nghiệp (~1000 nhân viên) — xếp lịch, điểm danh, đánh giá, hoàn thành, chứng chỉ, audit và báo cáo HR. Khởi đầu từ quản lý lớp tiếng Anh, hệ thống đang chuyển thành **Internal LTMS** (Learning/Training Management System) đa loại chương trình — onboarding, compliance, kỹ năng mềm, kỹ thuật… — tập trung vào **vận hành đào tạo + tuân thủ (compliance)**, không phải LMS thương mại hay nền tảng nội dung SCORM. Định hướng chi tiết: [`docs/lms-roadmap.md`](docs/lms-roadmap.md) và [`docs/ltms-gap-analysis.md`](docs/ltms-gap-analysis.md).
-
-### Vấn đề trước khi có TMS
-
-| Trước đây | Với TMS |
-|-----------|---------|
-| Lịch học nằm rải rác trên nhiều file Excel, dễ xung đột | Một hệ thống duy nhất, tất cả nhìn thấy cùng dữ liệu theo thời gian thực |
-| Điểm danh thủ công trên giấy hoặc sheet, dễ nhầm | Điểm danh cả lớp trong vài cú click, có lưu lịch sử |
-| Không biết ai học đều, ai hay nghỉ | Dashboard tự động theo phòng ban, cấp độ, khóa học |
-| Không có Google Calendar — học viên hay quên lịch | Hệ thống tự tạo Google Calendar invite + Meet link gửi đến từng người |
-| Password yếu, không có 2FA | Mã hóa bcrypt + xác thực 2 bước (TOTP) + tự động khóa khi đăng nhập sai nhiều lần |
-| Không biết ai đã sửa gì trong hệ thống | Mọi thao tác đều được ghi lại tự động (audit log), xem được ai làm gì, lúc nào |
-
-### Lợi ích thực tế
-
-- **Tiết kiệm ~80% công sức nhập liệu** cho HR/L&D mỗi tháng
-- **Báo cáo có ngay** — không cần đợi tổng hợp Excel cuối tháng
-- **Không mất dữ liệu** — mọi thứ được sao lưu tự động, xóa nhầm vẫn khôi phục được
-- **Tự phát hiện lỗi** — hệ thống tự kiểm tra dữ liệu mỗi đêm, báo cáo nếu có bất thường
+1. [What is TMS, and why do we need it?](#1-what-is-tms-and-why-do-we-need-it)
+2. [Who uses it, and what can they do?](#2-who-uses-it-and-what-can-they-do)
+3. [Feature details](#3-feature-details)
+4. [Role-based usage guide](#4-role-based-usage-guide)
+5. [Security — how is the system protected?](#5-security--how-is-the-system-protected)
+6. [Setup & Deployment](#6-setup--deployment)
+7. [Day-to-day operations](#7-day-to-day-operations)
+8. [Technical architecture (for developers)](#8-technical-architecture-for-developers)
+9. [Testing & Quality](#9-testing--quality)
+10. [Common troubleshooting](#10-common-troubleshooting)
+11. [Related documentation](#11-related-documentation)
+12. [Development history](#12-development-history)
 
 ---
 
-## 2. Ai dùng, làm được gì?
+## 1. What is TMS, and why do we need it?
 
-Hệ thống có **3 vai trò** với quyền hạn riêng biệt. Mỗi người chỉ thấy và làm được những gì phù hợp với công việc của mình.
+TMS v2 is an **internal web application** that manages the whole **internal training** process for the organization (~1000 employees) — scheduling, attendance, evaluation, completion, certificates, audit, and HR reports. It started as an English-class manager and is becoming an **Internal LTMS** (Learning/Training Management System) for many program types — onboarding, compliance, soft skills, technical, and more — focused on **training operations + compliance**, not a commercial LMS or a SCORM content platform. Detailed direction: [`docs/lms-roadmap.md`](docs/lms-roadmap.md) and [`docs/ltms-gap-analysis.md`](docs/ltms-gap-analysis.md).
 
-> **Tại sao phân quyền chặt chẽ?**
-> Tránh trường hợp học viên vô tình (hoặc cố ý) xóa lịch của người khác, hoặc xem điểm số của đồng nghiệp. Mỗi role chỉ thấy đúng phần mình cần.
+### The problem before TMS
 
-| Vai trò | Dành cho | Có thể làm |
-|---------|----------|------------|
-| **Admin** | HR, L&D Manager | Toàn quyền: quản lý nhân viên, lớp học, nhóm, lịch dạy; xuất báo cáo; cấu hình hệ thống |
-| **Teacher** | Giáo viên | Xem lịch dạy, điểm danh học viên, chấm điểm đánh giá cuối khóa |
-| **Participant** | Học viên (nhân viên đi học) | Xem lịch học của nhóm mình, đặt slot học (nếu là trưởng nhóm), xem điểm cá nhân |
+| Before | With TMS |
+|--------|----------|
+| Schedules scattered across many Excel files, easy to conflict | One single system; everyone sees the same data in real time |
+| Manual attendance on paper or sheets, error-prone | Mark a whole class in a few clicks, with history kept |
+| No idea who attends regularly and who skips | Automatic dashboard by department, level, and course |
+| No Google Calendar — learners forget their schedule | The system auto-creates Google Calendar invites + Meet links for each person |
+| Weak passwords, no 2FA | bcrypt hashing + two-factor (TOTP) + auto-lock after repeated failed logins |
+| No idea who changed what | Every action is logged automatically (audit log) — who did what, and when |
+
+### Real-world benefits
+
+- **Save ~80% of data-entry effort** for HR/L&D each month
+- **Reports on demand** — no waiting for month-end Excel compilation
+- **No data loss** — everything is backed up automatically; accidental deletes are recoverable
+- **Self-detecting errors** — the system checks its own data every night and reports anomalies
 
 ---
 
-## 3. Tính năng chi tiết
+## 2. Who uses it, and what can they do?
 
-### 3.1. Quản lý người dùng
+The system has **3 roles** with distinct permissions. Each person only sees and does what fits their job.
 
-- Thêm, sửa, xóa nhân viên với đầy đủ thông tin: mã NV, tên, email, phòng ban, cấp độ đầu vào/hiện tại
-- **6 trạng thái** phản ánh thực tế: Đang hoạt động / Tạm ngưng / Đã nghỉ / Đã chuyển / Đang chờ / Chờ xếp lớp
-- **Xóa an toàn** — nhân viên bị xóa sẽ vào "thùng rác", có thể khôi phục lại nếu lỡ tay xóa nhầm
+> **Why strict permissions?**
+> To prevent a learner from accidentally (or deliberately) deleting someone else's schedule, or viewing a colleague's scores. Each role sees only what it needs.
 
-  > **Tại sao không xóa vĩnh viễn?** Dữ liệu điểm danh và đánh giá cũ vẫn cần được giữ lại cho báo cáo. Xóa vĩnh viễn sẽ làm mất lịch sử.
+| Role | For | Can do |
+|------|-----|--------|
+| **Admin** | HR, L&D Manager | Full access: manage employees, classes, teams, teaching schedules; export reports; configure the system |
+| **Teacher** | Instructor | View teaching schedule, mark learner attendance, grade end-of-course evaluations |
+| **Participant** | Learner (employee in training) | View their group's schedule, book a session slot (if team leader), view personal scores |
 
-- **Import hàng loạt từ Excel** — upload danh sách nhân viên một lần, hệ thống tự kiểm tra trùng mã NV và định dạng email
-- **Tự động xóa khỏi lịch học** — khi nhân viên chuyển sang trạng thái "Đã nghỉ", hệ thống tự xóa họ khỏi tất cả các buổi học trong tương lai (đồng bộ toàn bộ, không bỏ sót)
+---
 
-  > **Tại sao cần tự động?** Nếu làm thủ công, rất dễ quên một buổi nào đó — người đã nghỉ vẫn hiện trong danh sách điểm danh, gây nhầm lẫn cho giáo viên.
+## 3. Feature details
 
-### 3.2. Quản lý lớp học
+### 3.1. User management
 
-- Mỗi lớp có mã lớp (ví dụ: `EL001`), tên khóa học, tổng số buổi, trạng thái (Đang học / Đã hoàn thành)
-- Tên khóa học chỉ được chọn trong danh sách đã định sẵn (Foundation, Communication 1–3, Business English...) — tránh typo, dữ liệu báo cáo nhất quán
-- Số buổi tự động điền theo khóa học
+- Add, edit, and delete employees with full details: employee code, name, email, department, entry/current level
+- **6 statuses** reflecting reality: Active / On-hold / Dropped / Transferred / Waiting / Waiting for class
+- **Safe delete** — a deleted employee goes to "trash" and can be restored if removed by mistake
 
-### 3.3. Quản lý nhóm học
+  > **Why no permanent delete?** Old attendance and evaluation data still needs to be kept for reports. A permanent delete would lose that history.
 
-- Mỗi nhóm gắn với đúng một lớp học
-- Mỗi nhóm có một **trưởng nhóm** — người chịu trách nhiệm đặt lịch cho cả nhóm
-- **Chuyển học viên sang nhóm khác** trong một thao tác duy nhất: hệ thống tự cập nhật cả hai nhóm, lịch học cũ và mới, rồi gửi email thông báo cho học viên
+- **Bulk import from Excel** — upload the employee list once; the system checks for duplicate codes and email format
+- **Auto-remove from schedules** — when an employee becomes "Dropped", the system removes them from all future sessions (fully in sync, nothing missed)
 
-  > **Tại sao làm trong một thao tác?** Nếu làm từng bước riêng lẻ (xóa khỏi nhóm A, thêm vào nhóm B, sửa lịch...) mà bị lỗi giữa chừng, dữ liệu sẽ ở trạng thái dở dang — người vừa bị xóa khỏi nhóm A nhưng chưa vào nhóm B. Hệ thống thực hiện toàn bộ hoặc không làm gì cả.
+  > **Why automate this?** Done manually, it's easy to miss a session — a person who has left still shows up in attendance lists, confusing the teacher.
 
-### 3.4. Đặt lịch học (do trưởng nhóm tự tạo)
+### 3.2. Class management
 
-Đây là tính năng trung tâm của hệ thống.
+- Each class has a class code (e.g. `EL001`), a course name, a total session count, and a status (Ongoing / Completed)
+- The course name is chosen from a predefined list (Foundation, Communication 1–3, Business English…) — avoiding typos and keeping report data consistent
+- The session count is auto-filled from the course
 
-> **Điểm quan trọng cần hiểu:** Lịch học **KHÔNG** do admin tạo trước rồi nhóm vào book. Mà ngược lại — **trưởng nhóm tự tạo lịch** bằng cách click vào ô trống trên lưới thời gian. Hệ thống tự sinh buổi học tại thời điểm đó và đăng ký toàn bộ nhóm vào.
+### 3.3. Learning-group management
+
+- Each group is tied to exactly one class
+- Each group has one **team leader** — the person responsible for booking sessions for the whole group
+- **Transfer a learner to another group** in a single operation: the system updates both groups, the old and new schedules, and then emails the learner
+
+  > **Why a single operation?** If done step by step (remove from group A, add to group B, fix schedules…) and it fails midway, the data ends up half-finished — the person is removed from A but not yet in B. The system does it all-or-nothing.
+
+### 3.4. Session booking (created by the team leader)
+
+This is the system's central feature.
+
+> **Key point to understand:** Schedules are **NOT** created up front by an admin for groups to book into. It's the reverse — **the team leader creates the schedule** by clicking an empty cell on the time grid. The system creates the session at that moment and enrolls the whole group.
 >
-> **Tại sao thiết kế như vậy?** Admin không cần biết trước nhóm nào sẽ học giờ nào — quá nhiều việc theo dõi. Để trưởng nhóm tự chọn giờ phù hợp với cả team thì linh hoạt và tự nhiên hơn. Admin chỉ cần đảm bảo: lớp đã tạo, nhóm đã gán đúng lớp, và đặt giới hạn khung giờ — phần còn lại nhóm tự lo.
+> **Why design it this way?** The admin doesn't need to know in advance which group studies at which time — too much to track. Letting the team leader pick a time that fits the team is more flexible and natural. The admin only needs to ensure: the class exists, the group is assigned to the right class, and the time-slot limits are set — the group handles the rest.
 
-**Quy tắc lịch học:**
-- Mỗi buổi học kéo dài đúng **1 tiếng**
-- Chỉ được học trong **5 khung giờ cố định**: 10:00–11:00 · 11:00–12:00 · 13:00–14:00 · 14:00–15:00 · 15:00–16:00
+**Scheduling rules:**
+- Each session is exactly **1 hour**
+- Sessions are only allowed in **5 fixed slots**: 10:00–11:00 · 11:00–12:00 · 13:00–14:00 · 14:00–15:00 · 15:00–16:00
 
-  > **Tại sao giới hạn khung giờ?** Để tránh các trường hợp như đặt lịch 10:30 hay buổi 1,5 tiếng không theo chuẩn. Khung giờ cố định giúp lịch nhất quán, dễ kiểm soát xung đột.
+  > **Why limit the slots?** To avoid cases like booking at 10:30 or a non-standard 1.5-hour session. Fixed slots keep schedules consistent and make conflicts easy to control.
 
-- Mỗi nhóm tối đa **2 buổi/tuần**
+- Each group is limited to **2 sessions/week**
 
-**Cách tạo lịch (dành cho trưởng nhóm):**
-1. Mở trang **Đặt lịch** (`/book`) — hiện lưới 7 ngày × 5 khung giờ
-2. Ô **trắng** = còn trống, có thể tạo · Ô **có màu** = đã bị nhóm khác chiếm (không thể chọn)
-3. Click ô trống → xác nhận → hệ thống tạo buổi học mới · cả nhóm tự động được đăng ký
-4. Mỗi thành viên nhận email xác nhận + Google Calendar invite tự động
+**How to create a session (for team leaders):**
+1. Open the **Booking** page (`/book`) — shows a 7-day × 5-slot grid
+2. A **white** cell = free, bookable · A **colored** cell = taken by another group (cannot be selected)
+3. Click an empty cell → confirm → the system creates the new session · the whole group is enrolled automatically
+4. Each member receives a confirmation email + an automatic Google Calendar invite
 
-  > **Tại sao trưởng nhóm cần thấy slot của nhóm khác?** Để biết giờ nào còn trống mà chọn, tránh cố gắng tạo vào giờ đã bị chiếm. Nếu ẩn thông tin này, trưởng nhóm sẽ bị báo lỗi mà không hiểu lý do.
+  > **Why should a team leader see other groups' slots?** To know which times are free, and avoid trying to book a time already taken. Hiding this would leave the leader facing an error with no explanation.
 
-- **Chống đặt trùng** — hai trưởng nhóm cùng click một ô trong cùng một giây? Database có ràng buộc duy nhất `{lớp, giờ bắt đầu}` — chỉ một request thành công, request còn lại nhận thông báo "Slot đã bị chiếm, vui lòng chọn slot khác".
-- **Nhắc nhở tự động** — email nhắc lịch học gửi trước 24 giờ
-- **Hủy lịch** — trưởng nhóm có thể hủy buổi học, thành viên tự động nhận email thông báo
-- **Admin chỉnh sửa nếu cần** — admin có toàn quyền chỉnh sửa hoặc xóa lịch đã tạo (ví dụ khi cần dời lịch hộ nhóm)
+- **Double-booking protection** — two leaders click the same cell in the same second? The database has a unique constraint `{class, startTime}` — only one request succeeds; the other gets a "Slot taken, please choose another" message.
+- **Automatic reminders** — a reminder email is sent 24 hours before the session
+- **Cancellation** — the team leader can cancel a session; members are notified automatically by email
+- **Admin override if needed** — the admin can fully edit or delete a created schedule (e.g. to reschedule on a group's behalf)
 
-### 3.5. Điểm danh
+### 3.5. Attendance
 
-- 4 trạng thái: **Có mặt (P)** / **Vắng (A)** / **Đi trễ (L)** / **Vắng có phép (EL)**
-- Điểm danh cả lớp trong **một lần submit** — không cần làm từng người
-- Giao diện **lịch tuần** — giáo viên thấy ngay buổi nào đã điểm danh, buổi nào còn thiếu, buổi nào quá hạn
-- Ô màu đỏ nhấp nháy = buổi đã qua nhưng chưa điểm danh — cần xử lý ngay
+- 4 statuses: **Present (P)** / **Absent (A)** / **Late (L)** / **Excused (EL)**
+- Mark a whole class in **one submit** — no need to do it person by person
+- A **weekly calendar** view — the teacher sees at a glance which sessions are marked, which are missing, and which are overdue
+- A flashing red cell = a session that has passed but is not yet marked — needs attention now
 
-### 3.6. Đánh giá cuối khóa
+### 3.6. End-of-course evaluation
 
-- Chấm 4 kỹ năng: Ngữ pháp · Từ vựng · Phát âm · Lưu loát — thang điểm 0–10
-- Điểm trung bình tự động tính
-- Giáo viên có thể ghi thêm nhận xét tự do
-- Chấm lại sẽ ghi đè kết quả cũ (không tạo bản trùng)
+- Grade 4 skills: Grammar · Vocabulary · Pronunciation · Fluency — on a 0–10 scale
+- The average is computed automatically
+- The teacher can add free-form comments
+- Re-grading overwrites the old result (no duplicate record)
 
-### 3.7. Báo cáo & Xuất dữ liệu
+### 3.7. Reporting & Export
 
-- **Xuất Excel điểm danh** — file đầy đủ theo khoảng ngày, sẵn sàng nộp HR
-- **Xuất Excel đánh giá** — điểm 4 kỹ năng + trung bình + nhận xét theo lớp
-- **Đánh dấu đã xuất** — hệ thống tự ghi nhận record nào đã được xuất, tránh xuất trùng
-- **Dashboard phân tích**:
-  - Tỷ lệ đi học theo khóa học / phòng ban / cấp độ
-  - Danh sách học viên chuyên cần nhất và hay vắng nhất
+- **Excel attendance export** — a complete file for a date range, ready to submit to HR
+- **Excel evaluation export** — the 4-skill scores + average + comments per class
+- **Exported marker** — the system records which entries have been exported, avoiding duplicate exports
+- **Analytics dashboard**:
+  - Attendance rate by course / department / level
+  - The most diligent and most absent learners
 
-### 3.8. Audit Log — Nhật ký hệ thống
+### 3.8. Audit Log — system journal
 
-Mọi thao tác tạo/sửa/xóa đều được ghi lại tự động:
-- **Ai** làm (mã NV, vai trò)
-- **Làm gì** (tạo, sửa, xóa, đăng nhập...)
-- **Trên dữ liệu nào** (user nào, lịch nào...)
-- **Lúc nào** (thời gian chính xác)
-- **Thay đổi cụ thể** (giá trị trước → sau)
+Every create/edit/delete action is logged automatically:
+- **Who** did it (employee code, role)
+- **What** (create, edit, delete, login…)
+- **On which data** (which user, which schedule…)
+- **When** (exact time)
+- **The specific change** (value before → after)
 
-> **Tại sao cần audit log?** Khi có sự cố ("ai xóa lịch của tôi?", "ai sửa điểm?"), admin có thể tra cứu ngay. Đây cũng là yêu cầu bắt buộc của nhiều chuẩn kiểm toán nội bộ.
+> **Why an audit log?** When something goes wrong ("who deleted my schedule?", "who changed a score?"), an admin can look it up immediately. It's also a hard requirement of many internal audit standards.
 
-Lưu trữ 2 năm, sau đó tự động xóa.
+Retained for 2 years, then auto-deleted.
 
-### 3.9. Tự kiểm tra dữ liệu (Reconciliation)
+### 3.9. Data self-check (Reconciliation)
 
-Hệ thống **tự chạy kiểm tra mỗi đêm lúc 02:00** để phát hiện các bất thường:
+The system **runs a check every night at 02:00** to detect anomalies:
 
-| Kiểm tra | Ý nghĩa |
-|----------|---------|
-| Buổi học đã qua nhưng chưa điểm danh | Nhắc giáo viên bổ sung |
-| Học viên trong lịch nhưng không còn trong nhóm | Dữ liệu không đồng bộ |
-| Nhân viên đã nghỉ vẫn còn trong nhóm | Cần dọn dẹp |
-| Buổi học tương lai không có ai đăng ký | Lịch trống, cần xem lại |
-| Nhân viên active nhưng không thuộc nhóm nào | Chưa được xếp lớp |
+| Check | Meaning |
+|-------|---------|
+| Past session not yet marked | Remind the teacher to fill it in |
+| Learner on a schedule but no longer in the group | Out-of-sync data |
+| Dropped employee still in a group | Needs cleanup |
+| Future session with nobody enrolled | Empty schedule, review needed |
+| Active employee not in any group | Not yet assigned to a class |
 
-Kết quả lưu lại 30 ngày để so sánh xu hướng.
-
----
-
-## 4. Hướng dẫn sử dụng theo vai trò
-
-### 4.1. Đăng nhập lần đầu
-
-1. Mở trình duyệt → vào địa chỉ hệ thống (ví dụ: `https://concho2.onrender.com`)
-2. Nhập **Mã nhân viên** (6 số, ví dụ `000123`) và **Mật khẩu** do Admin cấp
-3. Nhấn **Đăng nhập**
-4. **Lần đầu tiên:** hệ thống yêu cầu đổi mật khẩu mặc định ngay — không thể bỏ qua bước này
-
-   > **Tại sao bắt buộc đổi mật khẩu lần đầu?** Mật khẩu mặc định (`admin12345`) giống nhau cho tất cả tài khoản mới — nếu không đổi, bất kỳ ai biết cũng có thể đăng nhập.
-
-5. Nếu tài khoản bạn bắt buộc dùng **xác thực 2 bước (2FA)**:
-   - Tải app **Google Authenticator** hoặc **Microsoft Authenticator** về điện thoại
-   - Quét mã QR hiện trên màn hình
-   - Nhập 6 số trong app để xác nhận
-   - **Lưu lại 10 mã dự phòng** — chỉ hiện một lần duy nhất, dùng khi mất điện thoại
-
-**Quên mật khẩu?**
-1. Click **"Quên mật khẩu?"** ở trang đăng nhập
-2. Nhập mã nhân viên → Gửi
-3. Kiểm tra email công ty → Click link trong email (hết hạn sau 1 giờ)
-4. Đặt mật khẩu mới (ít nhất 10 ký tự)
+Results are kept for 30 days to compare trends.
 
 ---
 
-### 4.2. Admin — Quy trình hằng tháng
+## 4. Role-based usage guide
 
-#### Thiết lập lần đầu (chỉ làm 1 lần)
+### 4.1. First login
 
-1. Vào **Admin → Cài đặt hệ thống**: kiểm tra 5 khung giờ mặc định (10–11, 11–12, 13–14, 14–15, 15–16). Thay đổi nếu tổ chức dùng giờ khác.
-2. Kiểm tra danh sách khóa học và số buổi tương ứng
-3. **Import danh sách nhân viên** từ Excel (Academy → Người dùng → Import)
+1. Open a browser → go to the system address (e.g. `https://concho2.onrender.com`)
+2. Enter your **Employee code** (6 digits, e.g. `000123`) and the **Password** provided by the Admin
+3. Click **Log in**
+4. **First time:** the system requires you to change the default password immediately — this step cannot be skipped
 
-#### Quy trình mỗi khóa học mới
+   > **Why force a password change on first login?** The default password (`admin12345`) is the same for every new account — if not changed, anyone who knows it can log in.
 
-> **Lưu ý quan trọng:** Admin **chỉ tạo lớp và nhóm** — không tạo lịch học trước. Lịch học do **trưởng nhóm tự tạo** khi book slot trên giao diện. Đây là khác biệt cốt lõi so với các hệ thống đặt lịch truyền thống.
+5. If your account is required to use **two-factor authentication (2FA)**:
+   - Install **Google Authenticator** or **Microsoft Authenticator** on your phone
+   - Scan the QR code shown on screen
+   - Enter the 6 digits from the app to confirm
+   - **Save the 10 backup codes** — shown only once, used if you lose your phone
+
+**Forgot your password?**
+1. Click **"Forgot password?"** on the login page
+2. Enter your employee code → Submit
+3. Check your company email → click the link in the email (expires after 1 hour)
+4. Set a new password (at least 10 characters)
+
+---
+
+### 4.2. Admin — monthly workflow
+
+#### First-time setup (done once)
+
+1. Go to **Admin → System settings**: check the 5 default time slots (10–11, 11–12, 13–14, 14–15, 15–16). Change them if the organization uses different hours.
+2. Review the course list and the corresponding session counts
+3. **Import the employee list** from Excel (Academy → Users → Import)
+
+#### Per-new-course workflow
+
+> **Important note:** The admin **only creates classes and groups** — not schedules. Schedules are **created by the team leader** when booking a slot in the UI. This is the core difference from traditional scheduling systems.
 
 ```
-Bước 1 → Tạo lớp (Academy → Lớp học → Tạo mới)
-         Nhập mã lớp, chọn khóa học, hệ thống tự điền số buổi
+Step 1 → Create a class (Academy → Classes → New)
+         Enter the class code, choose the course; the system fills in the session count
 
-Bước 2 → Tạo nhóm và gán vào lớp (Academy → Nhóm → Tạo mới)
-         Gắn nhóm với lớp (1 nhóm = 1 lớp), chọn trưởng nhóm, thêm thành viên
+Step 2 → Create a group and assign it to the class (Academy → Groups → New)
+         Tie the group to the class (1 group = 1 class), choose a leader, add members
 
-Bước 3 → Thông báo cho trưởng nhóm tự book lịch
-         Họ vào "Đặt lịch" (/book), thấy lưới 7 ngày × 5 khung giờ
-         Click ô trống → buổi học được tạo + cả nhóm tự động đăng ký
-         (Admin có thể chỉnh sửa hoặc dời lịch sau khi nhóm đã tạo nếu cần)
+Step 3 → Tell the team leader to book sessions
+         They open "Booking" (/book) and see the 7-day × 5-slot grid
+         Click an empty cell → a session is created + the whole group is enrolled
+         (The admin can edit or reschedule after the group has booked, if needed)
 
-Bước 4 → Theo dõi
-         Dashboard → xem tỷ lệ đi học theo tuần/tháng
+Step 4 → Monitor
+         Dashboard → view attendance rate by week/month
 
-Bước 5 → Cuối khóa: Xuất báo cáo (Báo cáo → HR Export → Tải Excel)
+Step 5 → End of course: Export reports (Reports → HR Export → Download Excel)
 ```
 
-#### Vận hành hằng ngày
+#### Day-to-day operations
 
-- **Trang chủ (Dashboard)** — tỷ lệ đi học theo phòng ban, cảnh báo bất thường
-- **Admin → Nhật ký** — kiểm tra ai làm gì gần đây nếu có thắc mắc
-- **Admin → Kiểm tra dữ liệu** — chạy thủ công nếu nghi ngờ có sai sót
-- **Academy → Người dùng (đã xóa)** — xem thùng rác, khôi phục nếu xóa nhầm
-
----
-
-### 4.3. Teacher — Quy trình điểm danh
-
-1. Đăng nhập → **Operations → Điểm danh**
-2. Lịch tuần hiển thị tất cả buổi học:
-   - 🟢 Đã điểm danh đầy đủ
-   - 🟡 Chưa điểm danh
-   - 🔴 **Quá hạn** — buổi đã qua, chưa mark — cần xử lý ngay
-3. Click vào buổi học → danh sách học viên hiện ra
-4. Click **P / A / L / EL** cho từng người (hoặc "Đánh dấu tất cả P" để nhanh hơn)
-5. Ghi chú nếu cần → **Lưu**
-
-**Cuối khóa — Chấm điểm:**
-1. **Operations → Đánh giá** → chọn lớp
-2. Nhập điểm 4 kỹ năng (0–10) cho từng học viên + nhận xét
-3. Điểm trung bình tự tính
+- **Home (Dashboard)** — attendance rate by department, anomaly alerts
+- **Admin → Journal** — check who did what recently if there are questions
+- **Admin → Data check** — run manually if you suspect an error
+- **Academy → Users (deleted)** — view the trash, restore if deleted by mistake
 
 ---
 
-### 4.4. Participant (Học viên) — Đặt lịch học
+### 4.3. Teacher — attendance workflow
 
-> Chỉ **trưởng nhóm** mới có quyền đặt lịch. Thành viên thường chỉ xem.
+1. Log in → **Operations → Attendance**
+2. The weekly calendar shows all sessions:
+   - 🟢 Fully marked
+   - 🟡 Not yet marked
+   - 🔴 **Overdue** — past session, not marked — handle now
+3. Click a session → the learner list appears
+4. Click **P / A / L / EL** for each person (or "Mark all P" for speed)
+5. Add notes if needed → **Save**
 
-1. Đăng nhập → **Đặt lịch** (`/book`)
-2. Lưới lịch tuần hiện ra:
-   - Ô **trắng** = còn trống, có thể đặt
-   - Ô **có màu** = đã bị nhóm khác đặt rồi, không thể chọn
-3. Click ô trống → xem thông tin buổi học → **Xác nhận đặt lịch**
-4. Cả nhóm tự động nhận email xác nhận + Google Calendar invite
-5. Để hủy: click vào buổi đã đặt → **Hủy lịch** (cả nhóm nhận email thông báo)
-
-**Giới hạn:** tối đa 2 buổi/tuần/nhóm.
-
----
-
-### 4.5. Mọi người dùng — Quản lý tài khoản cá nhân
-
-Vào **Cài đặt tài khoản** (góc trên phải màn hình):
-- **Đổi mật khẩu** — yêu cầu nhập mật khẩu hiện tại, mật khẩu mới ít nhất 10 ký tự
-- **Bật xác thực 2 bước (2FA)** — tăng bảo mật tài khoản
-- **Đổi giao diện** — tối / sáng (nhớ qua các lần đăng nhập)
+**End of course — Grading:**
+1. **Operations → Evaluation** → choose a class
+2. Enter the 4-skill scores (0–10) for each learner + comments
+3. The average is computed automatically
 
 ---
 
-## 5. Bảo mật — hệ thống được bảo vệ như thế nào?
+### 4.4. Participant (Learner) — booking a session
 
-Đây là phần giải thích **từng lớp bảo vệ** theo ngôn ngữ dễ hiểu — quan trọng để hiểu tại sao hệ thống thiết kế theo cách này.
+> Only the **team leader** can book sessions. Regular members can only view.
 
-### 5.1. Mật khẩu
+1. Log in → **Booking** (`/book`)
+2. The weekly grid appears:
+   - A **white** cell = free, bookable
+   - A **colored** cell = already booked by another group, cannot be selected
+3. Click an empty cell → review the session details → **Confirm booking**
+4. The whole group automatically receives a confirmation email + Google Calendar invite
+5. To cancel: click a booked session → **Cancel** (the whole group is notified by email)
 
-- **Không lưu mật khẩu gốc** — chỉ lưu "dấu vân tay" của mật khẩu (bcrypt hash, 12 rounds). Ngay cả developer xem database cũng không biết mật khẩu của bạn là gì.
-- **Tối thiểu 10 ký tự** — đủ để chống brute-force thực tế
-- **Tự động khóa** sau 5 lần đăng nhập sai trong 15 phút — chống dò mật khẩu tự động
-
-### 5.2. Phiên đăng nhập (Session)
-
-- Token xác thực được lưu trong **cookie ẩn** — JavaScript không đọc được, phần mềm độc hại không lấy được
-- Token hết hạn sau **24 giờ** — phải đăng nhập lại
-- Khi đổi mật khẩu → **tất cả phiên cũ bị hủy ngay lập tức**, kể cả trên thiết bị khác
-
-  > **Tại sao quan trọng?** Nếu máy tính bị mất hoặc ai đó đang dùng tài khoản của bạn, đổi mật khẩu là đủ để "đá" họ ra ngay.
-
-### 5.3. Xác thực 2 bước (2FA / MFA)
-
-- Dùng chuẩn **TOTP** (Time-based One-Time Password) — cùng công nghệ với Google/Facebook
-- Mỗi mã 6 số chỉ dùng được trong 30 giây, sau đó vô hiệu
-- **10 mã dự phòng** cho trường hợp mất điện thoại — mỗi mã dùng được đúng 1 lần
-
-### 5.4. Phân quyền chặt chẽ
-
-- **Phía máy chủ** kiểm tra quyền hạn mọi request — không thể "hack" bằng cách sửa code phía trình duyệt
-- **Phía giao diện** ẩn nút bấm với người không có quyền — không thể thấy nút "Xóa user" nếu không phải Admin
-- **Hai lớp kiểm tra** đảm bảo dù giao diện bị vượt qua, server vẫn từ chối
-
-### 5.5. Giới hạn tốc độ (Rate Limiting)
-
-Mỗi hành động có số lần giới hạn để chống tấn công tự động:
-
-| Hành động | Giới hạn |
-|-----------|---------|
-| Đăng nhập sai | 5 lần / 15 phút / IP |
-| Quên mật khẩu | 5 yêu cầu / 15 phút |
-| Đặt lịch | 10 lần / phút |
-| Xuất báo cáo | 10 lần / giờ |
-| Toàn bộ API | 200 request / phút / IP |
-
-### 5.6. Bảo vệ chống giả mạo (CSRF)
-
-Mỗi request thay đổi dữ liệu (tạo, sửa, xóa) phải kèm theo một **mã bí mật ngẫu nhiên** được tạo ra từ server. Nếu ai đó lừa bạn click vào một đường link độc hại, request đó sẽ không có mã này và bị từ chối.
+**Limit:** at most 2 sessions/week/group.
 
 ---
 
-## 6. Cài đặt & Triển khai
+### 4.5. All users — personal account management
 
-### 6.1. Chạy trên máy local (cho developer)
+Go to **Account settings** (top-right of the screen):
+- **Change password** — requires the current password; the new one must be at least 10 characters
+- **Enable two-factor authentication (2FA)** — strengthens account security
+- **Switch theme** — dark / light (remembered across logins)
 
-**Yêu cầu:**
-- Node.js phiên bản 18 trở lên
-- Tài khoản MongoDB Atlas (hoặc cài MongoDB trên máy)
-- (Tùy chọn) Google Workspace với service account để có Google Calendar
-- (Tùy chọn) SMTP để gửi email
+---
+
+## 5. Security — how is the system protected?
+
+This section explains **each protection layer** in plain language — important for understanding why the system is designed this way.
+
+### 5.1. Passwords
+
+- **The original password is never stored** — only its "fingerprint" (a bcrypt hash, 12 rounds). Even a developer looking at the database cannot tell what your password is.
+- **At least 10 characters** — enough to resist real brute-force attempts
+- **Auto-lock** after 5 failed logins within 15 minutes — defeats automated password guessing
+
+### 5.2. Login session
+
+- The auth token is stored in a **hidden cookie** — JavaScript cannot read it, malware cannot steal it
+- The token expires after **24 hours** — you must log in again
+- When the password changes → **all old sessions are invalidated immediately**, including on other devices
+
+  > **Why does this matter?** If a computer is lost or someone is using your account, changing the password is enough to "kick" them out right away.
+
+### 5.3. Two-factor authentication (2FA / MFA)
+
+- Uses the **TOTP** standard (Time-based One-Time Password) — the same technology as Google/Facebook
+- Each 6-digit code is valid for only 30 seconds, then expires
+- **10 backup codes** for a lost phone — each usable exactly once
+
+### 5.4. Strict authorization
+
+- **The server** checks permissions on every request — you cannot "hack" it by editing browser-side code
+- **The UI** hides buttons from users without permission — you won't see a "Delete user" button unless you're an Admin
+- **Two layers of checks** ensure that even if the UI is bypassed, the server still refuses
+
+### 5.5. Rate limiting
+
+Each action has a limit to defeat automated attacks:
+
+| Action | Limit |
+|--------|-------|
+| Failed login | 5 / 15 min / IP |
+| Forgot password | 5 requests / 15 min |
+| Booking | 10 / min |
+| Report export | 10 / hour |
+| All API | 200 requests / min / IP |
+
+### 5.6. Anti-forgery protection (CSRF)
+
+Every state-changing request (create, edit, delete) must carry a **random secret token** generated by the server. If someone tricks you into clicking a malicious link, that request won't have the token and will be rejected.
+
+---
+
+## 6. Setup & Deployment
+
+### 6.1. Run locally (for developers)
+
+**Requirements:**
+- Node.js version 18 or higher
+- A MongoDB Atlas account (or MongoDB installed locally)
+- (Optional) Google Workspace with a service account for Google Calendar
+- (Optional) SMTP to send email
 
 ```bash
-# 1. Tải source code
+# 1. Clone the source code
 git clone https://github.com/FinanceBullkk/ConCho2.git
 cd ConCho2
 
-# 2. Cài đặt dependencies
+# 2. Install dependencies
 npm install
 cd client && npm install && cd ..
 cd server && npm install && cd ..
 
-# 3. Tạo file cấu hình server/.env (sao chép từ template)
+# 3. Create the server config server/.env (copy from the template)
 cp server/.env.example server/.env
-# Mở server/.env và điền JWT_SECRET, MONGO_URI, CRON_TOKEN, ... theo bảng bên dưới
-# QUAN TRỌNG: server/.env nằm trong .gitignore — không bao giờ commit file này.
-# Nếu bạn lỡ commit, ROTATE ngay tất cả secret bị lộ.
+# Open server/.env and fill in JWT_SECRET, MONGO_URI, CRON_TOKEN, ... per the table below
+# IMPORTANT: server/.env is in .gitignore — never commit this file.
+# If you accidentally commit it, ROTATE every leaked secret immediately.
 
-# 4. Tạo dữ liệu mẫu (admin + 2 giáo viên + 6 học viên + 2 lớp + lịch học)
+# 4. Seed sample data (admin + 2 teachers + 6 learners + 2 classes + schedules)
 cd server && npm run seed && cd ..
 
-# 5. Khởi động
-npm run dev:server   # Terminal 1: server tại cổng 5000
-npm run dev:client   # Terminal 2: client tại cổng 5173
+# 5. Start
+npm run dev:server   # Terminal 1: server on port 5000
+npm run dev:client   # Terminal 2: client on port 5173
 ```
 
-Mở `http://localhost:5173` — đăng nhập với:
-- Admin: `000001` / `admin12345` (bị yêu cầu đổi mật khẩu ngay)
+Open `http://localhost:5173` — log in with:
+- Admin: `000001` / `admin12345` (forced to change password immediately)
 - Teacher: `000002` / `teacher123`
-- Participant/Trưởng nhóm: `000004` / `participant123`
+- Participant/Team leader: `000004` / `participant123`
 
-### 6.2. Triển khai lên Render.com
+### 6.2. Deploy to Render.com
 
-1. Push code lên GitHub
-2. Render Dashboard → **New → Blueprint** → kết nối repo → chọn `render.yaml`
-3. Điền các biến môi trường (bảng bên dưới)
-4. Render tự động build và deploy
-5. Cài đặt external cron pinger (xem `docs/cron-pinger-setup.md`) để hệ thống không bị "ngủ"
+1. Push the code to GitHub
+2. Render Dashboard → **New → Blueprint** → connect the repo → choose `render.yaml`
+3. Fill in the environment variables (table below)
+4. Render builds and deploys automatically
+5. Set up an external cron pinger (see `docs/cron-pinger-setup.md`) so the system doesn't "sleep"
 
-### 6.3. Triển khai bằng Docker
+### 6.3. Deploy with Docker
 
 ```bash
 docker build -t tms-v2 .
 docker run -d --name tms-v2 -p 5000:5000 --env-file .env tms-v2
 ```
 
-### 6.4. Biến môi trường (Environment Variables)
+### 6.4. Environment variables
 
-| Tên biến | Bắt buộc? | Mô tả |
-|----------|:---------:|-------|
-| `NODE_ENV` | ✓ | `development` hoặc `production` |
-| `MONGO_URI` | ✓ | Chuỗi kết nối MongoDB Atlas |
-| `JWT_SECRET` | ✓ | Khóa bí mật ký token (chuỗi ngẫu nhiên 32 bytes) |
-| `CORS_ORIGINS` | ✓ | URL frontend được phép gọi API |
-| `CRON_TOKEN` | ✓ | Mã bí mật cho tác vụ tự động ban đêm |
-| `CLIENT_ORIGIN` | ✓ | URL frontend (dùng trong email reset mật khẩu) |
-| `SMTP_HOST` | | Máy chủ email (vd: `smtp.gmail.com`) |
-| `SMTP_PORT` | | Cổng email (587 hoặc 465) |
-| `SMTP_USER` | | Tài khoản gửi email |
-| `SMTP_PASS` | | Mật khẩu email hoặc App Password |
-| `GOOGLE_SERVICE_ACCOUNT_KEY_JSON` | | JSON key của Google Service Account (cho Calendar) |
-| `GOOGLE_CALENDAR_IMPERSONATE` | | Email tài khoản Google được ủy quyền |
-| `SENTRY_DSN` | | DSN theo dõi lỗi production (Sentry) |
-| `TMS_TIMEZONE` | | Múi giờ (mặc định UTC, khuyến nghị `Asia/Ho_Chi_Minh`) |
-| `MFA_REQUIRED_ROLES` | | Vai trò bắt buộc bật 2FA (vd: `Admin`) |
-| `LOG_LEVEL` | | Mức độ log: `info` (default), `debug`, `warn` |
-
----
-
-## 7. Vận hành hằng ngày
-
-### 7.1. Theo dõi sức khỏe hệ thống
-
-```
-GET /health  → Server có đang chạy không?
-GET /ready   → Database đã kết nối chưa?
-```
-
-Cả hai trả về JSON với trạng thái, phiên bản, thời gian uptime.
-
-### 7.2. Sao lưu & Khôi phục
-
-- **MongoDB Atlas tự động snapshot** mỗi ngày — giữ 2 ngày gần nhất (gói miễn phí)
-- **Khôi phục**: Atlas Dashboard → Clusters → Backup → chọn snapshot → Restore
-- **Mục tiêu:** Mất tối đa 24 giờ dữ liệu (RPO) · Khôi phục trong 4 giờ (RTO)
-- **Kiểm tra hàng tháng:** chạy `node server/scripts/verify-backup.js` để xác nhận backup hoạt động
-
-Xem quy trình xử lý sự cố chi tiết tại `docs/backup-dr.md`.
-
-### 7.3. Tác vụ tự động ban đêm
-
-Mỗi đêm lúc **02:00 UTC**, hệ thống tự chạy kiểm tra dữ liệu (reconciliation). Vì Render miễn phí tắt server sau 15 phút không dùng, cần cài **external cron pinger** để đảm bảo tác vụ này chạy đúng giờ:
-
-- Hướng dẫn: `docs/cron-pinger-setup.md`
-- Dùng [cron-job.org](https://cron-job.org) (miễn phí) để gọi `POST /api/cron/reconcile` mỗi đêm
-
-### 7.4. Xoay vòng khóa bí mật
-
-**Xoay CRON_TOKEN** (định kỳ hoặc khi nghi bị lộ):
-1. Tạo token mới → cập nhật biến môi trường trên Render → redeploy → cập nhật trên cron-job.org
-
-**Xoay JWT_SECRET** (chỉ khi khóa bị lộ):
-- Tất cả người dùng sẽ bị đăng xuất ngay lập tức — họ cần đăng nhập lại
+| Variable | Required? | Description |
+|----------|:---------:|-------------|
+| `NODE_ENV` | ✓ | `development` or `production` |
+| `MONGO_URI` | ✓ | MongoDB Atlas connection string |
+| `JWT_SECRET` | ✓ | Secret key for signing tokens (random 32-byte string) |
+| `CORS_ORIGINS` | ✓ | Frontend URLs allowed to call the API |
+| `CRON_TOKEN` | ✓ | Secret for the nightly automated job |
+| `CLIENT_ORIGIN` | ✓ | Frontend URL (used in password-reset emails) |
+| `SMTP_HOST` | | Email server (e.g. `smtp.gmail.com`) |
+| `SMTP_PORT` | | Email port (587 or 465) |
+| `SMTP_USER` | | Sending email account |
+| `SMTP_PASS` | | Email password or App Password |
+| `GOOGLE_SERVICE_ACCOUNT_KEY_JSON` | | JSON key of the Google Service Account (for Calendar) |
+| `GOOGLE_CALENDAR_IMPERSONATE` | | Email of the delegated Google account |
+| `SENTRY_DSN` | | DSN for production error tracking (Sentry) |
+| `TMS_TIMEZONE` | | Timezone (default UTC, recommended `Asia/Ho_Chi_Minh`) |
+| `MFA_REQUIRED_ROLES` | | Roles required to enable 2FA (e.g. `Admin`) |
+| `LOG_LEVEL` | | Log level: `info` (default), `debug`, `warn` |
 
 ---
 
-## 8. Kiến trúc kỹ thuật (dành cho developer)
+## 7. Day-to-day operations
+
+### 7.1. Health monitoring
+
+```
+GET /health  → Is the server running?
+GET /ready   → Is the database connected?
+```
+
+Both return JSON with status, version, and uptime.
+
+### 7.2. Backup & Restore
+
+- **MongoDB Atlas auto-snapshots** daily — keeps the last 2 days (free tier)
+- **Restore**: Atlas Dashboard → Clusters → Backup → choose a snapshot → Restore
+- **Targets:** at most 24 hours of data loss (RPO) · restore within 4 hours (RTO)
+- **Monthly check:** run `node server/scripts/verify-backup.js` to confirm backups work
+
+See the detailed incident runbook in `docs/backup-dr.md`.
+
+### 7.3. Nightly automated job
+
+Every night at **02:00 UTC**, the system runs the data check (reconciliation). Because the Render free tier shuts the server down after 15 minutes of inactivity, you need an **external cron pinger** to ensure this job runs on time:
+
+- Guide: `docs/cron-pinger-setup.md`
+- Use [cron-job.org](https://cron-job.org) (free) to call `POST /api/cron/reconcile` every night
+
+### 7.4. Rotating secrets
+
+**Rotate CRON_TOKEN** (periodically or if you suspect a leak):
+1. Generate a new token → update the environment variable on Render → redeploy → update on cron-job.org
+
+**Rotate JWT_SECRET** (only if the key leaks):
+- All users are logged out immediately — they need to log in again
+
+---
+
+## 8. Technical architecture (for developers)
 
 ### 8.1. Tech stack
 
 ```
 ┌─────────────────────────────────────────────────────────┐
-│                     TRÌNH DUYỆT (Client)                │
+│                     BROWSER (Client)                    │
 │  React 19 + Vite 8 + TailwindCSS + Radix UI            │
-│  React Query (quản lý server state)                     │
-│  React Hook Form + Zod (form & validation)              │
+│  React Query (server-state management)                 │
+│  React Hook Form + Zod (forms & validation)            │
 └──────────────────────┬──────────────────────────────────┘
                        │ HTTPS + HttpOnly cookie + CSRF token
                        │
 ┌──────────────────────▼──────────────────────────────────┐
-│                    MÁYCHỦ (Express)                     │
+│                    SERVER (Express)                     │
 │  Helmet · CORS · Pino Logger · Rate Limiters · CSRF    │
 │  Routes → Controllers → Services → Mongoose ORM        │
 │  Cron Jobs · Audit Logger · Reconcile Engine           │
@@ -482,158 +482,159 @@ Mỗi đêm lúc **02:00 UTC**, hệ thống tự chạy kiểm tra dữ liệu 
           │                         │
 ┌─────────▼───────┐       ┌─────────▼────────┐
 │ Google Workspace│       │  SMTP (Email)    │
-│ Calendar + Sheets│      │ Xác nhận lịch,   │
-│ Meet links      │       │ reset mật khẩu  │
+│ Calendar + Sheets│      │ Booking confirm, │
+│ Meet links      │       │ password reset  │
 └─────────────────┘       └──────────────────┘
 ```
 
-### 8.2. Cấu trúc thư mục
+### 8.2. Directory structure
 
 ```
 ConCho2/
 ├── client/                      # React SPA
 │   └── src/
-│       ├── pages/               # 28 trang (lazy-loaded)
-│       ├── components/          # 33 component tái sử dụng
-│       ├── hooks/               # 17 custom hooks
+│       ├── pages/               # route-level views (lazy-loaded)
+│       ├── components/          # reusable components
+│       ├── hooks/               # custom hooks
 │       ├── context/             # AuthContext
 │       ├── lib/                 # Zod schemas, Sentry, utils
 │       └── api/                 # axios instance + interceptors
 │
 ├── server/                      # Node.js/Express API
-│   ├── routes/                  # 18 route files
-│   ├── controllers/             # 15 controllers
-│   ├── services/                # 9 business logic services
-│   ├── models/                  # 12 Mongoose schemas
+│   ├── domains/                 # modular-monolith boundaries (learning, schedule)
+│   ├── routes/                  # legacy route files
+│   ├── controllers/             # legacy controllers
+│   ├── services/                # business logic services
+│   ├── models/                  # Mongoose schemas
 │   ├── middleware/              # auth, csrf, rateLimiters, validate
 │   ├── jobs/                    # node-cron schedules
 │   └── tests/                   # integration + unit + load tests
 │
-├── docs/                        # Tài liệu vận hành
+├── docs/                        # operational documentation
 │   ├── backup-dr.md             # Disaster recovery runbook
-│   ├── cron-pinger-setup.md     # Hướng dẫn external cron
-│   └── google-calendar-setup.md # Tích hợp Google Workspace
+│   ├── cron-pinger-setup.md     # External cron guide
+│   └── google-calendar-setup.md # Google Workspace integration
 │
 ├── Dockerfile                   # Multi-stage production image
 ├── render.yaml                  # Render.com deploy blueprint
-└── README.md                    # ← file này
+└── README.md                    # ← this file
 ```
 
-### 8.3. Luồng xử lý request
+### 8.3. Request lifecycle
 
 ```
-Request đến
-  → Gắn Request ID duy nhất (để trace log)
+Incoming request
+  → Attach a unique Request ID (for log tracing)
   → Structured log (Pino)
   → Security headers (Helmet: CSP, X-Frame-Options...)
   → CORS check
   → Parse cookie (JWT session)
-  → Parse body JSON
-  → Loại bỏ ký tự độc hại trong dữ liệu đầu vào
-  → Rate limiter toàn cục
+  → Parse JSON body
+  → Strip malicious characters from input
+  → Global rate limiter
   → CSRF token check
-  → Middleware đặc thù route (auth, roleGuard, validate, rate limit riêng)
+  → Route-specific middleware (auth, roleGuard, validate, per-route rate limit)
   → Controller → Service → Mongoose
   → Response
-  → Ghi audit log bất đồng bộ
-  → Error handler → Sentry (nếu lỗi 5xx)
+  → Write the audit log asynchronously
+  → Error handler → Sentry (on 5xx errors)
 ```
 
-### 8.4. Luồng đăng nhập (Auth Flow)
+### 8.4. Auth flow
 
 ```
 POST /auth/login
   → Validate empCode + password
-  → Kiểm tra tài khoản bị khóa chưa (failedLoginAttempts)
-  → So khớp mật khẩu (bcrypt.compare)
-  → Nếu có MFA: trả về mfaPendingToken (5 phút)
-  → Nếu không MFA: set HttpOnly cookie (24 giờ)
+  → Check whether the account is locked (failedLoginAttempts)
+  → Compare the password (bcrypt.compare)
+  → If MFA: return mfaPendingToken (5 minutes)
+  → If no MFA: set the HttpOnly cookie (24 hours)
 
-POST /auth/mfa/verify (bước 2 nếu có MFA)
-  → Xác thực TOTP code (±60s clock tolerance)
-  → Hoặc dùng backup code (đánh dấu đã dùng)
-  → Set HttpOnly cookie đầy đủ
+POST /auth/mfa/verify (step 2 if MFA is on)
+  → Verify the TOTP code (±60s clock tolerance)
+  → Or use a backup code (mark it used)
+  → Set the full HttpOnly cookie
 
-Mọi request tiếp theo
-  → middleware/auth.js verify cookie
-  → Cache user 30 giây (giảm DB query)
-  → Kiểm tra passwordChangedAt > token.iat (invalidate token cũ)
+Every subsequent request
+  → middleware/auth.js verifies the cookie
+  → Caches the user for 30 seconds (fewer DB queries)
+  → Checks passwordChangedAt > token.iat (invalidates old tokens)
 ```
 
-### 8.5. Database Schema
+### 8.5. Database schema
 
-**Users** — Người dùng
+**Users**
 ```
 empCode (unique), name, email, role, department, position
 status (Active|Inactive|Dropped|Transferred|On-hold|Waiting for class)
 password (bcrypt), passwordChangedAt, mustChangePassword
-mfaEnabled, mfaSecret*, mfaBackupCodes*    (* select:false — ẩn khỏi response)
+mfaEnabled, mfaSecret*, mfaBackupCodes*    (* select:false — hidden from responses)
 failedLoginAttempts, lockUntil
 isDeleted, deletedAt                        (soft delete)
 ```
 
-**Schedules** — Lịch học
+**Schedules**
 ```
 classId, bookedTeamId, startTime, endTime
 roomLink, meetLink, googleEventId
 enrolledUsers: [userId]
-Index UNIQUE: {classId, startTime}          ← chống double-booking đồng thời
+UNIQUE index: {classId, startTime}          ← prevents concurrent double-booking
 ```
 
-> **Tại sao cần unique index?** Không đủ chỉ kiểm tra logic trong code — hai người có thể nhấn đặt lịch trong cùng một giây. Unique index ở database là lớp bảo vệ cuối cùng, đảm bảo chỉ một request thành công.
+> **Why a unique index?** Checking logic in code isn't enough — two people can click "book" in the same second. A unique index at the database is the final protection layer, ensuring only one request succeeds.
 
-**Attendance** — Điểm danh
+**Attendance**
 ```
 scheduleId, userId
 status: P | A | L | EL
 remark, photoUrl
 syncStatus: PENDING | EXPORTED
-Index UNIQUE: {scheduleId, userId}
+UNIQUE index: {scheduleId, userId}
 ```
 
-**AuditLog** — Nhật ký
+**AuditLog**
 ```
 actorId, actorRole, actorEmpCode
 action, entity, entityId
-diff (before/after, password bị ẩn)
+diff (before/after, passwords redacted)
 requestId, ip, userAgent
-createdAt (TTL: 730 ngày)
+createdAt (TTL: 730 days)
 ```
 
-### 8.6. Phân quyền (33 permissions × 3 roles)
+### 8.6. Authorization (33 permissions × 3 roles)
 
-| Nhóm quyền | Admin | Teacher | Participant |
-|------------|:-----:|:-------:|:-----------:|
-| Quản lý users (tạo/sửa/xóa) | ✓ | | |
-| Xem danh sách users | ✓ | ✓ | |
-| Quản lý lớp học | ✓ | | |
-| Xem lớp học | ✓ | ✓ | ✓ |
-| Tạo/sửa lịch dạy | ✓ | ✓ | |
-| Xóa lịch dạy | ✓ | | |
-| Điểm danh | ✓ | ✓ | |
-| Đặt lịch cho nhóm mình | ✓ | | ✓ |
-| Chấm điểm đánh giá | ✓ | ✓ | |
-| Xuất/nhập dữ liệu | ✓ | | |
-| Cấu hình hệ thống, audit log | ✓ | | |
+| Permission group | Admin | Teacher | Participant |
+|------------------|:-----:|:-------:|:-----------:|
+| Manage users (create/edit/delete) | ✓ | | |
+| View user list | ✓ | ✓ | |
+| Manage classes | ✓ | | |
+| View classes | ✓ | ✓ | ✓ |
+| Create/edit teaching schedule | ✓ | ✓ | |
+| Delete teaching schedule | ✓ | | |
+| Mark attendance | ✓ | ✓ | |
+| Book for own group | ✓ | | ✓ |
+| Grade evaluations | ✓ | ✓ | |
+| Export/import data | ✓ | | |
+| System config, audit log | ✓ | | |
 
 ---
 
-## 9. Testing & Chất lượng
+## 9. Testing & Quality
 
-### 9.1. Tổng quan
+### 9.1. Overview
 
-| Loại test | Công cụ | Số lượng | Trạng thái |
-|-----------|---------|----------|------------|
-| Integration tests (API) | Jest + Supertest | 17 suites | ✅ 21/21 pass |
-| Unit tests | Jest | 5 suites | ✅ Pass |
-| Client tests | Vitest + RTL | 47+ cases | ✅ Pass |
-| E2E (trình duyệt) | Playwright | 19 cases | ✅ Pass |
-| Load tests | Artillery | Smoke/Load/Spike | ✅ Pass |
-| **Tổng** | | **241+ cases** | **✅ 100%** |
+| Test type | Tool | Count | Status |
+|-----------|------|-------|--------|
+| Integration tests (API) | Jest + Supertest | 17 suites | ✅ pass |
+| Unit tests | Jest | 5 suites | ✅ pass |
+| Client tests | Vitest + RTL | 140+ cases | ✅ pass |
+| E2E (browser) | Playwright | 19 cases | ✅ pass |
+| Load tests | Artillery | Smoke/Load/Spike | ✅ pass |
+| **Total** | | **241+ cases** | **✅ 100%** |
 
-> **Tại sao tests quan trọng?** Mỗi khi thêm tính năng mới hoặc sửa lỗi, có nguy cơ vô tình làm hỏng tính năng khác. 241 test cases chạy tự động mỗi lần commit — nếu có gì bị vỡ, phát hiện ngay trước khi lên production.
+> **Why do tests matter?** Each time you add a feature or fix a bug, there's a risk of accidentally breaking something else. Hundreds of test cases run automatically on every commit — if something breaks, it's caught before production.
 
-### 9.2. Chạy tests
+### 9.2. Running tests
 
 ```bash
 # Server (Jest)
@@ -642,104 +643,107 @@ cd server && npm test
 # Client (Vitest)
 cd client && npx vitest run
 
-# Với coverage report
+# With a coverage report
 cd client && npm run test:coverage
 ```
 
 ### 9.3. Performance
 
-- Bundle JavaScript ban đầu: **~300KB** sau khi nén — tải nhanh
-- Các trang ít dùng chỉ tải khi cần (lazy loading)
-- Dữ liệu cache 30 giây — không gọi API thừa
-- Analytics cache 60 phút — không tính lại mỗi lần xem
+- Initial JavaScript bundle: **~300KB** gzipped — fast to load
+- Rarely-used pages load only on demand (lazy loading)
+- Data cached for 30 seconds — no redundant API calls
+- Analytics cached for 60 minutes — no recompute on each view
 
 ---
 
-## 10. Xử lý sự cố thường gặp
+## 10. Common troubleshooting
 
-### Không đăng nhập được
+### Cannot log in
 
-| Triệu chứng | Nguyên nhân | Giải pháp |
-|-------------|-------------|-----------|
-| "Thông tin đăng nhập không đúng" | Sai mã NV hoặc mật khẩu | Kiểm tra Caps Lock, số 0 đầu mã NV |
-| "Tài khoản bị khóa" | Sai mật khẩu 5 lần | Đợi 15 phút, hoặc nhờ Admin mở khóa |
-| Mã 2FA không đúng | Đồng hồ điện thoại lệch | Sync đồng hồ điện thoại với internet |
-| Mất điện thoại có app 2FA | Không có TOTP | Dùng mã dự phòng đã lưu, hoặc nhờ Admin reset 2FA |
+| Symptom | Cause | Fix |
+|---------|-------|-----|
+| "Invalid credentials" | Wrong employee code or password | Check Caps Lock and the leading 0 in the code |
+| "Account locked" | 5 wrong passwords | Wait 15 minutes, or ask an Admin to unlock |
+| 2FA code rejected | Phone clock drift | Sync the phone clock with the internet |
+| Lost the phone with the 2FA app | No TOTP | Use a saved backup code, or ask an Admin to reset 2FA |
 
-### Không đặt lịch được
+### Cannot book a session
 
-| Triệu chứng | Nguyên nhân | Giải pháp |
-|-------------|-------------|-----------|
-| Slot hiển thị màu (không click được) | Nhóm khác đã đặt rồi | Chọn slot khác |
-| "Đã đủ 2 buổi tuần này" | Vượt giới hạn 2 buổi/tuần | Đặt vào tuần sau |
-| "Nhóm chưa có trưởng nhóm" | Thiếu leaderId | Admin vào Teams → chỉnh sửa → gán trưởng nhóm |
+| Symptom | Cause | Fix |
+|---------|-------|-----|
+| Slot shown colored (not clickable) | Already booked by another group | Choose another slot |
+| "Already 2 sessions this week" | Over the 2/week limit | Book the following week |
+| "Group has no team leader" | Missing leaderId | Admin → Teams → edit → assign a leader |
 
-### Email không nhận được
+### Email not received
 
-- Kiểm tra thư mục **Spam/Junk**
-- Với admin: kiểm tra biến môi trường SMTP trong Render
-- Test nhanh: `node -e "require('./server/lib/mailer').sendMail({to:'test@gmail.com',subject:'test',text:'hi'})"`
+- Check the **Spam/Junk** folder
+- For admins: check the SMTP environment variables on Render
+- Quick test: `node -e "require('./server/lib/mailer').sendMail({to:'test@gmail.com',subject:'test',text:'hi'})"`
 
-### Google Calendar không hoạt động
+### Google Calendar not working
 
-1. Service account đã được cấp quyền **Domain-Wide Delegation** chưa?
-2. `GOOGLE_CALENDAR_IMPERSONATE` đúng email chưa?
-3. API Google Calendar đã bật trong GCP project chưa?
+1. Has the service account been granted **Domain-Wide Delegation**?
+2. Is `GOOGLE_CALENDAR_IMPERSONATE` the correct email?
+3. Is the Google Calendar API enabled in the GCP project?
 
-→ Chi tiết tại `docs/google-calendar-setup.md`
+→ Details in `docs/google-calendar-setup.md`
 
-### Render chậm (request đầu tiên lâu ~30 giây)
+### Render is slow (first request ~30 seconds)
 
-Server bị "ngủ" sau 15 phút không có request. Giải pháp:
-- Cài keep-warm pinger: `GET /api/cron/health` mỗi 10 phút trong giờ làm việc
-- Hoặc upgrade Render lên gói Starter ($7/tháng) — không bao giờ sleep
+The server "sleeps" after 15 minutes of inactivity. Fixes:
+- Set up a keep-warm pinger: `GET /api/cron/health` every 10 minutes during business hours
+- Or upgrade Render to the Starter plan ($7/month) — never sleeps
 
 ---
 
-## 11. Tài liệu liên quan
+## 11. Related documentation
 
-| File | Nội dung |
+| File | Contents |
 |------|----------|
-| `AGENTS.md` | Contract cho Codex/Claude: Internal LTMS, không feature factory, done means wired |
-| `CLAUDE.md` | Quy tắc làm việc cho Claude Code trong repo |
-| `docs/system-overview.md` | Tổng quan kiến trúc + trạng thái hiện tại |
-| `docs/development-roadmap.md` | Living tracker: milestone, changelog, quality gate |
-| `docs/lms-roadmap.md` | Roadmap Internal LTMS 6 tháng cho 1000 nhân viên |
-| `docs/backup-dr.md` | Quy trình xử lý sự cố, khôi phục dữ liệu |
-| `docs/cron-pinger-setup.md` | Cài đặt tác vụ tự động ban đêm |
-| `docs/google-calendar-setup.md` | Tích hợp Google Workspace |
-| `/api/docs` *(khi server đang chạy)* | Swagger UI — thử API trực tiếp trên trình duyệt |
-| `/api/docs.json` *(khi server đang chạy)* | OpenAPI spec — import vào Postman |
+| `AGENTS.md` | Contract for Codex/Claude: Internal LTMS, no feature factory, done means wired |
+| `CLAUDE.md` | Working rules for Claude Code in this repo |
+| `docs/system-overview.md` | Architecture overview + current status |
+| `docs/development-roadmap.md` | Living tracker: milestones, changelog, quality gate |
+| `docs/lms-roadmap.md` | Internal LTMS 6-month roadmap for 1000 employees |
+| `docs/ltms-gap-analysis.md` | LTMS gap analysis + locked priority order |
+| `docs/backup-dr.md` | Incident handling, data recovery |
+| `docs/cron-pinger-setup.md` | Setting up the nightly automated job |
+| `docs/google-calendar-setup.md` | Google Workspace integration |
+| `/api/docs` *(when the server is running)* | Swagger UI — try the API directly in the browser |
+| `/api/docs.json` *(when the server is running)* | OpenAPI spec — import into Postman |
 
 **GitHub:** `https://github.com/FinanceBullkk/ConCho2`
 
 ---
 
-## 12. Lịch sử phát triển
+## 12. Development history
 
-Hệ thống được xây dựng qua **9 sprint**, từ prototype cơ bản đến production-grade:
+The system was built over **9 sprints**, from a basic prototype to production-grade:
 
-| Sprint | Nội dung chính | Ý nghĩa |
-|:------:|----------------|---------|
-| 1 | Form validation, tài liệu Backup/DR | Nền tảng: không mất dữ liệu từ đầu |
-| 2 | Skeleton loading, phân trang, bảo vệ CSRF, bộ test đầu tiên | UX mượt mà + bảo mật cơ bản |
-| 3 | Quên mật khẩu, filter URL, audit log UI | Tự phục vụ + truy vết thao tác |
-| 4 | Optimistic updates, mở rộng test | Tương tác nhanh hơn, độ tin cậy cao hơn |
-| 5 | Graceful shutdown, Docker, toast, useRole, bulk actions | Sẵn sàng production |
-| 6 | Dark/light mode, pagination analytics | Trải nghiệm người dùng |
-| 7 | Integration tests 10 routes, middleware unit tests | Bảo đảm chất lượng trước khi mở rộng |
-| 8 | Swagger docs, mobile menu, email xác nhận đặt lịch | Tài liệu hóa + mobile ready |
-| 9 | Tìm kiếm Cmd+K, chuyển nhóm học viên, export đánh giá, RBAC guards, Playwright E2E, 18 bugfix (IDOR, anti-enumeration, re-auth, auto-release, weekly limit, booking grid key-matching) | Production hardening — sẵn sàng 200 users |
+| Sprint | Focus | Meaning |
+|:------:|-------|---------|
+| 1 | Form validation, Backup/DR docs | Foundation: no data loss from day one |
+| 2 | Skeleton loading, pagination, CSRF protection, first test suite | Smooth UX + basic security |
+| 3 | Forgot password, URL filters, audit log UI | Self-service + action traceability |
+| 4 | Optimistic updates, more tests | Faster interactions, higher reliability |
+| 5 | Graceful shutdown, Docker, toasts, useRole, bulk actions | Production-ready |
+| 6 | Dark/light mode, analytics pagination | User experience |
+| 7 | Integration tests for 10 routes, middleware unit tests | Quality assurance before scaling |
+| 8 | Swagger docs, mobile menu, booking confirmation emails | Documentation + mobile-ready |
+| 9 | Cmd+K search, learner group transfer, evaluation export, RBAC guards, Playwright E2E, 18 bug fixes (IDOR, anti-enumeration, re-auth, auto-release, weekly limit, booking-grid key matching) | Production hardening — ready for 200 users |
+
+> Beyond Sprint 9, the system is being re-architected into an **Internal LTMS** (Learning/Training Management System). Live status and the 6-month plan live in [`docs/development-roadmap.md`](docs/development-roadmap.md) and [`docs/lms-roadmap.md`](docs/lms-roadmap.md).
 
 ---
 
 ## License
 
-MIT — sử dụng tự do nội bộ.
+MIT — free for internal use.
 
 ---
 
 <p align="center">
-  Được xây dựng cẩn thận · Bảo trì bởi L&D team<br/>
-  <em>Câu hỏi? Liên hệ Admin team hoặc tạo issue trên GitHub.</em>
+  Built with care · Maintained by the L&D team<br/>
+  <em>Questions? Contact the Admin team or open an issue on GitHub.</em>
 </p>
