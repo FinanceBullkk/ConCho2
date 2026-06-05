@@ -151,6 +151,27 @@ describe('Learning Platform API — completion & certificates', () => {
     expect((await issue(tokens.admin)).status).toBe(409);
   });
 
+  test('QB-008: concurrent issue requests create exactly one certificate (partial unique index)', async () => {
+    await linkProgram({ attendanceThresholdPercent: 0 });
+    await seedAttendance(1, 0);
+
+    // Fire both before either resolves — both pass the findActiveCertificate
+    // check, so only the DB partial unique index can keep them from both inserting.
+    const [a, b] = await Promise.all([issue(tokens.admin), issue(tokens.admin)]);
+
+    const statuses = [a.status, b.status].sort();
+    expect(statuses).toEqual([201, 409]);
+
+    // DB truth: exactly one active certificate exists for this learner+cohort.
+    const active = await Certificate.countDocuments({
+      userId: seed.member1._id,
+      cohortId: seed.class1._id,
+      status: 'Issued',
+      isDeleted: false,
+    });
+    expect(active).toBe(1);
+  });
+
   test('revoke soft-changes status to Revoked (record retained)', async () => {
     await linkProgram({ attendanceThresholdPercent: 0 });
     await seedAttendance(1, 0);
