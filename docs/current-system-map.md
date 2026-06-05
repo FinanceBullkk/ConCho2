@@ -170,7 +170,7 @@ English literals directly.
 | `/api/admin-db` | `adminDbRoutes.js` | Admin database explorer |
 | `/api/admin/audit` | `auditRoutes.js` | audit log queries |
 | `/api/admin/reconcile` | `reconcileRoutes.js` | manual reconcile and report history |
-| `/api/cron` | `cronRoutes.js` | cron-triggered reconcile/reminders |
+| `/api/cron` | `cronRoutes.js` | cron-triggered reconcile, attendance reminders, assignment reminders |
 | `/api/search` | `searchRoutes.js` | global search |
 | `/health`, `/ready`, `/api/health`, `/api/ready` | `healthRoutes.js` | liveness/readiness |
 
@@ -213,6 +213,7 @@ Current protections:
 | `LearningProgram` | L&D training catalog, policy defaults, and legacy course bridge |
 | `LearningPath` | ordered program curriculum and per-learner path progress |
 | `Assignment` | required Program/Path assignment with due date and user/department targets |
+| `NotificationLog` | email notification idempotency and send trace |
 | `Department` | structured org unit for manager/department assignment |
 
 ### Learning Domain Boundary
@@ -225,6 +226,8 @@ Current protections:
 - Paths are backed by `LearningPath`.
 - Assignments are backed by `Assignment` and derive learner status from existing
   completion/certificate/enrollment signals.
+- Assignment reminder sends are backed by `NotificationLog` idempotency records
+  and run through the monitored cron route.
 
 Current session API:
 
@@ -250,6 +253,8 @@ Important database constraints:
 - `AuditLog` TTL defaults to 2 years.
 - `ReconcileReport` TTL is 30 days.
 - `TokenBlocklist` TTL is `expiresAt`.
+- `NotificationLog` has a unique assignment/learner/recipient/cadence tuple and
+  a 180-day TTL.
 
 ### Booking Logic
 

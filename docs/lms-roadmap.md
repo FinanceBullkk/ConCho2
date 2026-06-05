@@ -91,12 +91,12 @@ feedback, certificates, public verification, assessment v1, question bank,
 manual grading, completion reports, and rollups are live. Wave C core is done:
 learner catalog, self-enroll, prerequisite gating, sequenced paths, admin paths
 UI, and learner path progress are live. Wave D has codeable traction: cron
-self-monitoring, org model/manager dashboard, and assignment + due dates v1 are
-live.
+self-monitoring, org model/manager dashboard, assignment + due dates v1, and
+assignment reminder/escalation v1 are live.
 
 The biggest remaining platform gaps for 1000 internal employees are Google OIDC,
-Directory sync, reminders/escalation, compliance reporting depth, recertification,
-and generic scheduling.
+Directory sync, compliance reporting depth, recertification, broader
+notification surfaces, and generic scheduling.
 
 See [`development-roadmap.md`](development-roadmap.md) for exact progress and
 recent changelog.
@@ -158,10 +158,17 @@ committed parallel track**.
 
 ### Wave D5 — Notification / escalation engine *(G3)*
 
-- Notification engine v1: session reminders, assessment due/overdue, certificate
-  issued, and manager escalation for overdue assignments (consumes D4).
-- Persist notification/job logs for audit and troubleshooting; keep sends
-  fail-soft like Google Calendar.
+- **v1 live 2026-06-05:** assignment due-date reminders over D4 assignments.
+- Persisted `NotificationLog` gives email idempotency and audit trace with a
+  180-day TTL.
+- Learner reminders: 7 days before due date, 1 day before due date, then every
+  3 overdue days while incomplete.
+- Manager escalation: weekly overdue digest for direct reports with manager
+  email.
+- `POST /api/cron/assignment-reminders` is cron-token protected and monitored
+  through `CronRun`.
+- Remaining later: assessment reminders, certificate issued/expiry emails,
+  in-app notification center, and admin log UI.
 
 ### Wave D6 — Compliance reporting depth + recertification
 

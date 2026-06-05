@@ -37,6 +37,11 @@ const CRON_JOBS = {
     monitorSlug: 'attendance-reminders',
     expectedIntervalMs: HOUR_MS, // pinged hourly
   },
+  assignmentReminders: {
+    jobName: 'assignment-reminders',
+    monitorSlug: 'assignment-reminders',
+    expectedIntervalMs: 24 * HOUR_MS, // daily
+  },
 };
 
 async function recordStart(jobName) {
