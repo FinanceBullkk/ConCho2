@@ -1,6 +1,6 @@
   # Precision-First LTMS Quality Plan
 
-**Status:** active  
+**Status:** completed (2026-06-05) — Release Gate verdict: **GO** (no open P0/P1)  
 **Mode:** quality freeze for major features  
 **Principle:** one session = one bounded question  
 **Owner intent:** accuracy over quantity; P0/P1 before new major roadmap work
@@ -32,7 +32,7 @@ and either fixes a P0/P1 immediately or creates a focused follow-up plan.
 | 07 | [Assessment + Completion + Certificates](sessions/07-assessment-completion-certificates.md) | completed | Does completion truth match attempts, feedback, and certificates? |
 | 08 | [Reports + Export](sessions/08-reports-export.md) | completed | Are reports/export rows correct, safe, and scoped? |
 | 09 | [Cron + Reconcile + Observability](sessions/09-cron-reconcile-observability.md) | completed | Can operators know scheduled jobs and drift checks actually work? |
-| 10 | [Release Gate](sessions/10-release-gate.md) | pending | Is there any open P0/P1 blocking feature work? |
+| 10 | [Release Gate](sessions/10-release-gate.md) | completed | Is there any open P0/P1 blocking feature work? |
 
 ## Required Session Output
 
@@ -71,5 +71,13 @@ Goal, Scope, Evidence, Verdict, Action, Verification, Backlog, Unresolved.
   contract — by adding `server/tests/unit/cronMonitorRun.test.js` (6 tests, no
   prod code change). Focused suites green: 6 suites / 43 tests. No QB promoted
   (reminders-need-pinger is documented owner ops-config, out of scope).
+- Session 10 (Release Gate) completed; verdict **GO**. Open P0/P1 list is
+  EMPTY. CI-equivalent gates green locally: server Jest 588/588, client Vitest
+  153/153, client build clean, lint 81==cap, server audit 5 moderate (<high),
+  client audit 0 vulns, gitleaks working-tree clean. Playwright e2e is CI-only
+  (seeded-backend infra, QB-005) and unaffected by test+docs-only changes.
+  Accepted risks for this release: QB-005..009 (P2) + QB-010 (P3, new — gitleaks
+  history default-password in legacy import scripts; current tree clean).
+  **Plan complete — feature work may resume.**
 - No code implementation belongs in this plan until a session identifies a concrete P0/P1 or approved focused fix.
 - Current dirty tree must be preserved; do not revert unrelated changes.
