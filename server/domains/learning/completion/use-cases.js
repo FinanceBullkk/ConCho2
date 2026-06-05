@@ -5,6 +5,10 @@ const { getNextSequence } = require('../../../helpers/counter');
 
 const sameId = (a, b) => a && b && a.toString() === b.toString();
 const round2 = (n) => Math.round(n * 100) / 100;
+const validityUntil = (issuedAt, validityDays) => {
+  if (!validityDays) return null;
+  return new Date(issuedAt.getTime() + validityDays * 86400000);
+};
 
 // Evaluate a learner's completion of a cohort against its program's
 // completionPolicy. Pure read — never mutates. Returns the per-dimension
@@ -15,7 +19,8 @@ const evaluateCompletion = async (cohortId, userId) => {
     throw new ServiceError('Cohort not found', 404);
   }
 
-  const { policy, programId, programName } = await repository.resolveCompletionContext(cohort);
+  const { policy, programId, programName, certificateValidityDays } =
+    await repository.resolveCompletionContext(cohort);
 
   const [totalSessions, attendedSessions, evaluation, feedback, passingAttempt] = await Promise.all([
     repository.countCohortSessions(cohortId),
@@ -44,6 +49,7 @@ const evaluateCompletion = async (cohortId, userId) => {
     userId,
     programId,
     programName,
+    certificateValidityDays,
     cohortCode: cohort.classCode,
     complete: attendanceMet && assessmentMet && feedbackMet,
     attendance: {
@@ -90,6 +96,8 @@ const issueCertificate = async ({ cohortId, userId }, actor) => {
   const learner = await repository.findLearnerName(userId);
   const certificateNumber = await nextCertificateNumber();
   const verificationCode = crypto.randomBytes(16).toString('hex');
+  const issuedAt = new Date();
+  const validityDays = completion.certificateValidityDays || null;
 
   try {
     return await repository.createCertificate({
@@ -111,7 +119,10 @@ const issueCertificate = async ({ cohortId, userId }, actor) => {
         feedbackMet: completion.feedback.met,
       },
       issuedBy: actor?._id || null,
-      issuedAt: new Date(),
+      issuedAt,
+      validFrom: issuedAt,
+      validUntil: validityUntil(issuedAt, validityDays),
+      validityDays,
       status: 'Issued',
     });
   } catch (error) {

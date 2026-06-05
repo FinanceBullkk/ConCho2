@@ -59,6 +59,11 @@ const learningProgramSchema = new mongoose.Schema(
       requiresAssessment: { type: Boolean, default: false },
       requiresFeedback: { type: Boolean, default: false },
     },
+    certificateValidityDays: {
+      type: Number,
+      min: [1, 'Certificate validity days must be at least 1'],
+      default: null,
+    },
     capacityPolicy: {
       maxParticipants: { type: Number, min: 1, default: null },
       maxParticipantsPerSession: { type: Number, min: 1, default: null },

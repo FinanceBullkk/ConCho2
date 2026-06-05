@@ -32,6 +32,7 @@ const createProgramBody = z.object({
   deliveryMode: z.enum(['online', 'offline', 'hybrid']).default('online'),
   schedulingMode: z.enum(['leader_booking', 'admin_scheduled', 'self_enroll', 'nomination']).default('admin_scheduled'),
   completionPolicy,
+  certificateValidityDays: z.coerce.number().int().min(1).max(3650).nullable().optional(),
   capacityPolicy,
   facilitatorPolicy,
   prerequisitePrograms: z.array(objectId).max(20).optional(),

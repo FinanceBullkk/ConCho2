@@ -72,6 +72,21 @@ const certificateSchema = new mongoose.Schema(
       type: Date,
       default: () => new Date(),
     },
+    validFrom: {
+      type: Date,
+      default() {
+        return this.issuedAt || new Date();
+      },
+    },
+    validUntil: {
+      type: Date,
+      default: null,
+    },
+    validityDays: {
+      type: Number,
+      min: [1, 'Validity days must be at least 1'],
+      default: null,
+    },
 
     status: {
       type: String,
@@ -93,6 +108,7 @@ const certificateSchema = new mongoose.Schema(
 
 // Speeds findActiveCertificate lookups and the per-learner / per-cohort listings.
 certificateSchema.index({ userId: 1, cohortId: 1, status: 1 });
+certificateSchema.index({ status: 1, validUntil: 1, isDeleted: 1 });
 
 // QB-008: race-proof "one active certificate per learner per cohort". The
 // findActiveCertificate check in the use-case is the friendly fast path; this

@@ -28,12 +28,13 @@ const resolveCompletionContext = async (cohort) => {
     return { policy: { ...DEFAULT_POLICY }, programId: null, programName: cohort?.courseName || '' };
   }
   const program = await LearningProgram.findById(cohort.programId)
-    .select('name completionPolicy')
+    .select('name completionPolicy certificateValidityDays')
     .lean();
   return {
     policy: { ...DEFAULT_POLICY, ...(program?.completionPolicy || {}) },
     programId: cohort.programId,
     programName: program?.name || cohort.courseName || '',
+    certificateValidityDays: program?.certificateValidityDays || null,
   };
 };
 

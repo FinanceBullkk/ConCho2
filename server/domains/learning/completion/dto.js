@@ -1,3 +1,5 @@
+const { deriveCertificateState } = require('../reports/compliance-certificate-state');
+
 const idOf = (value) => (value && value._id ? value._id : value) || null;
 
 // Full certificate view for authenticated Admin/Teacher/learner-self listings.
@@ -24,6 +26,10 @@ const certificateDto = (cert) => {
     programName: cert.programName,
     status: cert.status,
     issuedAt: cert.issuedAt,
+    validFrom: cert.validFrom,
+    validUntil: cert.validUntil,
+    validityDays: cert.validityDays ?? null,
+    certificateState: deriveCertificateState(cert),
     issuedBy: idOf(cert.issuedBy),
     revokedAt: cert.revokedAt,
     revokedReason: cert.revokedReason || '',
@@ -37,13 +43,15 @@ const certificateDto = (cert) => {
 const publicVerificationDto = (cert) => {
   if (!cert) return { valid: false, status: 'not_found' };
   return {
-    valid: cert.status === 'Issued',
+    valid: ['issued', 'expiring'].includes(deriveCertificateState(cert)),
     status: cert.status,
+    certificateState: deriveCertificateState(cert),
     certificateNumber: cert.certificateNumber,
     learnerName: cert.learnerName,
     programName: cert.programName,
     cohortCode: cert.cohortCode,
     issuedAt: cert.issuedAt,
+    validUntil: cert.validUntil,
     revokedAt: cert.status === 'Revoked' ? cert.revokedAt : undefined,
   };
 };
