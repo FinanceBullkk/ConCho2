@@ -1,4 +1,4 @@
-# Precision-First LTMS Quality Plan
+  # Precision-First LTMS Quality Plan
 
 **Status:** active  
 **Mode:** quality freeze for major features  
@@ -31,7 +31,7 @@ and either fixes a P0/P1 immediately or creates a focused follow-up plan.
 | 06 | [Scheduling + Attendance](sessions/06-scheduling-attendance.md) | completed | Are booking and attendance safe under races and downstream reports? |
 | 07 | [Assessment + Completion + Certificates](sessions/07-assessment-completion-certificates.md) | completed | Does completion truth match attempts, feedback, and certificates? |
 | 08 | [Reports + Export](sessions/08-reports-export.md) | completed | Are reports/export rows correct, safe, and scoped? |
-| 09 | [Cron + Reconcile + Observability](sessions/09-cron-reconcile-observability.md) | pending | Can operators know scheduled jobs and drift checks actually work? |
+| 09 | [Cron + Reconcile + Observability](sessions/09-cron-reconcile-observability.md) | completed | Can operators know scheduled jobs and drift checks actually work? |
 | 10 | [Release Gate](sessions/10-release-gate.md) | pending | Is there any open P0/P1 blocking feature work? |
 
 ## Required Session Output
@@ -65,5 +65,11 @@ Goal, Scope, Evidence, Verdict, Action, Verification, Backlog, Unresolved.
   `helpers/excel-formula-guard.js`, applied it, added regression test). Focused
   suites green (unit 2/2, exportFormulaInjection 14/14, learningReportsRoutes
   7/7). QB-009 (soft-deleted users in completion denominator) promoted.
+- Session 09 completed; OK verdict. Cron/reconcile/observability is correct and
+  fail-soft by construction. Closed the one uncovered required scenario —
+  "Sentry failures do not break the job" / the whole `runMonitored` fail-soft
+  contract — by adding `server/tests/unit/cronMonitorRun.test.js` (6 tests, no
+  prod code change). Focused suites green: 6 suites / 43 tests. No QB promoted
+  (reminders-need-pinger is documented owner ops-config, out of scope).
 - No code implementation belongs in this plan until a session identifies a concrete P0/P1 or approved focused fix.
 - Current dirty tree must be preserved; do not revert unrelated changes.
