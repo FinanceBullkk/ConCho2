@@ -249,6 +249,8 @@
       "cohortsDesc": "Program runs that replace the old class-centric view.",
       "paths": "Paths",
       "pathsDesc": "Sequenced curricula — an ordered set of programs a learner works through.",
+      "assignments": "Assignments",
+      "assignmentsDesc": "Program and path assignments with due dates and learner status rollups.",
       "groups": "Groups",
       "groupsDesc": "Learning groups and team leaders remain managed through existing Teams for now.",
       "assessments": "Assessments",
@@ -303,6 +305,46 @@
         "feedback": "Feedback",
         "complete": "Complete",
         "certificate": "Certificate"
+      }
+    },
+    "assignments": {
+      "title": "Assignments",
+      "new": "New Assignment",
+      "create": "Create Assignment",
+      "created": "Assignment created",
+      "archived": "Assignment archived",
+      "archive": "Archive",
+      "archiveConfirm": "Confirm archive?",
+      "empty": "No assignments",
+      "emptyDesc": "Create an assignment to track program or path completion against a due date.",
+      "colAssignment": "Assignment",
+      "colTarget": "Target",
+      "colDue": "Due",
+      "colProgress": "Progress",
+      "colAudience": "Audience",
+      "targetType": "Target type",
+      "targetTypes": {
+        "program": "Program",
+        "path": "Path"
+      },
+      "selectTarget": "Select a target…",
+      "dueDate": "Due date",
+      "departments": "Departments",
+      "departmentsShort": "departments",
+      "department": "department",
+      "users": "Users",
+      "usersShort": "users",
+      "user": "user",
+      "searchUsers": "Search users…",
+      "noDepartments": "No departments",
+      "noUsers": "No matching users",
+      "noTargets": "No targets",
+      "validation": "Choose a target, due date, and at least one user or department.",
+      "status": {
+        "complete": "Done",
+        "in_progress": "In progress",
+        "overdue": "Overdue",
+        "not_started": "Not started"
       }
     },
     "assessments": {
@@ -440,6 +482,7 @@
       "defaultSessionCount": "Default sessions",
       "status": "Status",
       "program": "Program",
+      "path": "Path",
       "selectProgram": "Select a program…",
       "cohortCode": "Cohort code",
       "title": "Title",

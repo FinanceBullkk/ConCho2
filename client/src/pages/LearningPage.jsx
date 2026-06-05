@@ -1,6 +1,6 @@
 import { useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { BarChart3, BookOpen, Boxes, GraduationCap, MessageSquare, Route, Users } from 'lucide-react';
+import { BarChart3, BookOpen, Boxes, ClipboardList, GraduationCap, MessageSquare, Route, Users } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { PageHeader } from '@/components/PageHeader';
@@ -8,6 +8,7 @@ import { useRole } from '../hooks/useRole';
 import ProgramsTab from './learning/ProgramsTab';
 import CohortsTab from './learning/CohortsTab';
 import PathsTab from './learning/PathsTab';
+import AssignmentsTab from './learning/AssignmentsTab';
 import AssessmentsTab from './learning/AssessmentsTab';
 import FeedbackTab from './learning/FeedbackTab';
 import ReportsTab from './learning/ReportsTab';
@@ -17,6 +18,7 @@ const TABS = [
   { id: 'programs', icon: BookOpen },
   { id: 'cohorts', icon: Boxes },
   { id: 'paths', icon: Route, perm: 'manage:path' },
+  { id: 'assignments', icon: ClipboardList, perm: 'read:assignments' },
   { id: 'groups', icon: Users },
   { id: 'assessments', icon: GraduationCap },
   { id: 'feedback', icon: MessageSquare, perm: 'read:feedback' },
@@ -78,6 +80,9 @@ export default function LearningPage() {
         </TabsContent>
         <TabsContent value="paths" hidden={activeTab !== 'paths'}>
           {activeTab === 'paths' && <PathsTab />}
+        </TabsContent>
+        <TabsContent value="assignments" hidden={activeTab !== 'assignments'}>
+          {activeTab === 'assignments' && <AssignmentsTab />}
         </TabsContent>
         <TabsContent value="groups" hidden={activeTab !== 'groups'}>
           {activeTab === 'groups' && <CompatibilityTab type="groups" />}

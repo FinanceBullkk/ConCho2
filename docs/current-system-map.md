@@ -157,7 +157,7 @@ English literals directly.
 | `/api/users` | `userRoutes.js` | Admin user CRUD, restore, progress |
 | `/api/teams` | `teamRoutes.js` | team CRUD, my teams, restore, progress |
 | `/api/classes` | `classRoutes.js` | class CRUD, course metadata |
-| `/api/learning` | `domains/learning/routes.js` | Learning programs, cohorts, and session DTOs |
+| `/api/learning` | `domains/learning/routes.js` | Learning programs, cohorts, sessions, paths, reports, assignments |
 | `/api/schedules` | `scheduleRoutes.js` | availability, booking, cancel, calendars |
 | `/api/attendance` | `attendanceRoutes.js` | attendance marking, analytics, personal stats |
 | `/api/evaluations` | `evaluationRoutes.js` | upsert/list/get/delete evaluations |
@@ -211,6 +211,9 @@ Current protections:
 | `TokenBlocklist` | revoked JWT IDs with TTL |
 | `Counter` | sequence/counter support |
 | `LearningProgram` | L&D training catalog, policy defaults, and legacy course bridge |
+| `LearningPath` | ordered program curriculum and per-learner path progress |
+| `Assignment` | required Program/Path assignment with due date and user/department targets |
+| `Department` | structured org unit for manager/department assignment |
 
 ### Learning Domain Boundary
 
@@ -219,6 +222,9 @@ Current protections:
 - Programs are backed by `LearningProgram`.
 - Cohorts are backed by legacy `Class`.
 - Sessions are exposed through `server/domains/learning/session/*` and backed by legacy `Schedule`.
+- Paths are backed by `LearningPath`.
+- Assignments are backed by `Assignment` and derive learner status from existing
+  completion/certificate/enrollment signals.
 
 Current session API:
 

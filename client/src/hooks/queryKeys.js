@@ -63,6 +63,8 @@ export const qk = {
     paths: (params) => ['learning', 'paths', params],
     path: (id) => ['learning', 'path', id],
     pathProgress: (id) => ['learning', 'path-progress', id],
+    assignments: (params) => ['learning', 'assignments', params],
+    assignment: (id) => ['learning', 'assignment', id],
   },
   assessment: {
     all: ['assessment'],

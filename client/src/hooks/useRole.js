@@ -80,6 +80,8 @@ const PERMISSION_MAP = {
   // Cohort completion reports + xlsx export — server: report.read capability.
   'read:reports':    ['Admin', 'Teacher'],         // GET /api/learning/reports/*
   'read:feedback':   ['Admin', 'Teacher'],         // GET /api/learning/feedback
+  'read:assignments': ['Admin', 'Teacher'],         // GET /api/learning/assignments (assignment.read)
+  'manage:assignments': ['Admin'],                  // POST/DELETE /api/learning/assignments (assignment.manage)
   // Generic assessments — server: server/domains/assessment/routes.js
   'manage:assessment': ['Admin', 'Teacher'],        // POST/DELETE /api/assessment/assessments*
   'read:assessment':   ['Admin', 'Teacher', 'Participant'], // GET /api/assessment/assessments*

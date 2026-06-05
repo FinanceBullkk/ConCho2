@@ -139,7 +139,7 @@ erDiagram
 | `Evaluation` | legacy English rubric | kept for compatibility; `Assessment` v1 is live ✅ |
 | `Enrollment` | cohort-based enrollment | ✅ live; legacy team enrollment still supported |
 | `Assessment`, `AssessmentAttempt`, `AssessmentQuestion` | quiz engine + question bank | ✅ v1 live |
-| `Certificate`, `Feedback`, `LearningPath` | compliance + learner path foundation | ✅ v1 live |
+| `Certificate`, `Feedback`, `LearningPath`, `Assignment` | compliance, learner paths, assignment due dates | ✅ v1 live |
 
 Key unique indexes (final integrity guards): `Schedule {classId,startTime}`,
 `Attendance {scheduleId,userId}`, `Evaluation {classId,userId}`,
@@ -175,7 +175,7 @@ Re-architecture into an L&D platform runs in phases (full detail:
 | 1 | Backend modular-monolith refactor (extract legacy → `domains/`) | ~42% |
 | 2 | Learning catalog + generic cohort model (`LearningProgram`) | ~95% |
 | 3 | Multi-program enrollment + session scheduling | ~78% |
-| 4 | Frontend L&D workspace (CRUD UI) | ~76% |
+| 4 | Frontend L&D workspace (CRUD UI) | ~80% |
 | 5 | Reporting, completion, feedback | ~72% |
 | 6 | PostgreSQL decision gate | 0% |
 
@@ -185,11 +185,12 @@ capability-based authz layer gates the learning routes. Wave B is progressing:
 `completionPolicy` is enforced (attendance % + assessment + feedback);
 certificates, public verification, feedback UI, assessment v1, question bank,
 manual grading, completion reports, and rollups are live. Wave C has started:
-learner catalog, self-enroll, prerequisite gating, sequenced paths backend, and
-admin paths UI are live. The key open loop is learner-facing path progress.
-For 1000 employees, next platform gaps are production readiness, Google OIDC,
-Google Directory sync, manager hierarchy, notifications, and compliance report
-depth.
+learner catalog, self-enroll, prerequisite gating, sequenced paths, admin paths
+UI, and learner path progress are live. Wave D has started: cron
+self-monitoring, org model/manager dashboard, and assignment + due dates v1 are
+live. For 1000 employees, next platform gaps are Google OIDC, Google Directory
+sync, notifications/escalation, compliance report depth, recertification, and
+generic scheduling.
 → see [`lms-roadmap.md`](lms-roadmap.md).
 
 **Stack:** React 19 + Vite 8 + Tailwind 4 / Express 4 + Mongoose 8 + MongoDB;
@@ -201,7 +202,7 @@ Every milestone must be wired before the next feature starts:
 
 - backend route/use-case works with real authz/capability rules;
 - frontend entrypoint exists when user value depends on UI;
-- i18n en+vi updated for user-facing strings;
+- i18n en updated for user-facing strings;
 - mutations audit and soft-delete where applicable;
 - reports/completion/certificates/notifications consume new data when relevant;
 - tests cover happy path, permission denial, and one core edge case;

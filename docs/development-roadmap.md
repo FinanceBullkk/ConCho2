@@ -5,13 +5,13 @@
 > - *Architecture / orientation* → [`system-overview.md`](system-overview.md)
 > - *Detailed task snapshot* → [`handoff-2026-06-01.md`](handoff-2026-06-01.md)
 >
-> **Last updated:** 2026-06-04
+> **Last updated:** 2026-06-05
 
 ---
 
 ## Current status
 
-~58% through the TMS → L&D migration. **Wave A (Foundation) is complete:** all 4
+~62% through the TMS → L&D migration. **Wave A (Foundation) is complete:** all 4
 `schedulingMode`s enforced (no 501 stubs); cohort-based enrollment live
 (`/api/learning/enrollments`, incl. self-enroll); the Learning page is
 write-capable (Admins create/edit Programs, create Cohorts, enroll learners);
@@ -77,9 +77,14 @@ non-destructively alongside the legacy `department` string), an Admin
 assignment (cycle-guarded, audited), and a self-scoped **manager dashboard**
 (`GET /api/org/my-team`) that reuses certificates/enrollments for a per-report
 training rollup. UI: People → **Departments** tab, an org-assignment action on
-Users, and a conditional **My Team** nav entry → `/my-team` page. Next per the
-locked plan: D2 Google OIDC/Directory sync (needs owner inputs) → D4
-assignment+due-dates (org model now unblocks dept-targeting).
+Users, and a conditional **My Team** nav entry → `/my-team` page. **Wave D4 v1 is
+now live too:** Admins can assign active Programs or Learning Paths to explicit
+users and/or Departments with a due date; `/api/learning/assignments` derives
+learner status (`not_started`/`in_progress`/`complete`/`overdue`) from completion
+and enrollment signals; the Learning workspace has an **Assignments** tab for
+Admin/Teacher read and Admin create/archive. D2 Google OIDC/Directory sync still
+needs owner inputs. Next codeable step: D5 reminders/escalation over D4
+assignments.
 
 ---
 
@@ -102,7 +107,7 @@ assignment+due-dates (org model now unblocks dept-targeting).
 | A — Foundation | Generic learning core works E2E (scheduling modes, cohort enrollment, CRUD UI, capability authz) | 🟢 done (M1–M4) | — |
 | B — Assessment & Certification | Generic assessment engine, completion enforcement, certificates | 🟡 in progress (completion + certificates + feedback + assessment engine v1 + completion reporting + rollups + assessment UI + feedback UI + assessment edit + question-bank backend/UI + manual grading v1 done) | A |
 | C — Catalog, Paths & Self-service | Learner catalog, self-enroll, learning paths/prerequisites | 🟢 core done (learner catalog + self-enroll UI + prerequisite gating v1 + prereq selector UI + sequenced learning paths v1 + admin paths UI + learner path-progress view) | A |
-| D — Platform & Scale | Production readiness → Google OIDC + Directory sync → manager hierarchy (org model) → **mandatory assignment + due dates** → notifications/escalation → compliance reporting + recertification. Order locked 2026-06-04 (after C closes). | 🟡 in progress (D1 cron self-monitoring done; **D3 v1 org model done** — Department entity + managerId/departmentId + manager dashboard + admin UI, built ahead of D2; paid hosting + Sentry-account setup + D2 Google OAuth app = owner ops/inputs) | B, C |
+| D — Platform & Scale | Production readiness → Google OIDC + Directory sync → manager hierarchy (org model) → **mandatory assignment + due dates** → notifications/escalation → compliance reporting + recertification. Order locked 2026-06-04 (after C closes). | 🟡 in progress (D1 cron self-monitoring done; **D3 v1 org model done**; **D4 assignment+due-dates v1 done** for Program/Path + user/department targets; paid hosting + Sentry-account setup + D2 Google OAuth app = owner ops/inputs) | B, C |
 | E — Generic scheduling | Generalize booking beyond fixed English slots (session types, rooms, capacity, waitlists, instructors); keep leader-booking as one mode. Committed parallel track; large, own plan. | 🔴 planned | A |
 
 > **Direction locked 2026-06-04** — full rationale + gap analysis in
@@ -116,7 +121,7 @@ capability:
 
 - backend route/use-case works with real authz/capability rules;
 - frontend entrypoint exists when user value depends on UI;
-- i18n en+vi updated for user-facing strings;
+- i18n en updated for user-facing strings;
 - audit log and soft-delete behavior correct for mutations;
 - reports/completion/certificates/notifications consume the new data when relevant;
 - tests cover happy path, permission denial, and one core edge case;
@@ -155,11 +160,29 @@ Bug fixing and integration review rank above net-new feature rollout.
 | → | **Wave C1 — learner path-progress view** | Let learners see their path progress (closes the paths loop) | 🟢 done — Participant `/me/paths`: lists active paths, each showing ordered steps marked `completed`/`current`/`locked` + a progress bar, from `GET /paths/:id/progress` via new `usePathProgress`. Presentational `PathProgressView` + `MyLearningPathsPage`; dashboard CTA; 4 component tests. English-only (no i18n keys, matches `/me/*` siblings). |
 | → | **Wave D1 — cron self-monitoring** | Confirm scheduled jobs actually run on the sleeping free-tier | 🟢 done (codeable slice) — `lib/cronMonitor.runMonitored` wraps the nightly reconcile + attendance-reminders (in-process job **and** pinger endpoints) with a durable `CronRun` heartbeat (last run/status/duration/error/counters, upserted per run) + Sentry **cron check-ins** (in-progress→ok/error) + `captureException`, all **fail-soft**. Gated `GET /api/admin/cron/health` derives an `ok`/`stale`/`error`/`never` verdict per job; a **Scheduled jobs** panel on `/reconcile` surfaces it. 10 tests (6 unit `deriveHealth`/config + 4 integration authz/heartbeat). Remaining D1 (paid hosting, Sentry-dashboard monitor setup) = owner ops. |
 | → | **Wave D3 v1 — org model (manager hierarchy + departments)** | Real org tree + manager-scoped training visibility | 🟢 done — `Department` model + `User.managerId`/`departmentId` (non-destructive, alongside legacy `department` string). New `domains/org` (`/api/org`): Admin department CRUD (`department.manage`/`read`), manager/department assignment (`org.manage`, self-/cycle-guarded, audited), and self-scoped `GET /api/org/my-team` (`team.read`, any role) with a batched per-report training rollup (active enrollments + certificates + completed programs, reusing the completion/cert data). UI: People → **Departments** tab, an org-assignment action on Users (`OrgAssignmentModal`), a conditional **My Team** nav entry → `/my-team` (`MyTeamPage` + `TeamRosterTable`). Built ahead of D2 (its OIDC login is blocked on owner Google setup). 15 server integration tests + 6 client component tests. Directory-sync population deferred to D2; transitive-cycle is bounded-guarded. |
+| → | **Wave D4 v1 — assignment + due dates** | Assign required training and track overdue status | 🟢 done — new `Assignment` model + `domains/learning/assignment` (`/api/learning/assignments`): Admin creates/archives Program or Learning Path assignments to explicit users and/or Departments with `dueDate`; Admin/Teacher read via `assignment.read`; create/archive audit + soft-delete. Status resolver expands departments to assignable users, excludes soft-deleted/inactive/dropped/transferred users, and derives `not_started`/`in_progress`/`complete`/`overdue` from certificates/completion + active cohort enrollments. UI: Learning → **Assignments** tab with summary chips and create modal. 6 server integration tests + 2 client component test files. Reminders/escalation/export/recertification deferred to D5/D6. |
 
 ---
 
 ## Recent progress (changelog)
 
+- **2026-06-05** — **Wave D4 v1 — assignment + due dates.**
+  Added directive training assignment, the missing compliance workflow after the
+  org model. New `Assignment` model + `server/domains/learning/assignment/`
+  module mounted at `/api/learning/assignments`: Admin creates/archives active
+  Program or Learning Path assignments to explicit users and/or Departments with
+  a due date; Admin/Teacher read via `assignment.read`; create/archive are
+  audited and archived via soft-delete. Status is derived, not stored:
+  departments expand to assignable users; soft-deleted/inactive/dropped/
+  transferred users are excluded; completion wins over overdue; in-progress comes
+  from active/on-hold/completed cohort enrollments for the target program(s).
+  UI: Learning → **Assignments** tab with progress chips and Admin-only create/
+  archive actions; create modal supports Program/Path target, department targets,
+  and searchable explicit users. Verified: server focused assignment +
+  capabilities tests **17 passed**; client assignment/useRole tests **28 passed**;
+  client lint passes at existing cap (0 errors/81 warnings), new files lint clean,
+  build clean. Deferred: reminders/escalation/export/recertification and
+  cohort-specific assignment.
 - **2026-06-04** — **Wave D3 v1 — org model (manager hierarchy + departments).**
   Built ahead of D2 in the locked order because D2's user OIDC login is blocked on
   owner-only inputs (a Google OAuth app + the allowed Workspace domain), while the

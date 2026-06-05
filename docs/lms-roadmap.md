@@ -88,13 +88,15 @@ Agents working in this repo must follow this contract:
 Wave A is complete: scheduling modes, cohort-based enrollment, Learning CRUD,
 and capability authz are live. Wave B has strong foundations: completion policy,
 feedback, certificates, public verification, assessment v1, question bank,
-manual grading, completion reports, and rollups are live. Wave C is underway:
-learner catalog, self-enroll, prerequisite gating, sequenced paths backend, and
-admin paths UI are live.
+manual grading, completion reports, and rollups are live. Wave C core is done:
+learner catalog, self-enroll, prerequisite gating, sequenced paths, admin paths
+UI, and learner path progress are live. Wave D has codeable traction: cron
+self-monitoring, org model/manager dashboard, and assignment + due dates v1 are
+live.
 
-The biggest current open loop is learner-facing path progress. The biggest
-platform gaps for 1000 internal employees are reliability, Google OIDC,
-Directory sync, manager hierarchy, notifications, and compliance reporting depth.
+The biggest remaining platform gaps for 1000 internal employees are Google OIDC,
+Directory sync, reminders/escalation, compliance reporting depth, recertification,
+and generic scheduling.
 
 See [`development-roadmap.md`](development-roadmap.md) for exact progress and
 recent changelog.
@@ -144,14 +146,15 @@ committed parallel track**.
 
 ### Wave D4 — Mandatory assignment and due dates *(G2 — central compliance workflow)*
 
-- New `Assignment` concept over the cohort-enrollment chokepoint
-  (`server/domains/learning/enrollment/`): assign a Program/Cohort/Path to a
-  Department (needs D3) or an explicit user list, with a `dueDate`.
-- Status per learner: assigned / not-started / in-progress / complete / overdue —
-  derived from `hasCompletedProgram` / `evaluateCompletion` (DRY).
+- **v1 live 2026-06-05:** `Assignment` assigns a Program or Learning Path to
+  explicit users and/or Departments with a `dueDate`.
+- Status per learner: not-started / in-progress / complete / overdue — derived
+  from existing completion/certificate and cohort-enrollment signals (DRY).
 - Capabilities `assignment.manage` / `assignment.read`; soft-delete + audit.
-- v1 against explicit user/cohort lists is shippable; dept-targeting lands once
-  D3 provides the org tree.
+- Learning workspace has an Assignments tab with Admin create/archive and
+  Admin/Teacher read.
+- Remaining later: cohort-specific assignment, reminders/escalation, report
+  exports, certificate expiry/recertification.
 
 ### Wave D5 — Notification / escalation engine *(G3)*
 

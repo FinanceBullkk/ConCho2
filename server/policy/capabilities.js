@@ -40,6 +40,8 @@ const CAPABILITIES = Object.freeze({
   ASSESSMENT_READ: 'assessment.read',   // list/get assessments + attempts
   ASSESSMENT_ATTEMPT: 'assessment.attempt', // take an assessment (learner)
   REPORT_READ: 'report.read',           // cohort-wide completion reports + export (admin/teacher)
+  ASSIGNMENT_READ: 'assignment.read',   // read mandatory assignments + due status
+  ASSIGNMENT_MANAGE: 'assignment.manage', // create / archive mandatory assignments
   PATH_READ: 'path.read',               // browse learning paths + own path progress
   PATH_MANAGE: 'path.manage',           // create / edit / archive learning paths (admin)
   // ── Org model (Wave D3) ──────────────────────────────────
@@ -65,6 +67,7 @@ const ROLE_CAPABILITIES = Object.freeze({
     CAPABILITIES.ASSESSMENT_MANAGE,
     CAPABILITIES.ASSESSMENT_READ,
     CAPABILITIES.REPORT_READ,
+    CAPABILITIES.ASSIGNMENT_READ,
     CAPABILITIES.PATH_READ,
     CAPABILITIES.DEPARTMENT_READ,
     CAPABILITIES.TEAM_READ,
