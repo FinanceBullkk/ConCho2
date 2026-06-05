@@ -37,7 +37,7 @@ const listAssessments = async (req, res) => {
 
 const updateAssessment = async (req, res) => {
   try {
-    const { before, after } = await useCases.updateAssessment(req.params.id, req.body);
+    const { before, after } = await useCases.updateAssessment(req.params.id, req.body, req.user);
     auditService.record({
       req,
       action: 'updated',
@@ -63,7 +63,7 @@ const getAssessment = async (req, res) => {
 
 const archiveAssessment = async (req, res) => {
   try {
-    const { before, after } = await useCases.archiveAssessment(req.params.id);
+    const { before, after } = await useCases.archiveAssessment(req.params.id, req.user);
     auditService.record({
       req,
       action: 'archived',

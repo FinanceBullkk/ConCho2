@@ -3,6 +3,10 @@ const { gradeAttempt } = require('./grading');
 const { isCohortParticipant } = require('../../helpers/cohortMembership');
 const { ServiceError } = require('../../helpers/ServiceError');
 const { actorHasCapability, CAPABILITIES } = require('../../policy/capabilities');
+const {
+  assertTeacherCanAccessCohort,
+  visibleCohortIdsForTeacher,
+} = require('./access');
 
 const canManage = (actor) => actorHasCapability(actor, CAPABILITIES.ASSESSMENT_MANAGE);
 
@@ -40,6 +44,7 @@ const createAssessment = async (body, actor) => {
   if (!cohort || cohort.isDeleted) {
     throw new ServiceError('Cohort not found', 404);
   }
+  assertTeacherCanAccessCohort(actor, cohort, 'create');
   const items = await resolveItems(body);
   return repository.createAssessment({
     title: body.title,
@@ -56,15 +61,22 @@ const createAssessment = async (body, actor) => {
 
 // Update replaces the authored definition atomically. Attempts remain immutable;
 // existing attempt scores are historical snapshots of the old definition.
-const updateAssessment = async (id, body) => {
+const updateAssessment = async (id, body, actor) => {
   const before = await repository.findAssessmentById(id);
   if (!before) {
     throw new ServiceError('Assessment not found', 404);
   }
+  const beforeCohort = await repository.findCohort(before.cohortId);
+  if (!beforeCohort || beforeCohort.isDeleted) {
+    throw new ServiceError('Cohort not found', 404);
+  }
+  assertTeacherCanAccessCohort(actor, beforeCohort, 'update');
+
   const cohort = await repository.findCohort(body.cohortId);
   if (!cohort || cohort.isDeleted) {
     throw new ServiceError('Cohort not found', 404);
   }
+  assertTeacherCanAccessCohort(actor, cohort, 'update');
   const items = await resolveItems(body);
   const after = await repository.updateAssessment(id, {
     title: body.title,
@@ -80,8 +92,22 @@ const updateAssessment = async (id, body) => {
 };
 
 // Managers see every assessment; learners see only published ones.
-const listAssessments = (query, actor) =>
-  repository.listAssessments({ cohortId: query.cohortId, publishedOnly: !canManage(actor) });
+const listAssessments = async (query, actor) => {
+  if (actor?.role === 'Teacher') {
+    if (query.cohortId) {
+      const cohort = await repository.findCohort(query.cohortId);
+      if (cohort && !cohort.isDeleted) {
+        assertTeacherCanAccessCohort(actor, cohort, 'read');
+      }
+      return repository.listAssessments({ cohortId: query.cohortId, publishedOnly: false });
+    }
+    return repository.listAssessments({
+      cohortIds: await visibleCohortIdsForTeacher(actor),
+      publishedOnly: false,
+    });
+  }
+  return repository.listAssessments({ cohortId: query.cohortId, publishedOnly: !canManage(actor) });
+};
 
 // Returns { assessment, includeAnswers }. Learners cannot see unpublished
 // assessments, and never receive the correct-answer keys.
@@ -91,17 +117,23 @@ const getAssessment = async (id, actor) => {
     throw new ServiceError('Assessment not found', 404);
   }
   const manage = canManage(actor);
+  if (actor?.role === 'Teacher') {
+    const cohort = await repository.findCohort(assessment.cohortId);
+    assertTeacherCanAccessCohort(actor, cohort, 'read');
+  }
   if (!manage && !assessment.isPublished) {
     throw new ServiceError('Assessment not found', 404);
   }
   return { assessment, includeAnswers: manage };
 };
 
-const archiveAssessment = async (id) => {
+const archiveAssessment = async (id, actor) => {
   const before = await repository.findAssessmentById(id);
   if (!before) {
     throw new ServiceError('Assessment not found', 404);
   }
+  const cohort = await repository.findCohort(before.cohortId);
+  assertTeacherCanAccessCohort(actor, cohort, 'archive');
   const after = await repository.softDeleteAssessment(id);
   return { before, after };
 };
@@ -143,8 +175,26 @@ const submitAttempt = async (assessmentId, body, actor) => {
 };
 
 // Managers list any attempts; a learner is scoped to their own.
-const listAttempts = (query, actor) => {
+const listAttempts = async (query, actor) => {
   const learnerId = canManage(actor) ? query.learnerId : actor._id.toString();
+  if (actor?.role === 'Teacher') {
+    if (query.cohortId) {
+      const cohort = await repository.findCohort(query.cohortId);
+      if (cohort && !cohort.isDeleted) {
+        assertTeacherCanAccessCohort(actor, cohort, 'read');
+      }
+      return repository.listAttempts({
+        cohortId: query.cohortId,
+        assessmentId: query.assessmentId,
+        learnerId,
+      });
+    }
+    return repository.listAttempts({
+      cohortIds: await visibleCohortIdsForTeacher(actor),
+      assessmentId: query.assessmentId,
+      learnerId,
+    });
+  }
   return repository.listAttempts({
     cohortId: query.cohortId,
     assessmentId: query.assessmentId,

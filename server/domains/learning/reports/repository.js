@@ -7,11 +7,11 @@ const User = require('../../../models/User');
 const { ACTIVE_ENROLLMENT_STATUSES } = require('../../../helpers/cohortMembership');
 
 const findCohort = (cohortId) =>
-  Class.findById(cohortId).select('_id classCode courseName programId isDeleted').lean();
+  Class.findById(cohortId).select('_id classCode courseName programId teacherIds isDeleted').lean();
 
-const listActiveCohorts = () =>
-  Class.find({ isDeleted: { $ne: true } })
-    .select('_id classCode courseName programId isDeleted')
+const listActiveCohorts = (scope = {}) =>
+  Class.find({ isDeleted: { $ne: true }, ...scope })
+    .select('_id classCode courseName programId teacherIds isDeleted')
     .lean();
 
 const findProgramName = async (programId) => {
