@@ -11,6 +11,7 @@
 
 const request = require('supertest');
 const { getApp, getTokens, teardown } = require('../setup');
+const CronRun = require('../../models/CronRun');
 
 const VALID_CRON_TOKEN = 'test-cron-token-32chars-minimum!!';
 
@@ -49,6 +50,24 @@ describe('GET /api/admin/cron/health — authz', () => {
     expect(res.body.success).toBe(true);
     expect(res.body.data).toHaveProperty('overall');
     expect(Array.isArray(res.body.data.jobs)).toBe(true);
+  });
+
+  test('Admin sees configured jobs as never before first heartbeat', async () => {
+    await CronRun.deleteMany({});
+
+    const res = await request(app)
+      .get('/api/admin/cron/health')
+      .set('Authorization', `Bearer ${tokens.admin}`);
+
+    expect(res.status).toBe(200);
+    expect(res.body.data.overall).toBe('degraded');
+    expect(res.body.count).toBe(3);
+    const jobs = Object.fromEntries(res.body.data.jobs.map((job) => [job.jobName, job]));
+    expect(jobs).toHaveProperty('reconcile');
+    expect(jobs).toHaveProperty('attendance-reminders');
+    expect(jobs).toHaveProperty('assignment-reminders');
+    expect(Object.values(jobs).every((job) => job.health === 'never')).toBe(true);
+    expect(Object.values(jobs).every((job) => job.runCount === 0)).toBe(true);
   });
 });
 

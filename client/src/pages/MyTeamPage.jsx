@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import { Users, Award, CheckCircle2 } from 'lucide-react';
 import { PageHeader } from '@/components/PageHeader';
 import TableSkeleton from '@/components/TableSkeleton';
@@ -25,6 +26,7 @@ function SummaryTile({ icon, label, value }) {
 }
 
 export default function MyTeamPage() {
+  const { t } = useTranslation();
   const { data, isLoading } = useMyTeam();
   const team = data || { reports: [], summary: { reports: 0, certificates: 0, completedPrograms: 0 } };
 
@@ -35,17 +37,17 @@ export default function MyTeamPage() {
     body = (
       <EmptyState
         icon={Users}
-        title="No direct reports"
-        description="When an admin assigns employees to report to you, their training status shows up here."
+        title={t('org.team.emptyTitle')}
+        description={t('org.team.emptyDesc')}
       />
     );
   } else {
     body = (
       <div className="space-y-4">
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-          <SummaryTile icon={Users} label="Direct reports" value={team.summary.reports} />
-          <SummaryTile icon={CheckCircle2} label="Programs completed" value={team.summary.completedPrograms} />
-          <SummaryTile icon={Award} label="Certificates" value={team.summary.certificates} />
+          <SummaryTile icon={Users} label={t('org.team.directReports')} value={team.summary.reports} />
+          <SummaryTile icon={CheckCircle2} label={t('org.team.programsCompleted')} value={team.summary.completedPrograms} />
+          <SummaryTile icon={Award} label={t('org.team.certificates')} value={team.summary.certificates} />
         </div>
         <TeamRosterTable reports={team.reports} />
       </div>
@@ -55,8 +57,8 @@ export default function MyTeamPage() {
   return (
     <div>
       <PageHeader
-        title="My Team"
-        description="Training status for the people who report to you."
+        title={t('org.team.title')}
+        description={t('org.team.description')}
       />
       {body}
     </div>

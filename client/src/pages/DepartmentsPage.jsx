@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Building2, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Spinner } from '../components/Spinner';
@@ -14,6 +15,7 @@ const INPUT_CLS =
   'w-full rounded-md border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40';
 
 function CreateDepartmentForm() {
+  const { t } = useTranslation();
   const [form, setForm] = useState({ name: '', code: '', description: '' });
   const create = useCreateDepartment();
 
@@ -27,35 +29,36 @@ function CreateDepartmentForm() {
     <form onSubmit={submit} className="bg-card border border-border rounded-lg p-4 grid gap-3 sm:grid-cols-[1fr_auto]">
       <div className="grid gap-3 sm:grid-cols-3">
         <input
-          aria-label="Department name"
+          aria-label={t('org.departments.name')}
           className={INPUT_CLS}
-          placeholder="Name (e.g. Engineering)"
+          placeholder={t('org.departments.namePlaceholder')}
           value={form.name}
           onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
         />
         <input
-          aria-label="Department code"
+          aria-label={t('org.departments.code')}
           className={INPUT_CLS}
-          placeholder="Code (e.g. ENG)"
+          placeholder={t('org.departments.codePlaceholder')}
           value={form.code}
           onChange={(e) => setForm((f) => ({ ...f, code: e.target.value }))}
         />
         <input
-          aria-label="Department description"
+          aria-label={t('org.departments.description')}
           className={INPUT_CLS}
-          placeholder="Description (optional)"
+          placeholder={t('org.departments.descriptionPlaceholder')}
           value={form.description}
           onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
         />
       </div>
       <Button type="submit" disabled={create.isPending || !form.name.trim() || !form.code.trim()} className="self-start">
-        {create.isPending ? <Spinner size={16} /> : 'Add department'}
+        {create.isPending ? <Spinner size={16} /> : t('org.departments.add')}
       </Button>
     </form>
   );
 }
 
 export default function DepartmentsPage() {
+  const { t } = useTranslation();
   const { can } = useRole();
   const { data: departments, isLoading } = useDepartments();
   const archive = useArchiveDepartment();
@@ -71,17 +74,17 @@ export default function DepartmentsPage() {
         </div>
       ) : !departments?.length ? (
         <div className="bg-card border border-border rounded-lg py-12 text-center text-subtle-foreground text-sm">
-          No departments yet.{canManage ? ' Add one above.' : ''}
+          {t('org.departments.empty')}{canManage ? t('org.departments.emptyAdmin') : ''}
         </div>
       ) : (
         <div className="bg-card border border-border rounded-lg overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-border text-left text-xs text-subtle-foreground uppercase tracking-wider">
-                <th className="px-4 py-3 font-medium">Department</th>
-                <th className="px-4 py-3 font-medium">Code</th>
-                <th className="px-4 py-3 font-medium">Description</th>
-                {canManage && <th className="px-4 py-3 font-medium text-right">Actions</th>}
+                <th className="px-4 py-3 font-medium">{t('org.departments.colDepartment')}</th>
+                <th className="px-4 py-3 font-medium">{t('org.departments.colCode')}</th>
+                <th className="px-4 py-3 font-medium">{t('org.departments.colDescription')}</th>
+                {canManage && <th className="px-4 py-3 font-medium text-right">{t('org.departments.colActions')}</th>}
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
@@ -100,10 +103,10 @@ export default function DepartmentsPage() {
                       <Button
                         variant="ghost"
                         size="sm"
-                        aria-label={`Archive ${d.name}`}
+                        aria-label={t('org.departments.archiveLabel', { name: d.name })}
                         disabled={archive.isPending}
                         onClick={() => {
-                          if (window.confirm(`Archive department "${d.name}"?`)) archive.mutate(d._id);
+                          if (window.confirm(t('org.departments.archiveConfirm', { name: d.name }))) archive.mutate(d._id);
                         }}
                       >
                         <Trash2 className="size-4" aria-hidden="true" />

@@ -1,4 +1,5 @@
 import { useSearchParams } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { Users, UsersRound, Building2 } from 'lucide-react';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { PageHeader } from '@/components/PageHeader';
@@ -14,12 +15,13 @@ import DepartmentsPage from './DepartmentsPage';
 // ──────────────────────────────────────────────────────────
 
 const TABS = [
-  { id: 'users', label: 'Users', icon: Users,     description: 'All employees registered in the system.' },
-  { id: 'teams', label: 'Teams', icon: UsersRound, description: 'Cohorts grouped under a Team Leader.' },
-  { id: 'departments', label: 'Departments', icon: Building2, description: 'Structured org units + the reporting hierarchy.' },
+  { id: 'users', icon: Users },
+  { id: 'teams', icon: UsersRound },
+  { id: 'departments', icon: Building2 },
 ];
 
 export default function PeoplePage() {
+  const { t } = useTranslation();
   const [searchParams, setSearchParams] = useSearchParams();
   const activeTab = searchParams.get('tab') ?? 'users';
   const current   = TABS.find((t) => t.id === activeTab) ?? TABS[0];
@@ -32,15 +34,15 @@ export default function PeoplePage() {
 
   return (
     <div>
-      <PageHeader title="People" description={current.description} />
+      <PageHeader title={t('people.title')} description={t(`people.tabs.${current.id}Desc`)} />
       <Tabs value={activeTab} onValueChange={setTab} className="space-y-6">
         <TabsList>
-          {TABS.map((t) => {
-            const Icon = t.icon;
+          {TABS.map((tab) => {
+            const Icon = tab.icon;
             return (
-              <TabsTrigger key={t.id} value={t.id} className="gap-2">
+              <TabsTrigger key={tab.id} value={tab.id} className="gap-2">
                 <Icon className="size-4" aria-hidden="true" />
-                {t.label}
+                {t(`people.tabs.${tab.id}`)}
               </TabsTrigger>
             );
           })}

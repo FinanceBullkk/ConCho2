@@ -31,6 +31,90 @@
     "reload": "Reload page",
     "retry": "Try again"
   },
+  "cronHealth": {
+    "title": "Scheduled jobs",
+    "subtitle": "Did cron fire?",
+    "empty": "No scheduled-job runs recorded yet.",
+    "lastRun": "Last run",
+    "lastSuccess": "Last success",
+    "duration": "Duration",
+    "failures": "Failures",
+    "jobs": {
+      "reconcile": "Nightly reconcile",
+      "attendanceReminders": "Attendance reminders",
+      "assignmentReminders": "Assignment reminders"
+    },
+    "status": {
+      "ok": "Healthy",
+      "stale": "Stale",
+      "error": "Failing",
+      "never": "Never run"
+    },
+    "time": {
+      "never": "never",
+      "justNow": "just now",
+      "minutesAgo": "{{count}}m ago",
+      "hoursAgo": "{{count}}h ago",
+      "daysAgo": "{{count}}d ago"
+    }
+  },
+  "people": {
+    "title": "People",
+    "tabs": {
+      "users": "Users",
+      "usersDesc": "All employees registered in the system.",
+      "teams": "Teams",
+      "teamsDesc": "Cohorts grouped under a Team Leader.",
+      "departments": "Departments",
+      "departmentsDesc": "Structured org units + the reporting hierarchy."
+    }
+  },
+  "org": {
+    "departments": {
+      "name": "Department name",
+      "namePlaceholder": "Name (e.g. Engineering)",
+      "code": "Department code",
+      "codePlaceholder": "Code (e.g. ENG)",
+      "description": "Department description",
+      "descriptionPlaceholder": "Description (optional)",
+      "add": "Add department",
+      "empty": "No departments yet.",
+      "emptyAdmin": " Add one above.",
+      "colDepartment": "Department",
+      "colCode": "Code",
+      "colDescription": "Description",
+      "colActions": "Actions",
+      "archiveLabel": "Archive {{name}}",
+      "archiveConfirm": "Archive department \"{{name}}\"?"
+    },
+    "assignment": {
+      "title": "Assign manager & department",
+      "placement": "Org placement for",
+      "manager": "Manager",
+      "noManager": "— No manager —",
+      "managerHint": "Pick from currently loaded users; search the list first to widen the choices.",
+      "department": "Department",
+      "noDepartment": "— No department —",
+      "cancel": "Cancel",
+      "save": "Save"
+    },
+    "team": {
+      "title": "My Team",
+      "description": "Training status for the people who report to you.",
+      "emptyTitle": "No direct reports",
+      "emptyDesc": "When an admin assigns employees to report to you, their training status shows up here.",
+      "emptyTable": "You have no direct reports yet. An admin assigns reporting lines from People → Users.",
+      "directReports": "Direct reports",
+      "programsCompleted": "Programs completed",
+      "certificates": "Certificates",
+      "colEmployee": "Employee",
+      "colDepartment": "Department",
+      "colStatus": "Status",
+      "colActive": "Active",
+      "colCompleted": "Completed",
+      "colCertificates": "Certificates"
+    }
+  },
   "modals": {
     "authExpired": {
       "title": "Your session has expired",
