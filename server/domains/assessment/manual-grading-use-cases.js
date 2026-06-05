@@ -1,5 +1,6 @@
 const repository = require('./repository');
 const { ServiceError } = require('../../helpers/ServiceError');
+const { assertTeacherCanAccessCohort } = require('./access');
 
 const round2 = (n) => Math.round(n * 100) / 100;
 
@@ -24,6 +25,8 @@ const manualGradeAttempt = async (attemptId, body, actor) => {
   if (!assessment) {
     throw new ServiceError('Assessment not found', 404);
   }
+  const cohort = await repository.findCohort(assessment.cohortId);
+  assertTeacherCanAccessCohort(actor, cohort, 'grade');
 
   const items = new Map(assessment.items.map((item) => [item._id.toString(), item]));
   const updates = new Map(body.answers.map((answer) => [answer.itemId.toString(), answer]));

@@ -1,17 +1,28 @@
 const repository = require('./repository');
 const completionUseCases = require('../completion/use-cases');
 const { ServiceError } = require('../../../helpers/ServiceError');
+const { classScopeForActor } = require('../../../helpers/teacher-class-scope');
+const { isTeacherOfClass } = require('../../../policy/classBinding');
 
 const round2 = (n) => Math.round(n * 100) / 100;
+
+const assertCanReadCohortReport = (actor, cohort) => {
+  if (actor?.role !== 'Teacher') return;
+  const decision = isTeacherOfClass(actor, cohort);
+  if (!decision.allowed) {
+    throw new ServiceError('You are not permitted to read reports for this cohort', 403);
+  }
+};
 
 // Build a cohort completion report: per-learner completion breakdown (reusing
 // the completion engine) + certificate status, with a rolled-up summary.
 // Read-only; never mutates.
-const buildCompletionReport = async (cohortId) => {
+const buildCompletionReport = async (cohortId, actor) => {
   const cohort = await repository.findCohort(cohortId);
   if (!cohort || cohort.isDeleted) {
     throw new ServiceError('Cohort not found', 404);
   }
+  assertCanReadCohortReport(actor, cohort);
 
   const [programName, learnerIds, certificates] = await Promise.all([
     repository.findProgramName(cohort.programId),
@@ -23,8 +34,15 @@ const buildCompletionReport = async (cohortId) => {
   const userById = new Map(users.map((u) => [u._id.toString(), u]));
   const certByUser = new Map(certificates.map((c) => [c.userId.toString(), c]));
 
+  // QB-009: the completion rate must reflect active learners only. findUsers
+  // (User.find) auto-excludes soft-deleted users, so any learnerId missing from
+  // userById is an offboarded (soft-deleted) — or otherwise non-resolvable —
+  // learner. Drop it instead of emitting a blank row that inflates the
+  // denominator (total) and skews completionRate downward.
+  const activeLearnerIds = learnerIds.filter((id) => userById.has(id));
+
   const rows = await Promise.all(
-    learnerIds.map(async (learnerId) => {
+    activeLearnerIds.map(async (learnerId) => {
       const completion = await completionUseCases.evaluateCompletion(cohortId, learnerId);
       const user = userById.get(learnerId);
       const cert = certByUser.get(learnerId);
@@ -93,9 +111,9 @@ const addToRollup = (map, key, label, report, rowFilter = () => true) => {
   map.set(key, row);
 };
 
-const buildCompletionRollup = async () => {
-  const cohorts = await repository.listActiveCohorts();
-  const reports = await Promise.all(cohorts.map((cohort) => buildCompletionReport(cohort._id)));
+const buildCompletionRollup = async (actor) => {
+  const cohorts = await repository.listActiveCohorts(await classScopeForActor(actor));
+  const reports = await Promise.all(cohorts.map((cohort) => buildCompletionReport(cohort._id, actor)));
   const programs = new Map();
   const departments = new Map();
 

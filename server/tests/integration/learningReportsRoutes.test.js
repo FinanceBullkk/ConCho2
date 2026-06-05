@@ -28,7 +28,7 @@ afterEach(async () => {
   ]);
   await Class.updateMany(
     { _id: { $in: [seed.class1._id, seed.class2._id] } },
-    { $set: { programId: null } },
+    { $set: { programId: null, teacherIds: [] } },
   );
 });
 
@@ -108,12 +108,79 @@ describe('Learning Platform API — completion reports', () => {
     expect(m1.certificate.number).toMatch(/^CERT-\d{4}-\d{6}$/);
   });
 
+  test('QB-009: soft-deleted (offboarded) learners are excluded from the denominator', async () => {
+    const mongoose = require('mongoose');
+    const User = require('../../models/User');
+    await linkProgram({ attendanceThresholdPercent: 50 });
+
+    // A throwaway learner who will be offboarded mid-cohort.
+    const ghost = await User.create({
+      empCode: 'QB9-' + Math.random().toString(16).slice(2, 7),
+      name: 'Offboarded Learner',
+      role: 'Participant',
+      password: 'qb9-offb-pwd-123',
+    });
+
+    // One session: member1 present (100% → complete), ghost on roster but absent.
+    const start = new Date('2026-04-06T03:00:00Z');
+    const sched = await Schedule.create({
+      classId: seed.class1._id,
+      bookedTeamId: seed.team._id,
+      startTime: start,
+      endTime: new Date(start.getTime() + 3600000),
+      enrolledUsers: [seed.member1._id, ghost._id],
+    });
+    await Attendance.create({ scheduleId: sched._id, userId: seed.member1._id, status: 'P' });
+
+    // Before offboarding: both learners count → total 2.
+    const before = await report(tokens.admin);
+    expect(before.body.data.summary.total).toBe(2);
+
+    // Offboard ghost: soft-delete directly (bypass userController), the exact
+    // state QB-009 is about — id still on the session roster.
+    await mongoose.connection.db.collection('users').updateOne(
+      { _id: ghost._id },
+      { $set: { isDeleted: true, deletedAt: new Date() } },
+    );
+
+    // After: ghost is dropped from rows + denominator; rate reflects active only.
+    const after = await report(tokens.admin);
+    expect(after.body.data.summary.total).toBe(1);
+    expect(after.body.data.rows.map((r) => r.learner.id)).not.toContain(ghost._id.toString());
+    expect(after.body.data.summary.completionRate).toBe(100);
+
+    await mongoose.connection.db.collection('users').deleteOne({ _id: ghost._id });
+  });
+
   test('a participant cannot read cohort reports (403); a teacher can (200)', async () => {
     await linkProgram({ attendanceThresholdPercent: 0 });
     await seedCohort(1, 0);
 
     expect((await report(tokens.leader)).status).toBe(403);
     expect((await report(tokens.teacher)).status).toBe(200);
+  });
+
+  test('QB-007: teacher completion reports are scoped to bound cohorts', async () => {
+    await linkProgram({ attendanceThresholdPercent: 50 });
+    await seedCohort(1, 1);
+    await Class.updateMany(
+      { _id: { $in: [seed.class1._id, seed.class2._id] } },
+      { $set: { teacherIds: [seed.admin._id] } },
+    );
+
+    expect((await report(tokens.admin)).status).toBe(200);
+    expect((await report(tokens.teacher)).status).toBe(403);
+
+    const exported = await request(app)
+      .get(`/api/learning/reports/completion/export?cohortId=${seed.class1._id}`)
+      .set('Authorization', `Bearer ${tokens.teacher}`)
+      .buffer(true);
+    expect(exported.status).toBe(403);
+
+    const scopedRollup = await rollup(tokens.teacher);
+    expect(scopedRollup.status).toBe(200);
+    expect(scopedRollup.body.data.summary.cohorts).toBe(0);
+    expect(scopedRollup.body.data.summary.learners).toBe(0);
   });
 
   test('rollup aggregates completion by program and department', async () => {

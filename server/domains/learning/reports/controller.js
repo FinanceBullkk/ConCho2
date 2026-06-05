@@ -5,7 +5,7 @@ const { buildCompletionWorkbookBuffer } = require('./export');
 
 const getCompletionReport = async (req, res) => {
   try {
-    const report = await useCases.buildCompletionReport(req.query.cohortId);
+    const report = await useCases.buildCompletionReport(req.query.cohortId, req.user);
     res.json({ success: true, data: report });
   } catch (error) {
     handleError(res, error);
@@ -14,7 +14,7 @@ const getCompletionReport = async (req, res) => {
 
 const getCompletionRollup = async (req, res) => {
   try {
-    const report = await useCases.buildCompletionRollup();
+    const report = await useCases.buildCompletionRollup(req.user);
     res.json({ success: true, data: report });
   } catch (error) {
     handleError(res, error);
@@ -23,7 +23,7 @@ const getCompletionRollup = async (req, res) => {
 
 const exportCompletionReport = async (req, res) => {
   try {
-    const report = await useCases.buildCompletionReport(req.query.cohortId);
+    const report = await useCases.buildCompletionReport(req.query.cohortId, req.user);
     const buffer = await buildCompletionWorkbookBuffer(report);
 
     auditService.record({

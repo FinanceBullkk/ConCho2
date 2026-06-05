@@ -3,6 +3,7 @@ const Attendance = require('../models/Attendance');
 const Schedule = require('../models/Schedule');
 const Team = require('../models/Team'); // used in analyticsByTeam aggregation
 const { invalidateAnalyticsCache } = require('../middleware/analyticsCache');
+const { findTeacherVisibleClassIds } = require('../helpers/teacher-class-scope');
 
 // ──────────────────────────────────────────────────────────
 // Attendance Service
@@ -11,6 +12,18 @@ const { invalidateAnalyticsCache } = require('../middleware/analyticsCache');
 const { ServiceError } = require('../helpers/ServiceError');
 
 const VALID_STATUSES = ['P', 'A', 'L', 'EL'];
+
+const scopedScheduleIdsForActor = async (actor) => {
+  if (actor?.role !== 'Teacher') return null;
+  const classIds = await findTeacherVisibleClassIds(actor._id);
+  if (classIds.length === 0) return [];
+  return Schedule.distinct('_id', { classId: { $in: classIds } });
+};
+
+const scopedAttendanceMatch = async (actor) => {
+  const scheduleIds = await scopedScheduleIdsForActor(actor);
+  return scheduleIds ? { scheduleId: { $in: scheduleIds } } : {};
+};
 
 /**
  * Bulk upsert attendance for a schedule.
@@ -127,8 +140,8 @@ const getBySchedule = async (scheduleId) => {
 /**
  * Get attendance history for a specific user.
  */
-const getByUser = async (userId) => {
-  return Attendance.find({ userId })
+const getByUser = async (userId, actor) => {
+  return Attendance.find({ userId, ...(await scopedAttendanceMatch(actor)) })
     .populate({
       path: 'scheduleId',
       populate: [
@@ -143,8 +156,17 @@ const getByUser = async (userId) => {
  * @param {string|undefined} filterUserId  Optional userId filter
  * @param {object}           pagination    { page, limit, skip }
  */
-const analyticsByEmployee = async (filterUserId, { page = 1, limit = 100, skip = 0 } = {}) => {
+const analyticsByEmployee = async (filterUserId, { page = 1, limit = 100, skip = 0 } = {}, actor) => {
+  const match = await scopedAttendanceMatch(actor);
+  if (filterUserId) {
+    if (!mongoose.Types.ObjectId.isValid(filterUserId)) {
+      throw new ServiceError('Invalid userId format');
+    }
+    match.userId = new mongoose.Types.ObjectId(filterUserId);
+  }
+
   const pipeline = [
+    { $match: match },
     {
       $group: {
         _id: '$userId',
@@ -184,13 +206,6 @@ const analyticsByEmployee = async (filterUserId, { page = 1, limit = 100, skip =
     { $sort: { attendanceRate: -1, empCode: 1 } },
   ];
 
-  if (filterUserId) {
-    if (!mongoose.Types.ObjectId.isValid(filterUserId)) {
-      throw new ServiceError('Invalid userId format');
-    }
-    pipeline.unshift({ $match: { userId: new mongoose.Types.ObjectId(filterUserId) } });
-  }
-
   // Count total matching groups before slicing
   const countPipeline = [...pipeline, { $count: 'total' }];
   const [countResult] = await Attendance.aggregate(countPipeline);
@@ -227,13 +242,22 @@ const analyticsByEmployee = async (filterUserId, { page = 1, limit = 100, skip =
  *
  * @param {object} pagination  { page, limit, skip }
  */
-const analyticsByTeam = async ({ page = 1, limit = 100, skip = 0 } = {}) => {
+const analyticsByTeam = async ({ page = 1, limit = 100, skip = 0 } = {}, actor) => {
+  const scopedClassIds = actor?.role === 'Teacher'
+    ? await findTeacherVisibleClassIds(actor._id)
+    : null;
+
   // ── Step 1: fetch teams ────────────────────────────────────
   // Team.aggregate pre-hook auto-injects { isDeleted: { $ne: true } }.
   // Project only what we need to keep working set small.
-  const teamsRaw = await Team.aggregate([
+  const teamPipeline = [];
+  if (scopedClassIds) {
+    teamPipeline.push({ $match: { classId: { $in: scopedClassIds } } });
+  }
+  teamPipeline.push(
     { $project: { _id: 1, name: 1, members: 1 } },
-  ]);
+  );
+  const teamsRaw = await Team.aggregate(teamPipeline);
 
   // ── Step 2: per-user attendance counters ───────────────────
   // Union of all member IDs across teams (deduped).
@@ -244,8 +268,13 @@ const analyticsByTeam = async ({ page = 1, limit = 100, skip = 0 } = {}) => {
   let perUser = new Map(); // userIdString → { total, present, absent, late, excused }
 
   if (allMemberIds.length > 0) {
+    const match = { userId: { $in: allMemberIds } };
+    if (scopedClassIds) {
+      const scheduleIds = await Schedule.distinct('_id', { classId: { $in: scopedClassIds } });
+      match.scheduleId = { $in: scheduleIds };
+    }
     const grouped = await Attendance.aggregate([
-      { $match: { userId: { $in: allMemberIds } } },
+      { $match: match },
       {
         $group: {
           _id: '$userId',

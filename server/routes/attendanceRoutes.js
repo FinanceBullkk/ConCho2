@@ -13,7 +13,8 @@ const { bulkMarkBody } = require('../schemas/attendance');
 const { idParam } = require('../schemas/common');
 
 // Analytics endpoints — cached for 30 min, invalidated on new attendance writes
-// SEC-IDOR-02: Restricted to Admin/Teacher — Participants must not see org-wide analytics
+// SEC-IDOR-02 / QB-007: Admin sees org-wide analytics; Teacher reads are scoped
+// by Class.teacherIds in the controller/service layer.
 router.get('/analytics/by-employee', protect, roleGuard('Admin', 'Teacher'), cacheMiddleware('analytics:by-employee'), getAnalyticsByEmployee);
 router.get('/analytics/by-team',     protect, roleGuard('Admin', 'Teacher'), cacheMiddleware('analytics:by-team'),     getAnalyticsByTeam);
 router.get('/analytics/by-class',    protect, roleGuard('Admin', 'Teacher'), cacheMiddleware('analytics:by-class'),    getAnalyticsByClass);
@@ -28,7 +29,8 @@ router.post('/:scheduleId', protect, roleGuard('Admin', 'Teacher'), attendanceLi
 // Query by schedule: Teacher or Admin
 router.get('/schedule/:scheduleId', protect, roleGuard('Admin', 'Teacher'), getAttendanceBySchedule);
 
-// Query by user: Participants restricted to own records, Admin/Teacher can view anyone
+// Query by user: Participants restricted to own records; Teachers only receive
+// records from classes visible through Class.teacherIds.
 router.get('/user/:userId', protect, (req, res, next) => {
   if (req.user.role === 'Participant' && req.params.userId !== req.user._id.toString()) {
     return res.status(403).json({

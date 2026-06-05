@@ -84,7 +84,7 @@ const getAttendanceBySchedule = async (req, res) => {
 
 const getAttendanceByUser = async (req, res) => {
   try {
-    const records = await attendanceService.getByUser(req.params.userId);
+    const records = await attendanceService.getByUser(req.params.userId, req.user);
     res.json({ success: true, count: records.length, data: records });
   } catch (error) {
     handleError(res, error);
@@ -94,7 +94,7 @@ const getAttendanceByUser = async (req, res) => {
 const getAnalyticsByEmployee = async (req, res) => {
   try {
     const pagination = parseAnalyticsPagination(req);
-    const result = await attendanceService.analyticsByEmployee(req.query.userId, pagination);
+    const result = await attendanceService.analyticsByEmployee(req.query.userId, pagination, req.user);
     res.json(paginatedResponse(result));
   } catch (error) {
     handleError(res, error);
@@ -104,7 +104,7 @@ const getAnalyticsByEmployee = async (req, res) => {
 const getAnalyticsByTeam = async (req, res) => {
   try {
     const pagination = parseAnalyticsPagination(req);
-    const result = await attendanceService.analyticsByTeam(pagination);
+    const result = await attendanceService.analyticsByTeam(pagination, req.user);
     res.json(paginatedResponse(result));
   } catch (error) {
     handleError(res, error);
@@ -113,6 +113,11 @@ const getAnalyticsByTeam = async (req, res) => {
 
 const getAnalyticsByClass = async (req, res) => {
   try {
+    const cls = await Class.findById(req.query.classId).lean();
+    if (!cls) return res.status(404).json({ success: false, message: 'Class not found' });
+    const decision = attendancePolicy.canReadBySchedule(req.user, cls);
+    if (!decision.allowed) return policyDeny(res, decision);
+
     const data = await attendanceService.analyticsByClass(req.query.classId);
     res.json({ success: true, data });
   } catch (error) {

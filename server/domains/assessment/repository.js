@@ -4,7 +4,7 @@ const AssessmentQuestion = require('../../models/AssessmentQuestion');
 const Class = require('../../models/Class');
 
 const findCohort = (cohortId) =>
-  Class.findById(cohortId).select('_id classCode courseName programId isDeleted').lean();
+  Class.findById(cohortId).select('_id classCode courseName programId teacherIds isDeleted').lean();
 
 // ── Assessments ───────────────────────────────────────────
 const createAssessment = async (data) => {
@@ -22,9 +22,10 @@ const updateAssessment = (id, data) =>
     { new: true, runValidators: true },
   ).lean();
 
-const listAssessments = ({ cohortId, publishedOnly }) => {
+const listAssessments = ({ cohortId, cohortIds, publishedOnly }) => {
   const filter = { isDeleted: false };
   if (cohortId) filter.cohortId = cohortId;
+  if (cohortIds) filter.cohortId = { $in: cohortIds };
   if (publishedOnly) filter.isPublished = true;
   return Assessment.find(filter)
     .populate('cohortId', 'classCode courseName')
@@ -48,9 +49,10 @@ const createAttempt = async (data) => {
   return doc.toObject();
 };
 
-const listAttempts = ({ cohortId, assessmentId, learnerId }) => {
+const listAttempts = ({ cohortId, cohortIds, assessmentId, learnerId }) => {
   const filter = { isDeleted: false };
   if (cohortId) filter.cohortId = cohortId;
+  if (cohortIds) filter.cohortId = { $in: cohortIds };
   if (assessmentId) filter.assessmentId = assessmentId;
   if (learnerId) filter.userId = learnerId;
   return AssessmentAttempt.find(filter)

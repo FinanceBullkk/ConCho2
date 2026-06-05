@@ -31,7 +31,7 @@ afterEach(async () => {
   ]);
   await Class.updateMany(
     { _id: { $in: [seed.class1._id, seed.class2._id] } },
-    { $set: { programId: null } },
+    { $set: { programId: null, teacherIds: [] } },
   );
 });
 
@@ -194,6 +194,53 @@ describe('Assessment API — authoring, attempts, grading', () => {
 
     const teacher = await createQuiz(tokens.teacher);
     expect(teacher.status).toBe(201);
+  });
+
+  test('QB-007: teacher assessment read/manage is scoped to bound cohorts', async () => {
+    await Class.findByIdAndUpdate(seed.class1._id, { teacherIds: [seed.admin._id] });
+    await seedRoster(seed.leader._id);
+
+    const createDenied = await createQuiz(tokens.teacher);
+    expect(createDenied.status).toBe(403);
+
+    const created = await createShortTextQuiz(tokens.admin);
+    const itemId = created.body.data.items[0].id;
+
+    const listDenied = await request(app)
+      .get(`/api/assessment/assessments?cohortId=${seed.class1._id}`)
+      .set('Authorization', `Bearer ${tokens.teacher}`);
+    expect(listDenied.status).toBe(403);
+
+    const getDenied = await request(app)
+      .get(`/api/assessment/assessments/${created.body.data.id}`)
+      .set('Authorization', `Bearer ${tokens.teacher}`);
+    expect(getDenied.status).toBe(403);
+
+    const updateDenied = await request(app)
+      .put(`/api/assessment/assessments/${created.body.data.id}`)
+      .set('Authorization', `Bearer ${tokens.teacher}`)
+      .set(csrf)
+      .send(quizBody({ title: 'Should not update' }));
+    expect(updateDenied.status).toBe(403);
+
+    const submitted = await attempt(tokens.leader, created.body.data.id, [{ itemId, text: 'review me' }]);
+    expect(submitted.status).toBe(201);
+
+    const attemptsDenied = await request(app)
+      .get(`/api/assessment/attempts?cohortId=${seed.class1._id}`)
+      .set('Authorization', `Bearer ${tokens.teacher}`);
+    expect(attemptsDenied.status).toBe(403);
+
+    const gradeDenied = await manualGrade(tokens.teacher, submitted.body.data.id, [
+      { itemId, pointsEarned: 1 },
+    ]);
+    expect(gradeDenied.status).toBe(403);
+
+    const archiveDenied = await request(app)
+      .delete(`/api/assessment/assessments/${created.body.data.id}`)
+      .set('Authorization', `Bearer ${tokens.teacher}`)
+      .set(csrf);
+    expect(archiveDenied.status).toBe(403);
   });
 
   test('admin updates assessment metadata and items; participant cannot update', async () => {
