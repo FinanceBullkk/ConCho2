@@ -27,7 +27,7 @@ const buildCompletionWorkbookBuffer = async (report) => {
     'Emp Code', 'Name', 'Department',
     'Attendance %', 'Attendance Met',
     'Assessment', 'Feedback', 'Complete',
-    'Certificate', 'Cert Status',
+    'Certificate', 'Cert Status', 'Cert Issued At', 'Cert Valid Until', 'Cert State',
   ]);
   header.font = { bold: true };
 
@@ -46,6 +46,9 @@ const buildCompletionWorkbookBuffer = async (report) => {
       yesNo(r.complete),
       safeCell(r.certificate ? r.certificate.number : ''),
       r.certificate ? r.certificate.status : '',
+      dateOnly(r.certificate?.issuedAt),
+      dateOnly(r.certificate?.validUntil),
+      safeCell(r.certificate ? r.certificate.state : ''),
     ]);
   });
 

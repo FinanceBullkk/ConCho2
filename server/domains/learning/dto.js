@@ -11,6 +11,7 @@ const programDto = (program) => {
     deliveryMode: p.deliveryMode,
     schedulingMode: p.schedulingMode,
     completionPolicy: p.completionPolicy,
+    certificateValidityDays: p.certificateValidityDays ?? null,
     capacityPolicy: p.capacityPolicy,
     facilitatorPolicy: p.facilitatorPolicy,
     prerequisitePrograms: (p.prerequisitePrograms || []).map((id) => id.toString()),

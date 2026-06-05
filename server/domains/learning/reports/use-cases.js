@@ -3,6 +3,7 @@ const completionUseCases = require('../completion/use-cases');
 const { ServiceError } = require('../../../helpers/ServiceError');
 const { classScopeForActor } = require('../../../helpers/teacher-class-scope');
 const { isTeacherOfClass } = require('../../../policy/classBinding');
+const { deriveCertificateState } = require('./compliance-certificate-state');
 
 const round2 = (n) => Math.round(n * 100) / 100;
 
@@ -61,7 +62,15 @@ const buildCompletionReport = async (cohortId, actor) => {
         feedbackMet: completion.feedback.met,
         complete: completion.complete,
         certificate: cert
-          ? { number: cert.certificateNumber, status: cert.status }
+          ? {
+            number: cert.certificateNumber,
+            status: cert.status,
+            issuedAt: cert.issuedAt,
+            validFrom: cert.validFrom,
+            validUntil: cert.validUntil,
+            validityDays: cert.validityDays ?? null,
+            state: deriveCertificateState(cert),
+          }
           : null,
       };
     }),

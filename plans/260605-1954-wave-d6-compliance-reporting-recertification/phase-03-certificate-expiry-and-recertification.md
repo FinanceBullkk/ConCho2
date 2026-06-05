@@ -1,10 +1,12 @@
 ---
 phase: 3
-title: "Certificate expiry and recertification"
-status: pending
+title: Certificate expiry and recertification
+status: completed
 priority: P1
-effort: "1d"
-dependencies: [1, 2]
+effort: 1d
+dependencies:
+  - 1
+  - 2
 ---
 
 # Phase 3: Certificate expiry and recertification
@@ -71,11 +73,11 @@ Reminder integration:
 
 ## Success Criteria
 
-- [ ] Existing certificate tests pass without fixture rewrites.
-- [ ] New certificate fields are optional and non-destructive.
-- [ ] Reports show certificate validity status.
-- [ ] Expiry rules are pure and unit-tested.
-- [ ] If emails are included, duplicate expiry emails are prevented by `NotificationLog`.
+- [x] Existing certificate tests pass without fixture rewrites.
+- [x] New certificate fields are optional and non-destructive.
+- [x] Reports show certificate validity status.
+- [x] Expiry rules are pure and unit-tested.
+- [x] Expiry emails were not included in this pass; `NotificationLog` duplicate prevention remains deferred.
 
 ## Risk Assessment
 

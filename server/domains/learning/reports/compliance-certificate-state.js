@@ -20,8 +20,9 @@ const targetLabel = (assignment) =>
     ? assignment.pathId?.title || ''
     : assignment.programId?.name || '';
 
-const certificateState = (cert, now = new Date()) => {
+const deriveCertificateState = (cert, now = new Date()) => {
   if (!cert) return 'missing';
+  if (cert.isDeleted) return 'missing';
   if (cert.status === 'Revoked') return 'revoked';
   if (cert.status !== 'Issued') return 'missing';
   if (!cert.validUntil) return 'issued';
@@ -54,13 +55,15 @@ const certificateDto = (cert, state) => ({
   number: cert?.certificateNumber || '',
   status: cert?.status || null,
   issuedAt: cert?.issuedAt || null,
+  validFrom: cert?.validFrom || null,
   validUntil: cert?.validUntil || null,
+  validityDays: cert?.validityDays ?? null,
   state,
 });
 
 const programCertificate = (userId, programId, certByUserProgram, now) => {
   const cert = certByUserProgram.get(`${userId}:${programId}`);
-  return certificateDto(cert, certificateState(cert, now));
+  return certificateDto(cert, deriveCertificateState(cert, now));
 };
 
 const assignmentCertificate = (userId, assignment, certByUserProgram, now) => {
@@ -77,7 +80,8 @@ module.exports = {
   uniq,
   targetPrograms,
   targetLabel,
-  certificateState,
+  deriveCertificateState,
+  certificateState: deriveCertificateState,
   buildCertificateMap,
   assignmentCertificate,
 };

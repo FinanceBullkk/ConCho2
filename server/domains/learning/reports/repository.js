@@ -41,7 +41,7 @@ const findUsers = (ids) =>
 // Active (Issued, non-deleted) certificates for the cohort, for status columns.
 const listCohortCertificates = (cohortId) =>
   Certificate.find({ cohortId, isDeleted: false })
-    .select('userId certificateNumber status')
+    .select('userId certificateNumber status issuedAt validFrom validUntil validityDays')
     .lean();
 
 const dateBoundary = (value, endOfDay = false) => {
@@ -93,7 +93,7 @@ const listProgramCertificates = (userIds, programIds) => {
     programId: { $in: programIds },
     isDeleted: false,
   })
-    .select('userId programId certificateNumber status issuedAt validUntil')
+    .select('userId programId certificateNumber status issuedAt validFrom validUntil validityDays')
     .sort({ issuedAt: -1 })
     .lean();
 };
