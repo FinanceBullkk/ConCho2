@@ -91,28 +91,39 @@ const issueCertificate = async ({ cohortId, userId }, actor) => {
   const certificateNumber = await nextCertificateNumber();
   const verificationCode = crypto.randomBytes(16).toString('hex');
 
-  return repository.createCertificate({
-    certificateNumber,
-    verificationCode,
-    userId,
-    cohortId,
-    programId: completion.programId,
-    learnerName: learner?.name || '',
-    programName: completion.programName,
-    cohortCode: completion.cohortCode,
-    completionSnapshot: {
-      attendancePercent: completion.attendance.percent,
-      attendanceThresholdPercent: completion.attendance.thresholdPercent,
-      assessmentRequired: completion.assessment.required,
-      assessmentMet: completion.assessment.met,
-      averageScore: completion.assessment.averageScore,
-      feedbackRequired: completion.feedback.required,
-      feedbackMet: completion.feedback.met,
-    },
-    issuedBy: actor?._id || null,
-    issuedAt: new Date(),
-    status: 'Issued',
-  });
+  try {
+    return await repository.createCertificate({
+      certificateNumber,
+      verificationCode,
+      userId,
+      cohortId,
+      programId: completion.programId,
+      learnerName: learner?.name || '',
+      programName: completion.programName,
+      cohortCode: completion.cohortCode,
+      completionSnapshot: {
+        attendancePercent: completion.attendance.percent,
+        attendanceThresholdPercent: completion.attendance.thresholdPercent,
+        assessmentRequired: completion.assessment.required,
+        assessmentMet: completion.assessment.met,
+        averageScore: completion.assessment.averageScore,
+        feedbackRequired: completion.feedback.required,
+        feedbackMet: completion.feedback.met,
+      },
+      issuedBy: actor?._id || null,
+      issuedAt: new Date(),
+      status: 'Issued',
+    });
+  } catch (error) {
+    // QB-008: lost a concurrent race against the partial unique index — the
+    // findActiveCertificate check above passed for both callers, only one
+    // insert wins. Surface the same friendly 409 as the sequential path
+    // (and avoid handleError leaking the raw userId in the message).
+    if (error && error.code === 11000) {
+      throw new ServiceError('An active certificate already exists for this learner and cohort', 409);
+    }
+    throw error;
+  }
 };
 
 // Revoke (soft, lifecycle status) an issued certificate. Admin only at route.
