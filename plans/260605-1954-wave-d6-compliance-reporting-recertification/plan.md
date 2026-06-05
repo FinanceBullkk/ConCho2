@@ -3,7 +3,7 @@ title: Wave D6 v1.1 - Compliance reporting depth + recertification
 description: >-
   Compliance report/export over assignments, certificates, manager/department
   rollups, and certificate validity windows.
-status: pending
+status: completed
 priority: P2
 branch: main
 tags:
@@ -32,8 +32,8 @@ Build the first D6 codeable slice after D1/D3/D4/D5: HR/L&D can answer who is co
 | 1 | [Discovery and report contract](./phase-01-discovery-and-report-contract.md) | Completed |
 | 2 | [Backend compliance report API](./phase-02-backend-compliance-report-api.md) | Completed |
 | 3 | [Certificate expiry and recertification](./phase-03-certificate-expiry-and-recertification.md) | Completed |
-| 4 | [Frontend compliance report UI](./phase-04-frontend-compliance-report-ui.md) | Pending |
-| 5 | [Verification docs and rollout](./phase-05-verification-docs-and-rollout.md) | Pending |
+| 4 | [Frontend compliance report UI](./phase-04-frontend-compliance-report-ui.md) | Completed |
+| 5 | [Verification docs and rollout](./phase-05-verification-docs-and-rollout.md) | Completed |
 
 ## Dependencies
 

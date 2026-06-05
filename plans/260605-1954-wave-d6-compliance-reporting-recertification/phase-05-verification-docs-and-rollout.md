@@ -1,10 +1,13 @@
 ---
 phase: 5
-title: "Verification docs and rollout"
-status: pending
+title: Verification docs and rollout
+status: completed
 priority: P1
-effort: "0.5d"
-dependencies: [2, 3, 4]
+effort: 0.5d
+dependencies:
+  - 2
+  - 3
+  - 4
 ---
 
 # Phase 5: Verification docs and rollout
@@ -58,12 +61,28 @@ Docs:
 
 ## Success Criteria
 
-- [ ] Backend focused tests pass.
-- [ ] Client focused tests pass.
-- [ ] Client bundle, lint, and syntax gates pass.
-- [ ] Manual smoke flow recorded.
-- [ ] `docs/development-roadmap.md` says exactly what D6 v1.1 delivered and what remains.
-- [ ] No new unresolved D2 dependency introduced.
+- [x] Backend focused tests pass.
+- [x] Client focused tests pass.
+- [x] Client bundle, lint, and syntax gates pass.
+- [x] Manual smoke flow recorded.
+- [x] `docs/development-roadmap.md` says exactly what D6 v1.1 delivered and what remains.
+- [x] No new unresolved D2 dependency introduced.
+
+## Verification Evidence
+
+- Backend: 7 focused suites / 34 tests passed across compliance reports,
+  completion report regression, certificate expiry, and formula guards.
+- Client: 3 focused files / 29 tests passed for Reports tab, Compliance table,
+  and role access.
+- Gates: root syntax check 39 files passed; client production bundle passed;
+  client lint passed at 0 errors / 81 existing warnings; `git diff --check`
+  passed.
+- Manual smoke: recorded in
+  `plans/reports/context-260605-1954-wave-d6-compliance.md`; verified filtered
+  report URL, export URL, downloaded filename, expired/expiring states, and no
+  page overflow.
+- Deferred: expiry emails, auto-recertification assignment creation, saved
+  presets, in-app notification center/admin notification log UI.
 
 ## Risk Assessment
 
