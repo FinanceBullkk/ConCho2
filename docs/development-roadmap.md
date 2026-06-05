@@ -85,9 +85,13 @@ and enrollment signals; the Learning workspace has an **Assignments** tab for
 Admin/Teacher read and Admin create/archive. **Wave D5 v1 is now live:**
 assignment reminders send due-soon and overdue emails from D4 due dates, persist
 idempotent `NotificationLog` records, and send weekly manager overdue digests
-through a monitored cron endpoint. D2 Google OIDC/Directory sync still needs
-owner inputs. Next codeable step: D6 compliance reporting/recertification,
-unless D2 owner inputs arrive first.
+through a monitored cron endpoint. **Wave D6 v1.1 backend report slice is now
+live:** Admin-only `GET /api/learning/reports/compliance` + `.xlsx` export joins
+D4 assignment status, D3 department/manager scope, and certificate state
+(`issued`/`missing`/`revoked`, with expiry-ready fields) with audit-backed export
+and formula-injection guarded workbook cells. D2 Google OIDC/Directory sync still
+needs owner inputs. Next codeable step: D6 certificate expiry policy, then the
+Learning Reports UI.
 
 ---
 
@@ -110,7 +114,7 @@ unless D2 owner inputs arrive first.
 | A — Foundation | Generic learning core works E2E (scheduling modes, cohort enrollment, CRUD UI, capability authz) | 🟢 done (M1–M4) | — |
 | B — Assessment & Certification | Generic assessment engine, completion enforcement, certificates | 🟡 in progress (completion + certificates + feedback + assessment engine v1 + completion reporting + rollups + assessment UI + feedback UI + assessment edit + question-bank backend/UI + manual grading v1 done) | A |
 | C — Catalog, Paths & Self-service | Learner catalog, self-enroll, learning paths/prerequisites | 🟢 core done (learner catalog + self-enroll UI + prerequisite gating v1 + prereq selector UI + sequenced learning paths v1 + admin paths UI + learner path-progress view) | A |
-| D — Platform & Scale | Production readiness → Google OIDC + Directory sync → manager hierarchy (org model) → mandatory assignment + due dates → notifications/escalation → compliance reporting + recertification. Order locked 2026-06-04 (after C closes). | 🟡 in progress (D1 cron self-monitoring done; **D3 v1 org model done**; **D4 assignment+due-dates v1 done**; **D5 assignment reminders + manager escalation v1 done**; paid hosting + Sentry-account setup + D2 Google OAuth app = owner ops/inputs) | B, C |
+| D — Platform & Scale | Production readiness → Google OIDC + Directory sync → manager hierarchy (org model) → mandatory assignment + due dates → notifications/escalation → compliance reporting + recertification. Order locked 2026-06-04 (after C closes). | 🟡 in progress (D1 cron self-monitoring done; **D3 v1 org model done**; **D4 assignment+due-dates v1 done**; **D5 assignment reminders + manager escalation v1 done**; **D6 backend compliance report/export done**; paid hosting + Sentry-account setup + D2 Google OAuth app = owner ops/inputs) | B, C |
 | E — Generic scheduling | Generalize booking beyond fixed English slots (session types, rooms, capacity, waitlists, instructors); keep leader-booking as one mode. Committed parallel track; large, own plan. | 🔴 planned | A |
 
 > **Direction locked 2026-06-04** — full rationale + gap analysis in
@@ -165,11 +169,25 @@ Bug fixing and integration review rank above net-new feature rollout.
 | → | **Wave D3 v1 — org model (manager hierarchy + departments)** | Real org tree + manager-scoped training visibility | 🟢 done — `Department` model + `User.managerId`/`departmentId` (non-destructive, alongside legacy `department` string). New `domains/org` (`/api/org`): Admin department CRUD (`department.manage`/`read`), manager/department assignment (`org.manage`, self-/cycle-guarded, audited), and self-scoped `GET /api/org/my-team` (`team.read`, any role) with a batched per-report training rollup (active enrollments + certificates + completed programs, reusing the completion/cert data). UI: People → **Departments** tab, an org-assignment action on Users (`OrgAssignmentModal`), a conditional **My Team** nav entry → `/my-team` (`MyTeamPage` + `TeamRosterTable`). Built ahead of D2 (its OIDC login is blocked on owner Google setup). 15 server integration tests + 6 client component tests. Directory-sync population deferred to D2; transitive-cycle is bounded-guarded. |
 | → | **Wave D4 v1 — assignment + due dates** | Assign required training and track overdue status | 🟢 done — new `Assignment` model + `domains/learning/assignment` (`/api/learning/assignments`): Admin creates/archives Program or Learning Path assignments to explicit users and/or Departments with `dueDate`; Admin/Teacher read via `assignment.read`; create/archive audit + soft-delete. Status resolver expands departments to assignable users, excludes soft-deleted/inactive/dropped/transferred users, and derives `not_started`/`in_progress`/`complete`/`overdue` from certificates/completion + active cohort enrollments. UI: Learning → **Assignments** tab with summary chips and create modal. 6 server integration tests + 2 client component test files. Report exports/recertification deferred to D6. |
 | → | **Wave D5 v1 — assignment reminders + manager escalation** | Email reminders for assignment due dates with persisted idempotency logs | 🟢 done — new `NotificationLog` model (email channel, assignment/learner/recipient references, cadence key, status/error/metadata, 180-day TTL, unique idempotency tuple) + `assignment/reminder-service`: active D4 assignments send learner due-soon emails at 7 days and 1 day, learner overdue emails every 3 overdue days, and weekly manager overdue digests for direct reports with manager email. `POST /api/cron/assignment-reminders` is cron-token protected and wrapped with `runMonitored`/`CronRun` health. Existing attendance reminders unchanged. 4 focused server suites / 36 tests passed. In-app notifications, admin log UI, assessment reminders, and certificate expiry emails deferred. |
+| → | **Wave D6 v1.1 — backend compliance report/export** | HR/L&D compliance report over assignments, org, and certificates | 🟢 backend slice done — Admin-only `GET /api/learning/reports/compliance` plus `/export`: active D4 assignments expand into learner rows with derived status, D3 department/manager fields, certificate state, summary, and program/department/manager rollups. Export is capped, formula-guarded, and audit logged via `Report` audit entity. Teacher/Participant denied for org-wide compliance in v1.1. Certificate expiry policy + frontend UI remain next phases. |
 
 ---
 
 ## Recent progress (changelog)
 
+- **2026-06-05** — **Wave D6 v1.1 — backend compliance report/export.**
+  Added the first compliance reporting slice under `server/domains/learning/reports`:
+  `GET /api/learning/reports/compliance` and `/export` are Admin-only beyond the
+  coarse `report.read` gate, expand active D4 assignments into per-learner rows,
+  attach D3 department/manager fields, derive assignment status through the D4
+  resolver, attach certificate state (`issued`, `missing`, `revoked`, expiry-ready
+  `expiring`/`expired`), and return summary + program/department/manager rollups.
+  Export produces a capped xlsx workbook with `X-TMS-Record-Count`, formula guards
+  every user/admin-controlled cell, and now writes a valid `Report` audit entry.
+  Verified: root syntax check **39 passed**; compliance/report focused server
+  suites **15 passed**; D4/capability regression **23 passed**; report export
+  formula unit suites **3 passed**. Deferred: certificate validity schema/policy,
+  expiry reminders, and Learning Reports UI.
 - **2026-06-05** — **Wave D5 v1 — assignment reminders + manager escalation.**
   Built the first notification slice over D4 assignments. New `NotificationLog`
   stores email idempotency/audit trace with assignment/learner/recipient refs,

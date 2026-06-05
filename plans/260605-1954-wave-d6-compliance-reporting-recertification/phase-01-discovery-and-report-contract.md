@@ -1,7 +1,7 @@
 ---
 phase: 1
 title: Discovery and report contract
-status: in-progress
+status: completed
 priority: P1
 effort: 0.5d
 dependencies: []
@@ -244,10 +244,10 @@ Certificate matching:
 
 ## Success Criteria
 
-- [ ] D6 v1.1 contract is explicit enough to write backend tests first.
-- [ ] Out-of-scope items are listed so implementation does not become feature factory.
-- [ ] Report filters match what UI can realistically expose in one screen.
-- [ ] No dependency on D2 Directory sync for codeable path.
+- [x] D6 v1.1 contract is explicit enough to write backend tests first.
+- [x] Out-of-scope items are listed so implementation does not become feature factory.
+- [x] Report filters match what UI can realistically expose in one screen.
+- [x] No dependency on D2 Directory sync for codeable path.
 
 ## Risk Assessment
 

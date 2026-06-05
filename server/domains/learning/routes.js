@@ -30,7 +30,7 @@ const {
 const feedbackController = require('./feedback/controller');
 const { submitFeedbackBody, listFeedbackQuery } = require('./feedback/schemas');
 const reportsController = require('./reports/controller');
-const { completionReportQuery, completionRollupQuery } = require('./reports/schemas');
+const { completionReportQuery, completionRollupQuery, complianceReportQuery } = require('./reports/schemas');
 const { exportLimiter } = require('../../middleware/rateLimiters');
 const assignmentController = require('./assignment/controller');
 const { createAssignmentBody, listAssignmentsQuery } = require('./assignment/schemas');
@@ -147,6 +147,21 @@ router.get(
   requireCapability('report.read'),
   validate({ query: completionRollupQuery }),
   reportsController.getCompletionRollup,
+);
+
+router.get(
+  '/reports/compliance',
+  requireCapability('report.read'),
+  validate({ query: complianceReportQuery }),
+  reportsController.getComplianceReport,
+);
+
+router.get(
+  '/reports/compliance/export',
+  requireCapability('report.read'),
+  exportLimiter,
+  validate({ query: complianceReportQuery }),
+  reportsController.exportComplianceReport,
 );
 
 router.get(

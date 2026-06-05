@@ -29,8 +29,8 @@ Build the first D6 codeable slice after D1/D3/D4/D5: HR/L&D can answer who is co
 
 | Phase | Name | Status |
 |-------|------|--------|
-| 1 | [Discovery and report contract](./phase-01-discovery-and-report-contract.md) | In Progress |
-| 2 | [Backend compliance report API](./phase-02-backend-compliance-report-api.md) | Pending |
+| 1 | [Discovery and report contract](./phase-01-discovery-and-report-contract.md) | Completed |
+| 2 | [Backend compliance report API](./phase-02-backend-compliance-report-api.md) | Completed |
 | 3 | [Certificate expiry and recertification](./phase-03-certificate-expiry-and-recertification.md) | Pending |
 | 4 | [Frontend compliance report UI](./phase-04-frontend-compliance-report-ui.md) | Pending |
 | 5 | [Verification docs and rollout](./phase-05-verification-docs-and-rollout.md) | Pending |
