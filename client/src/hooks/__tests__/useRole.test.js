@@ -52,6 +52,13 @@ describe('useRole', () => {
     expect(renderAsRole('Participant').can('read:feedback')).toBe(false);
   });
 
+  it('Teacher can read assignments but only Admin can manage them', () => {
+    expect(renderAsRole('Admin').can('manage:assignments')).toBe(true);
+    expect(renderAsRole('Teacher').can('read:assignments')).toBe(true);
+    expect(renderAsRole('Teacher').can('manage:assignments')).toBe(false);
+    expect(renderAsRole('Participant').can('read:assignments')).toBe(false);
+  });
+
   it('canAny returns true if any permission matches', () => {
     const { canAny } = renderAsRole('Teacher');
     expect(canAny(['delete:user', 'record:attendance'])).toBe(true);

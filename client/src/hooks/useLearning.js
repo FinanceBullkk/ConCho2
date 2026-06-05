@@ -30,6 +30,13 @@ export const useLearningFeedback = (params = {}, options = {}) =>
     ...options,
   });
 
+export const useLearningAssignments = (params = {}, options = {}) =>
+  useQuery({
+    queryKey: qk.learning.assignments(params),
+    queryFn: async () => (await learningAPI.getAssignments(params)).data,
+    ...options,
+  });
+
 // Cohort completion report — only fetches once a cohort is chosen.
 export const useCompletionReport = (cohortId) =>
   useQuery({
@@ -121,6 +128,23 @@ export const useArchivePath = () => {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (id) => learningAPI.archivePath(id),
+    onSettled: () => invalidateLearning(qc),
+  });
+};
+
+// ── Assignment mutations ─────────────────────────────────
+export const useCreateAssignment = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (data) => learningAPI.createAssignment(data).then((r) => r.data.data),
+    onSettled: () => invalidateLearning(qc),
+  });
+};
+
+export const useArchiveAssignment = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id) => learningAPI.archiveAssignment(id).then((r) => r.data.data),
     onSettled: () => invalidateLearning(qc),
   });
 };

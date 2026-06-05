@@ -32,6 +32,8 @@ const { submitFeedbackBody, listFeedbackQuery } = require('./feedback/schemas');
 const reportsController = require('./reports/controller');
 const { completionReportQuery, completionRollupQuery } = require('./reports/schemas');
 const { exportLimiter } = require('../../middleware/rateLimiters');
+const assignmentController = require('./assignment/controller');
+const { createAssignmentBody, listAssignmentsQuery } = require('./assignment/schemas');
 const pathController = require('./path/controller');
 const { createPathBody, updatePathBody, listPathsQuery } = require('./path/schemas');
 
@@ -161,6 +163,33 @@ router.get(
   validate({ query: completionReportQuery }),
   reportsController.exportCompletionReport,
 );
+
+// ── Mandatory assignments + due dates (Wave D4 v1) ───────
+router
+  .route('/assignments')
+  .get(
+    requireCapability('assignment.read'),
+    validate({ query: listAssignmentsQuery }),
+    assignmentController.listAssignments,
+  )
+  .post(
+    requireCapability('assignment.manage'),
+    validate({ body: createAssignmentBody }),
+    assignmentController.createAssignment,
+  );
+
+router
+  .route('/assignments/:id')
+  .get(
+    requireCapability('assignment.read'),
+    validate({ params: idParam }),
+    assignmentController.getAssignment,
+  )
+  .delete(
+    requireCapability('assignment.manage'),
+    validate({ params: idParam }),
+    assignmentController.archiveAssignment,
+  );
 
 // ── Cohort feedback / surveys (Wave B — unblocks requiresFeedback) ────
 router

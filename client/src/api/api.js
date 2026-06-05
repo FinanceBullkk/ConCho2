@@ -236,6 +236,10 @@ export const learningAPI = {
   updatePath: (id, data) => api.put(`/learning/paths/${id}`, data),
   archivePath: (id) => api.delete(`/learning/paths/${id}`),
   getPathProgress: (id) => api.get(`/learning/paths/${id}/progress`),
+  getAssignments: (params) => api.get('/learning/assignments', { params }),
+  getAssignment: (id) => api.get(`/learning/assignments/${id}`),
+  createAssignment: (data) => api.post('/learning/assignments', data),
+  archiveAssignment: (id) => api.delete(`/learning/assignments/${id}`),
   // Cohort-based (L&D) enrollments — distinct from legacy team-based enrollmentsAPI.
   getEnrollments: (params) => api.get('/learning/enrollments', { params }),
   createEnrollment: (data) => api.post('/learning/enrollments', data),

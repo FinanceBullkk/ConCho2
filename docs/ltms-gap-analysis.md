@@ -62,7 +62,7 @@ an internal training/compliance system for ~1000 employees.
 | # | Gap | Severity | Today | Tracked as |
 |---|-----|----------|-------|-----------|
 | G1 | **Org / manager hierarchy** — `department` is a free-text string; no `managerId`; no manager dashboard. Managers can't see their team's training status. | 🔴 Critical | absent | PROD-002 · Wave D3 |
-| G2 | **Assignment with due dates** — only self-enroll / manual admin enroll. No "assign program X to Dept Y, due Z". This is the central compliance-training workflow. | 🔴 Critical | absent | **Wave D4** (added §4) |
+| G2 | **Assignment with due dates** — directive "assign program/path X to Dept Y/users, due Z". This is the central compliance-training workflow. | 🔴 Critical | v1 live 2026-06-05 | **Wave D4** |
 | G3 | **Notification / reminder engine** — transactional email only; no reminders, overdue notices, or manager escalation. Compliance training that never nudges won't happen. | 🔴 Critical | absent | PROD-010 · Wave D5 |
 | G4 | **Identity at scale** — no SSO/OIDC, no directory sync. 1000 users via manual create + Excel import is real operational burden. | 🟠 High | absent | Wave D2 |
 | G5 | **Production reliability** — single Render free-tier instance that sleeps; cron needs an external pinger; in-memory rate-limit/cache (single-instance only). | 🟠 High | fragile | Wave D1 · accepted-risk list |
@@ -81,26 +81,28 @@ modular-monolith `domains/` direction, 7 CI gates.
 
 ---
 
-## 4. Missing milestone — Assignment + Due Dates (propose adding)
+## 4. Added milestone — Assignment + Due Dates
 
-G2 is the biggest *unrecorded* gap. The roadmap models self-enroll and manual
-enroll but **not directive assignment**, which is the core of mandatory/
-compliance training. Milestone shape (accepted — canonical **Wave D4** in
+G2 was the biggest *unrecorded* gap. The roadmap models self-enroll and manual
+enroll; Wave D4 now adds directive assignment, the core mandatory/compliance
+training workflow. Milestone shape (accepted — canonical **Wave D4** in
 `lms-roadmap.md` §4; extends existing domains, no new stack):
 
-- **Backend:** an `Assignment` concept over the existing cohort-enrollment
-  chokepoint (`server/domains/learning/enrollment/`) — assign a Program/Cohort
-  (later a LearningPath) to a target set (a Department once G1 lands, or an
-  explicit user list now) with a `dueDate`. Reuse `hasCompletedProgram` /
-  `evaluateCompletion` for status; soft-delete + audit like every mutation.
-- **Status surface:** completion reports gain `assigned / not-started / in-
-  progress / complete / overdue` (depends on G6 for due-date semantics).
-- **Capabilities:** `assignment.manage` (Admin/Teacher) / `assignment.read`.
-- **Why now-ish:** unlocks the #1 HR workflow and gives notifications (G3) and
+- **Backend v1:** an `Assignment` concept in
+  `server/domains/learning/assignment/` — assign a Program or Learning Path to a
+  target set (Department and/or explicit users) with a `dueDate`. Reuse
+  completion/certificate and cohort-enrollment signals for status; soft-delete +
+  audit like every mutation.
+- **Status surface v1:** Learning → Assignments shows summary counts for
+  `not-started / in-progress / complete / overdue`. Completion-report joins are
+  deferred to D6 report depth.
+- **Capabilities:** `assignment.manage` (Admin) / `assignment.read`
+  (Admin/Teacher).
+- **Why now:** unlocks the #1 HR workflow and gives notifications (G3) and
   manager dashboards (G1) something concrete to report on.
 
-Depends on G1 (target = Department) for full value, but a v1 against an explicit
-user/cohort list is shippable before G1.
+Department-targeting now works because G1/D3 landed first. Cohort-specific
+assignment remains out of v1.
 
 ---
 
