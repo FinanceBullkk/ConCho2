@@ -1,10 +1,11 @@
 ---
 phase: 2
-title: "Backend compliance report API"
-status: pending
+title: Backend compliance report API
+status: completed
 priority: P1
-effort: "1.5d"
-dependencies: [1]
+effort: 1.5d
+dependencies:
+  - 1
 ---
 
 # Phase 2: Backend compliance report API
@@ -66,12 +67,12 @@ Data flow:
 
 ## Success Criteria
 
-- [ ] Admin can fetch compliance report with assignment status and certificate state.
-- [ ] Teacher and Participant are denied the org-wide compliance report in v1.1.
-- [ ] Export returns xlsx with `X-TMS-Record-Count`.
-- [ ] Export action is audited.
-- [ ] Formula guard covers learner, department, manager, assignment title, program/path name, and certificate number.
-- [ ] Report builder has no mutation side effects.
+- [x] Admin can fetch compliance report with assignment status and certificate state.
+- [x] Teacher and Participant are denied the org-wide compliance report in v1.1.
+- [x] Export returns xlsx with `X-TMS-Record-Count`.
+- [x] Export action is audited.
+- [x] Formula guard covers learner, department, manager, assignment title, program/path name, and certificate number.
+- [x] Report builder has no mutation side effects.
 
 ## Risk Assessment
 

@@ -4,6 +4,8 @@ const Schedule = require('../../../models/Schedule');
 const Enrollment = require('../../../models/Enrollment');
 const Certificate = require('../../../models/Certificate');
 const User = require('../../../models/User');
+const Assignment = require('../../../models/Assignment');
+const LearningPath = require('../../../models/LearningPath');
 const { ACTIVE_ENROLLMENT_STATUSES } = require('../../../helpers/cohortMembership');
 
 const findCohort = (cohortId) =>
@@ -42,6 +44,60 @@ const listCohortCertificates = (cohortId) =>
     .select('userId certificateNumber status')
     .lean();
 
+const dateBoundary = (value, endOfDay = false) => {
+  const d = new Date(value);
+  d.setUTCHours(endOfDay ? 23 : 0, endOfDay ? 59 : 0, endOfDay ? 59 : 0, endOfDay ? 999 : 0);
+  return d;
+};
+
+const listComplianceAssignments = async (query = {}) => {
+  const filter = { status: 'active', isDeleted: false };
+  if (query.assignmentId) filter._id = query.assignmentId;
+  if (query.dueFrom || query.dueTo) {
+    filter.dueDate = {};
+    if (query.dueFrom) filter.dueDate.$gte = dateBoundary(query.dueFrom);
+    if (query.dueTo) filter.dueDate.$lte = dateBoundary(query.dueTo, true);
+  }
+  if (query.programId) {
+    const pathIds = await LearningPath.find({
+      programs: query.programId,
+      status: { $ne: 'archived' },
+      isDeleted: false,
+    }).distinct('_id');
+    filter.$or = [{ programId: query.programId }];
+    if (pathIds.length) filter.$or.push({ pathId: { $in: pathIds } });
+  }
+
+  return Assignment.find(filter)
+    .populate('programId', 'code name category status')
+    .populate({
+      path: 'pathId',
+      select: 'code title status programs',
+      populate: { path: 'programs', select: 'code name category status' },
+    })
+    .sort({ dueDate: 1, createdAt: -1 })
+    .lean();
+};
+
+const findOrgUsers = (ids) =>
+  User.find({ _id: { $in: ids } })
+    .select('empCode name email department departmentId managerId')
+    .populate('departmentId', 'code name')
+    .populate('managerId', 'empCode name email')
+    .lean();
+
+const listProgramCertificates = (userIds, programIds) => {
+  if (!userIds.length || !programIds.length) return [];
+  return Certificate.find({
+    userId: { $in: userIds },
+    programId: { $in: programIds },
+    isDeleted: false,
+  })
+    .select('userId programId certificateNumber status issuedAt validUntil')
+    .sort({ issuedAt: -1 })
+    .lean();
+};
+
 module.exports = {
   findCohort,
   listActiveCohorts,
@@ -49,4 +105,7 @@ module.exports = {
   listCohortLearnerIds,
   findUsers,
   listCohortCertificates,
+  listComplianceAssignments,
+  findOrgUsers,
+  listProgramCertificates,
 };

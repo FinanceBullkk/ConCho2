@@ -3,6 +3,7 @@ const { safeCell } = require('../../../helpers/excel-formula-guard');
 
 const yesNo = (b) => (b ? 'Yes' : 'No');
 const reqMet = (required, met) => (required ? (met ? 'Met' : 'Unmet') : 'N/A');
+const dateOnly = (value) => (value ? new Date(value).toISOString().slice(0, 10) : '');
 
 // Build an .xlsx workbook buffer for a completion report. One sheet, a summary
 // banner row, then a per-learner table. Returns a Buffer (small per-cohort data,
@@ -53,4 +54,53 @@ const buildCompletionWorkbookBuffer = async (report) => {
   return workbook.xlsx.writeBuffer();
 };
 
-module.exports = { buildCompletionWorkbookBuffer };
+const buildComplianceWorkbookBuffer = async (report) => {
+  const workbook = new ExcelJS.Workbook();
+  workbook.creator = 'TMS';
+  workbook.created = new Date();
+
+  const sheet = workbook.addWorksheet('Compliance');
+  sheet.addRow([`Generated: ${report.generatedAt}`]);
+  sheet.addRow([
+    `Rows: ${report.summary.rows}`,
+    `Complete: ${report.summary.complete}`,
+    `Overdue: ${report.summary.overdue}`,
+    `Issued: ${report.summary.issued}`,
+    `Missing: ${report.summary.missing}`,
+  ]);
+  sheet.addRow([]);
+
+  const header = sheet.addRow([
+    'Emp Code', 'Learner Name', 'Email', 'Department', 'Manager',
+    'Assignment', 'Target Type', 'Target Name', 'Due Date',
+    'Assignment Status', 'Completion', 'Certificate Number',
+    'Certificate Status', 'Issued At', 'Valid Until', 'Certificate State',
+  ]);
+  header.font = { bold: true };
+
+  report.rows.forEach((r) => {
+    sheet.addRow([
+      safeCell(r.learner.empCode),
+      safeCell(r.learner.name),
+      safeCell(r.learner.email),
+      safeCell(r.org.departmentName),
+      safeCell(r.org.managerName),
+      safeCell(r.assignment.title),
+      safeCell(r.assignment.targetType),
+      safeCell(r.assignment.targetName),
+      dateOnly(r.assignment.dueDate),
+      safeCell(r.assignment.status),
+      yesNo(r.completion.complete),
+      safeCell(r.certificate.number),
+      safeCell(r.certificate.status || ''),
+      dateOnly(r.certificate.issuedAt),
+      dateOnly(r.certificate.validUntil),
+      safeCell(r.certificate.state),
+    ]);
+  });
+
+  sheet.columns.forEach((col) => { col.width = 18; });
+  return workbook.xlsx.writeBuffer();
+};
+
+module.exports = { buildCompletionWorkbookBuffer, buildComplianceWorkbookBuffer };
