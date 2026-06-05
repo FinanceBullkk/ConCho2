@@ -11,7 +11,7 @@
 
 ## Current status
 
-~62% through the TMS → L&D migration. **Wave A (Foundation) is complete:** all 4
+~64% through the TMS → L&D migration. **Wave A (Foundation) is complete:** all 4
 `schedulingMode`s enforced (no 501 stubs); cohort-based enrollment live
 (`/api/learning/enrollments`, incl. self-enroll); the Learning page is
 write-capable (Admins create/edit Programs, create Cohorts, enroll learners);
@@ -82,9 +82,12 @@ now live too:** Admins can assign active Programs or Learning Paths to explicit
 users and/or Departments with a due date; `/api/learning/assignments` derives
 learner status (`not_started`/`in_progress`/`complete`/`overdue`) from completion
 and enrollment signals; the Learning workspace has an **Assignments** tab for
-Admin/Teacher read and Admin create/archive. D2 Google OIDC/Directory sync still
-needs owner inputs. Next codeable step: D5 reminders/escalation over D4
-assignments.
+Admin/Teacher read and Admin create/archive. **Wave D5 v1 is now live:**
+assignment reminders send due-soon and overdue emails from D4 due dates, persist
+idempotent `NotificationLog` records, and send weekly manager overdue digests
+through a monitored cron endpoint. D2 Google OIDC/Directory sync still needs
+owner inputs. Next codeable step: D6 compliance reporting/recertification,
+unless D2 owner inputs arrive first.
 
 ---
 
@@ -107,7 +110,7 @@ assignments.
 | A — Foundation | Generic learning core works E2E (scheduling modes, cohort enrollment, CRUD UI, capability authz) | 🟢 done (M1–M4) | — |
 | B — Assessment & Certification | Generic assessment engine, completion enforcement, certificates | 🟡 in progress (completion + certificates + feedback + assessment engine v1 + completion reporting + rollups + assessment UI + feedback UI + assessment edit + question-bank backend/UI + manual grading v1 done) | A |
 | C — Catalog, Paths & Self-service | Learner catalog, self-enroll, learning paths/prerequisites | 🟢 core done (learner catalog + self-enroll UI + prerequisite gating v1 + prereq selector UI + sequenced learning paths v1 + admin paths UI + learner path-progress view) | A |
-| D — Platform & Scale | Production readiness → Google OIDC + Directory sync → manager hierarchy (org model) → **mandatory assignment + due dates** → notifications/escalation → compliance reporting + recertification. Order locked 2026-06-04 (after C closes). | 🟡 in progress (D1 cron self-monitoring done; **D3 v1 org model done**; **D4 assignment+due-dates v1 done** for Program/Path + user/department targets; paid hosting + Sentry-account setup + D2 Google OAuth app = owner ops/inputs) | B, C |
+| D — Platform & Scale | Production readiness → Google OIDC + Directory sync → manager hierarchy (org model) → mandatory assignment + due dates → notifications/escalation → compliance reporting + recertification. Order locked 2026-06-04 (after C closes). | 🟡 in progress (D1 cron self-monitoring done; **D3 v1 org model done**; **D4 assignment+due-dates v1 done**; **D5 assignment reminders + manager escalation v1 done**; paid hosting + Sentry-account setup + D2 Google OAuth app = owner ops/inputs) | B, C |
 | E — Generic scheduling | Generalize booking beyond fixed English slots (session types, rooms, capacity, waitlists, instructors); keep leader-booking as one mode. Committed parallel track; large, own plan. | 🔴 planned | A |
 
 > **Direction locked 2026-06-04** — full rationale + gap analysis in
@@ -160,12 +163,29 @@ Bug fixing and integration review rank above net-new feature rollout.
 | → | **Wave C1 — learner path-progress view** | Let learners see their path progress (closes the paths loop) | 🟢 done — Participant `/me/paths`: lists active paths, each showing ordered steps marked `completed`/`current`/`locked` + a progress bar, from `GET /paths/:id/progress` via new `usePathProgress`. Presentational `PathProgressView` + `MyLearningPathsPage`; dashboard CTA; 4 component tests. English-only (no i18n keys, matches `/me/*` siblings). |
 | → | **Wave D1 — cron self-monitoring** | Confirm scheduled jobs actually run on the sleeping free-tier | 🟢 done (codeable slice) — `lib/cronMonitor.runMonitored` wraps the nightly reconcile + attendance-reminders (in-process job **and** pinger endpoints) with a durable `CronRun` heartbeat (last run/status/duration/error/counters, upserted per run) + Sentry **cron check-ins** (in-progress→ok/error) + `captureException`, all **fail-soft**. Gated `GET /api/admin/cron/health` derives an `ok`/`stale`/`error`/`never` verdict per job; a **Scheduled jobs** panel on `/reconcile` surfaces it. 10 tests (6 unit `deriveHealth`/config + 4 integration authz/heartbeat). Remaining D1 (paid hosting, Sentry-dashboard monitor setup) = owner ops. |
 | → | **Wave D3 v1 — org model (manager hierarchy + departments)** | Real org tree + manager-scoped training visibility | 🟢 done — `Department` model + `User.managerId`/`departmentId` (non-destructive, alongside legacy `department` string). New `domains/org` (`/api/org`): Admin department CRUD (`department.manage`/`read`), manager/department assignment (`org.manage`, self-/cycle-guarded, audited), and self-scoped `GET /api/org/my-team` (`team.read`, any role) with a batched per-report training rollup (active enrollments + certificates + completed programs, reusing the completion/cert data). UI: People → **Departments** tab, an org-assignment action on Users (`OrgAssignmentModal`), a conditional **My Team** nav entry → `/my-team` (`MyTeamPage` + `TeamRosterTable`). Built ahead of D2 (its OIDC login is blocked on owner Google setup). 15 server integration tests + 6 client component tests. Directory-sync population deferred to D2; transitive-cycle is bounded-guarded. |
-| → | **Wave D4 v1 — assignment + due dates** | Assign required training and track overdue status | 🟢 done — new `Assignment` model + `domains/learning/assignment` (`/api/learning/assignments`): Admin creates/archives Program or Learning Path assignments to explicit users and/or Departments with `dueDate`; Admin/Teacher read via `assignment.read`; create/archive audit + soft-delete. Status resolver expands departments to assignable users, excludes soft-deleted/inactive/dropped/transferred users, and derives `not_started`/`in_progress`/`complete`/`overdue` from certificates/completion + active cohort enrollments. UI: Learning → **Assignments** tab with summary chips and create modal. 6 server integration tests + 2 client component test files. Reminders/escalation/export/recertification deferred to D5/D6. |
+| → | **Wave D4 v1 — assignment + due dates** | Assign required training and track overdue status | 🟢 done — new `Assignment` model + `domains/learning/assignment` (`/api/learning/assignments`): Admin creates/archives Program or Learning Path assignments to explicit users and/or Departments with `dueDate`; Admin/Teacher read via `assignment.read`; create/archive audit + soft-delete. Status resolver expands departments to assignable users, excludes soft-deleted/inactive/dropped/transferred users, and derives `not_started`/`in_progress`/`complete`/`overdue` from certificates/completion + active cohort enrollments. UI: Learning → **Assignments** tab with summary chips and create modal. 6 server integration tests + 2 client component test files. Report exports/recertification deferred to D6. |
+| → | **Wave D5 v1 — assignment reminders + manager escalation** | Email reminders for assignment due dates with persisted idempotency logs | 🟢 done — new `NotificationLog` model (email channel, assignment/learner/recipient references, cadence key, status/error/metadata, 180-day TTL, unique idempotency tuple) + `assignment/reminder-service`: active D4 assignments send learner due-soon emails at 7 days and 1 day, learner overdue emails every 3 overdue days, and weekly manager overdue digests for direct reports with manager email. `POST /api/cron/assignment-reminders` is cron-token protected and wrapped with `runMonitored`/`CronRun` health. Existing attendance reminders unchanged. 4 focused server suites / 36 tests passed. In-app notifications, admin log UI, assessment reminders, and certificate expiry emails deferred. |
 
 ---
 
 ## Recent progress (changelog)
 
+- **2026-06-05** — **Wave D5 v1 — assignment reminders + manager escalation.**
+  Built the first notification slice over D4 assignments. New `NotificationLog`
+  stores email idempotency/audit trace with assignment/learner/recipient refs,
+  cadence key, status/error/metadata, a unique send tuple, and 180-day TTL. New
+  `server/domains/learning/assignment/reminder-service.js` scans active
+  assignments, reuses D4 derived status, skips completed learners, sends due-soon
+  learner emails at 7 days and 1 day, sends overdue learner emails every 3 overdue
+  days, and sends weekly manager digests for overdue direct reports when manager
+  email exists. Missing learner/manager email is logged as skipped; mail failures
+  are fail-soft and logged as failed. Added assignment email templates/senders and
+  `POST /api/cron/assignment-reminders` behind cron token auth, wrapped with
+  `runMonitored` so Admin cron health can show it through `CronRun`. Verified:
+  focused server gate **36 passed** across assignment reminder integration,
+  cadence, email templates, and cron monitor tests. Deferred: in-app notification
+  center, admin log UI, assessment reminders, certificate expiry emails, D6
+  exports/recertification.
 - **2026-06-05** — **Wave D4 v1 — assignment + due dates.**
   Added directive training assignment, the missing compliance workflow after the
   org model. New `Assignment` model + `server/domains/learning/assignment/`

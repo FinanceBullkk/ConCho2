@@ -20,6 +20,9 @@ const {
   sendScheduleReminder,
   sendEnrollmentDropped,
   sendEnrollmentTransferred,
+  sendAssignmentDueSoon,
+  sendAssignmentOverdue,
+  sendManagerAssignmentDigest,
   _templates,
 } = require('../../lib/emailTemplates');
 
@@ -84,6 +87,53 @@ describe('templates', () => {
     expect(t.text).toContain('Comm 1');
     expect(t.text).toContain('level up');
   });
+
+  test('assignment due-soon template includes assignment, target, due date, and portal wording', () => {
+    const t = _templates.tplAssignmentDueSoon({
+      userName: 'Lan',
+      assignmentTitle: 'Safety Basics',
+      targetName: 'Compliance Program',
+      dueDateStr: 'Tuesday, 30 June 2026',
+      daysUntil: 7,
+    });
+    expect(t.subject).toContain('Safety Basics');
+    expect(t.text).toContain('Compliance Program');
+    expect(t.text).toContain('Tuesday, 30 June 2026');
+    expect(t.text).toMatch(/TMS portal/);
+  });
+
+  test('assignment overdue template includes overdue days and portal wording', () => {
+    const t = _templates.tplAssignmentOverdue({
+      userName: 'Minh',
+      assignmentTitle: 'Policy Refresh',
+      targetName: 'Policy Path',
+      dueDateStr: 'Tuesday, 30 June 2026',
+      daysOverdue: 4,
+    });
+    expect(t.subject).toContain('Policy Refresh');
+    expect(t.text).toContain('Policy Path');
+    expect(t.text).toContain('4 days');
+    expect(t.text).toMatch(/TMS portal/);
+  });
+
+  test('manager digest template includes direct reports and portal wording', () => {
+    const t = _templates.tplManagerAssignmentDigest({
+      managerName: 'Manager One',
+      rows: [{
+        learnerName: 'Member One',
+        learnerEmpCode: '000011',
+        assignmentTitle: 'Safety Basics',
+        targetName: 'Compliance Program',
+        dueDateStr: 'Tuesday, 30 June 2026',
+        daysOverdue: 1,
+      }],
+    });
+    expect(t.subject).toContain('1');
+    expect(t.text).toContain('Member One');
+    expect(t.text).toContain('Safety Basics');
+    expect(t.text).toContain('Compliance Program');
+    expect(t.text).toMatch(/TMS portal/);
+  });
 });
 
 // ── Public senders ────────────────────────────────────────
@@ -145,5 +195,56 @@ describe('senders', () => {
     });
     const arg = sendMail.mock.calls[0][0];
     expect(arg.text).toContain('https://meet.example/abc');
+  });
+
+  test('sendAssignmentDueSoon forwards composed assignment reminder', async () => {
+    sendMail.mockResolvedValueOnce({ messageId: 'due' });
+    await sendAssignmentDueSoon({
+      to: 'a@b.com',
+      userName: 'Lan',
+      assignmentTitle: 'Safety Basics',
+      targetName: 'Compliance Program',
+      dueDate: new Date('2026-06-30T00:00:00.000Z'),
+      daysUntil: 7,
+    });
+    const arg = sendMail.mock.calls[0][0];
+    expect(arg.subject).toContain('Safety Basics');
+    expect(arg.text).toContain('Compliance Program');
+    expect(arg.text).toMatch(/TMS portal/);
+  });
+
+  test('sendAssignmentOverdue forwards composed overdue reminder', async () => {
+    sendMail.mockResolvedValueOnce({ messageId: 'overdue' });
+    await sendAssignmentOverdue({
+      to: 'a@b.com',
+      userName: 'Minh',
+      assignmentTitle: 'Policy Refresh',
+      targetName: 'Policy Path',
+      dueDate: new Date('2026-06-30T00:00:00.000Z'),
+      daysOverdue: 4,
+    });
+    const arg = sendMail.mock.calls[0][0];
+    expect(arg.subject).toContain('Policy Refresh');
+    expect(arg.text).toContain('4 days');
+  });
+
+  test('sendManagerAssignmentDigest forwards composed manager digest', async () => {
+    sendMail.mockResolvedValueOnce({ messageId: 'manager' });
+    await sendManagerAssignmentDigest({
+      to: 'manager@example.com',
+      managerName: 'Manager One',
+      rows: [{
+        learnerName: 'Member One',
+        learnerEmpCode: '000011',
+        assignmentTitle: 'Safety Basics',
+        targetName: 'Compliance Program',
+        dueDate: new Date('2026-06-30T00:00:00.000Z'),
+        daysOverdue: 1,
+      }],
+    });
+    const arg = sendMail.mock.calls[0][0];
+    expect(arg.to).toBe('manager@example.com');
+    expect(arg.text).toContain('Member One');
+    expect(arg.text).toContain('Safety Basics');
   });
 });

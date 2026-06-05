@@ -26,7 +26,7 @@ Source: current route middleware. Keep this matrix updated when routes move into
 | `/api/admin-db` | Admin | Admin | generic DB explorer whitelist |
 | `/api/admin/audit` | Admin | none | audit query |
 | `/api/admin/reconcile` | Admin | Admin manual run | read reports and trigger run |
-| `/api/cron` | cron token | cron token | external scheduled calls |
+| `/api/cron` | cron token | cron token | external scheduled calls: health, reconcile, attendance-reminders, assignment-reminders |
 | `/api/search` | authenticated | none | result scoping in service |
 | `/api/sync` | Admin | Admin | Google Sheets sync |
 

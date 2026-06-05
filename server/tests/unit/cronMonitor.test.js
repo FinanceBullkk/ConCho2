@@ -67,5 +67,7 @@ describe('cronMonitor.deriveHealth', () => {
     expect(CRON_JOBS.reconcile.expectedIntervalMs).toBe(24 * HOUR);
     expect(CRON_JOBS.reminders).toMatchObject({ jobName: 'attendance-reminders' });
     expect(CRON_JOBS.reminders.expectedIntervalMs).toBe(HOUR);
+    expect(CRON_JOBS.assignmentReminders).toMatchObject({ jobName: 'assignment-reminders' });
+    expect(CRON_JOBS.assignmentReminders.expectedIntervalMs).toBe(24 * HOUR);
   });
 });

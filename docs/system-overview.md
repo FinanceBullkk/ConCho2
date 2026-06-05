@@ -139,7 +139,7 @@ erDiagram
 | `Evaluation` | legacy English rubric | kept for compatibility; `Assessment` v1 is live ✅ |
 | `Enrollment` | cohort-based enrollment | ✅ live; legacy team enrollment still supported |
 | `Assessment`, `AssessmentAttempt`, `AssessmentQuestion` | quiz engine + question bank | ✅ v1 live |
-| `Certificate`, `Feedback`, `LearningPath`, `Assignment` | compliance, learner paths, assignment due dates | ✅ v1 live |
+| `Certificate`, `Feedback`, `LearningPath`, `Assignment`, `NotificationLog` | compliance, learner paths, assignment due dates, email idempotency logs | ✅ v1 live |
 
 Key unique indexes (final integrity guards): `Schedule {classId,startTime}`,
 `Attendance {scheduleId,userId}`, `Evaluation {classId,userId}`,
@@ -187,10 +187,10 @@ certificates, public verification, feedback UI, assessment v1, question bank,
 manual grading, completion reports, and rollups are live. Wave C has started:
 learner catalog, self-enroll, prerequisite gating, sequenced paths, admin paths
 UI, and learner path progress are live. Wave D has started: cron
-self-monitoring, org model/manager dashboard, and assignment + due dates v1 are
-live. For 1000 employees, next platform gaps are Google OIDC, Google Directory
-sync, notifications/escalation, compliance report depth, recertification, and
-generic scheduling.
+self-monitoring, org model/manager dashboard, assignment + due dates v1, and
+assignment reminders/manager escalation v1 are live. For 1000 employees, next
+platform gaps are Google OIDC, Google Directory sync, compliance report depth,
+recertification, broader notification surfaces, and generic scheduling.
 → see [`lms-roadmap.md`](lms-roadmap.md).
 
 **Stack:** React 19 + Vite 8 + Tailwind 4 / Express 4 + Mongoose 8 + MongoDB;

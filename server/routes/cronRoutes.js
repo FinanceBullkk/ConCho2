@@ -3,6 +3,7 @@ const { cronAuth } = require('../middleware/cronAuth');
 const { reconcileLimiter } = require('../middleware/rateLimiters');
 const { runReconciliation } = require('../services/reconcileService');
 const { sendUpcomingReminders } = require('../services/reminderService');
+const { sendAssignmentReminders } = require('../domains/learning/assignment/reminder-service');
 const { runMonitored, CRON_JOBS } = require('../lib/cronMonitor');
 const { handleError } = require('../helpers/handleError');
 
@@ -113,6 +114,35 @@ router.post('/attendance-reminders', async (req, res) => {
       CRON_JOBS.reminders.jobName,
       CRON_JOBS.reminders,
       () => sendUpcomingReminders({ lookaheadHours })
+    );
+    res.json({ success: true, data: summary });
+  } catch (err) {
+    handleError(res, err);
+  }
+});
+
+/**
+ * @openapi
+ * /cron/assignment-reminders:
+ *   post:
+ *     tags: [Cron]
+ *     summary: Send assignment due-date reminder and manager escalation emails
+ *     description: |
+ *       Idempotent by NotificationLog cadence keys. Safe to call daily from an
+ *       external pinger. Runtime clock injection is service-level only for tests.
+ *     security:
+ *       - cronToken: []
+ *     responses:
+ *       200: { description: Assignment reminder run summary }
+ *       401: { description: Invalid cron token }
+ */
+// POST /api/cron/assignment-reminders
+router.post('/assignment-reminders', async (req, res) => {
+  try {
+    const summary = await runMonitored(
+      CRON_JOBS.assignmentReminders.jobName,
+      CRON_JOBS.assignmentReminders,
+      () => sendAssignmentReminders()
     );
     res.json({ success: true, data: summary });
   } catch (err) {
