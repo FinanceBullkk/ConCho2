@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   Dialog, DialogContent, DialogHeader, DialogFooter, DialogTitle,
 } from '@/components/ui/dialog';
@@ -23,6 +24,7 @@ const SELECT_CLS =
 const idStr = (v) => (v && v._id ? v._id : v) || '';
 
 export default function OrgAssignmentModal({ user, candidates = [], onClose }) {
+  const { t } = useTranslation();
   const { data: departments } = useDepartments();
   const assign = useAssignUser();
 
@@ -42,29 +44,29 @@ export default function OrgAssignmentModal({ user, candidates = [], onClose }) {
     <Dialog open onOpenChange={(o) => !o && onClose()}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Assign manager &amp; department</DialogTitle>
+          <DialogTitle>{t('org.assignment.title')}</DialogTitle>
         </DialogHeader>
 
         <div className="space-y-4 py-2">
           <p className="text-sm text-muted-foreground">
-            Org placement for <span className="font-medium text-foreground">{user?.name}</span>.
+            {t('org.assignment.placement')} <span className="font-medium text-foreground">{user?.name}</span>.
           </p>
 
           <div>
-            <label htmlFor="org-manager" className="block text-small text-muted-foreground mb-1.5">Manager</label>
+            <label htmlFor="org-manager" className="block text-small text-muted-foreground mb-1.5">{t('org.assignment.manager')}</label>
             <select id="org-manager" className={SELECT_CLS} value={managerId} onChange={(e) => setManagerId(e.target.value)}>
-              <option value="">— No manager —</option>
+              <option value="">{t('org.assignment.noManager')}</option>
               {managerOptions.map((c) => (
                 <option key={c._id} value={c._id}>{c.name} ({c.empCode})</option>
               ))}
             </select>
-            <p className="mt-1 text-xs text-subtle-foreground">Pick from currently loaded users; search the list first to widen the choices.</p>
+            <p className="mt-1 text-xs text-subtle-foreground">{t('org.assignment.managerHint')}</p>
           </div>
 
           <div>
-            <label htmlFor="org-department" className="block text-small text-muted-foreground mb-1.5">Department</label>
+            <label htmlFor="org-department" className="block text-small text-muted-foreground mb-1.5">{t('org.assignment.department')}</label>
             <select id="org-department" className={SELECT_CLS} value={departmentId} onChange={(e) => setDepartmentId(e.target.value)}>
-              <option value="">— No department —</option>
+              <option value="">{t('org.assignment.noDepartment')}</option>
               {(departments || []).map((d) => (
                 <option key={d._id} value={d._id}>{d.name} ({d.code})</option>
               ))}
@@ -73,9 +75,9 @@ export default function OrgAssignmentModal({ user, candidates = [], onClose }) {
         </div>
 
         <DialogFooter>
-          <Button variant="outline" onClick={onClose} disabled={assign.isPending}>Cancel</Button>
+          <Button variant="outline" onClick={onClose} disabled={assign.isPending}>{t('org.assignment.cancel')}</Button>
           <Button onClick={save} disabled={assign.isPending}>
-            {assign.isPending ? <Spinner size={16} /> : 'Save'}
+            {assign.isPending ? <Spinner size={16} /> : t('org.assignment.save')}
           </Button>
         </DialogFooter>
       </DialogContent>

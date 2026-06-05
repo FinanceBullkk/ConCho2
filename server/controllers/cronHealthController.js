@@ -1,5 +1,5 @@
 const CronRun = require('../models/CronRun');
-const { deriveHealth } = require('../lib/cronMonitor');
+const { CRON_JOBS, deriveHealth } = require('../lib/cronMonitor');
 const { handleError } = require('../helpers/handleError');
 
 // ──────────────────────────────────────────────────────────
@@ -19,20 +19,38 @@ const getCronHealth = async (req, res) => {
   try {
     const runs = await CronRun.find().sort({ jobName: 1 }).lean();
     const now = Date.now();
+    const runsByName = new Map(runs.map((run) => [run.jobName, run]));
+    const configuredJobs = Object.values(CRON_JOBS);
+    const configuredNames = new Set(configuredJobs.map((job) => job.jobName));
 
-    const jobs = runs.map((run) => ({
-      jobName: run.jobName,
-      lastStatus: run.lastStatus,
-      lastStartedAt: run.lastStartedAt,
-      lastRunAt: run.lastRunAt,
-      lastSuccessAt: run.lastSuccessAt,
-      lastDurationMs: run.lastDurationMs,
-      lastError: run.lastError,
-      runCount: run.runCount,
-      failCount: run.failCount,
-      expectedIntervalMs: run.expectedIntervalMs,
-      ...deriveHealth(run, now),
-    }));
+    const toJob = (configOrRun) => {
+      const configured = configOrRun.jobName && configuredNames.has(configOrRun.jobName)
+        ? configOrRun
+        : null;
+      const stored = configured ? runsByName.get(configured.jobName) : configOrRun;
+      const run = {
+        jobName: configured?.jobName || stored.jobName,
+        lastStatus: stored?.lastStatus || null,
+        lastStartedAt: stored?.lastStartedAt || null,
+        lastRunAt: stored?.lastRunAt || null,
+        lastSuccessAt: stored?.lastSuccessAt || null,
+        lastDurationMs: stored?.lastDurationMs || 0,
+        lastError: stored?.lastError || null,
+        runCount: stored?.runCount || 0,
+        failCount: stored?.failCount || 0,
+        expectedIntervalMs: stored?.expectedIntervalMs ?? configured?.expectedIntervalMs ?? null,
+      };
+
+      return {
+        ...run,
+        ...deriveHealth(run, now),
+      };
+    };
+
+    const jobs = [
+      ...configuredJobs.map(toJob),
+      ...runs.filter((run) => !configuredNames.has(run.jobName)).map(toJob),
+    ].sort((a, b) => a.jobName.localeCompare(b.jobName));
 
     // Overall verdict: degraded if any monitored job is not 'ok'.
     const overall = jobs.length > 0 && jobs.every((j) => j.healthy) ? 'ok' : 'degraded';

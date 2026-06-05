@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import { StatusBadge } from './StatusBadge';
 
 // ──────────────────────────────────────────────────────────
@@ -13,10 +14,12 @@ const deptLabel = (dept) => {
 };
 
 export default function TeamRosterTable({ reports = [] }) {
+  const { t } = useTranslation();
+
   if (!reports.length) {
     return (
       <div className="bg-card border border-border rounded-lg py-12 text-center text-subtle-foreground text-sm">
-        You have no direct reports yet. An admin assigns reporting lines from People → Users.
+        {t('org.team.emptyTable')}
       </div>
     );
   }
@@ -26,12 +29,12 @@ export default function TeamRosterTable({ reports = [] }) {
       <table className="w-full text-sm">
         <thead>
           <tr className="border-b border-border text-left text-xs text-subtle-foreground uppercase tracking-wider">
-            <th className="px-4 py-3 font-medium">Employee</th>
-            <th className="px-4 py-3 font-medium">Department</th>
-            <th className="px-4 py-3 font-medium">Status</th>
-            <th className="px-4 py-3 font-medium text-right">Active</th>
-            <th className="px-4 py-3 font-medium text-right">Completed</th>
-            <th className="px-4 py-3 font-medium text-right">Certificates</th>
+            <th className="px-4 py-3 font-medium">{t('org.team.colEmployee')}</th>
+            <th className="px-4 py-3 font-medium">{t('org.team.colDepartment')}</th>
+            <th className="px-4 py-3 font-medium">{t('org.team.colStatus')}</th>
+            <th className="px-4 py-3 font-medium text-right">{t('org.team.colActive')}</th>
+            <th className="px-4 py-3 font-medium text-right">{t('org.team.colCompleted')}</th>
+            <th className="px-4 py-3 font-medium text-right">{t('org.team.colCertificates')}</th>
           </tr>
         </thead>
         <tbody className="divide-y divide-border">
