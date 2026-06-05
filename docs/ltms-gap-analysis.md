@@ -94,8 +94,8 @@ training workflow. Milestone shape (accepted — canonical **Wave D4** in
   completion/certificate and cohort-enrollment signals for status; soft-delete +
   audit like every mutation.
 - **Status surface v1:** Learning → Assignments shows summary counts for
-  `not-started / in-progress / complete / overdue`. Completion-report joins are
-  deferred to D6 report depth.
+  `not-started / in-progress / complete / overdue`. Compliance-report joins and
+  export shipped later in D6 v1.1.
 - **Capabilities:** `assignment.manage` (Admin) / `assignment.read`
   (Admin/Teacher).
 - **Why now:** unlocks the #1 HR workflow and gives notifications (G3) and

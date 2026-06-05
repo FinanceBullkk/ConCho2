@@ -92,11 +92,13 @@ manual grading, completion reports, and rollups are live. Wave C core is done:
 learner catalog, self-enroll, prerequisite gating, sequenced paths, admin paths
 UI, and learner path progress are live. Wave D has codeable traction: cron
 self-monitoring, org model/manager dashboard, assignment + due dates v1, and
-assignment reminder/escalation v1 are live.
+assignment reminder/escalation v1 are live. D6 v1.1 is also live: Admin
+compliance report/export, certificate expiry state, and Learning Reports
+Compliance UI are wired and verified.
 
 The biggest remaining platform gaps for 1000 internal employees are Google OIDC,
-Directory sync, compliance reporting depth, recertification, broader
-notification surfaces, and generic scheduling.
+Directory sync, expiry reminder/recertification automation, broader notification
+surfaces, and generic scheduling.
 
 See [`development-roadmap.md`](development-roadmap.md) for exact progress and
 recent changelog.
@@ -153,8 +155,8 @@ committed parallel track**.
 - Capabilities `assignment.manage` / `assignment.read`; soft-delete + audit.
 - Learning workspace has an Assignments tab with Admin create/archive and
   Admin/Teacher read.
-- Remaining later: cohort-specific assignment, reminders/escalation, report
-  exports, certificate expiry/recertification.
+- D5 shipped reminders/escalation; D6 shipped compliance export and certificate
+  expiry signal. Remaining later: cohort-specific assignment.
 
 ### Wave D5 — Notification / escalation engine *(G3)*
 
@@ -172,12 +174,22 @@ committed parallel track**.
 
 ### Wave D6 — Compliance reporting depth + recertification
 
-- Expand completion/assignment reports by department, manager, program, cohort,
-  overdue, completed, and certified.
-- Add certificate **expiry + recertification cycles** (G6): certificates carry a
-  validity window; expiring/expired status feeds reports and D5 reminders.
-- Keep exports reliable for 1000 employees; avoid memory-heavy report paths. Add
-  saved filters/presets only if HR repeats the same report monthly.
+- **v1.1 live 2026-06-05:** Admin-only compliance report and xlsx export over
+  D4 assignments, D3 department/manager fields, D4 derived status, and
+  certificate state.
+- Compliance report supports assignment, program, department, manager, status,
+  certificate state, and due-window filters; export is capped, audit logged, and
+  formula-injection guarded.
+- Certificate validity window is now part of the certificate issue path:
+  `LearningProgram.certificateValidityDays` snapshots to certificate
+  `validFrom`/`validUntil`/`validityDays`; legacy certificates with no
+  `validUntil` remain non-expiring.
+- Learning -> Reports has an Admin-only Compliance view with filters, summary
+  tiles, rows, and Excel export. Teachers keep completion-only reports;
+  Participants remain gated out.
+- Remaining later: certificate expiry reminder emails, automatic
+  recertification assignment creation after HR policy approval, and saved
+  report presets if HR repeats the same monthly view.
 
 ### Wave E — Generic scheduling *(G7 — committed parallel track; large, own plan)*
 
@@ -212,8 +224,8 @@ committed parallel track**.
 - What Google Workspace domain(s) are allowed for OIDC login?
 - Is manager data available in Google Directory, or must HR maintain it another
   way?
-- What compliance reports does HR need monthly: by department, manager, program,
-  certification, overdue, or all of these?
+- Does HR need saved compliance report presets, or is the D6 v1.1 filter/export
+  flow enough for monthly reporting?
 - Generic scheduling (Wave E): does the org actually run sessions needing rooms,
   capacity, waitlists, or multiple instructors — or is the genericisation
   pre-emptive? Confirm the concrete need before drafting the phase plan.

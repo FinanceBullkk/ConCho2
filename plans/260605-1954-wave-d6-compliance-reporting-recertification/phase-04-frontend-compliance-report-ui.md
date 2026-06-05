@@ -1,10 +1,12 @@
 ---
 phase: 4
-title: "Frontend compliance report UI"
-status: pending
+title: Frontend compliance report UI
+status: completed
 priority: P2
-effort: "1d"
-dependencies: [2, 3]
+effort: 1d
+dependencies:
+  - 2
+  - 3
 ---
 
 # Phase 4: Frontend compliance report UI
@@ -67,12 +69,12 @@ UI shape:
 
 ## Success Criteria
 
-- [ ] Admin can reach compliance report from `/learning`.
-- [ ] Teacher and Participant cannot reach compliance report UI through role gates.
-- [ ] UI loads report only when requested or filters are valid.
-- [ ] Excel export downloads from browser flow.
-- [ ] Long labels fit in table/cards on desktop and mobile.
-- [ ] New strings are in `en.json`.
+- [x] Admin can reach compliance report from `/learning`.
+- [x] Teacher and Participant cannot reach compliance report UI through role gates.
+- [x] UI loads report only when requested or filters are valid.
+- [x] Excel export downloads from browser flow.
+- [x] Long labels fit in table/cards on desktop and mobile.
+- [x] New strings are in `en.json`.
 
 ## Risk Assessment
 
