@@ -251,6 +251,10 @@ export const learningAPI = {
   getCompletionRollup: () => api.get('/learning/reports/completion/rollup'),
   downloadCompletionReport: (params) =>
     api.get('/learning/reports/completion/export', { params, responseType: 'blob' }),
+  // Org-wide compliance reporting + xlsx export (Admin-only).
+  getComplianceReport: (params) => api.get('/learning/reports/compliance', { params }),
+  downloadComplianceReport: (params) =>
+    api.get('/learning/reports/compliance/export', { params, responseType: 'blob' }),
 };
 
 // ── Generic Assessment Engine ────────────────────────────

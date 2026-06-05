@@ -5,6 +5,7 @@ import { BarChart3, Download, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import TableSkeleton from '@/components/TableSkeleton';
 import { EmptyState } from '@/components/EmptyState';
 import {
@@ -13,31 +14,17 @@ import {
   useCompletionRollup,
   useDownloadCompletionReport,
 } from '../../hooks/useLearning';
+import { useRole } from '../../hooks/useRole';
 import CompletionReportTable from './CompletionReportTable';
 import CompletionRollupTable from './CompletionRollupTable';
-
-// Trigger a browser download from the blob response, reading the filename from
-// Content-Disposition (mirrors the HR export flow).
-const saveBlob = (res, fallback) => {
-  const disposition = res.headers['content-disposition'] || '';
-  const match = disposition.match(/filename="?([^"]+)"?/);
-  const filename = match ? match[1] : fallback;
-  const blob = new Blob([res.data], {
-    type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-  });
-  const url = window.URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = filename;
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-  window.URL.revokeObjectURL(url);
-};
+import ComplianceReportPanel from './ComplianceReportPanel';
+import { saveBlob } from './report-download';
 
 export default function ReportsTab() {
   const { t } = useTranslation();
+  const { isAdmin } = useRole();
   const [cohortId, setCohortId] = useState('');
+  const [reportView, setReportView] = useState('completion');
 
   const { data: cohortData } = useLearningCohorts();
   const cohorts = cohortData?.data || [];
@@ -107,7 +94,7 @@ export default function ReportsTab() {
     body = <CompletionReportTable report={report} />;
   }
 
-  return (
+  const completionPanel = (
     <div className="space-y-4">
       <Card>
         <CardHeader className="flex flex-row items-center justify-between gap-3">
@@ -139,5 +126,26 @@ export default function ReportsTab() {
         <CardContent>{body}</CardContent>
       </Card>
     </div>
+  );
+
+  if (!isAdmin) {
+    return completionPanel;
+  }
+
+  return (
+    <Tabs value={reportView} onValueChange={setReportView} className="space-y-4">
+      <div className="max-w-full overflow-x-auto pb-1">
+        <TabsList className="w-max min-w-full justify-start">
+          <TabsTrigger value="completion">{t('learning.reports.views.completion')}</TabsTrigger>
+          <TabsTrigger value="compliance">{t('learning.reports.views.compliance')}</TabsTrigger>
+        </TabsList>
+      </div>
+      <TabsContent value="completion" hidden={reportView !== 'completion'}>
+        {reportView === 'completion' && completionPanel}
+      </TabsContent>
+      <TabsContent value="compliance" hidden={reportView !== 'compliance'}>
+        {reportView === 'compliance' && <ComplianceReportPanel />}
+      </TabsContent>
+    </Tabs>
   );
 }
