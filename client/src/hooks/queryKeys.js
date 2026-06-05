@@ -60,6 +60,7 @@ export const qk = {
     feedback: (params) => ['learning', 'feedback', params],
     completionReport: (cohortId) => ['learning', 'completion-report', cohortId],
     completionRollup: ['learning', 'completion-rollup'],
+    complianceReport: (params) => ['learning', 'compliance-report', params],
     paths: (params) => ['learning', 'paths', params],
     path: (id) => ['learning', 'path', id],
     pathProgress: (id) => ['learning', 'path-progress', id],

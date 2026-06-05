@@ -54,11 +54,25 @@ export const useCompletionRollup = (options = {}) =>
     ...options,
   });
 
+// Org-wide compliance report — caller controls enabled so the heavy report
+// loads only after the Admin requests it.
+export const useComplianceReport = (filters = {}, options = {}) =>
+  useQuery({
+    queryKey: qk.learning.complianceReport(filters),
+    queryFn: async () => (await learningAPI.getComplianceReport(filters)).data.data,
+    ...options,
+  });
+
 // Returns the raw axios response (responseType: 'blob') so the caller can read
 // the Content-Disposition filename and trigger a browser download.
 export const useDownloadCompletionReport = () =>
   useMutation({
     mutationFn: (cohortId) => learningAPI.downloadCompletionReport({ cohortId }),
+  });
+
+export const useDownloadComplianceReport = () =>
+  useMutation({
+    mutationFn: (filters = {}) => learningAPI.downloadComplianceReport(filters),
   });
 
 // Invalidate every learning list/detail after a write (programs, cohorts,

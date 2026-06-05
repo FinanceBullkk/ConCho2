@@ -342,7 +342,7 @@
       "feedback": "Feedback",
       "feedbackDesc": "Learner cohort feedback submissions and ratings.",
       "reports": "Reports",
-      "reportsDesc": "Cohort completion status — attendance, assessment, feedback, and certificates."
+      "reportsDesc": "Cohort completion and Admin compliance status for required learning."
     },
     "reports": {
       "title": "Completion report",
@@ -359,6 +359,10 @@
       "na": "—",
       "yes": "Yes",
       "no": "No",
+      "views": {
+        "completion": "Completion",
+        "compliance": "Compliance"
+      },
       "summary": {
         "total": "Learners",
         "complete": "Complete",
@@ -389,6 +393,63 @@
         "feedback": "Feedback",
         "complete": "Complete",
         "certificate": "Certificate"
+      },
+      "compliance": {
+        "title": "Compliance report",
+        "load": "Load report",
+        "loading": "Loading...",
+        "reset": "Reset",
+        "ready": "Compliance report ready",
+        "readyDesc": "Set filters and load the report when HR or L&D needs the current compliance view.",
+        "empty": "No compliance rows",
+        "emptyDesc": "No required assignments match the current filters.",
+        "invalidDueRange": "Due from must be before or equal to due to.",
+        "validUntil": "Valid until",
+        "filters": {
+          "assignment": "Assignment",
+          "program": "Program",
+          "department": "Department",
+          "manager": "Manager",
+          "status": "Assignment status",
+          "certificateState": "Certificate state",
+          "dueFrom": "Due from",
+          "dueTo": "Due to",
+          "allAssignments": "All assignments",
+          "allPrograms": "All programs",
+          "allDepartments": "All departments",
+          "allManagers": "All managers",
+          "allStatuses": "All statuses",
+          "allCertificateStates": "All certificate states"
+        },
+        "summary": {
+          "total": "Total",
+          "overdue": "Overdue",
+          "complete": "Complete",
+          "certified": "Certified",
+          "expiring": "Expiring",
+          "expired": "Expired"
+        },
+        "col": {
+          "learner": "Learner",
+          "org": "Org",
+          "assignment": "Assignment",
+          "dueDate": "Due date",
+          "assignmentStatus": "Assignment status",
+          "certificateState": "Certificate"
+        },
+        "status": {
+          "not_started": "Not started",
+          "in_progress": "In progress",
+          "complete": "Complete",
+          "overdue": "Overdue"
+        },
+        "certificateState": {
+          "issued": "Issued",
+          "missing": "Missing",
+          "expiring": "Expiring",
+          "expired": "Expired",
+          "revoked": "Revoked"
+        }
       }
     },
     "assignments": {

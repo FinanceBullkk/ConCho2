@@ -59,6 +59,12 @@ describe('useRole', () => {
     expect(renderAsRole('Participant').can('read:assignments')).toBe(false);
   });
 
+  it('Admin and Teacher can reach Learning reports while Participant cannot', () => {
+    expect(renderAsRole('Admin').can('read:reports')).toBe(true);
+    expect(renderAsRole('Teacher').can('read:reports')).toBe(true);
+    expect(renderAsRole('Participant').can('read:reports')).toBe(false);
+  });
+
   it('canAny returns true if any permission matches', () => {
     const { canAny } = renderAsRole('Teacher');
     expect(canAny(['delete:user', 'record:attendance'])).toBe(true);

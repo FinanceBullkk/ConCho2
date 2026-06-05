@@ -61,17 +61,19 @@ export default function LearningPage() {
     <div>
       <PageHeader title={t('learning.title')} description={t(`learning.tabs.${current.id}Desc`)} />
       <Tabs value={activeTab} onValueChange={setTab} className="space-y-6">
-        <TabsList>
-          {tabs.map((tab) => {
-            const Icon = tab.icon;
-            return (
-              <TabsTrigger key={tab.id} value={tab.id} className="gap-2">
-                <Icon className="size-4" aria-hidden="true" />
-                {t(`learning.tabs.${tab.id}`)}
-              </TabsTrigger>
-            );
-          })}
-        </TabsList>
+        <div className="max-w-full overflow-x-auto pb-1">
+          <TabsList className="w-max min-w-full justify-start">
+            {tabs.map((tab) => {
+              const Icon = tab.icon;
+              return (
+                <TabsTrigger key={tab.id} value={tab.id} className="gap-2">
+                  <Icon className="size-4" aria-hidden="true" />
+                  {t(`learning.tabs.${tab.id}`)}
+                </TabsTrigger>
+              );
+            })}
+          </TabsList>
+        </div>
         <TabsContent value="programs" hidden={activeTab !== 'programs'}>
           {activeTab === 'programs' && <ProgramsTab />}
         </TabsContent>
