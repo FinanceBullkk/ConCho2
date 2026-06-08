@@ -1,6 +1,5 @@
 const Schedule = require('../../../models/Schedule');
 const Class = require('../../../models/Class');
-const Team = require('../../../models/Team');
 const LearningProgram = require('../../../models/LearningProgram');
 const Enrollment = require('../../../models/Enrollment');
 const {
@@ -51,28 +50,6 @@ const findCohortIdsByTeacher = async (teacherId) => {
   return rows.map((row) => row._id);
 };
 
-// Resolve the scheduling mode that governs how a group books sessions.
-// Chain: Team(group) -> Class(cohort).programId -> LearningProgram.schedulingMode.
-// Falls back to 'leader_booking' whenever program info is missing, so legacy
-// cohorts without a programId keep their existing team-booking behaviour.
-const findSchedulingContextByGroup = async (groupId) => {
-  const fallback = { schedulingMode: 'leader_booking', programId: null, cohortId: null };
-
-  const team = await Team.findById(groupId).select('classId').lean();
-  if (!team || !team.classId) return fallback;
-
-  const cohort = await Class.findById(team.classId).select('programId').lean();
-  const programId = cohort?.programId || null;
-  if (!programId) return { ...fallback, cohortId: team.classId };
-
-  const program = await LearningProgram.findById(programId).select('schedulingMode').lean();
-  return {
-    schedulingMode: program?.schedulingMode || 'leader_booking',
-    programId,
-    cohortId: team.classId,
-  };
-};
-
 // Resolve the scheduling mode directly from a Cohort (Class) — used by the
 // cohort-based booking path (self_enroll / nomination), which has no Team.
 // Chain: Class(cohort).programId -> LearningProgram.schedulingMode.
@@ -107,7 +84,6 @@ module.exports = {
   findSessions,
   findSessionById,
   findCohortIdsByTeacher,
-  findSchedulingContextByGroup,
   findSchedulingContextByCohort,
   findActiveCohortLearnerIds,
 };

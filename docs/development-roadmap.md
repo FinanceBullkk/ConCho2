@@ -189,6 +189,21 @@ Bug fixing and integration review rank above net-new feature rollout.
 
 ## Recent progress (changelog)
 
+- **2026-06-09** — **`schedulingMode` enforced on the legacy booking paths
+  (Pass C — closes a real authz gap).** ck-predict review found the client books
+  via the LEGACY ungated `/api/schedules/book-slot` (the mode-gated learning
+  adapter route had no client callers), so a team leader could self-book an
+  `admin_scheduled` program and an Admin could team-book a cohort program. New
+  shared `server/domains/schedule/scheduling-mode-policy.js` (mode sets +
+  `assertTeamMode`/`assertTeamModeStructural`/`assertCohortMode` + a
+  `leader_booking`-fallback resolver) is now the single gate, consulted by the
+  `bookSlot` chokepoint (covers the legacy leader route AND the adapter — the
+  adapter's duplicate inline gate was removed), `adminCreate`, and the Admin
+  reassign path. Leader self-booking `admin_scheduled` → 403; team-booking a
+  cohort program → 400; program-less classes still book (fallback). 680 server
+  tests green across 71 suites (new mode-policy unit + new legacy-path
+  integration). Spec folded into `scheduling-and-booking` + `capability-authz`.
+  Deferred: client mode-awareness (pre-submit hint) — UX slice.
 - **2026-06-09** — **Booking-rules consolidation — one deep `session-booking-policy`
   module.** Architecture deepening of the Scheduling & Booking core. New
   `server/domains/schedule/session-booking-policy.js` owns the previously-duplicated

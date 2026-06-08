@@ -36,6 +36,7 @@ const sessionOrderCache = new NodeCache({ stdTTL: 300, checkperiod: 60 });
 const { ServiceError } = require('../helpers/ServiceError');
 const schedulingWindowPolicy = require('../domains/schedule/scheduling-window-policy');
 const bookingPolicy = require('../domains/schedule/session-booking-policy');
+const schedulingModePolicy = require('../domains/schedule/scheduling-mode-policy');
 
 // ── Helpers ───────────────────────────────────────────────
 
@@ -186,6 +187,15 @@ const bookSlot = async ({ teamId, startTime, endTime, requestUser }) => {
 
   // ── Validate times + allowed slot ─────────────────────
   await assertValidBookingSlot(start, end);
+
+  // ── schedulingMode gate (Pass C) ──────────────────────
+  // This is the shared chokepoint for team booking: BOTH the legacy
+  // /api/schedules/book-slot leader route AND the learning/session adapter call
+  // bookSlot, so the mode rule is enforced regardless of entry point. A team
+  // session is rejected for a cohort-based program (400) or an unknown mode
+  // (501), and an admin_scheduled program may be booked only by an Admin (403).
+  const schedulingMode = await schedulingModePolicy.resolveSchedulingMode({ teamId });
+  schedulingModePolicy.assertTeamMode({ schedulingMode, actor: requestUser });
 
   // ── TRANSACTION: Atomic booking ───────────────────────
   const session = await mongoose.startSession();
@@ -562,6 +572,13 @@ const adminCreate = async (data) => {
 
   // ── Validate dates + allowed slot (shared policy) ─────
   await assertValidBookingSlot(start, end);
+
+  // ── schedulingMode gate (Pass C) ──────────────────────
+  // Admin override (BR-6) keeps an Admin free to team-book any team-mode program,
+  // but NOT a cohort-based program (self_enroll/nomination) — those are scheduled
+  // against the cohort. Structural only (Admin-gated route, so no actor check).
+  const schedulingMode = await schedulingModePolicy.resolveSchedulingMode({ classId });
+  schedulingModePolicy.assertTeamModeStructural({ schedulingMode });
 
   // ── TRANSACTION: All checks + create (atomic) ─────────
   const session = await mongoose.startSession();

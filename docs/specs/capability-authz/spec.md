@@ -2,7 +2,7 @@
 capability: capability-authz
 status: evolving
 owners: [middleware/requireCapability, middleware/roleGuard, policy]
-last_updated: 2026-06-08
+last_updated: 2026-06-09
 related_code:
   - server/middleware/requireCapability.js
   - server/policy/capabilities.js
@@ -136,8 +136,10 @@ Inherits `security-platform`. Specifics:
 - **Per-user / DB-stored capability grants:** today capabilities are derived
   from role via a static map (no custom per-user grants).
 - **Migrating legacy routes** (`roleGuard`) onto `requireCapability`.
-- **`schedulingMode` gating** beyond `leader_booking`; `capacityPolicy` /
-  `facilitatorPolicy` enforcement — persisted, not enforced (see
-  `scheduling-and-booking`, `enrollment`).
+- **`schedulingMode` gating** is now enforced on all session-create paths
+  (`leader_booking` + `admin_scheduled` + cohort-vs-team structural) via
+  `domains/schedule/scheduling-mode-policy` — see `scheduling-and-booking`.
+  Still deferred: `capacityPolicy` / `facilitatorPolicy` enforcement (persisted,
+  not enforced — see `enrollment`).
 - A generic `requirePolicy` middleware wrapper (sketched in `policy/README.md`,
   not implemented — resource policies are called directly in controllers).

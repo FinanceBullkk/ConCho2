@@ -1,6 +1,8 @@
 const Schedule = require('../../models/Schedule');
 const Team = require('../../models/Team');
 const Attendance = require('../../models/Attendance');
+const Class = require('../../models/Class');
+const LearningProgram = require('../../models/LearningProgram');
 
 // ── Schedule ──────────────────────────────────────────────
 
@@ -67,6 +69,24 @@ const countSchedulesForTeamInWeek = (teamId, weekStart, weekEnd, excludeId, sess
   return q;
 };
 
+// ── Scheduling-mode resolution (Pass C) ───────────────────
+// Resolve a class/cohort's scheduling mode: Class.programId -> LearningProgram.
+// Falls back to 'leader_booking' whenever the program link is absent (the
+// repo-wide "open until populated" rule) so legacy program-less cohorts keep
+// their team-booking behaviour. Mirrors the fallback in
+// domains/learning/session/repository.findSchedulingContextBy* — keep in sync.
+const findClassSchedulingMode = async (classId, session) => {
+  if (!classId) return 'leader_booking';
+  let cq = Class.findById(classId).select('programId').lean();
+  if (session) cq = cq.session(session);
+  const cls = await cq;
+  if (!cls || !cls.programId) return 'leader_booking';
+  let pq = LearningProgram.findById(cls.programId).select('schedulingMode').lean();
+  if (session) pq = pq.session(session);
+  const program = await pq;
+  return program?.schedulingMode || 'leader_booking';
+};
+
 module.exports = {
   findScheduleById,
   findScheduleByIdRaw,
@@ -77,4 +97,5 @@ module.exports = {
   findTeamById,
   findScheduleForCollision,
   countSchedulesForTeamInWeek,
+  findClassSchedulingMode,
 };

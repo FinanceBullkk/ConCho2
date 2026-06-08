@@ -13,6 +13,7 @@ related_code:
   - server/controllers/scheduleController.js
   - server/domains/schedule/scheduling-window-policy.js
   - server/domains/schedule/session-booking-policy.js
+  - server/domains/schedule/scheduling-mode-policy.js
   - server/domains/schedule/use-cases.js
   - server/domains/learning/session/use-cases.js
   - server/controllers/settingController.js
@@ -187,6 +188,39 @@ target Mon–Sun week (`countDocuments({bookedTeamId, startTime in week}) >= 2`)
 - **WHEN** they book a third
 - **THEN** it is rejected ("max 2 sessions/week")
 
+### Requirement: Scheduling-mode gating [BR-1, BR-6, UC-1, UC-3]
+
+The system SHALL enforce a program's `schedulingMode` (resolved
+`Team → Class.programId → LearningProgram`, falling back to `leader_booking`
+when no program is linked) on **every** session-creation path — the leader route
+(`POST /api/schedules/book-slot`), Admin create (`POST /api/schedules`), the
+Admin reassign (`PUT /api/schedules/:id` with a new `bookedTeamId`), and the
+learning/session adapter — via one shared policy
+(`domains/schedule/scheduling-mode-policy`). Team modes (`leader_booking`,
+`admin_scheduled`) book against a team; cohort modes (`self_enroll`, `nomination`)
+book against a cohort. A team session for a cohort-mode program is rejected
+(**400**); an `admin_scheduled` program may be team-booked only by an Admin
+(**403**); an unknown/future mode fails closed (**501**).
+
+> Closes the gap where the legacy `/api/schedules/book-slot` route (reachable by
+> team leaders) and Admin create/reassign had no mode check, letting a leader
+> self-book an `admin_scheduled` program or an Admin team-book a cohort program.
+
+#### Scenario: Leader self-books an admin_scheduled program (legacy route)
+- **GIVEN** a team whose program is `admin_scheduled`
+- **WHEN** the team leader books via `POST /api/schedules/book-slot`
+- **THEN** it is rejected with **403** ("admin-scheduled — only an Admin…")
+
+#### Scenario: Team-booking a cohort-based program
+- **GIVEN** a team whose program is `self_enroll`/`nomination`
+- **WHEN** anyone (leader or Admin) team-books it (book-slot, create, or reassign)
+- **THEN** it is rejected with **400** ("cohort-based — schedule against the cohort")
+
+#### Scenario: Program-less class still books
+- **GIVEN** a class with no linked program (`programId` null)
+- **WHEN** the leader books
+- **THEN** it succeeds (mode falls back to `leader_booking` — graceful migration)
+
 ### Requirement: Cancellation deletes the session [BR-1, UC-2]
 
 The system SHALL delete the `Schedule` document on cancellation (no soft-delete
@@ -201,8 +235,9 @@ slot and removing any linked calendar event.
 ### Requirement: Admin override [BR-6, UC-3]
 
 The system SHALL allow an Admin to create, time-edit, or delete any session,
-bypassing leader-only and weekly-cap restrictions, but NOT the
-slot-validity / collision / unique-index guards.
+bypassing leader-only restrictions, but NOT the slot-validity / collision /
+unique-index guards nor the cohort-vs-team scheduling-mode structural rule (an
+Admin still cannot team-book a cohort-based program).
 
 #### Scenario: Reassigning a session to another team rebuilds the roster
 - **GIVEN** a future session owned by Team A, and Team B (same class) whose
@@ -248,6 +283,8 @@ Inherits `docs/specs/security-platform/spec.md`. Specifics:
 - [ ] Cancel deletes the Schedule and frees the slot.
 - [ ] Admin can create/move/delete any session within the guards.
 - [ ] Reassigning a session to another team rebuilds `enrolledUsers` from the new team's **Active** members (Dropped excluded).
+- [ ] Leader self-booking an `admin_scheduled` program via the legacy `/book-slot` route → 403 (bypass closed).
+- [ ] Team-booking a `self_enroll`/`nomination` program (book-slot, admin create, or reassign) → 400; program-less class still books (leader_booking fallback).
 - [ ] Calendar/email failure does not roll back the booking.
 - [ ] Scheduling config readable by all roles (401 anonymous); Settings stays Admin-only.
 - [ ] Settings PUT rejects malformed/overlapping config (400); empty array allowed.
@@ -267,12 +304,14 @@ Inherits `docs/specs/security-platform/spec.md`. Specifics:
 
 ## Out of Scope / Deferred
 
-- **Full `schedulingMode` enforcement.** `LearningProgram.schedulingMode`
-  (`leader_booking` | `admin_scheduled` | `self_enroll` | `nomination`) is
-  persisted; only **`leader_booking` is fully enforced** today. Team-less cohort
-  sessions (self_enroll/nomination) can be Admin-created, but mode-gated routing
-  is the top open task — see `docs/specs/capability-authz/spec.md` (evolving) and
-  `plans/260606-1356-wave-e-generic-scheduling`.
+- **Client mode-awareness (UX follow-up).** `schedulingMode` is now enforced
+  server-side on **every** create path (leader booking, Admin create, Admin
+  reassign, and the learning adapter) via the shared `scheduling-mode-policy`.
+  The booking UI does NOT yet surface mode, so an admin/leader can fill the form
+  and only learn of a mode mismatch from the post-submit 400/403. Surfacing mode
+  pre-submit (disable/annotate mode-incompatible teams; hide "+Book" for
+  `admin_scheduled`) is the remaining slice. Broader capability-based authz: see
+  `docs/specs/capability-authz/spec.md` (evolving).
 - **Client exact-slot rendering (Wave E1 client slice — pending).** The server
   now validates + exposes exact (minute-offset, variable-duration) windows, but
   the booking UI grid (`CalendarGrid` + Book/Schedules/Attendance pages) still
