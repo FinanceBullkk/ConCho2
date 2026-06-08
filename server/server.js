@@ -12,6 +12,7 @@ const helmet = require('helmet');
 const cookieParser = require('cookie-parser');
 const mongoSanitize = require('express-mongo-sanitize');
 const pinoHttp = require('pino-http');
+const compression = require('compression');
 
 const connectDB = require('./config/db');
 const logger = require('./lib/logger');
@@ -186,6 +187,13 @@ app.use(
 );
 
 // ── Core middleware ───────────────────────────────────────
+// PERF-010: Gzip/Brotli compression for all responses >1 KB.
+// Skips compression for tiny responses (overhead not worth it) and
+// for requests that already carry a Content-Encoding (edge proxies).
+app.use(compression({
+  threshold: 1024,
+  level: 6, // balanced speed/ratio
+}));
 app.use(cookieParser());                          // Parse HttpOnly cookies
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
