@@ -11,12 +11,14 @@ const fixture = vi.hoisted(() => ({
     triggeredBy: 'manual',
     status: 'issues',
     summary: {
+      missing_attendance: 0,
       duplicate_active_enrollment: 1,
       orphan_schedule_class: 1,
       multi_team_class: 1,
       counter_drift: 1,
       soft_deleted_in_team_members: 1,
-      total: 6,
+      future_summary_key: 2,
+      total: 7,
     },
     issues: [
       {
@@ -39,6 +41,10 @@ const fixture = vi.hoisted(() => ({
       {
         check: 'soft_deleted_in_team_members',
         description: 'Deleted learner remains in team',
+      },
+      {
+        check: 'constructor',
+        description: 'Prototype-like future check payload',
       },
       {
         check: 'future_check_type',
@@ -84,8 +90,9 @@ describe('ReconcilePage', () => {
     expect(screen.getAllByText('Multiple teams for one class')).toHaveLength(2);
     expect(screen.getAllByText('Counter drift')).toHaveLength(2);
     expect(screen.getAllByText('Deleted user in team')).toHaveLength(2);
-    expect(screen.getByText('Unknown reconciliation check')).toBeInTheDocument();
+    expect(screen.getAllByText('Unknown reconciliation check').length).toBeGreaterThanOrEqual(3);
     expect(screen.getByText('Learner has two active enrollments')).toBeInTheDocument();
+    expect(screen.getByText('Prototype-like future check payload')).toBeInTheDocument();
     expect(screen.getByText('Future check payload')).toBeInTheDocument();
   });
 });

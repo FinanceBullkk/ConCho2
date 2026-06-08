@@ -79,5 +79,13 @@ const UNKNOWN_CHECK_META = {
   severity: 'info',
 };
 
+export const getReconcileCheckKeys = (report) => {
+  const known = Object.keys(RECONCILE_CHECK_META);
+  const reported = Object.keys(report?.summary || {}).filter((key) => key !== 'total');
+  return [...new Set([...known, ...reported])];
+};
+
 export const getReconcileCheckMeta = (check) =>
-  RECONCILE_CHECK_META[check] ?? UNKNOWN_CHECK_META;
+  Object.hasOwn(RECONCILE_CHECK_META, check)
+    ? RECONCILE_CHECK_META[check]
+    : UNKNOWN_CHECK_META;

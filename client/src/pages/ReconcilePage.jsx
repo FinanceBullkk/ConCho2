@@ -9,7 +9,7 @@ import { Spinner } from '../components/Spinner';
 import CronHealthPanel from '../components/CronHealthPanel';
 import {
   getReconcileCheckMeta,
-  RECONCILE_CHECK_META,
+  getReconcileCheckKeys,
 } from './reconcile-check-meta';
 
 // ──────────────────────────────────────────────────────────
@@ -150,10 +150,10 @@ export default function ReconcilePage() {
   // Trigger a new run
   const runMutation = useMutation({
     mutationFn: () => reconcileAPI.triggerRun().then((r) => r.data.data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['reconcile'] });
+    onSuccess: async () => {
       setSelectedReportId(null); // jump to latest (which is now the new one)
       setFilterCheck(null);
+      await queryClient.invalidateQueries({ queryKey: ['reconcile'] });
     },
   });
 
@@ -170,9 +170,9 @@ export default function ReconcilePage() {
 
   // Summary cards ordered by severity DESC then alphabetical so critical
   // categories surface first (matches §F Reconcile spec).
-  const CHECK_KEYS = Object.keys(RECONCILE_CHECK_META).sort((a, b) => {
-    const sa = SEVERITY_RANK[RECONCILE_CHECK_META[a].severity] ?? 0;
-    const sb = SEVERITY_RANK[RECONCILE_CHECK_META[b].severity] ?? 0;
+  const CHECK_KEYS = getReconcileCheckKeys(report).sort((a, b) => {
+    const sa = SEVERITY_RANK[getReconcileCheckMeta(a).severity] ?? 0;
+    const sb = SEVERITY_RANK[getReconcileCheckMeta(b).severity] ?? 0;
     if (sa !== sb) return sb - sa;
     return a.localeCompare(b);
   });
@@ -282,7 +282,7 @@ export default function ReconcilePage() {
             <div className="bg-card border border-border rounded-lg py-10 text-center space-y-2">
               <CheckCircle2 className="size-8 text-success mx-auto" aria-hidden="true" />
               <p className="text-success font-medium">All clear — no data drift detected</p>
-              <p className="text-subtle-foreground text-sm">Checked {Object.keys(RECONCILE_CHECK_META).length} integrity rules across all collections.</p>
+              <p className="text-subtle-foreground text-sm">Checked {CHECK_KEYS.length} integrity rules across all collections.</p>
             </div>
           )}
         </>
