@@ -27,3 +27,7 @@ _Avoid_: group session.
 **Cohort-based session**:
 A Session booked against a Cohort with no team (scheduling modes `self_enroll`, `nomination`); the roster is snapshotted from the cohort's active enrollments. The Weekly cap and leader-authorization do not apply.
 _Avoid_: classless session.
+
+**Scheduling mode**:
+A Program attribute deciding who creates a Session and how: `leader_booking` (team leader self-books), `admin_scheduled` (only an Admin books the team's sessions), `self_enroll` / `nomination` (Admin schedules cohort sessions). It reaches a Session via the Cohort's program link; when no program is linked it falls back to `leader_booking`.
+_Avoid_: booking mode, session type.

@@ -6,6 +6,7 @@ const { invalidateSessionOrderCache } = require('../../services/scheduleService'
 const schedulingWindowPolicy = require('./scheduling-window-policy');
 const repository = require('./repository');
 const bookingPolicy = require('./session-booking-policy');
+const schedulingModePolicy = require('./scheduling-mode-policy');
 
 // ── Shared helpers ────────────────────────────────────────
 
@@ -96,6 +97,14 @@ const updateSchedule = async (id, body) => {
             'Cannot reassign schedule — target team belongs to a different class', 400,
           );
         }
+
+        // schedulingMode gate (Pass C): cannot attach a team to a cohort-based
+        // program's session (structural). Class is unchanged on reassign, so the
+        // mode is resolved from the existing class. Admin override otherwise.
+        const schedulingMode = await schedulingModePolicy.resolveSchedulingMode(
+          { classId: existing.classId }, session,
+        );
+        schedulingModePolicy.assertTeamModeStructural({ schedulingMode });
 
         // Weekly limit for new team
         const start = new Date(body.startTime || existing.startTime);

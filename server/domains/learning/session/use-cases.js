@@ -1,5 +1,6 @@
 const scheduleService = require('../../../services/scheduleService');
 const schedulingWindowPolicy = require('../../schedule/scheduling-window-policy');
+const schedulingModePolicy = require('../../schedule/scheduling-mode-policy');
 const { sessionDto } = require('./dto');
 const repository = require('./repository');
 
@@ -70,47 +71,17 @@ const getSession = async (id, requestUser) => {
 };
 
 // Scheduling modes split by how a session is created:
-//   Team-based (book against a Group/Team):
-//     - leader_booking: the team leader (or an Admin) books for the team.
-//     - admin_scheduled: only an Admin books; leaders/participants cannot.
-//   Cohort-based (book against a Cohort, no team — per-learner enrollment, M2):
-//     - self_enroll: learners self-enrol into the cohort; an Admin schedules
-//       the session, which snapshots the cohort's active enrollments.
-//     - nomination: an Admin nominates (enrols) learners, then schedules; same
-//       session-creation flow as self_enroll (the difference is the enrol gate).
-const TEAM_SCHEDULING_MODES = new Set(['leader_booking', 'admin_scheduled']);
-const COHORT_SCHEDULING_MODES = new Set(['self_enroll', 'nomination']);
+//   Team-based (book against a Group/Team): leader_booking | admin_scheduled.
+//   Cohort-based (book against a Cohort, no team): self_enroll | nomination.
+// The mode SETS + the team/cohort gate live in
+// domains/schedule/scheduling-mode-policy (shared with the legacy booking paths)
+// so there is one rule set, not two.
 
 // Team-based booking (groupId): leader_booking / admin_scheduled.
 const bookGroupSession = async (payload, requestUser) => {
-  const { schedulingMode } = await repository.findSchedulingContextByGroup(payload.groupId);
-
-  // A cohort-based program must be scheduled against its cohort, not a group.
-  if (COHORT_SCHEDULING_MODES.has(schedulingMode)) {
-    throw new scheduleService.ServiceError(
-      `This program uses cohort-based enrollment (${schedulingMode}) — schedule its sessions against the cohort, not a group`,
-      400,
-    );
-  }
-  // Defensive: any future/unknown mode that is not a known team mode.
-  if (!TEAM_SCHEDULING_MODES.has(schedulingMode)) {
-    throw new scheduleService.ServiceError(
-      `Scheduling mode '${schedulingMode}' is not supported yet`,
-      501,
-    );
-  }
-
-  // admin_scheduled: the program is scheduled by Admins only — a team leader
-  // must not self-book here (the key difference from leader_booking).
-  if (schedulingMode === 'admin_scheduled' && requestUser?.role !== 'Admin') {
-    throw new scheduleService.ServiceError(
-      'This program is admin-scheduled — only an Admin can create its sessions',
-      403,
-    );
-  }
-
-  // bookSlot already lets an Admin book for any team (it only enforces the
-  // leader check for non-admins), so it serves both supported team modes.
+  // The schedulingMode gate (team mode + admin_scheduled authz) is enforced by
+  // scheduleService.bookSlot — the shared chokepoint for both this adapter and
+  // the legacy /api/schedules/book-slot route — so it is not re-checked here.
   const created = await scheduleService.bookSlot({
     teamId: payload.groupId,
     startTime: payload.startTime,
@@ -134,12 +105,7 @@ const bookCohortSession = async (payload, requestUser) => {
   if (!cohortId) {
     throw new scheduleService.ServiceError('Cohort not found', 404);
   }
-  if (!COHORT_SCHEDULING_MODES.has(schedulingMode)) {
-    throw new scheduleService.ServiceError(
-      `Cohort-based scheduling is only for self_enroll/nomination programs (this cohort is '${schedulingMode}' — book against its group instead)`,
-      400,
-    );
-  }
+  schedulingModePolicy.assertCohortMode({ schedulingMode });
 
   const enrolledUserIds = await repository.findActiveCohortLearnerIds(payload.cohortId);
   const created = await scheduleService.bookCohortSlot({
