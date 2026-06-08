@@ -13,12 +13,12 @@ Source: current route middleware. Keep this matrix updated when routes move into
 | `/api/classes` | authenticated, with detail policy | Admin | legacy compatibility surface |
 | `/api/learning/programs` | authenticated | Admin | new catalog API |
 | `/api/learning/cohorts` | authenticated | Admin | new cohort API backed by legacy Class |
-| `/api/learning/sessions` | Admin all; Teacher assigned cohorts; Participant enrolled sessions | Admin; leader booking/cancel | session DTO API backed by legacy Schedule; writes use `groupId` |
+| `/api/learning/sessions` | Admin all; Teacher assigned cohorts; Participant enrolled sessions | Admin; leader booking/cancel | session DTO API backed by legacy Schedule; writes use `groupId`/`cohortId`. Group writes hit the same shared `schedulingMode` gate as `/api/schedules` (delegates to `scheduleService.bookSlot`); cohort writes are Admin-only + `assertCohortMode` |
 | `/api/learning/paths` | `path.read` (browse + own progress) | Admin (`path.manage`) | Wave C sequenced curricula; progress derived from program completion |
 | `/api/assessment` | `assessment.read`; learner `assessment.attempt` | `assessment.manage` (Admin/Teacher) | generic assessment engine; teacher cohort-scoped |
 | `/api/org` | `department.read`; `team.read` (own reports) | `department.manage`/`org.manage` (Admin) | Wave D3 departments + manager hierarchy + manager dashboard |
 | `/api/learning/assignments` | Admin/Teacher (`assignment.read`) | Admin (`assignment.manage`) | D4 Program/Path assignment + due dates; soft-delete archive |
-| `/api/schedules` | Admin all; Teacher attendance calendar scoped by class binding; Participant own/my-class/availability | Admin; leader booking/cancel | booking allows Admin/Participant leader |
+| `/api/schedules` | Admin all; Teacher attendance calendar scoped by class binding; Participant own/my-class/availability | Admin; leader booking/cancel | booking allows Admin/Participant leader. Create/reassign also gated by program `schedulingMode` (Pass C): leader-booking an `admin_scheduled` program → 403; team-booking a cohort program (`self_enroll`/`nomination`) → 400; unknown mode → 501; program-less class falls back to `leader_booking`. See `domains/schedule/scheduling-mode-policy.js` |
 | `/api/attendance` | Admin/Teacher; self stats authenticated | Admin/Teacher | teacher binding applies in policy/controller paths |
 | `/api/evaluations` | authenticated with controller role policy | Admin/Teacher write; Admin delete | participant read is self-scoped |
 | `/api/enrollments` | Admin | Admin | route-level Admin guard |

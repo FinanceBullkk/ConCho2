@@ -21,9 +21,10 @@ Verified code paths:
 - Auth state: `client/src/context/AuthContext.jsx`
 - Server entry: `server/server.js`
 - API routes: `server/routes/*`
-- Domain logic: `server/services/*`
+- Domain logic: `server/services/*` and `server/domains/<domain>/*` (learning, schedule)
 - Data models: `server/models/*`
 - Validation schemas: `server/schemas/*`
+- Domain vocabulary (glossary): `CONTEXT-MAP.md` (root) → `server/CONTEXT.md`. This map = where code lives; `CONTEXT.md` = what the terms mean.
 
 Known caveat: older README/docs may describe previous phases and can be stale.
 
@@ -233,7 +234,7 @@ Current session API:
 
 - `GET /api/learning/sessions` lists sessions with `cohort`, `group`, and `enrolledLearners` DTO fields.
 - `GET /api/learning/sessions/:id` reads one session with participant self-scope and teacher assignment scope.
-- `POST /api/learning/sessions/book-slot` books through existing leader-booking logic using `groupId`.
+- `POST /api/learning/sessions/book-slot` books using `groupId` (team) or `cohortId`. Group booking delegates to `scheduleService.bookSlot` — the shared chokepoint that enforces the booking invariants AND the `schedulingMode` gate (same rule set as the legacy `/api/schedules/book-slot` route; the adapter no longer holds its own copy). Cohort booking calls `scheduling-mode-policy.assertCohortMode`.
 - `DELETE /api/learning/sessions/:id/cancel` cancels through existing Schedule cancellation logic.
 
 This is an adapter boundary only. The physical Mongo collection/model remains `Schedule`, and `/api/schedules` keeps its legacy `classId`, `bookedTeamId`, and `enrolledUsers` response vocabulary for current calendar/booking clients.
@@ -258,22 +259,37 @@ Important database constraints:
 
 ### Booking Logic
 
-`server/services/scheduleService.js` is the core booking service.
+`server/services/scheduleService.js` is the booking service entry (`bookSlot`,
+`bookCohortSlot`, `adminCreate`). The booking **invariants** now live in
+`server/domains/schedule/`, which the legacy `scheduleController`/`scheduleService`
+and the `domains/learning/session` adapter all delegate into (one rule set):
+
+- `session-booking-policy.js` — `assertBookable` (per-team weekly cap + same-class
+  collision, via the schedule repository), `getWeekBounds`, `snapshotActiveMembers`,
+  single `WEEKLY_TEAM_LIMIT` (= 2).
+- `scheduling-window-policy.js` — `ALLOWED_TIME_SLOTS` parsing/validation (VN tz).
+- `scheduling-mode-policy.js` — program `schedulingMode` gate (see below).
 
 Main rules:
 
-- `startTime` and `endTime` must be valid ISO dates.
-- End must be after start.
+- `startTime`/`endTime` valid ISO; end after start.
 - Slot must match `ALLOWED_TIME_SLOTS` from `Setting`, evaluated in Vietnam timezone.
-- Booking runs in a Mongo transaction.
-- Team document is touched to serialize concurrent writes for the same team.
-- Team must exist and have `classId`.
-- Non-admin caller must be the team leader.
-- Active team members are enrolled into the schedule.
+- Booking runs in a Mongo transaction; the Team doc is touched to serialize
+  concurrent same-team writes.
+- Team must exist and have `classId`; non-admin caller must be the team leader.
+- Active team members are enrolled. **Reassigning** a session to another team
+  rebuilds the roster from the new team's **Active** members only (Dropped excluded).
 - Each team is limited to 2 sessions per ISO week.
-- Schedule uniqueness by `{ classId, startTime }` is the final double-booking guard.
-- Google Calendar event creation is fail-soft: booking remains valid if calendar creation fails.
-- Booking/cancel emails are sent through mailer/templates.
+- `{ classId, startTime }` uniqueness is the final double-booking guard.
+- **schedulingMode enforcement (Pass C):** the program's `schedulingMode`
+  (on `LearningProgram`, reached via `Class.programId`; falls back to
+  `leader_booking` when no program is linked) is gated at the `bookSlot`
+  chokepoint — which serves BOTH the legacy `POST /api/schedules/book-slot` leader
+  route AND the `learning/session` adapter — plus `adminCreate` and `updateSchedule`
+  reassign. Leader self-booking an `admin_scheduled` program → 403; team-booking a
+  cohort program (`self_enroll`/`nomination`) → 400; unknown mode → 501;
+  program-less class still books.
+- Google Calendar event creation is fail-soft; booking/cancel emails via mailer/templates.
 - Session order cache is invalidated after schedule create/delete.
 
 ### Reconciliation
