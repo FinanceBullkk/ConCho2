@@ -36,12 +36,14 @@ clone.
 @.claude/rules/testing-and-ci.md
 @.claude/rules/domain-model-and-migration.md
 @.claude/rules/implementation-workflow.md
+@.claude/rules/spec-driven-development.md
 
 ## Key references
 - Agent contract: `AGENTS.md`
 - Strategy and 6-month direction: `docs/lms-roadmap.md`
 - Living tracker and next tasks: `docs/development-roadmap.md`
 - System overview: `docs/system-overview.md`
+- Behavior source of truth: `docs/specs/README.md` (capability spec registry — BR/UC/FR/NFR/AC)
 - Code-truth map: `docs/current-system-map.md` · Route/permission matrix: `docs/route-permission-matrix.md`
 - Architecture decisions: `docs/decisions/`
 - Operational runbooks: `docs/backup-dr.md`, `docs/cron-pinger-setup.md`, `docs/google-calendar-setup.md`

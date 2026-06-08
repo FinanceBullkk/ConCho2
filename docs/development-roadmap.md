@@ -5,7 +5,7 @@
 > - *Architecture / orientation* → [`system-overview.md`](system-overview.md)
 > - *Detailed task snapshot* → [`handoff-2026-06-01.md`](handoff-2026-06-01.md)
 >
-> **Last updated:** 2026-06-05
+> **Last updated:** 2026-06-08
 
 ---
 
@@ -189,6 +189,22 @@ Bug fixing and integration review rank above net-new feature rollout.
 
 ## Recent progress (changelog)
 
+- **2026-06-08** — **Spec-driven layer — capability specs + registry
+  (OpenSpec-compatible).** Added a behavior source-of-truth layer under
+  `docs/specs/`: a spec template + proposal/delta template, a registry
+  (`docs/specs/README.md`), and the `spec-driven-development.md` rule. Retrofitted
+  **28 capability specs** from current code (BR/UC/FR+Given/When/Then/NFR/AC +
+  error matrix) — full coverage of every mounted `/api/*` surface. Core:
+  scheduling-and-booking, auth, users, teams, attendance, learning-catalog,
+  enrollment, learning-paths, assessments, question-bank, grading, feedback,
+  completion-and-certificates, assignments-and-reminders, reporting-and-rollups,
+  compliance-and-recertification, audit-log, export-and-integrations,
+  reconcile-job, capability-authz (evolving), security-platform; plus evaluations
+  (legacy), bulk-import, settings, dashboard-analytics, search, admin-db-explorer,
+  org-and-departments. Also refreshed `route-permission-matrix.md` (was missing
+  `/api/learning/paths`, `/api/org`, `/api/assessment`, `/api/admin/cron`). Wired
+  into the Definition of Done (update affected spec on behavior change) and
+  `CLAUDE.md` Key references. Docs/process-only — no code behavior changed.
 - **2026-06-05** — **Wave D6 v1.1 — verification docs and rollout.**
   Closed D6 v1.1 after end-to-end verification. Focused backend gate passed
   **7 suites / 34 tests** across compliance report/export, completion report
