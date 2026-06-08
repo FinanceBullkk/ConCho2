@@ -119,6 +119,53 @@ describe('Schedule reassignment — roster rebuild', () => {
     expect(enrolledIds).not.toContain(leaderA._id.toString());
     expect(enrolledIds).not.toContain(memberA._id.toString());
   });
+
+  test('a Dropped member of the target team is NOT enrolled after reassignment', async () => {
+    const sfx = uniq();
+    const cls = await Class.create({
+      classCode: `REASD_${sfx}`, courseName: 'Reassign Active-only', totalSessions: 10,
+    });
+    const leaderD = await User.create({
+      empCode: `RLD${sfx}`.slice(0, 10), name: `RLeaderD-${sfx}`,
+      role: 'Participant', department: 'Sales', password: 'pass12345678',
+    });
+    const activeD = await User.create({
+      empCode: `RAD${sfx}`.slice(0, 10), name: `RActiveD-${sfx}`,
+      role: 'Participant', department: 'Sales', password: 'pass12345678',
+    });
+    const droppedD = await User.create({
+      empCode: `RDD${sfx}`.slice(0, 10), name: `RDroppedD-${sfx}`,
+      role: 'Participant', department: 'Sales', password: 'pass12345678', status: 'Dropped',
+    });
+    const teamSrc = await Team.create({
+      name: `SrcD-${sfx}`, classId: cls._id, leaderId: leaderD._id, members: [leaderD._id],
+    });
+    const teamDst = await Team.create({
+      name: `DstD-${sfx}`, classId: cls._id, leaderId: leaderD._id,
+      members: [leaderD._id, activeD._id, droppedD._id],
+    });
+    const future = new Date(Date.now() + 21 * 24 * 60 * 60 * 1000);
+    const sched = await Schedule.create({
+      classId: cls._id, bookedTeamId: teamSrc._id,
+      startTime: future, endTime: new Date(future.getTime() + 60 * 60 * 1000),
+      enrolledUsers: [leaderD._id],
+    });
+
+    const res = await request(app)
+      .put(`/api/schedules/${sched._id}`)
+      .set('Authorization', `Bearer ${tokens.admin}`)
+      .set(csrf)
+      .send({ bookedTeamId: teamDst._id.toString() });
+
+    expect(res.status).toBe(200);
+
+    const updated = await Schedule.findById(sched._id).lean();
+    const enrolledIds = (updated.enrolledUsers || []).map(id => id.toString());
+
+    expect(enrolledIds).toContain(leaderD._id.toString());
+    expect(enrolledIds).toContain(activeD._id.toString());
+    expect(enrolledIds).not.toContain(droppedD._id.toString());
+  });
 });
 
 // ── Guards ───────────────────────────────────────────────

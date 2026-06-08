@@ -2,7 +2,7 @@
 capability: scheduling-and-booking
 status: stable
 owners: [services/scheduleService, controllers/scheduleController, domains/schedule, domains/learning/session]
-last_updated: 2026-06-08
+last_updated: 2026-06-09
 related_plans:
   - plans/260602-2247-m1-self-enroll-nomination-session-modes
   - plans/260606-1356-wave-e-generic-scheduling
@@ -12,6 +12,7 @@ related_code:
   - server/routes/scheduleRoutes.js
   - server/controllers/scheduleController.js
   - server/domains/schedule/scheduling-window-policy.js
+  - server/domains/schedule/session-booking-policy.js
   - server/domains/schedule/use-cases.js
   - server/domains/learning/session/use-cases.js
   - server/controllers/settingController.js
@@ -203,6 +204,13 @@ The system SHALL allow an Admin to create, time-edit, or delete any session,
 bypassing leader-only and weekly-cap restrictions, but NOT the
 slot-validity / collision / unique-index guards.
 
+#### Scenario: Reassigning a session to another team rebuilds the roster
+- **GIVEN** a future session owned by Team A, and Team B (same class) whose
+  members include a `Dropped` member
+- **WHEN** an Admin reassigns the session to Team B (no attendance recorded yet)
+- **THEN** `enrolledUsers` is rebuilt from **Team B's Active members only**
+  (the `Dropped` member is excluded), matching the booking-time snapshot rule
+
 ### Requirement: Visibility scoping [BR-5, UC-4]
 
 The system SHALL scope reads: Admin sees all; Teacher sees attendance calendar
@@ -239,6 +247,7 @@ Inherits `docs/specs/security-platform/spec.md`. Specifics:
 - [ ] 3rd booking in a Mon–Sun week → rejected.
 - [ ] Cancel deletes the Schedule and frees the slot.
 - [ ] Admin can create/move/delete any session within the guards.
+- [ ] Reassigning a session to another team rebuilds `enrolledUsers` from the new team's **Active** members (Dropped excluded).
 - [ ] Calendar/email failure does not roll back the booking.
 - [ ] Scheduling config readable by all roles (401 anonymous); Settings stays Admin-only.
 - [ ] Settings PUT rejects malformed/overlapping config (400); empty array allowed.

@@ -5,23 +5,9 @@ const Schedule = require('../../models/Schedule');
 const { invalidateSessionOrderCache } = require('../../services/scheduleService');
 const schedulingWindowPolicy = require('./scheduling-window-policy');
 const repository = require('./repository');
+const bookingPolicy = require('./session-booking-policy');
 
 // ── Shared helpers ────────────────────────────────────────
-
-const getWeekBounds = (date) => {
-  const d = new Date(date);
-  const dayOfWeek = d.getUTCDay();
-  const diffToMonday = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
-  const weekStart = new Date(Date.UTC(
-    d.getUTCFullYear(), d.getUTCMonth(),
-    d.getUTCDate() + diffToMonday, 0, 0, 0, 0,
-  ));
-  const weekEnd = new Date(Date.UTC(
-    weekStart.getUTCFullYear(), weekStart.getUTCMonth(),
-    weekStart.getUTCDate() + 6, 23, 59, 59, 999,
-  ));
-  return { weekStart, weekEnd };
-};
 
 const ALLOWED_UPDATE_FIELDS = [
   'classId', 'bookedTeamId', 'startTime', 'endTime', 'roomLink', 'capacity',
@@ -77,11 +63,11 @@ const updateSchedule = async (id, body) => {
         // Weekly limit check when startTime changes
         if (body.startTime) {
           const teamId = body.bookedTeamId || existing.bookedTeamId;
-          const { weekStart, weekEnd } = getWeekBounds(start);
+          const { weekStart, weekEnd } = bookingPolicy.getWeekBounds(start);
           const weeklyCount = await repository.countSchedulesForTeamInWeek(
             teamId, weekStart, weekEnd, existing._id, session,
           );
-          if (weeklyCount >= 2) {
+          if (weeklyCount >= bookingPolicy.WEEKLY_TEAM_LIMIT) {
             throw new ServiceError(
               'Cannot move schedule — target week already has 2 sessions for this team (limit: 2/week)', 400,
             );
@@ -113,11 +99,11 @@ const updateSchedule = async (id, body) => {
 
         // Weekly limit for new team
         const start = new Date(body.startTime || existing.startTime);
-        const { weekStart, weekEnd } = getWeekBounds(start);
+        const { weekStart, weekEnd } = bookingPolicy.getWeekBounds(start);
         const weeklyCount = await repository.countSchedulesForTeamInWeek(
           body.bookedTeamId, weekStart, weekEnd, existing._id, session,
         );
-        if (weeklyCount >= 2) {
+        if (weeklyCount >= bookingPolicy.WEEKLY_TEAM_LIMIT) {
           throw new ServiceError(
             'Cannot reassign schedule — target team already has 2 sessions this week (limit: 2/week)', 400,
           );
@@ -127,13 +113,18 @@ const updateSchedule = async (id, body) => {
       // ── Build update data (defense-in-depth whitelist) ──
       const updateData = filterAllowedFields(body);
 
-      // Roster rebuild when team changes
+      // Roster rebuild when team changes. Snapshot only the new team's Active
+      // members (parity with bookSlot/adminCreate — a reassigned session must
+      // not enroll Dropped members), so member `status` must be populated.
       if (body.bookedTeamId && body.bookedTeamId !== existing.bookedTeamId?.toString()) {
         const newTeam = await repository.findTeamById(body.bookedTeamId, {
-          select: 'members', lean: true, session,
+          select: 'members',
+          populate: { path: 'members', select: '_id status' },
+          lean: true,
+          session,
         });
         if (newTeam) {
-          updateData.enrolledUsers = newTeam.members || [];
+          updateData.enrolledUsers = bookingPolicy.snapshotActiveMembers(newTeam);
         }
       }
 
