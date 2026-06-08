@@ -16,22 +16,24 @@ export" gaps. Read-only.
 ## How it works
 1. Enumerate the cohort's learners = session roster (`Schedule.enrolledUsers`) ∪
    non-dropped enrollments (`Enrollment`), distinct.
-2. For each learner, reuse `completion/use-cases.evaluateCompletion` (single
-   source of truth for the policy) and attach certificate status.
-3. Roll up a summary (complete/total, completion rate, certificates issued).
+2. Cohort reports reuse `completion/use-cases.evaluateCompletion` per learner
+   and attach certificate status.
+3. Rollup reports batch-read schedules, enrollments, attendance, evaluations,
+   feedback, passing assessment attempts, and issued certificates, then compute
+   program + department aggregates without the N-per-learner completion loop.
 4. Export builds an `.xlsx` buffer via `exceljs` (`export.js`).
 
 ## Layout
 ```
-controller.js  → getCompletionReport (JSON) · exportCompletionReport (xlsx + audit)
-use-cases.js   → buildCompletionReport (enumerate + evaluate + summarise)
-repository.js  → cohort learners, users, certificates
-export.js      → exceljs workbook → Buffer
-schemas.js     → zod (cohortId)
+controller.js                 → getCompletionReport · getCompletionRollup · exportCompletionReport
+use-cases.js                  → buildCompletionReport + rollup wiring
+completion-rollup-use-case.js → batched program/department rollup
+repository.js                 → cohorts, learners, programs, completion evidence queries
+export.js                     → exceljs workbook → Buffer
+schemas.js                    → zod (cohortId)
 ```
 
 ## Iterate (deferred)
 Learner cross-program history, date ranges, rollup export, streaming for very
-large cohorts (current path buffers — fine per-cohort), dashboard surfacing. The
-per-learner `evaluateCompletion` loop is N queries per learner; batch if cohorts
-grow large.
+large cohorts (current path buffers — fine per-cohort), dashboard surfacing,
+and tighter parity tests for every completion evidence path.

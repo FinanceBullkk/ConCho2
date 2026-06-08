@@ -1,9 +1,9 @@
 const repository = require('./repository');
 const completionUseCases = require('../completion/use-cases');
 const { ServiceError } = require('../../../helpers/ServiceError');
-const { classScopeForActor } = require('../../../helpers/teacher-class-scope');
 const { isTeacherOfClass } = require('../../../policy/classBinding');
 const { deriveCertificateState } = require('./compliance-certificate-state');
+const { buildCompletionRollup } = require('./completion-rollup-use-case');
 
 const round2 = (n) => Math.round(n * 100) / 100;
 
@@ -96,68 +96,6 @@ const buildCompletionReport = async (cohortId, actor) => {
       certificatesIssued,
     },
     rows,
-  };
-};
-
-const emptyRollupRow = (key, label) => ({
-  key,
-  label,
-  cohorts: 0,
-  learners: 0,
-  complete: 0,
-  completionRate: 0,
-  certificatesIssued: 0,
-});
-
-const addToRollup = (map, key, label, report, rowFilter = () => true) => {
-  const row = map.get(key) || emptyRollupRow(key, label);
-  const rows = report.rows.filter(rowFilter);
-  row.cohorts += 1;
-  row.learners += rows.length;
-  row.complete += rows.filter((r) => r.complete).length;
-  row.certificatesIssued += rows.filter((r) => r.certificate?.status === 'Issued').length;
-  row.completionRate = row.learners > 0 ? round2((row.complete / row.learners) * 100) : 0;
-  map.set(key, row);
-};
-
-const buildCompletionRollup = async (actor) => {
-  const cohorts = await repository.listActiveCohorts(await classScopeForActor(actor));
-  const reports = await Promise.all(cohorts.map((cohort) => buildCompletionReport(cohort._id, actor)));
-  const programs = new Map();
-  const departments = new Map();
-
-  reports.forEach((report) => {
-    const programKey = report.cohort.programId
-      ? report.cohort.programId.toString()
-      : `legacy:${report.cohort.programName || report.cohort.code}`;
-    addToRollup(programs, programKey, report.cohort.programName || report.cohort.code, report);
-
-    const departmentNames = new Set(report.rows.map((r) => r.learner.department || 'Unassigned'));
-    departmentNames.forEach((department) => {
-      addToRollup(
-        departments,
-        department,
-        department,
-        report,
-        (r) => (r.learner.department || 'Unassigned') === department,
-      );
-    });
-  });
-
-  const sortByLabel = (a, b) => a.label.localeCompare(b.label);
-  const learners = reports.reduce((sum, report) => sum + report.summary.total, 0);
-  const complete = reports.reduce((sum, report) => sum + report.summary.complete, 0);
-
-  return {
-    summary: {
-      cohorts: reports.length,
-      learners,
-      complete,
-      completionRate: learners > 0 ? round2((complete / learners) * 100) : 0,
-      certificatesIssued: reports.reduce((sum, report) => sum + report.summary.certificatesIssued, 0),
-    },
-    programs: [...programs.values()].sort(sortByLabel),
-    departments: [...departments.values()].sort(sortByLabel),
   };
 };
 

@@ -2,12 +2,16 @@ const Class = require('../../../models/Class');
 const LearningProgram = require('../../../models/LearningProgram');
 const Schedule = require('../../../models/Schedule');
 const Enrollment = require('../../../models/Enrollment');
+const Attendance = require('../../../models/Attendance');
+const Evaluation = require('../../../models/Evaluation');
 const Certificate = require('../../../models/Certificate');
+const Feedback = require('../../../models/Feedback');
+const AssessmentAttempt = require('../../../models/AssessmentAttempt');
 const User = require('../../../models/User');
 const Assignment = require('../../../models/Assignment');
 const LearningPath = require('../../../models/LearningPath');
 const { ACTIVE_ENROLLMENT_STATUSES } = require('../../../helpers/cohortMembership');
-
+const { ATTENDED_STATUSES } = require('../completion/repository');
 const findCohort = (cohortId) =>
   Class.findById(cohortId).select('_id classCode courseName programId teacherIds isDeleted').lean();
 
@@ -15,6 +19,11 @@ const listActiveCohorts = (scope = {}) =>
   Class.find({ isDeleted: { $ne: true }, ...scope })
     .select('_id classCode courseName programId teacherIds isDeleted')
     .lean();
+const listProgramsByIds = (programIds) => programIds.length
+  ? LearningProgram.find({ _id: { $in: programIds } })
+    .select('_id name completionPolicy certificateValidityDays')
+    .lean()
+  : [];
 
 const findProgramName = async (programId) => {
   if (!programId) return '';
@@ -43,6 +52,77 @@ const listCohortCertificates = (cohortId) =>
   Certificate.find({ cohortId, isDeleted: false })
     .select('userId certificateNumber status issuedAt validFrom validUntil validityDays')
     .lean();
+
+const listCohortSchedules = (cohortIds) => cohortIds.length
+  ? Schedule.find({ classId: { $in: cohortIds } })
+    .select('_id classId enrolledUsers')
+    .lean()
+  : [];
+
+const listCohortEnrollments = (cohortIds) => cohortIds.length
+  ? Enrollment.find({
+    classId: { $in: cohortIds },
+    status: { $in: ACTIVE_ENROLLMENT_STATUSES },
+  })
+    .select('classId userId')
+    .lean()
+  : [];
+
+const listAttendedAttendance = ({ scheduleIds, userIds }) => {
+  if (!scheduleIds.length || !userIds.length) return [];
+  return Attendance.find({
+    scheduleId: { $in: scheduleIds },
+    userId: { $in: userIds },
+    status: { $in: ATTENDED_STATUSES },
+  })
+    .select('scheduleId userId')
+    .lean();
+};
+
+const listEvaluations = ({ cohortIds, userIds }) => {
+  if (!cohortIds.length || !userIds.length) return [];
+  return Evaluation.find({
+    classId: { $in: cohortIds },
+    userId: { $in: userIds },
+  })
+    .select('classId userId')
+    .lean();
+};
+
+const listFeedbackSubmissions = ({ cohortIds, userIds }) => {
+  if (!cohortIds.length || !userIds.length) return [];
+  return Feedback.find({
+    cohortId: { $in: cohortIds },
+    userId: { $in: userIds },
+    isDeleted: false,
+  })
+    .select('cohortId userId')
+    .lean();
+};
+
+const listPassingAttempts = ({ cohortIds, userIds }) => {
+  if (!cohortIds.length || !userIds.length) return [];
+  return AssessmentAttempt.find({
+    cohortId: { $in: cohortIds },
+    userId: { $in: userIds },
+    passed: true,
+    isDeleted: false,
+  })
+    .select('cohortId userId')
+    .lean();
+};
+
+const listIssuedCertificates = ({ cohortIds, userIds }) => {
+  if (!cohortIds.length || !userIds.length) return [];
+  return Certificate.find({
+    cohortId: { $in: cohortIds },
+    userId: { $in: userIds },
+    status: 'Issued',
+    isDeleted: false,
+  })
+    .select('cohortId userId')
+    .lean();
+};
 
 const dateBoundary = (value, endOfDay = false) => {
   const d = new Date(value);
@@ -101,10 +181,18 @@ const listProgramCertificates = (userIds, programIds) => {
 module.exports = {
   findCohort,
   listActiveCohorts,
+  listProgramsByIds,
   findProgramName,
   listCohortLearnerIds,
   findUsers,
   listCohortCertificates,
+  listCohortSchedules,
+  listCohortEnrollments,
+  listAttendedAttendance,
+  listEvaluations,
+  listFeedbackSubmissions,
+  listPassingAttempts,
+  listIssuedCertificates,
   listComplianceAssignments,
   findOrgUsers,
   listProgramCertificates,
