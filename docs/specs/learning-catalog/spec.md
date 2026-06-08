@@ -2,7 +2,7 @@
 capability: learning-catalog
 status: stable
 owners: [domains/learning, controllers/classController]
-last_updated: 2026-06-08
+last_updated: 2026-06-09
 related_code:
   - server/domains/learning/controller.js
   - server/domains/learning/use-cases.js
@@ -90,8 +90,10 @@ open if no legacy catalog exists).
 
 The system SHALL persist program policies that other capabilities read:
 `completionPolicy` → `completion-and-certificates`; `prerequisitePrograms` →
-`enrollment`; `schedulingMode` → `scheduling-and-booking` (only `leader_booking`
-fully enforced today); `certificateValidityDays` → recertification.
+`enrollment`; `schedulingMode` → `scheduling-and-booking` (enforced on every
+session-create path: team modes `leader_booking`/`admin_scheduled` + the
+cohort-vs-team structural rule — see scheduling-and-booking "Scheduling-mode
+gating"); `certificateValidityDays` → recertification.
 
 ### Requirement: Read open, write Admin-only [BR-4, UC-3]
 
@@ -132,5 +134,6 @@ Inherits `security-platform`. Specifics:
 
 - Physical collection rename (`Class`→`Cohort`) — deferred (DTO migration only).
 - Program versioning / module-level curriculum.
-- `schedulingMode` enforcement for non-`leader_booking` (see
-  `scheduling-and-booking` Out of Scope + `capability-authz`).
+- `capacityPolicy` / `facilitatorPolicy` enforcement — persisted, not enforced
+  (see `capability-authz`). (`schedulingMode` enforcement shipped — see
+  `scheduling-and-booking`.)

@@ -44,7 +44,7 @@ table is just the index. Covers every mounted `/api/*` route surface.
 | [users-and-roles](users-and-roles/spec.md) | stable | controllers/userController, models/User | 2026-06-08 |
 | [teams-and-groups](teams-and-groups/spec.md) | stable | controllers/teamController, models/Team | 2026-06-08 |
 | [attendance](attendance/spec.md) | stable | services/attendanceService, controllers/attendanceController | 2026-06-08 |
-| [learning-catalog](learning-catalog/spec.md) | stable | domains/learning, controllers/classController | 2026-06-08 |
+| [learning-catalog](learning-catalog/spec.md) | stable | domains/learning, controllers/classController | 2026-06-09 |
 | [enrollment](enrollment/spec.md) | evolving | domains/learning/enrollment, controllers/enrollmentController | 2026-06-08 |
 | [learning-paths](learning-paths/spec.md) | stable | domains/learning/path | 2026-06-08 |
 | [assessments](assessments/spec.md) | stable | domains/assessment, controllers/evaluationController | 2026-06-08 |

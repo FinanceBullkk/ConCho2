@@ -18,8 +18,9 @@ related_plans:
 # Capability: Enrollment
 
 > **Source of truth for BEHAVIOR.** `status: evolving` — cohort-based + self-
-> enroll are built; nomination & full `schedulingMode` gating are
-> persisted-but-not-fully-enforced (noted below).
+> enroll are built; the dedicated nomination workflow and `capacityPolicy` are
+> persisted-but-not-yet-enforced (noted below). (Session `schedulingMode` gating
+> itself is enforced — see `scheduling-and-booking`.)
 
 ## Purpose
 
