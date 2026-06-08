@@ -4,6 +4,9 @@ const Schedule = require('../../models/Schedule');
 const Attendance = require('../../models/Attendance');
 const Certificate = require('../../models/Certificate');
 const Class = require('../../models/Class');
+const Evaluation = require('../../models/Evaluation');
+const Feedback = require('../../models/Feedback');
+const AssessmentAttempt = require('../../models/AssessmentAttempt');
 const LearningProgram = require('../../models/LearningProgram');
 
 let app, tokens, seed, csrf;
@@ -24,6 +27,9 @@ afterEach(async () => {
     Schedule.deleteMany({}),
     Attendance.deleteMany({}),
     Certificate.deleteMany({}),
+    Evaluation.deleteMany({}),
+    Feedback.deleteMany({}),
+    AssessmentAttempt.deleteMany({}),
     LearningProgram.deleteMany({}),
   ]);
   await Class.updateMany(
@@ -199,6 +205,69 @@ describe('Learning Platform API — completion reports', () => {
 
     const departmentsTotal = res.body.data.departments.reduce((sum, row) => sum + row.learners, 0);
     expect(departmentsTotal).toBe(res.body.data.summary.learners);
+  });
+
+  test('rollup uses batched completion signals instead of per-learner reports', async () => {
+    const program = await linkProgram({
+      attendanceThresholdPercent: 50,
+      requiresAssessment: true,
+      requiresFeedback: true,
+    });
+    await seedCohort(4, 2);
+    await Evaluation.create({
+      classId: seed.class1._id,
+      userId: seed.member1._id,
+      grammarScore: 8,
+      vocabularyScore: 8,
+      pronunciationScore: 8,
+      fluencyScore: 8,
+    });
+    await Feedback.create({
+      cohortId: seed.class1._id,
+      programId: program._id,
+      userId: seed.member1._id,
+      rating: 5,
+    });
+
+    const completionUseCases = require('../../domains/learning/completion/use-cases');
+    const spy = jest.spyOn(completionUseCases, 'evaluateCompletion');
+
+    const res = await rollup(tokens.admin);
+    expect(res.status).toBe(200);
+    expect(spy).not.toHaveBeenCalled();
+
+    const programRow = res.body.data.programs.find((row) => row.label === 'Report Program');
+    expect(programRow.learners).toBe(2);
+    expect(programRow.complete).toBe(1);
+    expect(programRow.completionRate).toBe(50);
+
+    spy.mockRestore();
+  });
+
+  test('rollup counts a passing assessment attempt toward assessment-required completion', async () => {
+    await linkProgram({
+      attendanceThresholdPercent: 50,
+      requiresAssessment: true,
+    });
+    await seedCohort(4, 2);
+    await AssessmentAttempt.create({
+      assessmentId: seed.class1._id,
+      cohortId: seed.class1._id,
+      userId: seed.member1._id,
+      answers: [],
+      score: 1,
+      maxScore: 1,
+      scorePercent: 100,
+      passed: true,
+    });
+
+    const res = await rollup(tokens.admin);
+    expect(res.status).toBe(200);
+
+    const programRow = res.body.data.programs.find((row) => row.label === 'Report Program');
+    expect(programRow.learners).toBe(2);
+    expect(programRow.complete).toBe(1);
+    expect(programRow.completionRate).toBe(50);
   });
 
   test('a participant cannot read rollups (403); a teacher can (200)', async () => {
