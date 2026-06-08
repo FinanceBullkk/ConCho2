@@ -401,3 +401,53 @@ describe('Learning Platform API — sessions', () => {
     expect(res.body.success).toBe(false);
   });
 });
+
+// ── Wave E1: scheduling config endpoint ──────────────────
+// Safe config readable by ALL authenticated roles (general /api/settings stays
+// Admin-only). Confirms the DTO shape so the client grid can render exact slots.
+describe('GET /api/learning/sessions/config', () => {
+  const expectConfigShape = (body) => {
+    expect(body.success).toBe(true);
+    expect(body.data).toHaveProperty('timezone');
+    expect(body.data).toHaveProperty('utcOffsetMinutes');
+    expect(body.data).toHaveProperty('weeklyTeamLimit', 2);
+    expect(Array.isArray(body.data.slots)).toBe(true);
+    expect(body.data.slots.length).toBeGreaterThanOrEqual(1);
+    const slot = body.data.slots[0];
+    expect(slot).toHaveProperty('id');
+    expect(slot).toHaveProperty('startHour');
+    expect(slot).toHaveProperty('durationMinutes');
+    // Slots are start-time ordered ascending.
+    const starts = body.data.slots.map((s) => s.startHour * 60 + s.startMinute);
+    expect(starts).toEqual([...starts].sort((a, b) => a - b));
+  };
+
+  test('Admin can read the scheduling config', async () => {
+    const res = await request(app)
+      .get('/api/learning/sessions/config')
+      .set('Authorization', `Bearer ${tokens.admin}`);
+    expect(res.status).toBe(200);
+    expectConfigShape(res.body);
+  });
+
+  test('Teacher can read the scheduling config', async () => {
+    const res = await request(app)
+      .get('/api/learning/sessions/config')
+      .set('Authorization', `Bearer ${tokens.teacher}`);
+    expect(res.status).toBe(200);
+    expectConfigShape(res.body);
+  });
+
+  test('Participant (leader) can read the scheduling config', async () => {
+    const res = await request(app)
+      .get('/api/learning/sessions/config')
+      .set('Authorization', `Bearer ${tokens.leader}`);
+    expect(res.status).toBe(200);
+    expectConfigShape(res.body);
+  });
+
+  test('anonymous request is rejected with 401', async () => {
+    const res = await request(app).get('/api/learning/sessions/config');
+    expect(res.status).toBe(401);
+  });
+});

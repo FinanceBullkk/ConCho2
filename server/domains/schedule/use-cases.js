@@ -3,6 +3,7 @@ const calendarService = require('../../services/calendarService');
 const { ServiceError } = require('../../helpers/ServiceError');
 const Schedule = require('../../models/Schedule');
 const { invalidateSessionOrderCache } = require('../../services/scheduleService');
+const schedulingWindowPolicy = require('./scheduling-window-policy');
 const repository = require('./repository');
 
 // ── Shared helpers ────────────────────────────────────────
@@ -55,6 +56,12 @@ const updateSchedule = async (id, body) => {
         if (end <= start) {
           throw new ServiceError('endTime must be after startTime', 400);
         }
+
+        // Wave E1: Admin moves must land on a configured slot too. Previously
+        // this path only checked end > start, letting Admins move sessions to
+        // arbitrary off-policy times. The shared policy now enforces the same
+        // ALLOWED_TIME_SLOTS windows as the create/booking paths.
+        await schedulingWindowPolicy.assertValidBookingWindow(start, end);
 
         // Collision check (scoped to same class)
         const classId = body.classId || existing.classId;

@@ -73,6 +73,10 @@ router
   .route('/sessions')
   .get(validate({ query: listSessionsQuery }), sessionController.listSessions);
 
+// Wave E1: safe read-only scheduling config for all authenticated roles.
+// Registered before '/sessions/:id' so 'config' is not swallowed as an id.
+router.get('/sessions/config', sessionController.getSchedulingConfig);
+
 router.post(
   '/sessions/book-slot',
   requireCapability('session.book'),

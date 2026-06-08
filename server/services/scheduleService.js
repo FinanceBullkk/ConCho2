@@ -1,6 +1,6 @@
 const mongoose = require('mongoose');
 const NodeCache = require('node-cache');
-const { toVN, todayVN } = require('../helpers/dayjsConfig');
+const { todayVN } = require('../helpers/dayjsConfig');
 const Schedule = require('../models/Schedule');
 const Team = require('../models/Team');
 const Attendance = require('../models/Attendance');
@@ -34,6 +34,7 @@ const sessionOrderCache = new NodeCache({ stdTTL: 300, checkperiod: 60 });
  * Controllers catch these and map statusCode → res.status().
  */
 const { ServiceError } = require('../helpers/ServiceError');
+const schedulingWindowPolicy = require('../domains/schedule/scheduling-window-policy');
 
 // ── Helpers ───────────────────────────────────────────────
 
@@ -65,34 +66,13 @@ const getWeekBounds = (date) => {
 const utcToday = () => todayVN();
 
 /**
- * Validate a booking window: valid dates, end > start, and the slot matches one
- * of the dynamically-configured ALLOWED_TIME_SLOTS (stored in VN-hour terms).
- * Shared by team booking (bookSlot) and cohort booking (bookCohortSlot).
+ * Validate a booking window against the configured ALLOWED_TIME_SLOTS.
+ * Thin wrapper over the shared scheduling-window policy (Wave E1) so team
+ * booking, cohort booking, and Admin create all enforce the SAME rules.
  * @throws {ServiceError} on invalid dates / range / disallowed slot
  */
-const assertValidBookingSlot = async (start, end) => {
-  if (isNaN(start.getTime()) || isNaN(end.getTime())) {
-    throw new ServiceError('startTime and endTime must be valid ISO dates');
-  }
-  if (end <= start) {
-    throw new ServiceError('endTime must be after startTime');
-  }
-
-  const Setting = mongoose.model('Setting');
-  const allowedSlotsSetting = await Setting.findOne({ key: 'ALLOWED_TIME_SLOTS' });
-  const ALLOWED_TIME_SLOTS = allowedSlotsSetting ? allowedSlotsSetting.value : [];
-
-  // ALLOWED_TIME_SLOTS stores hours in VN time (e.g. sh:10 = 10:00 VN).
-  const startVN = toVN(start);
-  const endVN = toVN(end);
-  const sH = startVN.hour(), sM = startVN.minute();
-  const eH = endVN.hour(), eM = endVN.minute();
-  const isValid = ALLOWED_TIME_SLOTS.some(s => s.sh === sH && s.sm === sM && s.eh === eH && s.em === eM);
-
-  if (!isValid) {
-    throw new ServiceError('Khung giờ không hợp lệ — Please select an allowed time slot.');
-  }
-};
+const assertValidBookingSlot = (start, end) =>
+  schedulingWindowPolicy.assertValidBookingWindow(start, end);
 
 /**
  * Attach `sessionNumber` to an array of schedule objects.
@@ -629,29 +609,8 @@ const adminCreate = async (data) => {
   const start = new Date(startTime);
   const end = new Date(endTime);
 
-  if (isNaN(start.getTime()) || isNaN(end.getTime())) {
-    throw new ServiceError('startTime and endTime must be valid ISO dates');
-  }
-  if (end <= start) {
-    throw new ServiceError('endTime must be after startTime');
-  }
-
-  // ── Validate time slot against allowed settings ──────
-  const Setting = mongoose.model('Setting');
-  const allowedSlotsSetting = await Setting.findOne({ key: 'ALLOWED_TIME_SLOTS' });
-  const ALLOWED_TIME_SLOTS = allowedSlotsSetting ? allowedSlotsSetting.value : [];
-  // Convert to VN timezone for time-slot validation
-  const startVN = toVN(start);
-  const endVN = toVN(end);
-  const sH = startVN.hour(), sM = startVN.minute();
-  const eH = endVN.hour(), eM = endVN.minute();
-  const isValid = ALLOWED_TIME_SLOTS.some(s => s.sh === sH && s.sm === sM && s.eh === eH && s.em === eM);
-
-  if (!isValid) {
-    throw new ServiceError(
-      'Khung giờ không hợp lệ — Only allowed time slots can be booked'
-    );
-  }
+  // ── Validate dates + allowed slot (shared policy) ─────
+  await assertValidBookingSlot(start, end);
 
   // ── TRANSACTION: All checks + create (atomic) ─────────
   const session = await mongoose.startSession();
