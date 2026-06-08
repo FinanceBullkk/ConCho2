@@ -35,29 +35,9 @@ const sessionOrderCache = new NodeCache({ stdTTL: 300, checkperiod: 60 });
  */
 const { ServiceError } = require('../helpers/ServiceError');
 const schedulingWindowPolicy = require('../domains/schedule/scheduling-window-policy');
+const bookingPolicy = require('../domains/schedule/session-booking-policy');
 
 // ── Helpers ───────────────────────────────────────────────
-
-/**
- * Get Monday 00:00:00 UTC – Sunday 23:59:59.999 UTC
- * of the ISO week containing `date`.
- */
-const getWeekBounds = (date) => {
-  const d = new Date(date);
-  const dayOfWeek = d.getUTCDay();
-  const diffToMonday = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
-
-  const weekStart = new Date(Date.UTC(
-    d.getUTCFullYear(), d.getUTCMonth(),
-    d.getUTCDate() + diffToMonday, 0, 0, 0, 0
-  ));
-  const weekEnd = new Date(Date.UTC(
-    weekStart.getUTCFullYear(), weekStart.getUTCMonth(),
-    weekStart.getUTCDate() + 6, 23, 59, 59, 999
-  ));
-
-  return { weekStart, weekEnd };
-};
 
 /**
  * Return midnight today in Vietnam timezone (as UTC Date for MongoDB).
@@ -233,43 +213,22 @@ const bookSlot = async ({ teamId, startTime, endTime, requestUser }) => {
         }
       }
 
-      const activeMembers = team.members.filter(m => m.status === 'Active');
-      const memberIds = activeMembers.map(m => m._id);
-      // Step 2: Weekly Limit — max 2 sessions per team per week
-      const { weekStart, weekEnd } = getWeekBounds(start);
-      const weeklyCount = await Schedule.countDocuments({
-        bookedTeamId: teamId,
-        startTime: { $gte: weekStart, $lte: weekEnd },
-      }).session(session);
+      // Snapshot the team's Active members + assert the slot is bookable
+      // (weekly cap + same-class collision) via the shared session-booking policy.
+      const enrolledUsers = bookingPolicy.snapshotActiveMembers(team);
+      await bookingPolicy.assertBookable(
+        { classId: team.classId, teamId, start, end },
+        { session, enforceWeeklyCap: true },
+      );
 
-      if (weeklyCount >= 2) {
-        throw new ServiceError(
-          `Team đã đặt tối đa 2 buổi/tuần — This team already has ${weeklyCount} session(s) this week`
-        );
-      }
-
-      // Step 3: Collision — no overlapping schedule FOR THIS CLASS
-      const collision = await Schedule.findOne({
-        classId: team.classId,
-        startTime: { $lt: end },
-        endTime: { $gt: start },
-      }).session(session);
-
-      if (collision) {
-        throw new ServiceError(
-          'Khung giờ này đã bị Team khác đặt — This time slot is already taken',
-          409
-        );
-      }
-
-      // Step 4: Create the Schedule
+      // Create the Schedule
       const [doc] = await Schedule.create(
         [{
           classId: team.classId,
           bookedTeamId: teamId,
           startTime: start,
           endTime: end,
-          enrolledUsers: memberIds,
+          enrolledUsers,
         }],
         { session }
       );
@@ -351,19 +310,11 @@ const bookCohortSlot = async ({ cohortId, startTime, endTime, enrolledUserIds = 
   let created;
   try {
     await session.withTransaction(async () => {
-      // Collision — no overlapping schedule for this cohort.
-      const collision = await Schedule.findOne({
-        classId: cohortId,
-        startTime: { $lt: end },
-        endTime: { $gt: start },
-      }).session(session);
-
-      if (collision) {
-        throw new ServiceError(
-          'Khung giờ này đã bị đặt — This time slot is already taken',
-          409,
-        );
-      }
+      // No team, no weekly cap — only the same-cohort collision guard applies.
+      await bookingPolicy.assertBookable(
+        { classId: cohortId, start, end },
+        { session, enforceWeeklyCap: false },
+      );
 
       const [doc] = await Schedule.create(
         [{
@@ -633,37 +584,15 @@ const adminCreate = async (data) => {
           );
         }
 
-        // ── Rule: Max 2 sessions per team per week (inside tx) ──
-        const { weekStart, weekEnd } = getWeekBounds(start);
-        const weeklyCount = await Schedule.countDocuments({
-          bookedTeamId,
-          startTime: { $gte: weekStart, $lte: weekEnd },
-        }).session(session);
-
-        if (weeklyCount >= 2) {
-          throw new ServiceError(
-            `Team đã đặt tối đa 2 buổi/tuần — This team already has ${weeklyCount} session(s) this week (limit: 2)`,
-            400
-          );
-        }
-
-        const activeMembers = team.members.filter(m => m.status === 'Active');
-        enrolledUsers = activeMembers.map(m => m._id);
+        // Snapshot the team's Active members; weekly cap + same-class collision
+        // are asserted below via the shared session-booking policy.
+        enrolledUsers = bookingPolicy.snapshotActiveMembers(team);
       }
 
-      // ── Collision — no overlapping schedule FOR THIS CLASS ──
-      const collision = await Schedule.findOne({
-        classId,
-        startTime: { $lt: end },
-        endTime: { $gt: start },
-      }).session(session);
-
-      if (collision) {
-        throw new ServiceError(
-          'Khung giờ này đã bị trùng — This time slot overlaps with an existing schedule',
-          409
-        );
-      }
+      await bookingPolicy.assertBookable(
+        { classId, teamId: bookedTeamId, start, end },
+        { session, enforceWeeklyCap: true },
+      );
 
       const [doc] = await Schedule.create(
         [{

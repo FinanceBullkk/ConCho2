@@ -5,7 +5,7 @@
 > - *Architecture / orientation* → [`system-overview.md`](system-overview.md)
 > - *Detailed task snapshot* → [`handoff-2026-06-01.md`](handoff-2026-06-01.md)
 >
-> **Last updated:** 2026-06-08
+> **Last updated:** 2026-06-09
 
 ---
 
@@ -189,6 +189,19 @@ Bug fixing and integration review rank above net-new feature rollout.
 
 ## Recent progress (changelog)
 
+- **2026-06-09** — **Booking-rules consolidation — one deep `session-booking-policy`
+  module.** Architecture deepening of the Scheduling & Booking core. New
+  `server/domains/schedule/session-booking-policy.js` owns the previously-duplicated
+  booking invariants (`assertBookable` = weekly cap + same-class collision via the
+  schedule repository; `getWeekBounds`; `snapshotActiveMembers`) and the single
+  `WEEKLY_TEAM_LIMIT` source. `bookSlot` / `bookCohortSlot` / `adminCreate`
+  (scheduleService) and the Admin `updateSchedule` path now delegate, removing the
+  hardcoded `>= 2`, the two duplicate `getWeekBounds`, and three inline collision
+  queries. **Behavior fix:** reassigning a session to another team now snapshots
+  the new team's **Active** members only (Dropped excluded) — parity with booking,
+  aligning code to the existing spec. 664 server tests green across 69 suites (new
+  policy unit test + new reassign-Active regression). Authz + `schedulingMode` enforcement on legacy
+  paths deliberately deferred to a follow-up. Spec folded into `scheduling-and-booking`.
 - **2026-06-08** — **Wave E1 (backend slice) — `ALLOWED_TIME_SLOTS` authoritative
   end-to-end on the server.** New shared `scheduling-window-policy`
   (`server/domains/schedule/`) parses/validates/normalizes configured windows
