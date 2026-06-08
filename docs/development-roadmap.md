@@ -126,7 +126,7 @@ owner-input setup or the separate Wave E generic scheduling plan.
 | B — Assessment & Certification | Generic assessment engine, completion enforcement, certificates | 🟡 in progress (completion + certificates + feedback + assessment engine v1 + completion reporting + rollups + assessment UI + feedback UI + assessment edit + question-bank backend/UI + manual grading v1 done) | A |
 | C — Catalog, Paths & Self-service | Learner catalog, self-enroll, learning paths/prerequisites | 🟢 core done (learner catalog + self-enroll UI + prerequisite gating v1 + prereq selector UI + sequenced learning paths v1 + admin paths UI + learner path-progress view) | A |
 | D — Platform & Scale | Production readiness → Google OIDC + Directory sync → manager hierarchy (org model) → mandatory assignment + due dates → notifications/escalation → compliance reporting + recertification. Order locked 2026-06-04 (after C closes). | 🟡 in progress (D1 cron self-monitoring done; **D3 v1 org model done**; **D4 assignment+due-dates v1 done**; **D5 assignment reminders + manager escalation v1 done**; **D6 v1.1 compliance report/export + certificate expiry signal + frontend UI verified/closed**; paid hosting + Sentry-account setup + D2 Google OAuth app = owner ops/inputs) | B, C |
-| E — Generic scheduling | Generalize booking beyond fixed English slots (session types, rooms, capacity, waitlists, instructors); keep leader-booking as one mode. Committed parallel track; large, own plan. | 🔴 planned | A |
+| E — Generic scheduling | Generalize booking beyond fixed English slots (session types, rooms, capacity, waitlists, instructors); keep leader-booking as one mode. Committed parallel track; large, own plan. | 🟡 in progress (**E1 backend slice done** — `ALLOWED_TIME_SLOTS` authoritative server-side: shared window policy, all mutation paths validated incl. Admin moves, config-on-write validation, safe `/sessions/config` endpoint; **E1 client slice pending** — exact-slot grid rendering; E2+ capacity/rooms/waitlists gated) | A |
 
 > **Direction locked 2026-06-04** — full rationale + gap analysis in
 > [`ltms-gap-analysis.md`](ltms-gap-analysis.md). Six-month order:
@@ -189,6 +189,21 @@ Bug fixing and integration review rank above net-new feature rollout.
 
 ## Recent progress (changelog)
 
+- **2026-06-08** — **Wave E1 (backend slice) — `ALLOWED_TIME_SLOTS` authoritative
+  end-to-end on the server.** New shared `scheduling-window-policy`
+  (`server/domains/schedule/`) parses/validates/normalizes configured windows
+  (exact start+end minutes + duration; fail-closed on empty/malformed). DRY: team
+  booking, cohort booking, Admin create, **and the Admin schedule-update path**
+  now enforce the same windows (the update path previously checked only
+  `end > start`, allowing off-policy moves). Settings PUT now validates the config
+  on write (rejects malformed/overlapping; empty allowed). New
+  `GET /api/learning/sessions/config` returns a safe scheduling DTO to all
+  authenticated roles (general `/api/settings` stays Admin-only). 72 tests green
+  across 7 affected suites (policy unit + config auth/DTO + off-policy admin-move +
+  settings overlap/malformed). Spec folded into `scheduling-and-booking`.
+  **Remaining E1 (client slice):** migrate the booking grid (`CalendarGrid` +
+  Book/Schedules/Attendance) to exact slot descriptors via `useSchedulingConfig`
+  and remove the participant `hour + 1` submission — see the Wave E phase-01 plan.
 - **2026-06-08** — **Spec-driven layer — capability specs + registry
   (OpenSpec-compatible).** Added a behavior source-of-truth layer under
   `docs/specs/`: a spec template + proposal/delta template, a registry
