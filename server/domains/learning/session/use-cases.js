@@ -1,6 +1,13 @@
 const scheduleService = require('../../../services/scheduleService');
+const schedulingWindowPolicy = require('../../schedule/scheduling-window-policy');
 const { sessionDto } = require('./dto');
 const repository = require('./repository');
+
+// Wave E1: safe, read-only scheduling config (allowed windows + timezone +
+// weekly cap). Exposed to ALL authenticated roles so Participant/Teacher booking
+// grids stop falling back to a hard-coded fixed-hour slot list. General
+// /api/settings stays Admin-only — this returns ONLY scheduling data.
+const getSchedulingConfig = () => schedulingWindowPolicy.getConfigDto();
 
 const buildFilter = async (query = {}, requestUser) => {
   const filter = {};
@@ -155,6 +162,7 @@ const cancelSession = (id, requestUser) => scheduleService.cancelSlot(id, reques
 module.exports = {
   listSessions,
   getSession,
+  getSchedulingConfig,
   bookSession,
   cancelSession,
 };

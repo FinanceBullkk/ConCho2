@@ -24,6 +24,16 @@ const getSession = async (req, res) => {
   }
 };
 
+// GET /api/learning/sessions/config — safe scheduling config (all roles).
+const getSchedulingConfig = async (req, res) => {
+  try {
+    const data = await useCases.getSchedulingConfig();
+    res.json({ success: true, data });
+  } catch (error) {
+    handleError(res, error);
+  }
+};
+
 const bookSession = async (req, res) => {
   try {
     const data = await useCases.bookSession(req.body, req.user);
@@ -72,6 +82,7 @@ const cancelSession = async (req, res) => {
 module.exports = {
   listSessions,
   getSession,
+  getSchedulingConfig,
   bookSession,
   cancelSession,
 };

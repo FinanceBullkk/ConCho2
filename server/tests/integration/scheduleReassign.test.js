@@ -174,3 +174,27 @@ describe('Schedule reassignment — cross-class guard', () => {
     await User.findByIdAndDelete(otherLeader._id);
   });
 });
+
+// ── Wave E1: Admin time-move must respect ALLOWED_TIME_SLOTS ──
+// Before E1 the Admin update path only checked end > start, so a session could
+// be moved to an arbitrary off-policy time. The shared scheduling-window policy
+// now validates the target window like the create/booking paths.
+describe('Schedule update — off-policy time move is rejected', () => {
+  test('returns 400 when moving a session to a non-configured slot', async () => {
+    const { sched } = await setupReassignFixture();
+
+    // 23:00 UTC = 06:00 VN — guaranteed outside every test ALLOWED_TIME_SLOTS.
+    const target = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000);
+    target.setUTCHours(23, 0, 0, 0);
+    const end = new Date(target.getTime() + 60 * 60 * 1000);
+
+    const res = await request(app)
+      .put(`/api/schedules/${sched._id}`)
+      .set('Authorization', `Bearer ${tokens.admin}`)
+      .set(csrf)
+      .send({ startTime: target.toISOString(), endTime: end.toISOString() });
+
+    expect(res.status).toBe(400);
+    expect(res.body.message).toMatch(/không hợp lệ/);
+  });
+});
