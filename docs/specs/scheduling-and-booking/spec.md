@@ -11,8 +11,10 @@ related_code:
   - server/models/Schedule.js
   - server/routes/scheduleRoutes.js
   - server/controllers/scheduleController.js
+  - server/domains/schedule/scheduling-window-policy.js
   - server/domains/schedule/use-cases.js
   - server/domains/learning/session/use-cases.js
+  - server/controllers/settingController.js
   - client/src/pages/BookClassPage.jsx
   - client/src/components/CalendarGrid.jsx
 ---
@@ -68,8 +70,12 @@ room/calendar never double-books.
     (defence-in-depth beyond the service). **UNIQUE index `{classId, startTime}`**
     — the final guard against double-booking. `enrolledCount`/`availableSpots`
     are virtuals derived from `enrolledUsers`.
-- **Setting `ALLOWED_TIME_SLOTS`**: the authoritative slot windows. Default = five
-  one-hour slots (10–11, 11–12, 13–14, 14–15, 15–16) in `Asia/Ho_Chi_Minh`.
+- **Setting `ALLOWED_TIME_SLOTS`**: the authoritative slot windows, stored as
+  exact VN wall-clock windows `[{sh,sm,eh,em}, ...]` (any start/end minute and
+  duration — not just whole hours). Default = five one-hour slots (10–11, 11–12,
+  13–14, 14–15, 15–16) in `Asia/Ho_Chi_Minh`. Parsing/validation/exposure is
+  centralized in `server/domains/schedule/scheduling-window-policy.js` (Wave E1);
+  empty/malformed config is fail-closed (no new/moved bookings).
 - **Team** (`server/models/Team.js`): supplies `classId`, `leaderId`, and active
   `members` snapshotted into `enrolledUsers` at booking time.
 
@@ -100,14 +106,53 @@ into `enrolledUsers` and bind the session to the team's `classId`.
 
 ### Requirement: Sessions land on allowed slots only [BR-4, UC-1]
 
-The system SHALL validate every new/moved session against `ALLOWED_TIME_SLOTS`
-(`assertValidBookingSlot`). Off-policy windows are rejected for new/moved
-bookings; historically imported off-policy rows remain visible but read-only.
+The system SHALL validate **every** new/moved session against
+`ALLOWED_TIME_SLOTS` via the shared scheduling-window policy
+(`assertValidBookingWindow`): leader booking, cohort booking, Admin create, and
+**Admin time-edit** all enforce the same windows. A session window must exactly
+match one configured window (start hour+minute and end hour+minute, in VN time).
+Off-policy windows are rejected for new/moved bookings; historically imported
+off-policy rows remain visible but read-only.
+
+> Wave E1 closed a gap where the Admin schedule-update path checked only
+> `end > start` and let Admins move sessions to arbitrary off-policy times.
 
 #### Scenario: Off-policy time rejected
 - **GIVEN** a slot not in `ALLOWED_TIME_SLOTS`
-- **WHEN** a booking/move targets it
-- **THEN** it is rejected as an invalid slot
+- **WHEN** a booking/move targets it (including an Admin time-edit)
+- **THEN** it is rejected as an invalid slot (**400**, "không hợp lệ")
+
+### Requirement: Scheduling config is readable by all roles [BR-4, BR-5, UC-4]
+
+The system SHALL expose a safe, read-only scheduling config at
+`GET /api/learning/sessions/config` to **all authenticated roles** — returning
+ONLY `{ timezone, utcOffsetMinutes, weeklyTeamLimit, slots[] }` (each slot
+`{ id, label, startHour, startMinute, endHour, endMinute, durationMinutes }`,
+ordered by start time). General `/api/settings` stays Admin-only. This lets
+Participant/Teacher booking grids render the real configured windows instead of
+falling back to a hard-coded fixed-hour list.
+
+#### Scenario: Participant reads config
+- **GIVEN** an authenticated Participant
+- **WHEN** they GET `/api/learning/sessions/config`
+- **THEN** they receive the ordered slot DTOs (not the raw Setting doc)
+
+#### Scenario: Anonymous denied
+- **GIVEN** no auth
+- **WHEN** the config is requested
+- **THEN** **401**
+
+### Requirement: Config is validated on write [BR-2, BR-4, UC-3]
+
+The system SHALL validate `ALLOWED_TIME_SLOTS` when an Admin saves it via
+`PUT /api/settings`: malformed entries (non-integer, out-of-range, non-positive
+window) and overlapping/duplicate windows are rejected with **400**. An **empty**
+array is allowed (disables booking; history stays visible).
+
+#### Scenario: Overlapping config rejected
+- **GIVEN** an Admin saving two overlapping windows
+- **WHEN** the settings PUT runs
+- **THEN** **400** ("Invalid ALLOWED_TIME_SLOTS …"); the stored config is unchanged
 
 ### Requirement: No double-booking a class slot [BR-2, UC-1]
 
@@ -188,13 +233,15 @@ Inherits `docs/specs/security-platform/spec.md`. Specifics:
 
 - [ ] Leader can book a free allowed slot; whole active team is enrolled.
 - [ ] Non-leader/non-admin booking → 403.
-- [ ] Off-policy slot → rejected for new/moved bookings.
+- [ ] Off-policy slot → rejected for new/moved bookings, **including Admin moves**.
 - [ ] Overlapping same-class slot → 409; concurrent race → exactly one wins.
 - [ ] Same slot for a different class → allowed.
 - [ ] 3rd booking in a Mon–Sun week → rejected.
 - [ ] Cancel deletes the Schedule and frees the slot.
 - [ ] Admin can create/move/delete any session within the guards.
 - [ ] Calendar/email failure does not roll back the booking.
+- [ ] Scheduling config readable by all roles (401 anonymous); Settings stays Admin-only.
+- [ ] Settings PUT rejects malformed/overlapping config (400); empty array allowed.
 
 ## Error & Edge Cases
 
@@ -217,5 +264,13 @@ Inherits `docs/specs/security-platform/spec.md`. Specifics:
   sessions (self_enroll/nomination) can be Admin-created, but mode-gated routing
   is the top open task — see `docs/specs/capability-authz/spec.md` (evolving) and
   `plans/260606-1356-wave-e-generic-scheduling`.
-- Variable-length / minute-offset windows: see Wave E proposal.
+- **Client exact-slot rendering (Wave E1 client slice — pending).** The server
+  now validates + exposes exact (minute-offset, variable-duration) windows, but
+  the booking UI grid (`CalendarGrid` + Book/Schedules/Attendance pages) still
+  keys cells by integer hour and the participant booking page submits `hour + 1`.
+  Migrating the grid to exact slot descriptors (via the new config endpoint +
+  `useSchedulingConfig`) is the remaining E1 work — see
+  `plans/260606-1356-wave-e-generic-scheduling/phase-01-exact-scheduling-windows.md`.
+- Capacity enforcement, rooms, instructors, waitlists: Wave E2+ (gated on
+  product decisions — see the Wave E plan).
 - Recurring sessions, room/resource booking beyond the class slot.
