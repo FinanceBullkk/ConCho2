@@ -25,14 +25,19 @@ Applies whenever the user asks to implement a milestone/feature, or runs `/next`
      changelog line, update the milestone row.
    - Sync `docs/handoff-2026-06-01.md` if a phase status changed.
    - Update the scorecard in `docs/system-overview.md` if a phase % changed materially.
-6. **Commit** — conventional message, no AI refs, explicit paths, exclude
+6. **Update the affected capability spec(s)** — if behavior changed, fold the
+   delta into `docs/specs/<capability>/spec.md` (bump `last_updated`), or add a
+   new spec + registry row for a new capability. Pure refactors (no behavior
+   change) skip this. See `spec-driven-development.md`.
+7. **Commit** — conventional message, no AI refs, explicit paths, exclude
    `.claude/settings.local.json` and lock files. Auto-commit is allowed.
-7. **Report** — what changed · test results · tracker updates · next milestone.
+8. **Report** — what changed · test results · tracker updates · next milestone.
 
 ## Definition of Done (a task is NOT done until all are true)
 - ☑ Code implemented per conventions
 - ☑ Tests + lint green (real pass)
 - ☑ **Tracker updated** (`development-roadmap.md` + sync handoff)
+- ☑ **Capability spec updated** if behavior changed (`docs/specs/` + registry)
 - ☑ Committed
 
 ## Autonomy bounds
