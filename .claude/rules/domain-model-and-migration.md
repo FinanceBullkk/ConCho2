@@ -33,8 +33,8 @@ server/domains/<domain>/
 - `learning/` = full reference implementation (has own routes). `learning/session/` is a sub-domain.
 - `schedule/` = **adapter** pattern: no own routes, the legacy `scheduleController` delegates `update`/`delete` into it. Use this pattern when extracting from a big legacy controller incrementally.
 
-## Policies stored but NOT yet enforced
-`LearningProgram` carries `schedulingMode` (`leader_booking` | `admin_scheduled` | `self_enroll` | `nomination`), `deliveryMode`, `completionPolicy`, `capacityPolicy`, `facilitatorPolicy`. Today only `leader_booking` actually works; the others are persisted but not checked. Enforcing `schedulingMode` is the top open task.
+## schedulingMode enforced; other program policies stored but NOT yet enforced
+`LearningProgram` carries `schedulingMode` (`leader_booking` | `admin_scheduled` | `self_enroll` | `nomination`) plus `deliveryMode`, `completionPolicy`, `capacityPolicy`, `facilitatorPolicy`. **`schedulingMode` is now ENFORCED** on every server session-create path via `domains/schedule/scheduling-mode-policy.js` (team modes `leader_booking`/`admin_scheduled` book against a group; cohort modes `self_enroll`/`nomination` book against a cohort) — gated at the shared `scheduleService.bookSlot` chokepoint (covers the legacy `/api/schedules/book-slot` leader route AND the `learning/session` adapter), `scheduleService.adminCreate`, and `domains/schedule/use-cases.updateSchedule` reassign. Effects: leader self-booking an `admin_scheduled` program → 403; team-booking a cohort program → 400; unknown mode → 501; a program-less class still books (fallback `leader_booking`). Still persisted-but-not-enforced: `deliveryMode`, `completionPolicy`, `capacityPolicy`, `facilitatorPolicy`.
 
 ## Architectural decisions (locked — `docs/decisions/`)
 - Modular monolith (not microservices).
