@@ -525,7 +525,16 @@ const getMyTeams = async (req, res) => {
         { members: req.user._id },
       ],
     })
-      .populate('classId', 'classCode courseName status')
+      // Nested-populate the program's schedulingMode so the booking client can
+      // gate cells before the server 403/400s (Pass C is enforced at bookSlot).
+      // Class.programId is nullable → a program-less class exposes no nested
+      // program; the client resolver falls back to 'leader_booking' to match
+      // server/domains/schedule/repository.js → findClassSchedulingMode.
+      .populate({
+        path: 'classId',
+        select: 'classCode courseName status programId',
+        populate: { path: 'programId', select: 'schedulingMode' },
+      })
       .populate('leaderId', 'empCode name department status')
       .populate('members', 'empCode name department status')
       .sort({ name: 1 });
