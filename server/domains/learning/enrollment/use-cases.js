@@ -32,6 +32,23 @@ const enroll = async ({ cohortId, userId }, actor) => {
     throw new ServiceError('Learner is already enrolled in this cohort', 409);
   }
 
+  // Per-cohort total capacity (Wave E2): when the program sets a
+  // capacityPolicy.maxParticipants, a cohort cannot exceed it. Applies to ALL
+  // roles (a data-integrity cap, not a self-enroll gate) — raise the program cap
+  // to admit more. App-level count check: the partial unique index prevents
+  // duplicate enrollments, not overflow, so a rare concurrent race past the cap
+  // is a documented limitation (strict enforcement would need a tx lock).
+  const { maxParticipants } = await repository.findCohortCapacityPolicy(cohortId);
+  if (maxParticipants != null) {
+    const activeCount = await repository.countActiveCohortEnrollments(cohortId);
+    if (activeCount >= maxParticipants) {
+      throw new ServiceError(
+        `Sĩ số cohort đã đầy (${maxParticipants}) — This cohort is full (capacity ${maxParticipants})`,
+        422,
+      );
+    }
+  }
+
   // Prerequisite gating applies to self-enrollment; Admins may override.
   if (actor.role !== 'Admin') {
     await assertPrerequisitesMet(cohort, targetUserId);

@@ -217,6 +217,35 @@ target Mon–Sun week (`countDocuments({bookedTeamId, startTime in week}) >= 2`)
 - **WHEN** they book a third
 - **THEN** it is rejected ("max 2 sessions/week")
 
+### Requirement: Per-session capacity (Wave E2) [BR-2, UC-1]
+
+The system SHALL reject (**422**) any session create whose roster would exceed
+the effective per-session cap, **in the booking transaction before the session
+is written**. The effective cap = the program's
+`capacityPolicy.maxParticipantsPerSession` when set, else the per-session
+`Schedule.capacity` (default 9). It is enforced at the shared `assertBookable`
+chokepoint, so all create paths (leader book, Admin create, cohort book) are
+covered. An Admin capacity **edit** that would drop below the final roster is
+likewise rejected (422), as is **adding a team member** that would overflow a
+future session. Order at the chokepoint: weekly (400) → collision (409) →
+capacity (422). Existing over-capacity sessions are grandfathered (never
+auto-trimmed).
+
+#### Scenario: Roster exceeds the session cap
+- **GIVEN** a team of N active members and an effective cap < N
+- **WHEN** the leader books a slot
+- **THEN** **422** and no Schedule is written (the gate runs before create)
+
+#### Scenario: Program raises the per-session cap
+- **GIVEN** a program with `maxParticipantsPerSession` ≥ N
+- **WHEN** the team books
+- **THEN** it succeeds (the program cap overrides the field default)
+
+#### Scenario: Capacity edit below the roster
+- **GIVEN** a session with E enrolled
+- **WHEN** an Admin sets capacity < E (even while reassigning teams)
+- **THEN** **422**; the capacity is unchanged
+
 ### Requirement: Scheduling-mode gating [BR-1, BR-6, UC-1, UC-3]
 
 The system SHALL enforce a program's `schedulingMode` (resolved
@@ -340,6 +369,8 @@ Inherits `docs/specs/security-platform/spec.md`. Specifics:
 - [ ] Scheduling config readable by all roles (401 anonymous); Settings stays Admin-only.
 - [ ] Booking grid renders exact configured windows (incl. non-60-min/minute-offset); leader booking submits the exact start/end (no `hour + 1`).
 - [ ] Off-policy sessions render read-only (not newly bookable); availability scoped per Class (no cross-class false blocks); empty config → no bookable rows, history still visible.
+- [ ] Session roster over the effective cap → 422 on all create paths (no Schedule written); `maxParticipantsPerSession` overrides the field; program-less → default 9.
+- [ ] Capacity edit below the final roster → 422 (incl. reassign+shrink); team-member add that overflows a future session → 422; weekly/collision order unchanged.
 - [ ] Settings PUT rejects malformed/overlapping config (400); empty array allowed.
 
 ## Error & Edge Cases
@@ -372,6 +403,8 @@ Inherits `docs/specs/security-platform/spec.md`. Specifics:
   slots" requirement above. Admin create/move uses the same configured slots on
   cell-click; the schedule drawer's free-form datetime entry stays
   server-validated (off-policy → 400).
-- Capacity enforcement, rooms, instructors, waitlists: Wave E2+ (gated on
+- Per-session **capacity enforcement shipped (Wave E2, 2026-06-09)** — see
+  "Per-session capacity". Still deferred: rooms, instructors, waitlists /
+  partial-fit; the original wording follows. Rooms, instructors, waitlists: Wave E2+ (gated on
   product decisions — see the Wave E plan).
 - Recurring sessions, room/resource booking beyond the class slot.

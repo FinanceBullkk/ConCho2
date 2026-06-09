@@ -189,6 +189,22 @@ Bug fixing and integration review rank above net-new feature rollout.
 
 ## Recent progress (changelog)
 
+- **2026-06-09** — **Wave E2 — capacity enforcement (`capacityPolicy` flips
+  persisted→enforced).** Decisions in `plans/260606-1356-wave-e-generic-scheduling/
+  reports/capacity-audit-260609-1111.md` (6-agent audit; adversarial review caught
+  a 4th overflow path). **Per-session occupancy** is now enforced as a hard **422**
+  at the shared `assertBookable` chokepoint (in-tx, before create) across all 3
+  create paths — effective cap = program `capacityPolicy.maxParticipantsPerSession`
+  ?? `Schedule.capacity` (default 9). Three more guards keep the invariant true
+  everywhere: the Admin **capacity edit** (final-roster, reassign+shrink-safe), the
+  **team-member-add** path (`Team.syncSchedulesForTeamUpdate`, circular-import-safe
+  lazy requires), and **cohort total** via program `capacityPolicy.maxParticipants`
+  at enrollment (all roles). Order preserved: weekly (400) → collision (409) →
+  capacity (422). Existing over-capacity sessions grandfathered (never auto-trimmed).
+  **693 server tests green across 71 suites** (new unit precedence + per-path 422 +
+  rollback + edit/team-add/cohort cases). Spec folded into `scheduling-and-booking`
+  (per-session) + `enrollment` (cohort) + `learning-catalog` note. Deferred: rooms /
+  instructors / waitlists / partial-fit; strict cohort-cap concurrency (tx lock).
 - **2026-06-09** — **Booking-UI loop (Phase 3) — exact-slot booking grid (Wave E1
   client slice, completes Wave E1).** Migrated the booking / schedule /
   attendance grids off the hardcoded integer-hour list onto the server's exact

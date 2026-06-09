@@ -29,7 +29,7 @@ live-sync/snapshot.
 | Phase | Scope | Status | Depends on |
 |---|---|---|---|
 | E1 | [Exact scheduling windows + compatibility](./phase-01-exact-scheduling-windows.md) | ✅ **Done** — backend (commit `02d3ce3`) + client grid slice (shipped via `260609-0146-booking-ui-loop` Phase 3, 2026-06-09: descriptor grid, exact UTC ranges, off-policy rows, classId-scoped availability, `useTimeSlots` removed). **E2 now unblocked.** | None |
-| E2 | [Capacity decision + data audit](./phase-02-capacity-decision-and-audit.md) | Pending | E1 |
+| E2 | [Capacity enforcement](./phase-02-capacity-decision-and-audit.md) | ✅ **Done** (2026-06-09) — per-session 422 at `assertBookable` + edit/team-add guards + cohort `maxParticipants` at enrollment; `capacityPolicy` enforced. 693 server tests green. | E1 |
 | E3+ | [Rooms, instructors, waitlists gates](./phase-03-later-expansion-gates.md) | Pending/gated | E2 + decisions |
 
 ## Scope Guard

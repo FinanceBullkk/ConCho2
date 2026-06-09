@@ -227,7 +227,7 @@ const bookSlot = async ({ teamId, startTime, endTime, requestUser }) => {
       // (weekly cap + same-class collision) via the shared session-booking policy.
       const enrolledUsers = bookingPolicy.snapshotActiveMembers(team);
       await bookingPolicy.assertBookable(
-        { classId: team.classId, teamId, start, end },
+        { classId: team.classId, teamId, start, end, incomingCount: enrolledUsers.length },
         { session, enforceWeeklyCap: true },
       );
 
@@ -320,9 +320,9 @@ const bookCohortSlot = async ({ cohortId, startTime, endTime, enrolledUserIds = 
   let created;
   try {
     await session.withTransaction(async () => {
-      // No team, no weekly cap — only the same-cohort collision guard applies.
+      // No team, no weekly cap — same-cohort collision + capacity guard apply.
       await bookingPolicy.assertBookable(
-        { classId: cohortId, start, end },
+        { classId: cohortId, start, end, incomingCount: enrolledUserIds.length },
         { session, enforceWeeklyCap: false },
       );
 
@@ -607,7 +607,7 @@ const adminCreate = async (data) => {
       }
 
       await bookingPolicy.assertBookable(
-        { classId, teamId: bookedTeamId, start, end },
+        { classId, teamId: bookedTeamId, start, end, incomingCount: enrolledUsers.length, scheduleCapacity: data.capacity },
         { session, enforceWeeklyCap: true },
       );
 

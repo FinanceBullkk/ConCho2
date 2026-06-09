@@ -35,6 +35,30 @@ const COLLISION_MESSAGE = 'Khung giờ này đã bị đặt — This time slot 
 const WEEKLY_CAP_MESSAGE =
   `Team đã đặt tối đa ${WEEKLY_TEAM_LIMIT} buổi/tuần — This team already has the maximum ${WEEKLY_TEAM_LIMIT} sessions this week`;
 
+// Capacity (Wave E2). The effective per-session cap is the program's
+// capacityPolicy.maxParticipantsPerSession when set, else the per-session
+// Schedule.capacity field, else this default (mirrors the Schedule.capacity
+// default so a program-less class still has a cap).
+const DEFAULT_SESSION_CAPACITY = 9;
+
+/** User-facing 422 message for a roster that exceeds the effective session cap. */
+const capacityMessage = (cap) =>
+  `Sĩ số vượt quá sức chứa buổi học (${cap}) — Roster exceeds the session capacity of ${cap}`;
+
+/**
+ * The effective per-session occupancy cap. Program policy
+ * (`maxParticipantsPerSession`) overrides the per-session field; a program-less
+ * class falls back to the Schedule.capacity field, then the default.
+ *
+ * @param {{ scheduleCapacity?: number|null, maxPerSession?: number|null }} args
+ * @returns {number}
+ */
+const effectiveSessionCapacity = ({ scheduleCapacity = null, maxPerSession = null } = {}) => {
+  if (maxPerSession != null) return maxPerSession;
+  if (scheduleCapacity != null) return scheduleCapacity;
+  return DEFAULT_SESSION_CAPACITY;
+};
+
 /**
  * Monday 00:00:00.000 UTC – Sunday 23:59:59.999 UTC of the ISO week containing
  * `date`. Single source of truth (was duplicated in scheduleService and
@@ -77,19 +101,27 @@ const snapshotActiveMembers = (team) =>
  * authorization. The {classId,startTime} unique index is the final concurrency
  * guard — callers still translate its duplicate-key error into a 409.
  *
+ * Capacity (Wave E2) is checked LAST and only when `incomingCount` is supplied
+ * (opt-in): the effective cap is resolved from the class's program policy
+ * (`maxParticipantsPerSession`) or the `scheduleCapacity` fallback, and a roster
+ * larger than that cap is rejected with 422. Order: weekly (400) → collision
+ * (409) → capacity (422) — weekly/collision behaviour is unchanged.
+ *
  * @param {Object} target
  * @param {*} target.classId
  * @param {*} [target.teamId]              required for the weekly-cap check
  * @param {Date} target.start
  * @param {Date} target.end
  * @param {*} [target.excludeScheduleId]   ignore this schedule (used on updates)
+ * @param {number} [target.incomingCount]  roster size about to be enrolled (enables the cap check)
+ * @param {number} [target.scheduleCapacity] the Schedule.capacity that will apply (fallback when no program cap)
  * @param {Object} [opts]
  * @param {*} [opts.session]               Mongoose session for the enclosing tx
  * @param {boolean} [opts.enforceWeeklyCap=false]
- * @throws {ServiceError} 400 on weekly-cap breach, 409 on collision
+ * @throws {ServiceError} 400 on weekly-cap breach, 409 on collision, 422 on capacity overflow
  */
 const assertBookable = async (
-  { classId, teamId = null, start, end, excludeScheduleId = null },
+  { classId, teamId = null, start, end, excludeScheduleId = null, incomingCount = null, scheduleCapacity = null },
   { session = null, enforceWeeklyCap = false } = {},
 ) => {
   if (enforceWeeklyCap && teamId) {
@@ -108,11 +140,22 @@ const assertBookable = async (
   if (collision) {
     throw new ServiceError(COLLISION_MESSAGE, 409);
   }
+
+  if (incomingCount != null) {
+    const { maxParticipantsPerSession } = await repository.findClassCapacityPolicy(classId, session);
+    const cap = effectiveSessionCapacity({ scheduleCapacity, maxPerSession: maxParticipantsPerSession });
+    if (incomingCount > cap) {
+      throw new ServiceError(capacityMessage(cap), 422);
+    }
+  }
 };
 
 module.exports = {
   WEEKLY_TEAM_LIMIT,
+  DEFAULT_SESSION_CAPACITY,
   getWeekBounds,
   snapshotActiveMembers,
+  effectiveSessionCapacity,
+  capacityMessage,
   assertBookable,
 };

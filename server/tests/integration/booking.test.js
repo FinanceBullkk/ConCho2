@@ -9,6 +9,8 @@ const request = require('supertest');
 const { getApp, getTokens, getSeedData, getCsrfHeaders, teardown } = require('../setup');
 const Schedule = require('../../models/Schedule');
 const Setting = require('../../models/Setting');
+const Class = require('../../models/Class');
+const LearningProgram = require('../../models/LearningProgram');
 
 let app, tokens, seed, csrf;
 
@@ -178,6 +180,55 @@ describe('POST /api/schedules/book-slot', () => {
 
     expect(res.status).toBe(400);
     expect(res.body.message).toMatch(/không hợp lệ/);
+  });
+});
+
+// ── Capacity (Wave E2) ────────────────────────────────────
+// Link the seed class to a leader_booking program so the leader reaches the
+// in-transaction capacity gate; its maxParticipantsPerSession is the effective
+// per-session cap. Alpha Team has 3 active members.
+
+describe('POST /api/schedules/book-slot · capacity', () => {
+  let program;
+
+  beforeEach(async () => {
+    program = await LearningProgram.create({
+      code: 'CAPTEST', name: 'Capacity Test Program',
+      schedulingMode: 'leader_booking',
+      capacityPolicy: { maxParticipantsPerSession: 2 },
+    });
+    await Class.findByIdAndUpdate(seed.class1._id, { programId: program._id });
+  });
+
+  afterEach(async () => {
+    await Class.findByIdAndUpdate(seed.class1._id, { programId: null });
+    await LearningProgram.deleteMany({ code: 'CAPTEST' });
+  });
+
+  test('roster exceeding the cap is rejected (422) and no Schedule is persisted', async () => {
+    const { start, end } = vnSlot();
+    const res = await request(app)
+      .post('/api/schedules/book-slot')
+      .set('Authorization', `Bearer ${tokens.leader}`).set(csrf)
+      .send({ teamId: seed.team._id.toString(), startTime: start.toISOString(), endTime: end.toISOString() });
+
+    expect(res.status).toBe(422);
+    expect(res.body.message).toMatch(/sức chứa/);
+    expect(await Schedule.countDocuments({})).toBe(0); // gate runs before create — nothing written
+  });
+
+  test('program maxParticipantsPerSession raises the cap; roster within it books (201)', async () => {
+    await LearningProgram.findByIdAndUpdate(program._id, {
+      'capacityPolicy.maxParticipantsPerSession': 5,
+    });
+    const { start, end } = vnSlot();
+    const res = await request(app)
+      .post('/api/schedules/book-slot')
+      .set('Authorization', `Bearer ${tokens.leader}`).set(csrf)
+      .send({ teamId: seed.team._id.toString(), startTime: start.toISOString(), endTime: end.toISOString() });
+
+    expect(res.status).toBe(201);
+    expect(res.body.data.enrolledUsers.length).toBe(3);
   });
 });
 

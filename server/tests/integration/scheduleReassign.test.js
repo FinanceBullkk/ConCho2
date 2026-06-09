@@ -245,3 +245,48 @@ describe('Schedule update — off-policy time move is rejected', () => {
     expect(res.body.message).toMatch(/không hợp lệ/);
   });
 });
+
+// ── Wave E2: capacity-edit guard (D3) ──────────────────────
+// An admin must not edit Schedule.capacity below the FINAL roster being written
+// (the new-team snapshot on reassign, else the existing roster). The fixture
+// schedule has 2 enrolled members and the default capacity (9).
+describe('Schedule update — capacity edit guard (Wave E2)', () => {
+  test('lowering capacity below the current roster is rejected (422); capacity unchanged', async () => {
+    const { sched } = await setupReassignFixture();
+
+    const res = await request(app)
+      .put(`/api/schedules/${sched._id}`)
+      .set('Authorization', `Bearer ${tokens.admin}`).set(csrf)
+      .send({ capacity: 1 });
+
+    expect(res.status).toBe(422);
+    expect(res.body.message).toMatch(/sức chứa/);
+    const after = await Schedule.findById(sched._id).lean();
+    expect(after.capacity).toBe(9); // not written
+  });
+
+  test('lowering capacity to exactly the roster size succeeds (200)', async () => {
+    const { sched } = await setupReassignFixture();
+
+    const res = await request(app)
+      .put(`/api/schedules/${sched._id}`)
+      .set('Authorization', `Bearer ${tokens.admin}`).set(csrf)
+      .send({ capacity: 2 });
+
+    expect(res.status).toBe(200);
+    const after = await Schedule.findById(sched._id).lean();
+    expect(after.capacity).toBe(2);
+  });
+
+  test('simultaneous reassign + capacity shrink checks the NEW roster (422)', async () => {
+    const { teamB, sched } = await setupReassignFixture(); // teamB has 2 active members
+
+    const res = await request(app)
+      .put(`/api/schedules/${sched._id}`)
+      .set('Authorization', `Bearer ${tokens.admin}`).set(csrf)
+      .send({ bookedTeamId: teamB._id.toString(), capacity: 1 });
+
+    expect(res.status).toBe(422);
+    expect(res.body.message).toMatch(/sức chứa/);
+  });
+});
