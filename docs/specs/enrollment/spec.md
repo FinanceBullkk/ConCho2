@@ -2,7 +2,7 @@
 capability: enrollment
 status: evolving
 owners: [domains/learning/enrollment, controllers/enrollmentController]
-last_updated: 2026-06-08
+last_updated: 2026-06-09
 related_code:
   - server/domains/learning/enrollment/use-cases.js
   - server/domains/learning/enrollment/prerequisites.js
@@ -18,9 +18,10 @@ related_plans:
 # Capability: Enrollment
 
 > **Source of truth for BEHAVIOR.** `status: evolving` — cohort-based + self-
-> enroll are built; the dedicated nomination workflow and `capacityPolicy` are
-> persisted-but-not-yet-enforced (noted below). (Session `schedulingMode` gating
-> itself is enforced — see `scheduling-and-booking`.)
+> enroll are built; the dedicated nomination workflow is persisted-but-not-yet-
+> enforced (noted below). `capacityPolicy.maxParticipants` is now **enforced** at
+> enrollment (Wave E2). (Session `schedulingMode` gating is enforced — see
+> `scheduling-and-booking`.)
 
 ## Purpose
 
@@ -127,6 +128,7 @@ Inherits `security-platform`. Specifics:
 - [ ] Non-admin enrolling another → 403.
 - [ ] Unmet prerequisite on self-enroll → 422; Admin overrides.
 - [ ] Duplicate active enrollment → 409 (incl. concurrent race).
+- [ ] Enrolling past program `maxParticipants` → 422 (all roles); raising the cap admits more.
 - [ ] Withdraw only Active, by Admin or learner; else 409/403.
 - [ ] Participant lists only own enrollments.
 
@@ -147,5 +149,10 @@ Inherits `security-platform`. Specifics:
   distinct enforced flow (Admins enroll directly, which covers it). Dedicated
   nomination workflow not built.
 - **Transitive prerequisites / cycle detection** — only direct prerequisites.
-- **Capacity enforcement** (`capacityPolicy`) — persisted, not enforced.
+- **Cohort capacity** (`capacityPolicy.maxParticipants`) — **enforced (Wave E2,
+  2026-06-09)**: enrolling past the program's `maxParticipants` is rejected
+  (422), for all roles (a data-integrity cap, not a self-enroll gate). App-level
+  count check — a rare concurrent race past the cap is a documented limitation
+  (strict enforcement would need a transaction lock). `maxParticipantsPerSession`
+  (per-session) is enforced in `scheduling-and-booking`.
 - Cohort-based vocabulary fully replacing team enrollment — in progress.

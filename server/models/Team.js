@@ -146,6 +146,19 @@ const syncSchedulesForTeamUpdate = async ({ teamId, oldMembers, newMembers, sess
 
   logger.debug({ teamId: String(teamId), count: futureSchedules.length }, 'Team Sync: processing future schedules');
 
+  // ── Wave E2 / D5: resolve the program per-session cap once. All of this
+  // team's future schedules share its class, so one lookup suffices. Lazy
+  // requires avoid a circular import (session-booking-policy / repository ->
+  // models -> Team); at call time every module is fully loaded.
+  const { effectiveSessionCapacity, capacityMessage } = require('../domains/schedule/session-booking-policy');
+  const { ServiceError } = require('../helpers/ServiceError');
+  let maxPerSession = null;
+  if (addedSet.size > 0) {
+    const scheduleRepo = require('../domains/schedule/repository');
+    const policy = await scheduleRepo.findClassCapacityPolicy(futureSchedules[0].classId, session);
+    maxPerSession = policy.maxParticipantsPerSession ?? null;
+  }
+
   // ── Build all operations in-memory (0 DB calls) ────────
   const bulkOps = [];
   const emptyScheduleIds = []; // Schedules that will have 0 enrolled users
@@ -166,6 +179,16 @@ const syncSchedulesForTeamUpdate = async ({ teamId, oldMembers, newMembers, sess
       // Schedule will be empty — mark for deletion instead of update
       emptyScheduleIds.push(schedule._id);
       continue;
+    }
+
+    // Wave E2 / D5: reject a team-member ADD that would push this session's
+    // roster above its effective cap (keeps enrolledCount <= capacity true on
+    // the routine admin team-edit path, not just create/edit).
+    if (toAdd.length > 0) {
+      const cap = effectiveSessionCapacity({ scheduleCapacity: schedule.capacity, maxPerSession });
+      if (newCount > cap) {
+        throw new ServiceError(capacityMessage(cap), 422);
+      }
     }
 
     // enrolledCount is a virtual (enrolledUsers.length) — only array ops needed.

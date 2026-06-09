@@ -137,6 +137,25 @@ const updateSchedule = async (id, body) => {
         }
       }
 
+      // ── Capacity guard (Wave E2 / D3) ──────────────────
+      // An edit must never leave the roster above the effective per-session cap.
+      // Compare the FINAL roster being written (rebuilt on reassign, else the
+      // existing roster) against the FINAL capacity (body.capacity ?? existing),
+      // with the program override resolved for the final class — all in-tx.
+      if (updateData.capacity !== undefined || updateData.enrolledUsers !== undefined) {
+        const finalRoster = updateData.enrolledUsers ?? existing.enrolledUsers ?? [];
+        const finalCapacity = updateData.capacity !== undefined ? updateData.capacity : existing.capacity;
+        const finalClassId = updateData.classId || existing.classId;
+        const { maxParticipantsPerSession } = await repository.findClassCapacityPolicy(finalClassId, session);
+        const cap = bookingPolicy.effectiveSessionCapacity({
+          scheduleCapacity: finalCapacity,
+          maxPerSession: maxParticipantsPerSession,
+        });
+        if (finalRoster.length > cap) {
+          throw new ServiceError(bookingPolicy.capacityMessage(cap), 422);
+        }
+      }
+
       schedule = await repository.updateScheduleById(id, updateData, session);
       if (!schedule) {
         throw new ServiceError('Schedule not found', 404);

@@ -1,87 +1,80 @@
 ---
 phase: 2
-title: "E2 Capacity Decision and Data Audit"
-status: pending
+title: "E2 Capacity Enforcement"
+status: completed
 priority: P1
 effort: 2d
 dependencies: [1]
 ---
 
-# Phase 2: Capacity Decision And Audit
+# Phase 2: Capacity Enforcement
 
-## Overview
+> **Decisions made 2026-06-09** (audit: `reports/capacity-audit-260609-1111.md`).
+> Entry gate resolved — implementing the decided design below.
 
-Decision/audit first. `Schedule.capacity` is metadata
-(`server/models/Schedule.js:56`); Program capacity fields exist but are unused
-(`server/models/LearningProgram.js:67`). No enforcement until semantics and
-existing violations are known.
+## Decided scope
 
-## Entry Gate
+- **D1 → BOTH** (per-session occupancy **and** program `capacityPolicy`).
+- **D2 → hard reject 422** on overflow (all-or-nothing, no partial fit / waitlist).
+- **D3 → guard the capacity edit** (reject lowering capacity below the final roster).
+- **D4 → enforce default 9** (program-less / unset → cap 9; teams >9 must have capacity raised).
+- **D5 → guard the team-member-add path** too (keep the invariant true everywhere).
+- **Existing violations → grandfathered** (read-only; never auto-drop learners — golden rule).
+- **Cohort roster → creation snapshot**; **team roster → live-sync growth, capacity-guarded**.
 
-- E1 complete.
-- Decide capacity at enrollment, session, or both.
-- Decide future cohort roster live-sync or creation snapshot.
-- Approve existing over-capacity handling.
+## Semantics (precedence)
 
-## Data Flow To Decide
+- **Effective per-session cap** = `program.capacityPolicy.maxParticipantsPerSession`
+  when set (non-null), else `Schedule.capacity` (default 9). Program is resolved
+  `Class.programId → LearningProgram` (same graceful fallback as Pass C).
+- **Per-cohort total cap** = `program.capacityPolicy.maxParticipants` (when set):
+  caps Active cohort enrollments; enforced at the enrollment use-case.
+- Overflow on either → **422** with a stable `CAPACITY_MESSAGE`.
 
-1. Program limits + Schedule override + proposed roster enter one policy.
-2. Policy resolves effective limit and enforcement point.
-3. Approved Enrollment/session/Team/cohort write persists or returns 409/422.
-4. Existing violations remain readable; never auto-remove learners.
-5. Admin override, if approved, requires reason and audit.
+## Increments (each: implement → test → green)
 
-## Audit Scope
+### Increment 1 — per-session cap at the create chokepoint
+- `repository.findClassCapacityPolicy(classId, session)` → `{ maxParticipants, maxParticipantsPerSession }` (mirror `findClassSchedulingMode`).
+- `session-booking-policy.js`: add `CAPACITY_MESSAGE` + `effectiveSessionCapacity({ scheduleCapacity, maxPerSession })`; extend `assertBookable` to take `{ incomingCount, capacity }` and throw 422 when `incomingCount > capacity`. **Order: weekly (400) → collision (409) → capacity (422)** (preserves existing weekly→collision tests).
+- Wire the 3 create callers (`scheduleService.bookSlot` / `adminCreate` / `bookCohortSlot`): resolve effective cap, pass `incomingCount` (roster already in hand) + `capacity`. In-transaction, before `Schedule.create`.
 
-- Count Programs/Cohorts/Teams/Schedules over each possible limit.
-- Compare `Schedule.capacity` with `enrolledUsers.length`.
-- Quantify Team future-live-sync versus cohort creation-snapshot behavior:
-  `server/models/Team.js:119`,
-  `server/domains/learning/session/use-cases.js:137`.
-- Output IDs/counts and remediation recommendation. Read-only; no backfill.
+### Increment 2 — capacity-edit guard (D3, with verdict correction)
+- `domains/schedule/use-cases.updateSchedule`: compute the **final** roster being written
+  (new-team `snapshotActiveMembers` when `bookedTeamId` changes, else `existing.enrolledUsers`)
+  and final capacity (`body.capacity ?? existing.capacity`), resolve `maxPerSession` for the
+  final class, reject (422) if `finalRoster > effectiveCap`. Read **inside** `session.withTransaction`.
 
-## Likely Files After Decision
+### Increment 3 — team-add guard (D5, the 4th path the verdict found)
+- `Team.syncSchedulesForTeamUpdate` add branch (`Team.js`): before `$push`-growing future
+  sessions, reject (422) the team update if any affected future session would exceed its
+  effective cap. In the same transaction as the team edit.
 
-- Create `server/domains/schedule/capacity-policy.js` and audit script/tests.
-- Modify `server/domains/learning/enrollment/use-cases.js:11`.
-- Modify `server/services/scheduleService.js:223`.
-- Modify `server/models/Team.js:119`.
-- Modify `server/domains/schedule/use-cases.js:41`.
-- Re-grep client callers/file ownership before coding.
+### Increment 4 — per-cohort total cap (Part B)
+- `domains/learning/enrollment/use-cases` (admin enroll + self-enroll): when
+  `program.capacityPolicy.maxParticipants` is set, count Active cohort enrollments;
+  reject (422) if it would exceed.
 
 ## Test Matrix
 
 | Layer | Cases |
 |---|---|
-| Unit | precedence, null limits, boundary, override |
-| Integration | approved chokepoints; four modes; authz/audit |
-| Race | concurrent last seat; roster update versus booking |
-| Regression | historical violation visible; attendance/completion unchanged |
+| Unit | `effectiveSessionCapacity` precedence (program override vs field vs default 9); boundary (`==cap` ok, `+1` → 422); ordering weekly→collision→capacity |
+| Integration | bookSlot / adminCreate / bookCohortSlot overflow → 422 + **no Schedule persisted** (tx rollback); happy path 201; program `maxParticipantsPerSession` raises the cap |
+| Integration | updateSchedule lower-capacity-below-roster → 422 (incl. simultaneous reassign+shrink); team-add overflow → 422; cohort enroll past `maxParticipants` → 422 |
+| Regression | weekly-cap (400) + collision (409) codes/messages/order unchanged; attendance/completion untouched |
 
-## Risks
+## Out of scope / deferred
 
-| Risk | Likelihood x impact | Mitigation |
-|---|---|---|
-| Wrong enforcement point | High x High | Hard decision gate |
-| Existing violations | High x High | Audit/grandfather/manual remediation |
-| Last-seat oversubscription | Medium x Critical | Transactional lock + race test |
-| Team/cohort divergence | Medium x High | One policy + mode matrix |
+- Waitlists, partial-fit, roster auto-capping. Schema-layer defence-in-depth
+  (`Schedule.pre('validate')`) for direct `Schedule.create` (import/admin-DB) — deferred.
+- Backfilling/remediating existing over-capacity sessions (grandfathered).
 
 ## Success Criteria
 
-- [ ] Exact precedence and roster lifetime approved.
-- [ ] Audit covers all active records with zero destructive writes.
-- [ ] Violation count and remediation approved.
-- [ ] Caller/file inventory re-grepped before implementation.
-
-## Rollback And Compatibility
-
-Audit needs no rollback. Enforcement must be additive/reversible. Never
-auto-drop Enrollment or `Schedule.enrolledUsers`; any backfill needs before/after
-manifest and inverse script.
-
-## Unresolved Questions
-
-- Capacity at enrollment, session, or both?
-- Future cohort roster live-sync or snapshot?
-- Existing violations: grandfather, override, or manual remediation?
+- [x] Per-session overflow → 422 on all 3 create paths; gate runs before create (no orphan Schedule).
+- [x] `maxParticipantsPerSession` overrides the field; program-less → default 9.
+- [x] Capacity edit below final roster → 422 (incl. reassign+shrink).
+- [x] Team-add overflow → 422; cohort enroll past `maxParticipants` → 422.
+- [x] Weekly-cap / collision behavior unchanged (693 server tests green); existing violations still readable.
+- [x] Spec folded into `scheduling-and-booking` (+ `enrollment` cohort cap + `learning-catalog` note);
+      `capacityPolicy` flipped persisted→enforced. Tracker updated.

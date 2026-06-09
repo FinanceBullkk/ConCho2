@@ -51,6 +51,19 @@ const findCohortSchedulingMode = async (cohortId) => {
   return program?.schedulingMode || null;
 };
 
+// Count Active cohort-based enrollments in a cohort (Wave E2 capacity).
+const countActiveCohortEnrollments = (cohortId) =>
+  Enrollment.countDocuments({ classId: cohortId, teamId: null, status: 'Active' });
+
+// Resolve the program capacity policy governing a cohort, or {} when there is no
+// linked program (Wave E2). Mirrors findCohortSchedulingMode.
+const findCohortCapacityPolicy = async (cohortId) => {
+  const cohort = await Class.findById(cohortId).select('programId').lean();
+  if (!cohort?.programId) return {};
+  const program = await LearningProgram.findById(cohort.programId).select('capacityPolicy').lean();
+  return program?.capacityPolicy || {};
+};
+
 module.exports = {
   findActiveCohortEnrollment,
   createCohortEnrollment,
@@ -59,4 +72,6 @@ module.exports = {
   markDropped,
   findCohort,
   findCohortSchedulingMode,
+  countActiveCohortEnrollments,
+  findCohortCapacityPolicy,
 };

@@ -134,6 +134,8 @@ Inherits `security-platform`. Specifics:
 
 - Physical collection rename (`Class`→`Cohort`) — deferred (DTO migration only).
 - Program versioning / module-level curriculum.
-- `capacityPolicy` / `facilitatorPolicy` enforcement — persisted, not enforced
-  (see `capability-authz`). (`schedulingMode` enforcement shipped — see
-  `scheduling-and-booking`.)
+- `facilitatorPolicy` enforcement — persisted, not enforced (see
+  `capability-authz`). (`schedulingMode` shipped — see `scheduling-and-booking`;
+  `capacityPolicy` now **enforced (Wave E2)**: `maxParticipantsPerSession`
+  per-session in `scheduling-and-booking`, `maxParticipants` per-cohort in
+  `enrollment`.)

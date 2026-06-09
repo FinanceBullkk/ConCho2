@@ -12,7 +12,10 @@
 const {
   getWeekBounds,
   snapshotActiveMembers,
+  effectiveSessionCapacity,
+  capacityMessage,
   WEEKLY_TEAM_LIMIT,
+  DEFAULT_SESSION_CAPACITY,
 } = require('../../domains/schedule/session-booking-policy');
 
 describe('session-booking-policy · getWeekBounds', () => {
@@ -59,5 +62,27 @@ describe('session-booking-policy · snapshotActiveMembers', () => {
 describe('session-booking-policy · WEEKLY_TEAM_LIMIT', () => {
   test('is re-exported from the scheduling-window policy (single source)', () => {
     expect(WEEKLY_TEAM_LIMIT).toBe(2);
+  });
+});
+
+describe('session-booking-policy · effectiveSessionCapacity (Wave E2)', () => {
+  test('program maxParticipantsPerSession overrides the per-session field', () => {
+    expect(effectiveSessionCapacity({ scheduleCapacity: 9, maxPerSession: 20 })).toBe(20);
+  });
+
+  test('falls back to the Schedule.capacity field when no program cap', () => {
+    expect(effectiveSessionCapacity({ scheduleCapacity: 15, maxPerSession: null })).toBe(15);
+  });
+
+  test('falls back to the default when neither is set', () => {
+    expect(effectiveSessionCapacity({})).toBe(DEFAULT_SESSION_CAPACITY);
+    expect(effectiveSessionCapacity({ scheduleCapacity: null, maxPerSession: null })).toBe(9);
+  });
+});
+
+describe('session-booking-policy · capacityMessage', () => {
+  test('embeds the cap and keeps the bilingual contract substring', () => {
+    expect(capacityMessage(9)).toMatch(/sức chứa/);
+    expect(capacityMessage(9)).toMatch(/\b9\b/);
   });
 });

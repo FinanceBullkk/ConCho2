@@ -109,6 +109,32 @@ describe('Learning Platform API — cohort enrollments', () => {
     expect(res.status).toBe(403);
   });
 
+  test('cohort enrollment is rejected (422) once program maxParticipants is reached', async () => {
+    const program = await LearningProgram.create({
+      code: 'CAP200', name: 'Capped Cohort Program', schedulingMode: 'self_enroll',
+      capacityPolicy: { maxParticipants: 1 },
+    });
+    await Class.findByIdAndUpdate(seed.class1._id, { programId: program._id });
+
+    // First enrollment fills the cohort (cap 1).
+    const first = await enroll(tokens.admin, {
+      cohortId: seed.class1._id.toString(), userId: seed.member1._id.toString(),
+    });
+    expect(first.status).toBe(201);
+
+    // Second exceeds maxParticipants → 422 (applies to Admin too).
+    const second = await enroll(tokens.admin, {
+      cohortId: seed.class1._id.toString(), userId: seed.member2._id.toString(),
+    });
+    expect(second.status).toBe(422);
+    expect(second.body.message).toMatch(/đầy|full|capacity/i);
+
+    const active = await Enrollment.countDocuments({
+      classId: seed.class1._id, teamId: null, status: 'Active',
+    });
+    expect(active).toBe(1);
+  });
+
   test('withdraw soft-drops the enrollment (record kept, status Dropped)', async () => {
     const created = await enroll(tokens.admin, {
       cohortId: seed.class1._id.toString(), userId: seed.member1._id.toString(),

@@ -87,6 +87,23 @@ const findClassSchedulingMode = async (classId, session) => {
   return program?.schedulingMode || 'leader_booking';
 };
 
+// ── Capacity-policy resolution (Wave E2) ──────────────────
+// Resolve a class/cohort's program capacity policy: Class.programId ->
+// LearningProgram.capacityPolicy. Returns {} for a program-less class (the
+// "open until populated" rule) so such classes fall back to the per-session
+// Schedule.capacity field. Mirrors findClassSchedulingMode.
+const findClassCapacityPolicy = async (classId, session) => {
+  if (!classId) return {};
+  let cq = Class.findById(classId).select('programId').lean();
+  if (session) cq = cq.session(session);
+  const cls = await cq;
+  if (!cls || !cls.programId) return {};
+  let pq = LearningProgram.findById(cls.programId).select('capacityPolicy').lean();
+  if (session) pq = pq.session(session);
+  const program = await pq;
+  return program?.capacityPolicy || {};
+};
+
 module.exports = {
   findScheduleById,
   findScheduleByIdRaw,
@@ -98,4 +115,5 @@ module.exports = {
   findScheduleForCollision,
   countSchedulesForTeamInWeek,
   findClassSchedulingMode,
+  findClassCapacityPolicy,
 };
