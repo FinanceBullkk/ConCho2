@@ -7,9 +7,9 @@ const { generateAttendanceWorkbook } = require('./attendance-workbook');
 // ──────────────────────────────────────────────────────────
 // Attendance export (data pipeline + claim-race flow + stats)
 // ──────────────────────────────────────────────────────────
-// Gom dữ liệu Attendance chưa export (syncStatus: PENDING), join với
-// User/Schedule/Class/Team, tạo file Excel (attendance-workbook), rồi đánh
-// dấu EXPORTED để lần sau không lấy lại. The P2-08 race-condition fix claims
+// Gathers not-yet-exported Attendance data (syncStatus: PENDING), joins with
+// User/Schedule/Class/Team, generates an Excel file (attendance-workbook), then
+// marks records EXPORTED so they aren't picked up again. The P2-08 race-condition fix claims
 // records (PENDING → EXPORTING + batchId) before generating so two concurrent
 // admins get disjoint record sets — no double-export.
 
@@ -57,7 +57,7 @@ const buildExportPipeline = ({ from, to, includeExported = false, batchId } = {}
     pipeline.push({ $match: { 'schedule.startTime': dateFilter } });
   }
 
-  // ── Stage 3: Join User (nhân viên) ─────────────────────
+  // ── Stage 3: Join User (employee) ─────────────────────
   // DATA-009 (audit PR A): use the pipeline form of $lookup so we can
   // $match isDeleted at the join. Mongoose pre('find')/pre('aggregate')
   // hooks do NOT fire inside $lookup sub-pipelines, so without this
@@ -151,7 +151,7 @@ const exportAttendance = async (opts = {}) => {
     // Re-export path: no claiming needed — just query and generate.
     const records = await queryExportData(opts);
     if (records.length === 0) {
-      throw new ServiceError('Không có bản ghi nào để xuất (No records found)', 404);
+      throw new ServiceError('No records found', 404);
     }
     enforceRowCap(records.length, 'attendance');
     const now = new Date();
@@ -188,7 +188,7 @@ const exportAttendance = async (opts = {}) => {
   const idsToExport = matchingDocs.map(d => d._id);
 
   if (idsToExport.length === 0) {
-    throw new ServiceError('Không có bản ghi nào để xuất (No pending records found)', 404);
+    throw new ServiceError('No pending records found', 404);
   }
 
   // PERF-001 (audit PR D): refuse oversized exports BEFORE claiming
@@ -211,7 +211,7 @@ const exportAttendance = async (opts = {}) => {
   // Throw 404 so the caller knows there is nothing to export right now.
   if (claimedResult.modifiedCount === 0) {
     throw new ServiceError(
-      'Không có bản ghi nào để xuất — có thể đã được export đồng thời (No records claimed — concurrent export may have taken them)',
+      'No records claimed — concurrent export may have taken them',
       404,
     );
   }

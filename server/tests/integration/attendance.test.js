@@ -88,7 +88,7 @@ describe('POST /api/attendance/:scheduleId (bulk mark)', () => {
       });
 
     expect(res.status).toBe(400);
-    expect(res.body.message).toMatch(/chưa|future/i);
+    expect(res.body.message).toMatch(/future/i);
 
     await Schedule.findByIdAndDelete(futureSchedule._id);
   });

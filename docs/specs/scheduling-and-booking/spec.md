@@ -122,7 +122,7 @@ off-policy rows remain visible but read-only.
 #### Scenario: Off-policy time rejected
 - **GIVEN** a slot not in `ALLOWED_TIME_SLOTS`
 - **WHEN** a booking/move targets it (including an Admin time-edit)
-- **THEN** it is rejected as an invalid slot (**400**, "không hợp lệ")
+- **THEN** it is rejected as an invalid slot (**400**, "Please select an allowed time slot.")
 
 ### Requirement: Scheduling config is readable by all roles [BR-4, BR-5, UC-4]
 

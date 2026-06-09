@@ -127,7 +127,7 @@ describe('Learning Platform API — cohort enrollments', () => {
       cohortId: seed.class1._id.toString(), userId: seed.member2._id.toString(),
     });
     expect(second.status).toBe(422);
-    expect(second.body.message).toMatch(/đầy|full|capacity/i);
+    expect(second.body.message).toMatch(/full|capacity/i);
 
     const active = await Enrollment.countDocuments({
       classId: seed.class1._id, teamId: null, status: 'Active',

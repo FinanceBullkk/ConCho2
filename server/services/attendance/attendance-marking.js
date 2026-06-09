@@ -31,7 +31,7 @@ const bulkMark = async (scheduleId, records) => {
   // ── Guard: cannot mark attendance for sessions that haven't started ──
   if (new Date(schedule.startTime) > new Date()) {
     throw new ServiceError(
-      'Chưa thể điểm danh — Buổi học này chưa diễn ra. Cannot mark attendance for a future session.',
+      'Cannot mark attendance for a future session.',
       400
     );
   }
@@ -42,7 +42,7 @@ const bulkMark = async (scheduleId, records) => {
   cutoff.setDate(cutoff.getDate() - EDIT_WINDOW_DAYS);
   if (new Date(schedule.startTime) < cutoff) {
     throw new ServiceError(
-      `Không thể chỉnh sửa điểm danh cho buổi học cũ hơn ${EDIT_WINDOW_DAYS} ngày. Cannot edit attendance older than ${EDIT_WINDOW_DAYS} days.`,
+      `Cannot edit attendance older than ${EDIT_WINDOW_DAYS} days.`,
       400
     );
   }

@@ -189,6 +189,22 @@ Bug fixing and integration review rank above net-new feature rollout.
 
 ## Recent progress (changelog)
 
+- **2026-06-09** — **English-only sweep — server user-facing strings (closes the
+  English-only golden rule server-side).** Removed every bilingual Vietnamese–English
+  and Vietnamese-only user-facing message string on the server (English half kept, VN
+  dropped; status codes + logic unchanged): booking/collision/weekly-cap/capacity
+  (`scheduleService`, `session-booking-policy`), scheduling-window
+  (`scheduling-window-policy`), cohort-full (`enrollment/use-cases`), team-conflict
+  (`controllers/team/team-mutations`), attendance future/edit-window
+  (`attendance-marking`), and export empty-result (`attendance-export`,
+  `evaluation-export`). The **HR Excel exports** now use English column headers /
+  status text / report titles (`attendance-workbook`, `evaluation-workbook`). Coupled
+  test assertions updated to match the new English across 7 suites (booking / teams /
+  scheduleReassign / attendance / learningEnrollment / exportFormulaInjection /
+  session-booking-policy unit); `scheduling-and-booking` spec quote synced; lingering
+  VN code comments translated. **699 server tests green across 72 suites.** Remaining
+  VN in code is intentional: ErrorBoundary negative-assertion guards (assert VN is
+  absent) + a unicode-filename test. Review: `plans/reports/review-260609-2005-refactor-sweep-quality-gate.md`.
 - **2026-06-09** — **Phase 1 refactor — split `authService` (413) by concern
   (completes the legacy file-modularization sweep).** Pure behaviour-preserving
   (verbatim; no spec change). `services/auth/auth-tokens.js` (JWT minting +

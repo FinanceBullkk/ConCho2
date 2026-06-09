@@ -73,7 +73,7 @@ const exportEvaluations = async (opts = {}) => {
   const records = await queryEvaluationData(opts);
 
   if (records.length === 0) {
-    throw new ServiceError('Không có bản ghi đánh giá nào để xuất (No evaluations found)', 404);
+    throw new ServiceError('No evaluations found', 404);
   }
 
   // PERF-001 (audit PR D): same hard cap as attendance export.

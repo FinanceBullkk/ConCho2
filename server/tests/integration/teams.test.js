@@ -299,7 +299,7 @@ describe('PUT /api/teams/:id — capacity guard on member add', () => {
         .send({ members: [leader._id.toString(), m1._id.toString(), m2._id.toString()] });
 
       expect(res.status).toBe(422);
-      expect(res.body.message).toMatch(/sức chứa/);
+      expect(res.body.message).toMatch(/capacity/);
       // Transaction rolled back — the future session's roster is untouched.
       const after = await Schedule.findById(sched._id).lean();
       expect(after.enrolledUsers.length).toBe(2);
