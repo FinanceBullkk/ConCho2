@@ -259,11 +259,22 @@ Important database constraints:
 
 ### Booking Logic
 
-`server/services/scheduleService.js` is the booking service entry (`bookSlot`,
-`bookCohortSlot`, `adminCreate`). The booking **invariants** now live in
-`server/domains/schedule/`, which the legacy `scheduleController`/`scheduleService`
-and the `domains/learning/session` adapter all delegate into (one rule set):
+`server/services/scheduleService.js` holds the transaction-heavy **mutation**
+entry points (`bookSlot`, `bookCohortSlot`, `adminCreate`, `cancelSlot`) and acts
+as a thin **facade** re-exporting the read use-cases + session-order helpers below,
+so existing callers keep using `scheduleService.listSchedules` etc. unchanged. The
+booking **invariants**, the **read/query layer**, and the **session-order cache**
+all live in `server/domains/schedule/`, which the legacy `scheduleController`/
+`scheduleService` and the `domains/learning/session` adapter all delegate into
+(one rule set):
 
+- `queries.js` — pure read use-cases (`getAvailability`, `listSchedules`, `getById`,
+  `getMyClassSchedules`, `getAttendanceCalendar`), extracted from the legacy service
+  (Phase 1). All Mongoose access goes through `repository.js`; derived
+  `attendanceStatus` (none/pending/partial/done) is computed here.
+- `session-order.js` — the single per-class session-order cache + `attachSessionNumbers`
+  (1-based `sessionNumber` by `startTime`) + `invalidateSessionOrderCache` (called by
+  every create/cancel path so numbers stay accurate).
 - `session-booking-policy.js` — `assertBookable` (per-team weekly cap + same-class
   collision, via the schedule repository), `getWeekBounds`, `snapshotActiveMembers`,
   single `WEEKLY_TEAM_LIMIT` (= 2).

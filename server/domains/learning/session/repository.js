@@ -5,7 +5,7 @@ const Enrollment = require('../../../models/Enrollment');
 const {
   attachSessionNumbers,
   invalidateSessionOrderCache,
-} = require('../../../services/scheduleService');
+} = require('../../schedule/session-order');
 
 const populateSessionQuery = (query) => query
   .populate({
