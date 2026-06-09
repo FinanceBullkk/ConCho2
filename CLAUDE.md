@@ -48,3 +48,17 @@ clone.
 - Architecture decisions: `docs/decisions/`
 - Operational runbooks: `docs/backup-dr.md`, `docs/cron-pinger-setup.md`, `docs/google-calendar-setup.md`
 - API: `/api/docs` (Swagger, when server running)
+
+## Agent skills
+
+### Issue tracker
+
+Issues live in `FinanceBullkk/ConCho2` GitHub Issues via the `gh` CLI. See `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+Default canonical labels (`needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-human`, `wontfix`). See `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+Multi-context monorepo (`client/` + `server/`); ADRs in `docs/decisions/`. See `docs/agents/domain.md`.
