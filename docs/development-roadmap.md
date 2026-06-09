@@ -111,7 +111,7 @@ owner-input setup or the separate Wave E generic scheduling plan.
 | Phase | Theme | Progress | Status |
 |------|-------|---------:|--------|
 | 0 | Architecture baseline + safety net | ~93% | 🟢 near done |
-| 1 | Backend modular-monolith refactor | ~74% | 🟡 in progress |
+| 1 | Backend modular-monolith refactor | ~76% | 🟡 in progress |
 | 2 | Learning catalog + generic cohort model | ~95% | 🟢 near done |
 | 3 | Multi-program enrollment + session scheduling | ~78% | 🟡 in progress |
 | 4 | Frontend L&D workspace (CRUD UI) | ~78% | 🟡 in progress |
@@ -189,6 +189,14 @@ Bug fixing and integration review rank above net-new feature rollout.
 
 ## Recent progress (changelog)
 
+- **2026-06-09** — **Phase 1 refactor — split `attendanceService` (396) by concern.**
+  Pure behaviour-preserving (verbatim; no spec change). `services/attendance/`:
+  `attendance-scope.js` (Teacher visibility helpers, shared), `attendance-marking.js`
+  (bulkMark + lastActiveAt write-through + record reads), `attendance-analytics.js`
+  (by-employee/team/class/personal rollups). Facade keeps `attendanceController` +
+  direct test imports unchanged. 699 server tests green (72 suites). (`syncController`
+  314 left whole — one cohesive Google-Sheets sync handler, no clean split boundary.
+  Remaining moderate file: `authService` 413.)
 - **2026-06-09** — **Phase 1 refactor — split `classController` (323) by concern.**
   Pure behaviour-preserving (verbatim; no spec change). `controllers/class/
   class-queries.js` (list/courses/by-id) + `class-mutations.js`
