@@ -111,7 +111,7 @@ owner-input setup or the separate Wave E generic scheduling plan.
 | Phase | Theme | Progress | Status |
 |------|-------|---------:|--------|
 | 0 | Architecture baseline + safety net | ~93% | 🟢 near done |
-| 1 | Backend modular-monolith refactor | ~42% | 🟡 in progress |
+| 1 | Backend modular-monolith refactor | ~48% | 🟡 in progress |
 | 2 | Learning catalog + generic cohort model | ~95% | 🟢 near done |
 | 3 | Multi-program enrollment + session scheduling | ~78% | 🟡 in progress |
 | 4 | Frontend L&D workspace (CRUD UI) | ~78% | 🟡 in progress |
@@ -189,6 +189,23 @@ Bug fixing and integration review rank above net-new feature rollout.
 
 ## Recent progress (changelog)
 
+- **2026-06-09** — **Phase 1 refactor — extract the schedule read/query layer out
+  of the 737-line `scheduleService`.** Pure behaviour-preserving refactor (no spec
+  change). The transaction-heavy booking paths (`bookSlot`/`bookCohortSlot`/
+  `adminCreate`/`cancelSlot`) stay in `services/scheduleService.js`, which is now a
+  thin **facade** re-exporting the moved reads + cache so every caller
+  (`scheduleController`, `domains/learning/session`, `domains/schedule`) is
+  unchanged. New `domains/schedule/queries.js` owns the 5 read use-cases
+  (`getAvailability`/`listSchedules`/`getById`/`getMyClassSchedules`/
+  `getAttendanceCalendar`) over `repository.js` (8 new read queries) + new
+  `domains/schedule/session-order.js` (single per-class session-order cache +
+  `attachSessionNumbers`/`invalidateSessionOrderCache`). `domains/schedule/use-cases`
+  and `learning/session/repository` repointed off the legacy service onto
+  `session-order` (legacy back-deps removed; one shared cache singleton).
+  `scheduleService` 737→512 lines; dead `sendMail`/`NodeCache`/`Class`/`todayVN`
+  imports dropped. New `scheduleQueries.test.js` pins `sessionNumber` + the calendar
+  status mapping through the routes. **699 server tests green across 72 suites**
+  (693+6). Code-map updated (`current-system-map.md` Booking Logic).
 - **2026-06-09** — **Wave E2 — capacity enforcement (`capacityPolicy` flips
   persisted→enforced).** Decisions in `plans/260606-1356-wave-e-generic-scheduling/
   reports/capacity-audit-260609-1111.md` (6-agent audit; adversarial review caught

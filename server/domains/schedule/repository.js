@@ -14,6 +14,70 @@ const findScheduleById = (id) =>
 
 const findScheduleByIdRaw = (id) => Schedule.findById(id);
 
+// ── Read queries (Phase 1 extraction from scheduleService) ────
+// Each mirrors the exact populate/sort/lean shape the legacy read functions
+// used, so behaviour is preserved 1:1.
+
+// getAvailability — future schedules, optionally scoped to a class.
+const findAvailabilitySchedules = ({ classId, fromDate }) => {
+  const query = { startTime: { $gte: fromDate } };
+  if (classId) query.classId = classId;
+  return Schedule.find(query)
+    .populate('classId', 'classCode courseName')
+    .populate('bookedTeamId', 'name')
+    .sort({ startTime: 1 });
+};
+
+// listSchedules — paginated list page.
+const findSchedulesPage = (query, { skip, limit }) =>
+  Schedule.find(query)
+    .populate('classId', 'classCode courseName totalSessions')
+    .populate('bookedTeamId', 'name')
+    .populate('enrolledUsers', 'empCode name department')
+    .sort({ startTime: 1 })
+    .skip(skip).limit(limit)
+    .lean({ virtuals: true });
+
+const countSchedules = (query) => Schedule.countDocuments(query);
+
+// getMyClassSchedules — the participant's team(s) + their upcoming sessions.
+const findTeamsByMember = (userId) =>
+  Team.find({ members: userId })
+    .select('classId name leaderId')
+    .populate('leaderId', 'name empCode email department')
+    .lean();
+
+const findUpcomingForClasses = (classIds, fromDate, limit) =>
+  Schedule.find({ classId: { $in: classIds }, startTime: { $gte: fromDate } })
+    .populate('classId', 'classCode courseName totalSessions')
+    .populate('bookedTeamId', 'name')
+    .sort({ startTime: 1 })
+    .limit(limit)
+    .lean({ virtuals: true });
+
+// getAttendanceCalendar — schedules in an optional date window + teacher scope.
+const findCalendarSchedules = (filter) =>
+  Schedule.find(filter)
+    .populate('classId', 'classCode courseName totalSessions')
+    .populate('bookedTeamId', 'name')
+    .sort({ startTime: 1 })
+    .lean({ virtuals: true });
+
+// Teacher visibility: own classes OR legacy empty-teacherIds (graceful migration).
+const findTeacherScopedClassIds = (teacherId) =>
+  Class.find({
+    $or: [
+      { teacherIds: teacherId },
+      { teacherIds: { $size: 0 } },
+    ],
+  }).select('_id').lean();
+
+const aggregateAttendanceCounts = (scheduleIds) =>
+  Attendance.aggregate([
+    { $match: { scheduleId: { $in: scheduleIds } } },
+    { $group: { _id: '$scheduleId', count: { $sum: 1 } } },
+  ]);
+
 const updateScheduleById = (id, data, session) =>
   Schedule.findByIdAndUpdate(id, data, {
     new: true, runValidators: true, ...(session && { session }),
@@ -116,4 +180,13 @@ module.exports = {
   countSchedulesForTeamInWeek,
   findClassSchedulingMode,
   findClassCapacityPolicy,
+  // Read queries (Phase 1 extraction)
+  findAvailabilitySchedules,
+  findSchedulesPage,
+  countSchedules,
+  findTeamsByMember,
+  findUpcomingForClasses,
+  findCalendarSchedules,
+  findTeacherScopedClassIds,
+  aggregateAttendanceCounts,
 };

@@ -1,26 +1,29 @@
 const mongoose = require('mongoose');
-const NodeCache = require('node-cache');
-const { todayVN } = require('../helpers/dayjsConfig');
 const Schedule = require('../models/Schedule');
 const Team = require('../models/Team');
 const Attendance = require('../models/Attendance');
-const Class = require('../models/Class');
 const calendarService = require('./calendarService');
 const auditService = require('./auditService');
 const logger = require('../lib/logger');
-const { sendMail } = require('../lib/mailer');
 const {
   sendBookingConfirmation,
   sendClassCancellation,
 } = require('../lib/emailTemplates');
+const sessionOrder = require('../domains/schedule/session-order');
+const queries = require('../domains/schedule/queries');
 
-// Per-class ordered schedule ID list — 5 min TTL.
-// Invalidated on create/delete so sessionNumbers stay accurate.
-const sessionOrderCache = new NodeCache({ stdTTL: 300, checkperiod: 60 });
+// Session-order cache + numbering live in domains/schedule/session-order.
+// The booking functions below invalidate the cache on create/cancel.
+const { invalidateSessionOrderCache } = sessionOrder;
 
 // ──────────────────────────────────────────────────────────
-// Schedule Service
+// Schedule Service (booking/mutation logic + read facade)
 // ──────────────────────────────────────────────────────────
+// Transaction-heavy booking logic (bookSlot / bookCohortSlot / adminCreate /
+// cancelSlot) lives here. The pure read/query use-cases were extracted to
+// domains/schedule/queries (Phase 1 modular-monolith refactor); they are
+// re-exported below so callers keep using `scheduleService.listSchedules` etc.
+//
 // Pure business logic — no req/res objects.
 // Each method receives plain data and returns a result or
 // throws a typed error with a statusCode property.
@@ -41,12 +44,6 @@ const schedulingModePolicy = require('../domains/schedule/scheduling-mode-policy
 // ── Helpers ───────────────────────────────────────────────
 
 /**
- * Return midnight today in Vietnam timezone (as UTC Date for MongoDB).
- * Example: 23:30 VN May 2 → returns 17:00 UTC May 1 (= 00:00 VN May 2)
- */
-const utcToday = () => todayVN();
-
-/**
  * Validate a booking window against the configured ALLOWED_TIME_SLOTS.
  * Thin wrapper over the shared scheduling-window policy (Wave E1) so team
  * booking, cohort booking, and Admin create all enforce the SAME rules.
@@ -54,73 +51,6 @@ const utcToday = () => todayVN();
  */
 const assertValidBookingSlot = (start, end) =>
   schedulingWindowPolicy.assertValidBookingWindow(start, end);
-
-/**
- * Attach `sessionNumber` to an array of schedule objects.
- * sessionNumber = 1-based position among all sessions of the same class, ordered by startTime.
- *
- * Uses a per-classId cache (5 min TTL) so repeated calls within a request window
- * do not re-query MongoDB. Call invalidateSessionOrderCache(classId) after
- * creating or deleting a schedule to keep numbers accurate.
- */
-const attachSessionNumbers = async (schedules) => {
-  if (schedules.length === 0) return schedules;
-
-  // Collect unique classIds, check cache for each
-  const orderMap = {};
-  const uncachedIds = [];
-
-  for (const s of schedules) {
-    const cId = s.classId?._id?.toString() || s.classId?.toString();
-    if (!cId) continue;
-    if (orderMap[cId]) continue; // already resolved this classId in this call
-    const cached = sessionOrderCache.get(cId);
-    if (cached) {
-      orderMap[cId] = cached;
-    } else {
-      uncachedIds.push(cId);
-    }
-  }
-
-  // Single query for all uncached classes
-  if (uncachedIds.length > 0) {
-    const objectIds = uncachedIds.map(id => new mongoose.Types.ObjectId(id));
-    const allSchedules = await Schedule.find({ classId: { $in: objectIds } })
-      .select('_id classId startTime')
-      .sort({ startTime: 1 })
-      .lean();
-
-    const tempMap = {};
-    for (const s of allSchedules) {
-      const cId = s.classId.toString();
-      if (!tempMap[cId]) tempMap[cId] = [];
-      tempMap[cId].push(s._id.toString());
-    }
-    for (const [cId, ids] of Object.entries(tempMap)) {
-      orderMap[cId] = ids;
-      sessionOrderCache.set(cId, ids);
-    }
-  }
-
-  // Attach sessionNumber
-  for (const s of schedules) {
-    const cId = s.classId?._id?.toString() || s.classId?.toString();
-    const sId = s._id.toString();
-    const order = orderMap[cId] || [];
-    const idx = order.indexOf(sId);
-    s.sessionNumber = idx >= 0 ? idx + 1 : null;
-  }
-
-  return schedules;
-};
-
-/**
- * Invalidate the session-order cache for a class.
- * Call after creating or deleting a schedule so sessionNumbers are recomputed.
- */
-const invalidateSessionOrderCache = (classId) => {
-  if (classId) sessionOrderCache.del(classId.toString());
-};
 
 /**
  * After a Schedule is created, create a Google Calendar event for it
@@ -461,93 +391,6 @@ const cancelSlot = async (scheduleId, requestUser) => {
 };
 
 /**
- * Get future schedules (availability view).
- * @param {Object} filters  { classId? }
- */
-const getAvailability = async (filters = {}) => {
-  const query = { startTime: { $gte: utcToday() } };
-  if (filters.classId) query.classId = filters.classId;
-
-  return Schedule.find(query)
-    .populate('classId', 'classCode courseName')
-    .populate('bookedTeamId', 'name')
-    .sort({ startTime: 1 });
-};
-
-/**
- * Get schedules with filters and pagination.
- */
-const listSchedules = async (filters, { page, limit, skip }) => {
-  const query = {};
-  if (filters.classId) query.classId = filters.classId;
-  // Used by Participant scope (BUG #2 fix): restrict to schedules where
-  // the user is enrolled. Multikey index on enrolledUsers makes this cheap.
-  if (filters.enrolledUser) query.enrolledUsers = filters.enrolledUser;
-  if (filters.from || filters.to) {
-    query.startTime = {};
-    if (filters.from) query.startTime.$gte = new Date(filters.from);
-    if (filters.to) query.startTime.$lte = new Date(filters.to);
-  }
-
-  const [schedules, total] = await Promise.all([
-    Schedule.find(query)
-      .populate('classId', 'classCode courseName totalSessions')
-      .populate('bookedTeamId', 'name')
-      .populate('enrolledUsers', 'empCode name department')
-      .sort({ startTime: 1 })
-      .skip(skip).limit(limit)
-      .lean({ virtuals: true }),
-    Schedule.countDocuments(query),
-  ]);
-
-  await attachSessionNumbers(schedules);
-  return { schedules, total };
-};
-
-/**
- * Get a single schedule by ID.
- */
-const getById = async (id) => {
-  const schedule = await Schedule.findById(id)
-    .populate('classId', 'classCode courseName')
-    .populate('bookedTeamId', 'name')
-    .populate('enrolledUsers', 'empCode name department status');
-
-  if (!schedule) throw new ServiceError('Schedule not found', 404);
-  return schedule;
-};
-
-/**
- * Get upcoming schedules for a participant's team/class.
- */
-const getMyClassSchedules = async (userId) => {
-  const teams = await Team.find({ members: userId })
-    .select('classId name leaderId')
-    .populate('leaderId', 'name empCode email department')
-    .lean();
-  if (teams.length === 0) return { schedules: [], team: null, leader: null };
-
-  const team = teams[0];
-  const leader = team?.leaderId || null;
-
-  const classIds = teams.map(t => t.classId).filter(Boolean);
-  if (classIds.length === 0) return { schedules: [], team: team?.name, leader };
-
-  const schedules = await Schedule.find({
-    classId: { $in: classIds },
-    startTime: { $gte: utcToday() },
-  })
-    .populate('classId', 'classCode courseName totalSessions')
-    .populate('bookedTeamId', 'name')
-    .sort({ startTime: 1 })
-    .limit(20)
-    .lean({ virtuals: true });
-
-  await attachSessionNumbers(schedules);
-  return { schedules, team: team?.name, leader };
-};
-
-/**
  * Admin-create a schedule with full business rules.
  *
  * Enforces:
@@ -645,92 +488,24 @@ const adminCreate = async (data) => {
     .populate('enrolledUsers', 'empCode name');
 };
 
-/**
- * Get schedules with pre-computed attendance status for the calendar view.
- * Returns schedules with a reliable status field.
- *
- * @param {Object} opts
- * @param {Date|string} opts.from  Optional start date filter
- * @param {Date|string} opts.to    Optional end date filter
- *
- * Status logic:
- *   "none"    — enrolledCount === 0 (no students registered)
- *   "pending" — enrolledCount > 0 but 0 attendance records
- *   "partial" — some attendance marked but count < enrolledCount
- *   "done"    — attendance count >= enrolledCount
- */
-const getAttendanceCalendar = async ({ from, to } = {}, requestUser = null) => {
-  // Step 1: Build filter (optional date range for performance)
-  const filter = {};
-  if (from || to) {
-    filter.startTime = {};
-    if (from) filter.startTime.$gte = new Date(from);
-    if (to) filter.startTime.$lte = new Date(to);
-  }
-
-  // Teachers see only classes they are assigned to. Empty teacherIds keeps the
-  // legacy graceful-migration behaviour used by attendance/evaluation policy.
-  if (requestUser?.role === 'Teacher') {
-    const classIds = await Class.find({
-      $or: [
-        { teacherIds: requestUser._id },
-        { teacherIds: { $size: 0 } },
-      ],
-    }).select('_id').lean();
-    filter.classId = { $in: classIds.map((c) => c._id) };
-  }
-
-  const schedules = await Schedule.find(filter)
-    .populate('classId', 'classCode courseName totalSessions')
-    .populate('bookedTeamId', 'name')
-    .sort({ startTime: 1 })
-    .lean({ virtuals: true });
-
-  if (schedules.length === 0) return [];
-
-  // Step 2: Attach session numbers
-  await attachSessionNumbers(schedules);
-
-  // Step 3: Batch-count attendance records per schedule (single aggregation)
-  const scheduleIds = schedules.map(s => s._id);
-  const attCounts = await Attendance.aggregate([
-    { $match: { scheduleId: { $in: scheduleIds } } },
-    { $group: { _id: '$scheduleId', count: { $sum: 1 } } },
-  ]);
-  const countMap = {};
-  attCounts.forEach(a => { countMap[a._id.toString()] = a.count; });
-
-  // Step 4: Compute status for each schedule
-  return schedules.map(s => {
-    const enrolled = (s.enrolledUsers || []).length;
-    const marked = countMap[s._id.toString()] || 0;
-
-    let attendanceStatus;
-    if (enrolled === 0) {
-      attendanceStatus = 'none';    // No students → grey
-    } else if (marked === 0) {
-      attendanceStatus = 'pending'; // Has students, no attendance yet
-    } else if (marked < enrolled) {
-      attendanceStatus = 'partial'; // Some but not all
-    } else {
-      attendanceStatus = 'done';    // All marked
-    }
-
-    return { ...s, enrolledCount: enrolled, attendanceStatus, markedCount: marked };
-  });
-};
-
+// ── Public surface ────────────────────────────────────────
+// Booking/mutation logic lives here; read use-cases and the session-order
+// cache are re-exported from the domain modules so existing callers
+// (scheduleController, learning/session, domains/schedule) are unchanged.
 module.exports = {
   ServiceError,
+  // Mutations (transaction-heavy — defined above)
   bookSlot,
   bookCohortSlot,
   adminCreate,
   cancelSlot,
-  getAvailability,
-  listSchedules,
-  getById,
-  getMyClassSchedules,
-  getAttendanceCalendar,
-  attachSessionNumbers,
-  invalidateSessionOrderCache,
+  // Read use-cases (domains/schedule/queries)
+  getAvailability: queries.getAvailability,
+  listSchedules: queries.listSchedules,
+  getById: queries.getById,
+  getMyClassSchedules: queries.getMyClassSchedules,
+  getAttendanceCalendar: queries.getAttendanceCalendar,
+  // Session-order cache (domains/schedule/session-order)
+  attachSessionNumbers: sessionOrder.attachSessionNumbers,
+  invalidateSessionOrderCache: sessionOrder.invalidateSessionOrderCache,
 };
