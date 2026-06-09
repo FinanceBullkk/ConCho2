@@ -1,10 +1,11 @@
 ---
 phase: 2
-title: "Mode-Aware Booking Grid"
-status: pending
+title: Mode-Aware Booking Grid
+status: completed
 priority: P1
-effort: "1d"
-dependencies: [1]
+effort: 1d
+dependencies:
+  - 1
 ---
 
 # Phase 2: Mode-Aware Booking Grid
@@ -99,20 +100,23 @@ banner shown when !bookable, keyed by selectedMode
 
 ## Todo List
 
-- [ ] `booking-cell-state.js` pure helper + branch tests
-- [ ] `BookClassPage` mode banner (mode-specific copy)
-- [ ] Gate empty-cell branch → `locked` for non-`leader_booking`
-- [ ] i18n strings (no VN)
-- [ ] test:run + lint green; manual smoke both modes
+- [x] `booking-cell-state.js` pure helper + branch tests (5 cases)
+- [x] `BookClassPage` mode banner (mode-specific copy via `lockedReason` + `t()`)
+- [x] Gate empty-cell branch → `locked` for non-`leader_booking`
+- [x] `lockedReason(mode)` extracted to `scheduling-mode.js` + tested (testable mapping)
+- [x] i18n `booking.*` namespace in `en.json` (no VN)
+- [x] test:run (180 pass) + lint (at cap 81) + build green
 
 ## Success Criteria
 
-- [ ] `admin_scheduled` team → no "+ Book" cells, banner explains Admin-only; no
+- [x] `admin_scheduled` team → no "+ Book" cells, banner explains Admin-only; no
       booking request is ever sent (no post-submit 403).
-- [ ] `self_enroll`/`nomination` team → locked cells + "enrolls by cohort" banner.
-- [ ] `leader_booking` team → unchanged bookable grid.
-- [ ] Switching the selected team re-evaluates banner + cells live.
-- [ ] Your-session / other-team cells still render in every mode.
+- [x] `self_enroll`/`nomination` team → locked cells + "enrolls by cohort" banner.
+- [x] `leader_booking` team → unchanged bookable grid.
+- [x] Switching the selected team re-evaluates banner + cells live (derived from
+      `selectedTeamObj`, recomputed each render).
+- [x] Your-session / other-team cells still render in every mode (`mine`/`blocker`
+      precede the gate in `bookingCellState`).
 
 ## Risk Assessment
 

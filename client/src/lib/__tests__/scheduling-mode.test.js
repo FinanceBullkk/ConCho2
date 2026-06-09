@@ -3,6 +3,7 @@ import {
   TEAM_BOOKABLE_MODE,
   effectiveSchedulingMode,
   isLeaderBookable,
+  lockedReason,
 } from '../scheduling-mode';
 
 const teamWithMode = (schedulingMode) => ({
@@ -41,5 +42,24 @@ describe('isLeaderBookable', () => {
     expect(isLeaderBookable(teamWithMode('self_enroll'))).toBe(false);
     expect(isLeaderBookable(teamWithMode('nomination'))).toBe(false);
     expect(isLeaderBookable(teamWithMode('some_future_mode'))).toBe(false);
+  });
+});
+
+describe('lockedReason', () => {
+  it('maps admin_scheduled → adminScheduled', () => {
+    expect(lockedReason('admin_scheduled')).toBe('adminScheduled');
+  });
+
+  it('maps cohort modes → cohort', () => {
+    expect(lockedReason('self_enroll')).toBe('cohort');
+    expect(lockedReason('nomination')).toBe('cohort');
+  });
+
+  it('maps anything else → generic', () => {
+    expect(lockedReason('some_future_mode')).toBe('generic');
+    expect(lockedReason(undefined)).toBe('generic');
+    // leader_booking is never shown (banner only renders when !bookable) but
+    // still resolves safely.
+    expect(lockedReason('leader_booking')).toBe('generic');
   });
 });

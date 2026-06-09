@@ -42,3 +42,20 @@ export function effectiveSchedulingMode(team) {
 export function isLeaderBookable(team) {
   return effectiveSchedulingMode(team) === TEAM_BOOKABLE_MODE;
 }
+
+/**
+ * Map a non-bookable mode to a stable reason key for the booking banner copy.
+ * The caller resolves it to text via `t('booking.modeLocked.<reason>')`.
+ *
+ *   'adminScheduled' — admin_scheduled (Admin-only)
+ *   'cohort'         — self_enroll / nomination (cohort-based, not per-group)
+ *   'generic'        — any other/unknown non-bookable mode
+ *
+ * @param {string} mode - an effective schedulingMode string
+ * @returns {'adminScheduled'|'cohort'|'generic'}
+ */
+export function lockedReason(mode) {
+  if (mode === 'admin_scheduled') return 'adminScheduled';
+  if (mode === 'self_enroll' || mode === 'nomination') return 'cohort';
+  return 'generic';
+}

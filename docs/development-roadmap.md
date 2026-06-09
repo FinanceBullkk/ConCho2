@@ -189,6 +189,20 @@ Bug fixing and integration review rank above net-new feature rollout.
 
 ## Recent progress (changelog)
 
+- **2026-06-09** — **Booking-UI loop (Phase 2) — mode-aware booking grid.** The
+  leader booking grid (`BookClassPage`) now gates by the selected team's
+  effective `schedulingMode`: only `leader_booking` shows bookable "+ Book"
+  cells; `admin_scheduled` and cohort modes (`self_enroll`/`nomination`) render
+  read-only **locked** cells + a mode-specific banner — so a leader never hits
+  the post-submit 403/400 (the model default `admin_scheduled` made this a live
+  wall). The bug-prone gate is a pure, unit-tested `bookingCellState()` helper
+  (signature-independent so it survives the Phase 3 descriptor refactor); banner
+  copy via a tested `lockedReason(mode)` + a new `booking.*` i18n namespace.
+  Existing-session visibility (own + other-team cells) is never gated. Client
+  180/180 (+3), lint at cap 81, build clean. Spec folded into
+  `scheduling-and-booking` (new "Booking UI surfaces scheduling mode pre-submit"
+  requirement; the deferred client-mode-awareness note marked shipped).
+  **Pending:** Phase 3 (exact-slot grid — Wave E1 client slice).
 - **2026-06-09** — **Booking-UI loop (Phase 1) — expose `schedulingMode` to the
   booking client.** Plan `plans/260609-0146-booking-ui-loop` closes the client
   loop on Pass C + Wave E1 (3 phases). **Phase 1 done:** widened

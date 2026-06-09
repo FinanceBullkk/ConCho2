@@ -2,11 +2,15 @@ import { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
+import { Lock } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { useAvailability, useBookSlot, useCancelSlot } from '../hooks/useSchedules';
 import { useMyTeams } from '../hooks/useTeams';
 import { useTimeSlots } from '../hooks/useTimeSlots';
 import { CalendarGrid, getMonday, toDateKey } from '../components/CalendarGrid';
 import { BookDrawer } from '../components/BookDrawer';
+import { effectiveSchedulingMode, isLeaderBookable, lockedReason } from '../lib/scheduling-mode';
+import { bookingCellState } from '../lib/booking-cell-state';
 import { Button } from '@/components/ui/button';
 
 // ──────────────────────────────────────────────────────────
@@ -30,6 +34,7 @@ const scheduleToKey = (s) => {
 
 export default function BookClassPage() {
   const { user } = useAuth();
+  const { t } = useTranslation();
   const [searchParams, setSearchParams] = useSearchParams();
   const TIME_SLOTS   = useTimeSlots();
   const bookMutation = useBookSlot();
@@ -98,6 +103,12 @@ export default function BookClassPage() {
 
   const today            = toDateKey(new Date());
   const selectedTeamObj  = myTeams.find(t => t._id === selectedTeam);
+
+  // Phase 2 — schedulingMode awareness. Only `leader_booking` lets a leader
+  // self-book; other modes (admin_scheduled / cohort) render locked cells + a
+  // banner so the leader never hits the server's 403/400 (Pass C enforcement).
+  const bookable     = isLeaderBookable(selectedTeamObj);
+  const selectedMode = effectiveSchedulingMode(selectedTeamObj);
 
   const selectedCellKey = useMemo(() => {
     if (drawerMode === 'book' && drawerPrefill) {
@@ -196,6 +207,16 @@ export default function BookClassPage() {
 
         {/* Left: calendar */}
         <div className="flex-1 min-w-0 space-y-4">
+          {/* Mode banner — shown when the selected team's program isn't leader-bookable */}
+          {!loading && !bookable && (
+            <div
+              role="status"
+              className="flex items-start gap-2.5 rounded-lg border border-warning/30 bg-warning-tint px-4 py-3 text-sm text-foreground"
+            >
+              <Lock className="size-4 mt-0.5 shrink-0 text-warning" aria-hidden="true" />
+              <span>{t(`booking.modeLocked.${lockedReason(selectedMode)}`)}</span>
+            </div>
+          )}
           <CalendarGrid
             weekDays={weekDays}
             timeRows={timeRows}
@@ -219,7 +240,9 @@ export default function BookClassPage() {
                 s => s.bookedTeamId?._id !== selectedTeam && s.bookedTeamId !== selectedTeam,
               );
 
-              if (mySchedule) {
+              const variant = bookingCellState({ mySchedule, blocker, isPast, bookable });
+
+              if (variant === 'mine') {
                 const isSel = drawerMode === 'cancel' && drawerSchedule?._id === mySchedule._id;
                 return (
                   <div
@@ -243,7 +266,7 @@ export default function BookClassPage() {
                 );
               }
 
-              if (blocker) {
+              if (variant === 'blocker') {
                 return (
                   <div className="rounded-md p-2.5 h-full min-h-[80px] bg-muted/30 border border-border">
                     <div className="text-xs font-bold truncate text-muted-foreground">{blocker.classId?.classCode}</div>
@@ -256,7 +279,7 @@ export default function BookClassPage() {
                 );
               }
 
-              if (!isPast) {
+              if (variant === 'bookable') {
                 const slot = `${slotStart}-${String(hour + 1).padStart(2, '0')}:00`;
                 const { sh, sm, eh, em } = parseSlot(slot);
                 const startTime = new Date(day); startTime.setHours(sh, sm, 0, 0);
@@ -282,6 +305,19 @@ export default function BookClassPage() {
                 );
               }
 
+              if (variant === 'locked') {
+                return (
+                  <div
+                    className="rounded-md h-full min-h-[80px] flex items-center justify-center border border-dashed border-border bg-muted/20 cursor-not-allowed"
+                    title={t('booking.lockedHint')}
+                    aria-disabled="true"
+                  >
+                    <Lock className="size-3.5 text-muted-foreground/50" aria-hidden="true" />
+                  </div>
+                );
+              }
+
+              // 'empty-past' — muted, never interactive
               return <div className="h-full min-h-[80px] rounded-md bg-muted/20" />;
             }}
           />
@@ -300,6 +336,14 @@ export default function BookClassPage() {
               <div className="w-3.5 h-3.5 rounded bg-muted/30 border border-border" />
               <span>Taken by another team</span>
             </div>
+            {!bookable && (
+              <div className="flex items-center gap-2">
+                <div className="w-3.5 h-3.5 rounded border border-dashed border-border bg-muted/20 flex items-center justify-center">
+                  <Lock className="size-2.5 text-muted-foreground/50" aria-hidden="true" />
+                </div>
+                <span>{t('booking.legendLocked')}</span>
+              </div>
+            )}
           </div>
         </div>
 
