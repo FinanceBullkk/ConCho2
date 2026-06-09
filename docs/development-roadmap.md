@@ -111,7 +111,7 @@ owner-input setup or the separate Wave E generic scheduling plan.
 | Phase | Theme | Progress | Status |
 |------|-------|---------:|--------|
 | 0 | Architecture baseline + safety net | ~93% | 🟢 near done |
-| 1 | Backend modular-monolith refactor | ~70% | 🟡 in progress |
+| 1 | Backend modular-monolith refactor | ~72% | 🟡 in progress |
 | 2 | Learning catalog + generic cohort model | ~95% | 🟢 near done |
 | 3 | Multi-program enrollment + session scheduling | ~78% | 🟡 in progress |
 | 4 | Frontend L&D workspace (CRUD UI) | ~78% | 🟡 in progress |
@@ -189,6 +189,14 @@ Bug fixing and integration review rank above net-new feature rollout.
 
 ## Recent progress (changelog)
 
+- **2026-06-09** — **Phase 1 refactor — split `dashboardController` (369) by
+  concern.** Pure behaviour-preserving (verbatim; no spec change). `controllers/
+  dashboard/dashboard-stats.js` (filter options + the 14-aggregation analytics
+  endpoint) and `dashboard-alerts.js` (cached AlertBand counts + cache buster);
+  `dashboardController.js` is now a ~15-line facade so `dashboardRoutes.js` is
+  unchanged. 699 server tests green (72 suites). (Follow-on cleanup after the 7
+  major files; remaining moderate files: `authService` 413, `attendanceService`
+  396, `classController` 323, `syncController` 314.)
 - **2026-06-09** — **Phase 1 refactor — split the 704-line `authController` by
   concern (last major monolith file).** Pure behaviour-preserving refactor
   (verbatim handler move; no spec change). The 12 handlers moved into
