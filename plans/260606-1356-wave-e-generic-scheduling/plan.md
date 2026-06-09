@@ -6,7 +6,7 @@ priority: P1
 effort: 10d
 branch: main
 tags: [feature, scheduling, backend, frontend, compatibility]
-blockedBy: []
+blockedBy: [project:260609-0146-booking-ui-loop]
 blocks: []
 created: 2026-06-06
 ---
@@ -28,7 +28,7 @@ live-sync/snapshot.
 
 | Phase | Scope | Status | Depends on |
 |---|---|---|---|
-| E1 | [Exact scheduling windows + compatibility](./phase-01-exact-scheduling-windows.md) | Backend done (shared policy, all paths validated, config endpoint, settings-on-write); client grid slice pending | None |
+| E1 | [Exact scheduling windows + compatibility](./phase-01-exact-scheduling-windows.md) | Backend done (shared policy, all paths validated, config endpoint, settings-on-write). **Client grid slice superseded → `260609-0146-booking-ui-loop` Phase 3** (absorbed with mode-awareness so the grid is touched once). | None |
 | E2 | [Capacity decision + data audit](./phase-02-capacity-decision-and-audit.md) | Pending | E1 |
 | E3+ | [Rooms, instructors, waitlists gates](./phase-03-later-expansion-gates.md) | Pending/gated | E2 + decisions |
 

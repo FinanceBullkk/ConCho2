@@ -10,11 +10,14 @@ dependencies: []
 > **Progress (2026-06-08):** Backend slice shipped in commit `02d3ce3` — shared
 > `scheduling-window-policy`, all four mutation paths validated (incl. Admin
 > move), settings-on-write validation, and `GET /api/learning/sessions/config`.
-> Folded into `docs/specs/scheduling-and-booking`. **Remaining:** the client grid
-> slice (steps 5–9 below) — `useSchedulingConfig` hook + `scheduling-slots`
-> helpers, `CalendarGrid` descriptor refactor, migrate Book/Schedules/Attendance,
-> remove `hour + 1`, scope availability by `classId`, delete `useTimeSlots`,
-> client tests.
+> Folded into `docs/specs/scheduling-and-booking`.
+>
+> **Client slice (steps 5–9 below) SUPERSEDED (2026-06-09)** → executed in
+> `plans/260609-0146-booking-ui-loop/phase-03-exact-slot-grid-wave-e1.md`, where
+> it is absorbed alongside the Pass C schedulingMode-awareness so the booking
+> grid is refactored once. The step detail below remains the authoritative spec
+> for that work (Phase 3 references it). Wave E **E2** (capacity) is blocked until
+> that Phase 3 ships.
 
 # Phase 1: Exact Scheduling Windows
 
