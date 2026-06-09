@@ -305,7 +305,11 @@ Main rules:
 
 ### Reconciliation
 
-`server/services/reconcileService.js` is read-only and persists `ReconcileReport`.
+`server/services/reconcileService.js` is the read-only orchestrator: it pre-fetches
+active enrollments, runs the 10 checks in parallel (fail-soft per check), and persists
+a `ReconcileReport`. The check implementations live in `server/services/reconcile/*`
+grouped by concern: `schedule-checks.js` (1/4/7), `enrollment-checks.js` (2/3/5/6),
+`team-checks.js` (8/10), `counter-checks.js` (9).
 
 Checks include:
 
