@@ -111,7 +111,7 @@ owner-input setup or the separate Wave E generic scheduling plan.
 | Phase | Theme | Progress | Status |
 |------|-------|---------:|--------|
 | 0 | Architecture baseline + safety net | ~93% | 🟢 near done |
-| 1 | Backend modular-monolith refactor | ~52% | 🟡 in progress |
+| 1 | Backend modular-monolith refactor | ~56% | 🟡 in progress |
 | 2 | Learning catalog + generic cohort model | ~95% | 🟢 near done |
 | 3 | Multi-program enrollment + session scheduling | ~78% | 🟡 in progress |
 | 4 | Frontend L&D workspace (CRUD UI) | ~78% | 🟡 in progress |
@@ -189,6 +189,19 @@ Bug fixing and integration review rank above net-new feature rollout.
 
 ## Recent progress (changelog)
 
+- **2026-06-09** — **Phase 1 refactor — split the 548-line `reconcileService` by
+  concern.** Pure behaviour-preserving refactor (no spec change — the 10 checks'
+  behaviour is unchanged). The 10 read-only data-integrity checks moved into
+  `server/services/reconcile/`: `schedule-checks.js` (missing-attendance /
+  empty-future-schedule / orphan-schedule-class), `enrollment-checks.js`
+  (orphaned-enrollment / ghost-member / unattached-participant /
+  duplicate-active-enrollment), `team-checks.js` (multi-team-class /
+  soft-deleted-in-members), `counter-checks.js` (counter-drift). `reconcileService.js`
+  is now a ~140-line **orchestrator** that pre-fetches active enrollments, runs all
+  10 in parallel (fail-soft per check), builds the summary, and persists the
+  `ReconcileReport` — `runReconciliation` surface unchanged, so all consumers
+  (cron job, cron route, reconcile controller, 3 test suites) are untouched.
+  **699 server tests green across 72 suites.** Code-map updated.
 - **2026-06-09** — **Phase 1 refactor — split the 618-line `exportService` by
   concern.** Pure behaviour-preserving refactor (no spec change). The legacy file
   mixed attendance + evaluation export and the data/render/flow layers. Now split
