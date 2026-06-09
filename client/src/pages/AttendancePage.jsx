@@ -11,7 +11,8 @@ import { schedulesAPI, attendanceAPI } from '../api/api';
 import { useAuth } from '../context/AuthContext';
 import { useAttendanceCalendar } from '../hooks/useSchedules';
 import { useBulkMarkAttendance } from '../hooks/useAttendance';
-import { useTimeSlots } from '../hooks/useTimeSlots';
+import { useSchedulingConfig, DEFAULT_UTC_OFFSET_MINUTES } from '../hooks/useSchedulingConfig';
+import { scheduleSlotId, buildSlotRows } from '../lib/scheduling-slots';
 import { Spinner } from '../components/Spinner';
 import { StatusBadge } from '../components/StatusBadge';
 import { CalendarGrid, getMonday, toDateKey } from '../components/CalendarGrid';
@@ -45,17 +46,17 @@ function deriveSessionState(schedule) {
   }
 }
 
-const scheduleToKey = (s) => {
-  const start = new Date(s.startTime);
-  const dateKey = toDateKey(start);
-  return `${dateKey}|${String(start.getHours()).padStart(2, '0')}:00`;
-};
+// Bucket a session into a grid cell: local date (matches grid columns) + the
+// session's VN wall-clock slot id (matches the descriptor row id).
+const scheduleToKey = (s, offset) =>
+  `${toDateKey(new Date(s.startTime))}|${scheduleSlotId(s, offset)}`;
 
 const daysSince = (dateStr) => Math.floor((Date.now() - new Date(dateStr).getTime()) / 86400000);
 
 export default function AttendancePage() {
   const { isAdmin } = useAuth();
-  const TIME_SLOTS = useTimeSlots();
+  const config = useSchedulingConfig();
+  const offset = config.data?.utcOffsetMinutes ?? DEFAULT_UTC_OFFSET_MINUTES;
   const bulkMarkMutation = useBulkMarkAttendance();
 
   const [selectedSchedule, setSelectedSchedule] = useState(null);
@@ -98,12 +99,12 @@ export default function AttendancePage() {
   const scheduleMap = useMemo(() => {
     const map = {};
     schedules.forEach(s => {
-      const key = scheduleToKey(s);
+      const key = scheduleToKey(s, offset);
       if (!map[key]) map[key] = [];
       map[key].push(s);
     });
     return map;
-  }, [schedules]);
+  }, [schedules, offset]);
 
   const weekStats = useMemo(() => {
     const weekEnd = new Date(weekStart.getTime() + 7 * 86400000);
@@ -124,11 +125,11 @@ export default function AttendancePage() {
   const goToday  = () => setWeekStart(getMonday(new Date()));
   const _today   = toDateKey(new Date()); // intentionally unused — reserved for future "go to today" highlight
 
-  // The selected cell key for CalendarGrid ring (format "YYYY-MM-DD|HH:00")
+  // The selected cell key for CalendarGrid ring (format "YYYY-MM-DD|HH:mm-HH:mm")
   const selectedCellKey = useMemo(() => {
     if (!selectedSchedule) return null;
-    return scheduleToKey(selectedSchedule);
-  }, [selectedSchedule]);
+    return scheduleToKey(selectedSchedule, offset);
+  }, [selectedSchedule, offset]);
 
   const handleSelectSchedule = useCallback(async (schedule) => {
     // Toggle: clicking the same cell closes the drawer
@@ -217,9 +218,11 @@ export default function AttendancePage() {
     deriveSessionState(selectedSchedule).state !== 'done'
   );
 
-  const timeRows = useMemo(() =>
-    TIME_SLOTS.map(slot => parseInt(slot.split(':')[0], 10)),
-  [TIME_SLOTS]);
+  // Rows = configured slots + any in-week off-policy session windows (read-only).
+  const rows = useMemo(() => {
+    const weekEnd = new Date(weekStart.getTime() + 7 * 86400000);
+    return buildSlotRows(config.data?.slots, schedules, offset, weekStart, weekEnd);
+  }, [config.data?.slots, schedules, offset, weekStart]);
 
   if (loading) {
     return (
@@ -272,16 +275,15 @@ export default function AttendancePage() {
         <div className="flex-1 min-w-0 space-y-4">
           <CalendarGrid
             weekDays={weekDays}
-            timeRows={timeRows}
+            rows={rows}
             isLoading={false}
             selectedCellKey={selectedCellKey}
             onPrev={prevWeek}
             onNext={nextWeek}
             onToday={goToday}
             weekLabel={`${weekDays[0].toLocaleDateString('en', { month: 'short', day: 'numeric' })} — ${weekDays[6].toLocaleDateString('en', { month: 'short', day: 'numeric', year: 'numeric' })}`}
-            renderCell={(day, hour) => {
-              const dateKey   = toDateKey(day);
-              const cellKey   = `${dateKey}|${String(hour).padStart(2, '0')}:00`;
+            renderCell={(day, slot) => {
+              const cellKey   = `${toDateKey(day)}|${slot.id}`;
               const cellSched = scheduleMap[cellKey] || [];
               if (cellSched.length === 0) return <div className="h-full min-h-[80px] rounded-md bg-muted/20" />;
 

@@ -17,10 +17,15 @@ import { cn } from '@/lib/utils';
 //
 // Props:
 //   weekDays    Date[7]       Mon–Sun for the visible week
-//   timeRows    number[]      sorted hours to show as rows, e.g. [8, 9, 10]
-//   renderCell  (day: Date, hour: number) => ReactNode
+//   rows        SlotDescriptor[]  ordered slot rows (e.g. from buildSlotRows /
+//                                 useSchedulingConfig). Each row:
+//                                 { id, label, startHour, startMinute, endHour,
+//                                   endMinute, durationMinutes, offPolicy? }.
+//                                 Row key = id; sticky label = label.
+//   renderCell  (day: Date, slot: SlotDescriptor) => ReactNode
 //               Full cell content. Must return a <td>-compatible
 //               fragment; the grid wraps it in nothing — just calls it.
+//               Cell key for selectedCellKey = `${toDateKey(day)}|${slot.id}`.
 //   isLoading   boolean       show spinner instead of grid
 //   onPrev      () => void    go to previous week
 //   onNext      () => void    go to next week
@@ -41,12 +46,12 @@ import { cn } from '@/lib/utils';
 //
 //   <CalendarGrid
 //     weekDays={weekDays}
-//     timeRows={[8, 9, 10, 14, 15, 16]}
+//     rows={slotRows}
 //     isLoading={loading}
 //     onPrev={prevWeek} onNext={nextWeek} onToday={goToday}
 //     weekLabel={`${weekDays[0].toLocaleDateString('en', { month: 'short', day: 'numeric' })} — ...`}
-//     renderCell={(day, hour) => {
-//       const sessions = cellSessions(day, hour);
+//     renderCell={(day, slot) => {
+//       const sessions = cellSessions(day, slot);
 //       return sessions.length > 0 ? <SessionCard s={sessions[0]} /> : <EmptyCell />;
 //     }}
 //   />
@@ -85,7 +90,7 @@ export function todayKey() {
 
 export function CalendarGrid({
   weekDays,
-  timeRows = [],
+  rows = [],
   renderCell,
   isLoading = false,
   onPrev,
@@ -126,7 +131,7 @@ export function CalendarGrid({
         <div className="flex items-center justify-center py-24 text-muted-foreground">
           <Spinner size={28} />
         </div>
-      ) : timeRows.length === 0 ? (
+      ) : rows.length === 0 ? (
         <div className="flex flex-col items-center gap-2 py-24 text-subtle-foreground">
           <CalendarDays className="size-6" strokeWidth={1.5} aria-hidden="true" />
           <p className="text-body">No sessions this week</p>
@@ -173,21 +178,21 @@ export function CalendarGrid({
               </thead>
 
               <tbody>
-                {timeRows.map((hour) => (
-                  <tr key={hour}>
+                {rows.map((slot) => (
+                  <tr key={slot.id}>
                     {/* Sticky time label */}
                     <td className={cn(
                       'sticky left-0 z-10 bg-card',
                       'px-3 py-2 border-r border-b border-border',
                       'text-mono text-subtle-foreground whitespace-nowrap align-top',
                     )}>
-                      {String(hour).padStart(2, '0')}:00
+                      {slot.label}
                     </td>
 
                     {/* Day cells */}
                     {weekDays.map((day, dayIdx) => {
                       const isToday   = toDateKey(day) === todayStr;
-                      const cellKey   = `${toDateKey(day)}|${String(hour).padStart(2, '0')}:00`;
+                      const cellKey   = `${toDateKey(day)}|${slot.id}`;
                       const isSelected = selectedCellKey === cellKey;
                       return (
                         <td
@@ -198,7 +203,7 @@ export function CalendarGrid({
                             isSelected && 'ring-2 ring-primary ring-inset bg-primary/[0.06]',
                           )}
                         >
-                          {renderCell?.(day, hour)}
+                          {renderCell?.(day, slot)}
                         </td>
                       );
                     })}

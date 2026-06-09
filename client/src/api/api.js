@@ -229,6 +229,8 @@ export const learningAPI = {
   getCohorts: (params) => api.get('/learning/cohorts', { params }),
   getCohort: (id) => api.get(`/learning/cohorts/${id}`),
   createCohort: (data) => api.post('/learning/cohorts', data),
+  // Safe scheduling config (allowed slots + tz) — readable by all roles.
+  getSchedulingConfig: () => api.get('/learning/sessions/config'),
   // Sequenced learning paths (ordered curriculum of programs).
   getPaths: (params) => api.get('/learning/paths', { params }),
   getPath: (id) => api.get(`/learning/paths/${id}`),

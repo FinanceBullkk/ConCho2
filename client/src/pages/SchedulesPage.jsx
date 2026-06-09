@@ -5,8 +5,9 @@ import { useSchedules } from '../hooks/useSchedules';
 import { useClasses } from '../hooks/useClasses';
 import { useTeams } from '../hooks/useTeams';
 import { useRole } from '../hooks/useRole';
-import { useTimeSlots } from '../hooks/useTimeSlots';
+import { useSchedulingConfig, DEFAULT_UTC_OFFSET_MINUTES } from '../hooks/useSchedulingConfig';
 import { detectConflicts } from '../lib/schedule-conflicts';
+import { slotToUtcRange, scheduleSlotId, buildSlotRows } from '../lib/scheduling-slots';
 import { CalendarGrid, getMonday, toDateKey } from '../components/CalendarGrid';
 import { ScheduleDrawer } from '../components/ScheduleDrawer';
 import { Button } from '@/components/ui/button';
@@ -20,31 +21,20 @@ import { Button } from '@/components/ui/button';
 // Conflict cells flagged with stripe + AlertTriangle.
 // ──────────────────────────────────────────────────────────
 
-const parseSlot = (slot) => {
-  const [s, e] = slot.split('-');
-  const [sh, sm] = s.split(':').map(Number);
-  const [eh, em] = e.split(':').map(Number);
-  return { sh, sm, eh, em };
-};
-
-const scheduleToBucketKey = (s) => {
-  const d = new Date(s.startTime);
-  return `${toDateKey(d)}|${d.getHours()}`;
-};
+// Bucket a session into a grid cell: local date (matches grid columns) + the
+// session's VN wall-clock slot id (matches the descriptor row id).
+const scheduleToKey = (s, offset) =>
+  `${toDateKey(new Date(s.startTime))}|${scheduleSlotId(s, offset)}`;
 
 const scheduleTimeLabel = (s) => {
   const a = new Date(s.startTime), b = new Date(s.endTime);
   return `${String(a.getHours()).padStart(2,'0')}:${String(a.getMinutes()).padStart(2,'0')}–${String(b.getHours()).padStart(2,'0')}:${String(b.getMinutes()).padStart(2,'0')}`;
 };
 
-const schedToCellKey = (s) => {
-  const d = new Date(s.startTime);
-  return `${toDateKey(d)}|${String(d.getHours()).padStart(2, '0')}:00`;
-};
-
 export default function SchedulesPage() {
   const [searchParams, setSearchParams] = useSearchParams();
-  const DEFAULT_TIME_SLOTS = useTimeSlots();
+  const config = useSchedulingConfig();
+  const offset = config.data?.utcOffsetMinutes ?? DEFAULT_UTC_OFFSET_MINUTES;
   const { can } = useRole();
   const canCreate = can('create:schedule');
   const canUpdate = can('update:schedule');
@@ -91,22 +81,18 @@ export default function SchedulesPage() {
   const scheduleMap = useMemo(() => {
     const map = {};
     schedules.forEach(s => {
-      const key = scheduleToBucketKey(s);
+      const key = scheduleToKey(s, offset);
       if (!map[key]) map[key] = [];
       map[key].push(s);
     });
     return map;
-  }, [schedules]);
+  }, [schedules, offset]);
 
-  const weekTimeRows = useMemo(() => {
+  // Rows = configured (bookable) slots + any in-week off-policy session windows.
+  const rows = useMemo(() => {
     const weekEnd = new Date(weekStart.getTime() + 7 * 86400000);
-    const hours = new Set(DEFAULT_TIME_SLOTS.map(slot => parseInt(slot.split(':')[0])));
-    schedules.forEach(s => {
-      const d = new Date(s.startTime);
-      if (d >= weekStart && d < weekEnd) hours.add(d.getHours());
-    });
-    return [...hours].sort((a, b) => a - b);
-  }, [schedules, weekStart, DEFAULT_TIME_SLOTS]);
+    return buildSlotRows(config.data?.slots, schedules, offset, weekStart, weekEnd);
+  }, [config.data?.slots, schedules, offset, weekStart]);
 
   // Pre-compute conflict IDs (O(n²) on schedules change, not per render)
   const conflictIds = useMemo(() => {
@@ -130,10 +116,10 @@ export default function SchedulesPage() {
   }, [schedules]);
 
   const selectedCellKey = useMemo(() => {
-    if (drawerMode === 'edit'   && selectedSchedule) return schedToCellKey(selectedSchedule);
-    if (drawerMode === 'create' && selectedCell)     return `${toDateKey(selectedCell.day)}|${String(selectedCell.hour).padStart(2, '0')}:00`;
+    if (drawerMode === 'edit'   && selectedSchedule) return scheduleToKey(selectedSchedule, offset);
+    if (drawerMode === 'create' && selectedCell)     return `${toDateKey(selectedCell.day)}|${selectedCell.slot.id}`;
     return null;
-  }, [drawerMode, selectedSchedule, selectedCell]);
+  }, [drawerMode, selectedSchedule, selectedCell, offset]);
 
   const closeDrawer = () => { setDrawerMode(null); setSelectedSchedule(null); setSelectedCell(null); };
 
@@ -145,15 +131,12 @@ export default function SchedulesPage() {
     setDrawerMode('edit');
   };
 
-  const handleCellClick = (day, hour) => {
+  const handleCellClick = (day, slot) => {
     if (!canCreate) return;
-    const clickedKey = `${toDateKey(day)}|${String(hour).padStart(2, '0')}:00`;
+    const clickedKey = `${toDateKey(day)}|${slot.id}`;
     if (drawerMode === 'create' && selectedCellKey === clickedKey) { closeDrawer(); return; }
-    const slot = `${String(hour).padStart(2, '0')}:00-${String(hour + 1).padStart(2, '0')}:00`;
-    const { sh, sm, eh, em } = parseSlot(slot);
-    const startTime = new Date(day); startTime.setHours(sh, sm, 0, 0);
-    const endTime   = new Date(day); endTime.setHours(eh, em, 0, 0);
-    setSelectedCell({ day, hour, startTime, endTime });
+    const { startISO, endISO } = slotToUtcRange(day, slot, offset);
+    setSelectedCell({ day, slot, startTime: new Date(startISO), endTime: new Date(endISO) });
     setSelectedSchedule(null);
     setDrawerMode('create');
   };
@@ -184,7 +167,7 @@ export default function SchedulesPage() {
         <div className="flex-1 min-w-0 space-y-4">
           <CalendarGrid
             weekDays={weekDays}
-            timeRows={weekTimeRows}
+            rows={rows}
             isLoading={isLoading}
             selectedCellKey={selectedCellKey}
             onPrev={() => setWeek(new Date(weekStart.getTime() - 7 * 86400000))}
@@ -198,8 +181,8 @@ export default function SchedulesPage() {
                 </Button>
               ) : null
             }
-            renderCell={(day, hour) => {
-              const cellKey      = `${toDateKey(day)}|${hour}`;
+            renderCell={(day, slot) => {
+              const cellKey       = `${toDateKey(day)}|${slot.id}`;
               const cellSchedules = scheduleMap[cellKey] || [];
 
               if (cellSchedules.length > 0) {
@@ -256,7 +239,7 @@ export default function SchedulesPage() {
                 return (
                   <div
                     className="h-full min-h-[80px] flex items-center justify-center rounded-md border border-transparent hover:bg-success/10 hover:border-success/20 cursor-pointer transition-colors duration-(--dur) group/cell"
-                    onClick={() => handleCellClick(day, hour)}
+                    onClick={() => handleCellClick(day, slot)}
                   >
                     <span className="text-[10px] text-subtle-foreground opacity-0 group-hover/cell:opacity-100 transition-opacity font-medium">+ Create</span>
                   </div>
