@@ -189,6 +189,19 @@ Bug fixing and integration review rank above net-new feature rollout.
 
 ## Recent progress (changelog)
 
+- **2026-06-09** — **Booking-UI loop (Phase 1) — expose `schedulingMode` to the
+  booking client.** Plan `plans/260609-0146-booking-ui-loop` closes the client
+  loop on Pass C + Wave E1 (3 phases). **Phase 1 done:** widened
+  `teamController.getMyTeams` to nested-populate
+  `classId.programId.schedulingMode`, and added a client resolver
+  (`client/src/lib/scheduling-mode.js` — `effectiveSchedulingMode` /
+  `isLeaderBookable` with a `leader_booking` fallback matching server
+  enforcement) so the grid (Phase 2) can gate cells *before* the server
+  403/400s. Read-only, additive payload field; no authz/audit change. Server
+  11/11 (2 new `my-teams` cases), client 5/5 (resolver unit), lint at cap 81.
+  **Pending:** Phase 2 (mode-aware grid — banner + locked cells) and Phase 3
+  (exact-slot grid — absorbs the Wave E phase-01 client slice; `blocks` Wave E
+  E2). No capability-spec change yet — user-facing behavior lands in Phase 2.
 - **2026-06-09** — **`schedulingMode` enforced on the legacy booking paths
   (Pass C — closes a real authz gap).** ck-predict review found the client books
   via the LEGACY ungated `/api/schedules/book-slot` (the mode-gated learning

@@ -12,6 +12,7 @@ const Schedule = require('../../models/Schedule');
 const Attendance = require('../../models/Attendance');
 const User = require('../../models/User');
 const Class = require('../../models/Class');
+const LearningProgram = require('../../models/LearningProgram');
 
 let app, tokens, seed, csrf;
 
@@ -222,5 +223,52 @@ describe('User Delete Guard (Team Leader)', () => {
     // Should be blocked because seed.leader is Alpha Team's leader
     expect(res.status).toBe(409);
     expect(res.body.message).toMatch(/leader/i);
+  });
+});
+
+// ── GET /api/teams/my-teams — schedulingMode exposure (Phase 1) ──────────────
+// The booking client gates cells by the program's schedulingMode (Pass C is
+// enforced server-side at the bookSlot chokepoint). getMyTeams nested-populates
+// classId.programId.schedulingMode so the grid can pre-empt the 403/400. A
+// program-less class exposes no nested program; the client falls back to
+// 'leader_booking'.
+
+describe('GET /api/teams/my-teams — schedulingMode exposure', () => {
+  test('program-less class returns 200 with classId but no nested program', async () => {
+    const res = await request(app)
+      .get('/api/teams/my-teams')
+      .set('Authorization', `Bearer ${tokens.leader}`).set(csrf);
+
+    expect(res.status).toBe(200);
+    expect(res.body.success).toBe(true);
+    const alpha = res.body.data.find((t) => t.name === 'Alpha Team');
+    expect(alpha).toBeDefined();
+    expect(alpha.classId.classCode).toBe('TEST001');
+    // class1 has no programId → nested program absent/null (client falls back).
+    expect(alpha.classId.programId == null).toBe(true);
+  });
+
+  test('program-linked class exposes classId.programId.schedulingMode', async () => {
+    const program = await LearningProgram.create({
+      code: 'BKUITESTPROG', name: 'Booking UI Test Program',
+      schedulingMode: 'admin_scheduled',
+    });
+    await Class.findByIdAndUpdate(seed.class1._id, { programId: program._id });
+
+    try {
+      const res = await request(app)
+        .get('/api/teams/my-teams')
+        .set('Authorization', `Bearer ${tokens.leader}`).set(csrf);
+
+      expect(res.status).toBe(200);
+      const alpha = res.body.data.find((t) => t.name === 'Alpha Team');
+      expect(alpha).toBeDefined();
+      expect(alpha.classId.programId).toBeDefined();
+      expect(alpha.classId.programId.schedulingMode).toBe('admin_scheduled');
+    } finally {
+      // Revert so other tests / later files see class1 program-less again.
+      await Class.findByIdAndUpdate(seed.class1._id, { programId: null });
+      await LearningProgram.findByIdAndDelete(program._id);
+    }
   });
 });
