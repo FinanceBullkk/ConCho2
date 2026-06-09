@@ -111,7 +111,7 @@ owner-input setup or the separate Wave E generic scheduling plan.
 | Phase | Theme | Progress | Status |
 |------|-------|---------:|--------|
 | 0 | Architecture baseline + safety net | ~93% | 🟢 near done |
-| 1 | Backend modular-monolith refactor | ~66% | 🟡 in progress |
+| 1 | Backend modular-monolith refactor | ~70% | 🟡 in progress |
 | 2 | Learning catalog + generic cohort model | ~95% | 🟢 near done |
 | 3 | Multi-program enrollment + session scheduling | ~78% | 🟡 in progress |
 | 4 | Frontend L&D workspace (CRUD UI) | ~78% | 🟡 in progress |
@@ -189,6 +189,24 @@ Bug fixing and integration review rank above net-new feature rollout.
 
 ## Recent progress (changelog)
 
+- **2026-06-09** — **Phase 1 refactor — split the 704-line `authController` by
+  concern (last major monolith file).** Pure behaviour-preserving refactor
+  (verbatim handler move; no spec change). The 12 handlers moved into
+  `controllers/auth/`: `auth-session.js` (login + two-step/forced-MFA paths,
+  mfa-verify-login, logout, me, change-password), `auth-mfa.js` (self-service MFA
+  setup/verify-setup/disable), `auth-admin.js` (mfa-admin-disable + force-logout,
+  both behind `authPolicy.requireReauth`), `auth-password-reset.js`
+  (anti-enumeration forgot-password + single-use reset). `authController.js` is now
+  a ~35-line **facade** re-exporting all 12 so `authRoutes.js` is unchanged.
+  Security-critical flows (MFA enrollment/verify, CSRF rotation on session
+  boundaries, token revoke/blocklist, constant-time forgot-password background work,
+  atomic reset double-spend guard) are byte-for-byte preserved. **699 server tests
+  green across 72 suites** (`auth`/`authHardening`). **All seven major legacy
+  controllers/services are now modularized** (scheduleService, exportService,
+  reconcileService, userController, enrollmentController, teamController,
+  authController); remaining Phase 1 work is the architectural layer (repository
+  interfaces, `domains/attendance` + `domains/groups`, schedule domain routes,
+  frontend `features/`).
 - **2026-06-09** — **Phase 1 refactor — split the 703-line `teamController` by
   concern.** Pure behaviour-preserving refactor (verbatim handler move; no spec
   change). Moved into `controllers/team/`: `team-enrollment-sync.js`
