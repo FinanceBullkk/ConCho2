@@ -111,7 +111,7 @@ owner-input setup or the separate Wave E generic scheduling plan.
 | Phase | Theme | Progress | Status |
 |------|-------|---------:|--------|
 | 0 | Architecture baseline + safety net | ~93% | 🟢 near done |
-| 1 | Backend modular-monolith refactor | ~59% | 🟡 in progress |
+| 1 | Backend modular-monolith refactor | ~62% | 🟡 in progress |
 | 2 | Learning catalog + generic cohort model | ~95% | 🟢 near done |
 | 3 | Multi-program enrollment + session scheduling | ~78% | 🟡 in progress |
 | 4 | Frontend L&D workspace (CRUD UI) | ~78% | 🟡 in progress |
@@ -189,6 +189,20 @@ Bug fixing and integration review rank above net-new feature rollout.
 
 ## Recent progress (changelog)
 
+- **2026-06-09** — **Phase 1 refactor — split the 544-line `enrollmentController`
+  by concern.** Pure behaviour-preserving refactor (verbatim handler move; no spec
+  change). The 8 handlers + 2 internal helpers moved into `controllers/enrollment/`:
+  `enrollment-shared.js` (enrichWithAttendance + pull-dropped-from-future-schedules),
+  `enrollment-queries.js` (list / by-team / by-user / check-conflicts),
+  `enrollment-status.js` (updateEnrollment + bulk status, each tx-wrapped),
+  `enrollment-transfer.js` (atomic single transfer + sequential bulk transfer).
+  `enrollmentController.js` is now a ~40-line **facade** re-exporting all 8 so
+  `enrollmentRoutes.js` is unchanged. The atomic transfer tx (membership swap +
+  dual-team schedule sync + enrollment close/create, BUG #1) and the status
+  drop→schedule-pull tx (BUG #2) are byte-for-byte preserved; the one-way
+  dependency on `teamController` (syncEnrollments/flushPendingEmails) is kept (no
+  cycle). **699 server tests green across 72 suites**
+  (`enrollmentRoutes`/`enrollmentTransfer`/`teams`).
 - **2026-06-09** — **Phase 1 refactor — split the 556-line `userController` by
   concern.** Pure behaviour-preserving refactor (verbatim handler move; no spec
   change). The 8 Admin user handlers moved into `controllers/user/`:
