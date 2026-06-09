@@ -45,7 +45,7 @@ const attendanceSchema = new mongoose.Schema(
       default: '',
     },
 
-    // ── Export tracking (chống trùng lặp khi xuất HR) ─────
+    // ── Export tracking (prevents duplicate records when exporting to HR) ─────
     syncStatus: {
       type: String,
       enum: {

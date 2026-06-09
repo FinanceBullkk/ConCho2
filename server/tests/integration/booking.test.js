@@ -114,7 +114,7 @@ describe('POST /api/schedules/book-slot', () => {
       .send({ teamId: seed.team._id.toString(), startTime: slots[2].start.toISOString(), endTime: slots[2].end.toISOString() });
 
     expect(res3.status).toBe(400);
-    expect(res3.body.message).toMatch(/tối đa 2 buổi/);
+    expect(res3.body.message).toMatch(/maximum 2 sessions/);
   });
 
   test('overlapping time slot is rejected (409)', async () => {
@@ -179,7 +179,7 @@ describe('POST /api/schedules/book-slot', () => {
       });
 
     expect(res.status).toBe(400);
-    expect(res.body.message).toMatch(/không hợp lệ/);
+    expect(res.body.message).toMatch(/allowed time slot/);
   });
 });
 
@@ -213,7 +213,7 @@ describe('POST /api/schedules/book-slot · capacity', () => {
       .send({ teamId: seed.team._id.toString(), startTime: start.toISOString(), endTime: end.toISOString() });
 
     expect(res.status).toBe(422);
-    expect(res.body.message).toMatch(/sức chứa/);
+    expect(res.body.message).toMatch(/capacity/);
     expect(await Schedule.countDocuments({})).toBe(0); // gate runs before create — nothing written
   });
 

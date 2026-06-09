@@ -27,13 +27,13 @@ const { ServiceError } = require('../../helpers/ServiceError');
 const { WEEKLY_TEAM_LIMIT } = require('./scheduling-window-policy');
 const repository = require('./repository');
 
-// Canonical user-facing messages for the book/create paths. The Vietnamese
-// "tối đa N buổi" phrasing is part of the API contract (asserted by tests) — keep
-// it. The admin "move"/"reassign" paths intentionally throw their own, more
-// specific strings and do not flow through assertBookable.
-const COLLISION_MESSAGE = 'Khung giờ này đã bị đặt — This time slot is already taken';
+// Canonical user-facing messages for the book/create paths. These English
+// strings are part of the API contract (asserted by tests). The admin
+// "move"/"reassign" paths intentionally throw their own, more specific strings
+// and do not flow through assertBookable.
+const COLLISION_MESSAGE = 'This time slot is already taken';
 const WEEKLY_CAP_MESSAGE =
-  `Team đã đặt tối đa ${WEEKLY_TEAM_LIMIT} buổi/tuần — This team already has the maximum ${WEEKLY_TEAM_LIMIT} sessions this week`;
+  `This team already has the maximum ${WEEKLY_TEAM_LIMIT} sessions this week`;
 
 // Capacity (Wave E2). The effective per-session cap is the program's
 // capacityPolicy.maxParticipantsPerSession when set, else the per-session
@@ -43,7 +43,7 @@ const DEFAULT_SESSION_CAPACITY = 9;
 
 /** User-facing 422 message for a roster that exceeds the effective session cap. */
 const capacityMessage = (cap) =>
-  `Sĩ số vượt quá sức chứa buổi học (${cap}) — Roster exceeds the session capacity of ${cap}`;
+  `Roster exceeds the session capacity of ${cap}`;
 
 /**
  * The effective per-session occupancy cap. Program policy

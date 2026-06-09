@@ -135,9 +135,8 @@ const assertSlotsValidForWrite = (rawArray) => {
  * Fail-closed: if there are no valid configured slots, all bookings are
  * rejected. The window must EXACTLY match one configured slot in VN time.
  *
- * NOTE: the mismatch message intentionally keeps the legacy bilingual string
- * ("không hợp lệ") that the API contract + existing tests assert on. This is a
- * relocated legacy string, not a new one.
+ * NOTE: the mismatch message text is part of the API contract (existing tests
+ * assert on "allowed time slot").
  *
  * @throws {ServiceError} 400 on invalid dates / range / disallowed slot
  */
@@ -163,7 +162,7 @@ const assertValidBookingWindow = async (start, end) => {
   );
 
   if (!matches) {
-    throw new ServiceError('Khung giờ không hợp lệ — Please select an allowed time slot.');
+    throw new ServiceError('Please select an allowed time slot.');
   }
 };
 

@@ -143,7 +143,7 @@ const bookSlot = async ({ teamId, startTime, endTime, requestUser }) => {
 
       if (!team) throw new ServiceError('Team not found', 404);
       if (!team.classId) {
-        throw new ServiceError('Team chưa được gán lớp — This team has no assigned class');
+        throw new ServiceError('This team has no assigned class');
       }
 
       // ── Authorization check ───────────────────────────────
@@ -178,7 +178,7 @@ const bookSlot = async ({ teamId, startTime, endTime, requestUser }) => {
     // Part 2: Catch duplicate key error from unique index (concurrent booking)
     if (err.code === 11000 || err.message?.includes('E11000')) {
       throw new ServiceError(
-        'Khung giờ này đã bị Team khác đặt — This time slot is already taken (concurrent booking detected)',
+        'This time slot is already taken (concurrent booking detected)',
         409
       );
     }
@@ -271,7 +271,7 @@ const bookCohortSlot = async ({ cohortId, startTime, endTime, enrolledUserIds = 
   } catch (err) {
     if (err.code === 11000 || err.message?.includes('E11000')) {
       throw new ServiceError(
-        'Khung giờ này đã bị đặt — This time slot is already taken (concurrent booking detected)',
+        'This time slot is already taken (concurrent booking detected)',
         409,
       );
     }
@@ -439,7 +439,7 @@ const adminCreate = async (data) => {
 
         if (team.classId && team.classId.toString() !== classId.toString()) {
           throw new ServiceError(
-            'Team này được gán lớp khác — This team is assigned to a different class. Cannot book for this classId.',
+            'This team is assigned to a different class. Cannot book for this classId.',
             400
           );
         }
@@ -468,7 +468,7 @@ const adminCreate = async (data) => {
   } catch (err) {
     if (err.code === 11000 || err.message?.includes('E11000')) {
       throw new ServiceError(
-        'Khung giờ này đã bị trùng — This time slot overlaps with an existing schedule (concurrent booking detected)',
+        'This time slot overlaps with an existing schedule (concurrent booking detected)',
         409
       );
     }

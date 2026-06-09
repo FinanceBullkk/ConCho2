@@ -242,7 +242,7 @@ describe('Schedule update — off-policy time move is rejected', () => {
       .send({ startTime: target.toISOString(), endTime: end.toISOString() });
 
     expect(res.status).toBe(400);
-    expect(res.body.message).toMatch(/không hợp lệ/);
+    expect(res.body.message).toMatch(/allowed time slot/);
   });
 });
 
@@ -260,7 +260,7 @@ describe('Schedule update — capacity edit guard (Wave E2)', () => {
       .send({ capacity: 1 });
 
     expect(res.status).toBe(422);
-    expect(res.body.message).toMatch(/sức chứa/);
+    expect(res.body.message).toMatch(/capacity/);
     const after = await Schedule.findById(sched._id).lean();
     expect(after.capacity).toBe(9); // not written
   });
@@ -287,6 +287,6 @@ describe('Schedule update — capacity edit guard (Wave E2)', () => {
       .send({ bookedTeamId: teamB._id.toString(), capacity: 1 });
 
     expect(res.status).toBe(422);
-    expect(res.body.message).toMatch(/sức chứa/);
+    expect(res.body.message).toMatch(/capacity/);
   });
 });

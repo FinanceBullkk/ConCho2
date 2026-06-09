@@ -34,7 +34,7 @@ test.describe('Permissions / RBAC', () => {
     await expect(adminPage.getByRole('heading', { name: /^Teams$/ }))
       .toBeVisible({ timeout: 10_000 });
     // TeamsPage is English-only now ("+ Create team") after the UI
-    // English-only migration; the old "+ Tạo nhóm" copy is gone.
+    // English-only migration; the old Vietnamese create-team copy is gone.
     await expect(
       adminPage.getByRole('button', { name: /\+ create team/i }).first(),
     ).toBeVisible();

@@ -10,12 +10,12 @@ const { safeCell } = require('../../helpers/excel-formula-guard');
 // user-controllable string passes through safeCell() (SEC-004) to
 // neutralise spreadsheet formula injection.
 
-// Map status code → Vietnamese text
+// Map status code → English text
 const STATUS_TEXT = {
-  P: 'Có mặt',
-  A: 'Vắng mặt',
-  L: 'Đi muộn',
-  EL: 'Có phép',
+  P: 'Present',
+  A: 'Absent',
+  L: 'Late',
+  EL: 'Excused',
 };
 
 /**
@@ -31,26 +31,26 @@ const generateAttendanceWorkbook = async (records, streamRes = null) => {
   workbook.created = new Date();
 
   const sheet = workbook.addWorksheet('Attendance Export', {
-    headerFooter: { firstHeader: 'TMS - Báo Cáo Điểm Danh' },
+    headerFooter: { firstHeader: 'TMS - Attendance Report' },
   });
 
   // ── Define columns ───────────────────────────────────────
   sheet.columns = [
-    { header: 'Mã NV',           key: 'empCode',       width: 12 },
-    { header: 'Họ Tên',          key: 'userName',      width: 22 },
-    { header: 'Phòng Ban',       key: 'department',    width: 18 },
-    { header: 'Vai Trò',         key: 'userRole',      width: 12 },
-    { header: 'Mã Lớp',          key: 'classCode',     width: 10 },
-    { header: 'Khóa Học',        key: 'courseName',    width: 25 },
-    { header: 'Nhóm',            key: 'teamName',      width: 18 },
-    { header: 'Ngày Học',        key: 'dateStr',        width: 14 },
-    { header: 'Giờ BĐ',         key: 'startStr',       width: 10 },
-    { header: 'Giờ KT',          key: 'endStr',         width: 10 },
-    { header: 'Thời Lượng (ph)', key: 'duration',       width: 14 },
-    { header: 'Điểm Danh',      key: 'statusText',    width: 14 },
-    { header: 'Mã ĐD',           key: 'status',        width: 8 },
-    { header: 'Ghi Chú',         key: 'remark',        width: 25 },
-    { header: 'Ngày Ghi',        key: 'attendanceDate', width: 18 },
+    { header: 'Emp Code',        key: 'empCode',       width: 12 },
+    { header: 'Full Name',       key: 'userName',      width: 22 },
+    { header: 'Department',      key: 'department',    width: 18 },
+    { header: 'Role',            key: 'userRole',      width: 12 },
+    { header: 'Class Code',      key: 'classCode',     width: 10 },
+    { header: 'Course',          key: 'courseName',    width: 25 },
+    { header: 'Group',           key: 'teamName',      width: 18 },
+    { header: 'Date',            key: 'dateStr',        width: 14 },
+    { header: 'Start',          key: 'startStr',       width: 10 },
+    { header: 'End',             key: 'endStr',         width: 10 },
+    { header: 'Duration (min)',  key: 'duration',       width: 14 },
+    { header: 'Attendance',     key: 'statusText',    width: 14 },
+    { header: 'Status Code',     key: 'status',        width: 8 },
+    { header: 'Remark',          key: 'remark',        width: 25 },
+    { header: 'Recorded At',     key: 'attendanceDate', width: 18 },
   ];
 
   // ── Style header row ─────────────────────────────────────

@@ -43,7 +43,7 @@ const enroll = async ({ cohortId, userId }, actor) => {
     const activeCount = await repository.countActiveCohortEnrollments(cohortId);
     if (activeCount >= maxParticipants) {
       throw new ServiceError(
-        `Sĩ số cohort đã đầy (${maxParticipants}) — This cohort is full (capacity ${maxParticipants})`,
+        `This cohort is full (capacity ${maxParticipants})`,
         422,
       );
     }

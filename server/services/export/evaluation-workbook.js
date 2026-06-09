@@ -23,23 +23,23 @@ const generateEvaluationWorkbook = async (records, streamRes = null) => {
   workbook.created = new Date();
 
   const sheet = workbook.addWorksheet('Evaluation Export', {
-    headerFooter: { firstHeader: 'TMS - Báo Cáo Đánh Giá' },
+    headerFooter: { firstHeader: 'TMS - Evaluation Report' },
   });
 
   sheet.columns = [
-    { header: 'Mã NV',         key: 'empCode',          width: 12 },
-    { header: 'Họ Tên',        key: 'userName',         width: 22 },
-    { header: 'Phòng Ban',     key: 'department',       width: 18 },
-    { header: 'Mã Lớp',        key: 'classCode',        width: 10 },
-    { header: 'Khóa Học',      key: 'courseName',       width: 25 },
-    { header: 'Trình Độ',      key: 'level',            width: 12 },
-    { header: 'Ngữ Pháp',      key: 'grammarScore',     width: 10 },
-    { header: 'Từ Vựng',       key: 'vocabularyScore',  width: 10 },
-    { header: 'Phát Âm',       key: 'pronunciationScore', width: 10 },
-    { header: 'Trôi Chảy',     key: 'fluencyScore',     width: 10 },
-    { header: 'Điểm TB',       key: 'averageScore',     width: 10 },
-    { header: 'Nhận Xét',      key: 'teacherComment',   width: 35 },
-    { header: 'Cập Nhật',      key: 'updatedStr',       width: 18 },
+    { header: 'Emp Code',      key: 'empCode',          width: 12 },
+    { header: 'Full Name',     key: 'userName',         width: 22 },
+    { header: 'Department',    key: 'department',       width: 18 },
+    { header: 'Class Code',    key: 'classCode',        width: 10 },
+    { header: 'Course',        key: 'courseName',       width: 25 },
+    { header: 'Level',         key: 'level',            width: 12 },
+    { header: 'Grammar',       key: 'grammarScore',     width: 10 },
+    { header: 'Vocabulary',    key: 'vocabularyScore',  width: 10 },
+    { header: 'Pronunciation', key: 'pronunciationScore', width: 10 },
+    { header: 'Fluency',       key: 'fluencyScore',     width: 10 },
+    { header: 'Avg Score',     key: 'averageScore',     width: 10 },
+    { header: 'Comment',       key: 'teacherComment',   width: 35 },
+    { header: 'Updated',       key: 'updatedStr',       width: 18 },
   ];
 
   const headerRow = sheet.getRow(1);

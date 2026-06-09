@@ -32,7 +32,7 @@ const checkMemberConflicts = async (memberIds, excludeTeamId = null) => {
       const overlap = t.members.filter(m => memberIds.includes(m._id.toString()));
       if (overlap.length > 0) {
         const names = overlap.map(m => `${m.name} (${m.empCode})`).join(', ');
-        details.push(`${names} đang ở nhóm "${t.name}"`);
+        details.push(`${names} already in group "${t.name}"`);
       }
     });
     return details.join('; ');
@@ -77,7 +77,7 @@ const createTeam = async (req, res) => {
     if (memberConflictStr) {
       return res.status(409).json({
         success: false,
-        message: `Không thể tạo nhóm: ${memberConflictStr}. Vui lòng gỡ họ khỏi nhóm cũ trước.`,
+        message: `Cannot create group: ${memberConflictStr}. Please remove them from their current group first.`,
       });
     }
 
@@ -189,7 +189,7 @@ const updateTeam = async (req, res) => {
       if (memberConflictStr) {
         return res.status(409).json({
           success: false,
-          message: `Không thể cập nhật: ${memberConflictStr}. Vui lòng gỡ họ khỏi nhóm cũ trước.`,
+          message: `Cannot update: ${memberConflictStr}. Please remove them from their current group first.`,
         });
       }
     }

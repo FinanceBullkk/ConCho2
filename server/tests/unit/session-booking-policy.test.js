@@ -82,7 +82,7 @@ describe('session-booking-policy · effectiveSessionCapacity (Wave E2)', () => {
 
 describe('session-booking-policy · capacityMessage', () => {
   test('embeds the cap and keeps the bilingual contract substring', () => {
-    expect(capacityMessage(9)).toMatch(/sức chứa/);
+    expect(capacityMessage(9)).toMatch(/capacity/);
     expect(capacityMessage(9)).toMatch(/\b9\b/);
   });
 });

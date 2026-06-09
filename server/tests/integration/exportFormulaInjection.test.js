@@ -134,9 +134,9 @@ describe('exportAttendance (SEC-004 generateExcel)', () => {
     await wb.xlsx.load(result.buffer);
     const sheet = wb.worksheets[0];
     const header = sheet.getRow(1).values; // 1-indexed
-    const nameCol = header.indexOf('Họ Tên');
-    const deptCol = header.indexOf('Phòng Ban');
-    const remarkCol = header.indexOf('Ghi Chú');
+    const nameCol = header.indexOf('Full Name');
+    const deptCol = header.indexOf('Department');
+    const remarkCol = header.indexOf('Remark');
 
     let sawEvilRow = false;
     for (let r = 2; r <= sheet.rowCount; r++) {
