@@ -25,6 +25,15 @@
     "openMenu": "Open menu",
     "closeMenu": "Close menu"
   },
+  "booking": {
+    "modeLocked": {
+      "adminScheduled": "This program is admin-scheduled — only an Admin can create its sessions. Contact an Admin to schedule.",
+      "cohort": "This program enrolls by cohort — sessions aren't booked per group here.",
+      "generic": "Booking is disabled for this program's scheduling mode."
+    },
+    "lockedHint": "Not bookable for this program",
+    "legendLocked": "Locked — not bookable in this program's mode"
+  },
   "errorBoundary": {
     "title": "Something went wrong",
     "body": "The app hit an unexpected error. Please reload the page.",

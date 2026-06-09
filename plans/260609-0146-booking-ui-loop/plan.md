@@ -45,7 +45,7 @@ plus one small server populate-widening.
 | Phase | Name | Status | Effort | Depends |
 |-------|------|--------|--------|---------|
 | 1 | [Expose Scheduling Mode](./phase-01-expose-scheduling-mode.md) | ✅ Done | S (~0.5d) | — |
-| 2 | [Mode-Aware Booking Grid](./phase-02-mode-aware-booking-grid.md) | Pending | M (~1d) | P1 |
+| 2 | [Mode-Aware Booking Grid](./phase-02-mode-aware-booking-grid.md) | ✅ Done | M (~1d) | P1 |
 | 3 | [Exact-Slot Grid (Wave E1)](./phase-03-exact-slot-grid-wave-e1.md) | Pending | L (~3–4d) | P2 |
 
 Phases ship incrementally: **P1+P2 close the 403 surprise fast** (the high-value,

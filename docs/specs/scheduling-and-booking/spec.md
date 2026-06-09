@@ -221,6 +221,27 @@ book against a cohort. A team session for a cohort-mode program is rejected
 - **WHEN** the leader books
 - **THEN** it succeeds (mode falls back to `leader_booking` — graceful migration)
 
+### Requirement: Booking UI surfaces scheduling mode pre-submit [BR-6, UC-3]
+
+The leader booking grid SHALL surface the selected team's effective
+`schedulingMode` (from `GET /teams/my-teams`, using the same `leader_booking`
+fallback as the server) and gate booking affordances **before** submission:
+empty future cells are bookable only for `leader_booking`; other modes render
+read-only "locked" cells plus a banner stating why (Admin-scheduled vs
+cohort-based). This is a UX pre-check only — the server policy remains the
+security boundary. Existing-session visibility (own sessions, other teams' taken
+slots) is never gated.
+
+#### Scenario: Leader opens an admin_scheduled team's grid
+- **GIVEN** a leader whose selected team's program is `admin_scheduled`
+- **WHEN** the booking grid renders
+- **THEN** no "+ Book" cell is offered (cells are locked) and a banner explains
+  only an Admin can schedule — no booking request is sent (no post-submit 403)
+
+#### Scenario: Leader switches to a leader_booking team
+- **GIVEN** the same leader selects a `leader_booking` team
+- **THEN** the grid offers bookable "+ Book" cells as normal
+
 ### Requirement: Cancellation deletes the session [BR-1, UC-2]
 
 The system SHALL delete the `Schedule` document on cancellation (no soft-delete
@@ -285,6 +306,7 @@ Inherits `docs/specs/security-platform/spec.md`. Specifics:
 - [ ] Reassigning a session to another team rebuilds `enrolledUsers` from the new team's **Active** members (Dropped excluded).
 - [ ] Leader self-booking an `admin_scheduled` program via the legacy `/book-slot` route → 403 (bypass closed).
 - [ ] Team-booking a `self_enroll`/`nomination` program (book-slot, admin create, or reassign) → 400; program-less class still books (leader_booking fallback).
+- [ ] Leader booking grid hides "+ Book" and shows a banner for non-`leader_booking` modes; existing-session visibility unaffected.
 - [ ] Calendar/email failure does not roll back the booking.
 - [ ] Scheduling config readable by all roles (401 anonymous); Settings stays Admin-only.
 - [ ] Settings PUT rejects malformed/overlapping config (400); empty array allowed.
@@ -304,14 +326,13 @@ Inherits `docs/specs/security-platform/spec.md`. Specifics:
 
 ## Out of Scope / Deferred
 
-- **Client mode-awareness (UX follow-up).** `schedulingMode` is now enforced
-  server-side on **every** create path (leader booking, Admin create, Admin
-  reassign, and the learning adapter) via the shared `scheduling-mode-policy`.
-  The booking UI does NOT yet surface mode, so an admin/leader can fill the form
-  and only learn of a mode mismatch from the post-submit 400/403. Surfacing mode
-  pre-submit (disable/annotate mode-incompatible teams; hide "+Book" for
-  `admin_scheduled`) is the remaining slice. Broader capability-based authz: see
-  `docs/specs/capability-authz/spec.md` (evolving).
+- **Client mode-awareness — SHIPPED (2026-06-09, booking-ui-loop Phase 2).** The
+  leader booking grid now surfaces the selected team's mode and gates cells
+  pre-submit (locked cells + banner for non-`leader_booking` modes) — see the
+  "Booking UI surfaces scheduling mode pre-submit" requirement above. Remaining:
+  the **Admin** create/reassign forms still reveal a mode mismatch only via the
+  post-submit 400/403 (admin-facing, lower priority). Broader capability-based
+  authz: see `docs/specs/capability-authz/spec.md` (evolving).
 - **Client exact-slot rendering (Wave E1 client slice — pending).** The server
   now validates + exposes exact (minute-offset, variable-duration) windows, but
   the booking UI grid (`CalendarGrid` + Book/Schedules/Attendance pages) still
