@@ -144,6 +144,35 @@ falling back to a hard-coded fixed-hour list.
 - **WHEN** the config is requested
 - **THEN** **401**
 
+### Requirement: Booking grid renders exact configured slots (client) [BR-4, UC-1, UC-4]
+
+The booking / schedule / attendance grids SHALL render rows from the config's
+exact slot descriptors (supporting non-60-min and minute-offset windows), keyed
+by the exact `HH:mm-HH:mm` window — not integer hours. A leader booking submits
+the exact configured start/end (no `hour + 1`); the booking grid scopes
+availability to the selected team's Class (per-class collision). Sessions whose
+window matches no configured slot render as read-only **off-policy** rows
+(visible, not newly bookable). An empty/malformed config yields no bookable rows
+(fail-closed) while historical sessions still render. This is a presentation
+layer over the server's authoritative window enforcement.
+
+#### Scenario: Minute-offset window books exactly
+- **GIVEN** a configured slot `09:15-10:45`
+- **WHEN** a leader books that cell
+- **THEN** the submitted start/end equal 09:15/10:45 VN (no `hour + 1`) and the
+  server accepts it as an allowed slot
+
+#### Scenario: Off-policy session is visible but not bookable
+- **GIVEN** a stored session whose window matches no configured slot
+- **WHEN** the grid renders that week
+- **THEN** the session shows on its own read-only row; its empty cells offer no
+  "+ Book"
+
+#### Scenario: Cross-class slot does not block
+- **GIVEN** another class booked the same slot/day
+- **WHEN** the leader views their team's grid (scoped to their Class)
+- **THEN** the slot is still bookable for their Class (collision is per-class)
+
 ### Requirement: Config is validated on write [BR-2, BR-4, UC-3]
 
 The system SHALL validate `ALLOWED_TIME_SLOTS` when an Admin saves it via
@@ -309,6 +338,8 @@ Inherits `docs/specs/security-platform/spec.md`. Specifics:
 - [ ] Leader booking grid hides "+ Book" and shows a banner for non-`leader_booking` modes; existing-session visibility unaffected.
 - [ ] Calendar/email failure does not roll back the booking.
 - [ ] Scheduling config readable by all roles (401 anonymous); Settings stays Admin-only.
+- [ ] Booking grid renders exact configured windows (incl. non-60-min/minute-offset); leader booking submits the exact start/end (no `hour + 1`).
+- [ ] Off-policy sessions render read-only (not newly bookable); availability scoped per Class (no cross-class false blocks); empty config → no bookable rows, history still visible.
 - [ ] Settings PUT rejects malformed/overlapping config (400); empty array allowed.
 
 ## Error & Edge Cases
@@ -333,13 +364,14 @@ Inherits `docs/specs/security-platform/spec.md`. Specifics:
   the **Admin** create/reassign forms still reveal a mode mismatch only via the
   post-submit 400/403 (admin-facing, lower priority). Broader capability-based
   authz: see `docs/specs/capability-authz/spec.md` (evolving).
-- **Client exact-slot rendering (Wave E1 client slice — pending).** The server
-  now validates + exposes exact (minute-offset, variable-duration) windows, but
-  the booking UI grid (`CalendarGrid` + Book/Schedules/Attendance pages) still
-  keys cells by integer hour and the participant booking page submits `hour + 1`.
-  Migrating the grid to exact slot descriptors (via the new config endpoint +
-  `useSchedulingConfig`) is the remaining E1 work — see
-  `plans/260606-1356-wave-e-generic-scheduling/phase-01-exact-scheduling-windows.md`.
+- **Client exact-slot rendering — SHIPPED (2026-06-09, booking-ui-loop Phase 3).**
+  The booking / schedule / attendance grids now render exact configured slot
+  descriptors (via `useSchedulingConfig` + `client/src/lib/scheduling-slots.js`),
+  submit the exact window (no `hour + 1`), scope availability by Class, and show
+  off-policy sessions read-only — see the "Booking grid renders exact configured
+  slots" requirement above. Admin create/move uses the same configured slots on
+  cell-click; the schedule drawer's free-form datetime entry stays
+  server-validated (off-policy → 400).
 - Capacity enforcement, rooms, instructors, waitlists: Wave E2+ (gated on
   product decisions — see the Wave E plan).
 - Recurring sessions, room/resource booking beyond the class slot.

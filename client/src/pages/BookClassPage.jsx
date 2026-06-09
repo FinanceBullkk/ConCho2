@@ -6,37 +6,33 @@ import { Lock } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useAvailability, useBookSlot, useCancelSlot } from '../hooks/useSchedules';
 import { useMyTeams } from '../hooks/useTeams';
-import { useTimeSlots } from '../hooks/useTimeSlots';
+import { useSchedulingConfig, DEFAULT_UTC_OFFSET_MINUTES } from '../hooks/useSchedulingConfig';
 import { CalendarGrid, getMonday, toDateKey } from '../components/CalendarGrid';
 import { BookDrawer } from '../components/BookDrawer';
 import { effectiveSchedulingMode, isLeaderBookable, lockedReason } from '../lib/scheduling-mode';
 import { bookingCellState } from '../lib/booking-cell-state';
+import { slotToUtcRange, scheduleSlotId, buildSlotRows } from '../lib/scheduling-slots';
 import { Button } from '@/components/ui/button';
 
 // ──────────────────────────────────────────────────────────
 // BookClassPage — Phase 3 Screen 2 (D2 Drawer)
 //
-// Participant Leader books empty slots or cancels own sessions.
-// D2 pattern: drawer right sidebar on desktop, bottom sheet on mobile.
+// Participant Leader books empty slots or cancels own sessions. Slots come from
+// the server scheduling config (exact windows); a booking submits the exact
+// configured start/end (no hour+1). D2 pattern: drawer right sidebar / sheet.
 // ──────────────────────────────────────────────────────────
 
-const parseSlot = (slot) => {
-  const [s, e] = slot.split('-');
-  const [sh, sm] = s.split(':').map(Number);
-  const [eh, em] = e.split(':').map(Number);
-  return { sh, sm, eh, em };
-};
-
-const scheduleToKey = (s) => {
-  const d = new Date(s.startTime);
-  return `${toDateKey(d)}|${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
-};
+// Bucket a session into a grid cell: local date (matches grid columns) + the
+// session's VN wall-clock slot id (matches the descriptor row id).
+const scheduleToKey = (s, offset) =>
+  `${toDateKey(new Date(s.startTime))}|${scheduleSlotId(s, offset)}`;
 
 export default function BookClassPage() {
   const { user } = useAuth();
   const { t } = useTranslation();
   const [searchParams, setSearchParams] = useSearchParams();
-  const TIME_SLOTS   = useTimeSlots();
+  const config       = useSchedulingConfig();
+  const offset       = config.data?.utcOffsetMinutes ?? DEFAULT_UTC_OFFSET_MINUTES;
   const bookMutation = useBookSlot();
   const cancelMutation = useCancelSlot();
 
@@ -58,9 +54,16 @@ export default function BookClassPage() {
     setSearchParams(next, { replace: true });
   };
 
-  const { data: schedules = [], isLoading: loadingSched } = useAvailability();
   const { data: myTeams   = [], isLoading: loadingTeams  } = useMyTeams();
-  const loading = loadingSched || loadingTeams;
+  const selectedTeamObj  = myTeams.find(t => t._id === selectedTeam);
+  const selectedClassId  = selectedTeamObj?.classId?._id;
+
+  // Availability is scoped to the selected team's Class — collisions are
+  // per-class (unique {classId,startTime}); other classes never block a slot.
+  const { data: schedules = [], isLoading: loadingSched } = useAvailability(
+    selectedClassId ? { classId: selectedClassId } : undefined,
+  );
+  const loading = loadingSched || loadingTeams || config.isLoading;
 
   const leaderTeams = useMemo(
     () => myTeams.filter(t =>
@@ -92,17 +95,20 @@ export default function BookClassPage() {
   const scheduleMap = useMemo(() => {
     const map = {};
     schedules.forEach(s => {
-      const key = scheduleToKey(s);
+      const key = scheduleToKey(s, offset);
       if (!map[key]) map[key] = [];
       map[key].push(s);
     });
     return map;
-  }, [schedules]);
+  }, [schedules, offset]);
 
-  const timeRows = useMemo(() => TIME_SLOTS.map(s => parseInt(s.split(':')[0], 10)), [TIME_SLOTS]);
+  // Rows = configured (bookable) slots + any in-week off-policy session windows.
+  const rows = useMemo(() => {
+    const weekEnd = new Date(weekStart.getTime() + 7 * 86400000);
+    return buildSlotRows(config.data?.slots, schedules, offset, weekStart, weekEnd);
+  }, [config.data?.slots, schedules, offset, weekStart]);
 
-  const today            = toDateKey(new Date());
-  const selectedTeamObj  = myTeams.find(t => t._id === selectedTeam);
+  const today = toDateKey(new Date());
 
   // Phase 2 — schedulingMode awareness. Only `leader_booking` lets a leader
   // self-book; other modes (admin_scheduled / cohort) render locked cells + a
@@ -112,15 +118,13 @@ export default function BookClassPage() {
 
   const selectedCellKey = useMemo(() => {
     if (drawerMode === 'book' && drawerPrefill) {
-      const d = drawerPrefill.startTime;
-      return `${toDateKey(d)}|${String(d.getHours()).padStart(2, '0')}:00`;
+      return `${toDateKey(drawerPrefill.day)}|${drawerPrefill.slot.id}`;
     }
     if (drawerMode === 'cancel' && drawerSchedule) {
-      const d = new Date(drawerSchedule.startTime);
-      return `${toDateKey(d)}|${String(d.getHours()).padStart(2, '0')}:00`;
+      return scheduleToKey(drawerSchedule, offset);
     }
     return null;
-  }, [drawerMode, drawerPrefill, drawerSchedule]);
+  }, [drawerMode, drawerPrefill, drawerSchedule, offset]);
 
   const closeDrawer = () => { setDrawerMode(null); setDrawerPrefill(null); setDrawerSchedule(null); };
 
@@ -219,19 +223,18 @@ export default function BookClassPage() {
           )}
           <CalendarGrid
             weekDays={weekDays}
-            timeRows={timeRows}
+            rows={rows}
             isLoading={loading}
             selectedCellKey={selectedCellKey}
             onPrev={() => setWeek(new Date(weekStart.getTime() - 7 * 86400000))}
             onNext={() => setWeek(new Date(weekStart.getTime() + 7 * 86400000))}
             onToday={() => setWeek(getMonday(new Date()))}
             weekLabel={`${weekDays[0].toLocaleDateString('en', { month: 'short', day: 'numeric' })} — ${weekDays[6].toLocaleDateString('en', { month: 'short', day: 'numeric', year: 'numeric' })}`}
-            renderCell={(day, hour) => {
-              const dateKey  = toDateKey(day);
-              const slotStart = `${String(hour).padStart(2, '0')}:00`;
-              const cellKey  = `${dateKey}|${slotStart}`;
-              const list     = scheduleMap[cellKey] || [];
-              const isPast   = dateKey < today;
+            renderCell={(day, slot) => {
+              const dateKey = toDateKey(day);
+              const cellKey = `${dateKey}|${slot.id}`;
+              const list    = scheduleMap[cellKey] || [];
+              const isPast  = dateKey < today;
 
               const mySchedule = list.find(
                 s => s.bookedTeamId?._id === selectedTeam || s.bookedTeamId === selectedTeam,
@@ -240,7 +243,9 @@ export default function BookClassPage() {
                 s => s.bookedTeamId?._id !== selectedTeam && s.bookedTeamId !== selectedTeam,
               );
 
-              const variant = bookingCellState({ mySchedule, blocker, isPast, bookable });
+              // Off-policy rows (legacy/imported windows) are never bookable.
+              const cellBookable = bookable && !slot.offPolicy;
+              const variant = bookingCellState({ mySchedule, blocker, isPast, bookable: cellBookable });
 
               if (variant === 'mine') {
                 const isSel = drawerMode === 'cancel' && drawerSchedule?._id === mySchedule._id;
@@ -280,11 +285,8 @@ export default function BookClassPage() {
               }
 
               if (variant === 'bookable') {
-                const slot = `${slotStart}-${String(hour + 1).padStart(2, '0')}:00`;
-                const { sh, sm, eh, em } = parseSlot(slot);
-                const startTime = new Date(day); startTime.setHours(sh, sm, 0, 0);
-                const endTime   = new Date(day); endTime.setHours(eh, em, 0, 0);
-                const isSel = drawerMode === 'book' && selectedCellKey === `${dateKey}|${String(hour).padStart(2, '0')}:00`;
+                const { startISO, endISO } = slotToUtcRange(day, slot, offset);
+                const isSel = drawerMode === 'book' && selectedCellKey === cellKey;
 
                 return (
                   <div
@@ -295,7 +297,13 @@ export default function BookClassPage() {
                     }`}
                     onClick={() => {
                       if (isSel) { closeDrawer(); return; }
-                      setDrawerPrefill({ day, slot, startTime, endTime, teamObj: selectedTeamObj });
+                      setDrawerPrefill({
+                        day,
+                        slot,
+                        startTime: new Date(startISO),
+                        endTime: new Date(endISO),
+                        teamObj: selectedTeamObj,
+                      });
                       setDrawerSchedule(null);
                       setDrawerMode('book');
                     }}
@@ -306,15 +314,20 @@ export default function BookClassPage() {
               }
 
               if (variant === 'locked') {
-                return (
-                  <div
-                    className="rounded-md h-full min-h-[80px] flex items-center justify-center border border-dashed border-border bg-muted/20 cursor-not-allowed"
-                    title={t('booking.lockedHint')}
-                    aria-disabled="true"
-                  >
-                    <Lock className="size-3.5 text-muted-foreground/50" aria-hidden="true" />
-                  </div>
-                );
+                // Mode lock (Phase 2): lock icon + hint. Off-policy empty cells
+                // are simply muted (not bookable, but not a mode restriction).
+                if (!bookable) {
+                  return (
+                    <div
+                      className="rounded-md h-full min-h-[80px] flex items-center justify-center border border-dashed border-border bg-muted/20 cursor-not-allowed"
+                      title={t('booking.lockedHint')}
+                      aria-disabled="true"
+                    >
+                      <Lock className="size-3.5 text-muted-foreground/50" aria-hidden="true" />
+                    </div>
+                  );
+                }
+                return <div className="h-full min-h-[80px] rounded-md bg-muted/20" />;
               }
 
               // 'empty-past' — muted, never interactive

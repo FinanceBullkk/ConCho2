@@ -12,12 +12,14 @@ dependencies: []
 > move), settings-on-write validation, and `GET /api/learning/sessions/config`.
 > Folded into `docs/specs/scheduling-and-booking`.
 >
-> **Client slice (steps 5–9 below) SUPERSEDED (2026-06-09)** → executed in
-> `plans/260609-0146-booking-ui-loop/phase-03-exact-slot-grid-wave-e1.md`, where
-> it is absorbed alongside the Pass C schedulingMode-awareness so the booking
-> grid is refactored once. The step detail below remains the authoritative spec
-> for that work (Phase 3 references it). Wave E **E2** (capacity) is blocked until
-> that Phase 3 ships.
+> **Client slice (steps 5–9 below) — ✅ SHIPPED (2026-06-09)** via
+> `plans/260609-0146-booking-ui-loop/phase-03-exact-slot-grid-wave-e1.md`
+> (absorbed alongside the Pass C schedulingMode-awareness so the booking grid was
+> refactored once): descriptor-based `CalendarGrid`, `useSchedulingConfig` +
+> `scheduling-slots`, exact UTC ranges (no `hour + 1`), classId-scoped
+> availability, off-policy read-only rows, `useTimeSlots` deleted. Client
+> 190 tests + lint (cap 81) + build green. **E1 is now fully done; Wave E E2
+> (capacity) is unblocked.**
 
 # Phase 1: Exact Scheduling Windows
 

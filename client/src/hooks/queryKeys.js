@@ -29,6 +29,7 @@ export const qk = {
     detail: (id) => ['schedules', 'detail', id],
     myClass: ['schedules', 'my-class'],
     attendanceCalendar: ['schedules', 'attendance-calendar'],
+    config: ['schedules', 'config'],
   },
   attendance: {
     all: ['attendance'],

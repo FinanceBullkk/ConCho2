@@ -189,6 +189,26 @@ Bug fixing and integration review rank above net-new feature rollout.
 
 ## Recent progress (changelog)
 
+- **2026-06-09** — **Booking-UI loop (Phase 3) — exact-slot booking grid (Wave E1
+  client slice, completes Wave E1).** Migrated the booking / schedule /
+  attendance grids off the hardcoded integer-hour list onto the server's exact
+  slot config. New `useSchedulingConfig` hook (over `GET /api/learning/sessions/
+  config`) + pure `client/src/lib/scheduling-slots.js` (tz-safe VN↔UTC via fixed
+  offset; `slotToUtcRange`, `scheduleSlotId`, `buildSlotRows`). `CalendarGrid`
+  now takes exact slot **descriptors** (`rows` + `renderCell(day, slot)`, row key
+  = exact `HH:mm-HH:mm`) instead of integer hours — supports non-60-min /
+  minute-offset windows and kills same-hour collisions. Booking submits the exact
+  configured start/end (**removed `hour + 1`**); availability is scoped to the
+  selected team's Class (per-class collision — no cross-class false blocks);
+  sessions matching no configured slot render as read-only **off-policy** rows
+  (visible, not bookable); empty/malformed config → no bookable rows (fail-closed,
+  history still renders). Phase 2 mode-gating preserved through the refactor.
+  `useTimeSlots` deleted (all 3 callers migrated). Client 190 tests (+10 slot-helper
+  unit), lint at cap 81, build clean. Spec folded into `scheduling-and-booking`
+  (new "Booking grid renders exact configured slots" requirement; the pending
+  client-slice note marked shipped). **Wave E1 is now fully done (backend + client);
+  Wave E E2 (capacity) is unblocked.** The booking-UI loop plan (P1+P2+P3) is
+  complete.
 - **2026-06-09** — **Booking-UI loop (Phase 2) — mode-aware booking grid.** The
   leader booking grid (`BookClassPage`) now gates by the selected team's
   effective `schedulingMode`: only `leader_booking` shows bookable "+ Book"

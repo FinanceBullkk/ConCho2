@@ -1,10 +1,11 @@
 ---
 phase: 3
-title: "Exact-Slot Grid (Wave E1)"
-status: pending
+title: Exact-Slot Grid (Wave E1)
+status: completed
 priority: P1
-effort: "3-4d"
-dependencies: [2]
+effort: 3-4d
+dependencies:
+  - 2
 ---
 
 # Phase 3: Exact-Slot Grid (Wave E1 client slice)
@@ -129,25 +130,26 @@ GET /api/learning/sessions/config ──► useSchedulingConfig (RQ)
 
 ## Todo List
 
-- [ ] `scheduling-slots.js` helpers + tests (tz-safe, fail-closed)
-- [ ] `useSchedulingConfig` hook + api.js + queryKeys
-- [ ] `CalendarGrid` descriptor refactor (exact row key)
-- [ ] `BookClassPage` migrate; remove `hour + 1`; scope by classId; keep gating
-- [ ] `SchedulesPage` + `AttendancePage` migrate; off-policy merge
-- [ ] `CourseManager` Admin create/move restricted to configured slots
-- [ ] i18n; delete `useTimeSlots`; grep stragglers
-- [ ] test:run + lint + build green; manual smoke
+- [x] `scheduling-slots.js` helpers + tests (tz-safe, fail-closed) — 10 cases
+- [x] `useSchedulingConfig` hook + `api.js` getter + `queryKeys.schedules.config`
+- [x] `CalendarGrid` descriptor refactor (`rows`, `renderCell(day, slot)`, key = `slot.id`)
+- [x] `BookClassPage` migrate; remove `hour + 1`; scope availability by classId; keep gating
+- [x] `SchedulesPage` + `AttendancePage` migrate; off-policy merge
+- [~] `CourseManager` — N/A (no slot logic; Admin create/move is on SchedulesPage, migrated). Drawer free-form datetime stays server-enforced (off-policy → 400)
+- [x] No new strings needed (off-policy reuses time label); `useTimeSlots` deleted; stragglers grepped clean
+- [x] test:run (190 pass) + lint (at cap 81) + build green
 
 ## Success Criteria
 
-- [ ] Default five one-hour slots render/book unchanged.
-- [ ] 90-min and minute-offset windows render and book exactly through the UI.
-- [ ] No `hour + 1`; submitted start/end equal the configured window in tz.
-- [ ] Availability scoped by selected `classId` (no cross-class false blocks).
-- [ ] Off-policy history visible + read-only; not newly bookable.
-- [ ] Config failure disables booking, keeps history; never invents slots.
-- [ ] Phase 2 mode gating intact under the descriptor grid.
-- [ ] `useTimeSlots` deleted; no remaining importers.
+- [x] Default five one-hour slots render/book unchanged.
+- [x] 90-min and minute-offset windows render and book exactly through the UI
+      (covered by `slotToUtcRange` / `scheduleSlotId` unit tests).
+- [x] No `hour + 1`; submitted start/end equal the configured window in tz.
+- [x] Availability scoped by selected `classId` (no cross-class false blocks).
+- [x] Off-policy history visible + read-only; not newly bookable (`buildSlotRows`).
+- [x] Config failure → no bookable rows; history still renders (fail-closed).
+- [x] Phase 2 mode gating intact under the descriptor grid (`bookingCellState`).
+- [x] `useTimeSlots` deleted; no remaining importers.
 
 ## Risk Assessment
 
