@@ -111,7 +111,7 @@ owner-input setup or the separate Wave E generic scheduling plan.
 | Phase | Theme | Progress | Status |
 |------|-------|---------:|--------|
 | 0 | Architecture baseline + safety net | ~93% | 🟢 near done |
-| 1 | Backend modular-monolith refactor | ~56% | 🟡 in progress |
+| 1 | Backend modular-monolith refactor | ~59% | 🟡 in progress |
 | 2 | Learning catalog + generic cohort model | ~95% | 🟢 near done |
 | 3 | Multi-program enrollment + session scheduling | ~78% | 🟡 in progress |
 | 4 | Frontend L&D workspace (CRUD UI) | ~78% | 🟡 in progress |
@@ -189,6 +189,16 @@ Bug fixing and integration review rank above net-new feature rollout.
 
 ## Recent progress (changelog)
 
+- **2026-06-09** — **Phase 1 refactor — split the 556-line `userController` by
+  concern.** Pure behaviour-preserving refactor (verbatim handler move; no spec
+  change). The 8 Admin user handlers moved into `controllers/user/`:
+  `user-queries.js` (getUsers/getUserById/getDeletedUsers/getUserProgress),
+  `user-mutations.js` (createUser/updateUser incl. the BUG #9 re-auth gate),
+  `user-lifecycle.js` (deleteUser soft-delete cascade + restoreUser). `userController.js`
+  is now a ~30-line **facade** re-exporting all 8 handlers so `userRoutes.js` is
+  unchanged. Security-critical paths (re-auth gate, soft-delete cascade tx,
+  empCode/email release+restore) are byte-for-byte preserved. **699 server tests
+  green across 72 suites** (`userRoutes`/`softDeleteEmpCodeReuse`/`lastActivePerf`).
 - **2026-06-09** — **Phase 1 refactor — split the 548-line `reconcileService` by
   concern.** Pure behaviour-preserving refactor (no spec change — the 10 checks'
   behaviour is unchanged). The 10 read-only data-integrity checks moved into
