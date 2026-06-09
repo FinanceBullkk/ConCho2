@@ -111,7 +111,7 @@ owner-input setup or the separate Wave E generic scheduling plan.
 | Phase | Theme | Progress | Status |
 |------|-------|---------:|--------|
 | 0 | Architecture baseline + safety net | ~93% | 🟢 near done |
-| 1 | Backend modular-monolith refactor | ~76% | 🟡 in progress |
+| 1 | Backend modular-monolith refactor | ~78% | 🟡 in progress |
 | 2 | Learning catalog + generic cohort model | ~95% | 🟢 near done |
 | 3 | Multi-program enrollment + session scheduling | ~78% | 🟡 in progress |
 | 4 | Frontend L&D workspace (CRUD UI) | ~78% | 🟡 in progress |
@@ -189,6 +189,18 @@ Bug fixing and integration review rank above net-new feature rollout.
 
 ## Recent progress (changelog)
 
+- **2026-06-09** — **Phase 1 refactor — split `authService` (413) by concern
+  (completes the legacy file-modularization sweep).** Pure behaviour-preserving
+  (verbatim; no spec change). `services/auth/auth-tokens.js` (JWT minting +
+  session/mfa-pending/mfa-enrollment cookies + JTI blocklist revoke/check +
+  MFA-required-role policy) + `auth-login.js` (authenticate with durable per-account
+  lockout + verifyMfaLogin TOTP/backup-code second leg). Facade keeps
+  `controllers/auth/*`, `middleware/auth.js` (isTokenRevoked), and the auth tests
+  unchanged. 699 server tests green (72 suites). **Every >300-line backend
+  controller/service is now modularized or intentionally whole** (`syncController`
+  314 left as one cohesive Google-Sheets handler). Remaining Phase 1 (~22%) is
+  *architectural*: `domains/attendance`+`domains/groups`, repository interfaces,
+  schedule domain routes (currently a deliberate adapter), frontend `features/`.
 - **2026-06-09** — **Phase 1 refactor — split `attendanceService` (396) by concern.**
   Pure behaviour-preserving (verbatim; no spec change). `services/attendance/`:
   `attendance-scope.js` (Teacher visibility helpers, shared), `attendance-marking.js`
