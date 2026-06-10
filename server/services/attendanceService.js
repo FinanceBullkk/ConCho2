@@ -1,30 +1,11 @@
 // ──────────────────────────────────────────────────────────
-// Attendance Service (facade)
+// Attendance Service (compatibility facade)
 // ──────────────────────────────────────────────────────────
-// The legacy 396-line attendanceService was split by concern (Phase 1
-// modular-monolith refactor) into services/attendance/*:
-//   - attendance-scope.js     → Teacher visibility scope helpers (shared)
-//   - attendance-marking.js   → bulkMark (+ lastActiveAt write-through) + record reads
-//   - attendance-analytics.js → by-employee / by-team / by-class / personal rollups
-// This module re-exports the same surface so attendanceController and the
-// tests that import it directly are unchanged.
+// Phase 1 domain extraction (2026-06-10): the attendance logic now lives in
+// `domains/attendance/*` (routes → controller → use-cases → marking/analytics/
+// scope), matching the modular-monolith convention. This thin facade re-exports
+// the domain's public surface so the few callers that import this path directly
+// (server integration tests: analyticsPerf, phaseAHardening) stay unchanged.
+// Prefer requiring `domains/attendance/use-cases` in new code.
 
-const { ServiceError } = require('../helpers/ServiceError');
-const { bulkMark, getBySchedule, getByUser } = require('./attendance/attendance-marking');
-const {
-  analyticsByEmployee,
-  analyticsByTeam,
-  analyticsByClass,
-  getMyStats,
-} = require('./attendance/attendance-analytics');
-
-module.exports = {
-  ServiceError,
-  bulkMark,
-  getBySchedule,
-  getByUser,
-  analyticsByEmployee,
-  analyticsByTeam,
-  analyticsByClass,
-  getMyStats,
-};
+module.exports = require('../domains/attendance/use-cases');

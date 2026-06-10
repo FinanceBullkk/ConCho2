@@ -2,11 +2,12 @@ const Schedule = require('../../models/Schedule');
 const { findTeacherVisibleClassIds } = require('../../helpers/teacher-class-scope');
 
 // ──────────────────────────────────────────────────────────
-// Attendance Service — Teacher visibility scope helpers
+// attendance/scope — Teacher visibility scope helpers
 // ──────────────────────────────────────────────────────────
-// Split from the legacy attendanceService (Phase 1 modular-monolith).
-// Shared by the record reads (getByUser) and the analytics rollups so a
-// Teacher only ever sees attendance for classes bound to them.
+// Relocated from services/attendance/attendance-scope.js (Phase 1 domain
+// extraction — behavior-preserving). Shared by the record reads (getByUser)
+// and the analytics rollups so a Teacher only ever sees attendance for classes
+// bound to them.
 
 const scopedScheduleIdsForActor = async (actor) => {
   if (actor?.role !== 'Teacher') return null;

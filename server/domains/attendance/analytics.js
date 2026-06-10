@@ -4,14 +4,15 @@ const Schedule = require('../../models/Schedule');
 const Team = require('../../models/Team'); // used in analyticsByTeam aggregation
 const { ServiceError } = require('../../helpers/ServiceError');
 const { findTeacherVisibleClassIds } = require('../../helpers/teacher-class-scope');
-const { scopedAttendanceMatch } = require('./attendance-scope');
+const { scopedAttendanceMatch } = require('./scope');
 
 // ──────────────────────────────────────────────────────────
-// Attendance Service — analytics rollups
+// attendance/analytics — analytics rollups
 // ──────────────────────────────────────────────────────────
-// Split from the legacy attendanceService (Phase 1 modular-monolith).
-// By-employee / by-team (inverted-join, PERF-003) / by-class / personal
-// stats. Teacher scope applied via attendance-scope + findTeacherVisibleClassIds.
+// Relocated from services/attendance/attendance-analytics.js (Phase 1 domain
+// extraction — behavior-preserving). By-employee / by-team (inverted-join,
+// PERF-003) / by-class / personal stats. Teacher scope applied via
+// ./scope + findTeacherVisibleClassIds.
 
 /**
  * Analytics: attendance stats grouped by employee.

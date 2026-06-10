@@ -1,11 +1,18 @@
-const attendanceService = require('../services/attendanceService');
-const auditService = require('../services/auditService');
-const attendancePolicy = require('../policy/attendance');
-const sessionInstructorsPolicy = require('../policy/sessionInstructors');
-const Schedule = require('../models/Schedule');
-const Class = require('../models/Class');
-const { handleError } = require('../helpers/handleError');
-const { parsePagination, paginatedResponse } = require('../helpers/pagination');
+const attendanceService = require('./use-cases');
+const auditService = require('../../services/auditService');
+const attendancePolicy = require('../../policy/attendance');
+const sessionInstructorsPolicy = require('../../policy/sessionInstructors');
+const Schedule = require('../../models/Schedule');
+const Class = require('../../models/Class');
+const { handleError } = require('../../helpers/handleError');
+const { parsePagination, paginatedResponse } = require('../../helpers/pagination');
+
+// ──────────────────────────────────────────────────────────
+// Attendance Controller (Thin — delegates to the domain use-cases)
+// ──────────────────────────────────────────────────────────
+// Phase 1 domain extraction: relocated from controllers/attendanceController.js
+// (behavior-preserving). Authz unchanged — the Phase 3 UNION
+// (cohort-teacher OR named session instructor) is preserved verbatim.
 
 // Audit PR 5 (AUTHZ-001) — resolve a schedule's class so the policy can
 // gate Teacher access by Class.teacherIds. re-center Phase 3 (DELTA B): also
@@ -37,10 +44,6 @@ const parseAnalyticsPagination = (req) => {
   const skip  = (page - 1) * limit;
   return { page, limit, skip };
 };
-
-// ──────────────────────────────────────────────────────────
-// Attendance Controller (Thin — delegates to Service Layer)
-// ──────────────────────────────────────────────────────────
 
 const bulkMarkAttendance = async (req, res) => {
   try {
