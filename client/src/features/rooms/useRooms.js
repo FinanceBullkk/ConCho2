@@ -1,7 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { roomsAPI } from '../api/api';
-import { qk } from './queryKeys';
+import { roomsAPI } from '../../api/api';
+import { qk } from '../../hooks/queryKeys';
 
 // ──────────────────────────────────────────────────────────
 // useRooms — React Query hooks for Office-scoped Rooms

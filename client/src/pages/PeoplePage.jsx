@@ -8,7 +8,7 @@ import UsersPage from './UsersPage';
 import TeamsPage from './TeamsPage';
 import DepartmentsPage from './DepartmentsPage';
 import OfficesPage from './OfficesPage';
-import RoomsPage from './RoomsPage';
+import RoomsPage from '../features/rooms/RoomsPage';
 
 // ──────────────────────────────────────────────────────────
 // PeoplePage — Phase 2 IA-S2

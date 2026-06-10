@@ -232,6 +232,18 @@ Bug fixing and integration review rank above net-new feature rollout.
 
 ## Recent progress (changelog)
 
+- **2026-06-10** — **Frontend `features/<domain>/` migration — pilot
+  (`features/rooms/`).** Established the feature-colocation convention (mirrors
+  backend `domains/`). Moved `pages/RoomsPage.jsx` + `hooks/useRooms.js` +
+  `__tests__/RoomsPage.test.jsx` into `client/src/features/rooms/` (git mv,
+  behavior-preserving); fixed relative-import depth and updated all importers
+  (`PeoplePage`, learning `CreateSessionModal` + its test mock). The central API
+  client (`api/api.js`) and `queryKeys.js` stay shared — `features/` colocates
+  feature code, not the axios client. Convention documented in
+  `.claude/rules/frontend-conventions.md`. Verified: client build clean,
+  `test:run` 226/48 green, eslint at cap 81 (no new warnings). Remaining domains
+  migrate incrementally; `pages/`+`features/` coexist during the migration.
+
 - **2026-06-10** — **Phase 1 (Backend Modular Monolith Refactor) effectively
   complete (~98%).** Closed the last two backend items: (1) **schedule domain
   use-case tests** — new `tests/integration/scheduleUseCases.test.js` (9 tests)

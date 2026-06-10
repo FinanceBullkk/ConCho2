@@ -2,10 +2,10 @@ import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { DoorOpen, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Spinner } from '../components/Spinner';
-import { useRole } from '../hooks/useRole';
-import { useOffices } from '../hooks/useOrg';
-import { useRooms, useCreateRoom, useArchiveRoom } from '../hooks/useRooms';
+import { Spinner } from '../../components/Spinner';
+import { useRole } from '../../hooks/useRole';
+import { useOffices } from '../../hooks/useOrg';
+import { useRooms, useCreateRoom, useArchiveRoom } from './useRooms';
 
 // ──────────────────────────────────────────────────────────
 // RoomsPage — People → Rooms tab (re-center Phase 3).

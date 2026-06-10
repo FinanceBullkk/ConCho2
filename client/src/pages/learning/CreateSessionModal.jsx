@@ -6,7 +6,7 @@ import {
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { useOffices } from '../../hooks/useOrg';
-import { useRooms } from '../../hooks/useRooms';
+import { useRooms } from '../../features/rooms/useRooms';
 import { useBookSession } from '../../hooks/useLearning';
 import { useSchedulingConfig, DEFAULT_UTC_OFFSET_MINUTES } from '../../hooks/useSchedulingConfig';
 import { slotToUtcRange } from '../../lib/scheduling-slots';
