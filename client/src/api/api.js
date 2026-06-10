@@ -257,6 +257,8 @@ export const learningAPI = {
   getComplianceReport: (params) => api.get('/learning/reports/compliance', { params }),
   downloadComplianceReport: (params) =>
     api.get('/learning/reports/compliance/export', { params, responseType: 'blob' }),
+  // Operational dashboard KPI bundle (Admin/Teacher; fail-soft per metric).
+  getOperationalDashboard: (params) => api.get('/learning/dashboard/operational', { params }),
 };
 
 // ── Generic Assessment Engine ────────────────────────────

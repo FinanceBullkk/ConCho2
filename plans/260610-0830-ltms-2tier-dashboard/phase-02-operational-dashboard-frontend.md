@@ -1,7 +1,7 @@
 ---
 phase: 2
 title: Operational dashboard — frontend (L&D / coordinator)
-status: pending
+status: done (2026-06-10) — components live in pages/learning/ (flat, Dashboard* prefix) per codebase convention, not components/learning/dashboard/ as drafted
 priority: high
 effort: 2.5–3.5 dev-days
 depends_on: [1]
@@ -83,12 +83,12 @@ queryKeys.js: qk.learning.dashboardOperational = (params) => ['learning','dashbo
 7. DoD: client tests + lint (≤81) + build green; roadmap changelog; commit.
 
 ## Todo
-- [ ] API method + query key + React Query hook
-- [ ] `StatTile`/`BarRow`/`MiniBarList` (no new dep)
-- [ ] `OperationalDashboard` tiles + breakdowns + drill-downs
-- [ ] `LdDashboardTab` Operational|Executive toggle (Executive Admin-only)
-- [ ] Register tab on `/learning` (`read:reports`); loading/empty/error states
-- [ ] en.json + component tests + lint/build + commit
+- [x] API method + query key + React Query hook (`useLearningDashboard.js` — useLearning.js at size cap)
+- [x] `DashboardWidgets` StatTile/MetricBars/MetricUnavailable (no new dep)
+- [x] `DashboardOperationalPanel` tiles + breakdowns + top-N lists + window select
+- [x] `DashboardTab` Operational|Executive toggle (Executive Admin-only Phase-4 placeholder)
+- [x] Registered first tab on `/learning` (`read:reports`); loading/error/fail-soft states
+- [x] en.json + 6 component tests + suite 202/44 + lint at cap + build clean + commit
 
 ## Success Criteria
 - **Happy:** Admin opens `/learning` → Dashboard tab → sees populated tiles/bars matching the backend bundle.

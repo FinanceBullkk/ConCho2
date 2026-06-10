@@ -46,7 +46,7 @@ expiring-cert counts, feedback averages, training coverage %, time-bucketed tren
 | Phase | Title | Depends on | Status | Effort |
 |---|---|---|---|---|
 | 1 | [Operational dashboard — backend aggregation](./phase-01-operational-dashboard-backend.md) | — (existing data) | 🟢 done 2026-06-10 | 2.5–3.5d |
-| 2 | [Operational dashboard — frontend (L&D/coordinator)](./phase-02-operational-dashboard-frontend.md) | 1 | pending | 2.5–3.5d |
+| 2 | [Operational dashboard — frontend (L&D/coordinator)](./phase-02-operational-dashboard-frontend.md) | 1 | 🟢 done 2026-06-10 | 2.5–3.5d |
 | 3 | [Executive dashboard — backend + cost config + trends](./phase-03-executive-dashboard-backend.md) | 1 | pending | 2.5–3.5d |
 | 4 | [Executive dashboard — frontend (C-level ROI)](./phase-04-executive-dashboard-frontend.md) | 2, 3 | pending | 2.5–3.5d |
 
