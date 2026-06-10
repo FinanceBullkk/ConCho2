@@ -12,10 +12,10 @@ import Pagination from '@/components/Pagination';
 import { useAuditLog } from '@/hooks/useAuditLog';
 import { diffJson } from '@/lib/jsonDiff';
 import { cn } from '@/lib/utils';
-import SettingsPage from './SettingsPage';
+import SettingsPage from '../features/settings/SettingsPage';
 import DatabaseExplorer from './DatabaseExplorer';
 import SyncPage from './SyncPage';
-import ReconcilePage from './ReconcilePage';
+import ReconcilePage from '../features/reconcile/ReconcilePage';
 
 // ──────────────────────────────────────────────────────────
 // SystemPage — Phase 2 IA-S2
