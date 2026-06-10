@@ -186,12 +186,31 @@ Bug fixing and integration review rank above net-new feature rollout.
 | → | **Wave D6 v1.1 — verification docs and rollout** | Close D6 with tests, smoke, and rollout note | 🟢 done — focused backend compliance/completion/expiry/export tests, client report/useRole tests, root syntax, client production bundle, lint, and browser export smoke all passed. Rollout note: `plans/reports/context-260605-1954-wave-d6-compliance.md`. D6 v1.1 is closed; expiry emails, auto-recertification assignment, saved presets, and notification UI remain deferred. |
 | → | **2-tier dashboard — Phase 1 (operational backend)** | One read-only KPI bundle endpoint over existing data | 🟢 done — new `domains/learning/dashboard` (`GET /api/learning/dashboard/operational`, `report.read`): composes the completion rollup, D4 overdue resolver, D6 certificate expiry, and new batched aggregations (attendance rate, session split, assessment pass rate, feedback averages, coverage) with per-metric fail-soft (`errors[]`, never 500). Teacher class-scoped; Participant denied. 7 integration tests. Plan: `plans/260610-0830-ltms-2tier-dashboard/`. |
 | → | **2-tier dashboard — Phase 2 (operational frontend)** | Dashboard tab on `/learning` surfacing the KPI bundle | 🟢 done — new **Dashboard** tab (first tab, `read:reports`-gated) renders the operational bundle dependency-free (StatTile grid + CSS metric bars + top-overdue/expiring lists + 30\|60\|90-day window select); Admin sees an Operational \| Executive toggle (Executive = Phase 4 placeholder), Teacher sees the panel only, failed metrics render "unavailable" without breaking the page. 6 component tests; client suite 202/44 green; lint at cap 81; build clean. |
-| → | **2-tier dashboard — Phase 3 (executive backend + cost config)** | Admin-only ROI bundle + `LND_COST_CONFIG` | 🟢 done — `GET /api/learning/dashboard/executive` (coarse `report.read` + Admin-assert inside, mirroring compliance): coverage org+department, 6-month event trend (enrollments/certificates issued), honest Kirkpatrick rollup (L1+L2 measured; L3–L5 `measured:false`), certificate-based path-completion proxy, org-wide certificate validity rollup, and financials computed **only when** `GET/PUT /dashboard/cost-config` (audited Setting upsert, integer minor units) is configured — never fabricated. Shared `compose-fail-soft` extracted (operational refactored onto it). 6 integration tests. Next: Phase 4 (executive frontend). |
+| → | **2-tier dashboard — Phase 3 (executive backend + cost config)** | Admin-only ROI bundle + `LND_COST_CONFIG` | 🟢 done — `GET /api/learning/dashboard/executive` (coarse `report.read` + Admin-assert inside, mirroring compliance): coverage org+department, 6-month event trend (enrollments/certificates issued), honest Kirkpatrick rollup (L1+L2 measured; L3–L5 `measured:false`), certificate-based path-completion proxy, org-wide certificate validity rollup, and financials computed **only when** `GET/PUT /dashboard/cost-config` (audited Setting upsert, integer minor units) is configured — never fabricated. Shared `compose-fail-soft` extracted (operational refactored onto it). 6 integration tests. |
+| → | **2-tier dashboard — Phase 4 (executive frontend)** | Fill the Executive toggle with the ROI view | 🟢 done — the Dashboard tab's Executive view (Admin-only) now renders the Phase 3 bundle dependency-free: financial tiles **or** a set-budget CTA + inline cost-config form (lazy-init, key-remount — no setState-in-effect), 6-month two-series SVG `Sparkline`, honest `DashboardKirkpatrick` (L1/L2 values; L3–L5 "Not yet measured" chips), certificate-validity SVG `DonutStat`, mobility tiles, coverage-by-department bars. 6 new component tests (CTA→save payload, integer validation, configured tiles, fail-soft, skeleton/retry); client 208/45 green; lint ≤ cap; build clean. **2-tier dashboard plan COMPLETE (P1–P4).** |
 
 ---
 
 ## Recent progress (changelog)
 
+- **2026-06-10** — **2-tier dashboard Phase 4 — executive dashboard frontend
+  (closes the 2-tier dashboard plan, P1–P4).** The Admin-only Executive view in
+  the Dashboard tab now renders the Phase 3 ROI bundle, dependency-free (plan
+  D3): `DashboardExecutivePanel` (financials → tiles or a set-budget CTA;
+  trend; Kirkpatrick; certificate donut; mobility; coverage-by-department
+  bars), `DashboardCharts` (two-series SVG `Sparkline` + stroke-dasharray
+  `DonutStat`, a11y-labelled), `DashboardKirkpatrick` (L1/L2 measured values;
+  L3–L5 render "Not yet measured" chips — no fake metrics), and
+  `DashboardCostConfigForm` (controlled-state per the learning-form
+  convention; integer-minor-unit validation client-side; lazy-init +
+  key-remount instead of setState-in-effect). New hooks
+  `useExecutiveDashboard`/`useCostConfig`/`useSetCostConfig` (mutation
+  invalidates cost-config + executive keys). Two new-code lint findings fixed
+  properly (no disables): set-state-in-effect → key-remount; render-time
+  reassignment in the donut → pure reduce. Verified: **6 new component tests
+  (12 dashboard tests total); client 208 tests / 45 files green; lint ≤ cap
+  81; production build clean.** The business case's #1 recommendation — a
+  2-tier ROI/ops dashboard on existing data — is now fully shipped.
 - **2026-06-10** — **2-tier dashboard Phase 3 — executive dashboard backend +
   cost config.** New Admin-only ROI tier in `domains/learning/dashboard`:
   `GET /api/learning/dashboard/executive` (coarse `report.read` at the route +

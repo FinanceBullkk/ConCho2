@@ -259,6 +259,10 @@ export const learningAPI = {
     api.get('/learning/reports/compliance/export', { params, responseType: 'blob' }),
   // Operational dashboard KPI bundle (Admin/Teacher; fail-soft per metric).
   getOperationalDashboard: (params) => api.get('/learning/dashboard/operational', { params }),
+  // Executive ROI bundle + L&D cost config (Admin-only server-side).
+  getExecutiveDashboard: (params) => api.get('/learning/dashboard/executive', { params }),
+  getCostConfig: () => api.get('/learning/dashboard/cost-config'),
+  setCostConfig: (data) => api.put('/learning/dashboard/cost-config', data),
 };
 
 // ── Generic Assessment Engine ────────────────────────────

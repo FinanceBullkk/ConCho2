@@ -1,7 +1,7 @@
 ---
 phase: 4
 title: Executive dashboard — frontend (C-level ROI)
-status: pending
+status: done (2026-06-10) — components flat in pages/learning/ (Dashboard* prefix) per codebase convention; controlled-state form (matches AssignmentFormModal precedent, not RHF)
 priority: high
 effort: 2.5–3.5 dev-days
 depends_on: [2, 3]
@@ -83,12 +83,12 @@ queryKeys.js: qk.learning.dashboardExecutive, qk.learning.costConfig
 7. DoD: client tests + lint (≤81) + build green; roadmap changelog; capability/reporting spec note; commit.
 
 ## Todo
-- [ ] API + query keys + hooks (executive, cost-config get/set)
-- [ ] `Sparkline` + `DonutStat` (inline SVG, no dep)
-- [ ] `ExecutiveDashboard` (coverage/trend/Kirkpatrick/mobility/cert donut)
-- [ ] `FinancialTiles` + `CostConfigForm` (configured vs CTA)
-- [ ] Mount in `LdDashboardTab` Executive toggle (Admin-only) + states
-- [ ] en.json + tests + lint/build + roadmap/spec + commit
+- [x] API + query keys + hooks (executive, cost-config get/set + invalidation)
+- [x] `Sparkline` + `DonutStat` in `DashboardCharts.jsx` (inline SVG, no dep, a11y-labelled)
+- [x] `DashboardExecutivePanel` (financials/trend/Kirkpatrick/mobility/cert donut/coverage bars)
+- [x] Financial tiles vs set-budget CTA + `DashboardCostConfigForm` (lazy-init + key-remount)
+- [x] Mounted in `DashboardTab` Executive toggle (Admin-only) + loading/error/fail-soft states
+- [x] en.json + 6 component tests + lint ≤ cap/build clean + roadmap + commit
 
 ## Success Criteria
 - **Happy:** Admin → Dashboard tab → Executive → coverage/trend/Kirkpatrick/mobility/cert donut render;

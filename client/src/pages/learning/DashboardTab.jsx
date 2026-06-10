@@ -1,14 +1,13 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { EmptyState } from '@/components/EmptyState';
 import { useRole } from '../../hooks/useRole';
 import DashboardOperationalPanel from './DashboardOperationalPanel';
+import DashboardExecutivePanel from './DashboardExecutivePanel';
 
 // Dashboard tab shell — mirrors ReportsTab's view-toggle pattern. The
-// Executive (ROI) view is Admin-only and lands in a later phase; until then
-// Admins see a placeholder and non-Admins see no toggle at all. The hidden
-// toggle is UX only — the executive endpoint is Admin-gated server-side.
+// Executive (ROI) view is Admin-only; non-Admins see no toggle at all. The
+// hidden toggle is UX only — the executive endpoint is Admin-gated server-side.
 export default function DashboardTab() {
   const { t } = useTranslation();
   const { isAdmin } = useRole();
@@ -30,12 +29,7 @@ export default function DashboardTab() {
         {view === 'operational' && <DashboardOperationalPanel />}
       </TabsContent>
       <TabsContent value="executive" hidden={view !== 'executive'}>
-        {view === 'executive' && (
-          <EmptyState
-            title={t('learning.dashboard.executiveComing')}
-            description={t('learning.dashboard.executiveComingDesc')}
-          />
-        )}
+        {view === 'executive' && <DashboardExecutivePanel />}
       </TabsContent>
     </Tabs>
   );

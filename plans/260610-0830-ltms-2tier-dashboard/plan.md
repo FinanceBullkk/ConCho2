@@ -1,6 +1,6 @@
 ---
 title: LTMS 2-tier Dashboard — operational (L&D) + executive (C-level) on existing data
-status: pending
+status: completed (2026-06-10 — all 4 phases shipped)
 priority: high (quick win — proves value before the long scheduling track)
 effort_total: ~10–14 dev-days (Phase 1+2 = MVP quick win ~5–7d; Phase 3+4 = ROI layer ~5–7d)
 created: 2026-06-10
@@ -48,7 +48,7 @@ expiring-cert counts, feedback averages, training coverage %, time-bucketed tren
 | 1 | [Operational dashboard — backend aggregation](./phase-01-operational-dashboard-backend.md) | — (existing data) | 🟢 done 2026-06-10 | 2.5–3.5d |
 | 2 | [Operational dashboard — frontend (L&D/coordinator)](./phase-02-operational-dashboard-frontend.md) | 1 | 🟢 done 2026-06-10 | 2.5–3.5d |
 | 3 | [Executive dashboard — backend + cost config + trends](./phase-03-executive-dashboard-backend.md) | 1 | 🟢 done 2026-06-10 | 2.5–3.5d |
-| 4 | [Executive dashboard — frontend (C-level ROI)](./phase-04-executive-dashboard-frontend.md) | 2, 3 | pending | 2.5–3.5d |
+| 4 | [Executive dashboard — frontend (C-level ROI)](./phase-04-executive-dashboard-frontend.md) | 2, 3 | 🟢 done 2026-06-10 | 2.5–3.5d |
 
 **MVP quick win = Phase 1 + 2** (operational tier ships value immediately). Phase 3 + 4 (ROI
 persuasion layer) follow fast. Phases 2 and 3 may run in parallel after Phase 1 (frontend-ops
