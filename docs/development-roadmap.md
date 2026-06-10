@@ -232,6 +232,21 @@ Bug fixing and integration review rank above net-new feature rollout.
 
 ## Recent progress (changelog)
 
+- **2026-06-10** — **Frontend `features/` migration — clean leaf batch
+  (reconcile, settings, sync, evaluations).** Continued the migration with four
+  more self-contained domains (behavior-preserving `git mv` + import-depth fixes
+  + importer/test-mock updates): `features/reconcile/` (ReconcilePage +
+  `reconcile-check-meta` + test, off `SystemPage`), `features/settings/`
+  (SettingsPage + owned `useSettings`, off `SystemPage`), `features/sync/`
+  (SyncPage + owned `useSync`; importers `SystemPage`, `ReportsPage`,
+  `useExport` re-export, + `ReportsPage.test` mock), `features/evaluations/`
+  (EvaluationPage + owned `useEvaluations`; importers `ReportsPage`,
+  `ParticipantDashboard`, + test mock). Build clean, `test:run` 226/48,
+  lint at cap 81 (no new warnings) after the batch. **6 leaf domains now under
+  `features/`** (incl. the earlier rooms+org). Remaining are entangled clusters
+  (attendance/schedules/booking/calendar; the `pages/learning/` cluster +
+  `useAssessment`; users/teams/people/dashboards) — migrate as focused blocks.
+
 - **2026-06-10** — **Frontend `features/<domain>/` migration — pilot
   (`features/rooms/`).** Established the feature-colocation convention (mirrors
   backend `domains/`). Moved `pages/RoomsPage.jsx` + `hooks/useRooms.js` +
