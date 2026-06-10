@@ -232,6 +232,18 @@ Bug fixing and integration review rank above net-new feature rollout.
 
 ## Recent progress (changelog)
 
+- **2026-06-10** — **Phase 1 refactor — extract `domains/groups` (Team).** Pure
+  behavior-preserving relocation (no route/response/authz change → no spec change).
+  Moved `controllers/teamController.js` + `controllers/team/*` + `routes/teamRoutes.js`
+  + `schemas/team.js` into `domains/groups/`: `routes` → `controller` (facade) →
+  `queries`/`mutations`/`lifecycle`/`enrollment-sync`, plus `schemas`. `/api/teams`
+  is now mounted from the domain; the `Team` model and the `/api/teams` URL are
+  unchanged (target vocabulary `LearningGroup` migrated via this module, not a
+  collection rename). The enrollment-transfer cross-dependency now imports
+  `domains/groups/controller`. `teams` + `enrollmentTransfer` suites green (21).
+  `current-system-map.md` updated. Remaining Phase 1: schedule domain routes,
+  repository interfaces, frontend `features/`.
+
 - **2026-06-10** — **Phase 1 refactor — extract `domains/attendance` (modular-
   monolith, plan `260610-1940-phase1-domains-extraction` slice 1).** Pure
   behavior-preserving relocation (no route/response/authz change → no spec

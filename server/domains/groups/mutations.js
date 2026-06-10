@@ -5,12 +5,12 @@ const { handleError } = require('../../helpers/handleError');
 const auditService = require('../../services/auditService');
 const { invalidateAnalyticsCache } = require('../../middleware/analyticsCache');
 const logger = require('../../lib/logger');
-const { syncEnrollments, flushPendingEmails } = require('./team-enrollment-sync');
+const { syncEnrollments, flushPendingEmails } = require('./enrollment-sync');
 
 // ──────────────────────────────────────────────────────────
 // Team Controller — create/update handlers (Admin only)
 // ──────────────────────────────────────────────────────────
-// Split from the legacy teamController (Phase 1 modular-monolith).
+// Relocated from controllers/team/* into domains/groups (Phase 1 domain extraction).
 // Both wrap Team write + Schedule sync + Enrollment sync in ONE MongoDB
 // transaction so Team and Schedule/Enrollment never drift (no fire-and-forget);
 // notification emails are queued and flushed AFTER commit.

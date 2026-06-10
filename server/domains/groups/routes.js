@@ -2,12 +2,12 @@ const router = require('express').Router();
 const {
   getTeams, getTeamById, createTeam, updateTeam, deleteTeam,
   restoreTeam, getDeletedTeams, getMyTeams, getTeamProgress,
-} = require('../controllers/teamController');
-const { protect } = require('../middleware/auth');
-const { roleGuard } = require('../middleware/roleGuard');
-const { validate } = require('../middleware/validate');
-const { idParam } = require('../schemas/common');
-const { createTeamBody, updateTeamBody } = require('../schemas/team');
+} = require('./controller');
+const { protect } = require('../../middleware/auth');
+const { roleGuard } = require('../../middleware/roleGuard');
+const { validate } = require('../../middleware/validate');
+const { idParam } = require('../../schemas/common');
+const { createTeamBody, updateTeamBody } = require('./schemas');
 
 // ── Participant-accessible routes (must be BEFORE Admin guard) ──
 // Leaders need this to discover which teams they lead for booking.

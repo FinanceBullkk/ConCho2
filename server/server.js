@@ -239,7 +239,7 @@ app.get('/api/auth/csrf', getCsrfToken);
 
 app.use('/api/auth', require('./routes/authRoutes'));
 app.use('/api/users', require('./routes/userRoutes'));
-app.use('/api/teams', require('./routes/teamRoutes'));
+app.use('/api/teams', require('./domains/groups/routes'));
 app.use('/api/classes', require('./routes/classRoutes'));
 app.use('/api/learning', require('./domains/learning/routes'));
 app.use('/api/org', require('./domains/org/routes'));

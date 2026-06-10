@@ -8,10 +8,10 @@ const {
 } = require('../../lib/emailTemplates');
 
 // ──────────────────────────────────────────────────────────
-// Team Controller — enrollment sync helpers
+// Groups (Team) — enrollment sync helpers
 // ──────────────────────────────────────────────────────────
-// Split from the legacy teamController (Phase 1 modular-monolith).
-// Shared by team create/update AND exported (via the teamController facade)
+// Relocated from controllers/team/* into domains/groups (Phase 1 domain extraction).
+// Shared by group create/update AND exported (via the groups controller facade)
 // for cross-controller use by the enrollment transfer flow.
 
 /**
