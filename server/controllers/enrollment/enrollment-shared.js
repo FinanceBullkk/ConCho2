@@ -18,7 +18,7 @@ const enrichWithAttendance = async (enrollments) => {
   const userIds = enrollments.map(e => e.userId?._id?.toString()).filter(Boolean);
 
   const schedules = classIds.length
-    ? await Schedule.find({ classId: { $in: classIds } }).select('_id classId').lean()
+    ? await Schedule.find({ classId: { $in: classIds }, status: 'scheduled' }).select('_id classId').lean()
     : [];
   const scheduleIds = schedules.map(s => s._id);
   const attendanceRecords = scheduleIds.length
@@ -55,8 +55,9 @@ const enrichWithAttendance = async (enrollments) => {
 const pullDroppedUsersFromFutureSchedules = async (userIds, session = null) => {
   if (!userIds || userIds.length === 0) return;
   const now = new Date();
+  // LIVE sessions only — durable-cancelled rosters are frozen history.
   await Schedule.updateMany(
-    { startTime: { $gt: now }, enrolledUsers: { $in: userIds } },
+    { startTime: { $gt: now }, enrolledUsers: { $in: userIds }, status: 'scheduled' },
     { $pull: { enrolledUsers: { $in: userIds } } },
     session ? { session } : {},
   );

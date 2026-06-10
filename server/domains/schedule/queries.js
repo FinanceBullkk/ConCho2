@@ -31,9 +31,21 @@ const getAvailability = (filters = {}) =>
 const listSchedules = async (filters, { page, limit, skip }) => {
   const query = {};
   if (filters.classId) query.classId = filters.classId;
+
+  // Durable cancellation (phase-04 slice A): every list is LIVE-only by
+  // default — the admin grid renders rows as occupied cells, so a cancelled
+  // row would make the freed slot look taken. Staff may explicitly request
+  // history via ?status=cancelled|all.
+  if (filters.status === 'cancelled') query.status = 'cancelled';
+  else if (filters.status !== 'all') query.status = 'scheduled';
+
   // Used by Participant scope (BUG #2 fix): restrict to schedules where
   // the user is enrolled. Multikey index on enrolledUsers makes this cheap.
-  if (filters.enrolledUser) query.enrolledUsers = filters.enrolledUser;
+  // Learners NEVER see cancelled rows regardless of the status param (NF3).
+  if (filters.enrolledUser) {
+    query.enrolledUsers = filters.enrolledUser;
+    query.status = 'scheduled';
+  }
   if (filters.from || filters.to) {
     query.startTime = {};
     if (filters.from) query.startTime.$gte = new Date(filters.from);

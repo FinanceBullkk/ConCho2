@@ -125,6 +125,8 @@ const getDashboardStats = async (req, res) => {
       // does not exist on the Schedule schema and always returned null.
       // Teacher-of-record is not tracked at the schedule level in this version.
       Schedule.aggregate([
+        // Live sessions only — durable-cancelled rows are history, not progress.
+        { $match: { status: 'scheduled' } },
         { $group: { _id: '$classId', total: { $sum: 1 }, done: { $sum: { $cond: [{ $lt: ['$endTime', now] }, 1, 0] } } } },
       ]),
       // 9: BU (department) breakdown (filtered)

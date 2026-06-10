@@ -22,9 +22,9 @@ const DAY_MS = 86400000;
 const cohortScope = (cohortIds, field = 'cohortId') =>
   cohortIds ? { [field]: { $in: cohortIds } } : {};
 
-// Schedules of the scoped cohorts — used to scope attendance records.
+// LIVE schedules of the scoped cohorts — used to scope attendance records.
 const scheduleIdsForCohorts = (cohortIds) =>
-  Schedule.distinct('_id', { classId: { $in: cohortIds } });
+  Schedule.distinct('_id', { classId: { $in: cohortIds }, status: 'scheduled' });
 
 // Attendance totals: present uses the completion engine's ATTENDED_STATUSES
 // (P|L) so the dashboard rate matches completion/attendance reporting.
@@ -47,8 +47,9 @@ const attendanceTotals = async (cohortIds) => {
 };
 
 // Session counts split around "now" (upcoming / next 7 days / past).
+// LIVE sessions only — durable-cancelled rows are history, not workload.
 const sessionCounts = async (cohortIds, now) => {
-  const base = cohortScope(cohortIds, 'classId');
+  const base = { ...cohortScope(cohortIds, 'classId'), status: 'scheduled' };
   const in7Days = new Date(now.getTime() + 7 * DAY_MS);
   const [upcoming, next7Days, past] = await Promise.all([
     Schedule.countDocuments({ ...base, startTime: { $gt: now } }),

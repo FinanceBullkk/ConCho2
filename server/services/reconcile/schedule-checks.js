@@ -23,9 +23,12 @@ async function checkMissingAttendance() {
   const now = new Date();
   const lookback = new Date(now - LOOKBACK_DAYS * 24 * 60 * 60 * 1000);
 
-  // Fetch past schedules that had enrolled users
+  // Fetch past LIVE schedules that had enrolled users. Durable-cancelled
+  // sessions never expect roll-call — without this filter every cancelled
+  // session would be flagged forever once its startTime passes.
   const pastSchedules = await Schedule.find({
     endTime: { $lt: now, $gte: lookback },
+    status: 'scheduled',
     $expr: { $gt: [{ $size: '$enrolledUsers' }, 0] },
   })
     .select('_id classId bookedTeamId startTime endTime enrolledUsers')
@@ -71,8 +74,11 @@ async function checkEmptyFutureSchedules() {
   const issues = [];
   const now = new Date();
 
+  // Cancelled sessions legitimately keep their roster snapshot (or may have
+  // been emptied) — only LIVE empties indicate a failed cleanup path.
   const emptySchedules = await Schedule.find({
     startTime: { $gt: now },
+    status: 'scheduled',
     $expr: { $eq: [{ $size: '$enrolledUsers' }, 0] },
   })
     .select('_id classId bookedTeamId startTime')
@@ -141,11 +147,17 @@ async function checkOrphanRoomBookings() {
   const referencedScheduleIds = await RoomBooking.distinct('scheduleId');
   if (referencedScheduleIds.length === 0) return issues;
 
+  // A ledger row is an orphan when its Schedule is GONE (admin-DB delete) or
+  // durably CANCELLED (phase-04 slice A: cancel releases the row in-tx, so a
+  // surviving row for a cancelled session means the release path was bypassed
+  // — either way the room slot is bricked).
   const existing = await Schedule.find({ _id: { $in: referencedScheduleIds } })
-    .select('_id').lean();
-  const existingSet = new Set(existing.map((s) => String(s._id)));
+    .select('_id status').lean();
+  const liveSet = new Set(
+    existing.filter((s) => s.status !== 'cancelled').map((s) => String(s._id)),
+  );
 
-  const orphanScheduleIds = referencedScheduleIds.filter((id) => !existingSet.has(String(id)));
+  const orphanScheduleIds = referencedScheduleIds.filter((id) => !liveSet.has(String(id)));
   if (orphanScheduleIds.length === 0) return issues;
 
   const orphanRows = await RoomBooking.find({ scheduleId: { $in: orphanScheduleIds } })
@@ -154,7 +166,7 @@ async function checkOrphanRoomBookings() {
   for (const row of orphanRows) {
     issues.push({
       check: 'orphan_room_booking',
-      description: `RoomBooking ${row._id} locks room ${row.roomId} for a deleted session — slot is bricked`,
+      description: `RoomBooking ${row._id} locks room ${row.roomId} for a deleted or cancelled session — slot is bricked`,
       refs: { scheduleId: row.scheduleId, roomId: row.roomId },
       detail: { startTime: row.startTime },
     });

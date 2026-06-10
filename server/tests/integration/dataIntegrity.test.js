@@ -107,7 +107,7 @@ describe('DATA-005 — cancelSlot refuses past schedules', () => {
     await Schedule.findByIdAndDelete(sch._id);
   });
 
-  test('cancelling a future schedule succeeds (existing behaviour)', async () => {
+  test('cancelling a future schedule succeeds — durable flip, doc preserved', async () => {
     const future = new Date(Date.now() + 7 * 24 * 3600_000);
     const sch = await Schedule.create({
       classId: seed.class1._id,
@@ -123,8 +123,13 @@ describe('DATA-005 — cancelSlot refuses past schedules', () => {
       .set(csrf);
 
     expect(res.status).toBe(200);
-    const gone = await Schedule.findById(sch._id);
-    expect(gone).toBeNull();
+    // Phase-04 slice A: the doc persists as cancelled history (never deleted).
+    const after = await Schedule.findById(sch._id);
+    expect(after).not.toBeNull();
+    expect(after.status).toBe('cancelled');
+
+    // Cleanup so later suites in this file see a clean slate.
+    await Schedule.findByIdAndDelete(sch._id);
   });
 });
 

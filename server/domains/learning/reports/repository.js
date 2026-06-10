@@ -35,7 +35,9 @@ const findProgramName = async (programId) => {
 // enrollments (team-based and cohort-based). Returns distinct id strings.
 const listCohortLearnerIds = async (cohortId) => {
   const [rosterIds, enrollmentIds] = await Promise.all([
-    Schedule.distinct('enrolledUsers', { classId: cohortId }),
+    // Live sessions only — a durable-cancelled session's roster snapshot must
+    // not pull extra learners into the completion report.
+    Schedule.distinct('enrolledUsers', { classId: cohortId, status: 'scheduled' }),
     Enrollment.distinct('userId', { classId: cohortId, status: { $in: ACTIVE_ENROLLMENT_STATUSES } }),
   ]);
   const set = new Set([...rosterIds, ...enrollmentIds].map((id) => id.toString()));
@@ -54,7 +56,7 @@ const listCohortCertificates = (cohortId) =>
     .lean();
 
 const listCohortSchedules = (cohortIds) => cohortIds.length
-  ? Schedule.find({ classId: { $in: cohortIds } })
+  ? Schedule.find({ classId: { $in: cohortIds }, status: 'scheduled' })
     .select('_id classId enrolledUsers')
     .lean()
   : [];

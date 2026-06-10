@@ -249,8 +249,10 @@ describe('DELETE /api/schedules/:id/cancel', () => {
       .set('Authorization', `Bearer ${tokens.leader}`).set(csrf)
       .expect(200);
 
+    // Durable cancel (phase-04 slice A): the doc persists as history.
     const check = await Schedule.findById(scheduleId);
-    expect(check).toBeNull();
+    expect(check).not.toBeNull();
+    expect(check.status).toBe('cancelled');
   });
 
   test('admin can cancel any booking', async () => {

@@ -89,22 +89,36 @@ export default function CohortSessionsPanel({ cohort, onBack }) {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {sessions.map((s) => (
-                  <TableRow key={s._id}>
-                    <TableCell className="whitespace-nowrap">{formatWhen(s.startTime)}</TableCell>
-                    <TableCell className="text-sm text-muted-foreground">
-                      {s.office?.name || '—'}{s.room ? ` · ${s.room.name}` : ''}
-                    </TableCell>
-                    <TableCell><TrainerCell session={s} /></TableCell>
-                    {canAssign && (
-                      <TableCell className="text-right">
-                        <Button size="sm" variant="outline" onClick={() => setTrainerSession(s)}>
-                          <UserCog className="size-4 mr-1.5" aria-hidden="true" />{t('learning.trainers.manage')}
-                        </Button>
+                {sessions.map((s) => {
+                  // Durable-cancelled rows stay listed as history for schedulers
+                  // (learners/teachers never receive them) — read-only, chipped.
+                  const cancelled = s.status === 'cancelled';
+                  return (
+                    <TableRow key={s._id} className={cancelled ? 'opacity-60' : undefined}>
+                      <TableCell className="whitespace-nowrap">
+                        {formatWhen(s.startTime)}
+                        {cancelled && (
+                          <Badge variant="destructive" className="ml-2">
+                            {t('learning.sessions.cancelled')}
+                          </Badge>
+                        )}
                       </TableCell>
-                    )}
-                  </TableRow>
-                ))}
+                      <TableCell className="text-sm text-muted-foreground">
+                        {s.office?.name || '—'}{s.room ? ` · ${s.room.name}` : ''}
+                      </TableCell>
+                      <TableCell><TrainerCell session={s} /></TableCell>
+                      {canAssign && (
+                        <TableCell className="text-right">
+                          {!cancelled && (
+                            <Button size="sm" variant="outline" onClick={() => setTrainerSession(s)}>
+                              <UserCog className="size-4 mr-1.5" aria-hidden="true" />{t('learning.trainers.manage')}
+                            </Button>
+                          )}
+                        </TableCell>
+                      )}
+                    </TableRow>
+                  );
+                })}
               </TableBody>
             </Table>
           )}

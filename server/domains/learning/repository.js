@@ -69,7 +69,8 @@ const findDeletedCohorts = () =>
 const countSessionsByCohortIds = async (cohortIds) => {
   if (!cohortIds.length) return {};
   const rows = await Schedule.aggregate([
-    { $match: { classId: { $in: cohortIds } } },
+    // bookedSessions counts LIVE sessions — cancelled rows freed their slot.
+    { $match: { classId: { $in: cohortIds }, status: 'scheduled' } },
     { $group: { _id: '$classId', bookedSessions: { $sum: 1 } } },
   ]);
   const out = {};

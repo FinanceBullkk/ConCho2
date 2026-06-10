@@ -1,11 +1,25 @@
 ---
 phase: 4
 title: Durable Cancellation States + Waitlists (capacity-atomic FIFO promotion)
-status: pending
+status: in_progress  # slice A (durable cancel) SHIPPED 2026-06-11; B (waitlist+promotion) + C (UI) pending
 priority: high
 effort: 5–6 dev-days
 depends_on: [1, 2, 3]
 ---
+
+> **2026-06-11 — Slice A shipped (durable cancel).** Code-truth note: Wave E3
+> phases 1–3 never shipped as written — the foundation this file assumed
+> (`Schedule.status`, unified `releaseSchedule`) did NOT exist, so slice A
+> created `Schedule.status/cancelledAt/cancelledBy/cancelReason`, the
+> partial-unique `{classId,startTime} where status:'scheduled'` index (+
+> `scripts/migrate-schedule-partial-unique-index.js`), atomic conditional
+> cancel flips on `cancelSlot`/`deleteSchedule`, room-ledger release +
+> `roomId:null` in-tx, and the live-only sweep across ~20 operational queries.
+> The room-release primitive is `roomLockPolicy.releaseRoomLock` (re-center
+> Phase 3), not Wave E3's `releaseSchedule` — slice B should extend THAT (or
+> finally introduce `releaseSchedule` wrapping it + the waitlist transition).
+> Spec delta folded into `docs/specs/scheduling-and-booking`. Slices B/C below
+> remain as designed.
 
 # Phase 4 — Durable Cancellation + Waitlists
 

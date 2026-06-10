@@ -47,18 +47,23 @@ const bookTeamSlot = async (req, res) => {
 
 const cancelSlot = async (req, res) => {
   try {
-    await scheduleService.cancelSlot(req.params.id, req.user);
+    const cancelReason = req.body?.cancelReason || '';
+    await scheduleService.cancelSlot(req.params.id, req.user, { cancelReason });
 
     auditService.record({
       req,
       action: 'cancelled',
       entity: 'Schedule',
       entityId: req.params.id,
-      note: 'Cancelled by team leader',
+      diff: {
+        before: { status: 'scheduled' },
+        after: { status: 'cancelled', cancelReason: cancelReason || null },
+      },
+      note: 'Cancelled by team leader (durable)',
     });
 
     invalidateAnalyticsCache();
-    res.json({ success: true, message: 'Schedule cancelled and removed' });
+    res.json({ success: true, message: 'Schedule cancelled' });
   } catch (error) {
     handleError(res, error);
   }
@@ -188,12 +193,17 @@ const updateSchedule = async (req, res) => {
   }
 };
 
-// ── Delete Schedule (admin) ─────────────────────────────────────
-// Cascade (attendance cleanup) + calendar deletion live in use-cases.
+// ── Delete Schedule (admin) — durable cancel ────────────────────
+// Wave E3 phase-04 slice A: "delete" flips the doc to status:'cancelled'
+// (attendance preserved, room released); calendar cleanup lives in use-cases.
 const deleteSchedule = async (req, res) => {
   try {
-    const { schedule, deletedAttendance, calendarDeleted, googleEventId } =
-      await useCases.deleteSchedule(req.params.id);
+    const cancelReason = req.body?.cancelReason || '';
+    const { schedule, calendarDeleted, googleEventId } =
+      await useCases.deleteSchedule(req.params.id, {
+        cancelledBy: req.user._id,
+        cancelReason,
+      });
 
     // Calendar event deletion audit
     if (calendarDeleted && googleEventId) {
@@ -208,17 +218,17 @@ const deleteSchedule = async (req, res) => {
 
     auditService.record({
       req,
-      action: 'deleted',
+      action: 'cancelled',
       entity: 'Schedule',
       entityId: schedule._id,
-      note: `Cascade: ${deletedAttendance} attendance records`,
+      diff: {
+        before: { status: 'scheduled' },
+        after: { status: 'cancelled', cancelReason: cancelReason || null },
+      },
+      note: 'Cancelled by admin (durable — doc preserved)',
     });
 
-    res.json({
-      success: true,
-      message: 'Schedule deleted',
-      cascade: { deletedAttendance },
-    });
+    res.json({ success: true, message: 'Schedule cancelled' });
   } catch (error) {
     handleError(res, error);
   }

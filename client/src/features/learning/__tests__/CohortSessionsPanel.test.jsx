@@ -70,4 +70,17 @@ describe('CohortSessionsPanel', () => {
 
     expect(screen.getByText('No sessions yet')).toBeInTheDocument();
   });
+
+  it('marks a durable-cancelled session with a chip and hides its Trainers action', () => {
+    const cancelledSession = {
+      ...session, _id: 's2', scheduleId: 's2', status: 'cancelled',
+      cancelledAt: '2026-07-01T03:00:00.000Z', cancelReason: 'Trainer is sick',
+    };
+    sessionsResult = { data: { data: [cancelledSession] }, isLoading: false };
+    render(<CohortSessionsPanel cohort={cohort} onBack={vi.fn()} />);
+
+    expect(screen.getByText('Cancelled')).toBeInTheDocument();
+    // Read-only history row — no trainer assignment on a cancelled session.
+    expect(screen.queryByRole('button', { name: /trainers/i })).not.toBeInTheDocument();
+  });
 });
