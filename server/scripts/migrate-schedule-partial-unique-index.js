@@ -23,9 +23,25 @@
 // ──────────────────────────────────────────────────────────
 
 require('dotenv').config({ path: require('path').join(__dirname, '..', '.env') });
+const dns = require('dns');
 const mongoose = require('mongoose');
 
 const INDEX_NAME = 'classId_1_startTime_1';
+
+// mongodb+srv:// needs an SRV DNS lookup. Node's resolver may sit on an
+// unreachable IPv6 DNS server (querySrv ECONNREFUSED) even when Windows
+// itself resolves fine — probe the SRV record first and fall back to public
+// IPv4 resolvers only when the default resolver fails.
+const ensureSrvResolvable = async (uri) => {
+  const m = uri.match(/^mongodb\+srv:\/\/(?:[^@]*@)?([^/?]+)/i);
+  if (!m) return; // standard mongodb:// host list — no SRV lookup involved
+  try {
+    await dns.promises.resolveSrv(`_mongodb._tcp.${m[1]}`);
+  } catch (err) {
+    console.warn(`SRV lookup via default DNS failed (${err.code}) — retrying via 8.8.8.8 / 1.1.1.1`);
+    dns.setServers(['8.8.8.8', '1.1.1.1']);
+  }
+};
 
 const run = async () => {
   const uri = process.env.MONGO_URI;
@@ -34,6 +50,7 @@ const run = async () => {
     process.exit(1);
   }
 
+  await ensureSrvResolvable(uri);
   await mongoose.connect(uri);
   const collection = mongoose.connection.db.collection('schedules');
 
