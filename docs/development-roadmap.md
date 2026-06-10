@@ -232,6 +232,17 @@ Bug fixing and integration review rank above net-new feature rollout.
 
 ## Recent progress (changelog)
 
+- **2026-06-10** — **Frontend `features/` migration — F3 (classes).** Migrated
+  `ClassDetailPage` → `features/classes/` (App.jsx lazy route repointed); shared hooks
+  (`useClasses`/`useTeams`/`useSchedules`/`useEnrollments`/`useAttendance`) stay shared.
+  Build clean, `test:run` 226/48, lint at cap 75. **12 feature folders.**
+  ⚠️ **`ClassesPage` left in `pages/` and FLAGGED, not migrated:** it has no route and
+  no importer (all refs are comments; `/classes`→`/learning?tab=cohorts` redirect), so it
+  appears dead/superseded by the learning Cohorts tab — BUT a `CohortFormModal` comment
+  says "Cohort edit/delete stays in ClassesPage" (contradiction). Needs owner decision:
+  delete as dead, or re-wire if cohort CRUD was meant to live there. Remaining: F4 learning
+  (~38 files), F5 /me+auth+admin.
+
 - **2026-06-10** — **Frontend `features/` migration — F2 (people + dashboards).**
   Mapped to backend domains rather than a catch-all `people`: `features/users/`
   (UsersPage), `features/groups/` (TeamsPage + MyTeamPage — mirrors `domains/groups`),
