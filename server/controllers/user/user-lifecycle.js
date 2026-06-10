@@ -65,10 +65,11 @@ const deleteUser = async (req, res) => {
         );
         pulledFromTeams = teamResult.modifiedCount;
 
-        // Step 2: Pull from future Schedule.enrolledUsers
+        // Step 2: Pull from future LIVE Schedule.enrolledUsers (cancelled
+        // sessions keep their roster snapshot as history — phase-04 slice A)
         const now = new Date();
         const schedResult = await Schedule.updateMany(
-          { startTime: { $gt: now }, enrolledUsers: user._id },
+          { startTime: { $gt: now }, enrolledUsers: user._id, status: 'scheduled' },
           { $pull: { enrolledUsers: user._id } },
           { session }
         );

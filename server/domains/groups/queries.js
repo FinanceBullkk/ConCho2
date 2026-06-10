@@ -143,7 +143,7 @@ const getTeamProgress = async (req, res) => {
 
     if (!team) return res.status(404).json({ success: false, message: 'Team not found' });
 
-    const schedules = await Schedule.find({ bookedTeamId: teamId })
+    const schedules = await Schedule.find({ bookedTeamId: teamId, status: 'scheduled' })
       .sort({ startTime: 1 })
       .lean();
 

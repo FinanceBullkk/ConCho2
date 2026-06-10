@@ -13,7 +13,7 @@ const scopedScheduleIdsForActor = async (actor) => {
   if (actor?.role !== 'Teacher') return null;
   const classIds = await findTeacherVisibleClassIds(actor._id);
   if (classIds.length === 0) return [];
-  return Schedule.distinct('_id', { classId: { $in: classIds } });
+  return Schedule.distinct('_id', { classId: { $in: classIds }, status: 'scheduled' });
 };
 
 const scopedAttendanceMatch = async (actor) => {

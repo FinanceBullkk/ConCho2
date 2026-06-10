@@ -65,16 +65,21 @@ const bookSession = async (req, res) => {
 
 const cancelSession = async (req, res) => {
   try {
-    await useCases.cancelSession(req.params.id, req.user);
+    const cancelReason = req.body?.cancelReason || '';
+    await useCases.cancelSession(req.params.id, req.user, { cancelReason });
     auditService.record({
       req,
       action: 'cancelled',
       entity: 'Schedule',
       entityId: req.params.id,
-      note: 'Cancelled through learning session API',
+      diff: {
+        before: { status: 'scheduled' },
+        after: { status: 'cancelled', cancelReason: cancelReason || null },
+      },
+      note: 'Cancelled through learning session API (durable)',
     });
     invalidateAnalyticsCache();
-    res.json({ success: true, message: 'Session cancelled and removed' });
+    res.json({ success: true, message: 'Session cancelled' });
   } catch (error) {
     handleError(res, error);
   }

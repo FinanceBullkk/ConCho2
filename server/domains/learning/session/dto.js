@@ -78,6 +78,11 @@ const sessionDto = (schedule, viewer = null) => {
     _id: s._id,
     sessionId: s._id,
     scheduleId: s._id,
+    // Durable cancellation (phase-04 slice A). Learner/Teacher list filters
+    // exclude cancelled rows server-side; schedulers see them with this state.
+    status: s.status || 'scheduled',
+    cancelledAt: s.cancelledAt || null,
+    cancelReason: s.cancelReason || '',
     cohortId: idOf(s.classId),
     cohort,
     groupId: idOf(s.bookedTeamId),

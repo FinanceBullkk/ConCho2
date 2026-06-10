@@ -31,7 +31,8 @@ const getClasses = async (req, res) => {
     // Batch-count booked sessions per class (1 aggregation)
     const classIds = classes.map(c => c._id);
     const sessionCounts = await Schedule.aggregate([
-      { $match: { classId: { $in: classIds } } },
+      // bookedSessions counts LIVE sessions — cancelled rows freed their slot.
+      { $match: { classId: { $in: classIds }, status: 'scheduled' } },
       { $group: { _id: '$classId', bookedSessions: { $sum: 1 } } },
     ]);
     const countMap = {};
@@ -120,8 +121,8 @@ const getClassById = async (req, res) => {
       return res.status(404).json({ success: false, message: 'Class not found' });
     }
 
-    // Attach booked session count
-    const bookedSessions = await Schedule.countDocuments({ classId: cls._id });
+    // Attach booked session count (live only — cancelled rows freed their slot)
+    const bookedSessions = await Schedule.countDocuments({ classId: cls._id, status: 'scheduled' });
     res.json({ success: true, data: { ...cls, bookedSessions } });
   } catch (error) {
     handleError(res, error);

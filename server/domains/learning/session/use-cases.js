@@ -24,6 +24,8 @@ const buildFilter = async (query = {}, requestUser) => {
   }
   if (requestUser?.role === 'Participant') {
     filter.enrolledUsers = requestUser._id;
+    // Learners never see durable-cancelled sessions (phase-04 slice A, NF3).
+    filter.status = 'scheduled';
   }
   if (requestUser?.role === 'Teacher') {
     const cohortIds = await repository.findCohortIdsByTeacher(requestUser._id);
@@ -33,7 +35,11 @@ const buildFilter = async (query = {}, requestUser) => {
     } else if (!filter.classId) {
       filter.classId = { $in: cohortIds };
     }
+    // Teachers run operational views — cancelled rows are noise there.
+    filter.status = 'scheduled';
   }
+  // Admin/Coordinator (schedulers) see cancelled rows too — the cohort
+  // sessions panel renders them with a "Cancelled" chip as the history view.
 
   return filter;
 };
@@ -148,7 +154,8 @@ const bookSession = (payload, requestUser) =>
     ? bookCohortSession(payload, requestUser)
     : bookGroupSession(payload, requestUser));
 
-const cancelSession = (id, requestUser) => scheduleService.cancelSlot(id, requestUser);
+const cancelSession = (id, requestUser, opts = {}) =>
+  scheduleService.cancelSlot(id, requestUser, opts);
 
 module.exports = {
   listSessions,

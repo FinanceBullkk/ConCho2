@@ -25,7 +25,7 @@ const hasCompletedProgram = async (userId, programId) => {
     Enrollment.find({
       userId, classId: { $in: cohortIds }, status: { $in: PARTICIPATING_STATUSES },
     }).distinct('classId'),
-    Schedule.find({ classId: { $in: cohortIds }, enrolledUsers: userId }).distinct('classId'),
+    Schedule.find({ classId: { $in: cohortIds }, enrolledUsers: userId, status: 'scheduled' }).distinct('classId'),
   ]);
 
   const participated = [...new Set([...enrolled, ...rostered].map(String))];

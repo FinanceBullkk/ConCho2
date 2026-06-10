@@ -38,10 +38,13 @@ const resolveCompletionContext = async (cohort) => {
   };
 };
 
-const countCohortSessions = (cohortId) => Schedule.countDocuments({ classId: cohortId });
+// Live sessions only — a durable-cancelled session is neither a completion
+// denominator nor an attendance opportunity (phase-04 slice A).
+const countCohortSessions = (cohortId) =>
+  Schedule.countDocuments({ classId: cohortId, status: 'scheduled' });
 
 const countAttendedSessions = async (cohortId, userId) => {
-  const scheduleIds = await Schedule.find({ classId: cohortId }).distinct('_id');
+  const scheduleIds = await Schedule.find({ classId: cohortId, status: 'scheduled' }).distinct('_id');
   if (scheduleIds.length === 0) return 0;
   return Attendance.countDocuments({
     scheduleId: { $in: scheduleIds },
