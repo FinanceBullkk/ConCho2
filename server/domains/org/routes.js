@@ -8,6 +8,9 @@ const {
   createDepartmentBody,
   updateDepartmentBody,
   listDepartmentsQuery,
+  createOfficeBody,
+  updateOfficeBody,
+  listOfficesQuery,
   assignUserBody,
 } = require('./schemas');
 
@@ -33,7 +36,18 @@ router
   .put(requireCapability('department.manage'), validate({ params: idParam, body: updateDepartmentBody }), controller.updateDepartment)
   .delete(requireCapability('department.manage'), validate({ params: idParam }), controller.archiveDepartment);
 
-// ── Manager / department assignment (Admin) ───────────────
+// ── Offices (re-center Phase 1) — Admin/Coordinator manage ─
+router
+  .route('/offices')
+  .get(requireCapability('office.read'), validate({ query: listOfficesQuery }), controller.listOffices)
+  .post(requireCapability('office.manage'), validate({ body: createOfficeBody }), controller.createOffice);
+
+router
+  .route('/offices/:id')
+  .put(requireCapability('office.manage'), validate({ params: idParam, body: updateOfficeBody }), controller.updateOffice)
+  .delete(requireCapability('office.manage'), validate({ params: idParam }), controller.archiveOffice);
+
+// ── Manager / department / office assignment (Admin) ──────
 router.put(
   '/users/:id/assignment',
   requireCapability('org.manage'),

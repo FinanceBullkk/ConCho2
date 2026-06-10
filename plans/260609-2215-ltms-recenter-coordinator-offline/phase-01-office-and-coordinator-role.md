@@ -7,7 +7,7 @@
 - Builds the foundation Phase 2 (scheduling flow) and Phase 3 (Office-scoped rooms) depend on.
 
 ## Overview
-- **Priority:** high (foundation) · **Status:** pending
+- **Priority:** high (foundation) · **Status:** ✅ done 2026-06-10 (75 server suites / 735 tests; client 218/46; lint at cap; build clean)
 - Add **Office** as a first-class, additive concept (employees + Rooms belong to an Office) and a
   **Training-coordinator** authorization that can run training ops without full Admin. Pure additive — no
   behavior change to existing flows.
@@ -81,13 +81,14 @@
 7. DoD: tests + lint green; update route-permission-matrix + org spec + roadmap changelog; commit.
 
 ## Todo
-- [ ] `Office` model + soft-delete + audit
-- [ ] Office CRUD in `domains/org` (manage/read caps) + archive guard
-- [ ] `User.officeId` nullable + index + org-assignment wiring
-- [ ] `OFFICE_*` caps + `Coordinator` role (enum + map, no user/security)
-- [ ] Client Offices tab + Office picker + `useRole` updates
-- [ ] Seed + integration/capability tests
-- [ ] Docs: route-matrix, org spec, roadmap; commit
+- [x] `Office` model + soft-delete + audit
+- [x] Office CRUD in `domains/org` (manage/read caps) + archive guard
+- [x] `User.officeId` nullable + index + org-assignment wiring
+- [x] `OFFICE_*` caps + `Coordinator` role (enum + map, no user/security)
+- [x] Client Offices tab + Office picker + `useRole` updates
+- [x] Seed + integration/capability tests
+- [x] Docs: route-matrix, org spec, roadmap; commit
+- [x] (Bonus) AuditLog entity-enum backfill — 8 entities' audits were silently failing
 
 ## Success Criteria
 - Admin & Coordinator can CRUD Offices and set a User's Office; Participant is denied (403).

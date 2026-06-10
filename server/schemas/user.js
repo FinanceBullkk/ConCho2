@@ -1,7 +1,7 @@
 const { z } = require('zod');
 const { paginationQuery } = require('./common');
 
-const ROLES = ['Admin', 'Teacher', 'Participant'];
+const ROLES = ['Admin', 'Coordinator', 'Teacher', 'Participant'];
 const STATUSES = ['Active', 'Inactive', 'Dropped', 'Transferred', 'On-hold', 'Waiting for class'];
 
 // Field primitives — no defaults here so that using them in an

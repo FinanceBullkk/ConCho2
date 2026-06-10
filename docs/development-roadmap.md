@@ -101,8 +101,18 @@ completion-only Reports view and Participants remain gated out. **D6 v1.1 is now
 verified and closed** with focused backend/client gates, lint, production bundle,
 syntax check, and a browser export smoke recorded in
 `plans/reports/context-260605-1954-wave-d6-compliance.md`. D2 Google OIDC/
-Directory sync still needs owner inputs. Next codeable branch: choose either D2
-owner-input setup or the separate Wave E generic scheduling plan.
+Directory sync still needs owner inputs. **Re-center Phase 1 (Office +
+Training-coordinator role) is now live:** a first-class `Office` entity
+(`/api/org/offices`, Admin/Coordinator CRUD, archive guard), nullable
+`User.officeId` settable from the org-assignment action, and a new
+**`Coordinator` role** — an explicit training-ops capability allow-list
+(programs/cohorts/sessions/enrollment/certificates/reports/assignments/paths +
+office manage, department read) that can NOT touch user accounts, security
+surfaces, or org placement. UI: People → **Offices** tab (per-tab perm gating),
+Office picker on org assignment, Coordinator-aware nav/routes. The AuditLog
+entity enum was also backfilled — Department/Certificate/Assessment*/Feedback/
+Assignment/LearningPath audits had been failing silently. Next: re-center
+Phase 2 (coordinator-scheduled session flow as the primary UX).
 
 ---
 
@@ -188,11 +198,52 @@ Bug fixing and integration review rank above net-new feature rollout.
 | → | **2-tier dashboard — Phase 2 (operational frontend)** | Dashboard tab on `/learning` surfacing the KPI bundle | 🟢 done — new **Dashboard** tab (first tab, `read:reports`-gated) renders the operational bundle dependency-free (StatTile grid + CSS metric bars + top-overdue/expiring lists + 30\|60\|90-day window select); Admin sees an Operational \| Executive toggle (Executive = Phase 4 placeholder), Teacher sees the panel only, failed metrics render "unavailable" without breaking the page. 6 component tests; client suite 202/44 green; lint at cap 81; build clean. |
 | → | **2-tier dashboard — Phase 3 (executive backend + cost config)** | Admin-only ROI bundle + `LND_COST_CONFIG` | 🟢 done — `GET /api/learning/dashboard/executive` (coarse `report.read` + Admin-assert inside, mirroring compliance): coverage org+department, 6-month event trend (enrollments/certificates issued), honest Kirkpatrick rollup (L1+L2 measured; L3–L5 `measured:false`), certificate-based path-completion proxy, org-wide certificate validity rollup, and financials computed **only when** `GET/PUT /dashboard/cost-config` (audited Setting upsert, integer minor units) is configured — never fabricated. Shared `compose-fail-soft` extracted (operational refactored onto it). 6 integration tests. |
 | → | **2-tier dashboard — Phase 4 (executive frontend)** | Fill the Executive toggle with the ROI view | 🟢 done — the Dashboard tab's Executive view (Admin-only) now renders the Phase 3 bundle dependency-free: financial tiles **or** a set-budget CTA + inline cost-config form (lazy-init, key-remount — no setState-in-effect), 6-month two-series SVG `Sparkline`, honest `DashboardKirkpatrick` (L1/L2 values; L3–L5 "Not yet measured" chips), certificate-validity SVG `DonutStat`, mobility tiles, coverage-by-department bars. 6 new component tests (CTA→save payload, integer validation, configured tiles, fail-soft, skeleton/retry); client 208/45 green; lint ≤ cap; build clean. **2-tier dashboard plan COMPLETE (P1–P4).** |
+| → | **Re-center Phase 1 — Office + Training-coordinator role** | First-class Office entity + a Coordinator role that runs training ops without full Admin | 🟢 done — `Office` model (soft-delete, live-unique code, address/timezone) + `domains/org` office CRUD (`/api/org/offices`, `office.read`/`office.manage`) with a users-referencing archive guard; nullable `User.officeId` (+index) settable via the org-assignment leg (unknown office 422); **`Coordinator` role** in the User enum + `ROLE_CAPABILITIES` as an explicit allow-list (program/cohort/session/enrollment/completion/certificate/report/assignment/path + department read + office manage) — no user/security caps, no `org.manage`; AuditLog `actorRole`/entity enums extended (backfills 8 silently-failing audit entities). UI: People → Offices tab (per-tab perm gating), Office picker in `OrgAssignmentModal`, Coordinator-aware nav/routes/`useRole`. Seed: 2 offices + `000010`/coordinator123. Tests: 13 integration + 6 capability unit + 10 client. Phase 2 (coordinator-scheduled flow) next. |
 
 ---
 
 ## Recent progress (changelog)
 
+- **2026-06-10** — **Re-center Phase 1 — Office + Training-coordinator role
+  (plan `260609-2215-ltms-recenter-coordinator-offline`, additive).** New
+  `Office` model mirroring `Department` (soft-delete + auto-exclude hooks,
+  live-unique uppercase `code`, optional `address`/`timezone` for Phase 2
+  scheduling) and office CRUD in `domains/org` (`office-use-cases.js` /
+  `office-repository.js`, routes `/api/org/offices` behind new
+  `office.read`/`office.manage` capabilities; archive refuses while users
+  reference the office, 409). `User.officeId` added nullable + indexed (same
+  "open until populated" pattern as `departmentId`) and wired into the
+  Admin-only org-assignment endpoint (`null` clears; unknown office 422).
+  **`Coordinator` role** (decision B2): added to the User role enum, zod
+  `ROLES`, import schema, swagger, and `ROLE_CAPABILITIES` as an **explicit
+  allow-list** — program/cohort/session/enrollment/completion/certificate/
+  report/assignment/path manage+read, `department.read`,
+  `office.read`/`office.manage`; deliberately NO user/security capabilities and
+  NO `org.manage`; legacy `roleGuard('Admin', …)` surfaces (users, settings,
+  audit, export…) deny it, pinned by tests. **Latent audit bug fixed:** the
+  AuditLog `entity` enum lacked `Department`, `Certificate`, `Assessment`,
+  `AssessmentAttempt`, `AssessmentQuestion`, `Feedback`, `Assignment`, and
+  `LearningPath` — every audit write for those entities had been failing
+  SILENTLY (fire-and-forget); enum backfilled (+`Office`,
+  `actorRole: Coordinator`) and an integration test now asserts the Office
+  audit row actually lands. Client: People → **Offices** tab (PeoplePage tabs
+  now perm-gated per tab so a Coordinator sees only org tabs), `OfficesPage`
+  (create form + table + archive), Office picker in `OrgAssignmentModal`,
+  `orgAPI`/`qk.org.offices`/`useOffices` hooks, Coordinator added to
+  `/people`+`/learning` route guards, Navbar access maps (+`bg-info` role
+  chip; Calendar stays 'none' until the Phase 2 coordinator scheduling UX),
+  and `useRole` rows mirroring the server bundle (+`isCoordinator`). Known
+  Phase 1 UI limits (server caps are live; pickers read Admin-only
+  `/api/users`): `enroll:learner` UI stays Admin; the assignment modal's
+  explicit-user picker is empty for a Coordinator (department targeting
+  works) — both resolved by the Phase 2 coordinator-safe picker.
+  Seed: HCM+HN offices, coordinator login `000010`/`coordinator123`, sample
+  office assignments. Verified: **13 office/Coordinator integration tests + 6
+  new capability unit tests; client 218 tests / 46 files green; lint 0 errors /
+  81 warnings (at cap); production build clean.** Specs updated:
+  `org-and-departments` (Office + assignment + guards), `capability-authz`
+  (Coordinator bundle), route-permission-matrix. Next: re-center Phase 2 —
+  coordinator-scheduled session flow as the primary UX.
 - **2026-06-10** — **2-tier dashboard Phase 4 — executive dashboard frontend
   (closes the 2-tier dashboard plan, P1–P4).** The Admin-only Executive view in
   the Dashboard tab now renders the Phase 3 ROI bundle, dependency-free (plan

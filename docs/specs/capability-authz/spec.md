@@ -2,7 +2,7 @@
 capability: capability-authz
 status: evolving
 owners: [middleware/requireCapability, middleware/roleGuard, policy]
-last_updated: 2026-06-09
+last_updated: 2026-06-10
 related_code:
   - server/middleware/requireCapability.js
   - server/policy/capabilities.js
@@ -59,8 +59,14 @@ derived from role (Admin = superuser), behavior-preserving vs the old
   ANY-OF capability guard; runs after `protect`; 401 if unauthenticated, 403 if
   the role lacks the capability.
 - **policy/capabilities.js**: canonical capability ids (`<resource>.<action>`) +
-  static `ROLE_CAPABILITIES` map (Admin = all; Teacher read-oriented;
-  Participant booking + self-enroll); `roleHasCapability(role, cap)`.
+  static `ROLE_CAPABILITIES` map (Admin = all; **Coordinator = explicit
+  training-ops management allow-list** — program/cohort/session/enrollment/
+  completion/certificate/report/assignment/path manage+read, `department.read`,
+  `office.read`/`office.manage`; never `ALL_CAPABILITIES`, no user/security
+  caps, no `org.manage` — re-center Phase 1; Teacher read-oriented; Participant
+  booking + self-enroll); `roleHasCapability(role, cap)`. A Coordinator hits
+  legacy `roleGuard('Admin', …)` routes (users, settings, audit, export…) as a
+  plain deny — that boundary is the "no user/security" guarantee.
 - **roleGuard** (`server/middleware/roleGuard.js`): coarse role allowlist
   (legacy routes).
 - **policy/***: pure resource fns `canDoX(actor, doc, opts) → {allowed, reason}`.

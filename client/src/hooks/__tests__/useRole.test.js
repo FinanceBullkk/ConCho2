@@ -126,4 +126,50 @@ describe('useRole', () => {
     expect(renderAsRole('Teacher').can('sync:sheets')).toBe(false);
     expect(renderAsRole('Participant').can('sync:sheets')).toBe(false);
   });
+
+  // ── Coordinator role (re-center Phase 1) ─────────────────────
+  // Mirrors server policy/capabilities.js: a training-ops management
+  // bundle, never user-account/security or org-placement surfaces.
+  describe('Coordinator permissions match the server capability bundle', () => {
+    it('Coordinator manages offices and reads departments', () => {
+      const { can } = renderAsRole('Coordinator');
+      expect(can('read:office')).toBe(true);
+      expect(can('manage:office')).toBe(true);
+      expect(can('read:department')).toBe(true);
+      expect(can('manage:department')).toBe(false);
+    });
+
+    it('Coordinator holds the learning management bundle', () => {
+      const { can } = renderAsRole('Coordinator');
+      expect(can('create:program')).toBe(true);
+      expect(can('create:cohort')).toBe(true);
+      expect(can('read:reports')).toBe(true);
+      expect(can('manage:assignments')).toBe(true);
+      expect(can('manage:path')).toBe(true);
+      // Server grants enrollment.manage, but the enroll modal's learner picker
+      // reads /api/users (Admin-only) — UI stays Admin until Phase 2.
+      expect(can('enroll:learner')).toBe(false);
+    });
+
+    it('Coordinator cannot touch user accounts / security / org placement', () => {
+      const { can } = renderAsRole('Coordinator');
+      expect(can('read:users')).toBe(false);
+      expect(can('create:user')).toBe(false);
+      expect(can('delete:user')).toBe(false);
+      expect(can('assign:org')).toBe(false);
+      expect(can('access:admin')).toBe(false);
+      expect(can('manage:settings')).toBe(false);
+    });
+
+    it('Teacher can read:office but not manage:office', () => {
+      expect(renderAsRole('Teacher').can('read:office')).toBe(true);
+      expect(renderAsRole('Teacher').can('manage:office')).toBe(false);
+      expect(renderAsRole('Participant').can('read:office')).toBe(false);
+    });
+
+    it('isCoordinator is true only for the Coordinator role', () => {
+      expect(renderAsRole('Coordinator').isCoordinator).toBe(true);
+      expect(renderAsRole('Admin').isCoordinator).toBe(false);
+    });
+  });
 });

@@ -66,7 +66,7 @@ The cookie is HttpOnly — pass \`credentials: 'include'\` in fetch or use \`wit
             empCode:    { type: 'string', example: '000001' },
             name:       { type: 'string', example: 'Alice Admin' },
             email:      { type: 'string', example: 'alice@company.com' },
-            role:       { type: 'string', enum: ['Admin', 'Teacher', 'Participant'] },
+            role:       { type: 'string', enum: ['Admin', 'Coordinator', 'Teacher', 'Participant'] },
             department: { type: 'string', example: 'Engineering' },
             position:   { type: 'string', example: 'Senior Dev' },
             status:     { type: 'string', enum: ['Active', 'Inactive', 'Dropped', 'Transferred', 'On-hold', 'Waiting for class'] },

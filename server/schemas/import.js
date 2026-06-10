@@ -9,7 +9,7 @@ const importUserItem = z.object({
   empCode: z.string().min(1, 'empCode is required').max(20),
   name: z.string().min(1, 'Name is required').max(100),
   // role is required — importService enforces it; schema alignment (P2-04).
-  role: z.enum(['Admin', 'Teacher', 'Participant'], { required_error: 'role is required' }),
+  role: z.enum(['Admin', 'Coordinator', 'Teacher', 'Participant'], { required_error: 'role is required' }),
   email: z.string().email('email must be a valid email address').max(254).optional(),
   department: z.string().max(100).optional(),
   status: z.enum(['Active', 'Inactive', 'Dropped', 'Transferred', 'On-hold', 'Waiting for class']).optional(),

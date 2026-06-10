@@ -41,33 +41,37 @@ const NAV_ITEMS = [
     path: '/home',
     labelKey: 'nav.home',
     icon: Home,
-    access: { Admin: 'full', Teacher: 'full', Participant: 'full' },
+    access: { Admin: 'full', Coordinator: 'full', Teacher: 'full', Participant: 'full' },
   },
   {
     path: '/people',
     labelKey: 'nav.people',
     icon: Users,
-    access: { Admin: 'full', Teacher: 'none', Participant: 'none' },
+    // Coordinator reaches the org tabs (Departments/Offices); Users/Teams
+    // tabs stay hidden inside PeoplePage via per-tab perms.
+    access: { Admin: 'full', Coordinator: 'full', Teacher: 'none', Participant: 'none' },
     disabledTitleKey: 'nav.adminOnly',
   },
   {
     path: '/learning',
     labelKey: 'nav.learning',
     icon: BookOpen,
-    access: { Admin: 'full', Teacher: 'read', Participant: 'none' },
+    access: { Admin: 'full', Coordinator: 'full', Teacher: 'read', Participant: 'none' },
     disabledTitleKey: 'nav.adminOnly',
   },
   {
     path: '/calendar',
     labelKey: 'nav.calendar',
     icon: CalendarDays,
-    access: { Admin: 'full', Teacher: 'full', Participant: 'full' },
+    // Coordinator scheduling UX lands in re-center Phase 2 — until then the
+    // calendar tabs (Schedules/Attendance/Book) all 403 for a Coordinator.
+    access: { Admin: 'full', Coordinator: 'none', Teacher: 'full', Participant: 'full' },
   },
   {
     path: '/reports',
     labelKey: 'nav.reports',
     icon: FileBarChart,
-    access: { Admin: 'full', Teacher: 'full', Participant: 'none' },
+    access: { Admin: 'full', Coordinator: 'none', Teacher: 'full', Participant: 'none' },
     disabledTitleKey: 'nav.participantUnavailable',
   },
 ];
@@ -76,11 +80,13 @@ const NAV_ITEMS = [
 // Solid tokens only (no gradients per Phase 0 §02).
 const ROLE_BG = {
   Admin:       'bg-primary',
+  Coordinator: 'bg-info',
   Teacher:     'bg-success',
   Participant: 'bg-warning',
 };
 const ROLE_TEXT = {
   Admin:       'text-primary',
+  Coordinator: 'text-info',
   Teacher:     'text-success',
   Participant: 'text-warning',
 };
@@ -248,7 +254,7 @@ export default function Navbar() {
           path: '/my-team',
           labelKey: 'nav.myTeam',
           icon: Users,
-          access: { Admin: 'full', Teacher: 'full', Participant: 'full' },
+          access: { Admin: 'full', Coordinator: 'full', Teacher: 'full', Participant: 'full' },
         }]
       : []),
   ];

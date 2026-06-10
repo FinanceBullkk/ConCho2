@@ -4,9 +4,9 @@ import { orgAPI } from '../api/api';
 import { qk } from './queryKeys';
 
 // ──────────────────────────────────────────────────────────
-// useOrg — React Query hooks for the org model (Wave D3):
-// departments, manager/department assignment, and the
-// self-scoped manager "my team" dashboard.
+// useOrg — React Query hooks for the org model (Wave D3 +
+// re-center Phase 1): departments, offices, manager/department/
+// office assignment, and the self-scoped manager "my team" dashboard.
 // ──────────────────────────────────────────────────────────
 
 // ── Reads ─────────────────────────────────────────────────
@@ -14,6 +14,13 @@ export const useDepartments = (params = {}, options = {}) =>
   useQuery({
     queryKey: qk.org.departments(params),
     queryFn: async () => (await orgAPI.getDepartments(params)).data.data,
+    ...options,
+  });
+
+export const useOffices = (params = {}, options = {}) =>
+  useQuery({
+    queryKey: qk.org.offices(params),
+    queryFn: async () => (await orgAPI.getOffices(params)).data.data,
     ...options,
   });
 
@@ -58,6 +65,42 @@ export const useArchiveDepartment = () => {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: qk.org.all });
       toast.success('Department archived');
+    },
+    onError: onErr,
+  });
+};
+
+export const useCreateOffice = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (data) => orgAPI.createOffice(data).then((r) => r.data.data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: qk.org.all });
+      toast.success('Office created');
+    },
+    onError: onErr,
+  });
+};
+
+export const useUpdateOffice = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, data }) => orgAPI.updateOffice(id, data).then((r) => r.data.data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: qk.org.all });
+      toast.success('Office updated');
+    },
+    onError: onErr,
+  });
+};
+
+export const useArchiveOffice = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id) => orgAPI.archiveOffice(id).then((r) => r.data.data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: qk.org.all });
+      toast.success('Office archived');
     },
     onError: onErr,
   });

@@ -67,6 +67,7 @@ const STATUS_MAP = {
 
   // ── Roles ──
   Admin:        { tone: 'info',    label: 'Admin' },
+  Coordinator:  { tone: 'info',    label: 'Coordinator' },
   Teacher:      { tone: 'success', label: 'Teacher' },
   Leader:       { tone: 'info',    label: 'Leader' },
   Participant:  { tone: 'warning', label: 'Participant' },

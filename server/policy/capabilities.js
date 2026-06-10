@@ -47,18 +47,41 @@ const CAPABILITIES = Object.freeze({
   // ── Org model (Wave D3) ──────────────────────────────────
   DEPARTMENT_READ: 'department.read',   // list departments (admin/teacher — pickers, reports)
   DEPARTMENT_MANAGE: 'department.manage', // create / edit / archive departments (admin)
-  ORG_MANAGE: 'org.manage',             // set a user's manager / department (admin)
+  ORG_MANAGE: 'org.manage',             // set a user's manager / department / office (admin)
   TEAM_READ: 'team.read',               // view OWN direct reports' training status (any role)
+  // ── Offices (re-center Phase 1) ──────────────────────────
+  OFFICE_READ: 'office.read',           // list offices (pickers, reports)
+  OFFICE_MANAGE: 'office.manage',       // create / edit / archive offices (admin/coordinator)
 });
 
 const ALL_CAPABILITIES = Object.freeze(Object.values(CAPABILITIES));
 
-// Role → capabilities. Admin is a superuser (all capabilities). Teacher is
+// Role → capabilities. Admin is a superuser (all capabilities). Coordinator
+// (re-center Phase 1) is the training-ops role: an explicit allow-list of
+// management capabilities — NEVER `ALL_CAPABILITIES`, and deliberately
+// excludes user-account/security surfaces (those stay roleGuard('Admin'))
+// plus org.manage (placing people in the org tree stays Admin). Teacher is
 // read-oriented; Participant books sessions (leader booking) and self-enrolls.
-// Kept in lockstep with the learning routes so swapping roleGuard → capability
-// changes nothing observable.
 const ROLE_CAPABILITIES = Object.freeze({
   Admin: ALL_CAPABILITIES,
+  Coordinator: Object.freeze([
+    CAPABILITIES.PROGRAM_MANAGE,
+    CAPABILITIES.COHORT_MANAGE,
+    CAPABILITIES.SESSION_BOOK,
+    CAPABILITIES.ENROLLMENT_READ,
+    CAPABILITIES.ENROLLMENT_MANAGE,
+    CAPABILITIES.COMPLETION_READ,
+    CAPABILITIES.CERTIFICATE_READ,
+    CAPABILITIES.CERTIFICATE_MANAGE,
+    CAPABILITIES.REPORT_READ,
+    CAPABILITIES.ASSIGNMENT_READ,
+    CAPABILITIES.ASSIGNMENT_MANAGE,
+    CAPABILITIES.PATH_READ,
+    CAPABILITIES.PATH_MANAGE,
+    CAPABILITIES.DEPARTMENT_READ,
+    CAPABILITIES.OFFICE_READ,
+    CAPABILITIES.OFFICE_MANAGE,
+  ]),
   Teacher: Object.freeze([
     CAPABILITIES.ENROLLMENT_READ,
     CAPABILITIES.COMPLETION_READ,
@@ -70,6 +93,7 @@ const ROLE_CAPABILITIES = Object.freeze({
     CAPABILITIES.ASSIGNMENT_READ,
     CAPABILITIES.PATH_READ,
     CAPABILITIES.DEPARTMENT_READ,
+    CAPABILITIES.OFFICE_READ,
     CAPABILITIES.TEAM_READ,
   ]),
   Participant: Object.freeze([
@@ -91,7 +115,7 @@ const ROLE_CAPABILITIES = Object.freeze({
 
 /**
  * Does a role hold a capability?
- * @param {string} role - 'Admin' | 'Teacher' | 'Participant'
+ * @param {string} role - 'Admin' | 'Coordinator' | 'Teacher' | 'Participant'
  * @param {string} capability - one of CAPABILITIES
  * @returns {boolean}
  */
