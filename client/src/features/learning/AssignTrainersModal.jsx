@@ -82,10 +82,14 @@ export default function AssignTrainersModal({ session, onClose }) {
       return;
     }
 
-    // Always send both shapes (the backend requires at least one present):
-    // internalIds is the full desired set; externalTrainer is the record or null.
+    // internalIds is the full desired set — but only senders who can EDIT it
+    // (read:users → the picker) include it. A Coordinator omits it so the server
+    // keeps the existing internal set; otherwise a stale assigned trainer (since
+    // deactivated → 400 on re-validation) would block their external-only save.
+    // externalTrainer is the record or null; the backend requires at least one
+    // of the two shapes present, and externalTrainer alone satisfies that.
     const payload = {
-      internalIds: internal.map((tr) => tr._id),
+      ...(canListUsers ? { internalIds: internal.map((tr) => tr._id) } : {}),
       externalTrainer: hasExternal
         ? {
             name: ext.name.trim(),
