@@ -4,12 +4,12 @@ import {
   RefreshCw, BookOpen, SkipForward,
 } from 'lucide-react';
 import { toast } from 'sonner';
-import { useSyncStatus, useGoogleSheetsSync } from '../hooks/useSync';
+import { useSyncStatus, useGoogleSheetsSync } from './useSync';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Spinner } from '../components/Spinner';
-import { KPICard } from '../components/KPICard';
-import { StatusBadge } from '../components/StatusBadge';
+import { Spinner } from '../../components/Spinner';
+import { KPICard } from '../../components/KPICard';
+import { StatusBadge } from '../../components/StatusBadge';
 
 // ──────────────────────────────────────────────────────────
 // Google Sheets Sync (Admin only)

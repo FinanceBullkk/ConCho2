@@ -7,7 +7,7 @@ import {
 import { useAuth } from '../context/AuthContext';
 import { useMyClassSchedules } from '../hooks/useSchedules';
 import { useMyAttendanceStats, useAttendanceByUser } from '../hooks/useAttendance';
-import { useEvaluations } from '../hooks/useEvaluations';
+import { useEvaluations } from '../features/evaluations/useEvaluations';
 import { useNextClass } from '../hooks/useNextClass';
 import { Spinner } from '../components/Spinner';
 import { KPICard } from '../components/KPICard';

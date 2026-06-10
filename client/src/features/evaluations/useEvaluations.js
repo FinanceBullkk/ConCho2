@@ -1,7 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { evaluationsAPI } from '../api/api';
-import { qk } from './queryKeys';
+import { evaluationsAPI } from '../../api/api';
+import { qk } from '../../hooks/queryKeys';
 
 export const useEvaluations = (params, options = {}) =>
   useQuery({
