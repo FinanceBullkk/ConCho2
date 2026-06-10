@@ -92,11 +92,19 @@ describe('AssignTrainersModal', () => {
     });
   });
 
-  it('hides the add picker for a non-admin (no read:users) but keeps current trainers', () => {
+  it('hides the add picker for a non-admin (no read:users) and omits internalIds on save', async () => {
     canImpl = (p) => p !== 'read:users';
+    const user = userEvent.setup();
     render(<AssignTrainersModal session={baseSession} onClose={onClose} />);
 
+    // Current internal trainers stay visible (read-only chips, no picker).
     expect(screen.getByText('Tina Teacher')).toBeInTheDocument();
     expect(screen.queryByRole('combobox', { name: /add a trainer/i })).not.toBeInTheDocument();
+
+    // Saving must NOT send internalIds (the server keeps the existing set) —
+    // otherwise a stale assigned trainer would 400-block an external-only save.
+    await user.click(screen.getByRole('button', { name: 'Save trainers' }));
+    expect(setTrainers).toHaveBeenCalledTimes(1);
+    expect(setTrainers.mock.calls[0][0].data).toEqual({ externalTrainer: null });
   });
 });

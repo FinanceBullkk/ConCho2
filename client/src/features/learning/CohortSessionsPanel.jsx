@@ -52,7 +52,9 @@ export default function CohortSessionsPanel({ cohort, onBack }) {
   const { t } = useTranslation();
   const { can } = useRole();
   const canAssign = can('assign:trainer');
-  const { data, isLoading } = useLearningSessions({ cohortId: cohort._id });
+  // limit 200: the server default (50) silently truncates long-running cohorts;
+  // no cohort approaches 200 sessions, so one page covers the full list.
+  const { data, isLoading } = useLearningSessions({ cohortId: cohort._id, limit: 200 });
   const sessions = data?.data || [];
   const [trainerSession, setTrainerSession] = useState(null);
 
