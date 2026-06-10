@@ -3,7 +3,6 @@ const LearningProgram = require('../../models/LearningProgram');
 const Schedule = require('../../models/Schedule');
 const Team = require('../../models/Team');
 const Enrollment = require('../../models/Enrollment');
-const Evaluation = require('../../models/Evaluation');
 
 const findPrograms = (filter = {}) =>
   LearningProgram.find(filter).sort({ category: 1, name: 1 });
@@ -41,12 +40,31 @@ const findOngoingCohortConflict = (classCode, excludeId) =>
 const countTeamsByCohort = (cohortId) => Team.countDocuments({ classId: cohortId });
 const countSchedulesByCohort = (cohortId) => Schedule.countDocuments({ classId: cohortId });
 
-const deleteEvaluationsByCohort = (cohortId, session) =>
-  Evaluation.deleteMany({ classId: cohortId }, { session });
-const deleteEnrollmentsByCohort = (cohortId, session) =>
-  Enrollment.deleteMany({ classId: cohortId }, { session });
-const deleteCohortById = (cohortId, session) =>
-  Class.findByIdAndDelete(cohortId, { session });
+// Soft-archive (recoverable): close active enrollments (status→Dropped, like
+// Team delete) and mark the cohort deleted. Evaluations are PRESERVED (golden
+// rule: never hard-delete evaluation data).
+const closeEnrollmentsByCohort = (cohortId, leftAt, session) =>
+  Enrollment.updateMany(
+    { classId: cohortId, status: 'Active' },
+    { $set: { status: 'Dropped', leftAt } },
+    { session },
+  );
+const softDeleteCohort = (cohortId, deletedAt, session) =>
+  Class.findOneAndUpdate(
+    { _id: cohortId },
+    { $set: { isDeleted: true, deletedAt } },
+    { new: true, session },
+  );
+// Restore needs an explicit isDeleted filter so the soft-delete pre-hook does
+// not auto-exclude the very doc we want back.
+const restoreCohortById = (cohortId) =>
+  Class.findOneAndUpdate(
+    { _id: cohortId, isDeleted: true },
+    { $set: { isDeleted: false, deletedAt: null } },
+    { new: true },
+  );
+const findDeletedCohorts = () =>
+  Class.find({ isDeleted: true }).populate('programId').sort({ deletedAt: -1 });
 
 const countSessionsByCohortIds = async (cohortIds) => {
   if (!cohortIds.length) return {};
@@ -73,8 +91,9 @@ module.exports = {
   findOngoingCohortConflict,
   countTeamsByCohort,
   countSchedulesByCohort,
-  deleteEvaluationsByCohort,
-  deleteEnrollmentsByCohort,
-  deleteCohortById,
+  closeEnrollmentsByCohort,
+  softDeleteCohort,
+  restoreCohortById,
+  findDeletedCohorts,
   countSessionsByCohortIds,
 };

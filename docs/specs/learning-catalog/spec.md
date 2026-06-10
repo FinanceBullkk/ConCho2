@@ -91,11 +91,16 @@ open if no legacy catalog exists).
 
 The system SHALL let a holder of `cohort.manage` (Admin/Coordinator) edit a
 cohort's `status` and `totalSessions` via `PUT /api/learning/cohorts/:id`, and
-delete a cohort via `DELETE /api/learning/cohorts/:id`. A delete is **blocked**
-(409) while any Group (Team) or Session (Schedule) still references the cohort;
-once unreferenced, the delete **cascades** Evaluation + Enrollment cleanup with
-the cohort removal in one transaction. (Restores the capability formerly in the
-removed legacy `ClassesPage`; now in the `/learning` Cohorts tab.)
+**soft-archive** a cohort via `DELETE /api/learning/cohorts/:id`. Delete is
+**blocked** (409) while any Group (Team) or Session (Schedule) still references
+the cohort. Once unreferenced, delete is a **recoverable soft-archive** (sets
+`isDeleted`/`deletedAt`, mirroring Team): in one transaction it closes the
+cohort's active Enrollments (`status`→`Dropped`, like Team delete) and marks the
+cohort deleted. **Evaluations and Enrollment history are PRESERVED** (golden
+rule). Archived cohorts are hidden from normal reads (Class soft-delete pre-hook)
+but listed via `GET /api/learning/cohorts/deleted` and recoverable via
+`POST /api/learning/cohorts/:id/restore`. (Restores the capability formerly in
+the removed legacy `ClassesPage`; now in the `/learning` Cohorts tab + trash view.)
 
 #### Scenario: Completed→Ongoing flip blocked by an existing Ongoing run
 - **GIVEN** an Ongoing run already exists for cohort code EL001
@@ -107,11 +112,13 @@ removed legacy `ClassesPage`; now in the `/learning` Cohorts tab.)
 - **WHEN** an admin deletes the cohort
 - **THEN** it is rejected **409**; the cohort is preserved
 
-#### Scenario: Delete cascades when unreferenced
-- **GIVEN** a cohort with no Groups/Sessions but with Evaluations/Enrollments
+#### Scenario: Soft-archive when unreferenced, then restore
+- **GIVEN** a cohort with no Groups/Sessions but with active Enrollments + Evaluations
 - **WHEN** an admin deletes it
-- **THEN** the cohort + its Evaluations + Enrollments are removed in one
-  transaction (**200**, `cascade` counts returned)
+- **THEN** it is hidden from the cohort list, its active Enrollments become
+  `Dropped` (records + Evaluations preserved), and it appears in the trash view
+- **WHEN** the admin restores it
+- **THEN** the cohort returns to active (**200**)
 
 #### Scenario: Non-manager blocked
 - **WHEN** a Teacher calls PUT/DELETE on a cohort
@@ -139,10 +146,11 @@ Inherits `security-platform`. Specifics:
   authenticated; writes Admin.
 - **Audit:** program/cohort create/update/delete recorded (cohort write audited
   as entity `Class`).
-- **Data:** cohort delete is a **hard delete with referential guards + cascade**
-  (Evaluation/Enrollment), mirroring the legacy `/api/classes` behavior it
-  restores. Uniqueness enforced at DB level (E11000 → 409); `teacherIds` "open
-  until populated" graceful migration.
+- **Data:** cohort delete is a **soft-archive** (`isDeleted`/`deletedAt` + Class
+  pre-hook auto-filter, mirroring Team) — recoverable via restore; active
+  enrollments closed to `Dropped`, Evaluations preserved (golden rule). Referential
+  guards block delete while Groups/Sessions reference it. Uniqueness enforced at
+  DB level (E11000 → 409); `teacherIds` "open until populated" graceful migration.
 - **Performance:** indexes `{status,category,name}` (programs),
   `{classCode,courseName}` + `{programId,status}` + `{teacherIds}` (classes).
 
@@ -154,8 +162,9 @@ Inherits `security-platform`. Specifics:
   legacy catalog.
 - [ ] Reads authenticated; cohort writes require `cohort.manage` (Admin/Coordinator).
 - [ ] Cohort edit changes status/totalSessions; Completed→Ongoing flip blocked 409.
-- [ ] Cohort delete blocked 409 while Groups/Sessions reference it; else cascades
-  Evaluation+Enrollment in a transaction.
+- [ ] Cohort delete blocked 409 while Groups/Sessions reference it; else
+  soft-archives (recoverable): enrollments→Dropped, Evaluations preserved, hidden
+  from lists, listed in trash, restorable.
 - [ ] Program policies persisted and readable by downstream capabilities.
 
 ## Error & Edge Cases
@@ -172,10 +181,8 @@ Inherits `security-platform`. Specifics:
 ## Out of Scope / Deferred
 
 - Physical collection rename (`Class`→`Cohort`) — deferred (DTO migration only).
-- **Open question:** cohort delete cascades a **hard** delete of Evaluation +
-  Enrollment, which sits in tension with the soft-delete golden rule for
-  evaluation data. This mirrors the restored legacy behavior; revisit whether
-  cohort delete (and its cascade) should become soft-delete.
+- Cohort trash UI is restore-only (no permanent purge from the UI) — purge is a
+  DB/ops task if ever needed.
 - Program versioning / module-level curriculum.
 - `facilitatorPolicy` enforcement — persisted, not enforced (see
   `capability-authz`). (`schedulingMode` shipped — see `scheduling-and-booking`;

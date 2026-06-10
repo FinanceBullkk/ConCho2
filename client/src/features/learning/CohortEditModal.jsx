@@ -42,7 +42,7 @@ export default function CohortEditModal({ cohort, onClose }) {
     setError('');
     try {
       await deleteMutation.mutateAsync(cohort._id);
-      toast.success(t('learning.cohorts.deleted', 'Cohort deleted'));
+      toast.success(t('learning.cohorts.archived', 'Cohort archived (recoverable)'));
       onClose();
     } catch (err) {
       setError(err?.response?.data?.message || 'Delete failed');

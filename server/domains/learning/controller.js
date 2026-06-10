@@ -132,16 +132,41 @@ const deleteCohort = async (req, res) => {
     const result = await useCases.deleteCohort(req.params.id);
     auditService.record({
       req,
-      action: 'deleted',
+      action: 'soft-deleted',
       entity: 'Class',
       entityId: req.params.id,
-      note: `Cascade: ${result.deletedEvaluations} evaluations, ${result.deletedEnrollments} enrollments. Cohort: ${result.cohortCode} - ${result.courseName}`,
+      note: `Archived cohort ${result.cohortCode} - ${result.courseName}; closed ${result.closedEnrollments} enrollment(s). Recoverable via restore.`,
     });
     res.json({
       success: true,
-      message: `Cohort ${result.cohortCode} - ${result.courseName} deleted`,
-      cascade: { deletedEvaluations: result.deletedEvaluations, deletedEnrollments: result.deletedEnrollments },
+      message: `Cohort ${result.cohortCode} - ${result.courseName} archived (recoverable)`,
+      cascade: { closedEnrollments: result.closedEnrollments },
     });
+  } catch (error) {
+    handleError(res, error);
+  }
+};
+
+const restoreCohort = async (req, res) => {
+  try {
+    const data = await useCases.restoreCohort(req.params.id);
+    auditService.record({
+      req,
+      action: 'restored',
+      entity: 'Class',
+      entityId: req.params.id,
+      note: `Restored cohort ${data.cohortCode}`,
+    });
+    res.json({ success: true, data });
+  } catch (error) {
+    handleError(res, error);
+  }
+};
+
+const listDeletedCohorts = async (req, res) => {
+  try {
+    const data = await useCases.listDeletedCohorts();
+    res.json({ success: true, count: data.length, data });
   } catch (error) {
     handleError(res, error);
   }
@@ -158,4 +183,6 @@ module.exports = {
   createCohort,
   updateCohort,
   deleteCohort,
+  restoreCohort,
+  listDeletedCohorts,
 };
