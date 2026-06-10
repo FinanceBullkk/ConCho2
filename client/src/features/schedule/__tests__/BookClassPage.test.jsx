@@ -14,12 +14,12 @@ import BookClassPage from '../BookClassPage';
 
 const h = vi.hoisted(() => ({ schedulingMode: 'leader_booking' }));
 
-vi.mock('../../context/AuthContext', () => ({ useAuth: () => ({ user: { _id: 'leader1' } }) }));
+vi.mock('../../../context/AuthContext', () => ({ useAuth: () => ({ user: { _id: 'leader1' } }) }));
 vi.mock('react-i18next', () => ({ useTranslation: () => ({ t: (k) => k }) }));
 vi.mock('sonner', () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
-vi.mock('../../components/BookDrawer', () => ({ BookDrawer: () => null }));
+vi.mock('../../../components/BookDrawer', () => ({ BookDrawer: () => null }));
 
-vi.mock('../../hooks/useSchedulingConfig', () => ({
+vi.mock('../../../hooks/useSchedulingConfig', () => ({
   DEFAULT_UTC_OFFSET_MINUTES: 420,
   useSchedulingConfig: () => ({
     data: {
@@ -32,7 +32,7 @@ vi.mock('../../hooks/useSchedulingConfig', () => ({
   }),
 }));
 
-vi.mock('../../hooks/useTeams', () => ({
+vi.mock('../../../hooks/useTeams', () => ({
   useMyTeams: () => ({
     data: [{
       _id: 'team1', name: 'Alpha', leaderId: 'leader1', enrolledCount: 3,
@@ -42,7 +42,7 @@ vi.mock('../../hooks/useTeams', () => ({
   }),
 }));
 
-vi.mock('../../hooks/useSchedules', () => ({
+vi.mock('../../../hooks/useSchedules', () => ({
   useAvailability: () => ({ data: [], isLoading: false }),
   useBookSlot: () => ({ mutateAsync: vi.fn(), isPending: false }),
   useCancelSlot: () => ({ mutateAsync: vi.fn(), isPending: false }),

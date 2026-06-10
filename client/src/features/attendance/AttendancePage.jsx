@@ -7,16 +7,16 @@ import {
   UserX,
   Users,
 } from 'lucide-react';
-import { schedulesAPI, attendanceAPI } from '../api/api';
-import { useAuth } from '../context/AuthContext';
-import { useAttendanceCalendar } from '../hooks/useSchedules';
-import { useBulkMarkAttendance } from '../hooks/useAttendance';
-import { useSchedulingConfig, DEFAULT_UTC_OFFSET_MINUTES } from '../hooks/useSchedulingConfig';
-import { scheduleSlotId, buildSlotRows } from '../lib/scheduling-slots';
-import { Spinner } from '../components/Spinner';
-import { StatusBadge } from '../components/StatusBadge';
-import { CalendarGrid, getMonday, toDateKey } from '../components/CalendarGrid';
-import { AttendanceDrawer } from '../components/AttendanceDrawer';
+import { schedulesAPI, attendanceAPI } from '../../api/api';
+import { useAuth } from '../../context/AuthContext';
+import { useAttendanceCalendar } from '../../hooks/useSchedules';
+import { useBulkMarkAttendance } from '../../hooks/useAttendance';
+import { useSchedulingConfig, DEFAULT_UTC_OFFSET_MINUTES } from '../../hooks/useSchedulingConfig';
+import { scheduleSlotId, buildSlotRows } from '../../lib/scheduling-slots';
+import { Spinner } from '../../components/Spinner';
+import { StatusBadge } from '../../components/StatusBadge';
+import { CalendarGrid, getMonday, toDateKey } from '../../components/CalendarGrid';
+import { AttendanceDrawer } from '../../components/AttendanceDrawer';
 
 // ──────────────────────────────────────────────────────────
 // AttendancePage — Phase 3 Screen 1 (D2 Drawer)

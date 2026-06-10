@@ -1,15 +1,15 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { AlertTriangle } from 'lucide-react';
-import { useSchedules } from '../hooks/useSchedules';
-import { useClasses } from '../hooks/useClasses';
-import { useTeams } from '../hooks/useTeams';
-import { useRole } from '../hooks/useRole';
-import { useSchedulingConfig, DEFAULT_UTC_OFFSET_MINUTES } from '../hooks/useSchedulingConfig';
-import { detectConflicts } from '../lib/schedule-conflicts';
-import { slotToUtcRange, scheduleSlotId, buildSlotRows } from '../lib/scheduling-slots';
-import { CalendarGrid, getMonday, toDateKey } from '../components/CalendarGrid';
-import { ScheduleDrawer } from '../components/ScheduleDrawer';
+import { useSchedules } from '../../hooks/useSchedules';
+import { useClasses } from '../../hooks/useClasses';
+import { useTeams } from '../../hooks/useTeams';
+import { useRole } from '../../hooks/useRole';
+import { useSchedulingConfig, DEFAULT_UTC_OFFSET_MINUTES } from '../../hooks/useSchedulingConfig';
+import { detectConflicts } from '../../lib/schedule-conflicts';
+import { slotToUtcRange, scheduleSlotId, buildSlotRows } from '../../lib/scheduling-slots';
+import { CalendarGrid, getMonday, toDateKey } from '../../components/CalendarGrid';
+import { ScheduleDrawer } from '../../components/ScheduleDrawer';
 import { Button } from '@/components/ui/button';
 
 // ──────────────────────────────────────────────────────────

@@ -1,10 +1,10 @@
 import { useState, useEffect, useMemo } from 'react';
-import { useAttendanceAnalyticsByEmployee, useAttendanceAnalyticsByTeam, useAttendanceAnalyticsByClass } from '../hooks/useAttendance';
-import { useClasses } from '../hooks/useClasses';
-import { useExportStats, useDownloadAttendance } from '../hooks/useExport';
+import { useAttendanceAnalyticsByEmployee, useAttendanceAnalyticsByTeam, useAttendanceAnalyticsByClass } from '../../hooks/useAttendance';
+import { useClasses } from '../../hooks/useClasses';
+import { useExportStats, useDownloadAttendance } from '../../hooks/useExport';
 import { Button } from '@/components/ui/button';
-import { Spinner } from '../components/Spinner';
-import { DataTable } from '../components/DataTable';
+import { Spinner } from '../../components/Spinner';
+import { DataTable } from '../../components/DataTable';
 
 export default function AttendanceDashboardPage() {
   const [activeTab, setActiveTab] = useState('employee'); // employee, team, class
