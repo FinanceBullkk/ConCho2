@@ -109,6 +109,44 @@ const createCohort = async (req, res) => {
   }
 };
 
+const updateCohort = async (req, res) => {
+  try {
+    const before = await useCases.getCohort(req.params.id);
+    const data = await useCases.updateCohort(req.params.id, req.body);
+    auditService.record({
+      req,
+      action: 'updated',
+      entity: 'Class',
+      entityId: req.params.id,
+      diff: auditService.diff(before, data),
+      note: 'Updated through learning cohort API',
+    });
+    res.json({ success: true, data });
+  } catch (error) {
+    handleError(res, error);
+  }
+};
+
+const deleteCohort = async (req, res) => {
+  try {
+    const result = await useCases.deleteCohort(req.params.id);
+    auditService.record({
+      req,
+      action: 'deleted',
+      entity: 'Class',
+      entityId: req.params.id,
+      note: `Cascade: ${result.deletedEvaluations} evaluations, ${result.deletedEnrollments} enrollments. Cohort: ${result.cohortCode} - ${result.courseName}`,
+    });
+    res.json({
+      success: true,
+      message: `Cohort ${result.cohortCode} - ${result.courseName} deleted`,
+      cascade: { deletedEvaluations: result.deletedEvaluations, deletedEnrollments: result.deletedEnrollments },
+    });
+  } catch (error) {
+    handleError(res, error);
+  }
+};
+
 module.exports = {
   listPrograms,
   getProgram,
@@ -118,4 +156,6 @@ module.exports = {
   listCohorts,
   getCohort,
   createCohort,
+  updateCohort,
+  deleteCohort,
 };

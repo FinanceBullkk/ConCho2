@@ -1,6 +1,9 @@
 const Class = require('../../models/Class');
 const LearningProgram = require('../../models/LearningProgram');
 const Schedule = require('../../models/Schedule');
+const Team = require('../../models/Team');
+const Enrollment = require('../../models/Enrollment');
+const Evaluation = require('../../models/Evaluation');
 
 const findPrograms = (filter = {}) =>
   LearningProgram.find(filter).sort({ category: 1, name: 1 });
@@ -28,6 +31,23 @@ const findCohortById = (id) =>
 
 const createCohort = (payload) => Class.create(payload);
 
+const updateCohortById = (id, update) =>
+  Class.findByIdAndUpdate(id, update, { new: true, runValidators: true });
+
+// Cohort edit/delete guards + cascade (mirrors legacy classController delete).
+const findOngoingCohortConflict = (classCode, excludeId) =>
+  Class.findOne({ _id: { $ne: excludeId }, classCode, status: 'Ongoing' });
+
+const countTeamsByCohort = (cohortId) => Team.countDocuments({ classId: cohortId });
+const countSchedulesByCohort = (cohortId) => Schedule.countDocuments({ classId: cohortId });
+
+const deleteEvaluationsByCohort = (cohortId, session) =>
+  Evaluation.deleteMany({ classId: cohortId }, { session });
+const deleteEnrollmentsByCohort = (cohortId, session) =>
+  Enrollment.deleteMany({ classId: cohortId }, { session });
+const deleteCohortById = (cohortId, session) =>
+  Class.findByIdAndDelete(cohortId, { session });
+
 const countSessionsByCohortIds = async (cohortIds) => {
   if (!cohortIds.length) return {};
   const rows = await Schedule.aggregate([
@@ -49,5 +69,12 @@ module.exports = {
   findCohorts,
   findCohortById,
   createCohort,
+  updateCohortById,
+  findOngoingCohortConflict,
+  countTeamsByCohort,
+  countSchedulesByCohort,
+  deleteEvaluationsByCohort,
+  deleteEnrollmentsByCohort,
+  deleteCohortById,
   countSessionsByCohortIds,
 };

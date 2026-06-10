@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Plus, UserPlus, CalendarPlus } from 'lucide-react';
+import { Plus, UserPlus, CalendarPlus, Pencil } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -10,6 +10,7 @@ import { EmptyState } from '@/components/EmptyState';
 import { useLearningCohorts } from '../../hooks/useLearning';
 import { useRole } from '../../hooks/useRole';
 import CohortFormModal from './CohortFormModal';
+import CohortEditModal from './CohortEditModal';
 import EnrollLearnersModal from './EnrollLearnersModal';
 import CreateSessionModal from './CreateSessionModal';
 
@@ -30,9 +31,12 @@ export default function CohortsTab() {
   const cohorts = data?.data || [];
 
   const [createOpen, setCreateOpen] = useState(false);
+  const [editCohort, setEditCohort] = useState(null);
   const [enrollCohort, setEnrollCohort] = useState(null);
   const [sessionCohort, setSessionCohort] = useState(null);
-  const showActions = canEnroll || canSchedule;
+  // `cohort.manage` (create:cohort) is a single capability covering create/edit/delete.
+  const canManage = canCreate;
+  const showActions = canEnroll || canSchedule || canManage;
 
   const header = (
     <div className="flex items-center justify-between">
@@ -96,6 +100,11 @@ export default function CohortsTab() {
                             <UserPlus className="size-4 mr-1.5" aria-hidden="true" />{t('learning.cohorts.manage')}
                           </Button>
                         )}
+                        {canManage && (
+                          <Button size="sm" variant="outline" onClick={() => setEditCohort(cohort)}>
+                            <Pencil className="size-4 mr-1.5" aria-hidden="true" />{t('learning.cohorts.edit', 'Edit')}
+                          </Button>
+                        )}
                       </div>
                     </TableCell>
                   )}
@@ -112,6 +121,7 @@ export default function CohortsTab() {
     <>
       {body}
       {createOpen && <CohortFormModal onClose={() => setCreateOpen(false)} />}
+      {editCohort && <CohortEditModal cohort={editCohort} onClose={() => setEditCohort(null)} />}
       {enrollCohort && <EnrollLearnersModal cohort={enrollCohort} onClose={() => setEnrollCohort(null)} />}
       {sessionCohort && <CreateSessionModal cohort={sessionCohort} onClose={() => setSessionCohort(null)} />}
     </>

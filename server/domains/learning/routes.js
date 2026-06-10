@@ -12,6 +12,7 @@ const {
   listProgramsQuery,
   listCohortsQuery,
   createCohortBody,
+  updateCohortBody,
 } = require('./schemas');
 const {
   listSessionsQuery,
@@ -69,7 +70,9 @@ router
 
 router
   .route('/cohorts/:id')
-  .get(validate({ params: idParam }), controller.getCohort);
+  .get(validate({ params: idParam }), controller.getCohort)
+  .put(requireCapability('cohort.manage'), validate({ params: idParam, body: updateCohortBody }), controller.updateCohort)
+  .delete(requireCapability('cohort.manage'), validate({ params: idParam }), controller.deleteCohort);
 
 router
   .route('/sessions')
