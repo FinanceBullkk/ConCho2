@@ -48,6 +48,11 @@ const issueSchema = new mongoose.Schema(
         // whose User document is isDeleted:true — populated members show
         // as null in the UI and analytics get noisy.
         'soft_deleted_in_team_members',
+        // re-center Phase 3 — orphan_room_booking: a RoomBooking ledger row
+        // references a Schedule that no longer exists; the unique
+        // {roomId,startTime} key stays occupied and bricks the slot until
+        // the row is removed.
+        'orphan_room_booking',
       ],
       required: true,
     },
@@ -60,6 +65,7 @@ const issueSchema = new mongoose.Schema(
       classId:    { type: mongoose.Schema.Types.ObjectId, default: null },
       scheduleId: { type: mongoose.Schema.Types.ObjectId, default: null },
       enrollmentId: { type: mongoose.Schema.Types.ObjectId, default: null },
+      roomId:     { type: mongoose.Schema.Types.ObjectId, default: null },
     },
     // Extra detail (e.g. "3 of 8 users missing attendance")
     detail: { type: mongoose.Schema.Types.Mixed, default: null },
@@ -94,6 +100,7 @@ const reconcileReportSchema = new mongoose.Schema(
       multi_team_class:               { type: Number, default: 0 },
       counter_drift:                  { type: Number, default: 0 },
       soft_deleted_in_team_members:   { type: Number, default: 0 },
+      orphan_room_booking:            { type: Number, default: 0 },
       total:                  { type: Number, default: 0 },
     },
     // 'ok' when no issues found, 'issues' otherwise

@@ -22,6 +22,9 @@ const bookSessionBody = z
     groupId: objectId.optional(),
     cohortId: objectId.optional(),
     officeId: objectId.optional(),
+    // Optional physical Room (re-center Phase 3). Validated in-tx against the
+    // session's Office (must match) + the per-room conflict lock.
+    roomId: objectId.optional(),
     startTime: z.coerce.date(),
     endTime: z.coerce.date(),
   })

@@ -43,7 +43,7 @@ const listSessions = async (query, pagination, requestUser) => {
     await buildFilter(query, requestUser),
     pagination,
   );
-  return { data: sessions.map(sessionDto), total };
+  return { data: sessions.map((s) => sessionDto(s, requestUser)), total };
 };
 
 const getSession = async (id, requestUser) => {
@@ -59,15 +59,23 @@ const getSession = async (id, requestUser) => {
     }
   }
   if (requestUser?.role === 'Teacher') {
+    // UNION (Phase 3, DELTA B): a Teacher may view the session if assigned to
+    // its cohort OR named as a session instructor. The cohort check is kept
+    // RESTRICTIVE exactly as before (B1 — do NOT silently flip empty teacherIds
+    // to permissive on session read); the override only ADDS named-instructor
+    // access for this single session.
     const assigned = (session.classId?.teacherIds || []).some(
       (teacherId) => teacherId?.toString() === requestUser._id.toString(),
     );
-    if (!assigned) {
+    const isInstructor = (session.sessionInstructorIds || []).some(
+      (id) => String(id?._id || id) === requestUser._id.toString(),
+    );
+    if (!assigned && !isInstructor) {
       throw new scheduleService.ServiceError('Not authorized to view this session', 403);
     }
   }
 
-  return sessionDto(session);
+  return sessionDto(session, requestUser);
 };
 
 // Scheduling modes split by how a session is created:
@@ -129,6 +137,7 @@ const bookCohortSession = async (payload, requestUser) => {
     endTime: payload.endTime,
     enrolledUserIds,
     officeId: payload.officeId,
+    roomId: payload.roomId || null,
     requestUser,
   });
   return getSession(created._id, requestUser);

@@ -7,9 +7,14 @@ const schedulingWindowPolicy = require('./scheduling-window-policy');
 const repository = require('./repository');
 const bookingPolicy = require('./session-booking-policy');
 const schedulingModePolicy = require('./scheduling-mode-policy');
+const roomLockPolicy = require('./room-lock-policy');
+const scheduleService = require('../../services/scheduleService');
 
 // ── Shared helpers ────────────────────────────────────────
 
+// roomId is NOT in this whitelist: the room is set ONLY via the room lock
+// (room-lock-policy) so Schedule.roomId and the RoomBooking ledger never drift.
+// updateSchedule handles roomId separately (release + reacquire) below.
 const ALLOWED_UPDATE_FIELDS = [
   'classId', 'bookedTeamId', 'startTime', 'endTime', 'roomLink', 'capacity',
 ];
@@ -160,6 +165,62 @@ const updateSchedule = async (id, body) => {
       if (!schedule) {
         throw new ServiceError('Schedule not found', 404);
       }
+
+      // ── Room reassignment (Phase 3, DELTA A) ────────────
+      // The ledger key is (roomId, startTime). Fire release+reacquire whenever
+      // the final room is present AND the key would change (room/start/class),
+      // or release-only when the room is being cleared. roomId is handled here
+      // — never via the field whitelist — so Schedule.roomId and the ledger
+      // stay atomic. office is immutable on this path, so the same-Office guard
+      // uses the existing officeId.
+      if (body.roomId !== undefined) {
+        const existingRoomId = existing.roomId ? String(existing.roomId) : null;
+        const requestedRoomId = body.roomId || null;
+        const finalStart = new Date(body.startTime || existing.startTime);
+        const finalClassId = updateData.classId || existing.classId;
+        const startChanged = finalStart.getTime() !== new Date(existing.startTime).getTime();
+        const classChanged = String(finalClassId) !== String(existing.classId);
+        const roomChanged = requestedRoomId !== existingRoomId;
+
+        if (requestedRoomId === null) {
+          // Clear the room → drop the ledger row + null the field.
+          await roomLockPolicy.releaseRoomLock([existing._id], session);
+          await repository.updateScheduleById(id, { roomId: null }, session);
+          schedule.roomId = null;
+        } else if (roomChanged || startChanged || classChanged) {
+          // Key would change → release the old claim then reacquire the new one.
+          await roomLockPolicy.releaseRoomLock([existing._id], session);
+          await roomLockPolicy.acquireRoomLock(
+            {
+              roomId: requestedRoomId,
+              scheduleId: existing._id,
+              classId: finalClassId,
+              startTime: finalStart,
+              officeId: existing.officeId || null,
+            },
+            { session },
+          );
+          schedule.roomId = requestedRoomId;
+        }
+      } else if (body.startTime || updateData.classId) {
+        // Room unchanged but the slot/class moved → the existing ledger row's
+        // key is now stale. Reacquire at the new key (release old first).
+        if (existing.roomId) {
+          const finalStart = new Date(body.startTime || existing.startTime);
+          const finalClassId = updateData.classId || existing.classId;
+          await roomLockPolicy.releaseRoomLock([existing._id], session);
+          await roomLockPolicy.acquireRoomLock(
+            {
+              roomId: existing.roomId,
+              scheduleId: existing._id,
+              classId: finalClassId,
+              startTime: finalStart,
+              officeId: existing.officeId || null,
+            },
+            { session },
+          );
+        }
+      }
     });
   } finally {
     session.endSession();
@@ -174,12 +235,15 @@ const updateSchedule = async (id, body) => {
         .populate('classId', 'classCode courseName')
         .populate('bookedTeamId', 'name')
         .populate('enrolledUsers', 'empCode name email')
+        .populate('sessionInstructorIds', 'empCode name email')
         .lean();
       await calendarService.updateEventForSchedule({
         schedule: populated,
         classDoc: populated.classId,
         team: populated.bookedTeamId,
-        attendees: populated.enrolledUsers,
+        // Phase 3 (B3): include trainers so an edit never drops them from the
+        // calendar event (Google replaces the attendee list on update).
+        attendees: scheduleService.effectiveAttendeesForSchedule(populated),
       });
     } catch (e) {
       // Already logged inside calendarService
@@ -219,6 +283,8 @@ const deleteSchedule = async (id) => {
     await session.withTransaction(async () => {
       const attResult = await repository.deleteAttendanceByScheduleId(schedule._id, session);
       deletedAttendance = attResult.deletedCount;
+      // Phase 3: free the room slot (drop the ledger row) in the same tx.
+      await roomLockPolicy.releaseRoomLock([schedule._id], session);
       await repository.deleteScheduleById(schedule._id, session);
     });
   } finally {
@@ -236,7 +302,73 @@ const deleteSchedule = async (id) => {
   return { deletedAttendance, schedule, calendarDeleted, googleEventId };
 };
 
+// ── Set Trainers (re-center Phase 3, DELTA B) ─────────────
+// Assign a session's trainers in ONE mutation:
+//   internalIds      → Schedule.sessionInstructorIds (join the UNION authz)
+//   externalTrainer  → Schedule.externalTrainer subdoc (calendar + display only)
+// No transaction (orthogonal field, like Wave E3 M1). Returns
+// { before, after } so the controller can audit a single before/after diff
+// (clearing a trainer silently revokes access — needs a trail).
+// Plain (audit-safe) view of an external-trainer subdoc — strips Mongoose's
+// circular $parent refs so auditService.diff (JSON.stringify) doesn't recurse.
+const plainExternalTrainer = (ext) => {
+  if (!ext) return null;
+  const o = typeof ext.toObject === 'function' ? ext.toObject() : ext;
+  return { name: o.name, email: o.email || null, phone: o.phone || null, org: o.org || null };
+};
+
+const setTrainers = async (id, { internalIds, externalTrainer }) => {
+  const existing = await repository.findScheduleByIdRaw(id);
+  if (!existing) throw new ServiceError('Schedule not found', 404);
+
+  const before = {
+    sessionInstructorIds: (existing.sessionInstructorIds || []).map(String),
+    externalTrainer: plainExternalTrainer(existing.externalTrainer),
+  };
+
+  const update = {};
+
+  if (internalIds !== undefined) {
+    // Dedupe (z.array accepts dups; countDocuments($in) silently de-dupes —
+    // store the deduped set so audit/DTO are clean).
+    const deduped = [...new Set((internalIds || []).map(String))];
+    const valid = await repository.findValidInstructorIds(deduped);
+    if (valid.length !== deduped.length) {
+      throw new ServiceError(
+        'One or more trainers are not valid active Teacher/Admin users', 400,
+      );
+    }
+    update.sessionInstructorIds = valid;
+  }
+
+  if (externalTrainer !== undefined) {
+    // null clears it; an object sets/replaces it (zod already shaped/trimmed).
+    update.externalTrainer = externalTrainer || null;
+  }
+
+  if (Object.keys(update).length === 0) {
+    throw new ServiceError('Provide internalIds and/or externalTrainer', 400);
+  }
+
+  const after = await repository.updateScheduleById(id, update);
+  if (!after) throw new ServiceError('Schedule not found', 404);
+
+  // Sync the calendar event (effective attendees now include trainers) —
+  // post-update, fail-soft. Skipped for past sessions inside the helper.
+  await scheduleService.syncCalendarForSchedule(after._id);
+
+  return {
+    before,
+    after: {
+      sessionInstructorIds: (after.sessionInstructorIds || []).map(String),
+      externalTrainer: plainExternalTrainer(after.externalTrainer),
+    },
+    schedule: after,
+  };
+};
+
 module.exports = {
   updateSchedule,
   deleteSchedule,
+  setTrainers,
 };

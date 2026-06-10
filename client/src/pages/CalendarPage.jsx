@@ -3,9 +3,9 @@ import { CalendarCheck, ClipboardList, CalendarPlus } from 'lucide-react';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { PageHeader } from '@/components/PageHeader';
 import { useAuth } from '../context/AuthContext';
-import SchedulesPage from './SchedulesPage';
-import AttendancePage from './AttendancePage';
-import BookClassPage from './BookClassPage';
+import SchedulesPage from '../features/schedule/SchedulesPage';
+import AttendancePage from '../features/attendance/AttendancePage';
+import BookClassPage from '../features/schedule/BookClassPage';
 
 // ──────────────────────────────────────────────────────────
 // CalendarPage — Phase 2 IA-S3

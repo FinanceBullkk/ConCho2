@@ -156,11 +156,12 @@ English literals directly.
 |---|---|---|
 | `/api/auth` | `authRoutes.js` | login, logout, me, password, MFA, reset password |
 | `/api/users` | `userRoutes.js` | Admin user CRUD, restore, progress |
-| `/api/teams` | `teamRoutes.js` | team CRUD, my teams, restore, progress |
+| `/api/teams` | `domains/groups/routes.js` | team CRUD, my teams, restore, progress (Phase 1 domain extraction; `controller` facade → `queries`/`mutations`/`lifecycle`/`enrollment-sync`; `Team` model + `/api/teams` URL unchanged) |
 | `/api/classes` | `classRoutes.js` | class CRUD, course metadata |
 | `/api/learning` | `domains/learning/routes.js` | Learning programs, cohorts, sessions, paths, reports, assignments |
-| `/api/schedules` | `scheduleRoutes.js` | availability, booking, cancel, calendars |
-| `/api/attendance` | `attendanceRoutes.js` | attendance marking, analytics, personal stats |
+| `/api/schedules` | `domains/schedule/routes.js` | availability, booking, cancel, calendars (Phase 1 domain extraction; `controller` → `use-cases`/`queries`/`repository` + policy modules; booking mutations still in `services/scheduleService` by design; `Schedule` model + `/api/schedules` URL unchanged) |
+| `/api/attendance` | `domains/attendance/routes.js` | attendance marking, analytics, personal stats (Phase 1 domain extraction; `controller` → `use-cases` → `marking`/`analytics`/`scope`; `services/attendanceService.js` kept as a compat facade) |
+| `/api/rooms` | `domains/room/routes.js` | Office-scoped physical Rooms CRUD (re-center Phase 3) |
 | `/api/evaluations` | `evaluationRoutes.js` | upsert/list/get/delete evaluations |
 | `/api/enrollments` | `enrollmentRoutes.js` | enrollment list, transfer, bulk operations |
 | `/api/sync` | `syncRoutes.js` | sync status and Google Sheets sync |

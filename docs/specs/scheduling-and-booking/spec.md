@@ -16,8 +16,13 @@ related_code:
   - server/domains/schedule/session-booking-policy.js
   - server/domains/schedule/scheduling-mode-policy.js
   - server/domains/schedule/use-cases.js
+  - server/domains/schedule/room-lock-policy.js
   - server/domains/learning/session/use-cases.js
   - server/controllers/settingController.js
+  - server/models/Room.js
+  - server/models/RoomBooking.js
+  - server/domains/room/use-cases.js
+  - server/policy/sessionInstructors.js
   - client/src/pages/BookClassPage.jsx
   - client/src/components/CalendarGrid.jsx
 ---
@@ -307,6 +312,82 @@ exposes `officeId` + a populated `office { _id, name, code }`.
 - **GIVEN** a class with no linked program (`programId` null)
 - **WHEN** the leader books
 - **THEN** it succeeds (mode falls back to `leader_booking` — graceful migration)
+
+### Requirement: Office-scoped Room assignment + per-room lock (re-center Phase 3) [BR-2, UC-1]
+
+A session MAY occupy a physical **Room** (`Schedule.roomId`, nullable). A `Room`
+belongs to exactly one **Office** (`Room.officeId`, required). Room CRUD lives at
+`/api/rooms` (Admin/Coordinator via `room.read`/`room.manage`); a Room MUST NOT be
+archived while a future session references it (**409**). Assigning a Room to a
+session is guarded, in the booking transaction after the Schedule is created, by:
+(1) `assertSameOffice` — the Room's Office MUST equal the session's `officeId`,
+else **422**; it also hard-fails **422** when the session has no Office (never a
+silent no-op); and (2) a `RoomBooking` lock ledger whose **unique
+`{roomId,startTime}`** index is the DB-final per-room double-book guard. The
+ledger row is written atomically with `Schedule.roomId` (never drift) and released
+on every Schedule-removal path (cancel/delete/auto-release/team-sync); a read-only
+reconcile check (`orphan_room_booking`) surfaces any leftover row. The per-room
+lock is per-Office automatically (a physical room is in one Office). The existing
+class-slot `{classId,startTime}` 409, weekly cap, and capacity checks are
+unchanged and still run first.
+
+#### Scenario: Room in the session's Office
+- **GIVEN** a cohort session at Office H and a Room in Office H
+- **WHEN** the scheduler books with that `roomId`
+- **THEN** **201**, a `RoomBooking` row is written, the DTO exposes `room {name,code}`
+
+#### Scenario: Room in a different Office
+- **GIVEN** a session at Office H and a Room in Office N
+- **WHEN** the scheduler books with that `roomId`
+- **THEN** **422** ("different Office") and the whole booking rolls back (no schedule, no ledger row)
+
+#### Scenario: Same room + slot for two different cohorts
+- **GIVEN** a Room already booked for a slot by cohort A
+- **WHEN** cohort B is booked into the same room + slot (different class → no class-slot collision)
+- **THEN** exactly one **201** and one **409** ("already booked") — the per-room lock holds
+
+#### Scenario: Cancelling frees the room
+- **GIVEN** a roomed upcoming session
+- **WHEN** it is cancelled/deleted
+- **THEN** the ledger row is dropped and the room + slot are re-bookable
+
+### Requirement: Per-session Trainers — internal (authz UNION) or external (re-center Phase 3) [BR-5, UC-1, UC-4]
+
+A session MAY carry per-session **internal trainers**
+(`Schedule.sessionInstructorIds`, User refs) and/or **one external trainer**
+(`externalTrainer` subdoc: `name`, optional `email`/`phone`/`org`; no User, no
+login). Both are set in one mutation `PUT /api/schedules/:id/trainers`
+(`session.assign-trainer` + `roleGuard('Admin','Coordinator')`); internal ids are
+deduped and identity-validated (active Teacher/Admin only, else **400**), and the
+change is audit-logged as one before/after diff. An internal trainer joins the
+attendance/visibility authz **UNION** — they MAY mark/read attendance and view
+**their** session even when not the cohort's class teacher (the cohort teacher is
+never revoked; the restrictive session-read is preserved). An external trainer is
+NEVER a User, never in `enrolledUsers`, never an actor; it only receives a
+best-effort calendar invite (when it has an email) and appears in display. The
+external trainer's `email`/`phone` are hidden from learner-facing session DTOs
+(name + org only); Admin/Coordinator see the full contact.
+
+#### Scenario: Internal trainer marks their session via the UNION
+- **GIVEN** a Teacher NOT bound to a cohort's class, named as a session instructor
+- **WHEN** they mark attendance for that (past) session
+- **THEN** **200** — and the cohort's class teacher can still mark too (UNION not revoked)
+
+#### Scenario: Stranger teacher stays denied
+- **GIVEN** a Teacher neither bound to the class nor named on the session
+- **WHEN** they mark attendance
+- **THEN** **403** (`teacher-not-bound-to-class`)
+
+#### Scenario: External trainer is invite-only with no access
+- **GIVEN** a session with an external trainer (with email)
+- **WHEN** the trainers are saved
+- **THEN** **200**, no User is created, a calendar invite is queued, and a learner
+  DTO shows `{ name, org }` only (no email/phone)
+
+#### Scenario: Non-scheduler cannot assign trainers
+- **GIVEN** a Teacher or Participant
+- **WHEN** they call `PUT /:id/trainers`
+- **THEN** **403** (capability/roleGuard deny)
 
 ### Requirement: Booking UI surfaces scheduling mode pre-submit [BR-6, UC-3]
 

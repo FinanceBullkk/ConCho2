@@ -96,6 +96,12 @@ const PERMISSION_MAP = {
   'read:office':       ['Admin', 'Coordinator', 'Teacher'], // GET /api/org/offices (office.read)
   'manage:office':     ['Admin', 'Coordinator'],    // POST/PUT/DELETE /api/org/offices (office.manage)
   'assign:org':        ['Admin'],                   // PUT    /api/org/users/:id/assignment (org.manage)
+  // ── Rooms + Trainers (re-center Phase 3) ─ Admin + Coordinator only
+  // (scheduling tools, never learner-facing). Mirror server room.read /
+  // room.manage / session.assign-trainer.
+  'read:room':         ['Admin', 'Coordinator'],    // GET /api/rooms (room.read)
+  'manage:room':       ['Admin', 'Coordinator'],    // POST/PUT/DELETE /api/rooms (room.manage)
+  'assign:trainer':    ['Admin', 'Coordinator'],    // PUT /api/schedules/:id/trainers (session.assign-trainer)
   'read:team':         ['Admin', 'Teacher', 'Participant'], // GET /api/org/my-team (team.read — self-scoped)
 
   // Bookings ─ server: server/routes/scheduleRoutes.js POST /book-slot

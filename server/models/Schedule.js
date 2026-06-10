@@ -63,6 +63,42 @@ const scheduleSchema = new mongoose.Schema(
       default: '',
     },
 
+    // The physical Room this session occupies (re-center Phase 3, DELTA A).
+    // Nullable: online/legacy sessions have none. When set, it is written
+    // ATOMICALLY with a RoomBooking ledger row (room-lock-policy) so the field
+    // and the per-room {roomId,startTime} lock never drift; the room MUST live
+    // in this session's Office (422 otherwise).
+    roomId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Room',
+      default: null,
+    },
+
+    // ── Trainers (re-center Phase 3, DELTA B) ───────────────
+    // A session may carry per-session INTERNAL trainers (User refs) that join
+    // the attendance/visibility authz UNION (cohort teacher never revoked), and
+    // /or ONE lightweight EXTERNAL trainer (no User, no login) that only feeds
+    // calendar invite + display. The two are independent (a vendor may
+    // co-deliver with an internal SME).
+    sessionInstructorIds: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'User',
+      },
+    ],
+    externalTrainer: {
+      type: new mongoose.Schema(
+        {
+          name: { type: String, required: true, trim: true },
+          email: { type: String, trim: true, lowercase: true, default: null },
+          phone: { type: String, trim: true, default: null },
+          org: { type: String, trim: true, default: null },
+        },
+        { _id: false },
+      ),
+      default: null,
+    },
+
     capacity: {
       type: Number,
       min: [1, 'Capacity must be at least 1'],
@@ -150,6 +186,10 @@ scheduleSchema.index({ enrolledUsers: 1, startTime: 1 });
 // Office-scoped queries (re-center Phase 2/3: "sessions at this office", and
 // Phase 3 room-conflict checks within an office).
 scheduleSchema.index({ officeId: 1, startTime: 1 });
+
+// Phase 3: per-session internal-trainer visibility (UNION authz filter
+// `$or:[{classId:{$in:visible}},{sessionInstructorIds: me}]`).
+scheduleSchema.index({ sessionInstructorIds: 1, startTime: 1 });
 
 // PERF-010 (audit PR D): reconcileService.checkMissingAttendance
 // (services/reconcileService.js:42) filters

@@ -118,8 +118,27 @@ Coordinator) opens a team-less offline session against a cohort
 via a new **Create-session** action on the Learning → Cohorts tab; the roster
 comes from self-enrol + coordinator-assign (no Team). `Schedule.officeId` is
 required for this flow (nullable for legacy rows); cohort-session creation was
-widened from Admin-only to the scheduler set. Next: re-center Phase 3
-(Office-scoped Rooms + internal/external Trainers).
+widened from Admin-only to the scheduler set. **Re-center Phase 3 (Office-scoped
+Rooms + internal/external Trainers) is now live:** a first-class **`Room`** entity
+(`/api/rooms`, Admin/Coordinator CRUD via `room.read`/`room.manage`) scoped to
+exactly one **Office**; assigning a room to a session is guarded by a `RoomBooking`
+ledger whose unique `{roomId,startTime}` index is the DB-final per-room
+double-book lock (cross-class race → 409), written atomically with
+`Schedule.roomId` and released on every Schedule-removal path (cancel/delete/
+auto-release/team-sync) + a reconcile orphan-sweep check; a room in a different
+Office than the session → **422**. **Trainers** are per-session: internal trainers
+(`Schedule.sessionInstructorIds`, User refs) join the attendance/visibility authz
+**UNION** (a named trainer can mark/read their session even when not the cohort
+teacher; the cohort teacher is never revoked), and an **external** trainer
+(`externalTrainer` subdoc — name/email/phone/org, no User, no login) gets a
+calendar invite + display only (email/phone hidden from learner DTOs). One
+mutation `PUT /api/schedules/:id/trainers` (`session.assign-trainer`,
+Admin/Coordinator) sets both; `cancelSlot` was widened so a Coordinator can cancel
+a team-less cohort session. UI: People → **Rooms** tab (Office-scoped CRUD) + an
+Office-scoped **Room picker** in the coordinator Create-session modal. Deferred:
+trainer-assignment UI (backend complete+tested), waitlists + durable-cancellation
+states (Wave E3 phase-04, outside the two grill deltas), session-list visibility
+widening for trainer-only teachers.
 
 ---
 
@@ -128,7 +147,7 @@ widened from Admin-only to the scheduler set. Next: re-center Phase 3
 | Phase | Theme | Progress | Status |
 |------|-------|---------:|--------|
 | 0 | Architecture baseline + safety net | ~93% | 🟢 near done |
-| 1 | Backend modular-monolith refactor | ~78% | 🟡 in progress |
+| 1 | Backend modular-monolith refactor | ~98% | 🟢 near done (2026-06-10: domains/attendance+groups+schedule routes extracted; repository ADR; schedule use-case tests; frontend `features/` migration complete) |
 | 2 | Learning catalog + generic cohort model | ~95% | 🟢 near done |
 | 3 | Multi-program enrollment + session scheduling | ~78% | 🟡 in progress |
 | 4 | Frontend L&D workspace (CRUD UI) | ~78% | 🟡 in progress |
@@ -143,7 +162,7 @@ widened from Admin-only to the scheduler set. Next: re-center Phase 3
 | B — Assessment & Certification | Generic assessment engine, completion enforcement, certificates | 🟡 in progress (completion + certificates + feedback + assessment engine v1 + completion reporting + rollups + assessment UI + feedback UI + assessment edit + question-bank backend/UI + manual grading v1 done) | A |
 | C — Catalog, Paths & Self-service | Learner catalog, self-enroll, learning paths/prerequisites | 🟢 core done (learner catalog + self-enroll UI + prerequisite gating v1 + prereq selector UI + sequenced learning paths v1 + admin paths UI + learner path-progress view) | A |
 | D — Platform & Scale | Production readiness → Google OIDC + Directory sync → manager hierarchy (org model) → mandatory assignment + due dates → notifications/escalation → compliance reporting + recertification. Order locked 2026-06-04 (after C closes). | 🟡 in progress (D1 cron self-monitoring done; **D3 v1 org model done**; **D4 assignment+due-dates v1 done**; **D5 assignment reminders + manager escalation v1 done**; **D6 v1.1 compliance report/export + certificate expiry signal + frontend UI verified/closed**; paid hosting + Sentry-account setup + D2 Google OAuth app = owner ops/inputs) | B, C |
-| E — Generic scheduling | Generalize booking beyond fixed English slots (session types, rooms, capacity, waitlists, instructors); keep leader-booking as one mode. Committed parallel track; large, own plan. | 🟡 in progress (**E1 backend slice done** — `ALLOWED_TIME_SLOTS` authoritative server-side: shared window policy, all mutation paths validated incl. Admin moves, config-on-write validation, safe `/sessions/config` endpoint; **E1 client slice pending** — exact-slot grid rendering; E2+ capacity/rooms/waitlists gated) | A |
+| E — Generic scheduling | Generalize booking beyond fixed English slots (session types, rooms, capacity, waitlists, instructors); keep leader-booking as one mode. Committed parallel track; large, own plan. | 🟡 in progress (**E1 done** — backend `ALLOWED_TIME_SLOTS` authoritative + exact-slot grid client (2026-06-09); **E2 capacity done**; **rooms done** via re-center Phase 3; remaining: waitlists + durable-cancellation states (E3 phase-04), trainer-assignment UI, session-list visibility for trainer-only teachers) | A |
 
 > **Direction locked 2026-06-04** — full rationale + gap analysis in
 > [`ltms-gap-analysis.md`](ltms-gap-analysis.md). Six-month order:
@@ -207,10 +226,236 @@ Bug fixing and integration review rank above net-new feature rollout.
 | → | **2-tier dashboard — Phase 4 (executive frontend)** | Fill the Executive toggle with the ROI view | 🟢 done — the Dashboard tab's Executive view (Admin-only) now renders the Phase 3 bundle dependency-free: financial tiles **or** a set-budget CTA + inline cost-config form (lazy-init, key-remount — no setState-in-effect), 6-month two-series SVG `Sparkline`, honest `DashboardKirkpatrick` (L1/L2 values; L3–L5 "Not yet measured" chips), certificate-validity SVG `DonutStat`, mobility tiles, coverage-by-department bars. 6 new component tests (CTA→save payload, integer validation, configured tiles, fail-soft, skeleton/retry); client 208/45 green; lint ≤ cap; build clean. **2-tier dashboard plan COMPLETE (P1–P4).** |
 | → | **Re-center Phase 1 — Office + Training-coordinator role** | First-class Office entity + a Coordinator role that runs training ops without full Admin | 🟢 done — `Office` model (soft-delete, live-unique code, address/timezone) + `domains/org` office CRUD (`/api/org/offices`, `office.read`/`office.manage`) with a users-referencing archive guard; nullable `User.officeId` (+index) settable via the org-assignment leg (unknown office 422); **`Coordinator` role** in the User enum + `ROLE_CAPABILITIES` as an explicit allow-list (program/cohort/session/enrollment/completion/certificate/report/assignment/path + department read + office manage) — no user/security caps, no `org.manage`; AuditLog `actorRole`/entity enums extended (backfills 8 silently-failing audit entities). UI: People → Offices tab (per-tab perm gating), Office picker in `OrgAssignmentModal`, Coordinator-aware nav/routes/`useRole`. Seed: 2 offices + `000010`/coordinator123. Tests: 13 integration + 6 capability unit + 10 client. Phase 2 (coordinator-scheduled flow) next. |
 | → | **Re-center Phase 2 — coordinator-scheduled session flow** | Coordinator opens an offline session (cohort + Office + time); roster = self-enrol + assign (no Team) | 🟢 done — `Schedule.officeId` (nullable ref Office + index); `bookCohortSlot`/`bookCohortSession` thread + require `officeId` (missing → 400, unknown → 422) and were widened from Admin-only to the **scheduler** set (Admin/Coordinator) via a new `isScheduler`/`SCHEDULER_ROLES` in `scheduling-mode-policy` (also relaxes the `admin_scheduled` team gate to schedulers); session DTO exposes `office {name,code}`. UI: **Create-session** modal on Learning → Cohorts (cohort-mode cohorts only; Office + exact-slot via `useSchedulingConfig` + `slotToUtcRange`), `book:session` perm, `learningAPI.bookSession`/`useBookSession`. Roster reuses self-enrol catalog + assignment (decision: cohort/team-less per owner). Tests: 3 new session integration (coordinator create + office-required 400 + unknown-office 422) + updated cohort tests (officeId) + `isScheduler` unit + Coordinator team-mode unit + CreateSessionModal client (exact UTC range + office-required). server 738/75, client 220/47, lint cap 81, build clean. Deferred (open Qs): enrol-granularity toggle, offline attendance-without-quiz; leader grid kept (already mode-gated). Phase 3 (Office-scoped Rooms + Trainers) next. |
+| → | **Re-center Phase 3 — Office-scoped Rooms + internal/external Trainers** | Rooms belong to an Office (per-room double-book lock); Trainer = internal User (authz UNION) OR external record (invite only) | 🟢 done — new **`Room`** model (Office-scoped, soft-delete, live-unique code, optional seats) + `domains/room` CRUD (`/api/rooms`, `room.read`/`room.manage`, Admin+Coordinator) with a future-session archive guard; new **`RoomBooking`** hard-delete lock ledger (unique `{roomId,startTime}`) acquired in-tx after `Schedule.create` (cross-class race → **409**), `Schedule.roomId` written atomically (B3), released on cancel/delete/auto-release/team-sync + an 11th reconcile orphan-sweep check; cross-Office room → **422** (`room-lock-policy.assertSameOffice`, hard-fail when session has no Office). **Trainers:** `Schedule.sessionInstructorIds` (internal, UNION authz via new `policy/sessionInstructors` — named trainer marks/reads their session; cohort teacher never revoked; restrictive session-read kept, no B1 flip) + `externalTrainer` subdoc (no User/login; calendar invite via extended `effectiveAttendeesForSchedule`; email/phone hidden from learner DTOs). `PUT /api/schedules/:id/trainers` (`session.assign-trainer`, Admin/Coordinator, roleGuard belt, dedupe+identity-validate internal, one audit diff). `cancelSlot` widened so a Coordinator can cancel a team-less cohort session. AuditLog entity enum + `roomId` to schedule create/cohort-book bodies + session DTO (`room`, `sessionInstructors`, `externalTrainer`). UI: People → **Rooms** tab (Office-scoped CRUD) + Office-scoped **Room picker** in the Create-session modal; `roomsAPI`/`useRooms`/`qk.rooms`/`read:room`/`manage:room` perms. Tests: room-lock-policy + sessionInstructors unit, `roomOfficeScope` (13) + `sessionTrainers` (12) integration, RoomsPage (5) + CreateSessionModal room-picker client. server suites green, client 226/48, lint 0/81 (at cap), build clean. Deferred: trainer-assignment UI, waitlists + durable-cancellation states (Wave E3 phase-04), session-list visibility widening for trainer-only teachers. |
 
 ---
 
 ## Recent progress (changelog)
+
+- **2026-06-10** — **Cohort delete → soft-archive + restore (golden-rule fix).**
+  Resolved the open question from the cohort edit/delete restore: cohort delete is
+  now a **recoverable soft-archive** instead of a hard cascade-delete, honoring the
+  "never hard-delete evaluation/enrollment data" rule and matching Team's pattern.
+  `Class` model gained `isDeleted`/`deletedAt` + soft-delete pre-hooks (find/findOne/
+  count/findOneAndUpdate/findOneAndDelete + aggregate) — archived cohorts hidden from
+  all reads; existing docs unaffected (no backfill). `deleteCohort` now closes active
+  Enrollments (`status`→`Dropped`) + marks the cohort deleted in a transaction;
+  **Evaluations preserved**. Added `restoreCohort` (`POST /cohorts/:id/restore`) +
+  `listDeletedCohorts` (`GET /cohorts/deleted`), both `cohort.manage`. Frontend: new
+  `ArchivedCohortsPanel` (trash view + Restore) reachable via an "Archived" toggle in
+  the Cohorts tab; delete toast now says "archived (recoverable)". Tests: server
+  **794/80** (soft-delete/restore/trash/enrollment-preserve), client **228/49**; build
+  clean; lint at cap 72. `learning-catalog` spec updated (open question resolved).
+
+- **2026-06-10** — **Fix: restore cohort edit/delete (was an orphaned regression) +
+  retire `ClassesPage`.** The L&D re-vocab migration had moved cohort CREATE to the
+  `/learning` Cohorts tab and redirected `/classes`→`/learning?tab=cohorts`, but left
+  cohort EDIT/DELETE only in `ClassesPage` — which became unreachable (no route/importer).
+  Net effect: admins could not edit/delete a cohort anywhere. Fix (behavior change →
+  `learning-catalog` spec updated): **backend** added `PUT/DELETE /api/learning/cohorts/:id`
+  in `domains/learning` (use-cases + repository + controller + schemas + routes), gated by
+  `cohort.manage`, with the legacy guards/cascade preserved (block while Groups/Sessions
+  reference it; else cascade Evaluation+Enrollment in a transaction); audited as `Class`.
+  **Frontend** added `learningAPI.updateCohort/deleteCohort` + `useUpdateCohort/useDeleteCohort`
+  + a `CohortEditModal` (status + totalSessions + delete) wired into the Cohorts tab (edit
+  button gated by `cohort.manage`). Then removed the now-truly-dead `ClassesPage` → lint
+  cap ratcheted **75→72**. Tests: +6 backend integration (server **791/80** green), +1
+  frontend `CohortEditModal` test (client **228/49** green); build clean; lint at cap 72.
+  Open question logged in spec: cohort delete cascade is hard-delete (tension with the
+  soft-delete golden rule) — revisit.
+
+- **2026-06-10** — **Frontend `features/` migration — F5 (final): /me + auth + admin;
+  migration essentially COMPLETE.** Moved `features/learner/` (MyAssessmentsPage,
+  MyFeedbackPage, MyLearningCatalogPage, MyLearningPathsPage + 3 tests),
+  `features/auth/` (LoginPage + ForgotPasswordPage + ResetPasswordPage + UserSettingsPage
+  + LoginPage.test), `features/admin/` (HRExportPage, DatabaseExplorer). Importers
+  repointed: App.jsx (8 routes incl. eager LoginPage), ReportsPage (HRExport) + its test
+  mock, SystemPage (DatabaseExplorer). Shared hooks unchanged. Build clean, `test:run`
+  226/48, lint at cap 75. **16 feature folders.** **Only composition shells remain in
+  `pages/`** — PeoplePage, SystemPage, ReportsPage, CalendarPage (intentional: routing
+  glue across domains) — plus the flagged-dead `ClassesPage` (owner decision pending).
+  `.claude/rules/frontend-conventions.md` updated (migration essentially complete).
+
+- **2026-06-10** — **Frontend `features/` migration — F4 (learning, the big cluster).**
+  Moved the entire `pages/learning/` folder (40 files + 14 test files) **as a unit** to
+  `features/learning/` plus `LearningPage.jsx`. Near-zero internal churn: `pages/learning/`
+  and `features/learning/` are the same directory depth, so every `../../hooks|components|api`
+  reach-out and every `__tests__` `vi.mock` path stayed valid unchanged; only `LearningPage.jsx`
+  (tab imports `./learning/X`→`./X`, `../hooks`→`../../hooks`) and 4 external importers changed
+  (`App.jsx` lazy route; `/me` pages `MyAssessmentsPage`/`MyFeedbackPage`/`MyLearningPathsPage`
+  which import learning modals → repointed to `../features/learning/X`). Shared hooks
+  (`useLearning`/`useAssessment`/`useLearningDashboard`) stayed in `hooks/` (used by `/me` too).
+  Build clean, `test:run` 226/48, lint at cap 75. **13 feature folders.** Remaining: F5
+  (`/me` learner pages + auth + admin leftovers); `PeoplePage`/`SystemPage`/`ReportsPage`/
+  `CalendarPage` stay as composition shells in `pages/`.
+
+- **2026-06-10** — **Frontend `features/` migration — F3 (classes).** Migrated
+  `ClassDetailPage` → `features/classes/` (App.jsx lazy route repointed); shared hooks
+  (`useClasses`/`useTeams`/`useSchedules`/`useEnrollments`/`useAttendance`) stay shared.
+  Build clean, `test:run` 226/48, lint at cap 75. **12 feature folders.**
+  ⚠️ **`ClassesPage` left in `pages/` and FLAGGED, not migrated:** it has no route and
+  no importer (all refs are comments; `/classes`→`/learning?tab=cohorts` redirect), so it
+  appears dead/superseded by the learning Cohorts tab — BUT a `CohortFormModal` comment
+  says "Cohort edit/delete stays in ClassesPage" (contradiction). Needs owner decision:
+  delete as dead, or re-wire if cohort CRUD was meant to live there. Remaining: F4 learning
+  (~38 files), F5 /me+auth+admin.
+
+- **2026-06-10** — **Frontend `features/` migration — F2 (people + dashboards).**
+  Mapped to backend domains rather than a catch-all `people`: `features/users/`
+  (UsersPage), `features/groups/` (TeamsPage + MyTeamPage — mirrors `domains/groups`),
+  `features/org/` (DepartmentsPage — joins OfficesPage), `features/dashboard/`
+  (DashboardPage + ParticipantDashboard). `PeoplePage` stays a composition shell in
+  `pages/` (tabs repointed). Cross-cutting hooks (`useUsers`, `useTeams`, `useDashboard`,
+  `useOrg`) stay shared. Importers updated: `PeoplePage` (3 tabs), `App.jsx` (Dashboard
+  + MyTeam lazy routes); `DashboardPage`→`ParticipantDashboard` sibling import preserved;
+  `MyTeamPage.test` moved. Build clean, `test:run` 226/48, lint at cap 75. **11 feature
+  folders now under `features/`.** Remaining: F3 classes, F4 learning (~38 files),
+  F5 /me+auth+admin.
+
+- **2026-06-10** — **Frontend `features/` migration — F1 (scheduling) + dead-code
+  cleanup.** Removed dead `ProgramsPage` + `CourseManager` (no route/importer;
+  `/programs`→`/learning` redirect remains) → lint warnings 81→75, **ratcheted the
+  eslint cap 81→75** (`client/package.json` + `testing-and-ci.md`). Then F1 per
+  `plans/260610-2109-frontend-features-migration/`: `features/schedule/`
+  (SchedulesPage + BookClassPage) + `features/attendance/` (AttendancePage +
+  AttendanceDashboardPage); `CalendarPage` stays a composition shell in `pages/`
+  (child imports repointed). Cross-cutting hooks (`useSchedules`, `useAttendance`,
+  `useSchedulingConfig`) stay shared. Importers updated: `CalendarPage`, `App.jsx`
+  (BookClass lazy), `ReportsPage` + its test mock. Build clean, `test:run` 226/48,
+  lint at cap 75. **8 domains now under `features/`.** Remaining: F2 people/dashboards,
+  F3 classes, F4 learning (~38 files), F5 /me+auth+admin.
+
+- **2026-06-10** — **Frontend `features/` migration — clean leaf batch
+  (reconcile, settings, sync, evaluations).** Continued the migration with four
+  more self-contained domains (behavior-preserving `git mv` + import-depth fixes
+  + importer/test-mock updates): `features/reconcile/` (ReconcilePage +
+  `reconcile-check-meta` + test, off `SystemPage`), `features/settings/`
+  (SettingsPage + owned `useSettings`, off `SystemPage`), `features/sync/`
+  (SyncPage + owned `useSync`; importers `SystemPage`, `ReportsPage`,
+  `useExport` re-export, + `ReportsPage.test` mock), `features/evaluations/`
+  (EvaluationPage + owned `useEvaluations`; importers `ReportsPage`,
+  `ParticipantDashboard`, + test mock). Build clean, `test:run` 226/48,
+  lint at cap 81 (no new warnings) after the batch. **6 leaf domains now under
+  `features/`** (incl. the earlier rooms+org). Remaining are entangled clusters
+  (attendance/schedules/booking/calendar; the `pages/learning/` cluster +
+  `useAssessment`; users/teams/people/dashboards) — migrate as focused blocks.
+
+- **2026-06-10** — **Frontend `features/<domain>/` migration — pilot
+  (`features/rooms/`).** Established the feature-colocation convention (mirrors
+  backend `domains/`). Moved `pages/RoomsPage.jsx` + `hooks/useRooms.js` +
+  `__tests__/RoomsPage.test.jsx` into `client/src/features/rooms/` (git mv,
+  behavior-preserving); fixed relative-import depth and updated all importers
+  (`PeoplePage`, learning `CreateSessionModal` + its test mock). The central API
+  client (`api/api.js`) and `queryKeys.js` stay shared — `features/` colocates
+  feature code, not the axios client. Convention documented in
+  `.claude/rules/frontend-conventions.md`. Verified: client build clean,
+  `test:run` 226/48 green, eslint at cap 81 (no new warnings). Remaining domains
+  migrate incrementally; `pages/`+`features/` coexist during the migration.
+  Second domain migrated same day: `features/org/` (`OfficesPage` + tests) — the
+  "page moves, widely-shared hook (`useOrg`) stays in `hooks/`" variant; importer
+  `PeoplePage` updated; build + 226 tests + lint(cap) green.
+
+- **2026-06-10** — **Phase 1 (Backend Modular Monolith Refactor) effectively
+  complete (~98%).** Closed the last two backend items: (1) **schedule domain
+  use-case tests** — new `tests/integration/scheduleUseCases.test.js` (9 tests)
+  locks the `domains/schedule/use-cases` contract in isolation (update/delete/
+  setTrainers return shapes + `ServiceError.statusCode` 404/409/400). (2)
+  **repository-interface scope settled** — ADR
+  `docs/decisions/repository-layer-where-separable.md`: `repository.js` applies
+  where a query layer is genuinely separable (`learning/`, `schedule/`);
+  `attendance/` + `groups/` deliberately keep Mongoose access inline (fused with
+  aggregation/transaction logic — KISS, mirrors the "kept large by design"
+  precedent). With `domains/attendance` + `domains/groups` extracted and
+  `domains/schedule` now full (own routes, legacy adapter removed), the backend
+  refactor is done. **Frontend `features/` is a SEPARATE convention item, NOT
+  part of Phase 1** (handoff: it sits above the Phase 1 section).
+
+- **2026-06-10** — **Phase 1 refactor — extract `domains/schedule` routes (remove
+  the last legacy adapter).** Pure behavior-preserving relocation (no
+  route/response/authz change → no spec change). `routes/scheduleRoutes.js` +
+  `controllers/scheduleController.js` were removed; the 11 HTTP handlers
+  (book/cancel/availability/list/byId/my-class/create/update/delete/setTrainers/
+  attendance-calendar) merged into `domains/schedule/controller.js`, collapsing the
+  previous `scheduleController → domains/schedule` adapter indirection. Booking
+  mutations stay in `services/scheduleService` (kept large by design,
+  transaction-heavy); update/delete/setTrainers logic stays in
+  `domains/schedule/use-cases`. `/api/schedules` now mounts from the domain;
+  `Schedule` model + URL unchanged. 8 schedule/booking suites green (75 tests).
+  `current-system-map.md` + handoff updated. Remaining Phase 1: repository
+  interfaces (attendance/groups), schedule use-case tests, frontend `features/`.
+
+- **2026-06-10** — **Phase 1 refactor — extract `domains/groups` (Team).** Pure
+  behavior-preserving relocation (no route/response/authz change → no spec change).
+  Moved `controllers/teamController.js` + `controllers/team/*` + `routes/teamRoutes.js`
+  + `schemas/team.js` into `domains/groups/`: `routes` → `controller` (facade) →
+  `queries`/`mutations`/`lifecycle`/`enrollment-sync`, plus `schemas`. `/api/teams`
+  is now mounted from the domain; the `Team` model and the `/api/teams` URL are
+  unchanged (target vocabulary `LearningGroup` migrated via this module, not a
+  collection rename). The enrollment-transfer cross-dependency now imports
+  `domains/groups/controller`. `teams` + `enrollmentTransfer` suites green (21).
+  `current-system-map.md` updated. Remaining Phase 1: schedule domain routes,
+  repository interfaces, frontend `features/`.
+
+- **2026-06-10** — **Phase 1 refactor — extract `domains/attendance` (modular-
+  monolith, plan `260610-1940-phase1-domains-extraction` slice 1).** Pure
+  behavior-preserving relocation (no route/response/authz change → no spec
+  change). The attendance area moved into the `domains/<domain>` convention:
+  `domains/attendance/` now holds `routes` → `controller` → `use-cases` (facade)
+  → `marking` + `analytics` + `scope`, plus `schemas`. `/api/attendance` is
+  mounted from the domain; `controllers/attendanceController.js`,
+  `routes/attendanceRoutes.js`, `schemas/attendance.js`, and `services/attendance/*`
+  were removed; **`services/attendanceService.js` is now a one-line compat facade**
+  re-exporting `domains/attendance/use-cases` so the two integration tests that
+  import it directly (`analyticsPerf`, `phaseAHardening`) are unchanged. The
+  Phase 3 attendance UNION (cohort-teacher OR named session instructor) is
+  preserved verbatim. Server suite green; `current-system-map.md` updated (+ the
+  missing `/api/rooms` row). Remaining Phase 1: `domains/groups` (Team), schedule
+  domain routes, repository interfaces, frontend `features/`.
+- **2026-06-10** — **Re-center Phase 3 — Office-scoped Rooms + internal/external
+  Trainers (plan `260609-2215-ltms-recenter-coordinator-offline`, Phase 3 — folds
+  the unbuilt Wave E3 Room/instructor seams).** Wave E3 had never shipped, so this
+  phase built the Room/lock/instructor foundation from scratch plus the two grill
+  deltas. **Rooms are Office-scoped (Delta A):** a `Room` references exactly one
+  `Office` (replacing Wave E3's free `location` string); `domains/room` CRUD
+  (`/api/rooms`, `room.read`/`room.manage`, Admin + Coordinator) refuses to archive
+  while a future session uses the room (409). Assigning a room to a session goes
+  through a `RoomBooking` hard-delete lock ledger (unique `{roomId,startTime}` —
+  per-room == per-Office, no Office field on the ledger): acquired **in-tx after
+  `Schedule.create`** (so a duplicate or cross-Office room rolls the whole booking
+  back), with `Schedule.roomId` written in the same success path (B3 — never
+  drift). The **same-Office guard** (`assertSameOffice`) runs before lock acquire
+  and **hard-fails 422** when the room's Office ≠ the session's Office, or when the
+  session has no Office at all (never a silent no-op). Every Schedule-removal path
+  releases the ledger row — `cancelSlot`, `deleteSchedule`, `User` Dropped
+  auto-release, `Team` member-sync — and an 11th read-only **reconcile**
+  orphan-sweep check (`orphan_room_booking`) surfaces any ledger row whose Schedule
+  is gone. **Trainers are per-session (Delta B):** internal trainers
+  (`Schedule.sessionInstructorIds`, User refs) join the attendance/visibility authz
+  **UNION** via new `policy/sessionInstructors` — a named internal trainer can
+  mark/read **their** session even when not the cohort's class teacher, and the
+  cohort teacher is never revoked; the restrictive session-read is preserved (no
+  silent B1 permissive flip). An **external** trainer (`externalTrainer` subdoc:
+  name/email/phone/org) is never a User, never in `enrolledUsers`, never an actor —
+  it only gets a best-effort calendar invite (via the extended
+  `effectiveAttendeesForSchedule`, deduped by email, past-skip) and display; its
+  email/phone are hidden from learner-facing session DTOs (Admin/Coordinator see the
+  full contact). One mutation `PUT /api/schedules/:id/trainers`
+  (`session.assign-trainer` + `roleGuard('Admin','Coordinator')`) dedupes +
+  identity-validates internal ids (active Teacher/Admin) and records a single
+  before/after audit diff. **`cancelSlot` widened** so a Coordinator can cancel a
+  team-less cohort session (closing a Phase 2 loop). Frontend: People → **Rooms**
+  tab (Office-scoped CRUD), an Office-scoped **Room picker** in the coordinator
+  Create-session modal (`roomId` sent only when picked), `roomsAPI`/`useRooms`/
+  `qk.rooms`/`read:room`/`manage:room`. Verified: new unit suites (room-lock-policy,
+  sessionInstructors) + `roomOfficeScope` (13) + `sessionTrainers` (12) integration;
+  related suites (attendance/session/scheduleAuthz/reassign) green; **client 226
+  tests / 48 files, lint 0 errors / 81 warnings (at cap), production build clean.**
+  Specs: `scheduling-and-booking` (Office-scoped room + per-room lock + trainers),
+  `attendance` (UNION note — internal-only), route-permission-matrix
+  (`/api/rooms`, `/api/schedules/:id/trainers`, room.* caps). Deferred: the
+  trainer-assignment UI (backend complete + tested), waitlists + durable-
+  cancellation states (Wave E3 phase-04 — outside the two grill deltas), and
+  session-list visibility widening for trainer-only teachers.
 
 - **2026-06-10** — **Re-center Phase 2 — coordinator-scheduled session flow
   (plan `260609-2215-ltms-recenter-coordinator-offline`, Phase 2).** The

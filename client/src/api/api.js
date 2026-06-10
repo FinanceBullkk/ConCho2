@@ -229,6 +229,10 @@ export const learningAPI = {
   getCohorts: (params) => api.get('/learning/cohorts', { params }),
   getCohort: (id) => api.get(`/learning/cohorts/${id}`),
   createCohort: (data) => api.post('/learning/cohorts', data),
+  updateCohort: (id, data) => api.put(`/learning/cohorts/${id}`, data),
+  deleteCohort: (id) => api.delete(`/learning/cohorts/${id}`),
+  getDeletedCohorts: () => api.get('/learning/cohorts/deleted'),
+  restoreCohort: (id) => api.post(`/learning/cohorts/${id}/restore`),
   // Safe scheduling config (allowed slots + tz) — readable by all roles.
   getSchedulingConfig: () => api.get('/learning/sessions/config'),
   getSessions: (params) => api.get('/learning/sessions', { params }),
@@ -324,6 +328,14 @@ export const orgAPI = {
   archiveOffice:     (id) => api.delete(`/org/offices/${id}`),
   assignUser:        (id, data) => api.put(`/org/users/${id}/assignment`, data),
   getMyTeam:         () => api.get('/org/my-team'),
+};
+
+// Rooms (re-center Phase 3) — Office-scoped physical rooms, Admin/Coordinator.
+export const roomsAPI = {
+  getRooms:    (params) => api.get('/rooms', { params }),
+  createRoom:  (data) => api.post('/rooms', data),
+  updateRoom:  (id, data) => api.put(`/rooms/${id}`, data),
+  archiveRoom: (id) => api.delete(`/rooms/${id}`),
 };
 
 export default api;
