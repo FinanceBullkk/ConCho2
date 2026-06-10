@@ -1,16 +1,16 @@
 import { useState, useMemo } from 'react';
-import { useAuth } from '../context/AuthContext';
-import { useClasses } from '../hooks/useClasses';
-import { useEnrollments } from '../hooks/useEnrollments';
-import { useEvaluations, useUpsertEvaluation, useDeleteEvaluation } from '../hooks/useEvaluations';
-import { useUsers } from '../hooks/useUsers';
-import { useDebounce } from '../hooks/useDebounce';
-import { DataTable } from '../components/DataTable';
+import { useAuth } from '../../context/AuthContext';
+import { useClasses } from '../../hooks/useClasses';
+import { useEnrollments } from '../../hooks/useEnrollments';
+import { useEvaluations, useUpsertEvaluation, useDeleteEvaluation } from './useEvaluations';
+import { useUsers } from '../../hooks/useUsers';
+import { useDebounce } from '../../hooks/useDebounce';
+import { DataTable } from '../../components/DataTable';
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { Spinner } from '../components/Spinner';
+import { Spinner } from '../../components/Spinner';
 
 // ──────────────────────────────────────────────────────────
 // EvaluationPage

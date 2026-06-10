@@ -14,7 +14,7 @@ import { diffJson } from '@/lib/jsonDiff';
 import { cn } from '@/lib/utils';
 import SettingsPage from '../features/settings/SettingsPage';
 import DatabaseExplorer from './DatabaseExplorer';
-import SyncPage from './SyncPage';
+import SyncPage from '../features/sync/SyncPage';
 import ReconcilePage from '../features/reconcile/ReconcilePage';
 
 // ──────────────────────────────────────────────────────────
