@@ -2,9 +2,9 @@ import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Building2, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Spinner } from '../components/Spinner';
-import { useRole } from '../hooks/useRole';
-import { useDepartments, useCreateDepartment, useArchiveDepartment } from '../hooks/useOrg';
+import { Spinner } from '../../components/Spinner';
+import { useRole } from '../../hooks/useRole';
+import { useDepartments, useCreateDepartment, useArchiveDepartment } from '../../hooks/useOrg';
 
 // ──────────────────────────────────────────────────────────
 // DepartmentsPage — People → Departments tab (Wave D3).

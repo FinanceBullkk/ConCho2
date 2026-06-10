@@ -4,17 +4,17 @@ import {
   CalendarDays, BarChart3, CheckCircle2, XCircle, Target,
   ClipboardList, CalendarPlus, Clock, MapPin, Users2, ChevronRight, PlayCircle, MessageSquare, BookOpen, Route,
 } from 'lucide-react';
-import { useAuth } from '../context/AuthContext';
-import { useMyClassSchedules } from '../hooks/useSchedules';
-import { useMyAttendanceStats, useAttendanceByUser } from '../hooks/useAttendance';
-import { useEvaluations } from '../features/evaluations/useEvaluations';
-import { useNextClass } from '../hooks/useNextClass';
-import { Spinner } from '../components/Spinner';
-import { KPICard } from '../components/KPICard';
-import { StatusBadge } from '../components/StatusBadge';
-import { EmptyState } from '../components/EmptyState';
-import { DataTable } from '../components/DataTable';
-import { NextClassCard } from '../components/NextClassCard';
+import { useAuth } from '../../context/AuthContext';
+import { useMyClassSchedules } from '../../hooks/useSchedules';
+import { useMyAttendanceStats, useAttendanceByUser } from '../../hooks/useAttendance';
+import { useEvaluations } from '../../features/evaluations/useEvaluations';
+import { useNextClass } from '../../hooks/useNextClass';
+import { Spinner } from '../../components/Spinner';
+import { KPICard } from '../../components/KPICard';
+import { StatusBadge } from '../../components/StatusBadge';
+import { EmptyState } from '../../components/EmptyState';
+import { DataTable } from '../../components/DataTable';
+import { NextClassCard } from '../../components/NextClassCard';
 import { Button } from '@/components/ui/button';
 
 // ──────────────────────────────────────────────────────────

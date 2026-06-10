@@ -3,8 +3,8 @@ import { Users, Award, CheckCircle2 } from 'lucide-react';
 import { PageHeader } from '@/components/PageHeader';
 import TableSkeleton from '@/components/TableSkeleton';
 import { EmptyState } from '@/components/EmptyState';
-import { useMyTeam } from '../hooks/useOrg';
-import TeamRosterTable from '../components/TeamRosterTable';
+import { useMyTeam } from '../../hooks/useOrg';
+import TeamRosterTable from '../../components/TeamRosterTable';
 
 // ──────────────────────────────────────────────────────────
 // MyTeamPage — manager-scoped dashboard (Wave D3).

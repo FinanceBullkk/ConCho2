@@ -232,6 +232,18 @@ Bug fixing and integration review rank above net-new feature rollout.
 
 ## Recent progress (changelog)
 
+- **2026-06-10** — **Frontend `features/` migration — F2 (people + dashboards).**
+  Mapped to backend domains rather than a catch-all `people`: `features/users/`
+  (UsersPage), `features/groups/` (TeamsPage + MyTeamPage — mirrors `domains/groups`),
+  `features/org/` (DepartmentsPage — joins OfficesPage), `features/dashboard/`
+  (DashboardPage + ParticipantDashboard). `PeoplePage` stays a composition shell in
+  `pages/` (tabs repointed). Cross-cutting hooks (`useUsers`, `useTeams`, `useDashboard`,
+  `useOrg`) stay shared. Importers updated: `PeoplePage` (3 tabs), `App.jsx` (Dashboard
+  + MyTeam lazy routes); `DashboardPage`→`ParticipantDashboard` sibling import preserved;
+  `MyTeamPage.test` moved. Build clean, `test:run` 226/48, lint at cap 75. **11 feature
+  folders now under `features/`.** Remaining: F3 classes, F4 learning (~38 files),
+  F5 /me+auth+admin.
+
 - **2026-06-10** — **Frontend `features/` migration — F1 (scheduling) + dead-code
   cleanup.** Removed dead `ProgramsPage` + `CourseManager` (no route/importer;
   `/programs`→`/learning` redirect remains) → lint warnings 81→75, **ratcheted the

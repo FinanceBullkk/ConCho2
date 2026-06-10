@@ -19,7 +19,7 @@ import LoginPage from './pages/LoginPage';
 const ForgotPasswordPage = lazy(() => import('./pages/ForgotPasswordPage'));
 const ResetPasswordPage  = lazy(() => import('./pages/ResetPasswordPage'));
 
-const DashboardPage    = lazy(() => import('./pages/DashboardPage'));
+const DashboardPage    = lazy(() => import('./features/dashboard/DashboardPage'));
 const PeoplePage       = lazy(() => import('./pages/PeoplePage'));
 const LearningPage     = lazy(() => import('./pages/LearningPage'));
 const ReportsPage      = lazy(() => import('./pages/ReportsPage'));
@@ -32,7 +32,7 @@ const MyLearningCatalogPage = lazy(() => import('./pages/MyLearningCatalogPage')
 const MyLearningPathsPage = lazy(() => import('./pages/MyLearningPathsPage'));
 const MyAssessmentsPage = lazy(() => import('./pages/MyAssessmentsPage'));
 const MyFeedbackPage = lazy(() => import('./pages/MyFeedbackPage'));
-const MyTeamPage = lazy(() => import('./pages/MyTeamPage'));
+const MyTeamPage = lazy(() => import('./features/groups/MyTeamPage'));
 
 function RouteFallback() {
   return (

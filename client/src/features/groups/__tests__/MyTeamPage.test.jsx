@@ -5,7 +5,7 @@ import MyTeamPage from '../MyTeamPage';
 // Mutable mock return for useMyTeam (vi.mock is hoisted — use vi.hoisted).
 const h = vi.hoisted(() => ({ ret: { data: undefined, isLoading: true } }));
 
-vi.mock('../../hooks/useOrg', () => ({
+vi.mock('../../../hooks/useOrg', () => ({
   useMyTeam: () => h.ret,
 }));
 

@@ -2,8 +2,8 @@ import { useEffect, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Users, BarChart3, AlertTriangle, PauseCircle, RefreshCw, BookOpen, Building2, UserCog } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { useAuth } from '../context/AuthContext';
-import { useDashboardStats, useDashboardFilterOptions } from '../hooks/useDashboard';
+import { useAuth } from '../../context/AuthContext';
+import { useDashboardStats, useDashboardFilterOptions } from '../../hooks/useDashboard';
 import { AlertBand } from '@/components/home/AlertBand';
 import { TodayHero } from '@/components/home/TodayHero';
 import { PageHeader } from '@/components/PageHeader';
@@ -13,8 +13,8 @@ import { EmptyState } from '@/components/EmptyState';
 import { Spinner } from '@/components/Spinner';
 import { Button } from '@/components/ui/button';
 import ParticipantDashboard from './ParticipantDashboard';
-import QueryError from '../components/QueryError';
-import { activeRatioBarWidth } from '../lib/dashboard-bar-width';
+import QueryError from '../../components/QueryError';
+import { activeRatioBarWidth } from '../../lib/dashboard-bar-width';
 
 // Indexed chart-1…5 (guaranteed tokens in Phase 0 §04 palette).
 // Use (i % 5) + 1 inline — no static array needed.

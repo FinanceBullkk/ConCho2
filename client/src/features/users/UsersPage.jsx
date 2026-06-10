@@ -4,32 +4,32 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { ShieldAlert, LogOut, BarChart3, Pencil, Trash2, RefreshCw, Download, Building2 } from 'lucide-react';
-import StudentProgressModal from '../components/Progress/StudentProgressModal';
-import OrgAssignmentModal from '../components/OrgAssignmentModal';
-import Portal from '../components/Portal';
+import StudentProgressModal from '../../components/Progress/StudentProgressModal';
+import OrgAssignmentModal from '../../components/OrgAssignmentModal';
+import Portal from '../../components/Portal';
 import {
   Dialog, DialogContent, DialogHeader, DialogFooter, DialogTitle,
 } from '@/components/ui/dialog';
-import { useUsers, useCreateUser, useUpdateUser, useDeleteUser } from '../hooks/useUsers';
-import { useTeams } from '../hooks/useTeams';
-import { qk } from '../hooks/queryKeys';
-import { useAuth } from '../context/AuthContext';
-import { useRole } from '../hooks/useRole';
-import { useListUrlState } from '../hooks/useListUrlState';
-import { authAPI } from '../api/api';
-import { createUserSchema, editUserSchema } from '../lib/validations';
-import { DataTable } from '../components/DataTable';
-import { FilterBar } from '../components/FilterBar';
-import { StatusBadge } from '../components/StatusBadge';
-import { StatusChips } from '../components/StatusChips';
-import { ActiveFilterChips } from '../components/ActiveFilterChips';
-import { SelectionBar } from '../components/SelectionBar';
-import { BulkDeleteConfirm } from '../components/BulkDeleteConfirm';
+import { useUsers, useCreateUser, useUpdateUser, useDeleteUser } from '../../hooks/useUsers';
+import { useTeams } from '../../hooks/useTeams';
+import { qk } from '../../hooks/queryKeys';
+import { useAuth } from '../../context/AuthContext';
+import { useRole } from '../../hooks/useRole';
+import { useListUrlState } from '../../hooks/useListUrlState';
+import { authAPI } from '../../api/api';
+import { createUserSchema, editUserSchema } from '../../lib/validations';
+import { DataTable } from '../../components/DataTable';
+import { FilterBar } from '../../components/FilterBar';
+import { StatusBadge } from '../../components/StatusBadge';
+import { StatusChips } from '../../components/StatusChips';
+import { ActiveFilterChips } from '../../components/ActiveFilterChips';
+import { SelectionBar } from '../../components/SelectionBar';
+import { BulkDeleteConfirm } from '../../components/BulkDeleteConfirm';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem,
 } from '@/components/ui/dropdown-menu';
-import { Spinner } from '../components/Spinner';
+import { Spinner } from '../../components/Spinner';
 import { cn } from '@/lib/utils';
 
 // Per Screen 5 §E (Users variant):

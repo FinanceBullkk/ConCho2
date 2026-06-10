@@ -1,23 +1,23 @@
 import { useState, useEffect, useMemo } from 'react';
 import { RefreshCw } from 'lucide-react';
-import TeamProgressModal from '../components/Progress/TeamProgressModal';
-import StudentProgressModal from '../components/Progress/StudentProgressModal';
-import Portal from '../components/Portal';
+import TeamProgressModal from '../../components/Progress/TeamProgressModal';
+import StudentProgressModal from '../../components/Progress/StudentProgressModal';
+import Portal from '../../components/Portal';
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
 } from '@/components/ui/dialog';
-import { useTeams, useCreateTeam, useUpdateTeam, useDeleteTeam } from '../hooks/useTeams';
-import { useUsers } from '../hooks/useUsers';
-import { useClasses } from '../hooks/useClasses';
-import { useCheckEnrollmentConflicts } from '../hooks/useEnrollments';
-import { useRole } from '../hooks/useRole';
-import { useListUrlState } from '../hooks/useListUrlState';
+import { useTeams, useCreateTeam, useUpdateTeam, useDeleteTeam } from '../../hooks/useTeams';
+import { useUsers } from '../../hooks/useUsers';
+import { useClasses } from '../../hooks/useClasses';
+import { useCheckEnrollmentConflicts } from '../../hooks/useEnrollments';
+import { useRole } from '../../hooks/useRole';
+import { useListUrlState } from '../../hooks/useListUrlState';
 import { Button } from '@/components/ui/button';
-import { Spinner } from '../components/Spinner';
-import { DataTable } from '../components/DataTable';
-import { FilterBar } from '../components/FilterBar';
-import { StatusChips } from '../components/StatusChips';
-import { ActiveFilterChips } from '../components/ActiveFilterChips';
+import { Spinner } from '../../components/Spinner';
+import { DataTable } from '../../components/DataTable';
+import { FilterBar } from '../../components/FilterBar';
+import { StatusChips } from '../../components/StatusChips';
+import { ActiveFilterChips } from '../../components/ActiveFilterChips';
 
 function TeamModal({ team, participants, classes, teams, onClose, onSaved }) {
   const isEdit = !!team?._id;
