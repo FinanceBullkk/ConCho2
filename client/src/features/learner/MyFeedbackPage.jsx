@@ -6,9 +6,9 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { PageHeader } from '@/components/PageHeader';
 import TableSkeleton from '@/components/TableSkeleton';
 import { EmptyState } from '@/components/EmptyState';
-import { useLearningEnrollments, useLearningFeedback } from '../hooks/useLearning';
-import { useMyClassSchedules } from '../hooks/useSchedules';
-import FeedbackFormModal from '../features/learning/FeedbackFormModal';
+import { useLearningEnrollments, useLearningFeedback } from '../../hooks/useLearning';
+import { useMyClassSchedules } from '../../hooks/useSchedules';
+import FeedbackFormModal from '../../features/learning/FeedbackFormModal';
 
 const classIdOf = (schedule) => schedule?.classId?._id || schedule?.classId || null;
 

@@ -6,10 +6,10 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { PageHeader } from '@/components/PageHeader';
 import TableSkeleton from '@/components/TableSkeleton';
 import { EmptyState } from '@/components/EmptyState';
-import { useAssessments, useAssessmentAttempts } from '../hooks/useAssessment';
-import { useLearningEnrollments } from '../hooks/useLearning';
-import { useMyClassSchedules } from '../hooks/useSchedules';
-import AssessmentAttemptModal from '../features/learning/AssessmentAttemptModal';
+import { useAssessments, useAssessmentAttempts } from '../../hooks/useAssessment';
+import { useLearningEnrollments } from '../../hooks/useLearning';
+import { useMyClassSchedules } from '../../hooks/useSchedules';
+import AssessmentAttemptModal from '../../features/learning/AssessmentAttemptModal';
 
 const classIdOf = (schedule) => {
   const cls = schedule?.classId;

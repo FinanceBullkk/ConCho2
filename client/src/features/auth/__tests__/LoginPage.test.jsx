@@ -8,7 +8,7 @@ import LoginPage from '../LoginPage';
 const mockLogin = vi.fn();
 const mockVerifyMfa = vi.fn();
 
-vi.mock('../../context/AuthContext', () => ({
+vi.mock('../../../context/AuthContext', () => ({
   useAuth: () => ({ login: mockLogin, verifyMfa: mockVerifyMfa }),
 }));
 

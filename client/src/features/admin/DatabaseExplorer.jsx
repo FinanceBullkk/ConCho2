@@ -4,8 +4,8 @@ import {
   ClipboardList, FileText, Hash, Settings, File,
   Pencil, Trash2, AlertTriangle,
 } from 'lucide-react';
-import { adminDbAPI } from '../api/api';
-import { Spinner } from '../components/Spinner';
+import { adminDbAPI } from '../../api/api';
+import { Spinner } from '../../components/Spinner';
 
 // ──────────────────────────────────────────────────────────
 // Database Explorer — Admin-only data browser & editor

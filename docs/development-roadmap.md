@@ -232,6 +232,18 @@ Bug fixing and integration review rank above net-new feature rollout.
 
 ## Recent progress (changelog)
 
+- **2026-06-10** — **Frontend `features/` migration — F5 (final): /me + auth + admin;
+  migration essentially COMPLETE.** Moved `features/learner/` (MyAssessmentsPage,
+  MyFeedbackPage, MyLearningCatalogPage, MyLearningPathsPage + 3 tests),
+  `features/auth/` (LoginPage + ForgotPasswordPage + ResetPasswordPage + UserSettingsPage
+  + LoginPage.test), `features/admin/` (HRExportPage, DatabaseExplorer). Importers
+  repointed: App.jsx (8 routes incl. eager LoginPage), ReportsPage (HRExport) + its test
+  mock, SystemPage (DatabaseExplorer). Shared hooks unchanged. Build clean, `test:run`
+  226/48, lint at cap 75. **16 feature folders.** **Only composition shells remain in
+  `pages/`** — PeoplePage, SystemPage, ReportsPage, CalendarPage (intentional: routing
+  glue across domains) — plus the flagged-dead `ClassesPage` (owner decision pending).
+  `.claude/rules/frontend-conventions.md` updated (migration essentially complete).
+
 - **2026-06-10** — **Frontend `features/` migration — F4 (learning, the big cluster).**
   Moved the entire `pages/learning/` folder (40 files + 14 test files) **as a unit** to
   `features/learning/` plus `LearningPage.jsx`. Near-zero internal churn: `pages/learning/`

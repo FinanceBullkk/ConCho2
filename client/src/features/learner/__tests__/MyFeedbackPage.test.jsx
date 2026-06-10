@@ -14,7 +14,7 @@ const feedback = [
   },
 ];
 
-vi.mock('../../hooks/useLearning', () => ({
+vi.mock('../../../hooks/useLearning', () => ({
   useLearningEnrollments: () => ({
     data: {
       data: [
@@ -28,7 +28,7 @@ vi.mock('../../hooks/useLearning', () => ({
   useSubmitFeedback: () => ({ mutateAsync: vi.fn(), isPending: false }),
 }));
 
-vi.mock('../../hooks/useSchedules', () => ({
+vi.mock('../../../hooks/useSchedules', () => ({
   useMyClassSchedules: () => ({
     data: {
       data: [
