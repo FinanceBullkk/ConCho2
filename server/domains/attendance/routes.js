@@ -1,16 +1,21 @@
 const router = require('express').Router();
 const { z } = require('zod');
-const { 
+const {
   bulkMarkAttendance, getAttendanceBySchedule, getAttendanceByUser,
   getAnalyticsByEmployee, getAnalyticsByTeam, getAnalyticsByClass, getMyStats
-} = require('../controllers/attendanceController');
-const { protect } = require('../middleware/auth');
-const { roleGuard } = require('../middleware/roleGuard');
-const { cacheMiddleware } = require('../middleware/analyticsCache');
-const { attendanceLimiter } = require('../middleware/rateLimiters');
-const { validate } = require('../middleware/validate');
-const { bulkMarkBody } = require('../schemas/attendance');
-const { idParam } = require('../schemas/common');
+} = require('./controller');
+const { protect } = require('../../middleware/auth');
+const { roleGuard } = require('../../middleware/roleGuard');
+const { cacheMiddleware } = require('../../middleware/analyticsCache');
+const { attendanceLimiter } = require('../../middleware/rateLimiters');
+const { validate } = require('../../middleware/validate');
+const { bulkMarkBody } = require('./schemas');
+const { idParam } = require('../../schemas/common');
+
+// ──────────────────────────────────────────────────────────
+// Attendance routes — mounted at /api/attendance (Phase 1 domain extraction;
+// relocated from routes/attendanceRoutes.js, behavior-preserving).
+// ──────────────────────────────────────────────────────────
 
 // Analytics endpoints — cached for 30 min, invalidated on new attendance writes
 // SEC-IDOR-02 / QB-007: Admin sees org-wide analytics; Teacher reads are scoped

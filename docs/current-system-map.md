@@ -160,7 +160,8 @@ English literals directly.
 | `/api/classes` | `classRoutes.js` | class CRUD, course metadata |
 | `/api/learning` | `domains/learning/routes.js` | Learning programs, cohorts, sessions, paths, reports, assignments |
 | `/api/schedules` | `scheduleRoutes.js` | availability, booking, cancel, calendars |
-| `/api/attendance` | `attendanceRoutes.js` | attendance marking, analytics, personal stats |
+| `/api/attendance` | `domains/attendance/routes.js` | attendance marking, analytics, personal stats (Phase 1 domain extraction; `controller` → `use-cases` → `marking`/`analytics`/`scope`; `services/attendanceService.js` kept as a compat facade) |
+| `/api/rooms` | `domains/room/routes.js` | Office-scoped physical Rooms CRUD (re-center Phase 3) |
 | `/api/evaluations` | `evaluationRoutes.js` | upsert/list/get/delete evaluations |
 | `/api/enrollments` | `enrollmentRoutes.js` | enrollment list, transfer, bulk operations |
 | `/api/sync` | `syncRoutes.js` | sync status and Google Sheets sync |

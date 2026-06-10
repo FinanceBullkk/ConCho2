@@ -232,6 +232,21 @@ Bug fixing and integration review rank above net-new feature rollout.
 
 ## Recent progress (changelog)
 
+- **2026-06-10** — **Phase 1 refactor — extract `domains/attendance` (modular-
+  monolith, plan `260610-1940-phase1-domains-extraction` slice 1).** Pure
+  behavior-preserving relocation (no route/response/authz change → no spec
+  change). The attendance area moved into the `domains/<domain>` convention:
+  `domains/attendance/` now holds `routes` → `controller` → `use-cases` (facade)
+  → `marking` + `analytics` + `scope`, plus `schemas`. `/api/attendance` is
+  mounted from the domain; `controllers/attendanceController.js`,
+  `routes/attendanceRoutes.js`, `schemas/attendance.js`, and `services/attendance/*`
+  were removed; **`services/attendanceService.js` is now a one-line compat facade**
+  re-exporting `domains/attendance/use-cases` so the two integration tests that
+  import it directly (`analyticsPerf`, `phaseAHardening`) are unchanged. The
+  Phase 3 attendance UNION (cohort-teacher OR named session instructor) is
+  preserved verbatim. Server suite green; `current-system-map.md` updated (+ the
+  missing `/api/rooms` row). Remaining Phase 1: `domains/groups` (Team), schedule
+  domain routes, repository interfaces, frontend `features/`.
 - **2026-06-10** — **Re-center Phase 3 — Office-scoped Rooms + internal/external
   Trainers (plan `260609-2215-ltms-recenter-coordinator-offline`, Phase 3 — folds
   the unbuilt Wave E3 Room/instructor seams).** Wave E3 had never shipped, so this

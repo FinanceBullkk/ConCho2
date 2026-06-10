@@ -3,14 +3,14 @@ const Attendance = require('../../models/Attendance');
 const Schedule = require('../../models/Schedule');
 const { invalidateAnalyticsCache } = require('../../middleware/analyticsCache');
 const { ServiceError } = require('../../helpers/ServiceError');
-const { scopedAttendanceMatch } = require('./attendance-scope');
+const { scopedAttendanceMatch } = require('./scope');
 
 // ──────────────────────────────────────────────────────────
-// Attendance Service — marking + record reads
+// attendance/marking — bulk marking + record reads
 // ──────────────────────────────────────────────────────────
-// Split from the legacy attendanceService (Phase 1 modular-monolith).
-// Bulk upsert with edit-window guards + lastActiveAt write-through (PERF-008),
-// plus the per-schedule / per-user record reads.
+// Relocated from services/attendance/attendance-marking.js (Phase 1 domain
+// extraction — behavior-preserving). Bulk upsert with edit-window guards +
+// lastActiveAt write-through (PERF-008), plus the per-schedule / per-user reads.
 
 const VALID_STATUSES = ['P', 'A', 'L', 'EL'];
 
