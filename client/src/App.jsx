@@ -25,7 +25,7 @@ const LearningPage     = lazy(() => import('./pages/LearningPage'));
 const ReportsPage      = lazy(() => import('./pages/ReportsPage'));
 const SystemPage       = lazy(() => import('./pages/SystemPage'));
 const CalendarPage     = lazy(() => import('./pages/CalendarPage'));
-const BookClassPage    = lazy(() => import('./pages/BookClassPage'));
+const BookClassPage    = lazy(() => import('./features/schedule/BookClassPage'));
 const ClassDetailPage  = lazy(() => import('./pages/ClassDetailPage'));
 const UserSettingsPage = lazy(() => import('./pages/UserSettingsPage'));
 const MyLearningCatalogPage = lazy(() => import('./pages/MyLearningCatalogPage'));

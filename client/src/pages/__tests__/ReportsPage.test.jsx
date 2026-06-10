@@ -14,7 +14,7 @@ vi.mock('@/hooks/useRole', () => ({
 vi.mock('../HRExportPage', () => ({ default: () => <div data-testid="hr-export-page">HR Export</div> }));
 vi.mock('../../features/sync/SyncPage', () => ({ default: () => <div data-testid="sync-page">Sync</div> }));
 vi.mock('../../features/evaluations/EvaluationPage', () => ({ default: () => <div data-testid="eval-page">Evaluations</div> }));
-vi.mock('../AttendanceDashboardPage', () => ({ default: () => <div data-testid="analytics-page">Analytics</div> }));
+vi.mock('../../features/attendance/AttendanceDashboardPage', () => ({ default: () => <div data-testid="analytics-page">Analytics</div> }));
 
 function renderReports(initialPath = '/reports') {
   return render(

@@ -6,7 +6,7 @@ import { useRole } from '@/hooks/useRole';
 import HRExportPage from './HRExportPage';
 import SyncPage from '../features/sync/SyncPage';
 import EvaluationPage from '../features/evaluations/EvaluationPage';
-import AttendanceDashboardPage from './AttendanceDashboardPage';
+import AttendanceDashboardPage from '../features/attendance/AttendanceDashboardPage';
 
 // ──────────────────────────────────────────────────────────
 // Reports — Analytics, HR Export, Sheets Sync, Evaluations.

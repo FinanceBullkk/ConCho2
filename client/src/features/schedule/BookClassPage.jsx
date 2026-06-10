@@ -1,17 +1,17 @@
 import { useState, useEffect, useMemo } from 'react';
-import { useAuth } from '../context/AuthContext';
+import { useAuth } from '../../context/AuthContext';
 import { useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
 import { Lock } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { useAvailability, useBookSlot, useCancelSlot } from '../hooks/useSchedules';
-import { useMyTeams } from '../hooks/useTeams';
-import { useSchedulingConfig, DEFAULT_UTC_OFFSET_MINUTES } from '../hooks/useSchedulingConfig';
-import { CalendarGrid, getMonday, toDateKey } from '../components/CalendarGrid';
-import { BookDrawer } from '../components/BookDrawer';
-import { effectiveSchedulingMode, isLeaderBookable, lockedReason } from '../lib/scheduling-mode';
-import { bookingCellState } from '../lib/booking-cell-state';
-import { slotToUtcRange, scheduleSlotId, buildSlotRows } from '../lib/scheduling-slots';
+import { useAvailability, useBookSlot, useCancelSlot } from '../../hooks/useSchedules';
+import { useMyTeams } from '../../hooks/useTeams';
+import { useSchedulingConfig, DEFAULT_UTC_OFFSET_MINUTES } from '../../hooks/useSchedulingConfig';
+import { CalendarGrid, getMonday, toDateKey } from '../../components/CalendarGrid';
+import { BookDrawer } from '../../components/BookDrawer';
+import { effectiveSchedulingMode, isLeaderBookable, lockedReason } from '../../lib/scheduling-mode';
+import { bookingCellState } from '../../lib/booking-cell-state';
+import { slotToUtcRange, scheduleSlotId, buildSlotRows } from '../../lib/scheduling-slots';
 import { Button } from '@/components/ui/button';
 
 // ──────────────────────────────────────────────────────────

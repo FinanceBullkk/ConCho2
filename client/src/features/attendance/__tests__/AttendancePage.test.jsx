@@ -5,15 +5,15 @@ import AttendancePage from '../AttendancePage';
 // Smoke: the attendance grid renders exact configured slot rows (descriptor
 // migration) without crashing, with the data hooks mocked.
 
-vi.mock('../../components/AttendanceDrawer', () => ({ AttendanceDrawer: () => null }));
-vi.mock('../../context/AuthContext', () => ({ useAuth: () => ({ isAdmin: true }) }));
-vi.mock('../../api/api', () => ({
+vi.mock('../../../components/AttendanceDrawer', () => ({ AttendanceDrawer: () => null }));
+vi.mock('../../../context/AuthContext', () => ({ useAuth: () => ({ isAdmin: true }) }));
+vi.mock('../../../api/api', () => ({
   schedulesAPI: { getById: vi.fn() },
   attendanceAPI: { getBySchedule: vi.fn() },
 }));
-vi.mock('../../hooks/useAttendance', () => ({ useBulkMarkAttendance: () => ({ mutateAsync: vi.fn(), isPending: false }) }));
-vi.mock('../../hooks/useSchedules', () => ({ useAttendanceCalendar: () => ({ data: [], isLoading: false }) }));
-vi.mock('../../hooks/useSchedulingConfig', () => ({
+vi.mock('../../../hooks/useAttendance', () => ({ useBulkMarkAttendance: () => ({ mutateAsync: vi.fn(), isPending: false }) }));
+vi.mock('../../../hooks/useSchedules', () => ({ useAttendanceCalendar: () => ({ data: [], isLoading: false }) }));
+vi.mock('../../../hooks/useSchedulingConfig', () => ({
   DEFAULT_UTC_OFFSET_MINUTES: 420,
   useSchedulingConfig: () => ({
     data: {

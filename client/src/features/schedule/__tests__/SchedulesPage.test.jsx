@@ -6,14 +6,14 @@ import SchedulesPage from '../SchedulesPage';
 // Smoke: the Admin schedule grid renders exact configured slot rows (descriptor
 // migration) and the create affordance, with the data hooks mocked.
 
-vi.mock('../../components/ScheduleDrawer', () => ({ ScheduleDrawer: () => null }));
-vi.mock('../../hooks/useRole', () => ({ useRole: () => ({ can: () => true }) }));
-vi.mock('../../hooks/useClasses', () => ({ useClasses: () => ({ data: [] }) }));
-vi.mock('../../hooks/useTeams', () => ({ useTeams: () => ({ data: [] }) }));
-vi.mock('../../hooks/useSchedules', () => ({
+vi.mock('../../../components/ScheduleDrawer', () => ({ ScheduleDrawer: () => null }));
+vi.mock('../../../hooks/useRole', () => ({ useRole: () => ({ can: () => true }) }));
+vi.mock('../../../hooks/useClasses', () => ({ useClasses: () => ({ data: [] }) }));
+vi.mock('../../../hooks/useTeams', () => ({ useTeams: () => ({ data: [] }) }));
+vi.mock('../../../hooks/useSchedules', () => ({
   useSchedules: () => ({ data: { data: [], total: 0 }, isLoading: false }),
 }));
-vi.mock('../../hooks/useSchedulingConfig', () => ({
+vi.mock('../../../hooks/useSchedulingConfig', () => ({
   DEFAULT_UTC_OFFSET_MINUTES: 420,
   useSchedulingConfig: () => ({
     data: {

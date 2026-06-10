@@ -232,6 +232,19 @@ Bug fixing and integration review rank above net-new feature rollout.
 
 ## Recent progress (changelog)
 
+- **2026-06-10** — **Frontend `features/` migration — F1 (scheduling) + dead-code
+  cleanup.** Removed dead `ProgramsPage` + `CourseManager` (no route/importer;
+  `/programs`→`/learning` redirect remains) → lint warnings 81→75, **ratcheted the
+  eslint cap 81→75** (`client/package.json` + `testing-and-ci.md`). Then F1 per
+  `plans/260610-2109-frontend-features-migration/`: `features/schedule/`
+  (SchedulesPage + BookClassPage) + `features/attendance/` (AttendancePage +
+  AttendanceDashboardPage); `CalendarPage` stays a composition shell in `pages/`
+  (child imports repointed). Cross-cutting hooks (`useSchedules`, `useAttendance`,
+  `useSchedulingConfig`) stay shared. Importers updated: `CalendarPage`, `App.jsx`
+  (BookClass lazy), `ReportsPage` + its test mock. Build clean, `test:run` 226/48,
+  lint at cap 75. **8 domains now under `features/`.** Remaining: F2 people/dashboards,
+  F3 classes, F4 learning (~38 files), F5 /me+auth+admin.
+
 - **2026-06-10** — **Frontend `features/` migration — clean leaf batch
   (reconcile, settings, sync, evaluations).** Continued the migration with four
   more self-contained domains (behavior-preserving `git mv` + import-depth fixes
