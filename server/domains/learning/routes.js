@@ -31,6 +31,8 @@ const feedbackController = require('./feedback/controller');
 const { submitFeedbackBody, listFeedbackQuery } = require('./feedback/schemas');
 const reportsController = require('./reports/controller');
 const { completionReportQuery, completionRollupQuery, complianceReportQuery } = require('./reports/schemas');
+const dashboardController = require('./dashboard/controller');
+const { operationalDashboardQuery } = require('./dashboard/schemas');
 const { exportLimiter } = require('../../middleware/rateLimiters');
 const assignmentController = require('./assignment/controller');
 const { createAssignmentBody, listAssignmentsQuery } = require('./assignment/schemas');
@@ -181,6 +183,14 @@ router.get(
   exportLimiter,
   validate({ query: completionReportQuery }),
   reportsController.exportCompletionReport,
+);
+
+// ── Operational dashboard bundle (2-tier dashboard, Phase 1) ──
+router.get(
+  '/dashboard/operational',
+  requireCapability('report.read'),
+  validate({ query: operationalDashboardQuery }),
+  dashboardController.getOperationalDashboard,
 );
 
 // ── Mandatory assignments + due dates (Wave D4 v1) ───────

@@ -5,7 +5,7 @@
 > - *Architecture / orientation* → [`system-overview.md`](system-overview.md)
 > - *Detailed task snapshot* → [`handoff-2026-06-01.md`](handoff-2026-06-01.md)
 >
-> **Last updated:** 2026-06-09
+> **Last updated:** 2026-06-10
 
 ---
 
@@ -184,11 +184,46 @@ Bug fixing and integration review rank above net-new feature rollout.
 | → | **Wave D6 v1.1 — certificate expiry policy** | Certificate validity windows and recertification signal | 🟢 backend slice done — `LearningProgram.certificateValidityDays` drives certificate `validFrom`/`validUntil`/`validityDays` snapshots at issue time; legacy certs remain valid with `validUntil: null`; completion and compliance reports now expose `issued`/`expiring`/`expired`/`revoked` state and xlsx expiry columns. Expired certificates do not change prerequisite/completion semantics in v1.1. Expiry emails remain deferred. |
 | → | **Wave D6 v1.1 — frontend compliance report UI** | Admin Learning Reports compliance view | 🟢 done — Learning -> Reports now has an Admin-only **Compliance** sub-tab beside Completion. Filters cover assignment, program, department, manager, assignment status, certificate state, and due date range; report fetch is on-demand; summary tiles show total/overdue/complete/certified/expiring/expired; rows show learner/org/assignment/due/status/certificate state; export uses the compliance xlsx endpoint and stays disabled until rows exist. Teacher keeps completion-only Reports; Participant remains blocked by `read:reports`. |
 | → | **Wave D6 v1.1 — verification docs and rollout** | Close D6 with tests, smoke, and rollout note | 🟢 done — focused backend compliance/completion/expiry/export tests, client report/useRole tests, root syntax, client production bundle, lint, and browser export smoke all passed. Rollout note: `plans/reports/context-260605-1954-wave-d6-compliance.md`. D6 v1.1 is closed; expiry emails, auto-recertification assignment, saved presets, and notification UI remain deferred. |
+| → | **2-tier dashboard — Phase 1 (operational backend)** | One read-only KPI bundle endpoint over existing data | 🟢 done — new `domains/learning/dashboard` (`GET /api/learning/dashboard/operational`, `report.read`): composes the completion rollup, D4 overdue resolver, D6 certificate expiry, and new batched aggregations (attendance rate, session split, assessment pass rate, feedback averages, coverage) with per-metric fail-soft (`errors[]`, never 500). Teacher class-scoped; Participant denied. 7 integration tests. Plan: `plans/260610-0830-ltms-2tier-dashboard/`. Next: Phase 2 (operational frontend). |
 
 ---
 
 ## Recent progress (changelog)
 
+- **2026-06-10** — **2-tier dashboard Phase 1 — operational dashboard backend
+  (quick-win track from the business case).** New `domains/learning/dashboard`
+  module: `GET /api/learning/dashboard/operational` (`report.read`; Admin
+  org-wide, Teacher class-scoped via the shared class-scope helper) returns one
+  read-only KPI bundle — completion (reuses `buildCompletionRollup`, parity
+  pinned by test), attendance rate (completion-engine ATTENDED_STATUSES),
+  session counts (upcoming/next-7-days/past), org-wide overdue assignments +
+  top-10 (reuses the D4 status resolver), certificate expiry buckets
+  (expired/≤30d/≤60d) + top-10 soonest (D6 `validUntil` + frozen
+  learner/program snapshots), attempt-level assessment pass rate, feedback
+  averages (overall + by-program via denormalised `programId`), and training
+  coverage over a 30|60|90-day window. Per-metric fail-soft:
+  `Promise.allSettled` → failed metric = `null` + `errors[]`, response stays
+  200. **7/7 integration tests green** (admin bundle, rollup parity, teacher
+  scoping, participant 403, fail-soft, window validation). Spec folded into
+  `reporting-and-rollups`; route-permission-matrix gained the missing
+  `/api/learning/reports` row + the new dashboard row. Business case + plan:
+  `plans/260610-0811-business-case-ltms-vs-excel.md`,
+  `plans/260610-0830-ltms-2tier-dashboard/`. Next: Phase 2 (Dashboard tab UI).
+- **2026-06-09** — **Direction re-centered (grill + ADR) — coordinator-scheduled,
+  offline, multi-office model.** A grill session with the owner established the real
+  operating model (vs the English-class origins): a **Training coordinator/HR**
+  schedules Sessions (`admin_scheduled` primary; `leader_booking` legacy); rosters
+  come from **self-enrol + coordinator assign** (Team is legacy); **Office** (2–3
+  sites) is a first-class concept distinct from Department with **Rooms scoped to an
+  Office**; **Trainers** can be **internal or external** (name+contact, no login); a
+  **Training-coordinator** capability set is needed, separate from full Admin.
+  Recorded in ADR [`coordinator-scheduled-offline-model.md`](decisions/coordinator-scheduled-offline-model.md);
+  glossary updated in `server/CONTEXT.md` (Office, Department, Training coordinator,
+  Trainer, legacy LearningGroup). Detailed plan:
+  `plans/260609-2215-ltms-recenter-coordinator-offline/` (Phase 1 Office+Coordinator
+  role → Phase 2 coordinator-scheduling UX → Phase 3 Office-scoped Rooms + int/ext
+  Trainers, folding the Wave E3 plan). Track A (Google SSO + org + hosting) stays
+  owner-blocked. **Docs/direction only — no code behavior changed yet.**
 - **2026-06-09** — **English-only sweep — server user-facing strings (closes the
   English-only golden rule server-side).** Removed every bilingual Vietnamese–English
   and Vietnamese-only user-facing message string on the server (English half kept, VN
