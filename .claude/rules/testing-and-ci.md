@@ -20,7 +20,7 @@ Server tests need env `NODE_ENV=test` and a dummy `JWT_SECRET` (required at boot
 7. **e2e-tests** — Playwright against real seeded backend (slowest, ~5–10 min)
 
 ## ESLint ratchet (critical rule)
-`client/package.json` runs `eslint . --max-warnings <cap>`. **Current cap = 75.**
+`client/package.json` runs `eslint . --max-warnings <cap>`. **Current cap = 72.**
 - The cap may only go DOWN as warnings are fixed, **never UP**. PR review rejects any increase.
 - `client/eslint.config.js` documents the policy + history (its header comment may lag the actual cap — package.json is source of truth).
 - Hard errors (always block, no ratchet): `no-undef`, `no-unused-vars`, `react-hooks/rules-of-hooks`, `react-hooks/exhaustive-deps`.

@@ -165,6 +165,90 @@ const createCohort = async (payload) => {
   return getCohort(created._id);
 };
 
+// Edit a cohort. Mirrors the legacy classController.updateClass surface:
+// only `status` + `totalSessions` are editable, with the "one Ongoing run per
+// cohort code" guard preserved.
+const updateCohort = async (id, payload) => {
+  const existing = await repository.findCohortById(id);
+  if (!existing) {
+    const err = new Error('Cohort not found');
+    err.statusCode = 404;
+    throw err;
+  }
+
+  // Rule: only one Ongoing run per cohort code — block a Completed→Ongoing flip
+  // when another run of the same code is already Ongoing.
+  if (payload.status === 'Ongoing' && existing.status !== 'Ongoing') {
+    const conflict = await repository.findOngoingCohortConflict(existing.classCode, id);
+    if (conflict) {
+      const err = new Error(
+        `Cohort "${existing.classCode}" already has an Ongoing run: "${conflict.courseName}". Mark it Completed first.`,
+      );
+      err.statusCode = 409;
+      throw err;
+    }
+  }
+
+  const update = {};
+  if (payload.status !== undefined) update.status = payload.status;
+  if (payload.totalSessions !== undefined) update.totalSessions = payload.totalSessions;
+
+  await repository.updateCohortById(id, update);
+  return getCohort(id);
+};
+
+// Delete a cohort. Mirrors legacy classController.deleteClass: blocks while
+// Teams/Schedules still reference it, then cascades Evaluation + Enrollment
+// cleanup with the cohort delete in one transaction.
+const deleteCohort = async (id) => {
+  const cohort = await repository.findCohortById(id);
+  if (!cohort) {
+    const err = new Error('Cohort not found');
+    err.statusCode = 404;
+    throw err;
+  }
+
+  const teamCount = await repository.countTeamsByCohort(id);
+  if (teamCount > 0) {
+    const err = new Error(
+      `Cannot delete: ${teamCount} group(s) are still assigned to this cohort. Delete or reassign them first.`,
+    );
+    err.statusCode = 409;
+    throw err;
+  }
+
+  const scheduleCount = await repository.countSchedulesByCohort(id);
+  if (scheduleCount > 0) {
+    const err = new Error(
+      `Cannot delete: ${scheduleCount} session(s) still reference this cohort. Delete them first.`,
+    );
+    err.statusCode = 409;
+    throw err;
+  }
+
+  const session = await mongoose.startSession();
+  let deletedEvaluations = 0;
+  let deletedEnrollments = 0;
+  try {
+    await session.withTransaction(async () => {
+      const evalResult = await repository.deleteEvaluationsByCohort(id, session);
+      deletedEvaluations = evalResult.deletedCount;
+      const enrollResult = await repository.deleteEnrollmentsByCohort(id, session);
+      deletedEnrollments = enrollResult.deletedCount;
+      await repository.deleteCohortById(id, session);
+    });
+  } finally {
+    session.endSession();
+  }
+
+  return {
+    cohortCode: cohort.classCode,
+    courseName: cohort.courseName,
+    deletedEvaluations,
+    deletedEnrollments,
+  };
+};
+
 module.exports = {
   listPrograms,
   getProgram,
@@ -176,4 +260,6 @@ module.exports = {
   listCohorts,
   getCohort,
   createCohort,
+  updateCohort,
+  deleteCohort,
 };

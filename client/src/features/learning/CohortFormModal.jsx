@@ -10,7 +10,8 @@ import { LearningField, EnumSelect, controlClass } from './LearningField';
 
 const STATUSES = ['Ongoing', 'Completed'];
 
-// Create a Cohort (a run of a Program). Cohort edit/delete stays in ClassesPage.
+// Create a Cohort (a run of a Program). Cohort edit/delete lives in CohortEditModal
+// (opened from the Cohorts tab).
 export default function CohortFormModal({ onClose }) {
   const { t } = useTranslation();
   const createMutation = useCreateCohort();

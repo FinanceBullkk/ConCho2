@@ -232,6 +232,23 @@ Bug fixing and integration review rank above net-new feature rollout.
 
 ## Recent progress (changelog)
 
+- **2026-06-10** — **Fix: restore cohort edit/delete (was an orphaned regression) +
+  retire `ClassesPage`.** The L&D re-vocab migration had moved cohort CREATE to the
+  `/learning` Cohorts tab and redirected `/classes`→`/learning?tab=cohorts`, but left
+  cohort EDIT/DELETE only in `ClassesPage` — which became unreachable (no route/importer).
+  Net effect: admins could not edit/delete a cohort anywhere. Fix (behavior change →
+  `learning-catalog` spec updated): **backend** added `PUT/DELETE /api/learning/cohorts/:id`
+  in `domains/learning` (use-cases + repository + controller + schemas + routes), gated by
+  `cohort.manage`, with the legacy guards/cascade preserved (block while Groups/Sessions
+  reference it; else cascade Evaluation+Enrollment in a transaction); audited as `Class`.
+  **Frontend** added `learningAPI.updateCohort/deleteCohort` + `useUpdateCohort/useDeleteCohort`
+  + a `CohortEditModal` (status + totalSessions + delete) wired into the Cohorts tab (edit
+  button gated by `cohort.manage`). Then removed the now-truly-dead `ClassesPage` → lint
+  cap ratcheted **75→72**. Tests: +6 backend integration (server **791/80** green), +1
+  frontend `CohortEditModal` test (client **228/49** green); build clean; lint at cap 72.
+  Open question logged in spec: cohort delete cascade is hard-delete (tension with the
+  soft-delete golden rule) — revisit.
+
 - **2026-06-10** — **Frontend `features/` migration — F5 (final): /me + auth + admin;
   migration essentially COMPLETE.** Moved `features/learner/` (MyAssessmentsPage,
   MyFeedbackPage, MyLearningCatalogPage, MyLearningPathsPage + 3 tests),

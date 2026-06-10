@@ -172,6 +172,22 @@ export const useCreateCohort = () => {
   });
 };
 
+export const useUpdateCohort = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, data }) => learningAPI.updateCohort(id, data).then((r) => r.data.data),
+    onSettled: () => invalidateLearning(qc),
+  });
+};
+
+export const useDeleteCohort = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id) => learningAPI.deleteCohort(id).then((r) => r.data),
+    onSettled: () => invalidateLearning(qc),
+  });
+};
+
 // ── Session scheduling (re-center Phase 2) ────────────────
 // Coordinator/Admin opens a cohort session at an Office. Also invalidates the
 // schedule caches so calendar/booking grids reflect the new session.
