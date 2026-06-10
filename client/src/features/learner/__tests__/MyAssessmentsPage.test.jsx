@@ -27,7 +27,7 @@ const assessments = [
   },
 ];
 
-vi.mock('../../hooks/useAssessment', () => ({
+vi.mock('../../../hooks/useAssessment', () => ({
   useAssessments: () => ({ data: { data: assessments }, isLoading: false }),
   useAssessmentAttempts: () => ({
     data: {
@@ -45,11 +45,11 @@ vi.mock('../../hooks/useAssessment', () => ({
   useSubmitAssessmentAttempt: () => ({ mutateAsync: vi.fn(), isPending: false }),
 }));
 
-vi.mock('../../hooks/useLearning', () => ({
+vi.mock('../../../hooks/useLearning', () => ({
   useLearningEnrollments: () => ({ data: { data: [{ cohortId: 'c1', status: 'Active' }] }, isLoading: false }),
 }));
 
-vi.mock('../../hooks/useSchedules', () => ({
+vi.mock('../../../hooks/useSchedules', () => ({
   useMyClassSchedules: () => ({ data: { data: [] }, isLoading: false }),
 }));
 

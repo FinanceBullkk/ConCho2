@@ -4,10 +4,10 @@ import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { KeyRound } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { useAuth } from '../context/AuthContext';
-import { loginSchema, mfaSchema } from '../lib/validations';
+import { useAuth } from '../../context/AuthContext';
+import { loginSchema, mfaSchema } from '../../lib/validations';
 import { Button } from '@/components/ui/button';
-import { Spinner } from '../components/Spinner';
+import { Spinner } from '../../components/Spinner';
 import { cn } from '@/lib/utils';
 
 export default function LoginPage() {

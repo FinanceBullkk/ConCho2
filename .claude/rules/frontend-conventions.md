@@ -7,10 +7,14 @@ Client is **ESM** + React 19 + Vite. Pages are lazy-loaded route views; logic li
 - Wrap reads/writes in hooks (e.g. `useLearning.js`) — colocated in the feature module when one exists, else under `client/src/hooks/`.
 - Query keys are centralized in `client/src/hooks/queryKeys.js` — reuse them; don't inline ad-hoc key arrays. Invalidate via the same keys after mutations.
 
-## Feature modules (`features/<domain>/`) — migration in progress
-The client is migrating from a flat `pages/` + `hooks/` layout toward feature
-colocation under `client/src/features/<domain>/`, mirroring the backend
-`server/domains/<domain>/` boundaries. **Migrate incrementally — don't do a big-bang move.**
+## Feature modules (`features/<domain>/`) — migration essentially complete
+The client uses feature colocation under `client/src/features/<domain>/`, mirroring
+the backend `server/domains/<domain>/` boundaries. 16 feature folders live here
+(rooms, org, reconcile, settings, sync, evaluations, schedule, attendance, users,
+groups, dashboard, classes, learning, learner, auth, admin). **Only composition
+shells stay in `pages/`** — `PeoplePage`, `SystemPage`, `ReportsPage`, `CalendarPage`
+(they assemble tabs from several domains; they are routing glue, not a domain). New
+domain pages go under `features/<domain>/`, not `pages/`.
 - A feature folder colocates that domain's **page(s), domain hook(s), feature-local
   components, and tests** (`__tests__/`). Example pilot: `features/rooms/`
   (`RoomsPage.jsx` + `useRooms.js` + `__tests__/`).

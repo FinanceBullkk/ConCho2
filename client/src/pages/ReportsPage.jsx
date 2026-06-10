@@ -3,7 +3,7 @@ import { Download, RefreshCw, ClipboardEdit, ChartLine } from 'lucide-react';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { PageHeader } from '@/components/PageHeader';
 import { useRole } from '@/hooks/useRole';
-import HRExportPage from './HRExportPage';
+import HRExportPage from '../features/admin/HRExportPage';
 import SyncPage from '../features/sync/SyncPage';
 import EvaluationPage from '../features/evaluations/EvaluationPage';
 import AttendanceDashboardPage from '../features/attendance/AttendanceDashboardPage';

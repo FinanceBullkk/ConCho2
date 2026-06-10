@@ -5,12 +5,12 @@ import {
   Download, RefreshCw, ClipboardList, CheckCircle2, Clock,
   BookOpen,
 } from 'lucide-react';
-import { useExportStats, useDownloadAttendance, useDownloadEvaluations } from '../hooks/useExport';
-import { qk } from '../hooks/queryKeys';
+import { useExportStats, useDownloadAttendance, useDownloadEvaluations } from '../../hooks/useExport';
+import { qk } from '../../hooks/queryKeys';
 import { downloadBlob } from '@/lib/downloadBlob';
 import { Button } from '@/components/ui/button';
-import { KPICard } from '../components/KPICard';
-import { Spinner } from '../components/Spinner';
+import { KPICard } from '../../components/KPICard';
+import { Spinner } from '../../components/Spinner';
 
 // ──────────────────────────────────────────────────────────
 // HR Export — Phase 4 Surface 8

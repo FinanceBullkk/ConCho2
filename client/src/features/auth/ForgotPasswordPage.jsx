@@ -4,11 +4,11 @@ import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Mail, ArrowLeft } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { forgotPasswordSchema } from '../lib/validations';
-import api from '../api/api';
+import { forgotPasswordSchema } from '../../lib/validations';
+import api from '../../api/api';
 import { Button } from '@/components/ui/button';
 import { FormField, FormLabel, FormInput, FormError } from '@/components/ui/form';
-import { Spinner } from '../components/Spinner';
+import { Spinner } from '../../components/Spinner';
 
 export default function ForgotPasswordPage() {
   const { t } = useTranslation();

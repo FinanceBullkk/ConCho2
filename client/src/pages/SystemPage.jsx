@@ -13,7 +13,7 @@ import { useAuditLog } from '@/hooks/useAuditLog';
 import { diffJson } from '@/lib/jsonDiff';
 import { cn } from '@/lib/utils';
 import SettingsPage from '../features/settings/SettingsPage';
-import DatabaseExplorer from './DatabaseExplorer';
+import DatabaseExplorer from '../features/admin/DatabaseExplorer';
 import SyncPage from '../features/sync/SyncPage';
 import ReconcilePage from '../features/reconcile/ReconcilePage';
 

@@ -4,12 +4,12 @@ import { useState } from 'react';
 import { useSearchParams, useParams, Link, useNavigate } from 'react-router-dom';
 import { CheckCircle, XCircle } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { resetPasswordSchema } from '../lib/validations';
-import api from '../api/api';
+import { resetPasswordSchema } from '../../lib/validations';
+import api from '../../api/api';
 import { Button } from '@/components/ui/button';
 import { FormField, FormLabel, FormInput, FormError } from '@/components/ui/form';
 import { PasswordStrength, scorePassword } from '@/components/PasswordStrength';
-import { Spinner } from '../components/Spinner';
+import { Spinner } from '../../components/Spinner';
 
 // Wordmark used across all 3 public-auth surfaces (LoginPage, Forgot, Reset).
 // Kept inline rather than a shared component — only 3 callers, intentional copy.

@@ -13,7 +13,7 @@ import {
   useLearningCohorts,
   useLearningEnrollments,
   useLearningPrograms,
-} from '../hooks/useLearning';
+} from '../../hooks/useLearning';
 
 const CATEGORY_LABELS = {
   english: 'English',

@@ -14,10 +14,10 @@ import { PasswordStrength, scorePassword } from '@/components/PasswordStrength';
 
 // Login is kept eager — first paint for unauthenticated users should not
 // pay a chunk-fetch round-trip. Everything behind auth is lazy.
-import LoginPage from './pages/LoginPage';
+import LoginPage from './features/auth/LoginPage';
 
-const ForgotPasswordPage = lazy(() => import('./pages/ForgotPasswordPage'));
-const ResetPasswordPage  = lazy(() => import('./pages/ResetPasswordPage'));
+const ForgotPasswordPage = lazy(() => import('./features/auth/ForgotPasswordPage'));
+const ResetPasswordPage  = lazy(() => import('./features/auth/ResetPasswordPage'));
 
 const DashboardPage    = lazy(() => import('./features/dashboard/DashboardPage'));
 const PeoplePage       = lazy(() => import('./pages/PeoplePage'));
@@ -27,11 +27,11 @@ const SystemPage       = lazy(() => import('./pages/SystemPage'));
 const CalendarPage     = lazy(() => import('./pages/CalendarPage'));
 const BookClassPage    = lazy(() => import('./features/schedule/BookClassPage'));
 const ClassDetailPage  = lazy(() => import('./features/classes/ClassDetailPage'));
-const UserSettingsPage = lazy(() => import('./pages/UserSettingsPage'));
-const MyLearningCatalogPage = lazy(() => import('./pages/MyLearningCatalogPage'));
-const MyLearningPathsPage = lazy(() => import('./pages/MyLearningPathsPage'));
-const MyAssessmentsPage = lazy(() => import('./pages/MyAssessmentsPage'));
-const MyFeedbackPage = lazy(() => import('./pages/MyFeedbackPage'));
+const UserSettingsPage = lazy(() => import('./features/auth/UserSettingsPage'));
+const MyLearningCatalogPage = lazy(() => import('./features/learner/MyLearningCatalogPage'));
+const MyLearningPathsPage = lazy(() => import('./features/learner/MyLearningPathsPage'));
+const MyAssessmentsPage = lazy(() => import('./features/learner/MyAssessmentsPage'));
+const MyFeedbackPage = lazy(() => import('./features/learner/MyFeedbackPage'));
 const MyTeamPage = lazy(() => import('./features/groups/MyTeamPage'));
 
 function RouteFallback() {

@@ -9,7 +9,7 @@ vi.mock('sonner', () => ({
   toast: { success: vi.fn(), error: vi.fn() },
 }));
 
-vi.mock('../../hooks/useLearning', () => ({
+vi.mock('../../../hooks/useLearning', () => ({
   useLearningPrograms: () => ({
     data: {
       data: [
