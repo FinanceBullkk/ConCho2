@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Plus, UserPlus, CalendarPlus, Pencil, Archive } from 'lucide-react';
+import { Plus, UserPlus, CalendarPlus, CalendarRange, Pencil, Archive } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -14,6 +14,7 @@ import CohortEditModal from './CohortEditModal';
 import ArchivedCohortsPanel from './ArchivedCohortsPanel';
 import EnrollLearnersModal from './EnrollLearnersModal';
 import CreateSessionModal from './CreateSessionModal';
+import CohortSessionsPanel from './CohortSessionsPanel';
 
 const statusTone = { Ongoing: 'default', Completed: 'secondary' };
 
@@ -28,6 +29,7 @@ export default function CohortsTab() {
   const canCreate = can('create:cohort');
   const canEnroll = can('enroll:learner');
   const canSchedule = can('book:session');
+  const canAssignTrainers = can('assign:trainer');
   const { data, isLoading } = useLearningCohorts();
   const cohorts = data?.data || [];
 
@@ -35,10 +37,11 @@ export default function CohortsTab() {
   const [editCohort, setEditCohort] = useState(null);
   const [enrollCohort, setEnrollCohort] = useState(null);
   const [sessionCohort, setSessionCohort] = useState(null);
+  const [sessionsCohort, setSessionsCohort] = useState(null);
   const [showArchived, setShowArchived] = useState(false);
   // `cohort.manage` (create:cohort) is a single capability covering create/edit/delete/restore.
   const canManage = canCreate;
-  const showActions = canEnroll || canSchedule || canManage;
+  const showActions = canEnroll || canSchedule || canManage || canAssignTrainers;
 
   const header = (
     <div className="flex items-center justify-between">
@@ -104,6 +107,11 @@ export default function CohortsTab() {
                             <CalendarPlus className="size-4 mr-1.5" aria-hidden="true" />{t('learning.cohorts.scheduleSession')}
                           </Button>
                         )}
+                        {canAssignTrainers && (
+                          <Button size="sm" variant="outline" onClick={() => setSessionsCohort(cohort)}>
+                            <CalendarRange className="size-4 mr-1.5" aria-hidden="true" />{t('learning.cohorts.sessions')}
+                          </Button>
+                        )}
                         {canEnroll && (
                           <Button size="sm" variant="outline" onClick={() => setEnrollCohort(cohort)}>
                             <UserPlus className="size-4 mr-1.5" aria-hidden="true" />{t('learning.cohorts.manage')}
@@ -124,6 +132,10 @@ export default function CohortsTab() {
         </CardContent>
       </Card>
     );
+  }
+
+  if (sessionsCohort) {
+    return <CohortSessionsPanel cohort={sessionsCohort} onBack={() => setSessionsCohort(null)} />;
   }
 
   if (showArchived) {

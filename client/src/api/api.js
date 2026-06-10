@@ -159,6 +159,9 @@ export const schedulesAPI = {
   bookSlot: (data) => api.post('/schedules/book-slot', data),
   // Leader cancel: deletes the schedule
   cancelSlot: (scheduleId) => api.delete(`/schedules/${scheduleId}/cancel`),
+  // Assign a session's trainers (internal Teacher/Admin refs + an optional
+  // external trainer) — re-center Phase 3. session.assign-trainer (Admin/Coordinator).
+  setTrainers: (id, data) => api.put(`/schedules/${id}/trainers`, data),
   // Participant: upcoming sessions for my class
   getMyClass: () => api.get('/schedules/my-class'),
   // Attendance calendar: schedules with pre-computed attendance status

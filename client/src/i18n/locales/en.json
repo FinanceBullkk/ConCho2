@@ -803,7 +803,41 @@
       "colActions": "Actions",
       "created": "Cohort created",
       "manage": "Enroll",
-      "scheduleSession": "Schedule session"
+      "scheduleSession": "Schedule session",
+      "sessions": "Sessions"
+    },
+    "sessions": {
+      "title": "Sessions",
+      "back": "Back to cohorts",
+      "empty": "No sessions yet",
+      "emptyDesc": "Schedule a session for this cohort, then assign its trainers here.",
+      "colTime": "When",
+      "colLocation": "Location",
+      "colTrainers": "Trainers"
+    },
+    "trainers": {
+      "title": "Manage trainers",
+      "desc": "Internal trainers are Teachers who can mark this session's attendance. An external trainer is invite-only — they get a calendar invite but no system access.",
+      "manage": "Trainers",
+      "internal": "Internal trainers",
+      "internalHint": "Up to {{max}} Teachers — they can mark attendance for this session.",
+      "internalAdminOnly": "Internal trainers are managed by an administrator.",
+      "addInternal": "Add a trainer…",
+      "noInternal": "No internal trainers assigned.",
+      "maxInternal": "You can assign at most {{max}} internal trainers.",
+      "remove": "Remove {{name}}",
+      "addExternal": "Add an external trainer",
+      "extName": "Name",
+      "extEmail": "Email",
+      "extEmailHint": "If set, the external trainer receives a calendar invite.",
+      "extPhone": "Phone",
+      "extOrg": "Organization",
+      "errorExtName": "An external trainer needs a name.",
+      "none": "No trainers",
+      "externalTag": "External",
+      "save": "Save trainers",
+      "saving": "Saving…",
+      "saved": "Trainers updated"
     },
     "session": {
       "title": "Schedule a session",
