@@ -1,6 +1,7 @@
 const Schedule = require('../../models/Schedule');
 const Attendance = require('../../models/Attendance');
 const Class = require('../../models/Class');
+const RoomBooking = require('../../models/RoomBooking');
 
 // ──────────────────────────────────────────────────────────
 // Reconcile — schedule-integrity checks (READ-ONLY)
@@ -125,9 +126,46 @@ async function checkOrphanScheduleClass() {
   return issues;
 }
 
+/**
+ * CHECK 11 — RoomBooking ledger rows whose Schedule no longer exists
+ * (re-center Phase 3). Every Schedule-removal path releases its ledger row in
+ * the same transaction, so an orphan should be impossible via the app — but a
+ * direct admin-DB delete (or a future bug) could leave a row that permanently
+ * bricks a room slot (the unique {roomId,startTime} key stays occupied). This
+ * read-only check surfaces them for cleanup; it never mutates (parity with the
+ * orphan_schedule_class check).
+ */
+async function checkOrphanRoomBookings() {
+  const issues = [];
+
+  const referencedScheduleIds = await RoomBooking.distinct('scheduleId');
+  if (referencedScheduleIds.length === 0) return issues;
+
+  const existing = await Schedule.find({ _id: { $in: referencedScheduleIds } })
+    .select('_id').lean();
+  const existingSet = new Set(existing.map((s) => String(s._id)));
+
+  const orphanScheduleIds = referencedScheduleIds.filter((id) => !existingSet.has(String(id)));
+  if (orphanScheduleIds.length === 0) return issues;
+
+  const orphanRows = await RoomBooking.find({ scheduleId: { $in: orphanScheduleIds } })
+    .select('_id roomId scheduleId startTime').lean();
+
+  for (const row of orphanRows) {
+    issues.push({
+      check: 'orphan_room_booking',
+      description: `RoomBooking ${row._id} locks room ${row.roomId} for a deleted session — slot is bricked`,
+      refs: { scheduleId: row.scheduleId, roomId: row.roomId },
+      detail: { startTime: row.startTime },
+    });
+  }
+  return issues;
+}
+
 module.exports = {
   LOOKBACK_DAYS,
   checkMissingAttendance,
   checkEmptyFutureSchedules,
   checkOrphanScheduleClass,
+  checkOrphanRoomBookings,
 };

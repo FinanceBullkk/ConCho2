@@ -2,10 +2,11 @@ const router = require('express').Router();
 const {
   getSchedules, getScheduleById, createSchedule, updateSchedule, deleteSchedule,
   bookTeamSlot, cancelSlot, getAvailability, getMyClassSchedules,
-  getAttendanceCalendar
+  getAttendanceCalendar, setTrainers
 } = require('../controllers/scheduleController');
 const { protect } = require('../middleware/auth');
 const { roleGuard } = require('../middleware/roleGuard');
+const { requireCapability } = require('../middleware/requireCapability');
 const { validate } = require('../middleware/validate');
 const { bookingLimiter } = require('../middleware/rateLimiters');
 const { idParam } = require('../schemas/common');
@@ -15,6 +16,7 @@ const {
   listSchedulesQuery,
   availabilityQuery,
   bookTeamSlotBody,
+  setTrainersBody,
 } = require('../schemas/schedule');
 
 // ── Leader booking endpoints (before /:id to avoid routing conflicts) ──
@@ -29,6 +31,13 @@ router.post('/book-slot', protect, roleGuard('Admin', 'Participant'),
 
 router.delete('/:id/cancel', protect, roleGuard('Admin', 'Participant'),
   validate({ params: idParam }), cancelSlot);
+
+// ── Trainers (re-center Phase 3) — Admin + Coordinator (before /:id) ──
+// Capability-gated (session.assign-trainer) so a Coordinator can assign
+// without full Admin; roleGuard belt keeps Teacher/Participant out cheaply.
+router.put('/:id/trainers', protect, roleGuard('Admin', 'Coordinator'),
+  requireCapability('session.assign-trainer'),
+  validate({ params: idParam, body: setTrainersBody }), setTrainers);
 
 // ── Admin CRUD ─────────────────────────────────────────────
 router.route('/')

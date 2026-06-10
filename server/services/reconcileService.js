@@ -5,6 +5,7 @@ const {
   checkMissingAttendance,
   checkEmptyFutureSchedules,
   checkOrphanScheduleClass,
+  checkOrphanRoomBookings,
 } = require('./reconcile/schedule-checks');
 const {
   checkOrphanedEnrollments,
@@ -41,6 +42,7 @@ const { checkCounterDrift } = require('./reconcile/counter-checks');
 //  8. multi_team_class          — one class claimed by 2+ teams
 //  9. counter_drift             — counter seq < max code already in use
 // 10. soft_deleted_in_team_members — team.members holds a soft-deleted user
+// 11. orphan_room_booking       — RoomBooking row for a deleted session (bricked slot)
 // ──────────────────────────────────────────────────────────
 
 /**
@@ -82,6 +84,7 @@ async function runReconciliation(triggeredBy = 'manual') {
     multiTeamClass,
     counterDrift,
     softDeletedInTeamMembers,
+    orphanRoomBookings,
   ] = await Promise.all([
     checkMissingAttendance(ctx).catch(swallow('check_missing_attendance')),
     checkOrphanedEnrollments(ctx).catch(swallow('check_orphaned_enrollments')),
@@ -93,6 +96,7 @@ async function runReconciliation(triggeredBy = 'manual') {
     checkMultiTeamClass(ctx).catch(swallow('check_multi_team_class')),
     checkCounterDrift(ctx).catch(swallow('check_counter_drift')),
     checkSoftDeletedInTeamMembers(ctx).catch(swallow('check_soft_deleted_in_team_members')),
+    checkOrphanRoomBookings(ctx).catch(swallow('check_orphan_room_booking')),
   ]);
 
   const allIssues = [
@@ -106,6 +110,7 @@ async function runReconciliation(triggeredBy = 'manual') {
     ...multiTeamClass,
     ...counterDrift,
     ...softDeletedInTeamMembers,
+    ...orphanRoomBookings,
   ];
 
   const summary = {
@@ -119,6 +124,7 @@ async function runReconciliation(triggeredBy = 'manual') {
     multi_team_class:             multiTeamClass.length,
     counter_drift:                counterDrift.length,
     soft_deleted_in_team_members: softDeletedInTeamMembers.length,
+    orphan_room_booking:          orphanRoomBookings.length,
     total:                        allIssues.length,
   };
 

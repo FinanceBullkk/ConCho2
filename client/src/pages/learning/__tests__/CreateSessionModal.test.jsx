@@ -14,6 +14,11 @@ vi.mock('../../../hooks/useOrg', () => ({
   useOffices: () => ({ data: [{ _id: 'o1', name: 'HCM Office', code: 'HCM' }] }),
 }));
 
+// Office-scoped rooms (Phase 3) — one room in office o1.
+vi.mock('../../../hooks/useRooms', () => ({
+  useRooms: () => ({ data: [{ _id: 'r1', name: 'Room A1', code: 'HCM-A1' }] }),
+}));
+
 // One configured slot: 10:00–11:00 VN. offsetMinutes 420 (+07:00).
 vi.mock('../../../hooks/useSchedulingConfig', () => ({
   DEFAULT_UTC_OFFSET_MINUTES: 420,
@@ -53,6 +58,22 @@ describe('CreateSessionModal', () => {
     expect(payload.startTime).toBe('2026-07-15T03:00:00.000Z');
     expect(payload.endTime).toBe('2026-07-15T04:00:00.000Z');
     expect(onClose).toHaveBeenCalled();
+  });
+
+  it('includes the picked Office-scoped roomId in the payload', async () => {
+    const user = userEvent.setup();
+    render(<CreateSessionModal cohort={cohort} onClose={onClose} />);
+
+    await user.selectOptions(screen.getByRole('combobox', { name: 'Office' }), 'o1');
+    await user.selectOptions(screen.getByRole('combobox', { name: 'Room' }), 'r1');
+    const dateInput = screen.getByLabelText('Date');
+    await user.clear(dateInput);
+    await user.type(dateInput, '2026-07-15');
+    await user.selectOptions(screen.getByRole('combobox', { name: 'Time slot' }), '10:00-11:00');
+    await user.click(screen.getByRole('button', { name: 'Create session' }));
+
+    expect(book).toHaveBeenCalledTimes(1);
+    expect(book.mock.calls[0][0].roomId).toBe('r1');
   });
 
   it('blocks submit and shows an error when no office is chosen', async () => {

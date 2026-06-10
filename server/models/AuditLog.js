@@ -68,7 +68,9 @@ const auditLogSchema = new mongoose.Schema(
              // fire-and-forget). Backfilled here + 'Office' for the new model.
              'Department', 'Office', 'Certificate', 'Assessment',
              'AssessmentAttempt', 'AssessmentQuestion', 'Feedback',
-             'Assignment', 'LearningPath'],
+             'Assignment', 'LearningPath',
+             // Added in re-center Phase 3 — Office-scoped Rooms.
+             'Room'],
       required: true,
     },
     entityId: {

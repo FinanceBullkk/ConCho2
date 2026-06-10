@@ -8,6 +8,7 @@ const { handleError } = require('../helpers/handleError');
 const auditService = require('../services/auditService');
 const { invalidateAnalyticsCache } = require('../middleware/analyticsCache');
 const scheduleDomain = require('../domains/schedule/controller');
+const scheduleUseCases = require('../domains/schedule/use-cases');
 
 // ──────────────────────────────────────────────────────────
 // Schedule Controller (Thin — delegates to Service Layer)
@@ -164,6 +165,27 @@ const deleteSchedule = async (req, res) => {
   return scheduleDomain.deleteSchedule(req, res);
 };
 
+// ── Set Trainers (admin/coordinator) ───────────────────────────
+// re-center Phase 3 (DELTA B): assign a session's internal trainers (UNION
+// authz) and/or an external trainer (calendar + display only) in one mutation.
+const setTrainers = async (req, res) => {
+  try {
+    const { before, after, schedule } = await scheduleUseCases.setTrainers(req.params.id, req.body);
+    auditService.record({
+      req,
+      action: 'updated',
+      entity: 'Schedule',
+      entityId: req.params.id,
+      diff: auditService.diff(before, after),
+      note: 'Trainers updated',
+    });
+    invalidateAnalyticsCache();
+    res.json({ success: true, data: schedule });
+  } catch (error) {
+    handleError(res, error);
+  }
+};
+
 const getAttendanceCalendar = async (req, res) => {
   try {
     const { from, to } = req.query;
@@ -177,5 +199,5 @@ const getAttendanceCalendar = async (req, res) => {
 module.exports = {
   getSchedules, getScheduleById, createSchedule, updateSchedule, deleteSchedule,
   bookTeamSlot, cancelSlot, getAvailability, getMyClassSchedules,
-  getAttendanceCalendar,
+  getAttendanceCalendar, setTrainers,
 };

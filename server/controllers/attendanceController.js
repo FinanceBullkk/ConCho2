@@ -1,18 +1,23 @@
 const attendanceService = require('../services/attendanceService');
 const auditService = require('../services/auditService');
 const attendancePolicy = require('../policy/attendance');
+const sessionInstructorsPolicy = require('../policy/sessionInstructors');
 const Schedule = require('../models/Schedule');
 const Class = require('../models/Class');
 const { handleError } = require('../helpers/handleError');
 const { parsePagination, paginatedResponse } = require('../helpers/pagination');
 
 // Audit PR 5 (AUTHZ-001) — resolve a schedule's class so the policy can
-// gate Teacher access by Class.teacherIds. Returns the lean class doc,
-// or null when the schedule / class is missing.
+// gate Teacher access by Class.teacherIds. re-center Phase 3 (DELTA B): also
+// load the schedule's sessionInstructorIds so a named internal trainer joins
+// the UNION. Returns { cls, schedule }, or null when the schedule / class is
+// missing.
 const loadClassForSchedule = async (scheduleId) => {
-  const sch = await Schedule.findById(scheduleId).select('classId').lean();
+  const sch = await Schedule.findById(scheduleId).select('classId sessionInstructorIds').lean();
   if (!sch) return null;
-  return Class.findById(sch.classId).lean();
+  const cls = await Class.findById(sch.classId).lean();
+  if (!cls) return null;
+  return { cls, schedule: sch };
 };
 
 const policyDeny = (res, decision) =>
@@ -39,11 +44,12 @@ const parseAnalyticsPagination = (req) => {
 
 const bulkMarkAttendance = async (req, res) => {
   try {
-    // Audit PR 5 (AUTHZ-001): only Admin or a Teacher bound to the
-    // schedule's class may mark attendance.
-    const cls = await loadClassForSchedule(req.params.scheduleId);
-    if (!cls) return res.status(404).json({ success: false, message: 'Schedule or class not found' });
-    const decision = attendancePolicy.canMark(req.user, cls);
+    // Audit PR 5 (AUTHZ-001): only Admin or a Teacher bound to the schedule's
+    // class may mark attendance. re-center Phase 3 (DELTA B): a named internal
+    // trainer on this session is also allowed (UNION) — cohort teacher kept.
+    const loaded = await loadClassForSchedule(req.params.scheduleId);
+    if (!loaded) return res.status(404).json({ success: false, message: 'Schedule or class not found' });
+    const decision = sessionInstructorsPolicy.canMarkSession(req.user, loaded.cls, loaded.schedule);
     if (!decision.allowed) return policyDeny(res, decision);
 
     const result = await attendanceService.bulkMark(req.params.scheduleId, req.body.records);
@@ -69,10 +75,11 @@ const bulkMarkAttendance = async (req, res) => {
 const getAttendanceBySchedule = async (req, res) => {
   try {
     // Audit PR 5 (AUTHZ-001): same gate as bulkMark — viewing the roster
-    // exposes participant identities + attendance state.
-    const cls = await loadClassForSchedule(req.params.scheduleId);
-    if (!cls) return res.status(404).json({ success: false, message: 'Schedule or class not found' });
-    const decision = attendancePolicy.canReadBySchedule(req.user, cls);
+    // exposes participant identities + attendance state. UNION with the named
+    // session instructor (Phase 3, DELTA B).
+    const loaded = await loadClassForSchedule(req.params.scheduleId);
+    if (!loaded) return res.status(404).json({ success: false, message: 'Schedule or class not found' });
+    const decision = sessionInstructorsPolicy.canReadSession(req.user, loaded.cls, loaded.schedule);
     if (!decision.allowed) return policyDeny(res, decision);
 
     const records = await attendanceService.getBySchedule(req.params.scheduleId);

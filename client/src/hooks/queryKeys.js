@@ -85,6 +85,10 @@ export const qk = {
     offices: (params) => ['org', 'offices', params],
     myTeam: ['org', 'my-team'],
   },
+  rooms: {
+    all: ['rooms'],
+    list: (params) => ['rooms', 'list', params],
+  },
   dashboard: {
     stats: ['dashboard', 'stats'],
   },
