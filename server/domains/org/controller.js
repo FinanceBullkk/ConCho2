@@ -1,6 +1,7 @@
 const auditService = require('../../services/auditService');
 const { handleError } = require('../../helpers/handleError');
 const useCases = require('./use-cases');
+const officeUseCases = require('./office-use-cases');
 
 // ──────────────────────────────────────────────────────────
 // org/controller — thin HTTP handlers (envelope + audit only).
@@ -46,6 +47,46 @@ const archiveDepartment = async (req, res) => {
   }
 };
 
+// ── Offices (re-center Phase 1) ───────────────────────────
+const listOffices = async (req, res) => {
+  try {
+    const data = await officeUseCases.listOffices(req.query);
+    res.json({ success: true, count: data.length, data });
+  } catch (error) {
+    handleError(res, error);
+  }
+};
+
+const createOffice = async (req, res) => {
+  try {
+    const data = await officeUseCases.createOffice(req.body);
+    auditService.record({ req, action: 'created', entity: 'Office', entityId: data._id, diff: { after: data } });
+    res.status(201).json({ success: true, data });
+  } catch (error) {
+    handleError(res, error);
+  }
+};
+
+const updateOffice = async (req, res) => {
+  try {
+    const { before, after } = await officeUseCases.updateOffice(req.params.id, req.body);
+    auditService.record({ req, action: 'updated', entity: 'Office', entityId: after._id, diff: auditService.diff(before, after) });
+    res.json({ success: true, data: after });
+  } catch (error) {
+    handleError(res, error);
+  }
+};
+
+const archiveOffice = async (req, res) => {
+  try {
+    const { before, after } = await officeUseCases.archiveOffice(req.params.id);
+    auditService.record({ req, action: 'archived', entity: 'Office', entityId: after._id, diff: auditService.diff(before, after) });
+    res.json({ success: true, data: after });
+  } catch (error) {
+    handleError(res, error);
+  }
+};
+
 // ── Assignment ────────────────────────────────────────────
 const assignUser = async (req, res) => {
   try {
@@ -72,6 +113,10 @@ module.exports = {
   createDepartment,
   updateDepartment,
   archiveDepartment,
+  listOffices,
+  createOffice,
+  updateOffice,
+  archiveOffice,
   assignUser,
   getMyTeam,
 };

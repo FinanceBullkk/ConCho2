@@ -123,7 +123,9 @@
       "teams": "Teams",
       "teamsDesc": "Cohorts grouped under a Team Leader.",
       "departments": "Departments",
-      "departmentsDesc": "Structured org units + the reporting hierarchy."
+      "departmentsDesc": "Structured org units + the reporting hierarchy.",
+      "offices": "Offices",
+      "officesDesc": "Physical sites — employees and rooms belong to an office."
     }
   },
   "org": {
@@ -144,6 +146,26 @@
       "archiveLabel": "Archive {{name}}",
       "archiveConfirm": "Archive department \"{{name}}\"?"
     },
+    "offices": {
+      "name": "Office name",
+      "namePlaceholder": "Name (e.g. Ho Chi Minh Office)",
+      "code": "Office code",
+      "codePlaceholder": "Code (e.g. HCM)",
+      "address": "Office address",
+      "addressPlaceholder": "Address (optional)",
+      "timezone": "Office timezone",
+      "timezonePlaceholder": "Timezone (e.g. Asia/Ho_Chi_Minh)",
+      "add": "Add office",
+      "empty": "No offices yet.",
+      "emptyAdmin": " Add one above.",
+      "colOffice": "Office",
+      "colCode": "Code",
+      "colAddress": "Address",
+      "colTimezone": "Timezone",
+      "colActions": "Actions",
+      "archiveLabel": "Archive {{name}}",
+      "archiveConfirm": "Archive office \"{{name}}\"?"
+    },
     "assignment": {
       "title": "Assign manager & department",
       "placement": "Org placement for",
@@ -152,6 +174,8 @@
       "managerHint": "Pick from currently loaded users; search the list first to widen the choices.",
       "department": "Department",
       "noDepartment": "— No department —",
+      "office": "Office",
+      "noOffice": "— No office —",
       "cancel": "Cancel",
       "save": "Save"
     },

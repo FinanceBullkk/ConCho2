@@ -248,10 +248,10 @@ export default function App() {
                 <Route path="/my-team" element={<MyTeamPage />} />
 
                 <Route path="/people" element={
-                  <ProtectedRoute roles={['Admin']}><PeoplePage /></ProtectedRoute>
+                  <ProtectedRoute roles={['Admin', 'Coordinator']}><PeoplePage /></ProtectedRoute>
                 } />
                 <Route path="/learning" element={
-                  <ProtectedRoute roles={['Admin', 'Teacher']}><LearningPage /></ProtectedRoute>
+                  <ProtectedRoute roles={['Admin', 'Coordinator', 'Teacher']}><LearningPage /></ProtectedRoute>
                 } />
                 <Route path="/calendar" element={<CalendarPage />} />
                 <Route path="/reports" element={

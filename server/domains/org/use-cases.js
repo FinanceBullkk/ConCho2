@@ -1,4 +1,5 @@
 const repository = require('./repository');
+const officeRepository = require('./office-repository');
 const { ServiceError } = require('../../helpers/ServiceError');
 const { departmentDto, teamMemberDto } = require('./dto');
 
@@ -73,7 +74,7 @@ const assertNoManagerCycle = async (userId, startManagerId) => {
   }
 };
 
-// Set a user's manager and/or department. `null` clears; omitted = unchanged.
+// Set a user's manager / department / office. `null` clears; omitted = unchanged.
 // Returns slim before/after (org fields only) so the controller audits a tight diff.
 const assignUser = async (userId, payload) => {
   const before = await repository.findUserByIdLean(userId);
@@ -105,8 +106,22 @@ const assignUser = async (userId, payload) => {
     }
   }
 
+  if (payload.officeId !== undefined) {
+    if (payload.officeId === null) {
+      patch.officeId = null;
+    } else {
+      const office = await officeRepository.findOfficeByIdLean(payload.officeId);
+      if (!office) throw new ServiceError('Office not found', 422);
+      patch.officeId = payload.officeId;
+    }
+  }
+
   const after = await repository.updateUserAssignment(userId, patch);
-  const slim = (u) => ({ managerId: u.managerId || null, departmentId: u.departmentId || null });
+  const slim = (u) => ({
+    managerId: u.managerId || null,
+    departmentId: u.departmentId || null,
+    officeId: u.officeId || null,
+  });
   return { before: slim(before), after: slim(after), user: after };
 };
 

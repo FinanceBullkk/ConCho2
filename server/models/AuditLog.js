@@ -30,7 +30,7 @@ const auditLogSchema = new mongoose.Schema(
     },
     actorRole: {
       type: String,
-      enum: ['Admin', 'Teacher', 'Participant', 'System'],
+      enum: ['Admin', 'Coordinator', 'Teacher', 'Participant', 'System'],
       required: true,
     },
     actorEmpCode: {
@@ -61,7 +61,14 @@ const auditLogSchema = new mongoose.Schema(
              // Added in audit PR L (SEC-013) — sheets-sync run + reconcile run
              // produce their own audit lines so reviewers can reconstruct
              // operator activity without grepping pino logs.
-             'Sync', 'Reconcile'],
+             'Sync', 'Reconcile',
+             // Added in re-center Phase 1 — these entities were ALREADY being
+             // audited by their controllers, but the enum lagged behind, so
+             // every such write failed schema validation SILENTLY (audit is
+             // fire-and-forget). Backfilled here + 'Office' for the new model.
+             'Department', 'Office', 'Certificate', 'Assessment',
+             'AssessmentAttempt', 'AssessmentQuestion', 'Feedback',
+             'Assignment', 'LearningPath'],
       required: true,
     },
     entityId: {

@@ -34,7 +34,7 @@ import { cn } from '@/lib/utils';
 
 // Per Screen 5 §E (Users variant):
 //   facets: status · role · BU · level    bulk: change status · change role · export · delete
-const ROLES         = ['Admin', 'Teacher', 'Participant'];
+const ROLES         = ['Admin', 'Coordinator', 'Teacher', 'Participant'];
 const STATUSES      = ['Active', 'Inactive', 'Dropped', 'Transferred', 'On-hold', 'Waiting for class'];
 const STATUS_CHIPS  = ['Active', 'Inactive', 'On-hold'];   // primary axis per design
 const PAGE_SIZE     = 50;

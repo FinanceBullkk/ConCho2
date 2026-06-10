@@ -5,15 +5,16 @@ import {
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Spinner } from './Spinner';
-import { useDepartments, useAssignUser } from '../hooks/useOrg';
+import { useDepartments, useOffices, useAssignUser } from '../hooks/useOrg';
 
 // ──────────────────────────────────────────────────────────
-// OrgAssignmentModal — set a user's manager + department (Wave D3).
-// Saves via the org domain endpoint (PUT /api/org/users/:id/assignment),
-// keeping org placement separate from the legacy user identity form.
+// OrgAssignmentModal — set a user's manager + department + office
+// (Wave D3 + re-center Phase 1). Saves via the org domain endpoint
+// (PUT /api/org/users/:id/assignment), keeping org placement separate
+// from the legacy user identity form.
 //
 // Props:
-//   user        — target user { _id, name, managerId?, departmentId? }
+//   user        — target user { _id, name, managerId?, departmentId?, officeId? }
 //   candidates  — users available as managers (the loaded user list)
 //   onClose     — close handler
 // ──────────────────────────────────────────────────────────
@@ -26,14 +27,21 @@ const idStr = (v) => (v && v._id ? v._id : v) || '';
 export default function OrgAssignmentModal({ user, candidates = [], onClose }) {
   const { t } = useTranslation();
   const { data: departments } = useDepartments();
+  const { data: offices } = useOffices();
   const assign = useAssignUser();
 
   const [managerId, setManagerId] = useState(idStr(user?.managerId));
   const [departmentId, setDepartmentId] = useState(idStr(user?.departmentId));
+  const [officeId, setOfficeId] = useState(idStr(user?.officeId));
 
   const save = () => {
     assign.mutate(
-      { id: user._id, managerId: managerId || null, departmentId: departmentId || null },
+      {
+        id: user._id,
+        managerId: managerId || null,
+        departmentId: departmentId || null,
+        officeId: officeId || null,
+      },
       { onSuccess: onClose },
     );
   };
@@ -69,6 +77,16 @@ export default function OrgAssignmentModal({ user, candidates = [], onClose }) {
               <option value="">{t('org.assignment.noDepartment')}</option>
               {(departments || []).map((d) => (
                 <option key={d._id} value={d._id}>{d.name} ({d.code})</option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label htmlFor="org-office" className="block text-small text-muted-foreground mb-1.5">{t('org.assignment.office')}</label>
+            <select id="org-office" className={SELECT_CLS} value={officeId} onChange={(e) => setOfficeId(e.target.value)}>
+              <option value="">{t('org.assignment.noOffice')}</option>
+              {(offices || []).map((o) => (
+                <option key={o._id} value={o._id}>{o.name} ({o.code})</option>
               ))}
             </select>
           </div>

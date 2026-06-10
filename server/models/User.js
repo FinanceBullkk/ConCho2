@@ -45,7 +45,9 @@ const userSchema = new mongoose.Schema(
     role: {
       type: String,
       enum: {
-        values: ['Admin', 'Teacher', 'Participant'],
+        // Coordinator (re-center Phase 1) = training-ops management bundle
+        // via policy/capabilities.js — NOT a full Admin (no user/security).
+        values: ['Admin', 'Coordinator', 'Teacher', 'Participant'],
         message: '{VALUE} is not a valid role',
       },
       required: [true, 'Role is required'],
@@ -70,6 +72,14 @@ const userSchema = new mongoose.Schema(
     departmentId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'Department',
+      default: null,
+    },
+    // Office (physical site) the employee belongs to — re-center Phase 1.
+    // Same "open until populated" pattern as departmentId; manually set via
+    // org assignment until Directory sync (Wave D2) fills it.
+    officeId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Office',
       default: null,
     },
     position: {
@@ -268,6 +278,7 @@ userSchema.index({ department: 1 });
 // Org hierarchy lookups (manager dashboard scopes reports by managerId).
 userSchema.index({ managerId: 1 });
 userSchema.index({ departmentId: 1 });
+userSchema.index({ officeId: 1 });
 // Partial unique on email: enforce no duplicates among users that HAVE
 // an email (string-typed). A plain `sparse:true` is not enough here
 // because the field has `default: null` and MongoDB treats null values

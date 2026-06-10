@@ -13,6 +13,7 @@
  *   Admin:        000001 / admin12345
  *   Teachers:     000002 / teacher123, 000003 / teacher123
  *   Participants: 000004–000009 / participant123
+ *   Coordinator:  000010 / coordinator123
  */
 
 require('dotenv').config();
@@ -23,6 +24,7 @@ const connectDB = require('../config/db');
 const User = require('../models/User');
 const Team = require('../models/Team');
 const Class = require('../models/Class');
+const Office = require('../models/Office');
 const LearningProgram = require('../models/LearningProgram');
 const Schedule = require('../models/Schedule');
 const Attendance = require('../models/Attendance');
@@ -57,6 +59,7 @@ const seed = async () => {
       dropIfExists(User),
       dropIfExists(Team),
       dropIfExists(Class),
+      dropIfExists(Office),
       dropIfExists(LearningProgram),
       dropIfExists(Schedule),
       dropIfExists(Attendance),
@@ -67,7 +70,7 @@ const seed = async () => {
     ]);
 
     // Pre-set counters
-    await Counter.create({ _id: 'empCode', seq: 9 });
+    await Counter.create({ _id: 'empCode', seq: 10 });
     await Counter.create({ _id: 'classCode', seq: 2 });
 
     console.log('⚙️ Creating settings...');
@@ -203,7 +206,42 @@ const seed = async () => {
       password: 'participant123',
     });
 
-    console.log(`   ✅ Created 9 users`);
+    const coordinator = await User.create({
+      empCode: '000010',
+      name: 'Coordinator Vu',
+      role: 'Coordinator',
+      department: 'HR',
+      status: 'Active',
+      password: 'coordinator123',
+    });
+
+    console.log(`   ✅ Created 10 users`);
+
+    // ── Create Offices (re-center Phase 1) ────────────────
+    console.log('🏢 Creating offices...');
+    const officeHcm = await Office.create({
+      name: 'Ho Chi Minh Office',
+      code: 'HCM',
+      address: 'District 1, Ho Chi Minh City',
+      timezone: 'Asia/Ho_Chi_Minh',
+    });
+    const officeHn = await Office.create({
+      name: 'Ha Noi Office',
+      code: 'HN',
+      address: 'Cau Giay, Ha Noi',
+      timezone: 'Asia/Ho_Chi_Minh',
+    });
+
+    // Assign a few employees to offices (nullable elsewhere — "open until populated").
+    await User.updateMany(
+      { _id: { $in: [admin._id, coordinator._id, part1._id, part2._id] } },
+      { $set: { officeId: officeHcm._id } },
+    );
+    await User.updateMany(
+      { _id: { $in: [teacher1._id, part4._id] } },
+      { $set: { officeId: officeHn._id } },
+    );
+    console.log(`   ✅ Created 2 offices (HCM, HN)`);
 
     // ── Create Classes ────────────────────────────────────
     console.log('📚 Creating classes...');

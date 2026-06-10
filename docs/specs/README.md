@@ -58,7 +58,7 @@ table is just the index. Covers every mounted `/api/*` route surface.
 | [audit-log](audit-log/spec.md) | stable | services/auditService, models/AuditLog | 2026-06-08 |
 | [export-and-integrations](export-and-integrations/spec.md) | stable | services/exportService, services/calendarService, controllers/syncController, lib | 2026-06-08 |
 | [reconcile-job](reconcile-job/spec.md) | stable | services/reconcileService, controllers/reconcileController, jobs | 2026-06-08 |
-| [capability-authz](capability-authz/spec.md) | evolving | middleware/requireCapability, policy/capabilities, middleware/roleGuard, policy | 2026-06-09 |
+| [capability-authz](capability-authz/spec.md) | evolving | middleware/requireCapability, policy/capabilities, middleware/roleGuard, policy | 2026-06-10 |
 | [security-platform](security-platform/spec.md) | stable | middleware (csrf, rateLimiters, validate, sanitize), helmet, soft-delete | 2026-06-08 |
 | [evaluations](evaluations/spec.md) | stable | controllers/evaluationController, models/Evaluation (legacy 4-skill) | 2026-06-08 |
 | [bulk-import](bulk-import/spec.md) | stable | controllers/importController, services/importService | 2026-06-08 |
@@ -66,7 +66,7 @@ table is just the index. Covers every mounted `/api/*` route surface.
 | [dashboard-analytics](dashboard-analytics/spec.md) | stable | controllers/dashboardController | 2026-06-08 |
 | [search](search/spec.md) | stable | controllers/searchController, services/searchService | 2026-06-08 |
 | [admin-db-explorer](admin-db-explorer/spec.md) | stable | routes/adminDbRoutes | 2026-06-08 |
-| [org-and-departments](org-and-departments/spec.md) | stable | domains/org, models/Department | 2026-06-08 |
+| [org-and-departments](org-and-departments/spec.md) | stable | domains/org, models/Department, models/Office | 2026-06-10 |
 
 > Status: **stable** = shipped + enforced · **evolving** = partial / persisted-
 > not-enforced (the spec's "Out of Scope" says which).

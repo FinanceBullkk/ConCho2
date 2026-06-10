@@ -30,16 +30,39 @@ const listDepartmentsQuery = z.object({
   search: z.string().trim().max(120).optional(),
 });
 
-// Assign a user's manager / department. `null` clears the field; omit to leave
-// it unchanged. At least one of the two must be present.
+// ── Offices (re-center Phase 1) ───────────────────────────
+const createOfficeBody = z.object({
+  name: z.string().trim().min(1).max(120),
+  code,
+  address: z.string().trim().max(300).optional(),
+  timezone: z.string().trim().max(64).optional(),
+});
+
+// Code is immutable after creation (stable site identifier).
+const updateOfficeBody = z
+  .object({
+    name: z.string().trim().min(1).max(120).optional(),
+    address: z.string().trim().max(300).optional(),
+    timezone: z.string().trim().max(64).optional(),
+  })
+  .refine((b) => Object.keys(b).length > 0, { message: 'No fields to update' });
+
+const listOfficesQuery = z.object({
+  search: z.string().trim().max(120).optional(),
+});
+
+// Assign a user's manager / department / office. `null` clears the field;
+// omit to leave it unchanged. At least one must be present.
 const assignUserBody = z
   .object({
     managerId: objectId.nullable().optional(),
     departmentId: objectId.nullable().optional(),
+    officeId: objectId.nullable().optional(),
   })
-  .refine((b) => b.managerId !== undefined || b.departmentId !== undefined, {
-    message: 'Provide managerId and/or departmentId',
-  });
+  .refine(
+    (b) => b.managerId !== undefined || b.departmentId !== undefined || b.officeId !== undefined,
+    { message: 'Provide managerId, departmentId, and/or officeId' },
+  );
 
 const myTeamQuery = z.object({}).optional();
 
@@ -47,6 +70,9 @@ module.exports = {
   createDepartmentBody,
   updateDepartmentBody,
   listDepartmentsQuery,
+  createOfficeBody,
+  updateOfficeBody,
+  listOfficesQuery,
   assignUserBody,
   myTeamQuery,
 };

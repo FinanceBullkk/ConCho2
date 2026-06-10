@@ -15,6 +15,20 @@ const departmentDto = (d) => {
   };
 };
 
+const officeDto = (o) => {
+  if (!o) return null;
+  const v = typeof o.toObject === 'function' ? o.toObject() : o;
+  return {
+    _id: v._id,
+    name: v.name,
+    code: v.code,
+    address: v.address || '',
+    timezone: v.timezone || '',
+    createdAt: v.createdAt,
+    updatedAt: v.updatedAt,
+  };
+};
+
 const idOf = (value) => (value && value._id ? value._id : value) || null;
 
 // A direct report + their training rollup, for the manager dashboard.
@@ -41,4 +55,4 @@ const teamMemberDto = (user, rollup = {}) => {
   };
 };
 
-module.exports = { departmentDto, teamMemberDto, idOf };
+module.exports = { departmentDto, officeDto, teamMemberDto, idOf };

@@ -1,6 +1,6 @@
 ---
 title: Re-center LTMS on the coordinator-scheduled, offline, multi-office model
-status: pending
+status: in_progress
 priority: high
 effort_total: TBD per phase (see phase files)
 created: 2026-06-09
@@ -39,7 +39,7 @@ product on that model. Decision recorded in
 ## Phases
 | Phase | Title | Depends on | Status |
 |---|---|---|---|
-| 1 | [Office + Training-coordinator role](./phase-01-office-and-coordinator-role.md) — additive Office model (employee + Room → Office); Coordinator capability set | — | pending |
+| 1 | [Office + Training-coordinator role](./phase-01-office-and-coordinator-role.md) — additive Office model (employee + Room → Office); Coordinator capability set | — | ✅ done 2026-06-10 |
 | 2 | [Coordinator-scheduled session flow (primary UX)](./phase-02-coordinator-scheduling-flow.md) — make `admin_scheduled` the first-class create flow (course+office+room+time+trainer → self-enrol/assign); demote `leader_booking` | 1 | pending |
 | 3 | [Rooms + Trainers](./phase-03-rooms-and-trainers.md) — Office-scoped Rooms + internal/external Trainer + waitlists; refines the existing Wave E3 plan | 1, 2 | pending |
 
