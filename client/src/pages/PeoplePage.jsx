@@ -1,13 +1,14 @@
 import { useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { Users, UsersRound, Building2, MapPin } from 'lucide-react';
+import { Users, UsersRound, Building2, MapPin, DoorOpen } from 'lucide-react';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { PageHeader } from '@/components/PageHeader';
 import { useRole } from '../hooks/useRole';
-import UsersPage from './UsersPage';
-import TeamsPage from './TeamsPage';
-import DepartmentsPage from './DepartmentsPage';
-import OfficesPage from './OfficesPage';
+import UsersPage from '../features/users/UsersPage';
+import TeamsPage from '../features/groups/TeamsPage';
+import DepartmentsPage from '../features/org/DepartmentsPage';
+import OfficesPage from '../features/org/OfficesPage';
+import RoomsPage from '../features/rooms/RoomsPage';
 
 // ──────────────────────────────────────────────────────────
 // PeoplePage — Phase 2 IA-S2
@@ -21,6 +22,7 @@ const TABS = [
   { id: 'teams', icon: UsersRound, component: TeamsPage, perm: 'read:teams' },
   { id: 'departments', icon: Building2, component: DepartmentsPage, perm: 'read:department' },
   { id: 'offices', icon: MapPin, component: OfficesPage, perm: 'read:office' },
+  { id: 'rooms', icon: DoorOpen, component: RoomsPage, perm: 'read:room' },
 ];
 
 export default function PeoplePage() {

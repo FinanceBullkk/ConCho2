@@ -125,7 +125,9 @@
       "departments": "Departments",
       "departmentsDesc": "Structured org units + the reporting hierarchy.",
       "offices": "Offices",
-      "officesDesc": "Physical sites — employees and rooms belong to an office."
+      "officesDesc": "Physical sites — employees and rooms belong to an office.",
+      "rooms": "Rooms",
+      "roomsDesc": "Physical training rooms, each scoped to an office."
     }
   },
   "org": {
@@ -165,6 +167,26 @@
       "colActions": "Actions",
       "archiveLabel": "Archive {{name}}",
       "archiveConfirm": "Archive office \"{{name}}\"?"
+    },
+    "rooms": {
+      "name": "Room name",
+      "namePlaceholder": "Name (e.g. Training Room A1)",
+      "code": "Room code",
+      "codePlaceholder": "Code (e.g. HCM-A1)",
+      "office": "Office",
+      "selectOffice": "Select an office…",
+      "seats": "Seats",
+      "seatsPlaceholder": "Seats (optional)",
+      "add": "Add room",
+      "empty": "No rooms yet.",
+      "emptyAdmin": " Add one above.",
+      "colRoom": "Room",
+      "colCode": "Code",
+      "colOffice": "Office",
+      "colSeats": "Seats",
+      "colActions": "Actions",
+      "archiveLabel": "Archive {{name}}",
+      "archiveConfirm": "Archive room \"{{name}}\"?"
     },
     "assignment": {
       "title": "Assign manager & department",
@@ -787,6 +809,8 @@
       "title": "Schedule a session",
       "office": "Office",
       "selectOffice": "Select an office…",
+      "room": "Room",
+      "selectRoom": "No room / select a room…",
       "date": "Date",
       "slot": "Time slot",
       "selectSlot": "Select a time slot…",

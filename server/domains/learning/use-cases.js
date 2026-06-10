@@ -165,6 +165,105 @@ const createCohort = async (payload) => {
   return getCohort(created._id);
 };
 
+// Edit a cohort. Mirrors the legacy classController.updateClass surface:
+// only `status` + `totalSessions` are editable, with the "one Ongoing run per
+// cohort code" guard preserved.
+const updateCohort = async (id, payload) => {
+  const existing = await repository.findCohortById(id);
+  if (!existing) {
+    const err = new Error('Cohort not found');
+    err.statusCode = 404;
+    throw err;
+  }
+
+  // Rule: only one Ongoing run per cohort code — block a Completed→Ongoing flip
+  // when another run of the same code is already Ongoing.
+  if (payload.status === 'Ongoing' && existing.status !== 'Ongoing') {
+    const conflict = await repository.findOngoingCohortConflict(existing.classCode, id);
+    if (conflict) {
+      const err = new Error(
+        `Cohort "${existing.classCode}" already has an Ongoing run: "${conflict.courseName}". Mark it Completed first.`,
+      );
+      err.statusCode = 409;
+      throw err;
+    }
+  }
+
+  const update = {};
+  if (payload.status !== undefined) update.status = payload.status;
+  if (payload.totalSessions !== undefined) update.totalSessions = payload.totalSessions;
+
+  await repository.updateCohortById(id, update);
+  return getCohort(id);
+};
+
+// Soft-archive a cohort (recoverable). Blocks while Teams/Schedules still
+// reference it; then closes active Enrollments (status→Dropped, like Team
+// delete) and marks the cohort deleted in one transaction. Evaluations and the
+// Enrollment history are PRESERVED (golden rule); restore brings it all back.
+const deleteCohort = async (id) => {
+  const cohort = await repository.findCohortById(id);
+  if (!cohort) {
+    const err = new Error('Cohort not found');
+    err.statusCode = 404;
+    throw err;
+  }
+
+  const teamCount = await repository.countTeamsByCohort(id);
+  if (teamCount > 0) {
+    const err = new Error(
+      `Cannot delete: ${teamCount} group(s) are still assigned to this cohort. Delete or reassign them first.`,
+    );
+    err.statusCode = 409;
+    throw err;
+  }
+
+  const scheduleCount = await repository.countSchedulesByCohort(id);
+  if (scheduleCount > 0) {
+    const err = new Error(
+      `Cannot delete: ${scheduleCount} session(s) still reference this cohort. Delete them first.`,
+    );
+    err.statusCode = 409;
+    throw err;
+  }
+
+  const session = await mongoose.startSession();
+  let closedEnrollments = 0;
+  const deletedAt = new Date();
+  try {
+    await session.withTransaction(async () => {
+      const enrollResult = await repository.closeEnrollmentsByCohort(id, deletedAt, session);
+      closedEnrollments = enrollResult.modifiedCount;
+      await repository.softDeleteCohort(id, deletedAt, session);
+    });
+  } finally {
+    session.endSession();
+  }
+
+  return {
+    cohortCode: cohort.classCode,
+    courseName: cohort.courseName,
+    closedEnrollments,
+  };
+};
+
+// Restore a soft-archived cohort. Active enrollments closed at delete time stay
+// Dropped (admin re-enrolls as needed) — mirrors Team restore.
+const restoreCohort = async (id) => {
+  const restored = await repository.restoreCohortById(id);
+  if (!restored) {
+    const err = new Error('Archived cohort not found');
+    err.statusCode = 404;
+    throw err;
+  }
+  return getCohort(id);
+};
+
+const listDeletedCohorts = async () => {
+  const cohorts = await repository.findDeletedCohorts().lean();
+  return enrichCohorts(cohorts);
+};
+
 module.exports = {
   listPrograms,
   getProgram,
@@ -176,4 +275,8 @@ module.exports = {
   listCohorts,
   getCohort,
   createCohort,
+  updateCohort,
+  deleteCohort,
+  restoreCohort,
+  listDeletedCohorts,
 };

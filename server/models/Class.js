@@ -79,11 +79,48 @@ const classSchema = new mongoose.Schema(
       type: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
       default: [],
     },
+
+    // ── Soft-delete fields (cohort trash/restore) ───────────
+    // Cohort delete is a soft-archive (recoverable), mirroring Team (UX-03) and
+    // honoring the "never hard-delete evaluation/enrollment data" golden rule.
+    isDeleted: {
+      type: Boolean,
+      default: false,
+    },
+    deletedAt: {
+      type: Date,
+      default: null,
+    },
   },
   {
     timestamps: true,
   }
 );
+
+// ── Soft-delete auto-filter ─────────────────────────────
+// Mirrors Team.js: every normal read/write excludes archived cohorts unless the
+// caller constrains `isDeleted` explicitly (so "show archived" / restore still
+// work). Existing docs predate the field — `{ $ne: true }` matches them, so
+// visibility is unchanged without a backfill.
+const SOFT_DELETE_HOOKS = ['find', 'findOne', 'countDocuments', 'findOneAndUpdate', 'findOneAndDelete'];
+for (const hook of SOFT_DELETE_HOOKS) {
+  classSchema.pre(hook, function () {
+    const filter = this.getFilter();
+    if (filter.isDeleted === undefined) {
+      this.where({ isDeleted: { $ne: true } });
+    }
+  });
+}
+
+classSchema.pre('aggregate', function () {
+  const pipeline = this.pipeline();
+  const hasExplicitFilter = pipeline.some(
+    (stage) => stage && stage.$match && stage.$match.isDeleted !== undefined,
+  );
+  if (!hasExplicitFilter) {
+    pipeline.unshift({ $match: { isDeleted: { $ne: true } } });
+  }
+});
 
 // ── Compound Unique Index ─────────────────────────────────
 // One classCode can only have ONE instance of each course.

@@ -239,13 +239,14 @@ app.get('/api/auth/csrf', getCsrfToken);
 
 app.use('/api/auth', require('./routes/authRoutes'));
 app.use('/api/users', require('./routes/userRoutes'));
-app.use('/api/teams', require('./routes/teamRoutes'));
+app.use('/api/teams', require('./domains/groups/routes'));
 app.use('/api/classes', require('./routes/classRoutes'));
 app.use('/api/learning', require('./domains/learning/routes'));
 app.use('/api/org', require('./domains/org/routes'));
+app.use('/api/rooms', require('./domains/room/routes'));
 app.use('/api/assessment', require('./domains/assessment/routes'));
-app.use('/api/schedules', require('./routes/scheduleRoutes'));
-app.use('/api/attendance', require('./routes/attendanceRoutes'));
+app.use('/api/schedules', require('./domains/schedule/routes'));
+app.use('/api/attendance', require('./domains/attendance/routes'));
 app.use('/api/evaluations', require('./routes/evaluationRoutes'));
 app.use('/api/enrollments', require('./routes/enrollmentRoutes'));
 app.use('/api/sync', require('./routes/syncRoutes'));

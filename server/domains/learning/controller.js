@@ -109,6 +109,69 @@ const createCohort = async (req, res) => {
   }
 };
 
+const updateCohort = async (req, res) => {
+  try {
+    const before = await useCases.getCohort(req.params.id);
+    const data = await useCases.updateCohort(req.params.id, req.body);
+    auditService.record({
+      req,
+      action: 'updated',
+      entity: 'Class',
+      entityId: req.params.id,
+      diff: auditService.diff(before, data),
+      note: 'Updated through learning cohort API',
+    });
+    res.json({ success: true, data });
+  } catch (error) {
+    handleError(res, error);
+  }
+};
+
+const deleteCohort = async (req, res) => {
+  try {
+    const result = await useCases.deleteCohort(req.params.id);
+    auditService.record({
+      req,
+      action: 'soft-deleted',
+      entity: 'Class',
+      entityId: req.params.id,
+      note: `Archived cohort ${result.cohortCode} - ${result.courseName}; closed ${result.closedEnrollments} enrollment(s). Recoverable via restore.`,
+    });
+    res.json({
+      success: true,
+      message: `Cohort ${result.cohortCode} - ${result.courseName} archived (recoverable)`,
+      cascade: { closedEnrollments: result.closedEnrollments },
+    });
+  } catch (error) {
+    handleError(res, error);
+  }
+};
+
+const restoreCohort = async (req, res) => {
+  try {
+    const data = await useCases.restoreCohort(req.params.id);
+    auditService.record({
+      req,
+      action: 'restored',
+      entity: 'Class',
+      entityId: req.params.id,
+      note: `Restored cohort ${data.cohortCode}`,
+    });
+    res.json({ success: true, data });
+  } catch (error) {
+    handleError(res, error);
+  }
+};
+
+const listDeletedCohorts = async (req, res) => {
+  try {
+    const data = await useCases.listDeletedCohorts();
+    res.json({ success: true, count: data.length, data });
+  } catch (error) {
+    handleError(res, error);
+  }
+};
+
 module.exports = {
   listPrograms,
   getProgram,
@@ -118,4 +181,8 @@ module.exports = {
   listCohorts,
   getCohort,
   createCohort,
+  updateCohort,
+  deleteCohort,
+  restoreCohort,
+  listDeletedCohorts,
 };
