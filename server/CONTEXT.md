@@ -31,3 +31,28 @@ _Avoid_: classless session.
 **Scheduling mode**:
 A Program attribute deciding who creates a Session and how: `leader_booking` (team leader self-books), `admin_scheduled` (only an Admin books the team's sessions), `self_enroll` / `nomination` (Admin schedules cohort sessions). It reaches a Session via the Cohort's program link; when no program is linked it falls back to `leader_booking`.
 _Avoid_: booking mode, session type.
+_Primary real-world flow_: `admin_scheduled` (a Training coordinator opens sessions). `leader_booking` is a legacy English-class mode, kept as a secondary option.
+
+## Organisation & People
+
+**Office**:
+A physical site/location where training is delivered (e.g. "Hanoi Office"). A small managed set (currently 2–3). Distinct from Department. Every Room belongs to exactly one Office; a Session is delivered at one Office. An employee has a home Office (may be unknown until Directory sync populates it).
+_Avoid_: site, branch, location, campus (use "Office"); do NOT conflate with Department.
+
+**Department**:
+A logical org unit an employee belongs to (e.g. "Production"), independent of physical Office. Used for org hierarchy, assignment targeting, and reporting.
+_Avoid_: team (that is a different legacy concept), office.
+
+**Training coordinator**:
+The person who runs training operations: opens Sessions (course + Office + Room + time + Trainer), manages Programs/Cohorts, assigns or approves learners, and reads reports. Holds those capabilities WITHOUT full Admin powers (no user-account management, MFA, or security settings). Granted via the capability layer, not the Admin role.
+_Avoid_: admin (an Admin is broader), organiser.
+
+**Trainer**:
+The person who delivers a Session. Either an internal employee (a User) or an external person represented lightly by name + contact only (no account, no system access). Assigned per Session.
+_Avoid_: teacher (legacy, cohort-level), instructor, facilitator — prefer "Trainer".
+
+## Legacy concepts (kept for compatibility, not used in the coordinator-scheduled flow)
+
+**LearningGroup / Team**:
+A pre-built group of learners with a leader, used by the legacy `leader_booking` flow to snapshot a Session roster. In the coordinator-scheduled offline flow the roster comes from self-enrolment + coordinator assignment instead, so Team is largely vestigial.
+_Avoid_: relying on Team for new offline-training work.
