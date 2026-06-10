@@ -101,6 +101,10 @@ const PERMISSION_MAP = {
   // Bookings ─ server: server/routes/scheduleRoutes.js POST /book-slot
   // roleGuard('Admin','Participant') + leader check in scheduleService
   'book:class':        ['Admin', 'Participant'],
+  // Coordinator-scheduled offline session create (re-center Phase 2) ─
+  // server: POST /api/learning/sessions/book-slot (session.book) + scheduler
+  // gate (Admin|Coordinator) inside bookCohortSession.
+  'book:session':      ['Admin', 'Coordinator'],
 
   // Evaluations ─ server: server/routes/evaluationRoutes.js
   // Teacher write is now ALSO gated by Class.teacherIds policy (audit PR 5)

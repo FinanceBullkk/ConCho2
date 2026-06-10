@@ -231,6 +231,10 @@ export const learningAPI = {
   createCohort: (data) => api.post('/learning/cohorts', data),
   // Safe scheduling config (allowed slots + tz) — readable by all roles.
   getSchedulingConfig: () => api.get('/learning/sessions/config'),
+  getSessions: (params) => api.get('/learning/sessions', { params }),
+  // Coordinator-scheduled session create (cohort + office + time) — re-center
+  // Phase 2. Books against a cohort (self_enroll/nomination), team-less.
+  bookSession: (data) => api.post('/learning/sessions/book-slot', data),
   // Sequenced learning paths (ordered curriculum of programs).
   getPaths: (params) => api.get('/learning/paths', { params }),
   getPath: (id) => api.get(`/learning/paths/${id}`),

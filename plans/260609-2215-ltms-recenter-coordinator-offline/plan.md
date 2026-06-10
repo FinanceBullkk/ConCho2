@@ -40,7 +40,7 @@ product on that model. Decision recorded in
 | Phase | Title | Depends on | Status |
 |---|---|---|---|
 | 1 | [Office + Training-coordinator role](./phase-01-office-and-coordinator-role.md) — additive Office model (employee + Room → Office); Coordinator capability set | — | ✅ done 2026-06-10 |
-| 2 | [Coordinator-scheduled session flow (primary UX)](./phase-02-coordinator-scheduling-flow.md) — make `admin_scheduled` the first-class create flow (course+office+room+time+trainer → self-enrol/assign); demote `leader_booking` | 1 | pending |
+| 2 | [Coordinator-scheduled session flow (primary UX)](./phase-02-coordinator-scheduling-flow.md) — scheduler opens a team-less cohort session (course+office+time → self-enrol/assign); demote `leader_booking` | 1 | ✅ done 2026-06-10 |
 | 3 | [Rooms + Trainers](./phase-03-rooms-and-trainers.md) — Office-scoped Rooms + internal/external Trainer + waitlists; refines the existing Wave E3 plan | 1, 2 | pending |
 
 Wave E3 detail (rooms/instructors/waitlists/cancellation) lives in

@@ -240,7 +240,7 @@ const bookSlot = async ({ teamId, startTime, endTime, requestUser }) => {
  * @returns {Promise<Object>} populated Schedule
  * @throws {ServiceError} on validation/collision failures
  */
-const bookCohortSlot = async ({ cohortId, startTime, endTime, enrolledUserIds = [], requestUser }) => {
+const bookCohortSlot = async ({ cohortId, startTime, endTime, enrolledUserIds = [], officeId = null, requestUser }) => {
   const start = new Date(startTime);
   const end = new Date(endTime);
 
@@ -260,6 +260,7 @@ const bookCohortSlot = async ({ cohortId, startTime, endTime, enrolledUserIds = 
         [{
           classId: cohortId,
           bookedTeamId: null,
+          officeId: officeId || null,
           startTime: start,
           endTime: end,
           enrolledUsers: enrolledUserIds,

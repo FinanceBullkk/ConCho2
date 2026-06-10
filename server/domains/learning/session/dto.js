@@ -12,6 +12,11 @@ const groupDto = (group) => {
   };
 };
 
+const officeDto = (office) => {
+  if (!office || typeof office !== 'object') return null;
+  return { _id: office._id, name: office.name, code: office.code };
+};
+
 const learnerDto = (learner) => {
   if (!learner || typeof learner !== 'object') return { _id: learner };
   return {
@@ -36,6 +41,9 @@ const sessionDto = (schedule) => {
   const group = s.bookedTeamId && typeof s.bookedTeamId === 'object'
     ? groupDto(s.bookedTeamId)
     : null;
+  const office = s.officeId && typeof s.officeId === 'object'
+    ? officeDto(s.officeId)
+    : null;
 
   return {
     _id: s._id,
@@ -45,6 +53,8 @@ const sessionDto = (schedule) => {
     cohort,
     groupId: idOf(s.bookedTeamId),
     group,
+    officeId: idOf(s.officeId),
+    office,
     startTime: s.startTime,
     endTime: s.endTime,
     roomLink: s.roomLink || '',

@@ -12,6 +12,7 @@ const {
   assertTeamMode,
   assertTeamModeStructural,
   assertCohortMode,
+  isScheduler,
   TEAM_SCHEDULING_MODES,
   COHORT_SCHEDULING_MODES,
 } = require('../../domains/schedule/scheduling-mode-policy');
@@ -47,11 +48,26 @@ describe('scheduling-mode-policy · assertTeamMode (structural + authz)', () => 
   test('admin_scheduled is bookable by an Admin', () => {
     expect(() => assertTeamMode({ schedulingMode: 'admin_scheduled', actor: { role: 'Admin' } })).not.toThrow();
   });
-  test('admin_scheduled by a non-admin -> 403 (the closed leader bypass)', () => {
+  test('admin_scheduled is bookable by a Coordinator (re-center Phase 2)', () => {
+    expect(() => assertTeamMode({ schedulingMode: 'admin_scheduled', actor: { role: 'Coordinator' } })).not.toThrow();
+  });
+  test('admin_scheduled by a self-booking leader/teacher -> 403 (the closed bypass)', () => {
     expectThrow(() => assertTeamMode({ schedulingMode: 'admin_scheduled', actor: { role: 'Participant' } }), 403, /admin-scheduled/i);
+    expectThrow(() => assertTeamMode({ schedulingMode: 'admin_scheduled', actor: { role: 'Teacher' } }), 403, /admin-scheduled/i);
   });
   test('cohort mode -> 400 even for an Admin (structural fires first)', () => {
     expectThrow(() => assertTeamMode({ schedulingMode: 'self_enroll', actor: { role: 'Admin' } }), 400, /cohort-based/i);
+  });
+});
+
+describe('scheduling-mode-policy · isScheduler', () => {
+  test('Admin and Coordinator are schedulers; Teacher/Participant are not', () => {
+    expect(isScheduler({ role: 'Admin' })).toBe(true);
+    expect(isScheduler({ role: 'Coordinator' })).toBe(true);
+    expect(isScheduler({ role: 'Teacher' })).toBe(false);
+    expect(isScheduler({ role: 'Participant' })).toBe(false);
+    expect(isScheduler(null)).toBe(false);
+    expect(isScheduler(undefined)).toBe(false);
   });
 });
 
