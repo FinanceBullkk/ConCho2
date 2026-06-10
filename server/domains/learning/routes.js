@@ -32,7 +32,7 @@ const { submitFeedbackBody, listFeedbackQuery } = require('./feedback/schemas');
 const reportsController = require('./reports/controller');
 const { completionReportQuery, completionRollupQuery, complianceReportQuery } = require('./reports/schemas');
 const dashboardController = require('./dashboard/controller');
-const { operationalDashboardQuery } = require('./dashboard/schemas');
+const { operationalDashboardQuery, costConfigBody } = require('./dashboard/schemas');
 const { exportLimiter } = require('../../middleware/rateLimiters');
 const assignmentController = require('./assignment/controller');
 const { createAssignmentBody, listAssignmentsQuery } = require('./assignment/schemas');
@@ -192,6 +192,25 @@ router.get(
   validate({ query: operationalDashboardQuery }),
   dashboardController.getOperationalDashboard,
 );
+
+// ── Executive dashboard + cost config (2-tier dashboard, Phase 3) ──
+// Coarse `report.read` here; the use-case enforces Admin-only inside
+// (defence in depth, mirroring the compliance report gate).
+router.get(
+  '/dashboard/executive',
+  requireCapability('report.read'),
+  validate({ query: operationalDashboardQuery }),
+  dashboardController.getExecutiveDashboard,
+);
+
+router
+  .route('/dashboard/cost-config')
+  .get(requireCapability('report.read'), dashboardController.getCostConfig)
+  .put(
+    requireCapability('report.read'),
+    validate({ body: costConfigBody }),
+    dashboardController.putCostConfig,
+  );
 
 // ── Mandatory assignments + due dates (Wave D4 v1) ───────
 router
