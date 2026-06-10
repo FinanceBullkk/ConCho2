@@ -14,13 +14,13 @@ const h = vi.hoisted(() => ({
   can: vi.fn(() => true),
 }));
 
-vi.mock('../../hooks/useOrg', () => ({
+vi.mock('../../../hooks/useOrg', () => ({
   useOffices: () => h.offices,
   useCreateOffice: () => h.create,
   useArchiveOffice: () => h.archive,
 }));
 
-vi.mock('../../hooks/useRole', () => ({
+vi.mock('../../../hooks/useRole', () => ({
   useRole: () => ({ can: h.can }),
 }));
 

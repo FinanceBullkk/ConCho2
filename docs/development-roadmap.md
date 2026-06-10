@@ -243,6 +243,9 @@ Bug fixing and integration review rank above net-new feature rollout.
   `.claude/rules/frontend-conventions.md`. Verified: client build clean,
   `test:run` 226/48 green, eslint at cap 81 (no new warnings). Remaining domains
   migrate incrementally; `pages/`+`features/` coexist during the migration.
+  Second domain migrated same day: `features/org/` (`OfficesPage` + tests) — the
+  "page moves, widely-shared hook (`useOrg`) stays in `hooks/`" variant; importer
+  `PeoplePage` updated; build + 226 tests + lint(cap) green.
 
 - **2026-06-10** — **Phase 1 (Backend Modular Monolith Refactor) effectively
   complete (~98%).** Closed the last two backend items: (1) **schedule domain

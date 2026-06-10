@@ -2,9 +2,9 @@ import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { MapPin, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Spinner } from '../components/Spinner';
-import { useRole } from '../hooks/useRole';
-import { useOffices, useCreateOffice, useArchiveOffice } from '../hooks/useOrg';
+import { Spinner } from '../../components/Spinner';
+import { useRole } from '../../hooks/useRole';
+import { useOffices, useCreateOffice, useArchiveOffice } from '../../hooks/useOrg';
 
 // ──────────────────────────────────────────────────────────
 // OfficesPage — People → Offices tab (re-center Phase 1).
