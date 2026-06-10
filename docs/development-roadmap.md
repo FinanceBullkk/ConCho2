@@ -232,6 +232,21 @@ Bug fixing and integration review rank above net-new feature rollout.
 
 ## Recent progress (changelog)
 
+- **2026-06-10** — **Phase 1 (Backend Modular Monolith Refactor) effectively
+  complete (~98%).** Closed the last two backend items: (1) **schedule domain
+  use-case tests** — new `tests/integration/scheduleUseCases.test.js` (9 tests)
+  locks the `domains/schedule/use-cases` contract in isolation (update/delete/
+  setTrainers return shapes + `ServiceError.statusCode` 404/409/400). (2)
+  **repository-interface scope settled** — ADR
+  `docs/decisions/repository-layer-where-separable.md`: `repository.js` applies
+  where a query layer is genuinely separable (`learning/`, `schedule/`);
+  `attendance/` + `groups/` deliberately keep Mongoose access inline (fused with
+  aggregation/transaction logic — KISS, mirrors the "kept large by design"
+  precedent). With `domains/attendance` + `domains/groups` extracted and
+  `domains/schedule` now full (own routes, legacy adapter removed), the backend
+  refactor is done. **Frontend `features/` is a SEPARATE convention item, NOT
+  part of Phase 1** (handoff: it sits above the Phase 1 section).
+
 - **2026-06-10** — **Phase 1 refactor — extract `domains/schedule` routes (remove
   the last legacy adapter).** Pure behavior-preserving relocation (no
   route/response/authz change → no spec change). `routes/scheduleRoutes.js` +
