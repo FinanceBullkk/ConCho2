@@ -71,6 +71,10 @@ vi.mock('../../../hooks/useLearningDashboard', () => ({
       refetch: mocks.refetch,
     };
   },
+  // Executive hooks (panel detail is covered by DashboardExecutivePanel.test).
+  useExecutiveDashboard: () => ({ data: null, isLoading: true, isError: false, refetch: vi.fn() }),
+  useCostConfig: () => ({ data: null }),
+  useSetCostConfig: () => ({ mutateAsync: vi.fn(), isPending: false }),
 }));
 
 vi.mock('../../../hooks/useRole', () => ({
@@ -101,12 +105,13 @@ describe('DashboardTab', () => {
     expect(screen.getByText('4.2/5')).toBeInTheDocument();
   });
 
-  it('shows the Executive toggle for Admins with a placeholder view', async () => {
+  it('shows the Executive toggle for Admins and mounts the executive panel', async () => {
     const user = userEvent.setup();
     render(<DashboardTab />);
 
     await user.click(screen.getByRole('tab', { name: /executive/i }));
-    expect(screen.getByText('Executive view')).toBeInTheDocument();
+    // Executive hook is mocked as loading → the panel skeleton mounts.
+    expect(screen.getByTestId('executive-skeleton')).toBeInTheDocument();
   });
 
   it('hides the Executive toggle for non-admin report readers', () => {
