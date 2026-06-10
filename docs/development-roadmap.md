@@ -232,6 +232,19 @@ Bug fixing and integration review rank above net-new feature rollout.
 
 ## Recent progress (changelog)
 
+- **2026-06-10** — **Frontend `features/` migration — F4 (learning, the big cluster).**
+  Moved the entire `pages/learning/` folder (40 files + 14 test files) **as a unit** to
+  `features/learning/` plus `LearningPage.jsx`. Near-zero internal churn: `pages/learning/`
+  and `features/learning/` are the same directory depth, so every `../../hooks|components|api`
+  reach-out and every `__tests__` `vi.mock` path stayed valid unchanged; only `LearningPage.jsx`
+  (tab imports `./learning/X`→`./X`, `../hooks`→`../../hooks`) and 4 external importers changed
+  (`App.jsx` lazy route; `/me` pages `MyAssessmentsPage`/`MyFeedbackPage`/`MyLearningPathsPage`
+  which import learning modals → repointed to `../features/learning/X`). Shared hooks
+  (`useLearning`/`useAssessment`/`useLearningDashboard`) stayed in `hooks/` (used by `/me` too).
+  Build clean, `test:run` 226/48, lint at cap 75. **13 feature folders.** Remaining: F5
+  (`/me` learner pages + auth + admin leftovers); `PeoplePage`/`SystemPage`/`ReportsPage`/
+  `CalendarPage` stay as composition shells in `pages/`.
+
 - **2026-06-10** — **Frontend `features/` migration — F3 (classes).** Migrated
   `ClassDetailPage` → `features/classes/` (App.jsx lazy route repointed); shared hooks
   (`useClasses`/`useTeams`/`useSchedules`/`useEnrollments`/`useAttendance`) stay shared.

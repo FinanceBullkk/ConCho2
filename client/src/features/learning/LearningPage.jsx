@@ -4,15 +4,15 @@ import { BarChart3, BookOpen, Boxes, ClipboardList, GraduationCap, LayoutDashboa
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { PageHeader } from '@/components/PageHeader';
-import { useRole } from '../hooks/useRole';
-import ProgramsTab from './learning/ProgramsTab';
-import CohortsTab from './learning/CohortsTab';
-import PathsTab from './learning/PathsTab';
-import AssignmentsTab from './learning/AssignmentsTab';
-import AssessmentsTab from './learning/AssessmentsTab';
-import FeedbackTab from './learning/FeedbackTab';
-import ReportsTab from './learning/ReportsTab';
-import DashboardTab from './learning/DashboardTab';
+import { useRole } from '../../hooks/useRole';
+import ProgramsTab from './ProgramsTab';
+import CohortsTab from './CohortsTab';
+import PathsTab from './PathsTab';
+import AssignmentsTab from './AssignmentsTab';
+import AssessmentsTab from './AssessmentsTab';
+import FeedbackTab from './FeedbackTab';
+import ReportsTab from './ReportsTab';
+import DashboardTab from './DashboardTab';
 
 // `perm` (optional) gates a tab to roles holding that permission.
 const TABS = [

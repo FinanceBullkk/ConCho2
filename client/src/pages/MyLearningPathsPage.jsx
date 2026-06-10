@@ -3,7 +3,7 @@ import { PageHeader } from '@/components/PageHeader';
 import TableSkeleton from '@/components/TableSkeleton';
 import { EmptyState } from '@/components/EmptyState';
 import { useLearningPaths, usePathProgress } from '../hooks/useLearning';
-import PathProgressView from './learning/PathProgressView';
+import PathProgressView from '../features/learning/PathProgressView';
 
 // One card per path: fetches the learner's progress for that path and renders it.
 function PathProgressCard({ path }) {
