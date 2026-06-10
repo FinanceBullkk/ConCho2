@@ -1,6 +1,6 @@
 import { useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { BarChart3, BookOpen, Boxes, ClipboardList, GraduationCap, MessageSquare, Route, Users } from 'lucide-react';
+import { BarChart3, BookOpen, Boxes, ClipboardList, GraduationCap, LayoutDashboard, MessageSquare, Route, Users } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { PageHeader } from '@/components/PageHeader';
@@ -12,9 +12,11 @@ import AssignmentsTab from './learning/AssignmentsTab';
 import AssessmentsTab from './learning/AssessmentsTab';
 import FeedbackTab from './learning/FeedbackTab';
 import ReportsTab from './learning/ReportsTab';
+import DashboardTab from './learning/DashboardTab';
 
 // `perm` (optional) gates a tab to roles holding that permission.
 const TABS = [
+  { id: 'dashboard', icon: LayoutDashboard, perm: 'read:reports' },
   { id: 'programs', icon: BookOpen },
   { id: 'cohorts', icon: Boxes },
   { id: 'paths', icon: Route, perm: 'manage:path' },
@@ -74,6 +76,9 @@ export default function LearningPage() {
             })}
           </TabsList>
         </div>
+        <TabsContent value="dashboard" hidden={activeTab !== 'dashboard'}>
+          {activeTab === 'dashboard' && <DashboardTab />}
+        </TabsContent>
         <TabsContent value="programs" hidden={activeTab !== 'programs'}>
           {activeTab === 'programs' && <ProgramsTab />}
         </TabsContent>

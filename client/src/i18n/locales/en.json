@@ -384,6 +384,8 @@
   "learning": {
     "title": "Learning",
     "tabs": {
+      "dashboard": "Dashboard",
+      "dashboardDesc": "Operational training KPIs at a glance — completion, attendance, obligations, and quality.",
       "programs": "Programs",
       "programsDesc": "Training catalog for English, onboarding, compliance, and internal learning.",
       "cohorts": "Cohorts",
@@ -400,6 +402,56 @@
       "feedbackDesc": "Learner cohort feedback submissions and ratings.",
       "reports": "Reports",
       "reportsDesc": "Cohort completion and Admin compliance status for required learning."
+    },
+    "dashboard": {
+      "views": {
+        "operational": "Operational",
+        "executive": "Executive"
+      },
+      "executiveComing": "Executive view",
+      "executiveComingDesc": "The executive ROI view (cost per employee, trends, Kirkpatrick rollup) arrives in a later phase.",
+      "loadError": "Could not load the dashboard",
+      "loadErrorDesc": "The dashboard request failed. Check your connection and try again.",
+      "retry": "Retry",
+      "metricUnavailable": "This metric could not be computed right now.",
+      "partialWarning": "Some metrics could not be computed: {{metrics}}",
+      "windowLabel": "Window",
+      "windowDays": "{{days}} days",
+      "sections": {
+        "completion": "Completion",
+        "attendanceSessions": "Attendance, sessions & coverage",
+        "obligations": "Obligations",
+        "quality": "Quality"
+      },
+      "tiles": {
+        "completionRate": "Completion rate",
+        "learners": "Learners",
+        "complete": "Completed",
+        "certificatesIssued": "Certificates issued",
+        "attendanceRate": "Attendance rate",
+        "attendanceRecords": "{{count}} records",
+        "upcoming": "Upcoming sessions",
+        "next7Days": "Next 7 days",
+        "past": "Past sessions",
+        "coverage": "Training coverage",
+        "activeAssignments": "Active assignments",
+        "overdueLearners": "Overdue learners",
+        "expired": "Expired certificates",
+        "expiring30": "Expiring within 30 days",
+        "expiring60": "Expiring within 60 days",
+        "passRate": "Assessment pass rate",
+        "attempts": "{{count}} attempts",
+        "feedbackAvg": "Avg feedback rating",
+        "feedbackCount": "{{count}} submissions"
+      },
+      "byProgram": "By program",
+      "byDepartment": "By department",
+      "topOverdue": "Most overdue",
+      "topExpiring": "Expiring soonest",
+      "noOverdue": "No overdue learners.",
+      "noExpiring": "No certificates expiring soon.",
+      "due": "Due {{date}}",
+      "validUntil": "Valid until {{date}}"
     },
     "reports": {
       "title": "Completion report",

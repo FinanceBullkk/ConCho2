@@ -184,12 +184,31 @@ Bug fixing and integration review rank above net-new feature rollout.
 | → | **Wave D6 v1.1 — certificate expiry policy** | Certificate validity windows and recertification signal | 🟢 backend slice done — `LearningProgram.certificateValidityDays` drives certificate `validFrom`/`validUntil`/`validityDays` snapshots at issue time; legacy certs remain valid with `validUntil: null`; completion and compliance reports now expose `issued`/`expiring`/`expired`/`revoked` state and xlsx expiry columns. Expired certificates do not change prerequisite/completion semantics in v1.1. Expiry emails remain deferred. |
 | → | **Wave D6 v1.1 — frontend compliance report UI** | Admin Learning Reports compliance view | 🟢 done — Learning -> Reports now has an Admin-only **Compliance** sub-tab beside Completion. Filters cover assignment, program, department, manager, assignment status, certificate state, and due date range; report fetch is on-demand; summary tiles show total/overdue/complete/certified/expiring/expired; rows show learner/org/assignment/due/status/certificate state; export uses the compliance xlsx endpoint and stays disabled until rows exist. Teacher keeps completion-only Reports; Participant remains blocked by `read:reports`. |
 | → | **Wave D6 v1.1 — verification docs and rollout** | Close D6 with tests, smoke, and rollout note | 🟢 done — focused backend compliance/completion/expiry/export tests, client report/useRole tests, root syntax, client production bundle, lint, and browser export smoke all passed. Rollout note: `plans/reports/context-260605-1954-wave-d6-compliance.md`. D6 v1.1 is closed; expiry emails, auto-recertification assignment, saved presets, and notification UI remain deferred. |
-| → | **2-tier dashboard — Phase 1 (operational backend)** | One read-only KPI bundle endpoint over existing data | 🟢 done — new `domains/learning/dashboard` (`GET /api/learning/dashboard/operational`, `report.read`): composes the completion rollup, D4 overdue resolver, D6 certificate expiry, and new batched aggregations (attendance rate, session split, assessment pass rate, feedback averages, coverage) with per-metric fail-soft (`errors[]`, never 500). Teacher class-scoped; Participant denied. 7 integration tests. Plan: `plans/260610-0830-ltms-2tier-dashboard/`. Next: Phase 2 (operational frontend). |
+| → | **2-tier dashboard — Phase 1 (operational backend)** | One read-only KPI bundle endpoint over existing data | 🟢 done — new `domains/learning/dashboard` (`GET /api/learning/dashboard/operational`, `report.read`): composes the completion rollup, D4 overdue resolver, D6 certificate expiry, and new batched aggregations (attendance rate, session split, assessment pass rate, feedback averages, coverage) with per-metric fail-soft (`errors[]`, never 500). Teacher class-scoped; Participant denied. 7 integration tests. Plan: `plans/260610-0830-ltms-2tier-dashboard/`. |
+| → | **2-tier dashboard — Phase 2 (operational frontend)** | Dashboard tab on `/learning` surfacing the KPI bundle | 🟢 done — new **Dashboard** tab (first tab, `read:reports`-gated) renders the operational bundle dependency-free (StatTile grid + CSS metric bars + top-overdue/expiring lists + 30\|60\|90-day window select); Admin sees an Operational \| Executive toggle (Executive = Phase 4 placeholder), Teacher sees the panel only, failed metrics render "unavailable" without breaking the page. 6 component tests; client suite 202/44 green; lint at cap 81; build clean. Next: Phase 3 (executive backend + cost config). |
 
 ---
 
 ## Recent progress (changelog)
 
+- **2026-06-10** — **2-tier dashboard Phase 2 — operational dashboard frontend.**
+  The Learning workspace gains a **Dashboard** tab (first tab, gated by
+  `read:reports`) that surfaces the Phase 1 KPI bundle. New
+  `useLearningDashboard` hook (own file — `useLearning.js` is at the size cap) +
+  `learningAPI.getOperationalDashboard` + `qk.learning.dashboardOperational`.
+  UI is **dependency-free by design** (plan D3 — no chart lib): `DashboardWidgets`
+  (StatTile + CSS-width MetricBars + MetricUnavailable), `DashboardTopLists`
+  (top-overdue assignments, soonest-expiring certificates),
+  `DashboardOperationalPanel` (sections: Completion · Attendance/sessions/coverage ·
+  Obligations · Quality, with a 30|60|90-day window select reusing `EnumSelect`),
+  and `DashboardTab` (Operational | Executive toggle mirroring ReportsTab;
+  Executive is an Admin-only Phase 4 placeholder; non-Admins get the panel only).
+  Per-metric fail-soft honoured end-to-end: a failed block renders an
+  "unavailable" chip + a partial-warning banner, never a blank page. Test-setup
+  `mockT` now interpolates `{{vars}}` (no existing test asserted raw
+  placeholders). Verified: **6 new component tests; client 202 tests / 44 files
+  green; lint 0 errors / 81 warnings (at cap); production build clean.**
+  Phases 3–4 (executive ROI tier + `LND_COST_CONFIG`) remain.
 - **2026-06-10** — **2-tier dashboard Phase 1 — operational dashboard backend
   (quick-win track from the business case).** New `domains/learning/dashboard`
   module: `GET /api/learning/dashboard/operational` (`report.read`; Admin
