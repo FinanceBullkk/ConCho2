@@ -137,7 +137,8 @@ Admin/Coordinator) sets both; `cancelSlot` was widened so a Coordinator can canc
 a team-less cohort session. UI: People → **Rooms** tab (Office-scoped CRUD) + an
 Office-scoped **Room picker** in the coordinator Create-session modal. The
 **trainer-assignment UI is now live** (2026-06-10): Learning → Cohorts gains a
-per-cohort **Sessions** panel (`assign:trainer`) listing each session's time /
+per-cohort **Sessions** panel (`assign:trainer`, cohort-mode cohorts only —
+same gate as Create-session) listing each session's time /
 office·room / current trainer chips, with a **Trainers** action opening a modal
 that assigns internal Teachers (Admin picker; a Coordinator keeps the current
 internal trainers read-only) and/or an external trainer
@@ -242,7 +243,9 @@ Bug fixing and integration review rank above net-new feature rollout.
   complete+tested with Phase 3 but had no UI; a scheduler could create a session
   yet never see it again to assign trainers. Frontend-only slice (no backend/spec
   behavior change — surfaces the existing mutation): Learning → **Cohorts** gains a
-  per-cohort **Sessions** action (`assign:trainer`, Admin/Coordinator) opening a new
+  per-cohort **Sessions** action (`assign:trainer`, Admin/Coordinator; cohort-mode
+  cohorts only — same `self_enroll`/`nomination` gate as Schedule-session, owner
+  decision) opening a new
   `CohortSessionsPanel` (takes over the tab like `ArchivedCohortsPanel`, no modal
   nesting) that lists the cohort's sessions — time / office·room / current trainer
   chips (internal names + an external `· External` tag) — from
