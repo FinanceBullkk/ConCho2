@@ -4,9 +4,9 @@ import { Users, UsersRound, Building2, MapPin, DoorOpen } from 'lucide-react';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { PageHeader } from '@/components/PageHeader';
 import { useRole } from '../hooks/useRole';
-import UsersPage from './UsersPage';
-import TeamsPage from './TeamsPage';
-import DepartmentsPage from './DepartmentsPage';
+import UsersPage from '../features/users/UsersPage';
+import TeamsPage from '../features/groups/TeamsPage';
+import DepartmentsPage from '../features/org/DepartmentsPage';
 import OfficesPage from '../features/org/OfficesPage';
 import RoomsPage from '../features/rooms/RoomsPage';
 
