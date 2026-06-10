@@ -54,7 +54,7 @@ const fixture = vi.hoisted(() => ({
   },
 }));
 
-vi.mock('../../api/api', () => ({
+vi.mock('../../../api/api', () => ({
   reconcileAPI: {
     getHistory: vi.fn().mockResolvedValue({ data: { data: [fixture.report] } }),
     getLatest: vi.fn().mockResolvedValue({ data: { data: fixture.report } }),

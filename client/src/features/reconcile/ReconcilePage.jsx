@@ -2,11 +2,11 @@ import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { Play, Search, CheckCircle2 } from 'lucide-react';
-import { reconcileAPI, cronAPI } from '../api/api';
+import { reconcileAPI, cronAPI } from '../../api/api';
 import { Button } from '@/components/ui/button';
-import { StatusBadge } from '../components/StatusBadge';
-import { Spinner } from '../components/Spinner';
-import CronHealthPanel from '../components/CronHealthPanel';
+import { StatusBadge } from '../../components/StatusBadge';
+import { Spinner } from '../../components/Spinner';
+import CronHealthPanel from '../../components/CronHealthPanel';
 import {
   getReconcileCheckMeta,
   getReconcileCheckKeys,

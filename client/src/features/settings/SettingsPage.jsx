@@ -1,10 +1,10 @@
 import { useState, useEffect, useMemo } from 'react';
 import { toast } from 'sonner';
 import { TriangleAlert } from 'lucide-react';
-import { useSettings, useUpdateSettings } from '../hooks/useSettings';
+import { useSettings, useUpdateSettings } from './useSettings';
 import { Button } from '@/components/ui/button';
-import { Spinner } from '../components/Spinner';
-import { SettingsEditor } from '../components/SettingsEditor';
+import { Spinner } from '../../components/Spinner';
+import { SettingsEditor } from '../../components/SettingsEditor';
 
 // ──────────────────────────────────────────────────────────
 // SettingsPage — Phase 4 Surface 9 §G
