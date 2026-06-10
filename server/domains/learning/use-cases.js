@@ -197,9 +197,10 @@ const updateCohort = async (id, payload) => {
   return getCohort(id);
 };
 
-// Delete a cohort. Mirrors legacy classController.deleteClass: blocks while
-// Teams/Schedules still reference it, then cascades Evaluation + Enrollment
-// cleanup with the cohort delete in one transaction.
+// Soft-archive a cohort (recoverable). Blocks while Teams/Schedules still
+// reference it; then closes active Enrollments (status→Dropped, like Team
+// delete) and marks the cohort deleted in one transaction. Evaluations and the
+// Enrollment history are PRESERVED (golden rule); restore brings it all back.
 const deleteCohort = async (id) => {
   const cohort = await repository.findCohortById(id);
   if (!cohort) {
@@ -227,15 +228,13 @@ const deleteCohort = async (id) => {
   }
 
   const session = await mongoose.startSession();
-  let deletedEvaluations = 0;
-  let deletedEnrollments = 0;
+  let closedEnrollments = 0;
+  const deletedAt = new Date();
   try {
     await session.withTransaction(async () => {
-      const evalResult = await repository.deleteEvaluationsByCohort(id, session);
-      deletedEvaluations = evalResult.deletedCount;
-      const enrollResult = await repository.deleteEnrollmentsByCohort(id, session);
-      deletedEnrollments = enrollResult.deletedCount;
-      await repository.deleteCohortById(id, session);
+      const enrollResult = await repository.closeEnrollmentsByCohort(id, deletedAt, session);
+      closedEnrollments = enrollResult.modifiedCount;
+      await repository.softDeleteCohort(id, deletedAt, session);
     });
   } finally {
     session.endSession();
@@ -244,9 +243,25 @@ const deleteCohort = async (id) => {
   return {
     cohortCode: cohort.classCode,
     courseName: cohort.courseName,
-    deletedEvaluations,
-    deletedEnrollments,
+    closedEnrollments,
   };
+};
+
+// Restore a soft-archived cohort. Active enrollments closed at delete time stay
+// Dropped (admin re-enrolls as needed) — mirrors Team restore.
+const restoreCohort = async (id) => {
+  const restored = await repository.restoreCohortById(id);
+  if (!restored) {
+    const err = new Error('Archived cohort not found');
+    err.statusCode = 404;
+    throw err;
+  }
+  return getCohort(id);
+};
+
+const listDeletedCohorts = async () => {
+  const cohorts = await repository.findDeletedCohorts().lean();
+  return enrichCohorts(cohorts);
 };
 
 module.exports = {
@@ -262,4 +277,6 @@ module.exports = {
   createCohort,
   updateCohort,
   deleteCohort,
+  restoreCohort,
+  listDeletedCohorts,
 };

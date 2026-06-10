@@ -68,11 +68,18 @@ router
   .get(validate({ query: listCohortsQuery }), controller.listCohorts)
   .post(requireCapability('cohort.manage'), validate({ body: createCohortBody }), controller.createCohort);
 
+// Trash view — archived cohorts (must be BEFORE /cohorts/:id to avoid 'deleted'
+// matching :id).
+router.get('/cohorts/deleted', requireCapability('cohort.manage'), controller.listDeletedCohorts);
+
 router
   .route('/cohorts/:id')
   .get(validate({ params: idParam }), controller.getCohort)
   .put(requireCapability('cohort.manage'), validate({ params: idParam, body: updateCohortBody }), controller.updateCohort)
   .delete(requireCapability('cohort.manage'), validate({ params: idParam }), controller.deleteCohort);
+
+// Restore a soft-archived cohort.
+router.post('/cohorts/:id/restore', requireCapability('cohort.manage'), validate({ params: idParam }), controller.restoreCohort);
 
 router
   .route('/sessions')

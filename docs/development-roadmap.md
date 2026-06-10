@@ -232,6 +232,21 @@ Bug fixing and integration review rank above net-new feature rollout.
 
 ## Recent progress (changelog)
 
+- **2026-06-10** — **Cohort delete → soft-archive + restore (golden-rule fix).**
+  Resolved the open question from the cohort edit/delete restore: cohort delete is
+  now a **recoverable soft-archive** instead of a hard cascade-delete, honoring the
+  "never hard-delete evaluation/enrollment data" rule and matching Team's pattern.
+  `Class` model gained `isDeleted`/`deletedAt` + soft-delete pre-hooks (find/findOne/
+  count/findOneAndUpdate/findOneAndDelete + aggregate) — archived cohorts hidden from
+  all reads; existing docs unaffected (no backfill). `deleteCohort` now closes active
+  Enrollments (`status`→`Dropped`) + marks the cohort deleted in a transaction;
+  **Evaluations preserved**. Added `restoreCohort` (`POST /cohorts/:id/restore`) +
+  `listDeletedCohorts` (`GET /cohorts/deleted`), both `cohort.manage`. Frontend: new
+  `ArchivedCohortsPanel` (trash view + Restore) reachable via an "Archived" toggle in
+  the Cohorts tab; delete toast now says "archived (recoverable)". Tests: server
+  **794/80** (soft-delete/restore/trash/enrollment-preserve), client **228/49**; build
+  clean; lint at cap 72. `learning-catalog` spec updated (open question resolved).
+
 - **2026-06-10** — **Fix: restore cohort edit/delete (was an orphaned regression) +
   retire `ClassesPage`.** The L&D re-vocab migration had moved cohort CREATE to the
   `/learning` Cohorts tab and redirected `/classes`→`/learning?tab=cohorts`, but left

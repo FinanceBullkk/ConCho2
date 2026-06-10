@@ -188,6 +188,22 @@ export const useDeleteCohort = () => {
   });
 };
 
+// Archived cohorts (trash view) + restore.
+export const useDeletedCohorts = (options = {}) =>
+  useQuery({
+    queryKey: qk.learning.cohorts({ deleted: true }),
+    queryFn: async () => (await learningAPI.getDeletedCohorts()).data.data,
+    ...options,
+  });
+
+export const useRestoreCohort = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id) => learningAPI.restoreCohort(id).then((r) => r.data.data),
+    onSettled: () => invalidateLearning(qc),
+  });
+};
+
 // ── Session scheduling (re-center Phase 2) ────────────────
 // Coordinator/Admin opens a cohort session at an Office. Also invalidates the
 // schedule caches so calendar/booking grids reflect the new session.

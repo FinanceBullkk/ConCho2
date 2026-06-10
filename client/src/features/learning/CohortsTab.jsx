@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Plus, UserPlus, CalendarPlus, Pencil } from 'lucide-react';
+import { Plus, UserPlus, CalendarPlus, Pencil, Archive } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -11,6 +11,7 @@ import { useLearningCohorts } from '../../hooks/useLearning';
 import { useRole } from '../../hooks/useRole';
 import CohortFormModal from './CohortFormModal';
 import CohortEditModal from './CohortEditModal';
+import ArchivedCohortsPanel from './ArchivedCohortsPanel';
 import EnrollLearnersModal from './EnrollLearnersModal';
 import CreateSessionModal from './CreateSessionModal';
 
@@ -34,18 +35,26 @@ export default function CohortsTab() {
   const [editCohort, setEditCohort] = useState(null);
   const [enrollCohort, setEnrollCohort] = useState(null);
   const [sessionCohort, setSessionCohort] = useState(null);
-  // `cohort.manage` (create:cohort) is a single capability covering create/edit/delete.
+  const [showArchived, setShowArchived] = useState(false);
+  // `cohort.manage` (create:cohort) is a single capability covering create/edit/delete/restore.
   const canManage = canCreate;
   const showActions = canEnroll || canSchedule || canManage;
 
   const header = (
     <div className="flex items-center justify-between">
       <CardTitle>{t('learning.cohorts.title')}</CardTitle>
-      {canCreate && (
-        <Button size="sm" onClick={() => setCreateOpen(true)}>
-          <Plus className="size-4 mr-1.5" aria-hidden="true" />{t('learning.cohorts.new')}
-        </Button>
-      )}
+      <div className="flex items-center gap-2">
+        {canManage && (
+          <Button size="sm" variant="ghost" onClick={() => setShowArchived(true)}>
+            <Archive className="size-4 mr-1.5" aria-hidden="true" />{t('learning.cohorts.viewArchived', 'Archived')}
+          </Button>
+        )}
+        {canCreate && (
+          <Button size="sm" onClick={() => setCreateOpen(true)}>
+            <Plus className="size-4 mr-1.5" aria-hidden="true" />{t('learning.cohorts.new')}
+          </Button>
+        )}
+      </div>
     </div>
   );
 
@@ -115,6 +124,10 @@ export default function CohortsTab() {
         </CardContent>
       </Card>
     );
+  }
+
+  if (showArchived) {
+    return <ArchivedCohortsPanel onBack={() => setShowArchived(false)} />;
   }
 
   return (

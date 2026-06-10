@@ -231,6 +231,8 @@ export const learningAPI = {
   createCohort: (data) => api.post('/learning/cohorts', data),
   updateCohort: (id, data) => api.put(`/learning/cohorts/${id}`, data),
   deleteCohort: (id) => api.delete(`/learning/cohorts/${id}`),
+  getDeletedCohorts: () => api.get('/learning/cohorts/deleted'),
+  restoreCohort: (id) => api.post(`/learning/cohorts/${id}/restore`),
   // Safe scheduling config (allowed slots + tz) — readable by all roles.
   getSchedulingConfig: () => api.get('/learning/sessions/config'),
   getSessions: (params) => api.get('/learning/sessions', { params }),
