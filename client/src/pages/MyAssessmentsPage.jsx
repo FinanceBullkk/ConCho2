@@ -9,7 +9,7 @@ import { EmptyState } from '@/components/EmptyState';
 import { useAssessments, useAssessmentAttempts } from '../hooks/useAssessment';
 import { useLearningEnrollments } from '../hooks/useLearning';
 import { useMyClassSchedules } from '../hooks/useSchedules';
-import AssessmentAttemptModal from './learning/AssessmentAttemptModal';
+import AssessmentAttemptModal from '../features/learning/AssessmentAttemptModal';
 
 const classIdOf = (schedule) => {
   const cls = schedule?.classId;

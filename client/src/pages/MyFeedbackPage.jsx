@@ -8,7 +8,7 @@ import TableSkeleton from '@/components/TableSkeleton';
 import { EmptyState } from '@/components/EmptyState';
 import { useLearningEnrollments, useLearningFeedback } from '../hooks/useLearning';
 import { useMyClassSchedules } from '../hooks/useSchedules';
-import FeedbackFormModal from './learning/FeedbackFormModal';
+import FeedbackFormModal from '../features/learning/FeedbackFormModal';
 
 const classIdOf = (schedule) => schedule?.classId?._id || schedule?.classId || null;
 
