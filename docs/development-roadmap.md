@@ -232,6 +232,20 @@ Bug fixing and integration review rank above net-new feature rollout.
 
 ## Recent progress (changelog)
 
+- **2026-06-10** — **Phase 1 refactor — extract `domains/schedule` routes (remove
+  the last legacy adapter).** Pure behavior-preserving relocation (no
+  route/response/authz change → no spec change). `routes/scheduleRoutes.js` +
+  `controllers/scheduleController.js` were removed; the 11 HTTP handlers
+  (book/cancel/availability/list/byId/my-class/create/update/delete/setTrainers/
+  attendance-calendar) merged into `domains/schedule/controller.js`, collapsing the
+  previous `scheduleController → domains/schedule` adapter indirection. Booking
+  mutations stay in `services/scheduleService` (kept large by design,
+  transaction-heavy); update/delete/setTrainers logic stays in
+  `domains/schedule/use-cases`. `/api/schedules` now mounts from the domain;
+  `Schedule` model + URL unchanged. 8 schedule/booking suites green (75 tests).
+  `current-system-map.md` + handoff updated. Remaining Phase 1: repository
+  interfaces (attendance/groups), schedule use-case tests, frontend `features/`.
+
 - **2026-06-10** — **Phase 1 refactor — extract `domains/groups` (Team).** Pure
   behavior-preserving relocation (no route/response/authz change → no spec change).
   Moved `controllers/teamController.js` + `controllers/team/*` + `routes/teamRoutes.js`

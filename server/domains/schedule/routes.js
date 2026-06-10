@@ -3,13 +3,13 @@ const {
   getSchedules, getScheduleById, createSchedule, updateSchedule, deleteSchedule,
   bookTeamSlot, cancelSlot, getAvailability, getMyClassSchedules,
   getAttendanceCalendar, setTrainers
-} = require('../controllers/scheduleController');
-const { protect } = require('../middleware/auth');
-const { roleGuard } = require('../middleware/roleGuard');
-const { requireCapability } = require('../middleware/requireCapability');
-const { validate } = require('../middleware/validate');
-const { bookingLimiter } = require('../middleware/rateLimiters');
-const { idParam } = require('../schemas/common');
+} = require('./controller');
+const { protect } = require('../../middleware/auth');
+const { roleGuard } = require('../../middleware/roleGuard');
+const { requireCapability } = require('../../middleware/requireCapability');
+const { validate } = require('../../middleware/validate');
+const { bookingLimiter } = require('../../middleware/rateLimiters');
+const { idParam } = require('../../schemas/common');
 const {
   createScheduleBody,
   updateScheduleBody,
@@ -17,7 +17,12 @@ const {
   availabilityQuery,
   bookTeamSlotBody,
   setTrainersBody,
-} = require('../schemas/schedule');
+} = require('../../schemas/schedule');
+
+// ──────────────────────────────────────────────────────────
+// Schedule routes — mounted at /api/schedules (Phase 1 domain extraction;
+// relocated from routes/scheduleRoutes.js, behavior-preserving).
+// ──────────────────────────────────────────────────────────
 
 // ── Leader booking endpoints (before /:id to avoid routing conflicts) ──
 router.get('/availability', protect, validate({ query: availabilityQuery }), getAvailability);
