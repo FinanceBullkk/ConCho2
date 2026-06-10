@@ -393,11 +393,23 @@ userSchema.post('findOneAndUpdate', async function (doc) {
       );
 
       // 3. Delete only the previously-affected schedules that are now empty.
-      const emptyResult = await Schedule.deleteMany(
+      //    First snapshot the now-empty IDs so we can free their room-lock
+      //    ledger rows (Phase 3) in the same tx — a deleted session must never
+      //    leave a RoomBooking row behind that would brick the slot.
+      const emptyIds = await Schedule.find(
         { _id: { $in: affectedIds }, enrolledUsers: { $size: 0 } },
+        { _id: 1 },
         { session }
-      );
-      if (emptyResult.deletedCount > 0) {
+      ).distinct('_id');
+      if (emptyIds.length > 0) {
+        await mongoose.model('RoomBooking').deleteMany(
+          { scheduleId: { $in: emptyIds } },
+          { session }
+        );
+        const emptyResult = await Schedule.deleteMany(
+          { _id: { $in: emptyIds } },
+          { session }
+        );
         logger.info(
           { empCode: doc.empCode, deleted: emptyResult.deletedCount },
           'Auto-Release: deleted empty schedules (scoped to affected set)'

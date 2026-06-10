@@ -19,6 +19,8 @@ const populateSessionQuery = (query) => query
     select: 'name leaderId classId',
   })
   .populate('officeId', 'name code')
+  .populate('roomId', 'name code')
+  .populate('sessionInstructorIds', 'empCode name')
   .populate('enrolledUsers', 'empCode name department status');
 
 const getClassId = (session) => session.classId?._id || session.classId;

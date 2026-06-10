@@ -326,4 +326,12 @@ export const orgAPI = {
   getMyTeam:         () => api.get('/org/my-team'),
 };
 
+// Rooms (re-center Phase 3) — Office-scoped physical rooms, Admin/Coordinator.
+export const roomsAPI = {
+  getRooms:    (params) => api.get('/rooms', { params }),
+  createRoom:  (data) => api.post('/rooms', data),
+  updateRoom:  (id, data) => api.put(`/rooms/${id}`, data),
+  archiveRoom: (id) => api.delete(`/rooms/${id}`),
+};
+
 export default api;

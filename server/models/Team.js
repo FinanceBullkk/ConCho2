@@ -234,6 +234,11 @@ const syncSchedulesForTeamUpdate = async ({ teamId, oldMembers, newMembers, sess
   }
 
   if (emptyScheduleIds.length > 0) {
+    // Phase 3: free the room-lock ledger rows for the schedules we are about to
+    // delete (same tx) so a synced-away session never bricks a room slot.
+    await mongoose.model('RoomBooking').deleteMany(
+      { scheduleId: { $in: emptyScheduleIds } }, { session },
+    );
     await Schedule.deleteMany({ _id: { $in: emptyScheduleIds } }, { session });
     logger.info({ teamId: String(teamId), deleted: emptyScheduleIds.length }, 'Team Sync: empty schedules deleted');
   }

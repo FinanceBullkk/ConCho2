@@ -1,7 +1,7 @@
 ---
 phase: 3
 title: Rooms (Office-scoped) + Trainers (internal/external)
-status: pending
+status: done  # shipped 2026-06-10; waitlists + durable-cancellation (Wave E3 phase-04) deferred
 priority: high
 effort: 5–7 dev-days (delta over Wave E3 Phases 2–4)
 depends_on: [1, 2]

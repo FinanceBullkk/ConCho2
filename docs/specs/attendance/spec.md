@@ -2,7 +2,7 @@
 capability: attendance
 status: stable
 owners: [services/attendanceService, controllers/attendanceController, models/Attendance]
-last_updated: 2026-06-08
+last_updated: 2026-06-10
 related_code:
   - server/services/attendanceService.js
   - server/controllers/attendanceController.js
@@ -90,6 +90,20 @@ reject editing attendance for sessions older than 30 days.
 
 The system SHALL scope a Teacher's attendance reads/writes to schedules in their
 visible class bindings (`findTeacherVisibleClassIds`); Admin sees all.
+
+Re-center Phase 3 (DELTA B) adds a **UNION**: mark/read **by schedule**
+(`POST /api/attendance/:scheduleId`, `GET /api/attendance/schedule/:scheduleId`)
+is allowed for a Teacher bound to the schedule's class **OR** a Teacher named on
+that schedule's `sessionInstructorIds` (`policy/sessionInstructors.canMarkSession`).
+The cohort/class teacher is never revoked. The UNION is **single-session grain
+and internal-only** — analytics rollups (`by-team`/`by-employee`/`by-class`) keep
+the class-binding scope (NOT widened), and an external trainer has no actor so it
+can never be granted any attendance access.
+
+#### Scenario: Named internal trainer marks a guest session
+- **GIVEN** a Teacher not bound to a class but named on a session's instructors
+- **WHEN** they mark attendance for that session
+- **THEN** allowed (UNION); an unrelated teacher is still **403**
 
 ### Requirement: Active-status denormalisation [BR-1]
 

@@ -3,6 +3,7 @@ const Team = require('../../models/Team');
 const Attendance = require('../../models/Attendance');
 const Class = require('../../models/Class');
 const LearningProgram = require('../../models/LearningProgram');
+const User = require('../../models/User');
 
 // ── Schedule ──────────────────────────────────────────────
 
@@ -82,6 +83,21 @@ const updateScheduleById = (id, data, session) =>
   Schedule.findByIdAndUpdate(id, data, {
     new: true, runValidators: true, ...(session && { session }),
   });
+
+// ── Trainers (re-center Phase 3, DELTA B) ─────────────────
+// Validate internal-trainer identities: only live (non-deleted), active
+// Teacher/Admin users may be named as session instructors. Returns the subset
+// of `ids` that resolve to a valid instructor (caller compares lengths).
+const findValidInstructorIds = async (ids) => {
+  if (!Array.isArray(ids) || ids.length === 0) return [];
+  const rows = await User.find({
+    _id: { $in: ids },
+    role: { $in: ['Teacher', 'Admin'] },
+    status: { $ne: 'Dropped' },
+    isDeleted: { $ne: true },
+  }).select('_id').lean();
+  return rows.map((r) => r._id);
+};
 
 const deleteScheduleById = (id, session) =>
   Schedule.findByIdAndDelete(id, ...(session ? [{ session }] : []));
@@ -180,6 +196,7 @@ module.exports = {
   countSchedulesForTeamInWeek,
   findClassSchedulingMode,
   findClassCapacityPolicy,
+  findValidInstructorIds,
   // Read queries (Phase 1 extraction)
   findAvailabilitySchedules,
   findSchedulesPage,

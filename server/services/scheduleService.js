@@ -40,6 +40,7 @@ const { ServiceError } = require('../helpers/ServiceError');
 const schedulingWindowPolicy = require('../domains/schedule/scheduling-window-policy');
 const bookingPolicy = require('../domains/schedule/session-booking-policy');
 const schedulingModePolicy = require('../domains/schedule/scheduling-mode-policy');
+const roomLockPolicy = require('../domains/schedule/room-lock-policy');
 
 // ── Helpers ───────────────────────────────────────────────
 
@@ -63,15 +64,41 @@ const assertValidBookingSlot = (start, end) =>
  *
  * Returns { googleEventId, meetLink } or null.
  */
+// ── Effective calendar attendees (Phase 3, DELTA B) ───────
+// The real attendee source for a session = enrolled learners ∪ named internal
+// trainers ∪ the external trainer (if it has an email). Deduped by email so a
+// trainer who is also enrolled isn't invited twice. calendarService filters to
+// valid emails, so entries without one are harmless. Expects a schedule with
+// enrolledUsers + sessionInstructorIds populated (email) and externalTrainer raw.
+const effectiveAttendeesForSchedule = (schedule) => {
+  const out = [];
+  const seen = new Set();
+  const push = (person) => {
+    if (!person || !person.email) return;
+    const key = String(person.email).toLowerCase();
+    if (seen.has(key)) return;
+    seen.add(key);
+    out.push(person);
+  };
+  (schedule.enrolledUsers || []).forEach(push);
+  (schedule.sessionInstructorIds || []).forEach(push);
+  if (schedule.externalTrainer && schedule.externalTrainer.email) {
+    push({ email: schedule.externalTrainer.email, name: schedule.externalTrainer.name });
+  }
+  return out;
+};
+
 const createCalendarEventForSchedule = async (scheduleId) => {
   if (!calendarService.isConfigured()) return null;
 
   try {
-    // Re-fetch with full population so we have everyone's email.
+    // Re-fetch with full population so we have everyone's email (learners +
+    // internal trainers); the external trainer email travels on the doc.
     const schedule = await Schedule.findById(scheduleId)
       .populate('classId', 'classCode courseName')
       .populate('bookedTeamId', 'name')
       .populate('enrolledUsers', 'empCode name email')
+      .populate('sessionInstructorIds', 'empCode name email')
       .lean();
     if (!schedule) return null;
 
@@ -79,7 +106,7 @@ const createCalendarEventForSchedule = async (scheduleId) => {
       schedule,
       classDoc: schedule.classId,
       team: schedule.bookedTeamId,
-      attendees: schedule.enrolledUsers,
+      attendees: effectiveAttendeesForSchedule(schedule),
     });
     if (!result) return null;
 
@@ -94,6 +121,41 @@ const createCalendarEventForSchedule = async (scheduleId) => {
       { err: err.message, scheduleId },
       'createCalendarEventForSchedule failed (booking already saved; calendar skipped)'
     );
+    return null;
+  }
+};
+
+/**
+ * Sync an existing schedule's Calendar event after a non-time change (e.g. a
+ * trainer assignment, Phase 3). Fail-soft; skips past sessions (no point
+ * notifying after the fact) and creates the event if one doesn't exist yet.
+ */
+const syncCalendarForSchedule = async (scheduleId) => {
+  if (!calendarService.isConfigured()) return null;
+  try {
+    const schedule = await Schedule.findById(scheduleId)
+      .populate('classId', 'classCode courseName')
+      .populate('bookedTeamId', 'name')
+      .populate('enrolledUsers', 'empCode name email')
+      .populate('sessionInstructorIds', 'empCode name email')
+      .lean();
+    if (!schedule) return null;
+    // Skip past sessions (m4) — calendar updates only matter for upcoming ones.
+    if (new Date(schedule.startTime) <= new Date()) return null;
+
+    const attendees = effectiveAttendeesForSchedule(schedule);
+    if (schedule.googleEventId) {
+      await calendarService.updateEventForSchedule({
+        schedule,
+        classDoc: schedule.classId,
+        team: schedule.bookedTeamId,
+        attendees,
+      });
+      return { eventId: schedule.googleEventId };
+    }
+    return createCalendarEventForSchedule(scheduleId);
+  } catch (err) {
+    logger.error({ err: err.message, scheduleId }, 'syncCalendarForSchedule failed (fail-soft)');
     return null;
   }
 };
@@ -240,7 +302,7 @@ const bookSlot = async ({ teamId, startTime, endTime, requestUser }) => {
  * @returns {Promise<Object>} populated Schedule
  * @throws {ServiceError} on validation/collision failures
  */
-const bookCohortSlot = async ({ cohortId, startTime, endTime, enrolledUserIds = [], officeId = null, requestUser }) => {
+const bookCohortSlot = async ({ cohortId, startTime, endTime, enrolledUserIds = [], officeId = null, roomId = null, requestUser }) => {
   const start = new Date(startTime);
   const end = new Date(endTime);
 
@@ -268,6 +330,14 @@ const bookCohortSlot = async ({ cohortId, startTime, endTime, enrolledUserIds = 
         { session },
       );
       created = doc;
+
+      // Phase 3: claim the room (DELTA A — same-Office guard + per-room lock).
+      // Runs in-tx after create so a room conflict (409) or office mismatch
+      // (422) rolls the whole booking back. No-op when no room was picked.
+      await roomLockPolicy.acquireRoomLock(
+        { roomId, scheduleId: doc._id, classId: cohortId, startTime: start, officeId: officeId || null },
+        { session },
+      );
     });
   } catch (err) {
     if (err.code === 11000 || err.message?.includes('E11000')) {
@@ -331,9 +401,18 @@ const cancelSlot = async (scheduleId, requestUser) => {
   }
 
   if (requestUser.role !== 'Admin') {
-    const team = await Team.findById(schedule.bookedTeamId);
-    if (!team || !team.leaderId || team.leaderId.toString() !== requestUser._id.toString()) {
-      throw new ServiceError('Only Admin or the Team Leader can cancel this booking', 403);
+    if (!schedule.bookedTeamId) {
+      // Team-less (cohort) session — coordinator-scheduled offline flow
+      // (re-center Phase 2/3). A scheduler (Coordinator) who can create these
+      // must be able to cancel them; a self-booking leader never owns one.
+      if (!schedulingModePolicy.isScheduler(requestUser)) {
+        throw new ServiceError('Only a coordinator or admin can cancel this session', 403);
+      }
+    } else {
+      const team = await Team.findById(schedule.bookedTeamId);
+      if (!team || !team.leaderId || team.leaderId.toString() !== requestUser._id.toString()) {
+        throw new ServiceError('Only Admin or the Team Leader can cancel this booking', 403);
+      }
     }
   }
 
@@ -354,6 +433,9 @@ const cancelSlot = async (scheduleId, requestUser) => {
   try {
     await session.withTransaction(async () => {
       await Attendance.deleteMany({ scheduleId: schedule._id }, { session });
+      // Phase 3: free the room slot (drop the ledger row) in the same tx so a
+      // cancelled session's room becomes immediately re-bookable.
+      await roomLockPolicy.releaseRoomLock([schedule._id], session);
       await Schedule.findByIdAndDelete(schedule._id, { session });
     });
   } finally {
@@ -455,9 +537,13 @@ const adminCreate = async (data) => {
         { session, enforceWeeklyCap: true },
       );
 
+      // Phase 3: strip roomId from the raw spread — it is set ONLY via the room
+      // lock (B3) so Schedule.roomId and the ledger row never drift.
+      const { roomId, ...scheduleData } = data;
+
       const [doc] = await Schedule.create(
         [{
-          ...data,
+          ...scheduleData,
           startTime: start,
           endTime: end,
           enrolledUsers,
@@ -465,6 +551,11 @@ const adminCreate = async (data) => {
         { session }
       );
       created = doc;
+
+      await roomLockPolicy.acquireRoomLock(
+        { roomId, scheduleId: doc._id, classId, startTime: start, officeId: scheduleData.officeId || null },
+        { session },
+      );
     });
   } catch (err) {
     if (err.code === 11000 || err.message?.includes('E11000')) {
@@ -500,6 +591,9 @@ module.exports = {
   bookCohortSlot,
   adminCreate,
   cancelSlot,
+  // Calendar helpers (Phase 3 — trainer attendees + post-update sync)
+  effectiveAttendeesForSchedule,
+  syncCalendarForSchedule,
   // Read use-cases (domains/schedule/queries)
   getAvailability: queries.getAvailability,
   listSchedules: queries.listSchedules,

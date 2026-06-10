@@ -6,6 +6,7 @@ import {
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { useOffices } from '../../hooks/useOrg';
+import { useRooms } from '../../hooks/useRooms';
 import { useBookSession } from '../../hooks/useLearning';
 import { useSchedulingConfig, DEFAULT_UTC_OFFSET_MINUTES } from '../../hooks/useSchedulingConfig';
 import { slotToUtcRange } from '../../lib/scheduling-slots';
@@ -41,9 +42,13 @@ export default function CreateSessionModal({ cohort, onClose }) {
   const offsetMinutes = config?.utcOffsetMinutes ?? DEFAULT_UTC_OFFSET_MINUTES;
 
   const [officeId, setOfficeId] = useState('');
+  const [roomId, setRoomId] = useState('');
   const [date, setDate] = useState(todayLocalISO());
   const [slotId, setSlotId] = useState('');
   const [error, setError] = useState('');
+
+  // Rooms are Office-scoped (Phase 3): only fetch once an Office is picked.
+  const { data: rooms } = useRooms({ officeId }, { enabled: !!officeId });
 
   // Cheap derive (a handful of configured slots) — no memo needed; `slots` is a
   // fresh array each render so memoizing on it would churn anyway.
@@ -65,6 +70,7 @@ export default function CreateSessionModal({ cohort, onClose }) {
       await book.mutateAsync({
         cohortId: cohort._id,
         officeId,
+        ...(roomId ? { roomId } : {}),
         startTime: startISO,
         endTime: endISO,
       });
@@ -93,10 +99,32 @@ export default function CreateSessionModal({ cohort, onClose }) {
 
         <form onSubmit={submit} className="space-y-3">
           <LearningField label={t('learning.session.office')}>
-            <select aria-label={t('learning.session.office')} value={officeId} onChange={(e) => setOfficeId(e.target.value)} className={controlClass}>
+            <select
+              aria-label={t('learning.session.office')}
+              value={officeId}
+              onChange={(e) => { setOfficeId(e.target.value); setRoomId(''); }}
+              className={controlClass}
+            >
               <option value="" className="bg-popover">{t('learning.session.selectOffice')}</option>
               {(offices || []).map((o) => (
                 <option key={o._id} value={o._id} className="bg-popover">{o.name} ({o.code})</option>
+              ))}
+            </select>
+          </LearningField>
+
+          {/* Room is Office-scoped + optional (Phase 3). Only offered once an
+              Office is chosen; the picker lists that Office's rooms only. */}
+          <LearningField label={t('learning.session.room')}>
+            <select
+              aria-label={t('learning.session.room')}
+              value={roomId}
+              onChange={(e) => setRoomId(e.target.value)}
+              className={controlClass}
+              disabled={!officeId}
+            >
+              <option value="" className="bg-popover">{t('learning.session.selectRoom')}</option>
+              {(rooms || []).map((r) => (
+                <option key={r._id} value={r._id} className="bg-popover">{r.name} ({r.code})</option>
               ))}
             </select>
           </LearningField>

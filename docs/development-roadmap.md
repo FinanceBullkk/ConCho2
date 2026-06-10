@@ -118,8 +118,27 @@ Coordinator) opens a team-less offline session against a cohort
 via a new **Create-session** action on the Learning → Cohorts tab; the roster
 comes from self-enrol + coordinator-assign (no Team). `Schedule.officeId` is
 required for this flow (nullable for legacy rows); cohort-session creation was
-widened from Admin-only to the scheduler set. Next: re-center Phase 3
-(Office-scoped Rooms + internal/external Trainers).
+widened from Admin-only to the scheduler set. **Re-center Phase 3 (Office-scoped
+Rooms + internal/external Trainers) is now live:** a first-class **`Room`** entity
+(`/api/rooms`, Admin/Coordinator CRUD via `room.read`/`room.manage`) scoped to
+exactly one **Office**; assigning a room to a session is guarded by a `RoomBooking`
+ledger whose unique `{roomId,startTime}` index is the DB-final per-room
+double-book lock (cross-class race → 409), written atomically with
+`Schedule.roomId` and released on every Schedule-removal path (cancel/delete/
+auto-release/team-sync) + a reconcile orphan-sweep check; a room in a different
+Office than the session → **422**. **Trainers** are per-session: internal trainers
+(`Schedule.sessionInstructorIds`, User refs) join the attendance/visibility authz
+**UNION** (a named trainer can mark/read their session even when not the cohort
+teacher; the cohort teacher is never revoked), and an **external** trainer
+(`externalTrainer` subdoc — name/email/phone/org, no User, no login) gets a
+calendar invite + display only (email/phone hidden from learner DTOs). One
+mutation `PUT /api/schedules/:id/trainers` (`session.assign-trainer`,
+Admin/Coordinator) sets both; `cancelSlot` was widened so a Coordinator can cancel
+a team-less cohort session. UI: People → **Rooms** tab (Office-scoped CRUD) + an
+Office-scoped **Room picker** in the coordinator Create-session modal. Deferred:
+trainer-assignment UI (backend complete+tested), waitlists + durable-cancellation
+states (Wave E3 phase-04, outside the two grill deltas), session-list visibility
+widening for trainer-only teachers.
 
 ---
 
@@ -207,10 +226,57 @@ Bug fixing and integration review rank above net-new feature rollout.
 | → | **2-tier dashboard — Phase 4 (executive frontend)** | Fill the Executive toggle with the ROI view | 🟢 done — the Dashboard tab's Executive view (Admin-only) now renders the Phase 3 bundle dependency-free: financial tiles **or** a set-budget CTA + inline cost-config form (lazy-init, key-remount — no setState-in-effect), 6-month two-series SVG `Sparkline`, honest `DashboardKirkpatrick` (L1/L2 values; L3–L5 "Not yet measured" chips), certificate-validity SVG `DonutStat`, mobility tiles, coverage-by-department bars. 6 new component tests (CTA→save payload, integer validation, configured tiles, fail-soft, skeleton/retry); client 208/45 green; lint ≤ cap; build clean. **2-tier dashboard plan COMPLETE (P1–P4).** |
 | → | **Re-center Phase 1 — Office + Training-coordinator role** | First-class Office entity + a Coordinator role that runs training ops without full Admin | 🟢 done — `Office` model (soft-delete, live-unique code, address/timezone) + `domains/org` office CRUD (`/api/org/offices`, `office.read`/`office.manage`) with a users-referencing archive guard; nullable `User.officeId` (+index) settable via the org-assignment leg (unknown office 422); **`Coordinator` role** in the User enum + `ROLE_CAPABILITIES` as an explicit allow-list (program/cohort/session/enrollment/completion/certificate/report/assignment/path + department read + office manage) — no user/security caps, no `org.manage`; AuditLog `actorRole`/entity enums extended (backfills 8 silently-failing audit entities). UI: People → Offices tab (per-tab perm gating), Office picker in `OrgAssignmentModal`, Coordinator-aware nav/routes/`useRole`. Seed: 2 offices + `000010`/coordinator123. Tests: 13 integration + 6 capability unit + 10 client. Phase 2 (coordinator-scheduled flow) next. |
 | → | **Re-center Phase 2 — coordinator-scheduled session flow** | Coordinator opens an offline session (cohort + Office + time); roster = self-enrol + assign (no Team) | 🟢 done — `Schedule.officeId` (nullable ref Office + index); `bookCohortSlot`/`bookCohortSession` thread + require `officeId` (missing → 400, unknown → 422) and were widened from Admin-only to the **scheduler** set (Admin/Coordinator) via a new `isScheduler`/`SCHEDULER_ROLES` in `scheduling-mode-policy` (also relaxes the `admin_scheduled` team gate to schedulers); session DTO exposes `office {name,code}`. UI: **Create-session** modal on Learning → Cohorts (cohort-mode cohorts only; Office + exact-slot via `useSchedulingConfig` + `slotToUtcRange`), `book:session` perm, `learningAPI.bookSession`/`useBookSession`. Roster reuses self-enrol catalog + assignment (decision: cohort/team-less per owner). Tests: 3 new session integration (coordinator create + office-required 400 + unknown-office 422) + updated cohort tests (officeId) + `isScheduler` unit + Coordinator team-mode unit + CreateSessionModal client (exact UTC range + office-required). server 738/75, client 220/47, lint cap 81, build clean. Deferred (open Qs): enrol-granularity toggle, offline attendance-without-quiz; leader grid kept (already mode-gated). Phase 3 (Office-scoped Rooms + Trainers) next. |
+| → | **Re-center Phase 3 — Office-scoped Rooms + internal/external Trainers** | Rooms belong to an Office (per-room double-book lock); Trainer = internal User (authz UNION) OR external record (invite only) | 🟢 done — new **`Room`** model (Office-scoped, soft-delete, live-unique code, optional seats) + `domains/room` CRUD (`/api/rooms`, `room.read`/`room.manage`, Admin+Coordinator) with a future-session archive guard; new **`RoomBooking`** hard-delete lock ledger (unique `{roomId,startTime}`) acquired in-tx after `Schedule.create` (cross-class race → **409**), `Schedule.roomId` written atomically (B3), released on cancel/delete/auto-release/team-sync + an 11th reconcile orphan-sweep check; cross-Office room → **422** (`room-lock-policy.assertSameOffice`, hard-fail when session has no Office). **Trainers:** `Schedule.sessionInstructorIds` (internal, UNION authz via new `policy/sessionInstructors` — named trainer marks/reads their session; cohort teacher never revoked; restrictive session-read kept, no B1 flip) + `externalTrainer` subdoc (no User/login; calendar invite via extended `effectiveAttendeesForSchedule`; email/phone hidden from learner DTOs). `PUT /api/schedules/:id/trainers` (`session.assign-trainer`, Admin/Coordinator, roleGuard belt, dedupe+identity-validate internal, one audit diff). `cancelSlot` widened so a Coordinator can cancel a team-less cohort session. AuditLog entity enum + `roomId` to schedule create/cohort-book bodies + session DTO (`room`, `sessionInstructors`, `externalTrainer`). UI: People → **Rooms** tab (Office-scoped CRUD) + Office-scoped **Room picker** in the Create-session modal; `roomsAPI`/`useRooms`/`qk.rooms`/`read:room`/`manage:room` perms. Tests: room-lock-policy + sessionInstructors unit, `roomOfficeScope` (13) + `sessionTrainers` (12) integration, RoomsPage (5) + CreateSessionModal room-picker client. server suites green, client 226/48, lint 0/81 (at cap), build clean. Deferred: trainer-assignment UI, waitlists + durable-cancellation states (Wave E3 phase-04), session-list visibility widening for trainer-only teachers. |
 
 ---
 
 ## Recent progress (changelog)
+
+- **2026-06-10** — **Re-center Phase 3 — Office-scoped Rooms + internal/external
+  Trainers (plan `260609-2215-ltms-recenter-coordinator-offline`, Phase 3 — folds
+  the unbuilt Wave E3 Room/instructor seams).** Wave E3 had never shipped, so this
+  phase built the Room/lock/instructor foundation from scratch plus the two grill
+  deltas. **Rooms are Office-scoped (Delta A):** a `Room` references exactly one
+  `Office` (replacing Wave E3's free `location` string); `domains/room` CRUD
+  (`/api/rooms`, `room.read`/`room.manage`, Admin + Coordinator) refuses to archive
+  while a future session uses the room (409). Assigning a room to a session goes
+  through a `RoomBooking` hard-delete lock ledger (unique `{roomId,startTime}` —
+  per-room == per-Office, no Office field on the ledger): acquired **in-tx after
+  `Schedule.create`** (so a duplicate or cross-Office room rolls the whole booking
+  back), with `Schedule.roomId` written in the same success path (B3 — never
+  drift). The **same-Office guard** (`assertSameOffice`) runs before lock acquire
+  and **hard-fails 422** when the room's Office ≠ the session's Office, or when the
+  session has no Office at all (never a silent no-op). Every Schedule-removal path
+  releases the ledger row — `cancelSlot`, `deleteSchedule`, `User` Dropped
+  auto-release, `Team` member-sync — and an 11th read-only **reconcile**
+  orphan-sweep check (`orphan_room_booking`) surfaces any ledger row whose Schedule
+  is gone. **Trainers are per-session (Delta B):** internal trainers
+  (`Schedule.sessionInstructorIds`, User refs) join the attendance/visibility authz
+  **UNION** via new `policy/sessionInstructors` — a named internal trainer can
+  mark/read **their** session even when not the cohort's class teacher, and the
+  cohort teacher is never revoked; the restrictive session-read is preserved (no
+  silent B1 permissive flip). An **external** trainer (`externalTrainer` subdoc:
+  name/email/phone/org) is never a User, never in `enrolledUsers`, never an actor —
+  it only gets a best-effort calendar invite (via the extended
+  `effectiveAttendeesForSchedule`, deduped by email, past-skip) and display; its
+  email/phone are hidden from learner-facing session DTOs (Admin/Coordinator see the
+  full contact). One mutation `PUT /api/schedules/:id/trainers`
+  (`session.assign-trainer` + `roleGuard('Admin','Coordinator')`) dedupes +
+  identity-validates internal ids (active Teacher/Admin) and records a single
+  before/after audit diff. **`cancelSlot` widened** so a Coordinator can cancel a
+  team-less cohort session (closing a Phase 2 loop). Frontend: People → **Rooms**
+  tab (Office-scoped CRUD), an Office-scoped **Room picker** in the coordinator
+  Create-session modal (`roomId` sent only when picked), `roomsAPI`/`useRooms`/
+  `qk.rooms`/`read:room`/`manage:room`. Verified: new unit suites (room-lock-policy,
+  sessionInstructors) + `roomOfficeScope` (13) + `sessionTrainers` (12) integration;
+  related suites (attendance/session/scheduleAuthz/reassign) green; **client 226
+  tests / 48 files, lint 0 errors / 81 warnings (at cap), production build clean.**
+  Specs: `scheduling-and-booking` (Office-scoped room + per-room lock + trainers),
+  `attendance` (UNION note — internal-only), route-permission-matrix
+  (`/api/rooms`, `/api/schedules/:id/trainers`, room.* caps). Deferred: the
+  trainer-assignment UI (backend complete + tested), waitlists + durable-
+  cancellation states (Wave E3 phase-04 — outside the two grill deltas), and
+  session-list visibility widening for trainer-only teachers.
 
 - **2026-06-10** — **Re-center Phase 2 — coordinator-scheduled session flow
   (plan `260609-2215-ltms-recenter-coordinator-offline`, Phase 2).** The

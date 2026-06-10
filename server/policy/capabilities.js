@@ -52,6 +52,10 @@ const CAPABILITIES = Object.freeze({
   // ── Offices (re-center Phase 1) ──────────────────────────
   OFFICE_READ: 'office.read',           // list offices (pickers, reports)
   OFFICE_MANAGE: 'office.manage',       // create / edit / archive offices (admin/coordinator)
+  // ── Rooms + Trainers (re-center Phase 3) ─────────────────
+  ROOM_READ: 'room.read',               // list Office-scoped rooms (scheduling picker — not learner-facing)
+  ROOM_MANAGE: 'room.manage',           // create / edit / archive rooms (admin/coordinator)
+  SESSION_ASSIGN_TRAINER: 'session.assign-trainer', // set a session's internal/external trainers (admin/coordinator)
 });
 
 const ALL_CAPABILITIES = Object.freeze(Object.values(CAPABILITIES));
@@ -81,6 +85,9 @@ const ROLE_CAPABILITIES = Object.freeze({
     CAPABILITIES.DEPARTMENT_READ,
     CAPABILITIES.OFFICE_READ,
     CAPABILITIES.OFFICE_MANAGE,
+    CAPABILITIES.ROOM_READ,
+    CAPABILITIES.ROOM_MANAGE,
+    CAPABILITIES.SESSION_ASSIGN_TRAINER,
   ]),
   Teacher: Object.freeze([
     CAPABILITIES.ENROLLMENT_READ,
