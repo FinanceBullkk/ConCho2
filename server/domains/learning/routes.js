@@ -18,6 +18,7 @@ const {
   listSessionsQuery,
   bookSessionBody,
 } = require('./session/schemas');
+const { cancelScheduleBody } = require('../../schemas/schedule');
 const enrollmentController = require('./enrollment/controller');
 const { enrollBody, listEnrollmentsQuery } = require('./enrollment/schemas');
 const completionController = require('./completion/controller');
@@ -100,7 +101,7 @@ router.post(
 router.delete(
   '/sessions/:id/cancel',
   requireCapability('session.book'),
-  validate({ params: idParam }),
+  validate({ params: idParam, body: cancelScheduleBody }),
   sessionController.cancelSession,
 );
 

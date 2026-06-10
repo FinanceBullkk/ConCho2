@@ -19,9 +19,11 @@ const findScheduleByIdRaw = (id) => Schedule.findById(id);
 // Each mirrors the exact populate/sort/lean shape the legacy read functions
 // used, so behaviour is preserved 1:1.
 
-// getAvailability — future schedules, optionally scoped to a class.
+// getAvailability — future LIVE schedules, optionally scoped to a class.
+// Durable-cancelled rows are history, not availability — the freed slot must
+// render as bookable on the grid.
 const findAvailabilitySchedules = ({ classId, fromDate }) => {
-  const query = { startTime: { $gte: fromDate } };
+  const query = { startTime: { $gte: fromDate }, status: 'scheduled' };
   if (classId) query.classId = classId;
   return Schedule.find(query)
     .populate('classId', 'classCode courseName')
@@ -49,16 +51,17 @@ const findTeamsByMember = (userId) =>
     .lean();
 
 const findUpcomingForClasses = (classIds, fromDate, limit) =>
-  Schedule.find({ classId: { $in: classIds }, startTime: { $gte: fromDate } })
+  Schedule.find({ classId: { $in: classIds }, startTime: { $gte: fromDate }, status: 'scheduled' })
     .populate('classId', 'classCode courseName totalSessions')
     .populate('bookedTeamId', 'name')
     .sort({ startTime: 1 })
     .limit(limit)
     .lean({ virtuals: true });
 
-// getAttendanceCalendar — schedules in an optional date window + teacher scope.
+// getAttendanceCalendar — LIVE schedules in an optional date window + teacher
+// scope. Cancelled sessions never appear on the attendance calendar.
 const findCalendarSchedules = (filter) =>
-  Schedule.find(filter)
+  Schedule.find({ ...filter, status: 'scheduled' })
     .populate('classId', 'classCode courseName totalSessions')
     .populate('bookedTeamId', 'name')
     .sort({ startTime: 1 })
@@ -102,6 +105,26 @@ const findValidInstructorIds = async (ids) => {
 const deleteScheduleById = (id, session) =>
   Schedule.findByIdAndDelete(id, ...(session ? [{ session }] : []));
 
+// ── Durable cancellation (Wave E3 phase-04, slice A) ──────
+// Atomic conditional flip: matches only a LIVE doc, so two concurrent cancels
+// resolve as one winner (doc returned) and one loser (null → caller 409s).
+// roomId is nulled in the same write — the caller releases the RoomBooking
+// ledger row in the same tx, and field + ledger must never drift (B3).
+const cancelScheduleById = (id, { cancelledBy = null, cancelReason = '' } = {}, session) =>
+  Schedule.findOneAndUpdate(
+    { _id: id, status: 'scheduled' },
+    {
+      $set: {
+        status: 'cancelled',
+        cancelledAt: new Date(),
+        cancelledBy,
+        cancelReason: cancelReason || '',
+        roomId: null,
+      },
+    },
+    { new: true, ...(session && { session }) },
+  );
+
 // ── Attendance ────────────────────────────────────────────
 
 const deleteAttendanceByScheduleId = (scheduleId, session) =>
@@ -126,11 +149,14 @@ const findTeamById = (id, opts = {}) => {
 
 // ── Composite queries (used by use-cases) ─────────────────
 
+// Only LIVE sessions collide — a durable-cancelled row frees its slot
+// (mirrors the partial-unique index, which is scoped the same way).
 const findScheduleForCollision = (classId, start, end, excludeId, session) => {
   const query = {
     classId,
     startTime: { $lt: end },
     endTime: { $gt: start },
+    status: 'scheduled',
   };
   if (excludeId) query._id = { $ne: excludeId };
   let q = Schedule.findOne(query);
@@ -138,10 +164,12 @@ const findScheduleForCollision = (classId, start, end, excludeId, session) => {
   return q;
 };
 
+// Cancelled sessions don't consume the team's weekly quota.
 const countSchedulesForTeamInWeek = (teamId, weekStart, weekEnd, excludeId, session) => {
   const query = {
     bookedTeamId: teamId,
     startTime: { $gte: weekStart, $lte: weekEnd },
+    status: 'scheduled',
   };
   if (excludeId) query._id = { $ne: excludeId };
   let q = Schedule.countDocuments(query);
@@ -189,6 +217,7 @@ module.exports = {
   findScheduleByIdRaw,
   updateScheduleById,
   deleteScheduleById,
+  cancelScheduleById,
   deleteAttendanceByScheduleId,
   attendanceExistsForSchedule,
   findTeamById,

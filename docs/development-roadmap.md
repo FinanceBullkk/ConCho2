@@ -5,7 +5,7 @@
 > - *Architecture / orientation* → [`system-overview.md`](system-overview.md)
 > - *Detailed task snapshot* → [`handoff-2026-06-01.md`](handoff-2026-06-01.md)
 >
-> **Last updated:** 2026-06-10
+> **Last updated:** 2026-06-11
 
 ---
 
@@ -142,9 +142,18 @@ same gate as Create-session) listing each session's time /
 office·room / current trainer chips, with a **Trainers** action opening a modal
 that assigns internal Teachers (Admin picker; a Coordinator keeps the current
 internal trainers read-only) and/or an external trainer
-(`{name,email?,phone?,org?}`) in one `PUT /api/schedules/:id/trainers`. Still
-deferred: waitlists + durable-cancellation states (Wave E3 phase-04, outside the
-two grill deltas), session-list visibility widening for trainer-only teachers.
+(`{name,email?,phone?,org?}`) in one `PUT /api/schedules/:id/trainers`.
+**Durable cancellation is now live (2026-06-11, Wave E3 phase-04 slice A):**
+cancelling/deleting a session flips it to `status:'cancelled'` (who/when/why
+kept; attendance + roster preserved; room released + `roomId` nulled in-tx)
+instead of hard-deleting; the `{classId,startTime}` unique index became
+**partial (`status:'scheduled'`)** so the freed slot re-books (idempotent
+migration script for existing deployments); cancelled rows are excluded from
+every operational query (collision, weekly cap, availability, calendars, lists,
+reminders, reconcile, numbering, dashboards, reports, completion, sync) with a
+staff history view (`?status=cancelled|all` + a Cancelled chip in the cohort
+Sessions panel). Still deferred: waitlists + auto-promotion (phase-04 slice
+B/C), session-list visibility widening for trainer-only teachers.
 
 ---
 
@@ -168,7 +177,7 @@ two grill deltas), session-list visibility widening for trainer-only teachers.
 | B — Assessment & Certification | Generic assessment engine, completion enforcement, certificates | 🟡 in progress (completion + certificates + feedback + assessment engine v1 + completion reporting + rollups + assessment UI + feedback UI + assessment edit + question-bank backend/UI + manual grading v1 done) | A |
 | C — Catalog, Paths & Self-service | Learner catalog, self-enroll, learning paths/prerequisites | 🟢 core done (learner catalog + self-enroll UI + prerequisite gating v1 + prereq selector UI + sequenced learning paths v1 + admin paths UI + learner path-progress view) | A |
 | D — Platform & Scale | Production readiness → Google OIDC + Directory sync → manager hierarchy (org model) → mandatory assignment + due dates → notifications/escalation → compliance reporting + recertification. Order locked 2026-06-04 (after C closes). | 🟡 in progress (D1 cron self-monitoring done; **D3 v1 org model done**; **D4 assignment+due-dates v1 done**; **D5 assignment reminders + manager escalation v1 done**; **D6 v1.1 compliance report/export + certificate expiry signal + frontend UI verified/closed**; paid hosting + Sentry-account setup + D2 Google OAuth app = owner ops/inputs) | B, C |
-| E — Generic scheduling | Generalize booking beyond fixed English slots (session types, rooms, capacity, waitlists, instructors); keep leader-booking as one mode. Committed parallel track; large, own plan. | 🟡 in progress (**E1 done** — backend `ALLOWED_TIME_SLOTS` authoritative + exact-slot grid client (2026-06-09); **E2 capacity done**; **rooms done** via re-center Phase 3; **trainer-assignment UI done** (2026-06-10); remaining: waitlists + durable-cancellation states (E3 phase-04), session-list visibility for trainer-only teachers) | A |
+| E — Generic scheduling | Generalize booking beyond fixed English slots (session types, rooms, capacity, waitlists, instructors); keep leader-booking as one mode. Committed parallel track; large, own plan. | 🟡 in progress (**E1 done** — backend `ALLOWED_TIME_SLOTS` authoritative + exact-slot grid client (2026-06-09); **E2 capacity done**; **rooms done** via re-center Phase 3; **trainer-assignment UI done** (2026-06-10); **durable cancellation done** (2026-06-11, E3 phase-04 slice A); remaining: waitlists + auto-promotion (E3 phase-04 B/C), session-list visibility for trainer-only teachers) | A |
 
 > **Direction locked 2026-06-04** — full rationale + gap analysis in
 > [`ltms-gap-analysis.md`](ltms-gap-analysis.md). Six-month order:
@@ -237,6 +246,49 @@ Bug fixing and integration review rank above net-new feature rollout.
 ---
 
 ## Recent progress (changelog)
+
+- **2026-06-11** — **Durable cancellation (Wave E3 phase-04, slice A) — closes the
+  hard-delete golden-rule violation for sessions.** Cancelling (leader
+  `DELETE /api/schedules/:id/cancel`, learning
+  `DELETE /api/learning/sessions/:id/cancel`) and admin-deleting
+  (`DELETE /api/schedules/:id`) a session now **flip the doc to
+  `status:'cancelled'`** (`cancelledAt`/`cancelledBy`/`cancelReason` ≤500
+  zod-validated, optional DELETE body) instead of deleting it. The flip is an
+  **atomic conditional update** (concurrent cancels → one 200 / one 409
+  `already cancelled`); attendance rows are preserved; the roster snapshot is
+  frozen (Team-sync, Dropped auto-release, and enrollment-status pulls all skip
+  cancelled rows); the RoomBooking ledger row is released in the same tx with
+  `roomId` nulled (B3 — field and ledger never drift); calendar delete +
+  cancellation emails unchanged. The `{classId,startTime}` unique index became
+  **partial-unique where `status:'scheduled'`** (model + idempotent
+  `scripts/migrate-schedule-partial-unique-index.js`: backfill → drop →
+  recreate), so the **freed slot re-books** — collision + weekly-cap checks
+  count live rows only (a cancelled session frees the team's 2/week quota).
+  **Cancelled rows excluded from every operational query** (~20 call sites
+  swept): availability, my-class, attendance calendar + scope, learner/teacher
+  session lists, legacy list default, reminder claim, reconcile CHECK 1+4
+  (+CHECK 11 now also flags a ledger row pointing at a cancelled session),
+  session numbering, admin dashboards (stats/alerts), learning dashboard
+  counts/scope, completion engine denominators, completion/compliance report
+  roster+schedules, prerequisite participation signal, class/cohort
+  bookedSessions, team/user progress, enrollment attendance enrichment, Sheets
+  sync. Staff history: `GET /api/schedules?status=cancelled|all` (Participant
+  force-live) + cancelled rows in the Admin/Coordinator learning session list
+  rendered as a **Cancelled chip** (read-only row, Trainers action hidden) in
+  the cohort Sessions panel; editing a cancelled session → 409; delete guards
+  (class/cohort) still count cancelled refs to protect history. DTO exposes
+  `status`/`cancelledAt`/`cancelReason`. Tests: new
+  `scheduleCancel.test.js` (10 — flip/preserve, double-cancel 409, reason >500
+  → 400, freed-slot re-book incl. one-live-one-cancelled-share-slot, weekly-cap
+  freed, availability/participant/admin-default exclusions + `?status=cancelled`
+  history, edit-cancelled 409, reminder-claim skip) + updated
+  `scheduleUseCases` (durable delete contract + already-cancelled 409) and
+  `dataIntegrity` (DATA-005 future-cancel now asserts the flip); client +1
+  CohortSessionsPanel chip test. Client 238/51, lint at cap 72, build clean.
+  Spec `scheduling-and-booking` MODIFIED (cancellation requirement rewritten +
+  UC-2 + AC + partial index note). Remaining phase-04: slice B (waitlist +
+  in-tx FIFO auto-promotion) + slice C (join-waitlist UI), then session-list
+  visibility for trainer-only teachers.
 
 - **2026-06-10** — **Trainer-assignment UI (Wave E / re-center Phase 3 — closes the
   deferred frontend).** The `PUT /api/schedules/:id/trainers` backend shipped

@@ -16,6 +16,7 @@ const {
   listSchedulesQuery,
   availabilityQuery,
   bookTeamSlotBody,
+  cancelScheduleBody,
   setTrainersBody,
 } = require('../../schemas/schedule');
 
@@ -35,7 +36,7 @@ router.post('/book-slot', protect, roleGuard('Admin', 'Participant'),
   bookingLimiter, validate({ body: bookTeamSlotBody }), bookTeamSlot);
 
 router.delete('/:id/cancel', protect, roleGuard('Admin', 'Participant'),
-  validate({ params: idParam }), cancelSlot);
+  validate({ params: idParam, body: cancelScheduleBody }), cancelSlot);
 
 // ── Trainers (re-center Phase 3) — Admin + Coordinator (before /:id) ──
 // Capability-gated (session.assign-trainer) so a Coordinator can assign
@@ -54,6 +55,6 @@ router.route('/:id')
   .put(protect, roleGuard('Admin'),
     validate({ params: idParam, body: updateScheduleBody }), updateSchedule)
   .delete(protect, roleGuard('Admin'),
-    validate({ params: idParam }), deleteSchedule);
+    validate({ params: idParam, body: cancelScheduleBody }), deleteSchedule);
 
 module.exports = router;

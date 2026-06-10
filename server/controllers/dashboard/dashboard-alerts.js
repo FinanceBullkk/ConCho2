@@ -52,7 +52,8 @@ const getAlerts = async (req, res) => {
     const [toMarkAgg, teamsWithoutLeader, teamsUnassigned, todayCount] = await Promise.all([
       // Past sessions in the last 30 days with incomplete attendance.
       Schedule.aggregate([
-        { $match: { endTime: { $lt: now, $gte: lookback } } },
+        // Cancelled sessions never need marking (durable cancel, phase-04 A).
+        { $match: { endTime: { $lt: now, $gte: lookback }, status: 'scheduled' } },
         // Count enrolled members from the array (virtual enrolledCount not available in agg)
         { $addFields: { ec: { $size: { $ifNull: ['$enrolledUsers', []] } } } },
         { $match: { ec: { $gt: 0 } } },
@@ -74,7 +75,7 @@ const getAlerts = async (req, res) => {
       // Active teams not yet assigned to a class
       Team.countDocuments({ classId: null, isDeleted: { $ne: true } }),
       // Sessions scheduled for today (for TodayHero companion info)
-      Schedule.countDocuments({ startTime: { $gte: today, $lt: tomorrow } }),
+      Schedule.countDocuments({ startTime: { $gte: today, $lt: tomorrow }, status: 'scheduled' }),
     ]);
 
     const toMark = toMarkAgg[0]?.total || 0;

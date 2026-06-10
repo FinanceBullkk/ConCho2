@@ -85,6 +85,8 @@ const sendUpcomingReminders = async ({
   const claimStamp = new Date();
   const claimFilter = {
     startTime: { $gte: now, $lte: windowEnd },
+    // Durable-cancelled sessions must never be reminded (phase-04 slice A).
+    status: 'scheduled',
     $or: [{ remindersSentAt: { $exists: false } }, { remindersSentAt: null }],
   };
 
