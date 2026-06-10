@@ -15,7 +15,7 @@ vi.mock('../../../hooks/useOrg', () => ({
 }));
 
 // Office-scoped rooms (Phase 3) — one room in office o1.
-vi.mock('../../../hooks/useRooms', () => ({
+vi.mock('../../../features/rooms/useRooms', () => ({
   useRooms: () => ({ data: [{ _id: 'r1', name: 'Room A1', code: 'HCM-A1' }] }),
 }));
 
