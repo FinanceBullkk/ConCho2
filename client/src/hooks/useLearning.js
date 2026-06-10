@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { learningAPI } from '../api/api';
+import { learningAPI, schedulesAPI } from '../api/api';
 import { qk } from './queryKeys';
 
 // ── Reads ─────────────────────────────────────────────────
@@ -218,6 +218,21 @@ export const useBookSession = () => {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (data) => learningAPI.bookSession(data).then((r) => r.data.data),
+    onSettled: () => {
+      invalidateLearning(qc);
+      qc.invalidateQueries({ queryKey: qk.schedules.all });
+    },
+  });
+};
+
+// Assign a session's trainers (re-center Phase 3): internal Teacher/Admin refs
+// (join the attendance/visibility UNION) + an optional external trainer
+// (calendar invite + display only). PUT /api/schedules/:id/trainers.
+// Invalidates learning sessions + schedule caches so the lists + calendar refresh.
+export const useSetTrainers = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, data }) => schedulesAPI.setTrainers(id, data).then((r) => r.data.data),
     onSettled: () => {
       invalidateLearning(qc);
       qc.invalidateQueries({ queryKey: qk.schedules.all });

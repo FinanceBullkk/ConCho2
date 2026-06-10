@@ -25,6 +25,8 @@ related_code:
   - server/policy/sessionInstructors.js
   - client/src/pages/BookClassPage.jsx
   - client/src/components/CalendarGrid.jsx
+  - client/src/features/learning/CohortSessionsPanel.jsx
+  - client/src/features/learning/AssignTrainersModal.jsx
 ---
 
 # Capability: Scheduling & Booking
@@ -367,6 +369,18 @@ NEVER a User, never in `enrolledUsers`, never an actor; it only receives a
 best-effort calendar invite (when it has an email) and appears in display. The
 external trainer's `email`/`phone` are hidden from learner-facing session DTOs
 (name + org only); Admin/Coordinator see the full contact.
+
+**UI (shipped 2026-06-10):** the Learning → Cohorts tab gains a per-cohort
+**Sessions** action (`assign:trainer`, Admin/Coordinator; shown only for
+cohort-scheduled cohorts — `self_enroll`/`nomination`, the same gate as the
+Create-session action) opening `CohortSessionsPanel` — a list of the cohort's
+sessions (time / office·room / current trainer chips) via
+`GET /api/learning/sessions?cohortId=`. A **Trainers**
+action per session opens `AssignTrainersModal`: internal trainers are picked from
+the active-Teacher list (needs `read:users` → Admin; a Coordinator keeps the
+existing internal trainers read-only until a coordinator-safe user picker ships)
+and an optional external trainer is a `{name, email?, phone?, org?}` form. One
+save posts both shapes to `PUT /api/schedules/:id/trainers`.
 
 #### Scenario: Internal trainer marks their session via the UNION
 - **GIVEN** a Teacher NOT bound to a cohort's class, named as a session instructor
