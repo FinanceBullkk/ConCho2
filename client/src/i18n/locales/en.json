@@ -780,7 +780,23 @@
       "colBooked": "Booked",
       "colActions": "Actions",
       "created": "Cohort created",
-      "manage": "Enroll"
+      "manage": "Enroll",
+      "scheduleSession": "Schedule session"
+    },
+    "session": {
+      "title": "Schedule a session",
+      "office": "Office",
+      "selectOffice": "Select an office…",
+      "date": "Date",
+      "slot": "Time slot",
+      "selectSlot": "Select a time slot…",
+      "noSlots": "No bookable time slots are configured.",
+      "create": "Create session",
+      "creating": "Creating…",
+      "created": "Session scheduled",
+      "errorOffice": "Please choose an office.",
+      "errorDate": "Please choose a date.",
+      "errorSlot": "Please choose a time slot."
     },
     "enroll": {
       "title": "Enroll learners",

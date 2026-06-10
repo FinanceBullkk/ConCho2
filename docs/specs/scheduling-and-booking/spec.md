@@ -2,10 +2,11 @@
 capability: scheduling-and-booking
 status: stable
 owners: [services/scheduleService, controllers/scheduleController, domains/schedule, domains/learning/session]
-last_updated: 2026-06-09
+last_updated: 2026-06-10
 related_plans:
   - plans/260602-2247-m1-self-enroll-nomination-session-modes
   - plans/260606-1356-wave-e-generic-scheduling
+  - plans/260609-2215-ltms-recenter-coordinator-offline
 related_code:
   - server/services/scheduleService.js
   - server/models/Schedule.js
@@ -257,7 +258,8 @@ learning/session adapter — via one shared policy
 (`domains/schedule/scheduling-mode-policy`). Team modes (`leader_booking`,
 `admin_scheduled`) book against a team; cohort modes (`self_enroll`, `nomination`)
 book against a cohort. A team session for a cohort-mode program is rejected
-(**400**); an `admin_scheduled` program may be team-booked only by an Admin
+(**400**); an `admin_scheduled` program may be team-booked only by a **scheduler**
+(Admin or Coordinator — re-center Phase 2), never a self-booking team leader
 (**403**); an unknown/future mode fails closed (**501**).
 
 > Closes the gap where the legacy `/api/schedules/book-slot` route (reachable by
@@ -267,7 +269,34 @@ book against a cohort. A team session for a cohort-mode program is rejected
 #### Scenario: Leader self-books an admin_scheduled program (legacy route)
 - **GIVEN** a team whose program is `admin_scheduled`
 - **WHEN** the team leader books via `POST /api/schedules/book-slot`
-- **THEN** it is rejected with **403** ("admin-scheduled — only an Admin…")
+- **THEN** it is rejected with **403** ("admin-scheduled — only a coordinator or admin…")
+
+### Requirement: Coordinator-scheduled cohort session at an Office [BR-1, UC-1]
+
+The coordinator-scheduled offline flow (re-center Phase 2): a **scheduler**
+(Admin or Coordinator) opens a team-less session against a cohort
+(`self_enroll`/`nomination`) via `POST /api/learning/sessions/book-slot` with a
+`cohortId`. The session MUST carry an `officeId` (the physical site) — required
+for this flow even though `Schedule.officeId` is nullable for legacy/online
+rows. The roster is NOT a team: the cohort's active cohort-based enrollments
+(self-enrol + coordinator-assign) are snapshotted at create. The session DTO
+exposes `officeId` + a populated `office { _id, name, code }`.
+
+#### Scenario: Coordinator opens a cohort session
+- **GIVEN** a Coordinator and a `self_enroll` cohort
+- **WHEN** they POST `book-slot` with `cohortId` + `officeId` + a configured slot
+- **THEN** **201**, the session is team-less (`groupId` null), carries the Office,
+  and enrolls the cohort's active learners
+
+#### Scenario: Cohort session without an Office
+- **GIVEN** a scheduler booking a cohort session
+- **WHEN** `officeId` is omitted
+- **THEN** **400** ("officeId is required — … must pick an Office")
+
+#### Scenario: Cohort session with an unknown Office
+- **GIVEN** a scheduler booking a cohort session
+- **WHEN** `officeId` does not match a live Office
+- **THEN** **422** ("Office not found")
 
 #### Scenario: Team-booking a cohort-based program
 - **GIVEN** a team whose program is `self_enroll`/`nomination`
@@ -362,7 +391,8 @@ Inherits `docs/specs/security-platform/spec.md`. Specifics:
 - [ ] Cancel deletes the Schedule and frees the slot.
 - [ ] Admin can create/move/delete any session within the guards.
 - [ ] Reassigning a session to another team rebuilds `enrolledUsers` from the new team's **Active** members (Dropped excluded).
-- [ ] Leader self-booking an `admin_scheduled` program via the legacy `/book-slot` route → 403 (bypass closed).
+- [ ] Leader self-booking an `admin_scheduled` program via the legacy `/book-slot` route → 403 (bypass closed); a Coordinator (scheduler) is allowed.
+- [ ] Coordinator schedules a cohort session with `cohortId` + `officeId` → 201 (team-less, Office set, cohort learners enrolled); missing officeId → 400; unknown officeId → 422.
 - [ ] Team-booking a `self_enroll`/`nomination` program (book-slot, admin create, or reassign) → 400; program-less class still books (leader_booking fallback).
 - [ ] Leader booking grid hides "+ Book" and shows a banner for non-`leader_booking` modes; existing-session visibility unaffected.
 - [ ] Calendar/email failure does not roll back the booking.

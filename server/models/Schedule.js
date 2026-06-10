@@ -37,6 +37,16 @@ const scheduleSchema = new mongoose.Schema(
       default: null,
     },
 
+    // The physical Office this session is delivered at (re-center Phase 2).
+    // Nullable: legacy/online sessions have none. Coordinator-scheduled
+    // offline sessions REQUIRE it (enforced in the cohort-booking use-case);
+    // Phase 3 scopes Room selection to this Office.
+    officeId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Office',
+      default: null,
+    },
+
     // ── Time range ─────────────────────────────────────────
     startTime: {
       type: Date,
@@ -137,6 +147,9 @@ scheduleSchema.index({ bookedTeamId: 1, startTime: 1 });         // Weekly count
 // Compound multikey index — covers both auto-release (User.Dropped middleware) and
 // team-sync (syncSchedulesForTeamUpdate) which both filter on enrolledUsers + startTime.
 scheduleSchema.index({ enrolledUsers: 1, startTime: 1 });
+// Office-scoped queries (re-center Phase 2/3: "sessions at this office", and
+// Phase 3 room-conflict checks within an office).
+scheduleSchema.index({ officeId: 1, startTime: 1 });
 
 // PERF-010 (audit PR D): reconcileService.checkMissingAttendance
 // (services/reconcileService.js:42) filters

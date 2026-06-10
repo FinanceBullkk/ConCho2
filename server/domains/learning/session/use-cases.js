@@ -91,14 +91,29 @@ const bookGroupSession = async (payload, requestUser) => {
   return getSession(created._id, requestUser);
 };
 
-// Cohort-based booking (cohortId): self_enroll / nomination. Admin-only; the
-// session snapshots the cohort's active cohort-based enrollments.
+// Cohort-based booking (cohortId): self_enroll / nomination. The
+// coordinator-scheduled offline flow (re-center Phase 2): a scheduler (Admin or
+// Coordinator) opens a session against a cohort at a physical Office; the roster
+// comes from self-enrolment + assignment (the cohort's active cohort-based
+// enrollments are snapshotted here). `officeId` is REQUIRED for this flow even
+// though the column is nullable for legacy/online rows.
 const bookCohortSession = async (payload, requestUser) => {
-  if (requestUser?.role !== 'Admin') {
+  if (!schedulingModePolicy.isScheduler(requestUser)) {
     throw new scheduleService.ServiceError(
-      'Only an Admin can schedule sessions for this program',
+      'Only a coordinator or admin can schedule sessions for this program',
       403,
     );
+  }
+
+  if (!payload.officeId) {
+    throw new scheduleService.ServiceError(
+      'officeId is required — a coordinator-scheduled session must pick an Office',
+      400,
+    );
+  }
+  const office = await repository.findOfficeById(payload.officeId);
+  if (!office) {
+    throw new scheduleService.ServiceError('Office not found', 422);
   }
 
   const { schedulingMode, cohortId } = await repository.findSchedulingContextByCohort(payload.cohortId);
@@ -113,6 +128,7 @@ const bookCohortSession = async (payload, requestUser) => {
     startTime: payload.startTime,
     endTime: payload.endTime,
     enrolledUserIds,
+    officeId: payload.officeId,
     requestUser,
   });
   return getSession(created._id, requestUser);

@@ -46,6 +46,7 @@ const bookSession = async (req, res) => {
         after: {
           cohortId: data.cohortId,
           groupId: data.groupId,
+          officeId: data.officeId,
           startTime: data.startTime,
           endTime: data.endTime,
           enrolledLearnerCount: data.enrolledLearnerCount,

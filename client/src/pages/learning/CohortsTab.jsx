@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Plus, UserPlus } from 'lucide-react';
+import { Plus, UserPlus, CalendarPlus } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -11,19 +11,28 @@ import { useLearningCohorts } from '../../hooks/useLearning';
 import { useRole } from '../../hooks/useRole';
 import CohortFormModal from './CohortFormModal';
 import EnrollLearnersModal from './EnrollLearnersModal';
+import CreateSessionModal from './CreateSessionModal';
 
 const statusTone = { Ongoing: 'default', Completed: 'secondary' };
+
+// Coordinator-scheduled offline sessions are created against cohort-mode
+// programs (self_enroll / nomination), team-less (re-center Phase 2).
+const COHORT_MODES = ['self_enroll', 'nomination'];
+const isCohortScheduled = (cohort) => COHORT_MODES.includes(cohort.program?.schedulingMode);
 
 export default function CohortsTab() {
   const { t } = useTranslation();
   const { can } = useRole();
   const canCreate = can('create:cohort');
   const canEnroll = can('enroll:learner');
+  const canSchedule = can('book:session');
   const { data, isLoading } = useLearningCohorts();
   const cohorts = data?.data || [];
 
   const [createOpen, setCreateOpen] = useState(false);
   const [enrollCohort, setEnrollCohort] = useState(null);
+  const [sessionCohort, setSessionCohort] = useState(null);
+  const showActions = canEnroll || canSchedule;
 
   const header = (
     <div className="flex items-center justify-between">
@@ -61,7 +70,7 @@ export default function CohortsTab() {
                 <TableHead>{t('learning.cohorts.colStatus')}</TableHead>
                 <TableHead className="text-right">{t('learning.cohorts.colSessions')}</TableHead>
                 <TableHead className="text-right">{t('learning.cohorts.colBooked')}</TableHead>
-                {canEnroll && <TableHead className="text-right">{t('learning.cohorts.colActions')}</TableHead>}
+                {showActions && <TableHead className="text-right">{t('learning.cohorts.colActions')}</TableHead>}
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -74,11 +83,20 @@ export default function CohortsTab() {
                   </TableCell>
                   <TableCell className="text-right">{cohort.totalSessions}</TableCell>
                   <TableCell className="text-right">{cohort.bookedSessions}</TableCell>
-                  {canEnroll && (
+                  {showActions && (
                     <TableCell className="text-right">
-                      <Button size="sm" variant="outline" onClick={() => setEnrollCohort(cohort)}>
-                        <UserPlus className="size-4 mr-1.5" aria-hidden="true" />{t('learning.cohorts.manage')}
-                      </Button>
+                      <div className="flex items-center justify-end gap-2">
+                        {canSchedule && isCohortScheduled(cohort) && (
+                          <Button size="sm" variant="outline" onClick={() => setSessionCohort(cohort)}>
+                            <CalendarPlus className="size-4 mr-1.5" aria-hidden="true" />{t('learning.cohorts.scheduleSession')}
+                          </Button>
+                        )}
+                        {canEnroll && (
+                          <Button size="sm" variant="outline" onClick={() => setEnrollCohort(cohort)}>
+                            <UserPlus className="size-4 mr-1.5" aria-hidden="true" />{t('learning.cohorts.manage')}
+                          </Button>
+                        )}
+                      </div>
                     </TableCell>
                   )}
                 </TableRow>
@@ -95,6 +113,7 @@ export default function CohortsTab() {
       {body}
       {createOpen && <CohortFormModal onClose={() => setCreateOpen(false)} />}
       {enrollCohort && <EnrollLearnersModal cohort={enrollCohort} onClose={() => setEnrollCohort(null)} />}
+      {sessionCohort && <CreateSessionModal cohort={sessionCohort} onClose={() => setSessionCohort(null)} />}
     </>
   );
 }

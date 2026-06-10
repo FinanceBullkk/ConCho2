@@ -1,12 +1,16 @@
 const request = require('supertest');
+const jwt = require('jsonwebtoken');
+const mongoose = require('mongoose');
 const { getApp, getTokens, getSeedData, getCsrfHeaders, teardown } = require('../setup');
 const Schedule = require('../../models/Schedule');
 const Setting = require('../../models/Setting');
 const Class = require('../../models/Class');
 const LearningProgram = require('../../models/LearningProgram');
 const Enrollment = require('../../models/Enrollment');
+const User = require('../../models/User');
+const Office = require('../../models/Office');
 
-let app, tokens, seed, csrf;
+let app, tokens, seed, csrf, office, coordinatorToken;
 
 beforeAll(async () => {
   app = await getApp();
@@ -17,6 +21,17 @@ beforeAll(async () => {
   await Setting.findOneAndUpdate(
     { key: 'ALLOWED_TIME_SLOTS' },
     { $addToSet: { value: { sh: 10, sm: 0, eh: 11, em: 0 } } },
+  );
+
+  // re-center Phase 2: coordinator-scheduled cohort sessions need an Office +
+  // a Coordinator actor (the shared setup seeds neither).
+  office = await Office.create({ name: 'HCM Office', code: 'HCMS' });
+  const coordinator = await User.create({
+    empCode: '000030', name: 'Coordinator Sess', role: 'Coordinator',
+    department: 'HR', password: 'coord123456',
+  });
+  coordinatorToken = jwt.sign(
+    { id: coordinator._id.toString() }, process.env.JWT_SECRET, { expiresIn: '1h' },
   );
 });
 
@@ -306,6 +321,7 @@ describe('Learning Platform API — sessions', () => {
       .set(csrf)
       .send({
         cohortId: seed.class1._id.toString(),
+        officeId: office._id.toString(),
         startTime: start.toISOString(),
         endTime: end.toISOString(),
       });
@@ -315,9 +331,13 @@ describe('Learning Platform API — sessions', () => {
     expect(res.body.data.cohortId).toBe(seed.class1._id.toString());
     expect(res.body.data.groupId).toBeNull();
     expect(res.body.data.enrolledLearnerCount).toBe(2);
+    // DTO exposes the picked Office (re-center Phase 2).
+    expect(res.body.data.officeId).toBe(office._id.toString());
+    expect(res.body.data.office).toMatchObject({ code: 'HCMS' });
 
     const stored = await Schedule.findById(res.body.data.scheduleId).lean();
     expect(stored.bookedTeamId).toBeNull();
+    expect(stored.officeId.toString()).toBe(office._id.toString());
     expect(stored.enrolledUsers).toHaveLength(2);
   });
 
@@ -337,6 +357,7 @@ describe('Learning Platform API — sessions', () => {
       .set(csrf)
       .send({
         cohortId: seed.class1._id.toString(),
+        officeId: office._id.toString(),
         startTime: start.toISOString(),
         endTime: end.toISOString(),
       });
@@ -380,6 +401,7 @@ describe('Learning Platform API — sessions', () => {
       .set(csrf)
       .send({
         cohortId: seed.class1._id.toString(),
+        officeId: office._id.toString(),
         startTime: start.toISOString(),
         endTime: end.toISOString(),
       });
@@ -387,6 +409,78 @@ describe('Learning Platform API — sessions', () => {
     expect(res.status).toBe(400);
     expect(res.body.success).toBe(false);
     expect(res.body.message).toMatch(/self_enroll\/nomination/);
+  });
+
+  // ── re-center Phase 2: coordinator-scheduled offline sessions ──
+  test('self_enroll program: a Coordinator can schedule a cohort session at an Office', async () => {
+    const program = await LearningProgram.create({
+      code: 'SE100', name: 'Coordinator Self Enroll', schedulingMode: 'self_enroll',
+    });
+    await Class.findByIdAndUpdate(seed.class1._id, { programId: program._id });
+    await Enrollment.create([
+      { userId: seed.member1._id, classId: seed.class1._id, teamId: null, status: 'Active' },
+    ]);
+
+    const { start, end } = vnSlot();
+    const res = await request(app)
+      .post('/api/learning/sessions/book-slot')
+      .set('Authorization', `Bearer ${coordinatorToken}`)
+      .set(csrf)
+      .send({
+        cohortId: seed.class1._id.toString(),
+        officeId: office._id.toString(),
+        startTime: start.toISOString(),
+        endTime: end.toISOString(),
+      });
+
+    expect(res.status).toBe(201);
+    expect(res.body.success).toBe(true);
+    expect(res.body.data.groupId).toBeNull();
+    expect(res.body.data.officeId).toBe(office._id.toString());
+    expect(res.body.data.enrolledLearnerCount).toBe(1);
+  });
+
+  test('cohort session without officeId is rejected (400 — Office required)', async () => {
+    const program = await LearningProgram.create({
+      code: 'SE101', name: 'Self Enroll No Office', schedulingMode: 'self_enroll',
+    });
+    await Class.findByIdAndUpdate(seed.class1._id, { programId: program._id });
+
+    const { start, end } = vnSlot();
+    const res = await request(app)
+      .post('/api/learning/sessions/book-slot')
+      .set('Authorization', `Bearer ${coordinatorToken}`)
+      .set(csrf)
+      .send({
+        cohortId: seed.class1._id.toString(),
+        startTime: start.toISOString(),
+        endTime: end.toISOString(),
+      });
+
+    expect(res.status).toBe(400);
+    expect(res.body.message).toMatch(/office/i);
+  });
+
+  test('cohort session with an unknown officeId is rejected (422)', async () => {
+    const program = await LearningProgram.create({
+      code: 'SE102', name: 'Self Enroll Bad Office', schedulingMode: 'self_enroll',
+    });
+    await Class.findByIdAndUpdate(seed.class1._id, { programId: program._id });
+
+    const { start, end } = vnSlot();
+    const res = await request(app)
+      .post('/api/learning/sessions/book-slot')
+      .set('Authorization', `Bearer ${coordinatorToken}`)
+      .set(csrf)
+      .send({
+        cohortId: seed.class1._id.toString(),
+        officeId: new mongoose.Types.ObjectId().toString(),
+        startTime: start.toISOString(),
+        endTime: end.toISOString(),
+      });
+
+    expect(res.status).toBe(422);
+    expect(res.body.message).toMatch(/office/i);
   });
 
   test('booking with neither groupId nor cohortId fails validation (400)', async () => {

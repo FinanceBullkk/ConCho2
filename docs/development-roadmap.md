@@ -111,8 +111,15 @@ office manage, department read) that can NOT touch user accounts, security
 surfaces, or org placement. UI: People → **Offices** tab (per-tab perm gating),
 Office picker on org assignment, Coordinator-aware nav/routes. The AuditLog
 entity enum was also backfilled — Department/Certificate/Assessment*/Feedback/
-Assignment/LearningPath audits had been failing silently. Next: re-center
-Phase 2 (coordinator-scheduled session flow as the primary UX).
+Assignment/LearningPath audits had been failing silently. **Re-center Phase 2
+(coordinator-scheduled session flow) is now live:** a **scheduler** (Admin or
+Coordinator) opens a team-less offline session against a cohort
+(`self_enroll`/`nomination`) at a physical **Office** + a configured time slot
+via a new **Create-session** action on the Learning → Cohorts tab; the roster
+comes from self-enrol + coordinator-assign (no Team). `Schedule.officeId` is
+required for this flow (nullable for legacy rows); cohort-session creation was
+widened from Admin-only to the scheduler set. Next: re-center Phase 3
+(Office-scoped Rooms + internal/external Trainers).
 
 ---
 
@@ -199,11 +206,43 @@ Bug fixing and integration review rank above net-new feature rollout.
 | → | **2-tier dashboard — Phase 3 (executive backend + cost config)** | Admin-only ROI bundle + `LND_COST_CONFIG` | 🟢 done — `GET /api/learning/dashboard/executive` (coarse `report.read` + Admin-assert inside, mirroring compliance): coverage org+department, 6-month event trend (enrollments/certificates issued), honest Kirkpatrick rollup (L1+L2 measured; L3–L5 `measured:false`), certificate-based path-completion proxy, org-wide certificate validity rollup, and financials computed **only when** `GET/PUT /dashboard/cost-config` (audited Setting upsert, integer minor units) is configured — never fabricated. Shared `compose-fail-soft` extracted (operational refactored onto it). 6 integration tests. |
 | → | **2-tier dashboard — Phase 4 (executive frontend)** | Fill the Executive toggle with the ROI view | 🟢 done — the Dashboard tab's Executive view (Admin-only) now renders the Phase 3 bundle dependency-free: financial tiles **or** a set-budget CTA + inline cost-config form (lazy-init, key-remount — no setState-in-effect), 6-month two-series SVG `Sparkline`, honest `DashboardKirkpatrick` (L1/L2 values; L3–L5 "Not yet measured" chips), certificate-validity SVG `DonutStat`, mobility tiles, coverage-by-department bars. 6 new component tests (CTA→save payload, integer validation, configured tiles, fail-soft, skeleton/retry); client 208/45 green; lint ≤ cap; build clean. **2-tier dashboard plan COMPLETE (P1–P4).** |
 | → | **Re-center Phase 1 — Office + Training-coordinator role** | First-class Office entity + a Coordinator role that runs training ops without full Admin | 🟢 done — `Office` model (soft-delete, live-unique code, address/timezone) + `domains/org` office CRUD (`/api/org/offices`, `office.read`/`office.manage`) with a users-referencing archive guard; nullable `User.officeId` (+index) settable via the org-assignment leg (unknown office 422); **`Coordinator` role** in the User enum + `ROLE_CAPABILITIES` as an explicit allow-list (program/cohort/session/enrollment/completion/certificate/report/assignment/path + department read + office manage) — no user/security caps, no `org.manage`; AuditLog `actorRole`/entity enums extended (backfills 8 silently-failing audit entities). UI: People → Offices tab (per-tab perm gating), Office picker in `OrgAssignmentModal`, Coordinator-aware nav/routes/`useRole`. Seed: 2 offices + `000010`/coordinator123. Tests: 13 integration + 6 capability unit + 10 client. Phase 2 (coordinator-scheduled flow) next. |
+| → | **Re-center Phase 2 — coordinator-scheduled session flow** | Coordinator opens an offline session (cohort + Office + time); roster = self-enrol + assign (no Team) | 🟢 done — `Schedule.officeId` (nullable ref Office + index); `bookCohortSlot`/`bookCohortSession` thread + require `officeId` (missing → 400, unknown → 422) and were widened from Admin-only to the **scheduler** set (Admin/Coordinator) via a new `isScheduler`/`SCHEDULER_ROLES` in `scheduling-mode-policy` (also relaxes the `admin_scheduled` team gate to schedulers); session DTO exposes `office {name,code}`. UI: **Create-session** modal on Learning → Cohorts (cohort-mode cohorts only; Office + exact-slot via `useSchedulingConfig` + `slotToUtcRange`), `book:session` perm, `learningAPI.bookSession`/`useBookSession`. Roster reuses self-enrol catalog + assignment (decision: cohort/team-less per owner). Tests: 3 new session integration (coordinator create + office-required 400 + unknown-office 422) + updated cohort tests (officeId) + `isScheduler` unit + Coordinator team-mode unit + CreateSessionModal client (exact UTC range + office-required). server 738/75, client 220/47, lint cap 81, build clean. Deferred (open Qs): enrol-granularity toggle, offline attendance-without-quiz; leader grid kept (already mode-gated). Phase 3 (Office-scoped Rooms + Trainers) next. |
 
 ---
 
 ## Recent progress (changelog)
 
+- **2026-06-10** — **Re-center Phase 2 — coordinator-scheduled session flow
+  (plan `260609-2215-ltms-recenter-coordinator-offline`, Phase 2).** The
+  coordinator-scheduled offline model the owner described in the grill: a
+  **scheduler** (Admin or Coordinator) opens a **team-less** session against a
+  cohort-mode program (`self_enroll`/`nomination`) at a physical **Office** +
+  a configured time slot; the roster comes from self-enrolment + coordinator
+  assignment (no Team — decision confirmed with the owner). Backend:
+  `Schedule.officeId` (nullable ref Office, indexed `{officeId,startTime}`);
+  `scheduleService.bookCohortSlot` + the `bookCohortSession` use-case now
+  thread + **require** `officeId` (missing → **400**, unknown live office →
+  **422**) and were widened from Admin-only to a **scheduler set** via new
+  `isScheduler`/`SCHEDULER_ROLES` in `scheduling-mode-policy` (the same relaxes
+  the `admin_scheduled` team-mode gate from Admin-only to schedulers, never a
+  self-booking leader). Session DTO exposes `officeId` + populated
+  `office {_id,name,code}`. Frontend: a **Create-session** modal on Learning →
+  Cohorts (shown only for cohort-mode cohorts via `can('book:session')`):
+  Office picker + date + exact slot (reuses `useSchedulingConfig` +
+  `slotToUtcRange` — no `hour+1`), posting `{cohortId, officeId, start, end}`
+  through new `learningAPI.bookSession`/`useBookSession`. New `book:session`
+  perm (Admin/Coordinator) + `qk.learning.sessions`. Verified: **3 new session
+  integration tests** (coordinator create with Office + office-required 400 +
+  unknown-office 422) + updated cohort tests (carry officeId) + `isScheduler`
+  unit + Coordinator `admin_scheduled` unit + a `CreateSessionModal` client
+  test (asserts the exact UTC range from the picked VN day/slot + office-
+  required guard); **server 738 tests / 75 suites, client 220 / 47, lint 0
+  errors / 81 warnings (at cap), build clean.** Specs:
+  `scheduling-and-booking` (scheduler gate + cohort-Office requirement),
+  route-permission-matrix. Deferred (ADR open questions): enrol-granularity
+  toggle (per-course), offline attendance/completion without a quiz; the
+  leader grid stays (already mode-gated, secondary). Next: Phase 3 —
+  Office-scoped Rooms + internal/external Trainers.
 - **2026-06-10** — **Re-center Phase 1 — Office + Training-coordinator role
   (plan `260609-2215-ltms-recenter-coordinator-offline`, additive).** New
   `Office` model mirroring `Department` (soft-delete + auto-exclude hooks,

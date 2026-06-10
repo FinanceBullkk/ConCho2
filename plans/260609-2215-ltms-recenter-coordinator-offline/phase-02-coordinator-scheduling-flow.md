@@ -7,7 +7,7 @@
   `server/domains/learning/assignment/`, client `/me/catalog`, booking pages (`BookClassPage`, `CalendarGrid`).
 
 ## Overview
-- **Priority:** high · **Status:** pending
+- **Priority:** high · **Status:** ✅ done 2026-06-10 (roster model = cohort/team-less, confirmed with owner; server 738/75, client 220/47, lint cap, build clean)
 - Make **`admin_scheduled` the first-class create flow**: a **Coordinator** opens a Session by choosing
   **course (Program/Cohort) + Office + time + Trainer** (Room placeholder until Phase 3), then opens it for
   **self-enrol** / **coordinator-assign**. **Demote `leader_booking`** in the UI (keep the backend mode intact).
@@ -78,13 +78,20 @@ Coordinator → "Create session" form (course, Office, time, roster mode) → `P
 7. DoD: tests + lint green; update roadmap + scheduling spec; commit.
 
 ## Todo
-- [ ] `officeId` on admin/coordinator create (payload+schema+DTO+service)
-- [ ] Coordinator Create-session UI (course→office→time→roster mode), `session.book`-gated
-- [ ] Roster wiring (self-enrol + assign) from a created session
-- [ ] Demote leader grid to secondary
-- [ ] Require officeId at create (server)
-- [ ] Enrol-granularity config + default
-- [ ] Tests + docs + commit
+- [x] `officeId` on the cohort create path (Schedule model + bookCohortSlot + session DTO + schema)
+- [x] Coordinator Create-session UI (cohort→office→exact-slot), `book:session`-gated
+- [x] Roster wiring — reuses self-enrol catalog + assignment (cohort snapshot at create; team-less)
+- [x] Demote leader grid — kept as-is (already mode-gated; Coordinator Calendar nav stays off until later)
+- [x] Require officeId at coordinator create (server: 400 missing, 422 unknown)
+- [ ] Enrol-granularity config + default — **deferred** (ADR open question; no owner decision yet)
+- [x] Tests + docs + commit
+
+**Decision (2026-06-10):** roster model = **cohort / team-less** (owner chose "mở lớp,
+tự đăng ký + chỉ định"). Coordinator-scheduled offline sessions target a
+`self_enroll`/`nomination` cohort via `bookCohortSession`; `admin_scheduled`
+(team mode) stays for teams but is not the offline create surface. The Admin-only
+checks on cohort booking + the `admin_scheduled` team gate were widened to a
+scheduler set {Admin, Coordinator}.
 
 ## Success Criteria
 - A Coordinator opens an offline Session (course + Office + time), then learners self-enrol and/or the Coordinator assigns them.

@@ -22,13 +22,19 @@ const repository = require('./repository');
 const TEAM_SCHEDULING_MODES = new Set(['leader_booking', 'admin_scheduled']);
 const COHORT_SCHEDULING_MODES = new Set(['self_enroll', 'nomination']);
 
+// Roles allowed to schedule on behalf of the org (re-center Phase 2): a
+// Training Coordinator runs scheduling without full Admin. Distinct from a
+// self-booking team leader (a Participant), who only books leader_booking.
+const SCHEDULER_ROLES = new Set(['Admin', 'Coordinator']);
+const isScheduler = (actor) => SCHEDULER_ROLES.has(actor?.role);
+
 // Messages are part of the API contract (asserted by learningSessionRoutes
 // tests) — keep wording stable.
 const cohortForTeamMessage = (mode) =>
   `This program uses cohort-based enrollment (${mode}) — schedule its sessions against the cohort, not a group`;
 const unknownModeMessage = (mode) => `Scheduling mode '${mode}' is not supported yet`;
 const ADMIN_SCHEDULED_MESSAGE =
-  'This program is admin-scheduled — only an Admin can create its sessions';
+  'This program is admin-scheduled — only a coordinator or admin can create its sessions';
 
 /**
  * Structural rule: a team/group session may only be created for a TEAM mode.
@@ -56,7 +62,10 @@ const assertTeamModeStructural = ({ schedulingMode }) => {
  */
 const assertTeamMode = ({ schedulingMode, actor }) => {
   assertTeamModeStructural({ schedulingMode });
-  if (schedulingMode === 'admin_scheduled' && actor?.role !== 'Admin') {
+  // admin_scheduled may be created by a scheduler (Admin or Coordinator), never
+  // by a self-booking team leader (Participant). re-center Phase 2 widened this
+  // from Admin-only to the scheduler set.
+  if (schedulingMode === 'admin_scheduled' && !isScheduler(actor)) {
     throw new ServiceError(ADMIN_SCHEDULED_MESSAGE, 403);
   }
 };
@@ -94,6 +103,8 @@ const resolveSchedulingMode = async ({ teamId = null, classId = null }, session 
 module.exports = {
   TEAM_SCHEDULING_MODES,
   COHORT_SCHEDULING_MODES,
+  SCHEDULER_ROLES,
+  isScheduler,
   assertTeamMode,
   assertTeamModeStructural,
   assertCohortMode,

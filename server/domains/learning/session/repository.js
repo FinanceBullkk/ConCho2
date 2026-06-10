@@ -2,6 +2,7 @@ const Schedule = require('../../../models/Schedule');
 const Class = require('../../../models/Class');
 const LearningProgram = require('../../../models/LearningProgram');
 const Enrollment = require('../../../models/Enrollment');
+const Office = require('../../../models/Office');
 const {
   attachSessionNumbers,
   invalidateSessionOrderCache,
@@ -17,6 +18,7 @@ const populateSessionQuery = (query) => query
     path: 'bookedTeamId',
     select: 'name leaderId classId',
   })
+  .populate('officeId', 'name code')
   .populate('enrolledUsers', 'empCode name department status');
 
 const getClassId = (session) => session.classId?._id || session.classId;
@@ -69,6 +71,10 @@ const findSchedulingContextByCohort = async (cohortId) => {
   };
 };
 
+// Live Office lookup — used to validate the officeId a coordinator picks when
+// scheduling an offline session (re-center Phase 2).
+const findOfficeById = (officeId) => Office.findOne({ _id: officeId, isDeleted: false }).lean();
+
 // Active cohort-based enrollments (teamId:null) for a cohort -> learner ids.
 // These are the learners a self_enroll/nomination session enrols at creation.
 const findActiveCohortLearnerIds = async (cohortId) => {
@@ -86,4 +92,5 @@ module.exports = {
   findCohortIdsByTeacher,
   findSchedulingContextByCohort,
   findActiveCohortLearnerIds,
+  findOfficeById,
 };

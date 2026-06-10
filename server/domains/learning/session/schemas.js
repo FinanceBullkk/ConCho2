@@ -13,10 +13,15 @@ const listSessionsQuery = paginationQuery.extend({
 // Book against exactly one target:
 //   groupId  → team-based modes (leader_booking / admin_scheduled)
 //   cohortId → cohort-based modes (self_enroll / nomination)
+// officeId → the physical Office for a coordinator-scheduled offline session
+//   (re-center Phase 2). Optional at the schema layer (legacy/online + team
+//   booking carry none); REQUIRED for the cohort flow, enforced in the use-case
+//   so the rule lives next to the scheduler/mode checks.
 const bookSessionBody = z
   .object({
     groupId: objectId.optional(),
     cohortId: objectId.optional(),
+    officeId: objectId.optional(),
     startTime: z.coerce.date(),
     endTime: z.coerce.date(),
   })
