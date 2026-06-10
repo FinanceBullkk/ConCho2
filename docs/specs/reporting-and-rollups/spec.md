@@ -1,15 +1,18 @@
 ---
 capability: reporting-and-rollups
 status: stable
-owners: [domains/learning/reports]
-last_updated: 2026-06-08
+owners: [domains/learning/reports, domains/learning/dashboard]
+last_updated: 2026-06-10
 related_code:
   - server/domains/learning/reports/use-cases.js
   - server/domains/learning/reports/completion-rollup-use-case.js
   - server/domains/learning/reports/repository.js
+  - server/domains/learning/dashboard/use-cases.js
+  - server/domains/learning/dashboard/repository.js
 related_plans:
   - plans/260603-2250-completion-report-rollups
   - plans/260603-2323-learning-reports-lazy-rollups
+  - plans/260610-0830-ltms-2tier-dashboard
 ---
 
 # Capability: Reporting & Rollups
@@ -33,11 +36,16 @@ stay code-truth.
   soft-deleted learners don't inflate the denominator).
 - **BR-4:** Teachers see only cohorts they teach.
 - **BR-5:** Reports never mutate data.
+- **BR-6:** L&D operations get a single dashboard bundle (completion, attendance,
+  sessions, overdue assignments, certificate expiry, assessment pass rate,
+  feedback averages, training coverage) that degrades per-metric instead of
+  failing whole.
 
 ## Actors & Use Cases (UC)
 
 - **UC-1 (Admin/Teacher):** opens a cohort completion report.
 - **UC-2 (Admin):** views program-level rollups.
+- **UC-3 (Admin/Teacher):** opens the operational dashboard bundle.
 
 ## Entities
 
@@ -74,6 +82,37 @@ active learners only.
 The system SHALL allow a Teacher to read a cohort report only if
 `isTeacherOfClass` permits (else **403**); Admin is unrestricted.
 
+### Requirement: Operational dashboard bundle [BR-5, BR-6, UC-3]
+
+`GET /api/learning/dashboard/operational` (capability `report.read`) SHALL
+return one read-only bundle composing the completion rollup, attendance totals
+(present = the completion engine's attended statuses), session counts split
+around now, org-wide overdue assignment counts + top-10 (derived via the D4
+status resolver), certificate expiry buckets (expired / ≤30d / ≤60d) + top-10
+soonest-expiring, attempt-level assessment pass rate, feedback averages
+(overall + by program), and training coverage over a `window` of 30|60|90 days
+(default 30). Cohort-scoped metrics use the Teacher class-scope helper;
+`assignments` and `coverage` stay org-wide (counts/top-N only — same exposure
+as D4 `assignment.read`).
+
+#### Scenario: Admin bundle
+- **GIVEN** seeded learning data
+- **WHEN** an Admin requests the dashboard
+- **THEN** every metric block is populated org-wide, `errors` is empty, and the
+  completion block equals the completion rollup endpoint for the same actor
+
+#### Scenario: Per-metric fail-soft
+- **GIVEN** one metric's aggregation throws
+- **WHEN** the bundle is built
+- **THEN** that block is `null`, `errors[]` names the metric, the other blocks
+  still compute, and the response stays **200**
+
+#### Scenario: Scope and denial
+- **GIVEN** a cohort the Teacher does not teach
+- **WHEN** the Teacher requests the dashboard
+- **THEN** that cohort's attendance/certificates/sessions are excluded; a
+  Participant gets **403**; an invalid `window` gets **400**
+
 ## Non-Functional Requirements (NFR)
 
 Inherits `security-platform`. Specifics:
@@ -90,6 +129,9 @@ Inherits `security-platform`. Specifics:
 - [ ] Completion rate counts active learners only.
 - [ ] Teacher limited to taught cohorts (403 otherwise); Admin unrestricted.
 - [ ] No data mutated.
+- [ ] Dashboard bundle: completion parity with the rollup endpoint; per-metric
+      fail-soft (`null` + `errors[]`, response 200); Teacher class-scoped;
+      Participant 403; invalid `window` 400.
 
 ## Error & Edge Cases
 
