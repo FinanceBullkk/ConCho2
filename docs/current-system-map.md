@@ -156,7 +156,7 @@ English literals directly.
 |---|---|---|
 | `/api/auth` | `authRoutes.js` | login, logout, me, password, MFA, reset password |
 | `/api/users` | `userRoutes.js` | Admin user CRUD, restore, progress |
-| `/api/teams` | `teamRoutes.js` | team CRUD, my teams, restore, progress |
+| `/api/teams` | `domains/groups/routes.js` | team CRUD, my teams, restore, progress (Phase 1 domain extraction; `controller` facade → `queries`/`mutations`/`lifecycle`/`enrollment-sync`; `Team` model + `/api/teams` URL unchanged) |
 | `/api/classes` | `classRoutes.js` | class CRUD, course metadata |
 | `/api/learning` | `domains/learning/routes.js` | Learning programs, cohorts, sessions, paths, reports, assignments |
 | `/api/schedules` | `scheduleRoutes.js` | availability, booking, cancel, calendars |

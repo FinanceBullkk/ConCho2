@@ -1,5 +1,5 @@
 const { z } = require('zod');
-const { objectId } = require('./common');
+const { objectId } = require('../../schemas/common');
 
 // ── Create Team ─────────────────────────────────────────
 const createTeamBody = z.object({

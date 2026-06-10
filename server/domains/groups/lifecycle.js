@@ -6,9 +6,9 @@ const auditService = require('../../services/auditService');
 const { invalidateAnalyticsCache } = require('../../middleware/analyticsCache');
 
 // ──────────────────────────────────────────────────────────
-// Team Controller — soft-delete lifecycle (Admin only)
+// Groups (Team) — soft-delete lifecycle (Admin only)
 // ──────────────────────────────────────────────────────────
-// Split from the legacy teamController (Phase 1 modular-monolith).
+// Relocated from controllers/team/* into domains/groups (Phase 1 domain extraction).
 // Soft-delete (closes active enrollments in-tx) + restore. Schedules and
 // Attendance are PRESERVED for the audit trail.
 

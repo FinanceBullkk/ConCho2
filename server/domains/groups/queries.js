@@ -5,9 +5,9 @@ const { handleError } = require('../../helpers/handleError');
 const { paginatedResponse } = require('../../helpers/pagination');
 
 // ──────────────────────────────────────────────────────────
-// Team Controller — read handlers (Admin only)
+// Groups (Team) — read handlers (Admin only)
 // ──────────────────────────────────────────────────────────
-// Split from the legacy teamController (Phase 1 modular-monolith).
+// Relocated from controllers/team/* into domains/groups (Phase 1 domain extraction).
 // Listings (paginated/slim/legacy), single fetch, my-teams, trash, progress.
 
 /**
