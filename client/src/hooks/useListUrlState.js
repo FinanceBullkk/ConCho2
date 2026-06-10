@@ -7,7 +7,7 @@ import { useDebounce } from './useDebounce';
 //
 // Reusable URL ↔ list state for canonical list pages. Replaces
 // the per-page bespoke `searchParams.get(...) + setParam(...)` blocks
-// across UsersPage, TeamsPage, ClassesPage, CourseManager.
+// across UsersPage, TeamsPage, ClassesPage.
 //
 // Per the Screen 5 contract:
 //   • All filter state lives in the URL (reload preserves, share works)
