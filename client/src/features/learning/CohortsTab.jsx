@@ -107,7 +107,10 @@ export default function CohortsTab() {
                             <CalendarPlus className="size-4 mr-1.5" aria-hidden="true" />{t('learning.cohorts.scheduleSession')}
                           </Button>
                         )}
-                        {canAssignTrainers && (
+                        {/* Sessions (trainer assignment) is offered only where the
+                            coordinator-scheduled flow applies — same cohort-mode gate
+                            as Schedule session (owner decision, 2026-06-10). */}
+                        {canAssignTrainers && isCohortScheduled(cohort) && (
                           <Button size="sm" variant="outline" onClick={() => setSessionsCohort(cohort)}>
                             <CalendarRange className="size-4 mr-1.5" aria-hidden="true" />{t('learning.cohorts.sessions')}
                           </Button>

@@ -371,9 +371,11 @@ external trainer's `email`/`phone` are hidden from learner-facing session DTOs
 (name + org only); Admin/Coordinator see the full contact.
 
 **UI (shipped 2026-06-10):** the Learning → Cohorts tab gains a per-cohort
-**Sessions** action (`assign:trainer`, Admin/Coordinator) opening
-`CohortSessionsPanel` — a list of the cohort's sessions (time / office·room /
-current trainer chips) via `GET /api/learning/sessions?cohortId=`. A **Trainers**
+**Sessions** action (`assign:trainer`, Admin/Coordinator; shown only for
+cohort-scheduled cohorts — `self_enroll`/`nomination`, the same gate as the
+Create-session action) opening `CohortSessionsPanel` — a list of the cohort's
+sessions (time / office·room / current trainer chips) via
+`GET /api/learning/sessions?cohortId=`. A **Trainers**
 action per session opens `AssignTrainersModal`: internal trainers are picked from
 the active-Teacher list (needs `read:users` → Admin; a Coordinator keeps the
 existing internal trainers read-only until a coordinator-safe user picker ships)
