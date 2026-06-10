@@ -369,9 +369,11 @@ userSchema.post('findOneAndUpdate', async function (doc) {
   const session = await mongoose.startSession();
   try {
     await session.withTransaction(async () => {
-      // 1. Find the IDs of future schedules the user is currently in.
+      // 1. Find the IDs of future LIVE schedules the user is currently in.
+      //    Durable-cancelled sessions keep their roster snapshot as history
+      //    (phase-04 slice A) — a Dropped user is not pulled from them.
       const affectedIds = await Schedule.find(
-        { startTime: { $gte: today }, enrolledUsers: doc._id },
+        { startTime: { $gte: today }, enrolledUsers: doc._id, status: 'scheduled' },
         { _id: 1 },
         { session }
       ).distinct('_id');

@@ -133,10 +133,13 @@ const syncSchedulesForTeamUpdate = async ({ teamId, oldMembers, newMembers, sess
   const today = new Date();
   today.setUTCHours(0, 0, 0, 0);
 
-  // 1 DB query: fetch all future schedules for this team
+  // 1 DB query: fetch all future LIVE schedules for this team. Durable-
+  // cancelled sessions are frozen history — member changes never mutate
+  // their roster snapshot (phase-04 slice A).
   const futureSchedules = await Schedule.find({
     startTime: { $gte: today },
     bookedTeamId: teamId,
+    status: 'scheduled',
   }).session(session).lean();
 
   if (futureSchedules.length === 0) {

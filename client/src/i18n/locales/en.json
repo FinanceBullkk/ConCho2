@@ -813,7 +813,8 @@
       "emptyDesc": "Schedule a session for this cohort, then assign its trainers here.",
       "colTime": "When",
       "colLocation": "Location",
-      "colTrainers": "Trainers"
+      "colTrainers": "Trainers",
+      "cancelled": "Cancelled"
     },
     "trainers": {
       "title": "Manage trainers",

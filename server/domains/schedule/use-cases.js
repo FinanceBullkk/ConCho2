@@ -35,6 +35,12 @@ const updateSchedule = async (id, body) => {
   const existing = await repository.findScheduleByIdRaw(id);
   if (!existing) throw new ServiceError('Schedule not found', 404);
 
+  // Durable-cancelled rows are history — editing one would silently resurrect
+  // it past every booking guard. Re-book the slot instead.
+  if (existing.status === 'cancelled') {
+    throw new ServiceError('Cannot edit a cancelled session — book the slot again instead', 409);
+  }
+
   const session = await mongoose.startSession();
   let schedule;
 
@@ -261,14 +267,21 @@ const updateSchedule = async (id, body) => {
   return schedule;
 };
 
-// ── Delete Schedule (admin) ───────────────────────────────
-// Extracted from scheduleController.deleteSchedule.
+// ── Delete Schedule (admin) — durable cancel ──────────────
+// Wave E3 phase-04 slice A: the admin "delete" is now a durable cancellation.
+// The doc flips to status:'cancelled' (who/when/why preserved), attendance
+// rows are KEPT, the room-lock ledger row is released (+ roomId nulled, B3),
+// and the freed slot re-books (partial-unique index skips cancelled rows).
 
-const deleteSchedule = async (id) => {
+const deleteSchedule = async (id, { cancelledBy = null, cancelReason = '' } = {}) => {
   const schedule = await repository.findScheduleByIdRaw(id);
   if (!schedule) throw new ServiceError('Schedule not found', 404);
 
-  // Cannot delete past sessions (preserve attendance evidence)
+  if (schedule.status === 'cancelled') {
+    throw new ServiceError('This session is already cancelled', 409);
+  }
+
+  // Cannot cancel past sessions (preserve attendance evidence)
   if (new Date(schedule.startTime) <= new Date()) {
     throw new ServiceError(
       'Cannot delete a session that has already started. Past attendance is preserved for reporting.', 409,
@@ -277,15 +290,18 @@ const deleteSchedule = async (id) => {
 
   const googleEventId = schedule.googleEventId;
   const session = await mongoose.startSession();
-  let deletedAttendance = 0;
 
   try {
     await session.withTransaction(async () => {
-      const attResult = await repository.deleteAttendanceByScheduleId(schedule._id, session);
-      deletedAttendance = attResult.deletedCount;
-      // Phase 3: free the room slot (drop the ledger row) in the same tx.
+      // Free the room slot (drop the ledger row) in the same tx as the flip.
       await roomLockPolicy.releaseRoomLock([schedule._id], session);
-      await repository.deleteScheduleById(schedule._id, session);
+      const flipped = await repository.cancelScheduleById(
+        schedule._id, { cancelledBy, cancelReason }, session,
+      );
+      // Atomic conditional flip: a concurrent cancel already won.
+      if (!flipped) {
+        throw new ServiceError('This session is already cancelled', 409);
+      }
     });
   } finally {
     session.endSession();
@@ -299,7 +315,7 @@ const deleteSchedule = async (id) => {
     calendarDeleted = await calendarService.deleteEventForSchedule(googleEventId);
   }
 
-  return { deletedAttendance, schedule, calendarDeleted, googleEventId };
+  return { schedule, calendarDeleted, googleEventId };
 };
 
 // ── Set Trainers (re-center Phase 3, DELTA B) ─────────────

@@ -236,7 +236,7 @@ Current session API:
 - `GET /api/learning/sessions` lists sessions with `cohort`, `group`, and `enrolledLearners` DTO fields.
 - `GET /api/learning/sessions/:id` reads one session with participant self-scope and teacher assignment scope.
 - `POST /api/learning/sessions/book-slot` books using `groupId` (team) or `cohortId`. Group booking delegates to `scheduleService.bookSlot` — the shared chokepoint that enforces the booking invariants AND the `schedulingMode` gate (same rule set as the legacy `/api/schedules/book-slot` route; the adapter no longer holds its own copy). Cohort booking calls `scheduling-mode-policy.assertCohortMode`.
-- `DELETE /api/learning/sessions/:id/cancel` cancels through existing Schedule cancellation logic.
+- `DELETE /api/learning/sessions/:id/cancel` cancels through existing Schedule cancellation logic (durable status flip — phase-04 slice A; never hard-deletes).
 
 This is an adapter boundary only. The physical Mongo collection/model remains `Schedule`, and `/api/schedules` keeps its legacy `classId`, `bookedTeamId`, and `enrolledUsers` response vocabulary for current calendar/booking clients.
 

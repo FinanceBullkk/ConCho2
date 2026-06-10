@@ -44,10 +44,11 @@ const attachSessionNumbers = async (schedules) => {
     }
   }
 
-  // Single query for all uncached classes
+  // Single query for all uncached classes. Durable-cancelled sessions never
+  // consume a session number — "Session N" counts live sessions only.
   if (uncachedIds.length > 0) {
     const objectIds = uncachedIds.map(id => new mongoose.Types.ObjectId(id));
-    const allSchedules = await Schedule.find({ classId: { $in: objectIds } })
+    const allSchedules = await Schedule.find({ classId: { $in: objectIds }, status: 'scheduled' })
       .select('_id classId startTime')
       .sort({ startTime: 1 })
       .lean();

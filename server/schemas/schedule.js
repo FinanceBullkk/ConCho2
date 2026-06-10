@@ -31,6 +31,10 @@ const listSchedulesQuery = paginationQuery.extend({
   classId: objectId.optional(),
   from: z.coerce.date().optional(),
   to: z.coerce.date().optional(),
+  // Durable cancel (phase-04 slice A): lists are live-only by default;
+  // staff may request cancelled history explicitly. (Participant scope
+  // force-overrides to 'scheduled' in queries.listSchedules.)
+  status: z.enum(['scheduled', 'cancelled', 'all']).optional(),
 });
 
 const availabilityQuery = z.object({
@@ -43,6 +47,16 @@ const bookTeamSlotBody = z.object({
   startTime: z.coerce.date(),
   endTime: z.coerce.date(),
 });
+
+// ── Durable cancel (Wave E3 phase-04, slice A) ────────────
+// Optional free-text reason on the cancel/delete DELETE routes. The whole
+// object is .optional(): a bare cancel without a JSON body parses as
+// undefined and must keep working (existing clients send none).
+const cancelScheduleBody = z
+  .object({
+    cancelReason: z.string().trim().max(500).optional(),
+  })
+  .optional();
 
 // ── Trainers (re-center Phase 3, DELTA B) ─────────────────
 // internalIds → internal trainers (User refs, UNION authz). [] clears them.
@@ -76,5 +90,6 @@ module.exports = {
   listSchedulesQuery,
   availabilityQuery,
   bookTeamSlotBody,
+  cancelScheduleBody,
   setTrainersBody,
 };

@@ -133,7 +133,9 @@ const analyticsByTeam = async ({ page = 1, limit = 100, skip = 0 } = {}, actor) 
   if (allMemberIds.length > 0) {
     const match = { userId: { $in: allMemberIds } };
     if (scopedClassIds) {
-      const scheduleIds = await Schedule.distinct('_id', { classId: { $in: scopedClassIds } });
+      const scheduleIds = await Schedule.distinct('_id', {
+        classId: { $in: scopedClassIds }, status: 'scheduled',
+      });
       match.scheduleId = { $in: scheduleIds };
     }
     const grouped = await Attendance.aggregate([
@@ -193,7 +195,7 @@ const analyticsByTeam = async ({ page = 1, limit = 100, skip = 0 } = {}, actor) 
 const analyticsByClass = async (classId) => {
   if (!classId) throw new ServiceError('classId is required');
 
-  const schedules = await Schedule.find({ classId })
+  const schedules = await Schedule.find({ classId, status: 'scheduled' })
     .select('_id startTime endTime').sort({ startTime: 1 }).lean();
   const scheduleIds = schedules.map(s => s._id);
 

@@ -10,9 +10,12 @@ const mongoose = require('mongoose');
 //   system CREATES a new Schedule doc with startTime/endTime.
 //
 // BUSINESS RULES:
-//   1. Each time slot allows exactly 1 schedule (collision check).
+//   1. Each time slot allows exactly 1 LIVE schedule (collision check +
+//      partial-unique index scoped to status:'scheduled').
 //   2. Each team can create max 2 sessions per Mon–Sun week.
-//   3. Cancelling a booking DELETES the Schedule document.
+//   3. Cancelling a booking is DURABLE (Wave E3 phase-04 slice A): the doc
+//      flips to status:'cancelled' (who/when/why preserved) — never deleted —
+//      and the freed slot becomes re-bookable.
 //
 // enrolledUsers is maintained as a flattened member list
 // for attendance purposes.
@@ -139,6 +142,34 @@ const scheduleSchema = new mongoose.Schema(
       type: Date,
       default: null,
     },
+
+    // ── Durable cancellation (Wave E3 phase-04, slice A) ────
+    // Cancelling never deletes the doc: status flips to 'cancelled' and the
+    // who/when/why are preserved (golden rule: no hard-delete of operational
+    // history). Cancelled rows are excluded from every operational query
+    // (collision, weekly cap, availability, calendars, reminders, reconcile,
+    // session numbering) and escape the partial-unique slot index, so the
+    // freed {classId,startTime} slot is immediately re-bookable.
+    status: {
+      type: String,
+      enum: ['scheduled', 'cancelled'],
+      default: 'scheduled',
+    },
+    cancelledAt: {
+      type: Date,
+      default: null,
+    },
+    cancelledBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+      default: null,
+    },
+    cancelReason: {
+      type: String,
+      trim: true,
+      maxlength: 500,
+      default: '',
+    },
   },
   {
     timestamps: true,
@@ -170,13 +201,22 @@ scheduleSchema.virtual('availableSpots').get(function () {
 });
 
 // ── Indexes ───────────────────────────────────────────────
-// UNIQUE constraint: one booking per (class, time slot). This is the last
+// UNIQUE constraint: one LIVE booking per (class, time slot). This is the last
 // line of defense against concurrent double-bookings — the transaction in
 // scheduleService already does an explicit collision check, but two
 // requests that pass the check simultaneously can still race to insert.
 // MongoDB will reject the second insert with E11000; scheduleService
 // catches that code and converts it to a 409 ServiceError.
-scheduleSchema.index({ classId: 1, startTime: 1 }, { unique: true });
+//
+// PARTIAL (Wave E3 phase-04 slice A): scoped to status:'scheduled' so durable-
+// cancelled rows may share the slot as history while the freed slot re-books.
+// Existing deployments must run scripts/migrate-schedule-partial-unique-index.js
+// (backfill status + drop/recreate) — the old full-unique index with the same
+// key pattern conflicts with this definition until dropped.
+scheduleSchema.index(
+  { classId: 1, startTime: 1 },
+  { unique: true, partialFilterExpression: { status: 'scheduled' } },
+);
 
 scheduleSchema.index({ classId: 1, startTime: 1, endTime: 1 }); // Collision-check range query: findOne({classId, startTime:{$lt:end}, endTime:{$gt:start}})
 scheduleSchema.index({ bookedTeamId: 1, startTime: 1 });         // Weekly count: countDocuments({bookedTeamId, startTime:{$gte:weekStart,$lte:weekEnd}})

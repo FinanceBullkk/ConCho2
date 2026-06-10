@@ -139,7 +139,7 @@ const getUserProgress = async (req, res) => {
 
     const teamIds = enrollments.map(e => e.teamId?._id).filter(Boolean);
 
-    const schedules = await Schedule.find({ bookedTeamId: { $in: teamIds } })
+    const schedules = await Schedule.find({ bookedTeamId: { $in: teamIds }, status: 'scheduled' })
       .sort({ startTime: 1 })
       .populate('classId', 'classCode courseName')
       .populate('bookedTeamId', 'name')

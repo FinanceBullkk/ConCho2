@@ -1,7 +1,6 @@
 const mongoose = require('mongoose');
 const Schedule = require('../models/Schedule');
 const Team = require('../models/Team');
-const Attendance = require('../models/Attendance');
 const calendarService = require('./calendarService');
 const auditService = require('./auditService');
 const logger = require('../lib/logger');
@@ -41,6 +40,7 @@ const schedulingWindowPolicy = require('../domains/schedule/scheduling-window-po
 const bookingPolicy = require('../domains/schedule/session-booking-policy');
 const schedulingModePolicy = require('../domains/schedule/scheduling-mode-policy');
 const roomLockPolicy = require('../domains/schedule/room-lock-policy');
+const repository = require('../domains/schedule/repository');
 
 // ── Helpers ───────────────────────────────────────────────
 
@@ -372,18 +372,31 @@ const bookCohortSlot = async ({ cohortId, startTime, endTime, enrolledUserIds = 
 };
 
 /**
- * Cancel (delete) a booked schedule.
+ * Cancel a booked schedule — DURABLY (Wave E3 phase-04, slice A).
+ *
+ * The doc is never deleted: it flips to status:'cancelled' with who/when/why
+ * preserved, attendance rows are kept, the room-lock ledger row is released
+ * (and roomId nulled — B3, field and ledger never drift), and the freed
+ * {classId,startTime} slot becomes re-bookable (partial-unique index).
  *
  * @param {string} scheduleId
  * @param {Object} requestUser
- * @throws {ServiceError} if not found or not authorized
+ * @param {Object} [opts]
+ * @param {string} [opts.cancelReason]  optional free-text, zod-trimmed (≤500)
+ * @throws {ServiceError} if not found, already cancelled, started, or not authorized
  */
-const cancelSlot = async (scheduleId, requestUser) => {
-  // Populate before delete so we still have user emails + class info for notifications.
+const cancelSlot = async (scheduleId, requestUser, { cancelReason = '' } = {}) => {
+  // Populate so we still have user emails + class info for notifications.
   const schedule = await Schedule.findById(scheduleId)
     .populate('classId', 'classCode courseName')
     .populate('enrolledUsers', 'name email');
   if (!schedule) throw new ServiceError('Schedule not found', 404);
+
+  // Double-cancel guard (pre-check for a clean message; the atomic conditional
+  // flip below is the real concurrency guard).
+  if (schedule.status === 'cancelled') {
+    throw new ServiceError('This session is already cancelled', 409);
+  }
 
   // Audit PR 6 (DATA-005): cancelSlot used to cascade-delete the schedule's
   // attendance unconditionally. For a PAST session that means roll-call
@@ -428,15 +441,24 @@ const cancelSlot = async (scheduleId, requestUser) => {
     ? schedule.enrolledUsers.filter(u => u && u.email)
     : [];
 
-  // ── TRANSACTION: Cascade delete Attendance → Schedule (BUG-03) ──
+  // ── TRANSACTION: durable flip + room release ─────────────
+  // Attendance rows are PRESERVED (golden rule — cancelled history keeps its
+  // evidence; reconcile/calendar queries skip cancelled rows). The room-lock
+  // ledger row is dropped in the same tx so the room is immediately
+  // re-bookable, and roomId is nulled in the same write (B3).
   const session = await mongoose.startSession();
   try {
     await session.withTransaction(async () => {
-      await Attendance.deleteMany({ scheduleId: schedule._id }, { session });
-      // Phase 3: free the room slot (drop the ledger row) in the same tx so a
-      // cancelled session's room becomes immediately re-bookable.
       await roomLockPolicy.releaseRoomLock([schedule._id], session);
-      await Schedule.findByIdAndDelete(schedule._id, { session });
+      const flipped = await repository.cancelScheduleById(
+        schedule._id,
+        { cancelledBy: requestUser._id, cancelReason },
+        session,
+      );
+      // Atomic conditional: null means a concurrent cancel won the race.
+      if (!flipped) {
+        throw new ServiceError('This session is already cancelled', 409);
+      }
     });
   } finally {
     session.endSession();

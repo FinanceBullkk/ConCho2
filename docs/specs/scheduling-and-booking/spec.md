@@ -2,7 +2,7 @@
 capability: scheduling-and-booking
 status: stable
 owners: [services/scheduleService, controllers/scheduleController, domains/schedule, domains/learning/session]
-last_updated: 2026-06-10
+last_updated: 2026-06-11
 related_plans:
   - plans/260602-2247-m1-self-enroll-nomination-session-modes
   - plans/260606-1356-wave-e-generic-scheduling
@@ -61,8 +61,8 @@ room/calendar never double-books.
 - **UC-1 (Team Leader):** opens `/book` grid → clicks an empty allowed slot →
   system creates a `Schedule` for the leader's team's class and auto-enrolls the
   team's active members.
-- **UC-2 (Team Leader):** cancels a session their team owns → the `Schedule` is
-  deleted and the slot frees up.
+- **UC-2 (Team Leader):** cancels a session their team owns → the `Schedule`
+  flips to `cancelled` (durable history) and the slot frees up.
 - **UC-3 (Admin):** creates, edits the time of, or deletes **any** session,
   bypassing leader-only restrictions (but not the collision/time guards).
 - **UC-4 (Participant/Teacher):** reads sessions scoped to them (own team /
@@ -424,16 +424,60 @@ slots) is never gated.
 - **GIVEN** the same leader selects a `leader_booking` team
 - **THEN** the grid offers bookable "+ Book" cells as normal
 
-### Requirement: Cancellation deletes the session [BR-1, UC-2]
+### Requirement: Cancellation is durable (status flip, never delete) [BR-1, UC-2]
 
-The system SHALL delete the `Schedule` document on cancellation (no soft-delete
-for sessions — they are future plans, not audited learner records), freeing the
-slot and removing any linked calendar event.
+*(MODIFIED 2026-06-11 — Wave E3 phase-04 slice A; replaces the former
+"cancellation deletes the session" rule.)*
+
+The system SHALL cancel a session by flipping the `Schedule` to
+`status:'cancelled'` with `cancelledAt`/`cancelledBy`/`cancelReason` (optional
+free-text ≤500, zod-validated on the cancel/delete DELETE bodies) — the document
+is NEVER hard-deleted. Both the leader cancel (`DELETE /api/schedules/:id/cancel`),
+the learning cancel (`DELETE /api/learning/sessions/:id/cancel`), and the admin
+delete (`DELETE /api/schedules/:id`) perform this flip; the flip is an atomic
+conditional update, so concurrent cancels resolve as one **200** / one **409**
+(`already cancelled`). Attendance rows are PRESERVED; the roster snapshot is
+frozen (Team-sync / Dropped auto-release / enrollment pulls skip cancelled rows);
+the RoomBooking ledger row is released in the same transaction with `roomId`
+nulled (B3 — field and ledger never drift); any linked calendar event is removed
+and enrolled learners are emailed (unchanged).
+
+The freed `{classId,startTime}` slot becomes re-bookable: the unique index is
+**partial (`status:'scheduled'`)** and the collision/weekly-cap checks count
+live rows only. Cancelled rows are EXCLUDED from every operational read
+(availability, my-class, attendance calendar, learner/teacher session lists,
+reminders, reconcile checks 1+4, session numbering, dashboards, reports,
+completion denominators, Sheets sync); reconcile CHECK 11 additionally flags a
+ledger row pointing at a cancelled session. Staff history access: legacy list
+`GET /api/schedules?status=cancelled|all` (Participants are force-scoped to
+live) and the Admin/Coordinator learning session list, which keeps cancelled
+rows and renders a **Cancelled** chip (read-only — trainer assignment hidden) in
+the cohort Sessions panel. Editing a cancelled session → **409**. Existing
+deployments run `scripts/migrate-schedule-partial-unique-index.js` (idempotent
+backfill + index swap) before deploying.
 
 #### Scenario: Leader cancels own session
 - **GIVEN** a future session owned by the leader's team
-- **WHEN** the leader cancels it
-- **THEN** the `Schedule` is removed and the slot becomes bookable again
+- **WHEN** the leader cancels it (optionally with a reason)
+- **THEN** **200**; the doc persists as `cancelled` (who/when/why recorded), the
+  roster + attendance survive, and the slot becomes bookable again
+
+#### Scenario: Freed slot re-books
+- **GIVEN** a cancelled session at `{classId, T}`
+- **WHEN** a leader books the same class at `T`
+- **THEN** **201** — one live row and the cancelled history row share the slot
+
+#### Scenario: Double cancel
+- **GIVEN** a session cancelled a moment ago
+- **WHEN** it is cancelled again (or edited)
+- **THEN** **409** (`already cancelled` / cannot edit)
+
+#### Scenario: Cancelled rows leave operations
+- **GIVEN** a cancelled future session
+- **WHEN** the availability grid, learner lists, reminder cron, weekly cap, or
+  reconcile run
+- **THEN** none of them count or surface it (the reminder never emails it; the
+  team's weekly quota is freed)
 
 ### Requirement: Admin override [BR-6, UC-3]
 
@@ -469,7 +513,8 @@ Inherits `docs/specs/security-platform/spec.md`. Specifics:
   audited via the controller.
 - **Integrations are fail-soft:** Google Calendar event + confirmation email are
   created **after** commit; their failure never rolls back a booking.
-- **Performance:** indexes `{classId,startTime}` (unique), `{classId,startTime,
+- **Performance:** indexes `{classId,startTime}` (partial-unique where
+  `status:'scheduled'` — durable cancel), `{classId,startTime,
   endTime}` (collision), `{bookedTeamId,startTime}` (weekly count),
   `{enrolledUsers,startTime}` (roster sync), `{endTime}` (reconcile),
   `{remindersSentAt,startTime}` (reminder cron).
@@ -483,7 +528,7 @@ Inherits `docs/specs/security-platform/spec.md`. Specifics:
 - [ ] Overlapping same-class slot → 409; concurrent race → exactly one wins.
 - [ ] Same slot for a different class → allowed.
 - [ ] 3rd booking in a Mon–Sun week → rejected.
-- [ ] Cancel deletes the Schedule and frees the slot.
+- [ ] Cancel flips the Schedule to `cancelled` (doc + attendance preserved, room released) and frees the slot for re-booking; double-cancel/edit-cancelled → 409; cancelled rows excluded from operational reads (incl. reminders + weekly cap); `?status=cancelled|all` is the staff history view (Participant force-live).
 - [ ] Admin can create/move/delete any session within the guards.
 - [ ] Reassigning a session to another team rebuilds `enrolledUsers` from the new team's **Active** members (Dropped excluded).
 - [ ] Leader self-booking an `admin_scheduled` program via the legacy `/book-slot` route → 403 (bypass closed); a Coordinator (scheduler) is allowed.

@@ -113,16 +113,31 @@ describe('domains/schedule use-cases — deleteSchedule', () => {
     expect(await Schedule.findById(sch._id)).not.toBeNull();
   });
 
-  test('deletes a future session and cascades its attendance', async () => {
+  test('durably cancels a future session — doc flips, attendance preserved', async () => {
     const { sched, leaderA } = await makeFixture();
     await Attendance.create({ scheduleId: sched._id, userId: leaderA._id, status: 'P' });
 
-    const result = await useCases.deleteSchedule(sched._id.toString());
+    const result = await useCases.deleteSchedule(sched._id.toString(), {
+      cancelledBy: leaderA._id, cancelReason: 'room flooded',
+    });
 
-    expect(result.deletedAttendance).toBe(1);
     expect(result.calendarDeleted).toBe(false);
-    expect(await Schedule.findById(sched._id)).toBeNull();
-    expect(await Attendance.findOne({ scheduleId: sched._id })).toBeNull();
+    // Phase-04 slice A: never hard-deleted — the doc persists as history.
+    const after = await Schedule.findById(sched._id);
+    expect(after).not.toBeNull();
+    expect(after.status).toBe('cancelled');
+    expect(after.cancelReason).toBe('room flooded');
+    expect(after.cancelledBy.toString()).toBe(leaderA._id.toString());
+    expect(after.cancelledAt).toBeInstanceOf(Date);
+    // Attendance is preserved (golden rule), not cascaded away.
+    expect(await Attendance.findOne({ scheduleId: sched._id })).not.toBeNull();
+  });
+
+  test('throws ServiceError 409 when the session is already cancelled', async () => {
+    const { sched } = await makeFixture();
+    await useCases.deleteSchedule(sched._id.toString());
+    await expect(useCases.deleteSchedule(sched._id.toString()))
+      .rejects.toMatchObject({ statusCode: 409 });
   });
 });
 
