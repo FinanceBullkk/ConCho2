@@ -7,7 +7,7 @@ import { useRole } from '../hooks/useRole';
 import UsersPage from './UsersPage';
 import TeamsPage from './TeamsPage';
 import DepartmentsPage from './DepartmentsPage';
-import OfficesPage from './OfficesPage';
+import OfficesPage from '../features/org/OfficesPage';
 import RoomsPage from '../features/rooms/RoomsPage';
 
 // ──────────────────────────────────────────────────────────
