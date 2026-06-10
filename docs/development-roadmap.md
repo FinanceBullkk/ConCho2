@@ -185,12 +185,33 @@ Bug fixing and integration review rank above net-new feature rollout.
 | → | **Wave D6 v1.1 — frontend compliance report UI** | Admin Learning Reports compliance view | 🟢 done — Learning -> Reports now has an Admin-only **Compliance** sub-tab beside Completion. Filters cover assignment, program, department, manager, assignment status, certificate state, and due date range; report fetch is on-demand; summary tiles show total/overdue/complete/certified/expiring/expired; rows show learner/org/assignment/due/status/certificate state; export uses the compliance xlsx endpoint and stays disabled until rows exist. Teacher keeps completion-only Reports; Participant remains blocked by `read:reports`. |
 | → | **Wave D6 v1.1 — verification docs and rollout** | Close D6 with tests, smoke, and rollout note | 🟢 done — focused backend compliance/completion/expiry/export tests, client report/useRole tests, root syntax, client production bundle, lint, and browser export smoke all passed. Rollout note: `plans/reports/context-260605-1954-wave-d6-compliance.md`. D6 v1.1 is closed; expiry emails, auto-recertification assignment, saved presets, and notification UI remain deferred. |
 | → | **2-tier dashboard — Phase 1 (operational backend)** | One read-only KPI bundle endpoint over existing data | 🟢 done — new `domains/learning/dashboard` (`GET /api/learning/dashboard/operational`, `report.read`): composes the completion rollup, D4 overdue resolver, D6 certificate expiry, and new batched aggregations (attendance rate, session split, assessment pass rate, feedback averages, coverage) with per-metric fail-soft (`errors[]`, never 500). Teacher class-scoped; Participant denied. 7 integration tests. Plan: `plans/260610-0830-ltms-2tier-dashboard/`. |
-| → | **2-tier dashboard — Phase 2 (operational frontend)** | Dashboard tab on `/learning` surfacing the KPI bundle | 🟢 done — new **Dashboard** tab (first tab, `read:reports`-gated) renders the operational bundle dependency-free (StatTile grid + CSS metric bars + top-overdue/expiring lists + 30\|60\|90-day window select); Admin sees an Operational \| Executive toggle (Executive = Phase 4 placeholder), Teacher sees the panel only, failed metrics render "unavailable" without breaking the page. 6 component tests; client suite 202/44 green; lint at cap 81; build clean. Next: Phase 3 (executive backend + cost config). |
+| → | **2-tier dashboard — Phase 2 (operational frontend)** | Dashboard tab on `/learning` surfacing the KPI bundle | 🟢 done — new **Dashboard** tab (first tab, `read:reports`-gated) renders the operational bundle dependency-free (StatTile grid + CSS metric bars + top-overdue/expiring lists + 30\|60\|90-day window select); Admin sees an Operational \| Executive toggle (Executive = Phase 4 placeholder), Teacher sees the panel only, failed metrics render "unavailable" without breaking the page. 6 component tests; client suite 202/44 green; lint at cap 81; build clean. |
+| → | **2-tier dashboard — Phase 3 (executive backend + cost config)** | Admin-only ROI bundle + `LND_COST_CONFIG` | 🟢 done — `GET /api/learning/dashboard/executive` (coarse `report.read` + Admin-assert inside, mirroring compliance): coverage org+department, 6-month event trend (enrollments/certificates issued), honest Kirkpatrick rollup (L1+L2 measured; L3–L5 `measured:false`), certificate-based path-completion proxy, org-wide certificate validity rollup, and financials computed **only when** `GET/PUT /dashboard/cost-config` (audited Setting upsert, integer minor units) is configured — never fabricated. Shared `compose-fail-soft` extracted (operational refactored onto it). 6 integration tests. Next: Phase 4 (executive frontend). |
 
 ---
 
 ## Recent progress (changelog)
 
+- **2026-06-10** — **2-tier dashboard Phase 3 — executive dashboard backend +
+  cost config.** New Admin-only ROI tier in `domains/learning/dashboard`:
+  `GET /api/learning/dashboard/executive` (coarse `report.read` at the route +
+  `assertAdmin` inside the use-case — same defence-in-depth as the compliance
+  report) returns coverage (org + by legacy `department` grouping, matching the
+  completion rollup), a 6-month **event** trend (enrollments created +
+  certificates issued — completion is derived, so only recorded events are
+  trended), an **honest Kirkpatrick rollup** (L1 feedback average + L2
+  attempt-level pass rate `measured:true`; L3/L4/L5 `measured:false` with
+  reasons), a certificate-based path-completion (mobility) proxy, an org-wide
+  certificate validity rollup, and **financials that are never fabricated** —
+  `{configured:false}` until `LND_COST_CONFIG` exists. New
+  `GET/PUT /api/learning/dashboard/cost-config` upserts that config over the
+  existing `Setting` model (zod: integer minor currency units + 3-letter
+  currency; PUT audit-logged with before/after diff). Shared
+  `compose-fail-soft.js` extracted and the operational bundle refactored onto
+  it (DRY). Verified: **6/6 new integration tests** (trend buckets, Kirkpatrick,
+  mobility incl. date-expired-Issued certificates, financial gating + values,
+  Setting audit, Teacher/Participant 403, body validation). Spec + route-matrix
+  updated. Remaining: Phase 4 (executive frontend fills the existing toggle).
 - **2026-06-10** — **2-tier dashboard Phase 2 — operational dashboard frontend.**
   The Learning workspace gains a **Dashboard** tab (first tab, gated by
   `read:reports`) that surfaces the Phase 1 KPI bundle. New

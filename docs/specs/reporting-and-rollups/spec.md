@@ -82,6 +82,36 @@ active learners only.
 The system SHALL allow a Teacher to read a cohort report only if
 `isTeacherOfClass` permits (else **403**); Admin is unrestricted.
 
+### Requirement: Executive dashboard bundle + cost config [BR-5, BR-6, UC-3]
+
+`GET /api/learning/dashboard/executive` (capability `report.read` + **Admin-only
+inside the use-case**, mirroring the compliance gate) SHALL return one read-only
+bundle: coverage (org + by department), a 6-month event trend (enrollments
+created, certificates issued — recorded events, since completion is derived),
+a Kirkpatrick rollup (L1 feedback average and L2 attempt-level pass rate marked
+`measured: true`; L3–L5 marked `measured: false` with a reason), a
+certificate-based path-completion (mobility) count, an org-wide certificate
+validity rollup, and financial KPIs. Financials SHALL be
+`{ configured: false }` with **no numeric fields** unless the `LND_COST_CONFIG`
+Setting exists; when configured, `costPerEmployeeMinor` = annual budget /
+active users and `costPerCompletionMinor` = annual budget / certificates issued
+in the trailing 12 months (integer minor currency units).
+`GET/PUT /api/learning/dashboard/cost-config` (same gating) read/upsert that
+Setting; the PUT is validated (integer minor units, 3-letter currency) and
+audit-logged with a before/after diff.
+
+#### Scenario: Admin-only tier
+- **GIVEN** a Teacher holding `report.read`
+- **WHEN** they request the executive bundle or the cost config
+- **THEN** the response is **403** (the coarse capability is not sufficient)
+
+#### Scenario: Financials never fabricated
+- **GIVEN** no `LND_COST_CONFIG` Setting
+- **WHEN** an Admin requests the executive bundle
+- **THEN** `financials` is exactly `{ configured: false }`; after a valid PUT of
+  the config, the same request returns computed cost-per-employee and
+  cost-per-completion values
+
 ### Requirement: Operational dashboard bundle [BR-5, BR-6, UC-3]
 
 `GET /api/learning/dashboard/operational` (capability `report.read`) SHALL

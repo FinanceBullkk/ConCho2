@@ -3,6 +3,7 @@ const reportsRepository = require('../reports/repository');
 const { buildCompletionRollup } = require('../reports/completion-rollup-use-case');
 const { resolveAssignmentStatuses } = require('../assignment/status-resolver');
 const { findTeacherVisibleClassIds } = require('../../../helpers/teacher-class-scope');
+const { composeFailSoft } = require('./compose-fail-soft');
 
 // ──────────────────────────────────────────────────────────
 // Operational dashboard — compose existing engines into one read-only bundle.
@@ -124,7 +125,7 @@ const buildOperationalDashboard = async (actor, options = {}) => {
     ? await findTeacherVisibleClassIds(actor._id)
     : null;
 
-  const metrics = [
+  return composeFailSoft([
     ['completion', () => buildCompletionRollup(actor)],
     ['attendance', () => buildAttendanceBlock(cohortIds)],
     ['sessions', () => repository.sessionCounts(cohortIds, now)],
@@ -133,21 +134,7 @@ const buildOperationalDashboard = async (actor, options = {}) => {
     ['assessments', () => buildAssessmentsBlock(cohortIds)],
     ['feedback', () => buildFeedbackBlock(cohortIds)],
     ['coverage', () => buildCoverageBlock(windowStart, windowDays)],
-  ];
-
-  const settled = await Promise.allSettled(metrics.map(([, build]) => build()));
-  const errors = [];
-  const bundle = { generatedAt: now.toISOString(), windowDays, errors };
-  metrics.forEach(([key], index) => {
-    const result = settled[index];
-    if (result.status === 'fulfilled') {
-      bundle[key] = result.value;
-    } else {
-      bundle[key] = null;
-      errors.push({ metric: key, message: result.reason?.message || 'Failed to compute metric' });
-    }
-  });
-  return bundle;
+  ], { windowDays });
 };
 
 module.exports = { buildOperationalDashboard };

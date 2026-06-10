@@ -1,7 +1,7 @@
 ---
 phase: 3
 title: Executive dashboard — backend + cost config + trends
-status: pending
+status: done (2026-06-10) — trend = recorded events (enrollments + certificates issued); mobility = certificate-based proxy; no writeLimiter exists so PUT relies on global limiter + CSRF
 priority: high
 effort: 2.5–3.5 dev-days
 depends_on: [1]
@@ -88,12 +88,12 @@ costPerCompletion = annualBudget / completionsInWindow
    then present after PUT, trend bucket correctness, cost-config audit. DoD green; commit.
 
 ## Todo
-- [ ] `LND_COST_CONFIG` get/upsert over `Setting` + zod (integer minor units + currency)
-- [ ] `getCostConfig`/`setCostConfig` (Admin, audited)
-- [ ] `buildExecutiveDashboard` (Admin-guard, fail-soft): coverage, trend, Kirkpatrick L1/L2, mobility, cert validity, financials
-- [ ] Financials omitted when unconfigured (never fabricated)
-- [ ] Mount executive + cost-config routes; route-matrix + spec + roadmap
-- [ ] Tests (Admin-only, financial-gating, trend, audit) + commit
+- [x] `LND_COST_CONFIG` get/upsert over `Setting` + zod (integer minor units + currency)
+- [x] `getCostConfig`/`setCostConfig` (Admin, audited with before/after diff)
+- [x] `buildExecutiveDashboard` (Admin-guard, fail-soft via shared `compose-fail-soft.js`): coverage, trend, Kirkpatrick L1/L2 (+L3–L5 honest), mobility (cert proxy), cert validity, financials
+- [x] Financials `{configured:false}` when unconfigured (never fabricated; test-pinned)
+- [x] Mounted executive + cost-config routes; route-matrix + spec + roadmap updated
+- [x] 6/6 integration tests (Admin-only deny, financial gating, trend, audit, validation) + commit
 
 ## Success Criteria
 - **Happy:** Admin GET executive → full bundle; L3–L5 marked `measured:false`; financials present iff config set.
