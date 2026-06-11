@@ -47,6 +47,11 @@ afterEach(async () => {
     { $set: { teacherIds: [], programId: null } },
   );
   await LearningProgram.deleteMany({});
+  // PERF-014: reads no longer invalidate the session-order cache (only writes
+  // do). This test mutates Schedules directly (bypassing the service writers),
+  // so it must flush the cache itself — otherwise a stale entry from the prior
+  // test leaks into the next read. Mirrors production's invalidate-on-write.
+  require('../../domains/schedule/session-order').sessionOrderCache.flushAll();
 });
 
 const vnSlot = (offsetDays = 0) => {

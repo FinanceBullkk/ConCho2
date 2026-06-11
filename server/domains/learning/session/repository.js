@@ -4,10 +4,7 @@ const LearningProgram = require('../../../models/LearningProgram');
 const Enrollment = require('../../../models/Enrollment');
 const Team = require('../../../models/Team');
 const Office = require('../../../models/Office');
-const {
-  attachSessionNumbers,
-  invalidateSessionOrderCache,
-} = require('../../schedule/session-order');
+const { attachSessionNumbers } = require('../../schedule/session-order');
 
 const populateSessionQuery = (query) => query
   .populate({
@@ -24,8 +21,14 @@ const populateSessionQuery = (query) => query
   .populate('sessionInstructorIds', 'empCode name')
   .populate('enrolledUsers', 'empCode name department status');
 
-const getClassId = (session) => session.classId?._id || session.classId;
-
+// PERF-014 (audit round 4): these READ paths used to call
+// invalidateSessionOrderCache(classId) before attachSessionNumbers, which
+// deleted the cache entry on every read → guaranteed miss + an extra
+// Schedule.find per list/detail, and thrash for entries other paths warmed.
+// Invalidation belongs ONLY on write paths (create/cancel/reassign), which all
+// already do it (scheduleService bookSlot/bookCohortSlot/adminCreate/cancel;
+// domains/schedule/use-cases reassign/delete). Reads now read-through the cache
+// and recompute only on a miss.
 const findSessions = async (filter, { skip, limit }) => {
   const [sessions, total] = await Promise.all([
     populateSessionQuery(Schedule.find(filter))
@@ -36,7 +39,6 @@ const findSessions = async (filter, { skip, limit }) => {
     Schedule.countDocuments(filter),
   ]);
 
-  sessions.forEach((session) => invalidateSessionOrderCache(getClassId(session)));
   await attachSessionNumbers(sessions);
   return { sessions, total };
 };
@@ -45,7 +47,6 @@ const findSessionById = async (id) => {
   const session = await populateSessionQuery(Schedule.findById(id))
     .lean({ virtuals: true });
   if (!session) return null;
-  invalidateSessionOrderCache(getClassId(session));
   const [withNumber] = await attachSessionNumbers([session]);
   return withNumber;
 };
