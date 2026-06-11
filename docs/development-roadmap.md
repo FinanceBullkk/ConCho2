@@ -258,6 +258,28 @@ Bug fixing and integration review rank above net-new feature rollout.
 
 ## Recent progress (changelog)
 
+- **2026-06-11** — **Audit Phase 5 (Reliability & operations) round complete —
+  1 P1 fixed, first backup drill ever executed.** Ops layer verified clean:
+  graceful shutdown (drain→cron-stop→Mongo-close), timing-safe `cronAuth` +
+  CronRun heartbeat/staleness, SMTP + Google Calendar fail-soft on every path,
+  all 22 transaction sites on driver-retried `withTransaction`, Sentry 5xx-only
+  + PII strip + release tags, request-id logging end-to-end, substantive
+  runbooks (5xx-spike, cron-failure, backup-dr). **OPS-009 (P1) fixed:**
+  `server/scripts/verify-backup.js` loaded repo-root `.env` (doesn't exist —
+  env lives in `server/.env`), so the monthly backup-verification drill
+  documented in README §7.2 / `backup-dr.md` §6.1 failed as written and had
+  NEVER run (all drill logs empty). Now loads `server/.env` with a
+  `VERIFY_BACKUP_ENV_PATH` override for staging drills; +3 spawn-based
+  regression tests (`verifyBackupEnvLoading.test.js`); first real drill run
+  recorded in `backup-dr.md` (9/10 vs dev cluster; prod-URI run owed by owner).
+  **OPS-010** (Sentry missed-run not armed for pinger-driven crons),
+  **OPS-011** (envValidator misses `CORS_ORIGINS`/`CLIENT_ORIGIN`; README §6.4
+  misses boot-required `IMPORT_DEFAULT_PASSWORD`), **OPS-013** (backup-dr DR
+  env table lists phantom vars, omits a required one) — P2 → backlog;
+  **OPS-012** (cron `?token=` leaks into logs/audit notes, P3) → backlog
+  (redact approach approved). Owner-verify items: Render/Atlas/cron-job.org
+  dashboards, quarterly restore drill. Report:
+  `plans/reports/audit-ops-260611-1722-findings.md`.
 - **2026-06-11** — **Audit Phase 4 (Performance & scale) round complete — 1 P2
   fixed.** Static hot-path analysis (index↔query, N+1, populate, pagination,
   aggregations, runtime, bundle). Verified well-built: schedule/user/enrollment

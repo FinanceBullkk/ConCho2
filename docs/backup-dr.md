@@ -3,7 +3,7 @@
 **System:** Training Management System (TMS)  
 **Database:** MongoDB Atlas M0 (free tier)  
 **Hosting:** Render (API server), GitHub (source code)  
-**Last reviewed:** <!-- update on each drill -->
+**Last reviewed:** 2026-06-11 (audit phase 05 — OPS-009)
 
 ---
 
@@ -214,7 +214,7 @@ Run this checklist on the **first Monday of each month**.
 
 | Date | Run by | Snapshot timestamp confirmed | verify-backup result | Notes |
 |---|---|---|---|---|
-| <!-- fill in --> | <!-- fill in --> | <!-- fill in --> | <!-- fill in --> | |
+| 2026-06-11 | audit phase 05 (OPS-009) | not checked — Atlas UI is owner-side | 9/10 vs dev cluster `tms2` (`attendances` empty — young dev DB, check working as designed) | First-ever run. Script env path fixed (was repo-root `.env`, now `server/.env`; `VERIFY_BACKUP_ENV_PATH` override added for staging drills). Prod-URI run + Atlas snapshot check still owed by owner. If your network DNS refuses SRV lookups (`querySrv ECONNREFUSED`), run via `node -e "require('dns').setServers(['8.8.8.8']); require('./server/scripts/verify-backup.js')"` |
 
 ---
 
