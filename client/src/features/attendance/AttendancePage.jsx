@@ -176,7 +176,10 @@ export default function AttendancePage() {
     } finally {
       setIsLoadingRoster(false);
     }
-  }, [selectedSchedule]);
+  // requestClose must be a dep: it closes over isDirty — with it omitted, a
+  // toggle-click ran a STALE requestClose (isDirty=false) and skipped the
+  // unsaved-changes confirm guard.
+  }, [selectedSchedule, requestClose]);
 
   const updateRecord = useCallback((idx, field, value) => {
     setRecords(prev => prev.map((r, i) => i === idx ? { ...r, [field]: value, isMarked: true } : r));
