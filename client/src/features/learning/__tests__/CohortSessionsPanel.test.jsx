@@ -14,11 +14,19 @@ vi.mock('../../../hooks/useRole', () => ({
   useRole: () => ({ can: (p) => canImpl(p) }),
 }));
 
-// Stub the modal so the panel test stays shallow (the modal has its own suite).
+// Stub the modals so the panel test stays shallow (each has its own suite).
 vi.mock('../AssignTrainersModal', () => ({
   default: ({ session, onClose }) => (
     <div data-testid="trainers-modal">
       trainers:{session.scheduleId}
+      <button type="button" onClick={onClose}>close</button>
+    </div>
+  ),
+}));
+vi.mock('../SessionWaitlistModal', () => ({
+  default: ({ session, onClose }) => (
+    <div data-testid="waitlist-modal">
+      waitlist:{session.scheduleId}
       <button type="button" onClick={onClose}>close</button>
     </div>
   ),
@@ -62,6 +70,25 @@ describe('CohortSessionsPanel', () => {
     render(<CohortSessionsPanel cohort={cohort} onBack={vi.fn()} />);
 
     expect(screen.queryByRole('button', { name: /trainers/i })).not.toBeInTheDocument();
+  });
+
+  it('opens the waitlist modal from the Waitlist action (Wave E polish)', async () => {
+    sessionsResult = { data: { data: [session] }, isLoading: false };
+    const user = userEvent.setup();
+    render(<CohortSessionsPanel cohort={cohort} onBack={vi.fn()} />);
+
+    await user.click(screen.getByRole('button', { name: /waitlist/i }));
+    expect(screen.getByTestId('waitlist-modal')).toHaveTextContent('waitlist:s1');
+  });
+
+  it('hides the Waitlist action without read:waitlist', () => {
+    canImpl = (p) => p !== 'read:waitlist';
+    sessionsResult = { data: { data: [session] }, isLoading: false };
+    render(<CohortSessionsPanel cohort={cohort} onBack={vi.fn()} />);
+
+    expect(screen.queryByRole('button', { name: /waitlist/i })).not.toBeInTheDocument();
+    // Trainers action is unaffected.
+    expect(screen.getByRole('button', { name: /trainers/i })).toBeInTheDocument();
   });
 
   it('shows an empty state when there are no sessions', () => {

@@ -368,7 +368,12 @@ deduped and identity-validated (active Teacher/Admin only, else **400**), and th
 change is audit-logged as one before/after diff. An internal trainer joins the
 attendance/visibility authz **UNION** — they MAY mark/read attendance and view
 **their** session even when not the cohort's class teacher (the cohort teacher is
-never revoked; the restrictive session-read is preserved). An external trainer is
+never revoked; the restrictive session-read is preserved). The UNION also covers
+the **operational lists** (Wave E polish 2026-06-11): the learning session list
+shows a Teacher their cohorts' sessions PLUS the sessions naming them as
+instructor (a foreign-cohort `cohortId` query returns only the latter), and the
+attendance calendar adds the same named-instructor arm on top of its class
+scope — a trainer-only teacher can find the session they will mark. An external trainer is
 NEVER a User, never in `enrolledUsers`, never an actor; it only receives a
 best-effort calendar invite (when it has an email) and appears in display. The
 external trainer's `email`/`phone` are hidden from learner-facing session DTOs
@@ -395,6 +400,11 @@ save posts both shapes to `PUT /api/schedules/:id/trainers`.
 - **GIVEN** a Teacher neither bound to the class nor named on the session
 - **WHEN** they mark attendance
 - **THEN** **403** (`teacher-not-bound-to-class`)
+
+#### Scenario: Trainer-only teacher finds their session in the lists
+- **GIVEN** a Teacher NOT bound to a cohort's class, named on one of its sessions
+- **WHEN** they read the learning session list or the attendance calendar
+- **THEN** that session appears (and only that one from the foreign cohort)
 
 #### Scenario: External trainer is invite-only with no access
 - **GIVEN** a session with an external trainer (with email)
@@ -516,9 +526,13 @@ but silently (the session still exists; a cancellation email would mislead).
 Routes (`/api/schedules`): `POST /:id/waitlist` (join, self,
 Admin/Participant + bookingLimiter), `DELETE /:id/waitlist` (leave, self +
 bookingLimiter), `GET /waitlist/mine` (my live entries + position),
-`GET /:id/waitlist` (staff: Admin all; Teacher class-scoped,
+`GET /:id/waitlist` (staff: Admin/Coordinator all; Teacher class-scoped,
 open-until-populated; Participant 403 — no roster leak). Join/leave are audited
-(`WaitlistEntry`). **Learner visibility widening:** the learning session list
+(`WaitlistEntry`). **Staff UI (Wave E polish 2026-06-11):** a **Waitlist**
+action per session row on `CohortSessionsPanel` (`read:waitlist`) opens
+`SessionWaitlistModal` — read-only FIFO queue with positions; resolved rows
+(promoted/withdrawn/cancelled) stay listed as history, including on cancelled
+sessions. **Learner visibility widening:** the learning session list
 now shows a Participant the sessions of cohorts they are actively
 cohort-enrolled in AND of teams they belong to (not only rostered sessions —
 a team member whose roster add was capacity-blocked must see the full session

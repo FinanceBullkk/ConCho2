@@ -187,6 +187,52 @@ describe('Learning Platform API — sessions', () => {
       .expect(403);
   });
 
+  test('trainer-only teacher sees the sessions they run (list UNION widening)', async () => {
+    const { start, end } = vnSlot();
+    const second = vnSlot(1);
+    const third = vnSlot(2);
+    // teacher is bound to class1; class2 stays foreign (teacherIds reset by
+    // afterEach, and the LIST scope is strict — no empty-teacherIds flip).
+    await Class.findByIdAndUpdate(seed.class1._id, {
+      $addToSet: { teacherIds: seed.teacher._id },
+    });
+    const [assigned, instructorOnly, foreign] = await Schedule.create([
+      {
+        classId: seed.class1._id, bookedTeamId: seed.team._id,
+        startTime: start, endTime: end, enrolledUsers: [seed.member1._id],
+      },
+      {
+        classId: seed.class2._id, bookedTeamId: null,
+        startTime: second.start, endTime: second.end,
+        enrolledUsers: [seed.member2._id],
+        sessionInstructorIds: [seed.teacher._id],
+      },
+      {
+        classId: seed.class2._id, bookedTeamId: null,
+        startTime: third.start, endTime: third.end,
+        enrolledUsers: [seed.member2._id],
+      },
+    ]);
+
+    // No cohort param: my cohorts' sessions ∪ sessions I'm named on.
+    const res = await request(app)
+      .get('/api/learning/sessions')
+      .set('Authorization', `Bearer ${tokens.teacher}`);
+    expect(res.status).toBe(200);
+    const ids = res.body.data.map((s) => s.scheduleId);
+    expect(ids).toContain(assigned._id.toString());
+    expect(ids).toContain(instructorOnly._id.toString());
+    expect(ids).not.toContain(foreign._id.toString());
+
+    // Foreign-cohort param: only the sessions they personally run in it.
+    const scoped = await request(app)
+      .get(`/api/learning/sessions?cohortId=${seed.class2._id}`)
+      .set('Authorization', `Bearer ${tokens.teacher}`);
+    expect(scoped.status).toBe(200);
+    expect(scoped.body.data.map((s) => s.scheduleId))
+      .toEqual([instructorOnly._id.toString()]);
+  });
+
   test('participant cannot fetch a session they are not enrolled in', async () => {
     const { start, end } = vnSlot();
     const schedule = await Schedule.create({

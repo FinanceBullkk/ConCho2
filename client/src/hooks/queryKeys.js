@@ -31,6 +31,7 @@ export const qk = {
     attendanceCalendar: ['schedules', 'attendance-calendar'],
     config: ['schedules', 'config'],
     myWaitlist: ['schedules', 'waitlist', 'mine'],
+    waitlist: (id) => ['schedules', 'waitlist', id],
   },
   attendance: {
     all: ['attendance'],
