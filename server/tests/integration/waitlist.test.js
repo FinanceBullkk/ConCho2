@@ -177,6 +177,22 @@ describe('Waitlist — leave / mine / staff list', () => {
     expect(ok.body.data[0].position).toBe(1);
     expect(ok.body.data[0].userId.empCode).toBe(seed.member1.empCode);
   });
+
+  test('staff list: Coordinator reads any session queue (Wave E polish)', async () => {
+    const coordinator = await User.create({
+      empCode: '000088', name: 'Coord Waitlist', role: 'Coordinator',
+      department: 'HR', password: 'coord12345',
+    });
+    await enrollInCohort(seed.member1._id);
+    const sch = await makeCohortSession({ capacity: 1, enrolled: [seed.member2._id] });
+    await joinAs(tokens.member1, sch._id);
+
+    const res = await request(app).get(`/api/schedules/${sch._id}/waitlist`)
+      .set('Authorization', `Bearer ${sign(coordinator._id)}`);
+    expect(res.status).toBe(200);
+    expect(res.body.data).toHaveLength(1);
+    expect(res.body.data[0].position).toBe(1);
+  });
 });
 
 describe('Waitlist — queue dissolves with the session', () => {

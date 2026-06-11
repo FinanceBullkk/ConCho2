@@ -102,6 +102,7 @@ const PERMISSION_MAP = {
   'read:room':         ['Admin', 'Coordinator'],    // GET /api/rooms (room.read)
   'manage:room':       ['Admin', 'Coordinator'],    // POST/PUT/DELETE /api/rooms (room.manage)
   'assign:trainer':    ['Admin', 'Coordinator'],    // PUT /api/schedules/:id/trainers (session.assign-trainer)
+  'read:waitlist':     ['Admin', 'Coordinator', 'Teacher'], // GET /api/schedules/:id/waitlist (staff queue view)
   'read:team':         ['Admin', 'Teacher', 'Participant'], // GET /api/org/my-team (team.read — self-scoped)
 
   // Bookings ─ server: server/routes/scheduleRoutes.js POST /book-slot

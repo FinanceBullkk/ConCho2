@@ -11,7 +11,7 @@ const repository = require('./repository');
 //         belongs to (team member OR active cohort enrollee). Free seats →
 //         409 (owner decision: the waitlist never instant-seats).
 // leave — withdraw my own waiting entry.
-// listForSchedule — staff view (Admin all; Teacher class-scoped).
+// listForSchedule — staff view (Admin/Coordinator all; Teacher class-scoped).
 // listMine — my live entries + FIFO position (learner UI).
 
 const effectiveCapacityFor = async (schedule) => {

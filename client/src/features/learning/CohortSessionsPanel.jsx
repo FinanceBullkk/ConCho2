@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ArrowLeft, UserCog } from 'lucide-react';
+import { ArrowLeft, ListOrdered, UserCog } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -10,6 +10,7 @@ import { EmptyState } from '@/components/EmptyState';
 import { useLearningSessions } from '../../hooks/useLearning';
 import { useRole } from '../../hooks/useRole';
 import AssignTrainersModal from './AssignTrainersModal';
+import SessionWaitlistModal from './SessionWaitlistModal';
 
 // ──────────────────────────────────────────────────────────
 // CohortSessionsPanel — a cohort's sessions + their assigned trainers.
@@ -52,11 +53,14 @@ export default function CohortSessionsPanel({ cohort, onBack }) {
   const { t } = useTranslation();
   const { can } = useRole();
   const canAssign = can('assign:trainer');
+  const canSeeWaitlist = can('read:waitlist');
+  const hasActions = canAssign || canSeeWaitlist;
   // limit 200: the server default (50) silently truncates long-running cohorts;
   // no cohort approaches 200 sessions, so one page covers the full list.
   const { data, isLoading } = useLearningSessions({ cohortId: cohort._id, limit: 200 });
   const sessions = data?.data || [];
   const [trainerSession, setTrainerSession] = useState(null);
+  const [waitlistSession, setWaitlistSession] = useState(null);
 
   return (
     <>
@@ -75,7 +79,7 @@ export default function CohortSessionsPanel({ cohort, onBack }) {
         </CardHeader>
         <CardContent>
           {isLoading ? (
-            <TableSkeleton rows={4} cols={canAssign ? 4 : 3} />
+            <TableSkeleton rows={4} cols={hasActions ? 4 : 3} />
           ) : !sessions.length ? (
             <EmptyState title={t('learning.sessions.empty')} description={t('learning.sessions.emptyDesc')} />
           ) : (
@@ -85,7 +89,7 @@ export default function CohortSessionsPanel({ cohort, onBack }) {
                   <TableHead>{t('learning.sessions.colTime')}</TableHead>
                   <TableHead>{t('learning.sessions.colLocation')}</TableHead>
                   <TableHead>{t('learning.sessions.colTrainers')}</TableHead>
-                  {canAssign && <TableHead className="text-right">{t('learning.cohorts.colActions')}</TableHead>}
+                  {hasActions && <TableHead className="text-right">{t('learning.cohorts.colActions')}</TableHead>}
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -107,13 +111,23 @@ export default function CohortSessionsPanel({ cohort, onBack }) {
                         {s.office?.name || '—'}{s.room ? ` · ${s.room.name}` : ''}
                       </TableCell>
                       <TableCell><TrainerCell session={s} /></TableCell>
-                      {canAssign && (
+                      {hasActions && (
                         <TableCell className="text-right">
-                          {!cancelled && (
-                            <Button size="sm" variant="outline" onClick={() => setTrainerSession(s)}>
-                              <UserCog className="size-4 mr-1.5" aria-hidden="true" />{t('learning.trainers.manage')}
-                            </Button>
-                          )}
+                          <div className="flex justify-end gap-2">
+                            {/* Waitlist view stays on cancelled rows too — the
+                                dissolved queue is exactly the history a
+                                scheduler checks after a cancellation. */}
+                            {canSeeWaitlist && (
+                              <Button size="sm" variant="ghost" onClick={() => setWaitlistSession(s)}>
+                                <ListOrdered className="size-4 mr-1.5" aria-hidden="true" />{t('learning.waitlist.open')}
+                              </Button>
+                            )}
+                            {canAssign && !cancelled && (
+                              <Button size="sm" variant="outline" onClick={() => setTrainerSession(s)}>
+                                <UserCog className="size-4 mr-1.5" aria-hidden="true" />{t('learning.trainers.manage')}
+                              </Button>
+                            )}
+                          </div>
                         </TableCell>
                       )}
                     </TableRow>
@@ -126,6 +140,9 @@ export default function CohortSessionsPanel({ cohort, onBack }) {
       </Card>
       {trainerSession && (
         <AssignTrainersModal session={trainerSession} onClose={() => setTrainerSession(null)} />
+      )}
+      {waitlistSession && (
+        <SessionWaitlistModal session={waitlistSession} onClose={() => setWaitlistSession(null)} />
       )}
     </>
   );

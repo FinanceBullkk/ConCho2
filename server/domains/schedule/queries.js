@@ -111,11 +111,17 @@ const getAttendanceCalendar = async ({ from, to } = {}, requestUser = null) => {
     if (to) filter.startTime.$lte = new Date(to);
   }
 
-  // Teachers see only classes they are assigned to. Empty teacherIds keeps the
-  // legacy graceful-migration behaviour used by attendance/evaluation policy.
+  // Teachers see classes they are assigned to (empty teacherIds keeps the
+  // legacy graceful-migration behaviour used by attendance/evaluation policy)
+  // PLUS sessions where they are a NAMED instructor (Wave E polish — a
+  // trainer-only teacher must find the session they will mark attendance for;
+  // parity with policy/sessionInstructors which already lets them mark it).
   if (requestUser?.role === 'Teacher') {
     const classIds = await repository.findTeacherScopedClassIds(requestUser._id);
-    filter.classId = { $in: classIds.map((c) => c._id) };
+    filter.$or = [
+      { classId: { $in: classIds.map((c) => c._id) } },
+      { sessionInstructorIds: requestUser._id },
+    ];
   }
 
   const schedules = await repository.findCalendarSchedules(filter);
