@@ -258,6 +258,19 @@ Bug fixing and integration review rank above net-new feature rollout.
 
 ## Recent progress (changelog)
 
+- **2026-06-11** — **SEC-018 (P1) fixed — MFA TOTP one-time-login lockout.**
+  The MFA replay guard persisted/compared the *relative* `speakeasy.verifyDelta`
+  offset (always `0` for a current code), so after the first login stored
+  `mfaLastUsedCounter=0` every later current code hit `0 <= 0` and was falsely
+  rejected as a replay → TOTP login worked exactly once, then locked the user
+  out (P0 if `MFA_REQUIRED_ROLES` is set). Now compares/persists the ABSOLUTE
+  TOTP step counter (`floor(now/30) + delta`): an already-consumed step → replay
+  rejected; a later step → fresh login accepted. `verifyTokenWithReplay` returns
+  `{ valid, counter }` (+ optional `nowSeconds` for deterministic tests). +6 unit
+  tests (incl. the next-step regression); auth/MFA/password suites 53/53. No data
+  migration (a stale relative `0/1` reads as a long-past absolute step). Found
+  incidentally during the Phase 3 auth walkthrough; shipped as its own security
+  PR. Report: `plans/reports/audit-sec-260611-1430-mfa-replay-findings.md`.
 - **2026-06-11** — **Audit Phase 3 (Business flows & UX) round complete — 1 P1
   + 2 P2 fixed; 1 incidental P1 security finding escalated.** Live persona
   walkthroughs (Admin/Teacher/leader/member on seeded dev) verified clean
