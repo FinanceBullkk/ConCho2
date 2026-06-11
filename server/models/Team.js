@@ -55,7 +55,8 @@ const teamSchema = new mongoose.Schema(
 );
 
 // ── Soft-delete auto-filter (UX-03) ─────────────────────
-const SOFT_DELETE_HOOKS = ['find', 'findOne', 'countDocuments', 'findOneAndUpdate', 'findOneAndDelete'];
+// 'distinct' added in audit round 2 (DATA-012) — query middleware, was bypassed.
+const SOFT_DELETE_HOOKS = ['find', 'findOne', 'countDocuments', 'findOneAndUpdate', 'findOneAndDelete', 'distinct'];
 for (const hook of SOFT_DELETE_HOOKS) {
   teamSchema.pre(hook, function () {
     const filter = this.getFilter();

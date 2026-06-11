@@ -102,8 +102,10 @@ const findValidInstructorIds = async (ids) => {
   return rows.map((r) => r._id);
 };
 
-const deleteScheduleById = (id, session) =>
-  Schedule.findByIdAndDelete(id, ...(session ? [{ session }] : []));
+// NOTE (DATA-015, audit round 2): the old hard-delete helpers
+// (deleteScheduleById / deleteAttendanceByScheduleId) were removed — durable
+// cancellation replaced every caller, and keeping them invited accidental
+// reuse that would break the cancel-is-history + attendance golden rules.
 
 // ── Durable cancellation (Wave E3 phase-04, slice A) ──────
 // Atomic conditional flip: matches only a LIVE doc, so two concurrent cancels
@@ -126,9 +128,6 @@ const cancelScheduleById = (id, { cancelledBy = null, cancelReason = '' } = {}, 
   );
 
 // ── Attendance ────────────────────────────────────────────
-
-const deleteAttendanceByScheduleId = (scheduleId, session) =>
-  Attendance.deleteMany({ scheduleId }, ...(session ? [{ session }] : []));
 
 const attendanceExistsForSchedule = (scheduleId, session) => {
   let q = Attendance.exists({ scheduleId });
@@ -216,9 +215,7 @@ module.exports = {
   findScheduleById,
   findScheduleByIdRaw,
   updateScheduleById,
-  deleteScheduleById,
   cancelScheduleById,
-  deleteAttendanceByScheduleId,
   attendanceExistsForSchedule,
   findTeamById,
   findScheduleForCollision,
