@@ -39,6 +39,9 @@ const PERMISSION_MAP = {
   'create:class':      ['Admin'],                  // POST   /api/classes
   'update:class':      ['Admin'],                  // PUT    /api/classes/:id
   'delete:class':      ['Admin'],                  // DELETE /api/classes/:id
+  // SEC-016 note: Coordinator intentionally omitted — they use the Learning
+  // module (cohorts) instead of the legacy Classes views; the server read is
+  // open to any authenticated role.
   'read:classes':      ['Admin', 'Teacher', 'Participant'], // GET /api/classes
 
   // Schedule management ─ server: server/routes/scheduleRoutes.js

@@ -258,6 +258,22 @@ Bug fixing and integration review rank above net-new feature rollout.
 
 ## Recent progress (changelog)
 
+- **2026-06-11** — **Full-system audit: framework + Phase 1 (Security & AuthZ)
+  round complete.** New audit structure `plans/260611-1230-full-system-audit/`
+  (8 phases, continues the historical SEC-/DATA-/PERF-/OPS- finding series;
+  per-round docs-ride-along rule). Round 1 verdict: **no P0/P1** — mount layer
+  (CSP / no-origin prod guard / CSRF / limiters), cookies, session
+  invalidation, all 22 routers' gates, self-scoping across 10+ surfaces
+  (enrollments/completion/certs/feedback/attempts/paths/evaluations/attendance/
+  schedules/dashboards), pino redaction, npm audit high+ = 0, gitleaks + .env
+  hygiene — verified clean with evidence. Fixed **SEC-014 (P2)**: malformed
+  ObjectId on legacy non-zod routes returned 500 + Sentry noise → CastError→400
+  branch in `handleError` + `server.js` mirror + zod params on evaluations
+  `:id`×2 / attendance `:scheduleId`/`:userId` + 5 regression tests (36/36).
+  SEC-015 (catalog-open program/cohort reads) + SEC-016 (Coordinator omitted
+  from client `read:classes`) accepted as designed + annotated (route matrix +
+  PERMISSION_MAP); SEC-017 stale security comments fixed. Report:
+  `plans/reports/audit-security-260611-1302-findings.md`.
 - **2026-06-11** — **Wave E polish: staff waitlist panel + trainer-only teacher
   visibility.** (1) *Staff queue UI:* `GET /api/schedules/:id/waitlist` widened
   to Coordinator (Teacher stays class-scoped); new `SessionWaitlistModal`

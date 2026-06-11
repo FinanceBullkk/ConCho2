@@ -306,6 +306,15 @@ app.use((err, req, res, _next) => {
     });
   }
 
+  // Mongoose CastError — malformed ObjectId is a client error, not a 500
+  // (SEC-014; mirrors helpers/handleError so both error paths agree).
+  if (err.name === 'CastError') {
+    return res.status(400).json({
+      success: false,
+      message: `Invalid value for '${err.path || 'id'}'`,
+    });
+  }
+
   // JWT errors
   if (err.name === 'JsonWebTokenError') {
     return res.status(401).json({ success: false, message: 'Invalid token' });
