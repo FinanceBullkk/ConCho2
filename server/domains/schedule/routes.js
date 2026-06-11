@@ -56,7 +56,9 @@ router.post('/:id/waitlist', protect, roleGuard('Admin', 'Participant'),
   bookingLimiter, validate({ params: idParam }), waitlistController.join);
 router.delete('/:id/waitlist', protect, roleGuard('Admin', 'Participant'),
   bookingLimiter, validate({ params: idParam }), waitlistController.leave);
-router.get('/:id/waitlist', protect, roleGuard('Admin', 'Teacher'),
+// Staff queue view: Admin/Coordinator any session (schedulers run the cohort
+// panel); Teacher scoped to their classes inside the use-case.
+router.get('/:id/waitlist', protect, roleGuard('Admin', 'Coordinator', 'Teacher'),
   validate({ params: idParam }), waitlistController.listForSchedule);
 
 // ── Admin CRUD ─────────────────────────────────────────────

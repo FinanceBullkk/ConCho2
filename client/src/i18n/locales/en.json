@@ -840,6 +840,21 @@
       "saving": "Saving…",
       "saved": "Trainers updated"
     },
+    "waitlist": {
+      "title": "Session waitlist",
+      "desc": "FIFO queue — a freed seat auto-enrolls the oldest waiter. Resolved rows stay listed as history.",
+      "open": "Waitlist",
+      "empty": "No one has joined this waitlist.",
+      "colLearner": "Learner",
+      "colStatus": "Status",
+      "colJoined": "Joined",
+      "status": {
+        "waiting": "Waiting",
+        "promoted": "Promoted",
+        "withdrawn": "Withdrawn",
+        "cancelled": "Cancelled"
+      }
+    },
     "session": {
       "title": "Schedule a session",
       "office": "Office",

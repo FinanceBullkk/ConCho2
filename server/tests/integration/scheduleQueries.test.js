@@ -140,3 +140,43 @@ describe('GET /api/schedules/attendance-calendar — status mapping', () => {
     expect(res.status).toBe(403);
   });
 });
+
+// ── Trainer-only teacher visibility (Wave E polish) ──────────
+// Keep this describe LAST: it rebinds teacherIds on the shared seed classes
+// (and restores them) — the suites above assume the seeded empty arrays.
+
+describe('GET /api/schedules/attendance-calendar — trainer-only teacher', () => {
+  test('a teacher NOT bound to any class sees exactly the sessions naming them as instructor', async () => {
+    const Class = require('../../models/Class');
+    // Bind both classes to someone else so the legacy empty-teacherIds
+    // graceful arm cannot leak every session to seed.teacher.
+    await Class.updateMany(
+      { _id: { $in: [seed.class1._id, seed.class2._id] } },
+      { $set: { teacherIds: [seed.member1._id] } },
+    );
+    const dayMs = 24 * 60 * 60 * 1000;
+    const start = new Date(Date.now() + 12 * dayMs);
+    const instructorSession = await Schedule.create({
+      classId: seed.class2._id, bookedTeamId: seed.team._id,
+      startTime: start, endTime: new Date(start.getTime() + 60 * 60 * 1000),
+      enrolledUsers: [seed.member1._id],
+      sessionInstructorIds: [seed.teacher._id],
+    });
+
+    const res = await request(app)
+      .get('/api/schedules/attendance-calendar')
+      .set('Authorization', `Bearer ${tokens.teacher}`);
+    expect(res.status).toBe(200);
+    const ids = res.body.data.map((s) => s._id);
+    expect(ids).toContain(instructorSession._id.toString());
+    // No other session leaks — they belong to classes bound to someone else.
+    expect(ids).toHaveLength(1);
+
+    // Restore the seeded empty teacherIds for any later reads in this file.
+    await Class.updateMany(
+      { _id: { $in: [seed.class1._id, seed.class2._id] } },
+      { $set: { teacherIds: [] } },
+    );
+    await Schedule.deleteOne({ _id: instructorSession._id });
+  });
+});

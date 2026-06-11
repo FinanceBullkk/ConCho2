@@ -240,6 +240,16 @@ export const useSetTrainers = () => {
   });
 };
 
+// Staff view of a session's waitlist queue (Wave E polish): Admin/Coordinator
+// any session; Teacher their classes. GET /api/schedules/:id/waitlist.
+export const useScheduleWaitlist = (scheduleId, options = {}) =>
+  useQuery({
+    queryKey: qk.schedules.waitlist(scheduleId),
+    queryFn: async () => (await schedulesAPI.listWaitlist(scheduleId)).data,
+    enabled: Boolean(scheduleId),
+    ...options,
+  });
+
 // ── Enrollment mutations ──────────────────────────────────
 export const useEnrollLearner = () => {
   const qc = useQueryClient();
