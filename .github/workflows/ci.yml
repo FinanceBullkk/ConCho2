@@ -339,6 +339,12 @@ jobs:
           # supertest-style requests via Playwright that DO send Origin,
           # but the bypass keeps us safe if NODE_ENV ever flips.
           CORS_BYPASS_NO_ORIGIN: 'true'
+          # QA-018 (PR #59): the whole Playwright suite shares one runner IP;
+          # its aggregate traffic trips globalLimiter (200 req/min) and the
+          # next spec's login 429s. Limiter wiring has its own dedicated gate
+          # (rateLimiterWiring.test.js); e2e prefers determinism. The flag is
+          # ignored when NODE_ENV=production.
+          DISABLE_RATE_LIMITS: 'true'
           # Disable Sentry — no DSN, no noise.
           SENTRY_DSN: ''
         # Disable bash -e so a missing server.log (race) doesn't pre-empt

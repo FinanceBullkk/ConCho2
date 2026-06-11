@@ -130,6 +130,13 @@ of QA-013: the attendance drawer's unsaved-changes guard was dead (stale closure
   server.** Remaining specs → backlog in priority order: attendance mark > export download > MFA
   login (speakeasy-generated codes) > waitlist join (needs full-capacity fixture).
 - **Status:** ✅ first spec shipped; rest backlog (owner triage 2026-06-11).
+- **CI follow-up (PR #59 first run):** booking.spec itself passed, but the suite's AGGREGATE
+  traffic crossed `globalLimiter`'s 200 req/min (e2e server runs `NODE_ENV=development` → limiters
+  armed) and theme.spec's login 429'd (server.log: csrf+login 429 @16:56:31 and on retry; clean
+  again @16:57:10 when the window slid). Fixed with an explicit `DISABLE_RATE_LIMITS` escape hatch
+  in `rateLimiters.js` — honored ONLY outside production (3 new unit tests assert the
+  production-refusal), set in the ci.yml e2e server env, documented in the e2e README. e2e trades
+  limiter realism for determinism; the limiter layer keeps its dedicated QA-011 gate (now 24 tests).
 
 ### QA-019 · P3 · gitleaks allowlist excludes whole trees — false-negative surface
 - **Evidence:** `.gitleaks.toml` allowlists ALL of `server/tests/.*`, `client/e2e/.*`,
