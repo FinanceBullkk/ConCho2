@@ -15,14 +15,27 @@
  *   1 — one or more checks failed (connection error, empty critical collection, etc.)
  *
  * Requires:
- *   MONGO_URI in environment (or .env file at project root).
+ *   MONGO_URI in environment, in server/.env, or in a file pointed at by
+ *   VERIFY_BACKUP_ENV_PATH (useful for staging restore drills).
  *   Also accepts MONGODB_URI for backwards compatibility.
  */
 
 'use strict';
 
 const path = require('path');
-require('dotenv').config({ path: path.resolve(__dirname, '../../.env') });
+
+// OPS-009: env lives in server/.env (sibling of scripts/), NOT the repo root.
+// The old '../../.env' path made the documented bare invocation
+// `node server/scripts/verify-backup.js` fail with "MONGO_URI is not set".
+// Load order (dotenv never overrides values already present):
+//   1. VERIFY_BACKUP_ENV_PATH — explicit override (staging drills, tests)
+//   2. server/.env            — the real env file
+//   3. CWD .env               — legacy fallback for repo-root .env setups
+if (process.env.VERIFY_BACKUP_ENV_PATH) {
+  require('dotenv').config({ path: process.env.VERIFY_BACKUP_ENV_PATH });
+}
+require('dotenv').config({ path: path.resolve(__dirname, '../.env') });
+require('dotenv').config();
 
 const mongoose = require('mongoose');
 
