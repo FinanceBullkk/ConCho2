@@ -49,18 +49,31 @@ const upsertEvaluation = async (req, res) => {
     const decision = evaluationPolicy.canWrite(req.user, cls);
     if (!decision.allowed) return policyDeny(res, decision);
 
-    const before = await Evaluation.findOne({ classId, userId }).lean();
+    // Look up INCLUDING trashed rows (explicit isDeleted skips the soft-delete
+    // hook): the {classId,userId} unique index is full, so a re-evaluation
+    // after a soft delete must REVIVE the trashed row in place — an upsert
+    // insert would E11000 against it (DATA-014, audit round 2).
+    // `null` in the $in matches legacy rows that PREDATE the isDeleted field
+    // (missing field) — without it the upsert would try to insert and E11000
+    // against the existing legacy row.
+    const before = await Evaluation.findOne({
+      classId, userId, isDeleted: { $in: [true, false, null] },
+    }).lean();
+    const reviving = Boolean(before?.isDeleted);
 
     const update = {
       level, grammarScore, vocabularyScore, pronunciationScore,
       fluencyScore, teacherComment,
+      ...(reviving ? { isDeleted: false, deletedAt: null } : {}),
     };
     // Only set createdBy on the initial insert — never overwrite the
     // original author on subsequent updates.
     const setOnInsert = { createdBy: req.user._id };
 
     const evaluation = await Evaluation.findOneAndUpdate(
-      { classId, userId },
+      // Explicit isDeleted match lets the update reach a trashed row too
+      // (and `null` covers legacy rows missing the field — see above).
+      { classId, userId, isDeleted: { $in: [true, false, null] } },
       { $set: update, $setOnInsert: setOnInsert },
       { new: true, upsert: true, runValidators: true }
     );
@@ -73,6 +86,7 @@ const upsertEvaluation = async (req, res) => {
       diff: before
         ? auditService.diff(before, evaluation.toObject())
         : { after: { classId, userId, level, grammarScore, vocabularyScore, pronunciationScore, fluencyScore } },
+      ...(reviving ? { note: 'Revived a soft-deleted evaluation by re-upsert' } : {}),
     });
 
     res.json({ success: true, data: evaluation });
@@ -176,7 +190,13 @@ const getEvaluationById = async (req, res) => {
  */
 const deleteEvaluation = async (req, res) => {
   try {
-    const evaluation = await Evaluation.findByIdAndDelete(req.params.id);
+    // SOFT delete (DATA-014, audit round 2) — golden rule: evaluation data is
+    // never hard-deleted. The soft-delete hook scopes this to live rows, so a
+    // second delete answers 404. Recoverable: re-upsert revives the row.
+    const evaluation = await Evaluation.findByIdAndUpdate(
+      req.params.id,
+      { $set: { isDeleted: true, deletedAt: new Date() } },
+    );
     if (!evaluation) return res.status(404).json({ success: false, message: 'Evaluation not found' });
 
     auditService.record({
@@ -185,6 +205,7 @@ const deleteEvaluation = async (req, res) => {
       entity: 'Evaluation',
       entityId: evaluation._id,
       diff: { before: evaluation.toObject() },
+      note: 'Soft-deleted (recoverable — re-upsert revives)',
     });
 
     res.json({ success: true, message: 'Evaluation deleted' });

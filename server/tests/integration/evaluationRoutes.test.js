@@ -417,3 +417,50 @@ describe('SEC-014 — malformed ObjectId answers 400', () => {
     expect(res.body.message).toMatch(/invalid value/i);
   });
 });
+
+// ── DATA-014 (audit round 2): delete is SOFT — golden rule for evaluations ──
+
+describe('DATA-014 — evaluation delete is soft + re-upsert revives', () => {
+  test('delete hides the row, keeps it recoverable, and re-upsert revives the same slot', async () => {
+    const cls = await seedFreshClass();
+    const ev = await seedEval({ classId: cls._id, userId: seed.member1._id });
+
+    const del = await request(app)
+      .delete(`/api/evaluations/${ev._id}`)
+      .set('Authorization', `Bearer ${tokens.admin}`).set(csrf);
+    expect(del.status).toBe(200);
+
+    // Hidden from API reads...
+    const byId = await request(app)
+      .get(`/api/evaluations/${ev._id}`)
+      .set('Authorization', `Bearer ${tokens.admin}`);
+    expect(byId.status).toBe(404);
+    // ...but still in the DB as a recoverable trash row (golden rule).
+    const trashed = await Evaluation.findOne({ _id: ev._id, isDeleted: true }).lean();
+    expect(trashed).not.toBeNull();
+
+    // Second delete → 404 (the soft-delete hook scopes the flip to live rows).
+    const again = await request(app)
+      .delete(`/api/evaluations/${ev._id}`)
+      .set('Authorization', `Bearer ${tokens.admin}`).set(csrf);
+    expect(again.status).toBe(404);
+
+    // Re-evaluating the same (class, user) REVIVES the trashed row in place —
+    // no E11000 against the full {classId,userId} unique index.
+    const revive = await request(app)
+      .post('/api/evaluations')
+      .set('Authorization', `Bearer ${tokens.admin}`).set(csrf)
+      .send({
+        classId: cls._id.toString(),
+        userId: seed.member1._id.toString(),
+        grammarScore: 9, vocabularyScore: 8, pronunciationScore: 7, fluencyScore: 6,
+      });
+    expect(revive.status).toBe(200);
+    expect(String(revive.body.data._id)).toBe(String(ev._id)); // same logical slot
+
+    const revived = await Evaluation.findById(ev._id).lean(); // hook-visible again
+    expect(revived).not.toBeNull();
+    expect(revived.isDeleted).toBe(false);
+    expect(revived.grammarScore).toBe(9);
+  });
+});
