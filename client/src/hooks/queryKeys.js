@@ -52,6 +52,7 @@ export const qk = {
     all: ['evaluations'],
     list: (params) => ['evaluations', 'list', params],
     detail: (id) => ['evaluations', 'detail', id],
+    roster: (classId) => ['evaluations', 'roster', classId],
   },
   learning: {
     all: ['learning'],

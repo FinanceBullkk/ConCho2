@@ -32,10 +32,15 @@ vi.mock('../../../hooks/useSchedulingConfig', () => ({
   }),
 }));
 
+// BUG-004: /api/teams/my-teams returns a populated `members` array, NOT an
+// `enrolledCount` field (Team has no such virtual). The header must derive the
+// student count from members.length — the old `enrolledCount` read was always
+// undefined → "0 students". Mock the REAL shape (members, no enrolledCount).
 vi.mock('../../../hooks/useTeams', () => ({
   useMyTeams: () => ({
     data: [{
-      _id: 'team1', name: 'Alpha', leaderId: 'leader1', enrolledCount: 3,
+      _id: 'team1', name: 'Alpha', leaderId: 'leader1',
+      members: ['m1', 'm2', 'm3'],
       classId: { _id: 'class1', status: 'Ongoing', classCode: 'EL001', programId: { schedulingMode: h.schedulingMode } },
     }],
     isLoading: false,
@@ -63,5 +68,12 @@ describe('BookClassPage — mode-aware exact-slot grid', () => {
     renderPage();
     expect(screen.getByText('booking.modeLocked.adminScheduled')).toBeInTheDocument();
     expect(screen.queryByText('+ Book')).toBeNull();
+  });
+
+  it('BUG-004: header student count comes from members.length, not the absent enrolledCount field', () => {
+    h.schedulingMode = 'leader_booking';
+    renderPage();
+    // 3 members → "Alpha · 3 students" (regression: read enrolledCount → "0 students")
+    expect(screen.getByText(/Alpha · 3 students/)).toBeInTheDocument();
   });
 });

@@ -2,9 +2,7 @@ import { useState, useMemo } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { useClasses } from '../../hooks/useClasses';
 import { useEnrollments } from '../../hooks/useEnrollments';
-import { useEvaluations, useUpsertEvaluation, useDeleteEvaluation } from './useEvaluations';
-import { useUsers } from '../../hooks/useUsers';
-import { useDebounce } from '../../hooks/useDebounce';
+import { useEvaluations, useUpsertEvaluation, useDeleteEvaluation, useEvaluationRoster } from './useEvaluations';
 import { DataTable } from '../../components/DataTable';
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
@@ -87,15 +85,20 @@ function EvalModal({ classId, existingEval, preselectedUser, onClose }) {
       : null);
   const [selectedUser, setSelectedUser] = useState(resolvedPreset);
   const [userSearch, setUserSearch] = useState('');
-  const debouncedSearch = useDebounce(userSearch, 300);
 
-  const { data: searchRaw } = useUsers(
-    { search: debouncedSearch, limit: 10 },
-    { enabled: !isEdit && !selectedUser && debouncedSearch.length >= 2 }
-  );
-  const searchResults = Array.isArray(searchRaw)
-    ? searchRaw
-    : searchRaw?.data ?? [];
+  // FLOW-001: the learner picker now reads the class-scoped roster (Teacher-
+  // callable) instead of the Admin-only org-wide /api/users search — that 403'd
+  // for teachers and left them unable to add any evaluation. Filter the roster
+  // client-side so the search UX is unchanged; an empty query shows the full
+  // class roster.
+  const { data: roster = [], isLoading: loadingRoster } = useEvaluationRoster(classId, {
+    enabled: !isEdit && !selectedUser && !!classId,
+  });
+  const q = userSearch.trim().toLowerCase();
+  const searchResults = q
+    ? roster.filter((u) =>
+        `${u.name || ''} ${u.empCode || ''} ${u.department || ''}`.toLowerCase().includes(q))
+    : roster;
 
   const upsert = useUpsertEvaluation();
 
@@ -208,8 +211,10 @@ function EvalModal({ classId, existingEval, preselectedUser, onClose }) {
                     ))}
                   </div>
                 )}
-                {debouncedSearch.length >= 2 && searchResults.length === 0 && (
-                  <p className="mt-1 text-xs text-subtle-foreground">No learners found.</p>
+                {!loadingRoster && searchResults.length === 0 && (
+                  <p className="mt-1 text-xs text-subtle-foreground">
+                    {roster.length === 0 ? 'No enrolled learners in this class.' : 'No learners match your search.'}
+                  </p>
                 )}
               </div>
             )}

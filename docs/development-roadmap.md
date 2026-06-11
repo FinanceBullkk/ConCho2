@@ -258,6 +258,37 @@ Bug fixing and integration review rank above net-new feature rollout.
 
 ## Recent progress (changelog)
 
+- **2026-06-11** — **Audit Phase 3 (Business flows & UX) round complete — 1 P1
+  + 2 P2 fixed; 1 incidental P1 security finding escalated.** Live persona
+  walkthroughs (Admin/Teacher/leader/member on seeded dev) verified clean
+  end-to-end: auth (login, forced-pw-change, MFA enroll/verify/backup, forgot),
+  admin org/people CRUD, learning (programs/cohorts/enroll/completion report),
+  leader booking (weekly-limit, book, cancel; member restriction), learner
+  /me/* (catalog/paths/assessments/feedback-submit/sessions), English-only i18n.
+  **FLOW-001 (P1):** Teacher could never add an evaluation — the Add-evaluation
+  learner picker used the Admin-only `/api/users` search (Teacher → 403, empty
+  picker) while `POST /api/evaluations` allows Teacher. Fixed with a new
+  class-scoped `GET /api/evaluations/roster?classId=` (`roleGuard('Admin',
+  'Teacher')` + per-class binding policy) returning Active-enrolment learners;
+  the modal picker is rewired to it for both roles (org-wide search + debounce
+  removed). **BUG-003 (P2):** `.lean({ virtuals:true })` is a silent no-op
+  (mongoose-lean-virtuals not installed) → the `enrolledCount` virtual was
+  dropped, so the admin Schedule grid rendered "/9" + a 0% bar, and the
+  completion compliance report read `undefined` for `averageScore`. Fixed
+  locally: `listSchedules` attaches `enrolledCount` from the populated array;
+  completion computes `averageScore` from the 4 score fields; both touched
+  queries demoted to honest `.lean()` with a tombstone comment. **BUG-004
+  (P2):** booking page header always showed "0 students" (read a non-existent
+  `Team.enrolledCount`) — now `members.length`. **UX-08** (a11y: `LearningField`
+  labels unassociated) + **UX-09** (first-login dashboard error boundary behind
+  the pw modal) → backlog. **SEC-018 (P1, incidental):** the MFA replay guard
+  compares the *relative* `verifyDelta` (always 0 for a current code) against a
+  stored counter → TOTP login works once, then false-replay lockout (P0 if
+  `MFA_REQUIRED_ROLES` set) — escalated to a separate security PR. Tests: +11
+  (7 roster RBAC/validation + e2e upsert, schedule enrolledCount, completion
+  averageScore, booking members.length). Gates: server 843, client 247, lint
+  0-err (72 cap), build ✓. Spec `evaluations` MODIFIED (roster read + teacher
+  grading scenario). Report: `plans/reports/audit-flows-260611-1357-findings.md`.
 - **2026-06-11** — **Audit Phase 2 (Data integrity & audit trail) round
   complete — 1 P1 + 2 P2 fixed.** Verified clean: audit-log completeness (55
   record sites / 18 domain controllers; all 28 entity values in the enum),

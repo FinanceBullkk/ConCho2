@@ -1,5 +1,6 @@
 const Evaluation = require('../models/Evaluation');
 const Class = require('../models/Class');
+const Enrollment = require('../models/Enrollment');
 const auditService = require('../services/auditService');
 const evaluationPolicy = require('../policy/evaluation');
 const { handleError } = require('../helpers/handleError');
@@ -185,6 +186,56 @@ const getEvaluationById = async (req, res) => {
 };
 
 /**
+ * GET /api/evaluations/roster?classId=
+ *
+ * FLOW-001 (audit round 3): the Add-evaluation learner picker used the
+ * org-wide /api/users search, which is Admin-only — so a Teacher (who CAN
+ * write evaluations per roleGuard + route-permission-matrix) could never
+ * select a learner and the grading flow was a dead end. This returns the
+ * class-scoped roster (Active enrollments) instead: least-privilege (a
+ * teacher picks from the class they teach, never the org directory) and
+ * gated by the same per-class binding policy as evaluation reads.
+ */
+const getEvaluationRoster = async (req, res) => {
+  try {
+    const { classId } = req.query;
+
+    const cls = await Class.findById(classId).lean();
+    if (!cls) return res.status(404).json({ success: false, message: 'Class not found' });
+
+    // Same per-class binding as getEvaluations: a bound Teacher may read the
+    // roster; empty teacherIds stays permissive (legacy migration window).
+    if (req.user.role === 'Teacher') {
+      const decision = evaluationPolicy.canRead(req.user, cls);
+      if (!decision.allowed) return policyDeny(res, decision);
+    }
+
+    // Active enrollments for the class → the learners eligible to be graded.
+    // populate('userId') is hook-filtered, so trashed users yield null and are
+    // dropped. Dedupe by user (a user could in theory have >1 enrollment row).
+    const enrollments = await Enrollment.find({ classId, status: 'Active' })
+      .populate('userId', 'empCode name department')
+      .lean();
+
+    const seen = new Set();
+    const learners = [];
+    for (const enr of enrollments) {
+      const u = enr.userId;
+      if (!u || !u._id) continue;
+      const id = String(u._id);
+      if (seen.has(id)) continue;
+      seen.add(id);
+      learners.push({ _id: u._id, empCode: u.empCode, name: u.name, department: u.department });
+    }
+    learners.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+
+    res.json({ success: true, count: learners.length, data: learners });
+  } catch (error) {
+    handleError(res, error);
+  }
+};
+
+/**
  * DELETE /api/evaluations/:id
  * Admin-only (per evaluationRoutes.js).
  */
@@ -214,4 +265,4 @@ const deleteEvaluation = async (req, res) => {
   }
 };
 
-module.exports = { upsertEvaluation, getEvaluations, getEvaluationById, deleteEvaluation };
+module.exports = { upsertEvaluation, getEvaluations, getEvaluationRoster, getEvaluationById, deleteEvaluation };
