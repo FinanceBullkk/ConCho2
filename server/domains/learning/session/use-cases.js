@@ -25,12 +25,19 @@ const buildFilter = async (query = {}, requestUser) => {
   }
   if (requestUser?.role === 'Participant') {
     // Phase-04 slice B widening: a learner sees the sessions they're enrolled
-    // in PLUS every session of cohorts they're actively cohort-enrolled in —
-    // a late enrollee must see a full session to join its waitlist.
-    const myCohortIds = await repository.findActiveCohortIdsForLearner(requestUser._id);
+    // in PLUS every session of cohorts they're actively cohort-enrolled in
+    // PLUS every session of teams they belong to — a late cohort enrollee OR
+    // a team member whose add was blocked by capacity must still SEE the full
+    // session to join its waitlist (review fix F4: the join API already
+    // admits team members; the list must show them the session).
+    const [myCohortIds, myTeamIds] = await Promise.all([
+      repository.findActiveCohortIdsForLearner(requestUser._id),
+      repository.findTeamIdsForMember(requestUser._id),
+    ]);
     filter.$or = [
       { enrolledUsers: requestUser._id },
       ...(myCohortIds.length ? [{ classId: { $in: myCohortIds } }] : []),
+      ...(myTeamIds.length ? [{ bookedTeamId: { $in: myTeamIds } }] : []),
     ];
     // Learners never see durable-cancelled sessions (phase-04 slice A, NF3).
     filter.status = 'scheduled';

@@ -35,16 +35,39 @@ const promoteIfSeatFree = async (scheduleId, session) => {
     maxPerSession: maxParticipantsPerSession,
   });
 
-  const free = cap - (sched.enrolledUsers || []).length;
-  if (free <= 0) return [];
+  const roster = new Set((sched.enrolledUsers || []).map(String));
+  let freeRemaining = cap - roster.size;
+  if (freeRemaining <= 0) return [];
 
+  // Scan the WHOLE waiting queue FIFO — not just `free` rows. A stale head
+  // (its user already on the roster via a manual admin add / another path)
+  // would otherwise be re-fetched on EVERY free event, fail the guarded push,
+  // and permanently clog the queue for everyone behind it. Stale rows are
+  // resolved in place WITHOUT consuming a seat and the scan continues.
   const candidates = await WaitlistEntry.find({ scheduleId, status: 'waiting' })
     .sort({ createdAt: 1 })
-    .limit(free)
     .session(session);
 
   const promotions = [];
+  const resolveEntry = async (entry, { notify }) => {
+    entry.status = 'promoted';
+    entry.promotedAt = new Date();
+    await entry.save({ session });
+    // Stale rows get no promotion email — the path that seated them already
+    // notified; only genuinely seated waiters go to notifyPromotions.
+    if (notify) promotions.push({ userId: entry.userId, entryId: entry._id });
+  };
+
   for (const entry of candidates) {
+    if (freeRemaining <= 0) break;
+    const userKey = String(entry.userId);
+
+    if (roster.has(userKey)) {
+      // eslint-disable-next-line no-await-in-loop -- FIFO must resolve in order
+      await resolveEntry(entry, { notify: false });
+      continue;
+    }
+
     // eslint-disable-next-line no-await-in-loop -- FIFO must seat in order
     const res = await Schedule.updateOne(
       {
@@ -56,13 +79,25 @@ const promoteIfSeatFree = async (scheduleId, session) => {
       { $push: { enrolledUsers: entry.userId } },
       { session },
     );
-    if (res.modifiedCount !== 1) continue; // already enrolled or cap hit — leave waiting
 
-    entry.status = 'promoted';
-    entry.promotedAt = new Date();
+    if (res.modifiedCount !== 1) {
+      // Guard refused despite local tracking — re-read (defense-in-depth):
+      // user actually seated → resolve the stale row; else the cap is
+      // genuinely hit and no further seat exists — stop scanning.
+      // eslint-disable-next-line no-await-in-loop
+      const fresh = await Schedule.findById(scheduleId).select('enrolledUsers').session(session);
+      if ((fresh?.enrolledUsers || []).some((u) => String(u) === userKey)) {
+        // eslint-disable-next-line no-await-in-loop
+        await resolveEntry(entry, { notify: false });
+        continue;
+      }
+      break;
+    }
+
+    roster.add(userKey);
+    freeRemaining -= 1;
     // eslint-disable-next-line no-await-in-loop
-    await entry.save({ session });
-    promotions.push({ userId: entry.userId, entryId: entry._id });
+    await resolveEntry(entry, { notify: true });
   }
 
   // M5 belt: the roster must never exceed the effective cap — abort the whole

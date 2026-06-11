@@ -500,23 +500,32 @@ auto-release — the OLDEST waiter is promoted **inside the freeing
 transaction**: a guarded `$push` (`$ne` + roster-size `$expr` < cap) seats
 them; the roster can never exceed the cap (post-loop assert aborts the tx). A
 promotion that empties-rescues a session prevents the empty-placeholder sweep.
-Post-commit (fail-soft) the promoted learner gets an idempotent
+The promotion scan reads the WHOLE waiting queue FIFO: a **stale head** (its
+user already seated by another path, e.g. a manual admin add) is resolved in
+place to `promoted` WITHOUT consuming a seat or emailing, and the scan
+continues — a stale row can never clog the queue (review fix 2026-06-11).
+Post-commit (fail-soft) each genuinely seated learner gets an idempotent
 `NotificationLog` (`waitlist_promoted`, cadenceKey `<scheduleId>:<userId>`), a
 promotion email, and a calendar refresh. Cancelling/removing the session
 dissolves its queue in the same tx (entries → `cancelled`) and the dissolved
 waiters are emailed the cancellation notice (owner decision 2026-06-11).
+**Reassigning** a session to another team (or moving it to another class) also
+dissolves its queue in the same tx — the queue belonged to the OLD audience —
+but silently (the session still exists; a cancellation email would mislead).
 
 Routes (`/api/schedules`): `POST /:id/waitlist` (join, self,
-Admin/Participant + bookingLimiter), `DELETE /:id/waitlist` (leave, self),
-`GET /waitlist/mine` (my live entries + position), `GET /:id/waitlist` (staff:
-Admin all; Teacher class-scoped, open-until-populated; Participant 403 — no
-roster leak). Join/leave are audited (`WaitlistEntry`). **Learner visibility
-widening:** the learning session list now shows a Participant the sessions of
-cohorts they are actively cohort-enrolled in (not only rostered sessions) and
-carries `effectiveCapacity` per row, so a late enrollee can see a full session
-to queue for. **UI:** `/me/sessions` (Participant) lists upcoming sessions with
-Enrolled / Waiting #N + Leave / Join-waitlist states; linked from the
-Participant dashboard.
+Admin/Participant + bookingLimiter), `DELETE /:id/waitlist` (leave, self +
+bookingLimiter), `GET /waitlist/mine` (my live entries + position),
+`GET /:id/waitlist` (staff: Admin all; Teacher class-scoped,
+open-until-populated; Participant 403 — no roster leak). Join/leave are audited
+(`WaitlistEntry`). **Learner visibility widening:** the learning session list
+now shows a Participant the sessions of cohorts they are actively
+cohort-enrolled in AND of teams they belong to (not only rostered sessions —
+a team member whose roster add was capacity-blocked must see the full session
+to queue for it), and carries `effectiveCapacity` per row. **UI:**
+`/me/sessions` (Participant) lists upcoming sessions with Enrolled /
+Waiting #N + Leave / Join-waitlist states; linked from the Participant
+dashboard.
 
 #### Scenario: Join a full session
 - **GIVEN** a cohort-enrolled learner and a full live future session of that cohort
@@ -535,6 +544,19 @@ Participant dashboard.
 - **WHEN** the session is durably cancelled (or swept as an empty placeholder)
 - **THEN** the entry flips to `cancelled` in the same tx — and on cancel the
   waiter receives the cancellation email
+
+#### Scenario: Stale head cannot clog the queue
+- **GIVEN** waiters A then B, where A was already seated by a manual admin add
+  (A's row still `waiting`)
+- **WHEN** one seat frees
+- **THEN** A's row resolves to `promoted` without consuming the seat or
+  emailing, and B is seated (promoted + notified) in the same transaction
+
+#### Scenario: Reassign dissolves the old audience's queue
+- **GIVEN** a waiting member of the session's CURRENT team
+- **WHEN** an Admin reassigns the session to another team (`bookedTeamId`)
+- **THEN** the entry flips to `cancelled` in the same tx (silently), and no
+  later promotion can seat the old-team waiter into the new team's session
 
 #### Scenario: No roster leak
 - **GIVEN** a Participant
