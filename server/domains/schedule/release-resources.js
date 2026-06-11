@@ -17,11 +17,14 @@ const WaitlistEntry = require('../../models/WaitlistEntry');
 // session sweeps ignore the return value — a waitlist only ever exists on a
 // FULL session, so an empty session structurally has no waiters.
 
-const releaseScheduleResources = async (scheduleIds, session) => {
+// Dissolve the live queue of one/many schedules → status:'cancelled' (rows
+// kept as history, never deleted). Exported on its own for the team-REASSIGN
+// path (updateSchedule bookedTeamId/classId change): the session survives and
+// keeps its room, but its waitlist belonged to the OLD audience — a later
+// promotion must never seat an old-team/old-class waiter into it.
+const dissolveWaitlist = async (scheduleIds, session) => {
   const ids = Array.isArray(scheduleIds) ? scheduleIds : [scheduleIds];
   if (ids.length === 0) return { waiterUserIds: [] };
-
-  await roomLockPolicy.releaseRoomLock(ids, session);
 
   const waiting = await WaitlistEntry.find(
     { scheduleId: { $in: ids }, status: 'waiting' },
@@ -40,4 +43,12 @@ const releaseScheduleResources = async (scheduleIds, session) => {
   return { waiterUserIds: waiting.map((w) => w.userId) };
 };
 
-module.exports = { releaseScheduleResources };
+const releaseScheduleResources = async (scheduleIds, session) => {
+  const ids = Array.isArray(scheduleIds) ? scheduleIds : [scheduleIds];
+  if (ids.length === 0) return { waiterUserIds: [] };
+
+  await roomLockPolicy.releaseRoomLock(ids, session);
+  return dissolveWaitlist(ids, session);
+};
+
+module.exports = { releaseScheduleResources, dissolveWaitlist };

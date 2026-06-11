@@ -258,6 +258,24 @@ Bug fixing and integration review rank above net-new feature rollout.
 
 ## Recent progress (changelog)
 
+- **2026-06-11** — **Waitlist review round (quality gate after slice B) — 4
+  seam fixes.** (1) *Queue-head clog:* `promoteIfSeatFree` now scans the WHOLE
+  waiting queue FIFO; a stale head (user already seated by a manual admin add)
+  is resolved to `promoted` in place — no seat consumed, no email — instead of
+  being re-fetched and permanently blocking everyone behind it. (2) *Reassign
+  strands waiters:* `updateSchedule` `bookedTeamId`/`classId` change now
+  dissolves the session's live queue in the same tx via a new
+  `dissolveWaitlist` (split out of `releaseScheduleResources`) — an
+  old-audience waiter can no longer be promoted into the new team's session;
+  silent by design. (3) `bookingLimiter` added to `DELETE /:id/waitlist`
+  (parity with join, per phase-04 security plan). (4) *Team-mode visibility
+  gap:* the learner session list `$or` gains a `bookedTeamId ∈ my-teams` arm
+  (`findTeamIdsForMember`, soft-delete-safe) — a team member whose roster add
+  was capacity-blocked now sees the full session on `/me/sessions` and can
+  reach the join the policy already allowed. 3 regression tests (stale head +
+  no double-notify; reassign dissolve + no later cross-team promotion;
+  team-member visibility + join). Spec updated (2 new scenarios). Waitlist
+  suite 17/17.
 - **2026-06-11** — **Waitlists + FIFO auto-promotion + learner `/me/sessions`
   (Wave E3 phase-04, slice B — Wave E functionally complete).** New
   `WaitlistEntry` model (status lifecycle `waiting`/`promoted`/`withdrawn`/
