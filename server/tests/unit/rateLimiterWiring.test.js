@@ -132,6 +132,39 @@ describe('rate-limiter wiring — write/abuse surfaces', () => {
   });
 });
 
+describe('DISABLE_RATE_LIMITS escape hatch (e2e-only)', () => {
+  const ORIG = { ...process.env };
+  afterEach(() => { process.env = { ...ORIG }; });
+
+  // Re-require rateLimiters with a fresh module registry so the env
+  // permutation is read at module-init time, the way production boots.
+  const freshSkip = () => {
+    let skip;
+    jest.isolateModules(() => {
+      skip = require('../../middleware/rateLimiters').bookingLimiter._rlOpts.skip;
+    });
+    return skip;
+  };
+
+  test('flag is IGNORED in production — limiters stay armed', () => {
+    process.env.NODE_ENV = 'production';
+    process.env.DISABLE_RATE_LIMITS = 'true';
+    expect(freshSkip()({})).toBe(false);
+  });
+
+  test('flag disables limiters outside production (CI e2e server)', () => {
+    process.env.NODE_ENV = 'development';
+    process.env.DISABLE_RATE_LIMITS = 'true';
+    expect(freshSkip()({})).toBe(true);
+  });
+
+  test('without the flag, a development server keeps limiters armed', () => {
+    process.env.NODE_ENV = 'development';
+    delete process.env.DISABLE_RATE_LIMITS;
+    expect(freshSkip()({})).toBe(false);
+  });
+});
+
 describe('rate-limiter configs — global limiters (mounted in server.js)', () => {
   test('globalLimiter is 200 req / min', () => {
     expect(limiters.globalLimiter._rlOpts).toMatchObject({ windowMs: MIN, max: 200 });
