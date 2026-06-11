@@ -175,11 +175,12 @@ const userSchema = new mongoose.Schema(
       default: [],
       select: false,
     },
-    // Replay-attack protection (P1 fix): stores the `delta` returned by the
-    // last successful speakeasy.totp.verifyDelta() call. Any future code
-    // whose delta ≤ this value is rejected, even if it is cryptographically
-    // valid — preventing the same TOTP window from being used twice.
-    // Null means no successful TOTP verification has occurred yet.
+    // Replay-attack protection: stores the ABSOLUTE TOTP step counter
+    // (floor(now/30) + verifyDelta offset) of the last successful login.
+    // Any code from that step or earlier (counter ≤ this value) is rejected;
+    // a later step still logs in. SEC-018 (audit round 3): this was previously
+    // the RELATIVE delta (always 0 for a current code), which falsely locked a
+    // user out of TOTP after their first login. Null = no TOTP login yet.
     mfaLastUsedCounter: {
       type: Number,
       default: null,
