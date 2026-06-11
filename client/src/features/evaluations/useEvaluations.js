@@ -18,6 +18,16 @@ export const useEvaluation = (id, options = {}) =>
     ...options,
   });
 
+// FLOW-001: class-scoped learner roster for the Add-evaluation picker.
+// Teacher-callable (the org-wide /api/users search is Admin-only).
+export const useEvaluationRoster = (classId, options = {}) =>
+  useQuery({
+    queryKey: qk.evaluations.roster(classId),
+    queryFn: () => evaluationsAPI.getRoster(classId).then((r) => r.data.data),
+    enabled: !!classId,
+    ...options,
+  });
+
 export const useUpsertEvaluation = () => {
   const qc = useQueryClient();
   return useMutation({

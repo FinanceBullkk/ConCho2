@@ -187,7 +187,7 @@ export default function BookClassPage() {
         <div>
           <h1 className="text-h1 text-foreground">Schedule & Book</h1>
           <p className="text-muted-foreground mt-1 text-body">
-            {selectedTeamObj ? `${selectedTeamObj.name} · ${selectedTeamObj.enrolledCount ?? 0} students` : 'Click an empty slot to book, click your session to cancel'}
+            {selectedTeamObj ? `${selectedTeamObj.name} · ${selectedTeamObj.members?.length ?? selectedTeamObj.enrolledCount ?? 0} students` : 'Click an empty slot to book, click your session to cancel'}
           </p>
         </div>
         {leaderTeams.length > 1 && (

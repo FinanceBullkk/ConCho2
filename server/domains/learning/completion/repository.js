@@ -53,8 +53,11 @@ const countAttendedSessions = async (cohortId, userId) => {
   });
 };
 
+// NOTE (BUG-003): plain `.lean()` — `{ virtuals: true }` is a no-op without the
+// mongoose-lean-virtuals plugin (not installed). averageScore is computed from
+// the score fields in completion/use-cases.js instead of the dropped virtual.
 const findEvaluation = (cohortId, userId) =>
-  Evaluation.findOne({ classId: cohortId, userId }).lean({ virtuals: true });
+  Evaluation.findOne({ classId: cohortId, userId }).lean();
 
 const findFeedback = (cohortId, userId) =>
   Feedback.findOne({ cohortId, userId, isDeleted: false }).lean();

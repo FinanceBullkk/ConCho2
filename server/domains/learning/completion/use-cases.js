@@ -38,7 +38,15 @@ const evaluateCompletion = async (cohortId, userId) => {
   // Assessment satisfied by the legacy 4-skill Evaluation OR a passing attempt
   // from the generic assessment engine.
   const assessmentMet = !policy.requiresAssessment || Boolean(evaluation) || Boolean(passingAttempt);
-  const averageScore = evaluation ? evaluation.averageScore : null;
+  // BUG-003 (audit round 3): averageScore is a Mongoose virtual; the lean
+  // findEvaluation strips it (no mongoose-lean-virtuals plugin), so reading
+  // evaluation.averageScore yielded undefined in the completion report
+  // whenever an evaluation existed. Compute it from the 4 score fields the
+  // lean doc DOES carry (same formula as Evaluation.js virtual).
+  const averageScore = evaluation
+    ? round2((evaluation.grammarScore + evaluation.vocabularyScore
+      + evaluation.pronunciationScore + evaluation.fluencyScore) / 4)
+    : null;
 
   // A required-feedback policy is satisfied once the learner submits feedback.
   const feedbackSubmitted = Boolean(feedback);

@@ -58,6 +58,14 @@ const listSchedules = async (filters, { page, limit, skip }) => {
   ]);
 
   await attachSessionNumbers(schedules);
+  // BUG-003 (audit round 3): enrolledCount is a Mongoose virtual; `.lean()`
+  // strips it (mongoose-lean-virtuals isn't installed, so the repo's
+  // `.lean({ virtuals: true })` was a silent no-op). The admin Schedule grid
+  // reads s.enrolledCount → rendered "/9" + a 0% bar. Attach it explicitly
+  // from the populated array (mirrors getAttendanceCalendar at line ~155).
+  schedules.forEach((s) => {
+    s.enrolledCount = Array.isArray(s.enrolledUsers) ? s.enrolledUsers.length : 0;
+  });
   return { schedules, total };
 };
 

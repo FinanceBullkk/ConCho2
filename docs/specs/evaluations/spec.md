@@ -6,6 +6,8 @@ last_updated: 2026-06-11
 related_code:
   - server/controllers/evaluationController.js
   - server/models/Evaluation.js
+  - server/routes/evaluationRoutes.js
+  - client/src/features/evaluations/EvaluationPage.jsx
 related_plans: []
 ---
 
@@ -65,6 +67,30 @@ completion engine (alongside a passing generic-assessment attempt).
 
 The system SHALL allow Admin/Teacher writes, Admin delete, and participant
 read scoped to self; teacher binding applies per class.
+
+### Requirement: Teacher-callable learner roster for grading [BR-1, UC-1]
+
+*(ADDED 2026-06-11 — audit round 3, FLOW-001.)* To grade a learner a Teacher
+must first select one. The system SHALL expose `GET /api/evaluations/roster?classId=`
+(`roleGuard('Admin','Teacher')`, per-class binding via `evaluationPolicy.canRead`,
+`classId` required) returning the class's **Active-enrolment** learners
+(`empCode`, `name`, `department`; deduped by user). The Add-evaluation picker
+SHALL source candidates from this roster for BOTH roles — never from the
+org-wide Admin-only `/api/users` search (which 403'd for Teachers and left the
+picker permanently empty, making teacher grading impossible despite the
+Admin/Teacher write grant). Least-privilege: a teacher picks from the class
+they teach, not the org directory.
+
+#### Scenario: Teacher opens the learner picker
+- **GIVEN** a Teacher bound (or legacy-permissive) to a class with Active enrolments
+- **WHEN** they open Add-evaluation and the picker loads `/evaluations/roster?classId=`
+- **THEN** the class's Active-enrolment learners are listed (Dropped excluded),
+  the Teacher selects one and saves scores — **200**, no 403 dead end
+
+#### Scenario: Missing or malformed classId
+- **GIVEN** a roster request with no `classId` (or a non-ObjectId value)
+- **WHEN** called
+- **THEN** **400** (zod) — never a CastError 500; a valid-but-unknown classId → **404**
 
 ### Requirement: Delete is SOFT and revivable [BR-2, UC-1, UC-3]
 
