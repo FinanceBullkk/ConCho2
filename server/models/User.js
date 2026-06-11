@@ -249,7 +249,9 @@ const userSchema = new mongoose.Schema(
 // Automatically exclude soft-deleted users from all queries
 // unless the caller explicitly sets { isDeleted: true } in
 // the filter (e.g. for admin "trash" view).
-const SOFT_DELETE_HOOKS = ['find', 'findOne', 'countDocuments', 'findOneAndUpdate', 'findOneAndDelete'];
+// 'distinct' added in audit round 2 (DATA-012): it is query middleware too,
+// and dashboard filter-options was leaking trashed users' values through it.
+const SOFT_DELETE_HOOKS = ['find', 'findOne', 'countDocuments', 'findOneAndUpdate', 'findOneAndDelete', 'distinct'];
 for (const hook of SOFT_DELETE_HOOKS) {
   userSchema.pre(hook, function () {
     const filter = this.getFilter();

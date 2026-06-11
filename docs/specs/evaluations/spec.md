@@ -2,7 +2,7 @@
 capability: evaluations
 status: stable
 owners: [controllers/evaluationController, models/Evaluation]
-last_updated: 2026-06-08
+last_updated: 2026-06-11
 related_code:
   - server/controllers/evaluationController.js
   - server/models/Evaluation.js
@@ -34,7 +34,7 @@ comment. One evaluation per learner per class.
 
 - **UC-1 (Admin/Teacher):** creates/updates a learner's evaluation for a class.
 - **UC-2 (Participant):** reads their own evaluation.
-- **UC-3 (Admin):** deletes an evaluation.
+- **UC-3 (Admin):** deletes an evaluation (SOFT — recoverable; see FR below).
 
 ## Entities
 
@@ -65,6 +65,23 @@ completion engine (alongside a passing generic-assessment attempt).
 
 The system SHALL allow Admin/Teacher writes, Admin delete, and participant
 read scoped to self; teacher binding applies per class.
+
+### Requirement: Delete is SOFT and revivable [BR-2, UC-1, UC-3]
+
+*(MODIFIED 2026-06-11 — audit round 2, DATA-014; was a hard delete.)* Admin
+delete SHALL flip `isDeleted`/`deletedAt` (golden rule: evaluation evidence is
+never hard-deleted). Trashed rows are excluded from every read (find-family +
+`distinct` + `aggregate` hooks — the Excel export aggregate included), a second
+delete answers **404**, and the row stays recoverable. The `{classId,userId}`
+unique index is FULL: re-upserting the same pair REVIVES the trashed row in
+place (same `_id`, `isDeleted:false`, audited with a revive note) instead of
+failing E11000. Legacy rows that predate `isDeleted` stay visible and revivable.
+
+#### Scenario: Delete then re-evaluate
+- **GIVEN** an evaluation that an Admin soft-deleted
+- **WHEN** a Teacher/Admin upserts the same (class, learner) pair
+- **THEN** the SAME row revives (`isDeleted:false`, scores updated) — no
+  duplicate-key error, and reads see it again
 
 #### Scenario: Participant reads another's evaluation
 - **GIVEN** a participant

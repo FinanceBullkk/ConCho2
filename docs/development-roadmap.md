@@ -258,6 +258,28 @@ Bug fixing and integration review rank above net-new feature rollout.
 
 ## Recent progress (changelog)
 
+- **2026-06-11** — **Audit Phase 2 (Data integrity & audit trail) round
+  complete — 1 P1 + 2 P2 fixed.** Verified clean: audit-log completeness (55
+  record sites / 18 domain controllers; all 28 entity values in the enum),
+  transactions at every multi-doc path, race-guard indexes, 11 reconcile
+  checks, hook-less domain repositories' explicit isDeleted discipline.
+  **Fixed DATA-014 (P1, golden-rule):** evaluation delete was a HARD
+  `findByIdAndDelete` — now soft (`isDeleted`/`deletedAt` + find/distinct/
+  aggregate hooks on the model, export aggregate covered); re-upserting the
+  same `{classId,userId}` REVIVES the trashed row (full unique index kept — no
+  prod index migration; `$in:[true,false,null]` matches legacy rows missing
+  the field). **DATA-012 (P2):** `'distinct'` added to SOFT_DELETE_HOOKS on
+  all 6 hook-ed models (User/Team/Class/Department/Office/Room) — dashboard
+  filter-options stop leaking trashed users' values; explicit-isDeleted escape
+  hatch preserved. **DATA-013 (P2):** bulk import now REFUSES rows matching
+  soft-deleted users (`empCode`) / archived cohorts (`{classCode,courseName}`)
+  with a "restore from trash first" 400 — the hook-bypassing bulkWrite upsert
+  could silently overwrite trash. **DATA-015 (P3):** dead hard-delete repo fns
+  (`deleteScheduleById`, `deleteAttendanceByScheduleId`) removed. DATA-016
+  (stale waitlist rows reconcile check) → backlog. Tests: +6 (soft-delete
+  lifecycle/revive, distinct hook, import guards ×2). Spec `evaluations`
+  MODIFIED (delete-is-soft + revive scenario). Report:
+  `plans/reports/audit-data-260611-1321-findings.md`.
 - **2026-06-11** — **Full-system audit: framework + Phase 1 (Security & AuthZ)
   round complete.** New audit structure `plans/260611-1230-full-system-audit/`
   (8 phases, continues the historical SEC-/DATA-/PERF-/OPS- finding series;

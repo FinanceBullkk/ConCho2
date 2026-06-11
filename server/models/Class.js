@@ -102,7 +102,8 @@ const classSchema = new mongoose.Schema(
 // caller constrains `isDeleted` explicitly (so "show archived" / restore still
 // work). Existing docs predate the field — `{ $ne: true }` matches them, so
 // visibility is unchanged without a backfill.
-const SOFT_DELETE_HOOKS = ['find', 'findOne', 'countDocuments', 'findOneAndUpdate', 'findOneAndDelete'];
+// 'distinct' added in audit round 2 (DATA-012) — query middleware, was bypassed.
+const SOFT_DELETE_HOOKS = ['find', 'findOne', 'countDocuments', 'findOneAndUpdate', 'findOneAndDelete', 'distinct'];
 for (const hook of SOFT_DELETE_HOOKS) {
   classSchema.pre(hook, function () {
     const filter = this.getFilter();
