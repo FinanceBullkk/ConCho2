@@ -10,8 +10,8 @@ Source: current route middleware. Keep this matrix updated when routes move into
 | `/api/auth` | authenticated self | self/Admin depending endpoint | login/reset public with rate limits |
 | `/api/users` | Admin | Admin | includes deleted/restore/progress |
 | `/api/teams` | Admin; `/my-teams` authenticated | Admin | participant can read own teams |
-| `/api/classes` | authenticated, with detail policy | Admin | legacy compatibility surface |
-| `/api/learning/programs` | authenticated | Admin/Coordinator (`program.manage`) | new catalog API |
+| `/api/classes` | authenticated, with detail policy | Admin | legacy compatibility surface. Catalog-open read is BY DESIGN (SEC-015, audit 2026-06-11): learners browse to self-enroll; DTO carries operational metadata only |
+| `/api/learning/programs` | authenticated | Admin/Coordinator (`program.manage`) | new catalog API. Catalog-open read BY DESIGN (SEC-015 — same rationale as `/api/classes`; cohorts list likewise) |
 | `/api/learning/cohorts` | authenticated | Admin/Coordinator (`cohort.manage`) | new cohort API backed by legacy Class |
 | `/api/learning/sessions` | Admin all; Teacher assigned cohorts; Participant enrolled sessions **∪ sessions of their active cohort enrollments** (phase-04 B widening; rows carry `effectiveCapacity`) | `session.book` (Admin/Coordinator/Participant-leader); leader booking/cancel | session DTO API backed by legacy Schedule; writes use `groupId`/`cohortId`. Group writes hit the same shared `schedulingMode` gate as `/api/schedules` (delegates to `scheduleService.bookSlot`); cohort writes are **scheduler-only** (Admin/Coordinator — re-center Phase 2) + `assertCohortMode` + **required `officeId`**. DTO exposes `office {name,code}` |
 | `/api/learning/paths` | `path.read` (browse + own progress) | Admin/Coordinator (`path.manage`) | Wave C sequenced curricula; progress derived from program completion |

@@ -12,6 +12,17 @@ const handleError = (res, error) => {
     return res.status(400).json({ success: false, message });
   }
 
+  // Mongoose CastError — malformed ObjectId (or wrong type) reaching a query.
+  // SEC-014: without this branch a garbage `:id` on a legacy non-zod route
+  // became a 500 + Sentry noise; it is client error, answer 400. The bad value
+  // is deliberately NOT echoed back.
+  if (error.name === 'CastError') {
+    return res.status(400).json({
+      success: false,
+      message: `Invalid value for '${error.path || 'id'}'`,
+    });
+  }
+
   // MongoDB duplicate key
   if (error.code === 11000) {
     const field = Object.keys(error.keyValue || {})[0] || 'field';

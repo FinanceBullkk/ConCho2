@@ -388,3 +388,32 @@ describe('DELETE /api/evaluations/:id', () => {
     expect(res.status).toBe(404);
   });
 });
+
+// ── SEC-014 (audit 2026-06-11): malformed ids → 400, never a CastError 500 ──
+
+describe('SEC-014 — malformed ObjectId answers 400', () => {
+  test('GET /api/evaluations/:id with garbage id → 400 (zod param gate)', async () => {
+    const res = await request(app)
+      .get('/api/evaluations/not-an-object-id')
+      .set('Authorization', `Bearer ${tokens.admin}`);
+    expect(res.status).toBe(400);
+  });
+
+  test('DELETE /api/evaluations/:id with garbage id → 400 (zod param gate)', async () => {
+    const res = await request(app)
+      .delete('/api/evaluations/not-an-object-id')
+      .set('Authorization', `Bearer ${tokens.admin}`)
+      .set(csrf);
+    expect(res.status).toBe(400);
+  });
+
+  test('GET /api/evaluations?classId=garbage → 400 (handleError CastError branch)', async () => {
+    // No zod on this query — the garbage value reaches Mongoose and casts;
+    // the new CastError branch must turn that into a 400, not a 500.
+    const res = await request(app)
+      .get('/api/evaluations?classId=not-an-object-id')
+      .set('Authorization', `Bearer ${tokens.admin}`);
+    expect(res.status).toBe(400);
+    expect(res.body.message).toMatch(/invalid value/i);
+  });
+});
