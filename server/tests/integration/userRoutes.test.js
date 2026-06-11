@@ -18,7 +18,7 @@ const mongoose = require('mongoose');
 const { getApp, getTokens, getSeedData, getCsrfHeaders, teardown } = require('../setup');
 
 let app, tokens, seed, csrf;
-let User;
+let User, Schedule, Attendance;
 
 beforeAll(async () => {
   app = await getApp();
@@ -26,6 +26,8 @@ beforeAll(async () => {
   seed = getSeedData();
   csrf = await getCsrfHeaders(app);
   User = require('../../models/User');
+  Schedule = require('../../models/Schedule');
+  Attendance = require('../../models/Attendance');
 });
 
 afterAll(async () => {
@@ -388,6 +390,56 @@ describe('DELETE /api/users/:id', () => {
       .set('Authorization', `Bearer ${tokens.admin}`);
     expect(deleted.status).toBe(200);
     expect(deleted.body.data.some(u => u._id === target._id.toString())).toBe(true);
+  });
+
+  test('preserves past schedule roster and attendance while releasing future roster', async () => {
+    const target = await User.create({
+      empCode: nextCode(), name: 'Roster History', email: `${nextCode()}@x.com`,
+      role: 'Participant', password: 'pass12345678',
+    });
+    const offsetMinutes = codeCounter++;
+    const pastStart = new Date(Date.now() - (7 * 24 * 60 + offsetMinutes) * 60 * 1000);
+    const futureStart = new Date(Date.now() + (7 * 24 * 60 + offsetMinutes) * 60 * 1000);
+
+    const [pastSchedule, futureSchedule] = await Schedule.create([
+      {
+        classId: seed.class1._id,
+        bookedTeamId: seed.team._id,
+        startTime: pastStart,
+        endTime: new Date(pastStart.getTime() + 60 * 60 * 1000),
+        enrolledUsers: [target._id],
+      },
+      {
+        classId: seed.class1._id,
+        bookedTeamId: seed.team._id,
+        startTime: futureStart,
+        endTime: new Date(futureStart.getTime() + 60 * 60 * 1000),
+        enrolledUsers: [target._id],
+      },
+    ]);
+    await Attendance.create({
+      scheduleId: pastSchedule._id,
+      userId: target._id,
+      status: 'P',
+    });
+
+    const res = await request(app)
+      .delete(`/api/users/${target._id}`)
+      .set('Authorization', `Bearer ${tokens.admin}`)
+      .set(csrf);
+
+    expect(res.status).toBe(200);
+
+    const pastAfter = await Schedule.findById(pastSchedule._id).lean();
+    const futureAfter = await Schedule.findById(futureSchedule._id).lean();
+    const attendanceAfter = await Attendance.findOne({
+      scheduleId: pastSchedule._id,
+      userId: target._id,
+    }).lean();
+
+    expect(pastAfter.enrolledUsers.map(String)).toContain(String(target._id));
+    expect(futureAfter.enrolledUsers.map(String)).not.toContain(String(target._id));
+    expect(attendanceAfter).toBeTruthy();
   });
 
   test('blocks deletion of a team leader', async () => {

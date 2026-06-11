@@ -12,6 +12,7 @@ const Schedule = require('../../models/Schedule');
 const Attendance = require('../../models/Attendance');
 const User = require('../../models/User');
 const Class = require('../../models/Class');
+const LearningProgram = require('../../models/LearningProgram');
 
 let app, tokens, seed, csrf;
 
@@ -222,5 +223,91 @@ describe('User Delete Guard (Team Leader)', () => {
     // Should be blocked because seed.leader is Alpha Team's leader
     expect(res.status).toBe(409);
     expect(res.body.message).toMatch(/leader/i);
+  });
+});
+
+// ── GET /api/teams/my-teams — schedulingMode exposure (Phase 1) ──────────────
+// The booking client gates cells by the program's schedulingMode (Pass C is
+// enforced server-side at the bookSlot chokepoint). getMyTeams nested-populates
+// classId.programId.schedulingMode so the grid can pre-empt the 403/400. A
+// program-less class exposes no nested program; the client falls back to
+// 'leader_booking'.
+
+describe('GET /api/teams/my-teams — schedulingMode exposure', () => {
+  test('program-less class returns 200 with classId but no nested program', async () => {
+    const res = await request(app)
+      .get('/api/teams/my-teams')
+      .set('Authorization', `Bearer ${tokens.leader}`).set(csrf);
+
+    expect(res.status).toBe(200);
+    expect(res.body.success).toBe(true);
+    const alpha = res.body.data.find((t) => t.name === 'Alpha Team');
+    expect(alpha).toBeDefined();
+    expect(alpha.classId.classCode).toBe('TEST001');
+    // class1 has no programId → nested program absent/null (client falls back).
+    expect(alpha.classId.programId == null).toBe(true);
+  });
+
+  test('program-linked class exposes classId.programId.schedulingMode', async () => {
+    const program = await LearningProgram.create({
+      code: 'BKUITESTPROG', name: 'Booking UI Test Program',
+      schedulingMode: 'admin_scheduled',
+    });
+    await Class.findByIdAndUpdate(seed.class1._id, { programId: program._id });
+
+    try {
+      const res = await request(app)
+        .get('/api/teams/my-teams')
+        .set('Authorization', `Bearer ${tokens.leader}`).set(csrf);
+
+      expect(res.status).toBe(200);
+      const alpha = res.body.data.find((t) => t.name === 'Alpha Team');
+      expect(alpha).toBeDefined();
+      expect(alpha.classId.programId).toBeDefined();
+      expect(alpha.classId.programId.schedulingMode).toBe('admin_scheduled');
+    } finally {
+      // Revert so other tests / later files see class1 program-less again.
+      await Class.findByIdAndUpdate(seed.class1._id, { programId: null });
+      await LearningProgram.findByIdAndDelete(program._id);
+    }
+  });
+});
+
+// ── PUT /api/teams/:id — capacity guard on member add (Wave E2 / D5) ──────────
+// Adding a member grows existing future sessions' rosters. That add must not
+// push a session past its effective capacity (the 4th overflow path).
+
+describe('PUT /api/teams/:id — capacity guard on member add', () => {
+  test('adding a member that would overflow a future session is rejected (422); roster unchanged', async () => {
+    const cls = await Class.create({ classCode: 'CAPADD001', courseName: 'Cap Add Class', totalSessions: 10 });
+    const leader = await User.create({ empCode: '097001', name: 'Cap Leader', role: 'Participant', department: 'Test', password: 'pass12345678' });
+    const m1 = await User.create({ empCode: '097002', name: 'Cap M1', role: 'Participant', department: 'Test', password: 'pass12345678' });
+    const m2 = await User.create({ empCode: '097003', name: 'Cap M2', role: 'Participant', department: 'Test', password: 'pass12345678' });
+    const team = await Team.create({ name: 'Cap Add Team', classId: cls._id, leaderId: leader._id, members: [leader._id, m1._id] });
+    const future = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+    // Session at capacity 2 with both current members enrolled.
+    const sched = await Schedule.create({
+      classId: cls._id, bookedTeamId: team._id,
+      startTime: future, endTime: new Date(future.getTime() + 60 * 60 * 1000),
+      enrolledUsers: [leader._id, m1._id], capacity: 2,
+    });
+
+    try {
+      const res = await request(app)
+        .put(`/api/teams/${team._id}`)
+        .set('Authorization', `Bearer ${tokens.admin}`).set(csrf)
+        .send({ members: [leader._id.toString(), m1._id.toString(), m2._id.toString()] });
+
+      expect(res.status).toBe(422);
+      expect(res.body.message).toMatch(/capacity/);
+      // Transaction rolled back — the future session's roster is untouched.
+      const after = await Schedule.findById(sched._id).lean();
+      expect(after.enrolledUsers.length).toBe(2);
+    } finally {
+      await Schedule.findByIdAndDelete(sched._id);
+      await Team.findByIdAndDelete(team._id);
+      await Class.findByIdAndDelete(cls._id);
+      await User.deleteMany({ _id: { $in: [leader._id, m1._id, m2._id] } });
+    }
   });
 });

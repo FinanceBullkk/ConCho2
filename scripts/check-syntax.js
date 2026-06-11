@@ -42,7 +42,7 @@ const targets = [
   ...collectJs(path.join(root, 'server', 'scripts')),
   path.join(root, 'server', 'import_students.js'),
   path.join(root, 'server', 'seed.js'),
-];
+].filter(fs.existsSync);
 
 let errors = 0;
 for (const file of targets) {

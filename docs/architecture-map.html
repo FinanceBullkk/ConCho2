@@ -1,0 +1,798 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ConCho2 LMS — Architecture & Function Map</title>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #0f1117;
+      color: #e0e0e0;
+      line-height: 1.6;
+    }
+
+    header {
+      background: linear-gradient(135deg, #1a1b2e 0%, #2d1b4e 50%, #1a3a4e 100%);
+      padding: 48px 40px;
+      border-bottom: 1px solid rgba(255,255,255,0.08);
+    }
+
+    header h1 {
+      font-size: 2.4rem;
+      font-weight: 700;
+      background: linear-gradient(90deg, #60a5fa, #a78bfa, #34d399);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      margin-bottom: 8px;
+    }
+
+    header p {
+      color: #9ca3af;
+      font-size: 1.05rem;
+    }
+
+    nav {
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      background: rgba(15, 17, 23, 0.92);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid rgba(255,255,255,0.06);
+      padding: 12px 40px;
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    nav a {
+      color: #a78bfa;
+      text-decoration: none;
+      font-size: 0.88rem;
+      font-weight: 500;
+      padding: 6px 14px;
+      border-radius: 6px;
+      background: rgba(167,139,250,0.08);
+      transition: all 0.2s;
+    }
+
+    nav a:hover {
+      background: rgba(167,139,250,0.2);
+      color: #c4b5fd;
+    }
+
+    main {
+      max-width: 1600px;
+      margin: 0 auto;
+      padding: 40px 24px 80px;
+    }
+
+    section {
+      margin-bottom: 64px;
+    }
+
+    .section-header {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      margin-bottom: 8px;
+    }
+
+    .section-header .badge {
+      display: inline-block;
+      font-size: 0.72rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      padding: 3px 10px;
+      border-radius: 999px;
+      white-space: nowrap;
+    }
+
+    .badge-arch { background: rgba(96,165,250,0.15); color: #60a5fa; }
+    .badge-flow { background: rgba(52,211,153,0.15); color: #34d399; }
+    .badge-ui   { background: rgba(251,191,36,0.15); color: #fbbf24; }
+    .badge-er   { background: rgba(248,113,113,0.15); color: #f87171; }
+    .badge-auth { background: rgba(167,139,250,0.15); color: #a78bfa; }
+
+    h2 {
+      font-size: 1.5rem;
+      font-weight: 700;
+      color: #f3f4f6;
+      margin-bottom: 6px;
+    }
+
+    .section-desc {
+      color: #9ca3af;
+      font-size: 0.92rem;
+      margin-bottom: 24px;
+      max-width: 800px;
+    }
+
+    .diagram-card {
+      background: #1a1b2e;
+      border: 1px solid rgba(255,255,255,0.06);
+      border-radius: 16px;
+      padding: 32px;
+      overflow-x: auto;
+      box-shadow: 0 4px 24px rgba(0,0,0,0.3);
+    }
+
+    .diagram-card .mermaid {
+      display: flex;
+      justify-content: center;
+    }
+
+    .diagram-card .mermaid svg {
+      max-width: 100%;
+      height: auto;
+    }
+
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 16px;
+      margin-bottom: 40px;
+    }
+
+    .stat-card {
+      background: rgba(255,255,255,0.03);
+      border: 1px solid rgba(255,255,255,0.06);
+      border-radius: 12px;
+      padding: 20px;
+      text-align: center;
+    }
+
+    .stat-card .number {
+      font-size: 2rem;
+      font-weight: 800;
+      background: linear-gradient(135deg, #60a5fa, #a78bfa);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .stat-card .label {
+      font-size: 0.82rem;
+      color: #9ca3af;
+      margin-top: 4px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    footer {
+      text-align: center;
+      padding: 32px;
+      color: #6b7280;
+      font-size: 0.82rem;
+      border-top: 1px solid rgba(255,255,255,0.04);
+    }
+
+    @media (max-width: 768px) {
+      header { padding: 32px 20px; }
+      header h1 { font-size: 1.6rem; }
+      nav { padding: 10px 16px; }
+      main { padding: 24px 12px 60px; }
+      .diagram-card { padding: 16px; }
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>🗺️ ConCho2 LMS — Architecture Map</h1>
+  <p>Complete overview of all built functions and how they connect. Generated 2026-06-03.</p>
+</header>
+
+<nav>
+  <a href="#stats">📊 Stats</a>
+  <a href="#arch">🏛️ System Architecture</a>
+  <a href="#dataflow">🔄 Data Flow</a>
+  <a href="#frontend">🖥️ Frontend Pages</a>
+  <a href="#er">🗄️ Data Models</a>
+  <a href="#auth">🔐 Authorization</a>
+</nav>
+
+<main>
+
+<!-- ═══════════════════════════════════════════════ STATS ═══════ -->
+<section id="stats">
+  <div class="stats-grid">
+    <div class="stat-card">
+      <div class="number">18</div>
+      <div class="label">MongoDB Models</div>
+    </div>
+    <div class="stat-card">
+      <div class="number">3</div>
+      <div class="label">Domain Modules</div>
+    </div>
+    <div class="stat-card">
+      <div class="number">15</div>
+      <div class="label">Permissions</div>
+    </div>
+    <div class="stat-card">
+      <div class="number">5</div>
+      <div class="label">User Roles</div>
+    </div>
+    <div class="stat-card">
+      <div class="number">525+</div>
+      <div class="label">Server Tests</div>
+    </div>
+    <div class="stat-card">
+      <div class="number">140+</div>
+      <div class="label">Client Tests</div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════ 1. ARCH ═══════ -->
+<section id="arch">
+  <div class="section-header">
+    <span class="badge badge-arch">Architecture</span>
+    <h2>1. High-Level System Architecture</h2>
+  </div>
+  <p class="section-desc">How the client, middleware stack, backend domains, database, and external services are wired together.</p>
+  <div class="diagram-card">
+    <div class="mermaid">
+graph LR
+    subgraph CLIENT["🌐 Frontend (React + Vite)"]
+        direction TB
+        LP["📚 LearningPage\nPrograms · Cohorts\nAssessments · Feedback · Reports"]
+        ME["👤 /me/*\nSelf-service\nAssessments · Feedback"]
+        LG["📋 Legacy Pages\nClasses · Attendance · Schedule\nPeople · Dashboard · Settings"]
+        AU["🔐 Auth Pages\nLogin · MFA · Force Password"]
+    end
+
+    subgraph MW["🔒 Middleware Pipeline"]
+        direction TB
+        M1["JWT Auth\ncookie + bearer · JTI revocation · MFA gate"]
+        M2["Role Guard\nroleGuard('Admin') etc."]
+        M3["Rate Limiters\nauth · booking · export"]
+        M4["Zod Validation"]
+        M5["Mongo Sanitize"]
+        M6["Helmet CSP + CSRF"]
+        M7["pino-http + requestId"]
+        M8["Sentry Errors"]
+    end
+
+    subgraph DOMAINS["⚙️ Backend Domains"]
+        direction TB
+        subgraph DL["domains/learning"]
+            direction TB
+            D1["Program CRUD"]
+            D2["Cohort CRUD"]
+            D3["Session Booking\n4 scheduling modes"]
+            D4["Enrollment\nadmin + self-enroll"]
+            D5["Completion Engine\nattendance · assessment · feedback"]
+            D6["Certificates\nissue · revoke · verify"]
+            D7["Feedback Module"]
+            D8["Completion Reports"]
+        end
+        subgraph DA["domains/assessment"]
+            direction TB
+            A1["Assessment Author"]
+            A2["Attempt + Auto-grade"]
+            A3["Question Bank"]
+            A4["Manual Grading"]
+        end
+        subgraph DS["domains/schedule"]
+            direction TB
+            S1["Schedule Adapter\nupdate · delete"]
+        end
+        subgraph LEGACY["Legacy Controllers"]
+            direction TB
+            L1["Auth + MFA"]
+            L2["Users CRUD"]
+            L3["Teams"]
+            L4["Classes"]
+            L5["Attendance"]
+            L6["Evaluation"]
+            L7["Export"]
+            L8["Dashboard"]
+            L9["Reconcile"]
+        end
+    end
+
+    subgraph DB["💾 MongoDB"]
+        MODELS[("18 Models")]
+    end
+
+    subgraph EXT["🔗 External Services"]
+        direction TB
+        E1["Google Calendar"]
+        E2["SMTP Email"]
+        E3["Google Sheets"]
+        E4["Cron Jobs"]
+    end
+
+    LP --> M1
+    ME --> M1
+    LG --> M1
+    AU --> M1
+    M1 --> M2 --> M3 --> M4
+
+    M4 --> D1 & D2 & D3 & D4 & D5 & D6 & D7 & D8
+    M4 --> A1 & A2 & A3 & A4
+    M4 --> S1
+    M4 --> L1 & L2 & L3 & L4 & L5 & L6 & L7 & L8 & L9
+
+    D1 & D2 & D3 & D4 & D5 & D6 & D7 & D8 --> MODELS
+    A1 & A2 & A3 & A4 --> MODELS
+    S1 --> MODELS
+    L1 & L2 & L3 & L4 & L5 & L6 & L7 & L8 & L9 --> MODELS
+
+    D3 --> E1
+    D6 --> E2
+    L7 --> E3
+    L9 --> E4
+
+    style CLIENT fill:#1e293b,stroke:#60a5fa,stroke-width:2px,color:#e0e0e0
+    style MW fill:#1e1b2e,stroke:#a78bfa,stroke-width:2px,color:#e0e0e0
+    style DOMAINS fill:#1a2e1a,stroke:#34d399,stroke-width:2px,color:#e0e0e0
+    style DB fill:#2e1a1a,stroke:#f87171,stroke-width:2px,color:#e0e0e0
+    style EXT fill:#2e2a1a,stroke:#fbbf24,stroke-width:2px,color:#e0e0e0
+    style DL fill:#1a3a1a,stroke:#34d399,stroke-width:1px,color:#e0e0e0
+    style DA fill:#1a2a3a,stroke:#60a5fa,stroke-width:1px,color:#e0e0e0
+    style DS fill:#2a1a3a,stroke:#a78bfa,stroke-width:1px,color:#e0e0e0
+    style LEGACY fill:#2a2a2a,stroke:#6b7280,stroke-width:1px,color:#e0e0e0
+    style MODELS fill:#3a1a1a,stroke:#f87171,stroke-width:2px,color:#e0e0e0
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════ 2. DATA FLOW ═══════ -->
+<section id="dataflow">
+  <div class="section-header">
+    <span class="badge badge-flow">Data Flow</span>
+    <h2>2. Backend Domain Data Flow</h2>
+  </div>
+  <p class="section-desc">How data flows from user actions through the domain modules.</p>
+  <div class="diagram-card">
+    <div class="mermaid">
+flowchart LR
+    subgraph INPUT["📥 User Input"]
+        direction TB
+        ADMIN["🔧 Admin / Teacher"]
+        LEARNER["🎓 Participant"]
+        PUBLIC["🌐 Public"]
+    end
+
+    subgraph DOMAIN1["📚 Program"]
+        LP["LearningProgram\nschedulingMode\ncompletionPolicy"]
+    end
+
+    subgraph DOMAIN2["👥 Cohort"]
+        CL["Class\nprogramId → Program"]
+    end
+
+    subgraph DOMAIN3["📝 Enrollment"]
+        ENR["Enrollment\nstatus: Active/Dropped"]
+        SELF["Self-enroll gate"]
+    end
+
+    subgraph DOMAIN4["📅 Session"]
+        SCH["Schedule\nstartTime · endTime"]
+        B1["bookSlot\nteam-based"]
+        B2["bookCohortSlot\ncohort-based"]
+        GCAL["→ Google Calendar"]
+    end
+
+    subgraph DOMAIN5["✅ Attendance"]
+        ATT["Attendance\nPresent / Absent"]
+    end
+
+    subgraph DOMAIN6["📊 Completion Engine"]
+        COMP["computeProgressFromRows\n(pure function)"]
+        R1["attendance % ≥ threshold"]
+        R2["requiresAssessment\n= passed attempt"]
+        R3["requiresFeedback\n= submitted"]
+    end
+
+    subgraph DOMAIN7["🎯 Assessment"]
+        QB["Question Bank"]
+        ASSESS["Assessment\ncohort-scoped"]
+        ATTEMPT["AssessmentAttempt\nauto-graded"]
+        GRADE["grading.js\n(pure function)"]
+        MGR["Manual Grading"]
+    end
+
+    subgraph DOMAIN8["💬 Feedback"]
+        FB["Feedback\none per learner/cohort"]
+    end
+
+    subgraph DOMAIN9["🏆 Certificate"]
+        CERT["Certificate\nimmutable snapshot"]
+        SMTP["→ Email"]
+    end
+
+    subgraph DOMAIN10["📈 Reports"]
+        RPT["Completion Report"]
+    end
+
+    ADMIN --> LP
+    LP -->|"has cohorts"| CL
+    ADMIN -->|"enroll"| ENR
+    LEARNER -->|"self-enroll"| SELF
+    SELF -->|"if schedulingMode=self_enroll"| ENR
+    ENR -->|"belongs to"| CL
+
+    CL -->|"has sessions"| SCH
+    B1 --> SCH
+    B2 --> SCH
+    B2 -->|"snapshot enrollments"| ENR
+    SCH --> GCAL
+
+    SCH -->|"session done"| ATT
+    ATT --> COMP
+
+    QB -->|"import snapshot"| ASSESS
+    ASSESS -->|"submit"| ATTEMPT
+    ATTEMPT --> GRADE
+    MGR -->|"override"| ATTEMPT
+    ATTEMPT --> R2
+
+    LEARNER -->|"submit"| FB
+    FB --> R3
+
+    COMP --> R1
+    COMP --> R2
+    COMP --> R3
+    COMP -->|"all met"| CERT
+    CERT --> SMTP
+    PUBLIC -->|"verify code"| CERT
+
+    COMP --> RPT
+
+    style INPUT fill:#1e293b,stroke:#60a5fa,stroke-width:2px,color:#e0e0e0
+    style DOMAIN1 fill:#1a2e1a,stroke:#34d399,stroke-width:2px,color:#e0e0e0
+    style DOMAIN2 fill:#1a2e1a,stroke:#34d399,stroke-width:2px,color:#e0e0e0
+    style DOMAIN3 fill:#1a2e1a,stroke:#34d399,stroke-width:2px,color:#e0e0e0
+    style DOMAIN4 fill:#1a2a3a,stroke:#60a5fa,stroke-width:2px,color:#e0e0e0
+    style DOMAIN5 fill:#1a2a3a,stroke:#60a5fa,stroke-width:2px,color:#e0e0e0
+    style DOMAIN6 fill:#2e2a1a,stroke:#fbbf24,stroke-width:2px,color:#e0e0e0
+    style DOMAIN7 fill:#2e1a2a,stroke:#f472b6,stroke-width:2px,color:#e0e0e0
+    style DOMAIN8 fill:#2e1a2a,stroke:#f472b6,stroke-width:2px,color:#e0e0e0
+    style DOMAIN9 fill:#1a2e2e,stroke:#2dd4bf,stroke-width:2px,color:#e0e0e0
+    style DOMAIN10 fill:#2a1a2e,stroke:#a78bfa,stroke-width:2px,color:#e0e0e0
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════ 3. FRONTEND ═══════ -->
+<section id="frontend">
+  <div class="section-header">
+    <span class="badge badge-ui">Frontend</span>
+    <h2>3. Frontend Pages & Feature Map</h2>
+  </div>
+  <p class="section-desc">All pages, tabs, modals, and how they connect to the API layer.</p>
+  <div class="diagram-card">
+    <div class="mermaid">
+graph TB
+    subgraph AUTH["🔓 Authentication"]
+        direction LR
+        LOGIN["/login"] --> MFA_V["MFA Verify"] --> FPW["Force Password"]
+    end
+
+    subgraph DASH["🏠 Dashboard"]
+        D["/dashboard"]
+    end
+
+    subgraph ADMIN_VIEW["📚 /learning — Admin & Teacher"]
+        direction TB
+        LP["LearningPage"]
+        
+        subgraph TAB1["Programs"]
+            T1A["ProgramsTab"]
+            T1B["ProgramFormModal"]
+            T1A --> T1B
+        end
+
+        subgraph TAB2["Cohorts"]
+            T2A["CohortsTab"]
+            T2B["CohortFormModal"]
+            T2C["EnrollLearnersModal"]
+            T2A --> T2B & T2C
+        end
+
+        subgraph TAB3["Assessments"]
+            T3A["AssessmentsTab"]
+            T3B["AssessmentFormModal"]
+            T3C["QuestionBankPanel"]
+            T3D["QuestionBankFormModal"]
+            T3E["QuestionBankImportPicker"]
+            T3F["ManualGradingModal"]
+            T3A --> T3B & T3C & T3F
+            T3C --> T3D
+            T3B --> T3E
+        end
+
+        subgraph TAB4["Feedback"]
+            T4A["FeedbackTab\nview submissions"]
+        end
+
+        subgraph TAB5["Reports"]
+            T5A["ReportsTab"]
+            T5B["CompletionReportTable"]
+            T5C["CompletionRollupTable"]
+            T5D["XLSX Export"]
+            T5A --> T5B & T5C & T5D
+        end
+
+        LP --> TAB1 & TAB2 & TAB3 & TAB4 & TAB5
+    end
+
+    subgraph LEARNER_VIEW["👤 /me/* — Participant"]
+        direction TB
+        subgraph MEA["/me/assessments"]
+            MA1["Published Quiz List"]
+            MA2["AssessmentAttemptModal"]
+            MA1 --> MA2
+        end
+        subgraph MEF["/me/feedback"]
+            MF1["FeedbackFormModal"]
+        end
+    end
+
+    subgraph LEGACY_VIEW["📋 Legacy Pages"]
+        direction LR
+        CLASSES["ClassesPage"]
+        DETAIL["ClassDetail"]
+        SCHEDULE["Schedule"]
+        ATTEND["Attendance"]
+        PEOPLE["People"]
+        SETTINGS["Settings"]
+        EXPORT["Export"]
+    end
+
+    subgraph INFRA["🔗 Shared Infrastructure"]
+        direction LR
+        API["api.js\naxios + interceptors"]
+        LA["learningAPI"]
+        AA["assessmentAPI"]
+        RQ["React Query Hooks"]
+        QK["queryKeys.js"]
+        ROLE["useRole hook"]
+        I18N["i18n en+vi"]
+
+        API --> LA & AA
+        LA & AA --> RQ --> QK
+    end
+
+    D -->|"Admin"| LP
+    D -->|"Participant"| MA1
+    D -->|"Participant"| MF1
+    LP -.->|"breadcrumb"| DETAIL
+    ROLE -.->|"gates"| LP & MA1 & MF1
+    I18N -.->|"labels"| LP & MA1 & MF1
+
+    style AUTH fill:#1e1b2e,stroke:#a78bfa,stroke-width:2px,color:#e0e0e0
+    style DASH fill:#1e293b,stroke:#60a5fa,stroke-width:2px,color:#e0e0e0
+    style ADMIN_VIEW fill:#1a2e1a,stroke:#34d399,stroke-width:2px,color:#e0e0e0
+    style LEARNER_VIEW fill:#1a2a3a,stroke:#60a5fa,stroke-width:2px,color:#e0e0e0
+    style LEGACY_VIEW fill:#2a2a2a,stroke:#6b7280,stroke-width:2px,color:#e0e0e0
+    style INFRA fill:#2e2a1a,stroke:#fbbf24,stroke-width:2px,color:#e0e0e0
+    style TAB1 fill:#1a3a1a,stroke:#34d399,stroke-width:1px,color:#e0e0e0
+    style TAB2 fill:#1a3a1a,stroke:#34d399,stroke-width:1px,color:#e0e0e0
+    style TAB3 fill:#2e1a2a,stroke:#f472b6,stroke-width:1px,color:#e0e0e0
+    style TAB4 fill:#2e2a1a,stroke:#fbbf24,stroke-width:1px,color:#e0e0e0
+    style TAB5 fill:#2a1a2e,stroke:#a78bfa,stroke-width:1px,color:#e0e0e0
+    style MEA fill:#1a2a3a,stroke:#60a5fa,stroke-width:1px,color:#e0e0e0
+    style MEF fill:#2e2a1a,stroke:#fbbf24,stroke-width:1px,color:#e0e0e0
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════ 4. DATA MODELS ═══════ -->
+<section id="er">
+  <div class="section-header">
+    <span class="badge badge-er">Data Models</span>
+    <h2>4. Data Model Relationships</h2>
+  </div>
+  <p class="section-desc">All 18 MongoDB models and their ObjectId references. Verified against server/models/.</p>
+  <div class="diagram-card">
+    <div class="mermaid">
+classDiagram
+    class User {
+        +String _id
+        +String empCode
+        +String name
+        +String email
+        +String role
+        +String department
+    }
+    class LearningProgram {
+        +String _id
+        +String code
+        +String name
+        +String schedulingMode
+        +String deliveryMode
+        +Object completionPolicy
+    }
+    class Class {
+        +String _id
+        +String classCode
+        +String courseName
+        +Number totalSessions
+    }
+    class Team {
+        +String _id
+        +String name
+        +Boolean isDeleted
+    }
+    class Enrollment {
+        +String _id
+        +String status
+    }
+    class Schedule {
+        +String _id
+        +Date startTime
+        +Date endTime
+        +String roomLink
+        +Number capacity
+    }
+    class Attendance {
+        +String _id
+        +String status
+        +String remark
+    }
+    class Assessment {
+        +String _id
+        +String title
+        +Number passingScorePercent
+        +Number maxAttempts
+        +Boolean isPublished
+    }
+    class AssessmentQuestion {
+        +String _id
+        +String questionType
+        +Array items
+    }
+    class AssessmentAttempt {
+        +String _id
+        +Array answers
+        +Number scorePercent
+        +Boolean passed
+        +Object manualGrading
+    }
+    class Feedback {
+        +String _id
+        +Number overallRating
+        +String comments
+    }
+    class Certificate {
+        +String _id
+        +String verificationCode
+        +String status
+        +Object snapshot
+    }
+    class Evaluation {
+        +String _id
+        +Object grammarScore
+        +Object vocabularyScore
+    }
+
+    LearningProgram "1" --> "*" Class : programId
+    Class "1" --> "*" Enrollment : classId
+    Class "1" --> "*" Schedule : classId
+    Class "1" --> "*" Assessment : cohortId
+    Class "1" --> "*" Evaluation : classId
+    Class "1" --> "*" Feedback : classId
+    Class "1" --> "*" Certificate : classId
+    Class "1" --> "*" Team : classId
+    Team "1" --> "*" Schedule : bookedTeamId
+    Team "1" --> "1" User : leaderId
+    Team "1" --> "*" User : members
+    Schedule "1" --> "*" Attendance : scheduleId
+    Schedule "1" --> "*" User : enrolledUsers
+    Assessment "1" --> "*" AssessmentAttempt : assessmentId
+    Assessment "1" --> "*" AssessmentQuestion : questionBankId
+    Assessment "*" --> "1" LearningProgram : from program
+    User "1" --> "*" Enrollment : userId
+    User "1" --> "*" Attendance : userId
+    User "1" --> "*" AssessmentAttempt : userId
+    User "1" --> "*" Feedback : userId
+    User "1" --> "*" Certificate : userId
+    User "1" --> "*" Evaluation : createdBy
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════ 5. AUTH ═══════ -->
+<section id="auth">
+  <div class="section-header">
+    <span class="badge badge-auth">Authorization</span>
+    <h2>5. Role → Permission Matrix</h2>
+  </div>
+  <p class="section-desc">Actual 15 permissions from server/policy/capabilities.js and role mappings from server/policy/roleCapabilities.js.</p>
+  <div class="diagram-card">
+    <div class="mermaid">
+graph LR
+    subgraph ROLES["👤 Roles"]
+        direction TB
+        R_SA["👑 super_admin\nALL 15 permissions"]
+        R_ADMIN["🔧 admin\n10 permissions"]
+        R_MGR["📋 manager\n8 permissions"]
+        R_STAFF["👩‍🏫 staff\n4 permissions"]
+        R_VIEW["👁️ viewer\n2 permissions"]
+    end
+
+    subgraph CAPS["⚙️ Permissions"]
+        direction TB
+        subgraph CG1["User Management"]
+            C1["VIEW_USERS"]
+            C2["EDIT_USERS"]
+            C3["APPROVE_USERS"]
+            C4["DELETE_USERS"]
+            C5["ASSIGN_ROLES"]
+        end
+        subgraph CG2["Entry Management"]
+            C6["CREATE_ENTRY"]
+            C7["VIEW_ENTRIES"]
+            C8["EDIT_ENTRY"]
+            C9["DELETE_ENTRY"]
+        end
+        subgraph CG3["Area Management"]
+            C10["MANAGE_AREAS"]
+            C11["VIEW_AREAS"]
+        end
+        subgraph CG4["Reports and Admin"]
+            C12["VIEW_REPORTS"]
+            C13["EXPORT_REPORTS"]
+            C14["VIEW_AUDIT_LOG"]
+            C15["SYSTEM_SETTINGS"]
+        end
+    end
+
+    R_SA -->|"all 15"| CG1 & CG2 & CG3 & CG4
+    R_ADMIN -->|"10 perms"| C1 & C2 & C3 & C5 & C6 & C7 & C8 & C12 & C13 & C15
+    R_MGR -->|"8 perms"| C1 & C6 & C7 & C8 & C11 & C12 & C13 & C15
+    R_STAFF -->|"4 perms"| C6 & C7 & C11 & C12
+    R_VIEW -->|"2 perms"| C7 & C12
+
+    style ROLES fill:#1e293b,stroke:#60a5fa,stroke-width:2px,color:#e0e0e0
+    style CAPS fill:#1a2e1a,stroke:#34d399,stroke-width:2px,color:#e0e0e0
+    style CG1 fill:#1a3a1a,stroke:#34d399,stroke-width:1px,color:#e0e0e0
+    style CG2 fill:#1a2a3a,stroke:#60a5fa,stroke-width:1px,color:#e0e0e0
+    style CG3 fill:#2e2a1a,stroke:#fbbf24,stroke-width:1px,color:#e0e0e0
+    style CG4 fill:#2a1a2e,stroke:#a78bfa,stroke-width:1px,color:#e0e0e0
+    </div>
+  </div>
+</section>
+
+</main>
+
+<footer>
+  ConCho2 LMS — Architecture Map — Generated 2026-06-03
+</footer>
+
+<script>
+  mermaid.initialize({
+    startOnLoad: true,
+    theme: 'dark',
+    themeVariables: {
+      darkMode: true,
+      background: '#1a1b2e',
+      primaryColor: '#2d3748',
+      primaryTextColor: '#e0e0e0',
+      primaryBorderColor: '#4a5568',
+      lineColor: '#6b7280',
+      secondaryColor: '#2d1b4e',
+      tertiaryColor: '#1a3a1a',
+      fontSize: '14px',
+      fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, sans-serif'
+    },
+    flowchart: {
+      useMaxWidth: true,
+      htmlLabels: true,
+      curve: 'basis',
+      padding: 16,
+      nodeSpacing: 40,
+      rankSpacing: 60
+    }
+  });
+</script>
+
+</body>
+</html>

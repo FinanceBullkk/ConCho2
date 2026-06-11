@@ -13,14 +13,15 @@ const buildFreshApi = async () => {
       },
       defaults: { headers: {} },
       get: vi.fn(),
+      post: vi.fn(),
     },
   );
   const create = vi.fn(() => instance);
 
   vi.resetModules();
   vi.doMock('axios', () => ({ default: { create } }));
-  await import('../api.js');
-  return { create, instance };
+  const module = await import('../api.js');
+  return { create, instance, module };
 };
 
 describe('api — axios instance (audit PR O / FE-011)', () => {
@@ -40,6 +41,30 @@ describe('api — axios instance (audit PR O / FE-011)', () => {
     const [success, error] = instance.interceptors.response.use.mock.calls[0];
     expect(typeof success).toBe('function');
     expect(typeof error).toBe('function');
+  });
+});
+
+describe('authAPI — admin reauth payloads', () => {
+  it('sends currentPassword when force-logging out another user', async () => {
+    const { instance, module } = await buildFreshApi();
+
+    module.authAPI.adminForceLogout('user-123', 'admin-secret');
+
+    expect(instance.post).toHaveBeenCalledWith(
+      '/auth/admin/force-logout/user-123',
+      { currentPassword: 'admin-secret' },
+    );
+  });
+
+  it('sends currentPassword when disabling MFA for another user', async () => {
+    const { instance, module } = await buildFreshApi();
+
+    module.authAPI.mfaAdminDisable('user-456', 'admin-secret');
+
+    expect(instance.post).toHaveBeenCalledWith(
+      '/auth/mfa/admin-disable/user-456',
+      { currentPassword: 'admin-secret' },
+    );
   });
 });
 

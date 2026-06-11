@@ -114,8 +114,8 @@ const syncFromGoogleSheets = async (req, res) => {
     }
 
     // Schedule lookup: "classId|YYYY-MM-DD" → schedule documents for that day
-    // We load ALL schedules (or filter to relevant date range if needed)
-    const allSchedules = await Schedule.find()
+    // We load ALL LIVE schedules (cancelled rows are history, not sync targets)
+    const allSchedules = await Schedule.find({ status: 'scheduled' })
       .select('_id classId bookedTeamId startTime endTime enrolledUsers enrolledCount capacity')
       .lean();
 

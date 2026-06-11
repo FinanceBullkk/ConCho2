@@ -14,20 +14,26 @@ import { PasswordStrength, scorePassword } from '@/components/PasswordStrength';
 
 // Login is kept eager — first paint for unauthenticated users should not
 // pay a chunk-fetch round-trip. Everything behind auth is lazy.
-import LoginPage from './pages/LoginPage';
+import LoginPage from './features/auth/LoginPage';
 
-const ForgotPasswordPage = lazy(() => import('./pages/ForgotPasswordPage'));
-const ResetPasswordPage  = lazy(() => import('./pages/ResetPasswordPage'));
+const ForgotPasswordPage = lazy(() => import('./features/auth/ForgotPasswordPage'));
+const ResetPasswordPage  = lazy(() => import('./features/auth/ResetPasswordPage'));
 
-const DashboardPage    = lazy(() => import('./pages/DashboardPage'));
+const DashboardPage    = lazy(() => import('./features/dashboard/DashboardPage'));
 const PeoplePage       = lazy(() => import('./pages/PeoplePage'));
-const ProgramsPage     = lazy(() => import('./pages/ProgramsPage'));
+const LearningPage     = lazy(() => import('./features/learning/LearningPage'));
 const ReportsPage      = lazy(() => import('./pages/ReportsPage'));
 const SystemPage       = lazy(() => import('./pages/SystemPage'));
 const CalendarPage     = lazy(() => import('./pages/CalendarPage'));
-const BookClassPage    = lazy(() => import('./pages/BookClassPage'));
-const ClassDetailPage  = lazy(() => import('./pages/ClassDetailPage'));
-const UserSettingsPage = lazy(() => import('./pages/UserSettingsPage'));
+const BookClassPage    = lazy(() => import('./features/schedule/BookClassPage'));
+const ClassDetailPage  = lazy(() => import('./features/classes/ClassDetailPage'));
+const UserSettingsPage = lazy(() => import('./features/auth/UserSettingsPage'));
+const MyLearningCatalogPage = lazy(() => import('./features/learner/MyLearningCatalogPage'));
+const MyLearningPathsPage = lazy(() => import('./features/learner/MyLearningPathsPage'));
+const MyAssessmentsPage = lazy(() => import('./features/learner/MyAssessmentsPage'));
+const MyFeedbackPage = lazy(() => import('./features/learner/MyFeedbackPage'));
+const MySessionsPage = lazy(() => import('./features/learner/MySessionsPage'));
+const MyTeamPage = lazy(() => import('./features/groups/MyTeamPage'));
 
 function RouteFallback() {
   return (
@@ -205,7 +211,8 @@ const LEGACY_REDIRECTS = [
   // IA-S2 renames
   { from: '/academy',    to: '/people' },
   { from: '/admin',      to: '/system' },
-  { from: '/classes',    to: '/programs?tab=classes' },
+  { from: '/programs',   to: '/learning' },
+  { from: '/classes',    to: '/learning?tab=cohorts' },
   { from: '/data',       to: '/reports?tab=hr-export' },
   { from: '/settings',   to: '/system?tab=settings' },
   // IA-S3: Schedules + Attendance + Book → unified /calendar
@@ -238,12 +245,14 @@ export default function App() {
               {/* Protected — wrapped in Layout */}
               <Route element={<ProtectedRoute><Layout /></ProtectedRoute>}>
                 <Route path="/home" element={<DashboardPage />} />
+                {/* Manager dashboard — any authenticated user; self-scoped server-side */}
+                <Route path="/my-team" element={<MyTeamPage />} />
 
                 <Route path="/people" element={
-                  <ProtectedRoute roles={['Admin']}><PeoplePage /></ProtectedRoute>
+                  <ProtectedRoute roles={['Admin', 'Coordinator']}><PeoplePage /></ProtectedRoute>
                 } />
-                <Route path="/programs" element={
-                  <ProtectedRoute roles={['Admin', 'Teacher']}><ProgramsPage /></ProtectedRoute>
+                <Route path="/learning" element={
+                  <ProtectedRoute roles={['Admin', 'Coordinator', 'Teacher']}><LearningPage /></ProtectedRoute>
                 } />
                 <Route path="/calendar" element={<CalendarPage />} />
                 <Route path="/reports" element={
@@ -260,6 +269,21 @@ export default function App() {
 
                 {/* Self-service account settings — every authenticated user */}
                 <Route path="/me/settings" element={<UserSettingsPage />} />
+                <Route path="/me/catalog" element={
+                  <ProtectedRoute roles={['Participant']}><MyLearningCatalogPage /></ProtectedRoute>
+                } />
+                <Route path="/me/paths" element={
+                  <ProtectedRoute roles={['Participant']}><MyLearningPathsPage /></ProtectedRoute>
+                } />
+                <Route path="/me/assessments" element={
+                  <ProtectedRoute roles={['Participant']}><MyAssessmentsPage /></ProtectedRoute>
+                } />
+                <Route path="/me/feedback" element={
+                  <ProtectedRoute roles={['Participant']}><MyFeedbackPage /></ProtectedRoute>
+                } />
+                <Route path="/me/sessions" element={
+                  <ProtectedRoute roles={['Participant']}><MySessionsPage /></ProtectedRoute>
+                } />
 
                 {/* Legacy redirects */}
                 {LEGACY_REDIRECTS.map(({ from, to }) => (

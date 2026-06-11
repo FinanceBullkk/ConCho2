@@ -119,6 +119,53 @@ describe('Schedule reassignment — roster rebuild', () => {
     expect(enrolledIds).not.toContain(leaderA._id.toString());
     expect(enrolledIds).not.toContain(memberA._id.toString());
   });
+
+  test('a Dropped member of the target team is NOT enrolled after reassignment', async () => {
+    const sfx = uniq();
+    const cls = await Class.create({
+      classCode: `REASD_${sfx}`, courseName: 'Reassign Active-only', totalSessions: 10,
+    });
+    const leaderD = await User.create({
+      empCode: `RLD${sfx}`.slice(0, 10), name: `RLeaderD-${sfx}`,
+      role: 'Participant', department: 'Sales', password: 'pass12345678',
+    });
+    const activeD = await User.create({
+      empCode: `RAD${sfx}`.slice(0, 10), name: `RActiveD-${sfx}`,
+      role: 'Participant', department: 'Sales', password: 'pass12345678',
+    });
+    const droppedD = await User.create({
+      empCode: `RDD${sfx}`.slice(0, 10), name: `RDroppedD-${sfx}`,
+      role: 'Participant', department: 'Sales', password: 'pass12345678', status: 'Dropped',
+    });
+    const teamSrc = await Team.create({
+      name: `SrcD-${sfx}`, classId: cls._id, leaderId: leaderD._id, members: [leaderD._id],
+    });
+    const teamDst = await Team.create({
+      name: `DstD-${sfx}`, classId: cls._id, leaderId: leaderD._id,
+      members: [leaderD._id, activeD._id, droppedD._id],
+    });
+    const future = new Date(Date.now() + 21 * 24 * 60 * 60 * 1000);
+    const sched = await Schedule.create({
+      classId: cls._id, bookedTeamId: teamSrc._id,
+      startTime: future, endTime: new Date(future.getTime() + 60 * 60 * 1000),
+      enrolledUsers: [leaderD._id],
+    });
+
+    const res = await request(app)
+      .put(`/api/schedules/${sched._id}`)
+      .set('Authorization', `Bearer ${tokens.admin}`)
+      .set(csrf)
+      .send({ bookedTeamId: teamDst._id.toString() });
+
+    expect(res.status).toBe(200);
+
+    const updated = await Schedule.findById(sched._id).lean();
+    const enrolledIds = (updated.enrolledUsers || []).map(id => id.toString());
+
+    expect(enrolledIds).toContain(leaderD._id.toString());
+    expect(enrolledIds).toContain(activeD._id.toString());
+    expect(enrolledIds).not.toContain(droppedD._id.toString());
+  });
 });
 
 // ── Guards ───────────────────────────────────────────────
@@ -172,5 +219,74 @@ describe('Schedule reassignment — cross-class guard', () => {
     await Team.findByIdAndDelete(otherTeam._id);
     await Class.findByIdAndDelete(otherCls._id);
     await User.findByIdAndDelete(otherLeader._id);
+  });
+});
+
+// ── Wave E1: Admin time-move must respect ALLOWED_TIME_SLOTS ──
+// Before E1 the Admin update path only checked end > start, so a session could
+// be moved to an arbitrary off-policy time. The shared scheduling-window policy
+// now validates the target window like the create/booking paths.
+describe('Schedule update — off-policy time move is rejected', () => {
+  test('returns 400 when moving a session to a non-configured slot', async () => {
+    const { sched } = await setupReassignFixture();
+
+    // 23:00 UTC = 06:00 VN — guaranteed outside every test ALLOWED_TIME_SLOTS.
+    const target = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000);
+    target.setUTCHours(23, 0, 0, 0);
+    const end = new Date(target.getTime() + 60 * 60 * 1000);
+
+    const res = await request(app)
+      .put(`/api/schedules/${sched._id}`)
+      .set('Authorization', `Bearer ${tokens.admin}`)
+      .set(csrf)
+      .send({ startTime: target.toISOString(), endTime: end.toISOString() });
+
+    expect(res.status).toBe(400);
+    expect(res.body.message).toMatch(/allowed time slot/);
+  });
+});
+
+// ── Wave E2: capacity-edit guard (D3) ──────────────────────
+// An admin must not edit Schedule.capacity below the FINAL roster being written
+// (the new-team snapshot on reassign, else the existing roster). The fixture
+// schedule has 2 enrolled members and the default capacity (9).
+describe('Schedule update — capacity edit guard (Wave E2)', () => {
+  test('lowering capacity below the current roster is rejected (422); capacity unchanged', async () => {
+    const { sched } = await setupReassignFixture();
+
+    const res = await request(app)
+      .put(`/api/schedules/${sched._id}`)
+      .set('Authorization', `Bearer ${tokens.admin}`).set(csrf)
+      .send({ capacity: 1 });
+
+    expect(res.status).toBe(422);
+    expect(res.body.message).toMatch(/capacity/);
+    const after = await Schedule.findById(sched._id).lean();
+    expect(after.capacity).toBe(9); // not written
+  });
+
+  test('lowering capacity to exactly the roster size succeeds (200)', async () => {
+    const { sched } = await setupReassignFixture();
+
+    const res = await request(app)
+      .put(`/api/schedules/${sched._id}`)
+      .set('Authorization', `Bearer ${tokens.admin}`).set(csrf)
+      .send({ capacity: 2 });
+
+    expect(res.status).toBe(200);
+    const after = await Schedule.findById(sched._id).lean();
+    expect(after.capacity).toBe(2);
+  });
+
+  test('simultaneous reassign + capacity shrink checks the NEW roster (422)', async () => {
+    const { teamB, sched } = await setupReassignFixture(); // teamB has 2 active members
+
+    const res = await request(app)
+      .put(`/api/schedules/${sched._id}`)
+      .set('Authorization', `Bearer ${tokens.admin}`).set(csrf)
+      .send({ bookedTeamId: teamB._id.toString(), capacity: 1 });
+
+    expect(res.status).toBe(422);
+    expect(res.body.message).toMatch(/capacity/);
   });
 });

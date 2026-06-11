@@ -40,7 +40,9 @@ jobs:
   server-tests:
     name: Server tests (Jest)
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    # 15 (was 10): green runs hit 8.2 min as the suite grew past 80 files —
+    # headroom, not slack; the suite itself is unchanged by this bump.
+    timeout-minutes: 15
 
     steps:
       - uses: actions/checkout@v4
@@ -71,6 +73,12 @@ jobs:
           JWT_SECRET: ci-test-secret-not-used-for-anything-real
           # Disable Sentry in CI so we don't pollute the dashboard
           SENTRY_DSN: ''
+          # --runInBand keeps every suite's module registry in ONE node
+          # process; at 82 suites the default heap (~2GB) OOMs near the end
+          # ("Ineffective mark-compacts near heap limit" — first seen
+          # 2026-06-11 on main). 4GB fits the ubuntu-latest runner and stops
+          # the GC thrash that was also inflating runtimes toward the timeout.
+          NODE_OPTIONS: --max-old-space-size=4096
 
   # ──────────────────────────────────────────────────────────
   # GATE: client unit + hook tests (Vitest)
@@ -128,7 +136,7 @@ jobs:
 
   # ──────────────────────────────────────────────────────────
   # GATE: client lint (REQUIRED — promoted in audit PR J)
-  # The `lint` script runs eslint with `--max-warnings 138`, the
+  # The `lint` script runs eslint with `--max-warnings 81`, the
   # ratchet cap reflecting the warning count on main at promotion
   # time. PR that pushes the count above the cap fails CI; PRs
   # that lower it should also lower the cap in the same commit.
@@ -228,28 +236,20 @@ jobs:
           echo "OK: no .env files tracked."
 
   # ──────────────────────────────────────────────────────────
-  # GATE: Playwright E2E (audit PR V / P2-09)
-  #
-  # ⚠️  CURRENTLY INFORMATIONAL — `continue-on-error: true`.
-  #
-  # Why not required yet:
-  #   The CI infrastructure (Mongo replica set, server boot, Playwright
-  #   install, seed clearing of mustChangePassword) is captured here and
-  #   works end-to-end. The existing client/e2e/ specs, however, were
-  #   written against pre-i18n copy ("User Management", "Dashboard")
-  #   that the current app emits via t() lookups ("Hello, Admin User",
-  #   localised buttons). Until the specs are rewritten to be
-  #   locale-agnostic OR force the locale to en, every navigation +
-  #   permissions test fails on `expect(getByRole('heading', ...))`.
-  #
-  #   Tracked as P2-09 follow-up in docs/audit/DEV-HANDOFF.md. Once the
-  #   specs are updated, remove `continue-on-error` to promote this back
-  #   to a required gate.
+  # GATE: Playwright E2E (audit PR V / P2-09 — REQUIRED since PR X)
   #
   # Boots the real backend against a single-node MongoDB replica set,
   # seeds the canonical test users (000001/000004), then runs the
   # Playwright specs in client/e2e/. Catches regressions in the full
   # auth → role guard → UI flow that Vitest unit tests can't see.
+  #
+  # Audit PR X (P2-09 follow-up): specs rewritten for the IA-S2/S3
+  # routes (/people, /programs, /calendar, /system) and the i18n'd
+  # copy emitted by react-i18next. playwright.config.js now pins
+  # `use.locale = 'en-US'` so the LanguageDetector falls back to
+  # English in CI and the spec selectors match a stable string set.
+  # With that in place, `continue-on-error` was removed and this gate
+  # is back to REQUIRED status.
   #
   # Why a replica set (not a standalone mongod):
   #   server.js + scheduleService use `session.withTransaction(...)` on
@@ -267,9 +267,6 @@ jobs:
     name: E2E tests (Playwright)
     runs-on: ubuntu-latest
     timeout-minutes: 15
-    # See block-comment above. Demote to informational until the specs
-    # are rewritten to match the current i18n'd UI.
-    continue-on-error: true
 
     steps:
       - uses: actions/checkout@v4
@@ -303,7 +300,7 @@ jobs:
           MONGO_URI: mongodb://localhost:27017/tms_e2e?replicaSet=rs0
           JWT_SECRET: e2e-test-secret-not-used-anywhere-real
           NODE_ENV: test
-        run: node seed.js
+        run: node scripts/seed.js
 
       - name: Clear mustChangePassword on seed users
         # Seed admin (000001) is normally created with mustChangePassword=true

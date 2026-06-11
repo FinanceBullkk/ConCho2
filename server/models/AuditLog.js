@@ -30,7 +30,7 @@ const auditLogSchema = new mongoose.Schema(
     },
     actorRole: {
       type: String,
-      enum: ['Admin', 'Teacher', 'Participant', 'System'],
+      enum: ['Admin', 'Coordinator', 'Teacher', 'Participant', 'System'],
       required: true,
     },
     actorEmpCode: {
@@ -51,8 +51,8 @@ const auditLogSchema = new mongoose.Schema(
     // Which entity changed.
     entity: {
       type: String,
-      enum: ['User', 'Team', 'Class', 'Schedule', 'Attendance', 'Evaluation',
-             'Enrollment', 'Setting', 'Auth', 'Import', 'Export',
+      enum: ['User', 'Team', 'Class', 'LearningProgram', 'Schedule', 'Attendance', 'Evaluation',
+             'Enrollment', 'Setting', 'Auth', 'Import', 'Export', 'Report',
              // Added in audit PR 3 — adminDb writes audit lines for Counter
              // mutations and any future collection we whitelist for direct
              // admin editing. Adding entries here is a one-way ratchet:
@@ -61,7 +61,18 @@ const auditLogSchema = new mongoose.Schema(
              // Added in audit PR L (SEC-013) — sheets-sync run + reconcile run
              // produce their own audit lines so reviewers can reconstruct
              // operator activity without grepping pino logs.
-             'Sync', 'Reconcile'],
+             'Sync', 'Reconcile',
+             // Added in re-center Phase 1 — these entities were ALREADY being
+             // audited by their controllers, but the enum lagged behind, so
+             // every such write failed schema validation SILENTLY (audit is
+             // fire-and-forget). Backfilled here + 'Office' for the new model.
+             'Department', 'Office', 'Certificate', 'Assessment',
+             'AssessmentAttempt', 'AssessmentQuestion', 'Feedback',
+             'Assignment', 'LearningPath',
+             // Added in re-center Phase 3 — Office-scoped Rooms.
+             'Room',
+             // Added in Wave E3 phase-04 slice B — session waitlists.
+             'WaitlistEntry'],
       required: true,
     },
     entityId: {

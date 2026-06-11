@@ -45,7 +45,9 @@ const userSchema = new mongoose.Schema(
     role: {
       type: String,
       enum: {
-        values: ['Admin', 'Teacher', 'Participant'],
+        // Coordinator (re-center Phase 1) = training-ops management bundle
+        // via policy/capabilities.js — NOT a full Admin (no user/security).
+        values: ['Admin', 'Coordinator', 'Teacher', 'Participant'],
         message: '{VALUE} is not a valid role',
       },
       required: [true, 'Role is required'],
@@ -54,6 +56,31 @@ const userSchema = new mongoose.Schema(
       type: String,
       trim: true,
       default: '',
+    },
+    // ── Org model (Wave D3) ─────────────────────────────────
+    // Structured org hierarchy, added alongside the legacy free-text
+    // `department` string (non-destructive — "open until populated"). Both
+    // nullable; later fed by Google Directory sync (Wave D2). `managerId`
+    // makes the reporting tree queryable (manager dashboard scopes on it);
+    // `departmentId` points at the Department entity (replaces the string
+    // over time without a destructive rename).
+    managerId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+      default: null,
+    },
+    departmentId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Department',
+      default: null,
+    },
+    // Office (physical site) the employee belongs to — re-center Phase 1.
+    // Same "open until populated" pattern as departmentId; manually set via
+    // org assignment until Directory sync (Wave D2) fills it.
+    officeId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Office',
+      default: null,
     },
     position: {
       type: String,
@@ -148,11 +175,12 @@ const userSchema = new mongoose.Schema(
       default: [],
       select: false,
     },
-    // Replay-attack protection (P1 fix): stores the `delta` returned by the
-    // last successful speakeasy.totp.verifyDelta() call. Any future code
-    // whose delta ≤ this value is rejected, even if it is cryptographically
-    // valid — preventing the same TOTP window from being used twice.
-    // Null means no successful TOTP verification has occurred yet.
+    // Replay-attack protection: stores the ABSOLUTE TOTP step counter
+    // (floor(now/30) + verifyDelta offset) of the last successful login.
+    // Any code from that step or earlier (counter ≤ this value) is rejected;
+    // a later step still logs in. SEC-018 (audit round 3): this was previously
+    // the RELATIVE delta (always 0 for a current code), which falsely locked a
+    // user out of TOTP after their first login. Null = no TOTP login yet.
     mfaLastUsedCounter: {
       type: Number,
       default: null,
@@ -222,7 +250,9 @@ const userSchema = new mongoose.Schema(
 // Automatically exclude soft-deleted users from all queries
 // unless the caller explicitly sets { isDeleted: true } in
 // the filter (e.g. for admin "trash" view).
-const SOFT_DELETE_HOOKS = ['find', 'findOne', 'countDocuments', 'findOneAndUpdate', 'findOneAndDelete'];
+// 'distinct' added in audit round 2 (DATA-012): it is query middleware too,
+// and dashboard filter-options was leaking trashed users' values through it.
+const SOFT_DELETE_HOOKS = ['find', 'findOne', 'countDocuments', 'findOneAndUpdate', 'findOneAndDelete', 'distinct'];
 for (const hook of SOFT_DELETE_HOOKS) {
   userSchema.pre(hook, function () {
     const filter = this.getFilter();
@@ -248,6 +278,10 @@ userSchema.pre('aggregate', function () {
 // ── Indexes ───────────────────────────────────────────────
 userSchema.index({ role: 1, status: 1 });
 userSchema.index({ department: 1 });
+// Org hierarchy lookups (manager dashboard scopes reports by managerId).
+userSchema.index({ managerId: 1 });
+userSchema.index({ departmentId: 1 });
+userSchema.index({ officeId: 1 });
 // Partial unique on email: enforce no duplicates among users that HAVE
 // an email (string-typed). A plain `sparse:true` is not enough here
 // because the field has `default: null` and MongoDB treats null values
@@ -336,11 +370,15 @@ userSchema.post('findOneAndUpdate', async function (doc) {
   // This keeps the original intent (release abandoned solo bookings)
   // without touching schedules belonging to other teams.
   const session = await mongoose.startSession();
+  // Promotions collected in-tx, notified AFTER commit (phase-04 slice B).
+  const promotionsBySchedule = [];
   try {
     await session.withTransaction(async () => {
-      // 1. Find the IDs of future schedules the user is currently in.
+      // 1. Find the IDs of future LIVE schedules the user is currently in.
+      //    Durable-cancelled sessions keep their roster snapshot as history
+      //    (phase-04 slice A) — a Dropped user is not pulled from them.
       const affectedIds = await Schedule.find(
-        { startTime: { $gte: today }, enrolledUsers: doc._id },
+        { startTime: { $gte: today }, enrolledUsers: doc._id, status: 'scheduled' },
         { _id: 1 },
         { session }
       ).distinct('_id');
@@ -361,12 +399,34 @@ userSchema.post('findOneAndUpdate', async function (doc) {
         'Auto-Release: removed user from future schedules'
       );
 
-      // 3. Delete only the previously-affected schedules that are now empty.
-      const emptyResult = await Schedule.deleteMany(
+      // 3. Seat-freer (slice B): the pull freed one seat on every affected
+      //    schedule — seat FIFO waiters INSIDE this tx, BEFORE the empty
+      //    sweep, so a waiter can rescue a session that just lost its last
+      //    enrolled member.
+      const { promoteIfSeatFree } = require('../domains/schedule/waitlist/promotion');
+      for (const scheduleId of affectedIds) {
+        // eslint-disable-next-line no-await-in-loop -- few schedules per user
+        const promoted = await promoteIfSeatFree(scheduleId, session);
+        if (promoted.length > 0) promotionsBySchedule.push({ scheduleId, promoted });
+      }
+
+      // 4. Delete only the affected schedules that are STILL empty after the
+      //    promotion pass. Their room-lock ledger rows are released AND any
+      //    (structurally impossible, but belt) waitlist rows dissolved in the
+      //    same tx — a deleted session must never brick a room slot or
+      //    strand a waiter.
+      const emptyIds = await Schedule.find(
         { _id: { $in: affectedIds }, enrolledUsers: { $size: 0 } },
+        { _id: 1 },
         { session }
-      );
-      if (emptyResult.deletedCount > 0) {
+      ).distinct('_id');
+      if (emptyIds.length > 0) {
+        const { releaseScheduleResources } = require('../domains/schedule/release-resources');
+        await releaseScheduleResources(emptyIds, session);
+        const emptyResult = await Schedule.deleteMany(
+          { _id: { $in: emptyIds } },
+          { session }
+        );
         logger.info(
           { empCode: doc.empCode, deleted: emptyResult.deletedCount },
           'Auto-Release: deleted empty schedules (scoped to affected set)'
@@ -375,6 +435,16 @@ userSchema.post('findOneAndUpdate', async function (doc) {
     });
   } finally {
     session.endSession();
+  }
+
+  // Post-commit: notify promoted waiters (fail-soft — email + NotificationLog
+  // + calendar refresh). Never inside the tx.
+  if (promotionsBySchedule.length > 0) {
+    const { notifyPromotions } = require('../domains/schedule/waitlist/promotion');
+    for (const { scheduleId, promoted } of promotionsBySchedule) {
+      // eslint-disable-next-line no-await-in-loop
+      await notifyPromotions(scheduleId, promoted);
+    }
   }
 });
 

@@ -15,14 +15,23 @@
  */
 
 const mongoose = require('mongoose');
+const crypto = require('crypto');
 const { MongoMemoryReplSet } = require('mongodb-memory-server');
 
-// Replica set required for MongoDB transactions (bookSlot, adminCreate, deleteUser cascade).
-let mongoServer;
+// tests/global-setup.js starts ONE shared replica set per jest run and exposes
+// its URI on process.env.MONGO_URI. Each test file connects under its OWN
+// database (TEST_DB_NAME) so files stay isolated while the heavy mongod is
+// spawned only once. If MONGO_URI is absent (a file required outside jest),
+// we fall back to a per-file server — preserving the original behaviour.
+let mongoServer;        // set only in the fallback path → this file owns it
 let app;
 let tokens = {};
 let seedData = {};
 let initialized = false;
+
+// Unique DB name per test file. Jest gives each test file a fresh module
+// registry, so this evaluates exactly once per file → no cross-file collision.
+const TEST_DB_NAME = `jest_${crypto.randomBytes(8).toString('hex')}`;
 
 const setup = async () => {
   if (initialized) return app;
@@ -39,12 +48,16 @@ const setup = async () => {
   // to add an Origin header to every request.
   process.env.CORS_BYPASS_NO_ORIGIN = 'true';
 
-  // Start in-memory MongoDB replica set (single node) — required for transactions.
-  mongoServer = await MongoMemoryReplSet.create({ replSet: { count: 1 } });
-  process.env.MONGO_URI = mongoServer.getUri();
+  // Reuse the shared replica set from global-setup; otherwise spin a dedicated
+  // one for this file (fallback — required when setup.js runs without jest's
+  // globalSetup). Either way transactions work (single-node replica set).
+  if (!process.env.MONGO_URI) {
+    mongoServer = await MongoMemoryReplSet.create({ replSet: { count: 1 } });
+    process.env.MONGO_URI = mongoServer.getUri();
+  }
 
-  // Connect mongoose
-  await mongoose.connect(process.env.MONGO_URI);
+  // Connect mongoose to this file's private database on the (shared) server.
+  await mongoose.connect(process.env.MONGO_URI, { dbName: TEST_DB_NAME });
 
   // Import app AFTER env vars are set
   app = require('../server');
@@ -132,6 +145,16 @@ const setup = async () => {
 };
 
 const teardown = async () => {
+  // Drop this file's private database so the shared server doesn't accumulate
+  // state across files, then disconnect. Only stop the server if THIS file
+  // created it (fallback path) — the shared one is stopped by global-teardown.
+  try {
+    if (mongoose.connection.readyState === 1) {
+      await mongoose.connection.dropDatabase();
+    }
+  } catch {
+    // best-effort cleanup — never let teardown throw and mask a test result
+  }
   await mongoose.disconnect();
   if (mongoServer) await mongoServer.stop();
   initialized = false;

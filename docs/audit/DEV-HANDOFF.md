@@ -65,16 +65,14 @@
 | **Effort** | S (30 phút) |
 | **Priority** | P3 |
 
-### 2.4 P2-09 — Rewrite Playwright specs để promote E2E gate
+### 2.4 P2-09 — Rewrite Playwright specs để promote E2E gate ✅ DONE in PR X
 
 | Thông tin | Chi tiết |
 |-----------|----------|
-| **File cần kiểm tra** | `client/e2e/auth.spec.js`, `navigation.spec.js`, `permissions.spec.js`, `users-crud.spec.js`, `theme.spec.js`; `.github/workflows/ci.yml` |
-| **Bối cảnh** | PR V đã setup xong CI infrastructure (Mongo replica set, server boot, seed, browser install). Specs hiện tại fail vì DashboardPage giờ render `t('dashboard.greeting', { name })` = "Hello, Admin User" thay vì heading "Dashboard". Tương tự UsersPage/TeamsPage có thể đã i18n hóa. |
-| **Việc cần làm** | (1) Force browser locale `en` trong playwright.config.js: `use: { locale: 'en-US' }`. (2) Update selectors trong specs để match i18n strings hiện tại (xem `en.json` cho copy chính xác). (3) Sau khi specs pass local, xóa `continue-on-error: true` ở job `e2e-tests` trong `ci.yml` để promote thành required gate. |
-| **Cách kiểm tra** | Chạy `cd server && npm run seed && npm run dev` (terminal 1), `cd client && npm run test:e2e` (terminal 2). Tất cả 5 spec files pass thì sửa CI. |
-| **Effort** | M (2-3 giờ — chủ yếu là rewrite selectors) |
-| **Priority** | P2 |
+| **Status** | ✅ Resolved in audit PR X (sprint 4) |
+| **What shipped** | (1) `playwright.config.js` pins `use.locale = 'en-US'` so the i18n LanguageDetector falls back to English in CI. (2) `navigation.spec.js` + `permissions.spec.js` + `users-crud.spec.js` updated to the IA-S2/S3 routes (`/people`, `/programs`, `/calendar`, `/system`) — the legacy `/users`/`/teams`/`/classes`/`/schedules`/`/admin` paths are now host pages under section tabs. (3) `theme.spec.js` uses the i18n'd toggle aria-labels (`Switch to (light\|dark) mode`). (4) `continue-on-error: true` removed from the `e2e-tests` CI job — gate is REQUIRED again. |
+| **Verification** | `npx playwright test --list` parses 22 tests across 5 files cleanly. End-to-end run requires the seed + server + Mongo replica set per CI. |
+| **Follow-up** | Once a Vietnamese-language smoke suite is desired, add a second project to `playwright.config.js` with `use.locale = 'vi-VN'` — the i18n machinery already supports it. |
 
 ---
 
@@ -86,8 +84,8 @@
 | ID | Việc | File cần kiểm tra | Effort |
 |----|------|-------------------|--------|
 | DATA-012 | Counter model session-awareness | `server/models/Counter.js` | M |
-| SEC-014 | getUsers Zod schema drift | `server/schemas/`, `server/controllers/userController.js` | S |
-| SEC-016 | forgotPassword swallow DB failures | `server/controllers/authController.js` | S |
+| ~~SEC-014~~ | ✅ DONE in PR W — strict listUsersQuery schema with search/sortBy/sortOrder caps | `server/schemas/user.js` | S |
+| ~~SEC-016~~ | ✅ DONE in PR W — forgotPassword DB failures logged at error severity | `server/controllers/authController.js` | S |
 | FE-015 | Bắt đầu audit i18n (tìm hardcoded strings) | `client/src/pages/*.jsx`, `client/src/components/*.jsx` | S |
 | FE-016 | ParticipantDashboard greeting i18n | `client/src/pages/ParticipantDashboard.jsx` | S |
 | OPS-006 | Lên lịch backup restore drill | Operator, không cần code | — |

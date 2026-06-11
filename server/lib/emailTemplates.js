@@ -24,6 +24,14 @@ const fmtDate = (d) =>
     timeStyle: 'short',
   });
 
+const fmtDateOnly = (d) =>
+  new Date(d).toLocaleDateString('en-GB', {
+    timeZone: 'Asia/Ho_Chi_Minh',
+    dateStyle: 'full',
+  });
+
+const pluralDays = (n) => `${n} day${n === 1 ? '' : 's'}`;
+
 const safeSend = async (label, payload) => {
   if (!payload.to) return null;
   try {
@@ -134,6 +142,92 @@ const tplEnrollmentTransferred = ({
     `<p>TMS Training System</p>`,
 });
 
+const tplAssignmentDueSoon = ({
+  userName, assignmentTitle, targetName, dueDateStr, daysUntil,
+}) => ({
+  subject: `TMS — Assignment due soon: ${assignmentTitle}`,
+  text:
+    `Hi ${userName},\n\n` +
+    `Your assignment "${assignmentTitle}" for ${targetName} is due in ${pluralDays(daysUntil)}.\n\n` +
+    `Due date: ${dueDateStr}\n\n` +
+    `Please log into the TMS portal to complete it before the deadline.\n\n` +
+    `TMS Training System`,
+  html:
+    `<p>Hi <strong>${userName}</strong>,</p>` +
+    `<p>Your assignment <strong>${assignmentTitle}</strong> for <strong>${targetName}</strong> ` +
+    `is due in <strong>${pluralDays(daysUntil)}</strong>.</p>` +
+    `<p><strong>Due date:</strong> ${dueDateStr}</p>` +
+    `<p>Please log into the TMS portal to complete it before the deadline.</p>` +
+    `<p>TMS Training System</p>`,
+});
+
+const tplAssignmentOverdue = ({
+  userName, assignmentTitle, targetName, dueDateStr, daysOverdue,
+}) => ({
+  subject: `TMS — Assignment overdue: ${assignmentTitle}`,
+  text:
+    `Hi ${userName},\n\n` +
+    `Your assignment "${assignmentTitle}" for ${targetName} is overdue by ${pluralDays(daysOverdue)}.\n\n` +
+    `Due date: ${dueDateStr}\n\n` +
+    `Please log into the TMS portal and complete it as soon as possible.\n\n` +
+    `TMS Training System`,
+  html:
+    `<p>Hi <strong>${userName}</strong>,</p>` +
+    `<p>Your assignment <strong>${assignmentTitle}</strong> for <strong>${targetName}</strong> ` +
+    `is overdue by <strong>${pluralDays(daysOverdue)}</strong>.</p>` +
+    `<p><strong>Due date:</strong> ${dueDateStr}</p>` +
+    `<p>Please log into the TMS portal and complete it as soon as possible.</p>` +
+    `<p>TMS Training System</p>`,
+});
+
+const tplManagerAssignmentDigest = ({ managerName, rows }) => {
+  const lineItems = rows.map((row) =>
+    `- ${row.learnerName}${row.learnerEmpCode ? ` (${row.learnerEmpCode})` : ''}: ` +
+    `${row.assignmentTitle} / ${row.targetName} / due ${row.dueDateStr} / ` +
+    `${pluralDays(row.daysOverdue)} overdue`);
+  const htmlItems = rows.map((row) =>
+    `<li><strong>${row.learnerName}</strong>` +
+    (row.learnerEmpCode ? ` (${row.learnerEmpCode})` : '') +
+    `: ${row.assignmentTitle} / ${row.targetName} / due ${row.dueDateStr} / ` +
+    `${pluralDays(row.daysOverdue)} overdue</li>`);
+  return {
+    subject: `TMS — Overdue assignment digest (${rows.length})`,
+    text:
+      `Hi ${managerName},\n\n` +
+      `These direct reports have overdue TMS assignments:\n\n` +
+      `${lineItems.join('\n')}\n\n` +
+      `Please use the TMS portal to follow up.\n\n` +
+      `TMS Training System`,
+    html:
+      `<p>Hi <strong>${managerName}</strong>,</p>` +
+      `<p>These direct reports have overdue TMS assignments:</p>` +
+      `<ul>${htmlItems.join('')}</ul>` +
+      `<p>Please use the TMS portal to follow up.</p>` +
+      `<p>TMS Training System</p>`,
+  };
+};
+
+// Wave E3 phase-04 slice B — a freed seat auto-enrolled a waitlisted learner.
+const tplWaitlistPromoted = ({ userName, className, dateStr }) => ({
+  subject: `TMS — You're in: a seat opened up in ${className}`,
+  text:
+    `Hi ${userName},\n\n` +
+    `Good news — a seat opened up and you've been enrolled from the waitlist:\n\n` +
+    `Class: ${className}\n` +
+    `Date: ${dateStr}\n` +
+    `\nA calendar invite will follow. See you there!\n\n` +
+    `TMS Training System`,
+  html:
+    `<p>Hi <strong>${userName}</strong>,</p>` +
+    `<p>Good news — a seat opened up and you've been enrolled from the waitlist:</p>` +
+    `<ul>` +
+    `<li><strong>Class:</strong> ${className}</li>` +
+    `<li><strong>Date:</strong> ${dateStr}</li>` +
+    `</ul>` +
+    `<p>A calendar invite will follow. See you there!</p>` +
+    `<p>TMS Training System</p>`,
+});
+
 // ──────────────────────────────────────────────────────────
 // Public senders — fail-soft wrappers
 // ──────────────────────────────────────────────────────────
@@ -156,6 +250,12 @@ const sendScheduleReminder = ({ to, userName, className, startTime, roomLink }) 
     ...tplScheduleReminder({ userName, className, dateStr: fmtDate(startTime), roomLink }),
   });
 
+const sendWaitlistPromoted = ({ to, userName, className, startTime }) =>
+  safeSend('waitlist-promoted', {
+    to,
+    ...tplWaitlistPromoted({ userName, className, dateStr: fmtDate(startTime) }),
+  });
+
 const sendEnrollmentDropped = ({ to, userName, teamName, courseName }) =>
   safeSend('enrollment-dropped', {
     to,
@@ -170,6 +270,43 @@ const sendEnrollmentTransferred = ({
     ...tplEnrollmentTransferred({ userName, fromTeamName, toTeamName, toCourseName, note }),
   });
 
+const sendAssignmentDueSoon = ({
+  to, userName, assignmentTitle, targetName, dueDate, daysUntil,
+}) =>
+  safeSend('assignment-due-soon', {
+    to,
+    ...tplAssignmentDueSoon({
+      userName,
+      assignmentTitle,
+      targetName,
+      dueDateStr: fmtDateOnly(dueDate),
+      daysUntil,
+    }),
+  });
+
+const sendAssignmentOverdue = ({
+  to, userName, assignmentTitle, targetName, dueDate, daysOverdue,
+}) =>
+  safeSend('assignment-overdue', {
+    to,
+    ...tplAssignmentOverdue({
+      userName,
+      assignmentTitle,
+      targetName,
+      dueDateStr: fmtDateOnly(dueDate),
+      daysOverdue,
+    }),
+  });
+
+const sendManagerAssignmentDigest = ({ to, managerName, rows }) =>
+  safeSend('manager-assignment-digest', {
+    to,
+    ...tplManagerAssignmentDigest({
+      managerName,
+      rows: rows.map((row) => ({ ...row, dueDateStr: fmtDateOnly(row.dueDate) })),
+    }),
+  });
+
 module.exports = {
   // Public senders
   sendBookingConfirmation,
@@ -177,6 +314,10 @@ module.exports = {
   sendScheduleReminder,
   sendEnrollmentDropped,
   sendEnrollmentTransferred,
+  sendAssignmentDueSoon,
+  sendAssignmentOverdue,
+  sendManagerAssignmentDigest,
+  sendWaitlistPromoted,
   // Templates exported for unit testing
   _templates: {
     tplBookingConfirmation,
@@ -184,5 +325,9 @@ module.exports = {
     tplScheduleReminder,
     tplEnrollmentDropped,
     tplEnrollmentTransferred,
+    tplAssignmentDueSoon,
+    tplAssignmentOverdue,
+    tplManagerAssignmentDigest,
+    tplWaitlistPromoted,
   },
 };

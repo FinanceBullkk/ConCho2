@@ -68,45 +68,57 @@ const verifyToken = (secretBase32, token) => {
   });
 };
 
+// TOTP step (RFC 6238 default; speakeasy.totp uses 30 s and we keep the default).
+const TOTP_STEP_SECONDS = 30;
+
 /**
- * Verify a TOTP code with replay-attack protection (P1 fix).
+ * Verify a TOTP code with replay-attack protection.
  *
- * Uses verifyDelta() to get the window offset (`delta`) of the matched code.
- * Returns { valid: true, delta: <number> } on success, or { valid: false, delta: null }.
+ * SEC-018 (audit round 3): the previous version persisted/compared the RELATIVE
+ * `verifyDelta` offset (−1/0/+1). That offset is computed against the CURRENT
+ * step every call, so a legitimately-current code is ALWAYS delta `0` regardless
+ * of wall-clock time. With `lastUsedCounter=0` stored after the first login, the
+ * next current-window code (also delta 0) hit `0 <= 0` and was FALSELY rejected
+ * as a replay — i.e. TOTP login worked exactly once, then locked the user out.
  *
- * Replay protection:
- *   - `lastUsedCounter` is the `delta` persisted from the last successful login.
- *   - We reject any code whose delta ≤ lastUsedCounter — meaning the same
- *     30-second window (or an earlier one) was already accepted.
- *   - Each TOTP step has exactly one valid 6-digit code, so a code cannot be
- *     reused within the acceptance window once it has been consumed.
- *   - The caller MUST persist the returned `delta` to User.mfaLastUsedCounter
- *     on every successful verification.
+ * Fix: derive and compare the ABSOLUTE TOTP step counter
+ * (`floor(now/step) + delta`). Each step has exactly one valid code, so:
+ *   - a code from a step already consumed (counter ≤ lastUsedCounter) is a replay
+ *     → rejected;
+ *   - a code from a later step (counter > lastUsedCounter) is a fresh login
+ *     → accepted.
+ * The caller MUST persist the returned absolute `counter` to
+ * User.mfaLastUsedCounter on every successful verification.
  *
  * @param {string} secretBase32 - Base32-encoded TOTP secret
  * @param {string} token        - 6-digit code submitted by user
- * @param {number|null} lastUsedCounter - Most recently accepted delta (null if never used)
- * @returns {{ valid: boolean, delta: number|null }}
+ * @param {number|null} lastUsedCounter - Most recently accepted absolute step counter (null if never used)
+ * @param {number} [nowSeconds]  - Override "now" (seconds since epoch) for deterministic tests
+ * @returns {{ valid: boolean, counter: number|null }}
  */
-const verifyTokenWithReplay = (secretBase32, token, lastUsedCounter) => {
-  if (!secretBase32 || !token) return { valid: false, delta: null };
+const verifyTokenWithReplay = (secretBase32, token, lastUsedCounter, nowSeconds = Date.now() / 1000) => {
+  if (!secretBase32 || !token) return { valid: false, counter: null };
 
   const result = speakeasy.totp.verifyDelta({
     secret: secretBase32,
     encoding: 'base32',
     token: String(token).replace(/\s+/g, ''),
     window: 1,
+    time: nowSeconds,
   });
 
-  if (!result) return { valid: false, delta: null };
+  if (!result) return { valid: false, counter: null };
 
-  // Reject if this delta is not strictly newer than the last used one.
-  // lastUsedCounter === null means no code has been verified yet — allow any delta.
-  if (lastUsedCounter !== null && lastUsedCounter !== undefined && result.delta <= lastUsedCounter) {
-    return { valid: false, delta: null };
+  // Absolute step counter of the matched code (delta is relative to nowSeconds).
+  const counter = Math.floor(nowSeconds / TOTP_STEP_SECONDS) + result.delta;
+
+  // Reject any code from a step already consumed (or earlier).
+  // lastUsedCounter null/undefined means no code has been verified yet.
+  if (lastUsedCounter !== null && lastUsedCounter !== undefined && counter <= lastUsedCounter) {
+    return { valid: false, counter: null };
   }
 
-  return { valid: true, delta: result.delta };
+  return { valid: true, counter };
 };
 
 /**

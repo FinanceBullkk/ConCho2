@@ -1,7 +1,7 @@
 const { z } = require('zod');
 const { paginationQuery } = require('./common');
 
-const ROLES = ['Admin', 'Teacher', 'Participant'];
+const ROLES = ['Admin', 'Coordinator', 'Teacher', 'Participant'];
 const STATUSES = ['Active', 'Inactive', 'Dropped', 'Transferred', 'On-hold', 'Waiting for class'];
 
 // Field primitives — no defaults here so that using them in an
@@ -68,6 +68,9 @@ const listUsersQuery = paginationQuery.extend({
   role: z.preprocess((v) => (v === '' ? undefined : v), fields.role.optional()),
   status: z.preprocess((v) => (v === '' ? undefined : v), fields.status.optional()),
   department: z.string().trim().max(120).optional(),
+  search: z.string().trim().max(120).optional(),
+  sortBy: z.string().trim().max(40).optional(),
+  sortOrder: z.enum(['asc', 'desc']).optional(),
 });
 
 module.exports = { createUserBody, updateUserBody, listUsersQuery };

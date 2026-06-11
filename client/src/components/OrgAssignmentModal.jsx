@@ -1,0 +1,104 @@
+import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
+import {
+  Dialog, DialogContent, DialogHeader, DialogFooter, DialogTitle,
+} from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
+import { Spinner } from './Spinner';
+import { useDepartments, useOffices, useAssignUser } from '../hooks/useOrg';
+
+// ──────────────────────────────────────────────────────────
+// OrgAssignmentModal — set a user's manager + department + office
+// (Wave D3 + re-center Phase 1). Saves via the org domain endpoint
+// (PUT /api/org/users/:id/assignment), keeping org placement separate
+// from the legacy user identity form.
+//
+// Props:
+//   user        — target user { _id, name, managerId?, departmentId?, officeId? }
+//   candidates  — users available as managers (the loaded user list)
+//   onClose     — close handler
+// ──────────────────────────────────────────────────────────
+
+const SELECT_CLS =
+  'w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring';
+
+const idStr = (v) => (v && v._id ? v._id : v) || '';
+
+export default function OrgAssignmentModal({ user, candidates = [], onClose }) {
+  const { t } = useTranslation();
+  const { data: departments } = useDepartments();
+  const { data: offices } = useOffices();
+  const assign = useAssignUser();
+
+  const [managerId, setManagerId] = useState(idStr(user?.managerId));
+  const [departmentId, setDepartmentId] = useState(idStr(user?.departmentId));
+  const [officeId, setOfficeId] = useState(idStr(user?.officeId));
+
+  const save = () => {
+    assign.mutate(
+      {
+        id: user._id,
+        managerId: managerId || null,
+        departmentId: departmentId || null,
+        officeId: officeId || null,
+      },
+      { onSuccess: onClose },
+    );
+  };
+
+  const managerOptions = candidates.filter((c) => String(c._id) !== String(user?._id));
+
+  return (
+    <Dialog open onOpenChange={(o) => !o && onClose()}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>{t('org.assignment.title')}</DialogTitle>
+        </DialogHeader>
+
+        <div className="space-y-4 py-2">
+          <p className="text-sm text-muted-foreground">
+            {t('org.assignment.placement')} <span className="font-medium text-foreground">{user?.name}</span>.
+          </p>
+
+          <div>
+            <label htmlFor="org-manager" className="block text-small text-muted-foreground mb-1.5">{t('org.assignment.manager')}</label>
+            <select id="org-manager" className={SELECT_CLS} value={managerId} onChange={(e) => setManagerId(e.target.value)}>
+              <option value="">{t('org.assignment.noManager')}</option>
+              {managerOptions.map((c) => (
+                <option key={c._id} value={c._id}>{c.name} ({c.empCode})</option>
+              ))}
+            </select>
+            <p className="mt-1 text-xs text-subtle-foreground">{t('org.assignment.managerHint')}</p>
+          </div>
+
+          <div>
+            <label htmlFor="org-department" className="block text-small text-muted-foreground mb-1.5">{t('org.assignment.department')}</label>
+            <select id="org-department" className={SELECT_CLS} value={departmentId} onChange={(e) => setDepartmentId(e.target.value)}>
+              <option value="">{t('org.assignment.noDepartment')}</option>
+              {(departments || []).map((d) => (
+                <option key={d._id} value={d._id}>{d.name} ({d.code})</option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label htmlFor="org-office" className="block text-small text-muted-foreground mb-1.5">{t('org.assignment.office')}</label>
+            <select id="org-office" className={SELECT_CLS} value={officeId} onChange={(e) => setOfficeId(e.target.value)}>
+              <option value="">{t('org.assignment.noOffice')}</option>
+              {(offices || []).map((o) => (
+                <option key={o._id} value={o._id}>{o.name} ({o.code})</option>
+              ))}
+            </select>
+          </div>
+        </div>
+
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose} disabled={assign.isPending}>{t('org.assignment.cancel')}</Button>
+          <Button onClick={save} disabled={assign.isPending}>
+            {assign.isPending ? <Spinner size={16} /> : t('org.assignment.save')}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}

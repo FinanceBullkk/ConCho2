@@ -4,7 +4,17 @@
 **Scope:** desk research only (per Phase 5 Brief Q3 lock)
 **Output:** go/no-go + plan if go
 **Date:** May 2026
-**Status:** **DECIDED · Path A · VN canonical** (sign-off 2026-05-20) · ready cho Phase 6 implementation
+**Status:** **SUPERSEDED (2026-06-04).** This discovery recommended Path A
+(standardize to Vietnamese, single-locale, no i18n library). The product later
+went the **opposite** direction: it is now **English-only** — a single `en`
+locale via `i18next` + `t()`, `vi.json` deleted, language detector/toggle
+removed (see `docs/development-roadmap.md` Wave C1, 2026-06-04). Keep this file
+for decision history only; do **not** action its Vietnamese-canonical
+recommendation.
+
+---
+
+**Original status (historical):** DECIDED · Path A · VN canonical (sign-off 2026-05-20)
 
 > TMS đã có VN+EN copy trộn lẫn xuyên suốt 4 phase. Mỗi phase đều defer quyết định i18n sang chính nó "discovery cycle". Đây là cycle đó. Output: **recommendation only** · không code · kết thúc bằng Phase 6 ticket draft (hoặc lý do "no-migration").
 

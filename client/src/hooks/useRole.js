@@ -39,6 +39,9 @@ const PERMISSION_MAP = {
   'create:class':      ['Admin'],                  // POST   /api/classes
   'update:class':      ['Admin'],                  // PUT    /api/classes/:id
   'delete:class':      ['Admin'],                  // DELETE /api/classes/:id
+  // SEC-016 note: Coordinator intentionally omitted — they use the Learning
+  // module (cohorts) instead of the legacy Classes views; the server read is
+  // open to any authenticated role.
   'read:classes':      ['Admin', 'Teacher', 'Participant'], // GET /api/classes
 
   // Schedule management ─ server: server/routes/scheduleRoutes.js
@@ -64,9 +67,54 @@ const PERMISSION_MAP = {
   // Enrollment ─ server: server/routes/enrollmentRoutes.js (Admin-only)
   'manage:enrollment': ['Admin'],
 
+  // Learning platform ─ server: server/domains/learning/routes.js
+  // Writes are capability-gated (program.manage etc.); Coordinator holds the
+  // training-ops management bundle (policy/capabilities.js, re-center Phase 1).
+  'create:program':  ['Admin', 'Coordinator'],     // POST   /api/learning/programs
+  'update:program':  ['Admin', 'Coordinator'],     // PUT    /api/learning/programs/:id
+  'archive:program': ['Admin', 'Coordinator'],     // DELETE /api/learning/programs/:id
+  'create:cohort':   ['Admin', 'Coordinator'],     // POST   /api/learning/cohorts
+  // Learning paths (sequenced curricula) — server: path.manage / path.read.
+  'manage:path':     ['Admin', 'Coordinator'],     // POST/PUT/DELETE /api/learning/paths
+  'read:path':       ['Admin', 'Coordinator', 'Teacher', 'Participant'], // GET /api/learning/paths*
+  'read:learning':   ['Admin', 'Coordinator', 'Teacher', 'Participant'], // GET /api/learning/*
+  // Enrolling another learner needs enrollment.manage; learners self-enroll
+  // server-side (gated by program schedulingMode), not via this UI permission.
+  // Coordinator holds enrollment.manage SERVER-side, but the current enroll
+  // modal picks learners from /api/users (roleGuard Admin) — keep the UI
+  // Admin-only until re-center Phase 2 ships a coordinator-safe picker.
+  'enroll:learner':  ['Admin'],                    // POST/DELETE /api/learning/enrollments
+  // Cohort completion reports + xlsx export — server: report.read capability.
+  'read:reports':    ['Admin', 'Coordinator', 'Teacher'], // GET /api/learning/reports/*
+  'read:feedback':   ['Admin', 'Teacher'],         // GET /api/learning/feedback
+  'read:assignments': ['Admin', 'Coordinator', 'Teacher'], // GET /api/learning/assignments (assignment.read)
+  'manage:assignments': ['Admin', 'Coordinator'],   // POST/DELETE /api/learning/assignments (assignment.manage)
+  // Generic assessments — server: server/domains/assessment/routes.js
+  'manage:assessment': ['Admin', 'Teacher'],        // POST/DELETE /api/assessment/assessments*
+  'read:assessment':   ['Admin', 'Teacher', 'Participant'], // GET /api/assessment/assessments*
+
+  // Org model (Wave D3 + re-center Phase 1) ─ server: server/domains/org/routes.js
+  'read:department':   ['Admin', 'Coordinator', 'Teacher'], // GET /api/org/departments (department.read)
+  'manage:department': ['Admin'],                   // POST/PUT/DELETE /api/org/departments (department.manage)
+  'read:office':       ['Admin', 'Coordinator', 'Teacher'], // GET /api/org/offices (office.read)
+  'manage:office':     ['Admin', 'Coordinator'],    // POST/PUT/DELETE /api/org/offices (office.manage)
+  'assign:org':        ['Admin'],                   // PUT    /api/org/users/:id/assignment (org.manage)
+  // ── Rooms + Trainers (re-center Phase 3) ─ Admin + Coordinator only
+  // (scheduling tools, never learner-facing). Mirror server room.read /
+  // room.manage / session.assign-trainer.
+  'read:room':         ['Admin', 'Coordinator'],    // GET /api/rooms (room.read)
+  'manage:room':       ['Admin', 'Coordinator'],    // POST/PUT/DELETE /api/rooms (room.manage)
+  'assign:trainer':    ['Admin', 'Coordinator'],    // PUT /api/schedules/:id/trainers (session.assign-trainer)
+  'read:waitlist':     ['Admin', 'Coordinator', 'Teacher'], // GET /api/schedules/:id/waitlist (staff queue view)
+  'read:team':         ['Admin', 'Teacher', 'Participant'], // GET /api/org/my-team (team.read — self-scoped)
+
   // Bookings ─ server: server/routes/scheduleRoutes.js POST /book-slot
   // roleGuard('Admin','Participant') + leader check in scheduleService
   'book:class':        ['Admin', 'Participant'],
+  // Coordinator-scheduled offline session create (re-center Phase 2) ─
+  // server: POST /api/learning/sessions/book-slot (session.book) + scheduler
+  // gate (Admin|Coordinator) inside bookCohortSession.
+  'book:session':      ['Admin', 'Coordinator'],
 
   // Evaluations ─ server: server/routes/evaluationRoutes.js
   // Teacher write is now ALSO gated by Class.teacherIds policy (audit PR 5)
@@ -127,6 +175,7 @@ export function useRole() {
     canAny,
     canAll,
     isAdmin:       role === 'Admin',
+    isCoordinator: role === 'Coordinator',
     isTeacher:     role === 'Teacher',
     isParticipant: role === 'Participant',
   };

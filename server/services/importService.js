@@ -93,6 +93,23 @@ const importUsers = async (users) => {
 
   // ── Pre-load existing empCodes to skip bcrypt for updates ─
   const allEmpCodes = users.map(u => u.empCode.trim().toUpperCase());
+
+  // ── Trash guard (DATA-013, audit round 2) ────────────────
+  // The pre-load below is soft-delete-filtered, so a trashed empCode would
+  // classify as "new" — and the hook-bypassing bulkWrite upsert would then
+  // silently overwrite the trashed doc (isDeleted stays true, result counts
+  // lie). Refuse those rows loudly instead.
+  const trashedUsers = await User.find(
+    { empCode: { $in: allEmpCodes }, isDeleted: true },
+    { empCode: 1 }
+  ).lean();
+  if (trashedUsers.length > 0) {
+    const examples = trashedUsers.slice(0, 5).map(u => u.empCode).join(', ');
+    throw new ServiceError(
+      `${trashedUsers.length} empCode(s) belong to soft-deleted users (${examples}${trashedUsers.length > 5 ? ', …' : ''}). Restore them from the trash first, then re-import.`
+    );
+  }
+
   const existingUsers = await User.find(
     { empCode: { $in: allEmpCodes } },
     { empCode: 1 }
@@ -211,6 +228,24 @@ const importClasses = async (classes) => {
   if (missingCourseName.length > 0) {
     throw new ServiceError(
       `${missingCourseName.length} record(s) are missing the required "courseName" field`
+    );
+  }
+
+  // ── Trash guard (DATA-013, audit round 2) — same hole as importUsers:
+  // the bulkWrite upsert bypasses the soft-delete hook and would silently
+  // overwrite an archived cohort matching the same {classCode, courseName}.
+  const keyPairs = classes.map((c) => ({
+    classCode: c.classCode.trim().toUpperCase(),
+    courseName: String(c.courseName).trim(),
+  }));
+  const trashedClasses = await Class.find(
+    { isDeleted: true, $or: keyPairs },
+    { classCode: 1 }
+  ).lean();
+  if (trashedClasses.length > 0) {
+    const examples = trashedClasses.slice(0, 5).map(c => c.classCode).join(', ');
+    throw new ServiceError(
+      `${trashedClasses.length} class(es) match archived cohorts in the trash (${examples}${trashedClasses.length > 5 ? ', …' : ''}). Restore them first, then re-import.`
     );
   }
 

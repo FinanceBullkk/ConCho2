@@ -6,7 +6,7 @@
   "scripts": {
     "start": "node server.js",
     "dev": "node --watch server.js",
-    "seed": "node seed.js",
+    "seed": "node scripts/seed.js",
     "test": "jest --runInBand --forceExit --detectOpenHandles",
     "test:smoke": "npx artillery run tests/load/smoke-test.yml",
     "test:load": "npx artillery run tests/load/load-test.yml",
@@ -16,6 +16,7 @@
   "dependencies": {
     "@sentry/node": "^10.51.0",
     "bcryptjs": "^2.4.3",
+    "compression": "^1.8.1",
     "cookie-parser": "^1.4.7",
     "cors": "^2.8.5",
     "dayjs": "^1.11.20",
@@ -51,6 +52,8 @@
   "jest": {
     "testEnvironment": "node",
     "testTimeout": 30000,
+    "globalSetup": "<rootDir>/tests/global-setup.js",
+    "globalTeardown": "<rootDir>/tests/global-teardown.js",
     "testMatch": [
       "**/tests/**/*.test.js"
     ],

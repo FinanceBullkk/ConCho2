@@ -1,4 +1,5 @@
 const mongoose = require('mongoose');
+require('./LearningProgram');
 
 // ──────────────────────────────────────────────────────────
 // Class Model (v2 — Cohort / Matrix Architecture)
@@ -31,11 +32,22 @@ const classSchema = new mongoose.Schema(
         validator: async function(value) {
           const Setting = mongoose.model('Setting');
           const setting = await Setting.findOne({ key: 'COURSE_SESSIONS' });
-          if (!setting || !setting.value) return true; // fail open if no setting
-          return Object.keys(setting.value).includes(value);
+          if (!setting || !setting.value) return true; // fail open if no legacy catalog exists
+          if (setting?.value && Object.keys(setting.value).includes(value)) return true;
+          const LearningProgram = mongoose.model('LearningProgram');
+          const existing = await LearningProgram.exists({
+            name: value,
+            status: { $ne: 'archived' },
+          }).collation({ locale: 'en', strength: 2 });
+          return !!existing;
         },
         message: '{VALUE} is not a valid course name',
       },
+    },
+    programId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'LearningProgram',
+      default: null,
     },
     totalSessions: {
       type: Number,
@@ -67,15 +79,54 @@ const classSchema = new mongoose.Schema(
       type: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
       default: [],
     },
+
+    // ── Soft-delete fields (cohort trash/restore) ───────────
+    // Cohort delete is a soft-archive (recoverable), mirroring Team (UX-03) and
+    // honoring the "never hard-delete evaluation/enrollment data" golden rule.
+    isDeleted: {
+      type: Boolean,
+      default: false,
+    },
+    deletedAt: {
+      type: Date,
+      default: null,
+    },
   },
   {
     timestamps: true,
   }
 );
 
+// ── Soft-delete auto-filter ─────────────────────────────
+// Mirrors Team.js: every normal read/write excludes archived cohorts unless the
+// caller constrains `isDeleted` explicitly (so "show archived" / restore still
+// work). Existing docs predate the field — `{ $ne: true }` matches them, so
+// visibility is unchanged without a backfill.
+// 'distinct' added in audit round 2 (DATA-012) — query middleware, was bypassed.
+const SOFT_DELETE_HOOKS = ['find', 'findOne', 'countDocuments', 'findOneAndUpdate', 'findOneAndDelete', 'distinct'];
+for (const hook of SOFT_DELETE_HOOKS) {
+  classSchema.pre(hook, function () {
+    const filter = this.getFilter();
+    if (filter.isDeleted === undefined) {
+      this.where({ isDeleted: { $ne: true } });
+    }
+  });
+}
+
+classSchema.pre('aggregate', function () {
+  const pipeline = this.pipeline();
+  const hasExplicitFilter = pipeline.some(
+    (stage) => stage && stage.$match && stage.$match.isDeleted !== undefined,
+  );
+  if (!hasExplicitFilter) {
+    pipeline.unshift({ $match: { isDeleted: { $ne: true } } });
+  }
+});
+
 // ── Compound Unique Index ─────────────────────────────────
 // One classCode can only have ONE instance of each course.
 classSchema.index({ classCode: 1, courseName: 1 }, { unique: true });
+classSchema.index({ programId: 1, status: 1 });
 
 // DATA-002 (audit PR 6): at most ONE Ongoing class per classCode.
 // Previously two concurrent POST /api/classes with the same classCode

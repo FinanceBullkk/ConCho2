@@ -1,6 +1,7 @@
 const Setting = require('../models/Setting');
 const auditService = require('../services/auditService');
 const { handleError } = require('../helpers/handleError');
+const schedulingWindowPolicy = require('../domains/schedule/scheduling-window-policy');
 
 // GET /api/settings
 const getSettings = async (req, res) => {
@@ -32,6 +33,15 @@ const updateSettings = async (req, res) => {
     const rejectedKeys = settings
       .filter((item) => item.key && !ALLOWED_SETTING_KEYS.includes(item.key))
       .map((item) => item.key);
+
+    // Wave E1: validate scheduling config before persisting it. An empty array
+    // is allowed (disables booking, keeps history visible); malformed or
+    // overlapping windows are rejected (400) via the shared policy.
+    for (const item of validItems) {
+      if (item.key === 'ALLOWED_TIME_SLOTS') {
+        schedulingWindowPolicy.assertSlotsValidForWrite(item.value);
+      }
+    }
 
     // Audit PR L (SEC-013): capture the before-state so the audit row has
     // a real {before, after} diff per key, not just the new value.

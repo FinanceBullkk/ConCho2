@@ -1,0 +1,183 @@
+const Schedule = require('../../models/Schedule');
+const Attendance = require('../../models/Attendance');
+const Class = require('../../models/Class');
+const RoomBooking = require('../../models/RoomBooking');
+
+// ──────────────────────────────────────────────────────────
+// Reconcile — schedule-integrity checks (READ-ONLY)
+// ──────────────────────────────────────────────────────────
+//  1. missing_attendance     — past session with incomplete roll-call
+//  4. empty_future_schedule  — future schedule with 0 enrolled users
+//  7. orphan_schedule_class  — schedule references a deleted Class
+
+const LOOKBACK_DAYS = 90; // how far back to check past schedules (CHECK 1)
+
+/**
+ * CHECK 1 — Past schedules with incomplete attendance.
+ * Looks at sessions that ended in the last LOOKBACK_DAYS days.
+ * A session is flagged if the number of Attendance records is
+ * less than the number of enrolledUsers on the Schedule.
+ */
+async function checkMissingAttendance() {
+  const issues = [];
+  const now = new Date();
+  const lookback = new Date(now - LOOKBACK_DAYS * 24 * 60 * 60 * 1000);
+
+  // Fetch past LIVE schedules that had enrolled users. Durable-cancelled
+  // sessions never expect roll-call — without this filter every cancelled
+  // session would be flagged forever once its startTime passes.
+  const pastSchedules = await Schedule.find({
+    endTime: { $lt: now, $gte: lookback },
+    status: 'scheduled',
+    $expr: { $gt: [{ $size: '$enrolledUsers' }, 0] },
+  })
+    .select('_id classId bookedTeamId startTime endTime enrolledUsers')
+    .lean();
+
+  if (pastSchedules.length === 0) return issues;
+
+  // Batch-fetch attendance counts per schedule (one aggregate, no N+1)
+  const scheduleIds = pastSchedules.map((s) => s._id);
+  const attCounts = await Attendance.aggregate([
+    { $match: { scheduleId: { $in: scheduleIds } } },
+    { $group: { _id: '$scheduleId', count: { $sum: 1 } } },
+  ]);
+  const countMap = {};
+  attCounts.forEach((a) => { countMap[a._id.toString()] = a.count; });
+
+  for (const sched of pastSchedules) {
+    const expected = sched.enrolledUsers.length;
+    const actual = countMap[sched._id.toString()] || 0;
+    if (actual < expected) {
+      issues.push({
+        check: 'missing_attendance',
+        description: `Schedule on ${sched.startTime.toISOString().slice(0, 10)} has ${actual}/${expected} attendance records`,
+        refs: {
+          scheduleId: sched._id,
+          classId: sched.classId,
+          teamId: sched.bookedTeamId,
+        },
+        detail: { recorded: actual, expected, missingCount: expected - actual },
+      });
+    }
+  }
+  return issues;
+}
+
+/**
+ * CHECK 4 — Future schedules with zero enrolled users.
+ * These should have been auto-deleted when the last member
+ * was removed (via auto-release or team-sync).
+ * Their existence indicates the cleanup path failed silently.
+ */
+async function checkEmptyFutureSchedules() {
+  const issues = [];
+  const now = new Date();
+
+  // Cancelled sessions legitimately keep their roster snapshot (or may have
+  // been emptied) — only LIVE empties indicate a failed cleanup path.
+  const emptySchedules = await Schedule.find({
+    startTime: { $gt: now },
+    status: 'scheduled',
+    $expr: { $eq: [{ $size: '$enrolledUsers' }, 0] },
+  })
+    .select('_id classId bookedTeamId startTime')
+    .lean();
+
+  for (const sched of emptySchedules) {
+    issues.push({
+      check: 'empty_future_schedule',
+      description: `Future schedule on ${sched.startTime.toISOString().slice(0, 10)} has 0 enrolled users and should be deleted`,
+      refs: { scheduleId: sched._id, classId: sched.classId, teamId: sched.bookedTeamId },
+      detail: null,
+    });
+  }
+  return issues;
+}
+
+/**
+ * CHECK 7 — Schedule.classId references a Class that no longer exists.
+ * Hard-delete of a Class via the dedicated route would have cascaded;
+ * direct admin-DB ops or partial migrations can leave dangling refs.
+ */
+async function checkOrphanScheduleClass() {
+  const issues = [];
+
+  // Distinct classIds referenced by ANY schedule (past or future)
+  const referencedClassIds = await Schedule.distinct('classId');
+  if (referencedClassIds.length === 0) return issues;
+
+  // Class model auto-filters soft-deleted via pre('find'); we explicitly
+  // include them by overriding the filter so we only flag truly missing.
+  const existing = await Class.find(
+    { _id: { $in: referencedClassIds }, isDeleted: { $in: [true, false, null] } }
+  ).select('_id').lean();
+  const existingSet = new Set(existing.map((c) => String(c._id)));
+
+  const orphanIds = referencedClassIds.filter((id) => !existingSet.has(String(id)));
+  if (orphanIds.length === 0) return issues;
+
+  const orphanSchedules = await Schedule.find({ classId: { $in: orphanIds } })
+    .select('_id classId bookedTeamId startTime')
+    .lean();
+
+  for (const sched of orphanSchedules) {
+    issues.push({
+      check: 'orphan_schedule_class',
+      description: `Schedule ${sched._id} points to deleted Class ${sched.classId}`,
+      refs: { scheduleId: sched._id, classId: sched.classId, teamId: sched.bookedTeamId },
+      detail: { startTime: sched.startTime },
+    });
+  }
+  return issues;
+}
+
+/**
+ * CHECK 11 — RoomBooking ledger rows whose Schedule no longer exists
+ * (re-center Phase 3). Every Schedule-removal path releases its ledger row in
+ * the same transaction, so an orphan should be impossible via the app — but a
+ * direct admin-DB delete (or a future bug) could leave a row that permanently
+ * bricks a room slot (the unique {roomId,startTime} key stays occupied). This
+ * read-only check surfaces them for cleanup; it never mutates (parity with the
+ * orphan_schedule_class check).
+ */
+async function checkOrphanRoomBookings() {
+  const issues = [];
+
+  const referencedScheduleIds = await RoomBooking.distinct('scheduleId');
+  if (referencedScheduleIds.length === 0) return issues;
+
+  // A ledger row is an orphan when its Schedule is GONE (admin-DB delete) or
+  // durably CANCELLED (phase-04 slice A: cancel releases the row in-tx, so a
+  // surviving row for a cancelled session means the release path was bypassed
+  // — either way the room slot is bricked).
+  const existing = await Schedule.find({ _id: { $in: referencedScheduleIds } })
+    .select('_id status').lean();
+  const liveSet = new Set(
+    existing.filter((s) => s.status !== 'cancelled').map((s) => String(s._id)),
+  );
+
+  const orphanScheduleIds = referencedScheduleIds.filter((id) => !liveSet.has(String(id)));
+  if (orphanScheduleIds.length === 0) return issues;
+
+  const orphanRows = await RoomBooking.find({ scheduleId: { $in: orphanScheduleIds } })
+    .select('_id roomId scheduleId startTime').lean();
+
+  for (const row of orphanRows) {
+    issues.push({
+      check: 'orphan_room_booking',
+      description: `RoomBooking ${row._id} locks room ${row.roomId} for a deleted or cancelled session — slot is bricked`,
+      refs: { scheduleId: row.scheduleId, roomId: row.roomId },
+      detail: { startTime: row.startTime },
+    });
+  }
+  return issues;
+}
+
+module.exports = {
+  LOOKBACK_DAYS,
+  checkMissingAttendance,
+  checkEmptyFutureSchedules,
+  checkOrphanScheduleClass,
+  checkOrphanRoomBookings,
+};

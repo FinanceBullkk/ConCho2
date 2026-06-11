@@ -199,6 +199,7 @@ These are known but accepted for the first pilot:
 - Soft-delete only on User/Team (Schedule/Class/Enrollment hard-delete remains — fixed for Class in Phase 1.3 + cancelSlot guard).
 - ~80% i18n migration; remaining pages migrate continuously.
 - No PDF certificate (Phase 4).
+- 5 moderate `uuid` advisories via `exceljs`/`googleapis` (SEC-019) — below `--audit-level=high` CI gate, not exploitable (no `buf` arg passed). Fix deferred: needs breaking `exceljs` major bump or a `uuid` override + export smoke-test.
 
 ### H.3 Staging validation plan
 

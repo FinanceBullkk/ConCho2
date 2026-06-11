@@ -12,6 +12,7 @@ const helmet = require('helmet');
 const cookieParser = require('cookie-parser');
 const mongoSanitize = require('express-mongo-sanitize');
 const pinoHttp = require('pino-http');
+const compression = require('compression');
 
 const connectDB = require('./config/db');
 const logger = require('./lib/logger');
@@ -186,6 +187,13 @@ app.use(
 );
 
 // ── Core middleware ───────────────────────────────────────
+// PERF-010: Gzip/Brotli compression for all responses >1 KB.
+// Skips compression for tiny responses (overhead not worth it) and
+// for requests that already carry a Content-Encoding (edge proxies).
+app.use(compression({
+  threshold: 1024,
+  level: 6, // balanced speed/ratio
+}));
 app.use(cookieParser());                          // Parse HttpOnly cookies
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
@@ -231,10 +239,14 @@ app.get('/api/auth/csrf', getCsrfToken);
 
 app.use('/api/auth', require('./routes/authRoutes'));
 app.use('/api/users', require('./routes/userRoutes'));
-app.use('/api/teams', require('./routes/teamRoutes'));
+app.use('/api/teams', require('./domains/groups/routes'));
 app.use('/api/classes', require('./routes/classRoutes'));
-app.use('/api/schedules', require('./routes/scheduleRoutes'));
-app.use('/api/attendance', require('./routes/attendanceRoutes'));
+app.use('/api/learning', require('./domains/learning/routes'));
+app.use('/api/org', require('./domains/org/routes'));
+app.use('/api/rooms', require('./domains/room/routes'));
+app.use('/api/assessment', require('./domains/assessment/routes'));
+app.use('/api/schedules', require('./domains/schedule/routes'));
+app.use('/api/attendance', require('./domains/attendance/routes'));
 app.use('/api/evaluations', require('./routes/evaluationRoutes'));
 app.use('/api/enrollments', require('./routes/enrollmentRoutes'));
 app.use('/api/sync', require('./routes/syncRoutes'));
@@ -245,6 +257,7 @@ app.use('/api/dashboard', require('./routes/dashboardRoutes'));
 app.use('/api/admin-db', require('./routes/adminDbRoutes'));
 app.use('/api/admin/audit', require('./routes/auditRoutes'));
 app.use('/api/admin/reconcile', require('./routes/reconcileRoutes'));
+app.use('/api/admin/cron', require('./routes/cronHealthRoutes'));
 app.use('/api/cron', require('./routes/cronRoutes'));
 app.use('/api/search', require('./routes/searchRoutes'));
 
@@ -290,6 +303,15 @@ app.use((err, req, res, _next) => {
     return res.status(400).json({
       success: false,
       message: `Duplicate value for '${field}': ${err.keyValue[field]}`,
+    });
+  }
+
+  // Mongoose CastError — malformed ObjectId is a client error, not a 500
+  // (SEC-014; mirrors helpers/handleError so both error paths agree).
+  if (err.name === 'CastError') {
+    return res.status(400).json({
+      success: false,
+      message: `Invalid value for '${err.path || 'id'}'`,
     });
   }
 

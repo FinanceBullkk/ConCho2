@@ -88,7 +88,7 @@ describe('POST /api/attendance/:scheduleId (bulk mark)', () => {
       });
 
     expect(res.status).toBe(400);
-    expect(res.body.message).toMatch(/chưa|future/i);
+    expect(res.body.message).toMatch(/future/i);
 
     await Schedule.findByIdAndDelete(futureSchedule._id);
   });
@@ -166,5 +166,23 @@ describe('GET /api/attendance/analytics/*', () => {
       expect(res.body.data[0]).toHaveProperty('stats');
       expect(res.body.data[0]).toHaveProperty('memberCount');
     }
+  });
+});
+
+// ── SEC-014 (audit 2026-06-11): malformed :id → 400, never a CastError 500 ──
+
+describe('SEC-014 — malformed ObjectId params answer 400', () => {
+  test('GET /api/attendance/schedule/:scheduleId with garbage id → 400', async () => {
+    const res = await request(app)
+      .get('/api/attendance/schedule/not-an-object-id')
+      .set('Authorization', `Bearer ${tokens.admin}`);
+    expect(res.status).toBe(400);
+  });
+
+  test('GET /api/attendance/user/:userId with garbage id → 400', async () => {
+    const res = await request(app)
+      .get('/api/attendance/user/not-an-object-id')
+      .set('Authorization', `Bearer ${tokens.admin}`);
+    expect(res.status).toBe(400);
   });
 });

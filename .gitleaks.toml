@@ -33,6 +33,16 @@ paths = [
   '''server/tests/.*''',
   '''client/src/.*__tests__.*''',
   '''client/e2e/.*''',
+  # QB-010: one-off legacy bulk-import scripts (May 2026) hardcoded a default
+  # seed password (not a live API credential) to set imported users' initial
+  # password. Flagged as generic-api-key by the default ruleset. The current
+  # working tree is clean; these path entries keep full-history scans quiet
+  # too. 3 of the 5 originals were since deleted but persist in git history.
+  '''server/import_students\.js$''',
+  '''server/import_via_api\.js$''',
+  '''server/scripts/legacy/import_via_api\.js$''',
+  '''server/scripts/reimport_from_excel\.js$''',
+  '''server/scripts/reimport_from_raw\.js$''',
 ]
 
 regexes = [
