@@ -258,6 +258,26 @@ Bug fixing and integration review rank above net-new feature rollout.
 
 ## Recent progress (changelog)
 
+- **2026-06-11** — **Audit Phase 4 (Performance & scale) round complete — 1 P2
+  fixed.** Static hot-path analysis (index↔query, N+1, populate, pagination,
+  aggregations, runtime, bundle). Verified well-built: schedule/user/enrollment
+  indexes cover the hot filters; dashboard runs 14 aggregations in one parallel
+  batch composed in-process (no N+1); reconcile + user-list batch their queries;
+  pool 20 (PERF-009 resolved); cron off the request loop; route-lazy bundle.
+  **PERF-014 (P2) fixed:** the learning-session READ paths
+  (`domains/learning/session/repository.js` `findSessions`/`findSessionById`)
+  invalidated the session-order cache on every read — guaranteeing a cache miss
+  + an extra `Schedule.find({classId:$in,status})` per list/detail, and wiping
+  entries other paths warmed. Removed the read-path invalidation (all WRITE
+  paths already invalidate), so reads read-through and recompute only on a miss.
+  +2 regression tests (`auditPerfRound4.test.js`) + a test-infra cache flush.
+  **PERF-015** (unpaginated programs/cohorts/classes lists) + **PERF-016**
+  (session-list populates full enrolledUsers, only the count is needed) →
+  backlog. **DATA-017?** (dashboard `User.aggregate` skips `isDeleted` → trashed
+  participants counted in stats) → flagged for a DATA round. Dynamic load
+  baselines (artillery, 10× explain) deferred: shared-Atlas load-test is
+  unsafe/unrepresentative. Server suites 851/851. Report:
+  `plans/reports/audit-perf-260611-1637-findings.md`.
 - **2026-06-11** — **SEC-018 (P1) fixed — MFA TOTP one-time-login lockout.**
   The MFA replay guard persisted/compared the *relative* `speakeasy.verifyDelta`
   offset (always `0` for a current code), so after the first login stored

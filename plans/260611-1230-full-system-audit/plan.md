@@ -40,7 +40,7 @@ triaged findings → fix PRs, not a paper exercise.
 | 1 | Security & AuthZ (+PII) | phase-01-security-and-authz.md | highest | L | ✅ 2026-06-11 |
 | 2 | Data integrity & audit trail | phase-02-data-integrity-and-audit-trail.md | highest | L | ✅ 2026-06-11 |
 | 3 | Business flows & UX wiring | phase-03-business-flows-and-ux.md | high | M | ✅ 2026-06-11 |
-| 4 | Performance & scale | phase-04-performance-and-scale.md | med | M | ⬜ |
+| 4 | Performance & scale | phase-04-performance-and-scale.md | med | M | ✅ 2026-06-11 |
 | 5 | Reliability & operations | phase-05-reliability-and-operations.md | med | M | ⬜ |
 | 6 | Tests & CI health | phase-06-tests-and-ci.md | med | S | ⬜ |
 | 7 | Code architecture & debt | phase-07-code-architecture-and-debt.md | low | M | ⬜ |
@@ -64,6 +64,9 @@ Phases 1–2 first (they guard the product's core promise: compliance/audit).
 | DATA-016 | P3 | 02 | No reconcile check for stale `waiting` waitlist rows on past sessions — add check #12 (flag or auto-expire) | Owner 2026-06-11: backlog |
 | UX-08 | P2 | 03 | `LearningField` (+ feedback/eval selects) labels not associated with inputs — unlabeled controls for screen readers across Learning CRUD + feedback modals (WCAG 1.3.1/4.1.2). Fix: `useId()` + `htmlFor`/`cloneElement` in `LearningField` | Owner 2026-06-11: backlog |
 | UX-09 | P3 | 03 | Home dashboard error boundary ("Something went wrong") renders behind the forced-password modal on first login (dashboard queries 403 on the mustChangePassword gate). Fix: gate dashboard `enabled:` on `!mustChangePassword`, or route the 403 to the change-pw flow | Owner 2026-06-11: backlog |
+| PERF-015 | P3 | 04 | `findPrograms`/`findCohorts`/`getClasses` return ALL rows (no skip/limit) — cohorts grow ~1/delivery. Fix: add `paginationQuery` + skip/limit to these lists + client hooks, or a hard cap | Owner 2026-06-11: backlog |
+| PERF-016 | P3 | 04 | `populateSessionQuery` hydrates full `enrolledUsers` on the session LIST path (list rows only need the count). Fix: trim list populate to a count/`_id`, keep full populate on `findSessionById` | Owner 2026-06-11: backlog |
+| DATA-017? | P2 | 04→data | Dashboard `User.aggregate` calls don't `$match isDeleted` (aggregate bypasses soft-delete hooks) → trashed participants counted in stats. Data-accuracy, not perf — triage in a DATA round | Found 2026-06-11 (PERF round); needs-triage |
 
 _(SEC-018 was triaged here then **FIXED** in a separate security PR #54 — see Round log; no longer carried.)_
 
@@ -75,3 +78,4 @@ _(SEC-018 was triaged here then **FIXED** in a separate security PR #54 — see 
 | 2026-06-11 | 02 Data integrity & audit trail | `plans/reports/audit-data-260611-1321-findings.md` | 0/1/2/2 — DATA-014 fixed (Evaluation soft-delete + revive-on-upsert + hooks incl. aggregate); DATA-012 fixed (distinct hook ×6 models); DATA-013 fixed (import trash guards users+classes); DATA-015 dead fns removed; DATA-016 → backlog. Audit-trail layer verified clean (55 record sites, enum complete, tx coverage, reconcile map) | fix/audit-data-round-2 (PR #52, merged) |
 | 2026-06-11 | 03 Business flows & UX | `plans/reports/audit-flows-260611-1357-findings.md` | 1/3/2 (+1 incidental SEC) — FLOW-001 fixed (teacher eval grading: new scoped `/api/evaluations/roster`, picker rewired); BUG-003 fixed (lean-virtuals no-op → enrolledCount + completion averageScore); BUG-004 fixed (booking "0 students" → members.length); UX-08/UX-09 → backlog; SEC-018 → fixed separately (PR #54). 11 new tests; all gates green. Auth/booking/learner/feedback loops verified clean live | fix/audit-flows-round-3 (PR #53, merged) |
 | 2026-06-11 | 03→sec (incidental) | `plans/reports/audit-sec-260611-1430-mfa-replay-findings.md` | 0/1/0/0 — **SEC-018 fixed**: MFA replay guard compared the relative `verifyDelta` (always 0 for a current code) → TOTP login worked once then false-replay lockout (P0 if `MFA_REQUIRED_ROLES` set). Now compares/persists the ABSOLUTE TOTP step counter. +6 unit tests (incl. next-step regression); auth/MFA/password suites 53/53 | fix/audit-sec-round-3-mfa-replay (PR #54, merged) |
+| 2026-06-11 | 04 Performance & scale | `plans/reports/audit-perf-260611-1637-findings.md` | 0/0/1/2 — **PERF-014 fixed**: session-order cache was invalidated on every READ (`learning/session/repository.js`) → guaranteed miss + extra `Schedule.find` per list/detail + cross-path thrash; removed read-path invalidation (writers already invalidate). +2 regression tests (cache survives a read) + test-infra cache flush. PERF-015/016 → backlog; DATA-017? (dashboard aggregate skips isDeleted) → needs-triage. Hot paths verified well-built (batched aggregations, real indexes, pool 20, no N+1). Dynamic load baselines deferred (shared-Atlas load-test unsafe). | perf/audit-phase-4 |
