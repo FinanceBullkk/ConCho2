@@ -191,6 +191,9 @@ export const attendanceAPI = {
 export const evaluationsAPI = {
   upsert: (data) => api.post('/evaluations', data),
   getAll: (params) => api.get('/evaluations', { params }),
+  // FLOW-001: class-scoped learner roster for the Add-evaluation picker
+  // (Teacher-callable, unlike the Admin-only /users search).
+  getRoster: (classId) => api.get('/evaluations/roster', { params: { classId } }),
   getById: (id) => api.get(`/evaluations/${id}`),
   delete: (id) => api.delete(`/evaluations/${id}`),
 };

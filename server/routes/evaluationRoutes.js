@@ -1,9 +1,9 @@
 const router = require('express').Router();
-const { upsertEvaluation, getEvaluations, getEvaluationById, deleteEvaluation } = require('../controllers/evaluationController');
+const { upsertEvaluation, getEvaluations, getEvaluationRoster, getEvaluationById, deleteEvaluation } = require('../controllers/evaluationController');
 const { protect } = require('../middleware/auth');
 const { roleGuard } = require('../middleware/roleGuard');
 const { validate } = require('../middleware/validate');
-const { upsertEvaluationBody } = require('../schemas/evaluation');
+const { upsertEvaluationBody, rosterQuery } = require('../schemas/evaluation');
 const { idParam } = require('../schemas/common');
 
 // Create/update: Teacher or Admin (validated)
@@ -18,6 +18,10 @@ router.get('/', protect, (req, _res, next) => {
   }
   next();
 }, getEvaluations);
+// FLOW-001: class-scoped learner roster for the Add-evaluation picker.
+// MUST be declared before '/:id' or "roster" is parsed as an :id (CastError).
+router.get('/roster', protect, roleGuard('Admin', 'Teacher'), validate({ query: rosterQuery }), getEvaluationRoster);
+
 // SEC-014: validate :id so a malformed ObjectId is a 400, never a CastError 500.
 router.get('/:id', protect, roleGuard('Admin', 'Teacher'), validate({ params: idParam }), getEvaluationById);
 

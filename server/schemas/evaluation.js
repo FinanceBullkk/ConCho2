@@ -18,4 +18,11 @@ const upsertEvaluationBody = z.object({
   teacherComment: z.string().trim().max(2000).optional(),
 });
 
-module.exports = { upsertEvaluationBody };
+// FLOW-001 (audit round 3): the Add-evaluation learner picker needs a
+// class-scoped roster a Teacher can call (the org-wide /api/users search is
+// Admin-only). classId is required so the roster is always scoped + auditable.
+const rosterQuery = z.object({
+  classId: objectId,
+});
+
+module.exports = { upsertEvaluationBody, rosterQuery };
