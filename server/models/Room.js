@@ -42,7 +42,8 @@ const roomSchema = new mongoose.Schema(
 );
 
 // Auto-exclude soft-deleted rooms unless the caller asks explicitly.
-const SOFT_DELETE_HOOKS = ['find', 'findOne', 'countDocuments', 'findOneAndUpdate'];
+// 'distinct' added in audit round 2 (DATA-012) — query middleware, was bypassed.
+const SOFT_DELETE_HOOKS = ['find', 'findOne', 'countDocuments', 'findOneAndUpdate', 'distinct'];
 for (const hook of SOFT_DELETE_HOOKS) {
   roomSchema.pre(hook, function () {
     const filter = this.getFilter();
