@@ -2,12 +2,16 @@ const mongoose = require('mongoose');
 const calendarService = require('../../services/calendarService');
 const { ServiceError } = require('../../helpers/ServiceError');
 const Schedule = require('../../models/Schedule');
+const User = require('../../models/User');
+const { sendClassCancellation } = require('../../lib/emailTemplates');
 const { invalidateSessionOrderCache } = require('./session-order');
 const schedulingWindowPolicy = require('./scheduling-window-policy');
 const repository = require('./repository');
 const bookingPolicy = require('./session-booking-policy');
 const schedulingModePolicy = require('./scheduling-mode-policy');
 const roomLockPolicy = require('./room-lock-policy');
+const { releaseScheduleResources } = require('./release-resources');
+const waitlistPromotion = require('./waitlist/promotion');
 const scheduleService = require('../../services/scheduleService');
 
 // ── Shared helpers ────────────────────────────────────────
@@ -43,6 +47,7 @@ const updateSchedule = async (id, body) => {
 
   const session = await mongoose.startSession();
   let schedule;
+  let capacityPromotions = [];
 
   try {
     await session.withTransaction(async () => {
@@ -172,6 +177,15 @@ const updateSchedule = async (id, body) => {
         throw new ServiceError('Schedule not found', 404);
       }
 
+      // ── Capacity-raise promotion (phase-04 slice B, M3) ──
+      // A capacity edit can free seats — seat FIFO waiters INSIDE this tx so
+      // the freed seat and the promotion are atomic (never post-commit).
+      // promoteIfSeatFree no-ops when nothing is free, so a lower/equal
+      // capacity edit costs one indexed read.
+      if (body.capacity !== undefined) {
+        capacityPromotions = await waitlistPromotion.promoteIfSeatFree(id, session);
+      }
+
       // ── Room reassignment (Phase 3, DELTA A) ────────────
       // The ledger key is (roomId, startTime). Fire release+reacquire whenever
       // the final room is present AND the key would change (room/start/class),
@@ -256,6 +270,10 @@ const updateSchedule = async (id, body) => {
     }
   }
 
+  // Post-commit: notify any waiters promoted by a capacity raise (fail-soft
+  // email + idempotent NotificationLog + one calendar refresh).
+  await waitlistPromotion.notifyPromotions(id, capacityPromotions);
+
   // Invalidate session-order cache for old and new classId
   const oldClassId = existing.classId?.toString();
   const newClassId = schedule.classId?.toString();
@@ -273,7 +291,7 @@ const updateSchedule = async (id, body) => {
 // rows are KEPT, the room-lock ledger row is released (+ roomId nulled, B3),
 // and the freed slot re-books (partial-unique index skips cancelled rows).
 
-const deleteSchedule = async (id, { cancelledBy = null, cancelReason = '' } = {}) => {
+const deleteSchedule = async (id, { cancelledBy = null, cancelledByName = 'Admin', cancelReason = '' } = {}) => {
   const schedule = await repository.findScheduleByIdRaw(id);
   if (!schedule) throw new ServiceError('Schedule not found', 404);
 
@@ -290,11 +308,13 @@ const deleteSchedule = async (id, { cancelledBy = null, cancelReason = '' } = {}
 
   const googleEventId = schedule.googleEventId;
   const session = await mongoose.startSession();
+  let waiterUserIds = [];
 
   try {
     await session.withTransaction(async () => {
-      // Free the room slot (drop the ledger row) in the same tx as the flip.
-      await roomLockPolicy.releaseRoomLock([schedule._id], session);
+      // Same-tx resource release: room ledger row dropped + live waitlist
+      // entries dissolved to 'cancelled' (slice B).
+      ({ waiterUserIds } = await releaseScheduleResources([schedule._id], session));
       const flipped = await repository.cancelScheduleById(
         schedule._id, { cancelledBy, cancelReason }, session,
       );
@@ -313,6 +333,28 @@ const deleteSchedule = async (id, { cancelledBy = null, cancelReason = '' } = {}
   let calendarDeleted = false;
   if (googleEventId) {
     calendarDeleted = await calendarService.deleteEventForSchedule(googleEventId);
+  }
+
+  // Dissolved waiters are emailed post-commit (owner decision 2026-06-11) —
+  // fail-soft, same cancellation template as enrolled learners.
+  if (waiterUserIds.length > 0) {
+    const cls = await Schedule.findById(schedule._id)
+      .populate('classId', 'classCode courseName').select('classId').lean();
+    const className = cls?.classId
+      ? `${cls.classId.classCode} — ${cls.classId.courseName}`
+      : 'your class';
+    const waiters = await User.find({ _id: { $in: waiterUserIds } })
+      .select('name email').lean();
+    for (const w of waiters) {
+      if (!w.email) continue;
+      sendClassCancellation({
+        to: w.email,
+        userName: w.name,
+        className,
+        startTime: schedule.startTime,
+        cancelledBy: cancelledByName,
+      });
+    }
   }
 
   return { schedule, calendarDeleted, googleEventId };

@@ -121,7 +121,7 @@ const syncSchedulesForTeamUpdate = async ({ teamId, oldMembers, newMembers, sess
   const addedSet = new Set(newMembers.filter((id) => !oldMembers.includes(id)));
 
   // Nothing changed — skip
-  if (removedSet.size === 0 && addedSet.size === 0) return;
+  if (removedSet.size === 0 && addedSet.size === 0) return { promotions: [] };
 
   logger.info(
     { teamId: String(teamId), removed: removedSet.size, added: addedSet.size },
@@ -144,7 +144,7 @@ const syncSchedulesForTeamUpdate = async ({ teamId, oldMembers, newMembers, sess
 
   if (futureSchedules.length === 0) {
     logger.info({ teamId: String(teamId) }, 'Team Sync: no future schedules');
-    return;
+    return { promotions: [] };
   }
 
   logger.debug({ teamId: String(teamId), count: futureSchedules.length }, 'Team Sync: processing future schedules');
@@ -164,7 +164,7 @@ const syncSchedulesForTeamUpdate = async ({ teamId, oldMembers, newMembers, sess
 
   // ── Build all operations in-memory (0 DB calls) ────────
   const bulkOps = [];
-  const emptyScheduleIds = []; // Schedules that will have 0 enrolled users
+  const freedScheduleIds = []; // Schedules whose roster shrank (waitlist may promote)
 
   for (const schedule of futureSchedules) {
     const enrolledSet = new Set(schedule.enrolledUsers.map((id) => id.toString()));
@@ -175,14 +175,11 @@ const syncSchedulesForTeamUpdate = async ({ teamId, oldMembers, newMembers, sess
 
     if (toRemove.length === 0 && toAdd.length === 0) continue;
 
-    // Calculate new enrolled count to check for auto-release
+    // Calculate the new enrolled count for the capacity guard below.
+    // A would-be-empty schedule is NOT short-circuited here anymore
+    // (slice B): its pull op still runs, the promotion pass may rescue it
+    // with a waiter, and only the STILL-empty ones are swept afterwards.
     const newCount = enrolledSet.size - toRemove.length + toAdd.length;
-
-    if (newCount <= 0) {
-      // Schedule will be empty — mark for deletion instead of update
-      emptyScheduleIds.push(schedule._id);
-      continue;
-    }
 
     // Wave E2 / D5: reject a team-member ADD that would push this session's
     // roster above its effective cap (keeps enrolledCount <= capacity true on
@@ -211,6 +208,7 @@ const syncSchedulesForTeamUpdate = async ({ teamId, oldMembers, newMembers, sess
           update: { $push: { enrolledUsers: { $each: addIds } } },
         },
       });
+      freedScheduleIds.push(schedule._id);
     } else if (toRemove.length > 0) {
       const removeIds = toRemove.map((id) => new mongoose.Types.ObjectId(id));
       bulkOps.push({
@@ -219,6 +217,7 @@ const syncSchedulesForTeamUpdate = async ({ teamId, oldMembers, newMembers, sess
           update: { $pull: { enrolledUsers: { $in: removeIds } } },
         },
       });
+      freedScheduleIds.push(schedule._id);
     } else {
       const addIds = toAdd.map((id) => new mongoose.Types.ObjectId(id));
       bulkOps.push({
@@ -236,17 +235,42 @@ const syncSchedulesForTeamUpdate = async ({ teamId, oldMembers, newMembers, sess
     logger.info({ teamId: String(teamId), ops: bulkOps.length }, 'Team Sync: bulkWrite executed');
   }
 
-  if (emptyScheduleIds.length > 0) {
-    // Phase 3: free the room-lock ledger rows for the schedules we are about to
-    // delete (same tx) so a synced-away session never bricks a room slot.
-    await mongoose.model('RoomBooking').deleteMany(
-      { scheduleId: { $in: emptyScheduleIds } }, { session },
-    );
-    await Schedule.deleteMany({ _id: { $in: emptyScheduleIds } }, { session });
-    logger.info({ teamId: String(teamId), deleted: emptyScheduleIds.length }, 'Team Sync: empty schedules deleted');
+  // Seat-freer (phase-04 slice B): a member removal freed seats — seat FIFO
+  // waiters INSIDE this tx, BEFORE the empty sweep, so a waiting teammate can
+  // rescue a session that just lost its last enrolled member. Promotions are
+  // returned so the CALLER can notify post-commit (this helper never owns the
+  // transaction). Lazy require at call time, same as the policy modules above.
+  const promotions = [];
+  if (freedScheduleIds.length > 0) {
+    const { promoteIfSeatFree } = require('../domains/schedule/waitlist/promotion');
+    for (const scheduleId of freedScheduleIds) {
+      // eslint-disable-next-line no-await-in-loop -- few schedules per team
+      const promoted = await promoteIfSeatFree(scheduleId, session);
+      if (promoted.length > 0) promotions.push({ scheduleId, promoted });
+    }
+  }
+
+  // Sweep the schedules that are STILL empty after the promotion pass:
+  // release their room-lock ledger rows AND dissolve any waitlist rows in the
+  // same tx (a synced-away session must never brick a room or strand a
+  // waiter), then hard-delete the empty placeholder (pre-slice-A behaviour,
+  // owner Q4: empties are cleanup, not history).
+  if (freedScheduleIds.length > 0) {
+    const stillEmptyIds = await Schedule.find(
+      { _id: { $in: freedScheduleIds }, enrolledUsers: { $size: 0 } },
+      { _id: 1 },
+      { session },
+    ).distinct('_id');
+    if (stillEmptyIds.length > 0) {
+      const { releaseScheduleResources } = require('../domains/schedule/release-resources');
+      await releaseScheduleResources(stillEmptyIds, session);
+      await Schedule.deleteMany({ _id: { $in: stillEmptyIds } }, { session });
+      logger.info({ teamId: String(teamId), deleted: stillEmptyIds.length }, 'Team Sync: empty schedules deleted');
+    }
   }
 
   logger.info({ teamId: String(teamId) }, 'Team Sync complete');
+  return { promotions };
 };
 
 const Team = mongoose.model('Team', teamSchema);

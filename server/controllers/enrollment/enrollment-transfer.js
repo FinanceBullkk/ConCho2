@@ -2,6 +2,7 @@ const mongoose = require('mongoose');
 const Enrollment = require('../../models/Enrollment');
 const Team = require('../../models/Team');
 const { syncSchedulesForTeamUpdate } = require('../../models/Team');
+const { notifyPromotions } = require('../../domains/schedule/waitlist/promotion');
 const { syncEnrollments, flushPendingEmails } = require('../../domains/groups/controller');
 const { handleError } = require('../../helpers/handleError');
 const { invalidateAnalyticsCache } = require('../../middleware/analyticsCache');
@@ -92,6 +93,7 @@ const transferEnrollment = async (req, res) => {
     // All four steps run inside one session so any failure rolls back
     // completely — no dual-membership half-state (BUG #1 fix).
     let pendingEmails = [];
+    let sourcePromotions = [];
     const session = await mongoose.startSession();
     try {
       await session.withTransaction(async () => {
@@ -118,14 +120,16 @@ const transferEnrollment = async (req, res) => {
           { session },
         ));
 
-        // Step 4: Sync source team's future schedules (member removed)
+        // Step 4: Sync source team's future schedules (member removed) — the
+        // freed seats promote FIFO waiters in-tx (phase-04 slice B); notify
+        // happens post-commit below.
         if (fromOldMembers.length !== fromNewMembers.length) {
-          await syncSchedulesForTeamUpdate({
+          ({ promotions: sourcePromotions } = await syncSchedulesForTeamUpdate({
             teamId: fromTeamId,
             oldMembers: fromOldMembers,
             newMembers: fromNewMembers,
             session,
-          });
+          }));
         }
       });
     } finally {
@@ -134,6 +138,12 @@ const transferEnrollment = async (req, res) => {
 
     // Post-commit: flush queued emails and attach optional transfer note.
     flushPendingEmails(pendingEmails);
+
+    // Notify waiters promoted on the source team's freed seats (fail-soft).
+    for (const { scheduleId, promoted } of sourcePromotions) {
+      // eslint-disable-next-line no-await-in-loop
+      await notifyPromotions(scheduleId, promoted);
+    }
 
     if (note) {
       await Enrollment.findOneAndUpdate(

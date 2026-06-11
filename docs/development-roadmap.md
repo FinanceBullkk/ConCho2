@@ -152,8 +152,19 @@ migration script for existing deployments); cancelled rows are excluded from
 every operational query (collision, weekly cap, availability, calendars, lists,
 reminders, reconcile, numbering, dashboards, reports, completion, sync) with a
 staff history view (`?status=cancelled|all` + a Cancelled chip in the cohort
-Sessions panel). Still deferred: waitlists + auto-promotion (phase-04 slice
-B/C), session-list visibility widening for trainer-only teachers.
+Sessions panel). **Waitlists + FIFO auto-promotion are now live too
+(2026-06-11, phase-04 slice B):** a learner self-joins the queue of a FULL
+session they belong to (free seats → 409 by owner decision); a freed seat
+(capacity raise / team-member removal / Dropped auto-release) promotes the
+oldest waiter inside the freeing transaction (roster never exceeds the
+effective cap) with idempotent `waitlist_promoted` notifications + email +
+calendar refresh; cancelling a session dissolves its queue and emails the
+waiters; a unified `releaseScheduleResources` cleans room locks + waitlists on
+every removal path. Learner UI: **`/me/sessions`** (upcoming sessions across
+their cohorts — Enrolled / Waiting #N / Join-waitlist states), powered by a
+Participant visibility widening on the learning session list. **Wave E is now
+functionally COMPLETE** except: admin waitlist panel (staff API exists),
+session-list visibility for trainer-only teachers.
 
 ---
 
@@ -177,7 +188,7 @@ B/C), session-list visibility widening for trainer-only teachers.
 | B — Assessment & Certification | Generic assessment engine, completion enforcement, certificates | 🟡 in progress (completion + certificates + feedback + assessment engine v1 + completion reporting + rollups + assessment UI + feedback UI + assessment edit + question-bank backend/UI + manual grading v1 done) | A |
 | C — Catalog, Paths & Self-service | Learner catalog, self-enroll, learning paths/prerequisites | 🟢 core done (learner catalog + self-enroll UI + prerequisite gating v1 + prereq selector UI + sequenced learning paths v1 + admin paths UI + learner path-progress view) | A |
 | D — Platform & Scale | Production readiness → Google OIDC + Directory sync → manager hierarchy (org model) → mandatory assignment + due dates → notifications/escalation → compliance reporting + recertification. Order locked 2026-06-04 (after C closes). | 🟡 in progress (D1 cron self-monitoring done; **D3 v1 org model done**; **D4 assignment+due-dates v1 done**; **D5 assignment reminders + manager escalation v1 done**; **D6 v1.1 compliance report/export + certificate expiry signal + frontend UI verified/closed**; paid hosting + Sentry-account setup + D2 Google OAuth app = owner ops/inputs) | B, C |
-| E — Generic scheduling | Generalize booking beyond fixed English slots (session types, rooms, capacity, waitlists, instructors); keep leader-booking as one mode. Committed parallel track; large, own plan. | 🟡 in progress (**E1 done** — backend `ALLOWED_TIME_SLOTS` authoritative + exact-slot grid client (2026-06-09); **E2 capacity done**; **rooms done** via re-center Phase 3; **trainer-assignment UI done** (2026-06-10); **durable cancellation done** (2026-06-11, E3 phase-04 slice A); remaining: waitlists + auto-promotion (E3 phase-04 B/C), session-list visibility for trainer-only teachers) | A |
+| E — Generic scheduling | Generalize booking beyond fixed English slots (session types, rooms, capacity, waitlists, instructors); keep leader-booking as one mode. Committed parallel track; large, own plan. | 🟢 functionally complete (**E1 done** — backend `ALLOWED_TIME_SLOTS` authoritative + exact-slot grid client (2026-06-09); **E2 capacity done**; **rooms done** via re-center Phase 3; **trainer-assignment UI done** (2026-06-10); **durable cancellation done** (2026-06-11, phase-04 A); **waitlists + FIFO auto-promotion + `/me/sessions` learner UI done** (2026-06-11, phase-04 B); residual polish: admin waitlist panel (staff API live), session-list visibility for trainer-only teachers) | A |
 
 > **Direction locked 2026-06-04** — full rationale + gap analysis in
 > [`ltms-gap-analysis.md`](ltms-gap-analysis.md). Six-month order:
@@ -246,6 +257,46 @@ Bug fixing and integration review rank above net-new feature rollout.
 ---
 
 ## Recent progress (changelog)
+
+- **2026-06-11** — **Waitlists + FIFO auto-promotion + learner `/me/sessions`
+  (Wave E3 phase-04, slice B — Wave E functionally complete).** New
+  `WaitlistEntry` model (status lifecycle `waiting`/`promoted`/`withdrawn`/
+  `cancelled`, never hard-deleted; partial-unique `{scheduleId,userId} where
+  waiting` = concurrent double-join guard; FIFO index) + `domains/schedule/
+  waitlist/` (policy/repository/promotion/use-cases/controller). **Join is
+  self-service and full-only** (owner decisions 2026-06-11: free seats → 409,
+  never instant-seat; waiters ARE emailed on session cancel; backend + learner
+  UI in one PR): audience = session's team member OR active cohort-based
+  enrollee; started/cancelled/already-enrolled/double-join → 409/403 as
+  appropriate. **Promotion runs INSIDE the seat-freeing transaction** at three
+  freers — admin capacity raise (`updateSchedule`), Team-sync member removal
+  (returns promotions; all 3 callers notify post-commit), Dropped auto-release
+  — via guarded `$push` (`$ne` + roster-size `$expr` < effective cap) + a
+  post-loop cap assert; a promotion can RESCUE a session that just emptied
+  (promote-before-sweep ordering). Post-commit: idempotent `NotificationLog`
+  (`waitlist_promoted`, cadenceKey `scheduleId:userId`), promotion email
+  (`tplWaitlistPromoted`), one calendar refresh. **Unified
+  `releaseScheduleResources`** (room ledger + waitlist dissolution) swapped
+  into all 4 removal paths (cancelSlot, admin delete, Team-sync empties,
+  auto-release empties); cancel paths email dissolved waiters. Routes:
+  `POST/DELETE /api/schedules/:id/waitlist`, `GET /waitlist/mine`,
+  `GET /:id/waitlist` (staff; Teacher class-scoped, Participant 403 — no
+  roster leak); join/leave audited (`WaitlistEntry` added to AuditLog enum).
+  **Learner visibility widening:** learning session list now shows a
+  Participant the sessions of cohorts they're actively cohort-enrolled in (not
+  just rostered) + an honest per-row `effectiveCapacity` (program override >
+  field > 9). UI: **`/me/sessions`** (`MySessionsPage` + feature-local
+  `useWaitlist`; Enrolled / Waiting #N + Leave / Join-waitlist / open states;
+  dashboard CTA; English literals per `/me/*` convention). Tests: **+14 server
+  integration** (`waitlist.test.js`: join policy ×6 incl. concurrent race,
+  leave/mine/staff-list ×3, dissolve-on-cancel, FIFO capacity-raise promote +
+  NotificationLog, Dropped-release promote incl. empty-rescue, Team-sync
+  promote via PUT /api/teams, visibility widening + effectiveCapacity) + **+4
+  client** (MySessionsPage states). Server **819/82 green**, client **242/52
+  green**, lint at cap 72, build clean. Specs: `scheduling-and-booking` ADDED
+  Waitlist requirement (+ cancel-dissolution delta), route-permission-matrix.
+  Deferred: admin waitlist panel UI, waitlist for enrollment-status/user-delete
+  pull paths (seats free silently — next freer/joiner picks up).
 
 - **2026-06-11** — **Durable cancellation (Wave E3 phase-04, slice A) — closes the
   hard-delete golden-rule violation for sessions.** Cancelling (leader

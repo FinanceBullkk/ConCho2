@@ -162,6 +162,11 @@ export const schedulesAPI = {
   // Assign a session's trainers (internal Teacher/Admin refs + an optional
   // external trainer) — re-center Phase 3. session.assign-trainer (Admin/Coordinator).
   setTrainers: (id, data) => api.put(`/schedules/${id}/trainers`, data),
+  // Waitlist (phase-04 slice B): self-join the FIFO queue of a FULL session;
+  // a freed seat auto-promotes in FIFO order.
+  joinWaitlist: (id) => api.post(`/schedules/${id}/waitlist`),
+  leaveWaitlist: (id) => api.delete(`/schedules/${id}/waitlist`),
+  myWaitlist: () => api.get('/schedules/waitlist/mine'),
   // Participant: upcoming sessions for my class
   getMyClass: () => api.get('/schedules/my-class'),
   // Attendance calendar: schedules with pre-computed attendance status

@@ -207,6 +207,27 @@ const tplManagerAssignmentDigest = ({ managerName, rows }) => {
   };
 };
 
+// Wave E3 phase-04 slice B — a freed seat auto-enrolled a waitlisted learner.
+const tplWaitlistPromoted = ({ userName, className, dateStr }) => ({
+  subject: `TMS — You're in: a seat opened up in ${className}`,
+  text:
+    `Hi ${userName},\n\n` +
+    `Good news — a seat opened up and you've been enrolled from the waitlist:\n\n` +
+    `Class: ${className}\n` +
+    `Date: ${dateStr}\n` +
+    `\nA calendar invite will follow. See you there!\n\n` +
+    `TMS Training System`,
+  html:
+    `<p>Hi <strong>${userName}</strong>,</p>` +
+    `<p>Good news — a seat opened up and you've been enrolled from the waitlist:</p>` +
+    `<ul>` +
+    `<li><strong>Class:</strong> ${className}</li>` +
+    `<li><strong>Date:</strong> ${dateStr}</li>` +
+    `</ul>` +
+    `<p>A calendar invite will follow. See you there!</p>` +
+    `<p>TMS Training System</p>`,
+});
+
 // ──────────────────────────────────────────────────────────
 // Public senders — fail-soft wrappers
 // ──────────────────────────────────────────────────────────
@@ -227,6 +248,12 @@ const sendScheduleReminder = ({ to, userName, className, startTime, roomLink }) 
   safeSend('schedule-reminder', {
     to,
     ...tplScheduleReminder({ userName, className, dateStr: fmtDate(startTime), roomLink }),
+  });
+
+const sendWaitlistPromoted = ({ to, userName, className, startTime }) =>
+  safeSend('waitlist-promoted', {
+    to,
+    ...tplWaitlistPromoted({ userName, className, dateStr: fmtDate(startTime) }),
   });
 
 const sendEnrollmentDropped = ({ to, userName, teamName, courseName }) =>
@@ -290,6 +317,7 @@ module.exports = {
   sendAssignmentDueSoon,
   sendAssignmentOverdue,
   sendManagerAssignmentDigest,
+  sendWaitlistPromoted,
   // Templates exported for unit testing
   _templates: {
     tplBookingConfirmation,
@@ -300,5 +328,6 @@ module.exports = {
     tplAssignmentDueSoon,
     tplAssignmentOverdue,
     tplManagerAssignmentDigest,
+    tplWaitlistPromoted,
   },
 };

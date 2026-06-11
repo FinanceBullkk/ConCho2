@@ -88,11 +88,37 @@ const findActiveCohortLearnerIds = async (cohortId) => {
   return rows.map((row) => row.userId);
 };
 
+// The inverse: cohorts a learner is actively cohort-enrolled in (teamId:null).
+// Powers the phase-04 visibility widening — a late enrollee must SEE their
+// cohort's sessions (incl. full ones) to join a waitlist.
+const findActiveCohortIdsForLearner = (userId) =>
+  Enrollment.find({ userId, teamId: null, status: 'Active' }).distinct('classId');
+
+// Program per-session caps for a set of cohorts (one query) — lets the list
+// endpoint attach an honest effectiveCapacity per session row.
+const findCapacityPoliciesByCohortIds = async (cohortIds) => {
+  if (!cohortIds.length) return new Map();
+  const classes = await Class.find({ _id: { $in: cohortIds } })
+    .select('programId').lean();
+  const programIds = [...new Set(classes.map((c) => String(c.programId)).filter((p) => p !== 'null' && p !== 'undefined'))];
+  const programs = programIds.length
+    ? await LearningProgram.find({ _id: { $in: programIds } })
+      .select('capacityPolicy').lean()
+    : [];
+  const programCap = new Map(programs.map((p) => [String(p._id), p.capacityPolicy?.maxParticipantsPerSession ?? null]));
+  return new Map(classes.map((c) => [
+    String(c._id),
+    c.programId ? (programCap.get(String(c.programId)) ?? null) : null,
+  ]));
+};
+
 module.exports = {
   findSessions,
   findSessionById,
   findCohortIdsByTeacher,
   findSchedulingContextByCohort,
   findActiveCohortLearnerIds,
+  findActiveCohortIdsForLearner,
+  findCapacityPoliciesByCohortIds,
   findOfficeById,
 };
