@@ -45,10 +45,18 @@ const buildFilter = async (query = {}, requestUser) => {
   if (requestUser?.role === 'Teacher') {
     const cohortIds = await repository.findCohortIdsByTeacher(requestUser._id);
     const allowedIds = cohortIds.map((id) => id.toString());
+    // UNION widening (Wave E polish): a teacher who is NOT bound to the cohort
+    // but IS a named session instructor still finds the sessions they run —
+    // parity with the single-session read (Phase 3 DELTA B). The cohort scope
+    // itself stays RESTRICTIVE (no empty-teacherIds flip).
     if (filter.classId && !allowedIds.includes(filter.classId.toString())) {
-      filter.classId = { $in: [] };
+      // Foreign cohort: only the sessions they personally run in it.
+      filter.sessionInstructorIds = requestUser._id;
     } else if (!filter.classId) {
-      filter.classId = { $in: cohortIds };
+      filter.$or = [
+        { classId: { $in: cohortIds } },
+        { sessionInstructorIds: requestUser._id },
+      ];
     }
     // Teachers run operational views — cancelled rows are noise there.
     filter.status = 'scheduled';

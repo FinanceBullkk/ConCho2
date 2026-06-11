@@ -167,6 +167,8 @@ export const schedulesAPI = {
   joinWaitlist: (id) => api.post(`/schedules/${id}/waitlist`),
   leaveWaitlist: (id) => api.delete(`/schedules/${id}/waitlist`),
   myWaitlist: () => api.get('/schedules/waitlist/mine'),
+  // Staff queue view (Admin/Coordinator any session; Teacher their classes).
+  listWaitlist: (id) => api.get(`/schedules/${id}/waitlist`),
   // Participant: upcoming sessions for my class
   getMyClass: () => api.get('/schedules/my-class'),
   // Attendance calendar: schedules with pre-computed attendance status
