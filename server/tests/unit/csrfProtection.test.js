@@ -17,6 +17,13 @@ jest.mock('../../lib/logger', () => ({
   debug: jest.fn(),
 }));
 
+// QA-014: csrfProtection audits mismatches fire-and-forget (AuditLog.save()).
+// In a unit test that write outlives the case and fires AFTER the Jest env
+// is torn down ("ReferenceError: import after teardown" noise on every full
+// run). Mock it out here — the real csrf-failed audit row is asserted in
+// tests/integration/auditWriteSide.test.js.
+jest.mock('../../services/auditService', () => ({ record: jest.fn() }));
+
 const { csrfProtection, getCsrfToken } = require('../../middleware/csrfProtection');
 
 const CSRF_COOKIE = 'csrf-token';

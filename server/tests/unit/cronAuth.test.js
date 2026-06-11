@@ -1,3 +1,10 @@
+// QA-014: cronAuth audits auth failures fire-and-forget (AuditLog.save()).
+// In a unit test that write outlives the case and fires AFTER the Jest env
+// is torn down ("ReferenceError: import after teardown" noise on every full
+// run). Mock it out here — the real cron-auth-failed audit row is asserted
+// in tests/integration/auditWriteSide.test.js.
+jest.mock('../../services/auditService', () => ({ record: jest.fn() }));
+
 const { cronAuth } = require('../../middleware/cronAuth');
 
 function mockReq(overrides = {}) {
