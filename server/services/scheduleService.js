@@ -1,6 +1,7 @@
 const mongoose = require('mongoose');
 const Schedule = require('../models/Schedule');
 const Team = require('../models/Team');
+const User = require('../models/User');
 const calendarService = require('./calendarService');
 const auditService = require('./auditService');
 const logger = require('../lib/logger');
@@ -40,6 +41,7 @@ const schedulingWindowPolicy = require('../domains/schedule/scheduling-window-po
 const bookingPolicy = require('../domains/schedule/session-booking-policy');
 const schedulingModePolicy = require('../domains/schedule/scheduling-mode-policy');
 const roomLockPolicy = require('../domains/schedule/room-lock-policy');
+const { releaseScheduleResources } = require('../domains/schedule/release-resources');
 const repository = require('../domains/schedule/repository');
 
 // ── Helpers ───────────────────────────────────────────────
@@ -441,15 +443,17 @@ const cancelSlot = async (scheduleId, requestUser, { cancelReason = '' } = {}) =
     ? schedule.enrolledUsers.filter(u => u && u.email)
     : [];
 
-  // ── TRANSACTION: durable flip + room release ─────────────
+  // ── TRANSACTION: durable flip + resource release ─────────
   // Attendance rows are PRESERVED (golden rule — cancelled history keeps its
-  // evidence; reconcile/calendar queries skip cancelled rows). The room-lock
-  // ledger row is dropped in the same tx so the room is immediately
-  // re-bookable, and roomId is nulled in the same write (B3).
+  // evidence; reconcile/calendar queries skip cancelled rows). In the same tx
+  // the room-lock ledger row is dropped (room re-bookable; roomId nulled, B3)
+  // and live waitlist entries dissolve to 'cancelled' (slice B) — the
+  // dissolved waiters are emailed post-commit below.
   const session = await mongoose.startSession();
+  let waiterUserIds = [];
   try {
     await session.withTransaction(async () => {
-      await roomLockPolicy.releaseRoomLock([schedule._id], session);
+      ({ waiterUserIds } = await releaseScheduleResources([schedule._id], session));
       const flipped = await repository.cancelScheduleById(
         schedule._id,
         { cancelledBy: requestUser._id, cancelReason },
@@ -492,6 +496,19 @@ const cancelSlot = async (scheduleId, requestUser, { cancelReason = '' } = {}) =
       startTime,
       cancelledBy,
     });
+  }
+
+  // Dissolved waiters are notified too (owner decision 2026-06-11) — they were
+  // counting on a seat; same cancellation template, fail-soft.
+  if (waiterUserIds.length > 0) {
+    const waiters = await User.find({ _id: { $in: waiterUserIds } })
+      .select('name email').lean();
+    for (const w of waiters) {
+      if (!w.email) continue;
+      sendClassCancellation({
+        to: w.email, userName: w.name, className, startTime, cancelledBy,
+      });
+    }
   }
 };
 

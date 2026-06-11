@@ -32,6 +32,7 @@ const MyLearningCatalogPage = lazy(() => import('./features/learner/MyLearningCa
 const MyLearningPathsPage = lazy(() => import('./features/learner/MyLearningPathsPage'));
 const MyAssessmentsPage = lazy(() => import('./features/learner/MyAssessmentsPage'));
 const MyFeedbackPage = lazy(() => import('./features/learner/MyFeedbackPage'));
+const MySessionsPage = lazy(() => import('./features/learner/MySessionsPage'));
 const MyTeamPage = lazy(() => import('./features/groups/MyTeamPage'));
 
 function RouteFallback() {
@@ -279,6 +280,9 @@ export default function App() {
                 } />
                 <Route path="/me/feedback" element={
                   <ProtectedRoute roles={['Participant']}><MyFeedbackPage /></ProtectedRoute>
+                } />
+                <Route path="/me/sessions" element={
+                  <ProtectedRoute roles={['Participant']}><MySessionsPage /></ProtectedRoute>
                 } />
 
                 {/* Legacy redirects */}

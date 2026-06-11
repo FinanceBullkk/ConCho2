@@ -1,6 +1,7 @@
 const scheduleService = require('../../../services/scheduleService');
 const schedulingWindowPolicy = require('../../schedule/scheduling-window-policy');
 const schedulingModePolicy = require('../../schedule/scheduling-mode-policy');
+const { effectiveSessionCapacity } = require('../../schedule/session-booking-policy');
 const { sessionDto } = require('./dto');
 const repository = require('./repository');
 
@@ -23,7 +24,14 @@ const buildFilter = async (query = {}, requestUser) => {
     if (query.to) filter.startTime.$lte = new Date(query.to);
   }
   if (requestUser?.role === 'Participant') {
-    filter.enrolledUsers = requestUser._id;
+    // Phase-04 slice B widening: a learner sees the sessions they're enrolled
+    // in PLUS every session of cohorts they're actively cohort-enrolled in —
+    // a late enrollee must see a full session to join its waitlist.
+    const myCohortIds = await repository.findActiveCohortIdsForLearner(requestUser._id);
+    filter.$or = [
+      { enrolledUsers: requestUser._id },
+      ...(myCohortIds.length ? [{ classId: { $in: myCohortIds } }] : []),
+    ];
     // Learners never see durable-cancelled sessions (phase-04 slice A, NF3).
     filter.status = 'scheduled';
   }
@@ -49,7 +57,22 @@ const listSessions = async (query, pagination, requestUser) => {
     await buildFilter(query, requestUser),
     pagination,
   );
-  return { data: sessions.map((s) => sessionDto(s, requestUser)), total };
+
+  // Attach the honest per-session cap (program override > field > default) so
+  // clients can render fullness truthfully — needed by the waitlist UI
+  // (phase-04 slice B: the Join button only shows on genuinely full sessions).
+  const cohortIds = [...new Set(
+    sessions.map((s) => String(s.classId?._id || s.classId)).filter(Boolean),
+  )];
+  const capByCohort = await repository.findCapacityPoliciesByCohortIds(cohortIds);
+  const data = sessions.map((s) => ({
+    ...sessionDto(s, requestUser),
+    effectiveCapacity: effectiveSessionCapacity({
+      scheduleCapacity: s.capacity,
+      maxPerSession: capByCohort.get(String(s.classId?._id || s.classId)) ?? null,
+    }),
+  }));
+  return { data, total };
 };
 
 const getSession = async (id, requestUser) => {

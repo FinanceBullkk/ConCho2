@@ -367,6 +367,8 @@ userSchema.post('findOneAndUpdate', async function (doc) {
   // This keeps the original intent (release abandoned solo bookings)
   // without touching schedules belonging to other teams.
   const session = await mongoose.startSession();
+  // Promotions collected in-tx, notified AFTER commit (phase-04 slice B).
+  const promotionsBySchedule = [];
   try {
     await session.withTransaction(async () => {
       // 1. Find the IDs of future LIVE schedules the user is currently in.
@@ -394,20 +396,30 @@ userSchema.post('findOneAndUpdate', async function (doc) {
         'Auto-Release: removed user from future schedules'
       );
 
-      // 3. Delete only the previously-affected schedules that are now empty.
-      //    First snapshot the now-empty IDs so we can free their room-lock
-      //    ledger rows (Phase 3) in the same tx — a deleted session must never
-      //    leave a RoomBooking row behind that would brick the slot.
+      // 3. Seat-freer (slice B): the pull freed one seat on every affected
+      //    schedule — seat FIFO waiters INSIDE this tx, BEFORE the empty
+      //    sweep, so a waiter can rescue a session that just lost its last
+      //    enrolled member.
+      const { promoteIfSeatFree } = require('../domains/schedule/waitlist/promotion');
+      for (const scheduleId of affectedIds) {
+        // eslint-disable-next-line no-await-in-loop -- few schedules per user
+        const promoted = await promoteIfSeatFree(scheduleId, session);
+        if (promoted.length > 0) promotionsBySchedule.push({ scheduleId, promoted });
+      }
+
+      // 4. Delete only the affected schedules that are STILL empty after the
+      //    promotion pass. Their room-lock ledger rows are released AND any
+      //    (structurally impossible, but belt) waitlist rows dissolved in the
+      //    same tx — a deleted session must never brick a room slot or
+      //    strand a waiter.
       const emptyIds = await Schedule.find(
         { _id: { $in: affectedIds }, enrolledUsers: { $size: 0 } },
         { _id: 1 },
         { session }
       ).distinct('_id');
       if (emptyIds.length > 0) {
-        await mongoose.model('RoomBooking').deleteMany(
-          { scheduleId: { $in: emptyIds } },
-          { session }
-        );
+        const { releaseScheduleResources } = require('../domains/schedule/release-resources');
+        await releaseScheduleResources(emptyIds, session);
         const emptyResult = await Schedule.deleteMany(
           { _id: { $in: emptyIds } },
           { session }
@@ -420,6 +432,16 @@ userSchema.post('findOneAndUpdate', async function (doc) {
     });
   } finally {
     session.endSession();
+  }
+
+  // Post-commit: notify promoted waiters (fail-soft — email + NotificationLog
+  // + calendar refresh). Never inside the tx.
+  if (promotionsBySchedule.length > 0) {
+    const { notifyPromotions } = require('../domains/schedule/waitlist/promotion');
+    for (const { scheduleId, promoted } of promotionsBySchedule) {
+      // eslint-disable-next-line no-await-in-loop
+      await notifyPromotions(scheduleId, promoted);
+    }
   }
 });
 

@@ -27,6 +27,10 @@ related_code:
   - client/src/components/CalendarGrid.jsx
   - client/src/features/learning/CohortSessionsPanel.jsx
   - client/src/features/learning/AssignTrainersModal.jsx
+  - server/models/WaitlistEntry.js
+  - server/domains/schedule/waitlist
+  - server/domains/schedule/release-resources.js
+  - client/src/features/learner/MySessionsPage.jsx
 ---
 
 # Capability: Scheduling & Booking
@@ -479,6 +483,64 @@ backfill + index swap) before deploying.
 - **THEN** none of them count or surface it (the reminder never emails it; the
   team's weekly quota is freed)
 
+### Requirement: Session waitlist + FIFO auto-promotion (phase-04 slice B) [BR-1, UC-1, UC-4]
+
+*(ADDED 2026-06-11.)* A learner MAY self-join the FIFO queue of a session they
+belong to (a member of the session's Team, or an active cohort-based enrollee
+of its Class) — but ONLY when the session is live, future, and at its
+**effective capacity** (program override > `Schedule.capacity` > default 9);
+free seats → **409** (owner decision: the waitlist never instant-seats), not in
+the audience → **403**, already enrolled → **409**, double-join → **409** (the
+partial-unique `{scheduleId,userId} where status:'waiting'` index is the
+concurrent guard). `WaitlistEntry` rows are status-lifecycle
+(`waiting`/`promoted`/`withdrawn`/`cancelled`) and never hard-deleted.
+
+When a seat frees — a capacity raise, a Team-sync member removal, or a Dropped
+auto-release — the OLDEST waiter is promoted **inside the freeing
+transaction**: a guarded `$push` (`$ne` + roster-size `$expr` < cap) seats
+them; the roster can never exceed the cap (post-loop assert aborts the tx). A
+promotion that empties-rescues a session prevents the empty-placeholder sweep.
+Post-commit (fail-soft) the promoted learner gets an idempotent
+`NotificationLog` (`waitlist_promoted`, cadenceKey `<scheduleId>:<userId>`), a
+promotion email, and a calendar refresh. Cancelling/removing the session
+dissolves its queue in the same tx (entries → `cancelled`) and the dissolved
+waiters are emailed the cancellation notice (owner decision 2026-06-11).
+
+Routes (`/api/schedules`): `POST /:id/waitlist` (join, self,
+Admin/Participant + bookingLimiter), `DELETE /:id/waitlist` (leave, self),
+`GET /waitlist/mine` (my live entries + position), `GET /:id/waitlist` (staff:
+Admin all; Teacher class-scoped, open-until-populated; Participant 403 — no
+roster leak). Join/leave are audited (`WaitlistEntry`). **Learner visibility
+widening:** the learning session list now shows a Participant the sessions of
+cohorts they are actively cohort-enrolled in (not only rostered sessions) and
+carries `effectiveCapacity` per row, so a late enrollee can see a full session
+to queue for. **UI:** `/me/sessions` (Participant) lists upcoming sessions with
+Enrolled / Waiting #N + Leave / Join-waitlist states; linked from the
+Participant dashboard.
+
+#### Scenario: Join a full session
+- **GIVEN** a cohort-enrolled learner and a full live future session of that cohort
+- **WHEN** they `POST /:id/waitlist`
+- **THEN** **201** with their FIFO position; a session with free seats → **409**
+
+#### Scenario: Freed seat promotes FIFO atomically
+- **GIVEN** two waiters (A older than B) on a full session
+- **WHEN** an Admin raises `capacity` by one (or a roster member is removed/Dropped)
+- **THEN** in the same transaction A is enrolled and `promoted` (B keeps
+  waiting), the roster never exceeds the effective cap, and post-commit A gets
+  one idempotent `waitlist_promoted` notification + email + calendar refresh
+
+#### Scenario: Queue dissolves with the session
+- **GIVEN** a waiting learner on a session
+- **WHEN** the session is durably cancelled (or swept as an empty placeholder)
+- **THEN** the entry flips to `cancelled` in the same tx — and on cancel the
+  waiter receives the cancellation email
+
+#### Scenario: No roster leak
+- **GIVEN** a Participant
+- **WHEN** they call `GET /:id/waitlist`
+- **THEN** **403** (own entries only via `/waitlist/mine`)
+
 ### Requirement: Admin override [BR-6, UC-3]
 
 The system SHALL allow an Admin to create, time-edit, or delete any session,
@@ -529,6 +591,7 @@ Inherits `docs/specs/security-platform/spec.md`. Specifics:
 - [ ] Same slot for a different class → allowed.
 - [ ] 3rd booking in a Mon–Sun week → rejected.
 - [ ] Cancel flips the Schedule to `cancelled` (doc + attendance preserved, room released) and frees the slot for re-booking; double-cancel/edit-cancelled → 409; cancelled rows excluded from operational reads (incl. reminders + weekly cap); `?status=cancelled|all` is the staff history view (Participant force-live).
+- [ ] Waitlist: join only when FULL (audience-scoped: team member / cohort enrollee; free seats → 409, non-member → 403, double-join → 409); freed seat (capacity raise / member removal / Dropped release) promotes the OLDEST waiter in the freeing tx (roster ≤ cap always) + idempotent notification; cancel/empty-sweep dissolves the queue (entries `cancelled`, waiters emailed on cancel); Participant cannot read another learner's queue; `/me/sessions` shows Enrolled / Waiting #N / Join states.
 - [ ] Admin can create/move/delete any session within the guards.
 - [ ] Reassigning a session to another team rebuilds `enrolledUsers` from the new team's **Active** members (Dropped excluded).
 - [ ] Leader self-booking an `admin_scheduled` program via the legacy `/book-slot` route → 403 (bypass closed); a Coordinator (scheduler) is allowed.
