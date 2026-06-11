@@ -108,10 +108,12 @@ export const authAPI = {
   mfaSetup: () => api.post('/auth/mfa/setup'),
   mfaVerifySetup: (code) => api.post('/auth/mfa/verify-setup', { code }),
   mfaDisable: (code) => api.post('/auth/mfa/disable', { code }),
-  mfaAdminDisable: (userId) => api.post(`/auth/mfa/admin-disable/${userId}`),
+  mfaAdminDisable: (userId, currentPassword) =>
+    api.post(`/auth/mfa/admin-disable/${userId}`, { currentPassword }),
 
   // Admin force-logout
-  adminForceLogout: (userId) => api.post(`/auth/admin/force-logout/${userId}`),
+  adminForceLogout: (userId, currentPassword) =>
+    api.post(`/auth/admin/force-logout/${userId}`, { currentPassword }),
 };
 
 // ── Users ─────────────────────────────────────────────────
@@ -157,6 +159,16 @@ export const schedulesAPI = {
   bookSlot: (data) => api.post('/schedules/book-slot', data),
   // Leader cancel: deletes the schedule
   cancelSlot: (scheduleId) => api.delete(`/schedules/${scheduleId}/cancel`),
+  // Assign a session's trainers (internal Teacher/Admin refs + an optional
+  // external trainer) — re-center Phase 3. session.assign-trainer (Admin/Coordinator).
+  setTrainers: (id, data) => api.put(`/schedules/${id}/trainers`, data),
+  // Waitlist (phase-04 slice B): self-join the FIFO queue of a FULL session;
+  // a freed seat auto-promotes in FIFO order.
+  joinWaitlist: (id) => api.post(`/schedules/${id}/waitlist`),
+  leaveWaitlist: (id) => api.delete(`/schedules/${id}/waitlist`),
+  myWaitlist: () => api.get('/schedules/waitlist/mine'),
+  // Staff queue view (Admin/Coordinator any session; Teacher their classes).
+  listWaitlist: (id) => api.get(`/schedules/${id}/waitlist`),
   // Participant: upcoming sessions for my class
   getMyClass: () => api.get('/schedules/my-class'),
   // Attendance calendar: schedules with pre-computed attendance status
@@ -179,6 +191,9 @@ export const attendanceAPI = {
 export const evaluationsAPI = {
   upsert: (data) => api.post('/evaluations', data),
   getAll: (params) => api.get('/evaluations', { params }),
+  // FLOW-001: class-scoped learner roster for the Add-evaluation picker
+  // (Teacher-callable, unlike the Admin-only /users search).
+  getRoster: (classId) => api.get('/evaluations/roster', { params: { classId } }),
   getById: (id) => api.get(`/evaluations/${id}`),
   delete: (id) => api.delete(`/evaluations/${id}`),
 };
@@ -217,6 +232,75 @@ export const enrollmentsAPI = {
   bulkUpdateStatus: (data) => api.patch('/enrollments/bulk-status', data),
 };
 
+// ── Learning Platform ─────────────────────────────────────
+export const learningAPI = {
+  getPrograms: (params) => api.get('/learning/programs', { params }),
+  getProgram: (id) => api.get(`/learning/programs/${id}`),
+  createProgram: (data) => api.post('/learning/programs', data),
+  updateProgram: (id, data) => api.put(`/learning/programs/${id}`, data),
+  archiveProgram: (id) => api.delete(`/learning/programs/${id}`),
+  getCohorts: (params) => api.get('/learning/cohorts', { params }),
+  getCohort: (id) => api.get(`/learning/cohorts/${id}`),
+  createCohort: (data) => api.post('/learning/cohorts', data),
+  updateCohort: (id, data) => api.put(`/learning/cohorts/${id}`, data),
+  deleteCohort: (id) => api.delete(`/learning/cohorts/${id}`),
+  getDeletedCohorts: () => api.get('/learning/cohorts/deleted'),
+  restoreCohort: (id) => api.post(`/learning/cohorts/${id}/restore`),
+  // Safe scheduling config (allowed slots + tz) — readable by all roles.
+  getSchedulingConfig: () => api.get('/learning/sessions/config'),
+  getSessions: (params) => api.get('/learning/sessions', { params }),
+  // Coordinator-scheduled session create (cohort + office + time) — re-center
+  // Phase 2. Books against a cohort (self_enroll/nomination), team-less.
+  bookSession: (data) => api.post('/learning/sessions/book-slot', data),
+  // Sequenced learning paths (ordered curriculum of programs).
+  getPaths: (params) => api.get('/learning/paths', { params }),
+  getPath: (id) => api.get(`/learning/paths/${id}`),
+  createPath: (data) => api.post('/learning/paths', data),
+  updatePath: (id, data) => api.put(`/learning/paths/${id}`, data),
+  archivePath: (id) => api.delete(`/learning/paths/${id}`),
+  getPathProgress: (id) => api.get(`/learning/paths/${id}/progress`),
+  getAssignments: (params) => api.get('/learning/assignments', { params }),
+  getAssignment: (id) => api.get(`/learning/assignments/${id}`),
+  createAssignment: (data) => api.post('/learning/assignments', data),
+  archiveAssignment: (id) => api.delete(`/learning/assignments/${id}`),
+  // Cohort-based (L&D) enrollments — distinct from legacy team-based enrollmentsAPI.
+  getEnrollments: (params) => api.get('/learning/enrollments', { params }),
+  createEnrollment: (data) => api.post('/learning/enrollments', data),
+  withdrawEnrollment: (id) => api.delete(`/learning/enrollments/${id}`),
+  getFeedback: (params) => api.get('/learning/feedback', { params }),
+  submitFeedback: (data) => api.post('/learning/feedback', data),
+  // Cohort completion reporting + xlsx export (Admin/Teacher).
+  getCompletionReport: (params) => api.get('/learning/reports/completion', { params }),
+  getCompletionRollup: () => api.get('/learning/reports/completion/rollup'),
+  downloadCompletionReport: (params) =>
+    api.get('/learning/reports/completion/export', { params, responseType: 'blob' }),
+  // Org-wide compliance reporting + xlsx export (Admin-only).
+  getComplianceReport: (params) => api.get('/learning/reports/compliance', { params }),
+  downloadComplianceReport: (params) =>
+    api.get('/learning/reports/compliance/export', { params, responseType: 'blob' }),
+  // Operational dashboard KPI bundle (Admin/Teacher; fail-soft per metric).
+  getOperationalDashboard: (params) => api.get('/learning/dashboard/operational', { params }),
+  // Executive ROI bundle + L&D cost config (Admin-only server-side).
+  getExecutiveDashboard: (params) => api.get('/learning/dashboard/executive', { params }),
+  getCostConfig: () => api.get('/learning/dashboard/cost-config'),
+  setCostConfig: (data) => api.put('/learning/dashboard/cost-config', data),
+};
+
+// ── Generic Assessment Engine ────────────────────────────
+export const assessmentAPI = {
+  getAssessments: (params) => api.get('/assessment/assessments', { params }),
+  getAssessment: (id) => api.get(`/assessment/assessments/${id}`),
+  createAssessment: (data) => api.post('/assessment/assessments', data),
+  updateAssessment: (id, data) => api.put(`/assessment/assessments/${id}`, data),
+  archiveAssessment: (id) => api.delete(`/assessment/assessments/${id}`),
+  getQuestionBank: (params) => api.get('/assessment/question-bank', { params }),
+  createQuestionBankItem: (data) => api.post('/assessment/question-bank', data),
+  archiveQuestionBankItem: (id) => api.delete(`/assessment/question-bank/${id}`),
+  getAttempts: (params) => api.get('/assessment/attempts', { params }),
+  manualGradeAttempt: (attemptId, data) => api.put(`/assessment/attempts/${attemptId}/manual-grade`, data),
+  submitAttempt: (assessmentId, data) => api.post(`/assessment/assessments/${assessmentId}/attempts`, data),
+};
+
 // ── Dashboard Analytics ───────────────────────────────────
 export const dashboardAPI = {
   getStats: (params) => api.get('/dashboard/stats', { params }),
@@ -238,6 +322,33 @@ export const reconcileAPI = {
   getLatest:      () => api.get('/admin/reconcile/latest'),
   getHistory:     () => api.get('/admin/reconcile/history'),
   getById:        (id) => api.get(`/admin/reconcile/${id}`),
+};
+
+// ── Cron health (scheduled-job heartbeats) ───────────────
+export const cronAPI = {
+  getHealth:      () => api.get('/admin/cron/health'),
+};
+
+// ── Org model (departments, offices, manager hierarchy, my-team) ───
+export const orgAPI = {
+  getDepartments:    (params) => api.get('/org/departments', { params }),
+  createDepartment:  (data) => api.post('/org/departments', data),
+  updateDepartment:  (id, data) => api.put(`/org/departments/${id}`, data),
+  archiveDepartment: (id) => api.delete(`/org/departments/${id}`),
+  getOffices:        (params) => api.get('/org/offices', { params }),
+  createOffice:      (data) => api.post('/org/offices', data),
+  updateOffice:      (id, data) => api.put(`/org/offices/${id}`, data),
+  archiveOffice:     (id) => api.delete(`/org/offices/${id}`),
+  assignUser:        (id, data) => api.put(`/org/users/${id}/assignment`, data),
+  getMyTeam:         () => api.get('/org/my-team'),
+};
+
+// Rooms (re-center Phase 3) — Office-scoped physical rooms, Admin/Coordinator.
+export const roomsAPI = {
+  getRooms:    (params) => api.get('/rooms', { params }),
+  createRoom:  (data) => api.post('/rooms', data),
+  updateRoom:  (id, data) => api.put(`/rooms/${id}`, data),
+  archiveRoom: (id) => api.delete(`/rooms/${id}`),
 };
 
 export default api;

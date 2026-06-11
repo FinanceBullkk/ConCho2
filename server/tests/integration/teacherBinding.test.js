@@ -153,11 +153,13 @@ describe('Class.teacherIds binding — evaluation', () => {
 });
 
 describe('Class.teacherIds binding — attendance', () => {
+  const Attendance = require('../../models/Attendance');
   const Class = require('../../models/Class');
   const Schedule = require('../../models/Schedule');
+  const Team = require('../../models/Team');
   const User = require('../../models/User');
 
-  let boundClass, unboundClass, teacherA, teacherB, schedBound, schedUnbound;
+  let boundClass, unboundClass, teacherA, teacherB, teamBound, teamUnbound, schedBound, schedUnbound;
 
   beforeAll(async () => {
     teacherA = await User.create({
@@ -184,22 +186,38 @@ describe('Class.teacherIds binding — attendance', () => {
       courseName: 'Unbound Att Class',
       totalSessions: 5,
     });
+    teamBound = await Team.create({
+      name: 'Bound Att Team',
+      classId: boundClass._id,
+      leaderId: seed.leader._id,
+      members: [seed.member2._id],
+    });
+    teamUnbound = await Team.create({
+      name: 'Unbound Att Team',
+      classId: unboundClass._id,
+      leaderId: seed.leader._id,
+      members: [seed.member1._id],
+    });
 
     // Past schedules so we can bulk-mark without hitting the future-guard.
     const past = new Date(Date.now() - 24 * 3600_000);
     const end  = new Date(past.getTime() + 90 * 60_000);
     schedBound = await Schedule.create({
       classId: boundClass._id,
-      bookedTeamId: seed.team._id,
+      bookedTeamId: teamBound._id,
       startTime: past, endTime: end,
       enrolledUsers: [seed.member1._id, seed.member2._id],
     });
     schedUnbound = await Schedule.create({
       classId: unboundClass._id,
-      bookedTeamId: seed.team._id,
+      bookedTeamId: teamUnbound._id,
       startTime: past, endTime: end,
       enrolledUsers: [seed.member1._id, seed.member2._id],
     });
+    await Attendance.create([
+      { scheduleId: schedBound._id, userId: seed.member2._id, status: 'P' },
+      { scheduleId: schedUnbound._id, userId: seed.member1._id, status: 'A' },
+    ]);
   });
 
   test('Teacher A (bound) CAN bulk-mark schedule of boundClass → 200', async () => {
@@ -231,6 +249,80 @@ describe('Class.teacherIds binding — attendance', () => {
     const res = await request(app)
       .get(`/api/attendance/schedule/${schedBound._id}`)
       .set('Authorization', `Bearer ${tokenFor(teacherB._id)}`);
+
+    expect(res.status).toBe(403);
+  });
+
+  test('QB-007: Teacher user attendance history is filtered to bound/unbound classes', async () => {
+    const res = await request(app)
+      .get(`/api/attendance/user/${seed.member2._id}`)
+      .set('Authorization', `Bearer ${tokenFor(teacherB._id)}`);
+
+    expect(res.status).toBe(200);
+    const scheduleIds = res.body.data.map((record) => record.scheduleId?._id?.toString());
+    expect(scheduleIds).not.toContain(schedBound._id.toString());
+  });
+
+  test('QB-007: Teacher by-employee analytics exclude out-of-scope attendance', async () => {
+    const res = await request(app)
+      .get(`/api/attendance/analytics/by-employee?userId=${seed.member2._id}`)
+      .set('Authorization', `Bearer ${tokenFor(teacherB._id)}`);
+
+    expect(res.status).toBe(200);
+    expect(res.body.total).toBe(0);
+    expect(res.body.data).toHaveLength(0);
+  });
+
+  test('QB-007: Teacher by-team analytics only include visible class teams', async () => {
+    const res = await request(app)
+      .get('/api/attendance/analytics/by-team')
+      .set('Authorization', `Bearer ${tokenFor(teacherB._id)}`);
+
+    expect(res.status).toBe(200);
+    const names = res.body.data.map((team) => team.name);
+    expect(names).toContain('Unbound Att Team');
+    expect(names).not.toContain('Bound Att Team');
+  });
+
+  test('QB-007: analytics cache does not leak Admin by-class data to out-of-scope Teacher', async () => {
+    const admin = await request(app)
+      .get(`/api/attendance/analytics/by-class?classId=${boundClass._id}`)
+      .set('Authorization', `Bearer ${tokens.admin}`);
+    expect(admin.status).toBe(200);
+
+    const teacher = await request(app)
+      .get(`/api/attendance/analytics/by-class?classId=${boundClass._id}`)
+      .set('Authorization', `Bearer ${tokenFor(teacherB._id)}`);
+    expect(teacher.status).toBe(403);
+    expect(teacher.body.reason).toBe('teacher-not-bound-to-class');
+  });
+
+  test('Teacher A attendance calendar includes bound + unbound schedules → 200', async () => {
+    const res = await request(app)
+      .get('/api/schedules/attendance-calendar')
+      .set('Authorization', `Bearer ${tokenFor(teacherA._id)}`);
+
+    expect(res.status).toBe(200);
+    const ids = res.body.data.map((s) => s._id.toString());
+    expect(ids).toContain(schedBound._id.toString());
+    expect(ids).toContain(schedUnbound._id.toString());
+  });
+
+  test('Teacher B attendance calendar excludes another teacher bound schedule', async () => {
+    const res = await request(app)
+      .get('/api/schedules/attendance-calendar')
+      .set('Authorization', `Bearer ${tokenFor(teacherB._id)}`);
+
+    expect(res.status).toBe(200);
+    const ids = res.body.data.map((s) => s._id.toString());
+    expect(ids).not.toContain(schedBound._id.toString());
+    expect(ids).toContain(schedUnbound._id.toString());
+  });
+
+  test('Participant still cannot read attendance calendar → 403', async () => {
+    const res = await request(app)
+      .get('/api/schedules/attendance-calendar')
+      .set('Authorization', `Bearer ${tokens.leader}`);
 
     expect(res.status).toBe(403);
   });

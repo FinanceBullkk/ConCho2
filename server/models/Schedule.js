@@ -10,9 +10,12 @@ const mongoose = require('mongoose');
 //   system CREATES a new Schedule doc with startTime/endTime.
 //
 // BUSINESS RULES:
-//   1. Each time slot allows exactly 1 schedule (collision check).
+//   1. Each time slot allows exactly 1 LIVE schedule (collision check +
+//      partial-unique index scoped to status:'scheduled').
 //   2. Each team can create max 2 sessions per Mon–Sun week.
-//   3. Cancelling a booking DELETES the Schedule document.
+//   3. Cancelling a booking is DURABLE (Wave E3 phase-04 slice A): the doc
+//      flips to status:'cancelled' (who/when/why preserved) — never deleted —
+//      and the freed slot becomes re-bookable.
 //
 // enrolledUsers is maintained as a flattened member list
 // for attendance purposes.
@@ -26,11 +29,25 @@ const scheduleSchema = new mongoose.Schema(
       required: [true, 'Class reference is required'],
     },
 
-    // The team that created/owns this session
+    // The team that created/owns this session. Optional: team-less sessions
+    // exist for cohort-based scheduling modes (self_enroll / nomination), where
+    // an Admin schedules a session against a Cohort and enrolls its per-learner
+    // (cohort-based) enrollments rather than a Team. Team-based modes
+    // (leader_booking / admin_scheduled) always set this.
     bookedTeamId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'Team',
-      required: [true, 'Team reference is required'],
+      default: null,
+    },
+
+    // The physical Office this session is delivered at (re-center Phase 2).
+    // Nullable: legacy/online sessions have none. Coordinator-scheduled
+    // offline sessions REQUIRE it (enforced in the cohort-booking use-case);
+    // Phase 3 scopes Room selection to this Office.
+    officeId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Office',
+      default: null,
     },
 
     // ── Time range ─────────────────────────────────────────
@@ -47,6 +64,42 @@ const scheduleSchema = new mongoose.Schema(
       type: String,
       trim: true,
       default: '',
+    },
+
+    // The physical Room this session occupies (re-center Phase 3, DELTA A).
+    // Nullable: online/legacy sessions have none. When set, it is written
+    // ATOMICALLY with a RoomBooking ledger row (room-lock-policy) so the field
+    // and the per-room {roomId,startTime} lock never drift; the room MUST live
+    // in this session's Office (422 otherwise).
+    roomId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Room',
+      default: null,
+    },
+
+    // ── Trainers (re-center Phase 3, DELTA B) ───────────────
+    // A session may carry per-session INTERNAL trainers (User refs) that join
+    // the attendance/visibility authz UNION (cohort teacher never revoked), and
+    // /or ONE lightweight EXTERNAL trainer (no User, no login) that only feeds
+    // calendar invite + display. The two are independent (a vendor may
+    // co-deliver with an internal SME).
+    sessionInstructorIds: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'User',
+      },
+    ],
+    externalTrainer: {
+      type: new mongoose.Schema(
+        {
+          name: { type: String, required: true, trim: true },
+          email: { type: String, trim: true, lowercase: true, default: null },
+          phone: { type: String, trim: true, default: null },
+          org: { type: String, trim: true, default: null },
+        },
+        { _id: false },
+      ),
+      default: null,
     },
 
     capacity: {
@@ -89,6 +142,34 @@ const scheduleSchema = new mongoose.Schema(
       type: Date,
       default: null,
     },
+
+    // ── Durable cancellation (Wave E3 phase-04, slice A) ────
+    // Cancelling never deletes the doc: status flips to 'cancelled' and the
+    // who/when/why are preserved (golden rule: no hard-delete of operational
+    // history). Cancelled rows are excluded from every operational query
+    // (collision, weekly cap, availability, calendars, reminders, reconcile,
+    // session numbering) and escape the partial-unique slot index, so the
+    // freed {classId,startTime} slot is immediately re-bookable.
+    status: {
+      type: String,
+      enum: ['scheduled', 'cancelled'],
+      default: 'scheduled',
+    },
+    cancelledAt: {
+      type: Date,
+      default: null,
+    },
+    cancelledBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+      default: null,
+    },
+    cancelReason: {
+      type: String,
+      trim: true,
+      maxlength: 500,
+      default: '',
+    },
   },
   {
     timestamps: true,
@@ -120,19 +201,35 @@ scheduleSchema.virtual('availableSpots').get(function () {
 });
 
 // ── Indexes ───────────────────────────────────────────────
-// UNIQUE constraint: one booking per (class, time slot). This is the last
+// UNIQUE constraint: one LIVE booking per (class, time slot). This is the last
 // line of defense against concurrent double-bookings — the transaction in
 // scheduleService already does an explicit collision check, but two
 // requests that pass the check simultaneously can still race to insert.
 // MongoDB will reject the second insert with E11000; scheduleService
 // catches that code and converts it to a 409 ServiceError.
-scheduleSchema.index({ classId: 1, startTime: 1 }, { unique: true });
+//
+// PARTIAL (Wave E3 phase-04 slice A): scoped to status:'scheduled' so durable-
+// cancelled rows may share the slot as history while the freed slot re-books.
+// Existing deployments must run scripts/migrate-schedule-partial-unique-index.js
+// (backfill status + drop/recreate) — the old full-unique index with the same
+// key pattern conflicts with this definition until dropped.
+scheduleSchema.index(
+  { classId: 1, startTime: 1 },
+  { unique: true, partialFilterExpression: { status: 'scheduled' } },
+);
 
 scheduleSchema.index({ classId: 1, startTime: 1, endTime: 1 }); // Collision-check range query: findOne({classId, startTime:{$lt:end}, endTime:{$gt:start}})
 scheduleSchema.index({ bookedTeamId: 1, startTime: 1 });         // Weekly count: countDocuments({bookedTeamId, startTime:{$gte:weekStart,$lte:weekEnd}})
 // Compound multikey index — covers both auto-release (User.Dropped middleware) and
 // team-sync (syncSchedulesForTeamUpdate) which both filter on enrolledUsers + startTime.
 scheduleSchema.index({ enrolledUsers: 1, startTime: 1 });
+// Office-scoped queries (re-center Phase 2/3: "sessions at this office", and
+// Phase 3 room-conflict checks within an office).
+scheduleSchema.index({ officeId: 1, startTime: 1 });
+
+// Phase 3: per-session internal-trainer visibility (UNION authz filter
+// `$or:[{classId:{$in:visible}},{sessionInstructorIds: me}]`).
+scheduleSchema.index({ sessionInstructorIds: 1, startTime: 1 });
 
 // PERF-010 (audit PR D): reconcileService.checkMissingAttendance
 // (services/reconcileService.js:42) filters

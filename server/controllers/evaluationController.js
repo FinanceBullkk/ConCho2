@@ -1,5 +1,6 @@
 const Evaluation = require('../models/Evaluation');
 const Class = require('../models/Class');
+const Enrollment = require('../models/Enrollment');
 const auditService = require('../services/auditService');
 const evaluationPolicy = require('../policy/evaluation');
 const { handleError } = require('../helpers/handleError');
@@ -49,18 +50,31 @@ const upsertEvaluation = async (req, res) => {
     const decision = evaluationPolicy.canWrite(req.user, cls);
     if (!decision.allowed) return policyDeny(res, decision);
 
-    const before = await Evaluation.findOne({ classId, userId }).lean();
+    // Look up INCLUDING trashed rows (explicit isDeleted skips the soft-delete
+    // hook): the {classId,userId} unique index is full, so a re-evaluation
+    // after a soft delete must REVIVE the trashed row in place — an upsert
+    // insert would E11000 against it (DATA-014, audit round 2).
+    // `null` in the $in matches legacy rows that PREDATE the isDeleted field
+    // (missing field) — without it the upsert would try to insert and E11000
+    // against the existing legacy row.
+    const before = await Evaluation.findOne({
+      classId, userId, isDeleted: { $in: [true, false, null] },
+    }).lean();
+    const reviving = Boolean(before?.isDeleted);
 
     const update = {
       level, grammarScore, vocabularyScore, pronunciationScore,
       fluencyScore, teacherComment,
+      ...(reviving ? { isDeleted: false, deletedAt: null } : {}),
     };
     // Only set createdBy on the initial insert — never overwrite the
     // original author on subsequent updates.
     const setOnInsert = { createdBy: req.user._id };
 
     const evaluation = await Evaluation.findOneAndUpdate(
-      { classId, userId },
+      // Explicit isDeleted match lets the update reach a trashed row too
+      // (and `null` covers legacy rows missing the field — see above).
+      { classId, userId, isDeleted: { $in: [true, false, null] } },
       { $set: update, $setOnInsert: setOnInsert },
       { new: true, upsert: true, runValidators: true }
     );
@@ -73,6 +87,7 @@ const upsertEvaluation = async (req, res) => {
       diff: before
         ? auditService.diff(before, evaluation.toObject())
         : { after: { classId, userId, level, grammarScore, vocabularyScore, pronunciationScore, fluencyScore } },
+      ...(reviving ? { note: 'Revived a soft-deleted evaluation by re-upsert' } : {}),
     });
 
     res.json({ success: true, data: evaluation });
@@ -171,12 +186,68 @@ const getEvaluationById = async (req, res) => {
 };
 
 /**
+ * GET /api/evaluations/roster?classId=
+ *
+ * FLOW-001 (audit round 3): the Add-evaluation learner picker used the
+ * org-wide /api/users search, which is Admin-only — so a Teacher (who CAN
+ * write evaluations per roleGuard + route-permission-matrix) could never
+ * select a learner and the grading flow was a dead end. This returns the
+ * class-scoped roster (Active enrollments) instead: least-privilege (a
+ * teacher picks from the class they teach, never the org directory) and
+ * gated by the same per-class binding policy as evaluation reads.
+ */
+const getEvaluationRoster = async (req, res) => {
+  try {
+    const { classId } = req.query;
+
+    const cls = await Class.findById(classId).lean();
+    if (!cls) return res.status(404).json({ success: false, message: 'Class not found' });
+
+    // Same per-class binding as getEvaluations: a bound Teacher may read the
+    // roster; empty teacherIds stays permissive (legacy migration window).
+    if (req.user.role === 'Teacher') {
+      const decision = evaluationPolicy.canRead(req.user, cls);
+      if (!decision.allowed) return policyDeny(res, decision);
+    }
+
+    // Active enrollments for the class → the learners eligible to be graded.
+    // populate('userId') is hook-filtered, so trashed users yield null and are
+    // dropped. Dedupe by user (a user could in theory have >1 enrollment row).
+    const enrollments = await Enrollment.find({ classId, status: 'Active' })
+      .populate('userId', 'empCode name department')
+      .lean();
+
+    const seen = new Set();
+    const learners = [];
+    for (const enr of enrollments) {
+      const u = enr.userId;
+      if (!u || !u._id) continue;
+      const id = String(u._id);
+      if (seen.has(id)) continue;
+      seen.add(id);
+      learners.push({ _id: u._id, empCode: u.empCode, name: u.name, department: u.department });
+    }
+    learners.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+
+    res.json({ success: true, count: learners.length, data: learners });
+  } catch (error) {
+    handleError(res, error);
+  }
+};
+
+/**
  * DELETE /api/evaluations/:id
  * Admin-only (per evaluationRoutes.js).
  */
 const deleteEvaluation = async (req, res) => {
   try {
-    const evaluation = await Evaluation.findByIdAndDelete(req.params.id);
+    // SOFT delete (DATA-014, audit round 2) — golden rule: evaluation data is
+    // never hard-deleted. The soft-delete hook scopes this to live rows, so a
+    // second delete answers 404. Recoverable: re-upsert revives the row.
+    const evaluation = await Evaluation.findByIdAndUpdate(
+      req.params.id,
+      { $set: { isDeleted: true, deletedAt: new Date() } },
+    );
     if (!evaluation) return res.status(404).json({ success: false, message: 'Evaluation not found' });
 
     auditService.record({
@@ -185,6 +256,7 @@ const deleteEvaluation = async (req, res) => {
       entity: 'Evaluation',
       entityId: evaluation._id,
       diff: { before: evaluation.toObject() },
+      note: 'Soft-deleted (recoverable — re-upsert revives)',
     });
 
     res.json({ success: true, message: 'Evaluation deleted' });
@@ -193,4 +265,4 @@ const deleteEvaluation = async (req, res) => {
   }
 };
 
-module.exports = { upsertEvaluation, getEvaluations, getEvaluationById, deleteEvaluation };
+module.exports = { upsertEvaluation, getEvaluations, getEvaluationRoster, getEvaluationById, deleteEvaluation };

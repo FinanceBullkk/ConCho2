@@ -57,10 +57,10 @@ describe('downloadBlob', () => {
 
   it('decodes UTF-8 filename* per RFC 5987', () => {
     const res = mockResponse({
-      headers: { 'content-disposition': "attachment; filename*=UTF-8''b%C3%A1o-c%C3%A1o.xlsx" },
+      headers: { 'content-disposition': "attachment; filename*=UTF-8''caf%C3%A9.xlsx" },
     });
     const filename = downloadBlob(res, 'fallback.xlsx');
-    expect(filename).toBe('báo-cáo.xlsx');
+    expect(filename).toBe('café.xlsx');
   });
 
   it('creates blob URL, clicks anchor, then revokes URL after tick', () => {

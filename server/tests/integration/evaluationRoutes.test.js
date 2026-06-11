@@ -388,3 +388,79 @@ describe('DELETE /api/evaluations/:id', () => {
     expect(res.status).toBe(404);
   });
 });
+
+// ── SEC-014 (audit 2026-06-11): malformed ids → 400, never a CastError 500 ──
+
+describe('SEC-014 — malformed ObjectId answers 400', () => {
+  test('GET /api/evaluations/:id with garbage id → 400 (zod param gate)', async () => {
+    const res = await request(app)
+      .get('/api/evaluations/not-an-object-id')
+      .set('Authorization', `Bearer ${tokens.admin}`);
+    expect(res.status).toBe(400);
+  });
+
+  test('DELETE /api/evaluations/:id with garbage id → 400 (zod param gate)', async () => {
+    const res = await request(app)
+      .delete('/api/evaluations/not-an-object-id')
+      .set('Authorization', `Bearer ${tokens.admin}`)
+      .set(csrf);
+    expect(res.status).toBe(400);
+  });
+
+  test('GET /api/evaluations?classId=garbage → 400 (handleError CastError branch)', async () => {
+    // No zod on this query — the garbage value reaches Mongoose and casts;
+    // the new CastError branch must turn that into a 400, not a 500.
+    const res = await request(app)
+      .get('/api/evaluations?classId=not-an-object-id')
+      .set('Authorization', `Bearer ${tokens.admin}`);
+    expect(res.status).toBe(400);
+    expect(res.body.message).toMatch(/invalid value/i);
+  });
+});
+
+// ── DATA-014 (audit round 2): delete is SOFT — golden rule for evaluations ──
+
+describe('DATA-014 — evaluation delete is soft + re-upsert revives', () => {
+  test('delete hides the row, keeps it recoverable, and re-upsert revives the same slot', async () => {
+    const cls = await seedFreshClass();
+    const ev = await seedEval({ classId: cls._id, userId: seed.member1._id });
+
+    const del = await request(app)
+      .delete(`/api/evaluations/${ev._id}`)
+      .set('Authorization', `Bearer ${tokens.admin}`).set(csrf);
+    expect(del.status).toBe(200);
+
+    // Hidden from API reads...
+    const byId = await request(app)
+      .get(`/api/evaluations/${ev._id}`)
+      .set('Authorization', `Bearer ${tokens.admin}`);
+    expect(byId.status).toBe(404);
+    // ...but still in the DB as a recoverable trash row (golden rule).
+    const trashed = await Evaluation.findOne({ _id: ev._id, isDeleted: true }).lean();
+    expect(trashed).not.toBeNull();
+
+    // Second delete → 404 (the soft-delete hook scopes the flip to live rows).
+    const again = await request(app)
+      .delete(`/api/evaluations/${ev._id}`)
+      .set('Authorization', `Bearer ${tokens.admin}`).set(csrf);
+    expect(again.status).toBe(404);
+
+    // Re-evaluating the same (class, user) REVIVES the trashed row in place —
+    // no E11000 against the full {classId,userId} unique index.
+    const revive = await request(app)
+      .post('/api/evaluations')
+      .set('Authorization', `Bearer ${tokens.admin}`).set(csrf)
+      .send({
+        classId: cls._id.toString(),
+        userId: seed.member1._id.toString(),
+        grammarScore: 9, vocabularyScore: 8, pronunciationScore: 7, fluencyScore: 6,
+      });
+    expect(revive.status).toBe(200);
+    expect(String(revive.body.data._id)).toBe(String(ev._id)); // same logical slot
+
+    const revived = await Evaluation.findById(ev._id).lean(); // hook-visible again
+    expect(revived).not.toBeNull();
+    expect(revived.isDeleted).toBe(false);
+    expect(revived.grammarScore).toBe(9);
+  });
+});

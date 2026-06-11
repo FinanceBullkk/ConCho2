@@ -127,6 +127,7 @@ dist
 
 # Build outputs
 dist/
+dist_old/
 build/
 
 # Playwright (E2E tests)
@@ -134,6 +135,10 @@ client/test-results/
 client/playwright-report/
 client/playwright/.cache/
 client/blob-report/
+
+# Test result artifacts (temporary output from CI/local runs)
+*_results.txt
+*_results.json
 
 # ── Secret hygiene ────────────────────────────────────────────────────────────
 # These patterns prevent accidentally committing credential rotation scratch
@@ -145,3 +150,11 @@ filter-secrets*.txt
 *-to-remove.txt
 New Text Document.txt
 New Text Document*.txt
+
+# ── Personal / scratch docs (kept local, not part of the project repo) ────────
+PROMOTION_IMPACT_REPORT.md
+
+# ── Claude Code local settings (per-developer; auto-written permission grants) ─
+# settings.json is shared/committed; settings.local.json is personal and churns
+# every time a new tool permission is approved — keep it out of version control.
+.claude/settings.local.json

@@ -20,13 +20,13 @@ import { Spinner } from './Spinner';
 // ──────────────────────────────────────────────────────────
 
 // AUDIT PR 8 (FE-001): The legacy /users, /teams, /classes routes have been
-// redirected to /people and /programs. The previous targets dropped the
+// redirected to /people and /learning. The previous targets dropped the
 // query string on redirect, so Cmd+K landed users on an unfiltered list.
 // We now build the modern URL directly so the search filter survives.
 const ROUTE_FOR = {
   users:   (u) => `/people?tab=users&search=${encodeURIComponent(u.empCode)}`,
   teams:   (t) => `/people?tab=teams&search=${encodeURIComponent(t.name)}`,
-  classes: (c) => `/programs?tab=classes&search=${encodeURIComponent(c.classCode)}`,
+  classes: (c) => `/learning?tab=cohorts&search=${encodeURIComponent(c.classCode)}`,
 };
 
 const ICON_FOR = {
@@ -110,6 +110,7 @@ export default function SearchPalette({ open, onClose }) {
   const flat = useMemo(() => flatten(data), [data]);
 
   // Reset when the palette opens
+  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     if (open) {
       setQuery('');
@@ -123,6 +124,7 @@ export default function SearchPalette({ open, onClose }) {
   useEffect(() => {
     setActive((a) => (flat.length === 0 ? 0 : Math.min(a, flat.length - 1)));
   }, [flat.length]);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   const choose = useCallback(
     (idx) => {
@@ -153,33 +155,37 @@ export default function SearchPalette({ open, onClose }) {
     }
   };
 
-  if (!open) return null;
-
   // Render grouped: walk flat list but inject group headers when kind changes.
-  let prevKind = null;
-  let runningIdx = 0;
-  const rendered = flat.map(({ kind, item }) => {
-    const isNewGroup = kind !== prevKind;
-    prevKind = kind;
-    const idx = runningIdx;
-    runningIdx += 1;
-    return (
-      <div key={`${kind}-${item._id || idx}`}>
-        {isNewGroup && (
-          <div className="px-4 pt-3 pb-1 text-[11px] font-semibold uppercase tracking-wider text-subtle-foreground">
-            {LABEL_FOR[kind]}
-          </div>
-        )}
-        <ResultRow
-          kind={kind}
-          item={item}
-          active={idx === active}
-          onHover={() => setActive(idx)}
-          onOpen={() => choose(idx)}
-        />
-      </div>
-    );
-  });
+  // Must be called unconditionally (before any early return) for rules-of-hooks.
+  const rendered = useMemo(() => {
+    let prevKind = null;
+    let runningIdx = 0;
+    return flat.map(({ kind, item }) => {
+      const isNewGroup = kind !== prevKind;
+      prevKind = kind;
+      const idx = runningIdx;
+      runningIdx += 1;
+      return (
+        <div key={`${kind}-${item._id || idx}`}>
+          {isNewGroup && (
+            <div className="px-4 pt-3 pb-1 text-[11px] font-semibold uppercase tracking-wider text-subtle-foreground">
+              {LABEL_FOR[kind]}
+            </div>
+          )}
+          <ResultRow
+            kind={kind}
+            item={item}
+            active={idx === active}
+            onHover={() => setActive(idx)}
+            onOpen={() => choose(idx)}
+          />
+        </div>
+      );
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [flat, active, choose]);
+
+  if (!open) return null;
 
   return createPortal(
     <div

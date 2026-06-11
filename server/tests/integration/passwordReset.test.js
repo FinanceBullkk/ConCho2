@@ -40,8 +40,22 @@ beforeEach(() => {
 // asserting on persisted state and mock invocations.
 // The background flow does: User.findOne (1 await) → save (1 await) →
 // sendMail mock (1 await) → save again on failure path (1 await).
-// 50ms is generous on an in-memory replica set.
+// 50ms is generous on an in-memory replica set when this suite runs alone, but
+// under a full --runInBand run (CPU contention across 50+ suites) the chain can
+// exceed it — a late send then leaks into the next test. For the negative
+// (no-send) paths a short settle is fine; the positive path polls instead.
 const flushBackground = () => new Promise((r) => setTimeout(r, 50));
+
+// Poll until `predicate()` is truthy (or timeout). Used by the send path so the
+// test fully drains its background email before the next test's clearAllMocks —
+// makes the assertion deterministic regardless of host load.
+const waitFor = async (predicate, { timeout = 3000, interval = 10 } = {}) => {
+  const start = Date.now();
+  while (Date.now() - start < timeout) {
+    if (predicate()) return;
+    await new Promise((r) => setTimeout(r, interval));
+  }
+};
 
 describe('POST /api/auth/forgot-password', () => {
   test('returns 200 with valid empCode that has an email on file', async () => {
@@ -59,8 +73,9 @@ describe('POST /api/auth/forgot-password', () => {
     expect(res.body.success).toBe(true);
     expect(res.body.message).toMatch(/If that employee code exists/);
 
-    // Wait for the deferred background work to commit.
-    await flushBackground();
+    // Wait until the deferred background send actually fires (token is saved
+    // earlier in the same chain, so it's committed by the time sendMail runs).
+    await waitFor(() => sendMail.mock.calls.length >= 1);
 
     // Token should have been stored on the user
     const user = await User.findById(seed.admin._id);

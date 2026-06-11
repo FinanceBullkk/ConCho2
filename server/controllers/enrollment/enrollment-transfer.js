@@ -1,0 +1,250 @@
+const mongoose = require('mongoose');
+const Enrollment = require('../../models/Enrollment');
+const Team = require('../../models/Team');
+const { syncSchedulesForTeamUpdate } = require('../../models/Team');
+const { notifyPromotions } = require('../../domains/schedule/waitlist/promotion');
+const { syncEnrollments, flushPendingEmails } = require('../../domains/groups/controller');
+const { handleError } = require('../../helpers/handleError');
+const { invalidateAnalyticsCache } = require('../../middleware/analyticsCache');
+const logger = require('../../lib/logger');
+const auditService = require('../../services/auditService');
+
+// ──────────────────────────────────────────────────────────
+// Enrollment Controller — transfer handlers
+// ──────────────────────────────────────────────────────────
+// Split from the legacy enrollmentController (Phase 1 modular-monolith).
+// Atomic single transfer + sequential bulk transfer (reuses single). Single
+// transfer runs the whole move (membership swap, schedule sync both teams,
+// enrollment close+create) inside ONE Mongo transaction so any failure rolls
+// back completely — no dual-membership half-state (BUG #1 fix).
+
+/**
+ * POST /api/enrollments/:id/transfer
+ * Atomically transfer a participant from one team to another.
+ *
+ * Body: { toTeamId: string, note?: string }
+ *
+ * Algorithm (inside a MongoDB transaction):
+ *   1. Source enrollment → status='Transferred', transferredTo=toTeamId, leftAt=now
+ *   2. Source team.members → $pull user
+ *   3. Target team.members → $addToSet user
+ *   4. Schedule.enrolledUsers → synced for BOTH teams (future sessions)
+ *   5. New Enrollment created in target team (status='Active', classId from target team)
+ *
+ * Validations:
+ *   - Source enrollment must exist and be Active
+ *   - Target team must exist and not equal source team
+ *   - User must not already be in target team's members
+ */
+const transferEnrollment = async (req, res) => {
+  try {
+    const { toTeamId, note } = req.body;
+    if (!toTeamId) {
+      return res.status(400).json({ success: false, message: 'toTeamId is required' });
+    }
+
+    // ── Pre-validation (read-only) ──────────────────────────
+    const enrollment = await Enrollment.findById(req.params.id).lean();
+    if (!enrollment) {
+      return res.status(404).json({ success: false, message: 'Enrollment not found' });
+    }
+    if (enrollment.status !== 'Active') {
+      return res.status(400).json({
+        success: false,
+        message: `Cannot transfer enrollment with status "${enrollment.status}". Only Active enrollments can be transferred.`,
+      });
+    }
+
+    const fromTeamId = enrollment.teamId.toString();
+    if (fromTeamId === toTeamId.toString()) {
+      return res.status(400).json({ success: false, message: 'Source and target teams are the same' });
+    }
+
+    const [fromTeam, toTeam] = await Promise.all([
+      Team.findById(fromTeamId).lean(),
+      Team.findById(toTeamId).lean(),
+    ]);
+    if (!toTeam) {
+      return res.status(404).json({ success: false, message: 'Target team not found' });
+    }
+    if (!fromTeam) {
+      return res.status(404).json({ success: false, message: 'Source team not found' });
+    }
+
+    const userIdStr = enrollment.userId.toString();
+    const alreadyInTarget = (toTeam.members || []).some(m => m.toString() === userIdStr);
+    if (alreadyInTarget) {
+      return res.status(409).json({
+        success: false,
+        message: `User is already a member of "${toTeam.name}".`,
+      });
+    }
+
+    // Snapshot member arrays before the transaction — syncEnrollments will
+    // mutate fromTeam.members inside the session, so we need stable old/new
+    // values for syncSchedulesForTeamUpdate on the source side.
+    const toOld = (toTeam.members || []).map((id) => id.toString());
+    const toNew = [...toOld, userIdStr];
+    const fromOldMembers = (fromTeam.members || []).map((id) => id.toString());
+    const fromNewMembers = fromOldMembers.filter((id) => id !== userIdStr);
+    const classId = toTeam.classId ? toTeam.classId.toString() : null;
+
+    // ── SINGLE ATOMIC TRANSACTION ────────────────────────────
+    // All four steps run inside one session so any failure rolls back
+    // completely — no dual-membership half-state (BUG #1 fix).
+    let pendingEmails = [];
+    let sourcePromotions = [];
+    const session = await mongoose.startSession();
+    try {
+      await session.withTransaction(async () => {
+        // Step 1: Add user to target team
+        await Team.findByIdAndUpdate(
+          toTeamId,
+          { $addToSet: { members: enrollment.userId } },
+          { session },
+        );
+
+        // Step 2: Sync target team's future schedules (member added)
+        await syncSchedulesForTeamUpdate({
+          teamId: toTeamId, oldMembers: toOld, newMembers: toNew, session,
+        });
+
+        // Step 3: Close source enrollment, remove user from source team,
+        // create new Active enrollment in target team.
+        // syncEnrollments accepts session — fully transactional.
+        ({ pendingEmails } = await syncEnrollments(
+          toTeamId,
+          [userIdStr],
+          [],
+          classId,
+          { session },
+        ));
+
+        // Step 4: Sync source team's future schedules (member removed) — the
+        // freed seats promote FIFO waiters in-tx (phase-04 slice B); notify
+        // happens post-commit below.
+        if (fromOldMembers.length !== fromNewMembers.length) {
+          ({ promotions: sourcePromotions } = await syncSchedulesForTeamUpdate({
+            teamId: fromTeamId,
+            oldMembers: fromOldMembers,
+            newMembers: fromNewMembers,
+            session,
+          }));
+        }
+      });
+    } finally {
+      session.endSession();
+    }
+
+    // Post-commit: flush queued emails and attach optional transfer note.
+    flushPendingEmails(pendingEmails);
+
+    // Notify waiters promoted on the source team's freed seats (fail-soft).
+    for (const { scheduleId, promoted } of sourcePromotions) {
+      // eslint-disable-next-line no-await-in-loop
+      await notifyPromotions(scheduleId, promoted);
+    }
+
+    if (note) {
+      await Enrollment.findOneAndUpdate(
+        { userId: enrollment.userId, teamId: toTeamId, status: 'Active' },
+        { $set: { note } },
+      );
+    }
+
+    logger.info({ enrollmentId: req.params.id, fromTeamId, toTeamId, userId: userIdStr }, 'Enrollment transferred');
+
+    auditService.record({
+      req,
+      action: 'transferred',
+      entity: 'Enrollment',
+      entityId: req.params.id,
+      diff: { teamId: { from: fromTeamId, to: toTeamId.toString() } },
+    });
+
+    invalidateAnalyticsCache();
+
+    // Return the new Active enrollment (in target team)
+    const newEnrollment = await Enrollment.findOne({
+      userId: enrollment.userId,
+      teamId: toTeamId,
+      status: 'Active',
+    })
+      .populate('userId', 'empCode name department status')
+      .populate('teamId', 'name')
+      .populate('classId', 'classCode courseName totalSessions')
+      .populate('transferredTo', 'name');
+
+    res.json({ success: true, data: newEnrollment });
+  } catch (error) {
+    handleError(res, error);
+  }
+};
+
+/**
+ * POST /api/enrollments/bulk-transfer
+ * Sequentially transfers N enrollments to the same target team.
+ * Body: { enrollmentIds: [string], toTeamId: string, note?: string }
+ * Returns: { success: true, results: [{enrollmentId, status, message?}] }
+ *
+ * Uses the existing single-transfer logic per id (correct + auditable).
+ * Performance: O(N); acceptable for typical bulk size (1–20 students).
+ */
+const bulkTransferEnrollment = async (req, res) => {
+  try {
+    const { enrollmentIds, toTeamId, note } = req.body;
+    if (!Array.isArray(enrollmentIds) || enrollmentIds.length === 0) {
+      return res.status(400).json({ success: false, message: 'enrollmentIds must be a non-empty array' });
+    }
+    if (!toTeamId) {
+      return res.status(400).json({ success: false, message: 'toTeamId is required' });
+    }
+
+    const results = [];
+    let ok = 0, failed = 0;
+    for (const id of enrollmentIds) {
+      // Reuse the single-transfer controller by shimming a minimal req/res.
+      // It already handles validation, transactions, audit and cache invalidation.
+      let captured = null;
+      const shimRes = {
+        status(code) { this._code = code; return this; },
+        json(payload) { captured = { code: this._code || 200, payload }; },
+      };
+      const shimReq = {
+        ...req,
+        params: { id },
+        body: { toTeamId, note },
+        // Q3: Express getters (req.ip) and prototype methods (req.get) do not
+        // survive a plain object spread — re-bind them explicitly so that
+        // auditService.record() logs the real IP and user-agent instead of null.
+        ip: req.ip,
+        get: req.get.bind(req),
+      };
+      try {
+        await transferEnrollment(shimReq, shimRes);
+        if (captured?.payload?.success) {
+          results.push({ enrollmentId: id, status: 'ok' });
+          ok += 1;
+        } else {
+          results.push({
+            enrollmentId: id, status: 'error',
+            message: captured?.payload?.message || 'Unknown error',
+          });
+          failed += 1;
+        }
+      } catch (err) {
+        results.push({ enrollmentId: id, status: 'error', message: err.message });
+        failed += 1;
+      }
+    }
+
+    logger.info({ enrollmentIds, toTeamId, ok, failed }, 'Bulk transfer complete');
+    invalidateAnalyticsCache();
+
+    res.json({ success: true, results, ok, failed });
+  } catch (error) {
+    handleError(res, error);
+  }
+};
+
+module.exports = { transferEnrollment, bulkTransferEnrollment };

@@ -147,4 +147,43 @@ describe('PUT /api/settings', () => {
 
     expect(res.status).toBe(401);
   });
+
+  // Wave E1: scheduling config is validated on write. These rejected payloads
+  // leave the stored setting unchanged (no shared-state pollution).
+  test('returns 400 when ALLOWED_TIME_SLOTS has overlapping windows', async () => {
+    const csrf = await getCsrfHeaders(app);
+
+    const res = await request(app)
+      .put('/api/settings')
+      .set('Authorization', `Bearer ${tokens.admin}`)
+      .set(csrf)
+      .send({
+        settings: [{
+          key: 'ALLOWED_TIME_SLOTS',
+          value: [
+            { sh: 9, sm: 0, eh: 10, em: 0 },
+            { sh: 9, sm: 30, eh: 11, em: 0 },
+          ],
+        }],
+      });
+
+    expect(res.status).toBe(400);
+    expect(res.body.success).toBe(false);
+    expect(res.body.message).toMatch(/ALLOWED_TIME_SLOTS/);
+  });
+
+  test('returns 400 when ALLOWED_TIME_SLOTS has a malformed window', async () => {
+    const csrf = await getCsrfHeaders(app);
+
+    const res = await request(app)
+      .put('/api/settings')
+      .set('Authorization', `Bearer ${tokens.admin}`)
+      .set(csrf)
+      .send({
+        settings: [{ key: 'ALLOWED_TIME_SLOTS', value: [{ sh: 10, sm: 0, eh: 9, em: 0 }] }],
+      });
+
+    expect(res.status).toBe(400);
+    expect(res.body.success).toBe(false);
+  });
 });

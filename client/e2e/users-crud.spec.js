@@ -18,6 +18,11 @@ import { test, expect } from './fixtures.js';
  *
  * Pre-req: server seeded (npm run seed) and reachable; MFA disabled on
  * the seed admin (default).
+ *
+ * Audit PR X (P2-09): updated for the IA-S2 route move
+ *   /users → /people?tab=users  (UsersPage is now a tab inside PeoplePage)
+ * The inner page's "User Management" heading and "+ New User" button are
+ * unchanged — only the URL we navigate to changed.
  */
 
 const uniqueCode = () =>
@@ -34,13 +39,20 @@ test.describe('Users — CRUD smoke', () => {
 
     try {
       // ── 1) Navigate ────────────────────────────────────
-      await adminPage.goto('/users');
+      await adminPage.goto('/people?tab=users');
+      // PeoplePage's PageHeader emits "People" as h1; the nested
+      // UsersPage emits "User Management" as its own h1. Asserting on
+      // the inner one proves the tab content actually rendered (the
+      // outer header would be visible even with a tab-loading error).
       await expect(
-        adminPage.getByRole('heading', { name: /user management/i }),
-      ).toBeVisible();
+        adminPage.getByRole('heading', { name: /^User Management$/ }),
+      ).toBeVisible({ timeout: 10_000 });
 
       // ── 2) Open the Create modal ───────────────────────
-      await adminPage.getByRole('button', { name: /\+ New User/i }).click();
+      // The page may include other "New User"-named controls in
+      // alternate UI surfaces; scope to the first match (the primary
+      // action button in the PageHeader-adjacent actions row).
+      await adminPage.getByRole('button', { name: /\+ New User/i }).first().click();
       await expect(
         adminPage.getByRole('heading', { name: /create user/i }),
       ).toBeVisible();
@@ -58,10 +70,31 @@ test.describe('Users — CRUD smoke', () => {
       // ── 4) Submit ──────────────────────────────────────
       await adminPage.getByRole('button', { name: /^Create$/ }).click();
 
-      // ── 5) Find the row by searching for the empCode ───
-      // Search is debounced & URL-synced; wait for the URL update so we
-      // know the query has run.
-      const search = adminPage.getByPlaceholder(/search/i);
+      // ── 5) Wait for the modal to close ─────────────────
+      // Critical: until the Radix Dialog unmounts, focus stays trapped
+      // inside the modal and key/input events sent to the FilterBar
+      // below silently target the modal's still-mounted form fields.
+      // The CI failure on this test was exactly this — the empCode
+      // typed into FilterBar.fill() was being absorbed by the modal's
+      // input until the unmount completed, by which point setSearch
+      // had never fired so the URL never gained `?search=...`.
+      await expect(
+        adminPage.getByRole('heading', { name: /create user/i }),
+      ).toHaveCount(0, { timeout: 10_000 });
+
+      // ── 6) Find the row by searching for the empCode ───
+      // Search is URL-synced via useListUrlState. Pin to the UsersPage
+      // FilterBar's canonical placeholder copy (not generic /search/i)
+      // so we never accidentally match the navbar's Ctrl+K search
+      // button text on some breakpoints.
+      const search = adminPage.getByPlaceholder(
+        /Search by name, code, email, or department/i,
+      );
+      await expect(search).toBeVisible({ timeout: 7_000 });
+      // Click before fill so focus is firmly on the FilterBar input —
+      // belt-and-braces in case any focus-trap fragment lingers from
+      // the freshly-unmounted modal.
+      await search.click();
       await search.fill(empCode);
       await expect(adminPage).toHaveURL(new RegExp(`[?&]search=${empCode}`), {
         timeout: 5_000,

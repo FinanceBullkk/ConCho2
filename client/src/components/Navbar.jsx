@@ -15,11 +15,11 @@ import {
   X,
   Search,
   ChevronDown,
-  Globe,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../hooks/useTheme';
+import { useMyTeam } from '../hooks/useOrg';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -41,33 +41,37 @@ const NAV_ITEMS = [
     path: '/home',
     labelKey: 'nav.home',
     icon: Home,
-    access: { Admin: 'full', Teacher: 'full', Participant: 'full' },
+    access: { Admin: 'full', Coordinator: 'full', Teacher: 'full', Participant: 'full' },
   },
   {
     path: '/people',
     labelKey: 'nav.people',
     icon: Users,
-    access: { Admin: 'full', Teacher: 'none', Participant: 'none' },
+    // Coordinator reaches the org tabs (Departments/Offices); Users/Teams
+    // tabs stay hidden inside PeoplePage via per-tab perms.
+    access: { Admin: 'full', Coordinator: 'full', Teacher: 'none', Participant: 'none' },
     disabledTitleKey: 'nav.adminOnly',
   },
   {
-    path: '/programs',
-    labelKey: 'nav.programs',
+    path: '/learning',
+    labelKey: 'nav.learning',
     icon: BookOpen,
-    access: { Admin: 'full', Teacher: 'read', Participant: 'none' },
+    access: { Admin: 'full', Coordinator: 'full', Teacher: 'read', Participant: 'none' },
     disabledTitleKey: 'nav.adminOnly',
   },
   {
     path: '/calendar',
     labelKey: 'nav.calendar',
     icon: CalendarDays,
-    access: { Admin: 'full', Teacher: 'full', Participant: 'full' },
+    // Coordinator scheduling UX lands in re-center Phase 2 — until then the
+    // calendar tabs (Schedules/Attendance/Book) all 403 for a Coordinator.
+    access: { Admin: 'full', Coordinator: 'none', Teacher: 'full', Participant: 'full' },
   },
   {
     path: '/reports',
     labelKey: 'nav.reports',
     icon: FileBarChart,
-    access: { Admin: 'full', Teacher: 'full', Participant: 'none' },
+    access: { Admin: 'full', Coordinator: 'none', Teacher: 'full', Participant: 'none' },
     disabledTitleKey: 'nav.participantUnavailable',
   },
 ];
@@ -76,11 +80,13 @@ const NAV_ITEMS = [
 // Solid tokens only (no gradients per Phase 0 §02).
 const ROLE_BG = {
   Admin:       'bg-primary',
+  Coordinator: 'bg-info',
   Teacher:     'bg-success',
   Participant: 'bg-warning',
 };
 const ROLE_TEXT = {
   Admin:       'text-primary',
+  Coordinator: 'text-info',
   Teacher:     'text-success',
   Participant: 'text-warning',
 };
@@ -90,7 +96,7 @@ const ROLE_TEXT = {
 const NAV_PARENT_ROUTES = {
   '/home':     ['/home', '/dashboard'],
   '/people':   ['/people', '/users', '/teams'],
-  '/programs': ['/programs', '/classes', '/courses'],
+  '/learning': ['/learning', '/programs', '/classes', '/courses'],
   '/calendar': ['/calendar', '/operations', '/schedules', '/attendance', '/book'],
   '/reports':  ['/reports', '/data'],
   '/system':   ['/system', '/admin', '/settings', '/database'],
@@ -175,14 +181,18 @@ export default function Navbar() {
   const { user, logout } = useAuth();
   const location = useLocation();
   const { isDark, toggle } = useTheme();
-  const { t, i18n } = useTranslation();
+  const { t } = useTranslation();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
-
-  const toggleLang = () => i18n.changeLanguage(i18n.language === 'vi' ? 'en' : 'vi');
+  // Manager dashboard entry — only surfaces for users who actually have
+  // direct reports (self-scoped, cheap, cached). Keeps nav uncluttered for
+  // the ~majority who aren't managers.
+  const { data: myTeam } = useMyTeam({ enabled: Boolean(user), staleTime: 5 * 60 * 1000 });
 
   // Close on route change
+  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => setMobileOpen(false), [location.pathname]);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   // Global keyboard shortcut: Cmd/Ctrl+K opens the search palette.
   // We listen at document level so the shortcut works regardless of focus.
@@ -236,7 +246,20 @@ export default function Navbar() {
   // (set up in commit a5770e8e). `access: 'full'|'read'` → visible link,
   // `'none'` → render disabled span with tooltip so the user knows the
   // feature exists but is restricted (Phase 2 IA).
-  const items = NAV_ITEMS.map((item) => ({
+  const navItems = [
+    ...NAV_ITEMS,
+    // Inject "My Team" only when the caller has direct reports.
+    ...(myTeam?.count > 0
+      ? [{
+          path: '/my-team',
+          labelKey: 'nav.myTeam',
+          icon: Users,
+          access: { Admin: 'full', Coordinator: 'full', Teacher: 'full', Participant: 'full' },
+        }]
+      : []),
+  ];
+
+  const items = navItems.map((item) => ({
     ...item,
     accessLevel: item.access?.[user.role] ?? 'none',
   }));
@@ -332,14 +355,6 @@ export default function Navbar() {
               className="sm:hidden p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-accent transition-colors duration-(--dur)"
             >
               <Search className="size-4" aria-hidden="true" />
-            </button>
-            <button
-              onClick={toggleLang}
-              aria-label={t('nav.switchLanguage')}
-              title={t('nav.switchLanguage')}
-              className="p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-accent transition-colors duration-(--dur) text-xs font-semibold"
-            >
-              <Globe className="size-4" aria-hidden="true" />
             </button>
             <button
               onClick={toggle}

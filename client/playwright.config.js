@@ -35,6 +35,12 @@ export default defineConfig({
 
   use: {
     baseURL: process.env.E2E_BASE_URL || 'http://localhost:3000',
+    // P2-09 (audit PR X): force English so spec selectors match a stable
+    // string set. The i18n init reads `navigator.language` (after the
+    // empty-localStorage fallback) and maps en-US → en. Without this,
+    // the locale leaks from the runner host (CI is en-US, devs may be
+    // vi-VN) and specs become host-dependent.
+    locale: 'en-US',
     // Capture trace on first retry so failures are debuggable, but don't pay
     // the cost on every run.
     trace: 'on-first-retry',

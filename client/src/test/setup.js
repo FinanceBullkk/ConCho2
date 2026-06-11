@@ -28,7 +28,15 @@ const flattenTranslations = (obj, prefix = '') =>
   }, {});
 
 const translations = flattenTranslations(enLocale);
-const mockT = (key) => translations[key] ?? key;
+// Minimal i18next-style interpolation so strings like "Due {{date}}" render
+// real values in tests instead of raw placeholders.
+const mockT = (key, vars) => {
+  const template = translations[key] ?? key;
+  if (!vars || typeof vars !== 'object') return template;
+  return template.replace(/\{\{(\w+)\}\}/g, (match, name) =>
+    Object.prototype.hasOwnProperty.call(vars, name) ? String(vars[name]) : match,
+  );
+};
 
 vi.mock('react-i18next', () => ({
   useTranslation: () => ({

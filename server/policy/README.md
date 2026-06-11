@@ -57,6 +57,29 @@ const decision = await policy.canRead(req.user, cls);
 if (!decision.allowed) return res.status(403).json({ success: false, message: decision.reason });
 ```
 
+## Capability layer (coarse) — `capabilities.js`
+
+`capabilities.js` + `middleware/requireCapability.js` are the **coarse** authz
+layer (where `roleGuard` sat), but expressed as named capabilities instead of
+roles. A route declares WHAT it needs, not WHO is allowed:
+
+```js
+const { requireCapability } = require('../../middleware/requireCapability');
+
+router.post('/programs', protect, requireCapability('program.manage'), create);
+// any-of (admin acts on others OR learner on self):
+router.post('/enrollments', protect, requireCapability('enrollment.manage', 'enrollment.self'), enroll);
+```
+
+Capabilities map from the actor's role via a static table
+(`ROLE_CAPABILITIES` — Admin is a superuser). This is a **scaffold**: per-user /
+db-stored grants are future work. Today it's wired into `domains/learning/*`
+only; legacy routes still use `roleGuard`. The role→capability sets there are
+identical to the previous `roleGuard` sets, so the swap is behavior-preserving.
+
+`requireCapability` answers "may this actor perform this kind of action at all?".
+The per-resource policy functions below still answer "...on THIS doc?".
+
 ## Graceful-migration behaviour
 
 The first policy added — teacher↔class binding — uses an "open until populated"

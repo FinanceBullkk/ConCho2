@@ -1,25 +1,29 @@
 const mongoose = require('mongoose');
-const NodeCache = require('node-cache');
-const { toVN, todayVN } = require('../helpers/dayjsConfig');
 const Schedule = require('../models/Schedule');
 const Team = require('../models/Team');
-const Attendance = require('../models/Attendance');
+const User = require('../models/User');
 const calendarService = require('./calendarService');
 const auditService = require('./auditService');
 const logger = require('../lib/logger');
-const { sendMail } = require('../lib/mailer');
 const {
   sendBookingConfirmation,
   sendClassCancellation,
 } = require('../lib/emailTemplates');
+const sessionOrder = require('../domains/schedule/session-order');
+const queries = require('../domains/schedule/queries');
 
-// Per-class ordered schedule ID list — 5 min TTL.
-// Invalidated on create/delete so sessionNumbers stay accurate.
-const sessionOrderCache = new NodeCache({ stdTTL: 300, checkperiod: 60 });
+// Session-order cache + numbering live in domains/schedule/session-order.
+// The booking functions below invalidate the cache on create/cancel.
+const { invalidateSessionOrderCache } = sessionOrder;
 
 // ──────────────────────────────────────────────────────────
-// Schedule Service
+// Schedule Service (booking/mutation logic + read facade)
 // ──────────────────────────────────────────────────────────
+// Transaction-heavy booking logic (bookSlot / bookCohortSlot / adminCreate /
+// cancelSlot) lives here. The pure read/query use-cases were extracted to
+// domains/schedule/queries (Phase 1 modular-monolith refactor); they are
+// re-exported below so callers keep using `scheduleService.listSchedules` etc.
+//
 // Pure business logic — no req/res objects.
 // Each method receives plain data and returns a result or
 // throws a typed error with a statusCode property.
@@ -33,104 +37,23 @@ const sessionOrderCache = new NodeCache({ stdTTL: 300, checkperiod: 60 });
  * Controllers catch these and map statusCode → res.status().
  */
 const { ServiceError } = require('../helpers/ServiceError');
+const schedulingWindowPolicy = require('../domains/schedule/scheduling-window-policy');
+const bookingPolicy = require('../domains/schedule/session-booking-policy');
+const schedulingModePolicy = require('../domains/schedule/scheduling-mode-policy');
+const roomLockPolicy = require('../domains/schedule/room-lock-policy');
+const { releaseScheduleResources } = require('../domains/schedule/release-resources');
+const repository = require('../domains/schedule/repository');
 
 // ── Helpers ───────────────────────────────────────────────
 
 /**
- * Get Monday 00:00:00 UTC – Sunday 23:59:59.999 UTC
- * of the ISO week containing `date`.
+ * Validate a booking window against the configured ALLOWED_TIME_SLOTS.
+ * Thin wrapper over the shared scheduling-window policy (Wave E1) so team
+ * booking, cohort booking, and Admin create all enforce the SAME rules.
+ * @throws {ServiceError} on invalid dates / range / disallowed slot
  */
-const getWeekBounds = (date) => {
-  const d = new Date(date);
-  const dayOfWeek = d.getUTCDay();
-  const diffToMonday = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
-
-  const weekStart = new Date(Date.UTC(
-    d.getUTCFullYear(), d.getUTCMonth(),
-    d.getUTCDate() + diffToMonday, 0, 0, 0, 0
-  ));
-  const weekEnd = new Date(Date.UTC(
-    weekStart.getUTCFullYear(), weekStart.getUTCMonth(),
-    weekStart.getUTCDate() + 6, 23, 59, 59, 999
-  ));
-
-  return { weekStart, weekEnd };
-};
-
-/**
- * Return midnight today in Vietnam timezone (as UTC Date for MongoDB).
- * Example: 23:30 VN May 2 → returns 17:00 UTC May 1 (= 00:00 VN May 2)
- */
-const utcToday = () => todayVN();
-
-// isValidTimeSlot has been moved inside bookSlot to fetch dynamically
-
-/**
- * Attach `sessionNumber` to an array of schedule objects.
- * sessionNumber = 1-based position among all sessions of the same class, ordered by startTime.
- *
- * Uses a per-classId cache (5 min TTL) so repeated calls within a request window
- * do not re-query MongoDB. Call invalidateSessionOrderCache(classId) after
- * creating or deleting a schedule to keep numbers accurate.
- */
-const attachSessionNumbers = async (schedules) => {
-  if (schedules.length === 0) return schedules;
-
-  // Collect unique classIds, check cache for each
-  const orderMap = {};
-  const uncachedIds = [];
-
-  for (const s of schedules) {
-    const cId = s.classId?._id?.toString() || s.classId?.toString();
-    if (!cId) continue;
-    if (orderMap[cId]) continue; // already resolved this classId in this call
-    const cached = sessionOrderCache.get(cId);
-    if (cached) {
-      orderMap[cId] = cached;
-    } else {
-      uncachedIds.push(cId);
-    }
-  }
-
-  // Single query for all uncached classes
-  if (uncachedIds.length > 0) {
-    const objectIds = uncachedIds.map(id => new mongoose.Types.ObjectId(id));
-    const allSchedules = await Schedule.find({ classId: { $in: objectIds } })
-      .select('_id classId startTime')
-      .sort({ startTime: 1 })
-      .lean();
-
-    const tempMap = {};
-    for (const s of allSchedules) {
-      const cId = s.classId.toString();
-      if (!tempMap[cId]) tempMap[cId] = [];
-      tempMap[cId].push(s._id.toString());
-    }
-    for (const [cId, ids] of Object.entries(tempMap)) {
-      orderMap[cId] = ids;
-      sessionOrderCache.set(cId, ids);
-    }
-  }
-
-  // Attach sessionNumber
-  for (const s of schedules) {
-    const cId = s.classId?._id?.toString() || s.classId?.toString();
-    const sId = s._id.toString();
-    const order = orderMap[cId] || [];
-    const idx = order.indexOf(sId);
-    s.sessionNumber = idx >= 0 ? idx + 1 : null;
-  }
-
-  return schedules;
-};
-
-/**
- * Invalidate the session-order cache for a class.
- * Call after creating or deleting a schedule so sessionNumbers are recomputed.
- */
-const invalidateSessionOrderCache = (classId) => {
-  if (classId) sessionOrderCache.del(classId.toString());
-};
+const assertValidBookingSlot = (start, end) =>
+  schedulingWindowPolicy.assertValidBookingWindow(start, end);
 
 /**
  * After a Schedule is created, create a Google Calendar event for it
@@ -143,15 +66,41 @@ const invalidateSessionOrderCache = (classId) => {
  *
  * Returns { googleEventId, meetLink } or null.
  */
+// ── Effective calendar attendees (Phase 3, DELTA B) ───────
+// The real attendee source for a session = enrolled learners ∪ named internal
+// trainers ∪ the external trainer (if it has an email). Deduped by email so a
+// trainer who is also enrolled isn't invited twice. calendarService filters to
+// valid emails, so entries without one are harmless. Expects a schedule with
+// enrolledUsers + sessionInstructorIds populated (email) and externalTrainer raw.
+const effectiveAttendeesForSchedule = (schedule) => {
+  const out = [];
+  const seen = new Set();
+  const push = (person) => {
+    if (!person || !person.email) return;
+    const key = String(person.email).toLowerCase();
+    if (seen.has(key)) return;
+    seen.add(key);
+    out.push(person);
+  };
+  (schedule.enrolledUsers || []).forEach(push);
+  (schedule.sessionInstructorIds || []).forEach(push);
+  if (schedule.externalTrainer && schedule.externalTrainer.email) {
+    push({ email: schedule.externalTrainer.email, name: schedule.externalTrainer.name });
+  }
+  return out;
+};
+
 const createCalendarEventForSchedule = async (scheduleId) => {
   if (!calendarService.isConfigured()) return null;
 
   try {
-    // Re-fetch with full population so we have everyone's email.
+    // Re-fetch with full population so we have everyone's email (learners +
+    // internal trainers); the external trainer email travels on the doc.
     const schedule = await Schedule.findById(scheduleId)
       .populate('classId', 'classCode courseName')
       .populate('bookedTeamId', 'name')
       .populate('enrolledUsers', 'empCode name email')
+      .populate('sessionInstructorIds', 'empCode name email')
       .lean();
     if (!schedule) return null;
 
@@ -159,7 +108,7 @@ const createCalendarEventForSchedule = async (scheduleId) => {
       schedule,
       classDoc: schedule.classId,
       team: schedule.bookedTeamId,
-      attendees: schedule.enrolledUsers,
+      attendees: effectiveAttendeesForSchedule(schedule),
     });
     if (!result) return null;
 
@@ -174,6 +123,41 @@ const createCalendarEventForSchedule = async (scheduleId) => {
       { err: err.message, scheduleId },
       'createCalendarEventForSchedule failed (booking already saved; calendar skipped)'
     );
+    return null;
+  }
+};
+
+/**
+ * Sync an existing schedule's Calendar event after a non-time change (e.g. a
+ * trainer assignment, Phase 3). Fail-soft; skips past sessions (no point
+ * notifying after the fact) and creates the event if one doesn't exist yet.
+ */
+const syncCalendarForSchedule = async (scheduleId) => {
+  if (!calendarService.isConfigured()) return null;
+  try {
+    const schedule = await Schedule.findById(scheduleId)
+      .populate('classId', 'classCode courseName')
+      .populate('bookedTeamId', 'name')
+      .populate('enrolledUsers', 'empCode name email')
+      .populate('sessionInstructorIds', 'empCode name email')
+      .lean();
+    if (!schedule) return null;
+    // Skip past sessions (m4) — calendar updates only matter for upcoming ones.
+    if (new Date(schedule.startTime) <= new Date()) return null;
+
+    const attendees = effectiveAttendeesForSchedule(schedule);
+    if (schedule.googleEventId) {
+      await calendarService.updateEventForSchedule({
+        schedule,
+        classDoc: schedule.classId,
+        team: schedule.bookedTeamId,
+        attendees,
+      });
+      return { eventId: schedule.googleEventId };
+    }
+    return createCalendarEventForSchedule(scheduleId);
+  } catch (err) {
+    logger.error({ err: err.message, scheduleId }, 'syncCalendarForSchedule failed (fail-soft)');
     return null;
   }
 };
@@ -195,31 +179,17 @@ const bookSlot = async ({ teamId, startTime, endTime, requestUser }) => {
   const start = new Date(startTime);
   const end = new Date(endTime);
 
-  // ── Validate times ────────────────────────────────────
-  if (isNaN(start.getTime()) || isNaN(end.getTime())) {
-    throw new ServiceError('startTime and endTime must be valid ISO dates');
-  }
-  if (end <= start) {
-    throw new ServiceError('endTime must be after startTime');
-  }
-  // ── Fetch Allowed Time Slots from Settings ────────────
-  const Setting = mongoose.model('Setting');
-  const allowedSlotsSetting = await Setting.findOne({ key: 'ALLOWED_TIME_SLOTS' });
-  const ALLOWED_TIME_SLOTS = allowedSlotsSetting ? allowedSlotsSetting.value : [];
+  // ── Validate times + allowed slot ─────────────────────
+  await assertValidBookingSlot(start, end);
 
-  // Convert to VN timezone for time-slot validation
-  // (ALLOWED_TIME_SLOTS stores hours in VN time, e.g. sh:10 = 10:00 VN)
-  const startVN = toVN(start);
-  const endVN = toVN(end);
-  const sH = startVN.hour(), sM = startVN.minute();
-  const eH = endVN.hour(), eM = endVN.minute();
-  const isValid = ALLOWED_TIME_SLOTS.some(s => s.sh === sH && s.sm === sM && s.eh === eH && s.em === eM);
-
-  if (!isValid) {
-    throw new ServiceError(
-      'Khung giờ không hợp lệ — Please select an allowed time slot.'
-    );
-  }
+  // ── schedulingMode gate (Pass C) ──────────────────────
+  // This is the shared chokepoint for team booking: BOTH the legacy
+  // /api/schedules/book-slot leader route AND the learning/session adapter call
+  // bookSlot, so the mode rule is enforced regardless of entry point. A team
+  // session is rejected for a cohort-based program (400) or an unknown mode
+  // (501), and an admin_scheduled program may be booked only by an Admin (403).
+  const schedulingMode = await schedulingModePolicy.resolveSchedulingMode({ teamId });
+  schedulingModePolicy.assertTeamMode({ schedulingMode, actor: requestUser });
 
   // ── TRANSACTION: Atomic booking ───────────────────────
   const session = await mongoose.startSession();
@@ -237,7 +207,7 @@ const bookSlot = async ({ teamId, startTime, endTime, requestUser }) => {
 
       if (!team) throw new ServiceError('Team not found', 404);
       if (!team.classId) {
-        throw new ServiceError('Team chưa được gán lớp — This team has no assigned class');
+        throw new ServiceError('This team has no assigned class');
       }
 
       // ── Authorization check ───────────────────────────────
@@ -247,43 +217,22 @@ const bookSlot = async ({ teamId, startTime, endTime, requestUser }) => {
         }
       }
 
-      const activeMembers = team.members.filter(m => m.status === 'Active');
-      const memberIds = activeMembers.map(m => m._id);
-      // Step 2: Weekly Limit — max 2 sessions per team per week
-      const { weekStart, weekEnd } = getWeekBounds(start);
-      const weeklyCount = await Schedule.countDocuments({
-        bookedTeamId: teamId,
-        startTime: { $gte: weekStart, $lte: weekEnd },
-      }).session(session);
+      // Snapshot the team's Active members + assert the slot is bookable
+      // (weekly cap + same-class collision) via the shared session-booking policy.
+      const enrolledUsers = bookingPolicy.snapshotActiveMembers(team);
+      await bookingPolicy.assertBookable(
+        { classId: team.classId, teamId, start, end, incomingCount: enrolledUsers.length },
+        { session, enforceWeeklyCap: true },
+      );
 
-      if (weeklyCount >= 2) {
-        throw new ServiceError(
-          `Team đã đặt tối đa 2 buổi/tuần — This team already has ${weeklyCount} session(s) this week`
-        );
-      }
-
-      // Step 3: Collision — no overlapping schedule FOR THIS CLASS
-      const collision = await Schedule.findOne({
-        classId: team.classId,
-        startTime: { $lt: end },
-        endTime: { $gt: start },
-      }).session(session);
-
-      if (collision) {
-        throw new ServiceError(
-          'Khung giờ này đã bị Team khác đặt — This time slot is already taken',
-          409
-        );
-      }
-
-      // Step 4: Create the Schedule
+      // Create the Schedule
       const [doc] = await Schedule.create(
         [{
           classId: team.classId,
           bookedTeamId: teamId,
           startTime: start,
           endTime: end,
-          enrolledUsers: memberIds,
+          enrolledUsers,
         }],
         { session }
       );
@@ -293,7 +242,7 @@ const bookSlot = async ({ teamId, startTime, endTime, requestUser }) => {
     // Part 2: Catch duplicate key error from unique index (concurrent booking)
     if (err.code === 11000 || err.message?.includes('E11000')) {
       throw new ServiceError(
-        'Khung giờ này đã bị Team khác đặt — This time slot is already taken (concurrent booking detected)',
+        'This time slot is already taken (concurrent booking detected)',
         409
       );
     }
@@ -343,18 +292,113 @@ const bookSlot = async ({ teamId, startTime, endTime, requestUser }) => {
 };
 
 /**
- * Cancel (delete) a booked schedule.
+ * Create a team-less session for a Cohort (self_enroll / nomination modes).
+ *
+ * Unlike bookSlot, there is no Team: an Admin schedules the session against a
+ * cohort and we snapshot the cohort's active cohort-based enrollments (passed in
+ * as enrolledUserIds) onto the session. No leader-auth and no per-team weekly
+ * limit apply — those are team-booking concepts. The {classId,startTime} unique
+ * index + collision check still guard against double-booking the cohort.
+ *
+ * @param {Object} args { cohortId, startTime, endTime, enrolledUserIds, requestUser }
+ * @returns {Promise<Object>} populated Schedule
+ * @throws {ServiceError} on validation/collision failures
+ */
+const bookCohortSlot = async ({ cohortId, startTime, endTime, enrolledUserIds = [], officeId = null, roomId = null, requestUser }) => {
+  const start = new Date(startTime);
+  const end = new Date(endTime);
+
+  await assertValidBookingSlot(start, end);
+
+  const session = await mongoose.startSession();
+  let created;
+  try {
+    await session.withTransaction(async () => {
+      // No team, no weekly cap — same-cohort collision + capacity guard apply.
+      await bookingPolicy.assertBookable(
+        { classId: cohortId, start, end, incomingCount: enrolledUserIds.length },
+        { session, enforceWeeklyCap: false },
+      );
+
+      const [doc] = await Schedule.create(
+        [{
+          classId: cohortId,
+          bookedTeamId: null,
+          officeId: officeId || null,
+          startTime: start,
+          endTime: end,
+          enrolledUsers: enrolledUserIds,
+        }],
+        { session },
+      );
+      created = doc;
+
+      // Phase 3: claim the room (DELTA A — same-Office guard + per-room lock).
+      // Runs in-tx after create so a room conflict (409) or office mismatch
+      // (422) rolls the whole booking back. No-op when no room was picked.
+      await roomLockPolicy.acquireRoomLock(
+        { roomId, scheduleId: doc._id, classId: cohortId, startTime: start, officeId: officeId || null },
+        { session },
+      );
+    });
+  } catch (err) {
+    if (err.code === 11000 || err.message?.includes('E11000')) {
+      throw new ServiceError(
+        'This time slot is already taken (concurrent booking detected)',
+        409,
+      );
+    }
+    throw err;
+  } finally {
+    session.endSession();
+  }
+
+  invalidateSessionOrderCache(created.classId);
+
+  // Best-effort Google Calendar event (outside the transaction — same rationale
+  // as bookSlot: a calendar hiccup must not roll back the booking).
+  const calRes = await createCalendarEventForSchedule(created._id);
+  if (calRes) {
+    auditService.record({
+      req: { user: requestUser },
+      action: 'calendar-event-created',
+      entity: 'Schedule',
+      entityId: created._id,
+      note: `Google event ${calRes.eventId}; Meet: ${calRes.meetLink || 'n/a'}`,
+    });
+  }
+
+  return Schedule.findById(created._id)
+    .populate('classId', 'classCode courseName')
+    .populate('enrolledUsers', 'empCode name');
+};
+
+/**
+ * Cancel a booked schedule — DURABLY (Wave E3 phase-04, slice A).
+ *
+ * The doc is never deleted: it flips to status:'cancelled' with who/when/why
+ * preserved, attendance rows are kept, the room-lock ledger row is released
+ * (and roomId nulled — B3, field and ledger never drift), and the freed
+ * {classId,startTime} slot becomes re-bookable (partial-unique index).
  *
  * @param {string} scheduleId
  * @param {Object} requestUser
- * @throws {ServiceError} if not found or not authorized
+ * @param {Object} [opts]
+ * @param {string} [opts.cancelReason]  optional free-text, zod-trimmed (≤500)
+ * @throws {ServiceError} if not found, already cancelled, started, or not authorized
  */
-const cancelSlot = async (scheduleId, requestUser) => {
-  // Populate before delete so we still have user emails + class info for notifications.
+const cancelSlot = async (scheduleId, requestUser, { cancelReason = '' } = {}) => {
+  // Populate so we still have user emails + class info for notifications.
   const schedule = await Schedule.findById(scheduleId)
     .populate('classId', 'classCode courseName')
     .populate('enrolledUsers', 'name email');
   if (!schedule) throw new ServiceError('Schedule not found', 404);
+
+  // Double-cancel guard (pre-check for a clean message; the atomic conditional
+  // flip below is the real concurrency guard).
+  if (schedule.status === 'cancelled') {
+    throw new ServiceError('This session is already cancelled', 409);
+  }
 
   // Audit PR 6 (DATA-005): cancelSlot used to cascade-delete the schedule's
   // attendance unconditionally. For a PAST session that means roll-call
@@ -372,9 +416,18 @@ const cancelSlot = async (scheduleId, requestUser) => {
   }
 
   if (requestUser.role !== 'Admin') {
-    const team = await Team.findById(schedule.bookedTeamId);
-    if (!team || !team.leaderId || team.leaderId.toString() !== requestUser._id.toString()) {
-      throw new ServiceError('Only Admin or the Team Leader can cancel this booking', 403);
+    if (!schedule.bookedTeamId) {
+      // Team-less (cohort) session — coordinator-scheduled offline flow
+      // (re-center Phase 2/3). A scheduler (Coordinator) who can create these
+      // must be able to cancel them; a self-booking leader never owns one.
+      if (!schedulingModePolicy.isScheduler(requestUser)) {
+        throw new ServiceError('Only a coordinator or admin can cancel this session', 403);
+      }
+    } else {
+      const team = await Team.findById(schedule.bookedTeamId);
+      if (!team || !team.leaderId || team.leaderId.toString() !== requestUser._id.toString()) {
+        throw new ServiceError('Only Admin or the Team Leader can cancel this booking', 403);
+      }
     }
   }
 
@@ -390,12 +443,26 @@ const cancelSlot = async (scheduleId, requestUser) => {
     ? schedule.enrolledUsers.filter(u => u && u.email)
     : [];
 
-  // ── TRANSACTION: Cascade delete Attendance → Schedule (BUG-03) ──
+  // ── TRANSACTION: durable flip + resource release ─────────
+  // Attendance rows are PRESERVED (golden rule — cancelled history keeps its
+  // evidence; reconcile/calendar queries skip cancelled rows). In the same tx
+  // the room-lock ledger row is dropped (room re-bookable; roomId nulled, B3)
+  // and live waitlist entries dissolve to 'cancelled' (slice B) — the
+  // dissolved waiters are emailed post-commit below.
   const session = await mongoose.startSession();
+  let waiterUserIds = [];
   try {
     await session.withTransaction(async () => {
-      await Attendance.deleteMany({ scheduleId: schedule._id }, { session });
-      await Schedule.findByIdAndDelete(schedule._id, { session });
+      ({ waiterUserIds } = await releaseScheduleResources([schedule._id], session));
+      const flipped = await repository.cancelScheduleById(
+        schedule._id,
+        { cancelledBy: requestUser._id, cancelReason },
+        session,
+      );
+      // Atomic conditional: null means a concurrent cancel won the race.
+      if (!flipped) {
+        throw new ServiceError('This session is already cancelled', 409);
+      }
     });
   } finally {
     session.endSession();
@@ -430,93 +497,19 @@ const cancelSlot = async (scheduleId, requestUser) => {
       cancelledBy,
     });
   }
-};
 
-/**
- * Get future schedules (availability view).
- * @param {Object} filters  { classId? }
- */
-const getAvailability = async (filters = {}) => {
-  const query = { startTime: { $gte: utcToday() } };
-  if (filters.classId) query.classId = filters.classId;
-
-  return Schedule.find(query)
-    .populate('classId', 'classCode courseName')
-    .populate('bookedTeamId', 'name')
-    .sort({ startTime: 1 });
-};
-
-/**
- * Get schedules with filters and pagination.
- */
-const listSchedules = async (filters, { page, limit, skip }) => {
-  const query = {};
-  if (filters.classId) query.classId = filters.classId;
-  // Used by Participant scope (BUG #2 fix): restrict to schedules where
-  // the user is enrolled. Multikey index on enrolledUsers makes this cheap.
-  if (filters.enrolledUser) query.enrolledUsers = filters.enrolledUser;
-  if (filters.from || filters.to) {
-    query.startTime = {};
-    if (filters.from) query.startTime.$gte = new Date(filters.from);
-    if (filters.to) query.startTime.$lte = new Date(filters.to);
+  // Dissolved waiters are notified too (owner decision 2026-06-11) — they were
+  // counting on a seat; same cancellation template, fail-soft.
+  if (waiterUserIds.length > 0) {
+    const waiters = await User.find({ _id: { $in: waiterUserIds } })
+      .select('name email').lean();
+    for (const w of waiters) {
+      if (!w.email) continue;
+      sendClassCancellation({
+        to: w.email, userName: w.name, className, startTime, cancelledBy,
+      });
+    }
   }
-
-  const [schedules, total] = await Promise.all([
-    Schedule.find(query)
-      .populate('classId', 'classCode courseName totalSessions')
-      .populate('bookedTeamId', 'name')
-      .populate('enrolledUsers', 'empCode name department')
-      .sort({ startTime: 1 })
-      .skip(skip).limit(limit)
-      .lean({ virtuals: true }),
-    Schedule.countDocuments(query),
-  ]);
-
-  await attachSessionNumbers(schedules);
-  return { schedules, total };
-};
-
-/**
- * Get a single schedule by ID.
- */
-const getById = async (id) => {
-  const schedule = await Schedule.findById(id)
-    .populate('classId', 'classCode courseName')
-    .populate('bookedTeamId', 'name')
-    .populate('enrolledUsers', 'empCode name department status');
-
-  if (!schedule) throw new ServiceError('Schedule not found', 404);
-  return schedule;
-};
-
-/**
- * Get upcoming schedules for a participant's team/class.
- */
-const getMyClassSchedules = async (userId) => {
-  const teams = await Team.find({ members: userId })
-    .select('classId name leaderId')
-    .populate('leaderId', 'name empCode email department')
-    .lean();
-  if (teams.length === 0) return { schedules: [], team: null, leader: null };
-
-  const team = teams[0];
-  const leader = team?.leaderId || null;
-
-  const classIds = teams.map(t => t.classId).filter(Boolean);
-  if (classIds.length === 0) return { schedules: [], team: team?.name, leader };
-
-  const schedules = await Schedule.find({
-    classId: { $in: classIds },
-    startTime: { $gte: utcToday() },
-  })
-    .populate('classId', 'classCode courseName totalSessions')
-    .populate('bookedTeamId', 'name')
-    .sort({ startTime: 1 })
-    .limit(20)
-    .lean({ virtuals: true });
-
-  await attachSessionNumbers(schedules);
-  return { schedules, team: team?.name, leader };
 };
 
 /**
@@ -542,29 +535,15 @@ const adminCreate = async (data) => {
   const start = new Date(startTime);
   const end = new Date(endTime);
 
-  if (isNaN(start.getTime()) || isNaN(end.getTime())) {
-    throw new ServiceError('startTime and endTime must be valid ISO dates');
-  }
-  if (end <= start) {
-    throw new ServiceError('endTime must be after startTime');
-  }
+  // ── Validate dates + allowed slot (shared policy) ─────
+  await assertValidBookingSlot(start, end);
 
-  // ── Validate time slot against allowed settings ──────
-  const Setting = mongoose.model('Setting');
-  const allowedSlotsSetting = await Setting.findOne({ key: 'ALLOWED_TIME_SLOTS' });
-  const ALLOWED_TIME_SLOTS = allowedSlotsSetting ? allowedSlotsSetting.value : [];
-  // Convert to VN timezone for time-slot validation
-  const startVN = toVN(start);
-  const endVN = toVN(end);
-  const sH = startVN.hour(), sM = startVN.minute();
-  const eH = endVN.hour(), eM = endVN.minute();
-  const isValid = ALLOWED_TIME_SLOTS.some(s => s.sh === sH && s.sm === sM && s.eh === eH && s.em === eM);
-
-  if (!isValid) {
-    throw new ServiceError(
-      'Khung giờ không hợp lệ — Only allowed time slots can be booked'
-    );
-  }
+  // ── schedulingMode gate (Pass C) ──────────────────────
+  // Admin override (BR-6) keeps an Admin free to team-book any team-mode program,
+  // but NOT a cohort-based program (self_enroll/nomination) — those are scheduled
+  // against the cohort. Structural only (Admin-gated route, so no actor check).
+  const schedulingMode = await schedulingModePolicy.resolveSchedulingMode({ classId });
+  schedulingModePolicy.assertTeamModeStructural({ schedulingMode });
 
   // ── TRANSACTION: All checks + create (atomic) ─────────
   const session = await mongoose.startSession();
@@ -582,46 +561,28 @@ const adminCreate = async (data) => {
 
         if (team.classId && team.classId.toString() !== classId.toString()) {
           throw new ServiceError(
-            'Team này được gán lớp khác — This team is assigned to a different class. Cannot book for this classId.',
+            'This team is assigned to a different class. Cannot book for this classId.',
             400
           );
         }
 
-        // ── Rule: Max 2 sessions per team per week (inside tx) ──
-        const { weekStart, weekEnd } = getWeekBounds(start);
-        const weeklyCount = await Schedule.countDocuments({
-          bookedTeamId,
-          startTime: { $gte: weekStart, $lte: weekEnd },
-        }).session(session);
-
-        if (weeklyCount >= 2) {
-          throw new ServiceError(
-            `Team đã đặt tối đa 2 buổi/tuần — This team already has ${weeklyCount} session(s) this week (limit: 2)`,
-            400
-          );
-        }
-
-        const activeMembers = team.members.filter(m => m.status === 'Active');
-        enrolledUsers = activeMembers.map(m => m._id);
+        // Snapshot the team's Active members; weekly cap + same-class collision
+        // are asserted below via the shared session-booking policy.
+        enrolledUsers = bookingPolicy.snapshotActiveMembers(team);
       }
 
-      // ── Collision — no overlapping schedule FOR THIS CLASS ──
-      const collision = await Schedule.findOne({
-        classId,
-        startTime: { $lt: end },
-        endTime: { $gt: start },
-      }).session(session);
+      await bookingPolicy.assertBookable(
+        { classId, teamId: bookedTeamId, start, end, incomingCount: enrolledUsers.length, scheduleCapacity: data.capacity },
+        { session, enforceWeeklyCap: true },
+      );
 
-      if (collision) {
-        throw new ServiceError(
-          'Khung giờ này đã bị trùng — This time slot overlaps with an existing schedule',
-          409
-        );
-      }
+      // Phase 3: strip roomId from the raw spread — it is set ONLY via the room
+      // lock (B3) so Schedule.roomId and the ledger row never drift.
+      const { roomId, ...scheduleData } = data;
 
       const [doc] = await Schedule.create(
         [{
-          ...data,
+          ...scheduleData,
           startTime: start,
           endTime: end,
           enrolledUsers,
@@ -629,11 +590,16 @@ const adminCreate = async (data) => {
         { session }
       );
       created = doc;
+
+      await roomLockPolicy.acquireRoomLock(
+        { roomId, scheduleId: doc._id, classId, startTime: start, officeId: scheduleData.officeId || null },
+        { session },
+      );
     });
   } catch (err) {
     if (err.code === 11000 || err.message?.includes('E11000')) {
       throw new ServiceError(
-        'Khung giờ này đã bị trùng — This time slot overlaps with an existing schedule (concurrent booking detected)',
+        'This time slot overlaps with an existing schedule (concurrent booking detected)',
         409
       );
     }
@@ -653,78 +619,27 @@ const adminCreate = async (data) => {
     .populate('enrolledUsers', 'empCode name');
 };
 
-/**
- * Get schedules with pre-computed attendance status for the calendar view.
- * Returns schedules with a reliable status field.
- *
- * @param {Object} opts
- * @param {Date|string} opts.from  Optional start date filter
- * @param {Date|string} opts.to    Optional end date filter
- *
- * Status logic:
- *   "none"    — enrolledCount === 0 (no students registered)
- *   "pending" — enrolledCount > 0 but 0 attendance records
- *   "partial" — some attendance marked but count < enrolledCount
- *   "done"    — attendance count >= enrolledCount
- */
-const getAttendanceCalendar = async ({ from, to } = {}) => {
-  // Step 1: Build filter (optional date range for performance)
-  const filter = {};
-  if (from || to) {
-    filter.startTime = {};
-    if (from) filter.startTime.$gte = new Date(from);
-    if (to) filter.startTime.$lte = new Date(to);
-  }
-
-  const schedules = await Schedule.find(filter)
-    .populate('classId', 'classCode courseName totalSessions')
-    .populate('bookedTeamId', 'name')
-    .sort({ startTime: 1 })
-    .lean({ virtuals: true });
-
-  if (schedules.length === 0) return [];
-
-  // Step 2: Attach session numbers
-  await attachSessionNumbers(schedules);
-
-  // Step 3: Batch-count attendance records per schedule (single aggregation)
-  const scheduleIds = schedules.map(s => s._id);
-  const attCounts = await Attendance.aggregate([
-    { $match: { scheduleId: { $in: scheduleIds } } },
-    { $group: { _id: '$scheduleId', count: { $sum: 1 } } },
-  ]);
-  const countMap = {};
-  attCounts.forEach(a => { countMap[a._id.toString()] = a.count; });
-
-  // Step 4: Compute status for each schedule
-  return schedules.map(s => {
-    const enrolled = (s.enrolledUsers || []).length;
-    const marked = countMap[s._id.toString()] || 0;
-
-    let attendanceStatus;
-    if (enrolled === 0) {
-      attendanceStatus = 'none';    // No students → grey
-    } else if (marked === 0) {
-      attendanceStatus = 'pending'; // Has students, no attendance yet
-    } else if (marked < enrolled) {
-      attendanceStatus = 'partial'; // Some but not all
-    } else {
-      attendanceStatus = 'done';    // All marked
-    }
-
-    return { ...s, enrolledCount: enrolled, attendanceStatus, markedCount: marked };
-  });
-};
-
+// ── Public surface ────────────────────────────────────────
+// Booking/mutation logic lives here; read use-cases and the session-order
+// cache are re-exported from the domain modules so existing callers
+// (scheduleController, learning/session, domains/schedule) are unchanged.
 module.exports = {
   ServiceError,
+  // Mutations (transaction-heavy — defined above)
   bookSlot,
+  bookCohortSlot,
   adminCreate,
   cancelSlot,
-  getAvailability,
-  listSchedules,
-  getById,
-  getMyClassSchedules,
-  getAttendanceCalendar,
-  invalidateSessionOrderCache,
+  // Calendar helpers (Phase 3 — trainer attendees + post-update sync)
+  effectiveAttendeesForSchedule,
+  syncCalendarForSchedule,
+  // Read use-cases (domains/schedule/queries)
+  getAvailability: queries.getAvailability,
+  listSchedules: queries.listSchedules,
+  getById: queries.getById,
+  getMyClassSchedules: queries.getMyClassSchedules,
+  getAttendanceCalendar: queries.getAttendanceCalendar,
+  // Session-order cache (domains/schedule/session-order)
+  attachSessionNumbers: sessionOrder.attachSessionNumbers,
+  invalidateSessionOrderCache: sessionOrder.invalidateSessionOrderCache,
 };

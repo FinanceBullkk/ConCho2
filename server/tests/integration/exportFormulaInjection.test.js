@@ -18,8 +18,7 @@
  */
 
 const ExcelJS = require('exceljs');
-const mongoose = require('mongoose');
-const { getApp, getSeedData } = require('../setup');
+const { getApp, getSeedData, teardown } = require('../setup');
 
 let app, seed;
 
@@ -29,7 +28,7 @@ beforeAll(async () => {
 });
 
 afterAll(async () => {
-  await mongoose.disconnect();
+  await teardown();
 });
 
 // ── 1. Unit: safeCell() pure function ───────────────────────
@@ -135,9 +134,9 @@ describe('exportAttendance (SEC-004 generateExcel)', () => {
     await wb.xlsx.load(result.buffer);
     const sheet = wb.worksheets[0];
     const header = sheet.getRow(1).values; // 1-indexed
-    const nameCol = header.indexOf('Họ Tên');
-    const deptCol = header.indexOf('Phòng Ban');
-    const remarkCol = header.indexOf('Ghi Chú');
+    const nameCol = header.indexOf('Full Name');
+    const deptCol = header.indexOf('Department');
+    const remarkCol = header.indexOf('Remark');
 
     let sawEvilRow = false;
     for (let r = 2; r <= sheet.rowCount; r++) {

@@ -53,13 +53,17 @@ const cache = new NodeCache({
  */
 const cacheMiddleware = (prefix) => {
   return (req, res, next) => {
-    // Build a unique key from prefix + sorted query params
-    // e.g. "analytics:by-class?classId=abc123"
+    // Build a unique key from actor scope + sorted query params.
+    // Authz-scoped analytics must never share an Admin response with a
+    // Teacher, or one Teacher's filtered view with another Teacher.
+    const actor = req.user
+      ? `${req.user.role || 'unknown'}:${req.user._id || req.user.id || 'unknown'}`
+      : 'anonymous';
     const queryString = Object.keys(req.query)
       .sort()
       .map(k => `${k}=${req.query[k]}`)
       .join('&');
-    const key = queryString ? `${prefix}?${queryString}` : prefix;
+    const key = queryString ? `${prefix}:${actor}?${queryString}` : `${prefix}:${actor}`;
 
     // ── Cache HIT ─────────────────────────────────────────
     const cached = cache.get(key);

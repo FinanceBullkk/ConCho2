@@ -12,13 +12,13 @@
  *
  * Behavior:
  *   - Keeps Admin users + Settings; wipes everything else.
- *   - Default password for new users: default12345 (bcrypt salt 12).
+ *   - New user password comes from IMPORT_DEFAULT_PASSWORD (bcrypt salt 12).
  *   - Schedule.startTime stored as UTC, assuming Excel times are Asia/Ho_Chi_Minh (UTC+7).
  *   - Attendance ambiguity (same classCode + date but different courseName) resolved by
  *     selecting the schedule whose enrolledUsers contains the empCode.
  *
- * P3-09: This script hardcodes DEFAULT_PASSWORD = 'default12345'.
- * For production imports use POST /api/import/users instead.
+ * P3-09: This script is legacy. Set IMPORT_DEFAULT_PASSWORD explicitly when
+ * running it. For production imports use POST /api/import/users instead.
  * ──────────────────────────────────────────────────────────
  */
 
@@ -46,7 +46,7 @@ const dangerousScriptGuard = require('./lib/dangerousScriptGuard');
 
 const EXCEL_PATH = process.env.EXCEL_PATH || 'C:/Users/anhha/Downloads/TMS_Import_Ready.xlsx';
 const CONFIRMED = process.env.CONFIRM_WIPE === 'YES';
-const DEFAULT_PASSWORD = 'default12345';
+const IMPORT_PASSWORD = process.env['IMPORT_DEFAULT_PASSWORD'];
 const VN_OFFSET = '+07:00';
 
 function log(...args) { console.log(...args); }
@@ -153,7 +153,11 @@ async function main() {
   // STEP 2 — IMPORT USERS
   // ────────────────────────────────────────────────────────
   section('STEP 2 — IMPORT USERS');
-  const passwordHash = await bcrypt.hash(DEFAULT_PASSWORD, 12);
+  if (!IMPORT_PASSWORD) {
+    console.error('❌ IMPORT_DEFAULT_PASSWORD must be set before creating users.');
+    process.exit(1);
+  }
+  const passwordHash = await bcrypt.hash(IMPORT_PASSWORD, 12);
   const userOps = [];
   for (const u of data.users) {
     const empCode = String(u.empCode || '').trim().toUpperCase();
