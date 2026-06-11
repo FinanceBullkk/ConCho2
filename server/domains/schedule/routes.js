@@ -55,7 +55,7 @@ router.get('/waitlist/mine', protect, roleGuard('Admin', 'Participant'),
 router.post('/:id/waitlist', protect, roleGuard('Admin', 'Participant'),
   bookingLimiter, validate({ params: idParam }), waitlistController.join);
 router.delete('/:id/waitlist', protect, roleGuard('Admin', 'Participant'),
-  validate({ params: idParam }), waitlistController.leave);
+  bookingLimiter, validate({ params: idParam }), waitlistController.leave);
 router.get('/:id/waitlist', protect, roleGuard('Admin', 'Teacher'),
   validate({ params: idParam }), waitlistController.listForSchedule);
 
