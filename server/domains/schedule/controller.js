@@ -202,6 +202,7 @@ const deleteSchedule = async (req, res) => {
     const { schedule, calendarDeleted, googleEventId } =
       await useCases.deleteSchedule(req.params.id, {
         cancelledBy: req.user._id,
+        cancelledByName: req.user.name || req.user.empCode || 'Admin',
         cancelReason,
       });
 

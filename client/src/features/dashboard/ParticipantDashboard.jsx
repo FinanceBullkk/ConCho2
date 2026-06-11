@@ -278,6 +278,15 @@ export default function ParticipantDashboard() {
             <ChevronRight className="size-4 text-muted-foreground" aria-hidden="true" />
           </Link>
         </Button>
+        <Button asChild variant="outline" className="justify-between md:col-span-2">
+          <Link to="/me/sessions">
+            <span className="inline-flex items-center gap-2">
+              <CalendarDays className="size-4" aria-hidden="true" />
+              My sessions &amp; waitlists
+            </span>
+            <ChevronRight className="size-4 text-muted-foreground" aria-hidden="true" />
+          </Link>
+        </Button>
       </div>
 
       {/* ── Band 4 · Upcoming sessions list ──────────────── */}
