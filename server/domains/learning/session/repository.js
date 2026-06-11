@@ -2,6 +2,7 @@ const Schedule = require('../../../models/Schedule');
 const Class = require('../../../models/Class');
 const LearningProgram = require('../../../models/LearningProgram');
 const Enrollment = require('../../../models/Enrollment');
+const Team = require('../../../models/Team');
 const Office = require('../../../models/Office');
 const {
   attachSessionNumbers,
@@ -94,6 +95,13 @@ const findActiveCohortLearnerIds = async (cohortId) => {
 const findActiveCohortIdsForLearner = (userId) =>
   Enrollment.find({ userId, teamId: null, status: 'Active' }).distinct('classId');
 
+// Teams the learner belongs to — the team-mode arm of the same widening: a
+// member NOT on a full team session's roster (their add was capacity-blocked)
+// must still see that session to join its waitlist. isDeleted is filtered
+// explicitly because Team's soft-delete pre-hooks don't cover `distinct`.
+const findTeamIdsForMember = (userId) =>
+  Team.find({ members: userId, isDeleted: { $ne: true } }).distinct('_id');
+
 // Program per-session caps for a set of cohorts (one query) — lets the list
 // endpoint attach an honest effectiveCapacity per session row.
 const findCapacityPoliciesByCohortIds = async (cohortIds) => {
@@ -119,6 +127,7 @@ module.exports = {
   findSchedulingContextByCohort,
   findActiveCohortLearnerIds,
   findActiveCohortIdsForLearner,
+  findTeamIdsForMember,
   findCapacityPoliciesByCohortIds,
   findOfficeById,
 };

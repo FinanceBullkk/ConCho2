@@ -116,10 +116,11 @@ describe('Learning Platform API — sessions', () => {
     expect(res.body.data.map((s) => s.sessionNumber)).toEqual([1, 2]);
   });
 
-  test('participant list is scoped to enrolled sessions', async () => {
+  test('participant list = my sessions + my team/cohort sessions, never unrelated ones', async () => {
     const { start, end } = vnSlot();
     const second = vnSlot(1);
-    await Schedule.create([
+    const third = vnSlot(2);
+    const [mine, teammates, foreign] = await Schedule.create([
       {
         classId: seed.class1._id, bookedTeamId: seed.team._id,
         startTime: start, endTime: end,
@@ -130,6 +131,12 @@ describe('Learning Platform API — sessions', () => {
         startTime: second.start, endTime: second.end,
         enrolledUsers: [seed.member1._id],
       },
+      // No relation to the leader: another cohort, no team, not enrolled.
+      {
+        classId: seed.class2._id, bookedTeamId: null,
+        startTime: third.start, endTime: third.end,
+        enrolledUsers: [seed.member2._id],
+      },
     ]);
 
     const res = await request(app)
@@ -137,8 +144,15 @@ describe('Learning Platform API — sessions', () => {
       .set('Authorization', `Bearer ${tokens.leader}`);
 
     expect(res.status).toBe(200);
-    expect(res.body.total).toBe(1);
-    expect(res.body.data[0].enrolledLearners[0]._id).toBe(seed.leader._id.toString());
+    // Phase-04 widening (review fix F4): a team member sees their TEAM's
+    // sessions too — even ones they aren't rostered on (so a capacity-blocked
+    // member can find the full session and join its waitlist) — but never a
+    // session of a cohort/team they have no relation to.
+    expect(res.body.total).toBe(2);
+    const ids = res.body.data.map((s) => s.scheduleId);
+    expect(ids).toContain(mine._id.toString());
+    expect(ids).toContain(teammates._id.toString());
+    expect(ids).not.toContain(foreign._id.toString());
   });
 
   test('teacher reads are scoped to assigned cohorts', async () => {

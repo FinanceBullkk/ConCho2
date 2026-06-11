@@ -40,7 +40,9 @@ jobs:
   server-tests:
     name: Server tests (Jest)
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    # 15 (was 10): green runs hit 8.2 min as the suite grew past 80 files —
+    # headroom, not slack; the suite itself is unchanged by this bump.
+    timeout-minutes: 15
 
     steps:
       - uses: actions/checkout@v4
@@ -71,6 +73,12 @@ jobs:
           JWT_SECRET: ci-test-secret-not-used-for-anything-real
           # Disable Sentry in CI so we don't pollute the dashboard
           SENTRY_DSN: ''
+          # --runInBand keeps every suite's module registry in ONE node
+          # process; at 82 suites the default heap (~2GB) OOMs near the end
+          # ("Ineffective mark-compacts near heap limit" — first seen
+          # 2026-06-11 on main). 4GB fits the ubuntu-latest runner and stops
+          # the GC thrash that was also inflating runtimes toward the timeout.
+          NODE_OPTIONS: --max-old-space-size=4096
 
   # ──────────────────────────────────────────────────────────
   # GATE: client unit + hook tests (Vitest)

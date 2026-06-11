@@ -19,6 +19,7 @@ const Enrollment = require('../../models/Enrollment');
 const WaitlistEntry = require('../../models/WaitlistEntry');
 const NotificationLog = require('../../models/NotificationLog');
 const User = require('../../models/User');
+const Team = require('../../models/Team');
 
 let app, tokens, seed, csrf;
 const sign = (id) => jwt.sign({ id: id.toString() }, process.env.JWT_SECRET, { expiresIn: '1h' });
@@ -289,5 +290,102 @@ describe('Waitlist — learner session visibility (phase-04 widening)', () => {
     expect(row).toBeDefined();
     expect(row.effectiveCapacity).toBe(1);
     expect(row.enrolledLearnerCount).toBe(1);
+  });
+
+  test('a team member NOT on the full team session roster still sees it (F4) and can join its waitlist', async () => {
+    const { start, end } = futureRange();
+    const sch = await Schedule.create({
+      classId: seed.class1._id, bookedTeamId: seed.team._id,
+      startTime: start, endTime: end, capacity: 1,
+      enrolledUsers: [seed.member1._id], // member2's add was capacity-blocked
+    });
+
+    const res = await request(app).get('/api/learning/sessions?limit=2000')
+      .set('Authorization', `Bearer ${tokens.member2}`);
+    expect(res.status).toBe(200);
+    const row = res.body.data.find((s) => String(s._id) === String(sch._id));
+    expect(row).toBeDefined();
+    expect(row.effectiveCapacity).toBe(1);
+    expect(row.enrolledLearnerCount).toBe(1);
+
+    // ...so they can actually reach the join the policy already allows.
+    expect((await joinAs(tokens.member2, sch._id)).status).toBe(201);
+  });
+});
+
+describe('Waitlist — review regressions (2026-06-11)', () => {
+  test('a stale queue head (already seated by another path) cannot clog promotion (F1)', async () => {
+    await enrollInCohort(seed.member1._id);
+    await enrollInCohort(seed.leader._id);
+    const sch = await makeCohortSession({ capacity: 1, enrolled: [seed.member2._id] });
+
+    expect((await joinAs(tokens.member1, sch._id)).status).toBe(201); // queue head
+    expect((await joinAs(tokens.leader, sch._id)).status).toBe(201);  // behind
+
+    // Drift: a legacy/manual path seats member1 WITHOUT resolving their queue
+    // row — the head is now stale ('waiting' but already on the roster).
+    await Schedule.updateOne(
+      { _id: sch._id },
+      { $set: { enrolledUsers: [seed.member1._id] } },
+    );
+
+    // Raise capacity by 1 → exactly one real free seat.
+    const res = await request(app).put(`/api/schedules/${sch._id}`)
+      .set('Authorization', `Bearer ${tokens.admin}`).set(csrf)
+      .send({ capacity: 2 });
+    expect(res.status).toBe(200);
+
+    const after = await Schedule.findById(sch._id);
+    expect(after.enrolledUsers.map(String).sort()).toEqual(
+      [String(seed.member1._id), String(seed.leader._id)].sort(),
+    );
+    expect(after.enrolledUsers.length).toBe(2); // never above cap
+
+    // Stale head resolved in place — no seat consumed, no promotion email...
+    const head = await WaitlistEntry.findOne({ scheduleId: sch._id, userId: seed.member1._id });
+    expect(head.status).toBe('promoted');
+    expect(await NotificationLog.findOne({
+      type: 'waitlist_promoted', cadenceKey: `${sch._id}:${seed.member1._id}`,
+    })).toBeNull();
+    // ...and the waiter BEHIND it got the freed seat + the email.
+    const second = await WaitlistEntry.findOne({ scheduleId: sch._id, userId: seed.leader._id });
+    expect(second.status).toBe('promoted');
+    expect(await NotificationLog.findOne({
+      type: 'waitlist_promoted', cadenceKey: `${sch._id}:${seed.leader._id}`,
+    })).not.toBeNull();
+  });
+
+  test('team REASSIGN dissolves the old audience queue — no cross-team promotion later (F2)', async () => {
+    const team2 = await Team.create({
+      name: 'PIC Review B', classId: seed.class1._id,
+      leaderId: seed.leader._id, members: [seed.leader._id],
+    });
+    const { start, end } = futureRange();
+    const sch = await Schedule.create({
+      classId: seed.class1._id, bookedTeamId: seed.team._id,
+      startTime: start, endTime: end, capacity: 1,
+      enrolledUsers: [seed.member1._id],
+    });
+    // member2 (old-team member) waits on the full session.
+    expect((await joinAs(tokens.member2, sch._id)).status).toBe(201);
+
+    const res = await request(app).put(`/api/schedules/${sch._id}`)
+      .set('Authorization', `Bearer ${tokens.admin}`).set(csrf)
+      .send({ bookedTeamId: team2._id.toString() });
+    expect(res.status).toBe(200);
+
+    // Roster rebuilt to the NEW team; the old-team waiter is dissolved.
+    const after = await Schedule.findById(sch._id);
+    expect(after.enrolledUsers.map(String)).toEqual([String(seed.leader._id)]);
+    const entry = await WaitlistEntry.findOne({ scheduleId: sch._id, userId: seed.member2._id });
+    expect(entry.status).toBe('cancelled');
+
+    // A later capacity raise must promote NOBODY from the dissolved queue.
+    const raise = await request(app).put(`/api/schedules/${sch._id}`)
+      .set('Authorization', `Bearer ${tokens.admin}`).set(csrf)
+      .send({ capacity: 3 });
+    expect(raise.status).toBe(200);
+    const roster = (await Schedule.findById(sch._id)).enrolledUsers.map(String);
+    expect(roster).not.toContain(String(seed.member2._id));
   });
 });

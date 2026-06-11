@@ -10,7 +10,7 @@ const repository = require('./repository');
 const bookingPolicy = require('./session-booking-policy');
 const schedulingModePolicy = require('./scheduling-mode-policy');
 const roomLockPolicy = require('./room-lock-policy');
-const { releaseScheduleResources } = require('./release-resources');
+const { releaseScheduleResources, dissolveWaitlist } = require('./release-resources');
 const waitlistPromotion = require('./waitlist/promotion');
 const scheduleService = require('../../services/scheduleService');
 
@@ -44,6 +44,10 @@ const updateSchedule = async (id, body) => {
   if (existing.status === 'cancelled') {
     throw new ServiceError('Cannot edit a cancelled session — book the slot again instead', 409);
   }
+
+  const teamReassigned = Boolean(
+    body.bookedTeamId && body.bookedTeamId !== existing.bookedTeamId?.toString(),
+  );
 
   const session = await mongoose.startSession();
   let schedule;
@@ -93,7 +97,7 @@ const updateSchedule = async (id, body) => {
       }
 
       // ── Attendance block ───────────────────────────────
-      if (body.bookedTeamId && body.bookedTeamId !== existing.bookedTeamId?.toString()) {
+      if (teamReassigned) {
         const hasAttendance = await repository.attendanceExistsForSchedule(existing._id, session);
         if (hasAttendance) {
           throw new ServiceError(
@@ -141,7 +145,7 @@ const updateSchedule = async (id, body) => {
       // Roster rebuild when team changes. Snapshot only the new team's Active
       // members (parity with bookSlot/adminCreate — a reassigned session must
       // not enroll Dropped members), so member `status` must be populated.
-      if (body.bookedTeamId && body.bookedTeamId !== existing.bookedTeamId?.toString()) {
+      if (teamReassigned) {
         const newTeam = await repository.findTeamById(body.bookedTeamId, {
           select: 'members',
           populate: { path: 'members', select: '_id status' },
@@ -175,6 +179,20 @@ const updateSchedule = async (id, body) => {
       schedule = await repository.updateScheduleById(id, updateData, session);
       if (!schedule) {
         throw new ServiceError('Schedule not found', 404);
+      }
+
+      // ── Audience change dissolves the queue (review fix F2) ──
+      // The waitlist of this session belongs to the OLD team/class audience —
+      // after a reassign, a later promotion would seat an old-audience waiter
+      // into the NEW team's/class's session. Dissolve live rows in the same tx
+      // (status:'cancelled', kept as history), BEFORE the capacity promotion
+      // below so a combined reassign+capacity-raise can't seat them either.
+      // Deliberately silent (no email): the session itself still exists, so
+      // the cancellation template would mislead.
+      const classMoved = updateData.classId !== undefined
+        && String(updateData.classId) !== String(existing.classId);
+      if (teamReassigned || classMoved) {
+        await dissolveWaitlist([existing._id], session);
       }
 
       // ── Capacity-raise promotion (phase-04 slice B, M3) ──
