@@ -39,7 +39,7 @@ triaged findings → fix PRs, not a paper exercise.
 |---|-------|------|------|--------|--------|
 | 1 | Security & AuthZ (+PII) | phase-01-security-and-authz.md | highest | L | ✅ 2026-06-11 |
 | 2 | Data integrity & audit trail | phase-02-data-integrity-and-audit-trail.md | highest | L | ✅ 2026-06-11 |
-| 3 | Business flows & UX wiring | phase-03-business-flows-and-ux.md | high | M | ⬜ |
+| 3 | Business flows & UX wiring | phase-03-business-flows-and-ux.md | high | M | ✅ 2026-06-11 |
 | 4 | Performance & scale | phase-04-performance-and-scale.md | med | M | ⬜ |
 | 5 | Reliability & operations | phase-05-reliability-and-operations.md | med | M | ⬜ |
 | 6 | Tests & CI health | phase-06-tests-and-ci.md | med | S | ⬜ |
@@ -62,10 +62,14 @@ Phases 1–2 first (they guard the product's core promise: compliance/audit).
 | ID | Sev | Phase | One-liner | Decision |
 |----|-----|-------|-----------|----------|
 | DATA-016 | P3 | 02 | No reconcile check for stale `waiting` waitlist rows on past sessions — add check #12 (flag or auto-expire) | Owner 2026-06-11: backlog |
+| UX-08 | P2 | 03 | `LearningField` (+ feedback/eval selects) labels not associated with inputs — unlabeled controls for screen readers across Learning CRUD + feedback modals (WCAG 1.3.1/4.1.2). Fix: `useId()` + `htmlFor`/`cloneElement` in `LearningField` | Owner 2026-06-11: backlog |
+| UX-09 | P3 | 03 | Home dashboard error boundary ("Something went wrong") renders behind the forced-password modal on first login (dashboard queries 403 on the mustChangePassword gate). Fix: gate dashboard `enabled:` on `!mustChangePassword`, or route the 403 to the change-pw flow | Owner 2026-06-11: backlog |
+| SEC-018 | P1 | 03→sec | MFA replay guard uses the relative `verifyDelta` (always 0 for a current code) vs a stored counter → TOTP login works once, then false-replay lockout; P0 if `MFA_REQUIRED_ROLES` set. Fix: compare/persist the ABSOLUTE TOTP step counter | Owner 2026-06-11: **escalated — pending owner decision (fix-now separate PR vs dedicated security round)** |
 
 ## Round log
 
 | Date | Phase | Report | Findings (P0/P1/P2/P3) | PRs |
 |------|-------|--------|------------------------|-----|
 | 2026-06-11 | 01 Security & AuthZ | `plans/reports/audit-security-260611-1302-findings.md` | 0/0/1/3 — SEC-014 fixed (CastError→400 + zod params + 5 tests); SEC-015/016 accepted+annotated; SEC-017 comments fixed. Core layers verified clean (22 routers, self-scoping, cookies, redaction, audit/gitleaks/.env) | fix/audit-sec-round-1 (PR #51) |
-| 2026-06-11 | 02 Data integrity & audit trail | `plans/reports/audit-data-260611-1321-findings.md` | 0/1/2/2 — DATA-014 fixed (Evaluation soft-delete + revive-on-upsert + hooks incl. aggregate); DATA-012 fixed (distinct hook ×6 models); DATA-013 fixed (import trash guards users+classes); DATA-015 dead fns removed; DATA-016 → backlog. Audit-trail layer verified clean (55 record sites, enum complete, tx coverage, reconcile map) | fix/audit-data-round-2 |
+| 2026-06-11 | 02 Data integrity & audit trail | `plans/reports/audit-data-260611-1321-findings.md` | 0/1/2/2 — DATA-014 fixed (Evaluation soft-delete + revive-on-upsert + hooks incl. aggregate); DATA-012 fixed (distinct hook ×6 models); DATA-013 fixed (import trash guards users+classes); DATA-015 dead fns removed; DATA-016 → backlog. Audit-trail layer verified clean (55 record sites, enum complete, tx coverage, reconcile map) | fix/audit-data-round-2 (PR #52, merged) |
+| 2026-06-11 | 03 Business flows & UX | `plans/reports/audit-flows-260611-1357-findings.md` | 1/3/2 (+1 incidental SEC) — FLOW-001 fixed (teacher eval grading: new scoped `/api/evaluations/roster`, picker rewired); BUG-003 fixed (lean-virtuals no-op → enrolledCount + completion averageScore); BUG-004 fixed (booking "0 students" → members.length); UX-08/UX-09 → backlog; **SEC-018 (P1 MFA replay lockout) escalated** — separate PR. 11 new tests; all gates green. Auth/booking/learner/feedback loops verified clean live | fix/audit-flows-round-3 |

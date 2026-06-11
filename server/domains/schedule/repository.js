@@ -32,6 +32,10 @@ const findAvailabilitySchedules = ({ classId, fromDate }) => {
 };
 
 // listSchedules — paginated list page.
+// NOTE (BUG-003): plain `.lean()` — the `{ virtuals: true }` option only works
+// with the mongoose-lean-virtuals plugin, which is NOT installed, so it was a
+// silent no-op. The enrolledCount virtual is attached explicitly in
+// queries.listSchedules from the populated enrolledUsers array.
 const findSchedulesPage = (query, { skip, limit }) =>
   Schedule.find(query)
     .populate('classId', 'classCode courseName totalSessions')
@@ -39,7 +43,7 @@ const findSchedulesPage = (query, { skip, limit }) =>
     .populate('enrolledUsers', 'empCode name department')
     .sort({ startTime: 1 })
     .skip(skip).limit(limit)
-    .lean({ virtuals: true });
+    .lean();
 
 const countSchedules = (query) => Schedule.countDocuments(query);
 
