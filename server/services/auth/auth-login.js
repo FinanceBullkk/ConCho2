@@ -204,15 +204,16 @@ const verifyMfaLogin = async (mfaPendingToken, code, req = null) => {
   let backupCodeUsed = false;
   let ok = false;
 
-  const { valid: totpValid, delta } = mfaService.verifyTokenWithReplay(
+  const { valid: totpValid, counter } = mfaService.verifyTokenWithReplay(
     user.mfaSecret,
     code,
     user.mfaLastUsedCounter,
   );
 
   if (totpValid) {
-    // Persist the used delta so the same code cannot be replayed (P1 fix).
-    user.mfaLastUsedCounter = delta;
+    // Persist the absolute step counter so any code from this step (or earlier)
+    // cannot be replayed, while a later step still logs in (SEC-018 fix).
+    user.mfaLastUsedCounter = counter;
     await user.save();
     ok = true;
   } else {
