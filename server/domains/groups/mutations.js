@@ -1,6 +1,7 @@
 const mongoose = require('mongoose');
 const Team = require('../../models/Team');
 const { syncSchedulesForTeamUpdate } = require('../../models/Team');
+const { notifyPromotions } = require('../schedule/waitlist/promotion');
 const { handleError } = require('../../helpers/handleError');
 const auditService = require('../../services/auditService');
 const { invalidateAnalyticsCache } = require('../../middleware/analyticsCache');
@@ -211,6 +212,7 @@ const updateTeam = async (req, res) => {
     // Emails are now queued and flushed AFTER the commit so a rollback
     // doesn't generate misleading notifications.
     let pendingEmails = [];
+    let teamSyncPromotions = [];
     const session = await mongoose.startSession();
     try {
       await session.withTransaction(async () => {
@@ -221,14 +223,16 @@ const updateTeam = async (req, res) => {
           { new: true, runValidators: true, session }
         );
 
-        // Step 2: Sync Schedule.enrolledUsers (if members changed)
+        // Step 2: Sync Schedule.enrolledUsers (if members changed).
+        // A member REMOVAL frees seats — the sync promotes FIFO waiters
+        // in-tx (phase-04 slice B) and returns them for post-commit notify.
         if (membersChanged) {
-          await syncSchedulesForTeamUpdate({
+          ({ promotions: teamSyncPromotions } = await syncSchedulesForTeamUpdate({
             teamId: req.params.id,
             oldMembers: oldMemberStrs,
             newMembers: newMemberStrs,
             session,
-          });
+          }));
         }
 
         // Step 3: Sync Enrollment records (if members changed)
@@ -255,6 +259,12 @@ const updateTeam = async (req, res) => {
 
     // Flush queued notification emails now that the transaction has committed.
     flushPendingEmails(pendingEmails);
+
+    // Notify waiters promoted by the member-removal seat-free (fail-soft).
+    for (const { scheduleId, promoted } of teamSyncPromotions) {
+      // eslint-disable-next-line no-await-in-loop
+      await notifyPromotions(scheduleId, promoted);
+    }
 
     // Return populated (outside transaction — read-only)
     const populated = await Team.findById(req.params.id)

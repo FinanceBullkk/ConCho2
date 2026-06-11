@@ -4,6 +4,7 @@ const {
   bookTeamSlot, cancelSlot, getAvailability, getMyClassSchedules,
   getAttendanceCalendar, setTrainers
 } = require('./controller');
+const waitlistController = require('./waitlist/controller');
 const { protect } = require('../../middleware/auth');
 const { roleGuard } = require('../../middleware/roleGuard');
 const { requireCapability } = require('../../middleware/requireCapability');
@@ -44,6 +45,19 @@ router.delete('/:id/cancel', protect, roleGuard('Admin', 'Participant'),
 router.put('/:id/trainers', protect, roleGuard('Admin', 'Coordinator'),
   requireCapability('session.assign-trainer'),
   validate({ params: idParam, body: setTrainersBody }), setTrainers);
+
+// ── Waitlist (Wave E3 phase-04, slice B) ───────────────────
+// Self-join the FIFO queue of a FULL session (free seats → 409). The static
+// '/waitlist/mine' path is registered BEFORE the '/:id' routes so 'waitlist'
+// is never swallowed as an :id param.
+router.get('/waitlist/mine', protect, roleGuard('Admin', 'Participant'),
+  waitlistController.listMine);
+router.post('/:id/waitlist', protect, roleGuard('Admin', 'Participant'),
+  bookingLimiter, validate({ params: idParam }), waitlistController.join);
+router.delete('/:id/waitlist', protect, roleGuard('Admin', 'Participant'),
+  validate({ params: idParam }), waitlistController.leave);
+router.get('/:id/waitlist', protect, roleGuard('Admin', 'Teacher'),
+  validate({ params: idParam }), waitlistController.listForSchedule);
 
 // ── Admin CRUD ─────────────────────────────────────────────
 router.route('/')

@@ -1,7 +1,7 @@
 ---
 phase: 4
 title: Durable Cancellation States + Waitlists (capacity-atomic FIFO promotion)
-status: in_progress  # slice A (durable cancel) SHIPPED 2026-06-11; B (waitlist+promotion) + C (UI) pending
+status: done  # A (durable cancel) + B (waitlist+promotion) + C-learner (/me/sessions) SHIPPED 2026-06-11; admin waitlist panel deferred
 priority: high
 effort: 5–6 dev-days
 depends_on: [1, 2, 3]
@@ -20,6 +20,21 @@ depends_on: [1, 2, 3]
 > finally introduce `releaseSchedule` wrapping it + the waitlist transition).
 > Spec delta folded into `docs/specs/scheduling-and-booking`. Slices B/C below
 > remain as designed.
+
+> **2026-06-11 — Slice B + C-learner shipped.** Owner decisions: join is
+> FULL-only (free seats → 409, no instant-seat); dissolved waiters ARE emailed
+> on cancel; backend + learner UI in one PR. Deltas vs the design above:
+> `releaseSchedule` landed as `domains/schedule/release-resources.js`
+> (wraps `releaseRoomLock` + waitlist dissolution; returns waiter ids for the
+> cancel-path emails); promotion runs BEFORE the empty-placeholder sweep so a
+> waiter can rescue an emptied session; seat-freers wired = capacity-raise +
+> Team-sync (3 callers notify post-commit) + Dropped auto-release — the
+> enrollment-status/user-delete pulls were NOT wired (out of plan scope;
+> seats free silently). m5 admin manual promote + admin waitlist panel
+> deferred as designed. Learner surface shipped as `/me/sessions` (new page)
+> on a Participant visibility widening + per-row `effectiveCapacity`, instead
+> of BookClassPage cells (team-sync auto-adds members, so the leader grid has
+> no waitlist audience — the real audience is cohort late-enrollees).
 
 # Phase 4 — Durable Cancellation + Waitlists
 

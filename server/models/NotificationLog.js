@@ -6,7 +6,10 @@ const notificationLogSchema = new mongoose.Schema(
   {
     type: {
       type: String,
-      enum: ['assignment_due_soon', 'assignment_overdue', 'manager_assignment_digest'],
+      enum: ['assignment_due_soon', 'assignment_overdue', 'manager_assignment_digest',
+        // Wave E3 phase-04 slice B — a freed seat auto-enrolled a waiter.
+        // cadenceKey is `<scheduleId>:<userId>` (one notice per promotion).
+        'waitlist_promoted'],
       required: true,
     },
     channel: { type: String, enum: ['email'], default: 'email', required: true },

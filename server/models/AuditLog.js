@@ -70,7 +70,9 @@ const auditLogSchema = new mongoose.Schema(
              'AssessmentAttempt', 'AssessmentQuestion', 'Feedback',
              'Assignment', 'LearningPath',
              // Added in re-center Phase 3 — Office-scoped Rooms.
-             'Room'],
+             'Room',
+             // Added in Wave E3 phase-04 slice B — session waitlists.
+             'WaitlistEntry'],
       required: true,
     },
     entityId: {
