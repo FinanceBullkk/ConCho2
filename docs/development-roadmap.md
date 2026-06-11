@@ -258,6 +258,31 @@ Bug fixing and integration review rank above net-new feature rollout.
 
 ## Recent progress (changelog)
 
+- **2026-06-11** — **Audit Phase 6 (Tests & CI health) round complete — 4 P2
+  resolved in-round.** Suite core verified healthy: 854/854 server tests ×3
+  consecutive runs (no flakes, no open handles), client 247/247, CI 8m vs 15m
+  budget. Shipped per owner triage: **QA-011** rate-limit layer had ZERO tests
+  (every limiter `skip`s in test env) → new `rateLimiterWiring.test.js` (21
+  tests) asserts 18 security-critical routes still mount the expected
+  `{windowMs,max}` budgets + keyGenerator units (BUG #16 class); **QA-012**
+  GitHub Free + private repo = branch protection unavailable, the "7 required
+  gates" are convention-only → merge discipline codified in
+  `testing-and-ci.md` (never merge unless `gh pr checks` all green);
+  **QA-013** `react-hooks/exhaustive-deps` was silently `warn` (docs claimed
+  hard error) → 8 sites fixed — incl. a REAL stale-closure bug where the
+  attendance drawer's unsaved-changes confirm guard never fired on
+  toggle-close — rule promoted to `error`, eslint ratchet **72 → 63**;
+  **QA-018** zero e2e on persona-critical P1 flows → `booking.spec.js` ships
+  the leader book→Mine→cancel loop (2/2 vs live dev server); rest backlogged
+  (attendance > export > MFA > waitlist). P3s fixed: QA-014 post-teardown
+  audit-save noise root-caused (unit tests now mock auditService; SIGKILL
+  line = Windows-local only, CI clean); QA-015 stale eslint-disable; QA-016
+  coverage/ linted; QA-021 actions v4→v5 (Node-20 forced-Node-24 deadline
+  2026-06-16). Coverage truth recorded: server 83.5% lines (`domains/*`
+  healthy; legacy holes syncController 11% → class-mutations 17% → auth-mfa
+  52% = QA-022), client 70% (api.js interceptors 23%). QA-017/019/020/022 +
+  QA-018b → audit backlog. Report:
+  `plans/reports/audit-qa-260611-2330-findings.md`.
 - **2026-06-11** — **Audit Phase 5 (Reliability & operations) round complete —
   1 P1 fixed, first backup drill ever executed.** Ops layer verified clean:
   graceful shutdown (drain→cron-stop→Mongo-close), timing-safe `cronAuth` +
