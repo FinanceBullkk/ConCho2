@@ -69,7 +69,9 @@ export default function SchedulesPage() {
 
   const schedParams = useMemo(() => ({ limit: 2000 }), []);
   const { data: schedData, isLoading } = useSchedules(schedParams);
-  const schedules    = schedData?.data || [];
+  // Memoized: `schedData?.data || []` minted a fresh [] every render, making
+  // every downstream useMemo (scheduleMap, rows, …) recompute per render.
+  const schedules    = useMemo(() => schedData?.data || [], [schedData]);
   const totalCount   = schedData?.total || schedules.length;
   const { data: classes = [] } = useClasses();
   const { data: teams  = [] } = useTeams();

@@ -13,6 +13,9 @@ dist_old
 dist-ssr
 *.local
 
+# vitest --coverage output (lcov + HTML report)
+coverage
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
