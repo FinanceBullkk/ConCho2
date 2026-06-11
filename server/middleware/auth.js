@@ -24,7 +24,7 @@ const invalidateUserCache = (userId) => {
  *   1. HttpOnly cookie 'tms_token'    ← XSS-proof (primary)
  *   2. Authorization: Bearer <token>  ← backward compat / API clients
  *
- * User lookups are cached (2 min TTL) to reduce DB load.
+ * User lookups are cached (30s TTL — stdTTL above; SEC-017) to reduce DB load.
  *
  * Usage: router.get('/protected', protect, handler)
  */
