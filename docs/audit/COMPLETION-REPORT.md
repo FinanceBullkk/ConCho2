@@ -130,7 +130,7 @@ Legend: ✅ Done · ⚠️ Partial · ❌ Not done · 🔧 Out-of-band (operator
 | ID | Title | Status |
 |----|-------|--------|
 | API-001 | Inconsistent response shape | ❌ High — Phase 5 refactor |
-| API-002 | getTeams unpaginated + deep populate | ❌ High — Phase 5 |
+| API-002 | getTeams unpaginated + deep populate | ✅ Optional `?page=&limit=&slim=true` with backward-compat | #37 |
 | API-003 | Fat controllers without service layer | ❌ High — Phase 5 |
 | API-004 | Status-code anti-patterns in tests | ❌ Medium — deferred |
 | API-005 | Error messages leak Mongo internals | ❌ Medium — deferred |
@@ -151,8 +151,6 @@ Legend: ✅ Done · ⚠️ Partial · ❌ Not done · 🔧 Out-of-band (operator
 | FE-010 | Hand-rolled modals lack focus-trap / ARIA | ✅ all 5 modals on Radix Dialog | #31, #35, #36 |
 | FE-011 | axios has no timeout | ✅ 30s default timeout | #32 |
 | FE-012 | CSRF token not refreshed on expiry | ✅ refresh-and-retry on 403 | #32 |
-| FE-011 | (duplicate row — see above for closure status) | — |
-| FE-012 | (duplicate row — see above for closure status) | — |
 | FE-013 | Client Sentry incomplete | ✅ setUser + source-map upload + beforeSend scrub | #17 |
 | FE-014 | useTheme.js competes with next-themes | ❌ Medium — deferred |
 | FE-015 | i18n migration ~30% complete | ❌ Medium — continuous, Phase 5 |
@@ -175,7 +173,7 @@ Legend: ✅ Done · ⚠️ Partial · ❌ Not done · 🔧 Out-of-band (operator
 | PERF-008 | getUsers lastActive unbounded aggregate | ✅ Write-through lastActiveAt | #26 |
 | PERF-009 | Mongoose maxPoolSize not set | ✅ maxPoolSize: 20 | #22 |
 | PERF-010 | Missing indexes (Team, Schedule, Attendance) | ✅ 4 indexes added | #22 |
-| PERF-011 | getTeams unpaginated (dup of API-002) | ❌ Phase 5 |
+| PERF-011 | getTeams unpaginated (dup of API-002) | ✅ Closed alongside API-002 | #37 |
 | PERF-012 | cacheMiddleware patches only res.json | ❌ Medium — deferred |
 | PERF-013 | auditService.record fire-and-forget no backpressure | ❌ Medium — deferred |
 
@@ -217,7 +215,7 @@ Legend: ✅ Done · ⚠️ Partial · ❌ Not done · 🔧 Out-of-band (operator
 | CODE-004 | Cross-controller import (enrollmentController → teamController) | ❌ High — Phase 5 |
 | CODE-005 | 10 files > 400 lines | ❌ High — Phase 5 refactor |
 | CODE-006 | passwordChangedAt not auto-updated (= DATA-014) | ✅ | #19 |
-| CODE-007 | jsx-a11y + react-hooks v7 as warn, 94 violations | ⚠️ Ratchet only — 138 warnings capped, CI blocks increase | #27 |
+| CODE-007 | jsx-a11y + react-hooks v7 as warn, 94 violations | ⚠️ Ratchet — 138 → 113 cap (lint script), 81 live warnings on main | #27, #38 |
 | CODE-008 | Launch-blocker TODOs (evaluationController, scheduleController) | ❌ Resolved by AUTHZ-001 fix but comments not cleaned | — |
 | CODE-009 | window.confirm for destructive ops | ❌ Medium — deferred | — |
 | CODE-010 | Duplicate conflict / cap / isLeader logic | ❌ Medium — Phase 5 |
