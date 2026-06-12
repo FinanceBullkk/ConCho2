@@ -262,6 +262,21 @@ Bug fixing and integration review rank above net-new feature rollout.
 
 ## Recent progress (changelog)
 
+- **2026-06-13** — **Cohesion P2 (v1): Unified learner home — next-actions
+  feed + program cards** (same branch as P1; plan
+  `plans/260612-2058-cohesion-wave/` P2). The Participant home becomes the
+  hub: new **`NextActionsFeed`** answers "what's waiting on me?" — quizzes
+  for my cohorts without a passing attempt (Take quiz →
+  `/me/assessments`), enrollments without submitted feedback (Give
+  feedback → `/me/feedback`), and my waitlist positions (→
+  `/me/sessions`), capped at 5, with a caught-up state. A **My programs**
+  band shows the top-2 enrollment cards (shared `ProgramEnrollmentCard`,
+  extracted from `/me/programs`) + view-all. All client-side composition
+  over existing self-scoped queries — zero new backend. Old `/me/*` pages
+  retained (parity-first per plan risk note; nav-entry removal last);
+  assignment feed items arrive with P3 (needs a self-scoped assignments
+  read). Tests: +2 NextActionsFeed component cases — client 273/60, lint
+  at cap 63, build clean. Next: P3 (assignment → one-click enroll).
 - **2026-06-13** — **Cohesion P1: Learner Program Home**
   (`feat/cohesion-p1-learner-program-home`; plan
   `plans/260612-2058-cohesion-wave/` P1). Learners get a per-enrollment hub:
