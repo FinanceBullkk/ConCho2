@@ -445,7 +445,9 @@ function SchedulesTab({ classId, classes, canEdit }) {
   const params = useMemo(() => ({ classId, limit: 200 }), [classId]);
   const { data: schedData, isLoading } = useSchedules(params);
   const { data: teams = [] } = useTeams();
-  const schedules = schedData?.data || [];
+  // Memoized: a bare `|| []` fallback would re-trigger the `filtered` useMemo
+  // on every render (fresh array identity each time).
+  const schedules = useMemo(() => schedData?.data || [], [schedData]);
 
   const [filter, setFilter] = useState('upcoming'); // 'past' | 'upcoming' | 'all'
   const [drawerOpen, setDrawerOpen] = useState(false);

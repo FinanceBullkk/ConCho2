@@ -44,7 +44,9 @@ export default defineConfig([
   // `.vite-cache` is Vite's dependency pre-bundling cache (regenerated on
   // every `npm run dev`); it contains transpiled vendor JS that should not
   // be linted. `dist` is the production build output.
-  globalIgnores(['dist', 'dist_old', '.vite-cache', 'playwright-report', 'test-results']),
+  // `coverage` is the vitest --coverage output (lcov + HTML report) — generated
+  // JS that must not be linted nor committed (also in .gitignore).
+  globalIgnores(['dist', 'dist_old', '.vite-cache', 'playwright-report', 'test-results', 'coverage']),
 
   // ── Application source ───────────────────────────────────
   {
@@ -66,6 +68,12 @@ export default defineConfig([
     },
     rules: {
       'no-unused-vars': ['error', { varsIgnorePattern: '^[A-Z_]' }],
+
+      // QA-013: plugin-recommended severity is `warn`; the header above (and
+      // testing-and-ci.md) always CLAIMED this was a hard error. Promoted for
+      // real once the 8 live violations were fixed (audit round 6) — a stale
+      // closure is a real bug, it must block.
+      'react-hooks/exhaustive-deps': 'error',
 
       // ── jsx-a11y: downgrade from error → warn ────────────
       // The 92 accessibility violations are real UX debt but

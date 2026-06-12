@@ -19,11 +19,19 @@ Server tests need env `NODE_ENV=test` and a dummy `JWT_SECRET` (required at boot
 6. **audit** — `npm audit` high+ (prod deps on server, full on client)
 7. **e2e-tests** — Playwright against real seeded backend (slowest, ~5–10 min)
 
+### Merge discipline (QA-012 — gates are NOT machine-enforced)
+GitHub branch protection is unavailable on this repo (private repo, Free plan), so
+"required" above is **procedural, not enforced** — GitHub will let a red PR merge.
+Therefore, for humans AND agents:
+- **Never `gh pr merge` until `gh pr checks <n>` shows every gate green.** No exceptions;
+  a red/pending gate means wait, fix, or escalate to the owner.
+- Never push directly to `main`; all changes go through a PR so the gates run at all.
+
 ## ESLint ratchet (critical rule)
-`client/package.json` runs `eslint . --max-warnings <cap>`. **Current cap = 72.**
+`client/package.json` runs `eslint . --max-warnings <cap>`. **Current cap = 63.**
 - The cap may only go DOWN as warnings are fixed, **never UP**. PR review rejects any increase.
 - `client/eslint.config.js` documents the policy + history (its header comment may lag the actual cap — package.json is source of truth).
-- Hard errors (always block, no ratchet): `no-undef`, `no-unused-vars`, `react-hooks/rules-of-hooks`, `react-hooks/exhaustive-deps`.
+- Hard errors (always block, no ratchet): `no-undef`, `no-unused-vars`, `react-hooks/rules-of-hooks`, `react-hooks/exhaustive-deps` (promoted to a REAL `error` in audit round 6 / QA-013 — it was silently `warn` before).
 
 ## Test discipline
 - Tests verify the FINAL merged code. Don't skip, `.skip`, or weaken assertions just to go green.
