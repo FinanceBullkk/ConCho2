@@ -1,5 +1,8 @@
 const jwt = require('jsonwebtoken');
-const { v4: uuidv4 } = require('uuid');
+// node:crypto randomUUID — the `uuid` package was dropped in the deps-light
+// round (bcb0468); CI keeps devDeps so a transitive uuid masked this file's
+// leftover require until the production (omit=dev) install on Render.
+const { randomUUID } = require('crypto');
 const TokenBlocklist = require('../../models/TokenBlocklist');
 
 // ──────────────────────────────────────────────────────────
@@ -36,7 +39,7 @@ const parseExpireToMs = (expire) => {
  */
 const generateToken = (userId) => {
   return jwt.sign(
-    { id: userId, jti: uuidv4() },
+    { id: userId, jti: randomUUID() },
     process.env.JWT_SECRET,
     { expiresIn: JWT_EXPIRE }
   );
@@ -50,7 +53,7 @@ const generateToken = (userId) => {
 const MFA_PENDING_EXPIRE = '5m';
 const generateMfaPendingToken = (userId) => {
   return jwt.sign(
-    { id: userId, jti: uuidv4(), mfa: 'pending' },
+    { id: userId, jti: randomUUID(), mfa: 'pending' },
     process.env.JWT_SECRET,
     { expiresIn: MFA_PENDING_EXPIRE }
   );
@@ -89,7 +92,7 @@ const getMfaPendingCookieOptions = () => ({
 const MFA_ENROLLMENT_EXPIRE = '30m';
 const generateMfaEnrollmentToken = (userId) => {
   return jwt.sign(
-    { id: userId, jti: uuidv4(), mfa: 'enrollment-required' },
+    { id: userId, jti: randomUUID(), mfa: 'enrollment-required' },
     process.env.JWT_SECRET,
     { expiresIn: MFA_ENROLLMENT_EXPIRE }
   );
