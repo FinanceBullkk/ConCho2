@@ -18,8 +18,12 @@ const path = require('path');
 const SCRIPT = path.resolve(__dirname, '../../scripts/verify-backup.js');
 
 // Spawn the script with a controlled env; resolve with collected stdout as
-// soon as `matcher` appears (then kill), or when the child exits on its own.
-const runUntil = (env, matcher, timeoutMs = 15000) =>
+// soon as the line containing `matcher` is COMPLETE (then kill), or when the
+// child exits on its own. Waiting for the trailing newline matters: pipe
+// chunks can split mid-line, and assertions read the rest of the matcher's
+// line (e.g. the masked URI) — killing on a half-delivered line is the flake
+// seen in full-suite runs (passes solo, rare fail under load).
+const runUntil = (env, matcher, timeoutMs = 30000) =>
   new Promise((resolve, reject) => {
     const child = spawn(process.execPath, [SCRIPT], {
       env,
@@ -41,7 +45,8 @@ const runUntil = (env, matcher, timeoutMs = 15000) =>
     );
     const onChunk = (chunk) => {
       out += chunk.toString();
-      if (out.includes(matcher)) finish();
+      const idx = out.indexOf(matcher);
+      if (idx !== -1 && out.indexOf('\n', idx) !== -1) finish();
     };
     child.stdout.on('data', onChunk);
     child.stderr.on('data', onChunk);
