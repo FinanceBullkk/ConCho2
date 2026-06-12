@@ -2,7 +2,7 @@
 capability: completion-and-certificates
 status: stable
 owners: [domains/learning/completion]
-last_updated: 2026-06-08
+last_updated: 2026-06-13
 related_code:
   - server/domains/learning/completion/use-cases.js
   - server/domains/learning/completion/repository.js
@@ -42,6 +42,13 @@ cohort/attendance later change.
 ## Actors & Use Cases (UC)
 
 - **UC-1 (Admin/Teacher/learner):** checks a learner's completion breakdown.
+  - *UI note (Cohesion P1, 2026-06-13):* learners now have a per-enrollment
+    hub — `/me/programs` (active enrollments) → `/me/programs/:cohortId`
+    renders the completion checklist (attendance/assessment/feedback,
+    met/unmet with quiz/feedback CTAs), own-certificate state, and the
+    cohort's upcoming sessions. Pure client composition over the existing
+    self-scoped `GET /completion`, `GET /certificates` and session reads —
+    no server behavior change.
 - **UC-2 (Admin):** issues a certificate to a complete learner.
 - **UC-3 (Admin):** revokes an issued certificate with a reason.
 - **UC-4 (Anyone):** verifies a certificate by its verification code.

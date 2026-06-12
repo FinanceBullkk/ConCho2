@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { BookOpen, CheckCircle2, Filter, Search } from 'lucide-react';
 import { toast } from 'sonner';
 import { Badge } from '@/components/ui/badge';
@@ -116,15 +117,23 @@ export default function MyLearningCatalogPage() {
                   <span>{cohort.bookedSessions || 0}/{cohort.totalSessions || program.defaultSessionCount} sessions</span>
                   <span>{cohort.status}</span>
                 </div>
-                <Button
-                  className="w-full"
-                  disabled={enrolled || enroll.isPending}
-                  onClick={() => handleEnroll(cohort)}
-                >
-                  {enrolled ? (
-                    <><CheckCircle2 className="mr-1.5 size-4" aria-hidden="true" />Enrolled</>
-                  ) : 'Enroll'}
-                </Button>
+                {enrolled ? (
+                  // Cohesion P1: enrolled card links to the program hub.
+                  <Button asChild className="w-full" variant="outline">
+                    <Link to={`/me/programs/${cohort._id}`}>
+                      <CheckCircle2 className="mr-1.5 size-4" aria-hidden="true" />
+                      Enrolled · view progress
+                    </Link>
+                  </Button>
+                ) : (
+                  <Button
+                    className="w-full"
+                    disabled={enroll.isPending}
+                    onClick={() => handleEnroll(cohort)}
+                  >
+                    Enroll
+                  </Button>
+                )}
               </CardContent>
             </Card>
           );

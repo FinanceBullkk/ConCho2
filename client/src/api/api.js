@@ -281,6 +281,10 @@ export const learningAPI = {
   withdrawEnrollment: (id) => api.delete(`/learning/enrollments/${id}`),
   getFeedback: (params) => api.get('/learning/feedback', { params }),
   submitFeedback: (data) => api.post('/learning/feedback', data),
+  // Per-learner completion checklist + own certificates (Cohesion P1 —
+  // Participant calls are self-scoped server-side; managers may pass learnerId).
+  getCompletion: (params) => api.get('/learning/completion', { params }),
+  getCertificates: (params) => api.get('/learning/certificates', { params }),
   // Cohort completion reporting + xlsx export (Admin/Teacher).
   getCompletionReport: (params) => api.get('/learning/reports/completion', { params }),
   getCompletionRollup: () => api.get('/learning/reports/completion/rollup'),

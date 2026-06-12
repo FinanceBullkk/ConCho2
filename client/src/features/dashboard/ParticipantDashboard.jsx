@@ -2,7 +2,7 @@ import { useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import {
   CalendarDays, BarChart3, CheckCircle2, XCircle, Target,
-  ClipboardList, CalendarPlus, Clock, MapPin, Users2, ChevronRight, PlayCircle, MessageSquare, BookOpen, Route,
+  ClipboardList, CalendarPlus, Clock, MapPin, Users2, ChevronRight, PlayCircle, MessageSquare, BookOpen, Route, GraduationCap,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useMyClassSchedules } from '../../hooks/useSchedules';
@@ -260,6 +260,16 @@ export default function ParticipantDashboard() {
       </div>
 
       <div className="grid gap-3 md:grid-cols-2">
+        {/* Cohesion P1 — per-enrollment program hub (checklist + certificate) */}
+        <Button asChild variant="outline" className="justify-between md:col-span-2">
+          <Link to="/me/programs">
+            <span className="inline-flex items-center gap-2">
+              <GraduationCap className="size-4" aria-hidden="true" />
+              My programs &amp; progress
+            </span>
+            <ChevronRight className="size-4 text-muted-foreground" aria-hidden="true" />
+          </Link>
+        </Button>
         <Button asChild variant="outline" className="justify-between">
           <Link to="/me/catalog">
             <span className="inline-flex items-center gap-2">
