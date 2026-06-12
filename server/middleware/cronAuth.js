@@ -1,6 +1,7 @@
 const crypto = require('crypto');
 const logger = require('../lib/logger');
 const auditService = require('../services/auditService');
+const { redactUrlToken } = require('../lib/redact-url-token');
 
 // ──────────────────────────────────────────────────────────
 // Cron Auth Middleware
@@ -48,9 +49,14 @@ const cronAuth = (req, res, next) => {
     provided = String(req.query.token).trim();
   }
 
+  // OPS-012: req.originalUrl may carry ?token=<CRON_TOKEN> — redact before
+  // any log/audit line so the shared secret never reaches pino output or the
+  // 730-day, admin-visible audit trail.
+  const safeUrl = redactUrlToken(req.originalUrl);
+
   if (!provided || !constantTimeEqual(provided, expected)) {
     logger.warn(
-      { ip: req.ip, ua: req.headers['user-agent'], path: req.originalUrl },
+      { ip: req.ip, ua: req.headers['user-agent'], path: safeUrl },
       'Cron auth failed'
     );
     // Audit PR L (SEC-013): persistent cron-auth failures are signal — either
@@ -61,13 +67,13 @@ const cronAuth = (req, res, next) => {
       req,
       action: 'cron-auth-failed',
       entity: 'Auth',
-      note: `${req.method} ${req.originalUrl}`,
+      note: `${req.method} ${safeUrl}`,
     });
     return res.status(401).json({ success: false, message: 'Invalid cron token' });
   }
 
   logger.info(
-    { ip: req.ip, ua: req.headers['user-agent'], path: req.originalUrl },
+    { ip: req.ip, ua: req.headers['user-agent'], path: safeUrl },
     'Cron auth ok'
   );
   next();
