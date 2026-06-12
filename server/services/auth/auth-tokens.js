@@ -10,14 +10,17 @@ const TokenBlocklist = require('../../models/TokenBlocklist');
 // the JTI blocklist (revoke/check), and the MFA-required-role policy.
 // The credential flows (authenticate / verifyMfaLogin) live in auth-login.
 
-const JWT_EXPIRE = process.env.JWT_EXPIRE || '7d';
+// 1d default (DOCS-003, audit round 8): the documented session policy is a
+// 24h kill-window; the old '7d' fallback silently outlived it 7× on any
+// deploy that forgot to set JWT_EXPIRE (render.yaml didn't).
+const JWT_EXPIRE = process.env.JWT_EXPIRE || '1d';
 
 /**
- * Parse JWT_EXPIRE string (e.g. '7d', '1h') into milliseconds.
+ * Parse JWT_EXPIRE string (e.g. '1d', '1h') into milliseconds.
  */
 const parseExpireToMs = (expire) => {
   const match = expire.match(/^(\d+)([dhms])$/);
-  if (!match) return 7 * 24 * 60 * 60 * 1000;
+  if (!match) return 24 * 60 * 60 * 1000;
   const value = parseInt(match[1], 10);
   const unit = match[2];
   const multipliers = { d: 86400000, h: 3600000, m: 60000, s: 1000 };
