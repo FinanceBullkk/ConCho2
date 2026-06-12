@@ -120,10 +120,14 @@ const forgotPassword = async (req, res) => {
           logger.warn({ err: mailErr, empCodeHash: hashEmpCodeForLog(normalizedEmpCode) }, 'Password reset email failed');
         }
       } catch (err) {
-        logger.warn({ err, empCodeHash: hashEmpCodeForLog(normalizedEmpCode) }, 'Forgot-password background flow errored');
+        // OPS-014: a DB failure here (user lookup, token persist, rollback
+        // save) silently corrupts the reset flow AFTER the caller already
+        // got a 200 — promote to `error` so ops alerting sees it. The
+        // email-send failure above stays `warn` (retry-able, token rolled back).
+        logger.error({ err, empCodeHash: hashEmpCodeForLog(normalizedEmpCode) }, 'Forgot-password background flow errored');
       }
     })().catch((err) => {
-      // Safety net — only reachable if logger.warn itself threw inside the catch above.
+      // Safety net — only reachable if logger.error itself threw inside the catch above.
       console.error('[forgot-password] unhandled background error', err?.message || err); // eslint-disable-line no-console
     });
   });
