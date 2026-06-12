@@ -28,6 +28,14 @@ export const useLearningEnrollments = (params = {}, options = {}) =>
     ...options,
   });
 
+// Own required training + enroll-CTA suggestion (Cohesion P3, self-scoped).
+export const useMyAssignments = (options = {}) =>
+  useQuery({
+    queryKey: qk.learning.myAssignments,
+    queryFn: async () => (await learningAPI.getMyAssignments()).data,
+    ...options,
+  });
+
 // Per-learner completion checklist for one cohort (Cohesion P1 learner home).
 // Participant calls are self-scoped server-side (completion/use-cases).
 export const useCompletion = (params = {}, options = {}) =>

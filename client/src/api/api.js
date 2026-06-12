@@ -272,6 +272,8 @@ export const learningAPI = {
   archivePath: (id) => api.delete(`/learning/paths/${id}`),
   getPathProgress: (id) => api.get(`/learning/paths/${id}/progress`),
   getAssignments: (params) => api.get('/learning/assignments', { params }),
+  // Own required training + enroll-CTA suggestion (Cohesion P3, self-scoped).
+  getMyAssignments: () => api.get('/learning/assignments/mine'),
   getAssignment: (id) => api.get(`/learning/assignments/${id}`),
   createAssignment: (data) => api.post('/learning/assignments', data),
   archiveAssignment: (id) => api.delete(`/learning/assignments/${id}`),

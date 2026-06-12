@@ -142,43 +142,61 @@ const tplEnrollmentTransferred = ({
     `<p>TMS Training System</p>`,
 });
 
+// Deep link into the learner home (next-actions feed shows the assignment
+// with its enroll CTA — Cohesion P3). Empty when CLIENT_ORIGIN is unset
+// (dev/test) so the copy degrades to the generic "log into the portal" line.
+const portalHomeUrl = () =>
+  (process.env.CLIENT_ORIGIN ? `${process.env.CLIENT_ORIGIN.replace(/\/$/, '')}/home` : '');
+
 const tplAssignmentDueSoon = ({
   userName, assignmentTitle, targetName, dueDateStr, daysUntil,
-}) => ({
-  subject: `TMS — Assignment due soon: ${assignmentTitle}`,
-  text:
-    `Hi ${userName},\n\n` +
-    `Your assignment "${assignmentTitle}" for ${targetName} is due in ${pluralDays(daysUntil)}.\n\n` +
-    `Due date: ${dueDateStr}\n\n` +
-    `Please log into the TMS portal to complete it before the deadline.\n\n` +
-    `TMS Training System`,
-  html:
-    `<p>Hi <strong>${userName}</strong>,</p>` +
-    `<p>Your assignment <strong>${assignmentTitle}</strong> for <strong>${targetName}</strong> ` +
-    `is due in <strong>${pluralDays(daysUntil)}</strong>.</p>` +
-    `<p><strong>Due date:</strong> ${dueDateStr}</p>` +
-    `<p>Please log into the TMS portal to complete it before the deadline.</p>` +
-    `<p>TMS Training System</p>`,
-});
+}) => {
+  const url = portalHomeUrl();
+  return {
+    subject: `TMS — Assignment due soon: ${assignmentTitle}`,
+    text:
+      `Hi ${userName},\n\n` +
+      `Your assignment "${assignmentTitle}" for ${targetName} is due in ${pluralDays(daysUntil)}.\n\n` +
+      `Due date: ${dueDateStr}\n\n` +
+      `Please log into the TMS portal to complete it before the deadline.` +
+      (url ? `\n${url}` : '') + `\n\n` +
+      `TMS Training System`,
+    html:
+      `<p>Hi <strong>${userName}</strong>,</p>` +
+      `<p>Your assignment <strong>${assignmentTitle}</strong> for <strong>${targetName}</strong> ` +
+      `is due in <strong>${pluralDays(daysUntil)}</strong>.</p>` +
+      `<p><strong>Due date:</strong> ${dueDateStr}</p>` +
+      (url
+        ? `<p><a href="${url}">Open your learning home</a> to complete it before the deadline.</p>`
+        : `<p>Please log into the TMS portal to complete it before the deadline.</p>`) +
+      `<p>TMS Training System</p>`,
+  };
+};
 
 const tplAssignmentOverdue = ({
   userName, assignmentTitle, targetName, dueDateStr, daysOverdue,
-}) => ({
-  subject: `TMS — Assignment overdue: ${assignmentTitle}`,
-  text:
-    `Hi ${userName},\n\n` +
-    `Your assignment "${assignmentTitle}" for ${targetName} is overdue by ${pluralDays(daysOverdue)}.\n\n` +
-    `Due date: ${dueDateStr}\n\n` +
-    `Please log into the TMS portal and complete it as soon as possible.\n\n` +
-    `TMS Training System`,
-  html:
-    `<p>Hi <strong>${userName}</strong>,</p>` +
-    `<p>Your assignment <strong>${assignmentTitle}</strong> for <strong>${targetName}</strong> ` +
-    `is overdue by <strong>${pluralDays(daysOverdue)}</strong>.</p>` +
-    `<p><strong>Due date:</strong> ${dueDateStr}</p>` +
-    `<p>Please log into the TMS portal and complete it as soon as possible.</p>` +
-    `<p>TMS Training System</p>`,
-});
+}) => {
+  const url = portalHomeUrl();
+  return {
+    subject: `TMS — Assignment overdue: ${assignmentTitle}`,
+    text:
+      `Hi ${userName},\n\n` +
+      `Your assignment "${assignmentTitle}" for ${targetName} is overdue by ${pluralDays(daysOverdue)}.\n\n` +
+      `Due date: ${dueDateStr}\n\n` +
+      `Please log into the TMS portal and complete it as soon as possible.` +
+      (url ? `\n${url}` : '') + `\n\n` +
+      `TMS Training System`,
+    html:
+      `<p>Hi <strong>${userName}</strong>,</p>` +
+      `<p>Your assignment <strong>${assignmentTitle}</strong> for <strong>${targetName}</strong> ` +
+      `is overdue by <strong>${pluralDays(daysOverdue)}</strong>.</p>` +
+      `<p><strong>Due date:</strong> ${dueDateStr}</p>` +
+      (url
+        ? `<p><a href="${url}">Open your learning home</a> and complete it as soon as possible.</p>`
+        : `<p>Please log into the TMS portal and complete it as soon as possible.</p>`) +
+      `<p>TMS Training System</p>`,
+  };
+};
 
 const tplManagerAssignmentDigest = ({ managerName, rows }) => {
   const lineItems = rows.map((row) =>

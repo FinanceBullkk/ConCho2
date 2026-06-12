@@ -11,6 +11,16 @@ const listAssignments = async (req, res) => {
   }
 };
 
+// Learner self view (Cohesion P3) — always scoped to the caller.
+const listMyAssignments = async (req, res) => {
+  try {
+    const data = await useCases.listMine(req.user);
+    res.json({ success: true, count: data.length, data });
+  } catch (error) {
+    handleError(res, error);
+  }
+};
+
 const getAssignment = async (req, res) => {
   try {
     const data = await useCases.getAssignment(req.params.id);
@@ -56,6 +66,7 @@ const archiveAssignment = async (req, res) => {
 
 module.exports = {
   listAssignments,
+  listMyAssignments,
   getAssignment,
   createAssignment,
   archiveAssignment,
