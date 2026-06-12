@@ -1,4 +1,6 @@
-require('dotenv').config();
+// dotenv 17 prints an "injecting env" tip per config() call — quiet it so
+// structured pino output stays the only thing on stdout.
+require('dotenv').config({ quiet: true });
 
 // Sentry must be initialized before requiring anything that might throw
 // during module load, otherwise early errors won't be captured.
