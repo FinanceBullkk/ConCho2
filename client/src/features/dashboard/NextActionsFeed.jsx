@@ -1,20 +1,22 @@
 import { useMemo } from 'react';
 import { Link } from 'react-router-dom';
-import { CheckCircle2, ChevronRight, Hourglass, MessageSquare, PlayCircle } from 'lucide-react';
+import { toast } from 'sonner';
+import { AlertTriangle, CheckCircle2, ChevronRight, ClipboardList, Hourglass, MessageSquare, PlayCircle } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useAssessments, useAssessmentAttempts } from '../../hooks/useAssessment';
-import { useLearningEnrollments, useLearningFeedback } from '../../hooks/useLearning';
+import { useEnrollLearner, useLearningEnrollments, useLearningFeedback, useMyAssignments } from '../../hooks/useLearning';
 import { useMyClassSchedules } from '../../hooks/useSchedules';
 import { useMyWaitlist } from '../learner/useWaitlist';
 
 // ──────────────────────────────────────────────────────────
-// NextActionsFeed — Cohesion P2 "what should I do next?"
+// NextActionsFeed — Cohesion P2+P3 "what should I do next?"
 //
-// Client-side composition over EXISTING self-scoped queries (no new
-// backend): quizzes not yet passed for my cohorts, feedback not yet
-// submitted for my enrollments, and my waitlist positions. The next
-// session itself stays in the dashboard's NextClassCard band.
-// Assignment items arrive with P3 (needs a self-scoped read).
+// Client-side composition over self-scoped queries: REQUIRED assignments
+// first (P3 — with a one-click Enroll CTA into the resolved self_enroll
+// cohort; capacity + prerequisites stay enforced server-side), then quizzes
+// not yet passed, feedback not yet submitted, and waitlist positions. The
+// next session itself stays in the dashboard's NextClassCard band.
 // English literals (/me/* convention).
 // ──────────────────────────────────────────────────────────
 
@@ -38,6 +40,9 @@ const classIdOf = (schedule) => {
   return cls && typeof cls === 'object' ? cls._id : cls;
 };
 
+const fmtDue = (d) =>
+  d ? new Date(d).toLocaleDateString('en', { day: 'numeric', month: 'short' }) : '';
+
 export default function NextActionsFeed() {
   const { data: assessmentData } = useAssessments();
   const { data: attemptData } = useAssessmentAttempts();
@@ -45,9 +50,34 @@ export default function NextActionsFeed() {
   const { data: feedbackData } = useLearningFeedback();
   const { data: scheduleData } = useMyClassSchedules();
   const { data: waitlistData } = useMyWaitlist();
+  const { data: assignmentData } = useMyAssignments();
+  const enroll = useEnrollLearner();
+
+  const handleEnroll = async (cohortId) => {
+    try {
+      await enroll.mutateAsync({ cohortId });
+      toast.success('Enrolled — see it under My programs');
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Could not enroll');
+    }
+  };
 
   const actions = useMemo(() => {
     const items = [];
+
+    // 0) Required training (Cohesion P3) — most important, listed first.
+    (assignmentData?.data || [])
+      .filter((a) => a.status !== 'complete')
+      .forEach((a) => items.push({
+        key: `assignment:${a.id}`,
+        icon: a.status === 'overdue' ? AlertTriangle : ClipboardList,
+        label: `${a.status === 'overdue' ? 'Overdue' : 'Required'}: ${a.title}`
+          + (a.dueDate ? ` · due ${fmtDue(a.dueDate)}` : ''),
+        // One-click enroll only when not started AND a self_enroll cohort
+        // was resolved server-side; otherwise route to the relevant surface.
+        enrollCohortId: a.status === 'not_started' ? a.enrollableCohortId : null,
+        to: a.status === 'in_progress' ? '/me/programs' : '/me/catalog',
+      }));
 
     const activeEnrollments = (enrollmentData?.data || []).filter((row) => row.status !== 'Dropped');
     const cohortIds = new Set(activeEnrollments.map((row) => String(row.cohortId)));
@@ -88,7 +118,7 @@ export default function NextActionsFeed() {
     }));
 
     return items.slice(0, MAX_ITEMS);
-  }, [assessmentData, attemptData, enrollmentData, feedbackData, scheduleData, waitlistData]);
+  }, [assignmentData, assessmentData, attemptData, enrollmentData, feedbackData, scheduleData, waitlistData]);
 
   return (
     <Card data-testid="next-actions-feed">
@@ -105,6 +135,23 @@ export default function NextActionsFeed() {
           <ul className="divide-y divide-border">
             {actions.map((item) => {
               const ActionIcon = item.icon;
+              if (item.enrollCohortId) {
+                return (
+                  <li key={item.key} className="flex items-center justify-between gap-3 py-2.5 text-sm">
+                    <span className="flex min-w-0 items-center gap-2 text-foreground">
+                      <ActionIcon className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+                      <span className="truncate">{item.label}</span>
+                    </span>
+                    <Button
+                      size="sm"
+                      disabled={enroll.isPending}
+                      onClick={() => handleEnroll(item.enrollCohortId)}
+                    >
+                      Enroll
+                    </Button>
+                  </li>
+                );
+              }
               return (
                 <li key={item.key}>
                   <Link

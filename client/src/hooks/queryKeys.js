@@ -76,6 +76,7 @@ export const qk = {
     pathProgress: (id) => ['learning', 'path-progress', id],
     assignments: (params) => ['learning', 'assignments', params],
     assignment: (id) => ['learning', 'assignment', id],
+    myAssignments: ['learning', 'assignments', 'mine'],
     dashboardOperational: (params) => ['learning', 'dashboard', 'operational', params],
     dashboardExecutive: (params) => ['learning', 'dashboard', 'executive', params],
     costConfig: ['learning', 'dashboard', 'cost-config'],

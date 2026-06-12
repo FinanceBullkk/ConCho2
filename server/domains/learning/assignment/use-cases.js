@@ -1,7 +1,7 @@
 const { ServiceError } = require('../../../helpers/ServiceError');
 const { assignmentDto } = require('./dto');
 const repository = require('./repository');
-const { resolveAssignmentStatuses } = require('./status-resolver');
+const { resolveAssignmentStatuses, resolveStatusForUser } = require('./status-resolver');
 
 const dedupe = (ids = []) => {
   const seen = new Set();
@@ -89,9 +89,41 @@ const archiveAssignment = async (id) => {
   return { before: assignmentDto(before), assignment: assignmentDto(archived) };
 };
 
+// ── Learner self view (Cohesion P3) ───────────────────────
+// "My required training": active assignments targeting the actor (direct or
+// department), each with the actor's own derived status and — when the next
+// program is self_enroll with an Ongoing cohort — an enroll-CTA suggestion.
+// Capacity + prerequisites stay enforced by the enrollment chokepoint.
+const listMine = async (actor, now = new Date()) => {
+  const assignments = await repository.findActiveAssignmentsForUser(actor._id, actor.departmentId);
+  const rows = [];
+  for (const assignment of assignments) {
+    // eslint-disable-next-line no-await-in-loop -- a learner has few assignments
+    const { status, currentProgramId } = await resolveStatusForUser(assignment, actor._id, now);
+    let enrollableCohort = null;
+    if (status !== 'complete' && currentProgramId) {
+      // eslint-disable-next-line no-await-in-loop
+      enrollableCohort = await repository.findOpenSelfEnrollCohort(currentProgramId);
+    }
+    rows.push({
+      id: assignment._id,
+      title: assignment.title,
+      targetType: assignment.targetType,
+      programName: assignment.programId?.name || null,
+      pathTitle: assignment.pathId?.title || null,
+      dueDate: assignment.dueDate,
+      status,
+      enrollableCohortId: enrollableCohort?._id || null,
+      enrollableCohortCode: enrollableCohort?.classCode || null,
+    });
+  }
+  return rows;
+};
+
 module.exports = {
   listAssignments,
   getAssignment,
   createAssignment,
   archiveAssignment,
+  listMine,
 };
