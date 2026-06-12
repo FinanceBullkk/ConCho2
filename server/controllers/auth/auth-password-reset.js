@@ -4,6 +4,9 @@ const auditService = require('../../services/auditService');
 const { handleError } = require('../../helpers/handleError');
 const { sendMail } = require('../../lib/mailer');
 const logger = require('../../lib/logger');
+// CODE-017: hoisted from per-handler lazy requires (legacy-cycle relic).
+const User = require('../../models/User');
+const { invalidateUserCache } = require('../../middleware/auth');
 
 // ──────────────────────────────────────────────────────────
 // Auth Controller — password reset (forgot / reset)
@@ -59,7 +62,6 @@ const forgotPassword = async (req, res) => {
   setImmediate(() => {
     (async () => {
       try {
-        const User = require('../../models/User');
         const user = await User.findOne({ empCode: normalizedEmpCode, isDeleted: { $ne: true } });
         if (!user || !user.email) {
           // SEC-008: do NOT log raw empCode. Use a short SHA-256 prefix so
@@ -154,7 +156,6 @@ const resetPassword = async (req, res) => {
       return res.status(400).json({ success: false, message: 'Password must be at least 10 characters' });
     }
 
-    const User = require('../../models/User');
     const hashedToken = crypto.createHash('sha256').update(token).digest('hex');
 
     // Hash password before the atomic update — findOneAndUpdate does not
@@ -187,7 +188,6 @@ const resetPassword = async (req, res) => {
     }
 
     // Invalidate any cached user state
-    const { invalidateUserCache } = require('../../middleware/auth');
     if (typeof invalidateUserCache === 'function') {
       invalidateUserCache(user._id);
     }
