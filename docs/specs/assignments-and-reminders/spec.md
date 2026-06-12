@@ -2,7 +2,7 @@
 capability: assignments-and-reminders
 status: stable
 owners: [domains/learning/assignment, services/reminderService]
-last_updated: 2026-06-08
+last_updated: 2026-06-13
 related_code:
   - server/domains/learning/assignment/use-cases.js
   - server/domains/learning/assignment/status-resolver.js
@@ -88,6 +88,34 @@ path programs done), `overdue` (past `dueDate` end-of-day UTC and not complete),
 - **GIVEN** a learner who hasn't completed and `dueDate` passed
 - **WHEN** status is resolved
 - **THEN** status = `overdue`
+
+### Requirement: Learner self view + enroll suggestion (Cohesion P3) [BR-2, UC-2]
+
+The system SHALL expose `GET /api/learning/assignments/mine`
+(`assignment.self` — held by every role; ALWAYS scoped to the caller):
+active assignments targeting the caller directly (`userIds`) or via their
+`departmentId`, each with the caller's own derived status (same signals as
+per-learner resolution, computed for one user) and — when the actionable
+program (the assignment's program, or the first incomplete path step) is
+`self_enroll` with an Ongoing cohort — an `enrollableCohortId`/`Code`
+suggestion. Enrollment itself goes through the existing chokepoint
+(capacity + prerequisites enforced there). The learner home's next-actions
+feed renders these rows with a one-click Enroll CTA; learner reminder
+emails deep-link to the home (`CLIENT_ORIGIN/home`) when configured.
+
+#### Scenario: Department-targeted assignment
+
+- **GIVEN** an active assignment targeting department D and a learner whose
+  `departmentId` = D
+- **WHEN** the learner calls `/assignments/mine`
+- **THEN** the assignment appears with the learner's own status
+
+#### Scenario: Enroll suggestion only for self_enroll
+
+- **GIVEN** an incomplete program assignment whose program is
+  `leader_booking`
+- **WHEN** the learner calls `/assignments/mine`
+- **THEN** the row has `enrollableCohortId: null` (no self-service path)
 
 ### Requirement: Learner reminder cadence [BR-3, BR-5, UC-3]
 

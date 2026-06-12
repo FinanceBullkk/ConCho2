@@ -1,10 +1,12 @@
 import { describe, expect, it, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import NextActionsFeed from '../NextActionsFeed';
 
-// Cohesion P2 — the "what should I do next?" feed is pure client
-// composition; these tests cover each action source and the caught-up state.
+// Cohesion P2+P3 — the "what should I do next?" feed is pure client
+// composition; these tests cover each action source, the one-click enroll
+// CTA for required assignments, and the caught-up state.
 
 const h = vi.hoisted(() => ({
   assessments: { data: { data: [] } },
@@ -13,8 +15,13 @@ const h = vi.hoisted(() => ({
   feedback: { data: { data: [] } },
   schedules: { data: { data: [] } },
   waitlist: { data: { data: [] } },
+  myAssignments: { data: { data: [] } },
+  mutateAsync: vi.fn(),
 }));
 
+vi.mock('sonner', () => ({
+  toast: { success: vi.fn(), error: vi.fn() },
+}));
 vi.mock('../../../hooks/useAssessment', () => ({
   useAssessments: () => h.assessments,
   useAssessmentAttempts: () => h.attempts,
@@ -22,6 +29,8 @@ vi.mock('../../../hooks/useAssessment', () => ({
 vi.mock('../../../hooks/useLearning', () => ({
   useLearningEnrollments: () => h.enrollments,
   useLearningFeedback: () => h.feedback,
+  useMyAssignments: () => h.myAssignments,
+  useEnrollLearner: () => ({ mutateAsync: h.mutateAsync, isPending: false }),
 }));
 vi.mock('../../../hooks/useSchedules', () => ({
   useMyClassSchedules: () => h.schedules,
@@ -73,8 +82,40 @@ describe('NextActionsFeed (Cohesion P2)', () => {
     h.attempts = { data: { data: [] } };
     h.feedback = { data: { data: [{ cohortId: 'c1' }] } };
     h.waitlist = { data: { data: [] } };
+    h.myAssignments = { data: { data: [] } };
     renderFeed();
 
     expect(screen.getByText(/all caught up/i)).toBeInTheDocument();
+  });
+
+  it('required assignment with a resolved cohort enrolls in one click (P3)', async () => {
+    const user = userEvent.setup();
+    h.mutateAsync.mockResolvedValueOnce({});
+    h.enrollments = { data: { data: [] } };
+    h.assessments = { data: { data: [] } };
+    h.attempts = { data: { data: [] } };
+    h.feedback = { data: { data: [] } };
+    h.waitlist = { data: { data: [] } };
+    h.myAssignments = { data: { data: [
+      { id: 'as1', title: 'Data privacy training', status: 'not_started', dueDate: '2026-07-01', enrollableCohortId: 'c9' },
+      { id: 'as2', title: 'Done already', status: 'complete', dueDate: '2026-07-01', enrollableCohortId: null },
+    ] } };
+    renderFeed();
+
+    expect(screen.getByText(/Required: Data privacy training/)).toBeInTheDocument();
+    expect(screen.queryByText(/done already/i)).toBeNull();
+
+    await user.click(screen.getByRole('button', { name: /^enroll$/i }));
+    expect(h.mutateAsync).toHaveBeenCalledWith({ cohortId: 'c9' });
+  });
+
+  it('overdue assignment without enroll path links to the catalog', () => {
+    h.myAssignments = { data: { data: [
+      { id: 'as3', title: 'Old mandatory course', status: 'overdue', dueDate: '2026-05-01', enrollableCohortId: null },
+    ] } };
+    renderFeed();
+
+    const link = screen.getByRole('link', { name: /overdue: old mandatory course/i });
+    expect(link).toHaveAttribute('href', '/me/catalog');
   });
 });

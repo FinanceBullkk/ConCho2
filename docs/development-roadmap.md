@@ -262,6 +262,24 @@ Bug fixing and integration review rank above net-new feature rollout.
 
 ## Recent progress (changelog)
 
+- **2026-06-13** — **Cohesion P3: assignment → one-click enroll** (same
+  branch; plan P3; owner-rec CTA-enroll, not silent auto). New self-scoped
+  read **`GET /api/learning/assignments/mine`** (new `assignment.self`
+  capability — ALL roles; always caller-scoped): active assignments
+  targeting me (direct or via `departmentId`) with MY derived status (new
+  single-user `resolveStatusForUser` — no department fan-out) + an
+  **enroll suggestion** when the actionable program (assignment's program /
+  first incomplete path step) is `self_enroll` with an Ongoing cohort.
+  `middleware/auth` user select gains `departmentId` (was pre-D3 list).
+  Feed (P2) now lists **Required/Overdue assignments first** with a
+  one-click **Enroll** CTA into the suggested cohort — capacity +
+  prerequisites stay enforced at the existing enrollment chokepoint;
+  learner reminder emails deep-link to the home (`CLIENT_ORIGIN/home`,
+  graceful when unset). Tests: +7 server integration
+  (`assignments-mine`), +2 feed component — server 920/93, client 275/61,
+  lint at cap 63, build clean. Spec `assignments-and-reminders` ADDED
+  requirement folded. **CI note:** GitHub Actions billing-blocked (quota)
+  — gates deferred, local suites are the verification until re-run.
 - **2026-06-13** — **Cohesion P2 (v1): Unified learner home — next-actions
   feed + program cards** (same branch as P1; plan
   `plans/260612-2058-cohesion-wave/` P2). The Participant home becomes the
