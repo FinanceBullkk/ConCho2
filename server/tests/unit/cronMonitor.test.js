@@ -70,4 +70,17 @@ describe('cronMonitor.deriveHealth', () => {
     expect(CRON_JOBS.assignmentReminders).toMatchObject({ jobName: 'assignment-reminders' });
     expect(CRON_JOBS.assignmentReminders.expectedIntervalMs).toBe(24 * HOUR);
   });
+
+  // OPS-010: every job must carry a crontab schedule so PINGER-driven runs
+  // upsert the Sentry monitor config — a schedule-less monitor can never
+  // fire "missed run" alerts. Cadences mirror docs/cron-pinger-setup.md.
+  test('CRON_JOBS entries carry valid crontab schedules (OPS-010)', () => {
+    const cron = require('node-cron');
+    expect(CRON_JOBS.reconcile.schedule).toBe('0 2 * * *');
+    expect(CRON_JOBS.reminders.schedule).toBe('0 * * * *');
+    expect(CRON_JOBS.assignmentReminders.schedule).toBe('0 1 * * *');
+    for (const job of Object.values(CRON_JOBS)) {
+      expect(cron.validate(job.schedule)).toBe(true);
+    }
+  });
 });
