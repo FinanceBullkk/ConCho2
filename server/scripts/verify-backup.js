@@ -31,11 +31,13 @@ const path = require('path');
 //   1. VERIFY_BACKUP_ENV_PATH — explicit override (staging drills, tests)
 //   2. server/.env            — the real env file
 //   3. CWD .env               — legacy fallback for repo-root .env setups
+// quiet: dotenv 17 prints a rotating tip per config() call (one of them
+// contains the word "secrets") — keep the drill report deterministic.
 if (process.env.VERIFY_BACKUP_ENV_PATH) {
-  require('dotenv').config({ path: process.env.VERIFY_BACKUP_ENV_PATH });
+  require('dotenv').config({ path: process.env.VERIFY_BACKUP_ENV_PATH, quiet: true });
 }
-require('dotenv').config({ path: path.resolve(__dirname, '../.env') });
-require('dotenv').config();
+require('dotenv').config({ path: path.resolve(__dirname, '../.env'), quiet: true });
+require('dotenv').config({ quiet: true });
 
 const mongoose = require('mongoose');
 

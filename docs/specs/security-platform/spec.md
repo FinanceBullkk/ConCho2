@@ -109,6 +109,13 @@ fields (password, mfaSecret, …) in responses.
 - **Secret hygiene in logs:** the cron `?token=` query channel is redacted to
   `token=[REDACTED]` before any pino log line or audit note persists the URL
   (`lib/redact-url-token.js`; pino-http serializer + cronAuth — OPS-012).
+- **NoSQL-injection sanitization (express 5):** $-prefixed and dotted keys are
+  stripped from body/params/headers/query by
+  `middleware/mongo-sanitize-in-place.js` — a wrapper over
+  express-mongo-sanitize's `sanitize()` that mutates in place and PINS the
+  sanitized `req.query` object via `defineProperty` (express 5 makes `query`
+  a getter that may re-parse per access; the stock middleware's assignment
+  throws). Same keys stripped as before the express 4→5 migration.
 - **Observability:** request-id traced structured logging (pino); Sentry on 5xx.
 
 ## Acceptance Criteria (AC)
