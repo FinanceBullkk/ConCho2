@@ -109,6 +109,14 @@
         "label": "Deleted user in team",
         "description": "Team membership still references a soft-deleted user"
       },
+      "orphanRoomBooking": {
+        "label": "Orphan room booking",
+        "description": "A room lock references a deleted or cancelled session — the slot is bricked until the row is removed"
+      },
+      "staleWaitlistEntry": {
+        "label": "Stale waitlist entry",
+        "description": "A waiting queue row references a past, cancelled, or deleted session and can never be seated"
+      },
       "unknown": {
         "label": "Unknown reconciliation check",
         "description": "This report contains a check type not recognized by this client"
