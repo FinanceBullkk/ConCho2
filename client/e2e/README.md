@@ -19,6 +19,13 @@ End-to-end tests that drive the real React app in a headless Chromium browser.
 
 3. **MFA disabled** on the seed admin account (default is disabled). If you've enabled MFA on `000001`, the `adminPage` fixture will throw with a clear message.
 
+4. **Full-suite runs: disable rate limits on the API server.** The suite's
+   aggregate traffic from one IP can trip the global limiter (200 req/min) and
+   429 a later spec's login. Start the server with
+   `DISABLE_RATE_LIMITS=true npm run dev` (the flag is ignored in production;
+   limiter wiring has its own gate in `server/tests/unit/rateLimiterWiring.test.js`).
+   Running a single spec usually stays under the budget without it.
+
 ## Test users (from `server/seed.js`)
 
 | Role        | empCode  | password         |

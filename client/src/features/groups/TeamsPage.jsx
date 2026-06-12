@@ -601,7 +601,8 @@ export default function TeamsPage() {
         </div>
       ),
     },
-  ], [teamStatus, canEdit, canDelete, setProgressModal, setModal, setDeleteId]);
+  // teamStatus is a module-level fn — not a valid reactive dependency.
+  ], [canEdit, canDelete, setProgressModal, setModal, setDeleteId]);
 
   const cardProps = {
     canEdit, canDelete,

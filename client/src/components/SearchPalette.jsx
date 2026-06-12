@@ -182,7 +182,6 @@ export default function SearchPalette({ open, onClose }) {
         </div>
       );
     });
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [flat, active, choose]);
 
   if (!open) return null;

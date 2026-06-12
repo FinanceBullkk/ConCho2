@@ -25,12 +25,22 @@ const MFA_PENDING_COOKIE = 'tms_mfa_pending';
 // In test environment, disable rate limiting entirely so test suites
 // that make many requests for the same user don't get throttled.
 const IS_TEST = process.env.NODE_ENV === 'test';
+// E2E escape hatch (QA-018 / PR #59): Playwright drives a REAL dev-mode server
+// (NODE_ENV=test would skip the auto-start in server.js), and the suite's
+// AGGREGATE traffic trips globalLimiter's 200 req/min long before any single
+// flow misbehaves — the theme.spec login 429'd mid-run once booking.spec was
+// added. e2e trades limiter realism for determinism: the limiter layer has its
+// own dedicated gate (tests/unit/rateLimiterWiring.test.js). The flag is NEVER
+// honored in production, no matter what the env says.
+const RATE_LIMITS_DISABLED =
+  IS_TEST ||
+  (process.env.DISABLE_RATE_LIMITS === 'true' && process.env.NODE_ENV !== 'production');
 // Disable rate-limit validation checks in test only. In production we
 // keep validation ON; the IPv6 concern is handled by always using
 // `ipKeyGenerator(req)` (never raw `req.ip`) inside custom keyGenerators
 // — which is the library-recommended fix for ERR_ERL_KEY_GEN_IPV6.
 const validateOpts = IS_TEST ? false : true;
-const skipInTest = () => IS_TEST;
+const skipInTest = () => RATE_LIMITS_DISABLED;
 
 // Helper: produce a stable rate-limit key for an authenticated user,
 // falling back to a properly-bucketed IP (handles IPv6 /64 collapsing).
@@ -60,7 +70,7 @@ const globalLimiter = rateLimit({
   max: 200,
   standardHeaders: true,
   legacyHeaders: false,
-  skip: (req) => IS_TEST || skipCron(req),
+  skip: (req) => RATE_LIMITS_DISABLED || skipCron(req),
   message: { success: false, message: 'Too many requests. Please slow down.' },
   validate: validateOpts,
 });
@@ -75,7 +85,7 @@ const globalWriteLimiter = rateLimit({
   max: 60,
   standardHeaders: true,
   legacyHeaders: false,
-  skip: (req) => IS_TEST || req.method === 'GET' || skipCron(req),
+  skip: (req) => RATE_LIMITS_DISABLED || req.method === 'GET' || skipCron(req),
   message: { success: false, message: 'Too many write requests. Please slow down.' },
   validate: validateOpts,
   keyGenerator: userOrIpKey,
