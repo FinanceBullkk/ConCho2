@@ -2,6 +2,9 @@ const authService = require('../../services/authService');
 const auditService = require('../../services/auditService');
 const { handleError } = require('../../helpers/handleError');
 const { rotateCsrfToken } = require('../../middleware/csrfProtection');
+// CODE-017: hoisted from per-handler lazy requires (legacy-cycle relic).
+const User = require('../../models/User');
+const { invalidateUserCache } = require('../../middleware/auth');
 
 // ──────────────────────────────────────────────────────────
 // Auth Controller — session lifecycle
@@ -180,7 +183,6 @@ const getMe = async (req, res) => {
 const changePassword = async (req, res) => {
   try {
     const { currentPassword, newPassword } = req.body;
-    const User = require('../../models/User');
     const user = await User.findById(req.user._id).select('+password');
     if (!user) {
       return res.status(404).json({ success: false, message: 'User not found' });
@@ -195,7 +197,6 @@ const changePassword = async (req, res) => {
     await user.save();
     // Invalidate auth cache — forces re-read with new passwordChangedAt on next request.
     // This also immediately rejects the current token (iat < changedAt).
-    const { invalidateUserCache } = require('../../middleware/auth');
     invalidateUserCache(user._id);
 
     auditService.record({

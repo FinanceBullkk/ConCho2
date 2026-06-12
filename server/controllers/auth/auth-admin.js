@@ -1,6 +1,9 @@
 const authPolicy = require('../../policy/auth');
 const auditService = require('../../services/auditService');
 const { handleError } = require('../../helpers/handleError');
+// CODE-017: hoisted from per-handler lazy requires (legacy-cycle relic).
+const User = require('../../models/User');
+const { invalidateUserCache } = require('../../middleware/auth');
 
 // ──────────────────────────────────────────────────────────
 // Auth Controller — admin overrides
@@ -31,7 +34,6 @@ const mfaAdminDisable = async (req, res) => {
       });
     }
 
-    const User = require('../../models/User');
     const user = await User.findById(req.params.userId);
     if (!user) {
       return res.status(404).json({ success: false, message: 'User not found' });
@@ -42,7 +44,6 @@ const mfaAdminDisable = async (req, res) => {
     user.mfaBackupCodes = [];
     await user.save();
 
-    const { invalidateUserCache } = require('../../middleware/auth');
     invalidateUserCache(user._id);
 
     auditService.record({
@@ -82,7 +83,6 @@ const adminForceLogout = async (req, res) => {
       });
     }
 
-    const User = require('../../models/User');
     const { userId } = req.params;
     const user = await User.findById(userId).select('_id empCode role');
     if (!user) {
@@ -94,7 +94,6 @@ const adminForceLogout = async (req, res) => {
       { $set: { passwordChangedAt: new Date() } }
     );
 
-    const { invalidateUserCache } = require('../../middleware/auth');
     invalidateUserCache(user._id);
 
     auditService.record({
