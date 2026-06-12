@@ -16,6 +16,12 @@ services:
     healthCheckPath: /ready
     envVars:
       # ── Core ──────────────────────────────────────────────
+      # Pin Node to the same major CI runs (Node 22 → npm 10). Render's
+      # rolling default (npm 12) rejects `npm ci` against our npm-10
+      # lockfiles (EUSAGE, 2026-06-12 deploy failure). Belt to the
+      # repo-root `.node-version` file, which Render also reads.
+      - key: NODE_VERSION
+        value: 22.x
       - key: NODE_ENV
         value: production
       - key: JWT_SECRET
