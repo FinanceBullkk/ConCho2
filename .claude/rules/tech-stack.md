@@ -3,13 +3,13 @@
 MERN monorepo. Node `>=20` (engines; CI runs Node 22 for both server and client — aligned in audit round 7).
 
 ## Server (`server/`) — CommonJS
-- **Express 4** — REST API
+- **Express 5** — REST API (4→5 migrated 2026-06-12; `req.query` is getter-only — NoSQL sanitize runs via `middleware/mongo-sanitize-in-place.js`; SPA fallback pattern is `/{*splat}`)
 - **Mongoose 8** + MongoDB Atlas
 - **jsonwebtoken** — JWT in HttpOnly cookie (`JWT_EXPIRE`, default 1d)
 - **bcryptjs** (12 rounds) — password hashing
 - **speakeasy** + **qrcode** — TOTP 2FA
 - **zod 4** — request validation (`server/schemas/`)
-- **helmet**, **cors**, **express-rate-limit**, **express-mongo-sanitize** — security middleware
+- **helmet**, **cors**, **express-rate-limit**, **express-mongo-sanitize** (its `sanitize()` only, wrapped by `middleware/mongo-sanitize-in-place.js` — the stock middleware throws on express 5) — security middleware
 - **pino** + **pino-http** — structured logging (request-id traced)
 - **node-cron** — nightly reconcile job (02:00 UTC)
 - **nodemailer** — SMTP email (booking confirm, password reset)
