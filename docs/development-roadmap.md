@@ -262,6 +262,18 @@ Bug fixing and integration review rank above net-new feature rollout.
 
 ## Recent progress (changelog)
 
+- **2026-06-12** — **Cohesion Wave P4: team-booking mode separation**
+  (`feat/cohesion-p4-team-booking-separation`; plan
+  `plans/260612-2058-cohesion-wave/`, executed first per owner). The legacy
+  English-class team-booking flow stops being the platform's face: the
+  Calendar "Team booking" tab (renamed from "Book") is now
+  **membership-gated** via `useMyTeams` — a Participant with no Team gets a
+  pointer panel to `/me/sessions` + `/me/catalog` instead of the booking
+  grid; `BookClassPage`'s "Not in any group" dead-end and the Participant
+  dashboard's empty-state got the same membership-aware treatment.
+  UI/composition only — no server change, `/book` redirect kept (e2e
+  unaffected), Team vocabulary unchanged (ADR). +4 component tests
+  (`CalendarPage.test.jsx`). Spec `scheduling-and-booking` UC-1 UI note.
 - **2026-06-12** — **Express 4 → 5 migration** (`chore/express-5`). Three
   code-level deltas, every security layer preserved: (1) **NoSQL sanitize** —
   the stock express-mongo-sanitize middleware throws on express 5 (`req.query`
