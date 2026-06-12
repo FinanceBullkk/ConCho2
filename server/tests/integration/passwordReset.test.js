@@ -435,3 +435,37 @@ describe('forgot-password logger scrub (SEC-008)', () => {
     expect(distinct).not.toContain('Password reset email sent');
   });
 });
+
+describe('forgot-password background DB failure logs at error (OPS-014)', () => {
+  const logger = require('../../lib/logger');
+  const User = require('../../models/User');
+
+  test('a background DB failure is logged at error, not warn', async () => {
+    const errorSpy = jest.spyOn(logger, 'error').mockImplementation(() => {});
+    const warnSpy = jest.spyOn(logger, 'warn').mockImplementation(() => {});
+    // The caller already got a 200 by the time the lookup runs — a DB blip
+    // here silently corrupts the flow, which is exactly what ops must see.
+    const findSpy = jest.spyOn(User, 'findOne').mockRejectedValueOnce(new Error('db down'));
+
+    try {
+      const csrf = await getCsrfHeaders(app);
+      const res = await request(app)
+        .post('/api/auth/forgot-password')
+        .set(csrf)
+        .send({ empCode: seed.member1.empCode });
+      expect(res.status).toBe(200); // reply-first contract unchanged
+
+      await flushBackground();
+      await flushBackground();
+
+      const errMessages = errorSpy.mock.calls.map((c) => c[1]);
+      expect(errMessages).toContain('Forgot-password background flow errored');
+      const warnMessages = warnSpy.mock.calls.map((c) => c[1]);
+      expect(warnMessages).not.toContain('Forgot-password background flow errored');
+    } finally {
+      findSpy.mockRestore();
+      errorSpy.mockRestore();
+      warnSpy.mockRestore();
+    }
+  });
+});
