@@ -5,15 +5,20 @@ Monorepo: `client/` (React SPA) + `server/` (Express API). Root `package.json` o
 ## Server layout
 ```
 server/
-├── domains/        # NEW modular-monolith boundaries (L&D migration) — see domain-model-and-migration.md
-│   ├── learning/   # full domain: routes, controller, use-cases, repository, dto, schemas
-│   └── schedule/   # adapter domain: delegates via legacy controller (no own routes)
-├── routes/         # legacy Express routers (19 files) — mounted in server.js
-├── controllers/    # legacy request handlers (15 files)
+├── domains/        # modular-monolith boundaries (L&D migration) — see domain-model-and-migration.md
+│   ├── learning/   # full reference domain: routes, controller, use-cases, repository, dto, schemas
+│   ├── schedule/   # own routes (/api/schedules) + booking/room/waitlist policies
+│   ├── attendance/ # full domain (was attendanceController/attendanceService)
+│   ├── groups/     # full domain (was teamController; Team model + /api/teams URL kept)
+│   ├── assessment/ # assessment engine + question bank + grading
+│   ├── org/        # departments, offices, manager hierarchy
+│   └── room/       # office-scoped physical rooms
+├── routes/         # legacy Express routers (17 files) — mounted in server.js
+├── controllers/    # legacy request handlers (13 facades + auth/class/dashboard/enrollment/user subdirs)
 ├── services/       # business logic (auth, schedule, attendance, export, reconcile...)
 ├── policy/         # resource-level authz (ownership/binding) — called from controllers AFTER roleGuard
-├── models/         # Mongoose schemas (13 files)
-├── middleware/     # auth, csrfProtection, roleGuard, rateLimiters, validate, cronAuth, requestId
+├── models/         # Mongoose schemas (27 files)
+├── middleware/     # auth, csrfProtection, roleGuard, requireCapability, rateLimiters, validate, cronAuth, requestId, analyticsCache
 ├── schemas/        # zod request schemas
 ├── jobs/           # node-cron schedules
 ├── lib/            # mailer, sentry, google clients

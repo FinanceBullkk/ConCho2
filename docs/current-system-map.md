@@ -20,8 +20,8 @@ Verified code paths:
 - Client API wrapper: `client/src/api/api.js`
 - Auth state: `client/src/context/AuthContext.jsx`
 - Server entry: `server/server.js`
-- API routes: `server/routes/*`
-- Domain logic: `server/services/*` and `server/domains/<domain>/*` (learning, schedule)
+- API routes: `server/routes/*` (legacy) + `server/domains/<domain>/routes.js`
+- Domain logic: `server/services/*` and `server/domains/<domain>/*` (learning, schedule, attendance, groups, assessment, org, room)
 - Data models: `server/models/*`
 - Validation schemas: `server/schemas/*`
 - Domain vocabulary (glossary): `CONTEXT-MAP.md` (root) → `server/CONTEXT.md`. This map = where code lives; `CONTEXT.md` = what the terms mean.
@@ -162,6 +162,8 @@ English literals directly.
 | `/api/schedules` | `domains/schedule/routes.js` | availability, booking, cancel, calendars (Phase 1 domain extraction; `controller` → `use-cases`/`queries`/`repository` + policy modules; booking mutations still in `services/scheduleService` by design; `Schedule` model + `/api/schedules` URL unchanged) |
 | `/api/attendance` | `domains/attendance/routes.js` | attendance marking, analytics, personal stats (Phase 1 domain extraction; `controller` → `use-cases` → `marking`/`analytics`/`scope`; `services/attendanceService.js` kept as a compat facade) |
 | `/api/rooms` | `domains/room/routes.js` | Office-scoped physical Rooms CRUD (re-center Phase 3) |
+| `/api/org` | `domains/org/routes.js` | departments, offices, manager hierarchy + manager dashboard |
+| `/api/assessment` | `domains/assessment/routes.js` | assessment engine, question bank, attempts, manual grading |
 | `/api/evaluations` | `evaluationRoutes.js` | upsert/list/get/delete evaluations |
 | `/api/enrollments` | `enrollmentRoutes.js` | enrollment list, transfer, bulk operations |
 | `/api/sync` | `syncRoutes.js` | sync status and Google Sheets sync |
@@ -172,6 +174,7 @@ English literals directly.
 | `/api/admin-db` | `adminDbRoutes.js` | Admin database explorer |
 | `/api/admin/audit` | `auditRoutes.js` | audit log queries |
 | `/api/admin/reconcile` | `reconcileRoutes.js` | manual reconcile and report history |
+| `/api/admin/cron` | `cronHealthRoutes.js` | cron run health/history (CronRun) |
 | `/api/cron` | `cronRoutes.js` | cron-triggered reconcile, attendance reminders, assignment reminders |
 | `/api/search` | `searchRoutes.js` | global search |
 | `/health`, `/ready`, `/api/health`, `/api/ready` | `healthRoutes.js` | liveness/readiness |
@@ -265,8 +268,9 @@ entry points (`bookSlot`, `bookCohortSlot`, `adminCreate`, `cancelSlot`) and act
 as a thin **facade** re-exporting the read use-cases + session-order helpers below,
 so existing callers keep using `scheduleService.listSchedules` etc. unchanged. The
 booking **invariants**, the **read/query layer**, and the **session-order cache**
-all live in `server/domains/schedule/`, which the legacy `scheduleController`/
-`scheduleService` and the `domains/learning/session` adapter all delegate into
+all live in `server/domains/schedule/` (which also owns the `/api/schedules`
+routes since 2026-06-10 — the legacy `scheduleController` is retired);
+`scheduleService` and the `domains/learning/session` adapter delegate into it
 (one rule set):
 
 - `queries.js` — pure read use-cases (`getAvailability`, `listSchedules`, `getById`,

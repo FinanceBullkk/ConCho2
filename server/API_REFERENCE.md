@@ -1,6 +1,9 @@
 # TMS v2 — API Reference & Postman Guide
 
-> **Interactive docs:** In development, the full API is browsable at `http://localhost:5000/api/docs`.
+> **Interactive docs:** In development, `http://localhost:5000/api/docs` serves Swagger UI.
+> Coverage is PARTIAL (a handful of annotated legacy routes — DOCS-006; annotate-over-time).
+> The authoritative route inventory is `docs/route-permission-matrix.md` /
+> `node server/scripts/audit-route-permission-diff.js --routes`.
 > The raw OpenAPI spec JSON is at `GET /api/docs.json`.
 
 ## Quick Start with Postman

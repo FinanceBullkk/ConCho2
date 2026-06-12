@@ -258,6 +258,26 @@ Bug fixing and integration review rank above net-new feature rollout.
 
 ## Recent progress (changelog)
 
+- **2026-06-12** — **Audit Phase 8 (Docs & spec truth) round complete — FULL
+  SYSTEM AUDIT FINISHED (8/8 rounds).** Deep doc-truth pass over 28 capability
+  specs (3+ requirements sampled each), `.claude/rules/*`, runbooks, README,
+  route matrix, system map. 12 findings (5 P2, 7 P3), ALL fixed in-round per
+  owner triage. Highlights: **DOCS-001** users-and-roles spec described a
+  nonexistent auto-generated-empCode flow (truth: admin-entered required
+  empCode + email) — rewritten; **DOCS-003** prod session TTL was silently 7d
+  vs documented 24h → **code fixed** (`JWT_EXPIRE` default `'1d'` +
+  render.yaml + 3 regression tests); **DOCS-004** agent rules corrected (4
+  roles incl. Coordinator, capability layer live, capacityPolicy +
+  completionPolicy ARE enforced, configurable `ALLOWED_TIME_SLOTS`, 7 domains,
+  schedule owns its routes); **DOCS-005** cron-pinger runbook never armed the
+  attendance/assignment reminder pings (no internal fallback — reminders dead
+  in prod if followed) → 2 ping definitions added. Two reusable audit scripts
+  committed: `audit-route-permission-diff.js` (live route introspection vs
+  matrix — caught `/api/ready`) and `audit-env-doc-diff.js` (44 runtime env
+  reads vs README §6.4 — caught boot-required `IMPORT_DEFAULT_PASSWORD`
+  undocumented). Swagger glob extended to `domains/**` + coverage claims
+  demoted (annotation backlog DOCS-006b). DATA-017? closed-obsolete (User
+  aggregate hook exists). Report: `plans/reports/audit-docs-260612-0939-findings.md`.
 - **2026-06-12** — **Audit Phase 7 (Code architecture & debt) round complete —
   migration debt verified small; 2 cheap fixes shipped.** Read-and-measure pass
   confirmed the modular-monolith migration has landed: every major legacy

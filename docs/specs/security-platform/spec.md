@@ -2,7 +2,7 @@
 capability: security-platform
 status: stable
 owners: [middleware (csrfProtection, rateLimiters, validate, requestId), helmet, models (soft-delete)]
-last_updated: 2026-06-08
+last_updated: 2026-06-12
 related_code:
   - server/middleware/csrfProtection.js
   - server/middleware/rateLimiters.js
@@ -44,9 +44,9 @@ hygiene. Individual capability specs reference this rather than restating it.
 ## Entities
 
 - Middleware: `csrfProtection`, `rateLimiters` (login, forgot-password, booking,
-  export, global), `validate` (zod), `express-mongo-sanitize`, `helmet`,
-  `requestId`. Soft-delete fields (`isDeleted`/`deletedAt`) + query hooks on
-  models.
+  export, global + global write limiter), `validate` (zod), `express-mongo-sanitize`,
+  `helmet`, `requestId`. Soft-delete fields (`isDeleted`/`deletedAt`) + query/
+  aggregate/`distinct` hooks on models (distinct added in DATA-012).
 
 ## Functional Requirements (FR)
 
@@ -90,8 +90,8 @@ not loosened without reason.
 ### Requirement: Soft-delete everywhere [BR-5]
 
 The system SHALL soft-delete user/attendance/evaluation (and related) data
-(`isDeleted`/`deletedAt`), with query + aggregate hooks auto-excluding deleted
-rows; deleted records are recoverable ("trash").
+(`isDeleted`/`deletedAt`), with query + aggregate + `distinct` hooks
+auto-excluding deleted rows; deleted records are recoverable ("trash").
 
 ### Requirement: Audit + secret hygiene [BR-6, BR-7]
 
@@ -102,8 +102,10 @@ fields (password, mfaSecret, …) in responses.
 ## Non-Functional Requirements (NFR)
 
 - **Defense-in-depth:** layered (network limiter + app + DB constraints).
-- **Boot safety:** required env (`JWT_SECRET`, `MONGO_URI`, `CRON_TOKEN`,
-  `CORS_ORIGINS`, …) enforced at startup.
+- **Boot safety:** `envValidator` fail-fast — `JWT_SECRET` always required
+  (never bypassable); `MONGO_URI`, `CRON_TOKEN`, `IMPORT_DEFAULT_PASSWORD`
+  required in production. (`CORS_ORIGINS`/`CLIENT_ORIGIN` are NOT yet
+  boot-enforced — OPS-011, backlog.)
 - **Observability:** request-id traced structured logging (pino); Sentry on 5xx.
 
 ## Acceptance Criteria (AC)

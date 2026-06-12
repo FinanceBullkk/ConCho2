@@ -39,12 +39,12 @@ table is just the index. Covers every mounted `/api/*` route surface.
 
 | Capability | Status | Owners (source) | Last updated |
 |---|---|---|---|
-| [scheduling-and-booking](scheduling-and-booking/spec.md) | stable | scheduleService, domains/schedule, domains/learning/session | 2026-06-09 |
-| [auth-and-sessions](auth-and-sessions/spec.md) | stable | controllers/authController, services/authService, services/mfaService, middleware/auth | 2026-06-08 |
-| [users-and-roles](users-and-roles/spec.md) | stable | controllers/userController, models/User | 2026-06-08 |
-| [teams-and-groups](teams-and-groups/spec.md) | stable | controllers/teamController, models/Team | 2026-06-08 |
-| [attendance](attendance/spec.md) | stable | services/attendanceService, controllers/attendanceController | 2026-06-08 |
-| [learning-catalog](learning-catalog/spec.md) | stable | domains/learning, controllers/classController | 2026-06-09 |
+| [scheduling-and-booking](scheduling-and-booking/spec.md) | stable | scheduleService, domains/schedule, domains/room, domains/learning/session | 2026-06-12 |
+| [auth-and-sessions](auth-and-sessions/spec.md) | stable | controllers/authController, services/authService, services/mfaService, middleware/auth | 2026-06-12 |
+| [users-and-roles](users-and-roles/spec.md) | stable | controllers/userController, models/User | 2026-06-12 |
+| [teams-and-groups](teams-and-groups/spec.md) | stable | domains/groups, models/Team | 2026-06-12 |
+| [attendance](attendance/spec.md) | stable | domains/attendance, models/Attendance | 2026-06-12 |
+| [learning-catalog](learning-catalog/spec.md) | stable | domains/learning, controllers/classController | 2026-06-10 |
 | [enrollment](enrollment/spec.md) | evolving | domains/learning/enrollment, controllers/enrollmentController | 2026-06-09 |
 | [learning-paths](learning-paths/spec.md) | stable | domains/learning/path | 2026-06-08 |
 | [assessments](assessments/spec.md) | stable | domains/assessment, controllers/evaluationController | 2026-06-08 |
@@ -53,15 +53,15 @@ table is just the index. Covers every mounted `/api/*` route surface.
 | [feedback](feedback/spec.md) | stable | domains/learning/feedback | 2026-06-08 |
 | [completion-and-certificates](completion-and-certificates/spec.md) | stable | domains/learning/completion | 2026-06-08 |
 | [assignments-and-reminders](assignments-and-reminders/spec.md) | stable | domains/learning/assignment, services/reminderService | 2026-06-08 |
-| [reporting-and-rollups](reporting-and-rollups/spec.md) | stable | domains/learning/reports | 2026-06-08 |
+| [reporting-and-rollups](reporting-and-rollups/spec.md) | stable | domains/learning/reports | 2026-06-10 |
 | [compliance-and-recertification](compliance-and-recertification/spec.md) | stable | domains/learning/reports (compliance) | 2026-06-08 |
 | [audit-log](audit-log/spec.md) | stable | services/auditService, models/AuditLog | 2026-06-08 |
 | [export-and-integrations](export-and-integrations/spec.md) | stable | services/exportService, services/calendarService, controllers/syncController, lib | 2026-06-08 |
 | [reconcile-job](reconcile-job/spec.md) | stable | services/reconcileService, controllers/reconcileController, jobs | 2026-06-08 |
-| [capability-authz](capability-authz/spec.md) | evolving | middleware/requireCapability, policy/capabilities, middleware/roleGuard, policy | 2026-06-10 |
-| [security-platform](security-platform/spec.md) | stable | middleware (csrf, rateLimiters, validate, sanitize), helmet, soft-delete | 2026-06-08 |
-| [evaluations](evaluations/spec.md) | stable | controllers/evaluationController, models/Evaluation (legacy 4-skill) | 2026-06-08 |
-| [bulk-import](bulk-import/spec.md) | stable | controllers/importController, services/importService | 2026-06-08 |
+| [capability-authz](capability-authz/spec.md) | evolving | middleware/requireCapability, policy/capabilities, middleware/roleGuard, policy | 2026-06-12 |
+| [security-platform](security-platform/spec.md) | stable | middleware (csrf, rateLimiters, validate, sanitize), helmet, soft-delete | 2026-06-12 |
+| [evaluations](evaluations/spec.md) | stable | controllers/evaluationController, models/Evaluation (legacy 4-skill) | 2026-06-11 |
+| [bulk-import](bulk-import/spec.md) | stable | controllers/importController, services/importService | 2026-06-12 |
 | [settings](settings/spec.md) | stable | controllers/settingController, models/Setting | 2026-06-08 |
 | [dashboard-analytics](dashboard-analytics/spec.md) | stable | controllers/dashboardController | 2026-06-08 |
 | [search](search/spec.md) | stable | controllers/searchController, services/searchService | 2026-06-08 |

@@ -2,11 +2,12 @@
 capability: users-and-roles
 status: stable
 owners: [controllers/userController, models/User]
-last_updated: 2026-06-08
+last_updated: 2026-06-12
 related_code:
   - server/controllers/userController.js
+  - server/controllers/user
   - server/models/User.js
-  - server/helpers/counter.js
+  - server/schemas/user.js
 related_plans: []
 ---
 
@@ -18,13 +19,14 @@ related_plans: []
 
 Admin lifecycle management of the ~1000 employee accounts: create, update, role
 and status changes, soft-delete/restore, and the structured org hierarchy that
-feeds manager-scoped dashboards. Identity is a generated `empCode`.
+feeds manager-scoped dashboards. Identity is an admin-entered `empCode`.
 
 ## Business Requirements (BR)
 
-- **BR-1:** Admins manage all employee records; a new hire gets a unique code.
-- **BR-2:** Three roles (Admin/Teacher/Participant) gate access; changes apply
-  promptly.
+- **BR-1:** Admins manage all employee records; each user carries the unique
+  empCode the admin enters (source data is HR-issued — never auto-generated).
+- **BR-2:** Four roles (Admin/Coordinator/Teacher/Participant) gate access;
+  changes apply promptly.
 - **BR-3:** Dropping a learner must not leave them on future sessions.
 - **BR-4:** User data is audit-relevant — never hard-delete; deletes are
   recoverable and free the empCode/email slot for a replacement.
@@ -32,8 +34,8 @@ feeds manager-scoped dashboards. Identity is a generated `empCode`.
 
 ## Actors & Use Cases (UC)
 
-- **UC-1 (Admin):** creates a user → system auto-assigns a 6-digit `empCode`
-  (atomic Counter) and the user must change password on first login.
+- **UC-1 (Admin):** creates a user, entering the HR-issued `empCode` and the
+  user's email; the user must change password on first login.
 - **UC-2 (Admin):** edits role/status/profile → cache invalidated so changes are
   near-immediate.
 - **UC-3 (Admin):** sets a user `Dropped` → user is auto-removed from all future
@@ -43,8 +45,11 @@ feeds manager-scoped dashboards. Identity is a generated `empCode`.
 ## Entities
 
 - **User** (`server/models/User.js`): `empCode` (unique, uppercase,
-  auto-generated), `name`, `email` (partial-unique, optional), `role`
-  (Admin/Teacher/Participant), `status` (Active/Inactive/Dropped/Transferred/
+  admin-entered, 1–32 chars), `name`, `email` (partial-unique, REQUIRED on
+  create — Google Calendar invites need it; admin enters per-user since emails
+  follow no pattern), `role` (Admin/Coordinator/Teacher/Participant —
+  Coordinator is the training-ops management bundle, see `capability-authz`),
+  `status` (Active/Inactive/Dropped/Transferred/
   On-hold/Waiting for class), org fields (`managerId`, `departmentId`,
   `position`, legacy `department` string), `lastActiveAt` cache, soft-delete
   fields (`isDeleted`/`deletedAt`/`_softDeletedEmail`). A "Team Leader" is simply
@@ -52,16 +57,22 @@ feeds manager-scoped dashboards. Identity is a generated `empCode`.
 
 ## Functional Requirements (FR)
 
-### Requirement: Create user with generated empCode [BR-1, UC-1]
+### Requirement: Create user with admin-entered empCode + email [BR-1, UC-1]
 
-The system SHALL generate a unique 6-digit `empCode` atomically via the Counter
-helper (no read-then-write race) and require `name` + `role`; created users start
-`mustChangePassword`.
+The system SHALL require `empCode` (admin-entered, zod `1–32` chars, stored
+uppercase, unique), `email`, `name` and `role` on create (`server/schemas/user.js`
+— there is NO auto-generation; empCode/email come from HR source data); created
+users start `mustChangePassword`.
 
-#### Scenario: Two concurrent creates
-- **GIVEN** two admins creating users simultaneously
-- **WHEN** both submit
-- **THEN** each gets a distinct `empCode` (atomic counter, no collision)
+#### Scenario: Duplicate empCode
+- **GIVEN** an existing user with empCode 000123
+- **WHEN** an admin creates another user with empCode 000123
+- **THEN** the create is rejected by the unique index (no silent overwrite)
+
+#### Scenario: Missing email
+- **GIVEN** a create payload without `email`
+- **WHEN** submitted
+- **THEN** zod validation rejects it (email is required for calendar invites)
 
 ### Requirement: Role/status changes apply promptly [BR-2, UC-2]
 
@@ -112,7 +123,7 @@ Inherits `security-platform`. Specifics:
 
 ## Acceptance Criteria (AC)
 
-- [ ] New user gets unique auto `empCode`; concurrent creates don't collide.
+- [ ] Create requires admin-entered unique `empCode` + required email; duplicates rejected.
 - [ ] Update invalidates auth cache (prompt role/status effect).
 - [ ] Dropped user removed from future schedules, scoped; empty ones deleted.
 - [ ] Soft-delete hides user + frees empCode/email; restore reverses or 409s.
@@ -122,7 +133,8 @@ Inherits `security-platform`. Specifics:
 
 | Trigger | Behavior | Recovery |
 |---|---|---|
-| Missing name/role | validation error | supply fields |
+| Missing empCode/email/name/role | validation error | supply fields |
+| Duplicate empCode | unique-index error | use the HR-issued code |
 | Duplicate email | unique-index error | use another email |
 | Restore over taken code/email | 409 | resolve the conflict |
 | Non-admin hits `/api/users` | 403 | use Admin |

@@ -342,7 +342,7 @@ Every state-changing request (create, edit, delete) must carry a **random secret
 ### 6.1. Run locally (for developers)
 
 **Requirements:**
-- Node.js version 18 or higher
+- Node.js version 20 or higher (engines `>=20`; CI runs Node 22)
 - A MongoDB Atlas account (or MongoDB installed locally)
 - (Optional) Google Workspace with a service account for Google Calendar
 - (Optional) SMTP to send email
@@ -401,6 +401,13 @@ docker run -d --name tms-v2 -p 5000:5000 --env-file .env tms-v2
 | `CORS_ORIGINS` | ✓ | Frontend URLs allowed to call the API |
 | `CRON_TOKEN` | ✓ | Secret for the nightly automated job |
 | `CLIENT_ORIGIN` | ✓ | Frontend URL (used in password-reset emails) |
+| `IMPORT_DEFAULT_PASSWORD` | ✓ (production) | Initial password for bulk-imported users — the server REFUSES TO START in production without it |
+| `JWT_EXPIRE` | | Session lifetime, e.g. `1d` (default `1d` = 24h) |
+| `EMAIL_FROM` | | Sender display address (defaults to `SMTP_USER`) |
+| `MFA_ISSUER` | | TOTP issuer label shown in authenticator apps (default `TMS`) |
+| `SWAGGER_ENABLED` | | `true` exposes `/api/docs` in production (always on in dev) |
+| `AUDIT_RETENTION_DAYS` | | Audit-log TTL in days (default `730`) |
+| `REDIS_URL` | | Optional shared rate-limit store for multi-instance deploys |
 | `SMTP_HOST` | | Email server (e.g. `smtp.gmail.com`) |
 | `SMTP_PORT` | | Email port (587 or 465) |
 | `SMTP_USER` | | Sending email account |
@@ -411,6 +418,11 @@ docker run -d --name tms-v2 -p 5000:5000 --env-file .env tms-v2
 | `TMS_TIMEZONE` | | Timezone (default UTC, recommended `Asia/Ho_Chi_Minh`) |
 | `MFA_REQUIRED_ROLES` | | Roles required to enable 2FA (e.g. `Admin`) |
 | `LOG_LEVEL` | | Log level: `info` (default), `debug`, `warn` |
+
+> Advanced tuning knobs (timeouts, cache TTLs, pool sizes, login-lockout
+> thresholds, import batch caps…) are read from env with safe defaults — run
+> `node server/scripts/audit-env-doc-diff.js` for the full inventory of what
+> the runtime reads vs this table.
 
 ---
 
@@ -710,7 +722,7 @@ The server "sleeps" after 15 minutes of inactivity. Fixes:
 | `docs/backup-dr.md` | Incident handling, data recovery |
 | `docs/cron-pinger-setup.md` | Setting up the nightly automated job |
 | `docs/google-calendar-setup.md` | Google Workspace integration |
-| `/api/docs` *(when the server is running)* | Swagger UI — try the API directly in the browser |
+| `/api/docs` *(when the server is running)* | Swagger UI — partial coverage (annotated routes only); full route list: `docs/route-permission-matrix.md` |
 | `/api/docs.json` *(when the server is running)* | OpenAPI spec — import into Postman |
 
 **GitHub:** `https://github.com/FinanceBullkk/ConCho2`
