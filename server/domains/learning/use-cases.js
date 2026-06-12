@@ -141,7 +141,18 @@ const enrichCohorts = async (cohorts) => {
 
 const listCohorts = async (query = {}) => {
   const { skip, limit } = listWindow(query);
-  const cohorts = await repository.findCohorts(buildCohortFilter(query)).skip(skip).limit(limit).lean();
+  const filter = buildCohortFilter(query);
+  // English-class separation: scheduling-world filter. An explicit programId
+  // is already world-scoped, so mode only applies without one. Team world
+  // uses $nin, which also matches program-less legacy classes (programId
+  // null/missing → server fallback 'leader_booking').
+  if (!query.programId && (query.mode === 'team' || query.mode === 'cohort')) {
+    const cohortProgramIds = await repository.findCohortModeProgramIds();
+    filter.programId = query.mode === 'cohort'
+      ? { $in: cohortProgramIds }
+      : { $nin: cohortProgramIds };
+  }
+  const cohorts = await repository.findCohorts(filter).skip(skip).limit(limit).lean();
   return enrichCohorts(cohorts);
 };
 

@@ -171,8 +171,20 @@ export const schedulesAPI = {
   listWaitlist: (id) => api.get(`/schedules/${id}/waitlist`),
   // Participant: upcoming sessions for my class
   getMyClass: () => api.get('/schedules/my-class'),
-  // Attendance calendar: schedules with pre-computed attendance status
-  getAttendanceCalendar: () => api.get('/schedules/attendance-calendar'),
+  // Attendance calendar: schedules with pre-computed attendance status.
+  // Accepts { mode: 'cohort' } to scope to the generic training world
+  // (English-class separation).
+  getAttendanceCalendar: (params) => api.get('/schedules/attendance-calendar', { params }),
+};
+
+// ── English class (team-booking world) ────────────────────
+// Bounded read surface at /api/english — mode is forced to 'team' server-side.
+// Mutations keep their existing APIs (teamsAPI, schedulesAPI.bookSlot,
+// evaluationsAPI); only the world-scoped reads live here.
+export const englishAPI = {
+  getClasses: (params) => api.get('/english/classes', { params }),
+  getSchedules: (params) => api.get('/english/schedules', { params }),
+  getAttendanceCalendar: (params) => api.get('/english/attendance-calendar', { params }),
 };
 
 // ── Attendance ────────────────────────────────────────────

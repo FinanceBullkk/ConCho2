@@ -12,7 +12,8 @@ server/
 │   ├── groups/     # full domain (was teamController; Team model + /api/teams URL kept)
 │   ├── assessment/ # assessment engine + question bank + grading
 │   ├── org/        # departments, offices, manager hierarchy
-│   └── room/       # office-scoped physical rooms
+│   ├── room/       # office-scoped physical rooms
+│   └── english-class/ # READ-ONLY /api/english surface over the team-booking world (separation 2026-06-12)
 ├── routes/         # legacy Express routers (17 files) — mounted in server.js
 ├── controllers/    # legacy request handlers (13 facades + auth/class/dashboard/enrollment/user subdirs)
 ├── services/       # business logic (auth, schedule, attendance, export, reconcile...)

@@ -20,7 +20,10 @@ import { test, expect } from './fixtures.js';
 
 test.describe('leader booking grid (/book)', () => {
   test('leader books a free future slot, then cancels it', async ({ participantPage: page }) => {
+    // English-class separation: /book is a legacy redirect into the English
+    // section, where the grid lives now (/english?tab=book).
     await page.goto('/book');
+    await expect(page).toHaveURL(/\/english\?tab=book/);
 
     // Leader landed on the grid (non-leaders get a "not a Team Leader" card).
     await expect(page.getByRole('heading', { name: /schedule & book/i })).toBeVisible();

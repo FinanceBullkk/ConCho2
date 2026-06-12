@@ -4,6 +4,7 @@ import {
   Home,
   Users,
   BookOpen,
+  Languages,
   CalendarDays,
   FileBarChart,
   ShieldCog,
@@ -60,12 +61,22 @@ const NAV_ITEMS = [
     disabledTitleKey: 'nav.adminOnly',
   },
   {
+    // English-class separation: the whole team-booking world (classes, teams,
+    // schedules, attendance, evaluations, leader booking) lives here.
+    // Coordinator is a cohort-world role — disabled.
+    path: '/english',
+    labelKey: 'nav.english',
+    icon: Languages,
+    access: { Admin: 'full', Coordinator: 'none', Teacher: 'full', Participant: 'full' },
+  },
+  {
     path: '/calendar',
     labelKey: 'nav.calendar',
     icon: CalendarDays,
-    // Coordinator scheduling UX lands in re-center Phase 2 — until then the
-    // calendar tabs (Schedules/Attendance/Book) all 403 for a Coordinator.
-    access: { Admin: 'full', Coordinator: 'none', Teacher: 'full', Participant: 'full' },
+    // Generic training calendar (cohort world). Participants use /english for
+    // team booking and /me/* for their sessions — no calendar surface left.
+    // Coordinator scheduling UX lands in re-center Phase 2.
+    access: { Admin: 'full', Coordinator: 'none', Teacher: 'full', Participant: 'none' },
   },
   {
     path: '/reports',
@@ -95,9 +106,11 @@ const ROLE_TEXT = {
 // when a deeper page (e.g. /classes/:id) is open.
 const NAV_PARENT_ROUTES = {
   '/home':     ['/home', '/dashboard'],
-  '/people':   ['/people', '/users', '/teams'],
-  '/learning': ['/learning', '/programs', '/classes', '/courses'],
-  '/calendar': ['/calendar', '/operations', '/schedules', '/attendance', '/book'],
+  '/people':   ['/people', '/users'],
+  '/learning': ['/learning', '/programs', '/courses'],
+  // English-class separation: classes/teams/booking belong to /english now.
+  '/english':  ['/english', '/book', '/classes', '/teams'],
+  '/calendar': ['/calendar', '/operations', '/schedules', '/attendance'],
   '/reports':  ['/reports', '/data'],
   '/system':   ['/system', '/admin', '/settings', '/database'],
 };

@@ -28,7 +28,10 @@ export const qk = {
     availability: (params) => ['schedules', 'availability', params],
     detail: (id) => ['schedules', 'detail', id],
     myClass: ['schedules', 'my-class'],
-    attendanceCalendar: ['schedules', 'attendance-calendar'],
+    // Callable for world-scoped variants (English-class separation):
+    // call with no params for the base prefix (also used for invalidation).
+    attendanceCalendar: (params) =>
+      params ? ['schedules', 'attendance-calendar', params] : ['schedules', 'attendance-calendar'],
     config: ['schedules', 'config'],
     myWaitlist: ['schedules', 'waitlist', 'mine'],
     waitlist: (id) => ['schedules', 'waitlist', id],

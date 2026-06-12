@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { learningAPI, schedulesAPI } from '../api/api';
+import { learningAPI, schedulesAPI, englishAPI } from '../api/api';
 import { qk } from './queryKeys';
 
 // ── Reads ─────────────────────────────────────────────────
@@ -10,10 +10,15 @@ export const useLearningPrograms = (params = {}) =>
     queryFn: async () => (await learningAPI.getPrograms(params)).data,
   });
 
+// English-class separation: `mode: 'team'` routes to /api/english/classes
+// (server forces the team world); 'cohort' filters the generic cohort list.
 export const useLearningCohorts = (params = {}) =>
   useQuery({
     queryKey: qk.learning.cohorts(params),
-    queryFn: async () => (await learningAPI.getCohorts(params)).data,
+    queryFn: async () =>
+      (await (params.mode === 'team'
+        ? englishAPI.getClasses(params)
+        : learningAPI.getCohorts(params))).data,
   });
 
 export const useLearningEnrollments = (params = {}, options = {}) =>

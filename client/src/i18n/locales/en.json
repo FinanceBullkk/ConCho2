@@ -4,6 +4,7 @@
     "people": "People",
     "programs": "Programs",
     "learning": "Learning",
+    "english": "English Class",
     "calendar": "Calendar",
     "reports": "Reports",
     "myTeam": "My Team",
@@ -24,6 +25,9 @@
     "switchLanguage": "Switch to Vietnamese",
     "openMenu": "Open menu",
     "closeMenu": "Close menu"
+  },
+  "english": {
+    "classesTitle": "Classes"
   },
   "booking": {
     "modeLocked": {
