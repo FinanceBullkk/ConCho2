@@ -15,9 +15,9 @@ Admins do **NOT** pre-create schedules for groups to book into. The inverse:
 | `Class` | **Cohort** (one delivery of a program) | exposed via `/api/learning/cohorts` (DTO over `Class`) |
 | `courseName` (enum) | **Program** (`LearningProgram` model) | done — `Class.programId` links them |
 | `Schedule` | **Session** | `/api/learning/sessions` (adapter over `scheduleService`) |
-| `Team` | **LearningGroup** | not migrated |
-| `Evaluation` | **Assessment** | not migrated |
-| `Enrollment` (team-based) | cohort-based enrollment | not migrated |
+| `Team` | **LearningGroup** | **DROPPED** (owner 2026-06-12, audit round 7) — permanent vocabulary exception: `domains/groups` module exists, but the `Team` model name + `/api/teams` URL stay; a rename is pure churn with zero behavior value |
+| `Evaluation` | **Assessment** | **DEFERRED** (owner 2026-06-12) — dual systems by design for now (completion accepts either); converge legacy evaluation flows onto `domains/assessment` opportunistically when touched, no big-bang migration |
+| `Enrollment` (team-based) | cohort-based enrollment | **BOTH KEPT** (owner 2026-06-12) — team-based enrollment drives team-booking modes, cohort-based (`/api/learning/enrollments`) drives cohort modes; two real modes, not debt |
 
 ## Domain module convention (for new/extracted backend code)
 ```
