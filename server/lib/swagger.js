@@ -109,6 +109,10 @@ The cookie is HttpOnly — pass \`credentials: 'include'\` in fetch or use \`wit
   apis: [
     require('path').join(__dirname, '../routes/*.js'),
     require('path').join(__dirname, '../controllers/*.js'),
+    // DOCS-006 (audit round 8): the domain routers are the majority API
+    // surface — without this glob their @openapi annotations can never
+    // appear in /api/docs. Coverage is still sparse (annotate-over-time).
+    require('path').join(__dirname, '../domains/**/*.js'),
   ],
 };
 
