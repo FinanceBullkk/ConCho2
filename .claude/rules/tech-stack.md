@@ -1,6 +1,6 @@
 # Tech Stack
 
-MERN monorepo. Node `>=18` (CI runs server on Node 22, client on Node 20).
+MERN monorepo. Node `>=20` (engines; CI runs Node 22 for both server and client — aligned in audit round 7).
 
 ## Server (`server/`) — CommonJS
 - **Express 4** — REST API
@@ -26,9 +26,13 @@ MERN monorepo. Node `>=18` (CI runs server on Node 22, client on Node 20).
 - **react-router-dom 7** — routing (lazy-loaded pages)
 - **i18next** + **react-i18next** — i18n (English-only, single `en` locale; no detector)
 - **axios** — single instance w/ interceptors (`client/src/api/api.js`)
-- **sonner** / **react-hot-toast** — toasts
+- **sonner** — toasts (react-hot-toast removed in audit round 7 — CODE-015)
 - **next-themes** — dark/light mode
 - **@sentry/react** — error tracking
 
 ## Versioning note
-`googleapis` transitive deps drift the server lockfile, so CI uses `npm install` (not `npm ci`) for the server. Client uses `npm ci`.
+Both server and client install with **`npm ci`** (CI + root build scripts) — the committed
+lockfiles are the source of truth. The old "googleapis transitive drift forces npm install"
+workaround was retired in audit round 7 (CODE-014): if a dep bump ever desyncs
+package.json↔lockfile, regenerate the lockfile in the same PR. Radix is consumed via the
+umbrella `radix-ui` package (individual `@radix-ui/react-*` deps removed — CODE-015).

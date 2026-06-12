@@ -56,13 +56,12 @@ jobs:
 
       - name: Install server dependencies
         working-directory: server
-        # Use `npm install` (not `npm ci`) because the lockfile drifts on
-        # every googleapis transitive bump — '^' ranges in package.json
-        # resolve to newer versions over time. Strict `npm ci` would fail
-        # without an out-of-band lockfile regen on every transitive update.
-        # Reproducibility trade-off accepted; switch back to `npm ci` once
-        # we pin googleapis to an exact version or use the overrides field.
-        run: npm install --no-audit --no-fund --no-progress
+        # CODE-014 (audit round 7): back to `npm ci` — the old "lockfile
+        # drifts on googleapis transitive bumps" workaround no longer
+        # reproduces (npm ci installs the committed lockfile verbatim and
+        # only fails on a package.json↔lockfile desync). If a future dep
+        # bump desyncs them, regen the lockfile in the same PR.
+        run: npm ci --no-audit --no-fund --no-progress
 
       - name: Run Jest test suite
         working-directory: server
@@ -96,7 +95,9 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v5
         with:
-          node-version: '20'
+          # Node 22 across all jobs (audit round 7) — the 20 here was an
+          # accident of history, not a decision.
+          node-version: '22'
           cache: 'npm'
           cache-dependency-path: client/package-lock.json
 
@@ -284,7 +285,8 @@ jobs:
 
       - name: Install server dependencies
         working-directory: server
-        run: npm install --no-audit --no-fund --no-progress
+        # CODE-014: npm ci — see the server-tests job comment.
+        run: npm ci --no-audit --no-fund --no-progress
 
       - name: Install client dependencies
         working-directory: client
