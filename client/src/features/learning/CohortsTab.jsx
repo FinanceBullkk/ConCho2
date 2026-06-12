@@ -23,14 +23,20 @@ const statusTone = { Ongoing: 'default', Completed: 'secondary' };
 const COHORT_MODES = ['self_enroll', 'nomination'];
 const isCohortScheduled = (cohort) => COHORT_MODES.includes(cohort.program?.schedulingMode);
 
-export default function CohortsTab() {
+// English-class separation props:
+//   mode     — 'cohort' (generic training world, default) | 'team' (English
+//              section: reads via /api/english/classes; cohort-based enroll is
+//              hidden — team membership drives enrollment in that world).
+//   titleKey — header i18n key override (English section says "Classes").
+export default function CohortsTab({ mode = 'cohort', titleKey = 'learning.cohorts.title' }) {
   const { t } = useTranslation();
   const { can } = useRole();
   const canCreate = can('create:cohort');
-  const canEnroll = can('enroll:learner');
+  const isTeamWorld = mode === 'team';
+  const canEnroll = can('enroll:learner') && !isTeamWorld;
   const canSchedule = can('book:session');
   const canAssignTrainers = can('assign:trainer');
-  const { data, isLoading } = useLearningCohorts();
+  const { data, isLoading } = useLearningCohorts({ mode });
   const cohorts = data?.data || [];
 
   const [createOpen, setCreateOpen] = useState(false);
@@ -45,7 +51,7 @@ export default function CohortsTab() {
 
   const header = (
     <div className="flex items-center justify-between">
-      <CardTitle>{t('learning.cohorts.title')}</CardTitle>
+      <CardTitle>{t(titleKey)}</CardTitle>
       <div className="flex items-center gap-2">
         {canManage && (
           <Button size="sm" variant="ghost" onClick={() => setShowArchived(true)}>

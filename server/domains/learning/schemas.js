@@ -55,6 +55,10 @@ const listCohortsQuery = z.object({
   programId: objectId.optional(),
   cohortCode: z.string().trim().optional(),
   classCode: z.string().trim().optional(),
+  // English-class separation: scheduling-world filter. team = leader_booking/
+  // admin_scheduled programs + program-less legacy classes; cohort =
+  // self_enroll/nomination. Ignored when programId is given (already scoped).
+  mode: z.enum(['team', 'cohort']).optional(),
 });
 
 const createCohortBody = z.object({

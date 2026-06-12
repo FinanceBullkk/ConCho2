@@ -261,6 +261,7 @@ app.use('/api/org', require('./domains/org/routes'));
 app.use('/api/rooms', require('./domains/room/routes'));
 app.use('/api/assessment', require('./domains/assessment/routes'));
 app.use('/api/schedules', require('./domains/schedule/routes'));
+app.use('/api/english', require('./domains/english-class/routes'));
 app.use('/api/attendance', require('./domains/attendance/routes'));
 app.use('/api/evaluations', require('./routes/evaluationRoutes'));
 app.use('/api/enrollments', require('./routes/enrollmentRoutes'));

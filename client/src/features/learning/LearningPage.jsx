@@ -1,8 +1,7 @@
 import { useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { BarChart3, BookOpen, Boxes, ClipboardList, GraduationCap, LayoutDashboard, MessageSquare, Route, Users } from 'lucide-react';
+import { BarChart3, BookOpen, Boxes, ClipboardList, GraduationCap, LayoutDashboard, MessageSquare, Route } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { PageHeader } from '@/components/PageHeader';
 import { useRole } from '../../hooks/useRole';
 import ProgramsTab from './ProgramsTab';
@@ -15,32 +14,19 @@ import ReportsTab from './ReportsTab';
 import DashboardTab from './DashboardTab';
 
 // `perm` (optional) gates a tab to roles holding that permission.
+// English-class separation 2026-06-12: the `groups` compat tab is gone
+// (Teams live in /english?tab=teams) and Cohorts is cohort-world only —
+// English/team-mode classes live in /english?tab=classes.
 const TABS = [
   { id: 'dashboard', icon: LayoutDashboard, perm: 'read:reports' },
   { id: 'programs', icon: BookOpen },
   { id: 'cohorts', icon: Boxes },
   { id: 'paths', icon: Route, perm: 'manage:path' },
   { id: 'assignments', icon: ClipboardList, perm: 'read:assignments' },
-  { id: 'groups', icon: Users },
   { id: 'assessments', icon: GraduationCap },
   { id: 'feedback', icon: MessageSquare, perm: 'read:feedback' },
   { id: 'reports', icon: BarChart3, perm: 'read:reports' },
 ];
-
-function CompatibilityTab({ type }) {
-  const { t } = useTranslation();
-  const isGroups = type === 'groups';
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle>{t(`learning.tabs.${type}`)}</CardTitle>
-      </CardHeader>
-      <CardContent className="text-body text-muted-foreground">
-        {t(isGroups ? 'learning.tabs.groupsDesc' : 'learning.tabs.assessmentsDesc')}
-      </CardContent>
-    </Card>
-  );
-}
 
 export default function LearningPage() {
   const { t } = useTranslation();
@@ -83,16 +69,13 @@ export default function LearningPage() {
           {activeTab === 'programs' && <ProgramsTab />}
         </TabsContent>
         <TabsContent value="cohorts" hidden={activeTab !== 'cohorts'}>
-          {activeTab === 'cohorts' && <CohortsTab />}
+          {activeTab === 'cohorts' && <CohortsTab mode="cohort" />}
         </TabsContent>
         <TabsContent value="paths" hidden={activeTab !== 'paths'}>
           {activeTab === 'paths' && <PathsTab />}
         </TabsContent>
         <TabsContent value="assignments" hidden={activeTab !== 'assignments'}>
           {activeTab === 'assignments' && <AssignmentsTab />}
-        </TabsContent>
-        <TabsContent value="groups" hidden={activeTab !== 'groups'}>
-          {activeTab === 'groups' && <CompatibilityTab type="groups" />}
         </TabsContent>
         <TabsContent value="assessments" hidden={activeTab !== 'assessments'}>
           {activeTab === 'assessments' && <AssessmentsTab />}

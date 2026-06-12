@@ -160,6 +160,7 @@ English literals directly.
 | `/api/classes` | `classRoutes.js` | class CRUD, course metadata |
 | `/api/learning` | `domains/learning/routes.js` | Learning programs, cohorts, sessions, paths, reports, assignments |
 | `/api/schedules` | `domains/schedule/routes.js` | availability, booking, cancel, calendars (Phase 1 domain extraction; `controller` → `use-cases`/`queries`/`repository` + policy modules; booking mutations still in `services/scheduleService` by design; `Schedule` model + `/api/schedules` URL unchanged) |
+| `/api/english` | `domains/english-class/routes.js` | English-class separation (2026-06-12): bounded READ-ONLY surface over the team-booking world — `/classes`, `/schedules`, `/attendance-calendar` delegate into learning/schedule use-cases with `mode` forced to `team`; mutations stay on `/api/teams`, `/api/schedules`, `/api/evaluations` |
 | `/api/attendance` | `domains/attendance/routes.js` | attendance marking, analytics, personal stats (Phase 1 domain extraction; `controller` → `use-cases` → `marking`/`analytics`/`scope`; `services/attendanceService.js` kept as a compat facade) |
 | `/api/rooms` | `domains/room/routes.js` | Office-scoped physical Rooms CRUD (re-center Phase 3) |
 | `/api/org` | `domains/org/routes.js` | departments, offices, manager hierarchy + manager dashboard |

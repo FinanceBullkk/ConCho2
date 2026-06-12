@@ -10,10 +10,11 @@ import { test, expect } from './fixtures.js';
  *
  * Audit PR X (P2-09): rewritten for the IA-S2/S3 routes
  *   - /users  → /people?tab=users        (PeoplePage hosts UsersPage in a tab)
- *   - /teams  → /people?tab=teams        (PeoplePage hosts TeamsPage)
  *   - /classes → /learning?tab=cohorts   (LearningPage hosts legacy classes as cohorts)
  *   - /schedules → /calendar?tab=schedules (CalendarPage hosts SchedulesPage)
  *   - /admin → /system
+ * English-class separation (2026-06-12): the team-booking world has its own
+ * section — Teams/Classes/Schedules/Attendance/Evaluations at /english?tab=…
  * The legacy redirects in App.jsx keep the old paths working as a bookmark
  * grace window, but the canonical paths are what the navbar now emits.
  */
@@ -32,9 +33,13 @@ const ADMIN_PAGES = [
   // in the PageHeader title slot. Match the greeting prefix.
   { path: '/home',                     headerHeading: /^Hello, /,            innerHeading: null },
   { path: '/people?tab=users',         headerHeading: /^People$/,            innerHeading: /^User Management$/ },
-  { path: '/people?tab=teams',         headerHeading: /^People$/,            innerHeading: /^Teams$/ },
+  { path: '/english?tab=teams',        headerHeading: /^English Class$/,     innerHeading: /^Teams$/ },
+  // CohortsTab renders its title via CardTitle (not a heading role) — same
+  // reason /learning?tab=cohorts has innerHeading: null.
+  { path: '/english?tab=classes',      headerHeading: /^English Class$/,     innerHeading: null },
   { path: '/learning?tab=cohorts',     headerHeading: /^Learning$/,          innerHeading: null },
   { path: '/calendar?tab=schedules',   headerHeading: /^Calendar$/,          innerHeading: /^Schedule Management$/ },
+  { path: '/english?tab=schedules',    headerHeading: /^English Class$/,     innerHeading: /^Schedule Management$/ },
   { path: '/system',                   headerHeading: /^(System|Settings)$/, innerHeading: null },
 ];
 
