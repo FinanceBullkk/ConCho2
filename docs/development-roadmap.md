@@ -258,6 +258,23 @@ Bug fixing and integration review rank above net-new feature rollout.
 
 ## Recent progress (changelog)
 
+- **2026-06-12** — **Post-audit backlog sweep: 6 P2/P3 code findings fixed in
+  one round** (`fix/backlog-sweep-code-round`). **BUG-005** Users default sort
+  `lastActive` was silently falling back to `empCode` — whitelisted + mapped
+  to denormalised `lastActiveAt`; **UX-09** home dashboard no longer mounts
+  queries (which 403) behind the forced-password modal; **OPS-014**
+  forgot-password background DB failures now log at `error` (email-send fail
+  stays `warn`); **PERF-015** programs/cohorts/classes lists get an opt-in
+  `?page/?limit` window with a 500 hard cap (envelope unchanged — closes the
+  unbounded cohort-growth path); **PERF-016** session LIST hydrates
+  `enrolledUsers` as `_id`-only stubs (detail keeps the full roster);
+  **UX-08** `LearningField` labels are programmatically associated
+  (`useId` + `htmlFor` + `cloneElement` — WCAG 1.3.1/4.1.2) across all 16
+  Learning CRUD/feedback modals. Every fix shipped with a regression test
+  (server 884/884, client 254/254, lint at cap, build clean). Audit backlog
+  table updated — remaining open items are owner-ops or deliberate deferrals
+  (QA-018b e2e chain, CODE-017, DEPS majors, DOCS-006b, QA-017/019/020/022,
+  OPS-010/011/012, DATA-016).
 - **2026-06-12** — **Audit Phase 8 (Docs & spec truth) round complete — FULL
   SYSTEM AUDIT FINISHED (8/8 rounds).** Deep doc-truth pass over 28 capability
   specs (3+ requirements sampled each), `.claude/rules/*`, runbooks, README,

@@ -50,10 +50,16 @@ export default function DashboardPage() {
   const resetFilters = useCallback(() => setFilters({}), []);
 
   // ── Data fetching ────────────────────────────────────
-  const { data: stats, isLoading: loadingStats, isError, error, isFetching, refetch, dataUpdatedAt } = useDashboardStats(filters, { enabled: isAdmin });
-  const { data: filterOpts } = useDashboardFilterOptions({ enabled: isAdmin });
+  // UX-09: while the forced-password-change modal owns the screen, every
+  // other API call 403s on the mustChangePassword gate — don't fire the
+  // dashboard queries (or mount ParticipantDashboard's) just to render a
+  // "Something went wrong" boundary behind the modal.
+  const mustChange = !!user?.mustChangePassword;
+  const { data: stats, isLoading: loadingStats, isError, error, isFetching, refetch, dataUpdatedAt } = useDashboardStats(filters, { enabled: isAdmin && !mustChange });
+  const { data: filterOpts } = useDashboardFilterOptions({ enabled: isAdmin && !mustChange });
 
   useEffect(() => { document.title = t('dashboard.docTitle'); }, [t]);
+  if (mustChange) return null;
   if (isParticipant) return <ParticipantDashboard />;
 
   // UX-01: Only show the full-page spinner on the FIRST load (no data yet).
