@@ -200,9 +200,11 @@ export default function ParticipantDashboard() {
       </header>
 
       {/* ── Band 2 · Next class card ────────────────────── */}
+      {/* Empty-state copy is membership-aware (Cohesion P4): team members get
+          the team-booking pointer; generic learners get their /me surfaces. */}
       {nextClass ? (
         <NextClassCard schedule={nextClass} teacher={null /* not yet wired through API */} />
-      ) : (
+      ) : teamName ? (
         <EmptyState
           icon={CalendarDays}
           title="No upcoming sessions"
@@ -211,6 +213,22 @@ export default function ParticipantDashboard() {
             <Link to="/calendar" className="text-sm text-primary font-medium hover:underline underline-offset-2">
               Go to Calendar →
             </Link>
+          )}
+        />
+      ) : (
+        <EmptyState
+          icon={CalendarDays}
+          title="No upcoming sessions"
+          description="Browse the catalog to enroll in a program, or check your enrolled sessions."
+          action={(
+            <span className="flex items-center justify-center gap-4">
+              <Link to="/me/sessions" className="text-sm text-primary font-medium hover:underline underline-offset-2">
+                My sessions →
+              </Link>
+              <Link to="/me/catalog" className="text-sm text-primary font-medium hover:underline underline-offset-2">
+                Browse catalog →
+              </Link>
+            </span>
           )}
         />
       )}

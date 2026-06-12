@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '../../context/AuthContext';
-import { useSearchParams } from 'react-router-dom';
+import { useSearchParams, Link } from 'react-router-dom';
 import { toast } from 'sonner';
 import { Lock } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
@@ -157,11 +157,24 @@ export default function BookClassPage() {
   };
 
   // ── Guards ──────────────────────────────────────────────
+  // No team: this learner is not in the team-booking world (Cohesion P4) —
+  // point them at the generic learning surfaces instead of a dead end.
   if (!loading && myTeams.length === 0) {
     return (
-      <div className="bg-card border border-border rounded-lg p-10 text-center">
-        <h2 className="text-h3 text-foreground mb-2">Not in any group</h2>
-        <p className="text-muted-foreground">You need to be assigned to a group before you can view and book sessions.</p>
+      <div className="bg-card border border-border rounded-lg p-10 text-center space-y-3">
+        <h2 className="text-h3 text-foreground">No team-booking class</h2>
+        <p className="text-muted-foreground">
+          Team booking is used by group-based classes. Your sessions and
+          programs live in your learning space.
+        </p>
+        <div className="flex items-center justify-center gap-4 pt-1">
+          <Link to="/me/sessions" className="text-sm text-primary font-medium hover:underline underline-offset-2">
+            My sessions →
+          </Link>
+          <Link to="/me/catalog" className="text-sm text-primary font-medium hover:underline underline-offset-2">
+            Browse catalog →
+          </Link>
+        </div>
       </div>
     );
   }
