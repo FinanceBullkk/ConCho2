@@ -258,6 +258,22 @@ Bug fixing and integration review rank above net-new feature rollout.
 
 ## Recent progress (changelog)
 
+- **2026-06-12** — **QA-018b closed: the 4 remaining persona-critical e2e
+  specs shipped** (`client/e2e/`): (1) **attendance marking** — teacher marks
+  a past Team-B session all-present via the calendar drawer (past-session
+  fixture created through the real Admin API; past sessions refuse deletion,
+  so each run claims the next free past slot); (2) **HR export** — serial
+  with (1), downloads the pending records as `.xlsx` and asserts the
+  download; (3) **MFA login** — enrolls TOTP via the API, then completes the
+  UI two-factor challenge with a locally generated RFC-6238 code
+  (`totp-helper.js`, no new dependency; wrong-code rejection asserted;
+  admin-disable cleanup is idempotent for re-runs); (4) **waitlist** — an
+  inactive-at-booking team member is re-activated and joins/leaves a full
+  session's waitlist on `/me/sessions` (Waiting #1 badge). New shared
+  `api-helpers.js` (CSRF + API login + fixture builders) + `teacherPage`
+  fixture. Full Playwright suite 28/28 locally against live dev
+  (DISABLE_RATE_LIMITS, same as the CI gate). Every P1 flow named in the
+  audit now has an e2e gate.
 - **2026-06-12** — **Post-audit backlog sweep: 6 P2/P3 code findings fixed in
   one round** (`fix/backlog-sweep-code-round`). **BUG-005** Users default sort
   `lastActive` was silently falling back to `empCode` — whitelisted + mapped
