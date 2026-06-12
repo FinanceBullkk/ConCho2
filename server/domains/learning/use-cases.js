@@ -29,6 +29,17 @@ const makeLegacyProgramCode = (courseName) => {
   return `ENG_${slug || 'PROGRAM'}`.slice(0, 40);
 };
 
+// PERF-015: programs/cohorts lists previously returned EVERY row (cohorts
+// grow ~1 per delivery, forever). Opt-in ?page/?limit window with a hard
+// cap — the response envelope is unchanged, so existing clients keep
+// working while the unbounded-growth path is closed.
+const LIST_HARD_CAP = 500;
+const listWindow = (query = {}) => {
+  const limit = Math.min(Math.max(parseInt(query.limit, 10) || LIST_HARD_CAP, 1), LIST_HARD_CAP);
+  const page = Math.max(parseInt(query.page, 10) || 1, 1);
+  return { limit, skip: (page - 1) * limit };
+};
+
 const buildProgramFilter = (query = {}) => {
   const filter = {};
   if (query.status) filter.status = query.status;
@@ -41,7 +52,8 @@ const buildProgramFilter = (query = {}) => {
 };
 
 const listPrograms = async (query = {}) => {
-  const rows = await repository.findPrograms(buildProgramFilter(query)).lean();
+  const { skip, limit } = listWindow(query);
+  const rows = await repository.findPrograms(buildProgramFilter(query)).skip(skip).limit(limit).lean();
   return rows.map(programDto);
 };
 
@@ -128,7 +140,8 @@ const enrichCohorts = async (cohorts) => {
 };
 
 const listCohorts = async (query = {}) => {
-  const cohorts = await repository.findCohorts(buildCohortFilter(query)).lean();
+  const { skip, limit } = listWindow(query);
+  const cohorts = await repository.findCohorts(buildCohortFilter(query)).skip(skip).limit(limit).lean();
   return enrichCohorts(cohorts);
 };
 

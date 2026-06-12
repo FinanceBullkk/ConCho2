@@ -26,7 +26,16 @@ const getClasses = async (req, res) => {
     if (req.query.status) filter.status = req.query.status;
     if (req.query.classCode) filter.classCode = req.query.classCode;
 
-    const classes = await Class.find(filter).sort({ classCode: 1, courseName: 1 }).lean();
+    // PERF-015: opt-in ?page/?limit window with a hard cap — this list
+    // previously returned every class forever (response envelope unchanged).
+    const HARD_CAP = 500;
+    const limit = Math.min(Math.max(parseInt(req.query.limit, 10) || HARD_CAP, 1), HARD_CAP);
+    const page = Math.max(parseInt(req.query.page, 10) || 1, 1);
+    const classes = await Class.find(filter)
+      .sort({ classCode: 1, courseName: 1 })
+      .skip((page - 1) * limit)
+      .limit(limit)
+      .lean();
 
     // Batch-count booked sessions per class (1 aggregation)
     const classIds = classes.map(c => c._id);
