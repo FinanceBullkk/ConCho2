@@ -28,6 +28,24 @@ export const useLearningEnrollments = (params = {}, options = {}) =>
     ...options,
   });
 
+// Per-learner completion checklist for one cohort (Cohesion P1 learner home).
+// Participant calls are self-scoped server-side (completion/use-cases).
+export const useCompletion = (params = {}, options = {}) =>
+  useQuery({
+    queryKey: qk.learning.completion(params),
+    queryFn: async () => (await learningAPI.getCompletion(params)).data.data,
+    enabled: Boolean(params.cohortId),
+    ...options,
+  });
+
+// Issued certificates (self-scoped for Participants; managers may filter).
+export const useCertificates = (params = {}, options = {}) =>
+  useQuery({
+    queryKey: qk.learning.certificates(params),
+    queryFn: async () => (await learningAPI.getCertificates(params)).data.data,
+    ...options,
+  });
+
 export const useLearningFeedback = (params = {}, options = {}) =>
   useQuery({
     queryKey: qk.learning.feedback(params),

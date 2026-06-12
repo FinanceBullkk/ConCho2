@@ -19,7 +19,7 @@ backend surface.
 
 | # | Phase | What it connects | Est. | Status |
 |---|-------|------------------|------|--------|
-| 1 | Learner Program Home | per-enrollment hub: sessions + completion checklist + quiz/feedback links + cert state | 4–6 d | 🔴 not started |
+| 1 | Learner Program Home | per-enrollment hub: sessions + completion checklist + quiz/feedback links + cert state | 4–6 d | 🟢 done 2026-06-13 — `/me/programs` list + `/me/programs/:cohortId` hub; ZERO new backend (self-scoped completion/certificates/sessions reads composed client-side); entries from catalog enrolled card + dashboard CTA |
 | 2 | Unified My Learning home | merge `/me/catalog·paths·assessments·feedback·sessions` into one hub with a next-actions feed | 4–6 d | 🔴 not started |
 | 3 | Assignment → one-click enroll | D4 assignment CTA enrolls into an eligible cohort (no manual catalog hunt) | 2–3 d | 🔴 not started |
 | 4 | English-class mode separation | team-booking UX becomes a bounded area entered FROM its program, not global nav | 3–4 d | 🟢 done 2026-06-12 — superseded same day by FULL separation per owner: dedicated `/english` nav section (classes/teams/schedules/attendance/evaluations/booking) + `mode` world-split + additive `/api/english` read surface. See `plans/260612-2151-english-class-separation/` |

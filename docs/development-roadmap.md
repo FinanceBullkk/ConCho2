@@ -262,6 +262,23 @@ Bug fixing and integration review rank above net-new feature rollout.
 
 ## Recent progress (changelog)
 
+- **2026-06-13** — **Cohesion P1: Learner Program Home**
+  (`feat/cohesion-p1-learner-program-home`; plan
+  `plans/260612-2058-cohesion-wave/` P1). Learners get a per-enrollment hub:
+  **`/me/programs`** lists active cohort enrollments (cards w/ program name,
+  status, session progress) and **`/me/programs/:cohortId`** renders the
+  **completion checklist** (attendance x/y vs threshold, assessment,
+  feedback — each met/unmet with Take-quiz / Give-feedback CTAs), the
+  certificate state (issued/expiring/expired number + validity, or
+  pending-issue/earn-it copy), and that cohort's next 5 upcoming sessions.
+  **ZERO new backend** — pure composition over existing self-scoped reads
+  (`GET /api/learning/completion|certificates|sessions`; Participant scope
+  already enforced server-side). Entry points: catalog enrolled card →
+  "Enrolled · view progress", Participant-dashboard "My programs & progress"
+  CTA. New `useCompletion`/`useCertificates` hooks + api/query keys. Tests:
+  +7 component (MyProgramPage 5, MyProgramsPage 2), catalog test updated —
+  client 271/59, lint at cap 63, build clean. `/me/*` literal-English
+  convention. Next: P2 (unified My Learning home).
 - **2026-06-12** — **English-class separation: bounded `/english` section**
   (`feat/cohesion-p4-team-booking-separation`; plan
   `plans/260612-2151-english-class-separation/`; owner decisions: dedicated
