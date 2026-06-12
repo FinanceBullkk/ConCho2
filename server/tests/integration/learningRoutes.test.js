@@ -40,6 +40,27 @@ describe('Learning Platform API — programs', () => {
     expect(res.body.data.some((p) => p.code === 'TEST_ONBOARDING')).toBe(true);
   });
 
+  test('program list honours ?page/?limit window (PERF-015)', async () => {
+    await LearningProgram.create([
+      { code: 'TEST_PAGE_A', name: 'Page A', category: 'onboarding', defaultSessionCount: 1, schedulingMode: 'admin_scheduled' },
+      { code: 'TEST_PAGE_B', name: 'Page B', category: 'onboarding', defaultSessionCount: 1, schedulingMode: 'admin_scheduled' },
+    ]);
+
+    const page1 = await request(app)
+      .get('/api/learning/programs?limit=1&page=1&q=Page')
+      .set('Authorization', `Bearer ${tokens.admin}`);
+    const page2 = await request(app)
+      .get('/api/learning/programs?limit=1&page=2&q=Page')
+      .set('Authorization', `Bearer ${tokens.admin}`);
+
+    expect(page1.status).toBe(200);
+    expect(page2.status).toBe(200);
+    expect(page1.body.data).toHaveLength(1);
+    expect(page2.body.data).toHaveLength(1);
+    // Stable sort (category, name) → distinct rows across the two windows.
+    expect(page1.body.data[0]._id).not.toBe(page2.body.data[0]._id);
+  });
+
   test('admin can create a learning program', async () => {
     const res = await request(app)
       .post('/api/learning/programs')

@@ -80,6 +80,33 @@ describe('GET /api/users', () => {
     expect(res.body.data.some(u => u.name.includes('Admin'))).toBe(true);
   });
 
+  test('sorts by lastActive on the denormalised lastActiveAt (BUG-005)', async () => {
+    // Give the HIGHER-empCode member the newer timestamp: the pre-fix
+    // behavior (silent fallback to empCode asc) would list member1 first,
+    // so this ordering only holds when lastActiveAt actually drives the sort.
+    const now = new Date();
+    const older = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+    await User.updateOne({ _id: seed.member1._id }, { $set: { lastActiveAt: older } });
+    await User.updateOne({ _id: seed.member2._id }, { $set: { lastActiveAt: now } });
+
+    const res = await request(app)
+      .get('/api/users?sortBy=lastActive&sortOrder=desc&limit=100')
+      .set('Authorization', `Bearer ${tokens.admin}`);
+
+    expect(res.status).toBe(200);
+    const ids = res.body.data.map((u) => u._id);
+    const iNewer = ids.indexOf(String(seed.member2._id));
+    const iOlder = ids.indexOf(String(seed.member1._id));
+    expect(iNewer).toBeGreaterThanOrEqual(0);
+    expect(iOlder).toBeGreaterThanOrEqual(0);
+    expect(iNewer).toBeLessThan(iOlder);
+
+    await User.updateMany(
+      { _id: { $in: [seed.member1._id, seed.member2._id] } },
+      { $set: { lastActiveAt: null } },
+    );
+  });
+
   test('returns 403 for non-Admin', async () => {
     const res = await request(app)
       .get('/api/users')

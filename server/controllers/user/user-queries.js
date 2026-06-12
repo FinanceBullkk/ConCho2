@@ -38,13 +38,16 @@ const getUsers = async (req, res) => {
 
     const { page, limit, skip } = parsePagination(req);
 
-    // Sortable columns whitelist
-    const SORTABLE = ['empCode', 'name', 'department', 'position', 'status', 'role', 'entranceLevel', 'currentLevel'];
+    // Sortable columns whitelist. `lastActive` is the client-facing column
+    // name; it sorts on the denormalised `lastActiveAt` (BUG-005 — the
+    // UsersPage default sort silently fell back to empCode before).
+    const SORTABLE = ['empCode', 'name', 'department', 'position', 'status', 'role', 'entranceLevel', 'currentLevel', 'lastActive'];
     const sortBy = SORTABLE.includes(req.query.sortBy) ? req.query.sortBy : 'empCode';
+    const sortField = sortBy === 'lastActive' ? 'lastActiveAt' : sortBy;
     const sortOrder = req.query.sortOrder === 'desc' ? -1 : 1;
 
     const [users, total] = await Promise.all([
-      User.find(filter).sort({ [sortBy]: sortOrder }).skip(skip).limit(limit),
+      User.find(filter).sort({ [sortField]: sortOrder, _id: 1 }).skip(skip).limit(limit),
       User.countDocuments(filter),
     ]);
 
