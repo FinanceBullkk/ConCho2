@@ -13,7 +13,18 @@
  */
 
 const REQUIRED_ALWAYS = ['JWT_SECRET'];
-const REQUIRED_IN_PRODUCTION = ['MONGO_URI', 'CRON_TOKEN', 'IMPORT_DEFAULT_PASSWORD'];
+// OPS-011: CORS_ORIGINS missing in prod silently falls back to a localhost
+// allowlist → every browser write is rejected at runtime (boot succeeds,
+// app-wide outage). CLIENT_ORIGIN missing → password-reset emails link to
+// http://localhost:5173. Both are README-§6.4-required; fail fast at boot
+// instead (ALLOW_MISSING_PROD_ENV remains the emergency bypass).
+const REQUIRED_IN_PRODUCTION = [
+  'MONGO_URI',
+  'CRON_TOKEN',
+  'IMPORT_DEFAULT_PASSWORD',
+  'CORS_ORIGINS',
+  'CLIENT_ORIGIN',
+];
 
 const isMissing = (key) => {
   const v = process.env[key];
