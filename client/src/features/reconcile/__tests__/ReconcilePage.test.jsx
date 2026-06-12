@@ -17,8 +17,9 @@ const fixture = vi.hoisted(() => ({
       multi_team_class: 1,
       counter_drift: 1,
       soft_deleted_in_team_members: 1,
+      stale_waitlist_entry: 1,
       future_summary_key: 2,
-      total: 7,
+      total: 8,
     },
     issues: [
       {
@@ -41,6 +42,10 @@ const fixture = vi.hoisted(() => ({
       {
         check: 'soft_deleted_in_team_members',
         description: 'Deleted learner remains in team',
+      },
+      {
+        check: 'stale_waitlist_entry',
+        description: 'Waiting entry on a finished session',
       },
       {
         check: 'constructor',
@@ -90,6 +95,9 @@ describe('ReconcilePage', () => {
     expect(screen.getAllByText('Multiple teams for one class')).toHaveLength(2);
     expect(screen.getAllByText('Counter drift')).toHaveLength(2);
     expect(screen.getAllByText('Deleted user in team')).toHaveLength(2);
+    // DATA-016 — new known check renders its own label, not the unknown fallback
+    expect(screen.getAllByText('Stale waitlist entry')).toHaveLength(2);
+    expect(screen.getByText('Waiting entry on a finished session')).toBeInTheDocument();
     expect(screen.getAllByText('Unknown reconciliation check').length).toBeGreaterThanOrEqual(3);
     expect(screen.getByText('Learner has two active enrollments')).toBeInTheDocument();
     expect(screen.getByText('Prototype-like future check payload')).toBeInTheDocument();

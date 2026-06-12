@@ -53,6 +53,12 @@ const issueSchema = new mongoose.Schema(
         // {roomId,startTime} key stays occupied and bricks the slot until
         // the row is removed.
         'orphan_room_booking',
+        // DATA-016 — stale_waitlist_entry: a 'waiting' WaitlistEntry whose
+        // session is past/cancelled/deleted. Promotion skips past sessions
+        // and dissolution only fires on the cancel path, so these rows rot
+        // forever and the learner's "mine" list shows a live queue position
+        // on a session that can never seat them.
+        'stale_waitlist_entry',
       ],
       required: true,
     },
@@ -101,6 +107,7 @@ const reconcileReportSchema = new mongoose.Schema(
       counter_drift:                  { type: Number, default: 0 },
       soft_deleted_in_team_members:   { type: Number, default: 0 },
       orphan_room_booking:            { type: Number, default: 0 },
+      stale_waitlist_entry:           { type: Number, default: 0 },
       total:                  { type: Number, default: 0 },
     },
     // 'ok' when no issues found, 'issues' otherwise
