@@ -2,7 +2,7 @@
 capability: capability-authz
 status: evolving
 owners: [middleware/requireCapability, middleware/roleGuard, policy]
-last_updated: 2026-06-10
+last_updated: 2026-06-12
 related_code:
   - server/middleware/requireCapability.js
   - server/policy/capabilities.js
@@ -26,9 +26,9 @@ Decide who may do what. Two coarse mechanisms coexist today, plus a resource
 layer:
 1. **`roleGuard`** — coarse role allowlist (legacy routes).
 2. **`requireCapability`** (M4) backed by `policy/capabilities.js` — coarse
-   *capability* check on the new domain routes (learning, assessment, org). A
-   route declares WHAT it needs (`program.manage`, `session.book`) instead of
-   WHO is allowed.
+   *capability* check on the new domain routes (learning, assessment, org,
+   schedule, room). A route declares WHAT it needs (`program.manage`,
+   `session.book`) instead of WHO is allowed.
 3. **`policy/*`** — resource-level ("can THIS actor touch THIS doc?").
 
 The capability map is the migration target's spine; today capabilities are
@@ -70,8 +70,12 @@ derived from role (Admin = superuser), behavior-preserving vs the old
 - **roleGuard** (`server/middleware/roleGuard.js`): coarse role allowlist
   (legacy routes).
 - **policy/***: pure resource fns `canDoX(actor, doc, opts) → {allowed, reason}`.
-- **LearningProgram policy fields:** `schedulingMode`, `capacityPolicy`,
-  `facilitatorPolicy` — persisted, **not enforced** yet.
+- **LearningProgram policy fields** (enforcement truth, audit round 8):
+  `schedulingMode` **enforced** (all session-create paths), `capacityPolicy`
+  **enforced** (`session-booking-policy.js` maxParticipantsPerSession +
+  enrollment maxParticipants), `completionPolicy` **enforced** (completion
+  engine + rollups); `deliveryMode` + `facilitatorPolicy` persisted, **not
+  enforced**.
 
 ## Functional Requirements (FR)
 
@@ -145,7 +149,7 @@ Inherits `security-platform`. Specifics:
 - **`schedulingMode` gating** is now enforced on all session-create paths
   (`leader_booking` + `admin_scheduled` + cohort-vs-team structural) via
   `domains/schedule/scheduling-mode-policy` — see `scheduling-and-booking`.
-  Still deferred: `capacityPolicy` / `facilitatorPolicy` enforcement (persisted,
-  not enforced — see `enrollment`).
+  `capacityPolicy` is enforced too (Wave E2 — see `enrollment`). Still
+  deferred: `facilitatorPolicy` + `deliveryMode` enforcement (persisted only).
 - A generic `requirePolicy` middleware wrapper (sketched in `policy/README.md`,
   not implemented — resource policies are called directly in controllers).

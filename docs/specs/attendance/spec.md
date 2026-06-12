@@ -1,11 +1,11 @@
 ---
 capability: attendance
 status: stable
-owners: [services/attendanceService, controllers/attendanceController, models/Attendance]
-last_updated: 2026-06-10
+owners: [domains/attendance, models/Attendance]
+last_updated: 2026-06-12
 related_code:
+  - server/domains/attendance
   - server/services/attendanceService.js
-  - server/controllers/attendanceController.js
   - server/models/Attendance.js
   - server/helpers/teacher-class-scope.js
 related_plans: []

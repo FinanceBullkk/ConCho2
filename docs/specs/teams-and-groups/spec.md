@@ -1,10 +1,10 @@
 ---
 capability: teams-and-groups
 status: stable
-owners: [controllers/teamController, models/Team]
-last_updated: 2026-06-08
+owners: [domains/groups, models/Team]
+last_updated: 2026-06-12
 related_code:
-  - server/controllers/teamController.js
+  - server/domains/groups
   - server/models/Team.js
 related_plans: []
 ---
@@ -12,7 +12,9 @@ related_plans: []
 # Capability: Teams & Groups
 
 > **Source of truth for BEHAVIOR.** File/route locations: `docs/current-system-map.md`.
-> Target vocabulary: Team → **LearningGroup** (not migrated yet).
+> Vocabulary: the Team → LearningGroup rename was **DROPPED** (owner 2026-06-12,
+> audit round 7) — `domains/groups` is the module, but the `Team` model name and
+> `/api/teams` URL are permanent.
 
 ## Purpose
 
@@ -110,4 +112,5 @@ Inherits `security-platform`. Specifics:
 ## Out of Scope / Deferred
 
 - Self-service team join/leave (membership is Admin-managed).
-- LearningGroup vocabulary migration (Team → LearningGroup) — not started.
+- ~~LearningGroup vocabulary migration~~ — rename DROPPED permanently (audit
+  round 7): pure churn, zero behavior value.

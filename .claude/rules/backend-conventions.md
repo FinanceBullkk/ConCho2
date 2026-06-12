@@ -44,7 +44,7 @@ Validate request bodies with **zod** (`server/schemas/`) via the `validate` midd
 Multi-document mutations that must be atomic (group transfer, schedule edits, roster rebuild) use Mongoose sessions/transactions. Don't leave data half-written — all-or-nothing.
 
 ## Concurrency
-Double-booking is prevented by a UNIQUE index `{classId, startTime}` on `Schedule` — the DB is the final guard, not just app logic. Handle the duplicate-key error as a user-facing "slot taken" message.
+Double-booking is prevented by a PARTIAL unique index `{classId, startTime}` (`partialFilterExpression: {status:'scheduled'}`) on `Schedule` — the DB is the final guard, not just app logic; cancelled rows may share the slot as history while the freed slot re-books. Handle the duplicate-key error as a user-facing "slot taken" message.
 
 ## Logging
 Use the request-scoped pino logger (`req.log`), not `console.log`. Logs are structured and request-id traced.

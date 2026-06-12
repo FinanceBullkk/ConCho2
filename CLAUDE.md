@@ -47,7 +47,7 @@ clone.
 - Code-truth map: `docs/current-system-map.md` · Route/permission matrix: `docs/route-permission-matrix.md`
 - Architecture decisions: `docs/decisions/`
 - Operational runbooks: `docs/backup-dr.md`, `docs/cron-pinger-setup.md`, `docs/google-calendar-setup.md`
-- API: `/api/docs` (Swagger, when server running)
+- API: `docs/route-permission-matrix.md` (full route truth); `/api/docs` Swagger is PARTIAL (annotated routes only)
 
 ## Agent skills
 

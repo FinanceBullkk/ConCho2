@@ -2,7 +2,7 @@
 capability: bulk-import
 status: stable
 owners: [controllers/importController, services/importService]
-last_updated: 2026-06-08
+last_updated: 2026-06-12
 related_code:
   - server/controllers/importController.js
   - server/services/importService.js
@@ -47,6 +47,21 @@ created/updated/skipped counts.
 - **WHEN** imported
 - **THEN** new ones are created, existing updated, and counts are returned
 
+### Requirement: Trash guard — never overwrite soft-deleted records [BR-1, UC-1, UC-2]
+
+The system SHALL refuse the WHOLE batch (loud `ServiceError`, listing up to 5
+offending codes) when any row matches a soft-deleted user (`empCode`) or an
+archived cohort (`{classCode, courseName}`) — the hook-bypassing `bulkWrite`
+upsert would otherwise silently overwrite the trashed doc (DATA-013, audit
+round 2). Restore from trash first, then re-import.
+
+#### Scenario: Batch contains a trashed empCode
+- **GIVEN** a soft-deleted user with empCode 000123 and an import batch
+  containing 000123
+- **WHEN** imported
+- **THEN** the whole batch is rejected with a message naming 000123; nothing
+  is written
+
 ### Requirement: Audit every import [BR-2, UC-1]
 
 The system SHALL record an `imported` audit entry with the summary note.
@@ -75,6 +90,7 @@ Inherits `security-platform`. Specifics:
 | Trigger | Behavior | Recovery |
 |---|---|---|
 | Invalid rows | reported/skipped | fix and re-import |
+| Row matches trashed user/cohort | whole batch refused (named codes) | restore from trash, re-import |
 | Non-admin | 403 | use Admin |
 
 ## Out of Scope / Deferred

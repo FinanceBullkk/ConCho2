@@ -1,8 +1,8 @@
 ---
 capability: scheduling-and-booking
 status: stable
-owners: [services/scheduleService, controllers/scheduleController, domains/schedule, domains/learning/session]
-last_updated: 2026-06-11
+owners: [services/scheduleService, domains/schedule, domains/room, domains/learning/session]
+last_updated: 2026-06-12
 related_plans:
   - plans/260602-2247-m1-self-enroll-nomination-session-modes
   - plans/260606-1356-wave-e-generic-scheduling
@@ -10,8 +10,7 @@ related_plans:
 related_code:
   - server/services/scheduleService.js
   - server/models/Schedule.js
-  - server/routes/scheduleRoutes.js
-  - server/controllers/scheduleController.js
+  - server/domains/schedule/routes.js
   - server/domains/schedule/scheduling-window-policy.js
   - server/domains/schedule/session-booking-policy.js
   - server/domains/schedule/scheduling-mode-policy.js
@@ -23,7 +22,7 @@ related_code:
   - server/models/RoomBooking.js
   - server/domains/room/use-cases.js
   - server/policy/sessionInstructors.js
-  - client/src/pages/BookClassPage.jsx
+  - client/src/features/schedule/BookClassPage.jsx
   - client/src/components/CalendarGrid.jsx
   - client/src/features/learning/CohortSessionsPanel.jsx
   - client/src/features/learning/AssignTrainersModal.jsx

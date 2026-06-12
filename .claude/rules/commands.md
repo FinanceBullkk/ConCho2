@@ -33,7 +33,7 @@ npm run scripts:check        # syntax check on root scripts
 ```
 GET /health   # process alive?
 GET /ready    # DB connected?
-GET /api/docs # Swagger UI (server running)
+GET /api/docs # Swagger UI (server running; PARTIAL — full route truth: docs/route-permission-matrix.md)
 ```
 
 ## Maintenance scripts (`server/scripts/`, run with node)

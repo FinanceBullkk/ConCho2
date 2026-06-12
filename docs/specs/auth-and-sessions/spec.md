@@ -2,7 +2,7 @@
 capability: auth-and-sessions
 status: stable
 owners: [controllers/authController, services/authService, services/mfaService, middleware/auth]
-last_updated: 2026-06-08
+last_updated: 2026-06-12
 related_code:
   - server/middleware/auth.js
   - server/controllers/authController.js
@@ -60,14 +60,15 @@ session-killing on password change.
 ### Requirement: Password login with bcrypt [BR-1, UC-1]
 
 The system SHALL verify credentials via bcrypt (`User.matchPassword`) and, on
-success, issue an HS256 JWT in an HttpOnly cookie `tms_token` (24h) carrying a
-`jti`. Inactive accounts are denied.
+success, issue an HS256 JWT in an HttpOnly cookie `tms_token` (TTL =
+`JWT_EXPIRE`, default **1d** — DOCS-003) carrying a `jti`. Inactive accounts
+are denied.
 
 #### Scenario: Valid login
 - **GIVEN** an Active user with correct empCode + password and MFA disabled
 - **WHEN** they log in
-- **THEN** an HttpOnly `tms_token` cookie (24h) is set and failed-attempt count
-  resets to 0
+- **THEN** an HttpOnly `tms_token` cookie (24h default) is set and
+  failed-attempt count resets to 0
 
 #### Scenario: Wrong password
 - **GIVEN** an existing user
@@ -81,22 +82,24 @@ success, issue an HS256 JWT in an HttpOnly cookie `tms_token` (24h) carrying a
 
 ### Requirement: Brute-force lockout [BR-4, UC-1]
 
-The system SHALL lock an account after 5 consecutive failed logins for 15
-minutes (`failedLoginAttempts` + `lockUntil`), durable across instances; the
-per-route rate limiter is the first line of defence.
+The system SHALL lock an account after **10** consecutive failed logins
+(`LOGIN_MAX_FAILED`, default 10) for **15 minutes** (`LOGIN_LOCK_MINUTES`,
+default 15) via `failedLoginAttempts` + `lockUntil`, durable across instances;
+the per-route rate limiter is the first line of defence.
 
-#### Scenario: Fifth failure locks
-- **GIVEN** 4 prior failed logins
-- **WHEN** a 5th fails
+#### Scenario: Tenth failure locks
+- **GIVEN** 9 prior failed logins
+- **WHEN** a 10th fails
 - **THEN** the account is locked until `lockUntil`; further attempts are refused
   even with the correct password
 
 ### Requirement: MFA challenge when enrolled [BR-2, UC-2]
 
 When `mfaEnabled`, login SHALL return an MFA-pending token (`mfa:'pending'`, ~5
-min) that authorizes only `/api/auth/mfa/verify`; a valid TOTP (speakeasy
-`verifyDelta`, with replay protection via `mfaLastUsedCounter`) or a single-use
-backup code completes login and mints the full-session cookie.
+min) that authorizes only `/api/auth/mfa/verify`; a valid TOTP (speakeasy, with
+replay protection: the **absolute TOTP step counter** of the accepted code is
+persisted to `mfaLastUsedCounter` — SEC-018) or a single-use backup code
+completes login and mints the full-session cookie.
 
 #### Scenario: TOTP completes login
 - **GIVEN** an MFA user who passed password step (holds pending token)
@@ -105,8 +108,10 @@ backup code completes login and mints the full-session cookie.
 
 #### Scenario: TOTP replay rejected
 - **GIVEN** a TOTP code already used to verify
-- **WHEN** the same code is submitted again
-- **THEN** it is rejected (delta ≤ `mfaLastUsedCounter`)
+- **WHEN** the same (or any earlier-step) code is submitted again
+- **THEN** it is rejected (its absolute step counter ≤ stored
+  `mfaLastUsedCounter`); a later step still logs in — SEC-018 fixed the
+  relative-delta comparison that falsely locked users out after first login
 
 #### Scenario: Pending token misuse
 - **GIVEN** only an MFA-pending token
@@ -163,8 +168,8 @@ Inherits `security-platform`. Specifics:
 
 ## Acceptance Criteria (AC)
 
-- [ ] Valid login sets 24h HttpOnly cookie; resets fail count.
-- [ ] 5 failures → 15-min lockout, durable.
+- [ ] Valid login sets HttpOnly cookie (`JWT_EXPIRE`, default 24h); resets fail count.
+- [ ] 10 failures → 15-min lockout, durable (both env-tunable).
 - [ ] MFA user must pass TOTP/backup code; pending token can't reach other routes.
 - [ ] TOTP replay rejected; backup code single-use.
 - [ ] Password change / logout invalidate prior tokens.
@@ -177,7 +182,7 @@ Inherits `security-platform`. Specifics:
 | Trigger | Behavior | Recovery |
 |---|---|---|
 | Wrong password | denied + increment | retry (until lock) |
-| 5 failures | locked 15 min | wait / admin |
+| 10 failures | locked 15 min | wait / admin |
 | Non-active account | 403 | admin reactivates |
 | Pending token elsewhere | 401 | submit MFA code |
 | Reused TOTP | rejected | wait next window |

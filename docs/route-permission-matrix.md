@@ -6,7 +6,7 @@ Source: current route middleware. Keep this matrix updated when routes move into
 
 | Base path | Read access | Write access | Notes |
 |---|---|---|---|
-| `/health`, `/ready`, `/api/health` | public | none | Liveness/readiness probes — no auth required |
+| `/health`, `/ready`, `/api/health`, `/api/ready` | public | none | Liveness/readiness probes — no auth required |
 | `/api/auth` | authenticated self | self/Admin depending endpoint | login/reset public with rate limits |
 | `/api/users` | Admin | Admin | includes deleted/restore/progress |
 | `/api/teams` | Admin; `/my-teams` authenticated | Admin | participant can read own teams |
