@@ -1,6 +1,5 @@
 // @ts-check
 import { test, expect } from '@playwright/test';
-import { loginViaUI } from './fixtures.js';
 import { apiLogin, apiLoginAdmin, apiSend, findUserIdByEmpCode } from './api-helpers.js';
 import { totp } from './totp-helper.js';
 
