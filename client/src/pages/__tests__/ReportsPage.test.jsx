@@ -11,9 +11,9 @@ vi.mock('@/hooks/useRole', () => ({
 
 // Heavy child components are not under test; stub them so we can assert
 // purely on the tab strip and active-tab routing.
+// (Evaluations moved to /english?tab=evaluations — English-class separation.)
 vi.mock('../../features/admin/HRExportPage', () => ({ default: () => <div data-testid="hr-export-page">HR Export</div> }));
 vi.mock('../../features/sync/SyncPage', () => ({ default: () => <div data-testid="sync-page">Sync</div> }));
-vi.mock('../../features/evaluations/EvaluationPage', () => ({ default: () => <div data-testid="eval-page">Evaluations</div> }));
 vi.mock('../../features/attendance/AttendanceDashboardPage', () => ({ default: () => <div data-testid="analytics-page">Analytics</div> }));
 
 function renderReports(initialPath = '/reports') {
@@ -29,23 +29,23 @@ describe('ReportsPage — tab visibility per role', () => {
     mockCan.mockReset();
   });
 
-  it('Admin sees all four tabs', () => {
+  it('Admin sees all three tabs (Evaluations lives in /english now)', () => {
     mockCan.mockImplementation(() => true);
     renderReports();
     expect(screen.getByRole('tab', { name: /analytics/i })).toBeInTheDocument();
     expect(screen.getByRole('tab', { name: /hr export/i })).toBeInTheDocument();
     expect(screen.getByRole('tab', { name: /sheets sync/i })).toBeInTheDocument();
-    expect(screen.getByRole('tab', { name: /evaluations/i })).toBeInTheDocument();
+    expect(screen.queryByRole('tab', { name: /evaluations/i })).not.toBeInTheDocument();
   });
 
-  it('Teacher sees only analytics + evaluations (no HR Export, no Sheets Sync)', () => {
+  it('Teacher sees only analytics (no HR Export, no Sheets Sync)', () => {
     // Teacher permissions: read:attendance + read:evaluations only
     mockCan.mockImplementation(
       (p) => p === 'read:attendance' || p === 'read:evaluations'
     );
     renderReports();
     expect(screen.getByRole('tab', { name: /analytics/i })).toBeInTheDocument();
-    expect(screen.getByRole('tab', { name: /evaluations/i })).toBeInTheDocument();
+    expect(screen.queryByRole('tab', { name: /evaluations/i })).not.toBeInTheDocument();
     expect(screen.queryByRole('tab', { name: /hr export/i })).not.toBeInTheDocument();
     expect(screen.queryByRole('tab', { name: /sheets sync/i })).not.toBeInTheDocument();
   });

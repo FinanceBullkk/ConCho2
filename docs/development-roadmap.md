@@ -262,6 +262,46 @@ Bug fixing and integration review rank above net-new feature rollout.
 
 ## Recent progress (changelog)
 
+- **2026-06-12** — **English-class separation: bounded `/english` section**
+  (`feat/cohesion-p4-team-booking-separation`; plan
+  `plans/260612-2151-english-class-separation/`; owner decisions: dedicated
+  nav item, schedules+attendance split too, team classes hidden from
+  Learning, additive backend). Everything English-class-shaped now lives in
+  ONE nav section `/english` (tabs by role — Admin: Classes·Teams·Schedules·
+  Attendance·Evaluations; Teacher: Attendance·Evaluations; Participant/
+  Leader: Team booking, membership-gated): Teams left `/people`, Evaluations
+  left `/reports`, the booking grid left `/calendar`, the `groups` compat
+  tab left `/learning`. **Worlds split by scheduling mode** — team =
+  `leader_booking`/`admin_scheduled` + program-less legacy (fallback
+  parity); cohort = `self_enroll`/`nomination`. Backend (additive, ADR-safe,
+  no renames): optional `mode=team|cohort` filter on `GET /api/schedules`,
+  `/api/schedules/attendance-calendar`, `/api/learning/cohorts`
+  (`findCohortModeClassIds`/`findCohortModeProgramIds`), plus a new thin
+  read-only domain `server/domains/english-class/` at
+  `/api/english/{classes,schedules,attendance-calendar}` forcing
+  `mode=team` (Participant enrolled-only scope preserved; mutations stay on
+  existing mode-gated URLs). `/calendar` is now the cohort-world staff
+  calendar (Participant → redirect `/english`); `/book` redirect
+  retargeted to `/english?tab=book`; SearchPalette teams deep-link,
+  Participant-dashboard links, seed (+1 cohort-world program/cohort so
+  generic surfaces are non-empty) and e2e
+  (booking/navigation/permissions/attendance-export) updated. Tests: +11
+  server integration (`english-class-routes`), new EnglishPage component
+  suite, CalendarPage/ReportsPage suites rewritten — server 913/92, client
+  264/57, lint at cap 63, build clean. Supersedes the P4 membership-gating
+  entry point below.
+- **2026-06-12** — **Cohesion Wave P4: team-booking mode separation**
+  (`feat/cohesion-p4-team-booking-separation`; plan
+  `plans/260612-2058-cohesion-wave/`, executed first per owner). The legacy
+  English-class team-booking flow stops being the platform's face: the
+  Calendar "Team booking" tab (renamed from "Book") is now
+  **membership-gated** via `useMyTeams` — a Participant with no Team gets a
+  pointer panel to `/me/sessions` + `/me/catalog` instead of the booking
+  grid; `BookClassPage`'s "Not in any group" dead-end and the Participant
+  dashboard's empty-state got the same membership-aware treatment.
+  UI/composition only — no server change, `/book` redirect kept (e2e
+  unaffected), Team vocabulary unchanged (ADR). +4 component tests
+  (`CalendarPage.test.jsx`). Spec `scheduling-and-booking` UC-1 UI note.
 - **2026-06-12** — **Express 4 → 5 migration** (`chore/express-5`). Three
   code-level deltas, every security layer preserved: (1) **NoSQL sanitize** —
   the stock express-mongo-sanitize middleware throws on express 5 (`req.query`

@@ -25,6 +25,17 @@ const findCohorts = (filter = {}) =>
     .populate('programId')
     .sort({ classCode: 1, courseName: 1 });
 
+// English-class separation: program ids of the COHORT scheduling world
+// (self_enroll | nomination). Team world = every other program + program-less
+// classes. Keep the mode list in sync with
+// domains/schedule/scheduling-mode-policy.COHORT_SCHEDULING_MODES.
+const findCohortModeProgramIds = async () => {
+  const programs = await LearningProgram.find(
+    { schedulingMode: { $in: ['self_enroll', 'nomination'] } },
+  ).select('_id').lean();
+  return programs.map((p) => p._id);
+};
+
 const findCohortById = (id) =>
   Class.findById(id).populate('programId');
 
@@ -86,6 +97,7 @@ module.exports = {
   createProgram,
   updateProgramById,
   findCohorts,
+  findCohortModeProgramIds,
   findCohortById,
   createCohort,
   updateCohortById,

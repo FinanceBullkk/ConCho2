@@ -53,7 +53,9 @@ const scheduleToKey = (s, offset) =>
 
 const daysSince = (dateStr) => Math.floor((Date.now() - new Date(dateStr).getTime()) / 86400000);
 
-export default function AttendancePage() {
+// `mode` (optional, English-class separation): 'team' scopes the calendar to
+// the English/team-booking world, 'cohort' to the generic training world.
+export default function AttendancePage({ mode }) {
   const { isAdmin } = useAuth();
   const config = useSchedulingConfig();
   const offset = config.data?.utcOffsetMinutes ?? DEFAULT_UTC_OFFSET_MINUTES;
@@ -90,7 +92,7 @@ export default function AttendancePage() {
     return () => window.removeEventListener('keydown', handler);
   }, [selectedSchedule, requestClose]);
 
-  const { data: schedules = [], isLoading: loading } = useAttendanceCalendar();
+  const { data: schedules = [], isLoading: loading } = useAttendanceCalendar(mode ? { mode } : undefined);
 
   const weekDays = useMemo(() =>
     Array.from({ length: 7 }, (_, i) => new Date(weekStart.getTime() + i * 86400000)),

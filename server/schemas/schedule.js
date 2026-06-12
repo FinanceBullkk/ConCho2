@@ -35,6 +35,10 @@ const listSchedulesQuery = paginationQuery.extend({
   // staff may request cancelled history explicitly. (Participant scope
   // force-overrides to 'scheduled' in queries.listSchedules.)
   status: z.enum(['scheduled', 'cancelled', 'all']).optional(),
+  // English-class separation: scheduling-world filter. team = leader_booking/
+  // admin_scheduled + program-less legacy classes; cohort = self_enroll/
+  // nomination. Ignored when classId is given (already world-scoped).
+  mode: z.enum(['team', 'cohort']).optional(),
 });
 
 const availabilityQuery = z.object({

@@ -121,6 +121,17 @@ const seed = async () => {
       completionPolicy: { attendanceThresholdPercent: 0, requiresAssessment: true, requiresFeedback: false },
       legacyCourseName: 'Communication 2',
     });
+    // Cohort-world sample (English-class separation): a self-enroll program +
+    // cohort so the generic Learning surfaces are non-empty out of the box.
+    const complianceProgram = await LearningProgram.create({
+      code: 'COMP_DATA_PRIVACY',
+      name: 'Data Privacy Basics',
+      category: 'compliance',
+      defaultSessionCount: 4,
+      deliveryMode: 'online',
+      schedulingMode: 'self_enroll',
+      completionPolicy: { attendanceThresholdPercent: 75, requiresAssessment: false, requiresFeedback: false },
+    });
 
     // ── Create Users ──────────────────────────────────────
     console.log('👤 Creating users...');
@@ -261,7 +272,16 @@ const seed = async () => {
       status: 'Ongoing',
     });
 
-    console.log(`   ✅ Created 2 classes`);
+    // Cohort-world cohort (no team — learners self-enroll via the catalog).
+    await Class.create({
+      classCode: 'LD001',
+      courseName: 'Data Privacy Basics',
+      programId: complianceProgram._id,
+      totalSessions: 4,
+      status: 'Ongoing',
+    });
+
+    console.log(`   ✅ Created 3 classes (2 English team-world, 1 cohort-world)`);
 
     // ── Create Teams (now with classId — 1:1 mapping) ─────
     console.log('👥 Creating teams...');

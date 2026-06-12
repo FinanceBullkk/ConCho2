@@ -61,9 +61,18 @@ room/calendar never double-books.
 
 ## Actors & Use Cases (UC)
 
-- **UC-1 (Team Leader):** opens `/book` grid → clicks an empty allowed slot →
-  system creates a `Schedule` for the leader's team's class and auto-enrolls the
-  team's active members.
+- **UC-1 (Team Leader):** opens the booking grid → clicks an empty allowed
+  slot → system creates a `Schedule` for the leader's team's class and
+  auto-enrolls the team's active members.
+  - *UI note (English-class separation, 2026-06-12 — supersedes the Cohesion
+    P4 note):* the ENTIRE team-booking world lives in the dedicated
+    `/english` nav section (tabs by role — Admin: Classes·Teams·Schedules·
+    Attendance·Evaluations; Teacher: Attendance·Evaluations;
+    Participant/Leader: Team booking). The booking grid is membership-gated —
+    a Participant with no Team gets pointed to `/me/sessions` + `/me/catalog`.
+    `/book` redirects to `/english?tab=book`; `/calendar` is the cohort-world
+    staff calendar (Participants are redirected to `/english`). Server-side
+    booking behavior unchanged.
 - **UC-2 (Team Leader):** cancels a session their team owns → the `Schedule`
   flips to `cancelled` (durable history) and the slot frees up.
 - **UC-3 (Admin):** creates, edits the time of, or deletes **any** session,
@@ -602,6 +611,37 @@ The system SHALL scope reads: Admin sees all; Teacher sees attendance calendar
 for class bindings (legacy) / assigned cohorts (learning API); Participant sees
 own/my-class/enrolled sessions. Other teams' taken slots are visible but
 non-bookable.
+
+### Requirement: Scheduling-world list split (English-class separation) [BR-5, UC-4]
+
+List reads SHALL support an optional `mode=team|cohort` filter that splits
+sessions/classes into the two scheduling worlds: **team** =
+`leader_booking`/`admin_scheduled` programs **plus program-less legacy
+classes** (fallback parity with `findClassSchedulingMode`); **cohort** =
+`self_enroll`/`nomination`. Applies to `GET /api/schedules`,
+`GET /api/schedules/attendance-calendar`, `GET /api/learning/cohorts`; the
+filter is ignored when the query is already class/program-scoped
+(`classId`/`programId` given). A bounded read-only surface
+`GET /api/english/{classes,schedules,attendance-calendar}`
+(`server/domains/english-class/`) delegates to the same use-cases with
+`mode` **forced** to `team`, preserving each delegated endpoint's gating
+(Participant enrolled-only scope; attendance-calendar Admin/Teacher).
+Mutations have NO `/api/english` routes — they stay on the existing
+mode-gated URLs.
+
+#### Scenario: World split
+
+- **GIVEN** a team-world session (program-less class) and a cohort-world
+  session (`self_enroll` program's class)
+- **WHEN** an Admin calls `GET /api/schedules?mode=cohort` and
+  `GET /api/english/schedules`
+- **THEN** the first returns only the cohort-world session and the second
+  only the team-world session
+
+#### Scenario: Invalid mode
+
+- **WHEN** a caller passes `mode=banana`
+- **THEN** validation rejects the request with 400
 
 ## Non-Functional Requirements (NFR)
 
