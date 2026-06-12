@@ -12,7 +12,7 @@ const path = require('path');
 const cors = require('cors');
 const helmet = require('helmet');
 const cookieParser = require('cookie-parser');
-const mongoSanitize = require('express-mongo-sanitize');
+const { mongoSanitizeInPlace } = require('./middleware/mongo-sanitize-in-place');
 const pinoHttp = require('pino-http');
 const compression = require('compression');
 
@@ -203,9 +203,19 @@ app.use(cookieParser());                          // Parse HttpOnly cookies
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
 
+// express 5: req.body is undefined when no parser matched (express 4 gave {}).
+// Dozens of handlers destructure req.body on optionally-bodied requests
+// (DELETE with reason, logout, ...) — restore the express 4 default app-wide.
+app.use((req, _res, next) => {
+  if (req.body === undefined) req.body = {};
+  next();
+});
+
 // ── NoSQL Injection Prevention ───────────────────────────
-// Strips keys containing $ or . from req.body, req.query, req.params
-app.use(mongoSanitize());
+// Strips keys containing $ or . from req.body, req.query, req.params,
+// req.headers. express-5-compatible wrapper around express-mongo-sanitize's
+// sanitize() — see middleware/mongo-sanitize-in-place.js.
+app.use(mongoSanitizeInPlace);
 
 // ── CSRF Protection (double-submit cookie) ────────────────
 const { csrfProtection } = require('./middleware/csrfProtection');
@@ -271,8 +281,10 @@ if (process.env.NODE_ENV === 'production') {
   const clientDist = path.join(__dirname, '..', 'client', 'dist');
   app.use(express.static(clientDist));
 
-  // SPA fallback: any non-API route → index.html (React Router)
-  app.get('*', (_req, res) => {
+  // SPA fallback: any non-API route → index.html (React Router).
+  // express 5 / path-to-regexp 8: bare '*' is no longer a valid pattern —
+  // '/{*splat}' is the new optional-wildcard (matches '/' too).
+  app.get('/{*splat}', (_req, res) => {
     res.sendFile(path.join(clientDist, 'index.html'));
   });
 } else {
