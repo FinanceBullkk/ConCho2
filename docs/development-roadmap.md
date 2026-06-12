@@ -5,7 +5,7 @@
 > - *Architecture / orientation* → [`system-overview.md`](system-overview.md)
 > - *Detailed task snapshot* → [`handoff-2026-06-01.md`](handoff-2026-06-01.md)
 >
-> **Last updated:** 2026-06-11
+> **Last updated:** 2026-06-12
 
 ---
 
@@ -162,9 +162,13 @@ calendar refresh; cancelling a session dissolves its queue and emails the
 waiters; a unified `releaseScheduleResources` cleans room locks + waitlists on
 every removal path. Learner UI: **`/me/sessions`** (upcoming sessions across
 their cohorts — Enrolled / Waiting #N / Join-waitlist states), powered by a
-Participant visibility widening on the learning session list. **Wave E is now
-functionally COMPLETE** except: admin waitlist panel (staff API exists),
-session-list visibility for trainer-only teachers.
+Participant visibility widening on the learning session list. The final two
+polish items shipped later the same day (2026-06-11): a **staff waitlist
+panel** (read-only FIFO queue modal on the cohort Sessions panel,
+`read:waitlist`-gated) and **trainer-only teacher visibility** (session list +
+attendance calendar Teacher scope is a UNION of their cohorts' sessions and
+sessions naming them in `sessionInstructorIds`). **Wave E is COMPLETE** —
+verified 2026-06-12 (both features wired on main; no open Wave E items).
 
 ---
 
@@ -188,7 +192,7 @@ session-list visibility for trainer-only teachers.
 | B — Assessment & Certification | Generic assessment engine, completion enforcement, certificates | 🟡 in progress (completion + certificates + feedback + assessment engine v1 + completion reporting + rollups + assessment UI + feedback UI + assessment edit + question-bank backend/UI + manual grading v1 done) | A |
 | C — Catalog, Paths & Self-service | Learner catalog, self-enroll, learning paths/prerequisites | 🟢 core done (learner catalog + self-enroll UI + prerequisite gating v1 + prereq selector UI + sequenced learning paths v1 + admin paths UI + learner path-progress view) | A |
 | D — Platform & Scale | Production readiness → Google OIDC + Directory sync → manager hierarchy (org model) → mandatory assignment + due dates → notifications/escalation → compliance reporting + recertification. Order locked 2026-06-04 (after C closes). | 🟡 in progress (D1 cron self-monitoring done; **D3 v1 org model done**; **D4 assignment+due-dates v1 done**; **D5 assignment reminders + manager escalation v1 done**; **D6 v1.1 compliance report/export + certificate expiry signal + frontend UI verified/closed**; paid hosting + Sentry-account setup + D2 Google OAuth app = owner ops/inputs) | B, C |
-| E — Generic scheduling | Generalize booking beyond fixed English slots (session types, rooms, capacity, waitlists, instructors); keep leader-booking as one mode. Committed parallel track; large, own plan. | 🟢 functionally complete (**E1 done** — backend `ALLOWED_TIME_SLOTS` authoritative + exact-slot grid client (2026-06-09); **E2 capacity done**; **rooms done** via re-center Phase 3; **trainer-assignment UI done** (2026-06-10); **durable cancellation done** (2026-06-11, phase-04 A); **waitlists + FIFO auto-promotion + `/me/sessions` learner UI done** (2026-06-11, phase-04 B); residual polish: admin waitlist panel (staff API live), session-list visibility for trainer-only teachers) | A |
+| E — Generic scheduling | Generalize booking beyond fixed English slots (session types, rooms, capacity, waitlists, instructors); keep leader-booking as one mode. Committed parallel track; large, own plan. | 🟢 functionally complete (**E1 done** — backend `ALLOWED_TIME_SLOTS` authoritative + exact-slot grid client (2026-06-09); **E2 capacity done**; **rooms done** via re-center Phase 3; **trainer-assignment UI done** (2026-06-10); **durable cancellation done** (2026-06-11, phase-04 A); **waitlists + FIFO auto-promotion + `/me/sessions` learner UI done** (2026-06-11, phase-04 B); **polish done** (2026-06-11) — staff waitlist panel + trainer-only teacher session-list/calendar visibility. Wave closed, verified 2026-06-12) | A |
 
 > **Direction locked 2026-06-04** — full rationale + gap analysis in
 > [`ltms-gap-analysis.md`](ltms-gap-analysis.md). Six-month order:
@@ -258,6 +262,15 @@ Bug fixing and integration review rank above net-new feature rollout.
 
 ## Recent progress (changelog)
 
+- **2026-06-12** — **Wave E closure verified — tracker reconciled.** The two
+  "residual polish" items (staff waitlist panel, trainer-only teacher
+  session-list/calendar visibility) had already shipped 2026-06-11 (see that
+  day's "Wave E polish" entry) but the Current-status paragraph and Wave E
+  table row still listed them as open — written by phase-04 slice B hours
+  before the polish landed and never reconciled. Verified wired on main
+  (`SessionWaitlistModal` behind `read:waitlist` on the cohort Sessions
+  panel; Teacher UNION scope in session list, single-session read, and
+  attendance calendar), then fixed the stale tracker text. No code change.
 - **2026-06-12** — **QA-018b closed: the 4 remaining persona-critical e2e
   specs shipped** (`client/e2e/`): (1) **attendance marking** — teacher marks
   a past Team-B session all-present via the calendar drawer (past-session
