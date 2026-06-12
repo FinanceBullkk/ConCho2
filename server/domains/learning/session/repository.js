@@ -6,7 +6,13 @@ const Team = require('../../../models/Team');
 const Office = require('../../../models/Office');
 const { attachSessionNumbers } = require('../../schedule/session-order');
 
-const populateSessionQuery = (query) => query
+// PERF-016: the LIST path hydrates `enrolledUsers` with `_id` only — list
+// rows need the count plus a viewer-membership check, not ~9 full learner
+// docs per row. The DETAIL path keeps the full roster projection.
+const ROSTER_FULL = 'empCode name department status';
+const ROSTER_IDS_ONLY = '_id';
+
+const populateSessionQuery = (query, { rosterFields = ROSTER_FULL } = {}) => query
   .populate({
     path: 'classId',
     select: 'classCode courseName programId totalSessions status teacherIds createdAt updatedAt',
@@ -19,7 +25,7 @@ const populateSessionQuery = (query) => query
   .populate('officeId', 'name code')
   .populate('roomId', 'name code')
   .populate('sessionInstructorIds', 'empCode name')
-  .populate('enrolledUsers', 'empCode name department status');
+  .populate('enrolledUsers', rosterFields);
 
 // PERF-014 (audit round 4): these READ paths used to call
 // invalidateSessionOrderCache(classId) before attachSessionNumbers, which
@@ -31,7 +37,7 @@ const populateSessionQuery = (query) => query
 // and recompute only on a miss.
 const findSessions = async (filter, { skip, limit }) => {
   const [sessions, total] = await Promise.all([
-    populateSessionQuery(Schedule.find(filter))
+    populateSessionQuery(Schedule.find(filter), { rosterFields: ROSTER_IDS_ONLY })
       .sort({ startTime: 1 })
       .skip(skip)
       .limit(limit)
