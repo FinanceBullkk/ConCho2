@@ -64,6 +64,12 @@ room/calendar never double-books.
 - **UC-1 (Team Leader):** opens `/book` grid → clicks an empty allowed slot →
   system creates a `Schedule` for the leader's team's class and auto-enrolls the
   team's active members.
+  - *UI note (Cohesion P4, 2026-06-12):* the Calendar "Team booking" surface is
+    membership-gated — only Participants who belong to a Team see the grid; a
+    Participant with no team gets pointed to `/me/sessions` + `/me/catalog`
+    instead (team booking is one scheduling mode, not the platform's face).
+    `/book` URL keeps redirecting to `/calendar?tab=book`; no behavior change
+    server-side.
 - **UC-2 (Team Leader):** cancels a session their team owns → the `Schedule`
   flips to `cancelled` (durable history) and the slot frees up.
 - **UC-3 (Admin):** creates, edits the time of, or deletes **any** session,
