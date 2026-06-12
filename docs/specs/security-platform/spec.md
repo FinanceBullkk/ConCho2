@@ -103,9 +103,12 @@ fields (password, mfaSecret, …) in responses.
 
 - **Defense-in-depth:** layered (network limiter + app + DB constraints).
 - **Boot safety:** `envValidator` fail-fast — `JWT_SECRET` always required
-  (never bypassable); `MONGO_URI`, `CRON_TOKEN`, `IMPORT_DEFAULT_PASSWORD`
-  required in production. (`CORS_ORIGINS`/`CLIENT_ORIGIN` are NOT yet
-  boot-enforced — OPS-011, backlog.)
+  (never bypassable); `MONGO_URI`, `CRON_TOKEN`, `IMPORT_DEFAULT_PASSWORD`,
+  `CORS_ORIGINS`, `CLIENT_ORIGIN` required in production (OPS-011 closed
+  2026-06-12; `ALLOW_MISSING_PROD_ENV=true` remains the emergency bypass).
+- **Secret hygiene in logs:** the cron `?token=` query channel is redacted to
+  `token=[REDACTED]` before any pino log line or audit note persists the URL
+  (`lib/redact-url-token.js`; pino-http serializer + cronAuth — OPS-012).
 - **Observability:** request-id traced structured logging (pino); Sentry on 5xx.
 
 ## Acceptance Criteria (AC)

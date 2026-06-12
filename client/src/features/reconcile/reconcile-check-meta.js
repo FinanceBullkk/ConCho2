@@ -70,6 +70,20 @@ export const RECONCILE_CHECK_META = {
     icon: UserX,
     severity: 'warning',
   },
+  // re-center Phase 3 — previously fell back to the "unknown" meta.
+  orphan_room_booking: {
+    labelKey: 'reconcile.checks.orphanRoomBooking.label',
+    descriptionKey: 'reconcile.checks.orphanRoomBooking.description',
+    icon: CalendarX,
+    severity: 'critical',
+  },
+  // DATA-016 — waiting queue row on a past/cancelled/deleted session.
+  stale_waitlist_entry: {
+    labelKey: 'reconcile.checks.staleWaitlistEntry.label',
+    descriptionKey: 'reconcile.checks.staleWaitlistEntry.description',
+    icon: ClipboardList,
+    severity: 'warning',
+  },
 };
 
 const UNKNOWN_CHECK_META = {

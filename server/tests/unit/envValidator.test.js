@@ -24,14 +24,45 @@ describe('validateEnv()', () => {
     expect(r.missing).toContain('JWT_SECRET');
   });
 
-  test('production: all four required vars present → ok', () => {
-    process.env = {
-      NODE_ENV: 'production',
-      JWT_SECRET: 'x',
-      MONGO_URI: 'mongodb://x',
-      CRON_TOKEN: 'y',
-      IMPORT_DEFAULT_PASSWORD: 'z',
-    };
+  // Full prod env — clone and delete per-test to probe each var.
+  const FULL_PROD_ENV = {
+    NODE_ENV: 'production',
+    JWT_SECRET: 'x',
+    MONGO_URI: 'mongodb://x',
+    CRON_TOKEN: 'y',
+    IMPORT_DEFAULT_PASSWORD: 'z',
+    CORS_ORIGINS: 'https://app.example.com',
+    CLIENT_ORIGIN: 'https://app.example.com',
+  };
+
+  test('production: all required vars present → ok', () => {
+    process.env = { ...FULL_PROD_ENV };
+    expect(validateEnv()).toEqual({ ok: true, missing: [] });
+  });
+
+  // OPS-011: missing CORS_ORIGINS used to boot fine then reject every
+  // browser write at runtime (localhost allowlist fallback) — now fails fast.
+  test('production: missing CORS_ORIGINS reports failure', () => {
+    process.env = { ...FULL_PROD_ENV };
+    delete process.env.CORS_ORIGINS;
+    const r = validateEnv();
+    expect(r.ok).toBe(false);
+    expect(r.missing).toEqual(['CORS_ORIGINS']);
+  });
+
+  // OPS-011: missing CLIENT_ORIGIN silently sent localhost reset links.
+  test('production: missing CLIENT_ORIGIN reports failure', () => {
+    process.env = { ...FULL_PROD_ENV };
+    delete process.env.CLIENT_ORIGIN;
+    const r = validateEnv();
+    expect(r.ok).toBe(false);
+    expect(r.missing).toEqual(['CLIENT_ORIGIN']);
+  });
+
+  test('non-production: CORS_ORIGINS/CLIENT_ORIGIN not required', () => {
+    process.env = { NODE_ENV: 'development', JWT_SECRET: 'x' };
+    delete process.env.CORS_ORIGINS;
+    delete process.env.CLIENT_ORIGIN;
     expect(validateEnv()).toEqual({ ok: true, missing: [] });
   });
 
