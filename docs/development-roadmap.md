@@ -262,6 +262,26 @@ Bug fixing and integration review rank above net-new feature rollout.
 
 ## Recent progress (changelog)
 
+- **2026-06-12** — **Post-audit backlog sweep round 2: 4 ops/data findings
+  fixed** (`fix/backlog-sweep-ops-data-round`). **OPS-011** `CORS_ORIGINS` +
+  `CLIENT_ORIGIN` are now boot-required in production (missing CORS allowlist
+  used to boot fine then 500 every browser write; missing CLIENT_ORIGIN sent
+  localhost reset links) — README §6.4 notes the fail-fast; **OPS-010** all 3
+  `CRON_JOBS` entries carry their crontab `schedule` so pinger-driven runs
+  upsert the Sentry monitor config and missed-run alerts can actually arm
+  (schedule-less monitors never fire them); **OPS-012** cron `?token=` is
+  redacted (`token=[REDACTED]`) from the pino-http request log and all
+  cronAuth log/audit lines via new `lib/redact-url-token.js` (query channel
+  kept, redact-only per owner); **DATA-016** reconcile gains read-only check
+  #12 `stale_waitlist_entry` — flags `waiting` queue rows whose session is
+  past/cancelled/deleted (promotion skips past sessions by design, so these
+  rotted forever) — model enum + summary + Reconcile-page meta/i18n (also
+  adds the missing `orphan_room_booking` label). Specs updated:
+  `reconcile-job` (12-check truth + stale-waitlist scenario + OPS-010 NFR),
+  `security-platform` (boot-safety + log secret-hygiene NFRs). Tests: +12
+  unit/integration. Remaining audit backlog: CODE-017, DEPS majors,
+  DOCS-006b, QA-017/019/020/022 (all deliberate deferrals or ride-along
+  policies).
 - **2026-06-12** — **Wave E closure verified — tracker reconciled.** The two
   "residual polish" items (staff waitlist panel, trainer-only teacher
   session-list/calendar visibility) had already shipped 2026-06-11 (see that
