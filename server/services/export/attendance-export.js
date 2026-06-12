@@ -1,4 +1,6 @@
-const { v4: uuidv4 } = require('uuid');
+// node:crypto randomUUID — the `uuid` package was dropped in the deps-light
+// round (bcb0468); see auth-tokens.js for the production-only failure mode.
+const { randomUUID } = require('crypto');
 const Attendance = require('../../models/Attendance');
 const { ServiceError } = require('../../helpers/ServiceError');
 const { enforceRowCap } = require('./export-row-cap');
@@ -199,7 +201,7 @@ const exportAttendance = async (opts = {}) => {
   // 2. Atomically claim only those specific IDs (PENDING → EXPORTING + batchId).
   //    Using { _id: $in } + { syncStatus: PENDING } ensures we only claim records
   //    that are still PENDING even if a concurrent export ran between step 1 and 2.
-  const batchId = uuidv4();
+  const batchId = randomUUID();
   const claimedResult = await Attendance.updateMany(
     { _id: { $in: idsToExport }, syncStatus: 'PENDING' },
     { $set: { syncStatus: 'EXPORTING', exportBatchId: batchId } }
