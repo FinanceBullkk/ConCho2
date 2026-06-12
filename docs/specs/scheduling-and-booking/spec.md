@@ -378,6 +378,12 @@ best-effort calendar invite (when it has an email) and appears in display. The
 external trainer's `email`/`phone` are hidden from learner-facing session DTOs
 (name + org only); Admin/Coordinator see the full contact.
 
+**Roster shape per path (PERF-016, 2026-06-12):** the session LIST
+(`GET /api/learning/sessions`) returns `enrolledLearners` as **id-only stubs**
+(`{_id, learnerId}`) — enough for `enrolledLearnerCount` and the viewer's
+own-membership check; the DETAIL (`GET /api/learning/sessions/:id`) returns the
+full roster projection (`empCode`, `name`, `department`, `status`).
+
 **UI (shipped 2026-06-10):** the Learning → Cohorts tab gains a per-cohort
 **Sessions** action (`assign:trainer`, Admin/Coordinator; shown only for
 cohort-scheduled cohorts — `self_enroll`/`nomination`, the same gate as the

@@ -119,6 +119,22 @@ describe('Learning Platform API — sessions', () => {
     expect(res.body.data[0].groupId).toBe(seed.team._id.toString());
     expect(res.body.data[0].enrolledLearnerCount).toBe(2);
     expect(res.body.data.map((s) => s.sessionNumber)).toEqual([1, 2]);
+
+    // PERF-016: LIST rows carry id-only learner stubs (count + membership
+    // check), never the hydrated roster fields.
+    const listLearner = res.body.data[0].enrolledLearners[0];
+    expect(listLearner._id).toBeDefined();
+    expect(listLearner.empCode).toBeUndefined();
+    expect(listLearner.name).toBeUndefined();
+
+    // ...while the DETAIL endpoint keeps the full roster projection.
+    const detail = await request(app)
+      .get(`/api/learning/sessions/${res.body.data[0]._id}`)
+      .set('Authorization', `Bearer ${tokens.admin}`);
+    expect(detail.status).toBe(200);
+    const detailLearner = detail.body.data.enrolledLearners[0];
+    expect(detailLearner.empCode).toBeDefined();
+    expect(detailLearner.name).toBeDefined();
   });
 
   test('participant list = my sessions + my team/cohort sessions, never unrelated ones', async () => {
