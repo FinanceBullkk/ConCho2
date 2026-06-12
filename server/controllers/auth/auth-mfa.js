@@ -1,6 +1,12 @@
 const authService = require('../../services/authService');
 const auditService = require('../../services/auditService');
 const { handleError } = require('../../helpers/handleError');
+// CODE-017: hoisted from per-handler lazy requires — the require cycle they
+// dodged died with the legacy authController split (no module here requires
+// back into controllers).
+const mfaService = require('../../services/mfaService');
+const User = require('../../models/User');
+const { invalidateUserCache } = require('../../middleware/auth');
 
 // ──────────────────────────────────────────────────────────
 // Auth Controller — self-service MFA enrollment/management
@@ -21,8 +27,6 @@ const { handleError } = require('../../helpers/handleError');
  */
 const mfaSetup = async (req, res) => {
   try {
-    const mfaService = require('../../services/mfaService');
-    const User = require('../../models/User');
 
     const setup = await mfaService.generateSetup(req.user.empCode);
 
@@ -61,8 +65,6 @@ const mfaSetup = async (req, res) => {
  */
 const mfaVerifySetup = async (req, res) => {
   try {
-    const mfaService = require('../../services/mfaService');
-    const User = require('../../models/User');
     const { code } = req.body;
 
     const user = await User.findById(req.user._id)
@@ -101,7 +103,6 @@ const mfaVerifySetup = async (req, res) => {
     // Bust the auth-middleware user cache so the next /auth/me reflects
     // mfaEnabled=true immediately (otherwise the SPA reads a stale
     // mfaEnabled=false for up to the cache TTL).
-    const { invalidateUserCache } = require('../../middleware/auth');
     invalidateUserCache(user._id);
 
     auditService.record({
@@ -150,8 +151,6 @@ const mfaVerifySetup = async (req, res) => {
  */
 const mfaDisable = async (req, res) => {
   try {
-    const mfaService = require('../../services/mfaService');
-    const User = require('../../models/User');
     const { code } = req.body;
 
     const user = await User.findById(req.user._id).select('+mfaSecret +mfaBackupCodes');
@@ -173,7 +172,6 @@ const mfaDisable = async (req, res) => {
     user.mfaBackupCodes = [];
     await user.save();
 
-    const { invalidateUserCache } = require('../../middleware/auth');
     invalidateUserCache(user._id);
 
     auditService.record({
