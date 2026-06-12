@@ -49,7 +49,22 @@ server-side `CRON_TOKEN` is missing.
      if reconciliation starts erroring silently.
 3. Save → "Test run" to confirm it gets `200 OK`.
 
-## 5. (Optional) Keep-warm pinger
+## 5. Reminder jobs — REQUIRED, external-only (DOCS-005, audit round 8)
+
+Attendance and assignment reminders have **no in-process fallback at all**
+(`server/jobs/` only schedules reconcile) — if these two pings are not set
+up, reminder emails silently never go out in production. Create both as
+additional cron-job.org jobs, same `POST` + `Authorization: Bearer
+<CRON_TOKEN>` header as step 4:
+
+| URL | Schedule | What it does |
+|---|---|---|
+| `https://<your-app>.onrender.com/api/cron/attendance-reminders` | Hourly (`0 * * * *`) | "Your class starts soon" emails to enrolled learners (claim via `remindersSentAt`, max one per session) |
+| `https://<your-app>.onrender.com/api/cron/assignment-reminders` | Daily `01:00 UTC` (`0 1 * * *`) | Due-date reminder cadence for assignments |
+
+Turn on "Notify on failure" for both.
+
+## 6. (Optional) Keep-warm pinger
 
 If you want Render's free tier to stay awake during business hours
 instead of sleeping after 15 min of idle:

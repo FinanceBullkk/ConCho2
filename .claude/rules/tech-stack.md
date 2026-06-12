@@ -5,7 +5,7 @@ MERN monorepo. Node `>=20` (engines; CI runs Node 22 for both server and client 
 ## Server (`server/`) — CommonJS
 - **Express 4** — REST API
 - **Mongoose 8** + MongoDB Atlas
-- **jsonwebtoken** — JWT in HttpOnly cookie (24h)
+- **jsonwebtoken** — JWT in HttpOnly cookie (`JWT_EXPIRE`, default 1d)
 - **bcryptjs** (12 rounds) — password hashing
 - **speakeasy** + **qrcode** — TOTP 2FA
 - **zod 4** — request validation (`server/schemas/`)
@@ -16,7 +16,7 @@ MERN monorepo. Node `>=20` (engines; CI runs Node 22 for both server and client 
 - **googleapis** — Calendar invites + Meet links + Sheets export
 - **exceljs** — HR Excel export
 - **@sentry/node** — error tracking (5xx only)
-- **swagger-jsdoc** + **swagger-ui-express** — `/api/docs`
+- **swagger-jsdoc** + **swagger-ui-express** — `/api/docs` (partial coverage — only annotated routes; the route truth is `docs/route-permission-matrix.md`)
 
 ## Client (`client/`) — ESM, `type: module`
 - **React 19** + **Vite 8**

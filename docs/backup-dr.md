@@ -75,14 +75,16 @@ Critical env vars to document:
 |---|---|
 | `MONGO_URI` | Atlas connection string (used by main server) |
 | `JWT_SECRET` | JWT signing secret |
-| `REFRESH_SECRET` | Refresh token secret |
-| `MFA_ENCRYPTION_KEY` | TOTP encryption key |
+| `JWT_EXPIRE` | Session TTL — `1d` in production (DOCS-003) |
+| `IMPORT_DEFAULT_PASSWORD` | **Boot-required in production** — server refuses to start without it (envValidator) |
 | `CRON_TOKEN` | Cron endpoint auth token — must be ≥ 16 characters |
 | `GOOGLE_SERVICE_ACCOUNT_KEY_JSON` | Service account credentials as a JSON string — **use this in Render** |
 | `GOOGLE_SERVICE_ACCOUNT_KEY` | Path to service account JSON file — local dev only; leave unset in Render |
 | `GOOGLE_CALENDAR_IMPERSONATE` | Email of the Google Workspace user the service account impersonates as calendar organiser |
 | `TMS_TIMEZONE` | IANA timezone for calendar events (optional; defaults to `Asia/Ho_Chi_Minh`) |
 | `SENTRY_DSN` | Sentry error reporting DSN |
+| `MFA_ISSUER` | TOTP issuer label shown in authenticator apps |
+| `MFA_REQUIRED_ROLES` | Comma-separated roles forced to enroll MFA (e.g. `Admin`) |
 | `CORS_ORIGINS` | Comma-separated allowed CORS origins (e.g. `https://tms-v2.onrender.com`) |
 | `CLIENT_ORIGIN` | Base URL used in password-reset email links (e.g. `https://tms-v2.onrender.com`) |
 | `NODE_ENV` | `production` |

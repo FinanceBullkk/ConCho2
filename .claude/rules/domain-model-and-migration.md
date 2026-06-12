@@ -6,7 +6,7 @@ The app is **TMS v2** (English-class booking) being re-architected into a generi
 Admins do **NOT** pre-create schedules for groups to book into. The inverse:
 - Admin creates a **Class** and a **Team** (group) assigned to that class, with a **leader**.
 - The **team leader** self-creates sessions by clicking an empty cell on the `/book` time grid → the system creates the `Schedule` and auto-enrolls the whole team.
-- Constraints: sessions are exactly **1 hour**, only in **5 fixed slots** (10–11, 11–12, 13–14, 14–15, 15–16), max **2/week/team**.
+- Constraints: sessions book into the configurable **`ALLOWED_TIME_SLOTS`** windows (Setting, VN wall-clock, any duration — Wave E1; default = five 1-hour slots 10–11, 11–12, 13–14, 14–15, 15–16), max **2/week/team**. Empty/malformed slot config is fail-closed.
 - Leaders can see other teams' taken slots (so they pick free ones); they can't book taken slots. Admin can edit/delete any schedule.
 
 ## Vocabulary migration (legacy → target)
@@ -31,10 +31,11 @@ server/domains/<domain>/
 └── dto.js           # response shaping (legacy model → target vocabulary)
 ```
 - `learning/` = full reference implementation (has own routes). `learning/session/` is a sub-domain.
-- `schedule/` = **adapter** pattern: no own routes, the legacy `scheduleController` delegates `update`/`delete` into it. Use this pattern when extracting from a big legacy controller incrementally.
+- `schedule/` = has its **own routes** since 2026-06-10 (mounted at `/api/schedules`; the legacy `scheduleController` was retired). `scheduleService` remains the transaction-heavy booking-mutation chokepoint the domain delegates into.
+- 7 domains today: `learning`, `schedule`, `attendance`, `groups`, `assessment`, `org`, `room`.
 
-## schedulingMode enforced; other program policies stored but NOT yet enforced
-`LearningProgram` carries `schedulingMode` (`leader_booking` | `admin_scheduled` | `self_enroll` | `nomination`) plus `deliveryMode`, `completionPolicy`, `capacityPolicy`, `facilitatorPolicy`. **`schedulingMode` is now ENFORCED** on every server session-create path via `domains/schedule/scheduling-mode-policy.js` (team modes `leader_booking`/`admin_scheduled` book against a group; cohort modes `self_enroll`/`nomination` book against a cohort) — gated at the shared `scheduleService.bookSlot` chokepoint (covers the legacy `/api/schedules/book-slot` leader route AND the `learning/session` adapter), `scheduleService.adminCreate`, and `domains/schedule/use-cases.updateSchedule` reassign. Effects: leader self-booking an `admin_scheduled` program → 403; team-booking a cohort program → 400; unknown mode → 501; a program-less class still books (fallback `leader_booking`). Still persisted-but-not-enforced: `deliveryMode`, `completionPolicy`, `capacityPolicy`, `facilitatorPolicy`.
+## Program policy enforcement truth (audit round 8)
+`LearningProgram` carries `schedulingMode` (`leader_booking` | `admin_scheduled` | `self_enroll` | `nomination`) plus `deliveryMode`, `completionPolicy`, `capacityPolicy`, `facilitatorPolicy`. **`schedulingMode` is now ENFORCED** on every server session-create path via `domains/schedule/scheduling-mode-policy.js` (team modes `leader_booking`/`admin_scheduled` book against a group; cohort modes `self_enroll`/`nomination` book against a cohort) — gated at the shared `scheduleService.bookSlot` chokepoint (covers the legacy `/api/schedules/book-slot` leader route AND the `learning/session` adapter), `scheduleService.adminCreate`, and `domains/schedule/use-cases.updateSchedule` reassign. Effects: leader self-booking an `admin_scheduled` program → 403; team-booking a cohort program → 400; unknown mode → 501; a program-less class still books (fallback `leader_booking`). **`capacityPolicy` is ENFORCED** (`domains/schedule/session-booking-policy.js` maxParticipantsPerSession on booking; `domains/learning/enrollment/use-cases.js` maxParticipants per cohort — Wave E2). **`completionPolicy` is ENFORCED** (drives the completion engine + rollups, `domains/learning/completion/`). Still persisted-but-NOT-enforced: `deliveryMode`, `facilitatorPolicy`.
 
 ## Architectural decisions (locked — `docs/decisions/`)
 - Modular monolith (not microservices).
@@ -43,4 +44,4 @@ server/domains/<domain>/
 - Physical collection renames are out-of-scope for the first 6 months — migrate via DTOs/abstractions, not destructive renames.
 
 ## Status & next steps
-Live handoff with phase-by-phase progress and the prioritized task list: **`docs/handoff-2026-06-01.md`**. Read it before large changes. Supporting maps: `docs/current-system-map.md`, `docs/route-permission-matrix.md`.
+Living tracker: **`docs/development-roadmap.md`** (start here). `docs/handoff-2026-06-01.md` is a dated snapshot (last refreshed 2026-06-09) — useful history, not the live task list. Supporting maps: `docs/current-system-map.md`, `docs/route-permission-matrix.md`.

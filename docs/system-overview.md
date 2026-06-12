@@ -171,11 +171,11 @@ Re-architecture into an L&D platform runs in phases (full detail:
 
 | Phase | Theme | Progress |
 |------|-------|---------:|
-| 0 | Architecture baseline + safety net (ADRs, tests, domain convention) | ~92% |
+| 0 | Architecture baseline + safety net (ADRs, tests, domain convention) | ~93% |
 | 1 | Backend modular-monolith refactor (extract legacy → `domains/`) | ~98% |
 | 2 | Learning catalog + generic cohort model (`LearningProgram`) | ~95% |
 | 3 | Multi-program enrollment + session scheduling | ~78% |
-| 4 | Frontend L&D workspace (CRUD UI) | ~80% |
+| 4 | Frontend L&D workspace (CRUD UI) | ~78% |
 | 5 | Reporting, completion, feedback | ~72% |
 | 6 | PostgreSQL decision gate | 0% |
 
@@ -218,9 +218,9 @@ Every milestone must be wired before the next feature starts:
 | [`development-roadmap.md`](development-roadmap.md) | Living tracker and next work |
 | [`current-system-map.md`](current-system-map.md) | Exhaustive code-truth map (routes, models, services) |
 | [`route-permission-matrix.md`](route-permission-matrix.md) | Per-route read/write access |
-| [`handoff-2026-06-01.md`](handoff-2026-06-01.md) | Phase progress + prioritized task list |
+| [`handoff-2026-06-01.md`](handoff-2026-06-01.md) | Dated snapshot (2026-06-09) — live tracker is `development-roadmap.md` |
 | [`lms-roadmap.md`](lms-roadmap.md) | Internal LTMS strategy and 6-month direction |
 | [`ltms-gap-analysis.md`](ltms-gap-analysis.md) | LTMS gap analysis + proposed priority re-sequence (decision doc) |
 | [`decisions/`](decisions/) | Locked architecture decisions (ADRs) |
 | [`../CLAUDE.md`](../CLAUDE.md) + [`../.claude/rules/`](../.claude/rules/) | Engineering conventions |
-| `/api/docs` | Swagger UI (server running) |
+| `/api/docs` | Swagger UI (server running; partial — annotated routes only) |
