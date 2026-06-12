@@ -198,6 +198,27 @@ const findClassSchedulingMode = async (classId, session) => {
   return program?.schedulingMode || 'leader_booking';
 };
 
+// ── Scheduling-world resolution (English-class separation) ─
+// The platform splits list reads into two worlds: cohort world = classes whose
+// program schedulingMode is self_enroll|nomination; TEAM world = everything
+// else, INCLUDING program-less legacy classes (fallback 'leader_booking' —
+// same rule as findClassSchedulingMode above). Callers turn the returned ids
+// into `classId: {$in: ids}` (cohort) or `{$nin: ids}` (team — $nin also
+// matches null/missing programId classes, which is exactly the fallback).
+// Duplicated from scheduling-mode-policy.COHORT_SCHEDULING_MODES because that
+// module requires this one (cycle) — keep the two lists in sync.
+const COHORT_SCHEDULING_MODES = ['self_enroll', 'nomination'];
+const findCohortModeClassIds = async () => {
+  const programs = await LearningProgram.find(
+    { schedulingMode: { $in: COHORT_SCHEDULING_MODES } },
+  ).select('_id').lean();
+  if (programs.length === 0) return [];
+  const classes = await Class.find(
+    { programId: { $in: programs.map((p) => p._id) } },
+  ).select('_id').lean();
+  return classes.map((c) => c._id);
+};
+
 // ── Capacity-policy resolution (Wave E2) ──────────────────
 // Resolve a class/cohort's program capacity policy: Class.programId ->
 // LearningProgram.capacityPolicy. Returns {} for a program-less class (the
@@ -226,6 +247,7 @@ module.exports = {
   countSchedulesForTeamInWeek,
   findClassSchedulingMode,
   findClassCapacityPolicy,
+  findCohortModeClassIds,
   findValidInstructorIds,
   // Read queries (Phase 1 extraction)
   findAvailabilitySchedules,

@@ -31,7 +31,10 @@ const scheduleTimeLabel = (s) => {
   return `${String(a.getHours()).padStart(2,'0')}:${String(a.getMinutes()).padStart(2,'0')}–${String(b.getHours()).padStart(2,'0')}:${String(b.getMinutes()).padStart(2,'0')}`;
 };
 
-export default function SchedulesPage() {
+// `mode` (optional, English-class separation): 'team' scopes the grid to the
+// English/team-booking world (reads via /api/english), 'cohort' to the generic
+// training world. Omitted → combined legacy behavior.
+export default function SchedulesPage({ mode }) {
   const [searchParams, setSearchParams] = useSearchParams();
   const config = useSchedulingConfig();
   const offset = config.data?.utcOffsetMinutes ?? DEFAULT_UTC_OFFSET_MINUTES;
@@ -67,7 +70,10 @@ export default function SchedulesPage() {
   // closeDrawer only calls stable state setters — [] is safe
   }, []);
 
-  const schedParams = useMemo(() => ({ limit: 2000 }), []);
+  const schedParams = useMemo(
+    () => (mode ? { limit: 2000, mode } : { limit: 2000 }),
+    [mode],
+  );
   const { data: schedData, isLoading } = useSchedules(schedParams);
   // Memoized: `schedData?.data || []` minted a fresh [] every render, making
   // every downstream useMemo (scheduleMap, rows, …) recompute per render.

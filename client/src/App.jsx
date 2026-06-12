@@ -22,10 +22,10 @@ const ResetPasswordPage  = lazy(() => import('./features/auth/ResetPasswordPage'
 const DashboardPage    = lazy(() => import('./features/dashboard/DashboardPage'));
 const PeoplePage       = lazy(() => import('./pages/PeoplePage'));
 const LearningPage     = lazy(() => import('./features/learning/LearningPage'));
+const EnglishPage      = lazy(() => import('./features/english/EnglishPage'));
 const ReportsPage      = lazy(() => import('./pages/ReportsPage'));
 const SystemPage       = lazy(() => import('./pages/SystemPage'));
 const CalendarPage     = lazy(() => import('./pages/CalendarPage'));
-const BookClassPage    = lazy(() => import('./features/schedule/BookClassPage'));
 const ClassDetailPage  = lazy(() => import('./features/classes/ClassDetailPage'));
 const UserSettingsPage = lazy(() => import('./features/auth/UserSettingsPage'));
 const MyLearningCatalogPage = lazy(() => import('./features/learner/MyLearningCatalogPage'));
@@ -220,7 +220,8 @@ const LEGACY_REDIRECTS = [
   { from: '/attendance', to: '/calendar?tab=attendance' },
   { from: '/operations', to: '/calendar' },
   { from: '/operations/analytics', to: '/reports?tab=analytics' },
-  { from: '/book',       to: '/calendar?tab=book' },
+  // English-class separation: the leader booking grid lives in /english now.
+  { from: '/book',       to: '/english?tab=book' },
 ];
 
 export default function App() {
@@ -254,6 +255,9 @@ export default function App() {
                 <Route path="/learning" element={
                   <ProtectedRoute roles={['Admin', 'Coordinator', 'Teacher']}><LearningPage /></ProtectedRoute>
                 } />
+                {/* English-class section — the whole team-booking world
+                    (classes/teams/schedules/attendance/evaluations/booking). */}
+                <Route path="/english" element={<EnglishPage />} />
                 <Route path="/calendar" element={<CalendarPage />} />
                 <Route path="/reports" element={
                   <ProtectedRoute roles={['Admin', 'Teacher']}><ReportsPage /></ProtectedRoute>

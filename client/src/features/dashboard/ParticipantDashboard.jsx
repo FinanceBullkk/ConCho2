@@ -208,10 +208,10 @@ export default function ParticipantDashboard() {
         <EmptyState
           icon={CalendarDays}
           title="No upcoming sessions"
-          description="Your team leader can book sessions from the Calendar & Booking page."
+          description="Your team leader can book sessions from the English Class page."
           action={(
-            <Link to="/calendar" className="text-sm text-primary font-medium hover:underline underline-offset-2">
-              Go to Calendar →
+            <Link to="/english" className="text-sm text-primary font-medium hover:underline underline-offset-2">
+              Go to English Class →
             </Link>
           )}
         />
@@ -241,7 +241,7 @@ export default function ParticipantDashboard() {
           sub={`${stats?.present ?? 0} / ${stats?.totalSessions ?? 0} sessions`}
           icon={BarChart3}
           tone={rateTone}
-          href="/calendar"
+          href="/english"
         />
         <KPICard
           label="Sessions attended"
@@ -315,7 +315,7 @@ export default function ParticipantDashboard() {
           </h2>
           {isLeader && (
             <Button asChild size="sm" variant="outline">
-              <Link to="/calendar?tab=book">
+              <Link to="/english?tab=book">
                 <CalendarPlus className="size-3.5" aria-hidden="true" />
                 Book
               </Link>
@@ -329,7 +329,7 @@ export default function ParticipantDashboard() {
             title="No upcoming sessions"
             description={isLeader
               ? 'Click "Book" to schedule a session for your group.'
-              : 'Your team leader can book sessions from the Calendar & Booking page.'}
+              : 'Your team leader can book sessions from the English Class page.'}
           />
         ) : (
           <ul className="bg-card border border-border rounded-lg overflow-hidden divide-y divide-border">
@@ -340,7 +340,7 @@ export default function ParticipantDashboard() {
               return (
                 <li key={s._id}>
                   <Link
-                    to={cls?._id ? `/classes/${cls._id}` : '/calendar'}
+                    to={cls?._id ? `/classes/${cls._id}` : '/english'}
                     className="grid grid-cols-[40px_1fr_auto_auto] items-center gap-3 px-3 py-2.5 hover:bg-accent transition-colors duration-(--dur-fast)"
                   >
                     <div className="text-center bg-muted rounded-md py-1">

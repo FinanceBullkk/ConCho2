@@ -56,7 +56,7 @@ export const useBulkMarkAttendance = () => {
       toast.success('Attendance recorded');
       qc.invalidateQueries({ queryKey: qk.attendance.all });
       qc.invalidateQueries({ queryKey: qk.attendance.bySchedule(vars.scheduleId) });
-      qc.invalidateQueries({ queryKey: qk.schedules.attendanceCalendar });
+      qc.invalidateQueries({ queryKey: qk.schedules.attendanceCalendar() });
       qc.invalidateQueries({ queryKey: qk.dashboard.stats });
     },
   });

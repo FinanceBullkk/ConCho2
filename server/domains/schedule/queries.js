@@ -31,6 +31,14 @@ const getAvailability = (filters = {}) =>
 const listSchedules = async (filters, { page, limit, skip }) => {
   const query = {};
   if (filters.classId) query.classId = filters.classId;
+  // English-class separation: split lists by scheduling world. An explicit
+  // classId is already world-scoped, so mode only applies without one.
+  else if (filters.mode === 'team' || filters.mode === 'cohort') {
+    const cohortClassIds = await repository.findCohortModeClassIds();
+    query.classId = filters.mode === 'cohort'
+      ? { $in: cohortClassIds }
+      : { $nin: cohortClassIds }; // $nin includes program-less legacy classes
+  }
 
   // Durable cancellation (phase-04 slice A): every list is LIVE-only by
   // default — the admin grid renders rows as occupied cells, so a cancelled
@@ -110,13 +118,22 @@ const getMyClassSchedules = async (userId) => {
  *   "partial" — some attendance marked but count < enrolledCount
  *   "done"    — attendance count >= enrolledCount
  */
-const getAttendanceCalendar = async ({ from, to } = {}, requestUser = null) => {
+const getAttendanceCalendar = async ({ from, to, mode } = {}, requestUser = null) => {
   // Step 1: Build filter (optional date range for performance)
   const filter = {};
   if (from || to) {
     filter.startTime = {};
     if (from) filter.startTime.$gte = new Date(from);
     if (to) filter.startTime.$lte = new Date(to);
+  }
+
+  // English-class separation: optional world split (team | cohort). The
+  // top-level classId condition ANDs with the Teacher $or scope below.
+  if (mode === 'team' || mode === 'cohort') {
+    const cohortClassIds = await repository.findCohortModeClassIds();
+    filter.classId = mode === 'cohort'
+      ? { $in: cohortClassIds }
+      : { $nin: cohortClassIds };
   }
 
   // Teachers see classes they are assigned to (empty teacherIds keeps the

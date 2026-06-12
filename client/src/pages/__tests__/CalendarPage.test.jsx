@@ -1,82 +1,66 @@
 import { describe, expect, it, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
-import { MemoryRouter } from 'react-router-dom';
+import { MemoryRouter, Routes, Route } from 'react-router-dom';
 import CalendarPage from '../CalendarPage';
 
-// Cohesion Wave P4 — team-booking mode separation. The Calendar "Team
-// booking" surface belongs to the legacy group-based (English-class) flow:
-// a Participant WITH a team gets the booking grid; a Participant WITHOUT a
-// team is pointed at their generic learning surfaces (/me/sessions,
-// /me/catalog) instead of a dead end. Staff tabs never depend on teams.
+// English-class separation (2026-06-12): /calendar is the GENERIC training
+// calendar (cohort world). Team-booking surfaces live in /english; a
+// Participant landing here is redirected there. The membership-gating cases
+// that lived in this file (Cohesion P4) moved to EnglishPage.test.jsx.
 
 const h = vi.hoisted(() => ({
   auth: { user: { _id: 'u1', role: 'Participant' } },
-  teams: { data: [], isLoading: false },
+  schedulesProps: vi.fn(),
+  attendanceProps: vi.fn(),
 }));
 
 vi.mock('../../context/AuthContext', () => ({
   useAuth: () => h.auth,
 }));
 
-vi.mock('../../hooks/useTeams', () => ({
-  useMyTeams: () => h.teams,
-}));
-
-// The tab bodies are heavy pages — stub them; this test is about the shell.
+// The tab bodies are heavy pages — stub them, capturing the `mode` prop so we
+// can assert the cohort-world scoping.
 vi.mock('../../features/schedule/SchedulesPage', () => ({
-  default: () => <div data-testid="schedules-page" />,
+  default: (props) => { h.schedulesProps(props); return <div data-testid="schedules-page" />; },
 }));
 vi.mock('../../features/attendance/AttendancePage', () => ({
-  default: () => <div data-testid="attendance-page" />,
-}));
-vi.mock('../../features/schedule/BookClassPage', () => ({
-  default: () => <div data-testid="book-class-page" />,
+  default: (props) => { h.attendanceProps(props); return <div data-testid="attendance-page" />; },
 }));
 
 const renderPage = () =>
   render(
     <MemoryRouter initialEntries={['/calendar']}>
-      <CalendarPage />
+      <Routes>
+        <Route path="/calendar" element={<CalendarPage />} />
+        <Route path="/english" element={<div data-testid="english-page" />} />
+      </Routes>
     </MemoryRouter>,
   );
 
-describe('CalendarPage — team-booking membership gating (Cohesion P4)', () => {
-  it('Participant WITH a team sees the booking grid', () => {
+describe('CalendarPage — generic training calendar (English-class separation)', () => {
+  it('Participant is redirected to /english', () => {
     h.auth = { user: { _id: 'u1', role: 'Participant' } };
-    h.teams = { data: [{ _id: 't1', name: 'Alpha' }], isLoading: false };
     renderPage();
 
-    expect(screen.getByTestId('book-class-page')).toBeInTheDocument();
-    expect(screen.queryByText('No team-booking class')).toBeNull();
+    expect(screen.getByTestId('english-page')).toBeInTheDocument();
+    expect(screen.queryByTestId('schedules-page')).toBeNull();
   });
 
-  it('Participant WITHOUT a team gets pointed to /me surfaces instead', () => {
-    h.auth = { user: { _id: 'u1', role: 'Participant' } };
-    h.teams = { data: [], isLoading: false };
-    renderPage();
-
-    expect(screen.getByText('No team-booking class')).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: /my sessions/i })).toHaveAttribute('href', '/me/sessions');
-    expect(screen.getByRole('link', { name: /browse catalog/i })).toHaveAttribute('href', '/me/catalog');
-    expect(screen.queryByTestId('book-class-page')).toBeNull();
-  });
-
-  it('while teams are loading the grid renders (no pointer-panel flash)', () => {
-    h.auth = { user: { _id: 'u1', role: 'Participant' } };
-    h.teams = { data: undefined, isLoading: true };
-    renderPage();
-
-    expect(screen.getByTestId('book-class-page')).toBeInTheDocument();
-    expect(screen.queryByText('No team-booking class')).toBeNull();
-  });
-
-  it('Admin tabs do not depend on team membership', () => {
+  it('Admin sees Schedules + Attendance tabs, scoped to the cohort world', () => {
     h.auth = { user: { _id: 'a1', role: 'Admin' } };
-    h.teams = { data: [], isLoading: false };
     renderPage();
 
     expect(screen.getByTestId('schedules-page')).toBeInTheDocument();
     expect(screen.getByRole('tab', { name: /attendance/i })).toBeInTheDocument();
-    expect(screen.queryByText('No team-booking class')).toBeNull();
+    expect(h.schedulesProps).toHaveBeenCalledWith(expect.objectContaining({ mode: 'cohort' }));
+  });
+
+  it('Teacher gets the single Attendance surface (cohort world)', () => {
+    h.auth = { user: { _id: 't1', role: 'Teacher' } };
+    renderPage();
+
+    expect(screen.getByTestId('attendance-page')).toBeInTheDocument();
+    expect(screen.queryByRole('tab')).toBeNull(); // single-tab: no tab chrome
+    expect(h.attendanceProps).toHaveBeenCalledWith(expect.objectContaining({ mode: 'cohort' }));
   });
 });

@@ -30,9 +30,11 @@ test.describe.serial('attendance marking → HR export', () => {
       bookedTeamId: team._id,
     });
 
-    // ── Teacher marks it on /attendance ────────────────────
-    await page.goto('/attendance');
-    await expect(page.getByRole('heading', { name: 'Attendance' })).toBeVisible();
+    // ── Teacher marks it on English Class → Attendance ─────
+    // (English-class separation: EL002 is a team-world class, so its
+    // attendance lives in /english — the generic /calendar is cohort-only.)
+    await page.goto('/english?tab=attendance');
+    await expect(page.getByRole('heading', { name: 'Attendance' }).first()).toBeVisible();
 
     // Navigate back to the week the fixture landed in (the free-slot scan
     // may have gone several weeks back on a persistent dev DB).

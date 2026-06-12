@@ -1,28 +1,28 @@
 import { useSearchParams } from 'react-router-dom';
-import { Download, RefreshCw, ClipboardEdit, ChartLine } from 'lucide-react';
+import { Download, RefreshCw, ChartLine } from 'lucide-react';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { PageHeader } from '@/components/PageHeader';
 import { useRole } from '@/hooks/useRole';
 import HRExportPage from '../features/admin/HRExportPage';
 import SyncPage from '../features/sync/SyncPage';
-import EvaluationPage from '../features/evaluations/EvaluationPage';
 import AttendanceDashboardPage from '../features/attendance/AttendanceDashboardPage';
 
 // ──────────────────────────────────────────────────────────
-// Reports — Analytics, HR Export, Sheets Sync, Evaluations.
+// Reports — Analytics, HR Export, Sheets Sync.
 //
 // Audit PR K (FE-007): each tab declares the `perm` it requires; we
 // filter the visible set per user role and silently substitute the
 // first allowed tab if the URL tab=... points at one they can't see.
 // HR Export + Sheets Sync are Admin-only on the server, so Teachers
 // previously saw tabs that 403'd on first action.
+// Evaluations moved to the English-class section
+// (/english?tab=evaluations) — English-class separation 2026-06-12.
 // ──────────────────────────────────────────────────────────
 
 const ALL_TABS = [
   { id: 'analytics',    label: 'Analytics',    icon: ChartLine,     description: 'Attendance rates by employee, team, class.',  perm: 'read:attendance' },
   { id: 'hr-export',    label: 'HR Export',    icon: Download,      description: 'Download attendance data as Excel for HR.',   perm: 'export:data' },
   { id: 'sheets-sync',  label: 'Sheets Sync',  icon: RefreshCw,     description: 'Sync team enrollments from Google Sheets.',   perm: 'sync:sheets' },
-  { id: 'evaluations',  label: 'Evaluations',  icon: ClipboardEdit, description: 'Enter and review learner evaluation scores.', perm: 'read:evaluations' },
 ];
 
 export default function ReportsPage() {
@@ -74,11 +74,6 @@ export default function ReportsPage() {
         {can('sync:sheets') && (
           <TabsContent value="sheets-sync" hidden={activeTab !== 'sheets-sync'}>
             {activeTab === 'sheets-sync' && <SyncPage />}
-          </TabsContent>
-        )}
-        {can('read:evaluations') && (
-          <TabsContent value="evaluations" hidden={activeTab !== 'evaluations'}>
-            {activeTab === 'evaluations' && <EvaluationPage />}
           </TabsContent>
         )}
       </Tabs>

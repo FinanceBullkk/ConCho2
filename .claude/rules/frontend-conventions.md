@@ -9,10 +9,11 @@ Client is **ESM** + React 19 + Vite. Pages are lazy-loaded route views; logic li
 
 ## Feature modules (`features/<domain>/`) — migration essentially complete
 The client uses feature colocation under `client/src/features/<domain>/`, mirroring
-the backend `server/domains/<domain>/` boundaries. 16 feature folders live here
+the backend `server/domains/<domain>/` boundaries. 17 feature folders live here
 (rooms, org, reconcile, settings, sync, evaluations, schedule, attendance, users,
-groups, dashboard, classes, learning, learner, auth, admin). **Only composition
-shells stay in `pages/`** — `PeoplePage`, `SystemPage`, `ReportsPage`, `CalendarPage`
+groups, dashboard, classes, learning, learner, auth, admin, english — the
+English-class section shell at `/english`). **Only composition shells stay in
+`pages/`** — `PeoplePage`, `SystemPage`, `ReportsPage`, `CalendarPage`
 (they assemble tabs from several domains; they are routing glue, not a domain). New
 domain pages go under `features/<domain>/`, not `pages/`.
 - A feature folder colocates that domain's **page(s), domain hook(s), feature-local
