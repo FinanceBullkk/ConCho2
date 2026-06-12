@@ -193,7 +193,7 @@ platform gaps are Google OIDC, Google Directory sync, compliance report depth,
 recertification, broader notification surfaces, and generic scheduling.
 → see [`lms-roadmap.md`](lms-roadmap.md).
 
-**Stack:** React 19 + Vite 8 + Tailwind 4 / Express 4 + Mongoose 8 + MongoDB;
+**Stack:** React 19 + Vite 8 + Tailwind 4 / Express 5 + Mongoose 8 + MongoDB;
 server/client test suites, Playwright e2e, 7 CI gates, deployed on Render.
 
 ## 8. Delivery discipline — no feature factory

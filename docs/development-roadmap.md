@@ -262,6 +262,26 @@ Bug fixing and integration review rank above net-new feature rollout.
 
 ## Recent progress (changelog)
 
+- **2026-06-12** — **Express 4 → 5 migration** (`chore/express-5`). Three
+  code-level deltas, every security layer preserved: (1) **NoSQL sanitize** —
+  the stock express-mongo-sanitize middleware throws on express 5 (`req.query`
+  is getter-only); new `middleware/mongo-sanitize-in-place.js` reuses the
+  lib's `sanitize()` (strips the same $/dot keys in place) and PINS the
+  sanitized query object via `defineProperty` so the per-access re-parsing
+  getter can't resurrect stripped keys. (2) **SPA fallback** — production
+  `app.get('*')` → `'/{*splat}'` (path-to-regexp 8; bare `*` would crash prod
+  boot at mount — a branch CI never executes, so a dedicated pattern test
+  guards it). (3) **`req.body` default shim** — express 5 leaves body
+  `undefined` when no parser matched; dozens of handlers destructure
+  optionally-bodied requests (DELETE-with-reason, logout), restored the
+  express-4 `{}` app-wide (caught live by the certificate-revoke test: revoke
+  500'd → cert stayed verify-valid). `validate` middleware was already
+  getter-safe. +8 compat tests (`expressFiveCompat.test.js`). **Ride-along
+  flake root-caused:** dotenv 17 prints a rotating tip per `config()` — one
+  says "secrets for agents", randomly tripping verify-backup's
+  `not.toContain('secret')` spawn assertion → script's dotenv calls quieted +
+  complete-line guard in the spawn harness. Docs: tech-stack, system-overview
+  stack line, security-platform spec (sanitize NFR).
 - **2026-06-12** — **Dependency majors round 1 (light) + CODE-017**
   (`chore/deps-light-majors`). **bcryptjs 2→3** and **dotenv 16→17** (config
   tip-log quieted in server.js so pino stays the only stdout); **`uuid`
