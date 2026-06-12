@@ -262,6 +262,21 @@ Bug fixing and integration review rank above net-new feature rollout.
 
 ## Recent progress (changelog)
 
+- **2026-06-12** — **Dependency majors round 1 (light) + CODE-017**
+  (`chore/deps-light-majors`). **bcryptjs 2→3** and **dotenv 16→17** (config
+  tip-log quieted in server.js so pino stays the only stdout); **`uuid`
+  dependency DROPPED** — its single consumer (`middleware/requestId.js`) now
+  uses Node's built-in `crypto.randomUUID()` (uuid ≥13 is ESM-only, the
+  server is CommonJS; removing beats major-bumping). **CODE-017 closed:** all
+  17 per-handler lazy requires in `controllers/auth/*` hoisted to module top
+  — the require cycle they dodged died with the legacy authController split
+  (verified: no service/middleware requires back into controllers). Server
+  897/897 (one passwordReset-timing flake on first run — known QA-010 class —
+  clean on rerun); `npm ci --dry-run` lockfile-sync OK. **Deferred:
+  eslint 10** — `eslint-plugin-jsx-a11y` peer-supports only eslint ≤9; bump
+  when the plugin updates (no `--legacy-peer-deps` workarounds). Remaining
+  majors: express 5 (next, pre-scouted), mongoose 9 (per owner: after the
+  PostgreSQL gate decision), googleapis (needs live calendar retest).
 - **2026-06-12** — **Post-audit backlog sweep round 2: 4 ops/data findings
   fixed** (`fix/backlog-sweep-ops-data-round`). **OPS-011** `CORS_ORIGINS` +
   `CLIENT_ORIGIN` are now boot-required in production (missing CORS allowlist
