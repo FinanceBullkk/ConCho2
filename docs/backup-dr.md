@@ -88,6 +88,7 @@ Critical env vars to document:
 | `CORS_ORIGINS` | Comma-separated allowed CORS origins (e.g. `https://tms-v2.onrender.com`) |
 | `CLIENT_ORIGIN` | Base URL used in password-reset email links (e.g. `https://tms-v2.onrender.com`) |
 | `NODE_ENV` | `production` |
+| `NODE_VERSION` | `22.x` — pin to the CI Node major (npm 10); Render's rolling default npm rejects our lockfiles (2026-06-12 deploy failure). Belt to repo-root `.node-version` |
 | `SMTP_HOST` | SMTP server hostname (e.g. `smtp.gmail.com`) |
 | `SMTP_PORT` | SMTP port — `587` (STARTTLS) or `465` (SSL) |
 | `SMTP_USER` | SMTP username / sender address |
