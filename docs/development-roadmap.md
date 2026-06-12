@@ -258,6 +258,29 @@ Bug fixing and integration review rank above net-new feature rollout.
 
 ## Recent progress (changelog)
 
+- **2026-06-12** — **Audit Phase 7 (Code architecture & debt) round complete —
+  migration debt verified small; 2 cheap fixes shipped.** Read-and-measure pass
+  confirmed the modular-monolith migration has landed: every major legacy
+  controller/service is a 10–35-line facade, `pages/` holds exactly the 4
+  sanctioned shells, deep-import count 0, **zero unused server deps**, no
+  legacy file silently growing. Shipped per owner triage: **CODE-014** — the
+  "googleapis lockfile drift" workaround is obsolete (`npm ci --dry-run`
+  passes), so CI server installs (×2 jobs) AND the root Render build scripts
+  now use **`npm ci`** (reproducible installs; the PR's own CI proves the
+  lockfile before main deploys), plus Node alignment (engines `>=20`, all CI
+  jobs Node 22); **CODE-015** — 10 dead client deps removed (8 stray
+  `@radix-ui/react-*` superseded by the `radix-ui` umbrella, `react-hot-toast`
+  → sonner-only, `i18next-browser-languagedetector` from the English-only
+  migration) — client 247/247, build + lint 63/63 green after. **Decisions
+  locked into rules docs:** vocabulary table CLOSED (Team→LearningGroup rename
+  DROPPED as permanent exception; Evaluation→Assessment DEFERRED
+  converge-when-touched; dual enrollment KEPT — two real modes);
+  `scheduleService` re-sanctioned ~585 + `domains/schedule/use-cases.js` ~400
+  with a hard extract-on-growth rule (CODE-016). CODE-017 (stale lazy
+  requires) + dependency majors (express 5, mongoose 9, eslint 10) → backlog
+  as own post-audit tasks. Report:
+  `plans/reports/audit-code-260612-0859-findings.md`. Phase 8 (Docs & spec
+  truth) is the last audit round.
 - **2026-06-11** — **Audit Phase 6 (Tests & CI health) round complete — 4 P2
   resolved in-round.** Suite core verified healthy: 854/854 server tests ×3
   consecutive runs (no flakes, no open handles), client 247/247, CI 8m vs 15m
