@@ -6,6 +6,8 @@
 jest.mock('../../services/auditService', () => ({ record: jest.fn() }));
 
 const { cronAuth } = require('../../middleware/cronAuth');
+const auditService = require('../../services/auditService');
+const { redactUrlToken } = require('../../lib/redact-url-token');
 
 function mockReq(overrides = {}) {
   return {
@@ -110,5 +112,43 @@ describe('cronAuth middleware', () => {
     const next = jest.fn();
     cronAuth(req, res, next);
     expect(next).toHaveBeenCalled();
+  });
+
+  // OPS-012: a wrong ?token= must never reach the 730-day audit trail —
+  // the audit note carries the URL with the token value redacted.
+  it('redacts ?token= from the audit note on auth failure (OPS-012)', () => {
+    process.env.CRON_TOKEN = 'a-valid-token-that-is-long-enough';
+    auditService.record.mockClear();
+    const req = mockReq({
+      method: 'POST',
+      query: { token: 'wrong-secret-value' },
+      originalUrl: '/api/cron/reconcile?token=wrong-secret-value&hours=24',
+    });
+    const res = mockRes();
+    cronAuth(req, res, jest.fn());
+    expect(res.statusCode).toBe(401);
+    expect(auditService.record).toHaveBeenCalledTimes(1);
+    const { note } = auditService.record.mock.calls[0][0];
+    expect(note).not.toContain('wrong-secret-value');
+    expect(note).toContain('token=[REDACTED]');
+    expect(note).toContain('hours=24'); // other params untouched
+  });
+});
+
+describe('redactUrlToken helper (OPS-012)', () => {
+  it('redacts token as first, middle, and only param', () => {
+    expect(redactUrlToken('/x?token=abc')).toBe('/x?token=[REDACTED]');
+    expect(redactUrlToken('/x?a=1&token=abc&b=2')).toBe('/x?a=1&token=[REDACTED]&b=2');
+    expect(redactUrlToken('/x?token=abc&b=2')).toBe('/x?token=[REDACTED]&b=2');
+  });
+
+  it('is case-insensitive and leaves token-less URLs alone', () => {
+    expect(redactUrlToken('/x?Token=abc')).toBe('/x?Token=[REDACTED]');
+    expect(redactUrlToken('/api/cron/health')).toBe('/api/cron/health');
+  });
+
+  it('passes non-string input through untouched', () => {
+    expect(redactUrlToken(undefined)).toBeUndefined();
+    expect(redactUrlToken(null)).toBeNull();
   });
 });

@@ -243,7 +243,7 @@ describe('reconcile: soft_deleted_in_team_members', () => {
 // ── Regression: original 5 checks still work ───────────────
 
 describe('reconcile: original 5 checks still produce summary keys', () => {
-  test('summary contains all 10 check counters (5 original + 5 new)', async () => {
+  test('summary contains all 12 check counters', async () => {
     const report = await runReconciliation('manual');
     const keys = Object.keys(report.summary.toObject ? report.summary.toObject() : report.summary);
     for (const expected of [
@@ -257,6 +257,8 @@ describe('reconcile: original 5 checks still produce summary keys', () => {
       'multi_team_class',
       'counter_drift',
       'soft_deleted_in_team_members',
+      'orphan_room_booking',
+      'stale_waitlist_entry', // DATA-016
       'total',
     ]) {
       expect(keys).toContain(expected);

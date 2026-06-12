@@ -398,9 +398,9 @@ docker run -d --name tms-v2 -p 5000:5000 --env-file .env tms-v2
 | `NODE_ENV` | ✓ | `development` or `production` |
 | `MONGO_URI` | ✓ | MongoDB Atlas connection string |
 | `JWT_SECRET` | ✓ | Secret key for signing tokens (random 32-byte string) |
-| `CORS_ORIGINS` | ✓ | Frontend URLs allowed to call the API |
+| `CORS_ORIGINS` | ✓ | Frontend URLs allowed to call the API — the server REFUSES TO START in production without it (OPS-011) |
 | `CRON_TOKEN` | ✓ | Secret for the nightly automated job |
-| `CLIENT_ORIGIN` | ✓ | Frontend URL (used in password-reset emails) |
+| `CLIENT_ORIGIN` | ✓ | Frontend URL (used in password-reset emails) — the server REFUSES TO START in production without it (OPS-011) |
 | `IMPORT_DEFAULT_PASSWORD` | ✓ (production) | Initial password for bulk-imported users — the server REFUSES TO START in production without it |
 | `JWT_EXPIRE` | | Session lifetime, e.g. `1d` (default `1d` = 24h) |
 | `EMAIL_FROM` | | Sender display address (defaults to `SMTP_USER`) |

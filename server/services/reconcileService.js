@@ -18,11 +18,12 @@ const {
   checkSoftDeletedInTeamMembers,
 } = require('./reconcile/team-checks');
 const { checkCounterDrift } = require('./reconcile/counter-checks');
+const { checkStaleWaitlistEntries } = require('./reconcile/waitlist-checks');
 
 // ──────────────────────────────────────────────────────────
 // Reconciliation Service (orchestrator)
 // ──────────────────────────────────────────────────────────
-// Runs 10 independent data-integrity checks and persists the
+// Runs 12 independent data-integrity checks and persists the
 // result as a ReconcileReport document.
 //
 // All checks are READ-ONLY — this service never mutates data.
@@ -43,6 +44,7 @@ const { checkCounterDrift } = require('./reconcile/counter-checks');
 //  9. counter_drift             — counter seq < max code already in use
 // 10. soft_deleted_in_team_members — team.members holds a soft-deleted user
 // 11. orphan_room_booking       — RoomBooking row for a deleted session (bricked slot)
+// 12. stale_waitlist_entry      — 'waiting' queue row on a past/cancelled/deleted session
 // ──────────────────────────────────────────────────────────
 
 /**
@@ -67,7 +69,7 @@ async function runReconciliation(triggeredBy = 'manual') {
     });
   const ctx = { activeEnrollments };
 
-  // Run all 10 checks in parallel — they are independent read-only queries.
+  // Run all 12 checks in parallel — they are independent read-only queries.
   // PR C added the bottom 5 (DATA-011 reconcile expansion).
   const swallow = (label) => (err) => {
     logger.error({ err }, `reconcile: ${label} failed`);
@@ -85,6 +87,7 @@ async function runReconciliation(triggeredBy = 'manual') {
     counterDrift,
     softDeletedInTeamMembers,
     orphanRoomBookings,
+    staleWaitlistEntries,
   ] = await Promise.all([
     checkMissingAttendance(ctx).catch(swallow('check_missing_attendance')),
     checkOrphanedEnrollments(ctx).catch(swallow('check_orphaned_enrollments')),
@@ -97,6 +100,7 @@ async function runReconciliation(triggeredBy = 'manual') {
     checkCounterDrift(ctx).catch(swallow('check_counter_drift')),
     checkSoftDeletedInTeamMembers(ctx).catch(swallow('check_soft_deleted_in_team_members')),
     checkOrphanRoomBookings(ctx).catch(swallow('check_orphan_room_booking')),
+    checkStaleWaitlistEntries(ctx).catch(swallow('check_stale_waitlist_entry')),
   ]);
 
   const allIssues = [
@@ -111,6 +115,7 @@ async function runReconciliation(triggeredBy = 'manual') {
     ...counterDrift,
     ...softDeletedInTeamMembers,
     ...orphanRoomBookings,
+    ...staleWaitlistEntries,
   ];
 
   const summary = {
@@ -125,6 +130,7 @@ async function runReconciliation(triggeredBy = 'manual') {
     counter_drift:                counterDrift.length,
     soft_deleted_in_team_members: softDeletedInTeamMembers.length,
     orphan_room_booking:          orphanRoomBookings.length,
+    stale_waitlist_entry:         staleWaitlistEntries.length,
     total:                        allIssues.length,
   };
 

@@ -16,6 +16,7 @@ const compression = require('compression');
 
 const connectDB = require('./config/db');
 const logger = require('./lib/logger');
+const { redactUrlToken } = require('./lib/redact-url-token');
 const { requestId } = require('./middleware/requestId');
 const swaggerUi = require('swagger-ui-express');
 const { spec } = require('./lib/swagger');
@@ -52,7 +53,9 @@ if (process.env.NODE_ENV !== 'test') {
         return 'info';
       },
       serializers: {
-        req: (req) => ({ id: req.id, method: req.method, url: req.url }),
+        // OPS-012: cron endpoints accept ?token=<CRON_TOKEN> as a last-resort
+        // channel — redact it so the request log never persists the secret.
+        req: (req) => ({ id: req.id, method: req.method, url: redactUrlToken(req.url) }),
         res: (res) => ({ statusCode: res.statusCode }),
       },
     })
