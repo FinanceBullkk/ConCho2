@@ -4,7 +4,7 @@
 > then the recent changelog. Full history → [`changelog-archive/`](changelog-archive/).
 > - *Why / strategy / 6-month direction* → [`lms-roadmap.md`](lms-roadmap.md)
 > - *Architecture / orientation* → [`system-overview.md`](system-overview.md)
-> - *Detailed task snapshot* → [`handoff-2026-06-01.md`](handoff-2026-06-01.md)
+> - *Detailed task snapshot (archived)* → [`archive/handoff-2026-06-01.md`](archive/handoff-2026-06-01.md)
 >
 > **Last updated:** 2026-06-13
 
@@ -342,8 +342,7 @@ Bug fixing and integration review rank above net-new feature rollout.
 
 After each milestone or significant change: update the phase/wave %, move the
 status emoji, refresh the **Status board** (Now / Next), and add one dated line
-at the top of *Recent progress*. Sync `handoff-2026-06-01.md` if a phase status
-changed; strategy detail stays in `lms-roadmap.md`.
+at the top of *Recent progress*. Strategy detail stays in `lms-roadmap.md`.
 
 **Rolling archive (keeps this file lean):** keep ~the last 2 weeks (~15 entries,
 file ≤ ~400 lines) inline; in the SAME commit, cut older entries verbatim

@@ -1,7 +1,18 @@
 # Phase 02 — docs/README index + archive one-off docs
 
 ## Overview
-Priority: high · Status: 🔴 not started
+Priority: high · Status: 🟢 done 2026-06-13
+
+> **Done 2026-06-13.** Added `docs/README.md` (start-here-by-role + living-docs
+> table + archive section). Moved 6 one-offs to `docs/archive/`
+> (handoff-2026-06-01, phase-5-i18n-discovery, phase-6×2, architecture-map.md/
+> .html). Retired handoff from the live flow (Q2 = yes): removed from
+> implementation-workflow map list, DoD step 5, and DoD checklist; updated the
+> remaining living-doc links to `docs/archive/` (system-overview, domain-model
+> rule, development-roadmap header). Linked `docs/README.md` from root README
+> §11, CLAUDE.md + AGENTS.md key references, and system-overview index. Link
+> sweep: no broken inbound reference in living docs. `docs/audit/` kept (still
+> referenced).
 `docs/` has 20+ root files and 4 subdirs with no entry point, and finished
 one-off discovery docs sit next to living truth. Add a role-based index and
 move dead docs to `docs/archive/`.
