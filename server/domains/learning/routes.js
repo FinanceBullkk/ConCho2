@@ -133,6 +133,16 @@ router.post(
   enrollmentController.bulkEnroll,
 );
 
+// Unified self read (converge Phase 2): a learner's enrollments across BOTH
+// modes — team-based group enrollment + direct cohort enrollment — in one
+// shape. Self-scoped in the use-case (always the caller). Static '/mine' is
+// registered before '/enrollments/:id' so it is never read as an :id param.
+router.get(
+  '/enrollments/mine',
+  requireCapability('enrollment.self', 'enrollment.read'),
+  enrollmentController.listMine,
+);
+
 router.delete(
   '/enrollments/:id',
   requireCapability('enrollment.manage', 'enrollment.self'),
