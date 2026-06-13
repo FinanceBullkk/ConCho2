@@ -2,7 +2,7 @@
 capability: evaluations
 status: stable
 owners: [controllers/evaluationController, models/Evaluation]
-last_updated: 2026-06-11
+last_updated: 2026-06-14
 related_code:
   - server/controllers/evaluationController.js
   - server/models/Evaluation.js
@@ -13,10 +13,19 @@ related_plans: []
 
 # Capability: Evaluations (legacy English 4-skill)
 
-> **Source of truth for BEHAVIOR.** This is the legacy English-language
-> assessment. The generic engine (`docs/specs/assessments/spec.md`) is the
-> forward path; both satisfy `completionPolicy.requiresAssessment`. Still live —
-> not yet migrated.
+> **Source of truth for BEHAVIOR.** This is the **instructor-scored mode** of the
+> single assessment concept (rearchitecture Phase 1 convergence, 2026-06-14): an
+> Evaluation is no longer a separate *system* but one of two assessment *modes*
+> — instructor-scored rubric (this) vs learner-attempted quiz
+> (`docs/specs/assessments/spec.md`). Both satisfy
+> `completionPolicy.requiresAssessment` AND now surface through ONE unified read,
+> **`GET /api/assessment/results/mine`** (the learner transcript consumes it —
+> evaluations appear alongside quiz results, tagged "Instructor"). The Evaluation
+> model + its write/grading UI are retained (English rubric); the
+> Evaluation→Assessment "deferral" is cleared (the convergence is by unified
+> read/concept, not a destructive model merge — see ADR
+> `converge-to-one-training-model`). The grading-UI surface folds into the unified
+> assessment UX in Phase 4 (UX journeys).
 
 ## Purpose
 

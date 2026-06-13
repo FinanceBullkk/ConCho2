@@ -30,6 +30,15 @@ export const useAssessmentAttempts = (params = {}, options = {}) =>
     ...options,
   });
 
+// Unified self-scoped assessment results (quiz attempts + instructor-scored
+// English evaluations) — the single results surface (Phase 1 convergence).
+export const useMyAssessmentResults = (options = {}) =>
+  useQuery({
+    queryKey: qk.assessment.myResults,
+    queryFn: async () => (await assessmentAPI.getMyResults()).data,
+    ...options,
+  });
+
 export const useQuestionBank = (params = {}, options = {}) =>
   useQuery({
     queryKey: qk.assessment.questionBank(params),

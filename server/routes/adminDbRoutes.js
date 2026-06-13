@@ -1,7 +1,8 @@
 const mongoose = require('mongoose');
 const mongoSanitize = require('express-mongo-sanitize');
 const { protect } = require('../middleware/auth');
-const { roleGuard } = require('../middleware/roleGuard');
+const { requireCapability } = require('../middleware/requireCapability');
+const { CAPABILITIES } = require('../policy/capabilities');
 const { escapeRegex } = require('../helpers/escapeRegex');
 const auditService = require('../services/auditService');
 const router = require('express').Router();
@@ -23,7 +24,7 @@ const router = require('express').Router();
 //     so forensic queries can reconstruct who flipped what (audit SEC-003)
 // ──────────────────────────────────────────────────────────
 
-router.use(protect, roleGuard('Admin'));
+router.use(protect, requireCapability(CAPABILITIES.SYSTEM_OPS));
 
 // Allowed models (whitelist for safety)
 const ALLOWED_MODELS = [

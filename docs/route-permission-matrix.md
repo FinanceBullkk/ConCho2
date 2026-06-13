@@ -4,6 +4,19 @@
 
 Source: current route middleware. Keep this matrix updated when routes move into domain modules.
 
+> **Authz mechanism note (Phase 0, 2026-06-14):** the coarse check on the
+> Admin-only platform routes moved from `roleGuard('Admin')` onto the capability
+> layer (`requireCapability`) so the whole app uses ONE mechanism. **Role outcomes
+> below are UNCHANGED** (all still Admin-only — Admin is superuser; the new caps
+> are added to no other role). New Admin-only capabilities: `user.manage`
+> (`/api/users`), `settings.manage` (`/api/settings`), `data.transfer`
+> (`/api/import`,`/api/export`,`/api/sync`), `analytics.read` (`/api/dashboard`),
+> `audit.read` (`/api/admin/audit`), `system.ops`
+> (`/api/admin-db`,`/api/admin/reconcile`). **Intentionally still on
+> `roleGuard`** (by design / converging later): `/api/auth` + `/api/admin/cron`
+> (security/cron) and the converging-legacy trio `/api/classes`,
+> `/api/enrollments`, `/api/evaluations` (retired in their convergence phase).
+
 | Base path | Read access | Write access | Notes |
 |---|---|---|---|
 | `/health`, `/ready`, `/api/health`, `/api/ready` | public | none | Liveness/readiness probes — no auth required |
