@@ -1,7 +1,11 @@
 const Certificate = require('../../../models/Certificate');
 const NotificationLog = require('../../../models/NotificationLog');
 const logger = require('../../../lib/logger');
-const { sendCertificateExpiring } = require('../../../lib/emailTemplates');
+const {
+  sendCertificateExpiring,
+  sendCertificateExpiryManagerDigest,
+} = require('../../../lib/emailTemplates');
+const { getIsoWeekKey } = require('../assignment/reminder-cadence');
 
 // ──────────────────────────────────────────────────────────
 // Certificate expiry reminders (D6 recertification signal)
@@ -40,8 +44,59 @@ const finishLog = (id, patch) =>
     { $set: patch.status === 'sent' ? { ...patch, sentAt: new Date() } : patch },
   );
 
+// Weekly digest to each manager of their direct reports' expiring certificates.
+// Fired from the same daily cron but idempotent per manager per ISO-week, so it
+// sends at most once a week (mirrors the assignment overdue digest). The digest
+// row is an email + bell item linking to /my-team.
+const notifyManagersOfExpiry = async ({ certs, now, summary }) => {
+  const cadenceKey = `manager_cert_expiry_${getIsoWeekKey(now)}`;
+  const byManager = new Map();
+  for (const cert of certs) {
+    const manager = cert.userId?.managerId;
+    if (!manager) continue;
+    const key = String(manager._id);
+    if (!byManager.has(key)) byManager.set(key, { manager, rows: [] });
+    byManager.get(key).rows.push({
+      learnerName: cert.userId.name,
+      learnerEmpCode: cert.userId.empCode,
+      programName: cert.programName || 'a program',
+      certificateNumber: cert.certificateNumber,
+      validUntil: cert.validUntil,
+    });
+  }
+
+  for (const { manager, rows } of byManager.values()) {
+    // eslint-disable-next-line no-await-in-loop -- idempotent, bounded by manager count
+    const log = await createLog({
+      type: 'manager_certificate_expiry_digest',
+      channel: 'email',
+      recipientEmail: manager.email || '',
+      recipientUserId: manager._id,
+      cadenceKey,
+      status: manager.email ? 'pending' : 'skipped',
+      error: manager.email ? '' : 'recipient email missing',
+      metadata: { learnerCount: rows.length },
+    });
+    if (!log) { summary.duplicates += 1; continue; }
+    if (!manager.email) { summary.skipped += 1; continue; }
+
+    // eslint-disable-next-line no-await-in-loop
+    const result = await sendCertificateExpiryManagerDigest({
+      to: manager.email, managerName: manager.name, rows,
+    });
+    // eslint-disable-next-line no-await-in-loop
+    if (result) {
+      await finishLog(log._id, { status: 'sent', error: '' });
+      summary.managerDigests += 1;
+    } else {
+      await finishLog(log._id, { status: 'failed', error: 'email not sent' });
+      summary.failed += 1;
+    }
+  }
+};
+
 const sendCertificateExpiryReminders = async ({ now = new Date() } = {}) => {
-  const summary = { scanned: 0, sent: 0, skipped: 0, failed: 0, duplicates: 0 };
+  const summary = { scanned: 0, sent: 0, skipped: 0, failed: 0, duplicates: 0, managerDigests: 0 };
   const windowEnd = new Date(now.getTime() + WINDOW_DAYS * DAY_MS);
 
   // Index-served: { status, validUntil, isDeleted }. Only future-but-soon certs.
@@ -50,7 +105,11 @@ const sendCertificateExpiryReminders = async ({ now = new Date() } = {}) => {
     isDeleted: false,
     validUntil: { $ne: null, $gte: now, $lte: windowEnd },
   })
-    .populate('userId', 'name email')
+    .populate({
+      path: 'userId',
+      select: 'name email empCode managerId',
+      populate: { path: 'managerId', select: 'name email' },
+    })
     .lean();
   summary.scanned = certs.length;
 
@@ -100,6 +159,8 @@ const sendCertificateExpiryReminders = async ({ now = new Date() } = {}) => {
       summary.failed += 1;
     }
   }
+
+  await notifyManagersOfExpiry({ certs, now, summary });
 
   logger.info(summary, 'Certificate expiry reminder batch complete');
   return summary;

@@ -11,6 +11,9 @@ const notificationLogSchema = new mongoose.Schema(
         // an Issued certificate nears its validUntil. cadenceKey is
         // `<certificateNumber>:expiry_<30|7>` (one notice per cert per bucket).
         'certificate_expiring',
+        // Weekly manager digest of direct reports' expiring certificates.
+        // cadenceKey is `manager_cert_expiry_<isoWeek>` (one per manager/week).
+        'manager_certificate_expiry_digest',
         // Wave E3 phase-04 slice B — a freed seat auto-enrolled a waiter.
         // cadenceKey is `<scheduleId>:<userId>` (one notice per promotion).
         'waitlist_promoted',

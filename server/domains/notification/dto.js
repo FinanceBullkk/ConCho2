@@ -59,6 +59,14 @@ const PRESENTERS = {
       return `Your ${name} certificate expires${when}${m.certificateNumber ? ` (${m.certificateNumber})` : ''} — arrange to recertify`;
     },
   },
+  manager_certificate_expiry_digest: {
+    title: 'Team certificates expiring',
+    link: '/my-team',
+    body: (m) => {
+      const n = m.learnerCount || 0;
+      return `${n} of your report(s) have a certificate expiring soon`;
+    },
+  },
   cohort_enrolled: {
     title: 'Enrolled in a program',
     link: '/me/programs',

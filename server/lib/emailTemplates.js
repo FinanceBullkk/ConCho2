@@ -274,6 +274,32 @@ const tplCertificateExpiring = ({ userName, programName, certificateNumber, vali
   };
 };
 
+// Weekly manager digest of direct reports' expiring certificates (D6 recert).
+const tplCertificateExpiryManagerDigest = ({ managerName, rows }) => {
+  const lineItems = rows.map((row) =>
+    `- ${row.learnerName}${row.learnerEmpCode ? ` (${row.learnerEmpCode})` : ''}: ` +
+    `${row.programName} / ${row.certificateNumber} / expires ${row.validUntilStr}`);
+  const htmlItems = rows.map((row) =>
+    `<li><strong>${row.learnerName}</strong>` +
+    (row.learnerEmpCode ? ` (${row.learnerEmpCode})` : '') +
+    `: ${row.programName} / ${row.certificateNumber} / expires ${row.validUntilStr}</li>`);
+  return {
+    subject: `TMS — Team certificates expiring (${rows.length})`,
+    text:
+      `Hi ${managerName},\n\n` +
+      `These direct reports have a certificate expiring soon:\n\n` +
+      `${lineItems.join('\n')}\n\n` +
+      `Please follow up so they can recertify before it lapses.\n\n` +
+      `TMS Training System`,
+    html:
+      `<p>Hi <strong>${managerName}</strong>,</p>` +
+      `<p>These direct reports have a certificate expiring soon:</p>` +
+      `<ul>${htmlItems.join('')}</ul>` +
+      `<p>Please follow up so they can recertify before it lapses.</p>` +
+      `<p>TMS Training System</p>`,
+  };
+};
+
 // ──────────────────────────────────────────────────────────
 // Public senders — fail-soft wrappers
 // ──────────────────────────────────────────────────────────
@@ -361,6 +387,15 @@ const sendCertificateExpiring = ({ to, userName, programName, certificateNumber,
     }),
   });
 
+const sendCertificateExpiryManagerDigest = ({ to, managerName, rows }) =>
+  safeSend('certificate-expiry-manager-digest', {
+    to,
+    ...tplCertificateExpiryManagerDigest({
+      managerName,
+      rows: rows.map((row) => ({ ...row, validUntilStr: fmtDateOnly(row.validUntil) })),
+    }),
+  });
+
 module.exports = {
   // Public senders
   sendBookingConfirmation,
@@ -373,6 +408,7 @@ module.exports = {
   sendManagerAssignmentDigest,
   sendWaitlistPromoted,
   sendCertificateExpiring,
+  sendCertificateExpiryManagerDigest,
   // Templates exported for unit testing
   _templates: {
     tplBookingConfirmation,
@@ -385,5 +421,6 @@ module.exports = {
     tplManagerAssignmentDigest,
     tplWaitlistPromoted,
     tplCertificateExpiring,
+    tplCertificateExpiryManagerDigest,
   },
 };

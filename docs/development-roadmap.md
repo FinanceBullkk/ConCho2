@@ -56,7 +56,7 @@ not net-new capability.
 | 2 | Learning catalog + generic cohort model | ~95% | 🟢 near done |
 | 3 | Multi-program enrollment + session scheduling | ~85% | 🟡 in progress |
 | 4 | Frontend L&D workspace (CRUD UI) | ~82% | 🟡 in progress |
-| 5 | Reporting, completion, feedback | ~75% | 🟡 in progress |
+| 5 | Reporting, completion, feedback | ~77% | 🟡 in progress |
 | 6 | PostgreSQL decision gate | 0% | ⚪ gated |
 
 ## LTMS waves (forward — see [`lms-roadmap.md`](lms-roadmap.md))
@@ -113,6 +113,18 @@ Bug fixing and integration review rank above net-new feature rollout.
 > [`changelog-archive/2026-q2.md`](changelog-archive/2026-q2.md). Currently
 > inline: **2026-06-12 → 2026-06-13**.
 
+- **2026-06-13** — **Manager digest of expiring certificates (phase 5 → ~77%).**
+  The daily certificate-expiry cron now also sends each **manager a weekly
+  digest** of their direct reports' soon-to-expire certificates
+  (`manager_certificate_expiry_digest`, email + `/my-team` bell item, idempotent
+  per manager per ISO-week via `manager_cert_expiry_<isoWeek>` — mirrors the
+  assignment overdue digest). Built into the same scan (`expiry-reminder-service`
+  now populates `userId.managerId` and groups by manager); new
+  `sendCertificateExpiryManagerDigest` email template + bell presenter. Reuses
+  the assignment manager-digest ISO-week cadence helper. Tests: +3 server
+  integration (digest sent + learnerCount, weekly-idempotent, no-manager → none)
+  — server 956/96. Specs `compliance-and-recertification` (deferral cleared) +
+  `assignments-and-reminders` (presenter) updated.
 - **2026-06-13** — **`facilitatorPolicy.visibility` enforced — phase-3 policy
   debt fully closed (phase 3 → ~85%).** For a program flagged
   **`visibility: assigned_only`**, a Teacher now reaches its sessions — list,
