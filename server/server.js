@@ -278,6 +278,11 @@ app.use('/api/cron', require('./routes/cronRoutes'));
 app.use('/api/search', require('./routes/searchRoutes'));
 app.use('/api/notifications', require('./domains/notification/routes'));
 
+// ── Domain-event subscribers (rearchitecture Phase 0) ────────
+// Wire cross-cutting concerns (in-app notifications, …) to the event bus once at
+// boot, so business use-cases publish events instead of calling them inline.
+require('./domains/notification/subscribers').register();
+
 // ── Production: Serve React client build ─────────────────
 if (process.env.NODE_ENV === 'production') {
   const clientDist = path.join(__dirname, '..', 'client', 'dist');

@@ -109,6 +109,19 @@ Bug fixing and integration review rank above net-new feature rollout.
 > [`changelog-archive/2026-q2.md`](changelog-archive/2026-q2.md). Currently
 > inline: **2026-06-12 → 2026-06-13**.
 
+- **2026-06-14** — **Converge Phase 0 (Part A): in-process domain-event bus +
+  first flow migrated (no behaviour change).** New `lib/event-bus.js`
+  (publish/subscribe; subscribers run awaited after the mutation persists, a
+  throwing subscriber is logged + isolated) + `domains/_shared/events.js`
+  (event catalogue) + `domains/notification/subscribers.js` (registered once at
+  boot in `server.js`). First cross-cutting concern moved off inline wiring: the
+  `cohort_enrolled` bell row now reacts to **`ENROLLMENT_CREATED`** (published by
+  `domains/learning/enrollment` single + bulk) instead of an inline `recordInApp`
+  call — the use-case no longer imports the notification layer. **Byte-parity**
+  held: the existing enrollment integration tests (admin-enroll writes / self-enroll
+  doesn't / bulk) pass unchanged. Tests: +6 event-bus unit — **server 967/98**, no
+  regression. Pure refactor → no spec change. Next: migrate more concerns
+  (audit/completion) + Part B (finish authz roleGuard→capability).
 - **2026-06-14** — **Re-architecture decision: converge to ONE training model
   (Option A).** Owner judged the system still "messy" post-IA and asked for a
   whole-system re-architecture vs best-in-class references. Analysis
