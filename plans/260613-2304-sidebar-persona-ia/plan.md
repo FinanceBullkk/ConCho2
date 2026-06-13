@@ -1,6 +1,6 @@
 # Sidebar + Persona IA — enterprise-standard navigation
 
-**Created:** 2026-06-13 · **Status:** 🟡 planned (owner picked Option A, phased)
+**Created:** 2026-06-13 · **Status:** 🟢 shipped — all 3 phases complete (2026-06-13)
 **Type:** Frontend IA / app-shell rework · no backend/behavior change
 **Research:** [`plans/reports/research-260613-2304-lms-ia-navigation-patterns.md`](../reports/research-260613-2304-lms-ia-navigation-patterns.md)
 **Builds on:** branch `feat/ia-dedupe-and-regroup-nav` (dedupe + consolidated Reports +

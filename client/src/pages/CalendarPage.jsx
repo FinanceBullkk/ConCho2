@@ -1,6 +1,6 @@
 import { useSearchParams, Navigate } from 'react-router-dom';
 import { CalendarCheck, ClipboardList } from 'lucide-react';
-import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
+import { Tabs, TabsContent } from '@/components/ui/tabs';
 import { PageHeader } from '@/components/PageHeader';
 import { useAuth } from '../context/AuthContext';
 import SchedulesPage from '../features/schedule/SchedulesPage';
@@ -67,19 +67,8 @@ export default function CalendarPage() {
   return (
     <div>
       <PageHeader title="Calendar" description={current?.description} />
+      {/* IA Phase 03: tab strip removed — the sidebar's Operations group drives ?tab=. */}
       <Tabs value={current?.id} onValueChange={setTab} className="space-y-6">
-        <TabsList>
-          {tabs.map((t) => {
-            const Icon = t.icon;
-            return (
-              <TabsTrigger key={t.id} value={t.id} className="gap-2">
-                <Icon className="size-4" aria-hidden="true" />
-                {t.label}
-              </TabsTrigger>
-            );
-          })}
-        </TabsList>
-
         {tabs.map((t) => (
           <TabsContent key={t.id} value={t.id} hidden={current?.id !== t.id}>
             {current?.id === t.id && <TabContent id={t.id} />}

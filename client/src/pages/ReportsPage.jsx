@@ -1,6 +1,6 @@
 import { useSearchParams } from 'react-router-dom';
 import { LayoutDashboard, BarChart3, ChartLine, Download } from 'lucide-react';
-import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
+import { Tabs, TabsContent } from '@/components/ui/tabs';
 import { PageHeader } from '@/components/PageHeader';
 import { useRole } from '@/hooks/useRole';
 import AdminAnalyticsPanel from '../features/dashboard/AdminAnalyticsPanel';
@@ -57,20 +57,8 @@ export default function ReportsPage() {
   return (
     <div>
       <PageHeader title="Reports" description={current.description} />
+      {/* IA Phase 03: tab strip removed — the sidebar's Reports group drives ?tab=. */}
       <Tabs value={activeTab} onValueChange={setTab} className="space-y-6">
-        <div className="max-w-full overflow-x-auto pb-1">
-          <TabsList className="w-max min-w-full justify-start">
-            {tabs.map((t) => {
-              const Icon = t.icon;
-              return (
-                <TabsTrigger key={t.id} value={t.id} className="gap-2">
-                  <Icon className="size-4" aria-hidden="true" />
-                  {t.label}
-                </TabsTrigger>
-              );
-            })}
-          </TabsList>
-        </div>
         {can('read:dashboard') && (
           <TabsContent value="overview" hidden={activeTab !== 'overview'}>
             {activeTab === 'overview' && <AdminAnalyticsPanel />}

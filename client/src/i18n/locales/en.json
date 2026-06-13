@@ -3,10 +3,30 @@
     "home": "Home",
     "primary": "Primary navigation",
     "groups": {
-      "training": "Training",
-      "insights": "Insights",
-      "manage": "Manage",
+      "learning": "Learning",
+      "operations": "Operations",
+      "english": "English Class",
+      "reports": "Reports",
+      "people": "People",
+      "system": "System",
       "myLearning": "My Learning"
+    },
+    "sections": {
+      "schedules": "Schedules",
+      "attendance": "Attendance",
+      "classes": "Classes",
+      "teams": "Teams",
+      "evaluations": "Evaluations",
+      "overview": "Overview",
+      "ldDashboard": "L&D Dashboard",
+      "completion": "Completion",
+      "attendanceAnalytics": "Attendance",
+      "hrExport": "HR Export",
+      "settings": "Settings",
+      "database": "Database",
+      "sync": "Sync",
+      "reconcile": "Reconciliation",
+      "audit": "Audit log"
     },
     "learner": {
       "programs": "My programs",

@@ -27,39 +27,39 @@ function renderReports(initialPath = '/reports') {
   );
 }
 
-describe('ReportsPage — consolidated reporting, tab visibility per role', () => {
+// IA Phase 03: the in-page tab strip is gone (the sidebar's Reports group drives
+// ?tab=). The page renders the panel for the active (or first-allowed) tab; we
+// assert the rendered panel per role + ?tab=.
+describe('ReportsPage — consolidated reporting, panel per role/tab', () => {
   beforeEach(() => {
     mockCan.mockReset();
   });
 
-  it('Admin sees all five report tabs (no Sheets Sync — that lives in System now)', () => {
+  it('Admin defaults to the Overview panel', () => {
     mockCan.mockImplementation(() => true);
     renderReports();
-    expect(screen.getByRole('tab', { name: /overview/i })).toBeInTheDocument();
-    expect(screen.getByRole('tab', { name: /l&d dashboard/i })).toBeInTheDocument();
-    expect(screen.getByRole('tab', { name: /completion/i })).toBeInTheDocument();
-    expect(screen.getByRole('tab', { name: /attendance/i })).toBeInTheDocument();
-    expect(screen.getByRole('tab', { name: /hr export/i })).toBeInTheDocument();
-    expect(screen.queryByRole('tab', { name: /sheets sync/i })).not.toBeInTheDocument();
+    expect(screen.getByTestId('overview-panel')).toBeInTheDocument();
   });
 
-  it('Teacher sees L&D Dashboard + Completion + Attendance (no Overview, no HR Export)', () => {
+  it('Admin ?tab=hr-export renders the HR Export panel', () => {
+    mockCan.mockImplementation(() => true);
+    renderReports('/reports?tab=hr-export');
+    expect(screen.getByTestId('hr-export-page')).toBeInTheDocument();
+    expect(screen.queryByTestId('overview-panel')).not.toBeInTheDocument();
+  });
+
+  it('Teacher defaults to L&D Dashboard (no read:dashboard → no Overview)', () => {
     // Teacher permissions: read:reports + read:attendance (no read:dashboard / export:data).
     mockCan.mockImplementation((p) => p === 'read:reports' || p === 'read:attendance');
     renderReports();
-    expect(screen.getByRole('tab', { name: /l&d dashboard/i })).toBeInTheDocument();
-    expect(screen.getByRole('tab', { name: /completion/i })).toBeInTheDocument();
-    expect(screen.getByRole('tab', { name: /attendance/i })).toBeInTheDocument();
-    expect(screen.queryByRole('tab', { name: /overview/i })).not.toBeInTheDocument();
-    expect(screen.queryByRole('tab', { name: /hr export/i })).not.toBeInTheDocument();
+    expect(screen.getByTestId('learning-dashboard')).toBeInTheDocument();
+    expect(screen.queryByTestId('overview-panel')).not.toBeInTheDocument();
   });
 
-  it('Teacher requesting ?tab=overview falls back to first allowed tab (L&D Dashboard)', () => {
+  it('Teacher requesting ?tab=overview falls back to the first allowed panel (L&D Dashboard)', () => {
     mockCan.mockImplementation((p) => p === 'read:reports' || p === 'read:attendance');
     renderReports('/reports?tab=overview');
-    // L&D Dashboard is the first tab a Teacher can see — its panel must render.
     expect(screen.getByTestId('learning-dashboard')).toBeInTheDocument();
-    // overview panel must NOT render
     expect(screen.queryByTestId('overview-panel')).not.toBeInTheDocument();
   });
 
