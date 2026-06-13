@@ -1,6 +1,44 @@
 {
   "nav": {
     "home": "Home",
+    "primary": "Primary navigation",
+    "groups": {
+      "learning": "Learning",
+      "operations": "Operations",
+      "english": "English Class",
+      "reports": "Reports",
+      "people": "People",
+      "system": "System",
+      "myLearning": "My Learning"
+    },
+    "sections": {
+      "schedules": "Schedules",
+      "attendance": "Attendance",
+      "classes": "Classes",
+      "teams": "Teams",
+      "evaluations": "Evaluations",
+      "overview": "Overview",
+      "ldDashboard": "L&D Dashboard",
+      "completion": "Completion",
+      "attendanceAnalytics": "Attendance",
+      "hrExport": "HR Export",
+      "settings": "Settings",
+      "database": "Database",
+      "sync": "Sync",
+      "reconcile": "Reconciliation",
+      "audit": "Audit log"
+    },
+    "learner": {
+      "programs": "My programs",
+      "catalog": "Catalog",
+      "sessions": "My sessions",
+      "paths": "Learning paths",
+      "assessments": "Assessments",
+      "feedback": "Feedback",
+      "transcript": "Transcript"
+    },
+    "switchToLearner": "Switch to My Learning",
+    "switchToAdmin": "Switch to Admin console",
     "people": "People",
     "programs": "Programs",
     "learning": "Learning",
@@ -260,6 +298,14 @@
     "docTitle": "TMS — Home",
     "greeting": "Hello, {{name}}",
     "greetingFallback": "there",
+    "viewAnalytics": "View analytics",
+    "quickActions": {
+      "title": "At a glance",
+      "overdue": { "label": "Overdue learners" },
+      "certs": { "label": "Certificates expiring", "expired": "{{count}} expired" },
+      "upcoming": { "label": "Sessions next 7 days" },
+      "completion": { "label": "Completion rate" }
+    },
     "updatedMinutesAgo": "Updated {{count}} min ago",
     "updatedLessThanMinute": "Updated <1 min ago",
     "refreshTitle": "Refresh data",
@@ -442,6 +488,10 @@
   },
   "learning": {
     "title": "Learning",
+    "groups": {
+      "catalog": "Catalog",
+      "delivery": "Delivery"
+    },
     "tabs": {
       "dashboard": "Dashboard",
       "dashboardDesc": "Operational training KPIs at a glance — completion, attendance, obligations, and quality.",

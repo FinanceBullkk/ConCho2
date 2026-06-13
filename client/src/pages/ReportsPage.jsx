@@ -1,28 +1,36 @@
 import { useSearchParams } from 'react-router-dom';
-import { Download, RefreshCw, ChartLine } from 'lucide-react';
-import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
+import { LayoutDashboard, BarChart3, ChartLine, Download } from 'lucide-react';
+import { Tabs, TabsContent } from '@/components/ui/tabs';
 import { PageHeader } from '@/components/PageHeader';
 import { useRole } from '@/hooks/useRole';
-import HRExportPage from '../features/admin/HRExportPage';
-import SyncPage from '../features/sync/SyncPage';
+import AdminAnalyticsPanel from '../features/dashboard/AdminAnalyticsPanel';
+import DashboardTab from '../features/learning/DashboardTab';
+import ReportsTab from '../features/learning/ReportsTab';
 import AttendanceDashboardPage from '../features/attendance/AttendanceDashboardPage';
+import HRExportPage from '../features/admin/HRExportPage';
 
 // ──────────────────────────────────────────────────────────
-// Reports — Analytics, HR Export, Sheets Sync.
+// Reports — the single home for ALL analytics & reporting (IA cleanup
+// 2026-06-13). Previously reporting was scattered across Home (training
+// analytics), Learning▸Dashboard, Learning▸Reports, and this page. They now
+// all live here as tabs. Sheets Sync moved OUT to System▸Sync (data-ops, next
+// to Reconciliation) — it was a duplicate mount of the same SyncPage.
 //
-// Audit PR K (FE-007): each tab declares the `perm` it requires; we
-// filter the visible set per user role and silently substitute the
-// first allowed tab if the URL tab=... points at one they can't see.
-// HR Export + Sheets Sync are Admin-only on the server, so Teachers
-// previously saw tabs that 403'd on first action.
-// Evaluations moved to the English-class section
-// (/english?tab=evaluations) — English-class separation 2026-06-12.
+// Each tab declares the `perm` it requires; we filter the visible set per role
+// and substitute the first allowed tab if the URL points at one they can't see.
+//   overview   (read:dashboard, Admin)  — training analytics moved from Home
+//   learning   (read:reports)           — L&D operational/executive dashboard
+//   completion (read:reports)           — cohort completion + compliance
+//   analytics  (read:attendance)        — attendance analytics
+//   hr-export  (export:data, Admin)     — Excel export for HR
 // ──────────────────────────────────────────────────────────
 
 const ALL_TABS = [
-  { id: 'analytics',    label: 'Analytics',    icon: ChartLine,     description: 'Attendance rates by employee, team, class.',  perm: 'read:attendance' },
-  { id: 'hr-export',    label: 'HR Export',    icon: Download,      description: 'Download attendance data as Excel for HR.',   perm: 'export:data' },
-  { id: 'sheets-sync',  label: 'Sheets Sync',  icon: RefreshCw,     description: 'Sync team enrollments from Google Sheets.',   perm: 'sync:sheets' },
+  { id: 'overview',   label: 'Overview',      icon: LayoutDashboard, description: 'Training KPIs — active learners, attendance, course and level breakdowns, class progress.', perm: 'read:dashboard' },
+  { id: 'learning',   label: 'L&D Dashboard', icon: BarChart3,       description: 'Operational and executive L&D KPIs — completion, obligations, quality, ROI.',              perm: 'read:reports' },
+  { id: 'completion', label: 'Completion',    icon: ChartLine,       description: 'Cohort completion and Admin compliance status for required learning.',                    perm: 'read:reports' },
+  { id: 'analytics',  label: 'Attendance',    icon: ChartLine,       description: 'Attendance rates by employee, team, class.',                                              perm: 'read:attendance' },
+  { id: 'hr-export',  label: 'HR Export',     icon: Download,        description: 'Download attendance data as Excel for HR.',                                               perm: 'export:data' },
 ];
 
 export default function ReportsPage() {
@@ -30,7 +38,7 @@ export default function ReportsPage() {
   const { can } = useRole();
 
   const tabs = ALL_TABS.filter((t) => can(t.perm));
-  const requested = searchParams.get('tab') ?? tabs[0]?.id ?? 'analytics';
+  const requested = searchParams.get('tab') ?? tabs[0]?.id ?? 'overview';
   const activeTab = tabs.some((t) => t.id === requested) ? requested : tabs[0]?.id;
   const current = tabs.find((t) => t.id === activeTab) ?? tabs[0];
 
@@ -49,18 +57,23 @@ export default function ReportsPage() {
   return (
     <div>
       <PageHeader title="Reports" description={current.description} />
+      {/* IA Phase 03: tab strip removed — the sidebar's Reports group drives ?tab=. */}
       <Tabs value={activeTab} onValueChange={setTab} className="space-y-6">
-        <TabsList>
-          {tabs.map((t) => {
-            const Icon = t.icon;
-            return (
-              <TabsTrigger key={t.id} value={t.id} className="gap-2">
-                <Icon className="size-4" />
-                {t.label}
-              </TabsTrigger>
-            );
-          })}
-        </TabsList>
+        {can('read:dashboard') && (
+          <TabsContent value="overview" hidden={activeTab !== 'overview'}>
+            {activeTab === 'overview' && <AdminAnalyticsPanel />}
+          </TabsContent>
+        )}
+        {can('read:reports') && (
+          <TabsContent value="learning" hidden={activeTab !== 'learning'}>
+            {activeTab === 'learning' && <DashboardTab />}
+          </TabsContent>
+        )}
+        {can('read:reports') && (
+          <TabsContent value="completion" hidden={activeTab !== 'completion'}>
+            {activeTab === 'completion' && <ReportsTab />}
+          </TabsContent>
+        )}
         {can('read:attendance') && (
           <TabsContent value="analytics" hidden={activeTab !== 'analytics'}>
             {activeTab === 'analytics' && <AttendanceDashboardPage />}
@@ -69,11 +82,6 @@ export default function ReportsPage() {
         {can('export:data') && (
           <TabsContent value="hr-export" hidden={activeTab !== 'hr-export'}>
             {activeTab === 'hr-export' && <HRExportPage />}
-          </TabsContent>
-        )}
-        {can('sync:sheets') && (
-          <TabsContent value="sheets-sync" hidden={activeTab !== 'sheets-sync'}>
-            {activeTab === 'sheets-sync' && <SyncPage />}
           </TabsContent>
         )}
       </Tabs>

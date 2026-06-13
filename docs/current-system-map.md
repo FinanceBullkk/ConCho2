@@ -72,12 +72,12 @@ Public:
 
 Protected shell:
 
-- `/home` -> dashboard
+- `/home` -> landing (greeting + AlertBand + TodayHero + role-aware QuickActions; the Admin training analytics moved to `/reports?tab=overview` — IA cleanup 2026-06-13)
 - `/people` -> Admin only
-- `/learning` -> Admin and Teacher
+- `/learning` -> Admin and Teacher (6 tabs grouped Catalog/Delivery; Dashboard + Reports tabs moved to `/reports`)
 - `/calendar` -> all roles
-- `/reports` -> Admin and Teacher
-- `/system` -> Admin only
+- `/reports` -> Admin, Coordinator, Teacher (consolidated reporting home: Overview · L&D Dashboard · Completion · Attendance · HR Export)
+- `/system` -> Admin only (Sync lives here — removed the duplicate Reports▸Sheets Sync tab)
 - `/classes/:id` -> Admin only
 - `/me/settings` -> all authenticated users
 
@@ -98,18 +98,46 @@ Legacy redirects:
 
 ### Navigation And Access
 
-`client/src/components/Navbar.jsx` defines top-level nav items:
+IA rework 2026-06-13: top horizontal bar → **left sidebar + slim topbar** (the
+enterprise pattern — Docebo/TalentLMS/SAP). The shell is
+`client/src/components/Layout.jsx` (Topbar + Sidebar + mobile drawer); nav is
+defined once in `client/src/components/nav/nav-config.js`:
 
-| Nav | Admin | Teacher | Participant |
-|---|---:|---:|---:|
-| Home | full | full | full |
-| People | full | none | none |
-| Programs | full | read | none |
-| Calendar | full | full | full |
-| Reports | full | full | none |
-| System | account dropdown only | none | none |
+- **`nav/Topbar.jsx`** — sticky slim bar: logo · global search (Cmd/Ctrl+K) ·
+  NotificationBell · theme toggle · avatar menu (account + sign-out).
+- **`nav/Sidebar.jsx`** — role-filtered grouped vertical nav (md+ sticky column);
+  items the role can't access are HIDDEN (not disabled) — only what you can act on.
+- **`nav/MobileSidebar.jsx`** — `< md` hamburger-opened slide-over drawer.
 
-`ProtectedRoute` enforces page-level roles and redirects MFA-enrollment-required sessions to `/me/settings?force=mfa`.
+**Sidebar = collapsible section-groups whose items are the section's tabs**
+(Phase 03 — the umbrella pages dropped their in-page tab strips; each tab is now a
+sidebar sub-item, a deep link into the page's `?tab=`). Items are filtered by
+`access` (role map) AND/OR `perm` (capability via `useRole`). Admin-persona groups:
+
+| Group | Sub-items (→ `?tab=`) |
+|---|---|
+| (top) | Home |
+| Learning | Programs · Cohorts · Paths · Assignments · Assessments · Feedback (`/learning`) |
+| Operations | Schedules · Attendance (`/calendar`) |
+| English Class | Classes · Teams · Schedules · Attendance · Evaluations (`/english`) |
+| Reports | Overview · L&D Dashboard · Completion · Attendance · HR Export (`/reports`) |
+| People | Users · Departments · Offices · Rooms (`/people`) |
+| System | Settings · Database · Sync · Reconciliation · Audit (`/system`) |
+| (manager) | My Team (when the user has direct reports) |
+
+Each sub-item gates on the same perm/role the page's tab used, so a role sees only
+its tabs (e.g. Teacher: Learning minus Paths, Reports minus Overview/HR Export,
+Operations/English Attendance only; Coordinator: no System, no English).
+
+**Persona modes (Phase 02):** `context/PersonaContext.jsx` swaps the sidebar
+group-set between **Admin Console** (the table above) and **My Learning** (the
+`/me/*` surfaces: My programs · Catalog · My sessions · Paths · Assessments ·
+Feedback · Transcript + English). Participants are locked to learner; staff default
+to admin and switch via the avatar menu (choice persisted in `localStorage`). The
+`/me/*` routes are open to ALL authenticated users (self-scoped server-side).
+Persona is a UI mode only — not an authz boundary.
+
+`ProtectedRoute` enforces page-level roles and redirects MFA-enrollment-required sessions to `/me/settings?force=mfa`. The sidebar only shows/hides — the server is the real authz boundary.
 
 ### Client API Modules
 

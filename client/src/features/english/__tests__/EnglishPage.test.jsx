@@ -53,13 +53,12 @@ const renderPage = (entry = '/english') =>
   );
 
 describe('EnglishPage — bounded English-class section', () => {
-  it('Admin sees the full tab set, default tab Classes scoped to the team world', () => {
+  // IA Phase 03: tab strip gone — the sidebar's English Class group drives ?tab=.
+  // The page renders the body for the active (or role-default) tab.
+  it('Admin defaults to Classes, scoped to the team world', () => {
     h.auth = { user: { _id: 'a1', role: 'Admin' } };
     renderPage();
 
-    for (const name of [/classes/i, /teams/i, /schedules/i, /attendance/i, /evaluations/i]) {
-      expect(screen.getByRole('tab', { name })).toBeInTheDocument();
-    }
     expect(screen.getByTestId('classes-tab')).toBeInTheDocument();
     expect(h.cohortsProps).toHaveBeenCalledWith(expect.objectContaining({ mode: 'team' }));
   });
@@ -73,15 +72,20 @@ describe('EnglishPage — bounded English-class section', () => {
     expect(h.attendanceProps).toHaveBeenCalledWith(expect.objectContaining({ mode: 'team' }));
   });
 
-  it('Teacher sees only Attendance + Evaluations', () => {
+  it('Teacher defaults to the Attendance surface (team world)', () => {
     h.auth = { user: { _id: 't1', role: 'Teacher' } };
     renderPage();
 
-    expect(screen.getByRole('tab', { name: /attendance/i })).toBeInTheDocument();
-    expect(screen.getByRole('tab', { name: /evaluations/i })).toBeInTheDocument();
-    expect(screen.queryByRole('tab', { name: /classes/i })).toBeNull();
-    expect(screen.queryByRole('tab', { name: /teams/i })).toBeNull();
     expect(screen.getByTestId('attendance-page')).toBeInTheDocument();
+    expect(h.attendanceProps).toHaveBeenCalledWith(expect.objectContaining({ mode: 'team' }));
+    // not the admin-only Classes surface
+    expect(screen.queryByTestId('classes-tab')).toBeNull();
+  });
+
+  it('Teacher ?tab=evaluations renders the Evaluations surface', () => {
+    h.auth = { user: { _id: 't1', role: 'Teacher' } };
+    renderPage('/english?tab=evaluations');
+    expect(screen.getByTestId('evaluation-page')).toBeInTheDocument();
   });
 
   it('Participant WITH a team gets the booking grid (no tab chrome)', () => {

@@ -1,7 +1,7 @@
 import { useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { Users, Building2, MapPin, DoorOpen } from 'lucide-react';
-import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
+import { Tabs, TabsContent } from '@/components/ui/tabs';
 import { PageHeader } from '@/components/PageHeader';
 import { useRole } from '../hooks/useRole';
 import UsersPage from '../features/users/UsersPage';
@@ -47,18 +47,8 @@ export default function PeoplePage() {
   return (
     <div>
       <PageHeader title={t('people.title')} description={t(`people.tabs.${current.id}Desc`)} />
+      {/* IA Phase 03: tab strip removed — the sidebar's People group drives ?tab=. */}
       <Tabs value={activeTab} onValueChange={setTab} className="space-y-6">
-        <TabsList>
-          {tabs.map((tab) => {
-            const Icon = tab.icon;
-            return (
-              <TabsTrigger key={tab.id} value={tab.id} className="gap-2">
-                <Icon className="size-4" aria-hidden="true" />
-                {t(`people.tabs.${tab.id}`)}
-              </TabsTrigger>
-            );
-          })}
-        </TabsList>
         {tabs.map((tab) => {
           const Body = tab.component;
           return (
