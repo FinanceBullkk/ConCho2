@@ -32,6 +32,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { cn } from '@/lib/utils';
 import SearchPalette from './SearchPalette';
+import NotificationBell from '../features/notifications/NotificationBell';
 
 // Phase 2 IA-S4 — single nav, permission-gated per item.
 // access 'full' → clickable link
@@ -369,6 +370,7 @@ export default function Navbar() {
             >
               <Search className="size-4" aria-hidden="true" />
             </button>
+            <NotificationBell />
             <button
               onClick={toggle}
               aria-label={isDark ? t('nav.switchLight') : t('nav.switchDark')}

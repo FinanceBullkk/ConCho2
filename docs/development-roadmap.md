@@ -23,11 +23,11 @@ not net-new capability.
   light dependency majors done.
 - **Now (in progress):** **Cohesion Wave** (`plans/260612-2058-cohesion-wave/`)
   — P1 Learner Program Home, P2 unified learner home, P3 assignment→one-click
-  enroll all shipped 2026-06-13; English-class separation (`/english`) shipped
-  2026-06-12. Migration phases 3/4/5 sit ~72–78% (long tail = polish + this
-  weave).
-- **Next:** Cohesion **P5 in-app notification bell**, **P6 learner transcript**
-  to close the wave; then a bug/wiring review before any net-new capability.
+  enroll, **P5 in-app notification bell** all shipped 2026-06-13; English-class
+  separation (`/english`) shipped 2026-06-12. Migration phases 3/4/5 sit
+  ~72–78% (long tail = polish + this weave).
+- **Next:** Cohesion **P6 learner transcript** to close the wave; then a
+  bug/wiring review before any net-new capability.
 - **Gated / owner-ops:** **D2 Google OIDC + Directory sync** (blocked on owner's
   Google OAuth app + Workspace domain); **paid always-on hosting** + Sentry
   cron-monitor dashboard; **Phase 6 PostgreSQL gate** (plan drafted,
@@ -101,6 +101,26 @@ Bug fixing and integration review rank above net-new feature rollout.
 > [`changelog-archive/2026-q2.md`](changelog-archive/2026-q2.md). Currently
 > inline: **2026-06-12 → 2026-06-13**.
 
+- **2026-06-13** — **Cohesion P5: in-app notification bell** (plan
+  `plans/260612-2058-cohesion-wave/` P5). A **read-feed over the existing
+  email `NotificationLog`** surfaces notifications in-app — no new write path,
+  email channel unchanged. New thin domain `server/domains/notification/`
+  (`/api/notifications`): self-scoped **`GET /mine`** (items + `unreadCount`,
+  excludes transient `pending` rows), **`POST /:id/read`**, **`POST /read-all`**
+  — all gated by a new role-wide **`notification.read`** capability and scoped
+  to the caller via `recipientUserId` (another user's id can never match →
+  marking it 404s). `NotificationLog` gained a nullable **`readAt`** (in-app
+  read state, independent of email `status`) + a `{recipientUserId,createdAt}`
+  index; mark-read is the caller's own UI state so it is intentionally NOT
+  audited. Client: **`NotificationBell`** in the navbar (Radix dropdown, unread
+  badge, 60s React-Query poll, click→mark-read+navigate, mark-all-read) +
+  `useNotifications` + `notificationsAPI` + `qk.notifications`; a `dto.js`
+  presenter maps each `type` to a title/body/link (assignment due-soon/overdue
+  → `/home`, manager digest → `/my-team`, waitlist-promoted → `/me/sessions`).
+  Tests: +6 server integration (`notifications-mine`: self-scope, pending
+  exclusion, unread accounting, cross-user 404) + 3 client component
+  (`NotificationBell`). server 926/94, client 278/61, lint at cap 63, build
+  clean. Next: P6 (learner transcript) closes the wave.
 - **2026-06-13** — **Cohesion P3: assignment → one-click enroll** (same
   branch; plan P3; owner-rec CTA-enroll, not silent auto). New self-scoped
   read **`GET /api/learning/assignments/mine`** (new `assignment.self`
