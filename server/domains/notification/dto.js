@@ -67,6 +67,15 @@ const PRESENTERS = {
       return `${name} is confirmed${when}`;
     },
   },
+  session_enrolled: {
+    title: 'Added to a session',
+    link: '/me/sessions',
+    body: (m) => {
+      const name = m.className || 'a session';
+      const when = m.sessionDate ? ` on ${fmtDate(m.sessionDate)}` : '';
+      return `You've been added to ${name}${when}`;
+    },
+  },
 };
 
 const FALLBACK = { title: 'Notification', link: '/home', body: () => '' };

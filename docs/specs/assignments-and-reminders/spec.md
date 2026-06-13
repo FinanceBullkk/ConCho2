@@ -137,7 +137,8 @@ only; it does NOT change the email `status`, and email delivery is unchanged.
 A `dto` presenter maps each `type` to a title/body/link
 (assignment due-soon/overdue → `/home`, manager digest → `/my-team`,
 waitlist-promoted → `/me/sessions`, certificate-issued → `/me/transcript`,
-cohort-enrolled → `/me/programs`, booking-confirmed → `/me/sessions`).
+cohort-enrolled → `/me/programs`, booking-confirmed → `/me/sessions`,
+session-enrolled → `/me/sessions`).
 Most rows are `channel:'email'` (the email IS the notification); a
 `channel:'in_app'` row is an in-app-only event with no email, written through
 the shared fail-soft + idempotent writer `domains/notification/in-app-writer.js`
@@ -148,12 +149,19 @@ the shared fail-soft + idempotent writer `domains/notification/in-app-writer.js`
   id, recipient = the enrolled learner;
 - **`booking_confirmed`** — when a leader books a team slot (mirrors the
   booking-confirmation email), keyed by `<scheduleId>:<userId>`, recipient =
-  the booker.
+  the booker;
+- **`session_enrolled`** — when a session create auto-enrolls people who did NOT
+  initiate it: the rest of the team on a leader booking (booker excluded — they
+  got `booking_confirmed`), and the cohort enrollees on an admin/coordinator-
+  scheduled cohort session. Written from the shared `scheduleService` chokepoint
+  (`bookSlot` / `bookCohortSlot` / `adminCreate`), keyed by
+  `<scheduleId>:<userId>`, recipient = each enrolled learner.
 
 The bell polls ~every 3 min (plus on tab focus). A logging hiccup (or duplicate)
-never blocks the triggering mutation — the write is best-effort. Still deferred:
-booking-confirm to auto-enrolled team members (only the booker is notified
-today) and cohort-session direct enrollment.
+never blocks the triggering mutation — the write is best-effort. In-app bell
+coverage now spans certificate issuance, cohort enrollment, and every session
+create path; remaining transactional emails (password reset, class cancellation)
+stay email-only by design.
 
 #### Scenario: Self-scoped feed
 - **GIVEN** notifications with `recipientUserId` = me (non-pending) and others'
@@ -176,6 +184,14 @@ today) and cohort-session direct enrollment.
 - **WHEN** the booking is created
 - **THEN** a `channel:'in_app'` `booking_confirmed` row is written for the booker
   (keyed by `<scheduleId>:<userId>`, link `/me/sessions`)
+
+#### Scenario: Auto-enrolled roster surfaces in each member's bell
+- **GIVEN** a leader books a team slot (auto-enrolling the team), or an
+  Admin/Coordinator schedules a cohort session over its active enrollees
+- **WHEN** the session is created
+- **THEN** each newly-enrolled learner gets a `channel:'in_app'`
+  `session_enrolled` row (link `/me/sessions`); the booker is excluded (they got
+  `booking_confirmed`)
 
 ### Requirement: Learner reminder cadence [BR-3, BR-5, UC-3]
 
