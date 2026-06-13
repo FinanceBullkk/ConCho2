@@ -120,16 +120,20 @@ Bug fixing and integration review rank above net-new feature rollout.
   Learning drops **8 → 6 tabs**. **(C)** **Grouped Learning's 6 tabs** into
   **Catalog** (Programs·Cohorts·Paths) ‖ **Delivery**
   (Assignments·Assessments·Feedback). **(D)** **Home is now a lightweight
-  landing** — greeting + AlertBand + TodayHero + role-aware **QuickActions** cards
-  + a "View analytics" CTA; the heavy admin training analytics was extracted into
+  landing** — greeting + AlertBand + TodayHero + **contextual QuickActions tiles**
+  (live operational signals — overdue learners, expiring certificates, sessions
+  next 7 days, completion rate — each linking where you act; one shared fail-soft
+  `useOperationalDashboard` query, NOT nav shortcuts) + a "View analytics" CTA;
+  the heavy admin training analytics was extracted into
   **`features/dashboard/AdminAnalyticsPanel.jsx`** (now Reports▸Overview). New
   `read:dashboard` perm (Admin-only); Coordinator gains the Reports nav (holds
   `read:reports`). New `features/dashboard/{AdminAnalyticsPanel,QuickActions}.jsx`;
   `DashboardPage` slimmed; stale `/learning?tab=dashboard|reports` bookmarks fall
   back gracefully to Programs. **No backend/spec change** (UI location only).
-  Tests: client **288** (DashboardPage rewritten for landing branches;
-  +AdminAnalyticsPanel UX-09 query gate; ReportsPage tab set updated), lint at cap
-  63, build clean. Plan `plans/260613-2055-ia-dedupe-and-regroup-nav/`.
+  Tests: client **293** (DashboardPage rewritten for landing branches;
+  +AdminAnalyticsPanel UX-09 query gate; +QuickActions contextual-tile suite;
+  ReportsPage tab set updated), lint at cap 63, build clean. Plan
+  `plans/260613-2055-ia-dedupe-and-regroup-nav/`.
 - **2026-06-13** — **Phase 3/4/5 push closed + re-baselined (docs-only).** After
   the 7-PR run (#80–#86) the genuine non-deferred migration debt for phases 3/4/5
   is shipped, so they are re-baselined **🟢 near done** (3 ~85%, 4 ~82%, 5 ~80%)
