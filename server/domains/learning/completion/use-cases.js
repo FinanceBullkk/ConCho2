@@ -1,5 +1,6 @@
 const crypto = require('crypto');
 const repository = require('./repository');
+const NotificationLog = require('../../../models/NotificationLog');
 const { ServiceError } = require('../../../helpers/ServiceError');
 const { getNextSequence } = require('../../../helpers/counter');
 
@@ -107,8 +108,9 @@ const issueCertificate = async ({ cohortId, userId }, actor) => {
   const issuedAt = new Date();
   const validityDays = completion.certificateValidityDays || null;
 
+  let certificate;
   try {
-    return await repository.createCertificate({
+    certificate = await repository.createCertificate({
       certificateNumber,
       verificationCode,
       userId,
@@ -143,6 +145,29 @@ const issueCertificate = async ({ cohortId, userId }, actor) => {
     }
     throw error;
   }
+
+  // Cohesion P5 follow-up: surface the issued certificate in the learner's
+  // notification bell. In-app only (no email today); fail-soft so a logging
+  // hiccup never blocks issuance; idempotent via the unique certificateNumber.
+  try {
+    await NotificationLog.create({
+      type: 'certificate_issued',
+      channel: 'in_app',
+      recipientUserId: userId,
+      learnerId: userId,
+      cadenceKey: certificateNumber,
+      status: 'sent',
+      sentAt: new Date(),
+      metadata: {
+        certificateNumber,
+        programName: completion.programName,
+        cohortCode: completion.cohortCode,
+        cohortId: String(cohortId),
+      },
+    });
+  } catch (_e) { /* best-effort: the bell is a convenience surface */ }
+
+  return certificate;
 };
 
 // Revoke (soft, lifecycle status) an issued certificate. Admin only at route.

@@ -42,6 +42,14 @@ const PRESENTERS = {
     link: '/me/sessions',
     body: () => 'A seat opened in a session you were waiting for — you are now enrolled',
   },
+  certificate_issued: {
+    title: 'Certificate issued',
+    link: '/me/transcript',
+    body: (m) => {
+      const name = m.programName || 'a program';
+      return `You earned a certificate for ${name}${m.certificateNumber ? ` (${m.certificateNumber})` : ''}`;
+    },
+  },
 };
 
 const FALLBACK = { title: 'Notification', link: '/home', body: () => '' };
