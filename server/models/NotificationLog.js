@@ -24,11 +24,18 @@ const notificationLogSchema = new mongoose.Schema(
       default: 'pending',
     },
     sentAt: { type: Date, default: null },
+    // In-app read state (Cohesion P5). null = unread in the notification bell.
+    // Independent of `status` (the email-delivery state) — the same log row is
+    // both the email record and the in-app feed item.
+    readAt: { type: Date, default: null },
     error: { type: String, default: '' },
     metadata: { type: mongoose.Schema.Types.Mixed, default: {} },
   },
   { timestamps: true, versionKey: false },
 );
+
+// Bell query: a user's own notifications, newest first (Cohesion P5).
+notificationLogSchema.index({ recipientUserId: 1, createdAt: -1 });
 
 notificationLogSchema.index(
   {

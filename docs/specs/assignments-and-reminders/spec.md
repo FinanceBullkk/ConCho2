@@ -11,6 +11,10 @@ related_code:
   - server/services/reminderService.js
   - server/models/Assignment.js
   - server/models/NotificationLog.js
+  - server/domains/notification/use-cases.js
+  - server/domains/notification/repository.js
+  - server/domains/notification/dto.js
+  - client/src/features/notifications/NotificationBell.jsx
 related_plans:
   - plans/260605-1135-assignment-due-dates
   - plans/260605-1344-assignment-reminders-escalation
@@ -117,6 +121,30 @@ emails deep-link to the home (`CLIENT_ORIGIN/home`) when configured.
 - **WHEN** the learner calls `/assignments/mine`
 - **THEN** the row has `enrollableCohortId: null` (no self-service path)
 
+### Requirement: In-app notification feed (Cohesion P5) [BR-3]
+
+The system SHALL expose the email `NotificationLog` as a self-scoped in-app
+feed: `GET /api/notifications/mine` returns the caller's own notifications
+(by `recipientUserId`, newest first, excluding transient `pending` rows) plus
+an `unreadCount`; `POST /api/notifications/:id/read` and
+`POST /api/notifications/read-all` set a per-row `readAt`. All three are gated
+by `notification.read` (held by every role) and scoped to the caller — another
+user's row can never match (marking it → 404). `readAt` is in-app read state
+only; it does NOT change the email `status`, and email delivery is unchanged.
+A `dto` presenter maps each `type` to a title/body/link
+(assignment due-soon/overdue → `/home`, manager digest → `/my-team`,
+waitlist-promoted → `/me/sessions`).
+
+#### Scenario: Self-scoped feed
+- **GIVEN** notifications with `recipientUserId` = me (non-pending) and others'
+- **WHEN** I call `/notifications/mine`
+- **THEN** only my non-pending rows return, with the correct `unreadCount`
+
+#### Scenario: Cannot read another user's notification
+- **GIVEN** a notification whose `recipientUserId` is another user
+- **WHEN** I POST `/notifications/:id/read`
+- **THEN** 404 and the row is unchanged
+
 ### Requirement: Learner reminder cadence [BR-3, BR-5, UC-3]
 
 The system SHALL send `assignment_due_soon` at exactly 7 days (`due_7`) and 1 day
@@ -145,7 +173,9 @@ at most once even under concurrent cron fires.
 Inherits `security-platform`. Specifics:
 - **Authz:** assignment read = Admin/Teacher (`assignment.read`); write = Admin
   (`assignment.manage`); reminder endpoints under `/api/cron` require
-  `CRON_TOKEN`.
+  `CRON_TOKEN`. In-app feed (`/api/notifications/*`) = `notification.read`
+  (every role; always self-scoped by `recipientUserId`); marking read is the
+  caller's own UI state — NOT audited.
 - **Idempotency:** NotificationLog `cadenceKey` + `Schedule.remindersSentAt`
   prevent duplicate sends across retries/concurrency.
 - **Audit:** assignment create/update/archive recorded.
@@ -172,5 +202,6 @@ Inherits `security-platform`. Specifics:
 ## Out of Scope / Deferred
 
 - Configurable per-assignment cadence (cadence is fixed).
-- In-app / push notifications (email only today).
+- Push / browser notifications (in-app bell shipped Cohesion P5 — read-feed
+  over the email log; email + in-app today, no push).
 - Assignment-level completion certificates (handled per cohort).

@@ -57,6 +57,8 @@ const CAPABILITIES = Object.freeze({
   ROOM_READ: 'room.read',               // list Office-scoped rooms (scheduling picker — not learner-facing)
   ROOM_MANAGE: 'room.manage',           // create / edit / archive rooms (admin/coordinator)
   SESSION_ASSIGN_TRAINER: 'session.assign-trainer', // set a session's internal/external trainers (admin/coordinator)
+  // ── In-app notifications (Cohesion P5) ───────────────────
+  NOTIFICATION_READ: 'notification.read', // read OWN notification feed + mark read (any role — endpoints are self-scoped)
 });
 
 const ALL_CAPABILITIES = Object.freeze(Object.values(CAPABILITIES));
@@ -90,6 +92,7 @@ const ROLE_CAPABILITIES = Object.freeze({
     CAPABILITIES.ROOM_READ,
     CAPABILITIES.ROOM_MANAGE,
     CAPABILITIES.SESSION_ASSIGN_TRAINER,
+    CAPABILITIES.NOTIFICATION_READ,
   ]),
   Teacher: Object.freeze([
     CAPABILITIES.ENROLLMENT_READ,
@@ -105,6 +108,7 @@ const ROLE_CAPABILITIES = Object.freeze({
     CAPABILITIES.DEPARTMENT_READ,
     CAPABILITIES.OFFICE_READ,
     CAPABILITIES.TEAM_READ,
+    CAPABILITIES.NOTIFICATION_READ,
   ]),
   Participant: Object.freeze([
     CAPABILITIES.SESSION_BOOK,
@@ -122,6 +126,8 @@ const ROLE_CAPABILITIES = Object.freeze({
     // A Participant can lead/manage others (e.g. team lead), so they may
     // read their own direct reports. Endpoint is self-scoped — safe.
     CAPABILITIES.TEAM_READ,
+    // Own in-app notification feed (Cohesion P5) — endpoints are self-scoped.
+    CAPABILITIES.NOTIFICATION_READ,
   ]),
 });
 
