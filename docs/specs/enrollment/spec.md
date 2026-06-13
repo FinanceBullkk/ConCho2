@@ -2,13 +2,15 @@
 capability: enrollment
 status: evolving
 owners: [domains/learning/enrollment, controllers/enrollmentController]
-last_updated: 2026-06-09
+last_updated: 2026-06-13
 related_code:
   - server/domains/learning/enrollment/use-cases.js
   - server/domains/learning/enrollment/prerequisites.js
   - server/domains/learning/enrollment/repository.js
+  - server/domains/learning/enrollment/schemas.js
   - server/models/Enrollment.js
   - server/controllers/enrollmentController.js
+  - client/src/features/learning/EnrollLearnersModal.jsx
 related_plans:
   - plans/260602-2125-cohort-based-enrollment
   - plans/260602-2247-m1-self-enroll-nomination-session-modes
@@ -18,10 +20,10 @@ related_plans:
 # Capability: Enrollment
 
 > **Source of truth for BEHAVIOR.** `status: evolving` — cohort-based + self-
-> enroll are built; the dedicated nomination workflow is persisted-but-not-yet-
-> enforced (noted below). `capacityPolicy.maxParticipants` is now **enforced** at
-> enrollment (Wave E2). (Session `schedulingMode` gating is enforced — see
-> `scheduling-and-booking`.)
+> enroll + **Admin bulk-enroll** are built; the dedicated nomination workflow is
+> persisted-but-not-yet-enforced (noted below). `capacityPolicy.maxParticipants`
+> is now **enforced** at enrollment (Wave E2), including across a bulk batch.
+> (Session `schedulingMode` gating is enforced — see `scheduling-and-booking`.)
 
 ## Purpose
 
@@ -103,6 +105,34 @@ concurrency backstop (E11000 → 409).
 - **WHEN** both pass the app check
 - **THEN** one succeeds; the other gets **409**
 
+### Requirement: Bulk cohort enrollment [BR-1, BR-4, UC-1]
+
+The system SHALL let an **Admin** (`enrollment.manage` only — no self path) enroll
+many learners into one cohort in a single request
+(`POST /api/learning/enrollments/bulk`, `{cohortId, userIds[1..500]}`).
+Enrollment is **partial-success**: each learner is attempted independently and a
+per-learner skip reason is returned rather than failing the batch. A learner
+already actively enrolled is skipped (`already_enrolled`); once the program's
+`capacityPolicy.maxParticipants` is reached the remaining learners are skipped
+(`cohort_full`). The cohort + capacity policy are read once; each admitted
+learner gets a `cohort_enrolled` in-app notification (DRY with single enroll).
+The batch is audited once (`bulk-enrolled`, with the enrolled ids + skip list).
+
+#### Scenario: Bulk enroll with a duplicate
+- **GIVEN** learner A is already enrolled and learners A, B are submitted
+- **WHEN** an Admin bulk-enrolls
+- **THEN** B is enrolled, A is skipped `already_enrolled`, response `enrolledCount=1`
+
+#### Scenario: Bulk enroll past capacity
+- **GIVEN** a cohort whose program `maxParticipants=1` and two learners submitted
+- **WHEN** an Admin bulk-enrolls
+- **THEN** one is enrolled, the other is skipped `cohort_full`
+
+#### Scenario: Non-admin bulk enroll
+- **GIVEN** a non-Admin caller
+- **WHEN** they POST `/enrollments/bulk`
+- **THEN** **403** (bulk has no self path)
+
 ### Requirement: Withdraw [BR-1, UC-3]
 
 The system SHALL let an Admin or the learner withdraw an **Active** cohort
@@ -131,6 +161,8 @@ Inherits `security-platform`. Specifics:
 - [ ] Enrolling past program `maxParticipants` → 422 (all roles); raising the cap admits more.
 - [ ] Withdraw only Active, by Admin or learner; else 409/403.
 - [ ] Participant lists only own enrollments.
+- [ ] Admin bulk-enrolls many in one call; duplicates → `already_enrolled`,
+      over-capacity → `cohort_full` (partial success); non-admin → 403.
 
 ## Error & Edge Cases
 
