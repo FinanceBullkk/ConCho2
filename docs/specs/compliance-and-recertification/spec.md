@@ -2,11 +2,12 @@
 capability: compliance-and-recertification
 status: stable
 owners: [domains/learning/reports (compliance)]
-last_updated: 2026-06-08
+last_updated: 2026-06-13
 related_code:
   - server/domains/learning/reports/compliance-use-cases.js
   - server/domains/learning/reports/compliance-certificate-state.js
   - server/domains/learning/reports/compliance-report-shape.js
+  - server/domains/learning/completion/expiry-reminder-service.js
   - server/models/Certificate.js
   - server/models/Assignment.js
 related_plans:
@@ -78,6 +79,30 @@ path's programs to the **worst** state (weight order issued < expiring < missing
 When multiple certificates exist for a learner+program, the system SHALL prefer
 an Issued one, then the most recently issued.
 
+### Requirement: Certificate expiry reminders [BR-2, UC-2]
+
+The system SHALL proactively warn a learner before an **Issued, non-deleted**
+certificate lapses. A daily cron
+(`POST /api/cron/certificate-expiry-reminders`, `CRON_TOKEN`-protected, monitored
+via `CronRun`) scans certificates whose `validUntil` is within the next 30 days
+(and not already past) and emails the learner. Two once-per-cert cadence buckets,
+idempotent via a `NotificationLog` `cadenceKey` of `<certificateNumber>:<bucket>`:
+`expiry_30` (8–30 days out) and `expiry_7` (0–7 days out). The
+`certificate_expiring` `NotificationLog` row (channel `email`) doubles as the
+in-app bell item (see `assignments-and-reminders`) — a learner with no email
+still sees a `skipped` row in the bell. The reminder links to `/me/transcript`.
+Recertification is signal-only (no auto-assignment yet).
+
+#### Scenario: Certificate within 7 days of expiry
+- **GIVEN** an Issued certificate with `validUntil` 5 days out and a learner email
+- **WHEN** the expiry-reminder cron runs (even twice the same day)
+- **THEN** exactly one `expiry_7` email + bell row is produced (idempotent)
+
+#### Scenario: Revoked / expired / no-validUntil certificate
+- **GIVEN** a revoked, soft-deleted, already-expired, or never-expiring cert
+- **WHEN** the cron runs
+- **THEN** no reminder is produced
+
 ## Non-Functional Requirements (NFR)
 
 Inherits `security-platform`. Specifics:
@@ -104,7 +129,8 @@ Inherits `security-platform`. Specifics:
 
 ## Out of Scope / Deferred
 
-- Auto-creating recertification assignments (identification only today).
-- Reminder emails for expiring certs (uses `assignments-and-reminders` cadence
-  where wired).
+- Auto-creating recertification assignments (the reminder is signal-only; an
+  Admin still assigns the recert program manually).
+- Manager digest of expiring certificates (learner reminders shipped; fold into
+  the existing manager digest later).
 - Org-wide compliance dashboards beyond the report shape.

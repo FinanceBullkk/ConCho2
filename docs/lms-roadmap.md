@@ -187,9 +187,11 @@ committed parallel track**.
 - Learning -> Reports has an Admin-only Compliance view with filters, summary
   tiles, rows, and Excel export. Teachers keep completion-only reports;
   Participants remain gated out.
-- Remaining later: certificate expiry reminder emails, automatic
-  recertification assignment creation after HR policy approval, and saved
-  report presets if HR repeats the same monthly view.
+- **Certificate expiry reminder emails shipped 2026-06-13** — a daily cron
+  warns learners before an Issued certificate lapses (30/7-day buckets, email +
+  in-app bell, idempotent). Remaining later: automatic recertification
+  assignment creation after HR policy approval, manager digest of expiring
+  certs, and saved report presets if HR repeats the same monthly view.
 
 ### Wave E — Generic scheduling *(G7 — committed parallel track; large, own plan)*
 

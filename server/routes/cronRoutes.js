@@ -4,6 +4,7 @@ const { reconcileLimiter } = require('../middleware/rateLimiters');
 const { runReconciliation } = require('../services/reconcileService');
 const { sendUpcomingReminders } = require('../services/reminderService');
 const { sendAssignmentReminders } = require('../domains/learning/assignment/reminder-service');
+const { sendCertificateExpiryReminders } = require('../domains/learning/completion/expiry-reminder-service');
 const { runMonitored, CRON_JOBS } = require('../lib/cronMonitor');
 const { handleError } = require('../helpers/handleError');
 
@@ -143,6 +144,36 @@ router.post('/assignment-reminders', async (req, res) => {
       CRON_JOBS.assignmentReminders.jobName,
       CRON_JOBS.assignmentReminders,
       () => sendAssignmentReminders()
+    );
+    res.json({ success: true, data: summary });
+  } catch (err) {
+    handleError(res, err);
+  }
+});
+
+/**
+ * @openapi
+ * /cron/certificate-expiry-reminders:
+ *   post:
+ *     tags: [Cron]
+ *     summary: Email learners whose certificates are about to expire (recertification)
+ *     description: |
+ *       Idempotent by NotificationLog cadence keys (`<certNumber>:expiry_30|7`).
+ *       Safe to call daily from an external pinger. Also surfaces the notice in
+ *       the in-app notification bell.
+ *     security:
+ *       - cronToken: []
+ *     responses:
+ *       200: { description: Certificate expiry reminder run summary }
+ *       401: { description: Invalid cron token }
+ */
+// POST /api/cron/certificate-expiry-reminders
+router.post('/certificate-expiry-reminders', async (req, res) => {
+  try {
+    const summary = await runMonitored(
+      CRON_JOBS.certificateExpiry.jobName,
+      CRON_JOBS.certificateExpiry,
+      () => sendCertificateExpiryReminders()
     );
     res.json({ success: true, data: summary });
   } catch (err) {
