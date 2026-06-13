@@ -4,6 +4,7 @@ const Schedule = require('../../models/Schedule');
 const { invalidateAnalyticsCache } = require('../../middleware/analyticsCache');
 const { ServiceError } = require('../../helpers/ServiceError');
 const { scopedAttendanceMatch } = require('./scope');
+const { assertFacilitatorAssigned } = require('../schedule/facilitator-assignment-policy');
 
 // ──────────────────────────────────────────────────────────
 // attendance/marking — bulk marking + record reads
@@ -46,6 +47,10 @@ const bulkMark = async (scheduleId, records) => {
       400
     );
   }
+
+  // ── Guard: a program that requires a facilitator can't be run without one ──
+  // (LearningProgram.facilitatorPolicy.assignmentRequired — no-op unless opted in)
+  await assertFacilitatorAssigned(schedule);
 
   // Build an allowlist of enrolled user IDs for this schedule
   const enrolledSet = new Set(schedule.enrolledUsers.map(id => id.toString()));

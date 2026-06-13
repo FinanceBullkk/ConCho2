@@ -33,10 +33,13 @@ not net-new capability.
   **`booking_confirmed`** (booker), and **`session_enrolled`** (everyone
   auto-added to a session roster — team members on a leader booking, cohort
   enrollees on an admin-scheduled session). Bell coverage deferral CLOSED.
-- **Next (active goal):** push migration phases 3/4/5 (~72–80%) toward done by
-  closing concrete incomplete loops. First slice shipped: **bulk cohort
-  enrollment** (Admin enrolls many learners in one action — closes the M2
-  "bulk enrollment" deferral; phase 3 + 4 → ~80%).
+- **Next (active goal):** push migration phases 3/4/5 (~72–82%) toward done by
+  closing concrete incomplete loops. Shipped: **bulk cohort enrollment** (M2
+  deferral; phase 3+4 → ~80%) and **`facilitatorPolicy.assignmentRequired`
+  enforcement** (phase-3 policy-debt; → ~82%). Remaining 3/4/5 gap is now
+  largely deferred-by-design (nomination workflow, Evaluation→Assessment
+  convergence, report presets) + the other persisted-not-enforced policies
+  (`deliveryMode`, `facilitatorPolicy.visibility`).
 - **Gated / owner-ops:** **D2 Google OIDC + Directory sync** (blocked on owner's
   Google OAuth app + Workspace domain); **paid always-on hosting** + Sentry
   cron-monitor dashboard; **Phase 6 PostgreSQL gate** (plan drafted,
@@ -51,7 +54,7 @@ not net-new capability.
 | 0 | Architecture baseline + safety net | ~93% | 🟢 near done |
 | 1 | Backend modular-monolith refactor | ~98% | 🟢 near done (2026-06-10: domains/attendance+groups+schedule routes extracted; repository ADR; schedule use-case tests; frontend `features/` migration complete) |
 | 2 | Learning catalog + generic cohort model | ~95% | 🟢 near done |
-| 3 | Multi-program enrollment + session scheduling | ~80% | 🟡 in progress |
+| 3 | Multi-program enrollment + session scheduling | ~82% | 🟡 in progress |
 | 4 | Frontend L&D workspace (CRUD UI) | ~80% | 🟡 in progress |
 | 5 | Reporting, completion, feedback | ~72% | 🟡 in progress |
 | 6 | PostgreSQL decision gate | 0% | ⚪ gated |
@@ -110,6 +113,23 @@ Bug fixing and integration review rank above net-new feature rollout.
 > [`changelog-archive/2026-q2.md`](changelog-archive/2026-q2.md). Currently
 > inline: **2026-06-12 → 2026-06-13**.
 
+- **2026-06-13** — **`facilitatorPolicy.assignmentRequired` enforced (phase 3
+  policy-debt closed → ~82%).** A `LearningProgram` that requires a facilitator
+  can no longer have its sessions *run* (attendance marked) until a trainer is
+  assigned — new `domains/schedule/facilitator-assignment-policy.js`
+  (`assertFacilitatorAssigned`) gated at the attendance-marking chokepoint
+  (`domains/attendance/marking.bulkMark`). A session "has a facilitator" when it
+  has a per-session internal trainer (`sessionInstructorIds`), an
+  `externalTrainer`, or a cohort-bound teacher (`Class.teacherIds`); otherwise
+  marking → **422** (applies to every actor incl. Admin; the remedy — assign a
+  trainer — is reachable from the cohort sessions panel). No-op for program-less
+  classes / programs that don't require a facilitator (default), so existing
+  data is unaffected unless an Admin opts in (policy set via the program API,
+  same as `completionPolicy`/`capacityPolicy` — none have a form editor yet).
+  Tests: +4 attendance integration (missing→422, instructor→OK, cohort
+  teacher→OK, policy-off→OK) — server 939/94. Specs `learning-catalog` +
+  `attendance` updated; domain-model rule's enforcement-truth line corrected.
+  Still persisted-not-enforced: `deliveryMode`, `facilitatorPolicy.visibility`.
 - **2026-06-13** — **Bulk cohort enrollment (phase 3 + 4 → ~80%).** Closes the
   M2 "bulk enrollment" deferral: an Admin can now enroll many learners into a
   cohort in one action. New **`POST /api/learning/enrollments/bulk`**

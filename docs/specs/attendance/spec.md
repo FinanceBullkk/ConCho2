@@ -2,12 +2,13 @@
 capability: attendance
 status: stable
 owners: [domains/attendance, models/Attendance]
-last_updated: 2026-06-12
+last_updated: 2026-06-13
 related_code:
   - server/domains/attendance
   - server/services/attendanceService.js
   - server/models/Attendance.js
   - server/helpers/teacher-class-scope.js
+  - server/domains/schedule/facilitator-assignment-policy.js
 related_plans: []
 ---
 
@@ -85,6 +86,30 @@ reject editing attendance for sessions older than 30 days.
 - **GIVEN** a session older than 30 days
 - **WHEN** an edit is attempted
 - **THEN** **400** ("Cannot edit attendance older than 30 days")
+
+### Requirement: Required-facilitator guard [BR-1, UC-1]
+
+The system SHALL reject marking a session whose program sets
+`facilitatorPolicy.assignmentRequired` until a facilitator is assigned — a
+session "has a facilitator" when it has a per-session internal trainer
+(`Schedule.sessionInstructorIds`), an `externalTrainer`, OR a cohort-bound
+teacher (`Class.teacherIds`). No-op for program-less classes and programs that
+do not require a facilitator (the default). Enforced at the marking chokepoint
+(`domains/attendance/marking.bulkMark` →
+`domains/schedule/facilitator-assignment-policy`), so it applies to every actor
+including Admin. The remedy (assign a trainer) is reachable from the cohort
+sessions panel.
+
+#### Scenario: Required facilitator missing
+- **GIVEN** a session whose program requires a facilitator and none is assigned
+- **WHEN** marking is attempted (even by an Admin)
+- **THEN** **422** ("This program requires a facilitator — assign a trainer …")
+
+#### Scenario: Facilitator assigned
+- **GIVEN** the same session after a session instructor (or cohort teacher) is
+  assigned
+- **WHEN** marking is attempted
+- **THEN** it succeeds
 
 ### Requirement: Teacher scoping [BR-4, UC-2]
 
