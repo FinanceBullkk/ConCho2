@@ -12,34 +12,30 @@
 
 ## Status board — Now / Next
 
-**~64% through the TMS → L&D migration.** The generic learning core works end
-to end; recent work is *cohesion* (weaving shipped features into one product),
-not net-new capability.
+**~70% through the TMS → L&D migration.** The generic learning core AND the L&D
+compliance loop (assignment → completion → certificate → expiry → recertification)
+work end to end. **The genuine non-deferred migration debt is closed** — the
+remainder is documented deferred-by-design scope (below), not active debt.
 
 - **Done (waves):** A Foundation · B Assessment & Certification · C Catalog/
   Paths/Self-service (core) · D1/D3/D4/D5/D6 platform slices · **E Generic
-  scheduling** (rooms, capacity, waitlists, trainers, durable cancellation) —
-  closed 2026-06-12. Full-system audit (8/8 rounds) complete; Express 4→5 done;
-  light dependency majors done.
-- **Now:** **Cohesion Wave COMPLETE** (`plans/260612-2058-cohesion-wave/`, 6/6)
-  — P1 Learner Program Home, P2 unified learner home, P3 assignment→one-click
-  enroll, P4 English-class separation, P5 in-app notification bell, **P6 learner
-  transcript** all shipped 2026-06-12/13. The learner surfaces now read as one
-  woven product. Migration phases 3/4/5 sit ~72–78%.
-- **Now (post-wave review done):** integration review of the woven learner
-  experience found no broken links / authz leaks; the notification bell now
-  surfaces the full set of in-app events via a shared fail-soft writer —
-  **`certificate_issued`**, **`cohort_enrolled`** (Admin direct-enroll),
-  **`booking_confirmed`** (booker), and **`session_enrolled`** (everyone
-  auto-added to a session roster — team members on a leader booking, cohort
-  enrollees on an admin-scheduled session). Bell coverage deferral CLOSED.
-- **Next (active goal):** push migration phases 3/4/5 (~72–82%) toward done by
-  closing concrete incomplete loops. Shipped: **bulk cohort enrollment** (M2
-  deferral; phase 3+4 → ~80%) and **`facilitatorPolicy.assignmentRequired`
-  enforcement** (phase-3 policy-debt; → ~82%). Remaining 3/4/5 gap is now
-  largely deferred-by-design (nomination workflow, Evaluation→Assessment
-  convergence, report presets) + the other persisted-not-enforced policies
-  (`deliveryMode`, `facilitatorPolicy.visibility`).
+  scheduling** — closed 2026-06-12. Full-system audit (8/8 rounds) complete;
+  Express 4→5 + light dependency majors done. **Cohesion Wave** (6/6) + in-app
+  notification bell (full event coverage) shipped 2026-06-13.
+- **Now: Phase 3/4/5 push COMPLETE** (2026-06-13, 7 PRs #80–#86, re-baselined).
+  Shipped: bulk cohort enrollment (BE+UI); program-policy enforcement
+  (`facilitatorPolicy.assignmentRequired` + `visibility`) + a program-policies
+  **editor UI** (completion/capacity/facilitator/cert-validity/recertify); and
+  the full **certificate lifecycle** — expiry reminders (learner + weekly
+  manager digest) → **recertification auto-assignment**. Phase 3 → ~85%,
+  4 → ~82%, 5 → ~80%; all genuine non-deferred work is shipped.
+- **Deferred-by-design (NOT debt — owner decision to build):** nomination
+  workflow (overlaps Assignment/D4); Evaluation→Assessment convergence (project
+  rule: converge-when-touched, no big-bang); compliance report presets (no
+  confirmed HR need); recert for already-expired certs + path-based recert.
+  `deliveryMode` is metadata-only by design (no enforcement contract).
+- **Next:** owner's call — start **Phase 6 PostgreSQL** readiness (Phase 0), the
+  gated owner-ops below, or override one of the deferred-by-design items above.
 - **Gated / owner-ops:** **D2 Google OIDC + Directory sync** (blocked on owner's
   Google OAuth app + Workspace domain); **paid always-on hosting** + Sentry
   cron-monitor dashboard; **Phase 6 PostgreSQL gate** (plan drafted,
@@ -54,9 +50,9 @@ not net-new capability.
 | 0 | Architecture baseline + safety net | ~93% | 🟢 near done |
 | 1 | Backend modular-monolith refactor | ~98% | 🟢 near done (2026-06-10: domains/attendance+groups+schedule routes extracted; repository ADR; schedule use-case tests; frontend `features/` migration complete) |
 | 2 | Learning catalog + generic cohort model | ~95% | 🟢 near done |
-| 3 | Multi-program enrollment + session scheduling | ~85% | 🟡 in progress |
-| 4 | Frontend L&D workspace (CRUD UI) | ~82% | 🟡 in progress |
-| 5 | Reporting, completion, feedback | ~80% | 🟡 in progress |
+| 3 | Multi-program enrollment + session scheduling | ~85% | 🟢 near done (genuine work shipped; only nomination workflow deferred-by-design) |
+| 4 | Frontend L&D workspace (CRUD UI) | ~82% | 🟢 near done (CRUD + policy editor complete) |
+| 5 | Reporting, completion, feedback | ~80% | 🟢 near done (cert lifecycle + recert closed; Evaluation→Assessment convergence deferred-by-design) |
 | 6 | PostgreSQL decision gate | 0% | ⚪ gated |
 
 ## LTMS waves (forward — see [`lms-roadmap.md`](lms-roadmap.md))
@@ -113,6 +109,15 @@ Bug fixing and integration review rank above net-new feature rollout.
 > [`changelog-archive/2026-q2.md`](changelog-archive/2026-q2.md). Currently
 > inline: **2026-06-12 → 2026-06-13**.
 
+- **2026-06-13** — **Phase 3/4/5 push closed + re-baselined (docs-only).** After
+  the 7-PR run (#80–#86) the genuine non-deferred migration debt for phases 3/4/5
+  is shipped, so they are re-baselined **🟢 near done** (3 ~85%, 4 ~82%, 5 ~80%)
+  with the remainder declared **deferred-by-design, not debt** (nomination
+  workflow · Evaluation→Assessment convergence · report presets · already-expired/
+  path-based recert; `deliveryMode` metadata-only). Status board consolidated;
+  `system-overview` scorecard synced (was a stale 78/78/72). No code change —
+  next is owner's call (Phase 6 PostgreSQL readiness, owner-ops, or overriding a
+  deferral).
 - **2026-06-13** — **Recertification auto-assignment — recert loop CLOSED
   (phase 5 → ~80%).** The certificate-expiry signal now becomes an **action**:
   for a program that opts in (new **`LearningProgram.recertifyPolicy.autoAssign`**,
