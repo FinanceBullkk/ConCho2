@@ -28,6 +28,17 @@ export const useLearningEnrollments = (params = {}, options = {}) =>
     ...options,
   });
 
+// Unified self-scoped enrollment read (converge Phase 2): both team-based and
+// cohort-based enrollments for the current learner, in one shape. Powers the
+// "My programs" list so a learner sees ALL their cohorts regardless of how they
+// joined (via a group / via direct enrollment).
+export const useMyEnrollments = (options = {}) =>
+  useQuery({
+    queryKey: qk.learning.myEnrollments,
+    queryFn: async () => (await learningAPI.getMyEnrollments()).data,
+    ...options,
+  });
+
 // Own required training + enroll-CTA suggestion (Cohesion P3, self-scoped).
 export const useMyAssignments = (options = {}) =>
   useQuery({

@@ -26,7 +26,7 @@ Admins do **NOT** pre-create schedules for groups to book into. The inverse:
 | `Schedule` | **Session** | `/api/learning/sessions` (adapter over `scheduleService`) |
 | `Team` | **LearningGroup** | **DROPPED** (owner 2026-06-12, audit round 7) — permanent vocabulary exception: `domains/groups` module exists, but the `Team` model name + `/api/teams` URL stay; a rename is pure churn with zero behavior value |
 | `Evaluation` | **Assessment** | **CONVERGED (Phase 1, 2026-06-14)** — ONE assessment concept, two *modes*: instructor-scored rubric (`Evaluation`) + learner-attempted quiz (`domains/assessment`). Unified read `GET /api/assessment/results/mine` (both modes, one shape; learner transcript consumes it). `Evaluation` model/write-path retained (English rubric); grading-UI folds into the unified assessment UX in Phase 4. No destructive model merge. |
-| `Enrollment` (team-based) | cohort-based enrollment | **BOTH KEPT** (owner 2026-06-12) — team-based enrollment drives team-booking modes, cohort-based (`/api/learning/enrollments`) drives cohort modes; two real modes, not debt |
+| `Enrollment` (team-based) | cohort-based enrollment | **READ CONVERGED (Phase 2, 2026-06-14)** — ONE Enrollment concept, two *modes* on one model (team-based `teamId` set = `mode:'group'`; cohort-based `teamId:null` = `mode:'direct'`). Unified self read `GET /api/learning/enrollments/mine` returns both in one shape (learner "My programs" consumes it). No model merge / data move. The two **write** paths (team membership sync vs cohort enroll) + routing team enrollment through the event bus stay a follow-up. |
 
 ## Domain module convention (for new/extracted backend code)
 ```

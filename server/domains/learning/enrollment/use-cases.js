@@ -99,6 +99,12 @@ const list = ({ cohortId, learnerId }, actor) => {
   return repository.listCohortEnrollments({ cohortId, learnerId: scopedLearner });
 };
 
+// Unified self read (converge Phase 2): the actor's enrollments across BOTH
+// modes (team-based group enrollment + direct cohort enrollment) in one list.
+// Always scoped to the actor — there is no cross-learner read path here.
+const getMyEnrollments = (actor) =>
+  repository.listEnrollmentsForLearner(actor._id);
+
 // Enroll many learners into one cohort in a single Admin action (Phase 3 — closes
 // the M2 "bulk enrollment" deferral). Partial-success by design: each learner is
 // attempted independently and a per-learner skip reason is collected rather than
@@ -152,4 +158,4 @@ const bulkEnroll = async ({ cohortId, userIds }, actor) => {
   return { enrolled, skipped };
 };
 
-module.exports = { enroll, withdraw, list, bulkEnroll };
+module.exports = { enroll, withdraw, list, getMyEnrollments, bulkEnroll };
