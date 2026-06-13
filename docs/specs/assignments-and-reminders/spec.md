@@ -14,6 +14,9 @@ related_code:
   - server/domains/notification/use-cases.js
   - server/domains/notification/repository.js
   - server/domains/notification/dto.js
+  - server/domains/notification/in-app-writer.js
+  - server/domains/learning/enrollment/use-cases.js
+  - server/services/scheduleService.js
   - client/src/features/notifications/NotificationBell.jsx
 related_plans:
   - plans/260605-1135-assignment-due-dates
@@ -133,13 +136,24 @@ user's row can never match (marking it → 404). `readAt` is in-app read state
 only; it does NOT change the email `status`, and email delivery is unchanged.
 A `dto` presenter maps each `type` to a title/body/link
 (assignment due-soon/overdue → `/home`, manager digest → `/my-team`,
-waitlist-promoted → `/me/sessions`, certificate-issued → `/me/transcript`).
+waitlist-promoted → `/me/sessions`, certificate-issued → `/me/transcript`,
+cohort-enrolled → `/me/programs`, booking-confirmed → `/me/sessions`).
 Most rows are `channel:'email'` (the email IS the notification); a
-`channel:'in_app'` row is an in-app-only event with no email — today,
-**`certificate_issued`** (written fail-soft + idempotently on certificate
-issue, keyed by `certificateNumber`). The bell polls ~every 3 min (plus on
-tab focus). Coverage is bounded to logged events: booking-confirm / direct
-enrollment emails are NOT logged, so they do not appear in the bell (deferred).
+`channel:'in_app'` row is an in-app-only event with no email, written through
+the shared fail-soft + idempotent writer `domains/notification/in-app-writer.js`
+(`recordInApp`):
+- **`certificate_issued`** — on certificate issue, keyed by `certificateNumber`;
+- **`cohort_enrolled`** — when an Admin direct-enrolls a learner into a cohort
+  (NOT on self-enroll, which the UI already confirms), keyed by the enrollment
+  id, recipient = the enrolled learner;
+- **`booking_confirmed`** — when a leader books a team slot (mirrors the
+  booking-confirmation email), keyed by `<scheduleId>:<userId>`, recipient =
+  the booker.
+
+The bell polls ~every 3 min (plus on tab focus). A logging hiccup (or duplicate)
+never blocks the triggering mutation — the write is best-effort. Still deferred:
+booking-confirm to auto-enrolled team members (only the booker is notified
+today) and cohort-session direct enrollment.
 
 #### Scenario: Self-scoped feed
 - **GIVEN** notifications with `recipientUserId` = me (non-pending) and others'
@@ -150,6 +164,18 @@ enrollment emails are NOT logged, so they do not appear in the bell (deferred).
 - **GIVEN** a notification whose `recipientUserId` is another user
 - **WHEN** I POST `/notifications/:id/read`
 - **THEN** 404 and the row is unchanged
+
+#### Scenario: Admin direct-enroll surfaces in the learner's bell
+- **GIVEN** an Admin enrolls another learner into a cohort
+- **WHEN** the enrollment succeeds
+- **THEN** a `channel:'in_app'` `cohort_enrolled` row is written for that learner
+  (link `/me/programs`); a learner self-enrolling writes no such row
+
+#### Scenario: Booking a slot surfaces in the booker's bell
+- **GIVEN** a leader books a team time slot
+- **WHEN** the booking is created
+- **THEN** a `channel:'in_app'` `booking_confirmed` row is written for the booker
+  (keyed by `<scheduleId>:<userId>`, link `/me/sessions`)
 
 ### Requirement: Learner reminder cadence [BR-3, BR-5, UC-3]
 

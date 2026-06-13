@@ -9,6 +9,7 @@ const {
   sendBookingConfirmation,
   sendClassCancellation,
 } = require('../lib/emailTemplates');
+const { recordInApp } = require('../domains/notification/in-app-writer');
 const sessionOrder = require('../domains/schedule/session-order');
 const queries = require('../domains/schedule/queries');
 
@@ -275,11 +276,13 @@ const bookSlot = async ({ teamId, startTime, endTime, requestUser }) => {
     .populate('bookedTeamId', 'name')
     .populate('enrolledUsers', 'empCode name');
 
-  // Send booking confirmation email to the requestUser (non-blocking, fail-soft).
+  // Send booking confirmation email to the requestUser (non-blocking, fail-soft)
+  // and mirror it into the booker's notification bell. In-app row has no email;
+  // fail-soft + idempotent on `<scheduleId>:<userId>`.
+  const className = populated.classId
+    ? `${populated.classId.classCode} — ${populated.classId.courseName}`
+    : 'your class';
   if (requestUser.email) {
-    const className = populated.classId
-      ? `${populated.classId.classCode} — ${populated.classId.courseName}`
-      : 'your class';
     sendBookingConfirmation({
       to: requestUser.email,
       userName: requestUser.name,
@@ -287,6 +290,16 @@ const bookSlot = async ({ teamId, startTime, endTime, requestUser }) => {
       startTime: created.startTime,
     });
   }
+  await recordInApp({
+    type: 'booking_confirmed',
+    recipientUserId: requestUser._id,
+    cadenceKey: `${created._id}:${requestUser._id}`,
+    metadata: {
+      className,
+      scheduleId: String(created._id),
+      sessionDate: created.startTime,
+    },
+  });
 
   return populated;
 };
