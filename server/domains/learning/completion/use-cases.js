@@ -1,6 +1,7 @@
 const crypto = require('crypto');
 const repository = require('./repository');
-const { recordInApp } = require('../../notification/in-app-writer');
+const { publish } = require('../../../lib/event-bus');
+const EVENTS = require('../../_shared/events');
 const { ServiceError } = require('../../../helpers/ServiceError');
 const { getNextSequence } = require('../../../helpers/counter');
 
@@ -146,19 +147,15 @@ const issueCertificate = async ({ cohortId, userId }, actor) => {
     throw error;
   }
 
-  // Cohesion P5 follow-up: surface the issued certificate in the learner's
-  // notification bell. In-app only (no email today); fail-soft + idempotent via
-  // the unique certificateNumber (see in-app-writer).
-  await recordInApp({
-    type: 'certificate_issued',
-    recipientUserId: userId,
-    cadenceKey: certificateNumber,
-    metadata: {
-      certificateNumber,
-      programName: completion.programName,
-      cohortCode: completion.cohortCode,
-      cohortId: String(cohortId),
-    },
+  // Surface the issued certificate in the learner's bell via the event bus —
+  // the notification subscriber writes the in-app row (fail-soft + idempotent on
+  // certificateNumber). The use-case no longer wires the notification layer.
+  await publish(EVENTS.CERTIFICATE_ISSUED, {
+    userId,
+    certificateNumber,
+    programName: completion.programName,
+    cohortCode: completion.cohortCode,
+    cohortId,
   });
 
   return certificate;
