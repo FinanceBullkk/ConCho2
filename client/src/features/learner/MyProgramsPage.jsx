@@ -63,7 +63,15 @@ export default function MyProgramsPage() {
 
   return (
     <div>
-      <PageHeader title="My programs" description="Your enrollments and progress toward completion." />
+      <div className="flex items-start justify-between gap-4">
+        <PageHeader title="My programs" description="Your enrollments and progress toward completion." />
+        <Link
+          to="/me/transcript"
+          className="shrink-0 text-sm text-primary font-medium hover:underline underline-offset-2"
+        >
+          View transcript →
+        </Link>
+      </div>
       {body}
     </div>
   );
