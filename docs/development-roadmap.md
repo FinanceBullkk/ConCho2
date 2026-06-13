@@ -109,6 +109,23 @@ Bug fixing and integration review rank above net-new feature rollout.
 > [`changelog-archive/2026-q2.md`](changelog-archive/2026-q2.md). Currently
 > inline: **2026-06-12 → 2026-06-13**.
 
+- **2026-06-13** — **IA rework Phase 01: left sidebar app shell (enterprise nav).**
+  After owner found the top-tabs model unsatisfactory, researched how
+  Docebo/TalentLMS/SAP SuccessFactors/360Learning organise IA (report:
+  `plans/reports/research-260613-2304-lms-ia-navigation-patterns.md`) → owner chose
+  the **left sidebar + persona** pattern. Phase 01 (shell only, **zero behavior
+  change**): replaced the top horizontal `Navbar` with a **slim Topbar** (logo ·
+  search · notifications · theme · avatar) + a **role-filtered left Sidebar** of
+  grouped nav (Training · Insights · Manage + Home + manager My Team) + a **mobile
+  drawer** (`< md`). Nav defined once in `components/nav/nav-config.js`; inaccessible
+  items are now HIDDEN (not disabled) per the enterprise "see only what you can act
+  on" pattern; System moved from the avatar dropdown into the sidebar. Routes/pages
+  unchanged; in-page tab strips remain (flattened in Phase 03); persona switch
+  (Admin Console ↔ My Learning) is Phase 02. New `components/nav/{nav-config.js,
+  Sidebar.jsx,Topbar.jsx,MobileSidebar.jsx}`; `Navbar.jsx` retired; `Layout.jsx`
+  recomposed. Tests: +11 (Sidebar role-filter/active-state, Topbar search/menu/
+  hamburger) — client **304**, lint at cap 63, build clean. Plan
+  `plans/260613-2304-sidebar-persona-ia/` (phases 02–03 pending).
 - **2026-06-13** — **IA cleanup: dedupe surfaces + regroup nav (frontend-only,
   no behavior change).** Addressed owner feedback that the admin UI was
   "all-in-one, hard to use". Four moves: **(A)** removed the duplicate **Sheets
