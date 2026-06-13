@@ -2,7 +2,7 @@
 capability: capability-authz
 status: evolving
 owners: [middleware/requireCapability, middleware/roleGuard, policy]
-last_updated: 2026-06-12
+last_updated: 2026-06-14
 related_code:
   - server/middleware/requireCapability.js
   - server/policy/capabilities.js
@@ -16,9 +16,15 @@ related_plans:
 # Capability: Authorization (Roles → Capabilities)
 
 > **Source of truth for BEHAVIOR.** `status: evolving` — the capability layer
-> IS enforced on the new domain routes, but capabilities are still derived from
-> role (no per-user/DB-stored grants yet) and legacy routes still use
-> `roleGuard`. This spec states exactly what is enforced.
+> IS enforced on the new domain routes AND (Phase 0, 2026-06-14) on the
+> Admin-only platform routes (`/api/users` `user.manage`, `/api/settings`
+> `settings.manage`, `/api/import`+`/api/export`+`/api/sync` `data.transfer`,
+> `/api/dashboard` `analytics.read`, `/api/admin/audit` `audit.read`,
+> `/api/admin-db`+`/api/admin/reconcile` `system.ops`). Capabilities are still
+> derived from role (no per-user/DB-stored grants yet). Only `roleGuard` remains
+> on `/api/auth` + `/api/admin/cron` (security/cron, by design) and the
+> converging-legacy trio `/api/classes`, `/api/enrollments`, `/api/evaluations`
+> (retired in their convergence phase). This spec states exactly what is enforced.
 
 ## Purpose
 

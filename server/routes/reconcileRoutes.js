@@ -1,6 +1,7 @@
 const express = require('express');
 const { protect } = require('../middleware/auth');
-const { roleGuard } = require('../middleware/roleGuard');
+const { requireCapability } = require('../middleware/requireCapability');
+const { CAPABILITIES } = require('../policy/capabilities');
 const {
   getLatestReport,
   getReportHistory,
@@ -11,7 +12,7 @@ const {
 const router = express.Router();
 
 // All reconcile endpoints are Admin-only
-router.use(protect, roleGuard('Admin'));
+router.use(protect, requireCapability(CAPABILITIES.SYSTEM_OPS));
 
 router.get('/history',  getReportHistory);  // GET  /api/admin/reconcile/history
 router.get('/latest',   getLatestReport);   // GET  /api/admin/reconcile/latest

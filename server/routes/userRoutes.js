@@ -4,13 +4,14 @@ const {
   restoreUser, getDeletedUsers, getUserProgress,
 } = require('../controllers/userController');
 const { protect } = require('../middleware/auth');
-const { roleGuard } = require('../middleware/roleGuard');
+const { requireCapability } = require('../middleware/requireCapability');
+const { CAPABILITIES } = require('../policy/capabilities');
 const { validate } = require('../middleware/validate');
 const { idParam } = require('../schemas/common');
 const { createUserBody, updateUserBody, listUsersQuery } = require('../schemas/user');
 
-// All user CRUD is Admin-only
-router.use(protect, roleGuard('Admin'));
+// All user CRUD is Admin-only (capability layer — Admin-only USER_MANAGE)
+router.use(protect, requireCapability(CAPABILITIES.USER_MANAGE));
 
 // ── Soft-delete admin routes (UX-03) — must be BEFORE /:id ──
 router.get('/deleted', getDeletedUsers);

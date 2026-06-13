@@ -13,6 +13,10 @@ const EVENTS = {
   //   cohort      — the cohort (Class) doc (for notification metadata)
   //   actorIsSelf — true when the learner enrolled themselves (no bell needed)
   ENROLLMENT_CREATED: 'enrollment.created',
+
+  // A completion certificate was issued to a learner.
+  // payload: { userId, certificateNumber, programName, cohortCode, cohortId }
+  CERTIFICATE_ISSUED: 'certificate.issued',
 };
 
 module.exports = EVENTS;
