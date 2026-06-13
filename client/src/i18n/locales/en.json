@@ -924,7 +924,17 @@
       "cohortCodeHint": "Optional — auto-generated when left blank.",
       "prerequisites": "Prerequisites",
       "prerequisitesHint": "Learners must complete these programs before self-enrolling.",
-      "prerequisitesNone": "No other active programs available."
+      "prerequisitesNone": "No other active programs available.",
+      "attendanceThreshold": "Attendance threshold (%)",
+      "requiresAssessment": "Requires assessment to complete",
+      "requiresFeedback": "Requires feedback to complete",
+      "certificateValidityDays": "Certificate validity (days)",
+      "certificateValidityHint": "Leave blank for a certificate that never expires.",
+      "maxParticipants": "Max participants per cohort",
+      "maxParticipantsPerSession": "Max participants per session",
+      "capacityHint": "Leave blank for no limit.",
+      "assignmentRequired": "A facilitator must be assigned before a session can be marked",
+      "facilitatorVisibility": "Facilitator visibility"
     },
     "category": {
       "english": "English",
@@ -945,6 +955,16 @@
       "online": "Online",
       "offline": "Offline",
       "hybrid": "Hybrid"
+    },
+    "policies": {
+      "title": "Policies",
+      "completion": "Completion",
+      "capacity": "Capacity",
+      "facilitator": "Facilitator"
+    },
+    "facilitatorVisibility": {
+      "all_facilitators": "All facilitators",
+      "assigned_only": "Assigned only"
     },
     "status": {
       "active": "Active",
