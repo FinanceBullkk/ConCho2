@@ -67,10 +67,15 @@ null) and the participant branch (`ParticipantDashboard`). For staff: greeting h
 (no refresh button) + `AlertBand` + `TodayHero` + a new **`QuickActions`** grid + a
 "View analytics →" CTA to `/reports`. No `useDashboardStats` call remains in Home.
 
-**QuickActions:** new `client/src/features/dashboard/QuickActions.jsx` — role-aware
-nav cards filtered by `can(perm)`: Create program (`/learning`), Enroll learners
-(`/learning?tab=cohorts`), Schedule (`/calendar`), People (`/people`), Reports
-(`/reports`), System (`/system`). Directly answers "admin doesn't know how to use it".
+**QuickActions:** new `client/src/features/dashboard/QuickActions.jsx`. v1 was
+role-aware nav-shortcut cards, but owner found them irrelevant (they duplicated the
+navbar). REVISED to **contextual tiles** driven by one shared, fail-soft
+`useOperationalDashboard({window:'30'})` query (same cache key as Reports▸L&D
+Dashboard, gated to `read:reports`): **Overdue learners** → `/learning?tab=assignments`,
+**Certificates expiring** (+ "N expired" alert) → `/reports?tab=completion`, **Sessions
+next 7 days** → `/calendar`, **Completion rate** → `/reports?tab=learning`. Each tile
+shows a live number + alert tone and links where you act — NOT a nav shortcut. Skips
+any tile whose metric block is null (fail-soft). Complements AlertBand (do-now ops).
 
 **Reports gains the home analytics** as the first tab. Final `/reports` tab set:
 | id | label | renders | perm |
