@@ -165,6 +165,35 @@ const syncCalendarForSchedule = async (scheduleId) => {
 
 // ── Core Business Logic ──────────────────────────────────
 
+// Surface a roster snapshot in each newly-enrolled learner's notification bell
+// (Cohesion P5 follow-up). Fired when a session create auto-enrolls people who
+// did NOT initiate it — team members on a leader booking, cohort enrollees on an
+// admin-scheduled cohort session. The initiator (`excludeUserId`) is skipped:
+// the booker already gets `booking_confirmed`. In-app only, fail-soft +
+// idempotent on `<scheduleId>:<userId>` (re-running never double-notifies).
+const notifyRosterEnrolled = async (populated, excludeUserId = null) => {
+  const className = populated.classId
+    ? `${populated.classId.classCode} — ${populated.classId.courseName}`
+    : 'your class';
+  const exclude = excludeUserId ? String(excludeUserId) : null;
+  await Promise.all(
+    (populated.enrolledUsers || []).map((u) => {
+      const uid = u._id || u; // populated sub-doc or raw ObjectId
+      if (exclude && String(uid) === exclude) return null;
+      return recordInApp({
+        type: 'session_enrolled',
+        recipientUserId: uid,
+        cadenceKey: `${populated._id}:${uid}`,
+        metadata: {
+          className,
+          scheduleId: String(populated._id),
+          sessionDate: populated.startTime,
+        },
+      });
+    }),
+  );
+};
+
 /**
  * Book a time slot for a team.
  *
@@ -300,6 +329,9 @@ const bookSlot = async ({ teamId, startTime, endTime, requestUser }) => {
       sessionDate: created.startTime,
     },
   });
+  // The rest of the auto-enrolled team learns of the session via the bell too
+  // (the booker is excluded — they got `booking_confirmed` above).
+  await notifyRosterEnrolled(populated, requestUser._id);
 
   return populated;
 };
@@ -381,9 +413,13 @@ const bookCohortSlot = async ({ cohortId, startTime, endTime, enrolledUserIds = 
     });
   }
 
-  return Schedule.findById(created._id)
+  const populated = await Schedule.findById(created._id)
     .populate('classId', 'classCode courseName')
     .populate('enrolledUsers', 'empCode name');
+  // Surface the scheduled cohort session in each enrolled learner's bell
+  // (the admin/coordinator who scheduled it is not on the roster).
+  await notifyRosterEnrolled(populated, requestUser?._id);
+  return populated;
 };
 
 /**
@@ -626,10 +662,15 @@ const adminCreate = async (data) => {
   // Best-effort calendar event (admin-created path).
   await createCalendarEventForSchedule(created._id);
 
-  return Schedule.findById(created._id)
+  const populated = await Schedule.findById(created._id)
     .populate('classId', 'classCode courseName')
     .populate('bookedTeamId', 'name')
     .populate('enrolledUsers', 'empCode name');
+  // Notify the snapshotted team roster (admin-created team session). adminCreate
+  // takes only `data` — no actor handle — so the whole roster is notified; the
+  // admin is virtually never one of the team's active members.
+  await notifyRosterEnrolled(populated);
+  return populated;
 };
 
 // ── Public surface ────────────────────────────────────────

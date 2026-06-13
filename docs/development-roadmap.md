@@ -27,13 +27,14 @@ not net-new capability.
   transcript** all shipped 2026-06-12/13. The learner surfaces now read as one
   woven product. Migration phases 3/4/5 sit ~72–78%.
 - **Now (post-wave review done):** integration review of the woven learner
-  experience found no broken links / authz leaks; closed the top finding —
-  the notification bell now also surfaces **`certificate_issued`**,
-  **`cohort_enrolled`** (Admin direct-enroll) and **`booking_confirmed`**
-  (leader slot booking), all in-app via a shared fail-soft writer.
+  experience found no broken links / authz leaks; the notification bell now
+  surfaces the full set of in-app events via a shared fail-soft writer —
+  **`certificate_issued`**, **`cohort_enrolled`** (Admin direct-enroll),
+  **`booking_confirmed`** (booker), and **`session_enrolled`** (everyone
+  auto-added to a session roster — team members on a leader booking, cohort
+  enrollees on an admin-scheduled session). Bell coverage deferral CLOSED.
 - **Next:** owner's call — a new capability, or push migration phases 3/4/5
-  (~72–78%) to done. Remaining bell deferral: notify auto-enrolled team
-  members on booking + cohort-session direct enrollment.
+  (~72–78%) to done.
 - **Gated / owner-ops:** **D2 Google OIDC + Directory sync** (blocked on owner's
   Google OAuth app + Workspace domain); **paid always-on hosting** + Sentry
   cron-monitor dashboard; **Phase 6 PostgreSQL gate** (plan drafted,
@@ -107,6 +108,20 @@ Bug fixing and integration review rank above net-new feature rollout.
 > [`changelog-archive/2026-q2.md`](changelog-archive/2026-q2.md). Currently
 > inline: **2026-06-12 → 2026-06-13**.
 
+- **2026-06-13** — **Notification bell: roster `session_enrolled` — coverage
+  deferral fully CLOSED.** New in-app-only type **`session_enrolled`** notifies
+  everyone auto-added to a session roster *by someone else's action*: the rest
+  of the team on a leader booking (the booker is excluded — they already get
+  `booking_confirmed`) and the cohort enrollees on an admin/coordinator-scheduled
+  cohort session. One shared `scheduleService` helper **`notifyRosterEnrolled`**
+  fires from all three create chokepoints (`bookSlot` / `bookCohortSlot` /
+  `adminCreate`), via the same fail-soft + idempotent `recordInApp`
+  (`<scheduleId>:<userId>` key, link `/me/sessions`). ZERO client change (server
+  `dto` maps the new type). Tests: +1 booking integration (members get
+  `session_enrolled`, booker does not) + cohort-session test extended to assert
+  enrollee rows — server 930/94, client lint 63, build clean. Spec
+  `assignments-and-reminders` updated; the post-Cohesion notification-coverage
+  backlog is now empty.
 - **2026-06-13** — **Notification bell coverage broadened: `cohort_enrolled` +
   `booking_confirmed`** (closes the post-Cohesion backlog deferral). Two more
   in-app-only events now reach the bell, both written through a new shared
