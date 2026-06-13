@@ -21,8 +21,13 @@ Applies whenever the user asks to implement a milestone/feature, or runs `/next`
    `cd client && npm run test:run`, `cd client && npm run lint` (≤ cap).
    Fix failures for real — never skip/weaken.
 5. **Update the tracker — part of Definition of Done, do it automatically:**
-   - `docs/development-roadmap.md`: move the status emoji, update %, add a dated
-     changelog line, update the milestone row.
+   - `docs/development-roadmap.md`: move the status emoji, update %, refresh the
+     **Status board** (Now / Next), add a dated changelog line at the TOP of
+     *Recent progress*, update the milestone row.
+   - **Rolling archive (keep the tracker lean):** keep ~the last 2 weeks (~15
+     entries, file ≤ ~400 lines) inline; in the SAME commit, cut older entries
+     verbatim (newest-first — audit trail, do not reword) into
+     `docs/changelog-archive/<year>-q<quarter>.md` and update its coverage header.
    - Sync `docs/handoff-2026-06-01.md` if a phase status changed.
    - Update the scorecard in `docs/system-overview.md` if a phase % changed materially.
 6. **Update the affected capability spec(s)** — if behavior changed, fold the
