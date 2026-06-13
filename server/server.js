@@ -276,6 +276,7 @@ app.use('/api/admin/reconcile', require('./routes/reconcileRoutes'));
 app.use('/api/admin/cron', require('./routes/cronHealthRoutes'));
 app.use('/api/cron', require('./routes/cronRoutes'));
 app.use('/api/search', require('./routes/searchRoutes'));
+app.use('/api/notifications', require('./domains/notification/routes'));
 
 // ── Production: Serve React client build ─────────────────
 if (process.env.NODE_ENV === 'production') {

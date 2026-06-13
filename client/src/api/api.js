@@ -369,4 +369,11 @@ export const roomsAPI = {
   archiveRoom: (id) => api.delete(`/rooms/${id}`),
 };
 
+// In-app notification bell (Cohesion P5) — self-scoped feed over NotificationLog.
+export const notificationsAPI = {
+  listMine:    () => api.get('/notifications/mine'),
+  markRead:    (id) => api.post(`/notifications/${id}/read`),
+  markAllRead: () => api.post('/notifications/read-all'),
+};
+
 export default api;

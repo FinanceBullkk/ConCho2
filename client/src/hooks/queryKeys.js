@@ -111,4 +111,8 @@ export const qk = {
   search: {
     global: (q) => ['search', 'global', q],
   },
+  notifications: {
+    all: ['notifications'],
+    mine: ['notifications', 'mine'],
+  },
 };
