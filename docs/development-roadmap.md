@@ -56,7 +56,7 @@ not net-new capability.
 | 2 | Learning catalog + generic cohort model | ~95% | 🟢 near done |
 | 3 | Multi-program enrollment + session scheduling | ~85% | 🟡 in progress |
 | 4 | Frontend L&D workspace (CRUD UI) | ~82% | 🟡 in progress |
-| 5 | Reporting, completion, feedback | ~77% | 🟡 in progress |
+| 5 | Reporting, completion, feedback | ~80% | 🟡 in progress |
 | 6 | PostgreSQL decision gate | 0% | ⚪ gated |
 
 ## LTMS waves (forward — see [`lms-roadmap.md`](lms-roadmap.md))
@@ -113,6 +113,25 @@ Bug fixing and integration review rank above net-new feature rollout.
 > [`changelog-archive/2026-q2.md`](changelog-archive/2026-q2.md). Currently
 > inline: **2026-06-12 → 2026-06-13**.
 
+- **2026-06-13** — **Recertification auto-assignment — recert loop CLOSED
+  (phase 5 → ~80%).** The certificate-expiry signal now becomes an **action**:
+  for a program that opts in (new **`LearningProgram.recertifyPolicy.autoAssign`**,
+  default off — settable in the program form), the daily cert-lifecycle job
+  auto-creates a recert **`Assignment`** (program target, the single learner,
+  `dueDate = validUntil`) for each Issued cert expiring within 30 days. The new
+  Assignment rides the existing machinery (learner `/home` feed, reminder
+  cadence, manager overdue digest) — no new surface. **Idempotent**: at most one
+  recert assignment EVER per cert via new **`Assignment.sourceCertificateId`** +
+  a partial unique index + an existence check (incl. archived → an Admin who
+  archives it is respected). New `domains/learning/completion/recert-assignment-
+  service.js`; the `certificate-expiry-reminders` cron now composes reminders +
+  recert in one monitored run. v1 acts in the pre-expiry window only. Tests: +5
+  server integration (`recertAssignment`: creates / idempotent / archived-not-
+  recreated / opt-out untouched / outside-window) + 1 client (`ProgramFormModal`
+  carries `recertifyPolicy`) — server 961/97, client 285/64, lint 63, build
+  clean. Specs `compliance-and-recertification` (new requirement, deferral
+  cleared) + `learning-catalog` updated. Plan
+  `plans/260613-1845-recertification-auto-assignment/`.
 - **2026-06-13** — **Manager digest of expiring certificates (phase 5 → ~77%).**
   The daily certificate-expiry cron now also sends each **manager a weekly
   digest** of their direct reports' soon-to-expire certificates
@@ -337,48 +356,8 @@ Bug fixing and integration review rank above net-new feature rollout.
   +7 component (MyProgramPage 5, MyProgramsPage 2), catalog test updated —
   client 271/59, lint at cap 63, build clean. `/me/*` literal-English
   convention. Next: P2 (unified My Learning home).
-- **2026-06-12** — **English-class separation: bounded `/english` section**
-  (`feat/cohesion-p4-team-booking-separation`; plan
-  `plans/260612-2151-english-class-separation/`; owner decisions: dedicated
-  nav item, schedules+attendance split too, team classes hidden from
-  Learning, additive backend). Everything English-class-shaped now lives in
-  ONE nav section `/english` (tabs by role — Admin: Classes·Teams·Schedules·
-  Attendance·Evaluations; Teacher: Attendance·Evaluations; Participant/
-  Leader: Team booking, membership-gated): Teams left `/people`, Evaluations
-  left `/reports`, the booking grid left `/calendar`, the `groups` compat
-  tab left `/learning`. **Worlds split by scheduling mode** — team =
-  `leader_booking`/`admin_scheduled` + program-less legacy (fallback
-  parity); cohort = `self_enroll`/`nomination`. Backend (additive, ADR-safe,
-  no renames): optional `mode=team|cohort` filter on `GET /api/schedules`,
-  `/api/schedules/attendance-calendar`, `/api/learning/cohorts`
-  (`findCohortModeClassIds`/`findCohortModeProgramIds`), plus a new thin
-  read-only domain `server/domains/english-class/` at
-  `/api/english/{classes,schedules,attendance-calendar}` forcing
-  `mode=team` (Participant enrolled-only scope preserved; mutations stay on
-  existing mode-gated URLs). `/calendar` is now the cohort-world staff
-  calendar (Participant → redirect `/english`); `/book` redirect
-  retargeted to `/english?tab=book`; SearchPalette teams deep-link,
-  Participant-dashboard links, seed (+1 cohort-world program/cohort so
-  generic surfaces are non-empty) and e2e
-  (booking/navigation/permissions/attendance-export) updated. Tests: +11
-  server integration (`english-class-routes`), new EnglishPage component
-  suite, CalendarPage/ReportsPage suites rewritten — server 913/92, client
-  264/57, lint at cap 63, build clean. Supersedes the P4 membership-gating
-  entry point below.
-- **2026-06-12** — **Cohesion Wave P4: team-booking mode separation**
-  (`feat/cohesion-p4-team-booking-separation`; plan
-  `plans/260612-2058-cohesion-wave/`, executed first per owner). The legacy
-  English-class team-booking flow stops being the platform's face: the
-  Calendar "Team booking" tab (renamed from "Book") is now
-  **membership-gated** via `useMyTeams` — a Participant with no Team gets a
-  pointer panel to `/me/sessions` + `/me/catalog` instead of the booking
-  grid; `BookClassPage`'s "Not in any group" dead-end and the Participant
-  dashboard's empty-state got the same membership-aware treatment.
-  UI/composition only — no server change, `/book` redirect kept (e2e
-  unaffected), Team vocabulary unchanged (ADR). +4 component tests
-  (`CalendarPage.test.jsx`). Spec `scheduling-and-booking` UC-1 UI note.
 **Older entries (2026-06-12 and earlier)** →
-[`changelog-archive/2026-q2.md`](changelog-archive/2026-q2.md) (96 entries,
+[`changelog-archive/2026-q2.md`](changelog-archive/2026-q2.md) (98 entries,
 2026-06-01 → 2026-06-12).
 
 ---

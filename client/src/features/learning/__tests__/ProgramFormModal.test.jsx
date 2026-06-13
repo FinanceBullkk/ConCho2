@@ -37,6 +37,7 @@ describe('ProgramFormModal — program policies', () => {
     await user.click(screen.getByLabelText('Requires assessment to complete'));
     await user.type(screen.getByLabelText('Max participants per cohort'), '25');
     await user.click(screen.getByLabelText(/A facilitator must be assigned/));
+    await user.click(screen.getByLabelText(/Auto-assign a recertification/));
 
     await user.click(screen.getByRole('button', { name: 'Create' }));
 
@@ -47,6 +48,7 @@ describe('ProgramFormModal — program policies', () => {
     });
     expect(payload.capacityPolicy).toEqual({ maxParticipants: 25, maxParticipantsPerSession: null });
     expect(payload.facilitatorPolicy).toEqual({ assignmentRequired: true, visibility: 'all_facilitators' });
+    expect(payload.recertifyPolicy).toEqual({ autoAssign: true });
     expect(payload.certificateValidityDays).toBeNull();
   });
 
