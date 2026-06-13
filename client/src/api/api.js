@@ -316,6 +316,9 @@ export const assessmentAPI = {
   createQuestionBankItem: (data) => api.post('/assessment/question-bank', data),
   archiveQuestionBankItem: (id) => api.delete(`/assessment/question-bank/${id}`),
   getAttempts: (params) => api.get('/assessment/attempts', { params }),
+  // Unified assessment results for the caller (quiz attempts + instructor-scored
+  // English evaluations) — one shape (rearchitecture Phase 1 convergence).
+  getMyResults: () => api.get('/assessment/results/mine'),
   manualGradeAttempt: (attemptId, data) => api.put(`/assessment/attempts/${attemptId}/manual-grade`, data),
   submitAttempt: (assessmentId, data) => api.post(`/assessment/assessments/${assessmentId}/attempts`, data),
 };

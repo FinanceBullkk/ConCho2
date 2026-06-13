@@ -59,6 +59,16 @@ const CAPABILITIES = Object.freeze({
   SESSION_ASSIGN_TRAINER: 'session.assign-trainer', // set a session's internal/external trainers (admin/coordinator)
   // ── In-app notifications (Cohesion P5) ───────────────────
   NOTIFICATION_READ: 'notification.read', // read OWN notification feed + mark read (any role — endpoints are self-scoped)
+  // ── Platform admin surfaces (Phase 0 authz finish) ───────
+  // Migrated off roleGuard('Admin') so the whole app uses ONE coarse-authz
+  // mechanism. Admin-ONLY (deliberately NOT added to the other role lists below);
+  // Admin is superuser, so behaviour is identical to the previous roleGuard('Admin').
+  USER_MANAGE: 'user.manage',          // create/update/delete/read users (userRoutes)
+  SETTINGS_MANAGE: 'settings.manage',  // read/update system settings (settingRoutes)
+  DATA_TRANSFER: 'data.transfer',      // bulk import / export / Google-Sheets sync
+  ANALYTICS_READ: 'analytics.read',    // admin dashboard stats/alerts/cache (dashboardRoutes)
+  AUDIT_READ: 'audit.read',            // read the audit log (auditRoutes)
+  SYSTEM_OPS: 'system.ops',            // DB explorer + reconciliation (adminDb/reconcile)
 });
 
 const ALL_CAPABILITIES = Object.freeze(Object.values(CAPABILITIES));

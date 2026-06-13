@@ -10,13 +10,22 @@ Admins do **NOT** pre-create schedules for groups to book into. The inverse:
 - Leaders can see other teams' taken slots (so they pick free ones); they can't book taken slots. Admin can edit/delete any schedule.
 
 ## Vocabulary migration (legacy → target)
+
+> **Direction update (2026-06-14):** owner approved **full convergence to one training
+> model** — ADR `docs/decisions/converge-to-one-training-model.md`, plan
+> `plans/260614-0004-converge-to-one-model/`. The "DROPPED / DEFERRED / BOTH KEPT"
+> notes below (Evaluation↔Assessment, team↔cohort Enrollment, English-class
+> separation) are now **convergence targets**, phased — not permanent. Guardrails
+> unchanged (no physical renames; converge via DTO/abstraction; Mongo→Postgres at the
+> Phase-6 gate). `leader_booking` becomes one scheduling mode, not the centre.
+
 | Legacy model | Target concept | Status |
 |---|---|---|
 | `Class` | **Cohort** (one delivery of a program) | exposed via `/api/learning/cohorts` (DTO over `Class`) |
 | `courseName` (enum) | **Program** (`LearningProgram` model) | done — `Class.programId` links them |
 | `Schedule` | **Session** | `/api/learning/sessions` (adapter over `scheduleService`) |
 | `Team` | **LearningGroup** | **DROPPED** (owner 2026-06-12, audit round 7) — permanent vocabulary exception: `domains/groups` module exists, but the `Team` model name + `/api/teams` URL stay; a rename is pure churn with zero behavior value |
-| `Evaluation` | **Assessment** | **DEFERRED** (owner 2026-06-12) — dual systems by design for now (completion accepts either); converge legacy evaluation flows onto `domains/assessment` opportunistically when touched, no big-bang migration |
+| `Evaluation` | **Assessment** | **CONVERGED (Phase 1, 2026-06-14)** — ONE assessment concept, two *modes*: instructor-scored rubric (`Evaluation`) + learner-attempted quiz (`domains/assessment`). Unified read `GET /api/assessment/results/mine` (both modes, one shape; learner transcript consumes it). `Evaluation` model/write-path retained (English rubric); grading-UI folds into the unified assessment UX in Phase 4. No destructive model merge. |
 | `Enrollment` (team-based) | cohort-based enrollment | **BOTH KEPT** (owner 2026-06-12) — team-based enrollment drives team-booking modes, cohort-based (`/api/learning/enrollments`) drives cohort modes; two real modes, not debt |
 
 ## Domain module convention (for new/extracted backend code)

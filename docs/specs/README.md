@@ -47,7 +47,7 @@ table is just the index. Covers every mounted `/api/*` route surface.
 | [learning-catalog](learning-catalog/spec.md) | stable | domains/learning, controllers/classController | 2026-06-10 |
 | [enrollment](enrollment/spec.md) | evolving | domains/learning/enrollment, controllers/enrollmentController | 2026-06-09 |
 | [learning-paths](learning-paths/spec.md) | stable | domains/learning/path | 2026-06-08 |
-| [assessments](assessments/spec.md) | stable | domains/assessment, controllers/evaluationController | 2026-06-08 |
+| [assessments](assessments/spec.md) | stable | domains/assessment, controllers/evaluationController | 2026-06-14 |
 | [question-bank](question-bank/spec.md) | stable | domains/assessment (question-bank) | 2026-06-08 |
 | [grading](grading/spec.md) | stable | domains/assessment (grading, manual-grading) | 2026-06-08 |
 | [feedback](feedback/spec.md) | stable | domains/learning/feedback | 2026-06-08 |
@@ -60,7 +60,7 @@ table is just the index. Covers every mounted `/api/*` route surface.
 | [reconcile-job](reconcile-job/spec.md) | stable | services/reconcileService, controllers/reconcileController, jobs | 2026-06-12 |
 | [capability-authz](capability-authz/spec.md) | evolving | middleware/requireCapability, policy/capabilities, middleware/roleGuard, policy | 2026-06-12 |
 | [security-platform](security-platform/spec.md) | stable | middleware (csrf, rateLimiters, validate, sanitize), helmet, soft-delete | 2026-06-12 |
-| [evaluations](evaluations/spec.md) | stable | controllers/evaluationController, models/Evaluation (legacy 4-skill) | 2026-06-11 |
+| [evaluations](evaluations/spec.md) | stable | controllers/evaluationController, models/Evaluation (legacy 4-skill; instructor-scored mode of assessments) | 2026-06-14 |
 | [bulk-import](bulk-import/spec.md) | stable | controllers/importController, services/importService | 2026-06-12 |
 | [settings](settings/spec.md) | stable | controllers/settingController, models/Setting | 2026-06-08 |
 | [dashboard-analytics](dashboard-analytics/spec.md) | stable | controllers/dashboardController | 2026-06-08 |

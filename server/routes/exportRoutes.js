@@ -1,11 +1,12 @@
 const router = require('express').Router();
 const { exportAttendance, exportEvaluations, getExportStats } = require('../controllers/exportController');
 const { protect } = require('../middleware/auth');
-const { roleGuard } = require('../middleware/roleGuard');
+const { requireCapability } = require('../middleware/requireCapability');
+const { CAPABILITIES } = require('../policy/capabilities');
 const { exportLimiter } = require('../middleware/rateLimiters');
 
 // Admin-only endpoints
-router.use(protect, roleGuard('Admin'));
+router.use(protect, requireCapability(CAPABILITIES.DATA_TRANSFER));
 
 // GET /api/export/stats — count of PENDING vs EXPORTED
 router.get('/stats', getExportStats);

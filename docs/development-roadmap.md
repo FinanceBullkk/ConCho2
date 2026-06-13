@@ -109,6 +109,68 @@ Bug fixing and integration review rank above net-new feature rollout.
 > [`changelog-archive/2026-q2.md`](changelog-archive/2026-q2.md). Currently
 > inline: **2026-06-12 → 2026-06-13**.
 
+- **2026-06-14** — **Converge Phase 1: Assessment convergence (Evaluation →
+  Assessment) — one concept, two modes.** Cleared the "dual assessment systems"
+  deferral WITHOUT a destructive model merge: Assessment is now the single concept
+  with two *modes* — learner-attempted **quiz** + instructor-scored **evaluation**
+  (the English 4-skill rubric). New unified read **`GET
+  /api/assessment/results/mine`** (`assessment.read`, self-scoped) returns the
+  caller's results across BOTH modes in one shape (`{source, title, scorePercent,
+  passed, date}`, newest-first) — `domains/assessment` gained
+  `listEvaluationsForLearner` + `getMyResults` + `attemptResultDto`/
+  `evaluationResultDto` + the route. The **learner transcript** (`MyTranscriptPage`)
+  now consumes it, so an instructor evaluation appears alongside quiz results
+  (tagged "Instructor"). Completion was already unified (`evaluation OR
+  passingAttempt`). Additive — existing flows unchanged. Tests: +5 server integration
+  (`assessmentResultsMine`: empty / evaluation / quiz / both / self-scope) + transcript
+  test updated — **server 972/99, client 313**, lint 63, build clean. Specs
+  `assessments` + `evaluations` + domain-model rule updated (deferral cleared). The
+  English rubric-grading UI folds into the unified assessment UX in Phase 4. ADR
+  `converge-to-one-training-model`. Next: Phase 2 — converge Enrollment.
+- **2026-06-14** — **Converge Phase 0 COMPLETE: event bus (2 flows) + authz
+  finished (no behaviour change).** Part A extended: `certificate_issued` bell row
+  now also rides the event bus (`CERTIFICATE_ISSUED`, published by the completion
+  engine) alongside `cohort_enrolled` — both off inline `recordInApp`. Part B
+  (authz): the **9 Admin-only platform routers** (`users`, `settings`, `import`,
+  `export`, `sync`, `dashboard`, `admin/audit`, `admin-db`, `admin/reconcile`)
+  migrated from `roleGuard('Admin')` to `requireCapability` with 6 new Admin-only
+  capabilities (`user.manage` · `settings.manage` · `data.transfer` ·
+  `analytics.read` · `audit.read` · `system.ops`) — so the app uses ONE coarse-authz
+  mechanism. **Parity guaranteed** (all Admin-only; Admin is superuser; new caps
+  added to no other role) — server **967/98** green, no regression. Intentionally
+  still on `roleGuard` (documented): `/api/auth` + `/api/admin/cron` (security/cron)
+  and the converging-legacy trio (`classes`/`enrollments`/`evaluations`, retired in
+  their convergence phase); scheduleService booking/roster notifications migrate in
+  Phase 3. Specs: `capability-authz` + route-permission-matrix updated (mechanism
+  note; outcomes unchanged). Next: Phase 1 — converge Assessment.
+- **2026-06-14** — **Converge Phase 0 (Part A): in-process domain-event bus +
+  first flow migrated (no behaviour change).** New `lib/event-bus.js`
+  (publish/subscribe; subscribers run awaited after the mutation persists, a
+  throwing subscriber is logged + isolated) + `domains/_shared/events.js`
+  (event catalogue) + `domains/notification/subscribers.js` (registered once at
+  boot in `server.js`). First cross-cutting concern moved off inline wiring: the
+  `cohort_enrolled` bell row now reacts to **`ENROLLMENT_CREATED`** (published by
+  `domains/learning/enrollment` single + bulk) instead of an inline `recordInApp`
+  call — the use-case no longer imports the notification layer. **Byte-parity**
+  held: the existing enrollment integration tests (admin-enroll writes / self-enroll
+  doesn't / bulk) pass unchanged. Tests: +6 event-bus unit — **server 967/98**, no
+  regression. Pure refactor → no spec change. Next: migrate more concerns
+  (audit/completion) + Part B (finish authz roleGuard→capability).
+- **2026-06-14** — **Re-architecture decision: converge to ONE training model
+  (Option A).** Owner judged the system still "messy" post-IA and asked for a
+  whole-system re-architecture vs best-in-class references. Analysis
+  (`plans/reports/architecture-260614-0004-rearchitecture-proposal.md`) found the
+  root cause is **two parallel worlds for the same domain** (English-class vs generic
+  L&D — same Mongo models behind a `mode` flag, dual enroll/assess/session). Owner
+  chose **full convergence** to one spine `Program → Session → Enrollment →
+  Completion → Certificate` (English-class = a delivery profile). Recorded ADR
+  `docs/decisions/converge-to-one-training-model.md` (supersedes the 2026-06-12
+  separation; completes the 2026-06-09 coordinator-scheduled re-center;
+  `leader_booking` → one scheduling mode). Phased plan
+  `plans/260614-0004-converge-to-one-model/` (Phase 0 foundations: domain-event bus +
+  finish authz → Assessment → Enrollment → Scheduling → UX journeys → retire legacy
+  routes). Guardrails kept (modular monolith, no physical renames, Mongo→PG gate,
+  security layers). Docs/decision only this entry — implementation starts next.
 - **2026-06-13** — **IA rework Phase 03: flatten tab strips into sidebar
   sub-items.** The six umbrella pages (Learning · Calendar/Operations · English ·
   Reports · People · System) **dropped their in-page horizontal tab strips** — each

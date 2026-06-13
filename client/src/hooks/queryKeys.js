@@ -88,6 +88,7 @@ export const qk = {
     assessment: (id) => ['assessment', 'assessment', id],
     questionBank: (params) => ['assessment', 'question-bank', params],
     attempts: (params) => ['assessment', 'attempts', params],
+    myResults: ['assessment', 'results', 'mine'],
   },
   org: {
     all: ['org'],

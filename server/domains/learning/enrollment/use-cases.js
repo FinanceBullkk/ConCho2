@@ -1,6 +1,7 @@
 const repository = require('./repository');
 const { assertPrerequisitesMet } = require('./prerequisites');
-const { recordInApp } = require('../../notification/in-app-writer');
+const { publish } = require('../../../lib/event-bus');
+const EVENTS = require('../../_shared/events');
 const { ServiceError } = require('../../../helpers/ServiceError');
 
 const sameId = (a, b) => a && b && a.toString() === b.toString();
@@ -67,21 +68,11 @@ const enroll = async ({ cohortId, userId }, actor) => {
     throw error;
   }
 
-  // Surface a direct enrollment in the learner's notification bell — only when
-  // someone ELSE enrolled them (Admin); self-enroll already confirms in the UI.
-  // In-app only (no email), fail-soft + idempotent on the enrollment id.
-  if (!isSelf) {
-    await recordInApp({
-      type: 'cohort_enrolled',
-      recipientUserId: targetUserId,
-      cadenceKey: String(enrollment._id),
-      metadata: {
-        programName: cohort.courseName,
-        cohortCode: cohort.classCode,
-        cohortId: String(cohortId),
-      },
-    });
-  }
+  // Cross-cutting side effects (the cohort_enrolled bell row) now react to this
+  // domain event in domains/notification/subscribers.js — the use-case no longer
+  // wires the notification layer directly. Published AFTER the row persists; the
+  // subscriber skips self-enroll (already confirmed in the UI).
+  await publish(EVENTS.ENROLLMENT_CREATED, { enrollment, cohort, actorIsSelf: isSelf });
 
   return enrollment;
 };
@@ -127,12 +118,6 @@ const bulkEnroll = async ({ cohortId, userIds }, actor) => {
     ? await repository.countActiveCohortEnrollments(cohortId)
     : 0;
 
-  const metadata = {
-    programName: cohort.courseName,
-    cohortCode: cohort.classCode,
-    cohortId: String(cohortId),
-  };
-
   const enrolled = [];
   const skipped = [];
   // De-dupe the incoming list (a learner listed twice is enrolled once).
@@ -151,14 +136,9 @@ const bulkEnroll = async ({ cohortId, userIds }, actor) => {
       const enrollment = await repository.createCohortEnrollment({ userId, cohortId });
       enrolled.push(enrollment);
       activeCount += 1;
-      // Surface the admin-initiated enrollment in the learner's bell (DRY with
-      // single enroll — they did not enroll themselves).
-      await recordInApp({
-        type: 'cohort_enrolled',
-        recipientUserId: userId,
-        cadenceKey: String(enrollment._id),
-        metadata,
-      });
+      // Admin-initiated (never self) → emit; the notification subscriber writes
+      // the cohort_enrolled bell row (DRY with single enroll).
+      await publish(EVENTS.ENROLLMENT_CREATED, { enrollment, cohort, actorIsSelf: false });
     } catch (error) {
       // Lost the partial-unique race (someone enrolled them concurrently).
       if (error && error.code === 11000) {
