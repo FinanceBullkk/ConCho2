@@ -108,4 +108,68 @@ const list = ({ cohortId, learnerId }, actor) => {
   return repository.listCohortEnrollments({ cohortId, learnerId: scopedLearner });
 };
 
-module.exports = { enroll, withdraw, list };
+// Enroll many learners into one cohort in a single Admin action (Phase 3 — closes
+// the M2 "bulk enrollment" deferral). Partial-success by design: each learner is
+// attempted independently and a per-learner skip reason is collected rather than
+// failing the whole batch. Admin-only at the route (`enrollment.manage`), so no
+// self-enroll / prerequisite gating applies (Admins override prerequisites, same
+// as single enroll). Cohort + capacity policy are fetched ONCE, not per learner.
+const bulkEnroll = async ({ cohortId, userIds }, actor) => {
+  const cohort = await repository.findCohort(cohortId);
+  if (!cohort || cohort.isDeleted) {
+    throw new ServiceError('Cohort not found', 404);
+  }
+
+  const { maxParticipants } = await repository.findCohortCapacityPolicy(cohortId);
+  // Live count, incremented locally as we admit learners so the cap holds across
+  // the loop without re-counting each iteration.
+  let activeCount = maxParticipants != null
+    ? await repository.countActiveCohortEnrollments(cohortId)
+    : 0;
+
+  const metadata = {
+    programName: cohort.courseName,
+    cohortCode: cohort.classCode,
+    cohortId: String(cohortId),
+  };
+
+  const enrolled = [];
+  const skipped = [];
+  // De-dupe the incoming list (a learner listed twice is enrolled once).
+  const unique = [...new Set((userIds || []).map(String))];
+
+  for (const userId of unique) {
+    if (maxParticipants != null && activeCount >= maxParticipants) {
+      skipped.push({ userId, reason: 'cohort_full' });
+      continue;
+    }
+    if (await repository.findActiveCohortEnrollment(userId, cohortId)) {
+      skipped.push({ userId, reason: 'already_enrolled' });
+      continue;
+    }
+    try {
+      const enrollment = await repository.createCohortEnrollment({ userId, cohortId });
+      enrolled.push(enrollment);
+      activeCount += 1;
+      // Surface the admin-initiated enrollment in the learner's bell (DRY with
+      // single enroll — they did not enroll themselves).
+      await recordInApp({
+        type: 'cohort_enrolled',
+        recipientUserId: userId,
+        cadenceKey: String(enrollment._id),
+        metadata,
+      });
+    } catch (error) {
+      // Lost the partial-unique race (someone enrolled them concurrently).
+      if (error && error.code === 11000) {
+        skipped.push({ userId, reason: 'already_enrolled' });
+        continue;
+      }
+      throw error;
+    }
+  }
+
+  return { enrolled, skipped };
+};
+
+module.exports = { enroll, withdraw, list, bulkEnroll };

@@ -299,6 +299,16 @@ export const useWithdrawEnrollment = () => {
   });
 };
 
+// Bulk-enroll many learners into one cohort (Admin). Resolves to
+// { enrolledCount, skipped[] } so the caller can report partial results.
+export const useBulkEnrollLearners = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (data) => learningAPI.bulkEnroll(data).then((r) => r.data.data),
+    onSettled: () => invalidateLearning(qc),
+  });
+};
+
 export const useSubmitFeedback = () => {
   const qc = useQueryClient();
   return useMutation({

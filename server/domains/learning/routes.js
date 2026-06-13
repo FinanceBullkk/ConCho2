@@ -20,7 +20,7 @@ const {
 } = require('./session/schemas');
 const { cancelScheduleBody } = require('../../schemas/schedule');
 const enrollmentController = require('./enrollment/controller');
-const { enrollBody, listEnrollmentsQuery } = require('./enrollment/schemas');
+const { enrollBody, bulkEnrollBody, listEnrollmentsQuery } = require('./enrollment/schemas');
 const completionController = require('./completion/controller');
 const {
   completionQuery,
@@ -122,6 +122,16 @@ router
     validate({ body: enrollBody }),
     enrollmentController.enroll,
   );
+
+// Bulk-enroll many learners into one cohort (Admin op — `enrollment.manage`
+// only, no self path). Registered before '/enrollments/:id' so 'bulk' is never
+// read as an :id param.
+router.post(
+  '/enrollments/bulk',
+  requireCapability('enrollment.manage'),
+  validate({ body: bulkEnrollBody }),
+  enrollmentController.bulkEnroll,
+);
 
 router.delete(
   '/enrollments/:id',

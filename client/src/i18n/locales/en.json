@@ -894,7 +894,17 @@
       "enrolling": "Enrolling…",
       "enrolled": "Learner enrolled",
       "withdraw": "Withdraw",
-      "withdrawn": "Enrollment withdrawn"
+      "withdrawn": "Enrollment withdrawn",
+      "addMany": "Add learners",
+      "search": "Search by name or ID…",
+      "selectAll": "Select all ({{count}})",
+      "selectedCount": "{{count}} selected",
+      "enrollSelected": "Enroll {{count}}",
+      "noCandidates": "No more learners to add.",
+      "bulkEnrolled": "Enrolled {{count}}",
+      "bulkSkipped": "Enrolled {{enrolled}}, skipped {{skipped}}",
+      "skipAlready": "already enrolled",
+      "skipFull": "cohort full"
     },
     "fields": {
       "code": "Code",

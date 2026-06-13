@@ -33,8 +33,10 @@ not net-new capability.
   **`booking_confirmed`** (booker), and **`session_enrolled`** (everyone
   auto-added to a session roster — team members on a leader booking, cohort
   enrollees on an admin-scheduled session). Bell coverage deferral CLOSED.
-- **Next:** owner's call — a new capability, or push migration phases 3/4/5
-  (~72–78%) to done.
+- **Next (active goal):** push migration phases 3/4/5 (~72–80%) toward done by
+  closing concrete incomplete loops. First slice shipped: **bulk cohort
+  enrollment** (Admin enrolls many learners in one action — closes the M2
+  "bulk enrollment" deferral; phase 3 + 4 → ~80%).
 - **Gated / owner-ops:** **D2 Google OIDC + Directory sync** (blocked on owner's
   Google OAuth app + Workspace domain); **paid always-on hosting** + Sentry
   cron-monitor dashboard; **Phase 6 PostgreSQL gate** (plan drafted,
@@ -49,8 +51,8 @@ not net-new capability.
 | 0 | Architecture baseline + safety net | ~93% | 🟢 near done |
 | 1 | Backend modular-monolith refactor | ~98% | 🟢 near done (2026-06-10: domains/attendance+groups+schedule routes extracted; repository ADR; schedule use-case tests; frontend `features/` migration complete) |
 | 2 | Learning catalog + generic cohort model | ~95% | 🟢 near done |
-| 3 | Multi-program enrollment + session scheduling | ~78% | 🟡 in progress |
-| 4 | Frontend L&D workspace (CRUD UI) | ~78% | 🟡 in progress |
+| 3 | Multi-program enrollment + session scheduling | ~80% | 🟡 in progress |
+| 4 | Frontend L&D workspace (CRUD UI) | ~80% | 🟡 in progress |
 | 5 | Reporting, completion, feedback | ~72% | 🟡 in progress |
 | 6 | PostgreSQL decision gate | 0% | ⚪ gated |
 
@@ -108,6 +110,22 @@ Bug fixing and integration review rank above net-new feature rollout.
 > [`changelog-archive/2026-q2.md`](changelog-archive/2026-q2.md). Currently
 > inline: **2026-06-12 → 2026-06-13**.
 
+- **2026-06-13** — **Bulk cohort enrollment (phase 3 + 4 → ~80%).** Closes the
+  M2 "bulk enrollment" deferral: an Admin can now enroll many learners into a
+  cohort in one action. New **`POST /api/learning/enrollments/bulk`**
+  (`enrollment.manage` only — no self path; zod `{cohortId, userIds[1..500]}`)
+  is **partial-success** — each learner attempted independently, per-learner
+  skip reason returned (`already_enrolled` / `cohort_full`) instead of failing
+  the batch; the cohort + `capacityPolicy.maxParticipants` are read once and the
+  cap holds across the batch; each admitted learner gets the same
+  `cohort_enrolled` bell row as single enroll (DRY); one batch audit entry.
+  Frontend: **`EnrollLearnersModal`** swapped its single-select for a filterable
+  multi-select (checkbox list + select-all + "Enroll N"), reporting
+  enrolled/skipped counts via toast (`useBulkEnrollLearners` +
+  `learningAPI.bulkEnroll`). Tests: +5 server integration (bulk happy /
+  duplicate-skip / capacity-skip / non-admin 403 / empty-400) + 2 client
+  component (new `EnrollLearnersModal` suite) — server 935/94, client 283/63,
+  lint at cap 63, build clean. Spec `enrollment` requirement + AC added.
 - **2026-06-13** — **Notification bell: roster `session_enrolled` — coverage
   deferral fully CLOSED.** New in-app-only type **`session_enrolled`** notifies
   everyone auto-added to a session roster *by someone else's action*: the rest
@@ -339,42 +357,8 @@ Bug fixing and integration review rank above net-new feature rollout.
   (`SessionWaitlistModal` behind `read:waitlist` on the cohort Sessions
   panel; Teacher UNION scope in session list, single-session read, and
   attendance calendar), then fixed the stale tracker text. No code change.
-- **2026-06-12** — **QA-018b closed: the 4 remaining persona-critical e2e
-  specs shipped** (`client/e2e/`): (1) **attendance marking** — teacher marks
-  a past Team-B session all-present via the calendar drawer (past-session
-  fixture created through the real Admin API; past sessions refuse deletion,
-  so each run claims the next free past slot); (2) **HR export** — serial
-  with (1), downloads the pending records as `.xlsx` and asserts the
-  download; (3) **MFA login** — enrolls TOTP via the API, then completes the
-  UI two-factor challenge with a locally generated RFC-6238 code
-  (`totp-helper.js`, no new dependency; wrong-code rejection asserted;
-  admin-disable cleanup is idempotent for re-runs); (4) **waitlist** — an
-  inactive-at-booking team member is re-activated and joins/leaves a full
-  session's waitlist on `/me/sessions` (Waiting #1 badge). New shared
-  `api-helpers.js` (CSRF + API login + fixture builders) + `teacherPage`
-  fixture. Full Playwright suite 28/28 locally against live dev
-  (DISABLE_RATE_LIMITS, same as the CI gate). Every P1 flow named in the
-  audit now has an e2e gate.
-- **2026-06-12** — **Post-audit backlog sweep: 6 P2/P3 code findings fixed in
-  one round** (`fix/backlog-sweep-code-round`). **BUG-005** Users default sort
-  `lastActive` was silently falling back to `empCode` — whitelisted + mapped
-  to denormalised `lastActiveAt`; **UX-09** home dashboard no longer mounts
-  queries (which 403) behind the forced-password modal; **OPS-014**
-  forgot-password background DB failures now log at `error` (email-send fail
-  stays `warn`); **PERF-015** programs/cohorts/classes lists get an opt-in
-  `?page/?limit` window with a 500 hard cap (envelope unchanged — closes the
-  unbounded cohort-growth path); **PERF-016** session LIST hydrates
-  `enrolledUsers` as `_id`-only stubs (detail keeps the full roster);
-  **UX-08** `LearningField` labels are programmatically associated
-  (`useId` + `htmlFor` + `cloneElement` — WCAG 1.3.1/4.1.2) across all 16
-  Learning CRUD/feedback modals. Every fix shipped with a regression test
-  (server 884/884, client 254/254, lint at cap, build clean). Audit backlog
-  table updated — remaining open items are owner-ops or deliberate deferrals
-  (QA-018b e2e chain, CODE-017, DEPS majors, DOCS-006b, QA-017/019/020/022,
-  OPS-010/011/012, DATA-016).
-
 **Older entries (2026-06-12 and earlier)** →
-[`changelog-archive/2026-q2.md`](changelog-archive/2026-q2.md) (90 entries,
+[`changelog-archive/2026-q2.md`](changelog-archive/2026-q2.md) (92 entries,
 2026-06-01 → 2026-06-12).
 
 ---

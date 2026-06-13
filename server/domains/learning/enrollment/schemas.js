@@ -13,4 +13,12 @@ const listEnrollmentsQuery = z.object({
   learnerId: objectId.optional(),
 });
 
-module.exports = { enrollBody, listEnrollmentsQuery };
+// Bulk-enroll many learners into one cohort (Admin action). Capped at 500 ids
+// per call (matches the list pagination hard cap) so one request can't snapshot
+// an unbounded roster.
+const bulkEnrollBody = z.object({
+  cohortId: objectId,
+  userIds: z.array(objectId).min(1).max(500),
+});
+
+module.exports = { enrollBody, listEnrollmentsQuery, bulkEnrollBody };
