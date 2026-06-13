@@ -174,9 +174,9 @@ Re-architecture into an L&D platform runs in phases (full detail:
 | 0 | Architecture baseline + safety net (ADRs, tests, domain convention) | ~93% |
 | 1 | Backend modular-monolith refactor (extract legacy → `domains/`) | ~98% |
 | 2 | Learning catalog + generic cohort model (`LearningProgram`) | ~95% |
-| 3 | Multi-program enrollment + session scheduling | ~78% |
-| 4 | Frontend L&D workspace (CRUD UI) | ~78% |
-| 5 | Reporting, completion, feedback | ~72% |
+| 3 | Multi-program enrollment + session scheduling | ~85% 🟢 |
+| 4 | Frontend L&D workspace (CRUD UI) | ~82% 🟢 |
+| 5 | Reporting, completion, feedback | ~80% 🟢 |
 | 6 | PostgreSQL decision gate | 0% |
 
 **Today:** Wave A (Foundation) is complete — all 4 `schedulingMode`s enforced,
@@ -188,10 +188,15 @@ manual grading, completion reports, and rollups are live. Wave C has started:
 learner catalog, self-enroll, prerequisite gating, sequenced paths, admin paths
 UI, and learner path progress are live. Wave D has started: cron
 self-monitoring, org model/manager dashboard, assignment + due dates v1, and
-assignment reminders/manager escalation v1 are live. For 1000 employees, next
-platform gaps are Google OIDC, Google Directory sync, compliance report depth,
-recertification, broader notification surfaces, and generic scheduling.
-→ see [`lms-roadmap.md`](lms-roadmap.md).
+assignment reminders/manager escalation v1 are live. The **full certificate
+lifecycle is now closed** (2026-06-13): expiry reminders (learner + weekly
+manager digest) → recertification auto-assignment; program policies
+(completion/capacity/facilitator/recertify) are enforced AND editable in the
+program form. Phases 3/4/5 are re-baselined **🟢 near done** — the genuine
+non-deferred migration debt is shipped; the remainder is deferred-by-design
+(see `development-roadmap.md` status board). For 1000 employees, the next
+platform gaps are Google OIDC + Directory sync (owner-gated) and the Phase 6
+PostgreSQL decision. → see [`lms-roadmap.md`](lms-roadmap.md).
 
 **Stack:** React 19 + Vite 8 + Tailwind 4 / Express 5 + Mongoose 8 + MongoDB;
 server/client test suites, Playwright e2e, 7 CI gates, deployed on Render.
