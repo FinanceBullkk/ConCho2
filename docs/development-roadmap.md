@@ -26,8 +26,11 @@ not net-new capability.
   enroll, P4 English-class separation, P5 in-app notification bell, **P6 learner
   transcript** all shipped 2026-06-12/13. The learner surfaces now read as one
   woven product. Migration phases 3/4/5 sit ~72–78%.
-- **Next:** A **bug/wiring/integration review** of the woven learner experience
-  before any net-new capability (per the no-feature-factory rule).
+- **Now (post-wave review done):** integration review of the woven learner
+  experience found no broken links / authz leaks; closed the top finding —
+  the notification bell now also surfaces **`certificate_issued`** (in-app).
+- **Next:** owner's call — broaden notification coverage (enrolled / booking
+  emails aren't logged → not in the bell yet; deferred), or a new capability.
 - **Gated / owner-ops:** **D2 Google OIDC + Directory sync** (blocked on owner's
   Google OAuth app + Workspace domain); **paid always-on hosting** + Sentry
   cron-monitor dashboard; **Phase 6 PostgreSQL gate** (plan drafted,
@@ -101,6 +104,17 @@ Bug fixing and integration review rank above net-new feature rollout.
 > [`changelog-archive/2026-q2.md`](changelog-archive/2026-q2.md). Currently
 > inline: **2026-06-12 → 2026-06-13**.
 
+- **2026-06-13** — **Post-Cohesion review + notification coverage follow-up.**
+  An integration review of the woven learner experience (`/me/*` + bell +
+  transcript) verified no broken links and correct self-scoping/authz. Closed
+  the top finding (P5 bell only surfaced 4 logged types): certificate issuance
+  now writes a fail-soft, idempotent **`certificate_issued`** `NotificationLog`
+  (new `channel:'in_app'` — no email; keyed by `certificateNumber`) so earned
+  certificates appear in the bell → `/me/transcript`. Also tuned the bell poll
+  60s → 180s (still refetches on tab focus) to cut idle load. server 926/94
+  (completion suite asserts the in-app write + cleans `NotificationLog`),
+  client 281/62, lint 63, build clean. Deferred (backlog): logging
+  booking-confirm / direct-enrollment events for fuller bell coverage.
 - **2026-06-13** — **Cohesion P6: learner transcript — Cohesion Wave COMPLETE
   (6/6)** (plan `plans/260612-2058-cohesion-wave/` P6). New Participant route
   **`/me/transcript`** (`MyTranscriptPage`): one print-friendly record of the

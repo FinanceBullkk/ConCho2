@@ -123,17 +123,23 @@ emails deep-link to the home (`CLIENT_ORIGIN/home`) when configured.
 
 ### Requirement: In-app notification feed (Cohesion P5) [BR-3]
 
-The system SHALL expose the email `NotificationLog` as a self-scoped in-app
-feed: `GET /api/notifications/mine` returns the caller's own notifications
-(by `recipientUserId`, newest first, excluding transient `pending` rows) plus
-an `unreadCount`; `POST /api/notifications/:id/read` and
+The system SHALL expose the `NotificationLog` as a self-scoped in-app feed:
+`GET /api/notifications/mine` returns the caller's own notifications (by
+`recipientUserId`, newest first, excluding transient `pending` rows) plus an
+`unreadCount`; `POST /api/notifications/:id/read` and
 `POST /api/notifications/read-all` set a per-row `readAt`. All three are gated
 by `notification.read` (held by every role) and scoped to the caller — another
 user's row can never match (marking it → 404). `readAt` is in-app read state
 only; it does NOT change the email `status`, and email delivery is unchanged.
 A `dto` presenter maps each `type` to a title/body/link
 (assignment due-soon/overdue → `/home`, manager digest → `/my-team`,
-waitlist-promoted → `/me/sessions`).
+waitlist-promoted → `/me/sessions`, certificate-issued → `/me/transcript`).
+Most rows are `channel:'email'` (the email IS the notification); a
+`channel:'in_app'` row is an in-app-only event with no email — today,
+**`certificate_issued`** (written fail-soft + idempotently on certificate
+issue, keyed by `certificateNumber`). The bell polls ~every 3 min (plus on
+tab focus). Coverage is bounded to logged events: booking-confirm / direct
+enrollment emails are NOT logged, so they do not appear in the bell (deferred).
 
 #### Scenario: Self-scoped feed
 - **GIVEN** notifications with `recipientUserId` = me (non-pending) and others'

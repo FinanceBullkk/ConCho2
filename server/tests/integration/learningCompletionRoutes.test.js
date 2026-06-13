@@ -4,6 +4,7 @@ const Schedule = require('../../models/Schedule');
 const Attendance = require('../../models/Attendance');
 const Evaluation = require('../../models/Evaluation');
 const Certificate = require('../../models/Certificate');
+const NotificationLog = require('../../models/NotificationLog');
 const Class = require('../../models/Class');
 const LearningProgram = require('../../models/LearningProgram');
 
@@ -27,6 +28,7 @@ afterEach(async () => {
     Evaluation.deleteMany({}),
     Certificate.deleteMany({}),
     LearningProgram.deleteMany({}),
+    NotificationLog.deleteMany({}),
   ]);
   await Class.updateMany(
     { _id: { $in: [seed.class1._id, seed.class2._id] } },
@@ -132,6 +134,12 @@ describe('Learning Platform API — completion & certificates', () => {
     expect(res.body.data.status).toBe('Issued');
     expect(res.body.data.completion.attendancePercent).toBe(50);
     expect(res.body.data.learner.name).toBeTruthy();
+    // Cohesion P5 follow-up: issuing a certificate writes an in-app notification.
+    const note = await NotificationLog.findOne({
+      recipientUserId: seed.member1._id, type: 'certificate_issued',
+    }).lean();
+    expect(note).toBeTruthy();
+    expect(note.channel).toBe('in_app');
   });
 
   test('issuing for an incomplete learner is rejected with 422', async () => {

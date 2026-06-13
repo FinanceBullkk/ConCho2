@@ -8,7 +8,10 @@ import { qk } from '../../hooks/queryKeys';
 // stays fresh without a websocket. Email channel is unchanged.
 // ──────────────────────────────────────────────────────────
 
-const POLL_MS = 60_000;
+// Poll every 3 min — the bell is a convenience surface, not real-time; a tab
+// re-focus also refetches, so a tighter loop would just add load for the many
+// users who rarely have notifications.
+const POLL_MS = 180_000;
 
 // Returns the full envelope: { data: items, unreadCount, count }.
 export const useMyNotifications = (options = {}) =>

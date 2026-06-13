@@ -9,10 +9,14 @@ const notificationLogSchema = new mongoose.Schema(
       enum: ['assignment_due_soon', 'assignment_overdue', 'manager_assignment_digest',
         // Wave E3 phase-04 slice B — a freed seat auto-enrolled a waiter.
         // cadenceKey is `<scheduleId>:<userId>` (one notice per promotion).
-        'waitlist_promoted'],
+        'waitlist_promoted',
+        // Cohesion P5 follow-up — in-app-only event (no email). cadenceKey is
+        // the certificateNumber (one notice per issued certificate).
+        'certificate_issued'],
       required: true,
     },
-    channel: { type: String, enum: ['email'], default: 'email', required: true },
+    // 'in_app' rows have no email — they exist purely for the notification bell.
+    channel: { type: String, enum: ['email', 'in_app'], default: 'email', required: true },
     recipientEmail: { type: String, default: '' },
     recipientUserId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
     assignmentId: { type: mongoose.Schema.Types.ObjectId, ref: 'Assignment', default: null },
