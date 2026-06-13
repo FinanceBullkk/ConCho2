@@ -272,6 +272,8 @@ export const learningAPI = {
   archivePath: (id) => api.delete(`/learning/paths/${id}`),
   getPathProgress: (id) => api.get(`/learning/paths/${id}/progress`),
   getAssignments: (params) => api.get('/learning/assignments', { params }),
+  // Own required training + enroll-CTA suggestion (Cohesion P3, self-scoped).
+  getMyAssignments: () => api.get('/learning/assignments/mine'),
   getAssignment: (id) => api.get(`/learning/assignments/${id}`),
   createAssignment: (data) => api.post('/learning/assignments', data),
   archiveAssignment: (id) => api.delete(`/learning/assignments/${id}`),
@@ -281,6 +283,10 @@ export const learningAPI = {
   withdrawEnrollment: (id) => api.delete(`/learning/enrollments/${id}`),
   getFeedback: (params) => api.get('/learning/feedback', { params }),
   submitFeedback: (data) => api.post('/learning/feedback', data),
+  // Per-learner completion checklist + own certificates (Cohesion P1 —
+  // Participant calls are self-scoped server-side; managers may pass learnerId).
+  getCompletion: (params) => api.get('/learning/completion', { params }),
+  getCertificates: (params) => api.get('/learning/certificates', { params }),
   // Cohort completion reporting + xlsx export (Admin/Teacher).
   getCompletionReport: (params) => api.get('/learning/reports/completion', { params }),
   getCompletionRollup: () => api.get('/learning/reports/completion/rollup'),

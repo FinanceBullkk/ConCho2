@@ -82,6 +82,28 @@ const findParticipatingUserIdsForProgram = async (userIds, programId) => {
   return new Set(rows.map((id) => id.toString()));
 };
 
+// ── Learner self view (Cohesion P3) ───────────────────────
+// Active assignments targeting one user directly or via their department.
+const findActiveAssignmentsForUser = (userId, departmentId) => {
+  const or = [{ userIds: userId }];
+  if (departmentId) or.push({ departmentIds: departmentId });
+  return populateAssignment(
+    Assignment.find({ isDeleted: false, status: 'active', $or: or }).sort({ dueDate: 1 }),
+  ).lean();
+};
+
+// Enroll-CTA resolution: an Ongoing cohort of the program, but ONLY when the
+// program is learner-enrollable (`self_enroll`) — other scheduling modes have
+// no self-service path. Capacity + prerequisites stay enforced at enroll time.
+const findOpenSelfEnrollCohort = async (programId) => {
+  if (!programId) return null;
+  const program = await LearningProgram.findById(programId).select('schedulingMode').lean();
+  if (!program || program.schedulingMode !== 'self_enroll') return null;
+  return Class.findOne({ programId, status: 'Ongoing', isDeleted: { $ne: true } })
+    .select('classCode')
+    .lean();
+};
+
 module.exports = {
   PARTICIPATING_STATUSES,
   ASSIGNABLE_USER_STATUSES,
@@ -94,5 +116,7 @@ module.exports = {
   countDepartments,
   countUsers,
   findAssignableUsers,
+  findActiveAssignmentsForUser,
+  findOpenSelfEnrollCohort,
   findParticipatingUserIdsForProgram,
 };

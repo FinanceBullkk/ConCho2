@@ -262,6 +262,56 @@ Bug fixing and integration review rank above net-new feature rollout.
 
 ## Recent progress (changelog)
 
+- **2026-06-13** — **Cohesion P3: assignment → one-click enroll** (same
+  branch; plan P3; owner-rec CTA-enroll, not silent auto). New self-scoped
+  read **`GET /api/learning/assignments/mine`** (new `assignment.self`
+  capability — ALL roles; always caller-scoped): active assignments
+  targeting me (direct or via `departmentId`) with MY derived status (new
+  single-user `resolveStatusForUser` — no department fan-out) + an
+  **enroll suggestion** when the actionable program (assignment's program /
+  first incomplete path step) is `self_enroll` with an Ongoing cohort.
+  `middleware/auth` user select gains `departmentId` (was pre-D3 list).
+  Feed (P2) now lists **Required/Overdue assignments first** with a
+  one-click **Enroll** CTA into the suggested cohort — capacity +
+  prerequisites stay enforced at the existing enrollment chokepoint;
+  learner reminder emails deep-link to the home (`CLIENT_ORIGIN/home`,
+  graceful when unset). Tests: +7 server integration
+  (`assignments-mine`), +2 feed component — server 920/93, client 275/61,
+  lint at cap 63, build clean. Spec `assignments-and-reminders` ADDED
+  requirement folded. **CI note:** GitHub Actions billing-blocked (quota)
+  — gates deferred, local suites are the verification until re-run.
+- **2026-06-13** — **Cohesion P2 (v1): Unified learner home — next-actions
+  feed + program cards** (same branch as P1; plan
+  `plans/260612-2058-cohesion-wave/` P2). The Participant home becomes the
+  hub: new **`NextActionsFeed`** answers "what's waiting on me?" — quizzes
+  for my cohorts without a passing attempt (Take quiz →
+  `/me/assessments`), enrollments without submitted feedback (Give
+  feedback → `/me/feedback`), and my waitlist positions (→
+  `/me/sessions`), capped at 5, with a caught-up state. A **My programs**
+  band shows the top-2 enrollment cards (shared `ProgramEnrollmentCard`,
+  extracted from `/me/programs`) + view-all. All client-side composition
+  over existing self-scoped queries — zero new backend. Old `/me/*` pages
+  retained (parity-first per plan risk note; nav-entry removal last);
+  assignment feed items arrive with P3 (needs a self-scoped assignments
+  read). Tests: +2 NextActionsFeed component cases — client 273/60, lint
+  at cap 63, build clean. Next: P3 (assignment → one-click enroll).
+- **2026-06-13** — **Cohesion P1: Learner Program Home**
+  (`feat/cohesion-p1-learner-program-home`; plan
+  `plans/260612-2058-cohesion-wave/` P1). Learners get a per-enrollment hub:
+  **`/me/programs`** lists active cohort enrollments (cards w/ program name,
+  status, session progress) and **`/me/programs/:cohortId`** renders the
+  **completion checklist** (attendance x/y vs threshold, assessment,
+  feedback — each met/unmet with Take-quiz / Give-feedback CTAs), the
+  certificate state (issued/expiring/expired number + validity, or
+  pending-issue/earn-it copy), and that cohort's next 5 upcoming sessions.
+  **ZERO new backend** — pure composition over existing self-scoped reads
+  (`GET /api/learning/completion|certificates|sessions`; Participant scope
+  already enforced server-side). Entry points: catalog enrolled card →
+  "Enrolled · view progress", Participant-dashboard "My programs & progress"
+  CTA. New `useCompletion`/`useCertificates` hooks + api/query keys. Tests:
+  +7 component (MyProgramPage 5, MyProgramsPage 2), catalog test updated —
+  client 271/59, lint at cap 63, build clean. `/me/*` literal-English
+  convention. Next: P2 (unified My Learning home).
 - **2026-06-12** — **English-class separation: bounded `/english` section**
   (`feat/cohesion-p4-team-booking-separation`; plan
   `plans/260612-2151-english-class-separation/`; owner decisions: dedicated

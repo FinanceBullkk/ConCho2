@@ -119,8 +119,10 @@ const protect = async (req, res, next) => {
     const cacheKey = decoded.id.toString();
     let user = userCache.get(cacheKey);
     if (!user) {
+      // departmentId added for self-scoped department reads (Cohesion P3 —
+      // own-assignments view resolves department-targeted assignments).
       user = await User.findById(decoded.id)
-        .select('_id empCode name role department status passwordChangedAt mfaEnabled mustChangePassword')
+        .select('_id empCode name role department departmentId status passwordChangedAt mfaEnabled mustChangePassword')
         .lean();
       if (user) userCache.set(cacheKey, user);
     }

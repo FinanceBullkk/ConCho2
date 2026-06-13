@@ -29,6 +29,8 @@ const CalendarPage     = lazy(() => import('./pages/CalendarPage'));
 const ClassDetailPage  = lazy(() => import('./features/classes/ClassDetailPage'));
 const UserSettingsPage = lazy(() => import('./features/auth/UserSettingsPage'));
 const MyLearningCatalogPage = lazy(() => import('./features/learner/MyLearningCatalogPage'));
+const MyProgramsPage = lazy(() => import('./features/learner/MyProgramsPage'));
+const MyProgramPage  = lazy(() => import('./features/learner/MyProgramPage'));
 const MyLearningPathsPage = lazy(() => import('./features/learner/MyLearningPathsPage'));
 const MyAssessmentsPage = lazy(() => import('./features/learner/MyAssessmentsPage'));
 const MyFeedbackPage = lazy(() => import('./features/learner/MyFeedbackPage'));
@@ -275,6 +277,13 @@ export default function App() {
                 <Route path="/me/settings" element={<UserSettingsPage />} />
                 <Route path="/me/catalog" element={
                   <ProtectedRoute roles={['Participant']}><MyLearningCatalogPage /></ProtectedRoute>
+                } />
+                {/* Cohesion P1 — learner program home (per-enrollment hub) */}
+                <Route path="/me/programs" element={
+                  <ProtectedRoute roles={['Participant']}><MyProgramsPage /></ProtectedRoute>
+                } />
+                <Route path="/me/programs/:cohortId" element={
+                  <ProtectedRoute roles={['Participant']}><MyProgramPage /></ProtectedRoute>
                 } />
                 <Route path="/me/paths" element={
                   <ProtectedRoute roles={['Participant']}><MyLearningPathsPage /></ProtectedRoute>

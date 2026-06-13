@@ -237,6 +237,15 @@ router
     assignmentController.createAssignment,
   );
 
+// Learner self view (Cohesion P3) — own assignments + derived status +
+// enroll-CTA suggestion. Registered BEFORE '/assignments/:id' so 'mine' is
+// never swallowed as an :id param.
+router.get(
+  '/assignments/mine',
+  requireCapability('assignment.self'),
+  assignmentController.listMyAssignments,
+);
+
 router
   .route('/assignments/:id')
   .get(

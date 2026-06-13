@@ -41,6 +41,7 @@ const CAPABILITIES = Object.freeze({
   ASSESSMENT_ATTEMPT: 'assessment.attempt', // take an assessment (learner)
   REPORT_READ: 'report.read',           // cohort-wide completion reports + export (admin/teacher)
   ASSIGNMENT_READ: 'assignment.read',   // read mandatory assignments + due status
+  ASSIGNMENT_SELF: 'assignment.self',   // read OWN assignments + own status (any role — Cohesion P3)
   ASSIGNMENT_MANAGE: 'assignment.manage', // create / archive mandatory assignments
   PATH_READ: 'path.read',               // browse learning paths + own path progress
   PATH_MANAGE: 'path.manage',           // create / edit / archive learning paths (admin)
@@ -79,6 +80,7 @@ const ROLE_CAPABILITIES = Object.freeze({
     CAPABILITIES.CERTIFICATE_MANAGE,
     CAPABILITIES.REPORT_READ,
     CAPABILITIES.ASSIGNMENT_READ,
+    CAPABILITIES.ASSIGNMENT_SELF,
     CAPABILITIES.ASSIGNMENT_MANAGE,
     CAPABILITIES.PATH_READ,
     CAPABILITIES.PATH_MANAGE,
@@ -98,6 +100,7 @@ const ROLE_CAPABILITIES = Object.freeze({
     CAPABILITIES.ASSESSMENT_READ,
     CAPABILITIES.REPORT_READ,
     CAPABILITIES.ASSIGNMENT_READ,
+    CAPABILITIES.ASSIGNMENT_SELF,
     CAPABILITIES.PATH_READ,
     CAPABILITIES.DEPARTMENT_READ,
     CAPABILITIES.OFFICE_READ,
@@ -113,6 +116,8 @@ const ROLE_CAPABILITIES = Object.freeze({
     CAPABILITIES.FEEDBACK_READ,
     CAPABILITIES.ASSESSMENT_READ,
     CAPABILITIES.ASSESSMENT_ATTEMPT,
+    // Own required-training view (Cohesion P3) — endpoint is self-scoped.
+    CAPABILITIES.ASSIGNMENT_SELF,
     CAPABILITIES.PATH_READ,
     // A Participant can lead/manage others (e.g. team lead), so they may
     // read their own direct reports. Endpoint is self-scoped — safe.

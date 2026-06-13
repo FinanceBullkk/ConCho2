@@ -2,13 +2,16 @@ import { useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import {
   CalendarDays, BarChart3, CheckCircle2, XCircle, Target,
-  ClipboardList, CalendarPlus, Clock, MapPin, Users2, ChevronRight, PlayCircle, MessageSquare, BookOpen, Route,
+  ClipboardList, CalendarPlus, Clock, MapPin, Users2, ChevronRight, PlayCircle, MessageSquare, BookOpen, Route, GraduationCap,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useMyClassSchedules } from '../../hooks/useSchedules';
 import { useMyAttendanceStats, useAttendanceByUser } from '../../hooks/useAttendance';
 import { useEvaluations } from '../../features/evaluations/useEvaluations';
 import { useNextClass } from '../../hooks/useNextClass';
+import { useLearningCohorts, useLearningEnrollments } from '../../hooks/useLearning';
+import NextActionsFeed from './NextActionsFeed';
+import ProgramEnrollmentCard from '../learner/ProgramEnrollmentCard';
 import { Spinner } from '../../components/Spinner';
 import { KPICard } from '../../components/KPICard';
 import { StatusBadge } from '../../components/StatusBadge';
@@ -56,6 +59,18 @@ export default function ParticipantDashboard() {
   const { data: rawEvals = [], isLoading: loadingEvals } = useEvaluations();
 
   const { nextClass, upcoming } = useNextClass();
+
+  // Cohesion P2 — "My programs" band: active cohort enrollments joined with
+  // the open cohort catalog for program names (same join as /me/programs).
+  const { data: enrollmentData } = useLearningEnrollments();
+  const { data: cohortData } = useLearningCohorts();
+  const programCards = useMemo(() => {
+    const cohortById = new Map((cohortData?.data || []).map((c) => [String(c._id), c]));
+    return (enrollmentData?.data || [])
+      .filter((e) => e.status !== 'Dropped')
+      .map((e) => ({ enrollment: e, cohort: cohortById.get(String(e.cohortId)) }))
+      .slice(0, 2);
+  }, [enrollmentData, cohortData]);
 
   const schedules = schedData?.data || [];
   const teamName  = schedData?.team || '';
@@ -233,6 +248,28 @@ export default function ParticipantDashboard() {
         />
       )}
 
+      {/* ── Band 2b · Next actions feed (Cohesion P2) ────── */}
+      {/* What's waiting on me: quizzes, feedback, waitlists — composed
+          client-side over existing self-scoped queries. */}
+      <NextActionsFeed />
+
+      {/* ── Band 2c · My programs (Cohesion P2) ──────────── */}
+      {programCards.length > 0 && (
+        <section>
+          <div className="mb-2 flex items-center justify-between">
+            <h2 className="text-overline text-muted-foreground">My programs</h2>
+            <Link to="/me/programs" className="text-xs text-primary font-medium hover:underline underline-offset-2">
+              View all →
+            </Link>
+          </div>
+          <div className="grid gap-3 md:grid-cols-2">
+            {programCards.map(({ enrollment, cohort }) => (
+              <ProgramEnrollmentCard key={enrollment.id} enrollment={enrollment} cohort={cohort} />
+            ))}
+          </div>
+        </section>
+      )}
+
       {/* ── Band 3 · KPI strip ×3 (no emoji, Lucide-only) ── */}
       <div className="grid grid-cols-3 gap-3">
         <KPICard
@@ -260,6 +297,16 @@ export default function ParticipantDashboard() {
       </div>
 
       <div className="grid gap-3 md:grid-cols-2">
+        {/* Cohesion P1 — per-enrollment program hub (checklist + certificate) */}
+        <Button asChild variant="outline" className="justify-between md:col-span-2">
+          <Link to="/me/programs">
+            <span className="inline-flex items-center gap-2">
+              <GraduationCap className="size-4" aria-hidden="true" />
+              My programs &amp; progress
+            </span>
+            <ChevronRight className="size-4 text-muted-foreground" aria-hidden="true" />
+          </Link>
+        </Button>
         <Button asChild variant="outline" className="justify-between">
           <Link to="/me/catalog">
             <span className="inline-flex items-center gap-2">
