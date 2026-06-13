@@ -260,6 +260,17 @@
     "docTitle": "TMS — Home",
     "greeting": "Hello, {{name}}",
     "greetingFallback": "there",
+    "viewAnalytics": "View analytics",
+    "quickActions": {
+      "title": "Quick actions",
+      "programs": { "label": "Programs", "desc": "Create and manage training programs." },
+      "enroll": { "label": "Enroll learners", "desc": "Add people to a cohort." },
+      "people": { "label": "People", "desc": "Users, departments, offices and rooms." },
+      "calendar": { "label": "Calendar", "desc": "Schedule sessions and mark attendance." },
+      "english": { "label": "English Class", "desc": "Classes, teams, booking and attendance." },
+      "reports": { "label": "Reports", "desc": "Analytics, completion and HR export." },
+      "system": { "label": "System", "desc": "Settings, audit log, sync and reconciliation." }
+    },
     "updatedMinutesAgo": "Updated {{count}} min ago",
     "updatedLessThanMinute": "Updated <1 min ago",
     "refreshTitle": "Refresh data",
@@ -442,6 +453,10 @@
   },
   "learning": {
     "title": "Learning",
+    "groups": {
+      "catalog": "Catalog",
+      "delivery": "Delivery"
+    },
     "tabs": {
       "dashboard": "Dashboard",
       "dashboardDesc": "Operational training KPIs at a glance — completion, attendance, obligations, and quality.",

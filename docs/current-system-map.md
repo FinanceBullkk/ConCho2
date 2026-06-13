@@ -72,12 +72,12 @@ Public:
 
 Protected shell:
 
-- `/home` -> dashboard
+- `/home` -> landing (greeting + AlertBand + TodayHero + role-aware QuickActions; the Admin training analytics moved to `/reports?tab=overview` — IA cleanup 2026-06-13)
 - `/people` -> Admin only
-- `/learning` -> Admin and Teacher
+- `/learning` -> Admin and Teacher (6 tabs grouped Catalog/Delivery; Dashboard + Reports tabs moved to `/reports`)
 - `/calendar` -> all roles
-- `/reports` -> Admin and Teacher
-- `/system` -> Admin only
+- `/reports` -> Admin, Coordinator, Teacher (consolidated reporting home: Overview · L&D Dashboard · Completion · Attendance · HR Export)
+- `/system` -> Admin only (Sync lives here — removed the duplicate Reports▸Sheets Sync tab)
 - `/classes/:id` -> Admin only
 - `/me/settings` -> all authenticated users
 
@@ -108,6 +108,8 @@ Legacy redirects:
 | Calendar | full | full | full |
 | Reports | full | full | none |
 | System | account dropdown only | none | none |
+
+(Coordinator — not shown above — also gets Reports `full`; they hold `read:reports`.)
 
 `ProtectedRoute` enforces page-level roles and redirects MFA-enrollment-required sessions to `/me/settings?force=mfa`.
 

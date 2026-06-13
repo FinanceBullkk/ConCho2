@@ -84,6 +84,9 @@ const PERMISSION_MAP = {
   // modal picks learners from /api/users (roleGuard Admin) — keep the UI
   // Admin-only until re-center Phase 2 ships a coordinator-safe picker.
   'enroll:learner':  ['Admin'],                    // POST/DELETE /api/learning/enrollments
+  // Home/training analytics dashboard (Reports▸Overview) — server dashboard
+  // stats endpoint is Admin-gated (DashboardPage only ever fetched for Admin).
+  'read:dashboard':  ['Admin'],                    // GET /api/dashboard/* (Admin analytics)
   // Cohort completion reports + xlsx export — server: report.read capability.
   'read:reports':    ['Admin', 'Coordinator', 'Teacher'], // GET /api/learning/reports/*
   'read:feedback':   ['Admin', 'Teacher'],         // GET /api/learning/feedback

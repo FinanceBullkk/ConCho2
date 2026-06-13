@@ -83,7 +83,9 @@ const NAV_ITEMS = [
     path: '/reports',
     labelKey: 'nav.reports',
     icon: FileBarChart,
-    access: { Admin: 'full', Coordinator: 'none', Teacher: 'full', Participant: 'none' },
+    // Coordinator holds read:reports (L&D dashboard + completion) — they could
+    // already reach these inside Learning before the IA consolidation.
+    access: { Admin: 'full', Coordinator: 'full', Teacher: 'full', Participant: 'none' },
     disabledTitleKey: 'nav.participantUnavailable',
   },
 ];
