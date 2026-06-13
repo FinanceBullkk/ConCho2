@@ -109,6 +109,19 @@ Bug fixing and integration review rank above net-new feature rollout.
 > [`changelog-archive/2026-q2.md`](changelog-archive/2026-q2.md). Currently
 > inline: **2026-06-12 → 2026-06-13**.
 
+- **2026-06-13** — **IA rework Phase 02: persona modes (Admin Console ↔ My
+  Learning).** New `context/PersonaContext.jsx` (localStorage-backed) swaps which
+  sidebar group-set renders; avatar-menu switch toggles it. Participants are
+  **locked** to the learner persona; staff default to admin and may switch. The
+  learner group-set surfaces the `/me/*` pages (My programs · Catalog · My
+  sessions · Paths · Assessments · Feedback · Transcript) + English Class
+  (access-gated). The `/me/*` routes were **opened to all authenticated users**
+  (drop the Participant-only `ProtectedRoute` — reads are self-scoped server-side,
+  so staff can review their own learning; persona is UI-only, never the authz
+  boundary). New `LEARNER_GROUPS` in `nav-config.js`; `PersonaProvider` wraps the
+  app. Tests: +7 (PersonaContext defaults/lock/persist; Sidebar learner-mode
+  group-set + English access) — client **311**, lint at cap 63, build clean.
+  Phase 03 (flatten tab strips) next.
 - **2026-06-13** — **IA rework Phase 01: left sidebar app shell (enterprise nav).**
   After owner found the top-tabs model unsatisfactory, researched how
   Docebo/TalentLMS/SAP SuccessFactors/360Learning organise IA (report:

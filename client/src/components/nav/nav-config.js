@@ -1,4 +1,11 @@
-import { Home, BookOpen, CalendarDays, Languages, FileBarChart, Users, ShieldCog } from 'lucide-react';
+import {
+  Home, BookOpen, CalendarDays, Languages, FileBarChart, Users, ShieldCog,
+  Compass, Route as RouteIcon, GraduationCap, MessageSquare, ScrollText,
+} from 'lucide-react';
+
+// Visible to every role (used by the learner group-set — the /me/* surfaces are
+// self-scoped, so any authenticated user may open their own).
+const ALL = { Admin: 'full', Coordinator: 'full', Teacher: 'full', Participant: 'full' };
 
 // ──────────────────────────────────────────────────────────
 // nav-config — single source of truth for the app's primary navigation
@@ -55,6 +62,39 @@ export const NAV_GROUPS = [
       { path: '/system', labelKey: 'nav.system', icon: ShieldCog,
         access: { Admin: 'full', Coordinator: 'none', Teacher: 'none', Participant: 'none' },
         parentRoutes: ['/system', '/admin', '/settings', '/database'] },
+    ],
+  },
+];
+
+// ── Learner persona group-set (My Learning) ───────────────
+// Surfaced when persona === 'learner' (always for Participants; staff via the
+// switch). English Class carries its own access map (Participants/Teachers/Admin
+// only) so it shows for learners in the team-booking world and hides otherwise.
+export const LEARNER_GROUPS = [
+  {
+    id: 'learner-overview',
+    items: [
+      { path: '/home', labelKey: 'nav.home', icon: Home, access: ALL, parentRoutes: ['/home', '/dashboard'] },
+    ],
+  },
+  {
+    id: 'learner-main', labelKey: 'nav.groups.myLearning',
+    items: [
+      { path: '/me/programs', labelKey: 'nav.learner.programs', icon: BookOpen, access: ALL, parentRoutes: ['/me/programs'] },
+      { path: '/me/catalog', labelKey: 'nav.learner.catalog', icon: Compass, access: ALL, parentRoutes: ['/me/catalog'] },
+      { path: '/me/sessions', labelKey: 'nav.learner.sessions', icon: CalendarDays, access: ALL, parentRoutes: ['/me/sessions'] },
+      { path: '/me/paths', labelKey: 'nav.learner.paths', icon: RouteIcon, access: ALL, parentRoutes: ['/me/paths'] },
+      { path: '/me/assessments', labelKey: 'nav.learner.assessments', icon: GraduationCap, access: ALL, parentRoutes: ['/me/assessments'] },
+      { path: '/me/feedback', labelKey: 'nav.learner.feedback', icon: MessageSquare, access: ALL, parentRoutes: ['/me/feedback'] },
+      { path: '/me/transcript', labelKey: 'nav.learner.transcript', icon: ScrollText, access: ALL, parentRoutes: ['/me/transcript'] },
+    ],
+  },
+  {
+    id: 'learner-english',
+    items: [
+      { path: '/english', labelKey: 'nav.english', icon: Languages,
+        access: { Admin: 'full', Coordinator: 'none', Teacher: 'full', Participant: 'full' },
+        parentRoutes: ['/english', '/book', '/classes', '/teams'] },
     ],
   },
 ];

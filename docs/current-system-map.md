@@ -119,9 +119,14 @@ Sidebar groups → items (per-role `access` map in `nav-config.js`):
 | Manage | People · System | full | People only | none | none |
 | (manager) | My Team | when has direct reports | — | — | — |
 
-(Phase 02 will add a persona switch (Admin Console ↔ My Learning) surfacing the
-`/me/*` learner routes in the sidebar; Phase 03 flattens in-page tab strips into
-sidebar sub-items. Plan: `plans/260613-2304-sidebar-persona-ia/`.)
+**Persona modes (Phase 02, shipped):** `context/PersonaContext.jsx` swaps the
+sidebar group-set between **Admin Console** and **My Learning** (the `/me/*`
+surfaces). Participants are locked to learner; staff default to admin and switch
+via the avatar menu (choice persisted in `localStorage`). The `/me/*` learner
+routes are now open to ALL authenticated users (self-scoped server-side) so staff
+can review their own learning. Persona is a UI mode only — not an authz boundary.
+(Phase 03 will flatten in-page tab strips into sidebar sub-items. Plan:
+`plans/260613-2304-sidebar-persona-ia/`.)
 
 `ProtectedRoute` enforces page-level roles and redirects MFA-enrollment-required sessions to `/me/settings?force=mfa`. The sidebar only shows/hides — the server is the real authz boundary.
 

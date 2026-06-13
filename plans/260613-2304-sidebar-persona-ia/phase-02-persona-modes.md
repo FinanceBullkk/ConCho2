@@ -1,7 +1,8 @@
 # Phase 02 — Persona modes + switch
 
-**Priority:** High · **Status:** 🔴 not started · **Depends on:** Phase 01
-**Behavior change:** none (client UI mode only; server authz unchanged)
+**Priority:** High · **Status:** 🟢 shipped (2026-06-13) · **Depends on:** Phase 01
+**Behavior change:** `/me/*` routes opened to all authenticated users (UI access only;
+reads already self-scoped server-side). Persona itself is a client UI mode.
 
 ## Overview
 Separate the experience into **personas** (industry standard: admin↔learner switch).
