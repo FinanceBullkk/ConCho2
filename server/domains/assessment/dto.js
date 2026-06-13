@@ -87,4 +87,39 @@ const attemptDto = (att, { includeManualMetadata = false } = {}) => {
   };
 };
 
-module.exports = { assessmentDto, attemptDto };
+// ── Unified assessment result (rearchitecture Phase 1 convergence) ─────────
+// ONE shape for BOTH assessment modes — a learner-attempted quiz result and an
+// instructor-scored English evaluation — so the transcript/reporting read a
+// single "assessment results" list regardless of how the result was produced.
+const round2 = (n) => Math.round(n * 100) / 100;
+
+const attemptResultDto = (a) => ({
+  source: 'quiz',
+  id: String(a._id),
+  cohortId: a.cohortId ? String(a.cohortId._id || a.cohortId) : null,
+  title: (a.assessmentId && a.assessmentId.title) || 'Quiz',
+  scorePercent: typeof a.scorePercent === 'number' ? a.scorePercent : 0,
+  passed: Boolean(a.passed),
+  date: a.submittedAt || a.createdAt || null,
+});
+
+const evaluationResultDto = (e) => {
+  const avg = round2(
+    ((e.grammarScore || 0) + (e.vocabularyScore || 0)
+      + (e.pronunciationScore || 0) + (e.fluencyScore || 0)) / 4,
+  );
+  const cohort = e.classId && typeof e.classId === 'object' ? e.classId : null;
+  return {
+    source: 'evaluation',
+    id: String(e._id),
+    cohortId: cohort ? String(cohort._id) : (e.classId ? String(e.classId) : null),
+    title: cohort && cohort.courseName ? `${cohort.courseName} — evaluation` : 'English evaluation',
+    scorePercent: round2(avg * 10), // 4-skill average (0–10) → percent
+    averageScore: avg,
+    level: e.level || '',
+    passed: true, // an instructor-recorded evaluation is a completed result
+    date: e.updatedAt || e.createdAt || null,
+  };
+};
+
+module.exports = { assessmentDto, attemptDto, attemptResultDto, evaluationResultDto };

@@ -109,6 +109,24 @@ Bug fixing and integration review rank above net-new feature rollout.
 > [`changelog-archive/2026-q2.md`](changelog-archive/2026-q2.md). Currently
 > inline: **2026-06-12 → 2026-06-13**.
 
+- **2026-06-14** — **Converge Phase 1: Assessment convergence (Evaluation →
+  Assessment) — one concept, two modes.** Cleared the "dual assessment systems"
+  deferral WITHOUT a destructive model merge: Assessment is now the single concept
+  with two *modes* — learner-attempted **quiz** + instructor-scored **evaluation**
+  (the English 4-skill rubric). New unified read **`GET
+  /api/assessment/results/mine`** (`assessment.read`, self-scoped) returns the
+  caller's results across BOTH modes in one shape (`{source, title, scorePercent,
+  passed, date}`, newest-first) — `domains/assessment` gained
+  `listEvaluationsForLearner` + `getMyResults` + `attemptResultDto`/
+  `evaluationResultDto` + the route. The **learner transcript** (`MyTranscriptPage`)
+  now consumes it, so an instructor evaluation appears alongside quiz results
+  (tagged "Instructor"). Completion was already unified (`evaluation OR
+  passingAttempt`). Additive — existing flows unchanged. Tests: +5 server integration
+  (`assessmentResultsMine`: empty / evaluation / quiz / both / self-scope) + transcript
+  test updated — **server 972/99, client 313**, lint 63, build clean. Specs
+  `assessments` + `evaluations` + domain-model rule updated (deferral cleared). The
+  English rubric-grading UI folds into the unified assessment UX in Phase 4. ADR
+  `converge-to-one-training-model`. Next: Phase 2 — converge Enrollment.
 - **2026-06-14** — **Converge Phase 0 COMPLETE: event bus (2 flows) + authz
   finished (no behaviour change).** Part A extended: `certificate_issued` bell row
   now also rides the event bus (`CERTIFICATE_ISSUED`, published by the completion

@@ -202,6 +202,20 @@ const listAttempts = async (query, actor) => {
   });
 };
 
+// Self-scoped unified assessment results for the caller across all cohorts:
+// learner-attempted quiz results + instructor-scored English evaluations — the
+// single "assessment results" surface (rearchitecture Phase 1 convergence).
+// ALWAYS the actor themselves (a learner's own transcript); managers/teachers
+// use the cohort-scoped listAttempts / evaluation surfaces.
+const getMyResults = async (actor) => {
+  const learnerId = actor._id.toString();
+  const [attempts, evaluations] = await Promise.all([
+    repository.listAttempts({ learnerId }),
+    repository.listEvaluationsForLearner(learnerId),
+  ]);
+  return { attempts, evaluations };
+};
+
 module.exports = {
   createAssessment,
   updateAssessment,
@@ -210,4 +224,5 @@ module.exports = {
   archiveAssessment,
   submitAttempt,
   listAttempts,
+  getMyResults,
 };

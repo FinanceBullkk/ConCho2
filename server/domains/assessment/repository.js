@@ -2,6 +2,7 @@ const Assessment = require('../../models/Assessment');
 const AssessmentAttempt = require('../../models/AssessmentAttempt');
 const AssessmentQuestion = require('../../models/AssessmentQuestion');
 const Class = require('../../models/Class');
+const Evaluation = require('../../models/Evaluation');
 
 const findCohort = (cohortId) =>
   Class.findById(cohortId).select('_id classCode courseName programId teacherIds isDeleted').lean();
@@ -78,6 +79,16 @@ const updateAttemptGrade = (id, data) =>
 const findQuestionBankItemsByIds = (ids) =>
   AssessmentQuestion.find({ _id: { $in: ids }, isDeleted: false }).lean();
 
+// ── Unified results (rearchitecture Phase 1 convergence) ───
+// Legacy English-class evaluations (instructor-scored rubric) for ONE learner
+// across all their cohorts — the second "mode" of the single assessment concept
+// (alongside learner-attempted quizzes). Soft-deleted rows are auto-filtered.
+const listEvaluationsForLearner = (userId) =>
+  Evaluation.find({ userId })
+    .populate('classId', 'classCode courseName')
+    .sort({ updatedAt: -1 })
+    .lean();
+
 module.exports = {
   findCohort,
   createAssessment,
@@ -91,4 +102,5 @@ module.exports = {
   findAttemptById,
   updateAttemptGrade,
   findQuestionBankItemsByIds,
+  listEvaluationsForLearner,
 };
