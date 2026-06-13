@@ -1,6 +1,9 @@
 const scheduleService = require('../../../services/scheduleService');
 const schedulingWindowPolicy = require('../../schedule/scheduling-window-policy');
 const schedulingModePolicy = require('../../schedule/scheduling-mode-policy');
+const {
+  isCohortAssignedOnly, assignedOnlyCohortIdSet,
+} = require('../../schedule/facilitator-visibility-policy');
 const { effectiveSessionCapacity } = require('../../schedule/session-booking-policy');
 const { sessionDto } = require('./dto');
 const repository = require('./repository');
@@ -45,16 +48,24 @@ const buildFilter = async (query = {}, requestUser) => {
   if (requestUser?.role === 'Teacher') {
     const cohortIds = await repository.findCohortIdsByTeacher(requestUser._id);
     const allowedIds = cohortIds.map((id) => id.toString());
+    // facilitatorPolicy.visibility === 'assigned_only': the standing cohort
+    // binding does NOT reveal a program's sessions — only the ones the teacher
+    // is named on. So those cohorts drop out of the binding-based clause.
+    const assignedOnlyIds = await assignedOnlyCohortIdSet(cohortIds);
     // UNION widening (Wave E polish): a teacher who is NOT bound to the cohort
     // but IS a named session instructor still finds the sessions they run —
     // parity with the single-session read (Phase 3 DELTA B). The cohort scope
     // itself stays RESTRICTIVE (no empty-teacherIds flip).
-    if (filter.classId && !allowedIds.includes(filter.classId.toString())) {
-      // Foreign cohort: only the sessions they personally run in it.
+    if (filter.classId
+      && (!allowedIds.includes(filter.classId.toString())
+        || assignedOnlyIds.has(filter.classId.toString()))) {
+      // Foreign OR assigned_only cohort: only the sessions they personally run.
       filter.sessionInstructorIds = requestUser._id;
     } else if (!filter.classId) {
+      // Open bound cohorts (full visibility) ∪ named-instructor sessions.
+      const openCohortIds = cohortIds.filter((id) => !assignedOnlyIds.has(id.toString()));
       filter.$or = [
-        { classId: { $in: cohortIds } },
+        { classId: { $in: openCohortIds } },
         { sessionInstructorIds: requestUser._id },
       ];
     }
@@ -114,7 +125,10 @@ const getSession = async (id, requestUser) => {
     const isInstructor = (session.sessionInstructorIds || []).some(
       (id) => String(id?._id || id) === requestUser._id.toString(),
     );
-    if (!assigned && !isInstructor) {
+    // assigned_only: the cohort binding does not grant read — require named.
+    const assignedOnly = await isCohortAssignedOnly(session.classId?._id || session.classId);
+    const allowed = assignedOnly ? isInstructor : (assigned || isInstructor);
+    if (!allowed) {
       throw new scheduleService.ServiceError('Not authorized to view this session', 403);
     }
   }

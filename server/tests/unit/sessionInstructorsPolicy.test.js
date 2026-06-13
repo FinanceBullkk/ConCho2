@@ -51,3 +51,23 @@ describe('canMarkSession UNION', () => {
     expect(canMarkSession(admin, classBoundToB, { sessionInstructorIds: [] }).allowed).toBe(true);
   });
 });
+
+describe('canMarkSession assigned_only (facilitatorPolicy.visibility)', () => {
+  const classBoundToB = { teacherIds: [teacherB._id] };
+  const schedule = { sessionInstructorIds: [teacherA._id] };
+  const opts = { assignedOnly: true };
+
+  test('the named instructor is still allowed', () => {
+    expect(canMarkSession(teacherA, classBoundToB, schedule, opts).allowed).toBe(true);
+  });
+
+  test('the cohort-bound teacher is NOW denied (binding no longer grants access)', () => {
+    const d = canMarkSession(teacherB, classBoundToB, schedule, opts);
+    expect(d.allowed).toBe(false);
+    expect(d.reason).toBe('not-assigned-instructor');
+  });
+
+  test('Admin is unaffected — still allowed', () => {
+    expect(canMarkSession(admin, classBoundToB, schedule, opts).allowed).toBe(true);
+  });
+});
