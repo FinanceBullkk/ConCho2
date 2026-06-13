@@ -8,6 +8,8 @@ const request = require('supertest');
 const { getApp, getTokens, getSeedData, getCsrfHeaders, teardown } = require('../setup');
 const Schedule = require('../../models/Schedule');
 const Attendance = require('../../models/Attendance');
+const Class = require('../../models/Class');
+const LearningProgram = require('../../models/LearningProgram');
 
 let app, tokens, seed, csrf;
 
@@ -184,5 +186,76 @@ describe('SEC-014 — malformed ObjectId params answer 400', () => {
       .get('/api/attendance/user/not-an-object-id')
       .set('Authorization', `Bearer ${tokens.admin}`);
     expect(res.status).toBe(400);
+  });
+});
+
+// ── facilitatorPolicy.assignmentRequired enforcement (phase 3 deferral closed) ──
+// A program that requires a facilitator cannot have its sessions run (attendance
+// marked) until a trainer is assigned. Enforced at the marking chokepoint.
+
+describe('Attendance — facilitator assignment requirement', () => {
+  let program, cls, schedule;
+
+  const pastSlot = () => {
+    const d = new Date();
+    d.setDate(d.getDate() - 7);
+    d.setHours(10, 0, 0, 0);
+    return { start: d, end: new Date(d.getTime() + 5400000) };
+  };
+
+  beforeEach(async () => {
+    program = await LearningProgram.create({
+      code: 'FACREQ', name: 'Facilitator Required Program',
+      schedulingMode: 'admin_scheduled',
+      facilitatorPolicy: { assignmentRequired: true },
+    });
+    cls = await Class.create({
+      classCode: 'FACREQCLS', courseName: 'Facilitator Class', totalSessions: 1,
+      programId: program._id, teacherIds: [],
+    });
+    const { start, end } = pastSlot();
+    schedule = await Schedule.create({
+      classId: cls._id, startTime: start, endTime: end,
+      enrolledUsers: [seed.member1._id],
+    });
+  });
+
+  afterEach(async () => {
+    await Schedule.deleteMany({});
+    await Attendance.deleteMany({});
+    await Class.deleteMany({ classCode: 'FACREQCLS' });
+    await LearningProgram.deleteMany({ code: 'FACREQ' });
+  });
+
+  const mark = () =>
+    request(app)
+      .post(`/api/attendance/${schedule._id}`)
+      .set('Authorization', `Bearer ${tokens.admin}`).set(csrf)
+      .send({ records: [{ userId: seed.member1._id.toString(), status: 'P' }] });
+
+  test('blocks marking (422) when the required facilitator is not assigned', async () => {
+    const res = await mark();
+    expect(res.status).toBe(422);
+    expect(res.body.message).toMatch(/facilitator/i);
+  });
+
+  test('allows marking once a session instructor is assigned', async () => {
+    await Schedule.findByIdAndUpdate(schedule._id, { sessionInstructorIds: [seed.teacher._id] });
+    const res = await mark();
+    expect(res.status).toBe(200);
+  });
+
+  test('a cohort-bound teacher satisfies the requirement', async () => {
+    await Class.findByIdAndUpdate(cls._id, { teacherIds: [seed.teacher._id] });
+    const res = await mark();
+    expect(res.status).toBe(200);
+  });
+
+  test('no enforcement when the program does not require a facilitator', async () => {
+    await LearningProgram.findByIdAndUpdate(program._id, {
+      'facilitatorPolicy.assignmentRequired': false,
+    });
+    const res = await mark();
+    expect(res.status).toBe(200);
   });
 });
