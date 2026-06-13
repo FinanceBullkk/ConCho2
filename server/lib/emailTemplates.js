@@ -246,6 +246,34 @@ const tplWaitlistPromoted = ({ userName, className, dateStr }) => ({
     `<p>TMS Training System</p>`,
 });
 
+// Certificate recertification signal — emailed when an Issued certificate nears
+// its validUntil (D6 expiry reminders). Deep-links to the learner transcript.
+const tplCertificateExpiring = ({ userName, programName, certificateNumber, validUntilStr, daysUntil }) => {
+  const url = process.env.CLIENT_ORIGIN
+    ? `${process.env.CLIENT_ORIGIN.replace(/\/$/, '')}/me/transcript`
+    : '';
+  const when = daysUntil <= 0 ? 'today' : `in ${pluralDays(daysUntil)}`;
+  return {
+    subject: `TMS — Certificate expiring soon: ${programName}`,
+    text:
+      `Hi ${userName},\n\n` +
+      `Your certificate for "${programName}" (${certificateNumber}) expires ${when}.\n\n` +
+      `Valid until: ${validUntilStr}\n\n` +
+      `Please arrange to recertify before it lapses.` +
+      (url ? `\n${url}` : '') + `\n\n` +
+      `TMS Training System`,
+    html:
+      `<p>Hi <strong>${userName}</strong>,</p>` +
+      `<p>Your certificate for <strong>${programName}</strong> (${certificateNumber}) ` +
+      `expires <strong>${when}</strong>.</p>` +
+      `<p><strong>Valid until:</strong> ${validUntilStr}</p>` +
+      (url
+        ? `<p><a href="${url}">Open your transcript</a> and arrange to recertify before it lapses.</p>`
+        : `<p>Please arrange to recertify before it lapses.</p>`) +
+      `<p>TMS Training System</p>`,
+  };
+};
+
 // ──────────────────────────────────────────────────────────
 // Public senders — fail-soft wrappers
 // ──────────────────────────────────────────────────────────
@@ -325,6 +353,14 @@ const sendManagerAssignmentDigest = ({ to, managerName, rows }) =>
     }),
   });
 
+const sendCertificateExpiring = ({ to, userName, programName, certificateNumber, validUntil, daysUntil }) =>
+  safeSend('certificate-expiring', {
+    to,
+    ...tplCertificateExpiring({
+      userName, programName, certificateNumber, validUntilStr: fmtDateOnly(validUntil), daysUntil,
+    }),
+  });
+
 module.exports = {
   // Public senders
   sendBookingConfirmation,
@@ -336,6 +372,7 @@ module.exports = {
   sendAssignmentOverdue,
   sendManagerAssignmentDigest,
   sendWaitlistPromoted,
+  sendCertificateExpiring,
   // Templates exported for unit testing
   _templates: {
     tplBookingConfirmation,
@@ -347,5 +384,6 @@ module.exports = {
     tplAssignmentOverdue,
     tplManagerAssignmentDigest,
     tplWaitlistPromoted,
+    tplCertificateExpiring,
   },
 };

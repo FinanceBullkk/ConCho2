@@ -53,6 +53,12 @@ const CRON_JOBS = {
     expectedIntervalMs: 24 * HOUR_MS, // daily
     schedule: '0 1 * * *', // 01:00 UTC = 08:00 ICT
   },
+  certificateExpiry: {
+    jobName: 'certificate-expiry-reminders',
+    monitorSlug: 'certificate-expiry-reminders',
+    expectedIntervalMs: 24 * HOUR_MS, // daily
+    schedule: '30 1 * * *', // 01:30 UTC = 08:30 ICT (just after assignment reminders)
+  },
 };
 
 async function recordStart(jobName) {

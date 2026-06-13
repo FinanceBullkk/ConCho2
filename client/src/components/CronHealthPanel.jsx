@@ -24,6 +24,7 @@ const JOB_LABEL_KEYS = {
   reconcile: 'cronHealth.jobs.reconcile',
   'attendance-reminders': 'cronHealth.jobs.attendanceReminders',
   'assignment-reminders': 'cronHealth.jobs.assignmentReminders',
+  'certificate-expiry-reminders': 'cronHealth.jobs.certificateExpiryReminders',
 };
 
 function relTime(value, t) {

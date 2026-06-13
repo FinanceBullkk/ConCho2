@@ -7,6 +7,10 @@ const notificationLogSchema = new mongoose.Schema(
     type: {
       type: String,
       enum: ['assignment_due_soon', 'assignment_overdue', 'manager_assignment_digest',
+        // Certificate recertification signal — emailed + shown in the bell when
+        // an Issued certificate nears its validUntil. cadenceKey is
+        // `<certificateNumber>:expiry_<30|7>` (one notice per cert per bucket).
+        'certificate_expiring',
         // Wave E3 phase-04 slice B — a freed seat auto-enrolled a waiter.
         // cadenceKey is `<scheduleId>:<userId>` (one notice per promotion).
         'waitlist_promoted',

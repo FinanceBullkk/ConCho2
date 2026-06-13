@@ -61,8 +61,9 @@ additional cron-job.org jobs, same `POST` + `Authorization: Bearer
 |---|---|---|
 | `https://<your-app>.onrender.com/api/cron/attendance-reminders` | Hourly (`0 * * * *`) | "Your class starts soon" emails to enrolled learners (claim via `remindersSentAt`, max one per session) |
 | `https://<your-app>.onrender.com/api/cron/assignment-reminders` | Daily `01:00 UTC` (`0 1 * * *`) | Due-date reminder cadence for assignments |
+| `https://<your-app>.onrender.com/api/cron/certificate-expiry-reminders` | Daily `01:30 UTC` (`30 1 * * *`) | Recertification heads-up: emails + bell when an Issued certificate is within 30 / 7 days of `validUntil` (idempotent per cert per bucket) |
 
-Turn on "Notify on failure" for both.
+Turn on "Notify on failure" for all three.
 
 ## 6. (Optional) Keep-warm pinger
 

@@ -56,7 +56,7 @@ not net-new capability.
 | 2 | Learning catalog + generic cohort model | ~95% | 🟢 near done |
 | 3 | Multi-program enrollment + session scheduling | ~82% | 🟡 in progress |
 | 4 | Frontend L&D workspace (CRUD UI) | ~82% | 🟡 in progress |
-| 5 | Reporting, completion, feedback | ~72% | 🟡 in progress |
+| 5 | Reporting, completion, feedback | ~75% | 🟡 in progress |
 | 6 | PostgreSQL decision gate | 0% | ⚪ gated |
 
 ## LTMS waves (forward — see [`lms-roadmap.md`](lms-roadmap.md))
@@ -113,6 +113,25 @@ Bug fixing and integration review rank above net-new feature rollout.
 > [`changelog-archive/2026-q2.md`](changelog-archive/2026-q2.md). Currently
 > inline: **2026-06-12 → 2026-06-13**.
 
+- **2026-06-13** — **Certificate expiry reminders — recertification signal
+  (phase 5 → ~75%; closes the D6 "remaining later" item).** A daily
+  `CRON_TOKEN`-protected, `CronRun`-monitored job
+  (`POST /api/cron/certificate-expiry-reminders`) warns a learner before an
+  Issued certificate lapses. New `domains/learning/completion/expiry-reminder-
+  service.js` scans `Issued`, non-deleted certs with `validUntil` within 30 days
+  (and not past) and emails the learner, idempotent per cert per bucket via a
+  `NotificationLog` `cadenceKey` `<certNumber>:expiry_30|7` (8–30 days /
+  0–7 days). Reuses the assignment-reminder infra wholesale — the
+  `certificate_expiring` email row **doubles as the in-app bell item** (a
+  no-email learner still gets a `skipped` bell row), links to `/me/transcript`.
+  New `sendCertificateExpiring` email template + `CRON_JOBS.certificateExpiry`
+  (01:30 UTC) + cron-pinger runbook ping + cron-health label. Recertification is
+  signal-only (no auto-assignment yet). Tests: +6 server integration (cadence
+  buckets / idempotency / no-email skip-but-bell / revoked-deleted-expired no-op
+  / cron-route auth+heartbeat); cron-health job-count test bumped 3→4. server
+  945/95, client lint 63, build clean. Specs `compliance-and-recertification`
+  (new requirement, deferral cleared) + `assignments-and-reminders` (in-app
+  presenter) updated. Plan `plans/260613-1715-certificate-expiry-reminders/`.
 - **2026-06-13** — **Program Policies editor UI (phase 4 → ~82%).** Closes the
   "enforced but only API-settable" gap: the program form (`ProgramFormModal`)
   now has a **Policies** section so Admins can configure all enforced program
