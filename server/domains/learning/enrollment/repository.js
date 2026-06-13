@@ -29,6 +29,17 @@ const listCohortEnrollments = ({ cohortId, learnerId }) => {
     .lean();
 };
 
+// Unified self read (converge Phase 2): ALL enrollments for one learner across
+// BOTH modes — team-based (teamId set) and cohort-based (teamId null). Both
+// share the Enrollment model; this is the one place that reads them together.
+// Populates cohort + group so the DTO can present one shape regardless of mode.
+const listEnrollmentsForLearner = (userId) =>
+  Enrollment.find({ userId })
+    .populate('classId', 'classCode courseName programId')
+    .populate('teamId', 'name')
+    .sort({ joinedAt: -1 })
+    .lean();
+
 const findCohortEnrollmentById = (id) =>
   Enrollment.findOne({ _id: id, teamId: null }).lean();
 
@@ -68,6 +79,7 @@ module.exports = {
   findActiveCohortEnrollment,
   createCohortEnrollment,
   listCohortEnrollments,
+  listEnrollmentsForLearner,
   findCohortEnrollmentById,
   markDropped,
   findCohort,

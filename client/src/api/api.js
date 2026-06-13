@@ -279,6 +279,9 @@ export const learningAPI = {
   archiveAssignment: (id) => api.delete(`/learning/assignments/${id}`),
   // Cohort-based (L&D) enrollments — distinct from legacy team-based enrollmentsAPI.
   getEnrollments: (params) => api.get('/learning/enrollments', { params }),
+  // Unified self read (converge Phase 2): the learner's enrollments across BOTH
+  // modes (team-based group + direct cohort) in one shape, self-scoped server-side.
+  getMyEnrollments: () => api.get('/learning/enrollments/mine'),
   createEnrollment: (data) => api.post('/learning/enrollments', data),
   bulkEnroll: (data) => api.post('/learning/enrollments/bulk', data),
   withdrawEnrollment: (id) => api.delete(`/learning/enrollments/${id}`),

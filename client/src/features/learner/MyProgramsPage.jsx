@@ -5,20 +5,23 @@ import { PageHeader } from '@/components/PageHeader';
 import TableSkeleton from '@/components/TableSkeleton';
 import { EmptyState } from '@/components/EmptyState';
 import ProgramEnrollmentCard from './ProgramEnrollmentCard';
-import { useLearningCohorts, useLearningEnrollments } from '../../hooks/useLearning';
+import { useLearningCohorts, useMyEnrollments } from '../../hooks/useLearning';
 
 // ──────────────────────────────────────────────────────────
 // MyProgramsPage — Cohesion P1 entry list
 // Route: /me/programs  (Participant)
 //
-// One card per active cohort enrollment → opens that enrollment's hub
-// (/me/programs/:cohortId). Enrollment rows are self-scoped server-side;
-// program names come from the open cohort catalog (joined client-side).
-// English literals by /me/* convention.
+// One card per active enrollment → opens that enrollment's hub
+// (/me/programs/:cohortId). Reads the unified self enrollment surface
+// (converge Phase 2): BOTH team-based group enrollments and direct cohort
+// enrollments show here, so a learner sees every cohort regardless of how they
+// joined. Program names come from the open cohort catalog where available, with
+// the enrollment's own cohortName as a fallback (team cohorts may not be in the
+// catalog). English literals by /me/* convention.
 // ──────────────────────────────────────────────────────────
 
 export default function MyProgramsPage() {
-  const { data: enrollmentData, isLoading: loadingEnrollments } = useLearningEnrollments();
+  const { data: enrollmentData, isLoading: loadingEnrollments } = useMyEnrollments();
   const { data: cohortData, isLoading: loadingCohorts } = useLearningCohorts();
 
   const cohortById = useMemo(() => {
@@ -29,7 +32,7 @@ export default function MyProgramsPage() {
 
   const rows = useMemo(() => (
     (enrollmentData?.data || [])
-      .filter((e) => e.status !== 'Dropped')
+      .filter((e) => e.status !== 'Dropped' && e.cohortId)
       .map((e) => ({ enrollment: e, cohort: cohortById.get(String(e.cohortId)) }))
   ), [enrollmentData, cohortById]);
 

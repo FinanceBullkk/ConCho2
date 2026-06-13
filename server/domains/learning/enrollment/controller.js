@@ -1,12 +1,24 @@
 const auditService = require('../../../services/auditService');
 const { handleError } = require('../../../helpers/handleError');
 const useCases = require('./use-cases');
-const { enrollmentDto } = require('./dto');
+const { enrollmentDto, myEnrollmentDto } = require('./dto');
 
 const list = async (req, res) => {
   try {
     const data = await useCases.list(req.query, req.user);
     res.json({ success: true, count: data.length, data: data.map(enrollmentDto) });
+  } catch (error) {
+    handleError(res, error);
+  }
+};
+
+// GET /api/learning/enrollments/mine — unified self read (converge Phase 2):
+// the caller's enrollments across BOTH modes (team-based + cohort-based) in one
+// shape. Self-scoped in the use-case; no query params.
+const listMine = async (req, res) => {
+  try {
+    const data = await useCases.getMyEnrollments(req.user);
+    res.json({ success: true, count: data.length, data: data.map(myEnrollmentDto) });
   } catch (error) {
     handleError(res, error);
   }
@@ -69,4 +81,4 @@ const withdraw = async (req, res) => {
   }
 };
 
-module.exports = { list, enroll, bulkEnroll, withdraw };
+module.exports = { list, listMine, enroll, bulkEnroll, withdraw };

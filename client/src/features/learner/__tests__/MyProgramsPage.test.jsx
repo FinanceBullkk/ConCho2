@@ -11,7 +11,7 @@ const h = vi.hoisted(() => ({
 }));
 
 vi.mock('../../../hooks/useLearning', () => ({
-  useLearningEnrollments: () => h.enrollments,
+  useMyEnrollments: () => h.enrollments,
   useLearningCohorts: () => h.cohorts,
 }));
 
@@ -23,12 +23,17 @@ const renderPage = () =>
   );
 
 describe('MyProgramsPage — my enrollments list (Cohesion P1)', () => {
-  it('renders one card per active enrollment linking to the program hub', () => {
+  it('renders a card per active enrollment across BOTH modes (converge Phase 2)', () => {
     h.enrollments = {
       data: {
         data: [
-          { id: 'e1', cohortId: 'c1', cohortCode: 'LD001', status: 'Active' },
-          { id: 'e2', cohortId: 'c2', cohortCode: 'LD002', status: 'Dropped' }, // filtered out
+          // direct cohort enrollment — present in the catalog
+          { id: 'e1', cohortId: 'c1', cohortCode: 'LD001', status: 'Active', mode: 'direct' },
+          // dropped — filtered out
+          { id: 'e2', cohortId: 'c2', cohortCode: 'LD002', status: 'Dropped', mode: 'direct' },
+          // team-based (group) enrollment — NOT in the cohort catalog; must still
+          // render via the enrollment's own cohortName fallback (the Phase 2 win).
+          { id: 'e3', cohortId: 'c3', cohortCode: 'ENG07', cohortName: 'Business English', status: 'Active', mode: 'group', group: { id: 't1', name: 'Alpha Team' } },
         ],
       },
       isLoading: false,
@@ -49,6 +54,11 @@ describe('MyProgramsPage — my enrollments list (Cohesion P1)', () => {
     expect(screen.getByText(/2\/4 sessions scheduled/)).toBeInTheDocument();
     expect(screen.getByRole('link', { name: /data privacy basics/i }))
       .toHaveAttribute('href', '/me/programs/c1');
+
+    // The group-mode enrollment (absent from the catalog) renders via fallback.
+    expect(screen.getByText('Business English')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /business english/i }))
+      .toHaveAttribute('href', '/me/programs/c3');
   });
 
   it('shows the empty state with a catalog pointer when no enrollments', () => {

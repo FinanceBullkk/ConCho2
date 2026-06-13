@@ -6,7 +6,7 @@
 > - *Architecture / orientation* → [`system-overview.md`](system-overview.md)
 > - *Detailed task snapshot (archived)* → [`archive/handoff-2026-06-01.md`](archive/handoff-2026-06-01.md)
 >
-> **Last updated:** 2026-06-13
+> **Last updated:** 2026-06-14
 
 ---
 
@@ -109,6 +109,25 @@ Bug fixing and integration review rank above net-new feature rollout.
 > [`changelog-archive/2026-q2.md`](changelog-archive/2026-q2.md). Currently
 > inline: **2026-06-12 → 2026-06-13**.
 
+- **2026-06-14** — **Converge Phase 2: Enrollment convergence (read layer) — one
+  Enrollment, two modes.** Both enrollment shapes already share ONE `Enrollment`
+  model (team-based = `teamId` set; cohort-based = `teamId:null`); Phase 2
+  converges them at the **read layer** WITHOUT a model merge or data move. New
+  unified self read **`GET /api/learning/enrollments/mine`** (`enrollment.self`/
+  `enrollment.read`, self-scoped) returns the caller's enrollments across BOTH
+  modes in one shape, each tagged `mode: 'group'` (joined via a team) or
+  `mode: 'direct'` (enrolled straight in) — `domains/learning/enrollment` gained
+  `listEnrollmentsForLearner` + `getMyEnrollments` + `myEnrollmentDto` + the
+  controller/route. The learner **"My programs"** list (`MyProgramsPage`) now
+  consumes it (was cohort-only), so a **team-booked learner finally sees their
+  cohort there** (card falls back to the enrollment's `cohortName` when the cohort
+  isn't in the open catalog). Additive — existing flows unchanged. Tests: +6 server
+  integration (`myEnrollments`: empty / group / direct / both / self-scope / auth)
+  + MyProgramsPage test updated to assert both modes — **server 978/100, client
+  313**, lint 63, build clean. Spec `enrollment` + domain-model rule updated. The
+  two **write** paths (team membership sync vs cohort enroll) + routing team
+  enrollment through the event bus stay a follow-up. ADR
+  `converge-to-one-training-model`. Next: Phase 3 — generalise Scheduling.
 - **2026-06-14** — **Converge Phase 1: Assessment convergence (Evaluation →
   Assessment) — one concept, two modes.** Cleared the "dual assessment systems"
   deferral WITHOUT a destructive model merge: Assessment is now the single concept
