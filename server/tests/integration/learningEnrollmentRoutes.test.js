@@ -3,6 +3,7 @@ const { getApp, getTokens, getSeedData, getCsrfHeaders, teardown } = require('..
 const Enrollment = require('../../models/Enrollment');
 const Class = require('../../models/Class');
 const LearningProgram = require('../../models/LearningProgram');
+const NotificationLog = require('../../models/NotificationLog');
 const { runReconciliation } = require('../../services/reconcileService');
 
 let app, tokens, seed, csrf;
@@ -21,6 +22,7 @@ afterAll(async () => {
 
 afterEach(async () => {
   await Enrollment.deleteMany({});
+  await NotificationLog.deleteMany({});
   await Class.updateMany(
     { _id: { $in: [seed.class1._id, seed.class2._id] } },
     { $set: { programId: null } },
@@ -152,6 +154,33 @@ describe('Learning Platform API — cohort enrollments', () => {
     expect(stored).toBeTruthy();
     expect(stored.status).toBe('Dropped');
     expect(stored.leftAt).toBeTruthy();
+  });
+
+  test('admin direct-enroll writes a cohort_enrolled in-app notification for the learner', async () => {
+    await enroll(tokens.admin, {
+      cohortId: seed.class1._id.toString(), userId: seed.member1._id.toString(),
+    });
+
+    const note = await NotificationLog.findOne({
+      recipientUserId: seed.member1._id, type: 'cohort_enrolled',
+    }).lean();
+    expect(note).toBeTruthy();
+    expect(note.channel).toBe('in_app');
+    expect(note.readAt).toBeNull();
+    expect(note.metadata.cohortId).toBe(seed.class1._id.toString());
+  });
+
+  test('self-enroll does NOT write a cohort_enrolled notification (learner did it themselves)', async () => {
+    const program = await LearningProgram.create({
+      code: 'SE-NB', name: 'Self Enroll No-Bell', schedulingMode: 'self_enroll',
+    });
+    await Class.findByIdAndUpdate(seed.class1._id, { programId: program._id });
+
+    const ok = await enroll(tokens.leader, { cohortId: seed.class1._id.toString() });
+    expect(ok.status).toBe(201);
+
+    const count = await NotificationLog.countDocuments({ type: 'cohort_enrolled' });
+    expect(count).toBe(0);
   });
 
   test('reconcile does not flag a cohort enrollment (teamId null) as orphaned', async () => {

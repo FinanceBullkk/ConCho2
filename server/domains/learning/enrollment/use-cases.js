@@ -1,5 +1,6 @@
 const repository = require('./repository');
 const { assertPrerequisitesMet } = require('./prerequisites');
+const { recordInApp } = require('../../notification/in-app-writer');
 const { ServiceError } = require('../../../helpers/ServiceError');
 
 const sameId = (a, b) => a && b && a.toString() === b.toString();
@@ -54,8 +55,9 @@ const enroll = async ({ cohortId, userId }, actor) => {
     await assertPrerequisitesMet(cohort, targetUserId);
   }
 
+  let enrollment;
   try {
-    return await repository.createCohortEnrollment({ userId: targetUserId, cohortId });
+    enrollment = await repository.createCohortEnrollment({ userId: targetUserId, cohortId });
   } catch (error) {
     // Lost a concurrent race against the partial unique index (DI-05b): the
     // app-level check above passed for both callers, only one insert wins.
@@ -64,6 +66,24 @@ const enroll = async ({ cohortId, userId }, actor) => {
     }
     throw error;
   }
+
+  // Surface a direct enrollment in the learner's notification bell — only when
+  // someone ELSE enrolled them (Admin); self-enroll already confirms in the UI.
+  // In-app only (no email), fail-soft + idempotent on the enrollment id.
+  if (!isSelf) {
+    await recordInApp({
+      type: 'cohort_enrolled',
+      recipientUserId: targetUserId,
+      cadenceKey: String(enrollment._id),
+      metadata: {
+        programName: cohort.courseName,
+        cohortCode: cohort.classCode,
+        cohortId: String(cohortId),
+      },
+    });
+  }
+
+  return enrollment;
 };
 
 // Withdraw (soft) a cohort enrollment: status -> Dropped. Admin or the learner.

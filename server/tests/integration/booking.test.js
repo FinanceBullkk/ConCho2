@@ -11,6 +11,7 @@ const Schedule = require('../../models/Schedule');
 const Setting = require('../../models/Setting');
 const Class = require('../../models/Class');
 const LearningProgram = require('../../models/LearningProgram');
+const NotificationLog = require('../../models/NotificationLog');
 
 let app, tokens, seed, csrf;
 
@@ -38,6 +39,7 @@ afterAll(async () => {
 
 afterEach(async () => {
   await Schedule.deleteMany({});
+  await NotificationLog.deleteMany({});
 });
 
 // Helper: produce a start/end pair in next week, at 10:00–11:00 VN (03:00–04:00 UTC)
@@ -74,6 +76,27 @@ describe('POST /api/schedules/book-slot', () => {
     expect(res.body.data.enrolledUsers).toBeTruthy();
     expect(res.body.data.group).toBeUndefined();
     expect(res.body.data.enrolledLearners).toBeUndefined();
+  });
+
+  test('booking writes a booking_confirmed in-app notification for the booker', async () => {
+    const { start, end } = vnSlot();
+    const res = await request(app)
+      .post('/api/schedules/book-slot')
+      .set('Authorization', `Bearer ${tokens.leader}`).set(csrf)
+      .send({
+        teamId: seed.team._id.toString(),
+        startTime: start.toISOString(),
+        endTime: end.toISOString(),
+      })
+      .expect(201);
+
+    const note = await NotificationLog.findOne({
+      recipientUserId: seed.leader._id, type: 'booking_confirmed',
+    }).lean();
+    expect(note).toBeTruthy();
+    expect(note.channel).toBe('in_app');
+    expect(note.readAt).toBeNull();
+    expect(note.metadata.scheduleId).toBe(res.body.data._id);
   });
 
   test('enrolled users are auto-populated from active team members', async () => {
