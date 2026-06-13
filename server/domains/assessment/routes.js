@@ -101,4 +101,13 @@ router.put(
   controller.manualGradeAttempt,
 );
 
+// ── Unified results (rearchitecture Phase 1 convergence) ──
+// The caller's own assessment results across BOTH modes (quiz attempts +
+// instructor-scored English evaluations), one shape. Self-scoped read.
+router.get(
+  '/results/mine',
+  requireCapability('assessment.read'),
+  controller.getMyResults,
+);
+
 module.exports = router;

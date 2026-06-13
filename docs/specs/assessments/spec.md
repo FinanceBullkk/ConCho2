@@ -2,7 +2,7 @@
 capability: assessments
 status: stable
 owners: [domains/assessment, controllers/evaluationController]
-last_updated: 2026-06-08
+last_updated: 2026-06-14
 related_code:
   - server/domains/assessment/use-cases.js
   - server/domains/assessment/controller.js
@@ -20,8 +20,18 @@ related_plans:
 
 > **Source of truth for BEHAVIOR.** The grading engine has its own spec
 > (`docs/specs/grading/spec.md`); reusable questions live in
-> `docs/specs/question-bank/spec.md`. The legacy 4-skill `Evaluation` path is
-> separate and untouched by this generic engine.
+> `docs/specs/question-bank/spec.md`.
+>
+> **Phase 1 convergence (2026-06-14):** Assessment is now the SINGLE assessment
+> concept with two *modes* — learner-attempted **quiz** (this engine) and
+> instructor-scored **evaluation** (`docs/specs/evaluations/spec.md`, the English
+> 4-skill rubric). A unified read **`GET /api/assessment/results/mine`**
+> (`assessment.read`, self-scoped) returns the caller's results across BOTH modes
+> in one shape (`{ source: 'quiz'|'evaluation', title, scorePercent, passed,
+> date }`, newest-first); the learner transcript consumes it. The Evaluation
+> remains its own model/write-path (instructor-scored mode), adapted into this
+> surface — not merged into the quiz model. See ADR
+> `converge-to-one-training-model`.
 
 ## Purpose
 
