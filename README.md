@@ -715,6 +715,7 @@ The server "sleeps" after 15 minutes of inactivity. Fixes:
 |------|----------|
 | `AGENTS.md` | Contract for Codex/Claude: Internal LTMS, no feature factory, done means wired |
 | `CLAUDE.md` | Working rules for Claude Code in this repo |
+| `docs/README.md` | **Docs index** — start-here-by-role, living-docs table, archive |
 | `docs/system-overview.md` | Architecture overview + current status |
 | `docs/development-roadmap.md` | Living tracker: milestones, changelog, quality gate |
 | `docs/lms-roadmap.md` | Internal LTMS 6-month roadmap for 1000 employees |

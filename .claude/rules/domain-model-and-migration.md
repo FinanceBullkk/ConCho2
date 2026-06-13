@@ -44,4 +44,4 @@ server/domains/<domain>/
 - Physical collection renames are out-of-scope for the first 6 months — migrate via DTOs/abstractions, not destructive renames.
 
 ## Status & next steps
-Living tracker: **`docs/development-roadmap.md`** (start here). `docs/handoff-2026-06-01.md` is a dated snapshot (last refreshed 2026-06-09) — useful history, not the live task list. Supporting maps: `docs/current-system-map.md`, `docs/route-permission-matrix.md`.
+Living tracker: **`docs/development-roadmap.md`** (start here). `docs/archive/handoff-2026-06-01.md` is an archived dated snapshot (2026-06-09) — useful history, not the live task list. Supporting maps: `docs/current-system-map.md`, `docs/route-permission-matrix.md`.
