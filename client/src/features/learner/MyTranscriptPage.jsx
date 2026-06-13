@@ -9,7 +9,7 @@ import TableSkeleton from '@/components/TableSkeleton';
 import { EmptyState } from '@/components/EmptyState';
 import { useAuth } from '../../context/AuthContext';
 import { useLearningEnrollments, useLearningCohorts, useCertificates } from '../../hooks/useLearning';
-import { useAssessments, useAssessmentAttempts } from '../../hooks/useAssessment';
+import { useMyAssessmentResults } from '../../hooks/useAssessment';
 import { useMyAttendanceStats } from '../../hooks/useAttendance';
 
 // ──────────────────────────────────────────────────────────
@@ -40,8 +40,7 @@ export default function MyTranscriptPage() {
   const { data: enrollmentData, isLoading: loadingEnrollments } = useLearningEnrollments();
   const { data: cohortData, isLoading: loadingCohorts } = useLearningCohorts();
   const { data: certificates = [] } = useCertificates();
-  const { data: assessmentsData } = useAssessments();
-  const { data: attemptsData } = useAssessmentAttempts();
+  const { data: resultsData } = useMyAssessmentResults();
   const { data: attendance } = useMyAttendanceStats();
 
   // Mount-time stamp via lazy init — render stays pure (react-hooks/purity).
@@ -64,12 +63,6 @@ export default function MyTranscriptPage() {
     return m;
   }, [certificates]);
 
-  const assessmentById = useMemo(() => {
-    const m = new Map();
-    (assessmentsData?.data || []).forEach((a) => m.set(String(a.id || a._id), a));
-    return m;
-  }, [assessmentsData]);
-
   const programs = useMemo(() => (
     (enrollmentData?.data || []).map((e) => {
       const cohort = cohortById.get(String(e.cohortId));
@@ -83,20 +76,22 @@ export default function MyTranscriptPage() {
     })
   ), [enrollmentData, cohortById, certByCohort]);
 
-  const passedQuizzes = useMemo(() => (
-    (attemptsData?.data || [])
-      .filter((a) => a.passed)
-      .map((a) => ({
-        id: a.id,
-        title: a.assessmentTitle || assessmentById.get(String(a.assessmentId))?.title || 'Quiz',
-        scorePercent: a.scorePercent,
-        submittedAt: a.submittedAt,
+  // Unified assessment results (Phase 1 convergence): quiz attempts AND
+  // instructor-scored English evaluations, one shape, backend-sorted newest-first.
+  const passedResults = useMemo(() => (
+    (resultsData?.data || [])
+      .filter((r) => r.passed)
+      .map((r) => ({
+        id: r.id,
+        title: r.title,
+        source: r.source,
+        scorePercent: r.scorePercent,
+        date: r.date,
       }))
-      .sort((a, b) => new Date(b.submittedAt) - new Date(a.submittedAt))
-  ), [attemptsData, assessmentById]);
+  ), [resultsData]);
 
   const loading = loadingEnrollments || loadingCohorts;
-  const empty = !loading && programs.length === 0 && passedQuizzes.length === 0
+  const empty = !loading && programs.length === 0 && passedResults.length === 0
     && (!attendance || attendance.totalSessions === 0);
 
   return (
@@ -222,16 +217,21 @@ export default function MyTranscriptPage() {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              {passedQuizzes.length === 0 ? (
+              {passedResults.length === 0 ? (
                 <p className="text-sm text-muted-foreground">No passed assessments yet.</p>
               ) : (
                 <ul className="divide-y divide-border">
-                  {passedQuizzes.map((q) => (
+                  {passedResults.map((q) => (
                     <li key={q.id} className="flex items-center justify-between gap-3 py-2.5 text-sm">
-                      <span className="text-foreground">{q.title}</span>
+                      <span className="flex items-center gap-2 text-foreground">
+                        {q.title}
+                        {q.source === 'evaluation' && (
+                          <Badge variant="outline" className="text-[10px]">Instructor</Badge>
+                        )}
+                      </span>
                       <span className="shrink-0 text-xs text-muted-foreground">
                         {q.scorePercent != null && <>{q.scorePercent}% · </>}
-                        {fmtDate(q.submittedAt)}
+                        {fmtDate(q.date)}
                       </span>
                     </li>
                   ))}
