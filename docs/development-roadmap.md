@@ -55,7 +55,7 @@ not net-new capability.
 | 1 | Backend modular-monolith refactor | ~98% | 🟢 near done (2026-06-10: domains/attendance+groups+schedule routes extracted; repository ADR; schedule use-case tests; frontend `features/` migration complete) |
 | 2 | Learning catalog + generic cohort model | ~95% | 🟢 near done |
 | 3 | Multi-program enrollment + session scheduling | ~82% | 🟡 in progress |
-| 4 | Frontend L&D workspace (CRUD UI) | ~80% | 🟡 in progress |
+| 4 | Frontend L&D workspace (CRUD UI) | ~82% | 🟡 in progress |
 | 5 | Reporting, completion, feedback | ~72% | 🟡 in progress |
 | 6 | PostgreSQL decision gate | 0% | ⚪ gated |
 
@@ -113,6 +113,20 @@ Bug fixing and integration review rank above net-new feature rollout.
 > [`changelog-archive/2026-q2.md`](changelog-archive/2026-q2.md). Currently
 > inline: **2026-06-12 → 2026-06-13**.
 
+- **2026-06-13** — **Program Policies editor UI (phase 4 → ~82%).** Closes the
+  "enforced but only API-settable" gap: the program form (`ProgramFormModal`)
+  now has a **Policies** section so Admins can configure all enforced program
+  policies that previously had NO UI — `completionPolicy` (attendance threshold
+  %, requires-assessment, requires-feedback), `certificateValidityDays` (blank =
+  never expires), `capacityPolicy` (max per cohort / per session, blank = no
+  limit), and `facilitatorPolicy` (assignment-required toggle + visibility).
+  Nested form state with null↔blank normalisation; the program API + DTO already
+  round-tripped these fields, so backend was unchanged. This makes the
+  just-shipped `facilitatorPolicy.assignmentRequired` enforcement (and the older
+  completion/capacity enforcement) reachable without hand-crafting API calls.
+  Tests: +2 client component (`ProgramFormModal` — create payload carries the
+  policy objects; edit mode prefills them) — client 285/64, lint at cap 63,
+  build clean. Spec `learning-catalog` updated.
 - **2026-06-13** — **`facilitatorPolicy.assignmentRequired` enforced (phase 3
   policy-debt closed → ~82%).** A `LearningProgram` that requires a facilitator
   can no longer have its sessions *run* (attendance marked) until a trainer is
@@ -348,37 +362,8 @@ Bug fixing and integration review rank above net-new feature rollout.
   when the plugin updates (no `--legacy-peer-deps` workarounds). Remaining
   majors: express 5 (next, pre-scouted), mongoose 9 (per owner: after the
   PostgreSQL gate decision), googleapis (needs live calendar retest).
-- **2026-06-12** — **Post-audit backlog sweep round 2: 4 ops/data findings
-  fixed** (`fix/backlog-sweep-ops-data-round`). **OPS-011** `CORS_ORIGINS` +
-  `CLIENT_ORIGIN` are now boot-required in production (missing CORS allowlist
-  used to boot fine then 500 every browser write; missing CLIENT_ORIGIN sent
-  localhost reset links) — README §6.4 notes the fail-fast; **OPS-010** all 3
-  `CRON_JOBS` entries carry their crontab `schedule` so pinger-driven runs
-  upsert the Sentry monitor config and missed-run alerts can actually arm
-  (schedule-less monitors never fire them); **OPS-012** cron `?token=` is
-  redacted (`token=[REDACTED]`) from the pino-http request log and all
-  cronAuth log/audit lines via new `lib/redact-url-token.js` (query channel
-  kept, redact-only per owner); **DATA-016** reconcile gains read-only check
-  #12 `stale_waitlist_entry` — flags `waiting` queue rows whose session is
-  past/cancelled/deleted (promotion skips past sessions by design, so these
-  rotted forever) — model enum + summary + Reconcile-page meta/i18n (also
-  adds the missing `orphan_room_booking` label). Specs updated:
-  `reconcile-job` (12-check truth + stale-waitlist scenario + OPS-010 NFR),
-  `security-platform` (boot-safety + log secret-hygiene NFRs). Tests: +12
-  unit/integration. Remaining audit backlog: CODE-017, DEPS majors,
-  DOCS-006b, QA-017/019/020/022 (all deliberate deferrals or ride-along
-  policies).
-- **2026-06-12** — **Wave E closure verified — tracker reconciled.** The two
-  "residual polish" items (staff waitlist panel, trainer-only teacher
-  session-list/calendar visibility) had already shipped 2026-06-11 (see that
-  day's "Wave E polish" entry) but the Current-status paragraph and Wave E
-  table row still listed them as open — written by phase-04 slice B hours
-  before the polish landed and never reconciled. Verified wired on main
-  (`SessionWaitlistModal` behind `read:waitlist` on the cohort Sessions
-  panel; Teacher UNION scope in session list, single-session read, and
-  attendance calendar), then fixed the stale tracker text. No code change.
 **Older entries (2026-06-12 and earlier)** →
-[`changelog-archive/2026-q2.md`](changelog-archive/2026-q2.md) (92 entries,
+[`changelog-archive/2026-q2.md`](changelog-archive/2026-q2.md) (94 entries,
 2026-06-01 → 2026-06-12).
 
 ---
