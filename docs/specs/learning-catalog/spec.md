@@ -184,8 +184,12 @@ Inherits `security-platform`. Specifics:
 - Cohort trash UI is restore-only (no permanent purge from the UI) — purge is a
   DB/ops task if ever needed.
 - Program versioning / module-level curriculum.
-- `facilitatorPolicy` enforcement — persisted, not enforced (see
-  `capability-authz`). (`schedulingMode` shipped — see `scheduling-and-booking`;
-  `capacityPolicy` now **enforced (Wave E2)**: `maxParticipantsPerSession`
+- `facilitatorPolicy.assignmentRequired` now **enforced** (phase-3 deferral
+  closed): a program that requires a facilitator cannot have its sessions run
+  (attendance marked) until a trainer is assigned — see `attendance`
+  (`domains/schedule/facilitator-assignment-policy.js`). Still persisted-but-not
+  enforced: `facilitatorPolicy.visibility` (`assigned_only` teacher scoping) and
+  `deliveryMode`. (`schedulingMode` shipped — see `scheduling-and-booking`;
+  `capacityPolicy` **enforced (Wave E2)**: `maxParticipantsPerSession`
   per-session in `scheduling-and-booking`, `maxParticipants` per-cohort in
   `enrollment`.)
