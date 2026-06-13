@@ -76,6 +76,12 @@ const learningProgramSchema = new mongoose.Schema(
         default: 'all_facilitators',
       },
     },
+    // Recertification (D6): when autoAssign is true, an expiring certificate for
+    // this program auto-creates a recert Assignment for the learner (signal →
+    // action). Opt-in; default off = no behaviour change.
+    recertifyPolicy: {
+      autoAssign: { type: Boolean, default: false },
+    },
     // Programs a learner must complete before enrolling in this one (Wave C —
     // prerequisite gating). Direct prerequisites only; enforced for self-enroll
     // (admins may override). Transitive paths/cycle detection deferred.

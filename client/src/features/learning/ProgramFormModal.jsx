@@ -27,6 +27,7 @@ const blank = {
   certificateValidityDays: '',
   capacityPolicy: { maxParticipants: '', maxParticipantsPerSession: '' },
   facilitatorPolicy: { assignmentRequired: false, visibility: 'all_facilitators' },
+  recertifyPolicy: { autoAssign: false },
 };
 
 // Edit mode: merge the program's persisted policies over the blank defaults,
@@ -42,6 +43,7 @@ const initForm = (program) => {
       maxParticipantsPerSession: program.capacityPolicy?.maxParticipantsPerSession ?? '',
     },
     facilitatorPolicy: { ...blank.facilitatorPolicy, ...(program.facilitatorPolicy || {}) },
+    recertifyPolicy: { ...blank.recertifyPolicy, ...(program.recertifyPolicy || {}) },
     certificateValidityDays: program.certificateValidityDays ?? '',
   };
 };
@@ -101,6 +103,9 @@ export default function ProgramFormModal({ program, onClose }) {
         assignmentRequired: Boolean(form.facilitatorPolicy.assignmentRequired),
         visibility: form.facilitatorPolicy.visibility,
       },
+      recertifyPolicy: {
+        autoAssign: Boolean(form.recertifyPolicy.autoAssign),
+      },
     };
     try {
       if (isEdit) {
@@ -133,6 +138,7 @@ export default function ProgramFormModal({ program, onClose }) {
   const cp = form.completionPolicy;
   const cap = form.capacityPolicy;
   const fp = form.facilitatorPolicy;
+  const rp = form.recertifyPolicy;
 
   return (
     <Dialog open onOpenChange={(open) => { if (!open) onClose(); }}>
@@ -248,6 +254,13 @@ export default function ProgramFormModal({ program, onClose }) {
               <EnumSelect value={fp.visibility} onChange={setNested('facilitatorPolicy', 'visibility')}
                 options={FACILITATOR_VISIBILITY} labelFor={(v) => t(`learning.facilitatorVisibility.${v}`)} />
             </LearningField>
+
+            {/* Recertification */}
+            <label className="flex items-center gap-2 text-sm text-foreground cursor-pointer">
+              <input type="checkbox" checked={Boolean(rp.autoAssign)}
+                onChange={(e) => setNested('recertifyPolicy', 'autoAssign')(e.target.checked)} />
+              {t('learning.fields.recertAutoAssign')}
+            </label>
           </fieldset>
 
           <div className="flex gap-3 pt-2">

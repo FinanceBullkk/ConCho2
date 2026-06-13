@@ -935,7 +935,8 @@
       "maxParticipantsPerSession": "Max participants per session",
       "capacityHint": "Leave blank for no limit.",
       "assignmentRequired": "A facilitator must be assigned before a session can be marked",
-      "facilitatorVisibility": "Facilitator visibility"
+      "facilitatorVisibility": "Facilitator visibility",
+      "recertAutoAssign": "Auto-assign a recertification when a certificate is expiring"
     },
     "category": {
       "english": "English",

@@ -30,6 +30,14 @@ const assignmentSchema = new mongoose.Schema(
     },
     status: { type: String, enum: statuses, default: 'active' },
     createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
+    // Recertification (D6): set when this assignment was auto-created for an
+    // expiring certificate. Drives idempotency — at most ONE recert assignment
+    // ever per certificate (partial unique index below).
+    sourceCertificateId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Certificate',
+      default: null,
+    },
     isDeleted: { type: Boolean, default: false },
     deletedAt: { type: Date, default: null },
   },
@@ -53,6 +61,12 @@ assignmentSchema.index({ programId: 1, status: 1 });
 assignmentSchema.index({ pathId: 1, status: 1 });
 assignmentSchema.index({ userIds: 1 });
 assignmentSchema.index({ departmentIds: 1 });
+// One auto-recert assignment EVER per certificate (idempotency backstop). Only
+// rows with a sourceCertificateId participate (null = a normal assignment).
+assignmentSchema.index(
+  { sourceCertificateId: 1 },
+  { unique: true, partialFilterExpression: { sourceCertificateId: { $type: 'objectId' } } },
+);
 
 assignmentSchema.statics.enums = { targetTypes, statuses };
 
