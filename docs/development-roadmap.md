@@ -109,6 +109,18 @@ Bug fixing and integration review rank above net-new feature rollout.
 > [`changelog-archive/2026-q2.md`](changelog-archive/2026-q2.md). Currently
 > inline: **2026-06-12 → 2026-06-13**.
 
+- **2026-06-13** — **IA rework Phase 03: flatten tab strips into sidebar
+  sub-items.** The six umbrella pages (Learning · Calendar/Operations · English ·
+  Reports · People · System) **dropped their in-page horizontal tab strips** — each
+  tab is now a **sidebar sub-item** (deep link into the page's `?tab=`), so there's
+  no redundant second nav level. `nav-config.js` restructured into collapsible
+  **section-groups**; each sub-item gates on the same role/`perm` its tab used (so
+  a role sees only its tabs). New Sidebar renders collapsible groups + active
+  sub-item via `?tab=`; pages keep `?tab=` body-switching but render no `TabsList`.
+  Bookmarks stable (`?tab=` values unchanged). Tests: updated Sidebar (section
+  sub-item hrefs per role + active-state) + ReportsPage/CalendarPage/EnglishPage
+  (assert rendered panel per `?tab=`, not tab chrome) — client **313**, lint at cap
+  63, build clean. **Sidebar IA initiative (Phases 01–03) complete.**
 - **2026-06-13** — **IA rework Phase 02: persona modes (Admin Console ↔ My
   Learning).** New `context/PersonaContext.jsx` (localStorage-backed) swaps which
   sidebar group-set renders; avatar-menu switch toggles it. Participants are

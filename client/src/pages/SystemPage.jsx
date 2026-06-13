@@ -2,7 +2,7 @@ import { Fragment, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { Settings, Database, RefreshCw, ShieldCheck, ScrollText, ChevronDown } from 'lucide-react';
-import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
+import { Tabs, TabsContent } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { PageHeader } from '@/components/PageHeader';
 import { StatusBadge } from '@/components/StatusBadge';
@@ -361,18 +361,8 @@ export default function SystemPage() {
   return (
     <div>
       <PageHeader title="System" description={current.description} />
+      {/* IA Phase 03: tab strip removed — the sidebar's System group drives ?tab=. */}
       <Tabs value={activeTab} onValueChange={setTab} className="space-y-6">
-        <TabsList>
-          {TABS.map((t) => {
-            const Icon = t.icon;
-            return (
-              <TabsTrigger key={t.id} value={t.id} className="gap-2">
-                <Icon className="size-4" aria-hidden="true" />
-                {t.label}
-              </TabsTrigger>
-            );
-          })}
-        </TabsList>
         <TabsContent value="settings" hidden={activeTab !== 'settings'}>
           {activeTab === 'settings' && <SettingsPage />}
         </TabsContent>

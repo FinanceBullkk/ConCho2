@@ -1,6 +1,6 @@
 # Phase 03 — Flatten tab strips into sidebar sub-items
 
-**Priority:** Medium · **Status:** 🔴 not started · **Depends on:** Phase 01 (02 optional)
+**Priority:** Medium · **Status:** 🟢 shipped (2026-06-13, all 6 sections) · **Depends on:** Phase 01
 **Behavior change:** none
 
 ## Overview

@@ -109,24 +109,33 @@ defined once in `client/src/components/nav/nav-config.js`:
   items the role can't access are HIDDEN (not disabled) — only what you can act on.
 - **`nav/MobileSidebar.jsx`** — `< md` hamburger-opened slide-over drawer.
 
-Sidebar groups → items (per-role `access` map in `nav-config.js`):
+**Sidebar = collapsible section-groups whose items are the section's tabs**
+(Phase 03 — the umbrella pages dropped their in-page tab strips; each tab is now a
+sidebar sub-item, a deep link into the page's `?tab=`). Items are filtered by
+`access` (role map) AND/OR `perm` (capability via `useRole`). Admin-persona groups:
 
-| Group | Items | Admin | Coordinator | Teacher | Participant |
-|---|---|---:|---:|---:|---:|
-| (top) | Home | full | full | full | full |
-| Training | Learning · Calendar · English Class | full | Learning only | Calendar·English·(Learning read) | English only |
-| Insights | Reports | full | full | full | none |
-| Manage | People · System | full | People only | none | none |
-| (manager) | My Team | when has direct reports | — | — | — |
+| Group | Sub-items (→ `?tab=`) |
+|---|---|
+| (top) | Home |
+| Learning | Programs · Cohorts · Paths · Assignments · Assessments · Feedback (`/learning`) |
+| Operations | Schedules · Attendance (`/calendar`) |
+| English Class | Classes · Teams · Schedules · Attendance · Evaluations (`/english`) |
+| Reports | Overview · L&D Dashboard · Completion · Attendance · HR Export (`/reports`) |
+| People | Users · Departments · Offices · Rooms (`/people`) |
+| System | Settings · Database · Sync · Reconciliation · Audit (`/system`) |
+| (manager) | My Team (when the user has direct reports) |
 
-**Persona modes (Phase 02, shipped):** `context/PersonaContext.jsx` swaps the
-sidebar group-set between **Admin Console** and **My Learning** (the `/me/*`
-surfaces). Participants are locked to learner; staff default to admin and switch
-via the avatar menu (choice persisted in `localStorage`). The `/me/*` learner
-routes are now open to ALL authenticated users (self-scoped server-side) so staff
-can review their own learning. Persona is a UI mode only — not an authz boundary.
-(Phase 03 will flatten in-page tab strips into sidebar sub-items. Plan:
-`plans/260613-2304-sidebar-persona-ia/`.)
+Each sub-item gates on the same perm/role the page's tab used, so a role sees only
+its tabs (e.g. Teacher: Learning minus Paths, Reports minus Overview/HR Export,
+Operations/English Attendance only; Coordinator: no System, no English).
+
+**Persona modes (Phase 02):** `context/PersonaContext.jsx` swaps the sidebar
+group-set between **Admin Console** (the table above) and **My Learning** (the
+`/me/*` surfaces: My programs · Catalog · My sessions · Paths · Assessments ·
+Feedback · Transcript + English). Participants are locked to learner; staff default
+to admin and switch via the avatar menu (choice persisted in `localStorage`). The
+`/me/*` routes are open to ALL authenticated users (self-scoped server-side).
+Persona is a UI mode only — not an authz boundary.
 
 `ProtectedRoute` enforces page-level roles and redirects MFA-enrollment-required sessions to `/me/settings?force=mfa`. The sidebar only shows/hides — the server is the real authz boundary.
 

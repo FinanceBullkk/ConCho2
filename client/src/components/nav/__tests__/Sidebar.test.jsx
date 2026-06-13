@@ -3,7 +3,9 @@ import { render } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import Sidebar from '../Sidebar';
 
-// Role-filtered sidebar: assert by href so we don't depend on i18n strings.
+// Role + capability filtered sidebar. We assert by href (no dependence on i18n
+// strings). Sidebar uses the REAL useRole, which reads the role off the mocked
+// useAuth → real PERMISSION_MAP drives perm-gated items. Groups default open.
 const h = vi.hoisted(() => ({ user: null, myTeam: { count: 0 }, persona: 'admin' }));
 
 vi.mock('../../../context/AuthContext', () => ({ useAuth: () => ({ user: h.user }) }));
@@ -22,41 +24,70 @@ const hrefs = (c) => Array.from(c.querySelectorAll('a')).map((a) => a.getAttribu
 
 beforeEach(() => { h.user = null; h.myTeam = { count: 0 }; h.persona = 'admin'; });
 
-describe('Sidebar — role-filtered navigation', () => {
+describe('Sidebar — section-group navigation (Phase 03)', () => {
   it('renders nothing without a user', () => {
     const { container } = renderSidebar();
     expect(container).toBeEmptyDOMElement();
   });
 
-  it('Admin sees every group/item', () => {
+  it('Admin sees every section as deep-link sub-items', () => {
     h.user = { role: 'Admin' };
-    const { container } = renderSidebar();
-    const links = hrefs(container);
-    ['/home', '/learning', '/calendar', '/english', '/reports', '/people', '/system'].forEach((p) =>
-      expect(links).toContain(p));
+    const links = hrefs(renderSidebar().container);
+    [
+      '/home',
+      '/learning?tab=programs', '/learning?tab=paths',
+      '/calendar?tab=schedules', '/calendar?tab=attendance',
+      '/english?tab=classes', '/english?tab=evaluations',
+      '/reports?tab=overview', '/reports?tab=hr-export',
+      '/people?tab=users', '/system?tab=settings',
+    ].forEach((p) => expect(links).toContain(p));
   });
 
-  it('Teacher sees training + reports, not people/system', () => {
+  it('Teacher: learning (read, no Paths), reports (no Overview), calendar/english attendance only; no People/System', () => {
     h.user = { role: 'Teacher' };
     const links = hrefs(renderSidebar().container);
-    ['/home', '/learning', '/calendar', '/english', '/reports'].forEach((p) => expect(links).toContain(p));
-    expect(links).not.toContain('/people');
-    expect(links).not.toContain('/system');
+    expect(links).toContain('/learning?tab=programs');
+    expect(links).toContain('/learning?tab=assignments');
+    expect(links).not.toContain('/learning?tab=paths');         // manage:path = Admin/Coord
+    expect(links).toContain('/reports?tab=learning');
+    expect(links).not.toContain('/reports?tab=overview');        // read:dashboard = Admin
+    expect(links).toContain('/calendar?tab=attendance');
+    expect(links).not.toContain('/calendar?tab=schedules');      // admin-only
+    expect(links).toContain('/english?tab=attendance');
+    expect(links).not.toContain('/english?tab=classes');         // admin-only
+    expect(links).not.toContain('/people?tab=users');
+    expect(links).not.toContain('/system?tab=settings');
   });
 
-  it('Coordinator sees learning/reports/people, not calendar/english/system', () => {
+  it('Coordinator: learning incl. Paths, reports L&D, people org (not Users); no System/English', () => {
     h.user = { role: 'Coordinator' };
     const links = hrefs(renderSidebar().container);
-    ['/home', '/learning', '/reports', '/people'].forEach((p) => expect(links).toContain(p));
-    ['/calendar', '/english', '/system'].forEach((p) => expect(links).not.toContain(p));
+    expect(links).toContain('/learning?tab=paths');              // manage:path = Coord
+    expect(links).not.toContain('/learning?tab=feedback');       // read:feedback = Admin/Teacher
+    expect(links).toContain('/reports?tab=learning');
+    expect(links).not.toContain('/reports?tab=overview');
+    expect(links).toContain('/people?tab=departments');
+    expect(links).not.toContain('/people?tab=users');            // read:users = Admin
+    expect(links).not.toContain('/system?tab=settings');
+    expect(links).not.toContain('/english?tab=classes');
   });
 
-  it('Participant sees only home + english', () => {
+  it('learner persona shows the /me/* surfaces and hides the admin sections', () => {
+    h.user = { role: 'Admin' };
+    h.persona = 'learner';
+    const links = hrefs(renderSidebar('/me/programs').container);
+    ['/home', '/me/programs', '/me/catalog', '/me/sessions', '/me/transcript'].forEach((p) =>
+      expect(links).toContain(p));
+    ['/learning?tab=programs', '/reports?tab=overview', '/people?tab=users', '/system?tab=settings']
+      .forEach((p) => expect(links).not.toContain(p));
+  });
+
+  it('learner English: hidden for a Coordinator, shown for a Participant', () => {
+    h.persona = 'learner';
+    h.user = { role: 'Coordinator' };
+    expect(hrefs(renderSidebar().container)).not.toContain('/english');
     h.user = { role: 'Participant' };
-    const links = hrefs(renderSidebar().container);
-    expect(links).toContain('/home');
-    expect(links).toContain('/english');
-    ['/learning', '/calendar', '/reports', '/people', '/system'].forEach((p) => expect(links).not.toContain(p));
+    expect(hrefs(renderSidebar().container)).toContain('/english');
   });
 
   it('injects My Team only when the user has direct reports', () => {
@@ -67,28 +98,10 @@ describe('Sidebar — role-filtered navigation', () => {
     expect(hrefs(renderSidebar().container)).toContain('/my-team');
   });
 
-  it('marks the active route with aria-current', () => {
+  it('marks the active section sub-item with aria-current (default tab when no ?tab)', () => {
     h.user = { role: 'Admin' };
     const { container } = renderSidebar('/learning');
     const active = container.querySelector('a[aria-current="page"]');
-    expect(active).toHaveAttribute('href', '/learning');
-  });
-
-  it('learner persona shows the /me/* surfaces and hides the admin groups', () => {
-    h.user = { role: 'Admin' };
-    h.persona = 'learner';
-    const links = hrefs(renderSidebar('/me/programs').container);
-    ['/home', '/me/programs', '/me/catalog', '/me/sessions', '/me/transcript'].forEach((p) =>
-      expect(links).toContain(p));
-    // admin-only groups are not present in learner mode
-    ['/learning', '/reports', '/people', '/system'].forEach((p) => expect(links).not.toContain(p));
-  });
-
-  it('learner persona hides English for a Coordinator (no access) but shows it for a Participant', () => {
-    h.persona = 'learner';
-    h.user = { role: 'Coordinator' };
-    expect(hrefs(renderSidebar().container)).not.toContain('/english');
-    h.user = { role: 'Participant' };
-    expect(hrefs(renderSidebar().container)).toContain('/english');
+    expect(active).toHaveAttribute('href', '/learning?tab=programs');
   });
 });
