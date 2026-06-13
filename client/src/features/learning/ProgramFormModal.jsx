@@ -15,11 +15,42 @@ const CATEGORIES = ['english', 'onboarding', 'compliance', 'soft_skills', 'techn
 const SCHEDULING = ['leader_booking', 'admin_scheduled', 'self_enroll', 'nomination'];
 const DELIVERY = ['online', 'offline', 'hybrid'];
 const STATUSES = ['active', 'inactive', 'archived'];
+const FACILITATOR_VISIBILITY = ['all_facilitators', 'assigned_only'];
 
 const blank = {
   code: '', name: '', description: '', category: 'other',
   schedulingMode: 'admin_scheduled', deliveryMode: 'online',
   defaultSessionCount: 1, status: 'active', prerequisitePrograms: [],
+  // Program policies (all enforced server-side). Empty number = "no value":
+  // certificateValidityDays '' → never expires; capacity '' → unlimited.
+  completionPolicy: { attendanceThresholdPercent: 0, requiresAssessment: false, requiresFeedback: false },
+  certificateValidityDays: '',
+  capacityPolicy: { maxParticipants: '', maxParticipantsPerSession: '' },
+  facilitatorPolicy: { assignmentRequired: false, visibility: 'all_facilitators' },
+};
+
+// Edit mode: merge the program's persisted policies over the blank defaults,
+// normalising server nulls → '' so the number inputs stay controlled.
+const initForm = (program) => {
+  if (!program) return blank;
+  return {
+    ...blank,
+    ...program,
+    completionPolicy: { ...blank.completionPolicy, ...(program.completionPolicy || {}) },
+    capacityPolicy: {
+      maxParticipants: program.capacityPolicy?.maxParticipants ?? '',
+      maxParticipantsPerSession: program.capacityPolicy?.maxParticipantsPerSession ?? '',
+    },
+    facilitatorPolicy: { ...blank.facilitatorPolicy, ...(program.facilitatorPolicy || {}) },
+    certificateValidityDays: program.certificateValidityDays ?? '',
+  };
+};
+
+// '' → null (no limit / never expires); else a finite Number, or null if invalid.
+const numOrNull = (v) => {
+  if (v === '' || v === null || v === undefined) return null;
+  const n = Number(v);
+  return Number.isFinite(n) ? n : null;
 };
 
 // Create or edit a LearningProgram. `program` null = create mode.
@@ -30,7 +61,7 @@ export default function ProgramFormModal({ program, onClose }) {
   const updateMutation = useUpdateProgram();
   const archiveMutation = useArchiveProgram();
 
-  const [form, setForm] = useState(() => (isEdit ? { ...blank, ...program } : blank));
+  const [form, setForm] = useState(() => initForm(program));
   const [error, setError] = useState('');
   const [confirmArchive, setConfirmArchive] = useState(false);
 
@@ -40,6 +71,8 @@ export default function ProgramFormModal({ program, onClose }) {
   const prerequisiteOptions = (programData?.data || []).filter((p) => p._id !== program?._id);
 
   const set = (key) => (val) => setForm((f) => ({ ...f, [key]: val }));
+  const setNested = (group, key) => (val) =>
+    setForm((f) => ({ ...f, [group]: { ...f[group], [key]: val } }));
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -54,6 +87,20 @@ export default function ProgramFormModal({ program, onClose }) {
       defaultSessionCount: Number(form.defaultSessionCount) || 1,
       status: form.status,
       prerequisitePrograms: form.prerequisitePrograms || [],
+      completionPolicy: {
+        attendanceThresholdPercent: Number(form.completionPolicy.attendanceThresholdPercent) || 0,
+        requiresAssessment: Boolean(form.completionPolicy.requiresAssessment),
+        requiresFeedback: Boolean(form.completionPolicy.requiresFeedback),
+      },
+      certificateValidityDays: numOrNull(form.certificateValidityDays),
+      capacityPolicy: {
+        maxParticipants: numOrNull(form.capacityPolicy.maxParticipants),
+        maxParticipantsPerSession: numOrNull(form.capacityPolicy.maxParticipantsPerSession),
+      },
+      facilitatorPolicy: {
+        assignmentRequired: Boolean(form.facilitatorPolicy.assignmentRequired),
+        visibility: form.facilitatorPolicy.visibility,
+      },
     };
     try {
       if (isEdit) {
@@ -83,10 +130,13 @@ export default function ProgramFormModal({ program, onClose }) {
   };
 
   const saving = createMutation.isPending || updateMutation.isPending;
+  const cp = form.completionPolicy;
+  const cap = form.capacityPolicy;
+  const fp = form.facilitatorPolicy;
 
   return (
     <Dialog open onOpenChange={(open) => { if (!open) onClose(); }}>
-      <DialogContent className="max-w-lg p-6 space-y-4" aria-label={isEdit ? t('learning.programs.edit') : t('learning.programs.create')}>
+      <DialogContent className="max-w-lg p-6 space-y-4 max-h-[85vh] overflow-y-auto" aria-label={isEdit ? t('learning.programs.edit') : t('learning.programs.create')}>
         <form onSubmit={handleSubmit} className="space-y-4">
           <DialogHeader>
             <DialogTitle className="text-h3 text-foreground">
@@ -143,6 +193,62 @@ export default function ProgramFormModal({ program, onClose }) {
               onChange={set('prerequisitePrograms')}
             />
           </LearningField>
+
+          {/* ── Policies (all enforced server-side) ───────────────── */}
+          <fieldset className="space-y-3 rounded-md border border-border p-3">
+            <legend className="px-1 text-small font-medium text-muted-foreground">{t('learning.policies.title')}</legend>
+
+            {/* Completion */}
+            <div className="grid grid-cols-2 gap-4">
+              <LearningField label={t('learning.fields.attendanceThreshold')}>
+                <input type="number" min={0} max={100} value={cp.attendanceThresholdPercent}
+                  onChange={(e) => setNested('completionPolicy', 'attendanceThresholdPercent')(e.target.value)}
+                  className={controlClass} />
+              </LearningField>
+              <LearningField label={t('learning.fields.certificateValidityDays')} hint={t('learning.fields.certificateValidityHint')}>
+                <input type="number" min={1} max={3650} value={form.certificateValidityDays}
+                  onChange={(e) => set('certificateValidityDays')(e.target.value)}
+                  className={controlClass} />
+              </LearningField>
+            </div>
+            <div className="space-y-2">
+              <label className="flex items-center gap-2 text-sm text-foreground cursor-pointer">
+                <input type="checkbox" checked={Boolean(cp.requiresAssessment)}
+                  onChange={(e) => setNested('completionPolicy', 'requiresAssessment')(e.target.checked)} />
+                {t('learning.fields.requiresAssessment')}
+              </label>
+              <label className="flex items-center gap-2 text-sm text-foreground cursor-pointer">
+                <input type="checkbox" checked={Boolean(cp.requiresFeedback)}
+                  onChange={(e) => setNested('completionPolicy', 'requiresFeedback')(e.target.checked)} />
+                {t('learning.fields.requiresFeedback')}
+              </label>
+            </div>
+
+            {/* Capacity */}
+            <div className="grid grid-cols-2 gap-4">
+              <LearningField label={t('learning.fields.maxParticipants')} hint={t('learning.fields.capacityHint')}>
+                <input type="number" min={1} value={cap.maxParticipants}
+                  onChange={(e) => setNested('capacityPolicy', 'maxParticipants')(e.target.value)}
+                  className={controlClass} />
+              </LearningField>
+              <LearningField label={t('learning.fields.maxParticipantsPerSession')} hint={t('learning.fields.capacityHint')}>
+                <input type="number" min={1} value={cap.maxParticipantsPerSession}
+                  onChange={(e) => setNested('capacityPolicy', 'maxParticipantsPerSession')(e.target.value)}
+                  className={controlClass} />
+              </LearningField>
+            </div>
+
+            {/* Facilitator */}
+            <label className="flex items-center gap-2 text-sm text-foreground cursor-pointer">
+              <input type="checkbox" checked={Boolean(fp.assignmentRequired)}
+                onChange={(e) => setNested('facilitatorPolicy', 'assignmentRequired')(e.target.checked)} />
+              {t('learning.fields.assignmentRequired')}
+            </label>
+            <LearningField label={t('learning.fields.facilitatorVisibility')}>
+              <EnumSelect value={fp.visibility} onChange={setNested('facilitatorPolicy', 'visibility')}
+                options={FACILITATOR_VISIBILITY} labelFor={(v) => t(`learning.facilitatorVisibility.${v}`)} />
+            </LearningField>
+          </fieldset>
 
           <div className="flex gap-3 pt-2">
             {isEdit && (

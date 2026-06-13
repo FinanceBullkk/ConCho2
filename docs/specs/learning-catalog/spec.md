@@ -2,7 +2,7 @@
 capability: learning-catalog
 status: stable
 owners: [domains/learning, controllers/classController]
-last_updated: 2026-06-10
+last_updated: 2026-06-13
 related_code:
   - server/domains/learning/controller.js
   - server/domains/learning/use-cases.js
@@ -10,6 +10,7 @@ related_code:
   - server/domains/learning/dto.js
   - server/models/LearningProgram.js
   - server/models/Class.js
+  - client/src/features/learning/ProgramFormModal.jsx
 related_plans:
   - plans/260603-0911-m3-learning-crud-ui
 ---
@@ -132,6 +133,13 @@ The system SHALL persist program policies that other capabilities read:
 session-create path: team modes `leader_booking`/`admin_scheduled` + the
 cohort-vs-team structural rule — see scheduling-and-booking "Scheduling-mode
 gating"); `certificateValidityDays` → recertification.
+
+All program policies are **editable in the program form** (`ProgramFormModal`):
+`completionPolicy` (attendance threshold %, requires-assessment,
+requires-feedback), `certificateValidityDays` (blank = never expires),
+`capacityPolicy` (max per cohort / per session, blank = no limit), and
+`facilitatorPolicy` (assignment-required, visibility) — closing the prior
+"enforced but only API-settable" gap.
 
 ### Requirement: Read open, write Admin-only [BR-4, UC-3]
 
