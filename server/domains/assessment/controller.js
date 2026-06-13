@@ -2,7 +2,7 @@ const auditService = require('../../services/auditService');
 const { handleError } = require('../../helpers/handleError');
 const useCases = require('./use-cases');
 const manualGradingUseCases = require('./manual-grading-use-cases');
-const { assessmentDto, attemptDto } = require('./dto');
+const { assessmentDto, attemptDto, attemptResultDto, evaluationResultDto } = require('./dto');
 
 const createAssessment = async (req, res) => {
   try {
@@ -126,6 +126,22 @@ const manualGradeAttempt = async (req, res) => {
   }
 };
 
+// GET /assessment/results/mine — the caller's unified assessment results
+// (quiz attempts + instructor-scored English evaluations) in ONE shape, newest
+// first. Self-scoped read; read-only → not audited.
+const getMyResults = async (req, res) => {
+  try {
+    const { attempts, evaluations } = await useCases.getMyResults(req.user);
+    const results = [
+      ...attempts.map(attemptResultDto),
+      ...evaluations.map(evaluationResultDto),
+    ].sort((a, b) => new Date(b.date || 0) - new Date(a.date || 0));
+    res.json({ success: true, count: results.length, data: results });
+  } catch (error) {
+    handleError(res, error);
+  }
+};
+
 module.exports = {
   createAssessment,
   listAssessments,
@@ -135,4 +151,5 @@ module.exports = {
   submitAttempt,
   listAttempts,
   manualGradeAttempt,
+  getMyResults,
 };
