@@ -98,20 +98,32 @@ Legacy redirects:
 
 ### Navigation And Access
 
-`client/src/components/Navbar.jsx` defines top-level nav items:
+IA rework 2026-06-13: top horizontal bar → **left sidebar + slim topbar** (the
+enterprise pattern — Docebo/TalentLMS/SAP). The shell is
+`client/src/components/Layout.jsx` (Topbar + Sidebar + mobile drawer); nav is
+defined once in `client/src/components/nav/nav-config.js`:
 
-| Nav | Admin | Teacher | Participant |
-|---|---:|---:|---:|
-| Home | full | full | full |
-| People | full | none | none |
-| Programs | full | read | none |
-| Calendar | full | full | full |
-| Reports | full | full | none |
-| System | account dropdown only | none | none |
+- **`nav/Topbar.jsx`** — sticky slim bar: logo · global search (Cmd/Ctrl+K) ·
+  NotificationBell · theme toggle · avatar menu (account + sign-out).
+- **`nav/Sidebar.jsx`** — role-filtered grouped vertical nav (md+ sticky column);
+  items the role can't access are HIDDEN (not disabled) — only what you can act on.
+- **`nav/MobileSidebar.jsx`** — `< md` hamburger-opened slide-over drawer.
 
-(Coordinator — not shown above — also gets Reports `full`; they hold `read:reports`.)
+Sidebar groups → items (per-role `access` map in `nav-config.js`):
 
-`ProtectedRoute` enforces page-level roles and redirects MFA-enrollment-required sessions to `/me/settings?force=mfa`.
+| Group | Items | Admin | Coordinator | Teacher | Participant |
+|---|---|---:|---:|---:|---:|
+| (top) | Home | full | full | full | full |
+| Training | Learning · Calendar · English Class | full | Learning only | Calendar·English·(Learning read) | English only |
+| Insights | Reports | full | full | full | none |
+| Manage | People · System | full | People only | none | none |
+| (manager) | My Team | when has direct reports | — | — | — |
+
+(Phase 02 will add a persona switch (Admin Console ↔ My Learning) surfacing the
+`/me/*` learner routes in the sidebar; Phase 03 flattens in-page tab strips into
+sidebar sub-items. Plan: `plans/260613-2304-sidebar-persona-ia/`.)
+
+`ProtectedRoute` enforces page-level roles and redirects MFA-enrollment-required sessions to `/me/settings?force=mfa`. The sidebar only shows/hides — the server is the real authz boundary.
 
 ### Client API Modules
 

@@ -1,6 +1,12 @@
 {
   "nav": {
     "home": "Home",
+    "primary": "Primary navigation",
+    "groups": {
+      "training": "Training",
+      "insights": "Insights",
+      "manage": "Manage"
+    },
     "people": "People",
     "programs": "Programs",
     "learning": "Learning",

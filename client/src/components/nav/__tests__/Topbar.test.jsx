@@ -1,0 +1,62 @@
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { render, screen, fireEvent } from '@testing-library/react';
+import { MemoryRouter } from 'react-router-dom';
+import Topbar from '../Topbar';
+
+const h = vi.hoisted(() => ({ user: { role: 'Admin', name: 'Ada Admin', empCode: '000001' } }));
+
+vi.mock('../../../context/AuthContext', () => ({
+  useAuth: () => ({ user: h.user, logout: vi.fn() }),
+}));
+vi.mock('../../../hooks/useTheme', () => ({
+  useTheme: () => ({ isDark: false, toggle: vi.fn() }),
+}));
+vi.mock('react-i18next', () => ({ useTranslation: () => ({ t: (k) => k }) }));
+vi.mock('../../../features/notifications/NotificationBell', () => ({ default: () => <div data-testid="bell" /> }));
+vi.mock('../../SearchPalette', () => ({
+  default: ({ open }) => (open ? <div data-testid="search-open" /> : null),
+}));
+
+function renderTopbar() {
+  return render(
+    <MemoryRouter>
+      <Topbar onOpenMobileNav={vi.fn()} />
+    </MemoryRouter>,
+  );
+}
+
+beforeEach(() => { h.user = { role: 'Admin', name: 'Ada Admin', empCode: '000001' }; });
+
+describe('Topbar', () => {
+  it('renders logo, notification bell and account menu trigger', () => {
+    renderTopbar();
+    expect(screen.getByTestId('bell')).toBeInTheDocument();
+    expect(screen.getByLabelText('nav.openAccountMenu')).toBeInTheDocument();
+    // Logo links home
+    expect(screen.getByRole('link', { name: /TMS/i })).toHaveAttribute('href', '/home');
+  });
+
+  it('opens the search palette on Ctrl+K', () => {
+    renderTopbar();
+    expect(screen.queryByTestId('search-open')).toBeNull();
+    fireEvent.keyDown(document, { key: 'k', ctrlKey: true });
+    expect(screen.getByTestId('search-open')).toBeInTheDocument();
+  });
+
+  it('opens the mobile nav via the hamburger', () => {
+    const onOpen = vi.fn();
+    render(
+      <MemoryRouter>
+        <Topbar onOpenMobileNav={onOpen} />
+      </MemoryRouter>,
+    );
+    fireEvent.click(screen.getByLabelText('nav.openMenu'));
+    expect(onOpen).toHaveBeenCalled();
+  });
+
+  it('renders nothing without a user', () => {
+    h.user = null;
+    const { container } = renderTopbar();
+    expect(container).toBeEmptyDOMElement();
+  });
+});
