@@ -1,8 +1,20 @@
 # Phase 1 — Converge Assessment (Evaluation → Assessment)
 
-**Priority:** High · **Status:** 🔴 not started · **Depends on:** Phase 0 (uses events)
-**Behaviour change:** Evaluation flows become Assessment flows (spec'd, with parity for
-existing data).
+**Priority:** High · **Status:** 🟢 shipped (2026-06-14) — read/contract/UX convergence
+done; the two scoring *modes* (instructor-scored rubric vs learner-attempted quiz) are
+the correct domain model (not debt) and unify behind one read + transcript.
+**Behaviour change:** additive (new unified read; transcript now also shows instructor
+evaluations) — existing flows unchanged. server 972/99 + client 313 green.
+
+> **Shipped:** `GET /api/assessment/results/mine` (self-scoped; quiz attempts +
+> instructor-scored evaluations in ONE shape) — `domains/assessment` repository
+> (`listEvaluationsForLearner`) + use-case (`getMyResults`) + dto
+> (`attemptResultDto`/`evaluationResultDto`) + route. Learner transcript
+> (`MyTranscriptPage`) consumes it (evaluations tagged "Instructor"). Completion was
+> already unified (`evaluation OR passingAttempt`). Specs `assessments` +
+> `evaluations` + domain-model rule updated; deferral cleared. **Deferred to Phase 4
+> (UX journeys):** folding the separate English rubric-grading UI into the unified
+> assessment authoring/grading surface (cosmetic; the data/contract is converged).
 
 ## Why
 Two assessment systems exist: legacy `Evaluation` (English-class scoring) and generic
