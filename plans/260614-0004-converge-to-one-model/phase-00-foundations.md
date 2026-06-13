@@ -1,8 +1,12 @@
 # Phase 0 — Foundations (event bus + finish authz)
 
-**Priority:** High · **Status:** 🟡 in progress — **Part A event-bus + enrollment
-reference slice SHIPPED** (2026-06-14); Part B (finish authz) pending · **Behaviour
-change:** none (parity)
+**Priority:** High · **Status:** 🟢 shipped (2026-06-14) — Part A: event bus + 2 flows
+migrated (enrollment `cohort_enrolled`, completion `certificate_issued`); Part B: authz
+finished (9 Admin-only platform routers → capabilities). **Behaviour change:** none
+(parity, server 967/98 green). Deferred by design: scheduleService booking/roster
+notifications migrate with their domain in **Phase 3 (Scheduling)**; `/api/auth` +
+`/api/admin/cron` and the converging-legacy trio (`classes`/`enrollments`/
+`evaluations`) intentionally stay on `roleGuard` until retired in their phase.
 **Why first:** safe, high-leverage, independent of the convergence direction; sets the
 decoupling backbone every later phase rides on.
 

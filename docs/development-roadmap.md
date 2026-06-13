@@ -109,6 +109,22 @@ Bug fixing and integration review rank above net-new feature rollout.
 > [`changelog-archive/2026-q2.md`](changelog-archive/2026-q2.md). Currently
 > inline: **2026-06-12 → 2026-06-13**.
 
+- **2026-06-14** — **Converge Phase 0 COMPLETE: event bus (2 flows) + authz
+  finished (no behaviour change).** Part A extended: `certificate_issued` bell row
+  now also rides the event bus (`CERTIFICATE_ISSUED`, published by the completion
+  engine) alongside `cohort_enrolled` — both off inline `recordInApp`. Part B
+  (authz): the **9 Admin-only platform routers** (`users`, `settings`, `import`,
+  `export`, `sync`, `dashboard`, `admin/audit`, `admin-db`, `admin/reconcile`)
+  migrated from `roleGuard('Admin')` to `requireCapability` with 6 new Admin-only
+  capabilities (`user.manage` · `settings.manage` · `data.transfer` ·
+  `analytics.read` · `audit.read` · `system.ops`) — so the app uses ONE coarse-authz
+  mechanism. **Parity guaranteed** (all Admin-only; Admin is superuser; new caps
+  added to no other role) — server **967/98** green, no regression. Intentionally
+  still on `roleGuard` (documented): `/api/auth` + `/api/admin/cron` (security/cron)
+  and the converging-legacy trio (`classes`/`enrollments`/`evaluations`, retired in
+  their convergence phase); scheduleService booking/roster notifications migrate in
+  Phase 3. Specs: `capability-authz` + route-permission-matrix updated (mechanism
+  note; outcomes unchanged). Next: Phase 1 — converge Assessment.
 - **2026-06-14** — **Converge Phase 0 (Part A): in-process domain-event bus +
   first flow migrated (no behaviour change).** New `lib/event-bus.js`
   (publish/subscribe; subscribers run awaited after the mutation persists, a

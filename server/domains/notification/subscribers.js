@@ -36,6 +36,17 @@ function register() {
       },
     });
   });
+
+  // certificate_issued — earned certificate appears in the learner's bell.
+  // Mirrors the previous inline write in domains/learning/completion/use-cases.js.
+  subscribe(EVENTS.CERTIFICATE_ISSUED, async ({ userId, certificateNumber, programName, cohortCode, cohortId }) => {
+    await recordInApp({
+      type: 'certificate_issued',
+      recipientUserId: userId,
+      cadenceKey: certificateNumber,
+      metadata: { certificateNumber, programName, cohortCode, cohortId: String(cohortId) },
+    });
+  });
 }
 
 module.exports = { register };

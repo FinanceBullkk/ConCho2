@@ -1,7 +1,8 @@
 const router = require('express').Router();
 const AuditLog = require('../models/AuditLog');
 const { protect } = require('../middleware/auth');
-const { roleGuard } = require('../middleware/roleGuard');
+const { requireCapability } = require('../middleware/requireCapability');
+const { CAPABILITIES } = require('../policy/capabilities');
 const { parsePagination, paginatedResponse } = require('../helpers/pagination');
 const { handleError } = require('../helpers/handleError');
 
@@ -13,7 +14,7 @@ const { handleError } = require('../helpers/handleError');
 // model handles retention.
 // ──────────────────────────────────────────────────────────
 
-router.use(protect, roleGuard('Admin'));
+router.use(protect, requireCapability(CAPABILITIES.AUDIT_READ));
 
 /**
  * GET /api/admin/audit
