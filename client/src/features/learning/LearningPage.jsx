@@ -1,7 +1,6 @@
 import { useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { BarChart3, BookOpen, Boxes, ClipboardList, GraduationCap, LayoutDashboard, MessageSquare, Route } from 'lucide-react';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Tabs, TabsContent } from '@/components/ui/tabs';
 import { PageHeader } from '@/components/PageHeader';
 import { useRole } from '../../hooks/useRole';
 import ProgramsTab from './ProgramsTab';
@@ -10,22 +9,18 @@ import PathsTab from './PathsTab';
 import AssignmentsTab from './AssignmentsTab';
 import AssessmentsTab from './AssessmentsTab';
 import FeedbackTab from './FeedbackTab';
-import ReportsTab from './ReportsTab';
-import DashboardTab from './DashboardTab';
 
-// `perm` (optional) gates a tab to roles holding that permission.
-// English-class separation 2026-06-12: the `groups` compat tab is gone
-// (Teams live in /english?tab=teams) and Cohorts is cohort-world only —
-// English/team-mode classes live in /english?tab=classes.
+// IA Phase 03 (2026-06-13): the six Learning tabs are now sidebar sub-items
+// (Learning group), so the in-page tab strip is gone — this page just renders
+// the body for the section selected via `?tab=`. `perm` gates a tab to roles
+// holding it (used to pick the fallback when the URL points at a hidden one).
 const TABS = [
-  { id: 'dashboard', icon: LayoutDashboard, perm: 'read:reports' },
-  { id: 'programs', icon: BookOpen },
-  { id: 'cohorts', icon: Boxes },
-  { id: 'paths', icon: Route, perm: 'manage:path' },
-  { id: 'assignments', icon: ClipboardList, perm: 'read:assignments' },
-  { id: 'assessments', icon: GraduationCap },
-  { id: 'feedback', icon: MessageSquare, perm: 'read:feedback' },
-  { id: 'reports', icon: BarChart3, perm: 'read:reports' },
+  { id: 'programs' },
+  { id: 'cohorts' },
+  { id: 'paths', perm: 'manage:path' },
+  { id: 'assignments', perm: 'read:assignments' },
+  { id: 'assessments' },
+  { id: 'feedback', perm: 'read:feedback' },
 ];
 
 export default function LearningPage() {
@@ -49,22 +44,6 @@ export default function LearningPage() {
     <div>
       <PageHeader title={t('learning.title')} description={t(`learning.tabs.${current.id}Desc`)} />
       <Tabs value={activeTab} onValueChange={setTab} className="space-y-6">
-        <div className="max-w-full overflow-x-auto pb-1">
-          <TabsList className="w-max min-w-full justify-start">
-            {tabs.map((tab) => {
-              const Icon = tab.icon;
-              return (
-                <TabsTrigger key={tab.id} value={tab.id} className="gap-2">
-                  <Icon className="size-4" aria-hidden="true" />
-                  {t(`learning.tabs.${tab.id}`)}
-                </TabsTrigger>
-              );
-            })}
-          </TabsList>
-        </div>
-        <TabsContent value="dashboard" hidden={activeTab !== 'dashboard'}>
-          {activeTab === 'dashboard' && <DashboardTab />}
-        </TabsContent>
         <TabsContent value="programs" hidden={activeTab !== 'programs'}>
           {activeTab === 'programs' && <ProgramsTab />}
         </TabsContent>
@@ -82,9 +61,6 @@ export default function LearningPage() {
         </TabsContent>
         <TabsContent value="feedback" hidden={activeTab !== 'feedback'}>
           {activeTab === 'feedback' && <FeedbackTab />}
-        </TabsContent>
-        <TabsContent value="reports" hidden={activeTab !== 'reports'}>
-          {activeTab === 'reports' && <ReportsTab />}
         </TabsContent>
       </Tabs>
     </div>

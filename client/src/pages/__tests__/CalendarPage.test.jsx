@@ -27,9 +27,9 @@ vi.mock('../../features/attendance/AttendancePage', () => ({
   default: (props) => { h.attendanceProps(props); return <div data-testid="attendance-page" />; },
 }));
 
-const renderPage = () =>
+const renderPage = (entry = '/calendar') =>
   render(
-    <MemoryRouter initialEntries={['/calendar']}>
+    <MemoryRouter initialEntries={[entry]}>
       <Routes>
         <Route path="/calendar" element={<CalendarPage />} />
         <Route path="/english" element={<div data-testid="english-page" />} />
@@ -37,6 +37,8 @@ const renderPage = () =>
     </MemoryRouter>,
   );
 
+// IA Phase 03: the in-page tab strip is gone — the sidebar's Operations group
+// drives ?tab=. The page renders the body for the active (or role-default) tab.
 describe('CalendarPage — generic training calendar (English-class separation)', () => {
   it('Participant is redirected to /english', () => {
     h.auth = { user: { _id: 'u1', role: 'Participant' } };
@@ -46,13 +48,20 @@ describe('CalendarPage — generic training calendar (English-class separation)'
     expect(screen.queryByTestId('schedules-page')).toBeNull();
   });
 
-  it('Admin sees Schedules + Attendance tabs, scoped to the cohort world', () => {
+  it('Admin defaults to Schedules, scoped to the cohort world', () => {
     h.auth = { user: { _id: 'a1', role: 'Admin' } };
     renderPage();
 
     expect(screen.getByTestId('schedules-page')).toBeInTheDocument();
-    expect(screen.getByRole('tab', { name: /attendance/i })).toBeInTheDocument();
     expect(h.schedulesProps).toHaveBeenCalledWith(expect.objectContaining({ mode: 'cohort' }));
+  });
+
+  it('Admin ?tab=attendance renders the cohort-world Attendance surface', () => {
+    h.auth = { user: { _id: 'a1', role: 'Admin' } };
+    renderPage('/calendar?tab=attendance');
+
+    expect(screen.getByTestId('attendance-page')).toBeInTheDocument();
+    expect(h.attendanceProps).toHaveBeenCalledWith(expect.objectContaining({ mode: 'cohort' }));
   });
 
   it('Teacher gets the single Attendance surface (cohort world)', () => {
@@ -60,7 +69,6 @@ describe('CalendarPage — generic training calendar (English-class separation)'
     renderPage();
 
     expect(screen.getByTestId('attendance-page')).toBeInTheDocument();
-    expect(screen.queryByRole('tab')).toBeNull(); // single-tab: no tab chrome
     expect(h.attendanceProps).toHaveBeenCalledWith(expect.objectContaining({ mode: 'cohort' }));
   });
 });

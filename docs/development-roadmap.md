@@ -109,6 +109,73 @@ Bug fixing and integration review rank above net-new feature rollout.
 > [`changelog-archive/2026-q2.md`](changelog-archive/2026-q2.md). Currently
 > inline: **2026-06-12 → 2026-06-13**.
 
+- **2026-06-13** — **IA rework Phase 03: flatten tab strips into sidebar
+  sub-items.** The six umbrella pages (Learning · Calendar/Operations · English ·
+  Reports · People · System) **dropped their in-page horizontal tab strips** — each
+  tab is now a **sidebar sub-item** (deep link into the page's `?tab=`), so there's
+  no redundant second nav level. `nav-config.js` restructured into collapsible
+  **section-groups**; each sub-item gates on the same role/`perm` its tab used (so
+  a role sees only its tabs). New Sidebar renders collapsible groups + active
+  sub-item via `?tab=`; pages keep `?tab=` body-switching but render no `TabsList`.
+  Bookmarks stable (`?tab=` values unchanged). Tests: updated Sidebar (section
+  sub-item hrefs per role + active-state) + ReportsPage/CalendarPage/EnglishPage
+  (assert rendered panel per `?tab=`, not tab chrome) — client **313**, lint at cap
+  63, build clean. **Sidebar IA initiative (Phases 01–03) complete.**
+- **2026-06-13** — **IA rework Phase 02: persona modes (Admin Console ↔ My
+  Learning).** New `context/PersonaContext.jsx` (localStorage-backed) swaps which
+  sidebar group-set renders; avatar-menu switch toggles it. Participants are
+  **locked** to the learner persona; staff default to admin and may switch. The
+  learner group-set surfaces the `/me/*` pages (My programs · Catalog · My
+  sessions · Paths · Assessments · Feedback · Transcript) + English Class
+  (access-gated). The `/me/*` routes were **opened to all authenticated users**
+  (drop the Participant-only `ProtectedRoute` — reads are self-scoped server-side,
+  so staff can review their own learning; persona is UI-only, never the authz
+  boundary). New `LEARNER_GROUPS` in `nav-config.js`; `PersonaProvider` wraps the
+  app. Tests: +7 (PersonaContext defaults/lock/persist; Sidebar learner-mode
+  group-set + English access) — client **311**, lint at cap 63, build clean.
+  Phase 03 (flatten tab strips) next.
+- **2026-06-13** — **IA rework Phase 01: left sidebar app shell (enterprise nav).**
+  After owner found the top-tabs model unsatisfactory, researched how
+  Docebo/TalentLMS/SAP SuccessFactors/360Learning organise IA (report:
+  `plans/reports/research-260613-2304-lms-ia-navigation-patterns.md`) → owner chose
+  the **left sidebar + persona** pattern. Phase 01 (shell only, **zero behavior
+  change**): replaced the top horizontal `Navbar` with a **slim Topbar** (logo ·
+  search · notifications · theme · avatar) + a **role-filtered left Sidebar** of
+  grouped nav (Training · Insights · Manage + Home + manager My Team) + a **mobile
+  drawer** (`< md`). Nav defined once in `components/nav/nav-config.js`; inaccessible
+  items are now HIDDEN (not disabled) per the enterprise "see only what you can act
+  on" pattern; System moved from the avatar dropdown into the sidebar. Routes/pages
+  unchanged; in-page tab strips remain (flattened in Phase 03); persona switch
+  (Admin Console ↔ My Learning) is Phase 02. New `components/nav/{nav-config.js,
+  Sidebar.jsx,Topbar.jsx,MobileSidebar.jsx}`; `Navbar.jsx` retired; `Layout.jsx`
+  recomposed. Tests: +11 (Sidebar role-filter/active-state, Topbar search/menu/
+  hamburger) — client **304**, lint at cap 63, build clean. Plan
+  `plans/260613-2304-sidebar-persona-ia/` (phases 02–03 pending).
+- **2026-06-13** — **IA cleanup: dedupe surfaces + regroup nav (frontend-only,
+  no behavior change).** Addressed owner feedback that the admin UI was
+  "all-in-one, hard to use". Four moves: **(A)** removed the duplicate **Sheets
+  Sync** tab from Reports — it was a second mount of the same `SyncPage`;
+  `sync:sheets` is Admin-only so it stays in **System▸Sync** (next to
+  Reconciliation), zero access loss. **(B)** **Consolidated ALL reporting into
+  `/reports`** — moved Learning's *Dashboard* + *Reports* tabs out, so Reports is
+  now **Overview · L&D Dashboard · Completion · Attendance · HR Export** and
+  Learning drops **8 → 6 tabs**. **(C)** **Grouped Learning's 6 tabs** into
+  **Catalog** (Programs·Cohorts·Paths) ‖ **Delivery**
+  (Assignments·Assessments·Feedback). **(D)** **Home is now a lightweight
+  landing** — greeting + AlertBand + TodayHero + **contextual QuickActions tiles**
+  (live operational signals — overdue learners, expiring certificates, sessions
+  next 7 days, completion rate — each linking where you act; one shared fail-soft
+  `useOperationalDashboard` query, NOT nav shortcuts) + a "View analytics" CTA;
+  the heavy admin training analytics was extracted into
+  **`features/dashboard/AdminAnalyticsPanel.jsx`** (now Reports▸Overview). New
+  `read:dashboard` perm (Admin-only); Coordinator gains the Reports nav (holds
+  `read:reports`). New `features/dashboard/{AdminAnalyticsPanel,QuickActions}.jsx`;
+  `DashboardPage` slimmed; stale `/learning?tab=dashboard|reports` bookmarks fall
+  back gracefully to Programs. **No backend/spec change** (UI location only).
+  Tests: client **293** (DashboardPage rewritten for landing branches;
+  +AdminAnalyticsPanel UX-09 query gate; +QuickActions contextual-tile suite;
+  ReportsPage tab set updated), lint at cap 63, build clean. Plan
+  `plans/260613-2055-ia-dedupe-and-regroup-nav/`.
 - **2026-06-13** — **Phase 3/4/5 push closed + re-baselined (docs-only).** After
   the 7-PR run (#80–#86) the genuine non-deferred migration debt for phases 3/4/5
   is shipped, so they are re-baselined **🟢 near done** (3 ~85%, 4 ~82%, 5 ~80%)
