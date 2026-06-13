@@ -65,6 +65,9 @@ export const qk = {
     cohort: (id) => ['learning', 'cohort', id],
     enrollments: (params) => ['learning', 'enrollments', params],
     feedback: (params) => ['learning', 'feedback', params],
+    // Per-learner completion checklist + certificates (Cohesion P1).
+    completion: (params) => ['learning', 'completion', params],
+    certificates: (params) => ['learning', 'certificates', params],
     completionReport: (cohortId) => ['learning', 'completion-report', cohortId],
     completionRollup: ['learning', 'completion-rollup'],
     complianceReport: (params) => ['learning', 'compliance-report', params],
@@ -73,6 +76,7 @@ export const qk = {
     pathProgress: (id) => ['learning', 'path-progress', id],
     assignments: (params) => ['learning', 'assignments', params],
     assignment: (id) => ['learning', 'assignment', id],
+    myAssignments: ['learning', 'assignments', 'mine'],
     dashboardOperational: (params) => ['learning', 'dashboard', 'operational', params],
     dashboardExecutive: (params) => ['learning', 'dashboard', 'executive', params],
     costConfig: ['learning', 'dashboard', 'cost-config'],

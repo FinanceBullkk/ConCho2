@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { MemoryRouter } from 'react-router-dom';
 import MyLearningCatalogPage from '../MyLearningCatalogPage';
 
 const mutateAsync = vi.fn();
@@ -55,20 +56,23 @@ vi.mock('../../../hooks/useLearning', () => ({
 
 describe('MyLearningCatalogPage', () => {
   it('shows only self-enroll cohorts and marks existing enrollment', () => {
-    render(<MyLearningCatalogPage />);
+    render(<MemoryRouter><MyLearningCatalogPage /></MemoryRouter>);
 
     expect(screen.getAllByText('Safety Basics')).toHaveLength(2);
     expect(screen.getByText((_, node) => node.textContent === 'SAFE · SAFE-01')).toBeInTheDocument();
     expect(screen.getByText((_, node) => node.textContent === 'SAFE · SAFE-02')).toBeInTheDocument();
     expect(screen.queryByText('Manager Nomination')).not.toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /enrolled/i })).toBeDisabled();
+    // Cohesion P1: the enrolled card links to the per-program hub instead of
+    // showing a disabled button.
+    expect(screen.getByRole('link', { name: /enrolled · view progress/i }))
+      .toHaveAttribute('href', '/me/programs/c2');
   });
 
   it('filters by search and submits enrollment payload', async () => {
     const user = userEvent.setup();
     mutateAsync.mockResolvedValueOnce({});
 
-    render(<MyLearningCatalogPage />);
+    render(<MemoryRouter><MyLearningCatalogPage /></MemoryRouter>);
     await user.type(screen.getByPlaceholderText(/search programs/i), 'SAFE-01');
 
     expect(screen.getByText((_, node) => node.textContent === 'SAFE · SAFE-01')).toBeInTheDocument();
