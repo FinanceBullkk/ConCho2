@@ -3,10 +3,18 @@ import { render, screen, fireEvent } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import Topbar from '../Topbar';
 
-const h = vi.hoisted(() => ({ user: { role: 'Admin', name: 'Ada Admin', empCode: '000001' } }));
+const h = vi.hoisted(() => ({
+  user: { role: 'Admin', name: 'Ada Admin', empCode: '000001' },
+  persona: 'admin',
+  setPersona: vi.fn(),
+  canSwitch: true,
+}));
 
 vi.mock('../../../context/AuthContext', () => ({
   useAuth: () => ({ user: h.user, logout: vi.fn() }),
+}));
+vi.mock('../../../context/PersonaContext', () => ({
+  usePersona: () => ({ persona: h.persona, setPersona: h.setPersona, canSwitch: h.canSwitch }),
 }));
 vi.mock('../../../hooks/useTheme', () => ({
   useTheme: () => ({ isDark: false, toggle: vi.fn() }),
@@ -25,7 +33,12 @@ function renderTopbar() {
   );
 }
 
-beforeEach(() => { h.user = { role: 'Admin', name: 'Ada Admin', empCode: '000001' }; });
+beforeEach(() => {
+  h.user = { role: 'Admin', name: 'Ada Admin', empCode: '000001' };
+  h.persona = 'admin';
+  h.setPersona = vi.fn();
+  h.canSwitch = true;
+});
 
 describe('Topbar', () => {
   it('renders logo, notification bell and account menu trigger', () => {

@@ -5,8 +5,20 @@
     "groups": {
       "training": "Training",
       "insights": "Insights",
-      "manage": "Manage"
+      "manage": "Manage",
+      "myLearning": "My Learning"
     },
+    "learner": {
+      "programs": "My programs",
+      "catalog": "Catalog",
+      "sessions": "My sessions",
+      "paths": "Learning paths",
+      "assessments": "Assessments",
+      "feedback": "Feedback",
+      "transcript": "Transcript"
+    },
+    "switchToLearner": "Switch to My Learning",
+    "switchToAdmin": "Switch to Admin console",
     "people": "People",
     "programs": "Programs",
     "learning": "Learning",

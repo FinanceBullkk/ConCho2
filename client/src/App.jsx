@@ -5,6 +5,7 @@ import { AlarmClock, KeyRound } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { Spinner } from './components/Spinner';
 import { AuthProvider, useAuth } from './context/AuthContext';
+import { PersonaProvider } from './context/PersonaContext';
 import { authAPI } from './api/api';
 import ProtectedRoute from './components/ProtectedRoute';
 import ErrorBoundary from './components/ErrorBoundary';
@@ -232,6 +233,7 @@ export default function App() {
     <ErrorBoundary>
       <BrowserRouter>
         <AuthProvider>
+         <PersonaProvider>
           <AuthExpiredModal />
           <ForceChangePasswordModal />
           <Toaster position="top-right" richColors closeButton />
@@ -274,33 +276,19 @@ export default function App() {
                   <ProtectedRoute roles={['Admin']}><ClassDetailPage /></ProtectedRoute>
                 } />
 
-                {/* Self-service account settings — every authenticated user */}
+                {/* Self-service learner surfaces (My Learning persona) — open to
+                    every authenticated user; all reads are self-scoped server-side,
+                    so staff can review their own learning too (IA Phase 02). */}
                 <Route path="/me/settings" element={<UserSettingsPage />} />
-                <Route path="/me/catalog" element={
-                  <ProtectedRoute roles={['Participant']}><MyLearningCatalogPage /></ProtectedRoute>
-                } />
+                <Route path="/me/catalog" element={<MyLearningCatalogPage />} />
                 {/* Cohesion P1 — learner program home (per-enrollment hub) */}
-                <Route path="/me/programs" element={
-                  <ProtectedRoute roles={['Participant']}><MyProgramsPage /></ProtectedRoute>
-                } />
-                <Route path="/me/programs/:cohortId" element={
-                  <ProtectedRoute roles={['Participant']}><MyProgramPage /></ProtectedRoute>
-                } />
-                <Route path="/me/paths" element={
-                  <ProtectedRoute roles={['Participant']}><MyLearningPathsPage /></ProtectedRoute>
-                } />
-                <Route path="/me/assessments" element={
-                  <ProtectedRoute roles={['Participant']}><MyAssessmentsPage /></ProtectedRoute>
-                } />
-                <Route path="/me/feedback" element={
-                  <ProtectedRoute roles={['Participant']}><MyFeedbackPage /></ProtectedRoute>
-                } />
-                <Route path="/me/sessions" element={
-                  <ProtectedRoute roles={['Participant']}><MySessionsPage /></ProtectedRoute>
-                } />
-                <Route path="/me/transcript" element={
-                  <ProtectedRoute roles={['Participant']}><MyTranscriptPage /></ProtectedRoute>
-                } />
+                <Route path="/me/programs" element={<MyProgramsPage />} />
+                <Route path="/me/programs/:cohortId" element={<MyProgramPage />} />
+                <Route path="/me/paths" element={<MyLearningPathsPage />} />
+                <Route path="/me/assessments" element={<MyAssessmentsPage />} />
+                <Route path="/me/feedback" element={<MyFeedbackPage />} />
+                <Route path="/me/sessions" element={<MySessionsPage />} />
+                <Route path="/me/transcript" element={<MyTranscriptPage />} />
 
                 {/* Legacy redirects */}
                 {LEGACY_REDIRECTS.map(({ from, to }) => (
@@ -312,6 +300,7 @@ export default function App() {
               <Route path="*" element={<Navigate to="/home" replace />} />
             </Routes>
           </Suspense>
+         </PersonaProvider>
         </AuthProvider>
       </BrowserRouter>
     </ErrorBoundary>

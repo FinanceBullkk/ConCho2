@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
-import { LogOut, Settings, Sun, Moon, Menu, Search, ChevronDown } from 'lucide-react';
+import { Link, useNavigate } from 'react-router-dom';
+import { LogOut, Settings, Sun, Moon, Menu, Search, ChevronDown, ArrowLeftRight } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../../context/AuthContext';
+import { usePersona } from '../../context/PersonaContext';
 import { useTheme } from '../../hooks/useTheme';
 import {
   DropdownMenu,
@@ -29,9 +30,16 @@ const ROLE_TEXT = {
 // longer duplicated here — this menu is account + sign-out only.
 function AvatarMenu({ user, onLogout }) {
   const { t } = useTranslation();
+  const navigate = useNavigate();
+  const { persona, setPersona, canSwitch } = usePersona();
   const initials = (user?.name || '?')
     .split(' ').map((w) => w[0]).join('').slice(0, 2).toUpperCase();
   const roleColor = ROLE_BG[user?.role] ?? 'bg-primary';
+
+  const switchPersona = () => {
+    if (persona === 'admin') { setPersona('learner'); navigate('/me/programs'); }
+    else { setPersona('admin'); navigate('/home'); }
+  };
 
   return (
     <DropdownMenu>
@@ -59,6 +67,13 @@ function AvatarMenu({ user, onLogout }) {
         </DropdownMenuLabel>
 
         <DropdownMenuSeparator />
+
+        {canSwitch && (
+          <DropdownMenuItem onClick={switchPersona} className="flex items-center gap-2 cursor-pointer">
+            <ArrowLeftRight className="size-4 text-muted-foreground" aria-hidden="true" />
+            {persona === 'admin' ? t('nav.switchToLearner') : t('nav.switchToAdmin')}
+          </DropdownMenuItem>
+        )}
 
         <DropdownMenuItem asChild>
           <Link to="/me/settings" className="flex items-center gap-2 cursor-pointer">

@@ -1,9 +1,10 @@
 import { Link, useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../../context/AuthContext';
+import { usePersona } from '../../context/PersonaContext';
 import { useMyTeam } from '../../hooks/useOrg';
 import { cn } from '@/lib/utils';
-import { NAV_GROUPS, MY_TEAM_ITEM, itemAccess, isRouteActive } from './nav-config';
+import { NAV_GROUPS, LEARNER_GROUPS, MY_TEAM_ITEM, itemAccess, isRouteActive } from './nav-config';
 
 // ──────────────────────────────────────────────────────────
 // Sidebar — left vertical primary navigation (IA rework 2026-06-13).
@@ -13,6 +14,7 @@ import { NAV_GROUPS, MY_TEAM_ITEM, itemAccess, isRouteActive } from './nav-confi
 // ──────────────────────────────────────────────────────────
 export default function Sidebar({ onNavigate }) {
   const { user } = useAuth();
+  const { persona } = usePersona();
   const location = useLocation();
   const { t } = useTranslation();
   // Manager entry — only when the caller has direct reports (cheap, cached).
@@ -21,7 +23,8 @@ export default function Sidebar({ onNavigate }) {
   if (!user) return null;
   const role = user.role;
 
-  const groups = [...NAV_GROUPS];
+  // Persona picks the group-set: Admin Console vs My Learning.
+  const groups = [...(persona === 'learner' ? LEARNER_GROUPS : NAV_GROUPS)];
   if (myTeam?.count > 0) groups.push({ id: 'team', items: [MY_TEAM_ITEM] });
 
   return (

@@ -4,9 +4,10 @@ import { MemoryRouter } from 'react-router-dom';
 import Sidebar from '../Sidebar';
 
 // Role-filtered sidebar: assert by href so we don't depend on i18n strings.
-const h = vi.hoisted(() => ({ user: null, myTeam: { count: 0 } }));
+const h = vi.hoisted(() => ({ user: null, myTeam: { count: 0 }, persona: 'admin' }));
 
 vi.mock('../../../context/AuthContext', () => ({ useAuth: () => ({ user: h.user }) }));
+vi.mock('../../../context/PersonaContext', () => ({ usePersona: () => ({ persona: h.persona }) }));
 vi.mock('../../../hooks/useOrg', () => ({ useMyTeam: () => ({ data: h.myTeam }) }));
 vi.mock('react-i18next', () => ({ useTranslation: () => ({ t: (k) => k }) }));
 
@@ -19,7 +20,7 @@ function renderSidebar(initialPath = '/home') {
 }
 const hrefs = (c) => Array.from(c.querySelectorAll('a')).map((a) => a.getAttribute('href'));
 
-beforeEach(() => { h.user = null; h.myTeam = { count: 0 }; });
+beforeEach(() => { h.user = null; h.myTeam = { count: 0 }; h.persona = 'admin'; });
 
 describe('Sidebar — role-filtered navigation', () => {
   it('renders nothing without a user', () => {
@@ -71,5 +72,23 @@ describe('Sidebar — role-filtered navigation', () => {
     const { container } = renderSidebar('/learning');
     const active = container.querySelector('a[aria-current="page"]');
     expect(active).toHaveAttribute('href', '/learning');
+  });
+
+  it('learner persona shows the /me/* surfaces and hides the admin groups', () => {
+    h.user = { role: 'Admin' };
+    h.persona = 'learner';
+    const links = hrefs(renderSidebar('/me/programs').container);
+    ['/home', '/me/programs', '/me/catalog', '/me/sessions', '/me/transcript'].forEach((p) =>
+      expect(links).toContain(p));
+    // admin-only groups are not present in learner mode
+    ['/learning', '/reports', '/people', '/system'].forEach((p) => expect(links).not.toContain(p));
+  });
+
+  it('learner persona hides English for a Coordinator (no access) but shows it for a Participant', () => {
+    h.persona = 'learner';
+    h.user = { role: 'Coordinator' };
+    expect(hrefs(renderSidebar().container)).not.toContain('/english');
+    h.user = { role: 'Participant' };
+    expect(hrefs(renderSidebar().container)).toContain('/english');
   });
 });
