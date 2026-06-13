@@ -8,8 +8,10 @@ related_code:
   - server/domains/learning/reports/compliance-certificate-state.js
   - server/domains/learning/reports/compliance-report-shape.js
   - server/domains/learning/completion/expiry-reminder-service.js
+  - server/domains/learning/completion/recert-assignment-service.js
   - server/models/Certificate.js
   - server/models/Assignment.js
+  - server/models/LearningProgram.js
 related_plans:
   - plans/260605-1954-wave-d6-compliance-reporting-recertification
 ---
@@ -94,8 +96,34 @@ still sees a `skipped` row in the bell. The reminder links to `/me/transcript`.
 The same job also sends each **manager a weekly digest**
 (`manager_certificate_expiry_digest`, idempotent per manager per ISO-week via
 `cadenceKey` `manager_cert_expiry_<isoWeek>`, link `/my-team`) of their direct
-reports' expiring certificates. Recertification is signal-only (no
-auto-assignment yet).
+reports' expiring certificates.
+
+### Requirement: Recertification auto-assignment [BR-2, UC-2]
+
+For a program that opts in (`LearningProgram.recertifyPolicy.autoAssign` — default
+**false**), the same daily job SHALL turn the expiry signal into an **action**:
+for each Issued, non-deleted certificate of an auto-assign program whose
+`validUntil` is within 30 days, it creates a recert `Assignment` (targetType
+`program`, the single learner, `dueDate = validUntil`, `createdBy: null`, tagged
+`sourceCertificateId`). The new Assignment then rides the existing machinery
+(learner `/home` feed, reminder cadence, manager overdue digest). **Idempotent**:
+at most ONE recert assignment EVER per certificate — an existence check (incl.
+archived, so an Admin archiving it is respected) plus a partial unique index on
+`sourceCertificateId` (race → E11000 → skip). Programs without `autoAssign` are
+untouched. v1 acts only in the pre-expiry window (already-expired certs are an
+Admin task via the compliance report).
+
+#### Scenario: Auto-assign program with an expiring certificate
+- **GIVEN** a program with `recertifyPolicy.autoAssign` and a learner's cert
+  expiring in 10 days
+- **WHEN** the daily job runs (even twice)
+- **THEN** exactly one recert Assignment is created, due at the cert's `validUntil`
+
+#### Scenario: Opt-out program / archived recert assignment
+- **GIVEN** a program without `autoAssign`, OR a recert assignment that was
+  archived
+- **WHEN** the job runs
+- **THEN** no (new) recert assignment is created
 
 #### Scenario: Certificate within 7 days of expiry
 - **GIVEN** an Issued certificate with `validUntil` 5 days out and a learner email
@@ -133,6 +161,7 @@ Inherits `security-platform`. Specifics:
 
 ## Out of Scope / Deferred
 
-- Auto-creating recertification assignments (the reminder is signal-only; an
-  Admin still assigns the recert program manually).
+- Recertification for ALREADY-expired certs (v1 acts in the pre-expiry window;
+  long-expired certs are an Admin task via the compliance report).
+- Path-based recert auto-assignment (program target only in v1).
 - Org-wide compliance dashboards beyond the report shape.

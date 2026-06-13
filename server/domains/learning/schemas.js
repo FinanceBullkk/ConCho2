@@ -23,6 +23,10 @@ const facilitatorPolicy = z.object({
   visibility: z.enum(['all_facilitators', 'assigned_only']).optional(),
 }).optional();
 
+const recertifyPolicy = z.object({
+  autoAssign: z.boolean().optional(),
+}).optional();
+
 const createProgramBody = z.object({
   code: programCode,
   name: z.string().trim().min(1).max(160),
@@ -35,6 +39,7 @@ const createProgramBody = z.object({
   certificateValidityDays: z.coerce.number().int().min(1).max(3650).nullable().optional(),
   capacityPolicy,
   facilitatorPolicy,
+  recertifyPolicy,
   prerequisitePrograms: z.array(objectId).max(20).optional(),
   status: z.enum(['active', 'inactive', 'archived']).default('active'),
 });

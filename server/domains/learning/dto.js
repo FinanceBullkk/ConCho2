@@ -14,6 +14,7 @@ const programDto = (program) => {
     certificateValidityDays: p.certificateValidityDays ?? null,
     capacityPolicy: p.capacityPolicy,
     facilitatorPolicy: p.facilitatorPolicy,
+    recertifyPolicy: p.recertifyPolicy,
     prerequisitePrograms: (p.prerequisitePrograms || []).map((id) => id.toString()),
     status: p.status,
     legacyCourseName: p.legacyCourseName || '',

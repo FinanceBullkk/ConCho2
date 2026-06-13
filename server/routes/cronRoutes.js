@@ -5,6 +5,7 @@ const { runReconciliation } = require('../services/reconcileService');
 const { sendUpcomingReminders } = require('../services/reminderService');
 const { sendAssignmentReminders } = require('../domains/learning/assignment/reminder-service');
 const { sendCertificateExpiryReminders } = require('../domains/learning/completion/expiry-reminder-service');
+const { createRecertificationAssignments } = require('../domains/learning/completion/recert-assignment-service');
 const { runMonitored, CRON_JOBS } = require('../lib/cronMonitor');
 const { handleError } = require('../helpers/handleError');
 
@@ -168,12 +169,18 @@ router.post('/assignment-reminders', async (req, res) => {
  *       401: { description: Invalid cron token }
  */
 // POST /api/cron/certificate-expiry-reminders
+// One daily certificate-lifecycle job: expiry reminders (learner + manager) AND
+// recertification auto-assignment for opted-in programs. One monitored run.
 router.post('/certificate-expiry-reminders', async (req, res) => {
   try {
     const summary = await runMonitored(
       CRON_JOBS.certificateExpiry.jobName,
       CRON_JOBS.certificateExpiry,
-      () => sendCertificateExpiryReminders()
+      async () => {
+        const reminders = await sendCertificateExpiryReminders();
+        const recert = await createRecertificationAssignments();
+        return { ...reminders, recertCreated: recert.created, recertSkipped: recert.skipped };
+      },
     );
     res.json({ success: true, data: summary });
   } catch (err) {

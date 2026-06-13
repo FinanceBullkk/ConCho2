@@ -55,8 +55,8 @@ to a generic training platform — Programs are new; Classes stay stored as
   `schedulingMode` (default `admin_scheduled`), `completionPolicy`
   {attendanceThresholdPercent, requiresAssessment, requiresFeedback},
   `certificateValidityDays`, `capacityPolicy`, `facilitatorPolicy`,
-  `prerequisitePrograms[]`, `status` (active/inactive/archived),
-  `legacyCourseName`.
+  `recertifyPolicy` {autoAssign}, `prerequisitePrograms[]`, `status`
+  (active/inactive/archived), `legacyCourseName`.
 - **Class / Cohort** (`server/models/Class.js`): `classCode` + `courseName`
   (**unique together**), `programId` (link), `totalSessions`, `status`
   (Ongoing/Completed), `teacherIds[]` (teacher-class binding, "open until
@@ -137,9 +137,10 @@ gating"); `certificateValidityDays` → recertification.
 All program policies are **editable in the program form** (`ProgramFormModal`):
 `completionPolicy` (attendance threshold %, requires-assessment,
 requires-feedback), `certificateValidityDays` (blank = never expires),
-`capacityPolicy` (max per cohort / per session, blank = no limit), and
-`facilitatorPolicy` (assignment-required, visibility) — closing the prior
-"enforced but only API-settable" gap.
+`capacityPolicy` (max per cohort / per session, blank = no limit),
+`facilitatorPolicy` (assignment-required, visibility), and `recertifyPolicy`
+(auto-assign a recertification on expiry — see `compliance-and-recertification`)
+— closing the prior "enforced but only API-settable" gap.
 
 ### Requirement: Read open, write Admin-only [BR-4, UC-3]
 
