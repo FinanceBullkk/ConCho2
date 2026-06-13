@@ -64,6 +64,7 @@ export const qk = {
     cohorts: (params) => ['learning', 'cohorts', params],
     cohort: (id) => ['learning', 'cohort', id],
     enrollments: (params) => ['learning', 'enrollments', params],
+    myEnrollments: ['learning', 'enrollments', 'mine'],
     feedback: (params) => ['learning', 'feedback', params],
     // Per-learner completion checklist + certificates (Cohesion P1).
     completion: (params) => ['learning', 'completion', params],

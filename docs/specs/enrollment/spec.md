@@ -2,15 +2,18 @@
 capability: enrollment
 status: evolving
 owners: [domains/learning/enrollment, controllers/enrollmentController]
-last_updated: 2026-06-13
+last_updated: 2026-06-14
 related_code:
   - server/domains/learning/enrollment/use-cases.js
   - server/domains/learning/enrollment/prerequisites.js
   - server/domains/learning/enrollment/repository.js
+  - server/domains/learning/enrollment/dto.js
+  - server/domains/learning/enrollment/controller.js
   - server/domains/learning/enrollment/schemas.js
   - server/models/Enrollment.js
   - server/controllers/enrollmentController.js
   - client/src/features/learning/EnrollLearnersModal.jsx
+  - client/src/features/learner/MyProgramsPage.jsx
 related_plans:
   - plans/260602-2125-cohort-based-enrollment
   - plans/260602-2247-m1-self-enroll-nomination-session-modes
@@ -32,6 +35,16 @@ Records who is studying what. Two shapes coexist during migration:
 audit trail of transfers) and **cohort-based** enrollment (L&D: a learner
 enrolled directly into a Cohort with `teamId=null`). Cohort-based enrollment adds
 self-enroll with prerequisite gating.
+
+> **Convergence (Phase 2, 2026-06-14):** the two shapes are **one Enrollment
+> concept read through one surface**. `GET /api/learning/enrollments/mine`
+> (self-scoped) returns a learner's enrollments across BOTH modes in one shape,
+> each row tagged `mode: 'group'` (joined via a team) or `mode: 'direct'`
+> (enrolled straight into the cohort). The learner "My programs" list consumes it,
+> so a team-booked learner finally sees their cohort there. No model merge, no
+> data move (per ADR `converge-to-one-training-model`). The two **write** paths
+> (team membership sync vs cohort enroll) and uniform enrollment events remain a
+> follow-up.
 
 ## Business Requirements (BR)
 
@@ -143,6 +156,31 @@ enrollment, setting status → Dropped; non-active → 409, non-owner non-admin 
 The system SHALL scope enrollment lists: a Participant sees only their own;
 Admin/Teacher may filter by cohort/learner.
 
+### Requirement: Unified self enrollment read [BR-5, UC-4]
+
+The system SHALL expose one self-scoped read
+(`GET /api/learning/enrollments/mine`) returning the caller's enrollments across
+**both** modes — team-based (group) and cohort-based (direct) — in one shape,
+each row tagged `mode` (`group` | `direct`). The read is always scoped to the
+caller (no cross-learner access) regardless of role; rows carry the cohort
+(`cohortId`/`cohortCode`/`cohortName`) and, for group rows, the `group`
+(`{id,name}`).
+
+#### Scenario: Learner enrolled both ways
+- **GIVEN** a learner with a team-based enrollment AND a direct cohort enrollment
+- **WHEN** they GET `/api/learning/enrollments/mine`
+- **THEN** both rows return in one list, tagged `mode: 'group'` and `mode: 'direct'`
+
+#### Scenario: Self-scoped
+- **GIVEN** another learner's enrollments exist
+- **WHEN** a learner reads `/enrollments/mine`
+- **THEN** only their own rows return; another learner's never leak
+
+#### Scenario: Unauthenticated
+- **GIVEN** no session
+- **WHEN** `/enrollments/mine` is requested
+- **THEN** **401**
+
 ## Non-Functional Requirements (NFR)
 
 Inherits `security-platform`. Specifics:
@@ -163,6 +201,8 @@ Inherits `security-platform`. Specifics:
 - [ ] Participant lists only own enrollments.
 - [ ] Admin bulk-enrolls many in one call; duplicates → `already_enrolled`,
       over-capacity → `cohort_full` (partial success); non-admin → 403.
+- [ ] `/enrollments/mine` returns both team-based (`group`) and cohort-based
+      (`direct`) enrollments in one shape, self-scoped; unauthenticated → 401.
 
 ## Error & Edge Cases
 
@@ -187,4 +227,9 @@ Inherits `security-platform`. Specifics:
   count check — a rare concurrent race past the cap is a documented limitation
   (strict enforcement would need a transaction lock). `maxParticipantsPerSession`
   (per-session) is enforced in `scheduling-and-booking`.
-- Cohort-based vocabulary fully replacing team enrollment — in progress.
+- Cohort-based vocabulary fully replacing team enrollment — in progress. **Read
+  layer converged (Phase 2, 2026-06-14):** one self read serves both modes
+  (`/enrollments/mine`). Still deferred: unifying the two **write** paths (team
+  membership sync vs cohort enroll) and routing team enrollment through the
+  domain-event bus (so notification/audit subscribe uniformly, as cohort enroll
+  already does) — a behaviour-parity change tracked in the converge plan.

@@ -19,7 +19,7 @@ export default function ProgramEnrollmentCard({ enrollment, cohort }) {
           <div className="flex items-start justify-between gap-3">
             <CardTitle className="flex items-center gap-2 text-base">
               <BookOpen className="size-4 text-muted-foreground" aria-hidden="true" />
-              {cohort?.programName || cohort?.courseName || 'Program'}
+              {cohort?.programName || cohort?.courseName || enrollment.cohortName || 'Program'}
             </CardTitle>
             <Badge variant={STATUS_TONE[enrollment.status] || 'secondary'}>{enrollment.status}</Badge>
           </div>
