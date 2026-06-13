@@ -55,7 +55,8 @@
     "jobs": {
       "reconcile": "Nightly reconcile",
       "attendanceReminders": "Attendance reminders",
-      "assignmentReminders": "Assignment reminders"
+      "assignmentReminders": "Assignment reminders",
+      "certificateExpiryReminders": "Certificate expiry reminders"
     },
     "status": {
       "ok": "Healthy",

@@ -50,6 +50,15 @@ const PRESENTERS = {
       return `You earned a certificate for ${name}${m.certificateNumber ? ` (${m.certificateNumber})` : ''}`;
     },
   },
+  certificate_expiring: {
+    title: 'Certificate expiring soon',
+    link: '/me/transcript',
+    body: (m) => {
+      const name = m.programName || 'your certificate';
+      const when = m.validUntil ? ` on ${fmtDate(m.validUntil)}` : ' soon';
+      return `Your ${name} certificate expires${when}${m.certificateNumber ? ` (${m.certificateNumber})` : ''} — arrange to recertify`;
+    },
+  },
   cohort_enrolled: {
     title: 'Enrolled in a program',
     link: '/me/programs',
