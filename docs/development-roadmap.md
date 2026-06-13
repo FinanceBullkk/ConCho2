@@ -109,6 +109,21 @@ Bug fixing and integration review rank above net-new feature rollout.
 > [`changelog-archive/2026-q2.md`](changelog-archive/2026-q2.md). Currently
 > inline: **2026-06-12 → 2026-06-13**.
 
+- **2026-06-14** — **Re-architecture decision: converge to ONE training model
+  (Option A).** Owner judged the system still "messy" post-IA and asked for a
+  whole-system re-architecture vs best-in-class references. Analysis
+  (`plans/reports/architecture-260614-0004-rearchitecture-proposal.md`) found the
+  root cause is **two parallel worlds for the same domain** (English-class vs generic
+  L&D — same Mongo models behind a `mode` flag, dual enroll/assess/session). Owner
+  chose **full convergence** to one spine `Program → Session → Enrollment →
+  Completion → Certificate` (English-class = a delivery profile). Recorded ADR
+  `docs/decisions/converge-to-one-training-model.md` (supersedes the 2026-06-12
+  separation; completes the 2026-06-09 coordinator-scheduled re-center;
+  `leader_booking` → one scheduling mode). Phased plan
+  `plans/260614-0004-converge-to-one-model/` (Phase 0 foundations: domain-event bus +
+  finish authz → Assessment → Enrollment → Scheduling → UX journeys → retire legacy
+  routes). Guardrails kept (modular monolith, no physical renames, Mongo→PG gate,
+  security layers). Docs/decision only this entry — implementation starts next.
 - **2026-06-13** — **IA rework Phase 03: flatten tab strips into sidebar
   sub-items.** The six umbrella pages (Learning · Calendar/Operations · English ·
   Reports · People · System) **dropped their in-page horizontal tab strips** — each
