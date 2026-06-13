@@ -4,7 +4,7 @@
 > experiences ONE product, not 5 feature pages — and carve the legacy
 > English-class (team-booking) business into its own clearly-bounded area so
 > the platform core reads as a generic L&D system.
-> Status: `planned` · Owner: anhha · Created: 2026-06-12
+> Status: `archived` (all 6 phases shipped 2026-06-12/13) · Owner: anhha · Created: 2026-06-12
 > Honors the golden rule: "No feature factory — close loops before new capability."
 
 ## Why
@@ -24,7 +24,7 @@ backend surface.
 | 3 | Assignment → one-click enroll | D4 assignment CTA enrolls into an eligible cohort (no manual catalog hunt) | 2–3 d | 🟢 done 2026-06-13 — `GET /assignments/mine` (`assignment.self`, all roles; self-scoped; per-user resolver + self_enroll cohort suggestion); feed shows Required/Overdue items first w/ one-click Enroll (existing chokepoint guards); reminder emails deep-link home. CTA-enroll per plan rec (not auto) |
 | 4 | English-class mode separation | team-booking UX becomes a bounded area entered FROM its program, not global nav | 3–4 d | 🟢 done 2026-06-12 — superseded same day by FULL separation per owner: dedicated `/english` nav section (classes/teams/schedules/attendance/evaluations/booking) + `mode` world-split + additive `/api/english` read surface. See `plans/260612-2151-english-class-separation/` |
 | 5 | In-app notification bell | read-feed over existing `NotificationLog` + mark-read; email stays | 3–4 d | 🟢 done 2026-06-13 — new `domains/notification` (`/api/notifications`): self-scoped `GET /mine` (+`unreadCount`), `POST /:id/read`, `POST /read-all`; role-wide `notification.read` capability; `NotificationLog.readAt` (in-app state, email channel unchanged). Client `NotificationBell` in navbar (unread badge, 60s poll, click→read+navigate). +6 server / +3 client tests |
-| 6 | Learner transcript | one printable history view over completion + certificates data | 2–3 d | 🔴 not started |
+| 6 | Learner transcript | one printable history view over completion + certificates data | 2–3 d | 🟢 done 2026-06-13 — `/me/transcript` (`MyTranscriptPage`): programs+certificates, attendance summary (`/attendance/my-stats`), passed assessments; ZERO new backend (client composition over self-scoped reads); export = browser Print/Save-PDF (`window.print` + `@media print`). Entries on `/me/programs` + dashboard CTA. +3 component tests. **Cohesion Wave COMPLETE (6/6).** |
 
 Total: ~3–4 weeks single dev+agent. Each phase ships independently (own PR,
 all 7 CI gates), so the wave can pause after any phase.

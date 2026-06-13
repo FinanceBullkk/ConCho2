@@ -21,13 +21,13 @@ not net-new capability.
   scheduling** (rooms, capacity, waitlists, trainers, durable cancellation) —
   closed 2026-06-12. Full-system audit (8/8 rounds) complete; Express 4→5 done;
   light dependency majors done.
-- **Now (in progress):** **Cohesion Wave** (`plans/260612-2058-cohesion-wave/`)
+- **Now:** **Cohesion Wave COMPLETE** (`plans/260612-2058-cohesion-wave/`, 6/6)
   — P1 Learner Program Home, P2 unified learner home, P3 assignment→one-click
-  enroll, **P5 in-app notification bell** all shipped 2026-06-13; English-class
-  separation (`/english`) shipped 2026-06-12. Migration phases 3/4/5 sit
-  ~72–78% (long tail = polish + this weave).
-- **Next:** Cohesion **P6 learner transcript** to close the wave; then a
-  bug/wiring review before any net-new capability.
+  enroll, P4 English-class separation, P5 in-app notification bell, **P6 learner
+  transcript** all shipped 2026-06-12/13. The learner surfaces now read as one
+  woven product. Migration phases 3/4/5 sit ~72–78%.
+- **Next:** A **bug/wiring/integration review** of the woven learner experience
+  before any net-new capability (per the no-feature-factory rule).
 - **Gated / owner-ops:** **D2 Google OIDC + Directory sync** (blocked on owner's
   Google OAuth app + Workspace domain); **paid always-on hosting** + Sentry
   cron-monitor dashboard; **Phase 6 PostgreSQL gate** (plan drafted,
@@ -101,6 +101,20 @@ Bug fixing and integration review rank above net-new feature rollout.
 > [`changelog-archive/2026-q2.md`](changelog-archive/2026-q2.md). Currently
 > inline: **2026-06-12 → 2026-06-13**.
 
+- **2026-06-13** — **Cohesion P6: learner transcript — Cohesion Wave COMPLETE
+  (6/6)** (plan `plans/260612-2058-cohesion-wave/` P6). New Participant route
+  **`/me/transcript`** (`MyTranscriptPage`): one print-friendly record of the
+  learner's training history — **programs & certificates** (enrollments joined
+  with the open-cohort catalog + the mine-scoped certificate list: number,
+  state, validity), an **attendance summary** (`/attendance/my-stats`:
+  rate/present/late/excused/absent), and **passed assessments** (own attempts
+  filtered to `passed`, titles joined from the assessment list). **ZERO new
+  backend** — pure client composition over existing self-scoped reads;
+  "export" = browser **Print / Save-as-PDF** (`window.print` + a scoped
+  `@media print` rule that drops the app chrome). Entries: a "View transcript"
+  link on `/me/programs` + a dashboard CTA. +3 component tests (compose / empty
+  / print). client 281/62, lint at cap 63, build clean. **Closes the Cohesion
+  Wave** (P1–P6); next is an integration/wiring review, not net-new.
 - **2026-06-13** — **Cohesion P5: in-app notification bell** (plan
   `plans/260612-2058-cohesion-wave/` P5). A **read-feed over the existing
   email `NotificationLog`** surfaces notifications in-app — no new write path,
