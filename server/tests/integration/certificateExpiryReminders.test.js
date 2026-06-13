@@ -156,3 +156,50 @@ describe('POST /api/cron/certificate-expiry-reminders', () => {
     expect(run).toMatchObject({ lastStatus: 'ok' });
   });
 });
+
+describe('manager digest of expiring certificates', () => {
+  beforeEach(async () => {
+    sendMail.mockResolvedValue({ messageId: 'x' });
+    await User.updateOne({ _id: seed.teacher._id }, { $set: { email: 'mgr@example.com' } });
+    await User.updateOne({ _id: seed.member1._id }, { $set: { managerId: seed.teacher._id } });
+  });
+
+  afterEach(async () => {
+    await User.updateMany(
+      { _id: { $in: [seed.member1._id, seed.teacher._id] } },
+      { $set: { managerId: null, email: null } },
+    );
+  });
+
+  test('a manager gets one weekly digest for a report whose certificate is expiring', async () => {
+    await makeCert({ validUntil: inDays(10) });
+
+    const summary = await sendCertificateExpiryReminders({ now: NOW });
+
+    expect(summary.managerDigests).toBe(1);
+    const log = await NotificationLog.findOne({ type: 'manager_certificate_expiry_digest' }).lean();
+    expect(log.recipientUserId.toString()).toBe(seed.teacher._id.toString());
+    expect(log.cadenceKey).toMatch(/^manager_cert_expiry_/);
+    expect(log.metadata.learnerCount).toBe(1);
+  });
+
+  test('the digest is weekly-idempotent (a second run the same week does not resend)', async () => {
+    await makeCert({ validUntil: inDays(10) });
+
+    await sendCertificateExpiryReminders({ now: NOW });
+    const second = await sendCertificateExpiryReminders({ now: NOW });
+
+    expect(second.managerDigests).toBe(0);
+    expect(await NotificationLog.countDocuments({ type: 'manager_certificate_expiry_digest' })).toBe(1);
+  });
+
+  test('a learner with no manager produces no digest', async () => {
+    await User.updateOne({ _id: seed.member1._id }, { $set: { managerId: null } });
+    await makeCert({ validUntil: inDays(10) });
+
+    const summary = await sendCertificateExpiryReminders({ now: NOW });
+
+    expect(summary.managerDigests).toBe(0);
+    expect(await NotificationLog.countDocuments({ type: 'manager_certificate_expiry_digest' })).toBe(0);
+  });
+});

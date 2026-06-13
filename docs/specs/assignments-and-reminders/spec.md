@@ -137,8 +137,9 @@ only; it does NOT change the email `status`, and email delivery is unchanged.
 A `dto` presenter maps each `type` to a title/body/link
 (assignment due-soon/overdue → `/home`, manager digest → `/my-team`,
 waitlist-promoted → `/me/sessions`, certificate-issued → `/me/transcript`,
-certificate-expiring → `/me/transcript`, cohort-enrolled → `/me/programs`,
-booking-confirmed → `/me/sessions`, session-enrolled → `/me/sessions`).
+certificate-expiring → `/me/transcript`, manager-certificate-expiry-digest →
+`/my-team`, cohort-enrolled → `/me/programs`, booking-confirmed → `/me/sessions`,
+session-enrolled → `/me/sessions`).
 Most rows are `channel:'email'` (the email IS the notification); a
 `channel:'in_app'` row is an in-app-only event with no email, written through
 the shared fail-soft + idempotent writer `domains/notification/in-app-writer.js`
