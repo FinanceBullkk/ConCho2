@@ -1,6 +1,8 @@
 # Phase 0 — Foundations (event bus + finish authz)
 
-**Priority:** High · **Status:** 🔴 not started · **Behaviour change:** none (parity)
+**Priority:** High · **Status:** 🟡 in progress — **Part A event-bus + enrollment
+reference slice SHIPPED** (2026-06-14); Part B (finish authz) pending · **Behaviour
+change:** none (parity)
 **Why first:** safe, high-leverage, independent of the convergence direction; sets the
 decoupling backbone every later phase rides on.
 
