@@ -197,3 +197,81 @@ describe('Learning Platform API — cohort enrollments', () => {
     expect(flaggedAsOrphan).toBe(false);
   });
 });
+
+describe('Learning Platform API — bulk cohort enrollment', () => {
+  const bulk = (token, body) =>
+    request(app)
+      .post('/api/learning/enrollments/bulk')
+      .set('Authorization', `Bearer ${token}`)
+      .set(csrf)
+      .send(body);
+
+  test('admin bulk-enrolls many learners → 201, all Active, each gets a bell row', async () => {
+    const res = await bulk(tokens.admin, {
+      cohortId: seed.class1._id.toString(),
+      userIds: [seed.member1._id.toString(), seed.member2._id.toString()],
+    });
+    expect(res.status).toBe(201);
+    expect(res.body.data.enrolledCount).toBe(2);
+    expect(res.body.data.skipped).toEqual([]);
+
+    const active = await Enrollment.countDocuments({
+      classId: seed.class1._id, teamId: null, status: 'Active',
+    });
+    expect(active).toBe(2);
+
+    const bellRows = await NotificationLog.countDocuments({ type: 'cohort_enrolled' });
+    expect(bellRows).toBe(2);
+  });
+
+  test('already-enrolled learners are skipped, not failed', async () => {
+    await enroll(tokens.admin, {
+      cohortId: seed.class1._id.toString(), userId: seed.member1._id.toString(),
+    });
+    const res = await bulk(tokens.admin, {
+      cohortId: seed.class1._id.toString(),
+      userIds: [seed.member1._id.toString(), seed.member2._id.toString()],
+    });
+    expect(res.status).toBe(201);
+    expect(res.body.data.enrolledCount).toBe(1);
+    expect(res.body.data.skipped).toEqual([
+      { userId: seed.member1._id.toString(), reason: 'already_enrolled' },
+    ]);
+  });
+
+  test('bulk respects program maxParticipants → overflow learners skipped (cohort_full)', async () => {
+    const program = await LearningProgram.create({
+      code: 'BCAP', name: 'Bulk Capped Program', schedulingMode: 'self_enroll',
+      capacityPolicy: { maxParticipants: 1 },
+    });
+    await Class.findByIdAndUpdate(seed.class1._id, { programId: program._id });
+
+    const res = await bulk(tokens.admin, {
+      cohortId: seed.class1._id.toString(),
+      userIds: [seed.member1._id.toString(), seed.member2._id.toString()],
+    });
+    expect(res.status).toBe(201);
+    expect(res.body.data.enrolledCount).toBe(1);
+    expect(res.body.data.skipped.map((s) => s.reason)).toEqual(['cohort_full']);
+
+    const active = await Enrollment.countDocuments({
+      classId: seed.class1._id, teamId: null, status: 'Active',
+    });
+    expect(active).toBe(1);
+  });
+
+  test('a non-admin cannot bulk-enroll (enrollment.manage only → 403)', async () => {
+    const res = await bulk(tokens.leader, {
+      cohortId: seed.class1._id.toString(),
+      userIds: [seed.member2._id.toString()],
+    });
+    expect(res.status).toBe(403);
+  });
+
+  test('empty userIds is rejected by validation (400)', async () => {
+    const res = await bulk(tokens.admin, {
+      cohortId: seed.class1._id.toString(), userIds: [],
+    });
+    expect(res.status).toBe(400);
+  });
+});

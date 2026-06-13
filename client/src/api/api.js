@@ -280,6 +280,7 @@ export const learningAPI = {
   // Cohort-based (L&D) enrollments — distinct from legacy team-based enrollmentsAPI.
   getEnrollments: (params) => api.get('/learning/enrollments', { params }),
   createEnrollment: (data) => api.post('/learning/enrollments', data),
+  bulkEnroll: (data) => api.post('/learning/enrollments/bulk', data),
   withdrawEnrollment: (id) => api.delete(`/learning/enrollments/${id}`),
   getFeedback: (params) => api.get('/learning/feedback', { params }),
   submitFeedback: (data) => api.post('/learning/feedback', data),
