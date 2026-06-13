@@ -192,12 +192,15 @@ Inherits `security-platform`. Specifics:
 - Cohort trash UI is restore-only (no permanent purge from the UI) — purge is a
   DB/ops task if ever needed.
 - Program versioning / module-level curriculum.
-- `facilitatorPolicy.assignmentRequired` now **enforced** (phase-3 deferral
-  closed): a program that requires a facilitator cannot have its sessions run
-  (attendance marked) until a trainer is assigned — see `attendance`
-  (`domains/schedule/facilitator-assignment-policy.js`). Still persisted-but-not
-  enforced: `facilitatorPolicy.visibility` (`assigned_only` teacher scoping) and
-  `deliveryMode`. (`schedulingMode` shipped — see `scheduling-and-booking`;
-  `capacityPolicy` **enforced (Wave E2)**: `maxParticipantsPerSession`
-  per-session in `scheduling-and-booking`, `maxParticipants` per-cohort in
-  `enrollment`.)
+- `facilitatorPolicy` now **fully enforced** (phase-3 policy debt closed):
+  **`assignmentRequired`** blocks attendance marking until a trainer is assigned
+  (`domains/schedule/facilitator-assignment-policy.js` — see `attendance`);
+  **`visibility: assigned_only`** scopes a Teacher to only the sessions they are
+  named on (`domains/schedule/facilitator-visibility-policy.js`, gated in the
+  session list/detail and attendance mark/read — see `scheduling-and-booking`
+  and `attendance`). **`deliveryMode` is metadata-only by design** (online/
+  offline/hybrid is display + reporting context; it carries no behavioural
+  contract, so there is nothing to "enforce"). (`schedulingMode` shipped — see
+  `scheduling-and-booking`; `capacityPolicy` **enforced (Wave E2)**:
+  `maxParticipantsPerSession` per-session in `scheduling-and-booking`,
+  `maxParticipants` per-cohort in `enrollment`.)

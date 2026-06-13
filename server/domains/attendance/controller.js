@@ -2,6 +2,7 @@ const attendanceService = require('./use-cases');
 const auditService = require('../../services/auditService');
 const attendancePolicy = require('../../policy/attendance');
 const sessionInstructorsPolicy = require('../../policy/sessionInstructors');
+const { isCohortAssignedOnly } = require('../schedule/facilitator-visibility-policy');
 const Schedule = require('../../models/Schedule');
 const Class = require('../../models/Class');
 const { handleError } = require('../../helpers/handleError');
@@ -24,7 +25,10 @@ const loadClassForSchedule = async (scheduleId) => {
   if (!sch) return null;
   const cls = await Class.findById(sch.classId).lean();
   if (!cls) return null;
-  return { cls, schedule: sch };
+  // facilitatorPolicy.visibility === 'assigned_only' → only named instructors
+  // (not the standing cohort-teacher binding) may mark/read this session.
+  const assignedOnly = await isCohortAssignedOnly(sch.classId);
+  return { cls, schedule: sch, assignedOnly };
 };
 
 const policyDeny = (res, decision) =>
@@ -52,7 +56,9 @@ const bulkMarkAttendance = async (req, res) => {
     // trainer on this session is also allowed (UNION) — cohort teacher kept.
     const loaded = await loadClassForSchedule(req.params.scheduleId);
     if (!loaded) return res.status(404).json({ success: false, message: 'Schedule or class not found' });
-    const decision = sessionInstructorsPolicy.canMarkSession(req.user, loaded.cls, loaded.schedule);
+    const decision = sessionInstructorsPolicy.canMarkSession(
+      req.user, loaded.cls, loaded.schedule, { assignedOnly: loaded.assignedOnly },
+    );
     if (!decision.allowed) return policyDeny(res, decision);
 
     const result = await attendanceService.bulkMark(req.params.scheduleId, req.body.records);
@@ -82,7 +88,9 @@ const getAttendanceBySchedule = async (req, res) => {
     // session instructor (Phase 3, DELTA B).
     const loaded = await loadClassForSchedule(req.params.scheduleId);
     if (!loaded) return res.status(404).json({ success: false, message: 'Schedule or class not found' });
-    const decision = sessionInstructorsPolicy.canReadSession(req.user, loaded.cls, loaded.schedule);
+    const decision = sessionInstructorsPolicy.canReadSession(
+      req.user, loaded.cls, loaded.schedule, { assignedOnly: loaded.assignedOnly },
+    );
     if (!decision.allowed) return policyDeny(res, decision);
 
     const records = await attendanceService.getBySchedule(req.params.scheduleId);

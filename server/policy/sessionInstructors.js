@@ -32,8 +32,19 @@ const isSessionInstructor = (actor, schedule) => {
 };
 
 // UNION: the cohort decision OR a named-instructor grant for THIS session.
-const canMarkSession = (actor, classDoc, schedule) => {
+//
+// `opts.assignedOnly` (LearningProgram.facilitatorPolicy.visibility ===
+// 'assigned_only'): the named-instructor grant becomes the ONLY teacher path —
+// the standing cohort-teacher binding no longer grants access. Admins still pass
+// via `canMark`. Default false → the original UNION (no behaviour change).
+const canMarkSession = (actor, classDoc, schedule, { assignedOnly = false } = {}) => {
   const base = canMark(actor, classDoc);
+  if (assignedOnly && actor?.role === 'Teacher') {
+    if (isSessionInstructor(actor, schedule)) {
+      return { allowed: true, reason: 'session-instructor' };
+    }
+    return { allowed: false, reason: 'not-assigned-instructor' };
+  }
   if (base.allowed) return base;
   if (isSessionInstructor(actor, schedule)) {
     return { allowed: true, reason: 'session-instructor' };
