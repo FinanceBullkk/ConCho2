@@ -10,6 +10,15 @@ Admins do **NOT** pre-create schedules for groups to book into. The inverse:
 - Leaders can see other teams' taken slots (so they pick free ones); they can't book taken slots. Admin can edit/delete any schedule.
 
 ## Vocabulary migration (legacy → target)
+
+> **Direction update (2026-06-14):** owner approved **full convergence to one training
+> model** — ADR `docs/decisions/converge-to-one-training-model.md`, plan
+> `plans/260614-0004-converge-to-one-model/`. The "DROPPED / DEFERRED / BOTH KEPT"
+> notes below (Evaluation↔Assessment, team↔cohort Enrollment, English-class
+> separation) are now **convergence targets**, phased — not permanent. Guardrails
+> unchanged (no physical renames; converge via DTO/abstraction; Mongo→Postgres at the
+> Phase-6 gate). `leader_booking` becomes one scheduling mode, not the centre.
+
 | Legacy model | Target concept | Status |
 |---|---|---|
 | `Class` | **Cohort** (one delivery of a program) | exposed via `/api/learning/cohorts` (DTO over `Class`) |
