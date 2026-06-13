@@ -1,7 +1,8 @@
 const router = require('express').Router();
 const { getSettings, updateSettings } = require('../controllers/settingController');
 const { protect } = require('../middleware/auth');
-const { roleGuard } = require('../middleware/roleGuard');
+const { requireCapability } = require('../middleware/requireCapability');
+const { CAPABILITIES } = require('../policy/capabilities');
 
 /**
  * @openapi
@@ -36,7 +37,7 @@ const { roleGuard } = require('../middleware/roleGuard');
  *         description: Admin only
  */
 router.route('/')
-  .get(protect, roleGuard('Admin'), getSettings)
-  .put(protect, roleGuard('Admin'), updateSettings);
+  .get(protect, requireCapability(CAPABILITIES.SETTINGS_MANAGE), getSettings)
+  .put(protect, requireCapability(CAPABILITIES.SETTINGS_MANAGE), updateSettings);
 
 module.exports = router;
