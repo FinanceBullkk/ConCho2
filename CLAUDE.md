@@ -40,6 +40,7 @@ clone.
 
 ## Key references
 - Agent contract: `AGENTS.md`
+- Docs index (start here by role): `docs/README.md`
 - Strategy and 6-month direction: `docs/lms-roadmap.md`
 - Living tracker and next tasks: `docs/development-roadmap.md`
 - System overview: `docs/system-overview.md`

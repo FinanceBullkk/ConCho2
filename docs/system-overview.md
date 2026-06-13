@@ -218,7 +218,8 @@ Every milestone must be wired before the next feature starts:
 | [`development-roadmap.md`](development-roadmap.md) | Living tracker and next work |
 | [`current-system-map.md`](current-system-map.md) | Exhaustive code-truth map (routes, models, services) |
 | [`route-permission-matrix.md`](route-permission-matrix.md) | Per-route read/write access |
-| [`handoff-2026-06-01.md`](handoff-2026-06-01.md) | Dated snapshot (2026-06-09) — live tracker is `development-roadmap.md` |
+| [`README.md`](README.md) | Docs index — start-here-by-role + living-docs table |
+| [`archive/handoff-2026-06-01.md`](archive/handoff-2026-06-01.md) | Archived dated snapshot (2026-06-09) — live tracker is `development-roadmap.md` |
 | [`lms-roadmap.md`](lms-roadmap.md) | Internal LTMS strategy and 6-month direction |
 | [`ltms-gap-analysis.md`](ltms-gap-analysis.md) | LTMS gap analysis + proposed priority re-sequence (decision doc) |
 | [`decisions/`](decisions/) | Locked architecture decisions (ADRs) |

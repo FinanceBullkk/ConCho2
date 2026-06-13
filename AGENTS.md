@@ -42,6 +42,7 @@ Every milestone must satisfy this before moving to the next:
 
 ## Key References
 
+- Docs index (start here by role): `docs/README.md`
 - Strategy and 6-month direction: `docs/lms-roadmap.md`
 - Living tracker and next work: `docs/development-roadmap.md`
 - Current architecture and status: `docs/system-overview.md`

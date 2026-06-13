@@ -5,7 +5,7 @@
 > through history; the existing update-mechanism (Definition of Done) gets a
 > PR-level backstop. **Zero new doc categories** — this plan slims, indexes
 > and hardens what already exists. No code behavior changes.
-> Status: `planned` · Owner: anhha · Created: 2026-06-13
+> Status: `archived` (P1–P3 done 2026-06-13) · Owner: anhha · Created: 2026-06-13
 
 ## Context — what already exists (do NOT reinvent)
 
@@ -14,9 +14,9 @@
 | Update mechanism | `.claude/rules/implementation-workflow.md` DoD: tracker + spec + map updates are mandatory, automatic | ✅ working (procedural) |
 | Behavior truth | `docs/specs/` — 29 capability specs + registry | ✅ healthy |
 | Code map | `docs/current-system-map.md`, `docs/route-permission-matrix.md` | ✅ fresh |
-| Progress | `docs/development-roadmap.md` | ⚠️ **1,776 lines** (cap 800) — history buries status |
-| Entry point | none — `docs/` has 20+ files, no index, live docs mixed with finished one-offs | ❌ missing |
-| PR backstop | none — DoD relies on discipline only | ❌ missing |
+| Progress | `docs/development-roadmap.md` | ✅ **351 lines** (P1) — status board first, history in `changelog-archive/` |
+| Entry point | `docs/README.md` — role-based index + living-docs table | ✅ added (P2) |
+| PR backstop | `.github/PULL_REQUEST_TEMPLATE.md` — DoD checklist | ✅ added (P3) |
 
 ## Owner decisions (locked 2026-06-13)
 1. Tracker slimmed via changelog archive (keep ~2 recent weeks inline).
@@ -27,8 +27,8 @@
 | # | Phase | File | Est. | Status |
 |---|-------|------|------|--------|
 | 1 | Slim the tracker + changelog archive | `phase-01-slim-tracker-changelog-archive.md` | 0.5 d | 🟢 done 2026-06-13 (1,827→351 lines; `changelog-archive/2026-q2.md`; rolling policy in impl-workflow rule) |
-| 2 | docs/README index + archive one-off docs | `phase-02-docs-index-and-archive.md` | 0.5 d | 🔴 |
-| 3 | PR template DoD checklist + rule sync | `phase-03-pr-template-dod-backstop.md` | 0.25 d | 🔴 |
+| 2 | docs/README index + archive one-off docs | `phase-02-docs-index-and-archive.md` | 0.5 d | 🟢 done 2026-06-13 (`docs/README.md`; 6 one-offs → `docs/archive/`; handoff retired from DoD; links fixed) |
+| 3 | PR template DoD checklist + rule sync | `phase-03-pr-template-dod-backstop.md` | 0.25 d | 🟢 done 2026-06-13 (`.github/PULL_REQUEST_TEMPLATE.md` mirrors DoD) |
 
 Each phase ships independently (own commit; P1+P2 can share a PR).
 
@@ -49,6 +49,7 @@ Each phase ships independently (own commit; P1+P2 can share a PR).
 ## Unresolved questions
 1. ~~Changelog archive granularity~~ — RESOLVED (P1, 2026-06-13): per-quarter.
    All current entries are 2026-Q2 → one `changelog-archive/2026-q2.md`.
-2. Retire the "sync handoff-2026-06-01" DoD step entirely (it's a dated
-   snapshot)? Recommendation: yes — tracker + spec + map are the live truth.
-   (Still open — P1 kept the handoff-sync step; revisit in P2/P3.)
+2. ~~Retire the "sync handoff-2026-06-01" DoD step~~ — RESOLVED (P2, 2026-06-13):
+   yes. handoff moved to `docs/archive/`; sync-handoff removed from DoD step 5,
+   the rules' map list, and the DoD checklist. Tracker + spec + map are the live
+   truth.

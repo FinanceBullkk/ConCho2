@@ -1,7 +1,12 @@
 # Phase 03 — PR template DoD checklist + rule sync
 
 ## Overview
-Priority: medium · Status: 🔴 not started
+Priority: medium · Status: 🟢 done 2026-06-13
+
+> **Done 2026-06-13.** Added `.github/PULL_REQUEST_TEMPLATE.md` (5-item DoD
+> checklist mirroring `implementation-workflow.md` + QA-012 merge-discipline
+> reminder, ≤ ~20 lines). Added a sync note in the rule's DoD section (single
+> source of truth = the rule). Template referenced from `docs/README.md`.
 The update mechanism (Definition of Done) is procedural — it lives in agent
 rules and works when the agent/dev follows them. Add the one cheap backstop
 that surfaces it on EVERY pull request, human or AI authored.
