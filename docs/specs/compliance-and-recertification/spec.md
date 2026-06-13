@@ -91,7 +91,11 @@ idempotent via a `NotificationLog` `cadenceKey` of `<certificateNumber>:<bucket>
 `certificate_expiring` `NotificationLog` row (channel `email`) doubles as the
 in-app bell item (see `assignments-and-reminders`) — a learner with no email
 still sees a `skipped` row in the bell. The reminder links to `/me/transcript`.
-Recertification is signal-only (no auto-assignment yet).
+The same job also sends each **manager a weekly digest**
+(`manager_certificate_expiry_digest`, idempotent per manager per ISO-week via
+`cadenceKey` `manager_cert_expiry_<isoWeek>`, link `/my-team`) of their direct
+reports' expiring certificates. Recertification is signal-only (no
+auto-assignment yet).
 
 #### Scenario: Certificate within 7 days of expiry
 - **GIVEN** an Issued certificate with `validUntil` 5 days out and a learner email
@@ -131,6 +135,4 @@ Inherits `security-platform`. Specifics:
 
 - Auto-creating recertification assignments (the reminder is signal-only; an
   Admin still assigns the recert program manually).
-- Manager digest of expiring certificates (learner reminders shipped; fold into
-  the existing manager digest later).
 - Org-wide compliance dashboards beyond the report shape.
