@@ -9,6 +9,8 @@ related_code:
   - server/models/Attendance.js
   - server/helpers/teacher-class-scope.js
   - server/domains/schedule/facilitator-assignment-policy.js
+  - server/domains/schedule/facilitator-visibility-policy.js
+  - server/policy/sessionInstructors.js
 related_plans: []
 ---
 
@@ -124,6 +126,12 @@ The cohort/class teacher is never revoked. The UNION is **single-session grain
 and internal-only** — analytics rollups (`by-team`/`by-employee`/`by-class`) keep
 the class-binding scope (NOT widened), and an external trainer has no actor so it
 can never be granted any attendance access.
+
+**Exception — `facilitatorPolicy.visibility: assigned_only`** (`domains/schedule/
+facilitator-visibility-policy.js`): for a program flagged assigned_only the
+cohort-teacher binding does NOT grant access — a Teacher may mark/read a session
+ONLY when named on its `sessionInstructorIds`. Admin is unaffected; the default
+`all_facilitators` keeps the UNION above.
 
 #### Scenario: Named internal trainer marks a guest session
 - **GIVEN** a Teacher not bound to a class but named on a session's instructors

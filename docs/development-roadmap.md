@@ -54,7 +54,7 @@ not net-new capability.
 | 0 | Architecture baseline + safety net | ~93% | 🟢 near done |
 | 1 | Backend modular-monolith refactor | ~98% | 🟢 near done (2026-06-10: domains/attendance+groups+schedule routes extracted; repository ADR; schedule use-case tests; frontend `features/` migration complete) |
 | 2 | Learning catalog + generic cohort model | ~95% | 🟢 near done |
-| 3 | Multi-program enrollment + session scheduling | ~82% | 🟡 in progress |
+| 3 | Multi-program enrollment + session scheduling | ~85% | 🟡 in progress |
 | 4 | Frontend L&D workspace (CRUD UI) | ~82% | 🟡 in progress |
 | 5 | Reporting, completion, feedback | ~75% | 🟡 in progress |
 | 6 | PostgreSQL decision gate | 0% | ⚪ gated |
@@ -113,6 +113,25 @@ Bug fixing and integration review rank above net-new feature rollout.
 > [`changelog-archive/2026-q2.md`](changelog-archive/2026-q2.md). Currently
 > inline: **2026-06-12 → 2026-06-13**.
 
+- **2026-06-13** — **`facilitatorPolicy.visibility` enforced — phase-3 policy
+  debt fully closed (phase 3 → ~85%).** For a program flagged
+  **`visibility: assigned_only`**, a Teacher now reaches its sessions — list,
+  detail, AND attendance mark/read — ONLY when named on that session's
+  `sessionInstructorIds`; the standing cohort-teacher binding no longer grants
+  access (Admin unaffected). New `domains/schedule/facilitator-visibility-
+  policy.js` (`isCohortAssignedOnly` / `assignedOnlyCohortIdSet`) centralises the
+  program-policy lookup; `policy/sessionInstructors.canMarkSession` gained an
+  `assignedOnly` option (default false → the existing cohort-binding UNION is
+  unchanged, so program-less / `all_facilitators` programs behave exactly as
+  before — zero regression). Wired at all three teacher-visibility points
+  (session `buildFilter`, `getSession`, attendance controller authz). The policy
+  is settable via the program form (#82). **`deliveryMode` reclassified as
+  metadata-only by design** (no behavioural contract → nothing to enforce), so
+  NO program-policy field remains as unintended debt. Tests: +3 unit
+  (`sessionInstructorsPolicy` assigned_only branch) + 5 integration
+  (`facilitatorVisibility`: list hides unnamed, detail/attendance 403 vs named,
+  admin unaffected, default unchanged) — server 953/96. Specs `learning-catalog`
+  + `attendance` + domain-model rule updated.
 - **2026-06-13** — **Certificate expiry reminders — recertification signal
   (phase 5 → ~75%; closes the D6 "remaining later" item).** A daily
   `CRON_TOKEN`-protected, `CronRun`-monitored job
@@ -346,43 +365,8 @@ Bug fixing and integration review rank above net-new feature rollout.
   UI/composition only — no server change, `/book` redirect kept (e2e
   unaffected), Team vocabulary unchanged (ADR). +4 component tests
   (`CalendarPage.test.jsx`). Spec `scheduling-and-booking` UC-1 UI note.
-- **2026-06-12** — **Express 4 → 5 migration** (`chore/express-5`). Three
-  code-level deltas, every security layer preserved: (1) **NoSQL sanitize** —
-  the stock express-mongo-sanitize middleware throws on express 5 (`req.query`
-  is getter-only); new `middleware/mongo-sanitize-in-place.js` reuses the
-  lib's `sanitize()` (strips the same $/dot keys in place) and PINS the
-  sanitized query object via `defineProperty` so the per-access re-parsing
-  getter can't resurrect stripped keys. (2) **SPA fallback** — production
-  `app.get('*')` → `'/{*splat}'` (path-to-regexp 8; bare `*` would crash prod
-  boot at mount — a branch CI never executes, so a dedicated pattern test
-  guards it). (3) **`req.body` default shim** — express 5 leaves body
-  `undefined` when no parser matched; dozens of handlers destructure
-  optionally-bodied requests (DELETE-with-reason, logout), restored the
-  express-4 `{}` app-wide (caught live by the certificate-revoke test: revoke
-  500'd → cert stayed verify-valid). `validate` middleware was already
-  getter-safe. +8 compat tests (`expressFiveCompat.test.js`). **Ride-along
-  flake root-caused:** dotenv 17 prints a rotating tip per `config()` — one
-  says "secrets for agents", randomly tripping verify-backup's
-  `not.toContain('secret')` spawn assertion → script's dotenv calls quieted +
-  complete-line guard in the spawn harness. Docs: tech-stack, system-overview
-  stack line, security-platform spec (sanitize NFR).
-- **2026-06-12** — **Dependency majors round 1 (light) + CODE-017**
-  (`chore/deps-light-majors`). **bcryptjs 2→3** and **dotenv 16→17** (config
-  tip-log quieted in server.js so pino stays the only stdout); **`uuid`
-  dependency DROPPED** — its single consumer (`middleware/requestId.js`) now
-  uses Node's built-in `crypto.randomUUID()` (uuid ≥13 is ESM-only, the
-  server is CommonJS; removing beats major-bumping). **CODE-017 closed:** all
-  17 per-handler lazy requires in `controllers/auth/*` hoisted to module top
-  — the require cycle they dodged died with the legacy authController split
-  (verified: no service/middleware requires back into controllers). Server
-  897/897 (one passwordReset-timing flake on first run — known QA-010 class —
-  clean on rerun); `npm ci --dry-run` lockfile-sync OK. **Deferred:
-  eslint 10** — `eslint-plugin-jsx-a11y` peer-supports only eslint ≤9; bump
-  when the plugin updates (no `--legacy-peer-deps` workarounds). Remaining
-  majors: express 5 (next, pre-scouted), mongoose 9 (per owner: after the
-  PostgreSQL gate decision), googleapis (needs live calendar retest).
 **Older entries (2026-06-12 and earlier)** →
-[`changelog-archive/2026-q2.md`](changelog-archive/2026-q2.md) (94 entries,
+[`changelog-archive/2026-q2.md`](changelog-archive/2026-q2.md) (96 entries,
 2026-06-01 → 2026-06-12).
 
 ---
