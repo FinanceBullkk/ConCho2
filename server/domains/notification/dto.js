@@ -50,6 +50,23 @@ const PRESENTERS = {
       return `You earned a certificate for ${name}${m.certificateNumber ? ` (${m.certificateNumber})` : ''}`;
     },
   },
+  cohort_enrolled: {
+    title: 'Enrolled in a program',
+    link: '/me/programs',
+    body: (m) => {
+      const name = m.programName || 'a program';
+      return `You've been enrolled in ${name}${m.cohortCode ? ` (${m.cohortCode})` : ''}`;
+    },
+  },
+  booking_confirmed: {
+    title: 'Booking confirmed',
+    link: '/me/sessions',
+    body: (m) => {
+      const name = m.className || 'your session';
+      const when = m.sessionDate ? ` for ${fmtDate(m.sessionDate)}` : '';
+      return `${name} is confirmed${when}`;
+    },
+  },
 };
 
 const FALLBACK = { title: 'Notification', link: '/home', body: () => '' };

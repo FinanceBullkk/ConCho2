@@ -1,6 +1,6 @@
 const crypto = require('crypto');
 const repository = require('./repository');
-const NotificationLog = require('../../../models/NotificationLog');
+const { recordInApp } = require('../../notification/in-app-writer');
 const { ServiceError } = require('../../../helpers/ServiceError');
 const { getNextSequence } = require('../../../helpers/counter');
 
@@ -147,25 +147,19 @@ const issueCertificate = async ({ cohortId, userId }, actor) => {
   }
 
   // Cohesion P5 follow-up: surface the issued certificate in the learner's
-  // notification bell. In-app only (no email today); fail-soft so a logging
-  // hiccup never blocks issuance; idempotent via the unique certificateNumber.
-  try {
-    await NotificationLog.create({
-      type: 'certificate_issued',
-      channel: 'in_app',
-      recipientUserId: userId,
-      learnerId: userId,
-      cadenceKey: certificateNumber,
-      status: 'sent',
-      sentAt: new Date(),
-      metadata: {
-        certificateNumber,
-        programName: completion.programName,
-        cohortCode: completion.cohortCode,
-        cohortId: String(cohortId),
-      },
-    });
-  } catch (_e) { /* best-effort: the bell is a convenience surface */ }
+  // notification bell. In-app only (no email today); fail-soft + idempotent via
+  // the unique certificateNumber (see in-app-writer).
+  await recordInApp({
+    type: 'certificate_issued',
+    recipientUserId: userId,
+    cadenceKey: certificateNumber,
+    metadata: {
+      certificateNumber,
+      programName: completion.programName,
+      cohortCode: completion.cohortCode,
+      cohortId: String(cohortId),
+    },
+  });
 
   return certificate;
 };

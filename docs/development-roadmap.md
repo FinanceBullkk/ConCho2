@@ -28,9 +28,12 @@ not net-new capability.
   woven product. Migration phases 3/4/5 sit ~72–78%.
 - **Now (post-wave review done):** integration review of the woven learner
   experience found no broken links / authz leaks; closed the top finding —
-  the notification bell now also surfaces **`certificate_issued`** (in-app).
-- **Next:** owner's call — broaden notification coverage (enrolled / booking
-  emails aren't logged → not in the bell yet; deferred), or a new capability.
+  the notification bell now also surfaces **`certificate_issued`**,
+  **`cohort_enrolled`** (Admin direct-enroll) and **`booking_confirmed`**
+  (leader slot booking), all in-app via a shared fail-soft writer.
+- **Next:** owner's call — a new capability, or push migration phases 3/4/5
+  (~72–78%) to done. Remaining bell deferral: notify auto-enrolled team
+  members on booking + cohort-session direct enrollment.
 - **Gated / owner-ops:** **D2 Google OIDC + Directory sync** (blocked on owner's
   Google OAuth app + Workspace domain); **paid always-on hosting** + Sentry
   cron-monitor dashboard; **Phase 6 PostgreSQL gate** (plan drafted,
@@ -104,6 +107,24 @@ Bug fixing and integration review rank above net-new feature rollout.
 > [`changelog-archive/2026-q2.md`](changelog-archive/2026-q2.md). Currently
 > inline: **2026-06-12 → 2026-06-13**.
 
+- **2026-06-13** — **Notification bell coverage broadened: `cohort_enrolled` +
+  `booking_confirmed`** (closes the post-Cohesion backlog deferral). Two more
+  in-app-only events now reach the bell, both written through a new shared
+  fail-soft + idempotent writer **`domains/notification/in-app-writer.js`**
+  (`recordInApp` — the existing `certificate_issued` write was refactored onto
+  it, DRY): **`cohort_enrolled`** fires when an Admin direct-enrolls a learner
+  into a cohort (NOT on self-enroll — the UI already confirms that), keyed by
+  the enrollment id, recipient = the learner, link `/me/programs`;
+  **`booking_confirmed`** fires when a leader books a team slot (mirrors the
+  existing booking-confirm email), keyed by `<scheduleId>:<userId>`, recipient =
+  the booker, link `/me/sessions`. Each is `channel:'in_app'` (no email) and
+  best-effort — a logging hiccup never blocks the enrollment/booking. ZERO
+  client change (server `dto` maps the new types). Tests: +2 enrollment
+  integration (admin-enroll writes / self-enroll does not) + 1 booking
+  integration — server 929/94, client lint 63, build clean. Spec
+  `assignments-and-reminders` (In-app feed requirement) updated; remaining bell
+  deferral: notify auto-enrolled team members + cohort-session direct
+  enrollment.
 - **2026-06-13** — **Post-Cohesion review + notification coverage follow-up.**
   An integration review of the woven learner experience (`/me/*` + bell +
   transcript) verified no broken links and correct self-scoping/authz. Closed
@@ -336,53 +357,10 @@ Bug fixing and integration review rank above net-new feature rollout.
   table updated — remaining open items are owner-ops or deliberate deferrals
   (QA-018b e2e chain, CODE-017, DEPS majors, DOCS-006b, QA-017/019/020/022,
   OPS-010/011/012, DATA-016).
-- **2026-06-12** — **Audit Phase 8 (Docs & spec truth) round complete — FULL
-  SYSTEM AUDIT FINISHED (8/8 rounds).** Deep doc-truth pass over 28 capability
-  specs (3+ requirements sampled each), `.claude/rules/*`, runbooks, README,
-  route matrix, system map. 12 findings (5 P2, 7 P3), ALL fixed in-round per
-  owner triage. Highlights: **DOCS-001** users-and-roles spec described a
-  nonexistent auto-generated-empCode flow (truth: admin-entered required
-  empCode + email) — rewritten; **DOCS-003** prod session TTL was silently 7d
-  vs documented 24h → **code fixed** (`JWT_EXPIRE` default `'1d'` +
-  render.yaml + 3 regression tests); **DOCS-004** agent rules corrected (4
-  roles incl. Coordinator, capability layer live, capacityPolicy +
-  completionPolicy ARE enforced, configurable `ALLOWED_TIME_SLOTS`, 7 domains,
-  schedule owns its routes); **DOCS-005** cron-pinger runbook never armed the
-  attendance/assignment reminder pings (no internal fallback — reminders dead
-  in prod if followed) → 2 ping definitions added. Two reusable audit scripts
-  committed: `audit-route-permission-diff.js` (live route introspection vs
-  matrix — caught `/api/ready`) and `audit-env-doc-diff.js` (44 runtime env
-  reads vs README §6.4 — caught boot-required `IMPORT_DEFAULT_PASSWORD`
-  undocumented). Swagger glob extended to `domains/**` + coverage claims
-  demoted (annotation backlog DOCS-006b). DATA-017? closed-obsolete (User
-  aggregate hook exists). Report: `plans/reports/audit-docs-260612-0939-findings.md`.
-- **2026-06-12** — **Audit Phase 7 (Code architecture & debt) round complete —
-  migration debt verified small; 2 cheap fixes shipped.** Read-and-measure pass
-  confirmed the modular-monolith migration has landed: every major legacy
-  controller/service is a 10–35-line facade, `pages/` holds exactly the 4
-  sanctioned shells, deep-import count 0, **zero unused server deps**, no
-  legacy file silently growing. Shipped per owner triage: **CODE-014** — the
-  "googleapis lockfile drift" workaround is obsolete (`npm ci --dry-run`
-  passes), so CI server installs (×2 jobs) AND the root Render build scripts
-  now use **`npm ci`** (reproducible installs; the PR's own CI proves the
-  lockfile before main deploys), plus Node alignment (engines `>=20`, all CI
-  jobs Node 22); **CODE-015** — 10 dead client deps removed (8 stray
-  `@radix-ui/react-*` superseded by the `radix-ui` umbrella, `react-hot-toast`
-  → sonner-only, `i18next-browser-languagedetector` from the English-only
-  migration) — client 247/247, build + lint 63/63 green after. **Decisions
-  locked into rules docs:** vocabulary table CLOSED (Team→LearningGroup rename
-  DROPPED as permanent exception; Evaluation→Assessment DEFERRED
-  converge-when-touched; dual enrollment KEPT — two real modes);
-  `scheduleService` re-sanctioned ~585 + `domains/schedule/use-cases.js` ~400
-  with a hard extract-on-growth rule (CODE-016). CODE-017 (stale lazy
-  requires) + dependency majors (express 5, mongoose 9, eslint 10) → backlog
-  as own post-audit tasks. Report:
-  `plans/reports/audit-code-260612-0859-findings.md`. Phase 8 (Docs & spec
-  truth) is the last audit round.
 
-**Older entries (2026-06-11 and earlier)** →
-[`changelog-archive/2026-q2.md`](changelog-archive/2026-q2.md) (88 entries,
-2026-06-01 → 2026-06-11).
+**Older entries (2026-06-12 and earlier)** →
+[`changelog-archive/2026-q2.md`](changelog-archive/2026-q2.md) (90 entries,
+2026-06-01 → 2026-06-12).
 
 ---
 

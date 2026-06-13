@@ -10,9 +10,11 @@ const notificationLogSchema = new mongoose.Schema(
         // Wave E3 phase-04 slice B — a freed seat auto-enrolled a waiter.
         // cadenceKey is `<scheduleId>:<userId>` (one notice per promotion).
         'waitlist_promoted',
-        // Cohesion P5 follow-up — in-app-only event (no email). cadenceKey is
-        // the certificateNumber (one notice per issued certificate).
-        'certificate_issued'],
+        // Cohesion P5 follow-up — in-app-only events (no email). cadenceKey:
+        //  - certificate_issued  → certificateNumber (one per issued certificate)
+        //  - cohort_enrolled     → enrollmentId (admin direct-enrolled a learner)
+        //  - booking_confirmed   → `<scheduleId>:<userId>` (leader booked a slot)
+        'certificate_issued', 'cohort_enrolled', 'booking_confirmed'],
       required: true,
     },
     // 'in_app' rows have no email — they exist purely for the notification bell.
