@@ -9,6 +9,7 @@ const LearningProgram = require('../../models/LearningProgram');
 const Enrollment = require('../../models/Enrollment');
 const User = require('../../models/User');
 const Office = require('../../models/Office');
+const NotificationLog = require('../../models/NotificationLog');
 
 let app, tokens, seed, csrf, office, coordinatorToken;
 
@@ -42,6 +43,7 @@ afterAll(async () => {
 afterEach(async () => {
   await Schedule.deleteMany({});
   await Enrollment.deleteMany({});
+  await NotificationLog.deleteMany({});
   await Class.updateMany(
     { _id: { $in: [seed.class1._id, seed.class2._id] } },
     { $set: { teacherIds: [], programId: null } },
@@ -420,6 +422,14 @@ describe('Learning Platform API — sessions', () => {
     expect(stored.bookedTeamId).toBeNull();
     expect(stored.officeId.toString()).toBe(office._id.toString());
     expect(stored.enrolledUsers).toHaveLength(2);
+
+    // Each enrolled cohort learner is surfaced in their notification bell.
+    const enrolledRows = await NotificationLog.find({ type: 'session_enrolled' }).lean();
+    const recipients = enrolledRows.map((r) => String(r.recipientUserId)).sort();
+    expect(recipients).toEqual(
+      [String(seed.member1._id), String(seed.member2._id)].sort(),
+    );
+    expect(enrolledRows.every((r) => r.channel === 'in_app')).toBe(true);
   });
 
   test('nomination program: Admin schedules a cohort session', async () => {

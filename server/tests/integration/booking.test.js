@@ -99,6 +99,33 @@ describe('POST /api/schedules/book-slot', () => {
     expect(note.metadata.scheduleId).toBe(res.body.data._id);
   });
 
+  test('auto-enrolled team members get a session_enrolled bell row; the booker does not', async () => {
+    const { start, end } = vnSlot();
+    await request(app)
+      .post('/api/schedules/book-slot')
+      .set('Authorization', `Bearer ${tokens.leader}`).set(csrf)
+      .send({
+        teamId: seed.team._id.toString(),
+        startTime: start.toISOString(),
+        endTime: end.toISOString(),
+      })
+      .expect(201);
+
+    // The two non-booker members (member1, member2) each get session_enrolled.
+    const memberRows = await NotificationLog.find({ type: 'session_enrolled' }).lean();
+    const recipients = memberRows.map((r) => String(r.recipientUserId)).sort();
+    expect(recipients).toEqual(
+      [String(seed.member1._id), String(seed.member2._id)].sort(),
+    );
+    expect(memberRows.every((r) => r.channel === 'in_app')).toBe(true);
+
+    // The booker is excluded — they only get booking_confirmed, not session_enrolled.
+    const bookerEnrolled = await NotificationLog.countDocuments({
+      recipientUserId: seed.leader._id, type: 'session_enrolled',
+    });
+    expect(bookerEnrolled).toBe(0);
+  });
+
   test('enrolled users are auto-populated from active team members', async () => {
     const { start, end } = vnSlot();
     const res = await request(app)

@@ -14,7 +14,11 @@ const notificationLogSchema = new mongoose.Schema(
         //  - certificate_issued  → certificateNumber (one per issued certificate)
         //  - cohort_enrolled     → enrollmentId (admin direct-enrolled a learner)
         //  - booking_confirmed   → `<scheduleId>:<userId>` (leader booked a slot)
-        'certificate_issued', 'cohort_enrolled', 'booking_confirmed'],
+        //  - session_enrolled    → `<scheduleId>:<userId>` (auto-added to a session
+        //                          roster by someone else's booking — team member
+        //                          on a leader booking / cohort enrollee on an
+        //                          admin-scheduled session; the booker is skipped)
+        'certificate_issued', 'cohort_enrolled', 'booking_confirmed', 'session_enrolled'],
       required: true,
     },
     // 'in_app' rows have no email — they exist purely for the notification bell.
