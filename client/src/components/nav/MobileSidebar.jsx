@@ -1,4 +1,5 @@
 import { useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { X } from 'lucide-react';
 import Sidebar from './Sidebar';
@@ -32,10 +33,13 @@ export default function MobileSidebar({ open, onClose }) {
     <div className="fixed inset-0 z-[60] md:hidden" role="dialog" aria-modal="true" aria-label={t('nav.primary')}>
       <div className="absolute inset-0 bg-black/50" onClick={onClose} aria-hidden="true" />
       <div className="absolute left-0 top-0 flex h-full w-72 max-w-[80%] flex-col border-r border-border bg-background-2 shadow-lg">
-        <div className="flex h-[52px] shrink-0 items-center justify-between border-b border-border px-4">
-          <span className="text-lg font-bold tracking-tight text-foreground">
-            TMS<span className="text-primary">v2</span>
-          </span>
+        <div className="flex h-[52px] shrink-0 items-center justify-between border-b border-border px-3.5">
+          <Link to="/home" onClick={onClose} className="flex items-center gap-2.5">
+            <span className="grid size-[26px] place-items-center rounded-[7px] bg-gradient-to-br from-primary to-primary/70 text-[13px] font-bold text-primary-foreground shadow-sm">T</span>
+            <span className="text-sm font-semibold tracking-tight text-foreground">
+              TMS<span className="text-primary">v2</span>
+            </span>
+          </Link>
           <button
             onClick={onClose}
             aria-label={t('nav.closeMenu')}
