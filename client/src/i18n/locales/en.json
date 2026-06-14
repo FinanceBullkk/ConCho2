@@ -8,10 +8,12 @@
       "english": "English Class",
       "reports": "Reports",
       "people": "People",
+      "configure": "Configure",
       "system": "System",
       "myLearning": "My Learning"
     },
     "sections": {
+      "rolesAccess": "Roles & access",
       "schedules": "Schedules",
       "attendance": "Attendance",
       "classes": "Classes",
@@ -72,6 +74,14 @@
     "switchLanguage": "Switch to Vietnamese",
     "openMenu": "Open menu",
     "closeMenu": "Close menu"
+  },
+  "access": {
+    "title": "Roles & access",
+    "description": "The live, server-enforced capability matrix — who can do what.",
+    "note": "Capabilities are derived from role (no per-user grants yet), so this view is read-only — it reflects what the server enforces, it does not change it. Admin is a superuser and holds every capability.",
+    "capability": "Capability",
+    "loadError": "Could not load the access matrix",
+    "loadErrorDesc": "Refresh to try again. This surface is Admin-only."
   },
   "english": {
     "classesTitle": "Classes"
