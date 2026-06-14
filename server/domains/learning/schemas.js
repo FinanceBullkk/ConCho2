@@ -87,6 +87,12 @@ const updateCohortBody = z.object({
   message: 'At least one field (status or totalSessions) is required',
 });
 
+// Nudge selected cohort learners (in-app notification). TMS.update S4.
+const nudgeCohortBody = z.object({
+  userIds: z.array(objectId).min(1).max(500),
+  message: z.string().trim().max(500).optional(),
+});
+
 module.exports = {
   createProgramBody,
   updateProgramBody,
@@ -94,4 +100,5 @@ module.exports = {
   listCohortsQuery,
   createCohortBody,
   updateCohortBody,
+  nudgeCohortBody,
 };

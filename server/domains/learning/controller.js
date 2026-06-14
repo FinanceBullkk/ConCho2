@@ -163,6 +163,23 @@ const restoreCohort = async (req, res) => {
   }
 };
 
+const nudgeCohort = async (req, res) => {
+  try {
+    const data = await useCases.nudgeCohortLearners(req.params.id, req.body);
+    auditService.record({
+      req,
+      action: 'created',
+      entity: 'Notification',
+      entityId: req.params.id,
+      diff: { after: { cohortId: req.params.id, notified: data.notified } },
+      note: `Nudged ${data.notified} cohort learner(s)`,
+    });
+    res.status(201).json({ success: true, data });
+  } catch (error) {
+    handleError(res, error);
+  }
+};
+
 const listDeletedCohorts = async (req, res) => {
   try {
     const data = await useCases.listDeletedCohorts();
@@ -185,4 +202,5 @@ module.exports = {
   deleteCohort,
   restoreCohort,
   listDeletedCohorts,
+  nudgeCohort,
 };

@@ -613,6 +613,61 @@
       "yes": "Yes",
       "no": "No"
     },
+    "cohortDetail": {
+      "back": "Programs",
+      "loadError": "Couldn't load this cohort.",
+      "notFound": "Cohort not found.",
+      "messageCohort": "Message cohort",
+      "tabs": { "overview": "Overview", "roster": "Roster", "sessions": "Sessions", "policy": "Completion policy" },
+      "kpi": { "enrolled": "Enrolled", "completion": "Completion", "attendance": "Avg attendance", "assessment": "Assessment pass", "certificates": "Certificates" },
+      "roster": {
+        "title": "Roster",
+        "empty": "No learners in this cohort yet.",
+        "atRiskOnly": "At-risk only",
+        "allDepartments": "All",
+        "selected": "{{count}} selected",
+        "clear": "Clear",
+        "bulkIssueCert": "Issue cert",
+        "bulkNudge": "Nudge",
+        "colLearner": "Learner",
+        "colAttendance": "Attendance",
+        "colAssessment": "Assessment",
+        "colFeedback": "Feedback",
+        "colStatus": "Status",
+        "colCert": "Cert",
+        "selectAll": "Select all",
+        "notTaken": "Not taken",
+        "hintDrawer": "Click a row for the learner drawer"
+      },
+      "status": { "complete": "Complete", "in_progress": "In progress", "at_risk": "At risk" },
+      "issueModal": {
+        "title": "Issue certificates",
+        "body": "Issue a certificate to {{count}} selected learner(s)? Only learners who meet the completion policy will receive one.",
+        "confirm": "Issue certificates",
+        "done": "Issued {{ok}} certificate(s).",
+        "partial": "Issued {{ok}}, skipped {{fail}} (already issued or not complete)."
+      },
+      "nudgeModal": {
+        "title": "Nudge learners",
+        "body": "Send an in-app nudge to {{count}} selected learner(s).",
+        "placeholder": "Optional message…",
+        "confirm": "Send nudge",
+        "done": "Nudged {{count}} learner(s)."
+      },
+      "drawer": {
+        "viewProfile": "View full profile",
+        "attendance": "Attendance",
+        "assessment": "Assessment",
+        "feedback": "Feedback",
+        "status": "Status",
+        "certificate": "Certificate",
+        "met": "Met",
+        "notMet": "Not met",
+        "submitted": "Submitted",
+        "notSubmitted": "Not submitted",
+        "noCert": "No certificate"
+      }
+    },
     "dashboard": {
       "views": {
         "operational": "Operational",

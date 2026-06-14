@@ -13,6 +13,7 @@ const {
   listCohortsQuery,
   createCohortBody,
   updateCohortBody,
+  nudgeCohortBody,
 } = require('./schemas');
 const {
   listSessionsQuery,
@@ -81,6 +82,14 @@ router
 
 // Restore a soft-archived cohort.
 router.post('/cohorts/:id/restore', requireCapability('cohort.manage'), validate({ params: idParam }), controller.restoreCohort);
+
+// Nudge selected cohort learners (roster bulk action — in-app notification).
+router.post(
+  '/cohorts/:id/nudge',
+  requireCapability('enrollment.manage'),
+  validate({ params: idParam, body: nudgeCohortBody }),
+  controller.nudgeCohort,
+);
 
 router
   .route('/sessions')
