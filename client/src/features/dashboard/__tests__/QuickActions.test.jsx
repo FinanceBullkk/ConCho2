@@ -9,11 +9,12 @@ import QuickActions from '../QuickActions';
 
 const h = vi.hoisted(() => ({
   can: () => true,
+  isAdmin: false,
   op: { data: undefined, isLoading: false },
 }));
 
 vi.mock('../../../hooks/useRole', () => ({
-  useRole: () => ({ can: h.can }),
+  useRole: () => ({ can: h.can, isAdmin: h.isAdmin }),
 }));
 
 vi.mock('../../../hooks/useLearningDashboard', () => ({
@@ -29,6 +30,7 @@ const renderQA = () =>
 
 beforeEach(() => {
   h.can = (p) => p === 'read:reports';
+  h.isAdmin = false;
   h.op = { data: undefined, isLoading: false };
 });
 
@@ -74,6 +76,17 @@ describe('QuickActions — contextual operational tiles', () => {
 
     expect(screen.getByRole('link', { name: /sessions next 7 days/i })).toHaveAttribute('href', '/calendar');
     expect(screen.getByRole('link', { name: /completion rate/i })).toHaveTextContent('78%');
+  });
+
+  it('routes the overdue + certs tiles to the drill list for admins', () => {
+    h.isAdmin = true;
+    h.op = {
+      isLoading: false,
+      data: { assignments: { overdueLearners: 3 }, certificates: { expired: 0, expiring30: 5 }, sessions: null, completion: null },
+    };
+    renderQA();
+    expect(screen.getByRole('link', { name: /overdue learners/i })).toHaveAttribute('href', '/reports/drill?metric=overdue');
+    expect(screen.getByRole('link', { name: /certificates expiring/i })).toHaveAttribute('href', '/reports/drill?metric=expiring');
   });
 
   it('skips tiles whose metric block is null', () => {
