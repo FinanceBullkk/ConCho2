@@ -109,6 +109,17 @@ Bug fixing and integration review rank above net-new feature rollout.
 > [`changelog-archive/2026-q2.md`](changelog-archive/2026-q2.md). Currently
 > inline: **2026-06-12 → 2026-06-13**.
 
+- **2026-06-14** — **Studio ▸ Roles & access (capability matrix viewer).** First
+  enterprise "Configure" surface from the Claude Design hand-off, wired to the
+  REAL authz: new **read-only** `GET /api/access/capability-matrix` (Admin-only,
+  `settings.manage`) serialises the live `policy/capabilities.js` matrix
+  (`roles` · `capabilities` · `grants`). New **Configure** sidebar group +
+  `/access` page renders it (roles × capabilities grouped by resource, ✓/— per
+  role, Admin = superuser). **Reflects enforcement, does not change it** —
+  capabilities stay role-derived (no per-user grants), so it's read-only by
+  design (no fake editability). Backend test (admin matrix · teacher 403 · 401);
+  page test (matrix render · loading · error). Spec + route-matrix updated. Gates:
+  server access suite ✓, full client 316 ✓, build clean, lint ≤ cap.
 - **2026-06-14** — **North-star Home, phase 3 (Today's sessions card).** Rebuilt
   the Home `TodayHero` from a compact status band into the prototype's **"Today's
   sessions" list card** — per-session time · class · room · attendance-status

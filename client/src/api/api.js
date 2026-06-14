@@ -126,6 +126,11 @@ export const usersAPI = {
   getProgress: (id) => api.get(`/users/${id}/progress`),
 };
 
+// ── Access (Roles & capabilities — read-only) ─────────────
+export const accessAPI = {
+  getCapabilityMatrix: () => api.get('/access/capability-matrix'),
+};
+
 // ── Teams ─────────────────────────────────────────────────
 export const teamsAPI = {
   getAll: () => api.get('/teams'),
