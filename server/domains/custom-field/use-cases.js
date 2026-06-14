@@ -4,10 +4,11 @@ const { customFieldDto } = require('./dto');
 
 // custom-field/use-cases — business rules for admin-defined custom fields.
 
-// A `select` field is meaningless without choices.
+// A choice field (`select`/`multiselect`) is meaningless without options.
+const CHOICE_TYPES = new Set(['select', 'multiselect']);
 const assertSelectHasOptions = (type, options) => {
-  if (type === 'select' && (!Array.isArray(options) || options.length === 0)) {
-    throw new ServiceError('A select field needs at least one option', 400);
+  if (CHOICE_TYPES.has(type) && (!Array.isArray(options) || options.length === 0)) {
+    throw new ServiceError('A select or multiselect field needs at least one option', 400);
   }
 };
 
