@@ -1,47 +1,73 @@
 import { useTranslation } from 'react-i18next';
+import { cn } from '@/lib/utils';
 
 // Dependency-free presentational primitives for the operational dashboard.
-// No chart library by design (plan D3) — tiles + CSS-width bars only, so the
+// No chart library by design (plan D3) — KPI tiles + CSS-width bars only, so the
 // visual layer stays a thin swappable skin over the KPI bundle.
 
-export function StatTile({ label, value, hint, alert = false }) {
+const CHIP_TONE = {
+  primary: 'bg-primary-tint text-primary',
+  success: 'bg-success-tint text-success',
+  warning: 'bg-warning-tint text-warning',
+  danger: 'bg-destructive-tint text-destructive',
+  info: 'bg-info-tint text-info',
+  neutral: 'bg-surface-2 text-muted-foreground',
+};
+
+// KPI tile — optional tone-coloured icon chip, label, large tabular value, hint.
+// `icon`/`tone` are optional so existing callers keep working; `alert` (legacy)
+// reddens the value and defaults the chip to the danger tone.
+export function StatTile({ label, value, hint, icon: Icon, tone, alert = false }) {
+  const chipTone = tone ?? (alert ? 'danger' : 'neutral');
   return (
-    <div className="rounded-lg border bg-card p-4">
-      <p className="text-xs text-muted-foreground">{label}</p>
-      <p
-        className={`mt-1 text-2xl font-semibold tabular-nums ${alert ? 'text-destructive' : 'text-foreground'}`}
-      >
+    <div className="rounded-xl border border-border bg-card p-4">
+      <div className="flex items-center gap-2.5">
+        {Icon && (
+          <span className={cn('grid size-[30px] shrink-0 place-items-center rounded-lg', CHIP_TONE[chipTone])}>
+            <Icon className="size-4" aria-hidden="true" />
+          </span>
+        )}
+        <p className="text-xs font-medium text-muted-foreground">{label}</p>
+      </div>
+      <p className={cn('mt-2.5 text-[28px] font-bold leading-none tracking-tight tabular-nums', alert ? 'text-destructive' : 'text-foreground')}>
         {value}
       </p>
-      {hint ? <p className="mt-0.5 text-xs text-muted-foreground">{hint}</p> : null}
+      {hint ? <p className="mt-1.5 text-xs text-subtle-foreground">{hint}</p> : null}
     </div>
   );
 }
+
+// Bar fill colour by threshold — higher is better (completion %, scaled rating).
+const barColor = (percent) =>
+  percent >= 80 ? 'bg-success' : percent >= 60 ? 'bg-primary' : percent >= 40 ? 'bg-warning' : 'bg-destructive';
 
 // Horizontal bar list. rows: [{ key, label, display, percent (0–100), detail? }]
 export function MetricBars({ title, rows }) {
   if (!rows?.length) return null;
   return (
     <div>
-      <h4 className="mb-2 text-sm font-medium">{title}</h4>
-      <ul className="space-y-1.5">
-        {rows.map((row) => (
-          <li key={row.key} className="text-xs">
-            <div className="flex items-center justify-between gap-2">
-              <span className="truncate">{row.label}</span>
-              <span className="shrink-0 tabular-nums text-muted-foreground">
-                {row.display}
-                {row.detail ? ` · ${row.detail}` : ''}
-              </span>
-            </div>
-            <div className="mt-0.5 h-1.5 w-full rounded bg-muted" aria-hidden="true">
-              <div
-                className="h-1.5 rounded bg-primary"
-                style={{ width: `${Math.min(100, Math.max(0, row.percent))}%` }}
-              />
-            </div>
-          </li>
-        ))}
+      <h4 className="mb-2.5 text-sm font-semibold text-foreground">{title}</h4>
+      <ul className="space-y-2">
+        {rows.map((row) => {
+          const pct = Math.min(100, Math.max(0, row.percent ?? 0));
+          return (
+            <li key={row.key} className="text-xs">
+              <div className="mb-1 flex items-center justify-between gap-2">
+                <span className="truncate font-medium text-foreground">{row.label}</span>
+                <span className="shrink-0 tabular-nums text-muted-foreground">
+                  {row.display}
+                  {row.detail ? ` · ${row.detail}` : ''}
+                </span>
+              </div>
+              <div className="h-1.5 w-full overflow-hidden rounded-full bg-surface-2" aria-hidden="true">
+                <div
+                  className={cn('h-full rounded-full transition-[width] duration-(--dur-slow)', barColor(pct))}
+                  style={{ width: `${pct}%` }}
+                />
+              </div>
+            </li>
+          );
+        })}
       </ul>
     </div>
   );

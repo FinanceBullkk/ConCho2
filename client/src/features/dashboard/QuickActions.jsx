@@ -128,7 +128,7 @@ export default function QuickActions() {
             <Link
               key={tile.key}
               to={tile.to}
-              className="group flex items-center gap-3 rounded-lg border border-border bg-card p-4 transition-colors duration-(--dur) hover:border-primary/40 hover:bg-accent/40 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              className="group flex items-center gap-3 rounded-xl border border-border bg-card p-4 transition-[transform,border-color,background-color,box-shadow] duration-(--dur) hover:-translate-y-0.5 hover:border-primary/40 hover:bg-accent/40 hover:shadow-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             >
               <span className={`flex size-9 shrink-0 items-center justify-center rounded-md ${TONE[tile.tone]}`}>
                 <Icon className="size-4" aria-hidden="true" />

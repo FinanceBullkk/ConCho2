@@ -109,6 +109,54 @@ Bug fixing and integration review rank above net-new feature rollout.
 > [`changelog-archive/2026-q2.md`](changelog-archive/2026-q2.md). Currently
 > inline: **2026-06-12 → 2026-06-13**.
 
+- **2026-06-14** — **North-star Home, phase 3 (Today's sessions card).** Rebuilt
+  the Home `TodayHero` from a compact status band into the prototype's **"Today's
+  sessions" list card** — per-session time · class · room · attendance-status
+  badge + accent bar, capped at 6 rows with a "+N more", and an "Open calendar"
+  link. Real data (attendance calendar, filtered to today); returns null when the
+  day is empty. Also restyled the dashboard **Overdue / Expiring** drill lists
+  (`DashboardTopLists`) into avatar rows with **"Nd late" / "Nd left"** badges
+  (days derived from real due/expiry dates; tone escalates). Presentational;
+  `TodayHero` is stubbed in `DashboardPage` tests so none change. Gates: full
+  client 313 ✓, build clean, lint 63 ≤ cap.
+- **2026-06-14** — **North-star dashboards, phase 2 (Reports ▸ L&D).** Restyled the
+  operational + executive dashboards to the prototype's KPI vocabulary by
+  upgrading the two **shared** primitives in `DashboardWidgets`: `StatTile` now
+  carries a tone-coloured **icon chip** + large tabular value; `MetricBars` fills
+  are **threshold-coloured** (success/primary/warning/danger by real %). Wired
+  icons/tones through `DashboardOperationalPanel` + `DashboardExecutivePanel`
+  (both consume the shared tiles, so both upgrade DRY). Also added the prototype's
+  **Overall-completion donut** to the operational dashboard (reuses the existing
+  `DonutStat`; segments = real Completed / In-progress / Overdue, zero slices
+  dropped). Presentational only — same real-data bundle, props backward-compatible
+  (`alert` still reddens). `DashboardTab` test updated (the completion % now shows
+  in both the tile and the donut centre). Gates: full client 313 ✓, build clean,
+  lint 63 ≤ cap. Next: Home "Today's sessions" card + at-a-glance (phase 3).
+- **2026-06-14** — **North-star shell redesign, phase 1 (Claude Design hand-off).**
+  Reworked the app shell to the design's topology: **fixed full-height left
+  sidebar** (gradient brand mark · **persona-switch card** · role-filtered grouped
+  nav with active left-accent bar · signed-in footer) + a **slim sticky topbar**
+  that now leads with a **workspace › page breadcrumb** (search · notifications ·
+  theme · avatar on the right). Persona switching moved from the avatar dropdown
+  into the sidebar card; brand/logo moved topbar → sidebar. **Chrome-only** — nav
+  data (`nav-config`), routes, authz and persona semantics unchanged (persona is
+  not an authz boundary), so no spec delta. New: `SidebarBrand`/`PersonaSwitch`/
+  `SidebarFooter` + `activeItemLabelKey` breadcrumb helper; `Layout`/`Topbar`/
+  `Sidebar`/`MobileSidebar` restyled. Topbar test updated (logo → breadcrumb).
+  Added a recessed `--background-2` surface token (dark + light) so the sidebar
+  reads **darker than content** (the prototype's signature) + a subtle lift on
+  Home quick-action tiles. Gates: full client 313 ✓, build clean, lint 63 ≤ cap.
+  Next: Home cards + dashboards to north-star fidelity (phase 2/3).
+- **2026-06-14** — **Program / Delivery Builder (Claude Design north-star → real
+  UI).** Reworked the program create/edit modal (`ProgramFormModal`) into the
+  design hand-off's guided **5-step builder** (Basics → Delivery → Completion →
+  Certificate → Review) + sticky **live preview**; `schedulingMode` now a
+  friendly delivery-profile picker. **Pure UX upgrade** — identical API payload +
+  mutations, no model/behavior change (every field already enforced server-side),
+  so no spec delta. Modularized under `features/learning/program-builder/`
+  (`program-form-config` + `ProgramBuilderControls`/`Steps`/`ProgramLivePreview`).
+  Builder test rewritten to drive the wizard (same payload assertions). Gates:
+  learning suite 82 ✓, full client 313 ✓, build clean, lint 63 ≤ cap.
 - **2026-06-14** — **Converge Phase 2: Enrollment convergence (read layer) — one
   Enrollment, two modes.** Both enrollment shapes already share ONE `Enrollment`
   model (team-based = `teamId` set; cohort-based = `teamId:null`); Phase 2

@@ -86,6 +86,7 @@
 html.dark {
   /* Surfaces — single cool-tinted near-black ramp */
   --background:      oklch(0.155 0.005 260);
+  --background-2:    oklch(0.128 0.005 260);   /* recessed surface — sidebar/rails (darker than content) */
   --foreground:      oklch(0.970 0.005 260);
 
   --card:            oklch(0.185 0.005 260);
@@ -129,6 +130,7 @@ html.dark {
 /* ── Light mode (html:not(.dark)) ───────────────────────── */
 html:not(.dark) {
   --background:      oklch(0.985 0.003 260);
+  --background-2:    oklch(0.965 0.003 260);   /* recessed surface — sidebar/rails (darker than content) */
   --foreground:      oklch(0.180 0.005 260);
 
   --card:            oklch(1 0 0);
@@ -166,6 +168,7 @@ html:not(.dark) {
 /* ── Tailwind v4 @theme inline — expose tokens as utilities ── */
 @theme inline {
   --color-background: var(--background);
+  --color-background-2: var(--background-2);
   --color-foreground: var(--foreground);
   --color-card: var(--card);
   --color-card-foreground: var(--card-foreground);

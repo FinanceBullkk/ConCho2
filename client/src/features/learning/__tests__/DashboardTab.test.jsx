@@ -95,7 +95,9 @@ describe('DashboardTab', () => {
     render(<DashboardTab />);
 
     expect(screen.getByText('Completion rate')).toBeInTheDocument();
-    expect(screen.getByText('50%')).toBeInTheDocument();
+    // 50% appears twice now: the completion-rate tile AND the Overall-completion
+    // donut centre (both read the same real completionRate).
+    expect(screen.getAllByText('50%').length).toBeGreaterThan(0);
     expect(screen.getByText('Attendance rate')).toBeInTheDocument();
     expect(screen.getByText('85%')).toBeInTheDocument();
     expect(screen.getByText('Overdue learners')).toBeInTheDocument();
