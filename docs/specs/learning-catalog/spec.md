@@ -2,7 +2,7 @@
 capability: learning-catalog
 status: stable
 owners: [domains/learning, controllers/classController]
-last_updated: 2026-06-13
+last_updated: 2026-06-14
 related_code:
   - server/domains/learning/controller.js
   - server/domains/learning/use-cases.js
@@ -11,6 +11,8 @@ related_code:
   - server/models/LearningProgram.js
   - server/models/Class.js
   - client/src/features/learning/ProgramFormModal.jsx
+  - client/src/features/learning/CohortFormModal.jsx
+  - client/src/features/learning/CohortEditModal.jsx
 related_plans:
   - plans/260603-0911-m3-learning-crud-ui
 ---
@@ -60,8 +62,9 @@ to a generic training platform — Programs are new; Classes stay stored as
 - **Class / Cohort** (`server/models/Class.js`): `classCode` + `courseName`
   (**unique together**), `programId` (link), `totalSessions`, `status`
   (Ongoing/Completed), `teacherIds[]` (teacher-class binding, "open until
-  populated"). **At most one `Ongoing` class per `classCode`** (partial unique).
-  Exposed as Cohort DTO.
+  populated"), `customFields` (admin-defined values keyed by
+  `CustomFieldDefinition.key`, entity `Cohort`). **At most one `Ongoing` class
+  per `classCode`** (partial unique). Exposed as Cohort DTO.
 
 ## Functional Requirements (FR)
 
@@ -91,7 +94,8 @@ open if no legacy catalog exists).
 ### Requirement: Cohort edit & delete [BR-2, UC-2]
 
 The system SHALL let a holder of `cohort.manage` (Admin/Coordinator) edit a
-cohort's `status` and `totalSessions` via `PUT /api/learning/cohorts/:id`, and
+cohort's `status`, `totalSessions`, and admin-defined `customFields` values via
+`PUT /api/learning/cohorts/:id` (custom field values may also be set at create), and
 **soft-archive** a cohort via `DELETE /api/learning/cohorts/:id`. Delete is
 **blocked** (409) while any Group (Team) or Session (Schedule) still references
 the cohort. Once unreferenced, delete is a **recoverable soft-archive** (sets

@@ -4,7 +4,7 @@ const { z } = require('zod');
 // rule is enforced in use-cases (after merging update payloads), so these stay
 // shape-only.
 
-const entity = z.enum(['Program']);
+const entity = z.enum(['Program', 'Cohort']);
 const type = z.enum(['text', 'select']);
 const key = z.string().trim().toLowerCase().regex(/^[a-z][a-z0-9_]*$/, 'Key must be a snake_case identifier').max(40);
 

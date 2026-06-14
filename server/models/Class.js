@@ -80,6 +80,14 @@ const classSchema = new mongoose.Schema(
       default: [],
     },
 
+    // Admin-defined custom fields (Studio ▸ Custom fields, Cohort entity). A
+    // free-form map of { <CustomFieldDefinition.key>: value }; definitions
+    // (label/type/options) live in CustomFieldDefinition — only VALUES here.
+    customFields: {
+      type: Object,
+      default: {},
+    },
+
     // ── Soft-delete fields (cohort trash/restore) ───────────
     // Cohort delete is a soft-archive (recoverable), mirroring Team (UX-03) and
     // honoring the "never hard-delete evaluation/enrollment data" golden rule.
