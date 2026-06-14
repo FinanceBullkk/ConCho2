@@ -43,6 +43,7 @@ Source: current route middleware. Keep this matrix updated when routes move into
 | `/api/export` | Admin | Admin | route-level Admin guard |
 | `/api/settings` | Admin | Admin | whitelisted keys |
 | `/api/access` | Admin | none | read-only capability matrix (`capability-matrix`); `settings.manage` |
+| `/api/custom-fields` | Admin | Admin | admin-defined custom field definitions (CRUD, soft-delete, audited); `settings.manage` |
 | `/api/dashboard` | Admin | Admin cache invalidation | admin analytics only |
 | `/api/admin-db` | Admin | Admin | generic DB explorer whitelist |
 | `/api/admin/audit` | Admin | none | audit query |

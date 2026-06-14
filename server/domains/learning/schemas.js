@@ -42,6 +42,9 @@ const createProgramBody = z.object({
   recertifyPolicy,
   prerequisitePrograms: z.array(objectId).max(20).optional(),
   status: z.enum(['active', 'inactive', 'archived']).default('active'),
+  // Values for admin-defined custom fields (Studio ▸ Custom fields). Free-form
+  // map keyed by CustomFieldDefinition.key; per-field meaning is admin-defined.
+  customFields: z.record(z.string(), z.any()).optional(),
 });
 
 const updateProgramBody = createProgramBody.partial().refine(

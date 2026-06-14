@@ -82,6 +82,13 @@ const learningProgramSchema = new mongoose.Schema(
     recertifyPolicy: {
       autoAssign: { type: Boolean, default: false },
     },
+    // Admin-defined custom fields (Studio ▸ Custom fields). A free-form map of
+    // { <CustomFieldDefinition.key>: value }. Definitions (label/type/options)
+    // live in CustomFieldDefinition; only the VALUES are stored here.
+    customFields: {
+      type: Object,
+      default: {},
+    },
     // Programs a learner must complete before enrolling in this one (Wave C —
     // prerequisite gating). Direct prerequisites only; enforced for self-enroll
     // (admins may override). Transitive paths/cycle detection deferred.

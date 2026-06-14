@@ -109,6 +109,20 @@ Bug fixing and integration review rank above net-new feature rollout.
 > [`changelog-archive/2026-q2.md`](changelog-archive/2026-q2.md). Currently
 > inline: **2026-06-12 → 2026-06-13**.
 
+- **2026-06-14** — **Studio ▸ Custom fields (Program, complete loop).** The
+  design's #1 customization differentiator — admins define extra fields **without
+  code**. New `CustomFieldDefinition` model + `domains/custom-field/` CRUD
+  (`/api/custom-fields`, Admin-only `settings.manage`, soft-delete, audited;
+  text/select types, select-needs-options enforced). **Closes the loop for
+  Program:** `LearningProgram.customFields` stores values; the **Program builder**
+  renders the org's defined fields (Basics step) and persists them; a defined
+  field flows define → builder → save → read. New **Configure ▸ Custom fields**
+  page (manage + live preview). Reusable `CustomFieldInput` (no cross-feature
+  cycle). Tests: BE (def CRUD · select-400 · teacher-403 · Program value
+  round-trip) + FE (page render/loading/error). Route-matrix updated. Gates:
+  server learning+custom-field suites 131 ✓, full client 319 ✓, build clean,
+  lint ≤ cap. Phase 1 = Program + text/select; more entities/types are the
+  extension points.
 - **2026-06-14** — **Studio ▸ Roles & access (capability matrix viewer).** First
   enterprise "Configure" surface from the Claude Design hand-off, wired to the
   REAL authz: new **read-only** `GET /api/access/capability-matrix` (Admin-only,

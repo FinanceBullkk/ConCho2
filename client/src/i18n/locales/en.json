@@ -14,6 +14,7 @@
     },
     "sections": {
       "rolesAccess": "Roles & access",
+      "customFields": "Custom fields",
       "schedules": "Schedules",
       "attendance": "Attendance",
       "classes": "Classes",
@@ -81,6 +82,32 @@
     "note": "Capabilities are derived from role (no per-user grants yet), so this view is read-only — it reflects what the server enforces, it does not change it. Admin is a superuser and holds every capability.",
     "capability": "Capability",
     "loadError": "Could not load the access matrix",
+    "loadErrorDesc": "Refresh to try again. This surface is Admin-only."
+  },
+  "customFields": {
+    "title": "Custom fields",
+    "description": "Define extra fields your organisation needs — no code required.",
+    "note": "Fields defined here appear on the matching record's form (phase 1: Program — they show up in the Program builder) and their values are stored on that record. Admin-only.",
+    "programFields": "Program fields",
+    "empty": "No custom fields yet. Add one below.",
+    "addField": "Add a field",
+    "label": "Label",
+    "key": "Key",
+    "type": "Type",
+    "typeText": "Text",
+    "typeSelect": "Select",
+    "options": "Options",
+    "optionsHint": "Comma-separated choices",
+    "required": "Required",
+    "requiredField": "Required",
+    "add": "Add field",
+    "remove": "Remove",
+    "preview": "Live preview",
+    "previewEmpty": "Define a field to see how it will appear on the form.",
+    "added": "Custom field added",
+    "removed": "Custom field removed",
+    "saveFailed": "Save failed",
+    "loadError": "Could not load custom fields",
     "loadErrorDesc": "Refresh to try again. This surface is Admin-only."
   },
   "english": {
@@ -1085,6 +1112,7 @@
         "assessment": "Pass assessment",
         "feedback": "Submit feedback"
       },
+      "customFields": "Custom fields",
       "certNeverExpiresSummary": "Issued · never expires",
       "certValidSummary": "Issued · valid {{n}}d",
       "autoRecertSummary": "auto-recert"
