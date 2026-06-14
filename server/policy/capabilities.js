@@ -64,6 +64,7 @@ const CAPABILITIES = Object.freeze({
   // mechanism. Admin-ONLY (deliberately NOT added to the other role lists below);
   // Admin is superuser, so behaviour is identical to the previous roleGuard('Admin').
   USER_MANAGE: 'user.manage',          // create/update/delete/read users (userRoutes)
+  ROLE_MANAGE: 'role.manage',          // edit role capability grants + custom roles (accessRoutes) — Admin-only
   SETTINGS_MANAGE: 'settings.manage',  // read/update system settings (settingRoutes)
   DATA_TRANSFER: 'data.transfer',      // bulk import / export / Google-Sheets sync
   ANALYTICS_READ: 'analytics.read',    // admin dashboard stats/alerts/cache (dashboardRoutes)
@@ -141,15 +142,53 @@ const ROLE_CAPABILITIES = Object.freeze({
   ]),
 });
 
+// ──────────────────────────────────────────────────────────
+// Live grants store (TMS.update gap #2 — editable roles).
+//
+// `roleHasCapability` STAYS SYNC (it gates every domain route). It reads a
+// module-level `liveGrants` ({ role → Set<capability> }) instead of the static
+// map directly. `liveGrants` is INITIALISED from `ROLE_CAPABILITIES`, so until
+// the DB-backed grants load (or are edited) behaviour is identical to the
+// static scaffold. The boot loader (`domains/access`) calls `setLiveGrants`
+// with DB-stored grants; role edits refresh it too.
+//
+// **Admin is always superuser** — `roleHasCapability('Admin', …)` returns true
+// unconditionally, so no edit can ever lock Admin out of role management.
+// ──────────────────────────────────────────────────────────
+const buildGrants = (mapByRole) => {
+  const grants = {};
+  for (const [role, caps] of Object.entries(mapByRole)) {
+    grants[role] = new Set(role === 'Admin' ? ALL_CAPABILITIES : caps);
+  }
+  grants.Admin = new Set(ALL_CAPABILITIES); // invariant: Admin holds everything
+  return grants;
+};
+
+let liveGrants = buildGrants(ROLE_CAPABILITIES);
+
 /**
- * Does a role hold a capability?
- * @param {string} role - 'Admin' | 'Coordinator' | 'Teacher' | 'Participant'
+ * Replace the live grants. `grantsByRole` = { roleKey: capability[] }. Admin is
+ * always forced to the full set (lockout-proof). Called by the boot loader and
+ * after every role edit.
+ * @param {Object<string,string[]>} grantsByRole
+ */
+const setLiveGrants = (grantsByRole) => { liveGrants = buildGrants(grantsByRole); };
+
+/** Current live grants as plain arrays ({ roleKey: capability[] }). */
+const getLiveGrants = () =>
+  Object.fromEntries(Object.entries(liveGrants).map(([role, set]) => [role, [...set]]));
+
+/**
+ * Does a role hold a capability? Reads the live grants. Admin holds every
+ * capability by invariant (buildGrants always sets Admin = ALL_CAPABILITIES),
+ * so Admin can never be locked out — without granting unknown/typo'd ids.
+ * @param {string} role - role key (system or custom)
  * @param {string} capability - one of CAPABILITIES
  * @returns {boolean}
  */
 const roleHasCapability = (role, capability) => {
-  const caps = ROLE_CAPABILITIES[role];
-  return Array.isArray(caps) && caps.includes(capability);
+  const set = liveGrants[role];
+  return set instanceof Set && set.has(capability);
 };
 
 /**
@@ -162,12 +201,11 @@ const actorHasCapability = (actor, capability) =>
   Boolean(actor) && roleHasCapability(actor.role, capability);
 
 /**
- * All capabilities a role holds (defensive copy). Useful for surfacing the set
- * (e.g. to a client) later — unused by the scaffold itself.
+ * All capabilities a role holds (defensive copy), from the live grants.
  * @param {string} role
  * @returns {string[]}
  */
-const capabilitiesForRole = (role) => [...(ROLE_CAPABILITIES[role] || [])];
+const capabilitiesForRole = (role) => [...(liveGrants[role] || [])];
 
 module.exports = {
   CAPABILITIES,
@@ -176,4 +214,6 @@ module.exports = {
   roleHasCapability,
   actorHasCapability,
   capabilitiesForRole,
+  setLiveGrants,
+  getLiveGrants,
 };

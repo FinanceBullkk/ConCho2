@@ -129,6 +129,11 @@ export const usersAPI = {
 // ── Access (Roles & capabilities — read-only) ─────────────
 export const accessAPI = {
   getCapabilityMatrix: () => api.get('/access/capability-matrix'),
+  // Editable roles + custom roles (TMS.update gap #2 — role.manage).
+  listRoles: () => api.get('/access/roles'),
+  createRole: (data) => api.post('/access/roles', data),
+  updateRole: (key, data) => api.put(`/access/roles/${key}`, data),
+  deleteRole: (key) => api.delete(`/access/roles/${key}`),
 };
 
 // ── Custom fields (Studio — admin-defined fields) ─────────

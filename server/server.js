@@ -269,7 +269,7 @@ app.use('/api/sync', require('./routes/syncRoutes'));
 app.use('/api/import', require('./routes/importRoutes'));
 app.use('/api/export', require('./routes/exportRoutes'));
 app.use('/api/settings', require('./routes/settingRoutes'));
-app.use('/api/access', require('./routes/accessRoutes'));
+app.use('/api/access', require('./domains/access/routes'));
 app.use('/api/custom-fields', require('./domains/custom-field/routes'));
 app.use('/api/dashboard', require('./routes/dashboardRoutes'));
 app.use('/api/admin-db', require('./routes/adminDbRoutes'));
@@ -366,6 +366,16 @@ const PORT = process.env.PORT || 5000;
 if (process.env.NODE_ENV !== 'test') {
   const startServer = async () => {
     await connectDB();
+
+    // Seed system roles + load DB-backed capability grants into the in-memory
+    // store before serving traffic (TMS.update gap #2). Fail-soft: if it throws,
+    // the static scaffold in policy/capabilities.js still governs authz.
+    try {
+      await require('./domains/access/grants-loader').initRoleGrants();
+    } catch (err) {
+      logger.error({ err }, 'role-grants init failed — falling back to the static capability map');
+    }
+
     const server = app.listen(PORT, () => {
       logger.info({ port: PORT }, 'TMS v2 API running');
     });

@@ -109,6 +109,26 @@ Bug fixing and integration review rank above net-new feature rollout.
 > [`changelog-archive/2026-q2.md`](changelog-archive/2026-q2.md). Currently
 > inline: **2026-06-12 → 2026-06-15**.
 
+- **2026-06-15** — **TMS.update Phase 3 — editable roles + custom roles (gap #2).**
+  The coarse-authz matrix moves from a static role→capability map to **DB-backed,
+  editable grants** without losing the sync `roleHasCapability` (it now reads a live
+  in-memory store seeded from the static map + loaded from a new `Role` collection at
+  boot — behaviour-preserving until edited). **Admin is lockout-proof** (grants
+  immutable). New `role.manage` capability + `domains/access/` (CRUD over
+  `/access/roles`, audited, refreshes the live store on every write; legacy read-only
+  `routes/accessRoutes.js` retired). `RolesAccessPage` is now **editable** (toggle +
+  Save) with **custom roles** (create/delete; Admin column locked). Two-layer authz
+  intact. *Deferred:* assigning a user to a custom role (User.role enum). Gates: server
+  access suites 32 ✓ + full suite green; client 349 ✓; lint 63; build clean.
+  capability-authz spec folded. Branch `feat/tms-update-editable-roles`.
+- **2026-06-15** — **TMS.update Phase 2 — custom-field type coverage (gap #6).**
+  `CustomFieldDefinition` types `text/select` → **text · number · select · multiselect ·
+  date · toggle · user** + a `showIn[]` surface list (form/filter/export). Shared
+  `custom-field-input` renderer covers all 7, so the Program builder + cohort forms
+  gain them automatically (DRY). Manager UI: 7-type dropdown + showIn toggles. (Program
+  Builder UI — gap #1 — already existed as the 5-step `ProgramFormModal`, so Phase 2 =
+  gap #6.) Gates: client 347 ✓ · server 995 ✓ · lint 63 · build clean. PR #102 (stacked
+  on #101). Branch `feat/tms-update-custom-field-types`.
 - **2026-06-15** — **TMS.update value layer — Phase 1 (8 vertical slices).**
   Implemented the north-star redesign's "turn captured data into action + insight"
   layer onto the existing models (branch `feat/tms-update-value-layer`). **S1** drill
