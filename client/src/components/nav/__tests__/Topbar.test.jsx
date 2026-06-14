@@ -41,12 +41,13 @@ beforeEach(() => {
 });
 
 describe('Topbar', () => {
-  it('renders logo, notification bell and account menu trigger', () => {
+  it('renders the workspace breadcrumb, notification bell and account menu trigger', () => {
     renderTopbar();
     expect(screen.getByTestId('bell')).toBeInTheDocument();
     expect(screen.getByLabelText('nav.openAccountMenu')).toBeInTheDocument();
-    // Logo links home
-    expect(screen.getByRole('link', { name: /TMS/i })).toHaveAttribute('href', '/home');
+    // Brand/logo moved to the sidebar (north-star shell); the topbar now leads
+    // with the workspace breadcrumb instead.
+    expect(screen.getByText('nav.workspace.admin')).toBeInTheDocument();
   });
 
   it('opens the search palette on Ctrl+K', () => {

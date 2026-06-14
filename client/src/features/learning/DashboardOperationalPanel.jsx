@@ -1,11 +1,16 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import {
+  TrendingUp, Users, CircleCheck, Award, ClipboardCheck, CalendarClock, CalendarDays,
+  CalendarCheck, Target, ClipboardList, AlertTriangle, ShieldAlert, GraduationCap, MessageSquare,
+} from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { EmptyState } from '@/components/EmptyState';
 import { useOperationalDashboard } from '../../hooks/useLearningDashboard';
 import { EnumSelect, LearningField } from './LearningField';
 import { MetricBars, MetricUnavailable, StatTile } from './DashboardWidgets';
+import { DonutStat } from './DashboardCharts';
 import { ExpiringCertificatesList, OverdueList } from './DashboardTopLists';
 
 const WINDOWS = ['30', '60', '90'];
@@ -31,6 +36,19 @@ const completionBars = (rows) =>
     percent: row.completionRate,
     detail: `${row.complete}/${row.learners}`,
   }));
+
+// "Overall completion" donut segments from the real completion summary (+ overdue
+// learners when the assignment block is present). Zero slices are dropped.
+const overallSegments = (summary, assignments, t) => {
+  const complete = summary.complete ?? 0;
+  const inProgress = Math.max(0, (summary.learners ?? 0) - complete);
+  const overdue = assignments?.overdueLearners ?? 0;
+  return [
+    { label: t('learning.dashboard.overall.completed'), value: complete, className: 'text-success' },
+    { label: t('learning.dashboard.overall.inProgress'), value: inProgress, className: 'text-primary' },
+    { label: t('learning.dashboard.overall.overdue'), value: overdue, className: 'text-destructive' },
+  ].filter((s) => s.value > 0);
+};
 
 // Ratings are 1–5; scale the bar width to a percentage of the 5-point scale.
 const feedbackBars = (rows) =>
@@ -101,11 +119,21 @@ export default function DashboardOperationalPanel() {
       <Section title={t('learning.dashboard.sections.completion')}>
         {completion ? (
           <>
-            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-              <StatTile label={t('learning.dashboard.tiles.completionRate')} value={pc(completion.summary.completionRate)} />
-              <StatTile label={t('learning.dashboard.tiles.learners')} value={completion.summary.learners} />
-              <StatTile label={t('learning.dashboard.tiles.complete')} value={completion.summary.complete} />
-              <StatTile label={t('learning.dashboard.tiles.certificatesIssued')} value={completion.summary.certificatesIssued} />
+            <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_auto]">
+              <div className="grid gap-3 sm:grid-cols-2">
+                <StatTile icon={TrendingUp} tone="primary" label={t('learning.dashboard.tiles.completionRate')} value={pc(completion.summary.completionRate)} />
+                <StatTile icon={Users} tone="info" label={t('learning.dashboard.tiles.learners')} value={completion.summary.learners} />
+                <StatTile icon={CircleCheck} tone="success" label={t('learning.dashboard.tiles.complete')} value={completion.summary.complete} />
+                <StatTile icon={Award} tone="success" label={t('learning.dashboard.tiles.certificatesIssued')} value={completion.summary.certificatesIssued} />
+              </div>
+              <div className="flex items-center rounded-xl border border-border bg-card p-4 lg:w-72">
+                <DonutStat
+                  title={t('learning.dashboard.overall.title')}
+                  centerValue={pc(completion.summary.completionRate)}
+                  centerLabel={t('learning.dashboard.overall.center')}
+                  segments={overallSegments(completion.summary, assignments, t)}
+                />
+              </div>
             </div>
             <div className="grid gap-4 lg:grid-cols-2">
               <MetricBars title={t('learning.dashboard.byProgram')} rows={completionBars(completion.programs)} />
@@ -120,6 +148,8 @@ export default function DashboardOperationalPanel() {
           {attendance ? (
             <>
               <StatTile
+                icon={ClipboardCheck}
+                tone="primary"
                 label={t('learning.dashboard.tiles.attendanceRate')}
                 value={pc(attendance.rate)}
                 hint={t('learning.dashboard.tiles.attendanceRecords', { count: attendance.totalRecords })}
@@ -128,13 +158,15 @@ export default function DashboardOperationalPanel() {
           ) : <MetricUnavailable />}
           {sessions ? (
             <>
-              <StatTile label={t('learning.dashboard.tiles.upcoming')} value={sessions.upcoming} />
-              <StatTile label={t('learning.dashboard.tiles.next7Days')} value={sessions.next7Days} />
-              <StatTile label={t('learning.dashboard.tiles.past')} value={sessions.past} />
+              <StatTile icon={CalendarClock} tone="info" label={t('learning.dashboard.tiles.upcoming')} value={sessions.upcoming} />
+              <StatTile icon={CalendarDays} tone="info" label={t('learning.dashboard.tiles.next7Days')} value={sessions.next7Days} />
+              <StatTile icon={CalendarCheck} tone="neutral" label={t('learning.dashboard.tiles.past')} value={sessions.past} />
             </>
           ) : <MetricUnavailable />}
           {coverage ? (
             <StatTile
+              icon={Target}
+              tone="primary"
               label={t('learning.dashboard.tiles.coverage')}
               value={pc(coverage.coveragePercent)}
               hint={`${coverage.engagedParticipants}/${coverage.activeParticipants}`}
@@ -146,8 +178,9 @@ export default function DashboardOperationalPanel() {
       <Section title={t('learning.dashboard.sections.obligations')}>
         {assignments ? (
           <div className="grid gap-3 sm:grid-cols-2">
-            <StatTile label={t('learning.dashboard.tiles.activeAssignments')} value={assignments.activeAssignments} />
+            <StatTile icon={ClipboardList} tone="info" label={t('learning.dashboard.tiles.activeAssignments')} value={assignments.activeAssignments} />
             <StatTile
+              icon={AlertTriangle}
               label={t('learning.dashboard.tiles.overdueLearners')}
               value={assignments.overdueLearners}
               alert={assignments.overdueLearners > 0}
@@ -157,12 +190,13 @@ export default function DashboardOperationalPanel() {
         {certificates ? (
           <div className="grid gap-3 sm:grid-cols-3">
             <StatTile
+              icon={ShieldAlert}
               label={t('learning.dashboard.tiles.expired')}
               value={certificates.expired}
               alert={certificates.expired > 0}
             />
-            <StatTile label={t('learning.dashboard.tiles.expiring30')} value={certificates.expiring30} />
-            <StatTile label={t('learning.dashboard.tiles.expiring60')} value={certificates.expiring60} />
+            <StatTile icon={Award} tone="warning" label={t('learning.dashboard.tiles.expiring30')} value={certificates.expiring30} />
+            <StatTile icon={Award} tone="neutral" label={t('learning.dashboard.tiles.expiring60')} value={certificates.expiring60} />
           </div>
         ) : <MetricUnavailable />}
         <div className="grid gap-4 lg:grid-cols-2">
@@ -185,6 +219,8 @@ export default function DashboardOperationalPanel() {
         <div className="grid gap-3 sm:grid-cols-2">
           {assessments ? (
             <StatTile
+              icon={GraduationCap}
+              tone="success"
               label={t('learning.dashboard.tiles.passRate')}
               value={pc(assessments.passRate)}
               hint={t('learning.dashboard.tiles.attempts', { count: assessments.totalAttempts })}
@@ -192,6 +228,8 @@ export default function DashboardOperationalPanel() {
           ) : <MetricUnavailable />}
           {feedback ? (
             <StatTile
+              icon={MessageSquare}
+              tone="primary"
               label={t('learning.dashboard.tiles.feedbackAvg')}
               value={feedback.averageRating == null ? '—' : `${feedback.averageRating}/5`}
               hint={t('learning.dashboard.tiles.feedbackCount', { count: feedback.count })}

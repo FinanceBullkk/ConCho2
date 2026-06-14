@@ -1,95 +1,95 @@
 import { useMemo } from 'react';
 import { Link } from 'react-router-dom';
+import { ArrowRight } from 'lucide-react';
+import { cn } from '@/lib/utils';
 import { useAttendanceCalendar } from '@/hooks/useSchedules';
 
 // ──────────────────────────────────────────────────────────
-// TodayHero — Phase 3 Screen 3 (compact band variant)
+// TodayHero — "Today's sessions" card (north-star Home, 2026-06-14).
 //
-// Horizontal summary of today's session status.
-// Shows: weekday label · total sessions · status pills
-// (done / partial / pending).
-// Pending pill links to attendance page for quick action.
-//
-// Returns null when there are no sessions today (clean).
-// Action items (toMark, teamsWithoutLeader…) moved to AlertBand.
+// A scannable list of today's sessions (time · class · room · attendance
+// status), with a quick link into the calendar. Real data from the attendance
+// calendar endpoint (filtered client-side to sessions that START today).
+// Returns null when there are no sessions today, keeping Home clean.
 // ──────────────────────────────────────────────────────────
 
-export function TodayHero() {
-  const today = useMemo(() => {
-    const d = new Date();
-    d.setHours(0, 0, 0, 0);
-    return d;
-  }, []);
-  const tomorrow = useMemo(() => {
-    const d = new Date(today);
-    d.setDate(d.getDate() + 1);
-    return d;
-  }, [today]);
+const STATUS = {
+  done: { label: 'Marked', bar: 'bg-success', badge: 'bg-success-tint text-success' },
+  partial: { label: 'Partial', bar: 'bg-warning', badge: 'bg-warning-tint text-warning' },
+  pending: { label: 'Pending', bar: 'bg-warning', badge: 'bg-warning-tint text-warning' },
+  none: { label: 'Upcoming', bar: 'bg-primary', badge: 'bg-surface-2 text-muted-foreground' },
+};
+const pad = (n) => String(n).padStart(2, '0');
+const MAX_ROWS = 6;
 
-  // Returns all schedules; we filter client-side (the calendar endpoint doesn't support date params)
+export function TodayHero() {
+  const today = useMemo(() => { const d = new Date(); d.setHours(0, 0, 0, 0); return d; }, []);
+  const tomorrow = useMemo(() => { const d = new Date(today); d.setDate(d.getDate() + 1); return d; }, [today]);
+
+  // Returns all schedules; filter client-side (the calendar endpoint has no date params).
   const { data: allSchedules = [] } = useAttendanceCalendar();
 
-  const stats = useMemo(() => {
-    if (!Array.isArray(allSchedules)) return null;
-    // Only sessions that START today
-    const todaySchedules = allSchedules.filter((s) => {
-      const start = new Date(s.startTime);
-      return start >= today && start < tomorrow;
-    });
-    if (todaySchedules.length === 0) return null;
-    let done = 0, partial = 0, pending = 0, none = 0;
-    todaySchedules.forEach((s) => {
-      if (s.attendanceStatus === 'done')         done++;
-      else if (s.attendanceStatus === 'partial') partial++;
-      else if (s.attendanceStatus === 'pending') pending++;
-      else                                       none++;
-    });
-    return { total: todaySchedules.length, done, partial, pending, none };
+  const { rows, total, done } = useMemo(() => {
+    if (!Array.isArray(allSchedules)) return { rows: [], total: 0, done: 0 };
+    const todays = allSchedules
+      .filter((s) => { const t = new Date(s.startTime); return t >= today && t < tomorrow; })
+      .sort((a, b) => new Date(a.startTime) - new Date(b.startTime));
+    return { rows: todays, total: todays.length, done: todays.filter((s) => s.attendanceStatus === 'done').length };
   }, [allSchedules, today, tomorrow]);
 
-  if (!stats) return null;
+  if (total === 0) return null;
 
-  const weekday = new Date().toLocaleDateString('en', {
-    weekday: 'long',
-    month: 'short',
-    day: 'numeric',
-  });
+  const weekday = new Date().toLocaleDateString('en', { weekday: 'long', month: 'short', day: 'numeric' });
 
   return (
-    <div className="flex flex-wrap items-center gap-3 rounded-lg border border-border bg-card px-4 py-2.5 text-sm">
-      <span className="font-semibold text-foreground">{weekday}</span>
-      <span className="text-xs text-muted-foreground">
-        {stats.total} session{stats.total !== 1 ? 's' : ''} today
-      </span>
-
-      <div className="flex flex-wrap gap-1.5 ml-auto">
-        {stats.done > 0 && (
-          <span className="inline-flex items-center gap-1 rounded-md bg-success/10 px-2 py-0.5 text-[11px] font-medium text-success">
-            ✓ {stats.done} done
-          </span>
-        )}
-        {stats.partial > 0 && (
-          <Link
-            to="/operations?tab=attendance"
-            className="inline-flex items-center gap-1 rounded-md bg-warning/10 px-2 py-0.5 text-[11px] font-medium text-warning transition-colors hover:bg-warning/20"
-          >
-            ◑ {stats.partial} partial
-          </Link>
-        )}
-        {stats.pending > 0 && (
-          <Link
-            to="/operations?tab=attendance"
-            className="inline-flex items-center gap-1 rounded-md bg-warning/15 px-2 py-0.5 text-[11px] font-medium text-warning transition-colors hover:bg-warning/25"
-          >
-            ○ {stats.pending} pending
-          </Link>
-        )}
-        {stats.none > 0 && stats.done === 0 && stats.partial === 0 && stats.pending === 0 && (
-          <span className="inline-flex items-center gap-1 rounded-md bg-muted px-2 py-0.5 text-[11px] font-medium text-muted-foreground">
-            {stats.none} not started
-          </span>
-        )}
+    <div className="rounded-xl border border-border bg-card">
+      <div className="flex items-center justify-between gap-2 border-b border-border px-4 py-3">
+        <div className="min-w-0">
+          <h3 className="text-sm font-semibold text-foreground">Today’s sessions</h3>
+          <p className="text-xs text-subtle-foreground">
+            {weekday} · {total} session{total !== 1 ? 's' : ''} · {done} marked
+          </p>
+        </div>
+        <Link
+          to="/calendar"
+          className="inline-flex shrink-0 items-center gap-1 rounded-lg border border-border bg-card px-2.5 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+        >
+          Open calendar <ArrowRight className="size-3.5" aria-hidden="true" />
+        </Link>
       </div>
+
+      <ul className="divide-y divide-border">
+        {rows.slice(0, MAX_ROWS).map((s) => {
+          const st = STATUS[s.attendanceStatus] ?? STATUS.none;
+          const start = new Date(s.startTime);
+          const cls = s.classId;
+          const code = cls?.classCode ?? '—';
+          const course = cls?.courseName ?? '';
+          const room = s.room || cls?.room || '';
+          return (
+            <li key={s._id} className="flex items-center gap-3 px-4 py-2.5">
+              <span className="w-11 shrink-0 font-mono text-xs font-semibold tabular-nums text-muted-foreground">
+                {pad(start.getHours())}:{pad(start.getMinutes())}
+              </span>
+              <span className={cn('h-7 w-[3px] shrink-0 rounded-full', st.bar)} aria-hidden="true" />
+              <div className="min-w-0 flex-1">
+                <div className="truncate text-sm font-medium text-foreground">
+                  {code}
+                  {course && <span className="text-muted-foreground"> · {course}</span>}
+                </div>
+                {room && <div className="truncate text-xs text-subtle-foreground">{room}</div>}
+              </div>
+              <span className={cn('shrink-0 rounded-full px-2 py-1 text-[11px] font-semibold', st.badge)}>{st.label}</span>
+            </li>
+          );
+        })}
+      </ul>
+
+      {total > MAX_ROWS && (
+        <div className="border-t border-border px-4 py-2 text-center text-xs text-subtle-foreground">
+          +{total - MAX_ROWS} more today
+        </div>
+      )}
     </div>
   );
 }

@@ -39,6 +39,15 @@
     },
     "switchToLearner": "Switch to My Learning",
     "switchToAdmin": "Switch to Admin console",
+    "switchWorkspace": "Switch workspace",
+    "workspace": {
+      "admin": "Admin Console",
+      "learner": "My Learning"
+    },
+    "persona": {
+      "adminSub": "HR / L&D operations",
+      "learnerSub": "Your learner home"
+    },
     "people": "People",
     "programs": "Programs",
     "learning": "Learning",
@@ -553,12 +562,21 @@
       },
       "byProgram": "By program",
       "byDepartment": "By department",
+      "overall": {
+        "title": "Overall completion",
+        "center": "complete",
+        "completed": "Completed",
+        "inProgress": "In progress",
+        "overdue": "Overdue"
+      },
       "topOverdue": "Most overdue",
       "topExpiring": "Expiring soonest",
       "noOverdue": "No overdue learners.",
       "noExpiring": "No certificates expiring soon.",
       "due": "Due {{date}}",
       "validUntil": "Valid until {{date}}",
+      "daysLate": "{{n}}d late",
+      "daysLeft": "{{n}}d left",
       "executive": {
         "loadError": "Could not load the executive dashboard",
         "loadErrorDesc": "The executive request failed. Check your connection and try again.",
@@ -1013,6 +1031,53 @@
       "completion": "Completion",
       "capacity": "Capacity",
       "facilitator": "Facilitator"
+    },
+    "builder": {
+      "title": "Program builder",
+      "subtitle": "One engine, many delivery shapes — configure, don't code",
+      "steps": {
+        "basics": "Basics",
+        "delivery": "Delivery",
+        "completion": "Completion policy",
+        "certificate": "Certificate",
+        "review": "Review"
+      },
+      "stepOf": "Step {{n}} of {{total}}",
+      "back": "Back",
+      "continue": "Continue",
+      "missingBasics": "Program code and name are required.",
+      "deliveryProfileHint": "Pick how this program is delivered — scheduling behaviour adapts automatically.",
+      "schedulingDesc": {
+        "leader_booking": "Team leader books fixed slots; the whole team is auto-enrolled.",
+        "admin_scheduled": "A coordinator schedules sessions for the cohort.",
+        "self_enroll": "Learners enrol themselves from the catalogue, any time.",
+        "nomination": "Learners are nominated or assigned into a cohort."
+      },
+      "completionIntro": "A learner is marked complete when all enabled rules pass.",
+      "certificateIntro": "A certificate is issued on completion; validity controls when it expires.",
+      "reviewReady": "Ready to publish. Existing cohorts keep their snapshotted policy.",
+      "livePreview": "Live preview",
+      "untitled": "Untitled program",
+      "completesWhen": "Completes when",
+      "enrollmentOnly": "Enrollment only",
+      "certificate": "Certificate",
+      "issued": "Issued",
+      "validity": "Validity",
+      "neverExpires": "Never expires",
+      "daysValid": "{{n}} days",
+      "recert": "Recert",
+      "automatic": "Automatic",
+      "capacityLabel": "cap {{n}}",
+      "unlimited": "Unlimited",
+      "mapsTo": "Maps to",
+      "rules": {
+        "attendance": "Attend ≥ {{pct}}% of sessions",
+        "assessment": "Pass assessment",
+        "feedback": "Submit feedback"
+      },
+      "certNeverExpiresSummary": "Issued · never expires",
+      "certValidSummary": "Issued · valid {{n}}d",
+      "autoRecertSummary": "auto-recert"
     },
     "facilitatorVisibility": {
       "all_facilitators": "All facilitators",

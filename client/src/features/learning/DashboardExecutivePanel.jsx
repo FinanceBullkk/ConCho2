@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { Wallet, Coins, PiggyBank, Users } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { EmptyState } from '@/components/EmptyState';
@@ -44,21 +45,27 @@ function FinancialsSection({ financials }) {
         <>
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
             <StatTile
+              icon={Wallet}
+              tone="primary"
               label={t(`${x}.costPerEmployee`)}
               value={fmtMinor(financials.costPerEmployeeMinor, financials.currency)}
               hint={t(`${x}.activeEmployees`) + `: ${financials.activeEmployees}`}
             />
             <StatTile
+              icon={Coins}
+              tone="info"
               label={t(`${x}.costPerCompletion`)}
               value={fmtMinor(financials.costPerCompletionMinor, financials.currency)}
               hint={t(`${x}.completions12m`) + `: ${financials.completionsTrailing12Months}`}
             />
             <StatTile
+              icon={PiggyBank}
+              tone="success"
               label={t(`${x}.annualBudget`)}
               value={fmtMinor(financials.annualBudgetMinor, financials.currency)}
               hint={t(`${x}.minorUnitsHint`)}
             />
-            <StatTile label={t(`${x}.activeEmployees`)} value={financials.activeEmployees} />
+            <StatTile icon={Users} tone="neutral" label={t(`${x}.activeEmployees`)} value={financials.activeEmployees} />
           </div>
           {!editing ? (
             <Button size="sm" variant="outline" onClick={() => setEditing(true)}>
