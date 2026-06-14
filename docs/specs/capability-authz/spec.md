@@ -2,13 +2,15 @@
 capability: capability-authz
 status: evolving
 owners: [middleware/requireCapability, middleware/roleGuard, policy]
-last_updated: 2026-06-14
+last_updated: 2026-06-15
 related_code:
   - server/middleware/requireCapability.js
   - server/policy/capabilities.js
   - server/middleware/roleGuard.js
   - server/policy
   - server/models/LearningProgram.js
+  - server/models/Role.js
+  - server/domains/access
 related_plans:
   - plans/260603-0945-m4-capability-authz-scaffold
 ---
@@ -20,16 +22,22 @@ related_plans:
 > Admin-only platform routes (`/api/users` `user.manage`, `/api/settings`
 > `settings.manage`, `/api/import`+`/api/export`+`/api/sync` `data.transfer`,
 > `/api/dashboard` `analytics.read`, `/api/admin/audit` `audit.read`,
-> `/api/admin-db`+`/api/admin/reconcile` `system.ops`). Capabilities are still
-> derived from role (no per-user/DB-stored grants yet). Only `roleGuard` remains
+> `/api/admin-db`+`/api/admin/reconcile` `system.ops`). Only `roleGuard` remains
 > on `/api/auth` + `/api/admin/cron` (security/cron, by design) and the
 > converging-legacy trio `/api/classes`, `/api/enrollments`, `/api/evaluations`
 > (retired in their convergence phase). This spec states exactly what is enforced.
 >
-> **Read-only viewer (2026-06-14):** `GET /api/access/capability-matrix`
-> (Admin-only, `settings.manage`) surfaces this live matrix
-> (`roles`, `capabilities`, `grants`) to the Studio ▸ Roles & access UI. It
-> REFLECTS enforcement; it does not change it (capabilities stay role-derived).
+> **Editable grants (2026-06-15, TMS.update gap #2):** role→capability grants are
+> now **DB-backed + editable**. `roleHasCapability` stays sync — it reads an
+> in-memory `liveGrants` store seeded from the static `ROLE_CAPABILITIES` map and
+> loaded from a `Role` collection at boot (so behaviour is identical until an admin
+> edits). `domains/access` exposes `GET /api/access/roles` + `POST/PUT/DELETE
+> /api/access/roles/:key` (`role.manage`, Admin, audited) to edit grants + define
+> **custom roles**; every write refreshes `liveGrants`. **Admin grants are
+> immutable** (superuser, lockout-proof). The read-only `GET
+> /api/access/capability-matrix` (`settings.manage`) is retained, now reflecting the
+> live DB grants. Assigning a *user* to a custom role (the `User.role` enum) is a
+> deferred follow-up.
 
 ## Purpose
 
@@ -154,8 +162,10 @@ Inherits `security-platform`. Specifics:
 
 ## Out of Scope / Deferred (evolving)
 
-- **Per-user / DB-stored capability grants:** today capabilities are derived
-  from role via a static map (no custom per-user grants).
+- **DB-backed role grants + custom roles:** DONE (2026-06-15, gap #2) — grants
+  are editable per role and custom roles can be defined (`domains/access`,
+  `Role` model, `liveGrants`). Still deferred: assigning a *user* to a custom role
+  (the `User.role` enum is the 4 system roles) and per-*user* capability grants.
 - **Migrating legacy routes** (`roleGuard`) onto `requireCapability`.
 - **`schedulingMode` gating** is now enforced on all session-create paths
   (`leader_booking` + `admin_scheduled` + cohort-vs-team structural) via

@@ -1,53 +1,40 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Check, Minus, ShieldCheck, Info } from 'lucide-react';
+import { toast } from 'sonner';
+import { ShieldCheck, Info, Plus, Trash2, Lock } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { PageHeader } from '@/components/PageHeader';
 import { EmptyState } from '@/components/EmptyState';
-import { useCapabilityMatrix } from './useAccess';
+import { useRoles, useCreateRole, useUpdateRole, useDeleteRole } from './useAccess';
 
 // Persona-aligned hues for the role column chips.
 const ROLE_HUE = { Admin: 250, Coordinator: 155, Teacher: 200, Participant: 75 };
-
-// "program.manage" → "Program", "session.assign-trainer" → "Session"
 const titleize = (s) => s.replace(/[._-]+/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
 const actionOf = (cap) => titleize(cap.split('.').slice(1).join(' '));
+const hueFor = (key) => ROLE_HUE[key] ?? ([...key].reduce((a, c) => a + c.charCodeAt(0), 0) % 360);
 
 function RoleChip({ role }) {
-  const hue = ROLE_HUE[role] ?? 250;
+  const hue = hueFor(role.key);
   return (
-    <span
-      className="inline-flex items-center rounded-full px-2.5 py-1 text-[11px] font-semibold"
-      style={{ background: `oklch(0.3 0.08 ${hue})`, color: `oklch(0.82 0.14 ${hue})` }}
-    >
-      {role}
+    <span className="inline-flex items-center rounded-full px-2.5 py-1 text-[11px] font-semibold"
+      style={{ background: `oklch(0.3 0.08 ${hue})`, color: `oklch(0.82 0.14 ${hue})` }}>
+      {role.name || role.key}
     </span>
-  );
-}
-
-function Cell({ granted }) {
-  return (
-    <td className="px-3 text-center align-middle">
-      {granted ? (
-        <span className="inline-grid size-6 place-items-center rounded-md bg-success-tint text-success">
-          <Check className="size-3.5" aria-label="granted" />
-        </span>
-      ) : (
-        <span className="inline-grid size-6 place-items-center text-subtle-foreground">
-          <Minus className="size-3.5" aria-label="not granted" />
-        </span>
-      )}
-    </td>
   );
 }
 
 export default function RolesAccessPage() {
   const { t } = useTranslation();
-  const { data, isLoading, isError } = useCapabilityMatrix();
+  const { data, isLoading, isError } = useRoles();
+  const update = useUpdateRole();
+  const create = useCreateRole();
+  const remove = useDeleteRole();
+
+  const [edits, setEdits] = useState(() => new Map()); // roleKey → Set<cap>
+  const [newRole, setNewRole] = useState(null); // { key, name } | null
 
   const roles = data?.roles ?? [];
-  const grants = data?.grants ?? {};
-
-  // Group capabilities by their resource prefix (the part before the first dot).
   const groups = useMemo(() => {
     const byPrefix = new Map();
     (data?.capabilities ?? []).forEach((cap) => {
@@ -58,18 +45,75 @@ export default function RolesAccessPage() {
     return [...byPrefix.entries()].map(([prefix, caps]) => ({ prefix, caps }));
   }, [data]);
 
-  const has = (role, cap) => Array.isArray(grants[role]) && grants[role].includes(cap);
+  const effective = (role) => edits.get(role.key) ?? new Set(role.capabilities || []);
+  const has = (role, cap) => (role.key === 'Admin' ? true : effective(role).has(cap));
+  const dirty = edits.size > 0;
+
+  const toggle = (role, cap) => {
+    if (role.key === 'Admin') return; // superuser, locked
+    setEdits((prev) => {
+      const next = new Map(prev);
+      const set = new Set(next.get(role.key) ?? (role.capabilities || []));
+      if (set.has(cap)) set.delete(cap); else set.add(cap);
+      next.set(role.key, set);
+      return next;
+    });
+  };
+
+  const save = async () => {
+    try {
+      await Promise.all([...edits.entries()].map(([key, set]) => update.mutateAsync({ key, capabilities: [...set] })));
+      toast.success(t('access.saved'));
+      setEdits(new Map());
+    } catch (e) {
+      toast.error(e.response?.data?.message || t('access.saveError'));
+    }
+  };
+
+  const createRole = async (e) => {
+    e.preventDefault();
+    try {
+      await create.mutateAsync({ key: newRole.key.trim(), name: newRole.name.trim(), capabilities: [] });
+      toast.success(t('access.saved'));
+      setNewRole(null);
+    } catch (e2) {
+      toast.error(e2.response?.data?.message || t('access.createError'));
+    }
+  };
+
+  const deleteRole = async (role) => {
+    try {
+      await remove.mutateAsync(role.key);
+      setEdits((prev) => { const n = new Map(prev); n.delete(role.key); return n; });
+      toast.success(t('access.deleted'));
+    } catch (e) {
+      toast.error(e.response?.data?.message || t('access.saveError'));
+    }
+  };
 
   return (
     <div className="space-y-5">
       <PageHeader
         title={t('access.title')}
         description={t('access.description')}
+        actions={
+          <div className="flex items-center gap-2">
+            <Button size="sm" variant="outline" onClick={() => setNewRole({ key: '', name: '' })}>
+              <Plus className="mr-1.5 size-4" aria-hidden="true" />{t('access.newRole')}
+            </Button>
+            {dirty && (
+              <>
+                <Button size="sm" variant="ghost" onClick={() => setEdits(new Map())}>{t('access.discard')}</Button>
+                <Button size="sm" onClick={save} disabled={update.isPending}>{update.isPending ? t('access.saving') : t('access.save')}</Button>
+              </>
+            )}
+          </div>
+        }
       />
 
       <div className="flex items-start gap-2.5 rounded-lg border border-border bg-card px-4 py-3 text-sm text-muted-foreground">
         <Info className="mt-0.5 size-4 shrink-0 text-primary" aria-hidden="true" />
-        <p>{t('access.note')}</p>
+        <p>{t('access.note')}{dirty && <span className="ml-2 font-medium text-warning">· {t('access.unsaved')}</span>}</p>
       </div>
 
       {isLoading && (
@@ -77,24 +121,29 @@ export default function RolesAccessPage() {
           {Array.from({ length: 8 }, (_, i) => <div key={i} className="h-9 animate-pulse rounded-md bg-muted" />)}
         </div>
       )}
-
-      {isError && !isLoading && (
-        <EmptyState title={t('access.loadError')} description={t('access.loadErrorDesc')} />
-      )}
+      {isError && !isLoading && <EmptyState title={t('access.loadError')} description={t('access.loadErrorDesc')} />}
 
       {!isLoading && !isError && data && (
         <div className="overflow-x-auto rounded-xl border border-border bg-card">
           <table className="w-full border-collapse text-sm">
             <thead>
               <tr className="border-b border-border">
-                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-subtle-foreground">
-                  {t('access.capability')}
-                </th>
+                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-subtle-foreground">{t('access.capability')}</th>
                 {roles.map((role) => (
-                  <th key={role} className="px-3 py-3 text-center">
-                    <div className="flex items-center justify-center gap-2">
-                      <RoleChip role={role} />
-                      <span className="tabular-nums text-[11px] text-subtle-foreground">{grants[role]?.length ?? 0}</span>
+                  <th key={role.key} className="px-3 py-3 text-center">
+                    <div className="flex flex-col items-center gap-1">
+                      <div className="flex items-center gap-1.5">
+                        <RoleChip role={role} />
+                        {role.key === 'Admin' && <Lock className="size-3 text-subtle-foreground" aria-label={t('access.adminLocked')} />}
+                        {!role.system && (
+                          <button type="button" aria-label={`${t('access.deleteRole')} ${role.name}`} onClick={() => deleteRole(role)} className="text-destructive hover:opacity-70">
+                            <Trash2 className="size-3.5" />
+                          </button>
+                        )}
+                      </div>
+                      <span className="text-[10px] uppercase tracking-wide text-subtle-foreground">
+                        {role.system ? t('access.systemRole') : t('access.customRole')} · {effective(role).size}
+                      </span>
                     </div>
                   </th>
                 ))}
@@ -102,24 +151,49 @@ export default function RolesAccessPage() {
             </thead>
             <tbody>
               {groups.map((group) => (
-                <ResourceGroup key={group.prefix} group={group} roles={roles} has={has} />
+                <ResourceGroup key={group.prefix} group={group} roles={roles} has={has} toggle={toggle} />
               ))}
             </tbody>
           </table>
         </div>
       )}
+
+      <Dialog open={Boolean(newRole)} onOpenChange={(o) => !o && setNewRole(null)}>
+        <DialogContent>
+          <DialogHeader><DialogTitle>{t('access.newRole')}</DialogTitle></DialogHeader>
+          {newRole && (
+            <form onSubmit={createRole} className="space-y-3">
+              <div>
+                <label htmlFor="role-key" className="mb-1 block text-small text-muted-foreground">{t('access.roleKey')}</label>
+                <input id="role-key" className="h-10 w-full rounded-md border border-input bg-background px-3 font-mono text-sm" value={newRole.key}
+                  onChange={(e) => setNewRole((r) => ({ ...r, key: e.target.value }))} required />
+              </div>
+              <div>
+                <label htmlFor="role-name" className="mb-1 block text-small text-muted-foreground">{t('access.roleName')}</label>
+                <input id="role-name" className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm" value={newRole.name}
+                  onChange={(e) => setNewRole((r) => ({ ...r, name: e.target.value }))} required />
+              </div>
+              <DialogFooter>
+                <Button type="button" variant="ghost" onClick={() => setNewRole(null)}>{t('common.cancel', 'Cancel')}</Button>
+                <Button type="submit" disabled={create.isPending || !newRole.key.trim() || !newRole.name.trim()}>
+                  {create.isPending ? t('access.creating') : t('access.create')}
+                </Button>
+              </DialogFooter>
+            </form>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
 
-function ResourceGroup({ group, roles, has }) {
+function ResourceGroup({ group, roles, has, toggle }) {
   return (
     <>
       <tr className="bg-surface-2/40">
         <td colSpan={roles.length + 1} className="px-4 py-1.5">
           <span className="inline-flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wide text-subtle-foreground">
-            <ShieldCheck className="size-3" aria-hidden="true" />
-            {titleize(group.prefix)}
+            <ShieldCheck className="size-3" aria-hidden="true" />{titleize(group.prefix)}
           </span>
         </td>
       </tr>
@@ -131,7 +205,18 @@ function ResourceGroup({ group, roles, has }) {
               <span className="font-mono text-[11px] text-subtle-foreground">{cap}</span>
             </div>
           </td>
-          {roles.map((role) => <Cell key={role} granted={has(role, cap)} />)}
+          {roles.map((role) => (
+            <td key={role.key} className="px-3 text-center align-middle">
+              <input
+                type="checkbox"
+                className="size-4 accent-primary disabled:opacity-60"
+                checked={has(role, cap)}
+                disabled={role.key === 'Admin'}
+                aria-label={`${role.name} ${cap}`}
+                onChange={() => toggle(role, cap)}
+              />
+            </td>
+          ))}
         </tr>
       ))}
     </>
