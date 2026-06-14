@@ -3,7 +3,7 @@ import {
   CalendarCheck, ClipboardCheck, BookA, UsersRound, ClipboardEdit,
   LayoutDashboard, BarChart3, ChartLine, Download,
   Building2, MapPin, DoorOpen, Settings, Database, RefreshCw, ShieldCheck, ScrollText,
-  Compass, Languages,
+  Compass, Languages, FileText,
 } from 'lucide-react';
 
 // ──────────────────────────────────────────────────────────
@@ -88,6 +88,7 @@ export const NAV_GROUPS = [
     id: 'configure', labelKey: 'nav.groups.configure',
     items: [
       { path: '/access', labelKey: 'nav.sections.rolesAccess', icon: ShieldCheck, access: ADMIN_ONLY, parentRoutes: ['/access'] },
+      { path: '/custom-fields', labelKey: 'nav.sections.customFields', icon: FileText, access: ADMIN_ONLY, parentRoutes: ['/custom-fields'] },
     ],
   },
   {

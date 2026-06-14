@@ -6,6 +6,10 @@ export const qk = {
   access: {
     capabilityMatrix: ['access', 'capability-matrix'],
   },
+  customFields: {
+    all: ['custom-fields'],
+    list: (params) => ['custom-fields', 'list', params],
+  },
   users: {
     all: ['users'],
     list: (params) => ['users', 'list', params],

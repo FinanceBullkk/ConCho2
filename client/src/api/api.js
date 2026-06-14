@@ -131,6 +131,14 @@ export const accessAPI = {
   getCapabilityMatrix: () => api.get('/access/capability-matrix'),
 };
 
+// ── Custom fields (Studio — admin-defined fields) ─────────
+export const customFieldsAPI = {
+  getAll: (params) => api.get('/custom-fields', { params }),
+  create: (data) => api.post('/custom-fields', data),
+  update: (id, data) => api.put(`/custom-fields/${id}`, data),
+  delete: (id) => api.delete(`/custom-fields/${id}`),
+};
+
 // ── Teams ─────────────────────────────────────────────────
 export const teamsAPI = {
   getAll: () => api.get('/teams'),

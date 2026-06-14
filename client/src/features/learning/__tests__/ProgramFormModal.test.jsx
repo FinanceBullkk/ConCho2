@@ -15,6 +15,12 @@ vi.mock('../../../hooks/useLearning', () => ({
   useArchiveProgram: () => ({ mutateAsync: archiveFn, isPending: false }),
 }));
 
+// Basics step reads org-defined custom fields (a React Query hook); stub it so
+// the modal doesn't need a QueryClient and no custom-field section renders.
+vi.mock('../../custom-fields/useCustomFields', () => ({
+  useCustomFields: () => ({ data: [] }),
+}));
+
 // The builder is a 5-step wizard (Basics → Delivery → Completion → Certificate →
 // Review); each step's controls only mount when that step is active, so the
 // tests advance via the "Continue" button. The API payload contract is

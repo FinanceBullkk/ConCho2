@@ -36,6 +36,7 @@ export const blank = {
   capacityPolicy: { maxParticipants: '', maxParticipantsPerSession: '' },
   facilitatorPolicy: { assignmentRequired: false, visibility: 'all_facilitators' },
   recertifyPolicy: { autoAssign: false },
+  customFields: {},
 };
 
 // Edit mode: merge persisted policies over the blank defaults, normalising
@@ -53,6 +54,7 @@ export const initForm = (program) => {
     facilitatorPolicy: { ...blank.facilitatorPolicy, ...(program.facilitatorPolicy || {}) },
     recertifyPolicy: { ...blank.recertifyPolicy, ...(program.recertifyPolicy || {}) },
     certificateValidityDays: program.certificateValidityDays ?? '',
+    customFields: program.customFields || {},
   };
 };
 
@@ -91,6 +93,7 @@ export function buildPayload(form) {
       visibility: form.facilitatorPolicy.visibility,
     },
     recertifyPolicy: { autoAssign: Boolean(form.recertifyPolicy.autoAssign) },
+    customFields: form.customFields || {},
   };
 }
 
