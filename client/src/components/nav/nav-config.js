@@ -85,6 +85,12 @@ export const NAV_GROUPS = [
     ],
   },
   {
+    id: 'configure', labelKey: 'nav.groups.configure',
+    items: [
+      { path: '/access', labelKey: 'nav.sections.rolesAccess', icon: ShieldCheck, access: ADMIN_ONLY, parentRoutes: ['/access'] },
+    ],
+  },
+  {
     id: 'system', labelKey: 'nav.groups.system',
     items: [
       tab('/system', 'settings', 'nav.sections.settings', Settings, { access: ADMIN_ONLY }),

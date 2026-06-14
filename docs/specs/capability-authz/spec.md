@@ -25,6 +25,11 @@ related_plans:
 > on `/api/auth` + `/api/admin/cron` (security/cron, by design) and the
 > converging-legacy trio `/api/classes`, `/api/enrollments`, `/api/evaluations`
 > (retired in their convergence phase). This spec states exactly what is enforced.
+>
+> **Read-only viewer (2026-06-14):** `GET /api/access/capability-matrix`
+> (Admin-only, `settings.manage`) surfaces this live matrix
+> (`roles`, `capabilities`, `grants`) to the Studio ▸ Roles & access UI. It
+> REFLECTS enforcement; it does not change it (capabilities stay role-derived).
 
 ## Purpose
 

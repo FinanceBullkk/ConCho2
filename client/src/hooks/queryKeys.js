@@ -3,6 +3,9 @@ export const qk = {
   auth: {
     me: ['auth', 'me'],
   },
+  access: {
+    capabilityMatrix: ['access', 'capability-matrix'],
+  },
   users: {
     all: ['users'],
     list: (params) => ['users', 'list', params],
