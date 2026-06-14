@@ -30,6 +30,7 @@ const ProgramDetailPage = lazy(() => import('./features/learning/ProgramDetailPa
 const CohortDetailPage = lazy(() => import('./features/learning/CohortDetailPage'));
 const SessionDetailPage = lazy(() => import('./features/learning/SessionDetailPage'));
 const LearnerProfilePage = lazy(() => import('./features/learning/LearnerProfilePage'));
+const NotificationsPage = lazy(() => import('./features/notifications/NotificationsPage'));
 const SystemPage       = lazy(() => import('./pages/SystemPage'));
 const CalendarPage     = lazy(() => import('./pages/CalendarPage'));
 const ClassDetailPage  = lazy(() => import('./features/classes/ClassDetailPage'));
@@ -260,6 +261,8 @@ export default function App() {
                 <Route path="/home" element={<DashboardPage />} />
                 {/* Manager dashboard — any authenticated user; self-scoped server-side */}
                 <Route path="/my-team" element={<MyTeamPage />} />
+                {/* Notification center — any authenticated user; self-scoped. */}
+                <Route path="/notifications" element={<NotificationsPage />} />
 
                 <Route path="/people" element={
                   <ProtectedRoute roles={['Admin', 'Coordinator']}><PeoplePage /></ProtectedRoute>

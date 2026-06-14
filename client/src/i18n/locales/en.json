@@ -227,6 +227,39 @@
       "roomsDesc": "Physical training rooms, each scoped to an office."
     }
   },
+  "notificationsPage": {
+    "title": "Notifications",
+    "subtitle": "One inbox for everything the platform sends · backed by NotificationLog",
+    "markAllRead": "Mark all read",
+    "empty": "You're all caught up.",
+    "filters": {
+      "all": "All",
+      "overdue": "Overdue",
+      "certificates": "Certificates",
+      "completions": "Learning",
+      "assignments": "Assignments",
+      "system": "System"
+    },
+    "prefs": {
+      "title": "Delivery preferences",
+      "subtitle": "Per category · in-app and email",
+      "category": "Category",
+      "inApp": "In-app",
+      "email": "Email",
+      "digestTitle": "Daily digest",
+      "digestSubtitle": "Bundle low-priority into one email",
+      "digest": { "daily": "Daily", "weekly": "Weekly", "off": "Off" },
+      "saved": "Preferences saved.",
+      "saveError": "Couldn't save preferences."
+    },
+    "cat": {
+      "overdue": "Overdue & escalation",
+      "certificates": "Certificates & expiry",
+      "completions": "Completions",
+      "assignments": "Assignments",
+      "system": "System & automation"
+    }
+  },
   "org": {
     "departments": {
       "name": "Department name",

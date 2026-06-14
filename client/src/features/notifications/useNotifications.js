@@ -39,3 +39,20 @@ export const useMarkAllNotificationsRead = () => {
     onSuccess: () => qc.invalidateQueries({ queryKey: qk.notifications.all }),
   });
 };
+
+// Per-category delivery preferences (in-app/email + digest) — S7.
+export const useNotificationPreferences = (options = {}) =>
+  useQuery({
+    queryKey: qk.notifications.preferences,
+    queryFn: async () => (await notificationsAPI.getPreferences()).data.data,
+    staleTime: 60_000,
+    ...options,
+  });
+
+export const useSetNotificationPreferences = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (data) => notificationsAPI.setPreferences(data).then((r) => r.data.data),
+    onSuccess: (data) => qc.setQueryData(qk.notifications.preferences, data),
+  });
+};

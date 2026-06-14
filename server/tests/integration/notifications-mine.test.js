@@ -11,6 +11,7 @@
 const request = require('supertest');
 const { getApp, getTokens, getSeedData, getCsrfHeaders, teardown } = require('../setup');
 const NotificationLog = require('../../models/NotificationLog');
+const User = require('../../models/User');
 
 let app, tokens, seed, csrf;
 
@@ -121,5 +122,48 @@ describe('POST /api/notifications/read-all', () => {
       recipientUserId: seed.member1._id, readAt: null,
     });
     expect(otherUnread).toBe(1);
+  });
+});
+
+describe('/api/notifications/preferences (TMS.update S7)', () => {
+  afterEach(async () => {
+    await User.findByIdAndUpdate(seed.leader._id, { $unset: { notificationPreferences: 1 } });
+  });
+
+  test('GET returns server defaults before any customisation', async () => {
+    const res = await request(app)
+      .get('/api/notifications/preferences')
+      .set('Authorization', `Bearer ${tokens.leader}`)
+      .expect(200);
+    expect(res.body.data.digest).toBe('daily');
+    expect(res.body.data.categories.overdue).toEqual({ inApp: true, email: true });
+    expect(res.body.data.categories.system).toEqual({ inApp: false, email: false });
+  });
+
+  test('PUT merges a partial update over the current preferences + audits', async () => {
+    const res = await request(app)
+      .put('/api/notifications/preferences')
+      .set('Authorization', `Bearer ${tokens.leader}`).set(csrf)
+      .send({ categories: { completions: { inApp: true, email: true } }, digest: 'weekly' })
+      .expect(200);
+    expect(res.body.data.digest).toBe('weekly');
+    expect(res.body.data.categories.completions).toEqual({ inApp: true, email: true });
+    // untouched categories keep their defaults
+    expect(res.body.data.categories.overdue).toEqual({ inApp: true, email: true });
+
+    // persisted: a fresh GET reflects the saved prefs
+    const after = await request(app)
+      .get('/api/notifications/preferences')
+      .set('Authorization', `Bearer ${tokens.leader}`)
+      .expect(200);
+    expect(after.body.data.digest).toBe('weekly');
+  });
+
+  test('PUT rejects an invalid digest value (400)', async () => {
+    await request(app)
+      .put('/api/notifications/preferences')
+      .set('Authorization', `Bearer ${tokens.leader}`).set(csrf)
+      .send({ digest: 'hourly' })
+      .expect(400);
   });
 });
