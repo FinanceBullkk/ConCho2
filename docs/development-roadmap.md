@@ -109,6 +109,16 @@ Bug fixing and integration review rank above net-new feature rollout.
 > [`changelog-archive/2026-q2.md`](changelog-archive/2026-q2.md). Currently
 > inline: **2026-06-12 → 2026-06-13**.
 
+- **2026-06-14** — **North-star dashboards, phase 2 (Reports ▸ L&D).** Restyled the
+  operational + executive dashboards to the prototype's KPI vocabulary by
+  upgrading the two **shared** primitives in `DashboardWidgets`: `StatTile` now
+  carries a tone-coloured **icon chip** + large tabular value; `MetricBars` fills
+  are **threshold-coloured** (success/primary/warning/danger by real %). Wired
+  icons/tones through `DashboardOperationalPanel` + `DashboardExecutivePanel`
+  (both consume the shared tiles, so both upgrade DRY). Presentational only —
+  same real-data bundle, props backward-compatible (`alert` still reddens). Gates:
+  full client 313 ✓, build clean, lint 63 ≤ cap. Next: Home cards + Overall-
+  completion ring to north-star fidelity (phase 3).
 - **2026-06-14** — **North-star shell redesign, phase 1 (Claude Design hand-off).**
   Reworked the app shell to the design's topology: **fixed full-height left
   sidebar** (gradient brand mark · **persona-switch card** · role-filtered grouped

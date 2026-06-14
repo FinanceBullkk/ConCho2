@@ -1,5 +1,9 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import {
+  TrendingUp, Users, CircleCheck, Award, ClipboardCheck, CalendarClock, CalendarDays,
+  CalendarCheck, Target, ClipboardList, AlertTriangle, ShieldAlert, GraduationCap, MessageSquare,
+} from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { EmptyState } from '@/components/EmptyState';
@@ -102,10 +106,10 @@ export default function DashboardOperationalPanel() {
         {completion ? (
           <>
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-              <StatTile label={t('learning.dashboard.tiles.completionRate')} value={pc(completion.summary.completionRate)} />
-              <StatTile label={t('learning.dashboard.tiles.learners')} value={completion.summary.learners} />
-              <StatTile label={t('learning.dashboard.tiles.complete')} value={completion.summary.complete} />
-              <StatTile label={t('learning.dashboard.tiles.certificatesIssued')} value={completion.summary.certificatesIssued} />
+              <StatTile icon={TrendingUp} tone="primary" label={t('learning.dashboard.tiles.completionRate')} value={pc(completion.summary.completionRate)} />
+              <StatTile icon={Users} tone="info" label={t('learning.dashboard.tiles.learners')} value={completion.summary.learners} />
+              <StatTile icon={CircleCheck} tone="success" label={t('learning.dashboard.tiles.complete')} value={completion.summary.complete} />
+              <StatTile icon={Award} tone="success" label={t('learning.dashboard.tiles.certificatesIssued')} value={completion.summary.certificatesIssued} />
             </div>
             <div className="grid gap-4 lg:grid-cols-2">
               <MetricBars title={t('learning.dashboard.byProgram')} rows={completionBars(completion.programs)} />
@@ -120,6 +124,8 @@ export default function DashboardOperationalPanel() {
           {attendance ? (
             <>
               <StatTile
+                icon={ClipboardCheck}
+                tone="primary"
                 label={t('learning.dashboard.tiles.attendanceRate')}
                 value={pc(attendance.rate)}
                 hint={t('learning.dashboard.tiles.attendanceRecords', { count: attendance.totalRecords })}
@@ -128,13 +134,15 @@ export default function DashboardOperationalPanel() {
           ) : <MetricUnavailable />}
           {sessions ? (
             <>
-              <StatTile label={t('learning.dashboard.tiles.upcoming')} value={sessions.upcoming} />
-              <StatTile label={t('learning.dashboard.tiles.next7Days')} value={sessions.next7Days} />
-              <StatTile label={t('learning.dashboard.tiles.past')} value={sessions.past} />
+              <StatTile icon={CalendarClock} tone="info" label={t('learning.dashboard.tiles.upcoming')} value={sessions.upcoming} />
+              <StatTile icon={CalendarDays} tone="info" label={t('learning.dashboard.tiles.next7Days')} value={sessions.next7Days} />
+              <StatTile icon={CalendarCheck} tone="neutral" label={t('learning.dashboard.tiles.past')} value={sessions.past} />
             </>
           ) : <MetricUnavailable />}
           {coverage ? (
             <StatTile
+              icon={Target}
+              tone="primary"
               label={t('learning.dashboard.tiles.coverage')}
               value={pc(coverage.coveragePercent)}
               hint={`${coverage.engagedParticipants}/${coverage.activeParticipants}`}
@@ -146,8 +154,9 @@ export default function DashboardOperationalPanel() {
       <Section title={t('learning.dashboard.sections.obligations')}>
         {assignments ? (
           <div className="grid gap-3 sm:grid-cols-2">
-            <StatTile label={t('learning.dashboard.tiles.activeAssignments')} value={assignments.activeAssignments} />
+            <StatTile icon={ClipboardList} tone="info" label={t('learning.dashboard.tiles.activeAssignments')} value={assignments.activeAssignments} />
             <StatTile
+              icon={AlertTriangle}
               label={t('learning.dashboard.tiles.overdueLearners')}
               value={assignments.overdueLearners}
               alert={assignments.overdueLearners > 0}
@@ -157,12 +166,13 @@ export default function DashboardOperationalPanel() {
         {certificates ? (
           <div className="grid gap-3 sm:grid-cols-3">
             <StatTile
+              icon={ShieldAlert}
               label={t('learning.dashboard.tiles.expired')}
               value={certificates.expired}
               alert={certificates.expired > 0}
             />
-            <StatTile label={t('learning.dashboard.tiles.expiring30')} value={certificates.expiring30} />
-            <StatTile label={t('learning.dashboard.tiles.expiring60')} value={certificates.expiring60} />
+            <StatTile icon={Award} tone="warning" label={t('learning.dashboard.tiles.expiring30')} value={certificates.expiring30} />
+            <StatTile icon={Award} tone="neutral" label={t('learning.dashboard.tiles.expiring60')} value={certificates.expiring60} />
           </div>
         ) : <MetricUnavailable />}
         <div className="grid gap-4 lg:grid-cols-2">
@@ -185,6 +195,8 @@ export default function DashboardOperationalPanel() {
         <div className="grid gap-3 sm:grid-cols-2">
           {assessments ? (
             <StatTile
+              icon={GraduationCap}
+              tone="success"
               label={t('learning.dashboard.tiles.passRate')}
               value={pc(assessments.passRate)}
               hint={t('learning.dashboard.tiles.attempts', { count: assessments.totalAttempts })}
@@ -192,6 +204,8 @@ export default function DashboardOperationalPanel() {
           ) : <MetricUnavailable />}
           {feedback ? (
             <StatTile
+              icon={MessageSquare}
+              tone="primary"
               label={t('learning.dashboard.tiles.feedbackAvg')}
               value={feedback.averageRating == null ? '—' : `${feedback.averageRating}/5`}
               hint={t('learning.dashboard.tiles.feedbackCount', { count: feedback.count })}
