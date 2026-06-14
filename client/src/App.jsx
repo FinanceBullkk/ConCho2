@@ -29,6 +29,7 @@ const DrillListPage    = lazy(() => import('./features/learning/DrillListPage'))
 const ProgramDetailPage = lazy(() => import('./features/learning/ProgramDetailPage'));
 const CohortDetailPage = lazy(() => import('./features/learning/CohortDetailPage'));
 const SessionDetailPage = lazy(() => import('./features/learning/SessionDetailPage'));
+const LearnerProfilePage = lazy(() => import('./features/learning/LearnerProfilePage'));
 const SystemPage       = lazy(() => import('./pages/SystemPage'));
 const CalendarPage     = lazy(() => import('./pages/CalendarPage'));
 const ClassDetailPage  = lazy(() => import('./features/classes/ClassDetailPage'));
@@ -262,6 +263,10 @@ export default function App() {
 
                 <Route path="/people" element={
                   <ProtectedRoute roles={['Admin', 'Coordinator']}><PeoplePage /></ProtectedRoute>
+                } />
+                {/* Learner 360° (admin) — usersAPI.getById is Admin-gated. */}
+                <Route path="/people/:userId" element={
+                  <ProtectedRoute roles={['Admin']}><LearnerProfilePage /></ProtectedRoute>
                 } />
                 <Route path="/learning" element={
                   <ProtectedRoute roles={['Admin', 'Coordinator', 'Teacher']}><LearningPage /></ProtectedRoute>
