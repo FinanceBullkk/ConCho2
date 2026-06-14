@@ -109,6 +109,20 @@ Bug fixing and integration review rank above net-new feature rollout.
 > [`changelog-archive/2026-q2.md`](changelog-archive/2026-q2.md). Currently
 > inline: **2026-06-12 → 2026-06-13**.
 
+- **2026-06-14** — **Studio ▸ Scheduling (friendly `ALLOWED_TIME_SLOTS` editor).**
+  Replaced hand-editing raw JSON (`[{sh,sm,eh,em}]` in System ▸ Settings) with a
+  business-friendly **Configure ▸ Scheduling** page: each bookable window is a
+  pair of native time-pickers + live duration + add/remove, with **client-side
+  validation mirroring the server policy** (same-day positive window · no
+  overlaps) for instant inline errors. Empty list is allowed and clearly flagged
+  **"booking disabled"** (fail-closed). **No new backend** — reads/writes the SAME
+  whitelisted, policy-validated, audited `PUT /api/settings` key; a read-only
+  rules panel surfaces the authoritative timezone + per-team weekly limit from
+  `GET /api/learning/sessions/config`. New `features/scheduling/` (page +
+  `slot-time-utils` pure helpers + tests: render · overlap-blocks-save · valid
+  save payload · add/remove · empty-warn). Gates: full client 324 ✓, build clean,
+  lint ≤ cap (63, no new warning — used the render-phase state-sync pattern).
+  Server unchanged. Settings spec noted.
 - **2026-06-14** — **Studio ▸ Custom fields (Program, complete loop).** The
   design's #1 customization differentiator — admins define extra fields **without
   code**. New `CustomFieldDefinition` model + `domains/custom-field/` CRUD

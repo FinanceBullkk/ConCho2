@@ -15,6 +15,7 @@
     "sections": {
       "rolesAccess": "Roles & access",
       "customFields": "Custom fields",
+      "scheduling": "Scheduling",
       "schedules": "Schedules",
       "attendance": "Attendance",
       "classes": "Classes",
@@ -109,6 +110,33 @@
     "saveFailed": "Save failed",
     "loadError": "Could not load custom fields",
     "loadErrorDesc": "Refresh to try again. This surface is Admin-only."
+  },
+  "scheduling": {
+    "title": "Scheduling",
+    "description": "The bookable time windows a team leader can place a session into.",
+    "note": "These windows are in {{timezone}} (the org's local time). A team leader can only book a session that exactly fills one of them. Changes apply to new bookings; existing sessions are kept. Admin-only.",
+    "windows": "Bookable windows",
+    "addWindow": "Add window",
+    "from": "From",
+    "to": "to",
+    "startAria": "Window {{n}} start time",
+    "endAria": "Window {{n}} end time",
+    "removeAria": "Remove window {{n}}",
+    "errRange": "End time must be after start time.",
+    "errOverlap": "This window overlaps another one.",
+    "emptyWarn": "No windows defined — booking is currently disabled. Add a window to let team leaders book sessions.",
+    "unsaved": "Unsaved changes",
+    "allSaved": "All changes saved.",
+    "reset": "Discard",
+    "save": "Save changes",
+    "saving": "Saving…",
+    "saved": "Scheduling windows saved",
+    "saveFailed": "Could not save scheduling windows",
+    "rulesTitle": "Booking rules",
+    "timezone": "Timezone",
+    "weeklyLimit": "Per-team weekly limit",
+    "perWeek": "{{count}} / week",
+    "weeklyLimitNote": "Each team may book at most this many sessions per week. This limit is fixed in the booking engine."
   },
   "english": {
     "classesTitle": "Classes"

@@ -2,10 +2,11 @@
 capability: settings
 status: stable
 owners: [controllers/settingController, models/Setting]
-last_updated: 2026-06-08
+last_updated: 2026-06-14
 related_code:
   - server/controllers/settingController.js
   - server/models/Setting.js
+  - client/src/features/scheduling/SchedulingConfigPage.jsx
 related_plans: []
 ---
 
@@ -36,6 +37,13 @@ audited per key.
 
 - **Setting** (`server/models/Setting.js`): `{key, value}` documents. Whitelist =
   `ALLOWED_SETTING_KEYS` (currently `ALLOWED_TIME_SLOTS`).
+
+> **Management surfaces (UI):** `ALLOWED_TIME_SLOTS` is editable two ways, both
+> hitting the same whitelisted/validated/audited `PUT /api/settings`: the raw
+> JSON editor (System ▸ Settings) and a business-friendly window editor
+> (**Configure ▸ Scheduling**, `features/scheduling/SchedulingConfigPage`) that
+> mirrors the booking policy's same-day / no-overlap rules client-side for inline
+> feedback. No API behavior change — the server stays authoritative.
 
 ## Functional Requirements (FR)
 
