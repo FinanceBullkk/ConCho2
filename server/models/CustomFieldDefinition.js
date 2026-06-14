@@ -11,7 +11,14 @@ const mongoose = require('mongoose');
 // ──────────────────────────────────────────────────────────
 
 const entities = ['Program'];
-const types = ['text', 'select'];
+// TMS.update gap #6 — full type coverage (handoff §4). `select`/`multiselect`
+// carry `options`; `user` stores a User id; `toggle` a boolean; `date` an ISO
+// date string; `number` a numeric value.
+const types = ['text', 'number', 'select', 'multiselect', 'date', 'toggle', 'user'];
+// Where the field surfaces. `form` = entity create/edit forms (honored today);
+// `filter`/`export` are persisted for the list-filter + export surfaces to
+// consume (downstream).
+const surfaces = ['form', 'filter', 'export'];
 
 const customFieldDefinitionSchema = new mongoose.Schema(
   {
@@ -26,7 +33,8 @@ const customFieldDefinitionSchema = new mongoose.Schema(
     },
     label: { type: String, required: [true, 'Field label is required'], trim: true },
     type: { type: String, enum: types, default: 'text' },
-    options: { type: [String], default: [] }, // choices for `select`
+    options: { type: [String], default: [] }, // choices for `select`/`multiselect`
+    showIn: { type: [String], enum: surfaces, default: ['form'] },
     required: { type: Boolean, default: false },
     order: { type: Number, default: 0 },
     isDeleted: { type: Boolean, default: false },
@@ -42,6 +50,6 @@ customFieldDefinitionSchema.index(
 );
 customFieldDefinitionSchema.index({ entity: 1, order: 1 });
 
-customFieldDefinitionSchema.statics.enums = { entities, types };
+customFieldDefinitionSchema.statics.enums = { entities, types, surfaces };
 
 module.exports = mongoose.model('CustomFieldDefinition', customFieldDefinitionSchema);

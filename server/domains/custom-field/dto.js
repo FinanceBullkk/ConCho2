@@ -9,6 +9,7 @@ const customFieldDto = (d) => {
     label: o.label,
     type: o.type,
     options: o.options || [],
+    showIn: o.showIn && o.showIn.length ? o.showIn : ['form'],
     required: Boolean(o.required),
     order: o.order || 0,
   };

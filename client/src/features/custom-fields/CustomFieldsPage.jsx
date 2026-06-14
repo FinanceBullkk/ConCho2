@@ -18,7 +18,13 @@ const slugify = (s) => {
   return /^[a-z]/.test(base) ? base : `f_${base}`.slice(0, 40);
 };
 
-const blankForm = { label: '', key: '', keyTouched: false, type: 'text', optionsText: '', required: false };
+const TYPES = ['text', 'number', 'select', 'multiselect', 'date', 'toggle', 'user'];
+const TYPE_LABEL = { text: 'typeText', number: 'typeNumber', select: 'typeSelect', multiselect: 'typeMultiselect', date: 'typeDate', toggle: 'typeToggle', user: 'typeUser' };
+const SURFACES = ['form', 'filter', 'export'];
+const SURFACE_LABEL = { form: 'showInForm', filter: 'showInFilter', export: 'showInExport' };
+const needsOptions = (type) => type === 'select' || type === 'multiselect';
+
+const blankForm = { label: '', key: '', keyTouched: false, type: 'text', optionsText: '', required: false, showIn: ['form'] };
 
 export default function CustomFieldsPage() {
   const { t } = useTranslation();
@@ -36,7 +42,11 @@ export default function CustomFieldsPage() {
     () => form.optionsText.split(/[\n,]/).map((s) => s.trim()).filter(Boolean),
     [form.optionsText],
   );
-  const canAdd = form.label.trim() && form.key.trim() && (form.type !== 'select' || options.length > 0);
+  const canAdd = form.label.trim() && form.key.trim() && (!needsOptions(form.type) || options.length > 0);
+  const toggleSurface = (s) => setForm((f) => ({
+    ...f,
+    showIn: f.showIn.includes(s) ? f.showIn.filter((x) => x !== s) : [...f.showIn, s],
+  }));
 
   const handleAdd = async (e) => {
     e.preventDefault();
@@ -46,7 +56,8 @@ export default function CustomFieldsPage() {
         key: form.key.trim(),
         label: form.label.trim(),
         type: form.type,
-        options: form.type === 'select' ? options : [],
+        options: needsOptions(form.type) ? options : [],
+        showIn: form.showIn.length ? form.showIn : ['form'],
         required: form.required,
         order: fields.length,
       });
@@ -123,8 +134,9 @@ export default function CustomFieldsPage() {
               <div>
                 <label htmlFor="cf-type" className="mb-1 block text-small text-muted-foreground">{t('customFields.type')}</label>
                 <select id="cf-type" className={ctrl} value={form.type} onChange={(e) => set('type')(e.target.value)}>
-                  <option value="text" className="bg-popover">{t('customFields.typeText')}</option>
-                  <option value="select" className="bg-popover">{t('customFields.typeSelect')}</option>
+                  {TYPES.map((ty) => (
+                    <option key={ty} value={ty} className="bg-popover">{t(`customFields.${TYPE_LABEL[ty]}`)}</option>
+                  ))}
                 </select>
               </div>
               <label className="flex items-center gap-2 self-end pb-2 text-sm text-foreground">
@@ -132,13 +144,24 @@ export default function CustomFieldsPage() {
                 {t('customFields.requiredField')}
               </label>
             </div>
-            {form.type === 'select' && (
+            {needsOptions(form.type) && (
               <div>
                 <label htmlFor="cf-options" className="mb-1 block text-small text-muted-foreground">{t('customFields.options')}</label>
                 <input id="cf-options" className={ctrl} value={form.optionsText} onChange={(e) => set('optionsText')(e.target.value)}
                   placeholder={t('customFields.optionsHint')} />
               </div>
             )}
+            <div>
+              <span className="mb-1 block text-small text-muted-foreground">{t('customFields.showIn')}</span>
+              <div className="flex flex-wrap gap-3">
+                {SURFACES.map((s) => (
+                  <label key={s} className="flex items-center gap-1.5 text-sm text-foreground">
+                    <input type="checkbox" className="size-4 accent-primary" checked={form.showIn.includes(s)} onChange={() => toggleSurface(s)} />
+                    {t(`customFields.${SURFACE_LABEL[s]}`)}
+                  </label>
+                ))}
+              </div>
+            </div>
             <Button type="submit" size="sm" disabled={!canAdd || createMutation.isPending}>
               <Plus className="size-4" />{t('customFields.add')}
             </Button>
