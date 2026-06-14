@@ -109,6 +109,18 @@ Bug fixing and integration review rank above net-new feature rollout.
 > [`changelog-archive/2026-q2.md`](changelog-archive/2026-q2.md). Currently
 > inline: **2026-06-12 → 2026-06-13**.
 
+- **2026-06-14** — **Program detail view (closes the custom-fields read loop).**
+  Custom field values were written + editable in the Program builder but had **no
+  read surface** — and programs could only be opened by managers straight into the
+  edit builder. New **read-only `ProgramDetailModal`**: clicking a program (any
+  reader, incl. Teachers) opens a polished detail (overview · completion ·
+  certificate · capacity · prerequisites · **custom field values**) with an Edit
+  shortcut into the builder for `program.manage`. Closes `define → builder → save
+  → READ` for custom fields and gives read-only users a program view they lacked.
+  Pure frontend (reuses `programDto.customFields` + `completionRules`/`neverExpires`
+  helpers; no backend change). Test: render + values + prereqs · manager Edit ·
+  read-only hides Edit. Gates: full client 322 ✓, build clean, lint ≤ cap.
+  learning-catalog spec folded (customFields entity + read-detail scenario).
 - **2026-06-14** — **Studio ▸ Custom fields (Program, complete loop).** The
   design's #1 customization differentiator — admins define extra fields **without
   code**. New `CustomFieldDefinition` model + `domains/custom-field/` CRUD

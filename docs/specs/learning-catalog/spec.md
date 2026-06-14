@@ -2,7 +2,7 @@
 capability: learning-catalog
 status: stable
 owners: [domains/learning, controllers/classController]
-last_updated: 2026-06-13
+last_updated: 2026-06-14
 related_code:
   - server/domains/learning/controller.js
   - server/domains/learning/use-cases.js
@@ -11,6 +11,7 @@ related_code:
   - server/models/LearningProgram.js
   - server/models/Class.js
   - client/src/features/learning/ProgramFormModal.jsx
+  - client/src/features/learning/ProgramDetailModal.jsx
 related_plans:
   - plans/260603-0911-m3-learning-crud-ui
 ---
@@ -56,7 +57,8 @@ to a generic training platform — Programs are new; Classes stay stored as
   {attendanceThresholdPercent, requiresAssessment, requiresFeedback},
   `certificateValidityDays`, `capacityPolicy`, `facilitatorPolicy`,
   `recertifyPolicy` {autoAssign}, `prerequisitePrograms[]`, `status`
-  (active/inactive/archived), `legacyCourseName`.
+  (active/inactive/archived), `customFields` (admin-defined values keyed by
+  `CustomFieldDefinition.key` — see Studio ▸ Custom fields), `legacyCourseName`.
 - **Class / Cohort** (`server/models/Class.js`): `classCode` + `courseName`
   (**unique together**), `programId` (link), `totalSessions`, `status`
   (Ongoing/Completed), `teacherIds[]` (teacher-class binding, "open until
@@ -147,6 +149,14 @@ requires-feedback), `certificateValidityDays` (blank = never expires),
 The system SHALL allow any authenticated user to read `/api/learning/programs`
 and `/api/learning/cohorts`; cohort writes (create/edit/delete) require the
 `cohort.manage` capability (Admin/Coordinator).
+
+#### Scenario: Read-only program detail
+- **GIVEN** any authenticated user opens a program from the catalog list
+- **WHEN** the program detail view renders
+- **THEN** it shows the program's config (overview, completion, certificate,
+  capacity, prerequisites) and the **values of any admin-defined custom fields**,
+  read-only; an Edit shortcut into the builder appears only for users with
+  `program.manage`.
 
 ## Non-Functional Requirements (NFR)
 
