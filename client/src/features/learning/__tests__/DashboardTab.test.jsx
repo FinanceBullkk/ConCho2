@@ -1,7 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { MemoryRouter } from 'react-router-dom';
 import DashboardTab from '../DashboardTab';
+
+// The operational KPI tiles are now click-through (<Link> to the drill list),
+// so the panel must render inside a router — as it always does in the app.
+const renderTab = () => render(<DashboardTab />, { wrapper: MemoryRouter });
 
 const mocks = vi.hoisted(() => ({
   refetch: vi.fn(),
@@ -92,7 +97,7 @@ describe('DashboardTab', () => {
   });
 
   it('renders the operational KPI tiles from the bundle', () => {
-    render(<DashboardTab />);
+    renderTab();
 
     expect(screen.getByText('Completion rate')).toBeInTheDocument();
     // 50% appears twice now: the completion-rate tile AND the Overall-completion
@@ -109,7 +114,7 @@ describe('DashboardTab', () => {
 
   it('shows the Executive toggle for Admins and mounts the executive panel', async () => {
     const user = userEvent.setup();
-    render(<DashboardTab />);
+    renderTab();
 
     await user.click(screen.getByRole('tab', { name: /executive/i }));
     // Executive hook is mocked as loading → the panel skeleton mounts.
@@ -118,7 +123,7 @@ describe('DashboardTab', () => {
 
   it('hides the Executive toggle for non-admin report readers', () => {
     mocks.state.isAdmin = false;
-    render(<DashboardTab />);
+    renderTab();
 
     expect(screen.queryByRole('tab', { name: /executive/i })).not.toBeInTheDocument();
     // The operational panel still renders for Teachers.
@@ -131,7 +136,7 @@ describe('DashboardTab', () => {
       coverage: null,
       errors: [{ metric: 'coverage', message: 'boom' }],
     };
-    render(<DashboardTab />);
+    renderTab();
 
     expect(screen.getByText('Some metrics could not be computed: coverage')).toBeInTheDocument();
     expect(screen.getByText('This metric could not be computed right now.')).toBeInTheDocument();
@@ -143,7 +148,7 @@ describe('DashboardTab', () => {
     const user = userEvent.setup();
     mocks.state.data = null;
     mocks.state.isLoading = true;
-    const { rerender } = render(<DashboardTab />);
+    const { rerender } = renderTab();
     expect(screen.getByTestId('dashboard-skeleton')).toBeInTheDocument();
 
     mocks.state.isLoading = false;
@@ -157,7 +162,7 @@ describe('DashboardTab', () => {
 
   it('passes the selected window to the dashboard hook', async () => {
     const user = userEvent.setup();
-    render(<DashboardTab />);
+    renderTab();
 
     expect(mocks.dashboardCalls.at(-1)).toEqual({ window: '30' });
     await user.selectOptions(screen.getByLabelText('Window'), '90');

@@ -1,0 +1,59 @@
+# TMS.update — Phase 1: Front-end Value Layer
+
+**Source:** `design_handoff_tms_update/` (README gap map + Developer Handoff §1–14 + 22 screenshots).
+**Goal of Phase 1:** turn already-captured training data into *action + insight* — operational/executive
+dashboards with click-through, the 4 detail pages, cohort roster bulk ops, real modals, ⌘K, notification center.
+**Constraints:** build on existing feature folders; two-layer authz (capability + resource policy) + audit on every
+write; match screenshots with `client/src/index.css` tokens; English-only; keep lint ≤ cap (63); tests green.
+
+---
+
+## Exists-vs-build (verified against code 2026-06-14)
+
+| Prototype surface | Status in ConCho2 | Action |
+|---|---|---|
+| Shell / sidebar / persona switch | ✅ `components/Layout`, `Topbar`, `PersonaContext` (admin/learner) | extend: add **Manager** persona (My Team) |
+| ⌘K command palette | ✅ `components/SearchPalette.jsx` (wired in Topbar) | enrich: entity nav + quick actions |
+| Home (alerts, today's sessions, onboarding) | ✅ `features/dashboard/DashboardPage` (+NextActions/QuickActions/AdminAnalytics) | wire alert cards → drill/attendance |
+| Reports · Overview (KPIs, by-program, dept table) | ✅ `features/learning/Dashboard*Panel` + `DashboardTopLists` via `/learning/dashboard/operational` | **add click-through** (KPIs/rows → drill) |
+| Reports · Executive ROI | ✅ `DashboardExecutivePanel`+`Kirkpatrick`+`CostConfig` via `/learning/dashboard/executive` | verify vs §10 + add "how calculated" tooltips/narrative |
+| Drill list (filtered learners) | ⚠️ only embedded top-N | **build** `DrillListPage` route |
+| Program detail page | ❌ programs are tabs+modals in `LearningPage` | **build** `/learning/programs/:id` |
+| Cohort detail (roster bulk/sort/drawer) | ❌ `CohortsTab` is a list | **build** `/learning/cohorts/:id` |
+| Session detail (one-submit attendance) | ❌ (attendance marking lives in English/calendar) | **build** `/learning/sessions/:id` |
+| Learner profile 360 (admin) | ❌ only self `/me/*` | **build** `/people/:userId` |
+| Notification center + delivery prefs | ⚠️ `NotificationBell` only | **build** `/notifications` page (+prefs backend) |
+| Modals: New cohort / Enroll / Assign | ✅ exist in `features/learning` | reuse |
+| Modals: Issue cert / Message / Nudge | ❌ | **build** (+ small backend endpoints) |
+
+### Small backend additions Phase 1 needs (not "pure front-end")
+- **Manual certificate issue** endpoint — cap `certificate.manage` (exists) + policy + audit. (Certs today only auto-issue via completion engine.)
+- **Nudge / message cohort or learner** — reuse `domains/notification/in-app-writer` + mailer; new thin endpoint + audit.
+- **Notification delivery preferences** — new per-user prefs store (User subdoc or small model) + GET/PUT; `NotificationLog` has category/channel but no prefs.
+- **Admin learner-360 read** — mostly composes existing (`getCompletion?learnerId`, `getCertificates`, transcript); add admin-scoped transcript read if gap.
+
+---
+
+## Vertical slices (each = verify/extend API → UI → test; run `client npm run test:run` + lint + build)
+
+- **S1 — Operational click-through + DrillListPage.** KPI tiles (overdue, expiring) + dept rows navigate to a filtered learner list. Reuses operational/compliance endpoints. *No backend.*
+- **S2 — Executive ROI polish.** Map exec endpoint to §10 (coverage, cost/completion, efficiency dividend, Kirkpatrick L1–L2 measured / L3–L4 flagged); add assumption tooltips + narrative banner; admin-only. *Verify backend only.*
+- **S3 — Program detail page** (`/learning/programs/:id`): overview (trend+funnel+cohorts+policy) · cohorts · curriculum · analytics · settings. Nav from Programs cards. *Read-only; composes existing.*
+- **S4 — Cohort detail page** (`/learning/cohorts/:id`): roster multi-select + bulk Assign/Nudge/Issue-cert + sortable cols + at-risk filter + 360 drawer; tabs overview/sessions/assessment/policy. *Backend: cert-issue + nudge endpoints.* (Largest slice.)
+- **S5 — Session detail page** (`/learning/sessions/:id`): one-submit attendance (present/late/absent/excused + all-present + live ring) → submit re-evaluates completion (`completion.recorded`). Reuses attendance + completion engine.
+- **S6 — Learner profile 360 (admin)** (`/people/:userId`): header + 6 KPIs; tabs overview (current programs + role readiness + suggested next) · transcript · skills(stub→Phase 5) · certificates · activity.
+- **S7 — Notification center** (`/notifications`): feed + category filters + per-category delivery prefs (in-app/email) + daily-digest toggle. *Backend: prefs store + endpoint.*
+- **S8 — Modals + ⌘K + Home alerts wiring.** Finish Issue-cert/Message modals, enrich ⌘K (entity nav + quick actions), wire Home alert cards. (Absorbs leftovers from S4/S6.)
+
+**Recommended order:** S1 → S2 → S3 → S4 → S5 → S6 → S7 → S8 (leverage-first; dashboards land value fastest, detail pages build on each other, backend-touching slices spaced out).
+
+## Progress
+- ✅ **S1 — Operational click-through + DrillListPage** (2026-06-14). `DrillListPage` at `/reports/drill` (Admin-only) over the existing compliance report; `StatTile` optional `to`; Overdue/Expired/Expiring tiles drill through. Tests: new `DrillListPage.test.jsx` (4) + `DashboardTab` router wrapper. Suite 327✓, lint 63 (cap), build clean. No backend changes.
+
+## Definition of Done (per slice + phase)
+Code per conventions · capability + resource-policy + audit on writes · `client npm run test:run` + lint(≤63) + `vite build` green · backend slices ship integration tests · update `docs/development-roadmap.md` + capability spec(s) when behavior changes · commit (conventional, no AI refs); confirm before push.
+
+## Open questions
+1. Learner-360 route: `/people/:userId` vs `/users/:id` (PeoplePage is a composition shell)? — proposing `/people/:userId`.
+2. Notification prefs storage: subdoc on `User` vs small `NotificationPreference` model? — proposing User subdoc (KISS).
+3. Manual cert issue: confirm it should be admin-triggerable (vs completion-only) — prototype shows a bulk "Issue cert" action, implying yes.
