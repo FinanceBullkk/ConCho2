@@ -109,6 +109,13 @@ Bug fixing and integration review rank above net-new feature rollout.
 > [`changelog-archive/2026-q2.md`](changelog-archive/2026-q2.md). Currently
 > inline: **2026-06-12 → 2026-06-13**.
 
+- **2026-06-14** — **North-star Home, phase 3 (Today's sessions card).** Rebuilt
+  the Home `TodayHero` from a compact status band into the prototype's **"Today's
+  sessions" list card** — per-session time · class · room · attendance-status
+  badge + accent bar, capped at 6 rows with a "+N more", and an "Open calendar"
+  link. Real data (attendance calendar, filtered to today); returns null when the
+  day is empty. Presentational; `TodayHero` is stubbed in `DashboardPage` tests so
+  none change. Gates: full client 313 ✓, build clean, lint 63 ≤ cap.
 - **2026-06-14** — **North-star dashboards, phase 2 (Reports ▸ L&D).** Restyled the
   operational + executive dashboards to the prototype's KPI vocabulary by
   upgrading the two **shared** primitives in `DashboardWidgets`: `StatTile` now
