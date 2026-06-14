@@ -120,8 +120,10 @@ Bug fixing and integration review rank above net-new feature rollout.
   not an authz boundary), so no spec delta. New: `SidebarBrand`/`PersonaSwitch`/
   `SidebarFooter` + `activeItemLabelKey` breadcrumb helper; `Layout`/`Topbar`/
   `Sidebar`/`MobileSidebar` restyled. Topbar test updated (logo → breadcrumb).
-  Gates: full client 313 ✓, build clean, lint 63 ≤ cap. Next: Home landing +
-  dashboards to north-star fidelity (phase 2/3).
+  Added a recessed `--background-2` surface token (dark + light) so the sidebar
+  reads **darker than content** (the prototype's signature) + a subtle lift on
+  Home quick-action tiles. Gates: full client 313 ✓, build clean, lint 63 ≤ cap.
+  Next: Home cards + dashboards to north-star fidelity (phase 2/3).
 - **2026-06-14** — **Program / Delivery Builder (Claude Design north-star → real
   UI).** Reworked the program create/edit modal (`ProgramFormModal`) into the
   design hand-off's guided **5-step builder** (Basics → Delivery → Completion →
