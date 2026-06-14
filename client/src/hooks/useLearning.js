@@ -10,6 +10,15 @@ export const useLearningPrograms = (params = {}) =>
     queryFn: async () => (await learningAPI.getPrograms(params)).data,
   });
 
+// One program (detail page). Returns the program DTO directly (unwrapped).
+export const useLearningProgram = (id, options = {}) =>
+  useQuery({
+    queryKey: qk.learning.program(id),
+    queryFn: async () => (await learningAPI.getProgram(id)).data.data,
+    enabled: Boolean(id),
+    ...options,
+  });
+
 // English-class separation: `mode: 'team'` routes to /api/english/classes
 // (server forces the team world); 'cohort' filters the generic cohort list.
 export const useLearningCohorts = (params = {}) =>
