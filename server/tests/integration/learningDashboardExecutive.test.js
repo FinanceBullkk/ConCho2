@@ -191,6 +191,31 @@ describe('Learning Platform API — executive dashboard (ROI tier)', () => {
     });
   });
 
+  test('efficiency dividend computes from coordinators × hours × weeks × hourly cost (ROI §10)', async () => {
+    await seedExecutiveData();
+
+    // Budget only → no efficiency inputs → dividend stays null (never fabricated).
+    await putCostConfig(tokens.admin, { annualBudgetMinor: 1000000, currency: 'VND' });
+    const partial = await getExecutive(tokens.admin);
+    expect(partial.body.data.financials.efficiencyDividendMinor).toBeNull();
+
+    // Full inputs → 10h/wk × 4 coordinators × 52 weeks × 100000 = 208,000,000.
+    await putCostConfig(tokens.admin, {
+      annualBudgetMinor: 1000000,
+      currency: 'VND',
+      avgLoadedHourlyCostMinor: 100000,
+      coordinatorCount: 4,
+      automationHoursReclaimedPerWeek: 10,
+    });
+    const after = await getExecutive(tokens.admin);
+    expect(after.body.data.financials).toMatchObject({
+      coordinatorCount: 4,
+      automationHoursReclaimedPerWeek: 10,
+      avgLoadedHourlyCostMinor: 100000,
+      efficiencyDividendMinor: 208000000,
+    });
+  });
+
   test('PUT cost-config writes a Setting audit entry with the diff', async () => {
     const res = await putCostConfig(tokens.admin, {
       annualBudgetMinor: 500000,
