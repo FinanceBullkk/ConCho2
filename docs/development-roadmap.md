@@ -109,6 +109,19 @@ Bug fixing and integration review rank above net-new feature rollout.
 > [`changelog-archive/2026-q2.md`](changelog-archive/2026-q2.md). Currently
 > inline: **2026-06-12 → 2026-06-13**.
 
+- **2026-06-14** — **North-star shell redesign, phase 1 (Claude Design hand-off).**
+  Reworked the app shell to the design's topology: **fixed full-height left
+  sidebar** (gradient brand mark · **persona-switch card** · role-filtered grouped
+  nav with active left-accent bar · signed-in footer) + a **slim sticky topbar**
+  that now leads with a **workspace › page breadcrumb** (search · notifications ·
+  theme · avatar on the right). Persona switching moved from the avatar dropdown
+  into the sidebar card; brand/logo moved topbar → sidebar. **Chrome-only** — nav
+  data (`nav-config`), routes, authz and persona semantics unchanged (persona is
+  not an authz boundary), so no spec delta. New: `SidebarBrand`/`PersonaSwitch`/
+  `SidebarFooter` + `activeItemLabelKey` breadcrumb helper; `Layout`/`Topbar`/
+  `Sidebar`/`MobileSidebar` restyled. Topbar test updated (logo → breadcrumb).
+  Gates: full client 313 ✓, build clean, lint 63 ≤ cap. Next: Home landing +
+  dashboards to north-star fidelity (phase 2/3).
 - **2026-06-14** — **Program / Delivery Builder (Claude Design north-star → real
   UI).** Reworked the program create/edit modal (`ProgramFormModal`) into the
   design hand-off's guided **5-step builder** (Basics → Delivery → Completion →

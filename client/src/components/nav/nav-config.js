@@ -141,6 +141,23 @@ export function isItemVisible(item, role, can) {
   return true;
 }
 
+// The labelKey of the nav item the current location resolves to — used by the
+// Topbar breadcrumb (workspace › page). Mirrors the Sidebar's group assembly so
+// the crumb always matches the highlighted sidebar item. Falls back to Home.
+export function activeItemLabelKey({ role, can, pathname, tab, persona }) {
+  if (pathname.startsWith('/my-team')) return MY_TEAM_ITEM.labelKey;
+  const groups = persona === 'learner' ? LEARNER_GROUPS : NAV_GROUPS;
+  for (const group of groups) {
+    const items = group.items.filter((it) => isItemVisible(it, role, can));
+    const activePath = groupActivePath(items, pathname, tab);
+    if (activePath) {
+      const item = items.find((it) => it.path === activePath);
+      if (item) return item.labelKey;
+    }
+  }
+  return 'nav.home';
+}
+
 // The active item's `path` within a group of VISIBLE items (or null). Tab groups
 // share a base: match `?tab=`, else the first visible item (role-correct default).
 export function groupActivePath(visibleItems, pathname, currentTab) {

@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
-import { LogOut, Settings, Sun, Moon, Menu, Search, ChevronDown, ArrowLeftRight } from 'lucide-react';
+import { Link, useLocation } from 'react-router-dom';
+import { LogOut, Settings, Sun, Moon, Menu, Search, ChevronDown } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../../context/AuthContext';
 import { usePersona } from '../../context/PersonaContext';
+import { useRole } from '../../hooks/useRole';
 import { useTheme } from '../../hooks/useTheme';
 import {
   DropdownMenu,
@@ -14,10 +15,12 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { cn } from '@/lib/utils';
+import { Breadcrumbs } from '../Breadcrumbs';
 import SearchPalette from '../SearchPalette';
 import NotificationBell from '../../features/notifications/NotificationBell';
+import { activeItemLabelKey } from './nav-config';
 
-// Role accent — logo chip + role label (solid tokens only, Phase 0 §02).
+// Role accent — avatar chip + role label (solid tokens only, Phase 0 §02).
 const ROLE_BG = {
   Admin: 'bg-primary', Coordinator: 'bg-info', Teacher: 'bg-success', Participant: 'bg-warning',
 };
@@ -26,30 +29,23 @@ const ROLE_TEXT = {
 };
 
 // ── Avatar dropdown ───────────────────────────────────────
-// System moved to the sidebar (Manage group) in the IA rework, so it's no
-// longer duplicated here — this menu is account + sign-out only.
+// Account + sign-out only. Persona switching moved to the sidebar's persona card
+// (north-star shell); System lives in the sidebar Manage group.
 function AvatarMenu({ user, onLogout }) {
   const { t } = useTranslation();
-  const navigate = useNavigate();
-  const { persona, setPersona, canSwitch } = usePersona();
   const initials = (user?.name || '?')
     .split(' ').map((w) => w[0]).join('').slice(0, 2).toUpperCase();
   const roleColor = ROLE_BG[user?.role] ?? 'bg-primary';
-
-  const switchPersona = () => {
-    if (persona === 'admin') { setPersona('learner'); navigate('/me/programs'); }
-    else { setPersona('admin'); navigate('/home'); }
-  };
 
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <button
           aria-label={t('nav.openAccountMenu')}
-          className="flex items-center gap-1.5 rounded-lg px-1.5 py-1 hover:bg-accent transition-colors duration-(--dur) focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          className="flex items-center gap-1.5 rounded-lg px-1 py-1 hover:bg-accent transition-colors duration-(--dur) focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
           <span
-            className={cn('flex size-7 items-center justify-center rounded-md text-[11px] font-bold text-primary-foreground', roleColor)}
+            className={cn('flex size-[30px] items-center justify-center rounded-full text-[11px] font-bold text-primary-foreground', roleColor)}
             aria-hidden="true"
           >
             {initials}
@@ -67,13 +63,6 @@ function AvatarMenu({ user, onLogout }) {
         </DropdownMenuLabel>
 
         <DropdownMenuSeparator />
-
-        {canSwitch && (
-          <DropdownMenuItem onClick={switchPersona} className="flex items-center gap-2 cursor-pointer">
-            <ArrowLeftRight className="size-4 text-muted-foreground" aria-hidden="true" />
-            {persona === 'admin' ? t('nav.switchToLearner') : t('nav.switchToAdmin')}
-          </DropdownMenuItem>
-        )}
 
         <DropdownMenuItem asChild>
           <Link to="/me/settings" className="flex items-center gap-2 cursor-pointer">
@@ -97,14 +86,18 @@ function AvatarMenu({ user, onLogout }) {
 }
 
 // ──────────────────────────────────────────────────────────
-// Topbar — slim global bar (IA rework 2026-06-13). Primary nav lives in the
-// left Sidebar now; this bar holds logo · global search · notifications ·
-// theme · avatar, plus the mobile hamburger that opens the sidebar drawer.
+// Topbar — slim sticky bar over the main column (north-star shell). Holds the
+// workspace › page breadcrumb · global search · notifications · theme · avatar,
+// plus the mobile hamburger that opens the sidebar drawer. The brand + primary
+// nav live in the sidebar now.
 // ──────────────────────────────────────────────────────────
 export default function Topbar({ onOpenMobileNav }) {
   const { user, logout } = useAuth();
+  const { persona } = usePersona();
+  const { can } = useRole();
   const { isDark, toggle } = useTheme();
   const { t } = useTranslation();
+  const location = useLocation();
   const [searchOpen, setSearchOpen] = useState(false);
 
   // Global shortcut: Cmd/Ctrl+K (and "/" outside inputs) opens the search
@@ -146,55 +139,42 @@ export default function Topbar({ onOpenMobileNav }) {
 
   if (!user) return null;
 
-  return (
-    <header className="sticky top-0 z-50 bg-card border-b border-border">
-      <div className="flex h-16 items-center justify-between gap-4 px-4 sm:px-6">
-        {/* Left: hamburger (mobile) + logo */}
-        <div className="flex items-center gap-2">
-          <button
-            onClick={onOpenMobileNav}
-            aria-label={t('nav.openMenu')}
-            className="md:hidden p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-accent transition-colors duration-(--dur)"
-          >
-            <Menu className="size-5" aria-hidden="true" />
-          </button>
-          <Link to="/home" className="group flex shrink-0 items-center gap-3">
-            <div
-              className={cn(
-                'flex size-9 items-center justify-center rounded-lg text-sm font-bold text-primary-foreground transition-colors duration-(--dur)',
-                ROLE_BG[user.role] ?? 'bg-primary',
-              )}
-            >
-              T
-            </div>
-            <span className="hidden text-lg font-bold tracking-tight text-foreground sm:block">
-              TMS<span className="text-primary">v2</span>
-            </span>
-          </Link>
-        </div>
+  const tab = new URLSearchParams(location.search).get('tab');
+  const workspaceKey = persona === 'learner' ? 'nav.workspace.learner' : 'nav.workspace.admin';
+  const pageKey = activeItemLabelKey({ role: user.role, can, pathname: location.pathname, tab, persona });
 
-        {/* Right: actions */}
-        <div className="flex shrink-0 items-center gap-3">
-          <div className="hidden flex-col items-end sm:flex">
-            <span className="text-sm font-medium text-foreground">{user.name}</span>
-            <span className={cn('text-xs font-semibold', ROLE_TEXT[user.role] ?? 'text-primary')}>
-              {user.role} · {user.empCode}
-            </span>
-          </div>
+  return (
+    <header className="sticky top-0 z-30 border-b border-border bg-background/80 backdrop-blur supports-[backdrop-filter]:bg-background/70">
+      <div className="flex h-[52px] items-center gap-3 px-4 sm:px-5">
+        {/* Left: hamburger (mobile) + breadcrumb */}
+        <button
+          onClick={onOpenMobileNav}
+          aria-label={t('nav.openMenu')}
+          className="md:hidden p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-accent transition-colors duration-(--dur)"
+        >
+          <Menu className="size-5" aria-hidden="true" />
+        </button>
+        <Breadcrumbs
+          className="min-w-0"
+          items={[{ label: t(workspaceKey) }, { label: t(pageKey) }]}
+        />
+
+        {/* Right: search · notifications · theme · avatar */}
+        <div className="ml-auto flex shrink-0 items-center gap-2">
           <button
             onClick={() => setSearchOpen(true)}
             aria-label={t('nav.openSearch')}
             title={t('nav.openSearch')}
-            className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-lg bg-accent border border-border text-xs text-muted-foreground hover:text-foreground hover:bg-accent/80 transition-colors duration-(--dur)"
+            className="hidden md:flex h-[34px] w-60 items-center gap-2 rounded-lg border border-border bg-card px-2.5 text-xs text-subtle-foreground hover:border-input transition-colors duration-(--dur)"
           >
-            <Search className="size-3.5" aria-hidden="true" />
-            <span>{t('nav.searchPlaceholder')}</span>
-            <kbd className="ml-2 px-1.5 py-0.5 rounded bg-muted text-[10px] font-mono">Ctrl K</kbd>
+            <Search className="size-3.5 shrink-0" aria-hidden="true" />
+            <span className="truncate">{t('nav.searchPlaceholder')}</span>
+            <kbd className="ml-auto rounded border border-border bg-surface-2 px-1.5 py-0.5 text-[10px] font-mono">Ctrl K</kbd>
           </button>
           <button
             onClick={() => setSearchOpen(true)}
             aria-label={t('nav.openSearchMobile')}
-            className="sm:hidden p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-accent transition-colors duration-(--dur)"
+            className="md:hidden p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-accent transition-colors duration-(--dur)"
           >
             <Search className="size-4" aria-hidden="true" />
           </button>

@@ -39,6 +39,15 @@
     },
     "switchToLearner": "Switch to My Learning",
     "switchToAdmin": "Switch to Admin console",
+    "switchWorkspace": "Switch workspace",
+    "workspace": {
+      "admin": "Admin Console",
+      "learner": "My Learning"
+    },
+    "persona": {
+      "adminSub": "HR / L&D operations",
+      "learnerSub": "Your learner home"
+    },
     "people": "People",
     "programs": "Programs",
     "learning": "Learning",

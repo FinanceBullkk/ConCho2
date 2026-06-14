@@ -34,7 +34,7 @@ export default function Sidebar({ onNavigate }) {
   if (myTeam?.count > 0) groups.push({ id: 'team', items: [MY_TEAM_ITEM] });
 
   return (
-    <nav aria-label={t('nav.primary')} className="flex flex-col gap-4 py-4">
+    <nav aria-label={t('nav.primary')} className="flex flex-col gap-3 px-2.5 py-3">
       {groups.map((group) => {
         const items = group.items.filter((it) => isItemVisible(it, role, can));
         if (items.length === 0) return null;
@@ -69,13 +69,13 @@ export default function Sidebar({ onNavigate }) {
                         onClick={onNavigate}
                         aria-current={active ? 'page' : undefined}
                         className={cn(
-                          'flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors duration-(--dur)',
+                          'relative flex h-[34px] items-center gap-3 rounded-md px-3 text-sm font-medium transition-colors duration-(--dur-fast)',
                           active
-                            ? 'bg-primary/15 text-primary'
+                            ? 'bg-primary/15 font-semibold text-foreground before:absolute before:-left-2.5 before:top-1/2 before:h-4 before:w-[3px] before:-translate-y-1/2 before:rounded-full before:bg-primary before:content-[""]'
                             : 'text-muted-foreground hover:bg-accent hover:text-foreground',
                         )}
                       >
-                        {Icon && <Icon className="size-4 shrink-0" aria-hidden="true" />}
+                        {Icon && <Icon className={cn('size-4 shrink-0', active ? 'text-primary' : 'opacity-85')} aria-hidden="true" />}
                         <span className="truncate">{t(item.labelKey)}</span>
                       </Link>
                     </li>
