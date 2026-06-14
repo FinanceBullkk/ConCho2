@@ -15,6 +15,7 @@
     "sections": {
       "rolesAccess": "Roles & access",
       "customFields": "Custom fields",
+      "automation": "Automation",
       "schedules": "Schedules",
       "attendance": "Attendance",
       "classes": "Classes",
@@ -135,6 +136,37 @@
     "saveFailed": "Save failed",
     "loadError": "Could not load custom fields",
     "loadErrorDesc": "Refresh to try again. This surface is Admin-only."
+  },
+  "automation": {
+    "title": "Automation",
+    "subtitle": "No-code rules — when something happens, do something. Runs on the event + notification engine.",
+    "newRule": "New rule",
+    "rules": "Rules",
+    "active": "{{count}} active",
+    "runs": "{{count}} runs",
+    "when": "When (trigger)",
+    "if": "Conditions",
+    "then": "Actions",
+    "noConditions": "Always (no conditions)",
+    "triggerLibrary": "Trigger library",
+    "actionLibrary": "Action library",
+    "systemBadge": "Built-in",
+    "empty": "No automation rules yet.",
+    "selectHint": "Select a rule to see its when → if → then.",
+    "loadError": "Couldn't load automation rules.",
+    "deleteRule": "Delete rule",
+    "deleted": "Rule deleted.",
+    "saved": "Rule saved.",
+    "saveError": "Couldn't save the rule.",
+    "form": {
+      "name": "Rule name",
+      "trigger": "Trigger",
+      "actionType": "Action",
+      "message": "Notification message",
+      "create": "Create rule",
+      "creating": "Creating…"
+    },
+    "action": { "notify": "In-app notification", "log": "Log only" }
   },
   "english": {
     "classesTitle": "Classes"

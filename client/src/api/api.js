@@ -348,6 +348,14 @@ export const assessmentAPI = {
   submitAttempt: (assessmentId, data) => api.post(`/assessment/assessments/${assessmentId}/attempts`, data),
 };
 
+// ── Automation rules (no-code engine, TMS.update gap #3) ──
+export const automationAPI = {
+  listRules: () => api.get('/automation/rules'),
+  createRule: (data) => api.post('/automation/rules', data),
+  updateRule: (id, data) => api.put(`/automation/rules/${id}`, data),
+  deleteRule: (id) => api.delete(`/automation/rules/${id}`),
+};
+
 // ── Dashboard Analytics ───────────────────────────────────
 export const dashboardAPI = {
   getStats: (params) => api.get('/dashboard/stats', { params }),
