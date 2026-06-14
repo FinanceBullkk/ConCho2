@@ -114,8 +114,11 @@ Bug fixing and integration review rank above net-new feature rollout.
   sessions" list card** — per-session time · class · room · attendance-status
   badge + accent bar, capped at 6 rows with a "+N more", and an "Open calendar"
   link. Real data (attendance calendar, filtered to today); returns null when the
-  day is empty. Presentational; `TodayHero` is stubbed in `DashboardPage` tests so
-  none change. Gates: full client 313 ✓, build clean, lint 63 ≤ cap.
+  day is empty. Also restyled the dashboard **Overdue / Expiring** drill lists
+  (`DashboardTopLists`) into avatar rows with **"Nd late" / "Nd left"** badges
+  (days derived from real due/expiry dates; tone escalates). Presentational;
+  `TodayHero` is stubbed in `DashboardPage` tests so none change. Gates: full
+  client 313 ✓, build clean, lint 63 ≤ cap.
 - **2026-06-14** — **North-star dashboards, phase 2 (Reports ▸ L&D).** Restyled the
   operational + executive dashboards to the prototype's KPI vocabulary by
   upgrading the two **shared** primitives in `DashboardWidgets`: `StatTile` now

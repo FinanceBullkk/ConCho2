@@ -575,6 +575,8 @@
       "noExpiring": "No certificates expiring soon.",
       "due": "Due {{date}}",
       "validUntil": "Valid until {{date}}",
+      "daysLate": "{{n}}d late",
+      "daysLeft": "{{n}}d left",
       "executive": {
         "loadError": "Could not load the executive dashboard",
         "loadErrorDesc": "The executive request failed. Check your connection and try again.",
