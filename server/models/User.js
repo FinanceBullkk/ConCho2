@@ -87,6 +87,14 @@ const userSchema = new mongoose.Schema(
       trim: true,
       default: '',
     },
+    // Per-user notification delivery preferences (TMS.update S7). Free-form by
+    // design: { categories: { <cat>: { inApp, email } }, digest }. Validated by
+    // the notification domain's zod schema on write; merged over server defaults
+    // on read. Default undefined = "use server defaults".
+    notificationPreferences: {
+      type: mongoose.Schema.Types.Mixed,
+      default: undefined,
+    },
     status: {
       type: String,
       enum: {

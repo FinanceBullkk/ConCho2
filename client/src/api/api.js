@@ -398,6 +398,8 @@ export const notificationsAPI = {
   listMine:    () => api.get('/notifications/mine'),
   markRead:    (id) => api.post(`/notifications/${id}/read`),
   markAllRead: () => api.post('/notifications/read-all'),
+  getPreferences: () => api.get('/notifications/preferences'),
+  setPreferences: (data) => api.put('/notifications/preferences', data),
 };
 
 export default api;
