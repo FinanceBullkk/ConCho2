@@ -25,6 +25,7 @@ const PeoplePage       = lazy(() => import('./pages/PeoplePage'));
 const LearningPage     = lazy(() => import('./features/learning/LearningPage'));
 const EnglishPage      = lazy(() => import('./features/english/EnglishPage'));
 const ReportsPage      = lazy(() => import('./pages/ReportsPage'));
+const DrillListPage    = lazy(() => import('./features/learning/DrillListPage'));
 const SystemPage       = lazy(() => import('./pages/SystemPage'));
 const CalendarPage     = lazy(() => import('./pages/CalendarPage'));
 const ClassDetailPage  = lazy(() => import('./features/classes/ClassDetailPage'));
@@ -268,6 +269,11 @@ export default function App() {
                 <Route path="/calendar" element={<CalendarPage />} />
                 <Route path="/reports" element={
                   <ProtectedRoute roles={['Admin', 'Teacher']}><ReportsPage /></ProtectedRoute>
+                } />
+                {/* Drill list — filtered learner view behind a dashboard KPI.
+                    Admin-only: it reads the org-wide compliance report. */}
+                <Route path="/reports/drill" element={
+                  <ProtectedRoute roles={['Admin']}><DrillListPage /></ProtectedRoute>
                 } />
                 <Route path="/system" element={
                   <ProtectedRoute roles={['Admin']}><SystemPage /></ProtectedRoute>

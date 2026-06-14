@@ -1,4 +1,6 @@
 import { useTranslation } from 'react-i18next';
+import { Link } from 'react-router-dom';
+import { ArrowUpRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 // Dependency-free presentational primitives for the operational dashboard.
@@ -16,11 +18,15 @@ const CHIP_TONE = {
 
 // KPI tile — optional tone-coloured icon chip, label, large tabular value, hint.
 // `icon`/`tone` are optional so existing callers keep working; `alert` (legacy)
-// reddens the value and defaults the chip to the danger tone.
-export function StatTile({ label, value, hint, icon: Icon, tone, alert = false }) {
+// reddens the value and defaults the chip to the danger tone. When `to` is set
+// the whole tile becomes a click-through link to a filtered drill list (the
+// "data → action" upgrade) — it shows an arrow affordance + a "View list →"
+// footer when no `hint` is supplied.
+export function StatTile({ label, value, hint, icon: Icon, tone, alert = false, to }) {
+  const { t } = useTranslation();
   const chipTone = tone ?? (alert ? 'danger' : 'neutral');
-  return (
-    <div className="rounded-xl border border-border bg-card p-4">
+  const body = (
+    <>
       <div className="flex items-center gap-2.5">
         {Icon && (
           <span className={cn('grid size-[30px] shrink-0 place-items-center rounded-lg', CHIP_TONE[chipTone])}>
@@ -28,13 +34,36 @@ export function StatTile({ label, value, hint, icon: Icon, tone, alert = false }
           </span>
         )}
         <p className="text-xs font-medium text-muted-foreground">{label}</p>
+        {to && (
+          <ArrowUpRight
+            className="ml-auto size-4 text-subtle-foreground transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5"
+            aria-hidden="true"
+          />
+        )}
       </div>
       <p className={cn('mt-2.5 text-[28px] font-bold leading-none tracking-tight tabular-nums', alert ? 'text-destructive' : 'text-foreground')}>
         {value}
       </p>
-      {hint ? <p className="mt-1.5 text-xs text-subtle-foreground">{hint}</p> : null}
-    </div>
+      {hint ? (
+        <p className="mt-1.5 text-xs text-subtle-foreground">{hint}</p>
+      ) : to ? (
+        <p className="mt-1.5 text-xs font-medium text-primary">{t('learning.dashboard.viewList')}</p>
+      ) : null}
+    </>
   );
+
+  if (to) {
+    return (
+      <Link
+        to={to}
+        className="group block rounded-xl border border-border bg-card p-4 transition-colors hover:border-primary/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      >
+        {body}
+      </Link>
+    );
+  }
+
+  return <div className="rounded-xl border border-border bg-card p-4">{body}</div>;
 }
 
 // Bar fill colour by threshold — higher is better (completion %, scaled rating).

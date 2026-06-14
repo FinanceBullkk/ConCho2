@@ -614,6 +614,42 @@
       "validUntil": "Valid until {{date}}",
       "daysLate": "{{n}}d late",
       "daysLeft": "{{n}}d left",
+      "viewList": "View list →",
+      "drill": {
+        "back": "Back to dashboard",
+        "count": "{{count}} records",
+        "empty": "No records match this view.",
+        "loadError": "Couldn't load this list.",
+        "columns": {
+          "learner": "Learner",
+          "department": "Department",
+          "program": "Program",
+          "due": "Due",
+          "status": "Status",
+          "certificate": "Certificate"
+        },
+        "metrics": {
+          "overdue": "Overdue learners",
+          "expiring": "Certificates expiring soon",
+          "expired": "Expired certificates",
+          "department": "Department",
+          "program": "Program",
+          "default": "Learners"
+        },
+        "status": {
+          "not_started": "Not started",
+          "in_progress": "In progress",
+          "complete": "Complete",
+          "overdue": "Overdue"
+        },
+        "cert": {
+          "issued": "Issued",
+          "missing": "Missing",
+          "revoked": "Revoked",
+          "expiring": "Expiring",
+          "expired": "Expired"
+        }
+      },
       "executive": {
         "loadError": "Could not load the executive dashboard",
         "loadErrorDesc": "The executive request failed. Check your connection and try again.",
