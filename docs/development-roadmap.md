@@ -109,6 +109,17 @@ Bug fixing and integration review rank above net-new feature rollout.
 > [`changelog-archive/2026-q2.md`](changelog-archive/2026-q2.md). Currently
 > inline: **2026-06-12 → 2026-06-15**.
 
+- **2026-06-15** — **TMS.update Phase 4 — automation engine (gap #3).** No-code
+  when→if→then rules on the event bus. New `AutomationRule` model + `automation.manage`
+  capability + `domains/automation/` (CRUD over `/api/automation/rules`, audited) + a
+  **runner** subscribed to the catalogued events: enabled matching rules run their actions
+  (`notify` via a new `automation_notice` in-app type / `log`), `runCount++`. **Opt-in**
+  (rules default disabled) + fail-soft → zero behaviour change until enabled, no double-firing
+  with the existing hardcoded paths. §9 flows seeded **disabled** (the cron-driven ones
+  documented, inert until their events publish). Studio **Automation page** (`/automation`,
+  Admin, in Configure). Gates: server automation 10 ✓ + full suite green; client 354 ✓; lint
+  63; build clean. *Deferred:* publishing the cron-flow events + richer action types.
+  Branch `feat/tms-update-automation-engine`.
 - **2026-06-15** — **TMS.update Phase 3 — editable roles + custom roles (gap #2).**
   The coarse-authz matrix moves from a static role→capability map to **DB-backed,
   editable grants** without losing the sync `roleHasCapability` (it now reads a live

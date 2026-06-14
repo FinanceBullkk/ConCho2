@@ -65,6 +65,7 @@ const CAPABILITIES = Object.freeze({
   // Admin is superuser, so behaviour is identical to the previous roleGuard('Admin').
   USER_MANAGE: 'user.manage',          // create/update/delete/read users (userRoutes)
   ROLE_MANAGE: 'role.manage',          // edit role capability grants + custom roles (accessRoutes) — Admin-only
+  AUTOMATION_MANAGE: 'automation.manage', // create/toggle no-code automation rules (automationRoutes) — Admin-only
   SETTINGS_MANAGE: 'settings.manage',  // read/update system settings (settingRoutes)
   DATA_TRANSFER: 'data.transfer',      // bulk import / export / Google-Sheets sync
   ANALYTICS_READ: 'analytics.read',    // admin dashboard stats/alerts/cache (dashboardRoutes)

@@ -29,7 +29,10 @@ const notificationLogSchema = new mongoose.Schema(
         // TMS.update S4 — a coordinator/admin nudges cohort learners from the
         // roster (in-app only). cadenceKey is `<cohortId>:<userId>:<isoDate>`
         // (one nudge per learner per cohort per day; same-day repeats no-op).
-        'coordinator_nudge'],
+        'coordinator_nudge',
+        // TMS.update gap #3 — an automation rule's `notify` action fired.
+        // cadenceKey is `auto:<ruleId>:<userId>:<eventRef>` (idempotent per run).
+        'automation_notice'],
       required: true,
     },
     // 'in_app' rows have no email — they exist purely for the notification bell.

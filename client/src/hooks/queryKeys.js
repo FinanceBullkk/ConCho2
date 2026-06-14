@@ -126,4 +126,7 @@ export const qk = {
     mine: ['notifications', 'mine'],
     preferences: ['notifications', 'preferences'],
   },
+  automation: {
+    rules: ['automation', 'rules'],
+  },
 };

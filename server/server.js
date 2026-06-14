@@ -279,11 +279,14 @@ app.use('/api/admin/cron', require('./routes/cronHealthRoutes'));
 app.use('/api/cron', require('./routes/cronRoutes'));
 app.use('/api/search', require('./routes/searchRoutes'));
 app.use('/api/notifications', require('./domains/notification/routes'));
+app.use('/api/automation', require('./domains/automation/routes'));
 
 // ── Domain-event subscribers (rearchitecture Phase 0) ────────
 // Wire cross-cutting concerns (in-app notifications, …) to the event bus once at
 // boot, so business use-cases publish events instead of calling them inline.
 require('./domains/notification/subscribers').register();
+// Automation runner (TMS.update gap #3) — runs enabled no-code rules on events.
+require('./domains/automation/runner').register();
 
 // ── Production: Serve React client build ─────────────────
 if (process.env.NODE_ENV === 'production') {
@@ -374,6 +377,13 @@ if (process.env.NODE_ENV !== 'test') {
       await require('./domains/access/grants-loader').initRoleGrants();
     } catch (err) {
       logger.error({ err }, 'role-grants init failed — falling back to the static capability map');
+    }
+
+    // Seed the §9 automation rules (disabled; opt-in). Fail-soft.
+    try {
+      await require('./domains/automation/seed').seedSystemRules();
+    } catch (err) {
+      logger.error({ err }, 'automation seed failed (non-fatal)');
     }
 
     const server = app.listen(PORT, () => {
