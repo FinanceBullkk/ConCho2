@@ -10,6 +10,7 @@ import { EmptyState } from '@/components/EmptyState';
 import { useLearningPrograms } from '../../hooks/useLearning';
 import { useRole } from '../../hooks/useRole';
 import ProgramFormModal from './ProgramFormModal';
+import ProgramDetailModal from './ProgramDetailModal';
 
 const statusTone = { active: 'default', inactive: 'secondary', archived: 'outline' };
 
@@ -20,13 +21,17 @@ export default function ProgramsTab() {
   const { data, isLoading } = useLearningPrograms({ status: 'active' });
   const programs = data?.data || [];
 
-  const [modal, setModal] = useState(null); // { program } | { program: null } | null
+  // View-then-edit: any reader can open a program's read-only detail; managers
+  // edit from there (or create via "New"). Detail and edit are separate states
+  // so the Edit shortcut hands the program straight to the builder.
+  const [detail, setDetail] = useState(null); // program being viewed | null
+  const [edit, setEdit] = useState(null);     // { program } | { program: null } | null
 
   const header = (
     <div className="flex items-center justify-between">
       <CardTitle>{t('learning.programs.catalog')}</CardTitle>
       {canManage && (
-        <Button size="sm" onClick={() => setModal({ program: null })}>
+        <Button size="sm" onClick={() => setEdit({ program: null })}>
           <Plus className="size-4 mr-1.5" aria-hidden="true" />{t('learning.programs.new')}
         </Button>
       )}
@@ -64,8 +69,8 @@ export default function ProgramsTab() {
               {programs.map((program) => (
                 <TableRow
                   key={program._id}
-                  className={canManage ? 'cursor-pointer' : undefined}
-                  onClick={canManage ? () => setModal({ program }) : undefined}
+                  className="cursor-pointer"
+                  onClick={() => setDetail(program)}
                 >
                   <TableCell>
                     <div className="font-medium text-foreground">{program.name}</div>
@@ -89,7 +94,16 @@ export default function ProgramsTab() {
   return (
     <>
       {body}
-      {modal && <ProgramFormModal program={modal.program} onClose={() => setModal(null)} />}
+      {detail && (
+        <ProgramDetailModal
+          program={detail}
+          programs={programs}
+          canManage={canManage}
+          onEdit={() => { setEdit({ program: detail }); setDetail(null); }}
+          onClose={() => setDetail(null)}
+        />
+      )}
+      {edit && <ProgramFormModal program={edit.program} onClose={() => setEdit(null)} />}
     </>
   );
 }

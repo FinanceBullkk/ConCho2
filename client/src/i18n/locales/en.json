@@ -884,7 +884,16 @@
       "updated": "Program updated",
       "archived": "Program archived",
       "archive": "Archive",
-      "archiveConfirm": "Confirm archive?"
+      "archiveConfirm": "Confirm archive?",
+      "detail": {
+        "overview": "Overview",
+        "capacity": "Capacity",
+        "perSession": "Per session",
+        "prerequisites": "Prerequisites",
+        "description": "Description",
+        "customFields": "Custom fields",
+        "none": "—"
+      }
     },
     "paths": {
       "catalog": "Learning Paths",
