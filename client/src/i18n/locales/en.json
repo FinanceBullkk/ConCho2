@@ -562,6 +562,13 @@
       },
       "byProgram": "By program",
       "byDepartment": "By department",
+      "overall": {
+        "title": "Overall completion",
+        "center": "complete",
+        "completed": "Completed",
+        "inProgress": "In progress",
+        "overdue": "Overdue"
+      },
       "topOverdue": "Most overdue",
       "topExpiring": "Expiring soonest",
       "noOverdue": "No overdue learners.",

@@ -115,10 +115,13 @@ Bug fixing and integration review rank above net-new feature rollout.
   carries a tone-coloured **icon chip** + large tabular value; `MetricBars` fills
   are **threshold-coloured** (success/primary/warning/danger by real %). Wired
   icons/tones through `DashboardOperationalPanel` + `DashboardExecutivePanel`
-  (both consume the shared tiles, so both upgrade DRY). Presentational only —
-  same real-data bundle, props backward-compatible (`alert` still reddens). Gates:
-  full client 313 ✓, build clean, lint 63 ≤ cap. Next: Home cards + Overall-
-  completion ring to north-star fidelity (phase 3).
+  (both consume the shared tiles, so both upgrade DRY). Also added the prototype's
+  **Overall-completion donut** to the operational dashboard (reuses the existing
+  `DonutStat`; segments = real Completed / In-progress / Overdue, zero slices
+  dropped). Presentational only — same real-data bundle, props backward-compatible
+  (`alert` still reddens). `DashboardTab` test updated (the completion % now shows
+  in both the tile and the donut centre). Gates: full client 313 ✓, build clean,
+  lint 63 ≤ cap. Next: Home "Today's sessions" card + at-a-glance (phase 3).
 - **2026-06-14** — **North-star shell redesign, phase 1 (Claude Design hand-off).**
   Reworked the app shell to the design's topology: **fixed full-height left
   sidebar** (gradient brand mark · **persona-switch card** · role-filtered grouped
