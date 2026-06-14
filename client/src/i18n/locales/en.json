@@ -613,6 +613,28 @@
       "yes": "Yes",
       "no": "No"
     },
+    "learnerProfile": {
+      "back": "People",
+      "loadError": "Couldn't load this learner.",
+      "tabs": { "overview": "Overview", "transcript": "Transcript", "skills": "Skills", "certificates": "Certificates", "activity": "Activity" },
+      "kpi": { "completed": "Completed", "inProgress": "In progress", "certificates": "Certificates", "skills": "Skills", "completion": "Completion", "hours": "Learning hrs" },
+      "currentPrograms": "Current programs",
+      "noPrograms": "No active programs.",
+      "roleReadiness": "Role readiness",
+      "suggestedNext": "Suggested next",
+      "phase5Note": "Skills, role readiness and learning hours arrive with the skills framework.",
+      "transcriptTitle": "Transcript",
+      "certificatesTitle": "Certificates",
+      "noCertificates": "No certificates yet.",
+      "activityTitle": "Activity",
+      "noActivity": "No recent activity.",
+      "issued": "Certificate issued",
+      "enrolledIn": "Enrolled in {{cohort}}",
+      "role": "Role",
+      "department": "Department",
+      "email": "Email",
+      "joined": "Joined"
+    },
     "sessionDetail": {
       "back": "Back",
       "loadError": "Couldn't load this session.",
