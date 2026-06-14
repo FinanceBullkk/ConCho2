@@ -28,6 +28,7 @@ const ReportsPage      = lazy(() => import('./pages/ReportsPage'));
 const DrillListPage    = lazy(() => import('./features/learning/DrillListPage'));
 const ProgramDetailPage = lazy(() => import('./features/learning/ProgramDetailPage'));
 const CohortDetailPage = lazy(() => import('./features/learning/CohortDetailPage'));
+const SessionDetailPage = lazy(() => import('./features/learning/SessionDetailPage'));
 const SystemPage       = lazy(() => import('./pages/SystemPage'));
 const CalendarPage     = lazy(() => import('./pages/CalendarPage'));
 const ClassDetailPage  = lazy(() => import('./features/classes/ClassDetailPage'));
@@ -270,6 +271,10 @@ export default function App() {
                 } />
                 <Route path="/learning/cohorts/:id" element={
                   <ProtectedRoute roles={['Admin', 'Coordinator', 'Teacher']}><CohortDetailPage /></ProtectedRoute>
+                } />
+                {/* Session attendance marking — Admin/Teacher (the markers). */}
+                <Route path="/learning/sessions/:id" element={
+                  <ProtectedRoute roles={['Admin', 'Teacher']}><SessionDetailPage /></ProtectedRoute>
                 } />
                 {/* English-class section — the whole team-booking world
                     (classes/teams/schedules/attendance/evaluations/booking). */}

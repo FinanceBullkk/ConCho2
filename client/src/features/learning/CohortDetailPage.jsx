@@ -9,7 +9,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { PageHeader } from '@/components/PageHeader';
 import { EmptyState } from '@/components/EmptyState';
 import { Spinner } from '@/components/Spinner';
-import { useCompletionReport, useLearningCohort } from '../../hooks/useLearning';
+import { useCompletionReport, useLearningCohort, useLearningSessions } from '../../hooks/useLearning';
 import { StatTile } from './DashboardWidgets';
 import CohortRosterTab from './CohortRosterTab';
 
@@ -30,6 +30,8 @@ export default function CohortDetailPage() {
 
   const { data: report, isLoading, isError } = useCompletionReport(id);
   const { data: cohort } = useLearningCohort(id);
+  const { data: sessionsData } = useLearningSessions({ cohortId: id });
+  const sessions = sessionsData?.data || [];
 
   const rows = useMemo(() => report?.rows || [], [report]);
   const summary = report?.summary || {};
@@ -95,6 +97,7 @@ export default function CohortDetailPage() {
         <TabsList>
           <TabsTrigger value="overview">{t(`${c}.tabs.overview`)}</TabsTrigger>
           <TabsTrigger value="roster">{t(`${c}.tabs.roster`)}</TabsTrigger>
+          <TabsTrigger value="sessions">{t(`${c}.tabs.sessions`)}</TabsTrigger>
         </TabsList>
 
         <TabsContent value="overview">
@@ -110,6 +113,28 @@ export default function CohortDetailPage() {
 
         <TabsContent value="roster">
           <CohortRosterTab cohortId={id} rows={rows} />
+        </TabsContent>
+
+        <TabsContent value="sessions">
+          <Card>
+            <CardHeader className="pb-3"><CardTitle className="text-base">{t(`${c}.tabs.sessions`)}</CardTitle></CardHeader>
+            <CardContent>
+              {sessions.length ? (
+                <ul className="divide-y divide-border">
+                  {sessions.map((sess, i) => (
+                    <li key={sess._id}>
+                      <Link to={`/learning/sessions/${sess._id}`} className="flex items-center justify-between gap-3 py-2.5 transition-colors hover:bg-accent/40">
+                        <span className="text-sm font-medium text-foreground">{sess.topic || t(`${c}.sessionN`, { n: i + 1 })}</span>
+                        <span className="text-xs tabular-nums text-muted-foreground">
+                          {sess.startTime ? new Date(sess.startTime).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' }) : ''}
+                        </span>
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              ) : <EmptyState title={t(`${c}.sessionsEmpty`)} />}
+            </CardContent>
+          </Card>
         </TabsContent>
       </Tabs>
     </div>
