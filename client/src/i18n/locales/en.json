@@ -613,12 +613,33 @@
       "yes": "Yes",
       "no": "No"
     },
+    "sessionDetail": {
+      "back": "Back",
+      "loadError": "Couldn't load this session.",
+      "title": "Attendance",
+      "marked": "{{marked}} / {{total}} marked",
+      "allPresent": "All present",
+      "present": "Present",
+      "late": "Late",
+      "absent": "Absent",
+      "excused": "Excused",
+      "summary": "Session summary",
+      "submit": "Submit attendance",
+      "submitting": "Submitting…",
+      "saved": "Attendance saved.",
+      "saveError": "Couldn't save attendance.",
+      "stillUnmarked": "{{count}} learners still unmarked",
+      "presentPct": "present",
+      "empty": "No learners on this session roster."
+    },
     "cohortDetail": {
       "back": "Programs",
       "loadError": "Couldn't load this cohort.",
       "notFound": "Cohort not found.",
       "messageCohort": "Message cohort",
       "tabs": { "overview": "Overview", "roster": "Roster", "sessions": "Sessions", "policy": "Completion policy" },
+      "sessionsEmpty": "No sessions scheduled for this cohort yet.",
+      "sessionN": "Session {{n}}",
       "kpi": { "enrolled": "Enrolled", "completion": "Completion", "attendance": "Avg attendance", "assessment": "Assessment pass", "certificates": "Certificates" },
       "roster": {
         "title": "Roster",
