@@ -304,6 +304,10 @@ export const learningAPI = {
   // Participant calls are self-scoped server-side; managers may pass learnerId).
   getCompletion: (params) => api.get('/learning/completion', { params }),
   getCertificates: (params) => api.get('/learning/certificates', { params }),
+  // Manually issue a certificate for a learner in a cohort (certificate.manage).
+  issueCertificate: (data) => api.post('/learning/certificates', data),
+  // Nudge selected cohort learners with an in-app notification (enrollment.manage).
+  nudgeCohort: (cohortId, data) => api.post(`/learning/cohorts/${cohortId}/nudge`, data),
   // Cohort completion reporting + xlsx export (Admin/Teacher).
   getCompletionReport: (params) => api.get('/learning/reports/completion', { params }),
   getCompletionRollup: () => api.get('/learning/reports/completion/rollup'),

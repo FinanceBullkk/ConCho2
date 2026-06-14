@@ -3,6 +3,7 @@ const { getNextSequence } = require('../../helpers/counter');
 const { escapeRegex } = require('../../helpers/escapeRegex');
 const { programDto, cohortDto } = require('./dto');
 const repository = require('./repository');
+const { recordInApp } = require('../notification/in-app-writer');
 
 const legacyEnglishCourses = new Set([
   'Foundation',
@@ -288,6 +289,28 @@ const listDeletedCohorts = async () => {
   return enrichCohorts(cohorts);
 };
 
+// Nudge selected cohort learners with an in-app notification (roster bulk
+// action). Writes are fail-soft + idempotent per learner/cohort/day via the
+// cadenceKey, so a same-day re-nudge is a no-op. Returns the attempted count.
+const nudgeCohortLearners = async (cohortId, { userIds, message }) => {
+  const cohort = await repository.findCohortById(cohortId).lean();
+  if (!cohort) {
+    const err = new Error('Cohort not found');
+    err.statusCode = 404;
+    throw err;
+  }
+  const isoDate = new Date().toISOString().slice(0, 10);
+  await Promise.all(userIds.map((userId) =>
+    recordInApp({
+      type: 'coordinator_nudge',
+      recipientUserId: userId,
+      learnerId: userId,
+      cadenceKey: `${cohortId}:${userId}:${isoDate}`,
+      metadata: { cohortId, cohortCode: cohort.classCode, message: message || '' },
+    })));
+  return { cohortId, notified: userIds.length };
+};
+
 module.exports = {
   listPrograms,
   getProgram,
@@ -303,4 +326,5 @@ module.exports = {
   deleteCohort,
   restoreCohort,
   listDeletedCohorts,
+  nudgeCohortLearners,
 };

@@ -25,7 +25,11 @@ const notificationLogSchema = new mongoose.Schema(
         //                          roster by someone else's booking — team member
         //                          on a leader booking / cohort enrollee on an
         //                          admin-scheduled session; the booker is skipped)
-        'certificate_issued', 'cohort_enrolled', 'booking_confirmed', 'session_enrolled'],
+        'certificate_issued', 'cohort_enrolled', 'booking_confirmed', 'session_enrolled',
+        // TMS.update S4 — a coordinator/admin nudges cohort learners from the
+        // roster (in-app only). cadenceKey is `<cohortId>:<userId>:<isoDate>`
+        // (one nudge per learner per cohort per day; same-day repeats no-op).
+        'coordinator_nudge'],
       required: true,
     },
     // 'in_app' rows have no email — they exist purely for the notification bell.
