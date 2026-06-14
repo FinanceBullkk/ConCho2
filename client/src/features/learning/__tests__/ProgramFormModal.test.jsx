@@ -15,7 +15,13 @@ vi.mock('../../../hooks/useLearning', () => ({
   useArchiveProgram: () => ({ mutateAsync: archiveFn, isPending: false }),
 }));
 
-describe('ProgramFormModal — program policies', () => {
+// The builder is a 5-step wizard (Basics → Delivery → Completion → Certificate →
+// Review); each step's controls only mount when that step is active, so the
+// tests advance via the "Continue" button. The API payload contract is
+// unchanged, so the payload assertions below match the legacy single-form modal.
+const next = (user) => user.click(screen.getByRole('button', { name: 'Continue' }));
+
+describe('ProgramFormModal — program builder policies', () => {
   beforeEach(() => {
     createFn.mockReset();
     createFn.mockResolvedValue({});
@@ -28,17 +34,28 @@ describe('ProgramFormModal — program policies', () => {
     const user = userEvent.setup();
     render(<ProgramFormModal program={null} onClose={onClose} />);
 
+    // Step 1 — Basics
     await user.type(screen.getByLabelText('Code'), 'COMP101');
     await user.type(screen.getByLabelText('Name'), 'Compliance 101');
+    await next(user);
 
+    // Step 2 — Delivery (capacity + facilitator)
+    await user.type(screen.getByLabelText('Max participants per cohort'), '25');
+    await user.click(screen.getByLabelText(/A facilitator must be assigned/));
+    await next(user);
+
+    // Step 3 — Completion policy
     const threshold = screen.getByLabelText('Attendance threshold (%)');
     await user.clear(threshold);
     await user.type(threshold, '80');
     await user.click(screen.getByLabelText('Requires assessment to complete'));
-    await user.type(screen.getByLabelText('Max participants per cohort'), '25');
-    await user.click(screen.getByLabelText(/A facilitator must be assigned/));
-    await user.click(screen.getByLabelText(/Auto-assign a recertification/));
+    await next(user);
 
+    // Step 4 — Certificate
+    await user.click(screen.getByLabelText(/Auto-assign a recertification/));
+    await next(user);
+
+    // Step 5 — Review → submit
     await user.click(screen.getByRole('button', { name: 'Create' }));
 
     expect(createFn).toHaveBeenCalledTimes(1);
@@ -52,7 +69,8 @@ describe('ProgramFormModal — program policies', () => {
     expect(payload.certificateValidityDays).toBeNull();
   });
 
-  it('prefills the persisted policies in edit mode', () => {
+  it('prefills the persisted policies in edit mode', async () => {
+    const user = userEvent.setup();
     const program = {
       _id: 'p1', code: 'EDIT1', name: 'Edit Me', category: 'compliance',
       schedulingMode: 'admin_scheduled', deliveryMode: 'online', status: 'active',
@@ -64,10 +82,18 @@ describe('ProgramFormModal — program policies', () => {
     };
     render(<ProgramFormModal program={program} onClose={onClose} />);
 
-    expect(screen.getByLabelText('Attendance threshold (%)')).toHaveValue(90);
+    // Step 2 — Delivery
+    await next(user);
     expect(screen.getByLabelText('Max participants per cohort')).toHaveValue(10);
-    expect(screen.getByLabelText('Certificate validity (days)')).toHaveValue(365);
     expect(screen.getByLabelText(/A facilitator must be assigned/)).toBeChecked();
     expect(screen.getByLabelText('Facilitator visibility')).toHaveValue('assigned_only');
+
+    // Step 3 — Completion policy
+    await next(user);
+    expect(screen.getByLabelText('Attendance threshold (%)')).toHaveValue(90);
+
+    // Step 4 — Certificate
+    await next(user);
+    expect(screen.getByLabelText('Certificate validity (days)')).toHaveValue(365);
   });
 });

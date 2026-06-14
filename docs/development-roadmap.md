@@ -109,6 +109,16 @@ Bug fixing and integration review rank above net-new feature rollout.
 > [`changelog-archive/2026-q2.md`](changelog-archive/2026-q2.md). Currently
 > inline: **2026-06-12 → 2026-06-13**.
 
+- **2026-06-14** — **Program / Delivery Builder (Claude Design north-star → real
+  UI).** Reworked the program create/edit modal (`ProgramFormModal`) into the
+  design hand-off's guided **5-step builder** (Basics → Delivery → Completion →
+  Certificate → Review) + sticky **live preview**; `schedulingMode` now a
+  friendly delivery-profile picker. **Pure UX upgrade** — identical API payload +
+  mutations, no model/behavior change (every field already enforced server-side),
+  so no spec delta. Modularized under `features/learning/program-builder/`
+  (`program-form-config` + `ProgramBuilderControls`/`Steps`/`ProgramLivePreview`).
+  Builder test rewritten to drive the wizard (same payload assertions). Gates:
+  learning suite 82 ✓, full client 313 ✓, build clean, lint 63 ≤ cap.
 - **2026-06-14** — **Converge Phase 2: Enrollment convergence (read layer) — one
   Enrollment, two modes.** Both enrollment shapes already share ONE `Enrollment`
   model (team-based = `teamId` set; cohort-based = `teamId:null`); Phase 2
