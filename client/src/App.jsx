@@ -39,6 +39,7 @@ const MySessionsPage = lazy(() => import('./features/learner/MySessionsPage'));
 const MyTranscriptPage = lazy(() => import('./features/learner/MyTranscriptPage'));
 const MyTeamPage = lazy(() => import('./features/groups/MyTeamPage'));
 const RolesAccessPage = lazy(() => import('./features/access/RolesAccessPage'));
+const CustomFieldsPage = lazy(() => import('./features/custom-fields/CustomFieldsPage'));
 
 function RouteFallback() {
   return (
@@ -273,6 +274,9 @@ export default function App() {
                 } />
                 <Route path="/access" element={
                   <ProtectedRoute roles={['Admin']}><RolesAccessPage /></ProtectedRoute>
+                } />
+                <Route path="/custom-fields" element={
+                  <ProtectedRoute roles={['Admin']}><CustomFieldsPage /></ProtectedRoute>
                 } />
 
                 {/* Detail pages keep their own routes for deep links */}

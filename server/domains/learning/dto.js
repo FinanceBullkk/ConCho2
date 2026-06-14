@@ -17,6 +17,7 @@ const programDto = (program) => {
     recertifyPolicy: p.recertifyPolicy,
     prerequisitePrograms: (p.prerequisitePrograms || []).map((id) => id.toString()),
     status: p.status,
+    customFields: p.customFields || {},
     legacyCourseName: p.legacyCourseName || '',
     createdAt: p.createdAt,
     updatedAt: p.updatedAt,

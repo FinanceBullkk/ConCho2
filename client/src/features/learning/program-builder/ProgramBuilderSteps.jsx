@@ -7,6 +7,8 @@ import { useTranslation } from 'react-i18next';
 import { Check } from 'lucide-react';
 import { LearningField, EnumSelect, controlClass, textareaClass } from '../LearningField';
 import PrerequisiteSelector from '../PrerequisiteSelector';
+import { useCustomFields } from '../../custom-fields/useCustomFields';
+import { CustomFieldInput } from '../../custom-fields/custom-field-input';
 import { ProfileCard } from './ProgramBuilderControls';
 import {
   CATEGORIES, DELIVERY, STATUSES, FACILITATOR_VISIBILITY, DELIVERY_PROFILES,
@@ -25,6 +27,10 @@ function CheckRow({ checked, onChange, children }) {
 
 function BasicsStep({ form, set }) {
   const { t } = useTranslation();
+  // Org-defined custom fields for Program (Studio ▸ Custom fields). Empty = the
+  // section doesn't render, so this is invisible until an admin defines fields.
+  const { data: customDefs = [] } = useCustomFields({ entity: 'Program' });
+  const setCustom = (key) => (val) => set('customFields')({ ...(form.customFields || {}), [key]: val });
   return (
     <div className="space-y-4">
       <div className="grid grid-cols-2 gap-4">
@@ -50,6 +56,17 @@ function BasicsStep({ form, set }) {
           <EnumSelect value={form.status} onChange={set('status')} options={STATUSES} labelFor={(v) => t(`learning.status.${v}`)} />
         </LearningField>
       </div>
+
+      {customDefs.length > 0 && (
+        <fieldset className="space-y-3 rounded-md border border-border p-3">
+          <legend className="px-1 text-small font-medium text-muted-foreground">{t('learning.builder.customFields')}</legend>
+          <div className="grid grid-cols-2 gap-4">
+            {customDefs.map((f) => (
+              <CustomFieldInput key={f._id} def={f} value={form.customFields?.[f.key]} onChange={setCustom(f.key)} />
+            ))}
+          </div>
+        </fieldset>
+      )}
     </div>
   );
 }
