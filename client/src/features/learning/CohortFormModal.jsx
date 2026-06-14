@@ -7,6 +7,8 @@ import {
 import { Button } from '@/components/ui/button';
 import { useCreateCohort, useLearningPrograms } from '../../hooks/useLearning';
 import { LearningField, EnumSelect, controlClass } from './LearningField';
+import { useCustomFields } from '../custom-fields/useCustomFields';
+import { CustomFieldInput } from '../custom-fields/custom-field-input';
 
 const STATUSES = ['Ongoing', 'Completed'];
 
@@ -17,12 +19,16 @@ export default function CohortFormModal({ onClose }) {
   const createMutation = useCreateCohort();
   const { data: programsData } = useLearningPrograms({ status: 'active' });
   const programs = programsData?.data || [];
+  const { data: customDefs = [] } = useCustomFields({ entity: 'Cohort' });
 
   const [programId, setProgramId] = useState('');
   const [cohortCode, setCohortCode] = useState('');
   const [totalSessions, setTotalSessions] = useState('');
   const [status, setStatus] = useState('Ongoing');
+  const [customFields, setCustomFields] = useState({});
   const [error, setError] = useState('');
+
+  const setCustom = (key) => (val) => setCustomFields((prev) => ({ ...prev, [key]: val }));
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -31,6 +37,7 @@ export default function CohortFormModal({ onClose }) {
     const payload = { programId, status };
     if (cohortCode.trim()) payload.cohortCode = cohortCode.trim();
     if (totalSessions) payload.totalSessions = Number(totalSessions);
+    if (customDefs.length) payload.customFields = customFields;
     try {
       await createMutation.mutateAsync(payload);
       toast.success(t('learning.cohorts.created'));
@@ -74,6 +81,15 @@ export default function CohortFormModal({ onClose }) {
               <EnumSelect value={status} onChange={setStatus} options={STATUSES} labelFor={(v) => t(`learning.status.${v}`)} />
             </LearningField>
           </div>
+
+          {customDefs.length > 0 && (
+            <div className="space-y-3 rounded-md border border-border bg-surface-2 p-3">
+              <div className="text-small font-medium text-muted-foreground">{t('learning.cohorts.customFields')}</div>
+              {customDefs.map((def) => (
+                <CustomFieldInput key={def._id} def={def} value={customFields[def.key]} onChange={setCustom(def.key)} />
+              ))}
+            </div>
+          )}
 
           <div className="flex gap-3 pt-2">
             <Button type="button" variant="outline" onClick={onClose} className="flex-1">{t('learning.actions.cancel')}</Button>

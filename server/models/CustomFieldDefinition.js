@@ -4,13 +4,13 @@ const mongoose = require('mongoose');
 // CustomFieldDefinition — admin-defined custom fields (Studio ▸ Custom fields).
 //
 // Lets an org model its own data WITHOUT code changes: an admin defines extra
-// fields per entity; the values are stored on the target document (phase 1:
-// LearningProgram.customFields, keyed by `key`). Soft-deleted, audited via the
-// domain controller. Phase 1 supports the Program entity + text/select types;
-// `entities`/`types` are the extension points.
+// fields per entity; the values are stored on the target document, keyed by
+// `key` (Program → LearningProgram.customFields; Cohort → Class.customFields).
+// Soft-deleted, audited via the domain controller. Supports the Program + Cohort
+// entities and text/select types; `entities`/`types` are the extension points.
 // ──────────────────────────────────────────────────────────
 
-const entities = ['Program'];
+const entities = ['Program', 'Cohort'];
 const types = ['text', 'select'];
 
 const customFieldDefinitionSchema = new mongoose.Schema(

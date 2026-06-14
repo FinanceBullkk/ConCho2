@@ -6,6 +6,8 @@ import {
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { useUpdateCohort, useDeleteCohort } from '../../hooks/useLearning';
+import { useCustomFields } from '../custom-fields/useCustomFields';
+import { CustomFieldInput } from '../custom-fields/custom-field-input';
 
 const STATUSES = ['Ongoing', 'Completed'];
 
@@ -17,19 +19,22 @@ export default function CohortEditModal({ cohort, onClose }) {
   const { t } = useTranslation();
   const updateMutation = useUpdateCohort();
   const deleteMutation = useDeleteCohort();
+  const { data: customDefs = [] } = useCustomFields({ entity: 'Cohort' });
   const [status, setStatus] = useState(cohort.status);
   const [totalSessions, setTotalSessions] = useState(cohort.totalSessions);
+  const [customFields, setCustomFields] = useState(cohort.customFields || {});
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [error, setError] = useState('');
+
+  const setCustom = (key) => (val) => setCustomFields((prev) => ({ ...prev, [key]: val }));
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
     try {
-      await updateMutation.mutateAsync({
-        id: cohort._id,
-        data: { status, totalSessions: Number(totalSessions) },
-      });
+      const data = { status, totalSessions: Number(totalSessions) };
+      if (customDefs.length) data.customFields = customFields;
+      await updateMutation.mutateAsync({ id: cohort._id, data });
       toast.success(t('learning.cohorts.updated', 'Cohort updated'));
       onClose();
     } catch (err) {
@@ -99,6 +104,15 @@ export default function CohortEditModal({ cohort, onClose }) {
               />
             </div>
           </div>
+
+          {customDefs.length > 0 && (
+            <div className="space-y-3 rounded-md border border-border bg-surface-2 p-3">
+              <div className="text-small font-medium text-muted-foreground">{t('learning.cohorts.customFields')}</div>
+              {customDefs.map((def) => (
+                <CustomFieldInput key={def._id} def={def} value={customFields[def.key]} onChange={setCustom(def.key)} />
+              ))}
+            </div>
+          )}
 
           <div className="flex gap-3 pt-1">
             <Button type="button" variant="destructive" onClick={handleDelete} disabled={deleteMutation.isPending}>

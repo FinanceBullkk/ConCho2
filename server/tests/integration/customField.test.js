@@ -73,3 +73,32 @@ describe('Custom fields — value round-trip on LearningProgram', () => {
     expect(res.body.data.customFields).toEqual({ budget_code: 'FY26-OPS', theme: 'Leadership' });
   });
 });
+
+describe('Custom fields — Cohort entity + value round-trip', () => {
+  it('accepts a Cohort definition (admin)', async () => {
+    const res = await asAdmin('post', '/api/custom-fields')
+      .send({ entity: 'Cohort', key: 'cost_center', label: 'Cost center', type: 'text' });
+    expect(res.status).toBe(201);
+    expect(res.body.data).toMatchObject({ entity: 'Cohort', key: 'cost_center' });
+  });
+
+  it('persists + updates customFields on a cohort (Class)', async () => {
+    const program = await asAdmin('post', '/api/learning/programs').send({
+      code: `CFC-${Date.now().toString(36).toUpperCase()}`,
+      name: 'Cohort CF Program',
+    });
+    expect(program.status).toBe(201);
+
+    const created = await asAdmin('post', '/api/learning/cohorts').send({
+      programId: program.body.data._id,
+      customFields: { cost_center: 'CC-100' },
+    });
+    expect(created.status).toBe(201);
+    expect(created.body.data.customFields).toEqual({ cost_center: 'CC-100' });
+
+    const updated = await asAdmin('put', `/api/learning/cohorts/${created.body.data._id}`)
+      .send({ customFields: { cost_center: 'CC-200' } });
+    expect(updated.status).toBe(200);
+    expect(updated.body.data.customFields).toEqual({ cost_center: 'CC-200' });
+  });
+});

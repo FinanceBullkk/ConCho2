@@ -109,6 +109,18 @@ Bug fixing and integration review rank above net-new feature rollout.
 > [`changelog-archive/2026-q2.md`](changelog-archive/2026-q2.md). Currently
 > inline: **2026-06-12 → 2026-06-13**.
 
+- **2026-06-14** — **Custom fields for Cohorts (2nd core entity, full loop).**
+  Extended admin-defined custom fields beyond Program to **Cohort** — completing
+  the customization story across both core training entities. `CustomFieldDefinition`
+  entities `['Program','Cohort']` (model + domain zod); `Class.customFields` stores
+  values; cohort **create + edit** schemas/dto/use-cases accept + return them
+  (audited via the existing Class write path). UI: **Custom fields page** gains a
+  Program ↔ Cohort **entity switcher**; `CohortFormModal` (create) and
+  `CohortEditModal` (edit) render the defined Cohort fields and persist values —
+  `define → form → save → read` closed for Cohort. Tests: BE (Cohort def accepted ·
+  cohort create+update round-trip), FE (entity switch · cohort create with values ·
+  cohort edit values · omit-when-none). Gates: server learning+custom-field 133 ✓,
+  full client 326 ✓, build clean, lint ≤ cap. learning-catalog spec folded.
 - **2026-06-14** — **Studio ▸ Custom fields (Program, complete loop).** The
   design's #1 customization differentiator — admins define extra fields **without
   code**. New `CustomFieldDefinition` model + `domains/custom-field/` CRUD

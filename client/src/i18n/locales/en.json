@@ -87,8 +87,13 @@
   "customFields": {
     "title": "Custom fields",
     "description": "Define extra fields your organisation needs — no code required.",
-    "note": "Fields defined here appear on the matching record's form (phase 1: Program — they show up in the Program builder) and their values are stored on that record. Admin-only.",
+    "note": "Fields defined here appear on the matching record's form (Programs in the Program builder; Cohorts in the cohort create/edit dialog) and their values are stored on that record. Admin-only.",
+    "entity": {
+      "Program": "Programs",
+      "Cohort": "Cohorts"
+    },
     "programFields": "Program fields",
+    "cohortFields": "Cohort fields",
     "empty": "No custom fields yet. Add one below.",
     "addField": "Add a field",
     "label": "Label",
@@ -922,7 +927,8 @@
       "created": "Cohort created",
       "manage": "Enroll",
       "scheduleSession": "Schedule session",
-      "sessions": "Sessions"
+      "sessions": "Sessions",
+      "customFields": "Additional fields"
     },
     "sessions": {
       "title": "Sessions",

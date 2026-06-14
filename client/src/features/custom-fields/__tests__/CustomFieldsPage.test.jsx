@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render, screen, fireEvent } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import CustomFieldsPage from '../CustomFieldsPage';
 
@@ -48,5 +48,16 @@ describe('CustomFieldsPage', () => {
     h.state = { data: [], isLoading: false, isError: true };
     renderPage();
     expect(screen.getByText('customFields.loadError')).toBeInTheDocument();
+  });
+
+  it('switches the managed entity (Program ↔ Cohort)', () => {
+    h.state = { data: [], isLoading: false, isError: false };
+    renderPage();
+    // Both entity options render; Program is the default heading.
+    expect(screen.getByRole('button', { name: 'customFields.entity.Program' })).toBeInTheDocument();
+    expect(screen.getByText('customFields.programFields')).toBeInTheDocument();
+    // Switching to Cohort updates the managed entity heading.
+    fireEvent.click(screen.getByRole('button', { name: 'customFields.entity.Cohort' }));
+    expect(screen.getByText('customFields.cohortFields')).toBeInTheDocument();
   });
 });
