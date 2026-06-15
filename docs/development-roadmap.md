@@ -6,7 +6,7 @@
 > - *Architecture / orientation* → [`system-overview.md`](system-overview.md)
 > - *Detailed task snapshot (archived)* → [`archive/handoff-2026-06-01.md`](archive/handoff-2026-06-01.md)
 >
-> **Last updated:** 2026-06-14
+> **Last updated:** 2026-06-15
 
 ---
 
@@ -107,8 +107,32 @@ Bug fixing and integration review rank above net-new feature rollout.
 > **Rolling window:** ~last 2 weeks / ~15 entries kept inline (file ≤ ~400
 > lines); older entries roll verbatim, newest-first, to
 > [`changelog-archive/2026-q2.md`](changelog-archive/2026-q2.md). Currently
-> inline: **2026-06-12 → 2026-06-13**.
+> inline: **2026-06-12 → 2026-06-15**.
 
+- **2026-06-15** — **TMS.update value layer — Phase 1 (8 vertical slices).**
+  Implemented the north-star redesign's "turn captured data into action + insight"
+  layer onto the existing models (branch `feat/tms-update-value-layer`). **S1** drill
+  list (`/reports/drill`, Admin) behind the operational KPIs (overdue/expiring/expired
+  → filtered learners via the existing compliance report); `StatTile` click-through.
+  **S2** executive ROI polish — narrative banner + 4 §10 hero tiles with
+  "how it's calculated" tooltips + the **efficiency dividend** (new cost-config
+  `coordinatorCount`/`automationHoursReclaimedPerWeek` → `efficiencyDividendMinor =
+  hours/wk × coordinators × 52 × hourlyCost`, null until configured). **S3** Program
+  detail (`/learning/programs/:id`), **S4** Cohort detail + **roster bulk ops**
+  (multi-select · sort · at-risk filter · Issue-cert + **Nudge** + 360 drawer) with a
+  new `POST /learning/cohorts/:id/nudge` (`enrollment.manage`, audited, idempotent
+  in-app `coordinator_nudge`), **S5** Session detail (one-submit 4-state attendance →
+  re-evaluates completion), **S6** admin Learner 360° (`/people/:userId`). **S7**
+  Notification center (`/notifications`) + per-category **delivery preferences**
+  (`User.notificationPreferences` + `GET/PUT /notifications/preferences`,
+  self-scoped, audited). **S8** wired Home alerts → drill + fixed `AlertBand`'s stale
+  legacy routes. Composes existing endpoints except the 2 small new write paths
+  above (cert-issue already existed → reused). Gates: client 344 ✓, server
+  learning/notification suites ✓ (incl. +4 nudge, +3 prefs, +1 efficiency), lint 63
+  (cap), build clean. Spec: reporting-and-rollups folded (efficiency dividend +
+  cost-config inputs); the nudge + notification-preference write paths are new
+  and tracked here (no dedicated notifications capability spec exists yet — same
+  as the in-app bell precedent).
 - **2026-06-14** — **Studio ▸ Custom fields (Program, complete loop).** The
   design's #1 customization differentiator — admins define extra fields **without
   code**. New `CustomFieldDefinition` model + `domains/custom-field/` CRUD

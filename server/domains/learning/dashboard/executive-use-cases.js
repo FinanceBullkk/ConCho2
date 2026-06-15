@@ -13,6 +13,7 @@ const { ServiceError } = require('../../../helpers/ServiceError');
 const DAY_MS = 86400000;
 const TREND_MONTHS = 6;
 const DEFAULT_WINDOW_DAYS = 30;
+const WEEKS_PER_YEAR = 52;
 
 const round2 = (n) => Math.round(n * 100) / 100;
 const ratio = (part, total) => (total > 0 ? round2((part / total) * 100) : 0);
@@ -125,6 +126,13 @@ const buildFinancialsBlock = async (now) => {
     repository.activeEmployeeCount(),
     repository.issuedCertificateCount(yearAgo),
   ]);
+  // Efficiency dividend (ROI §10) — automation savings projection. Only
+  // computed when all three inputs are present + positive; otherwise null
+  // (never fabricated). weeks fixed at 52.
+  const { avgLoadedHourlyCostMinor, coordinatorCount, automationHoursReclaimedPerWeek } = config;
+  const efficiencyDividendMinor = (avgLoadedHourlyCostMinor && coordinatorCount && automationHoursReclaimedPerWeek)
+    ? Math.round(automationHoursReclaimedPerWeek * coordinatorCount * WEEKS_PER_YEAR * avgLoadedHourlyCostMinor)
+    : null;
   return {
     configured: true,
     currency: config.currency,
@@ -133,6 +141,10 @@ const buildFinancialsBlock = async (now) => {
     completionsTrailing12Months: completions,
     costPerEmployeeMinor: employees > 0 ? Math.round(config.annualBudgetMinor / employees) : null,
     costPerCompletionMinor: completions > 0 ? Math.round(config.annualBudgetMinor / completions) : null,
+    avgLoadedHourlyCostMinor: avgLoadedHourlyCostMinor ?? null,
+    coordinatorCount: coordinatorCount ?? null,
+    automationHoursReclaimedPerWeek: automationHoursReclaimedPerWeek ?? null,
+    efficiencyDividendMinor,
   };
 };
 

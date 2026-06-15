@@ -8,6 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { EmptyState } from '@/components/EmptyState';
 import { useOperationalDashboard } from '../../hooks/useLearningDashboard';
+import { useRole } from '../../hooks/useRole';
 import { EnumSelect, LearningField } from './LearningField';
 import { MetricBars, MetricUnavailable, StatTile } from './DashboardWidgets';
 import { DonutStat } from './DashboardCharts';
@@ -62,8 +63,14 @@ const feedbackBars = (rows) =>
 
 export default function DashboardOperationalPanel() {
   const { t } = useTranslation();
+  const { isAdmin } = useRole();
   const [windowDays, setWindowDays] = useState('30');
   const { data, isLoading, isError, refetch } = useOperationalDashboard({ window: windowDays });
+
+  // Click-through to the filtered drill list. The drill reads the Admin-only
+  // org-wide compliance report, so only surface the link for Admins; other
+  // roles still see the KPI value, just not the navigation affordance.
+  const drillTo = (metric) => (isAdmin ? `/reports/drill?metric=${metric}` : undefined);
 
   if (isLoading) {
     return (
@@ -184,6 +191,7 @@ export default function DashboardOperationalPanel() {
               label={t('learning.dashboard.tiles.overdueLearners')}
               value={assignments.overdueLearners}
               alert={assignments.overdueLearners > 0}
+              to={drillTo('overdue')}
             />
           </div>
         ) : <MetricUnavailable />}
@@ -194,8 +202,9 @@ export default function DashboardOperationalPanel() {
               label={t('learning.dashboard.tiles.expired')}
               value={certificates.expired}
               alert={certificates.expired > 0}
+              to={drillTo('expired')}
             />
-            <StatTile icon={Award} tone="warning" label={t('learning.dashboard.tiles.expiring30')} value={certificates.expiring30} />
+            <StatTile icon={Award} tone="warning" label={t('learning.dashboard.tiles.expiring30')} value={certificates.expiring30} to={drillTo('expiring')} />
             <StatTile icon={Award} tone="neutral" label={t('learning.dashboard.tiles.expiring60')} value={certificates.expiring60} />
           </div>
         ) : <MetricUnavailable />}

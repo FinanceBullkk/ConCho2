@@ -1,7 +1,9 @@
 const request = require('supertest');
+const mongoose = require('mongoose');
 const { getApp, getTokens, getCsrfHeaders, teardown } = require('../setup');
 const Class = require('../../models/Class');
 const LearningProgram = require('../../models/LearningProgram');
+const NotificationLog = require('../../models/NotificationLog');
 
 let app, tokens, csrf;
 
@@ -301,5 +303,63 @@ describe('Learning Platform API — cohort edit/delete', () => {
       .delete(`/api/learning/cohorts/${cohort._id}`)
       .set('Authorization', `Bearer ${tokens.teacher}`).set(csrf);
     expect(res.status).toBe(403);
+  });
+});
+
+describe('Learning Platform API — cohort nudge (S4)', () => {
+  let cohortId;
+
+  beforeEach(async () => {
+    const program = await LearningProgram.create({
+      code: 'TEST_NUDGE', name: 'Nudge Program', defaultSessionCount: 1, schedulingMode: 'admin_scheduled',
+    });
+    const cohort = await Class.create({
+      classCode: 'LD_TEST_NUDGE', courseName: program.name, programId: program._id, totalSessions: 1, status: 'Ongoing',
+    });
+    cohortId = cohort._id.toString();
+  });
+
+  afterEach(async () => {
+    await NotificationLog.deleteMany({ type: 'coordinator_nudge' });
+  });
+
+  test('admin nudges selected learners → 201 + in-app rows written', async () => {
+    const u1 = new mongoose.Types.ObjectId().toString();
+    const u2 = new mongoose.Types.ObjectId().toString();
+    const res = await request(app)
+      .post(`/api/learning/cohorts/${cohortId}/nudge`)
+      .set('Authorization', `Bearer ${tokens.admin}`).set(csrf)
+      .send({ userIds: [u1, u2], message: 'Please finish your sessions.' });
+
+    expect(res.status).toBe(201);
+    expect(res.body.data.notified).toBe(2);
+    const rows = await NotificationLog.find({ type: 'coordinator_nudge', recipientUserId: { $in: [u1, u2] } });
+    expect(rows).toHaveLength(2);
+    expect(rows[0].channel).toBe('in_app');
+  });
+
+  test('a same-day re-nudge is idempotent (no duplicate rows)', async () => {
+    const u1 = new mongoose.Types.ObjectId().toString();
+    const body = { userIds: [u1] };
+    await request(app).post(`/api/learning/cohorts/${cohortId}/nudge`).set('Authorization', `Bearer ${tokens.admin}`).set(csrf).send(body);
+    await request(app).post(`/api/learning/cohorts/${cohortId}/nudge`).set('Authorization', `Bearer ${tokens.admin}`).set(csrf).send(body);
+    const rows = await NotificationLog.find({ type: 'coordinator_nudge', recipientUserId: u1 });
+    expect(rows).toHaveLength(1);
+  });
+
+  test('a role without enrollment.manage is forbidden (403)', async () => {
+    const res = await request(app)
+      .post(`/api/learning/cohorts/${cohortId}/nudge`)
+      .set('Authorization', `Bearer ${tokens.teacher}`).set(csrf)
+      .send({ userIds: [new mongoose.Types.ObjectId().toString()] });
+    expect(res.status).toBe(403);
+  });
+
+  test('nudging a missing cohort → 404', async () => {
+    const res = await request(app)
+      .post(`/api/learning/cohorts/${new mongoose.Types.ObjectId().toString()}/nudge`)
+      .set('Authorization', `Bearer ${tokens.admin}`).set(csrf)
+      .send({ userIds: [new mongoose.Types.ObjectId().toString()] });
+    expect(res.status).toBe(404);
   });
 });

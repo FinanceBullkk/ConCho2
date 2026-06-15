@@ -2,7 +2,7 @@
 capability: reporting-and-rollups
 status: stable
 owners: [domains/learning/reports, domains/learning/dashboard]
-last_updated: 2026-06-10
+last_updated: 2026-06-15
 related_code:
   - server/domains/learning/reports/use-cases.js
   - server/domains/learning/reports/completion-rollup-use-case.js
@@ -96,8 +96,14 @@ validity rollup, and financial KPIs. Financials SHALL be
 Setting exists; when configured, `costPerEmployeeMinor` = annual budget /
 active users and `costPerCompletionMinor` = annual budget / certificates issued
 in the trailing 12 months (integer minor currency units).
-`GET/PUT /api/learning/dashboard/cost-config` (same gating) read/upsert that
-Setting; the PUT is validated (integer minor units, 3-letter currency) and
+When `avgLoadedHourlyCostMinor`, `coordinatorCount`, and
+`automationHoursReclaimedPerWeek` are all configured + positive, financials
+ALSO include an **efficiency dividend** (ROI §10):
+`efficiencyDividendMinor = hoursReclaimedPerWeek × coordinatorCount × 52 ×
+avgLoadedHourlyCostMinor`; it is `null` whenever any input is unset (never
+fabricated). `GET/PUT /api/learning/dashboard/cost-config` (same gating)
+read/upsert that Setting; the PUT is validated (integer minor units, 3-letter
+currency, optional `coordinatorCount`/`automationHoursReclaimedPerWeek`) and
 audit-logged with a before/after diff.
 
 #### Scenario: Admin-only tier

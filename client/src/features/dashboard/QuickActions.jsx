@@ -31,7 +31,10 @@ function alertTone(n, level = 'warning') {
 
 // Build the tile list from whatever metric blocks came back (each block is
 // fail-soft → may be null; skip the tile when its data is missing).
-function buildTiles(data, t) {
+// `isAdmin` re-points the overdue + certs tiles at the filtered drill list (the
+// "data → action" upgrade) — the drill reads the Admin-only compliance report,
+// so non-admins keep the broader list destinations.
+function buildTiles(data, t, isAdmin) {
   if (!data) return [];
   const { assignments, certificates, sessions, completion } = data;
   const tiles = [];
@@ -40,7 +43,7 @@ function buildTiles(data, t) {
     tiles.push({
       key: 'overdue',
       icon: ClipboardList,
-      to: '/learning?tab=assignments',
+      to: isAdmin ? '/reports/drill?metric=overdue' : '/learning?tab=assignments',
       label: t('dashboard.quickActions.overdue.label'),
       value: assignments.overdueLearners ?? 0,
       tone: alertTone(assignments.overdueLearners ?? 0, 'warning'),
@@ -52,7 +55,7 @@ function buildTiles(data, t) {
     tiles.push({
       key: 'certs',
       icon: Award,
-      to: '/reports?tab=completion',
+      to: isAdmin ? '/reports/drill?metric=expiring' : '/reports?tab=completion',
       label: t('dashboard.quickActions.certs.label'),
       value: expiring,
       sub: expired > 0 ? t('dashboard.quickActions.certs.expired', { count: expired }) : null,
@@ -84,7 +87,7 @@ function buildTiles(data, t) {
 
 export default function QuickActions() {
   const { t } = useTranslation();
-  const { can } = useRole();
+  const { can, isAdmin } = useRole();
   const canSee = can('read:reports');
 
   // Shared cache with Reports▸L&D Dashboard (same window). Disabled for roles
@@ -112,7 +115,7 @@ export default function QuickActions() {
     );
   }
 
-  const tiles = buildTiles(data, t);
+  const tiles = buildTiles(data, t, isAdmin);
   if (tiles.length === 0) return null;
 
   return (

@@ -1,4 +1,5 @@
 const NotificationLog = require('../../models/NotificationLog');
+const User = require('../../models/User');
 
 // All Mongoose access for the in-app notification bell (Cohesion P5).
 // Read surface over the existing email NotificationLog — self-scoped by
@@ -32,4 +33,15 @@ const markAllReadForUser = async (userId) => {
   return res.modifiedCount || 0;
 };
 
-module.exports = { findForUser, countUnreadForUser, markRead, markAllReadForUser, FEED_LIMIT };
+// Per-user notification preferences (self-scoped via the userId predicate).
+const findUserPreferences = (userId) =>
+  User.findById(userId).select('notificationPreferences').lean();
+
+const updateUserPreferences = (userId, prefs) =>
+  User.findByIdAndUpdate(userId, { $set: { notificationPreferences: prefs } }, { new: true })
+    .select('notificationPreferences').lean();
+
+module.exports = {
+  findForUser, countUnreadForUser, markRead, markAllReadForUser, FEED_LIMIT,
+  findUserPreferences, updateUserPreferences,
+};

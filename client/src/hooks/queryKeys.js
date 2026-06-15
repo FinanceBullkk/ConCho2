@@ -123,5 +123,6 @@ export const qk = {
   notifications: {
     all: ['notifications'],
     mine: ['notifications', 'mine'],
+    preferences: ['notifications', 'preferences'],
   },
 };
