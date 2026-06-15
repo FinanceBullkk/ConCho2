@@ -1,11 +1,22 @@
 const auditService = require('../../services/auditService');
 const { handleError } = require('../../helpers/handleError');
 const useCases = require('./use-cases');
+const { getRoomUtilization } = require('./utilization');
 
 // ──────────────────────────────────────────────────────────
 // room/controller — thin HTTP handlers (envelope + audit only).
 // (re-center Phase 3) — Office-scoped Rooms, Admin/Coordinator managed.
 // ──────────────────────────────────────────────────────────
+
+// GET /api/rooms/utilization?range=&officeId= — booked vs available room-hours.
+const utilization = async (req, res) => {
+  try {
+    const data = await getRoomUtilization({ range: req.query.range, officeId: req.query.officeId || null });
+    res.json({ success: true, data });
+  } catch (error) {
+    handleError(res, error);
+  }
+};
 
 const listRooms = async (req, res) => {
   try {
@@ -46,4 +57,4 @@ const archiveRoom = async (req, res) => {
   }
 };
 
-module.exports = { listRooms, createRoom, updateRoom, archiveRoom };
+module.exports = { utilization, listRooms, createRoom, updateRoom, archiveRoom };
