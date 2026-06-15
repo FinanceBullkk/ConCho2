@@ -1,7 +1,4 @@
-const mongoose = require('mongoose');
-const Attendance = require('../../models/Attendance');
-const Schedule = require('../../models/Schedule');
-const Team = require('../../models/Team'); // used in analyticsByTeam aggregation
+const repository = require('./repository');
 const { ServiceError } = require('../../helpers/ServiceError');
 const { findTeacherVisibleClassIds } = require('../../helpers/teacher-class-scope');
 const { scopedAttendanceMatch } = require('./scope');
@@ -21,65 +18,7 @@ const { scopedAttendanceMatch } = require('./scope');
  */
 const analyticsByEmployee = async (filterUserId, { page = 1, limit = 100, skip = 0 } = {}, actor) => {
   const match = await scopedAttendanceMatch(actor);
-  if (filterUserId) {
-    if (!mongoose.Types.ObjectId.isValid(filterUserId)) {
-      throw new ServiceError('Invalid userId format');
-    }
-    match.userId = new mongoose.Types.ObjectId(filterUserId);
-  }
-
-  const pipeline = [
-    { $match: match },
-    {
-      $group: {
-        _id: '$userId',
-        totalSessions: { $sum: 1 },
-        present: { $sum: { $cond: [{ $eq: ['$status', 'P'] }, 1, 0] } },
-        absent: { $sum: { $cond: [{ $eq: ['$status', 'A'] }, 1, 0] } },
-        late: { $sum: { $cond: [{ $eq: ['$status', 'L'] }, 1, 0] } },
-        excused: { $sum: { $cond: [{ $eq: ['$status', 'EL'] }, 1, 0] } },
-      },
-    },
-    {
-      // DATA-009 (audit PR A): the $lookup pipeline form is required so we
-      // can $match isDeleted at the join layer. Mongoose `pre('find')` and
-      // `pre('aggregate')` hooks do NOT fire inside a $lookup's sub-pipeline,
-      // so without this explicit filter soft-deleted users would surface in
-      // analytics rollups.
-      $lookup: {
-        from: 'users',
-        let: { uid: '$_id' },
-        pipeline: [
-          { $match: { $expr: { $eq: ['$_id', '$$uid'] }, isDeleted: { $ne: true } } },
-        ],
-        as: 'user',
-      },
-    },
-    { $unwind: '$user' },
-    {
-      $project: {
-        empCode: '$user.empCode', name: '$user.name',
-        department: '$user.department',
-        totalSessions: 1, present: 1, absent: 1, late: 1, excused: 1,
-        attendanceRate: {
-          $round: [{ $multiply: [{ $divide: ['$present', '$totalSessions'] }, 100] }, 1],
-        },
-      },
-    },
-    { $sort: { attendanceRate: -1, empCode: 1 } },
-  ];
-
-  // Count total matching groups before slicing
-  const countPipeline = [...pipeline, { $count: 'total' }];
-  const [countResult] = await Attendance.aggregate(countPipeline);
-  const total = countResult ? countResult.total : 0;
-
-  const data = await Attendance.aggregate([
-    ...pipeline,
-    { $skip: skip },
-    { $limit: limit },
-  ]);
-
+  const { data, total } = await repository.aggregateByEmployee(match, filterUserId, { skip, limit });
   return { data, total, page, limit };
 };
 
@@ -110,47 +49,23 @@ const analyticsByTeam = async ({ page = 1, limit = 100, skip = 0 } = {}, actor) 
     ? await findTeacherVisibleClassIds(actor._id)
     : null;
 
-  // ── Step 1: fetch teams ────────────────────────────────────
-  // Team.aggregate pre-hook auto-injects { isDeleted: { $ne: true } }.
-  // Project only what we need to keep working set small.
-  const teamPipeline = [];
-  if (scopedClassIds) {
-    teamPipeline.push({ $match: { classId: { $in: scopedClassIds } } });
-  }
-  teamPipeline.push(
-    { $project: { _id: 1, name: 1, members: 1 } },
-  );
-  const teamsRaw = await Team.aggregate(teamPipeline);
+  // ── Step 1: fetch teams (soft-delete hook + class scope in the repo) ──
+  const teamsRaw = await repository.aggregateTeamsForAnalytics(scopedClassIds);
 
   // ── Step 2: per-user attendance counters ───────────────────
-  // Union of all member IDs across teams (deduped).
+  // Union of all member IDs across teams (deduped, as strings — the repo
+  // coerces to ObjectId). PERF-003: one indexed Attendance group-by.
   const allMemberIds = [...new Set(
     teamsRaw.flatMap((t) => (t.members || []).map((m) => String(m))),
-  )].map((id) => new mongoose.Types.ObjectId(id));
+  )];
 
   let perUser = new Map(); // userIdString → { total, present, absent, late, excused }
 
   if (allMemberIds.length > 0) {
-    const match = { userId: { $in: allMemberIds } };
-    if (scopedClassIds) {
-      const scheduleIds = await Schedule.distinct('_id', {
-        classId: { $in: scopedClassIds }, status: 'scheduled',
-      });
-      match.scheduleId = { $in: scheduleIds };
-    }
-    const grouped = await Attendance.aggregate([
-      { $match: match },
-      {
-        $group: {
-          _id: '$userId',
-          total:   { $sum: 1 },
-          present: { $sum: { $cond: [{ $eq: ['$status', 'P'] }, 1, 0] } },
-          absent:  { $sum: { $cond: [{ $eq: ['$status', 'A'] }, 1, 0] } },
-          late:    { $sum: { $cond: [{ $eq: ['$status', 'L'] }, 1, 0] } },
-          excused: { $sum: { $cond: [{ $eq: ['$status', 'EL'] }, 1, 0] } },
-        },
-      },
-    ]);
+    const scheduleIds = scopedClassIds
+      ? await repository.distinctScheduledIdsForClasses(scopedClassIds)
+      : null;
+    const grouped = await repository.aggregateAttendanceCountsByUser(allMemberIds, scheduleIds);
     perUser = new Map(grouped.map((g) => [String(g._id), g]));
   }
 
@@ -195,12 +110,10 @@ const analyticsByTeam = async ({ page = 1, limit = 100, skip = 0 } = {}, actor) 
 const analyticsByClass = async (classId) => {
   if (!classId) throw new ServiceError('classId is required');
 
-  const schedules = await Schedule.find({ classId, status: 'scheduled' })
-    .select('_id startTime endTime').sort({ startTime: 1 }).lean();
+  const schedules = await repository.findScheduledForClass(classId);
   const scheduleIds = schedules.map(s => s._id);
 
-  const records = await Attendance.find({ scheduleId: { $in: scheduleIds } })
-    .populate('userId', 'empCode name').lean();
+  const records = await repository.findAttendanceForSchedules(scheduleIds);
 
   const userMap = {};
   // Filter out orphan records where user was deleted (populate → null)
@@ -226,21 +139,7 @@ const analyticsByClass = async (classId) => {
  * Get personal attendance stats for a participant.
  */
 const getMyStats = async (userId) => {
-  const pipeline = [
-    { $match: { userId: new mongoose.Types.ObjectId(userId) } },
-    {
-      $group: {
-        _id: null,
-        totalSessions: { $sum: 1 },
-        present: { $sum: { $cond: [{ $eq: ['$status', 'P'] }, 1, 0] } },
-        absent: { $sum: { $cond: [{ $eq: ['$status', 'A'] }, 1, 0] } },
-        late: { $sum: { $cond: [{ $eq: ['$status', 'L'] }, 1, 0] } },
-        excused: { $sum: { $cond: [{ $eq: ['$status', 'EL'] }, 1, 0] } },
-      },
-    },
-  ];
-
-  const results = await Attendance.aggregate(pipeline);
+  const results = await repository.aggregateMyStats(userId);
   const stats = results[0] || { totalSessions: 0, present: 0, absent: 0, late: 0, excused: 0 };
   stats.attendanceRate = stats.totalSessions > 0
     ? parseFloat(((stats.present / stats.totalSessions) * 100).toFixed(1))
