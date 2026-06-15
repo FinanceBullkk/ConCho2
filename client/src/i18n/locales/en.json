@@ -112,6 +112,7 @@
     "roleA": "Role A",
     "roleB": "Role B",
     "full": "Full",
+    "sensitive": "Sensitive — granting this is a security/lockout risk",
     "identical": "Identical",
     "differences_one": "{{count}} difference",
     "differences_other": "{{count}} differences"

@@ -8,7 +8,8 @@ import { PageHeader } from '@/components/PageHeader';
 import { EmptyState } from '@/components/EmptyState';
 import { cn } from '@/lib/utils';
 import { useRoles, useCreateRole, useUpdateRole, useDeleteRole } from './useAccess';
-import RoleCompareView from './RoleCompareView';
+import RoleCompareView, { SensitiveMark } from './RoleCompareView';
+import { isSensitiveCap } from './sensitive-caps';
 
 // Persona-aligned hues for the role column chips.
 const ROLE_HUE = { Admin: 250, Coordinator: 155, Teacher: 200, Participant: 75 };
@@ -179,7 +180,7 @@ export default function RolesAccessPage() {
             </thead>
             <tbody>
               {groups.map((group) => (
-                <ResourceGroup key={group.prefix} group={group} roles={roles} has={has} toggle={toggle} />
+                <ResourceGroup key={group.prefix} group={group} roles={roles} has={has} toggle={toggle} sensitiveLabel={t('access.sensitive')} />
               ))}
             </tbody>
           </table>
@@ -215,7 +216,7 @@ export default function RolesAccessPage() {
   );
 }
 
-function ResourceGroup({ group, roles, has, toggle }) {
+function ResourceGroup({ group, roles, has, toggle, sensitiveLabel }) {
   return (
     <>
       <tr className="bg-surface-2/40">
@@ -229,7 +230,9 @@ function ResourceGroup({ group, roles, has, toggle }) {
         <tr key={cap} className="border-b border-border last:border-0 hover:bg-accent/40">
           <td className="px-4 py-2">
             <div className="flex flex-col">
-              <span className="text-sm font-medium text-foreground">{actionOf(cap)}</span>
+              <span className="flex items-center gap-1.5 text-sm font-medium text-foreground">
+                {actionOf(cap)}{isSensitiveCap(cap) && <SensitiveMark label={sensitiveLabel} />}
+              </span>
               <span className="font-mono text-[11px] text-subtle-foreground">{cap}</span>
             </div>
           </td>

@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { BookOpen, CheckCircle2, Filter, Search } from 'lucide-react';
+import { BookOpen, CheckCircle2, Search } from 'lucide-react';
 import { toast } from 'sonner';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -145,31 +145,30 @@ export default function MyLearningCatalogPage() {
   return (
     <div>
       <PageHeader title="Learning Catalog" description="Browse open programs and self-enroll in available cohorts." />
-      <div className="mb-4 grid gap-3 md:grid-cols-[1fr_220px]">
-        <div className="relative">
-          <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            aria-label="Search programs"
-            className="pl-9"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search programs"
-          />
-        </div>
-        <div className="relative">
-          <Filter className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-          <select
-            aria-label="Filter by category"
-            className="h-10 w-full rounded-md border border-input bg-background pl-9 pr-3 text-sm"
-            value={category}
-            onChange={(e) => setCategory(e.target.value)}
+      {/* Category filter chips (screenshot 30) */}
+      <div className="mb-3 flex flex-wrap gap-2" role="tablist" aria-label="Filter by category">
+        {[['all', 'All'], ...Object.entries(CATEGORY_LABELS)].map(([value, label]) => (
+          <button
+            key={value}
+            type="button"
+            role="tab"
+            aria-selected={category === value}
+            onClick={() => setCategory(value)}
+            className={`rounded-full border px-3 py-1 text-sm font-medium transition-colors ${category === value ? 'border-primary bg-primary/15 text-primary' : 'border-border text-muted-foreground hover:text-foreground'}`}
           >
-            <option value="all">All categories</option>
-            {Object.entries(CATEGORY_LABELS).map(([value, label]) => (
-              <option key={value} value={value}>{label}</option>
-            ))}
-          </select>
-        </div>
+            {label}
+          </button>
+        ))}
+      </div>
+      <div className="relative mb-4 max-w-sm">
+        <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+        <Input
+          aria-label="Search programs"
+          className="pl-9"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder="Search programs"
+        />
       </div>
       {body}
     </div>
