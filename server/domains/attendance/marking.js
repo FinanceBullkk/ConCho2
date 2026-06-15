@@ -1,6 +1,4 @@
-const mongoose = require('mongoose');
-const Attendance = require('../../models/Attendance');
-const Schedule = require('../../models/Schedule');
+const repository = require('./repository');
 const { invalidateAnalyticsCache } = require('../../middleware/analyticsCache');
 const { ServiceError } = require('../../helpers/ServiceError');
 const { scopedAttendanceMatch } = require('./scope');
@@ -26,7 +24,7 @@ const bulkMark = async (scheduleId, records) => {
     throw new ServiceError('records array is required and must not be empty');
   }
 
-  const schedule = await Schedule.findById(scheduleId);
+  const schedule = await repository.findScheduleDocById(scheduleId);
   if (!schedule) throw new ServiceError('Schedule not found', 404);
 
   // ── Guard: cannot mark attendance for sessions that haven't started ──
@@ -89,30 +87,17 @@ const bulkMark = async (scheduleId, records) => {
     },
   }));
 
-  const result = await Attendance.bulkWrite(operations);
+  const result = await repository.bulkWriteAttendance(operations);
   invalidateAnalyticsCache();
 
-  // PERF-008 (audit PR H): denormalise lastActiveAt onto User for
-  // the getUsers list page. Only P (present) + L (late) count as
-  // active; A (absent) + EL (excused) don't bump the timestamp.
-  // schedule.startTime is the actual session time — Attendance.createdAt
-  // is when the admin marked, which can be much later.
+  // PERF-008 (audit PR H): denormalise lastActiveAt onto User for the getUsers
+  // list page. Only P (present) + L (late) count as active; A (absent) + EL
+  // (excused) don't bump the timestamp. schedule.startTime is the actual session
+  // time — Attendance.createdAt is when the admin marked, which can be later.
   const activeUserIds = records
     .filter((r) => r.status === 'P' || r.status === 'L')
     .map((r) => r.userId);
-  if (activeUserIds.length > 0) {
-    const User = mongoose.model('User');
-    // $max guarantees we never move lastActiveAt backwards if someone
-    // re-marks an OLD session that pre-dates a more recent one.
-    await User.bulkWrite(
-      activeUserIds.map((uid) => ({
-        updateOne: {
-          filter: { _id: uid },
-          update: { $max: { lastActiveAt: schedule.startTime } },
-        },
-      })),
-    );
-  }
+  await repository.bumpUsersLastActive(activeUserIds, schedule.startTime);
 
   return {
     matched: result.matchedCount,
@@ -125,24 +110,12 @@ const bulkMark = async (scheduleId, records) => {
 /**
  * Get attendance records for a specific schedule.
  */
-const getBySchedule = async (scheduleId) => {
-  return Attendance.find({ scheduleId })
-    .populate('userId', 'empCode name department')
-    .sort({ createdAt: 1 });  // Sort by creation order (populated field sort is a no-op)
-};
+const getBySchedule = async (scheduleId) => repository.findAttendanceBySchedule(scheduleId);
 
 /**
  * Get attendance history for a specific user.
  */
-const getByUser = async (userId, actor) => {
-  return Attendance.find({ userId, ...(await scopedAttendanceMatch(actor)) })
-    .populate({
-      path: 'scheduleId',
-      populate: [
-        { path: 'classId', select: 'classCode courseName' },
-      ],
-    })
-    .sort({ createdAt: -1 });
-};
+const getByUser = async (userId, actor) =>
+  repository.findAttendanceByUser(userId, await scopedAttendanceMatch(actor));
 
 module.exports = { VALID_STATUSES, bulkMark, getBySchedule, getByUser };
