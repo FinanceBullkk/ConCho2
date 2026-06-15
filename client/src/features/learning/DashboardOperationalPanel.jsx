@@ -1,18 +1,19 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
-  TrendingUp, Users, CircleCheck, Award, ClipboardCheck, CalendarClock, CalendarDays,
+  TrendingUp, Users, Award, ClipboardCheck, CalendarClock, CalendarDays,
   CalendarCheck, Target, ClipboardList, AlertTriangle, ShieldAlert, GraduationCap, MessageSquare,
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { EmptyState } from '@/components/EmptyState';
+import { cn } from '@/lib/utils';
 import { useOperationalDashboard } from '../../hooks/useLearningDashboard';
 import { useRole } from '../../hooks/useRole';
-import { EnumSelect, LearningField } from './LearningField';
-import { MetricBars, MetricUnavailable, StatTile } from './DashboardWidgets';
+import { MetricBars, MetricUnavailable, StatTile, SegmentedControl } from './DashboardWidgets';
 import { DonutStat } from './DashboardCharts';
 import { ExpiringCertificatesList, OverdueList } from './DashboardTopLists';
+import DepartmentPerformance from './DepartmentPerformance';
 
 const WINDOWS = ['30', '60', '90'];
 const TOP_BARS = 8; // dense-but-scannable cap for program/department bars
@@ -26,6 +27,26 @@ function Section({ title, children }) {
       </CardHeader>
       <CardContent className="space-y-4">{children}</CardContent>
     </Card>
+  );
+}
+
+// Health legend matching the program-completion bars (shared vocabulary with
+// ProgramsTab: ≥80 on track, ≥60 watch, else at risk).
+const HEALTH = [
+  ['onTrack', 'bg-success'],
+  ['watch', 'bg-warning'],
+  ['atRisk', 'bg-destructive'],
+];
+function HealthLegend({ t }) {
+  return (
+    <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
+      {HEALTH.map(([key, dot]) => (
+        <span key={key} className="flex items-center gap-1.5">
+          <span className={cn('size-2 rounded-full', dot)} aria-hidden="true" />
+          {t(`learning.programs.${key}`)}
+        </span>
+      ))}
+    </div>
   );
 }
 
@@ -102,67 +123,101 @@ export default function DashboardOperationalPanel() {
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-end justify-between gap-3">
+      {/* Filter bar — segmented period picker (prototype `.seg`) */}
+      <div className="flex flex-wrap items-center justify-between gap-3">
         {data.errors?.length ? (
           <p className="rounded-md border border-destructive/50 px-3 py-2 text-xs text-destructive">
-            {t('learning.dashboard.partialWarning', {
-              metrics: data.errors.map((e) => e.metric).join(', '),
-            })}
+            {t('learning.dashboard.partialWarning', { metrics: data.errors.map((e) => e.metric).join(', ') })}
           </p>
         ) : <span />}
-        <div className="w-36">
-          <LearningField label={t('learning.dashboard.windowLabel')}>
-            <EnumSelect
-              aria-label={t('learning.dashboard.windowLabel')}
-              value={windowDays}
-              onChange={setWindowDays}
-              options={WINDOWS}
-              labelFor={(opt) => t('learning.dashboard.windowDays', { days: opt })}
-            />
-          </LearningField>
-        </div>
+        <SegmentedControl
+          ariaLabel={t('learning.dashboard.windowLabel')}
+          value={windowDays}
+          onChange={setWindowDays}
+          options={WINDOWS}
+          labelFor={(opt) => t('learning.dashboard.windowDays', { days: opt })}
+        />
       </div>
 
-      <Section title={t('learning.dashboard.sections.completion')}>
+      {/* Headline KPIs — the control-room opener (prototype Reports·Overview) */}
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         {completion ? (
-          <>
-            <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_auto]">
-              <div className="grid gap-3 sm:grid-cols-2">
-                <StatTile icon={TrendingUp} tone="primary" label={t('learning.dashboard.tiles.completionRate')} value={pc(completion.summary.completionRate)} />
-                <StatTile icon={Users} tone="info" label={t('learning.dashboard.tiles.learners')} value={completion.summary.learners} />
-                <StatTile icon={CircleCheck} tone="success" label={t('learning.dashboard.tiles.complete')} value={completion.summary.complete} />
-                <StatTile icon={Award} tone="success" label={t('learning.dashboard.tiles.certificatesIssued')} value={completion.summary.certificatesIssued} />
-              </div>
-              <div className="flex items-center rounded-xl border border-border bg-card p-4 lg:w-72">
-                <DonutStat
-                  title={t('learning.dashboard.overall.title')}
-                  centerValue={pc(completion.summary.completionRate)}
-                  centerLabel={t('learning.dashboard.overall.center')}
-                  segments={overallSegments(completion.summary, assignments, t)}
-                />
-              </div>
-            </div>
-            <div className="grid gap-4 lg:grid-cols-2">
-              <MetricBars title={t('learning.dashboard.byProgram')} rows={completionBars(completion.programs)} />
-              <MetricBars title={t('learning.dashboard.byDepartment')} rows={completionBars(completion.departments)} />
-            </div>
-          </>
+          <StatTile icon={TrendingUp} tone="primary" label={t('learning.dashboard.tiles.completionRate')} value={pc(completion.summary.completionRate)} />
         ) : <MetricUnavailable />}
-      </Section>
+        {assignments ? (
+          <StatTile
+            icon={AlertTriangle}
+            label={t('learning.dashboard.tiles.overdueLearners')}
+            value={assignments.overdueLearners}
+            alert={assignments.overdueLearners > 0}
+            to={drillTo('overdue')}
+          />
+        ) : <MetricUnavailable />}
+        {attendance ? (
+          <StatTile
+            icon={ClipboardCheck}
+            tone="success"
+            label={t('learning.dashboard.tiles.attendanceRate')}
+            value={pc(attendance.rate)}
+            hint={t('learning.dashboard.tiles.attendanceRecords', { count: attendance.totalRecords })}
+          />
+        ) : <MetricUnavailable />}
+        {certificates ? (
+          <StatTile
+            icon={Award}
+            tone="warning"
+            label={t('learning.dashboard.tiles.expiring30')}
+            value={certificates.expiring30}
+            to={drillTo('expiring')}
+          />
+        ) : <MetricUnavailable />}
+      </div>
+
+      {/* Completion by program (bars) + Overall completion (ring) side-by-side */}
+      {completion ? (
+        <div className="grid gap-4 lg:grid-cols-[1.6fr_1fr]">
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between gap-3 pb-3">
+              <CardTitle className="text-base">{t('learning.dashboard.byProgram')}</CardTitle>
+              <HealthLegend t={t} />
+            </CardHeader>
+            <CardContent>
+              <MetricBars rows={completionBars(completion.programs)} />
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base">{t('learning.dashboard.overall.title')}</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <DonutStat
+                title={t('learning.dashboard.overall.title')}
+                centerValue={pc(completion.summary.completionRate)}
+                centerLabel={t('learning.dashboard.overall.center')}
+                segments={overallSegments(completion.summary, assignments, t)}
+              />
+              <div className="grid grid-cols-2 gap-3 border-t border-border pt-3 text-sm">
+                <div className="flex items-center gap-2">
+                  <Users className="size-4 text-muted-foreground" aria-hidden="true" />
+                  <span className="text-muted-foreground">{t('learning.dashboard.tiles.learners')}</span>
+                  <span className="ml-auto font-semibold tabular-nums">{completion.summary.learners}</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Award className="size-4 text-muted-foreground" aria-hidden="true" />
+                  <span className="text-muted-foreground">{t('learning.dashboard.tiles.certificatesIssued')}</span>
+                  <span className="ml-auto font-semibold tabular-nums">{completion.summary.certificatesIssued}</span>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      ) : <MetricUnavailable />}
+
+      {/* Department performance table + time-range (real per-dept aggregation) */}
+      <DepartmentPerformance variant="table" />
 
       <Section title={t('learning.dashboard.sections.attendanceSessions')}>
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
-          {attendance ? (
-            <>
-              <StatTile
-                icon={ClipboardCheck}
-                tone="primary"
-                label={t('learning.dashboard.tiles.attendanceRate')}
-                value={pc(attendance.rate)}
-                hint={t('learning.dashboard.tiles.attendanceRecords', { count: attendance.totalRecords })}
-              />
-            </>
-          ) : <MetricUnavailable />}
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           {sessions ? (
             <>
               <StatTile icon={CalendarClock} tone="info" label={t('learning.dashboard.tiles.upcoming')} value={sessions.upcoming} />
@@ -184,28 +239,16 @@ export default function DashboardOperationalPanel() {
 
       <Section title={t('learning.dashboard.sections.obligations')}>
         {assignments ? (
-          <div className="grid gap-3 sm:grid-cols-2">
-            <StatTile icon={ClipboardList} tone="info" label={t('learning.dashboard.tiles.activeAssignments')} value={assignments.activeAssignments} />
-            <StatTile
-              icon={AlertTriangle}
-              label={t('learning.dashboard.tiles.overdueLearners')}
-              value={assignments.overdueLearners}
-              alert={assignments.overdueLearners > 0}
-              to={drillTo('overdue')}
-            />
-          </div>
-        ) : <MetricUnavailable />}
-        {certificates ? (
           <div className="grid gap-3 sm:grid-cols-3">
+            <StatTile icon={ClipboardList} tone="info" label={t('learning.dashboard.tiles.activeAssignments')} value={assignments.activeAssignments} />
             <StatTile
               icon={ShieldAlert}
               label={t('learning.dashboard.tiles.expired')}
-              value={certificates.expired}
-              alert={certificates.expired > 0}
+              value={certificates?.expired ?? 0}
+              alert={(certificates?.expired ?? 0) > 0}
               to={drillTo('expired')}
             />
-            <StatTile icon={Award} tone="warning" label={t('learning.dashboard.tiles.expiring30')} value={certificates.expiring30} to={drillTo('expiring')} />
-            <StatTile icon={Award} tone="neutral" label={t('learning.dashboard.tiles.expiring60')} value={certificates.expiring60} />
+            <StatTile icon={Award} tone="neutral" label={t('learning.dashboard.tiles.expiring60')} value={certificates?.expiring60 ?? 0} />
           </div>
         ) : <MetricUnavailable />}
         <div className="grid gap-4 lg:grid-cols-2">

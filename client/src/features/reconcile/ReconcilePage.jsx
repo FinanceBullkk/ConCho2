@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
-import { Play, Search, CheckCircle2 } from 'lucide-react';
+import { Play, Search, CheckCircle2, Clock, ShieldCheck, AlertTriangle } from 'lucide-react';
 import { reconcileAPI, cronAPI } from '../../api/api';
 import { Button } from '@/components/ui/button';
 import { StatusBadge } from '../../components/StatusBadge';
@@ -28,6 +28,20 @@ const SEVERITY_TONE = { critical: 'danger', warning: 'warning', info: 'upcoming'
 // ──────────────────────────────────────────────────────────
 // Sub-components
 // ──────────────────────────────────────────────────────────
+
+const KPI_TONE = { default: 'text-foreground', warning: 'text-warning', success: 'text-success' };
+function ReconcileKpi({ icon, label, value, hint, tone = 'default' }) {
+  const Icon = icon;
+  return (
+    <div className="rounded-lg border border-border bg-card p-4">
+      <div className="flex items-center gap-2 text-xs uppercase tracking-wide text-subtle-foreground">
+        <Icon className="size-4" aria-hidden="true" />{label}
+      </div>
+      <div className={`mt-1 text-h3 font-semibold tabular-nums ${KPI_TONE[tone]}`}>{value}</div>
+      {hint && <div className="text-xs text-muted-foreground">{hint}</div>}
+    </div>
+  );
+}
 
 function SummaryCard({ checkKey, count, onClick, active }) {
   const { t } = useTranslation();
@@ -192,6 +206,19 @@ export default function ReconcilePage() {
           )}
         </Button>
       </div>
+
+      {/* At-a-glance KPIs — last run · checks run · drift found (screenshot 25).
+          "Records checked" isn't persisted, so we surface the honest set. */}
+      {report && (
+        <div className="grid gap-3 sm:grid-cols-3">
+          <ReconcileKpi icon={Clock} label="Last run"
+            value={new Date(report.runAt).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+            hint={report.durationMs != null ? `${report.durationMs}ms` : undefined} />
+          <ReconcileKpi icon={ShieldCheck} label="Checks run" value={String(CHECK_KEYS.length)} hint="integrity checks" />
+          <ReconcileKpi icon={AlertTriangle} label="Drift found" value={String(report.summary?.total ?? 0)}
+            tone={report.summary?.total > 0 ? 'warning' : 'success'} hint={report.summary?.total > 0 ? 'needs attention' : 'all clear'} />
+        </div>
+      )}
 
       {/* Cron-job health — heartbeats for the scheduled reconcile + reminders */}
       <CronHealthPanel jobs={cronHealthQuery.data?.jobs} isLoading={cronHealthQuery.isLoading} />

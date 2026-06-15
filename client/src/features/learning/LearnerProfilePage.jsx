@@ -1,16 +1,19 @@
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link, useParams } from 'react-router-dom';
-import { ArrowLeft, CircleCheck, Loader, Award, Sparkles, TrendingUp, Clock } from 'lucide-react';
+import { ArrowLeft, CircleCheck, Loader, Award, Sparkles, TrendingUp, Clock, BookOpen } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { PageHeader } from '@/components/PageHeader';
 import { EmptyState } from '@/components/EmptyState';
 import { Spinner } from '@/components/Spinner';
+import { cn } from '@/lib/utils';
 import { useUser } from '../../hooks/useUsers';
 import { useLearningEnrollments, useCertificates } from '../../hooks/useLearning';
 import { StatTile } from './DashboardWidgets';
+import { useLearnerSkills } from '../skills/useSkills';
+import LearnerSkillsTab, { RoleReadinessList } from '../skills/LearnerSkillsTab';
 
 // ──────────────────────────────────────────────────────────
 // LearnerProfilePage — admin 360° view of one learner (TMS.update S6).
@@ -25,16 +28,6 @@ const isComplete = (status) => /complete/i.test(status || '');
 const ROLE_TONE = { Admin: 'info', Coordinator: 'info', Teacher: 'success', Participant: 'secondary' };
 const fmtDate = (v) => (v ? new Date(v).toLocaleDateString(undefined, { day: '2-digit', month: 'short', year: 'numeric' }) : '');
 
-function Phase5({ title }) {
-  const { t } = useTranslation();
-  return (
-    <Card>
-      <CardHeader className="pb-3"><CardTitle className="text-base">{title}</CardTitle></CardHeader>
-      <CardContent><p className="text-sm text-muted-foreground">{t(`${p}.phase5Note`)}</p></CardContent>
-    </Card>
-  );
-}
-
 export default function LearnerProfilePage() {
   const { t } = useTranslation();
   const { userId } = useParams();
@@ -43,6 +36,8 @@ export default function LearnerProfilePage() {
   const { data: user, isLoading, isError } = useUser(userId);
   const { data: enrollData } = useLearningEnrollments({ learnerId: userId });
   const { data: certs = [] } = useCertificates({ learnerId: userId });
+  const { data: learnerSkills } = useLearnerSkills(userId);
+  const skillsCount = learnerSkills?.kpis?.skills ?? '—';
 
   const enrollments = useMemo(() => enrollData?.data || [], [enrollData]);
   const completed = enrollments.filter((e) => isComplete(e.status)).length;
@@ -92,7 +87,7 @@ export default function LearnerProfilePage() {
         <StatTile icon={CircleCheck} tone="success" label={t(`${p}.kpi.completed`)} value={completed} />
         <StatTile icon={Loader} tone="info" label={t(`${p}.kpi.inProgress`)} value={inProgress} />
         <StatTile icon={Award} tone="success" label={t(`${p}.kpi.certificates`)} value={certs.length} />
-        <StatTile icon={Sparkles} tone="neutral" label={t(`${p}.kpi.skills`)} value="—" />
+        <StatTile icon={Sparkles} tone="primary" label={t(`${p}.kpi.skills`)} value={skillsCount} />
         <StatTile icon={TrendingUp} tone="primary" label={t(`${p}.kpi.completion`)} value={pc(completionRate)} />
         <StatTile icon={Clock} tone="neutral" label={t(`${p}.kpi.hours`)} value="—" />
       </div>
@@ -123,7 +118,10 @@ export default function LearnerProfilePage() {
                 ) : <p className="text-sm text-muted-foreground">{t(`${p}.noPrograms`)}</p>}
               </CardContent>
             </Card>
-            <Phase5 title={t(`${p}.roleReadiness`)} />
+            <Card>
+              <CardHeader className="pb-3"><CardTitle className="text-base">{t(`${p}.roleReadiness`)}</CardTitle></CardHeader>
+              <CardContent><RoleReadinessList userId={userId} /></CardContent>
+            </Card>
           </div>
         </TabsContent>
 
@@ -145,7 +143,7 @@ export default function LearnerProfilePage() {
           </Card>
         </TabsContent>
 
-        <TabsContent value="skills"><Phase5 title={t(`${p}.tabs.skills`)} /></TabsContent>
+        <TabsContent value="skills"><LearnerSkillsTab userId={userId} /></TabsContent>
 
         <TabsContent value="certificates">
           <Card>
@@ -173,17 +171,33 @@ export default function LearnerProfilePage() {
             <CardHeader className="pb-3"><CardTitle className="text-base">{t(`${p}.activityTitle`)}</CardTitle></CardHeader>
             <CardContent>
               {activity.length ? (
-                <ul className="space-y-2.5">
-                  {activity.map((item, i) => (
-                    <li key={i} className="flex items-start justify-between gap-3 text-sm">
-                      <div className="min-w-0">
-                        <p className="font-medium text-foreground">{item.label}</p>
-                        <p className="truncate text-[11px] text-subtle-foreground">{item.detail}</p>
-                      </div>
-                      <span className="shrink-0 text-xs tabular-nums text-muted-foreground">{fmtDate(item.at)}</span>
-                    </li>
-                  ))}
-                </ul>
+                <ol className="relative">
+                  {activity.map((item, i) => {
+                    const last = i === activity.length - 1;
+                    const issued = item.kind === 'issued';
+                    const Icon = issued ? Award : BookOpen;
+                    return (
+                      <li key={i} className="relative flex gap-3.5 pb-4 last:pb-0">
+                        {/* vertical rail connecting the markers (prototype timeline) */}
+                        {!last && <span className="absolute left-4 top-9 bottom-0 w-px bg-border" aria-hidden="true" />}
+                        <span className={cn(
+                          'relative z-[1] grid size-[34px] shrink-0 place-items-center rounded-lg',
+                          issued ? 'bg-success-tint text-success' : 'bg-primary-tint text-primary',
+                        )}>
+                          <Icon className="size-4" aria-hidden="true" />
+                        </span>
+                        <div className="min-w-0 pt-0.5">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span className="text-sm font-semibold text-foreground">{item.label}</span>
+                            <Badge variant="secondary">{t(`${p}.${issued ? 'catCertificate' : 'catEnrollment'}`)}</Badge>
+                          </div>
+                          {item.detail ? <p className="truncate text-[11px] text-subtle-foreground">{item.detail}</p> : null}
+                          <p className="text-[11px] tabular-nums text-subtle-foreground">{fmtDate(item.at)}</p>
+                        </div>
+                      </li>
+                    );
+                  })}
+                </ol>
               ) : <p className="text-sm text-muted-foreground">{t(`${p}.noActivity`)}</p>}
             </CardContent>
           </Card>

@@ -102,6 +102,38 @@ export function MetricBars({ title, rows }) {
   );
 }
 
+// Segmented pill control (prototype `.seg`) — accessible button group used for
+// the dashboard period picker. Real values pass straight through to the hook;
+// this is a visual upgrade over a bare <select>, nothing more.
+// options: string[]; labelFor(value) → display string; ariaLabel labels the group.
+export function SegmentedControl({ value, onChange, options, labelFor, ariaLabel }) {
+  return (
+    <div
+      role="group"
+      aria-label={ariaLabel}
+      className="inline-flex gap-0.5 rounded-lg bg-surface-2 p-0.5"
+    >
+      {options.map((opt) => {
+        const active = opt === value;
+        return (
+          <button
+            key={opt}
+            type="button"
+            aria-pressed={active}
+            onClick={() => onChange(opt)}
+            className={cn(
+              'rounded-md px-3 py-1 text-xs font-medium transition-colors duration-(--dur-fast)',
+              active ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground',
+            )}
+          >
+            {labelFor ? labelFor(opt) : opt}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
 // Shown in place of a metric block the server reported as failed (errors[]).
 export function MetricUnavailable() {
   const { t } = useTranslation();

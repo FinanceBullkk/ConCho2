@@ -3,7 +3,7 @@ import {
   CalendarCheck, ClipboardCheck, BookA, UsersRound, ClipboardEdit,
   LayoutDashboard, BarChart3, ChartLine, Download,
   Building2, MapPin, DoorOpen, Settings, Database, RefreshCw, ShieldCheck, ScrollText,
-  Compass, Languages, FileText,
+  Compass, Languages, FileText, Zap, Sparkles, Palette, Calculator, Smartphone,
 } from 'lucide-react';
 
 // ──────────────────────────────────────────────────────────
@@ -53,6 +53,7 @@ export const NAV_GROUPS = [
     items: [
       tab('/calendar', 'schedules', 'nav.sections.schedules', CalendarCheck, { access: ADMIN_ONLY }),
       tab('/calendar', 'attendance', 'nav.sections.attendance', ClipboardCheck, { access: { Admin: 'full', Teacher: 'full' } }),
+      { path: '/mobile-attendance', labelKey: 'nav.sections.mobileAttendance', icon: Smartphone, access: { Admin: 'full', Teacher: 'full' }, parentRoutes: ['/mobile-attendance'] },
     ],
   },
   {
@@ -89,6 +90,10 @@ export const NAV_GROUPS = [
     items: [
       { path: '/access', labelKey: 'nav.sections.rolesAccess', icon: ShieldCheck, access: ADMIN_ONLY, parentRoutes: ['/access'] },
       { path: '/custom-fields', labelKey: 'nav.sections.customFields', icon: FileText, access: ADMIN_ONLY, parentRoutes: ['/custom-fields'] },
+      { path: '/automation', labelKey: 'nav.sections.automation', icon: Zap, access: ADMIN_ONLY, parentRoutes: ['/automation'] },
+      { path: '/skills', labelKey: 'nav.sections.skills', icon: Sparkles, access: ADMIN_ONLY, parentRoutes: ['/skills'] },
+      { path: '/branding', labelKey: 'nav.sections.branding', icon: Palette, access: ADMIN_ONLY, parentRoutes: ['/branding'] },
+      { path: '/cost-roi', labelKey: 'nav.sections.costRoi', icon: Calculator, access: ADMIN_ONLY, parentRoutes: ['/cost-roi'] },
     ],
   },
   {

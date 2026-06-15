@@ -25,6 +25,14 @@ const updateScheduleBody = z.object({
   endTime: z.coerce.date().optional(),
   roomLink: z.string().trim().max(500).optional(),
   capacity: z.coerce.number().int().min(1).max(1000).optional(),
+  // Session details (metadata only — never affect booking/room/time logic).
+  topic: z.string().trim().max(200).optional(),
+  agenda: z.array(z.string().trim().max(500)).max(50).optional(),
+  materials: z.array(z.object({
+    label: z.string().trim().max(200),
+    url: z.string().trim().max(2000),
+  })).max(50).optional(),
+  customFields: z.record(z.string(), z.any()).optional(),
 });
 
 const listSchedulesQuery = paginationQuery.extend({

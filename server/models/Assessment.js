@@ -74,6 +74,15 @@ const assessmentSchema = new mongoose.Schema(
     passingScorePercent: { type: Number, default: 0, min: 0, max: 100 },
     // 0 = unlimited attempts.
     maxAttempts: { type: Number, default: 0, min: 0 },
+
+    // ── Exam settings (TMS.update assessment builder) ──────────
+    // Minutes a learner has once an attempt starts; 0 = no time limit.
+    timeLimitMinutes: { type: Number, default: 0, min: 0 },
+    // Randomise item order per attempt (display-only; grading is index-based).
+    shuffleQuestions: { type: Boolean, default: false },
+    // Reveal correct answers to the learner after they submit.
+    showAnswersAfter: { type: Boolean, default: false },
+
     // Only published assessments can be attempted by learners.
     isPublished: { type: Boolean, default: false },
 

@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { Link, useParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { ArrowLeft, Check } from 'lucide-react';
+import { ArrowLeft, Check, Search, Pencil, FileText } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { PageHeader } from '@/components/PageHeader';
@@ -13,6 +13,8 @@ import { cn } from '@/lib/utils';
 import { schedulesAPI, attendanceAPI } from '../../api/api';
 import { qk } from '../../hooks/queryKeys';
 import { useBulkMarkAttendance } from '../../hooks/useAttendance';
+import { useRole } from '../../hooks/useRole';
+import SessionDetailsModal from './SessionDetailsModal';
 
 // ──────────────────────────────────────────────────────────
 // SessionDetailPage — one-submit 4-state attendance (TMS.update S5).
@@ -47,7 +49,10 @@ export default function SessionDetailPage() {
   const { t } = useTranslation();
   const { id } = useParams();
   const bulkMark = useBulkMarkAttendance();
+  const { isAdmin } = useRole();
   const [overrides, setOverrides] = useState({});
+  const [find, setFind] = useState('');
+  const [editing, setEditing] = useState(false);
 
   const { data: schedule, isLoading, isError } = useQuery({
     queryKey: qk.schedules.detail(id),
@@ -74,6 +79,11 @@ export default function SessionDetailPage() {
   const count = (code) => records.filter((r) => r.status === code).length;
   const total = records.length;
   const marked = records.filter((r) => r.status).length;
+  // Client-side roster filter (counts above stay over the FULL roster).
+  const q = find.trim().toLowerCase();
+  const shown = q
+    ? records.filter((r) => `${r.name} ${r.empCode || ''} ${r.department || ''}`.toLowerCase().includes(q))
+    : records;
   const presentPct = total ? Math.round((count('P') / total) * 100) : 0;
 
   const setOne = (userId, code) => setOverrides((o) => ({ ...o, [userId]: code }));
@@ -114,11 +124,16 @@ export default function SessionDetailPage() {
       <PageHeader
         title={
           <span className="flex flex-wrap items-center gap-3">
-            {schedule.classId?.courseName || schedule.classId?.classCode}
+            {schedule.topic || schedule.classId?.courseName || schedule.classId?.classCode}
             <span className="font-mono text-sm text-subtle-foreground">{schedule.classId?.classCode}</span>
           </span>
         }
         description={when || undefined}
+        actions={isAdmin ? (
+          <Button size="sm" variant="outline" onClick={() => setEditing(true)}>
+            <Pencil className="mr-1.5 size-4" aria-hidden="true" />{t(`${s}.editDetails`)}
+          </Button>
+        ) : undefined}
       />
 
       <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_280px]">
@@ -130,9 +145,22 @@ export default function SessionDetailPage() {
             <Button size="sm" variant="outline" onClick={allPresent}><Check className="mr-1.5 size-4" aria-hidden="true" />{t(`${s}.allPresent`)}</Button>
           </CardHeader>
           <CardContent>
+            {records.length > 0 && (
+              <div className="relative mb-3">
+                <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
+                <input
+                  type="text"
+                  value={find}
+                  onChange={(e) => setFind(e.target.value)}
+                  placeholder={t(`${s}.find`)}
+                  aria-label={t(`${s}.find`)}
+                  className="h-9 w-full rounded-md border border-input bg-background pl-9 pr-3 text-sm"
+                />
+              </div>
+            )}
             {records.length ? (
               <ul className="divide-y divide-border">
-                {records.map((rec) => (
+                {shown.map((rec) => (
                   <li key={rec.userId} className="flex flex-wrap items-center justify-between gap-3 py-2.5">
                     <div className="min-w-0">
                       <p className="text-sm font-medium text-foreground">{rec.name}</p>
@@ -183,7 +211,40 @@ export default function SessionDetailPage() {
             )}
           </CardContent>
         </Card>
+
+        {(schedule.agenda?.length > 0 || schedule.materials?.length > 0) && (
+          <div className="space-y-4 lg:col-start-2">
+            {schedule.agenda?.length > 0 && (
+              <Card>
+                <CardHeader className="pb-2"><CardTitle className="text-base">{t(`${s}.agenda`)}</CardTitle></CardHeader>
+                <CardContent>
+                  <ol className="space-y-1.5 text-sm">
+                    {schedule.agenda.map((item, i) => (
+                      <li key={i} className="flex gap-2"><span className="tabular-nums text-subtle-foreground">{i + 1}.</span><span className="text-foreground">{item}</span></li>
+                    ))}
+                  </ol>
+                </CardContent>
+              </Card>
+            )}
+            {schedule.materials?.length > 0 && (
+              <Card>
+                <CardHeader className="pb-2"><CardTitle className="text-base">{t(`${s}.materials`)}</CardTitle></CardHeader>
+                <CardContent className="space-y-2">
+                  {schedule.materials.map((m, i) => (
+                    <a key={i} href={m.url} target="_blank" rel="noopener noreferrer"
+                      className="flex items-center gap-2 rounded-md border border-border px-3 py-2 text-sm text-foreground transition-colors hover:bg-accent/40">
+                      <FileText className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+                      <span className="truncate">{m.label}</span>
+                    </a>
+                  ))}
+                </CardContent>
+              </Card>
+            )}
+          </div>
+        )}
       </div>
+
+      {editing && <SessionDetailsModal schedule={schedule} onClose={() => setEditing(false)} />}
     </div>
   );
 }

@@ -99,22 +99,22 @@ function AuditLogTab() {
       {/* Filter bar */}
       <div className="bg-card border border-border rounded-lg p-4">
         <div className="flex flex-wrap gap-3 items-end">
-          <div className="flex flex-col gap-1 min-w-[140px]">
-            <label htmlFor="audit-entity" className="text-overline text-muted-foreground">Entity</label>
-            <select
-              id="audit-entity"
-              value={entity}
-              onChange={(e) => setParam('audit_entity')(e.target.value)}
-              className={inputCls}
-            >
-              <option value="">All</option>
-              <option value="User">User</option>
-              <option value="Class">Class</option>
-              <option value="Schedule">Schedule</option>
-              <option value="Team">Team</option>
-              <option value="Enrollment">Enrollment</option>
-              <option value="Attendance">Attendance</option>
-            </select>
+          <div className="flex flex-col gap-1">
+            <span className="text-overline text-muted-foreground">Entity</span>
+            <div className="flex flex-wrap gap-1.5" role="tablist" aria-label="Filter by entity">
+              {['', 'User', 'Class', 'Schedule', 'Team', 'Enrollment', 'Attendance'].map((e) => (
+                <button
+                  key={e || 'all'}
+                  type="button"
+                  role="tab"
+                  aria-selected={entity === e}
+                  onClick={() => setParam('audit_entity')(e)}
+                  className={`rounded-full border px-2.5 py-1 text-xs font-medium transition-colors ${entity === e ? 'border-primary bg-primary/15 text-primary' : 'border-border text-muted-foreground hover:text-foreground'}`}
+                >
+                  {e || 'All'}
+                </button>
+              ))}
+            </div>
           </div>
 
           <div className="flex flex-col gap-1 min-w-[180px]">

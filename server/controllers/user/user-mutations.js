@@ -28,7 +28,7 @@ const createUser = async (req, res) => {
     // ignored.
     const {
       empCode, name, email, role, department, position, status, dropReason,
-      entranceLevel, currentLevel, password,
+      entranceLevel, currentLevel, password, customFields,
     } = req.body;
 
     if (!password) {
@@ -47,6 +47,7 @@ const createUser = async (req, res) => {
       entranceLevel,
       currentLevel,
       password,
+      ...(customFields && typeof customFields === 'object' ? { customFields } : {}),
     });
 
     // Return without password
@@ -81,7 +82,7 @@ const updateUser = async (req, res) => {
     // updates to these fields via API were silent no-ops.
     const {
       empCode, name, email, role, department, position, status, dropReason,
-      entranceLevel, currentLevel,
+      entranceLevel, currentLevel, customFields,
     } = req.body;
     const updateData = {};
 
@@ -95,6 +96,8 @@ const updateUser = async (req, res) => {
     if (dropReason !== undefined) updateData.dropReason = dropReason;
     if (entranceLevel !== undefined) updateData.entranceLevel = entranceLevel;
     if (currentLevel !== undefined) updateData.currentLevel = currentLevel;
+    // Admin-defined custom fields (entity='User') — stored as a value map.
+    if (customFields !== undefined && typeof customFields === 'object') updateData.customFields = customFields;
 
     // Snapshot before-state for audit diff (lean to keep it cheap).
     const before = await User.findById(req.params.id).lean();

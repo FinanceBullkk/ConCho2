@@ -24,6 +24,24 @@ export const useExecutiveDashboard = (params = {}, options = {}) =>
     ...options,
   });
 
+// Home onboarding checklist + at-a-glance counts (report.read gated).
+export const useSetupStatus = (options = {}) =>
+  useQuery({
+    queryKey: qk.learning.dashboardSetup,
+    queryFn: async () => (await learningAPI.getSetup()).data.data,
+    staleTime: 5 * 60 * 1000,
+    ...options,
+  });
+
+// Per-department performance (report.read gated). `window` = 7|30|90|365.
+export const useDepartmentPerformance = (window = 30, options = {}) =>
+  useQuery({
+    queryKey: qk.learning.dashboardDepartments(window),
+    queryFn: async () => (await learningAPI.getDepartmentPerformance({ window })).data.data,
+    staleTime: 60 * 1000,
+    ...options,
+  });
+
 export const useCostConfig = (options = {}) =>
   useQuery({
     queryKey: qk.learning.costConfig,

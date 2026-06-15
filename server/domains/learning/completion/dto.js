@@ -1,6 +1,13 @@
 const { deriveCertificateState } = require('../reports/compliance-certificate-state');
+const { getBrandingCached } = require('../../../lib/branding');
 
 const idOf = (value) => (value && value._id ? value._id : value) || null;
+
+// Branding the public certificate surface should display (TMS.update gap #5).
+const brandingForCert = () => {
+  const b = getBrandingCached();
+  return { orgName: b.orgName, certificateTitle: b.certificateTitle, accentColor: b.accentColor, logoUrl: b.logoUrl };
+};
 
 // Full certificate view for authenticated Admin/Teacher/learner-self listings.
 const certificateDto = (cert) => {
@@ -41,7 +48,7 @@ const certificateDto = (cert) => {
 // Public verification view — no auth, so expose only what a verifier needs and
 // nothing internal (no ids, no verificationCode, no policy internals).
 const publicVerificationDto = (cert) => {
-  if (!cert) return { valid: false, status: 'not_found' };
+  if (!cert) return { valid: false, status: 'not_found', branding: brandingForCert() };
   return {
     valid: ['issued', 'expiring'].includes(deriveCertificateState(cert)),
     status: cert.status,
@@ -53,6 +60,8 @@ const publicVerificationDto = (cert) => {
     issuedAt: cert.issuedAt,
     validUntil: cert.validUntil,
     revokedAt: cert.status === 'Revoked' ? cert.revokedAt : undefined,
+    // White-label surface (org name, certificate title, accent, logo).
+    branding: brandingForCert(),
   };
 };
 

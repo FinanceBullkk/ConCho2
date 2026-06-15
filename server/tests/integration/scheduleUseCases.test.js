@@ -90,6 +90,22 @@ describe('domains/schedule use-cases — updateSchedule', () => {
     expect(enrolled).toContain(leaderB._id.toString());
     expect(enrolled).toContain(memberB._id.toString());
   });
+
+  test('session details (topic/agenda/materials/customFields) persist as metadata', async () => {
+    const { sched } = await makeFixture();
+    const updated = await useCases.updateSchedule(sched._id.toString(), {
+      topic: 'Coaching & feedback',
+      agenda: ['Recap', 'GROW model', 'Roleplay'],
+      materials: [{ label: 'Deck', url: 'https://x/deck.pdf' }],
+      customFields: { room_setup: 'U-shape' },
+    });
+    expect(updated.topic).toBe('Coaching & feedback');
+    expect(updated.agenda).toEqual(['Recap', 'GROW model', 'Roleplay']);
+    expect(updated.materials[0]).toMatchObject({ label: 'Deck', url: 'https://x/deck.pdf' });
+    expect(updated.customFields).toMatchObject({ room_setup: 'U-shape' });
+    // Booking fields untouched.
+    expect(updated.bookedTeamId.toString()).toBe(sched.bookedTeamId.toString());
+  });
 });
 
 describe('domains/schedule use-cases — deleteSchedule', () => {

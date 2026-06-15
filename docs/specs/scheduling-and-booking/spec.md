@@ -2,7 +2,7 @@
 capability: scheduling-and-booking
 status: stable
 owners: [services/scheduleService, domains/schedule, domains/room, domains/learning/session]
-last_updated: 2026-06-12
+last_updated: 2026-06-15
 related_plans:
   - plans/260602-2247-m1-self-enroll-nomination-session-modes
   - plans/260606-1356-wave-e-generic-scheduling
@@ -265,6 +265,19 @@ auto-trimmed).
 - **GIVEN** a session with E enrolled
 - **WHEN** an Admin sets capacity < E (even while reassigning teams)
 - **THEN** **422**; the capacity is unchanged
+
+### Requirement: Session details (metadata) [BR-1, UC-3]
+
+A Schedule SHALL carry display-only session details an Admin can edit via
+`PUT /schedules/:id` (roleGuard Admin): `topic`, `agenda[]`, `materials[]`
+(`{label,url}`), and `customFields` (CustomFieldDefinition entity='Session'
+value map). These are **metadata only** — they pass through the update
+field-whitelist and never affect booking, room, time, or roster logic.
+
+#### Scenario: Edit session details
+- **GIVEN** an Admin on the session detail page
+- **WHEN** they save a topic + agenda + materials + custom-field values
+- **THEN** the Schedule stores them; booking fields (team/room/time) are unchanged
 
 ### Requirement: Scheduling-mode gating [BR-1, BR-6, UC-1, UC-3]
 

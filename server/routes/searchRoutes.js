@@ -9,9 +9,10 @@ const { protect } = require('../middleware/auth');
  *     tags: [Search]
  *     summary: Global cross-entity search
  *     description: |
- *       Searches Users, Teams, and Classes for the given query string.
- *       Results are role-scoped — Participants see only their own record,
- *       teams they belong to, and classes for those teams.
+ *       Searches Users, Teams, Classes, and (for Admin/Teacher) Programs
+ *       and Departments for the given query string. Results are role-scoped —
+ *       Participants see only their own record, teams they belong to, and
+ *       classes for those teams; programs/departments are staff-only.
  *     security:
  *       - bearerAuth: []
  *     parameters:

@@ -88,6 +88,8 @@ export const qk = {
     myAssignments: ['learning', 'assignments', 'mine'],
     dashboardOperational: (params) => ['learning', 'dashboard', 'operational', params],
     dashboardExecutive: (params) => ['learning', 'dashboard', 'executive', params],
+    dashboardSetup: ['learning', 'dashboard', 'setup'],
+    dashboardDepartments: (window) => ['learning', 'dashboard', 'departments', window],
     costConfig: ['learning', 'dashboard', 'cost-config'],
     sessions: (params) => ['learning', 'sessions', params],
   },
@@ -125,5 +127,17 @@ export const qk = {
     all: ['notifications'],
     mine: ['notifications', 'mine'],
     preferences: ['notifications', 'preferences'],
+  },
+  automation: {
+    rules: ['automation', 'rules'],
+  },
+  skills: {
+    all: ['skills'],
+    list: ['skills', 'list'],
+    roleProfiles: ['skills', 'role-profiles'],
+    learner: (userId) => ['skills', 'learner', userId],
+  },
+  branding: {
+    config: ['branding', 'config'],
   },
 };

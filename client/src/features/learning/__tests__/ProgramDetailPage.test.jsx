@@ -19,6 +19,7 @@ vi.mock('../../../hooks/useLearning', () => ({
   useLearningProgram: (...a) => h.program(...a),
   useLearningCohorts: (...a) => h.cohorts(...a),
   useCompletionRollup: (...a) => h.rollup(...a),
+  useCompletionTrend: () => ({ data: { series: [{ month: '2026-06', completions: 3 }] } }),
 }));
 vi.mock('../../../hooks/useRole', () => ({ useRole: () => h.role }));
 
