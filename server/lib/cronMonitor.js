@@ -59,6 +59,12 @@ const CRON_JOBS = {
     expectedIntervalMs: 24 * HOUR_MS, // daily
     schedule: '30 1 * * *', // 01:30 UTC = 08:30 ICT (just after assignment reminders)
   },
+  snapshot: {
+    jobName: 'metric-snapshot',
+    monitorSlug: 'metric-snapshot',
+    expectedIntervalMs: 24 * HOUR_MS, // nightly analytics rollup
+    schedule: '0 1 * * *', // 01:00 UTC = 08:00 ICT
+  },
 };
 
 async function recordStart(jobName) {

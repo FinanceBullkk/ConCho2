@@ -20,6 +20,11 @@ vi.mock('../../../hooks/useLearning', () => ({
   useLearningCohorts: (...a) => h.cohorts(...a),
   useCompletionRollup: (...a) => h.rollup(...a),
   useCompletionTrend: () => ({ data: { series: [{ month: '2026-06', completions: 3 }] } }),
+  useProgramAnalytics: () => ({ data: {
+    funnel: { stages: [], conversion: { enrolledToCompleted: 61, completedToCertified: 54, overall: 33 } },
+    series: { active_enrollments: [], completions: [], certs_issued: [] },
+    collecting: true,
+  } }),
 }));
 vi.mock('../../../hooks/useRole', () => ({ useRole: () => h.role }));
 
