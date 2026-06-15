@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ArrowRight, Equal, ShieldCheck } from 'lucide-react';
+import { ArrowRight, Equal, ShieldCheck, ShieldAlert } from 'lucide-react';
+import { isSensitiveCap } from './sensitive-caps';
 
 // Compare two roles' capability grants side-by-side (screenshot 14).
 // Read-only: reflects the persisted, server-enforced grants — Admin is the
@@ -10,6 +11,11 @@ import { ArrowRight, Equal, ShieldCheck } from 'lucide-react';
 const titleize = (s) => s.replace(/[._-]+/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
 const actionOf = (cap) => titleize(cap.split('.').slice(1).join(' '));
 const grants = (role, cap) => role?.key === 'Admin' || (role?.capabilities || []).includes(cap);
+
+// Small amber shield shown beside a sensitive capability's name.
+export function SensitiveMark({ label }) {
+  return <ShieldAlert className="size-3.5 shrink-0 text-warning" aria-label={label} />;
+}
 
 function GrantBadge({ on, label }) {
   return on ? (
@@ -73,7 +79,7 @@ export default function RoleCompareView({ roles, groups }) {
           </thead>
           <tbody>
             {groups.map((group) => (
-              <CompareGroup key={group.prefix} group={group} roleA={roleA} roleB={roleB} fullLabel={t('access.full')} />
+              <CompareGroup key={group.prefix} group={group} roleA={roleA} roleB={roleB} fullLabel={t('access.full')} sensitiveLabel={t('access.sensitive')} />
             ))}
           </tbody>
         </table>
@@ -82,7 +88,7 @@ export default function RoleCompareView({ roles, groups }) {
   );
 }
 
-function CompareGroup({ group, roleA, roleB, fullLabel }) {
+function CompareGroup({ group, roleA, roleB, fullLabel, sensitiveLabel }) {
   return (
     <>
       <tr className="bg-surface-2/40">
@@ -100,7 +106,9 @@ function CompareGroup({ group, roleA, roleB, fullLabel }) {
           <tr key={cap} className={`border-b border-border last:border-0 ${differs ? 'bg-warning/5' : ''}`}>
             <td className="px-4 py-2">
               <div className="flex flex-col">
-                <span className="text-sm font-medium text-foreground">{actionOf(cap)}</span>
+                <span className="flex items-center gap-1.5 text-sm font-medium text-foreground">
+                  {actionOf(cap)}{isSensitiveCap(cap) && <SensitiveMark label={sensitiveLabel} />}
+                </span>
                 <span className="font-mono text-[11px] text-subtle-foreground">{cap}</span>
               </div>
             </td>
