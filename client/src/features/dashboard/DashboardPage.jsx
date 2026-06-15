@@ -5,8 +5,10 @@ import { useTranslation } from 'react-i18next';
 import { useAuth } from '../../context/AuthContext';
 import { AlertBand } from '@/components/home/AlertBand';
 import { TodayHero } from '@/components/home/TodayHero';
+import { OnboardingChecklist, AtAGlance } from '@/components/home/HomeSetup';
 import { PageHeader } from '@/components/PageHeader';
 import { useRole } from '../../hooks/useRole';
+import { useSetupStatus } from '../../hooks/useLearningDashboard';
 import ParticipantDashboard from './ParticipantDashboard';
 import QuickActions from './QuickActions';
 
@@ -25,6 +27,9 @@ export default function DashboardPage() {
   const { t } = useTranslation();
   const { user, isParticipant } = useAuth();
   const { can } = useRole();
+  // Staff who can see analytics get a shortcut + the onboarding/at-a-glance cards.
+  const canSeeAnalytics = can('read:dashboard') || can('read:reports') || can('read:attendance');
+  const { data: setup } = useSetupStatus({ enabled: canSeeAnalytics && !isParticipant });
 
   useEffect(() => { document.title = t('dashboard.docTitle'); }, [t]);
 
@@ -34,8 +39,6 @@ export default function DashboardPage() {
   if (isParticipant) return <ParticipantDashboard />;
 
   const dateLocale = 'en-US';
-  // Staff who can see analytics get a shortcut into Reports▸Overview.
-  const canSeeAnalytics = can('read:dashboard') || can('read:reports') || can('read:attendance');
 
   return (
     <div className="space-y-5">
@@ -55,9 +58,13 @@ export default function DashboardPage() {
         }
       />
 
+      {/* Finish setting up your workspace (auto-hides once fully configured) */}
+      {setup && setup.completedSteps < setup.totalSteps && <OnboardingChecklist setup={setup} />}
+
       {/* What needs attention today */}
       <AlertBand />
       <TodayHero />
+      {setup && <AtAGlance atGlance={setup.atGlance} />}
 
       {/* Where to go next */}
       <QuickActions />

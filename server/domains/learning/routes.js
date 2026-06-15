@@ -233,6 +233,9 @@ router.get(
   dashboardController.getOperationalDashboard,
 );
 
+// Home onboarding checklist + at-a-glance counts.
+router.get('/dashboard/setup', requireCapability('report.read'), dashboardController.getSetup);
+
 // ── Executive dashboard + cost config (2-tier dashboard, Phase 3) ──
 // Coarse `report.read` here; the use-case enforces Admin-only inside
 // (defence in depth, mirroring the compliance report gate).

@@ -149,6 +149,22 @@ as D4 `assignment.read`).
 - **THEN** that cohort's attendance/certificates/sessions are excluded; a
   Participant gets **403**; an invalid `window` gets **400**
 
+### Requirement: Home setup status + at-a-glance [BR-5, UC-3]
+
+`GET /api/learning/dashboard/setup` (capability `report.read`) SHALL return the
+Home onboarding checklist + this-week counts, all derived from real data:
+- `steps[]` — six boolean config signals (directory=departments exist, program,
+  custom roles, automation rule, configured completion policy, coordinators)
+  plus `completedSteps`/`totalSteps`.
+- `atGlance` — `activeLearners`/`totalEmployees` (active participants vs live
+  users), `sessionsThisWeek` (schedules Mon–Sun), `pendingEnrollment`
+  (`Waiting for class` users). Counts only — never fabricated.
+
+#### Scenario: Setup signals
+- **GIVEN** an Admin on Home
+- **WHEN** they load the setup status
+- **THEN** six steps return with real `done` flags; a Participant gets **403**
+
 ## Non-Functional Requirements (NFR)
 
 Inherits `security-platform`. Specifics:

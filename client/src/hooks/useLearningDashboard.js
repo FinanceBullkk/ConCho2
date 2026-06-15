@@ -24,6 +24,15 @@ export const useExecutiveDashboard = (params = {}, options = {}) =>
     ...options,
   });
 
+// Home onboarding checklist + at-a-glance counts (report.read gated).
+export const useSetupStatus = (options = {}) =>
+  useQuery({
+    queryKey: qk.learning.dashboardSetup,
+    queryFn: async () => (await learningAPI.getSetup()).data.data,
+    staleTime: 5 * 60 * 1000,
+    ...options,
+  });
+
 export const useCostConfig = (options = {}) =>
   useQuery({
     queryKey: qk.learning.costConfig,

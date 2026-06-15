@@ -6,6 +6,9 @@ const Feedback = require('../../../models/Feedback');
 const LearningProgram = require('../../../models/LearningProgram');
 const Enrollment = require('../../../models/Enrollment');
 const User = require('../../../models/User');
+const Department = require('../../../models/Department');
+const Role = require('../../../models/Role');
+const AutomationRule = require('../../../models/AutomationRule');
 const { ATTENDED_STATUSES } = require('../completion/repository');
 const { ACTIVE_ENROLLMENT_STATUSES } = require('../../../helpers/cohortMembership');
 
@@ -152,6 +155,48 @@ const coverageCounts = async (windowStart) => {
   return { activeParticipants, engagedParticipants };
 };
 
+// Onboarding setup signals + "this week" at-a-glance counts (Home landing).
+// All cheap countDocuments, run in parallel. A configured completion policy =
+// any non-default threshold/requirement on a live program.
+const getSetupSignals = async () => {
+  const now = new Date();
+  const weekStart = new Date(now);
+  weekStart.setHours(0, 0, 0, 0);
+  weekStart.setDate(weekStart.getDate() - ((now.getDay() + 6) % 7)); // back to Monday
+  const weekEnd = new Date(weekStart);
+  weekEnd.setDate(weekStart.getDate() + 7);
+
+  const livePrograms = { status: { $ne: 'archived' }, isDeleted: { $ne: true } };
+  const policyMatch = {
+    $or: [
+      { 'completionPolicy.attendanceThresholdPercent': { $gt: 0 } },
+      { 'completionPolicy.requiresAssessment': true },
+      { 'completionPolicy.requiresFeedback': true },
+    ],
+  };
+
+  const [
+    departments, programs, customRoles, automationRules, policyPrograms, coordinators,
+    totalEmployees, activeLearners, sessionsThisWeek, pendingEnrollment,
+  ] = await Promise.all([
+    Department.countDocuments({ isDeleted: { $ne: true } }),
+    LearningProgram.countDocuments(livePrograms),
+    Role.countDocuments({ system: { $ne: true }, isDeleted: { $ne: true } }),
+    AutomationRule.countDocuments({ isDeleted: { $ne: true } }),
+    LearningProgram.countDocuments({ ...livePrograms, ...policyMatch }),
+    User.countDocuments({ role: 'Coordinator', isDeleted: { $ne: true } }),
+    User.countDocuments({ isDeleted: { $ne: true }, status: { $nin: ['Dropped', 'Transferred'] } }),
+    User.countDocuments({ role: 'Participant', status: 'Active', isDeleted: { $ne: true } }),
+    Schedule.countDocuments({ startTime: { $gte: weekStart, $lt: weekEnd } }),
+    User.countDocuments({ status: 'Waiting for class', isDeleted: { $ne: true } }),
+  ]);
+
+  return {
+    departments, programs, customRoles, automationRules, policyPrograms, coordinators,
+    totalEmployees, activeLearners, sessionsThisWeek, pendingEnrollment,
+  };
+};
+
 module.exports = {
   attendanceTotals,
   sessionCounts,
@@ -161,4 +206,5 @@ module.exports = {
   feedbackStats,
   listProgramNames,
   coverageCounts,
+  getSetupSignals,
 };

@@ -88,6 +88,7 @@ export const qk = {
     myAssignments: ['learning', 'assignments', 'mine'],
     dashboardOperational: (params) => ['learning', 'dashboard', 'operational', params],
     dashboardExecutive: (params) => ['learning', 'dashboard', 'executive', params],
+    dashboardSetup: ['learning', 'dashboard', 'setup'],
     costConfig: ['learning', 'dashboard', 'cost-config'],
     sessions: (params) => ['learning', 'sessions', params],
   },
