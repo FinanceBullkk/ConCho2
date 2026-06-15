@@ -111,6 +111,18 @@ Bug fixing and integration review rank above net-new feature rollout.
 > [`changelog-archive/2026-q2.md`](changelog-archive/2026-q2.md). Currently
 > inline: **2026-06-14 → 2026-06-15**.
 
+- **2026-06-15** — **Converge Phase 2: enrollment create-write spine + uniform
+  event (behaviour-parity change).** Both enrollment modes now create their Active
+  row through ONE write spine (`domains/learning/enrollment/writes.createActiveEnrollment`
+  → `repository.insertActiveEnrollment`) — team membership-sync no longer has its
+  own `Enrollment.create`. Team enrollment now publishes `ENROLLMENT_CREATED`
+  (post-commit, only when the team has a cohort) so the `cohort_enrolled` in-app
+  bell + enrollment automation react uniformly for both modes — closing the named
+  Phase-2 follow-up (previously only direct cohort enroll emitted). Parity tests
+  added (`teams.test.js`: cohort-bound team add → bell; program-less team → none).
+  Spec `enrollment` + converge plan phase-02 + domain-model rule updated. Full
+  server suite 108/1046 green. Still deferred: folding the team transfer/drop
+  close-paths onto the spine.
 - **2026-06-15** — **Repository-layer consolidation for the 3 leaky domains
   (Phase 1 architectural; no behaviour change).** `schedule`, `attendance` and
   `groups` each had Mongoose calls scattered across controller / policy / helper
