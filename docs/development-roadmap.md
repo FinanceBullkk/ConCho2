@@ -37,10 +37,10 @@ remainder is documented deferred-by-design scope (below), not active debt.
 - **Next:** owner's call — start **Phase 6 PostgreSQL** readiness (Phase 0), the
   gated owner-ops below, or override one of the deferred-by-design items above.
   (TMS.update north-star: **all 7 gaps shipped** (#1–#7); #7 PWA offline
-  attendance closed 2026-06-15. Now executing the **Investment Build Plan** deep
-  features — **#1 analytics time-series shipped 2026-06-15** (#3a audit hash-chain
-  PR #108, #4 reconcile auto-heal PR #109 merged); next Wave-3 infra: Studio
-  Scheduling (`SessionType`).)
+  attendance closed 2026-06-15. **Investment Build Plan deep features — all 4
+  shipped** (#3a audit hash-chain PR #108, #4 reconcile auto-heal PR #109, #1
+  analytics time-series PR #110, #5 Studio Scheduling PR #111). Next:
+  Modernization Horizon 1 (compliance matrix, budget dashboard).)
 - **Gated / owner-ops:** **D2 Google OIDC + Directory sync** (blocked on owner's
   Google OAuth app + Workspace domain); **paid always-on hosting** + Sentry
   cron-monitor dashboard; **Phase 6 PostgreSQL gate** (plan drafted,
@@ -112,8 +112,25 @@ Bug fixing and integration review rank above net-new feature rollout.
 > **Rolling window:** ~last 2 weeks / ~15 entries kept inline (file ≤ ~400
 > lines); older entries roll verbatim, newest-first, to
 > [`changelog-archive/2026-q2.md`](changelog-archive/2026-q2.md). Currently
-> inline: **2026-06-14 → 2026-06-15**.
+> inline: **2026-06-14 → 2026-06-16**.
 
+- **2026-06-16** — **TMS.update Build Plan #5: Studio ▸ Scheduling (session
+  types + room utilization) — new infra.** New `SessionType` model
+  (name/colour/defaultDurationMin/defaultCapacity/order, soft-delete) + a
+  `domains/session-type` module — `GET /api/session-types` (`session.book`) +
+  create/edit/archive (`room.manage`, audited). `Schedule.sessionTypeId` added
+  (additive, **metadata only** — no booking/slot/room/conflict path reads it; the
+  slot window + `{roomId,startTime}` lock stay the source of truth). Room
+  utilization: `GET /api/rooms/utilization?range=&officeId=` (`room.read`) derives
+  booked-vs-available hours per room + per office from roomed scheduled sessions
+  (available = configured `ALLOWED_TIME_SLOTS` hours/day × range) — no new store.
+  Client: **Studio ▸ Scheduling** page (`/scheduling`, Admin) — session-type CRUD
+  + utilization table with range filter — wired into the Configure nav. Tests +9
+  (CRUD/order/authz read-vs-manage, validation, archive+audit, utilization
+  compute, room.read gate). Server **109/1055** green, client **389** green, lint
+  63 (cap), build clean. New spec `studio-scheduling` + registry row. Follow-up
+  (out of scope, noted): thread `sessionTypeId` prefill through the booking form.
+  **All 4 Investment Build Plan deep features now shipped (#1, #3a, #4, #5).**
 - **2026-06-15** — **TMS.update Build Plan #1: real analytics time-series
   (`MetricSnapshot`) + funnel (new infra).** No more trends recomputed/faked at
   read time — a durable daily rollup now stores real history. New

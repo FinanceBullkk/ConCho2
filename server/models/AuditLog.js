@@ -72,7 +72,9 @@ const auditLogSchema = new mongoose.Schema(
              // Added in re-center Phase 3 — Office-scoped Rooms.
              'Room',
              // Added in Wave E3 phase-04 slice B — session waitlists.
-             'WaitlistEntry'],
+             'WaitlistEntry',
+             // Added in TMS.update Build Plan #5 — Studio scheduling taxonomy.
+             'SessionType'],
       required: true,
     },
     entityId: {

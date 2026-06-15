@@ -434,6 +434,15 @@ export const roomsAPI = {
   createRoom:  (data) => api.post('/rooms', data),
   updateRoom:  (id, data) => api.put(`/rooms/${id}`, data),
   archiveRoom: (id) => api.delete(`/rooms/${id}`),
+  getUtilization: (params) => api.get('/rooms/utilization', { params }),
+};
+
+// Session types (Studio ▸ Scheduling, Build Plan #5) — metadata taxonomy.
+export const sessionTypesAPI = {
+  list:    () => api.get('/session-types'),
+  create:  (data) => api.post('/session-types', data),
+  update:  (id, data) => api.put(`/session-types/${id}`, data),
+  archive: (id) => api.delete(`/session-types/${id}`),
 };
 
 // In-app notification bell (Cohesion P5) — self-scoped feed over NotificationLog.
