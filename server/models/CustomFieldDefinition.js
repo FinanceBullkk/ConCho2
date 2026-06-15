@@ -10,7 +10,7 @@ const mongoose = require('mongoose');
 // `entities`/`types` are the extension points.
 // ──────────────────────────────────────────────────────────
 
-const entities = ['Program', 'User'];
+const entities = ['Program', 'User', 'Cohort'];
 // TMS.update gap #6 — full type coverage (handoff §4). `select`/`multiselect`
 // carry `options`; `user` stores a User id; `toggle` a boolean; `date` an ISO
 // date string; `number` a numeric value.

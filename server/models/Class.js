@@ -65,6 +65,12 @@ const classSchema = new mongoose.Schema(
       },
       default: 'Ongoing',
     },
+    // Admin-defined custom fields (CustomFieldDefinition entity='Cohort'), keyed
+    // by the definition's `key`. Same value-map pattern as LearningProgram.
+    customFields: {
+      type: Object,
+      default: {},
+    },
     // ── Teacher-class binding (audit PR 5 — AUTHZ-001) ───────────────
     // The list of teachers assigned to this class. When empty (legacy /
     // unbacked classes) the policy module is permissive — any Teacher

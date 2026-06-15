@@ -202,6 +202,7 @@ const createCohort = async (payload) => {
     totalSessions: payload.totalSessions || program.defaultSessionCount,
     status: payload.status || 'Ongoing',
     teacherIds: payload.teacherIds || [],
+    ...(payload.customFields && typeof payload.customFields === 'object' ? { customFields: payload.customFields } : {}),
   });
 
   return getCohort(created._id);
@@ -234,6 +235,7 @@ const updateCohort = async (id, payload) => {
   const update = {};
   if (payload.status !== undefined) update.status = payload.status;
   if (payload.totalSessions !== undefined) update.totalSessions = payload.totalSessions;
+  if (payload.customFields !== undefined && typeof payload.customFields === 'object') update.customFields = payload.customFields;
 
   await repository.updateCohortById(id, update);
   return getCohort(id);
