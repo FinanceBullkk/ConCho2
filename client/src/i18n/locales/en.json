@@ -868,6 +868,8 @@
       "noActivity": "No recent activity.",
       "issued": "Certificate issued",
       "enrolledIn": "Enrolled in {{cohort}}",
+      "catCertificate": "Certificate",
+      "catEnrollment": "Enrollment",
       "role": "Role",
       "department": "Department",
       "email": "Email",
