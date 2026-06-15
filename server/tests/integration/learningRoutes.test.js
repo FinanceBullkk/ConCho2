@@ -153,6 +153,27 @@ describe('Learning Platform API — cohorts', () => {
     expect(stored.courseName).toBe('Technical Bootcamp');
   });
 
+  test('cohort custom field values round-trip on create + update', async () => {
+    const program = await LearningProgram.create({
+      code: 'CF_COHORT', name: 'CF Cohort Prog', defaultSessionCount: 2,
+    });
+    const created = await request(app)
+      .post('/api/learning/cohorts')
+      .set('Authorization', `Bearer ${tokens.admin}`)
+      .set(csrf)
+      .send({ cohortCode: 'CF_COH_1', programId: program._id.toString(), customFields: { region: 'APAC' } });
+    expect(created.status).toBe(201);
+    expect(created.body.data.customFields).toMatchObject({ region: 'APAC' });
+
+    const updated = await request(app)
+      .put(`/api/learning/cohorts/${created.body.data._id}`)
+      .set('Authorization', `Bearer ${tokens.admin}`)
+      .set(csrf)
+      .send({ customFields: { region: 'EMEA' } });
+    expect(updated.status).toBe(200);
+    expect(updated.body.data.customFields).toMatchObject({ region: 'EMEA' });
+  });
+
   test('teacher cannot create a cohort (lacks cohort.manage capability)', async () => {
     const program = await LearningProgram.create({
       code: 'TEST_CAP_BLOCK', name: 'Capability Block', defaultSessionCount: 1,

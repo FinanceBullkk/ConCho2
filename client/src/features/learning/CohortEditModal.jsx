@@ -6,6 +6,8 @@ import {
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { useUpdateCohort, useDeleteCohort } from '../../hooks/useLearning';
+import { useCustomFields } from '../custom-fields/useCustomFields';
+import { CustomFieldInput } from '../custom-fields/custom-field-input';
 
 const STATUSES = ['Ongoing', 'Completed'];
 
@@ -22,13 +24,21 @@ export default function CohortEditModal({ cohort, onClose }) {
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [error, setError] = useState('');
 
+  const { data: cfDefs = [] } = useCustomFields({ entity: 'Cohort' });
+  const formFields = cfDefs.filter((f) => (f.showIn || ['form']).includes('form'));
+  const [cfValues, setCfValues] = useState(() => cohort.customFields || {});
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
     try {
       await updateMutation.mutateAsync({
         id: cohort._id,
-        data: { status, totalSessions: Number(totalSessions) },
+        data: {
+          status,
+          totalSessions: Number(totalSessions),
+          ...(formFields.length ? { customFields: cfValues } : {}),
+        },
       });
       toast.success(t('learning.cohorts.updated', 'Cohort updated'));
       onClose();
@@ -99,6 +109,15 @@ export default function CohortEditModal({ cohort, onClose }) {
               />
             </div>
           </div>
+
+          {formFields.length > 0 && (
+            <div className="space-y-3 border-t border-border pt-3">
+              {formFields.map((f) => (
+                <CustomFieldInput key={f._id} def={f} value={cfValues[f.key]}
+                  onChange={(v) => setCfValues((prev) => ({ ...prev, [f.key]: v }))} />
+              ))}
+            </div>
+          )}
 
           <div className="flex gap-3 pt-1">
             <Button type="button" variant="destructive" onClick={handleDelete} disabled={deleteMutation.isPending}>

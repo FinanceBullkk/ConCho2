@@ -42,6 +42,7 @@ const cohortDto = (cohort, bookedSessions = 0) => {
     bookedSessions,
     status: c.status,
     teacherIds: c.teacherIds || [],
+    customFields: c.customFields || {},
     createdAt: c.createdAt,
     updatedAt: c.updatedAt,
   };

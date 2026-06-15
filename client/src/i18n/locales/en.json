@@ -123,7 +123,7 @@
     "note": "Fields defined here appear on the matching record's form and their values are stored on that record. Admin-only.",
     "programFields": "Program fields",
     "entityTabs": "Custom-field entity",
-    "entity": { "Program": "Program", "User": "User" },
+    "entity": { "Program": "Program", "User": "User", "Cohort": "Cohort" },
     "entityFields": "{{entity}} fields",
     "empty": "No custom fields yet. Add one below.",
     "addField": "Add a field",

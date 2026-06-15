@@ -7,6 +7,8 @@ import {
 import { Button } from '@/components/ui/button';
 import { useCreateCohort, useLearningPrograms } from '../../hooks/useLearning';
 import { LearningField, EnumSelect, controlClass } from './LearningField';
+import { useCustomFields } from '../custom-fields/useCustomFields';
+import { CustomFieldInput } from '../custom-fields/custom-field-input';
 
 const STATUSES = ['Ongoing', 'Completed'];
 
@@ -24,6 +26,10 @@ export default function CohortFormModal({ onClose }) {
   const [status, setStatus] = useState('Ongoing');
   const [error, setError] = useState('');
 
+  const { data: cfDefs = [] } = useCustomFields({ entity: 'Cohort' });
+  const formFields = cfDefs.filter((f) => (f.showIn || ['form']).includes('form'));
+  const [cfValues, setCfValues] = useState({});
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
@@ -31,6 +37,7 @@ export default function CohortFormModal({ onClose }) {
     const payload = { programId, status };
     if (cohortCode.trim()) payload.cohortCode = cohortCode.trim();
     if (totalSessions) payload.totalSessions = Number(totalSessions);
+    if (formFields.length) payload.customFields = cfValues;
     try {
       await createMutation.mutateAsync(payload);
       toast.success(t('learning.cohorts.created'));
@@ -74,6 +81,15 @@ export default function CohortFormModal({ onClose }) {
               <EnumSelect value={status} onChange={setStatus} options={STATUSES} labelFor={(v) => t(`learning.status.${v}`)} />
             </LearningField>
           </div>
+
+          {formFields.length > 0 && (
+            <div className="space-y-3 border-t border-border pt-3">
+              {formFields.map((f) => (
+                <CustomFieldInput key={f._id} def={f} value={cfValues[f.key]}
+                  onChange={(v) => setCfValues((prev) => ({ ...prev, [f.key]: v }))} />
+              ))}
+            </div>
+          )}
 
           <div className="flex gap-3 pt-2">
             <Button type="button" variant="outline" onClick={onClose} className="flex-1">{t('learning.actions.cancel')}</Button>

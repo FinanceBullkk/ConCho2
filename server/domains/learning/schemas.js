@@ -76,13 +76,15 @@ const createCohortBody = z.object({
   status: z.enum(['Ongoing', 'Completed']).optional(),
   totalSessions: z.coerce.number().int().min(1).max(200).optional(),
   teacherIds: z.array(objectId).optional(),
+  customFields: z.record(z.string(), z.any()).optional(),
 });
 
-// Cohort edit — only status + totalSessions are editable (mirrors the legacy
-// class edit surface); at least one field must be present.
+// Cohort edit — status + totalSessions + custom fields are editable (mirrors the
+// legacy class edit surface); at least one field must be present.
 const updateCohortBody = z.object({
   status: z.enum(['Ongoing', 'Completed']).optional(),
   totalSessions: z.coerce.number().int().min(1).max(200).optional(),
+  customFields: z.record(z.string(), z.any()).optional(),
 }).refine((data) => Object.keys(data).length > 0, {
   message: 'At least one field (status or totalSessions) is required',
 });
