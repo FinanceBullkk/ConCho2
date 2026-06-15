@@ -28,6 +28,16 @@ const getExecutiveDashboard = async (req, res) => {
   }
 };
 
+// Home onboarding checklist + at-a-glance counts (read-only, no audit).
+const getSetup = async (req, res) => {
+  try {
+    const data = await useCases.buildSetup();
+    res.json({ success: true, data });
+  } catch (error) {
+    handleError(res, error);
+  }
+};
+
 const getCostConfig = async (req, res) => {
   try {
     const data = await executiveUseCases.getCostConfig(req.user);
@@ -56,6 +66,7 @@ const putCostConfig = async (req, res) => {
 module.exports = {
   getOperationalDashboard,
   getExecutiveDashboard,
+  getSetup,
   getCostConfig,
   putCostConfig,
 };

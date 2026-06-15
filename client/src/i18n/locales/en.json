@@ -549,6 +549,26 @@
     "greeting": "Hello, {{name}}",
     "greetingFallback": "there",
     "viewAnalytics": "View analytics",
+    "onboarding": {
+      "title": "Finish setting up your workspace",
+      "progress": "{{done}} of {{total}} done · {{pct}}%",
+      "dismiss": "Dismiss setup checklist",
+      "steps": {
+        "directory": "Import your employee directory",
+        "program": "Create your first program",
+        "roles": "Define roles & permissions",
+        "automation": "Set up an automation rule",
+        "policy": "Configure completion & certificate policy",
+        "coordinators": "Invite coordinators & managers"
+      }
+    },
+    "atGlance": {
+      "title": "At a glance",
+      "thisWeek": "This week",
+      "activeLearners": "Active learners",
+      "sessionsScheduled": "Sessions scheduled",
+      "pendingEnrollment": "Pending enrollment"
+    },
     "quickActions": {
       "title": "At a glance",
       "overdue": { "label": "Overdue learners" },

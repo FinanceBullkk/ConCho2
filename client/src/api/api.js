@@ -324,6 +324,8 @@ export const learningAPI = {
     api.get('/learning/reports/compliance/export', { params, responseType: 'blob' }),
   // Operational dashboard KPI bundle (Admin/Teacher; fail-soft per metric).
   getOperationalDashboard: (params) => api.get('/learning/dashboard/operational', { params }),
+  // Home onboarding checklist + at-a-glance counts.
+  getSetup: () => api.get('/learning/dashboard/setup'),
   // Executive ROI bundle + L&D cost config (Admin-only server-side).
   getExecutiveDashboard: (params) => api.get('/learning/dashboard/executive', { params }),
   getCostConfig: () => api.get('/learning/dashboard/cost-config'),

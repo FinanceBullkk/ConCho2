@@ -137,4 +137,28 @@ const buildOperationalDashboard = async (actor, options = {}) => {
   ], { windowDays });
 };
 
-module.exports = { buildOperationalDashboard };
+// Home onboarding checklist + "this week" at-a-glance (org-wide counts).
+const buildSetup = async () => {
+  const s = await repository.getSetupSignals();
+  const steps = [
+    { key: 'directory', done: s.departments > 0 },
+    { key: 'program', done: s.programs > 0 },
+    { key: 'roles', done: s.customRoles > 0 },
+    { key: 'automation', done: s.automationRules > 0 },
+    { key: 'policy', done: s.policyPrograms > 0 },
+    { key: 'coordinators', done: s.coordinators > 0 },
+  ];
+  return {
+    steps,
+    completedSteps: steps.filter((x) => x.done).length,
+    totalSteps: steps.length,
+    atGlance: {
+      activeLearners: s.activeLearners,
+      totalEmployees: s.totalEmployees,
+      sessionsThisWeek: s.sessionsThisWeek,
+      pendingEnrollment: s.pendingEnrollment,
+    },
+  };
+};
+
+module.exports = { buildOperationalDashboard, buildSetup };
