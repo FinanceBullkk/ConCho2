@@ -12,7 +12,7 @@ const mongoose = require('mongoose');
 const { getApp, getTokens, getSeedData } = require('../setup');
 const {
   takeDailySnapshot,
-  backfillGlobalHistory,
+  backfillHistory,
 } = require('../../services/metricSnapshotService');
 const series = require('../../services/analyticsSeriesService');
 
@@ -106,11 +106,16 @@ describe('analyticsSeriesService', () => {
     expect(a.collecting).toBe(false);
   });
 
-  test('backfillGlobalHistory seeds derivable cumulative days', async () => {
-    const r = await backfillGlobalHistory({ days: 7 });
+  test('backfillHistory seeds derivable cumulative days, global + per-program', async () => {
+    const r = await backfillHistory({ days: 7 });
     expect(r.days).toBe(7);
-    const rows = await MetricSnapshot.find({ scope: 'global', key: 'enrollments' }).lean();
-    expect(rows.length).toBeGreaterThanOrEqual(1);
+    expect(r.programs).toBeGreaterThanOrEqual(1);
+    const globalRows = await MetricSnapshot.find({ scope: 'global', key: 'enrollments' }).lean();
+    expect(globalRows.length).toBeGreaterThanOrEqual(1);
+    // Per-program cumulative was seeded too (this program's enrollments today = 3).
+    const progRows = await MetricSnapshot.find({ scope: 'program', scopeId: programId, key: 'enrollments' }).lean();
+    expect(progRows.length).toBeGreaterThanOrEqual(1);
+    expect(Math.max(...progRows.map((x) => x.value))).toBe(3);
   });
 });
 
