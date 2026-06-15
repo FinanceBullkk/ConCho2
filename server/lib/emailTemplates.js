@@ -12,6 +12,12 @@
  */
 const { sendMail } = require('./mailer');
 const logger = require('./logger');
+const { getBrandingCached } = require('./branding');
+
+// Branded org name for subjects + sign-off (TMS.update gap #5). Defaults to
+// "TMS" until an admin configures branding, so unconfigured tenants are
+// byte-identical to the previous hardcoded strings.
+const brandName = () => getBrandingCached().orgName || 'TMS';
 
 // ──────────────────────────────────────────────────────────
 // Helpers
@@ -47,30 +53,30 @@ const safeSend = async (label, payload) => {
 // ──────────────────────────────────────────────────────────
 
 const tplBookingConfirmation = ({ userName, className, dateStr }) => ({
-  subject: `TMS — Booking Confirmed: ${className}`,
+  subject: `${brandName()} — Booking Confirmed: ${className}`,
   text:
     `Hi ${userName},\n\n` +
     `Your spot in "${className}" has been confirmed.\n\n` +
     `Date: ${dateStr}\n\n` +
     `If you need to cancel, please do so at least 24 hours in advance.\n\n` +
-    `TMS Training System`,
+    `${brandName()} Training System`,
   html:
     `<p>Hi <strong>${userName}</strong>,</p>` +
     `<p>Your spot in <strong>${className}</strong> has been confirmed.</p>` +
     `<p><strong>Date:</strong> ${dateStr}</p>` +
     `<p>If you need to cancel, please do so at least 24 hours in advance.</p>` +
-    `<p>TMS Training System</p>`,
+    `<p>${brandName()} Training System</p>`,
 });
 
 const tplClassCancellation = ({ userName, className, dateStr, cancelledBy }) => ({
-  subject: `TMS — Session Cancelled: ${className}`,
+  subject: `${brandName()} — Session Cancelled: ${className}`,
   text:
     `Hi ${userName},\n\n` +
     `The following session has been cancelled${cancelledBy ? ` by ${cancelledBy}` : ''}:\n\n` +
     `Class: ${className}\n` +
     `Original date: ${dateStr}\n\n` +
     `Please check the TMS portal for rescheduling options or contact your team leader.\n\n` +
-    `TMS Training System`,
+    `${brandName()} Training System`,
   html:
     `<p>Hi <strong>${userName}</strong>,</p>` +
     `<p>The following session has been cancelled${cancelledBy ? ` by <strong>${cancelledBy}</strong>` : ''}:</p>` +
@@ -79,11 +85,11 @@ const tplClassCancellation = ({ userName, className, dateStr, cancelledBy }) => 
     `<li><strong>Original date:</strong> ${dateStr}</li>` +
     `</ul>` +
     `<p>Please check the TMS portal for rescheduling options or contact your team leader.</p>` +
-    `<p>TMS Training System</p>`,
+    `<p>${brandName()} Training System</p>`,
 });
 
 const tplScheduleReminder = ({ userName, className, dateStr, roomLink }) => ({
-  subject: `TMS — Reminder: ${className} starts soon`,
+  subject: `${brandName()} — Reminder: ${className} starts soon`,
   text:
     `Hi ${userName},\n\n` +
     `This is a reminder that your session is starting soon:\n\n` +
@@ -91,7 +97,7 @@ const tplScheduleReminder = ({ userName, className, dateStr, roomLink }) => ({
     `Date: ${dateStr}\n` +
     (roomLink ? `Join link: ${roomLink}\n` : '') +
     `\nSee you there!\n\n` +
-    `TMS Training System`,
+    `${brandName()} Training System`,
   html:
     `<p>Hi <strong>${userName}</strong>,</p>` +
     `<p>This is a reminder that your session is starting soon:</p>` +
@@ -101,29 +107,29 @@ const tplScheduleReminder = ({ userName, className, dateStr, roomLink }) => ({
     (roomLink ? `<li><strong>Join link:</strong> <a href="${roomLink}">${roomLink}</a></li>` : '') +
     `</ul>` +
     `<p>See you there!</p>` +
-    `<p>TMS Training System</p>`,
+    `<p>${brandName()} Training System</p>`,
 });
 
 const tplEnrollmentDropped = ({ userName, teamName, courseName }) => ({
-  subject: `TMS — You have been removed from ${teamName}`,
+  subject: `${brandName()} — You have been removed from ${teamName}`,
   text:
     `Hi ${userName},\n\n` +
     `You have been removed from the team "${teamName}"${courseName ? ` (${courseName})` : ''}.\n\n` +
     `If you believe this was made in error, please contact your administrator.\n\n` +
-    `TMS Training System`,
+    `${brandName()} Training System`,
   html:
     `<p>Hi <strong>${userName}</strong>,</p>` +
     `<p>You have been removed from the team <strong>${teamName}</strong>` +
     (courseName ? ` (${courseName})` : '') +
     `.</p>` +
     `<p>If you believe this was made in error, please contact your administrator.</p>` +
-    `<p>TMS Training System</p>`,
+    `<p>${brandName()} Training System</p>`,
 });
 
 const tplEnrollmentTransferred = ({
   userName, fromTeamName, toTeamName, toCourseName, note,
 }) => ({
-  subject: `TMS — Transferred to ${toTeamName}`,
+  subject: `${brandName()} — Transferred to ${toTeamName}`,
   text:
     `Hi ${userName},\n\n` +
     `You have been transferred from "${fromTeamName}" to "${toTeamName}"` +
@@ -131,7 +137,7 @@ const tplEnrollmentTransferred = ({
     `.\n\n` +
     (note ? `Reason: ${note}\n\n` : '') +
     `Your future schedules will reflect the new team. Please log into the TMS portal to review.\n\n` +
-    `TMS Training System`,
+    `${brandName()} Training System`,
   html:
     `<p>Hi <strong>${userName}</strong>,</p>` +
     `<p>You have been transferred from <strong>${fromTeamName}</strong> to <strong>${toTeamName}</strong>` +
@@ -139,7 +145,7 @@ const tplEnrollmentTransferred = ({
     `.</p>` +
     (note ? `<p><strong>Reason:</strong> ${note}</p>` : '') +
     `<p>Your future schedules will reflect the new team. Please log into the TMS portal to review.</p>` +
-    `<p>TMS Training System</p>`,
+    `<p>${brandName()} Training System</p>`,
 });
 
 // Deep link into the learner home (next-actions feed shows the assignment
@@ -153,14 +159,14 @@ const tplAssignmentDueSoon = ({
 }) => {
   const url = portalHomeUrl();
   return {
-    subject: `TMS — Assignment due soon: ${assignmentTitle}`,
+    subject: `${brandName()} — Assignment due soon: ${assignmentTitle}`,
     text:
       `Hi ${userName},\n\n` +
       `Your assignment "${assignmentTitle}" for ${targetName} is due in ${pluralDays(daysUntil)}.\n\n` +
       `Due date: ${dueDateStr}\n\n` +
       `Please log into the TMS portal to complete it before the deadline.` +
       (url ? `\n${url}` : '') + `\n\n` +
-      `TMS Training System`,
+      `${brandName()} Training System`,
     html:
       `<p>Hi <strong>${userName}</strong>,</p>` +
       `<p>Your assignment <strong>${assignmentTitle}</strong> for <strong>${targetName}</strong> ` +
@@ -169,7 +175,7 @@ const tplAssignmentDueSoon = ({
       (url
         ? `<p><a href="${url}">Open your learning home</a> to complete it before the deadline.</p>`
         : `<p>Please log into the TMS portal to complete it before the deadline.</p>`) +
-      `<p>TMS Training System</p>`,
+      `<p>${brandName()} Training System</p>`,
   };
 };
 
@@ -178,14 +184,14 @@ const tplAssignmentOverdue = ({
 }) => {
   const url = portalHomeUrl();
   return {
-    subject: `TMS — Assignment overdue: ${assignmentTitle}`,
+    subject: `${brandName()} — Assignment overdue: ${assignmentTitle}`,
     text:
       `Hi ${userName},\n\n` +
       `Your assignment "${assignmentTitle}" for ${targetName} is overdue by ${pluralDays(daysOverdue)}.\n\n` +
       `Due date: ${dueDateStr}\n\n` +
       `Please log into the TMS portal and complete it as soon as possible.` +
       (url ? `\n${url}` : '') + `\n\n` +
-      `TMS Training System`,
+      `${brandName()} Training System`,
     html:
       `<p>Hi <strong>${userName}</strong>,</p>` +
       `<p>Your assignment <strong>${assignmentTitle}</strong> for <strong>${targetName}</strong> ` +
@@ -194,7 +200,7 @@ const tplAssignmentOverdue = ({
       (url
         ? `<p><a href="${url}">Open your learning home</a> and complete it as soon as possible.</p>`
         : `<p>Please log into the TMS portal and complete it as soon as possible.</p>`) +
-      `<p>TMS Training System</p>`,
+      `<p>${brandName()} Training System</p>`,
   };
 };
 
@@ -209,32 +215,32 @@ const tplManagerAssignmentDigest = ({ managerName, rows }) => {
     `: ${row.assignmentTitle} / ${row.targetName} / due ${row.dueDateStr} / ` +
     `${pluralDays(row.daysOverdue)} overdue</li>`);
   return {
-    subject: `TMS — Overdue assignment digest (${rows.length})`,
+    subject: `${brandName()} — Overdue assignment digest (${rows.length})`,
     text:
       `Hi ${managerName},\n\n` +
       `These direct reports have overdue TMS assignments:\n\n` +
       `${lineItems.join('\n')}\n\n` +
       `Please use the TMS portal to follow up.\n\n` +
-      `TMS Training System`,
+      `${brandName()} Training System`,
     html:
       `<p>Hi <strong>${managerName}</strong>,</p>` +
       `<p>These direct reports have overdue TMS assignments:</p>` +
       `<ul>${htmlItems.join('')}</ul>` +
       `<p>Please use the TMS portal to follow up.</p>` +
-      `<p>TMS Training System</p>`,
+      `<p>${brandName()} Training System</p>`,
   };
 };
 
 // Wave E3 phase-04 slice B — a freed seat auto-enrolled a waitlisted learner.
 const tplWaitlistPromoted = ({ userName, className, dateStr }) => ({
-  subject: `TMS — You're in: a seat opened up in ${className}`,
+  subject: `${brandName()} — You're in: a seat opened up in ${className}`,
   text:
     `Hi ${userName},\n\n` +
     `Good news — a seat opened up and you've been enrolled from the waitlist:\n\n` +
     `Class: ${className}\n` +
     `Date: ${dateStr}\n` +
     `\nA calendar invite will follow. See you there!\n\n` +
-    `TMS Training System`,
+    `${brandName()} Training System`,
   html:
     `<p>Hi <strong>${userName}</strong>,</p>` +
     `<p>Good news — a seat opened up and you've been enrolled from the waitlist:</p>` +
@@ -243,7 +249,7 @@ const tplWaitlistPromoted = ({ userName, className, dateStr }) => ({
     `<li><strong>Date:</strong> ${dateStr}</li>` +
     `</ul>` +
     `<p>A calendar invite will follow. See you there!</p>` +
-    `<p>TMS Training System</p>`,
+    `<p>${brandName()} Training System</p>`,
 });
 
 // Certificate recertification signal — emailed when an Issued certificate nears
@@ -254,14 +260,14 @@ const tplCertificateExpiring = ({ userName, programName, certificateNumber, vali
     : '';
   const when = daysUntil <= 0 ? 'today' : `in ${pluralDays(daysUntil)}`;
   return {
-    subject: `TMS — Certificate expiring soon: ${programName}`,
+    subject: `${brandName()} — Certificate expiring soon: ${programName}`,
     text:
       `Hi ${userName},\n\n` +
       `Your certificate for "${programName}" (${certificateNumber}) expires ${when}.\n\n` +
       `Valid until: ${validUntilStr}\n\n` +
       `Please arrange to recertify before it lapses.` +
       (url ? `\n${url}` : '') + `\n\n` +
-      `TMS Training System`,
+      `${brandName()} Training System`,
     html:
       `<p>Hi <strong>${userName}</strong>,</p>` +
       `<p>Your certificate for <strong>${programName}</strong> (${certificateNumber}) ` +
@@ -270,7 +276,7 @@ const tplCertificateExpiring = ({ userName, programName, certificateNumber, vali
       (url
         ? `<p><a href="${url}">Open your transcript</a> and arrange to recertify before it lapses.</p>`
         : `<p>Please arrange to recertify before it lapses.</p>`) +
-      `<p>TMS Training System</p>`,
+      `<p>${brandName()} Training System</p>`,
   };
 };
 
@@ -284,19 +290,19 @@ const tplCertificateExpiryManagerDigest = ({ managerName, rows }) => {
     (row.learnerEmpCode ? ` (${row.learnerEmpCode})` : '') +
     `: ${row.programName} / ${row.certificateNumber} / expires ${row.validUntilStr}</li>`);
   return {
-    subject: `TMS — Team certificates expiring (${rows.length})`,
+    subject: `${brandName()} — Team certificates expiring (${rows.length})`,
     text:
       `Hi ${managerName},\n\n` +
       `These direct reports have a certificate expiring soon:\n\n` +
       `${lineItems.join('\n')}\n\n` +
       `Please follow up so they can recertify before it lapses.\n\n` +
-      `TMS Training System`,
+      `${brandName()} Training System`,
     html:
       `<p>Hi <strong>${managerName}</strong>,</p>` +
       `<p>These direct reports have a certificate expiring soon:</p>` +
       `<ul>${htmlItems.join('')}</ul>` +
       `<p>Please follow up so they can recertify before it lapses.</p>` +
-      `<p>TMS Training System</p>`,
+      `<p>${brandName()} Training System</p>`,
   };
 };
 

@@ -59,6 +59,11 @@ const CAPABILITIES = Object.freeze({
   SESSION_ASSIGN_TRAINER: 'session.assign-trainer', // set a session's internal/external trainers (admin/coordinator)
   // ── In-app notifications (Cohesion P5) ───────────────────
   NOTIFICATION_READ: 'notification.read', // read OWN notification feed + mark read (any role — endpoints are self-scoped)
+  // ── Skills / competency framework (TMS.update gap #4) ────
+  SKILL_READ: 'skill.read',            // list skills + read OWN derived proficiency (self-scoped on learner read)
+  SKILL_MANAGE: 'skill.manage',        // create/edit/archive skills + read role profiles + any learner's skills — Admin-only
+  // ── Branding / template designer (TMS.update gap #5) ─────
+  BRANDING_MANAGE: 'branding.manage',  // read/update tenant branding (org name, accent, logo, cert title) — Admin-only
   // ── Platform admin surfaces (Phase 0 authz finish) ───────
   // Migrated off roleGuard('Admin') so the whole app uses ONE coarse-authz
   // mechanism. Admin-ONLY (deliberately NOT added to the other role lists below);
@@ -105,6 +110,7 @@ const ROLE_CAPABILITIES = Object.freeze({
     CAPABILITIES.ROOM_MANAGE,
     CAPABILITIES.SESSION_ASSIGN_TRAINER,
     CAPABILITIES.NOTIFICATION_READ,
+    CAPABILITIES.SKILL_READ,
   ]),
   Teacher: Object.freeze([
     CAPABILITIES.ENROLLMENT_READ,
@@ -121,6 +127,7 @@ const ROLE_CAPABILITIES = Object.freeze({
     CAPABILITIES.OFFICE_READ,
     CAPABILITIES.TEAM_READ,
     CAPABILITIES.NOTIFICATION_READ,
+    CAPABILITIES.SKILL_READ,
   ]),
   Participant: Object.freeze([
     CAPABILITIES.SESSION_BOOK,
@@ -140,6 +147,8 @@ const ROLE_CAPABILITIES = Object.freeze({
     CAPABILITIES.TEAM_READ,
     // Own in-app notification feed (Cohesion P5) — endpoints are self-scoped.
     CAPABILITIES.NOTIFICATION_READ,
+    // Own derived skill proficiency (learner read is self-scoped in the controller).
+    CAPABILITIES.SKILL_READ,
   ]),
 });
 

@@ -280,6 +280,8 @@ app.use('/api/cron', require('./routes/cronRoutes'));
 app.use('/api/search', require('./routes/searchRoutes'));
 app.use('/api/notifications', require('./domains/notification/routes'));
 app.use('/api/automation', require('./domains/automation/routes'));
+app.use('/api/skills', require('./domains/skill/routes'));
+app.use('/api/branding', require('./domains/branding/routes'));
 
 // ── Domain-event subscribers (rearchitecture Phase 0) ────────
 // Wire cross-cutting concerns (in-app notifications, …) to the event bus once at
@@ -384,6 +386,14 @@ if (process.env.NODE_ENV !== 'test') {
       await require('./domains/automation/seed').seedSystemRules();
     } catch (err) {
       logger.error({ err }, 'automation seed failed (non-fatal)');
+    }
+
+    // Load tenant branding into the in-memory cache so the email + certificate
+    // pipelines use the configured org name/title (TMS.update gap #5). Fail-soft.
+    try {
+      await require('./lib/branding').loadBranding();
+    } catch (err) {
+      logger.error({ err }, 'branding load failed — using default branding');
     }
 
     const server = app.listen(PORT, () => {

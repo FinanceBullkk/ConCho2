@@ -356,6 +356,22 @@ export const automationAPI = {
   deleteRule: (id) => api.delete(`/automation/rules/${id}`),
 };
 
+// ── Skills / competency framework (TMS.update gap #4) ─────
+export const skillsAPI = {
+  list: () => api.get('/skills'),
+  roleProfiles: () => api.get('/skills/role-profiles'),
+  learner: (userId) => api.get(`/skills/learner/${userId}`),
+  create: (data) => api.post('/skills', data),
+  update: (id, data) => api.put(`/skills/${id}`, data),
+  delete: (id) => api.delete(`/skills/${id}`),
+};
+
+// ── Branding & templates designer (TMS.update gap #5) ─────
+export const brandingAPI = {
+  get: () => api.get('/branding'),
+  update: (data) => api.put('/branding', data),
+};
+
 // ── Dashboard Analytics ───────────────────────────────────
 export const dashboardAPI = {
   getStats: (params) => api.get('/dashboard/stats', { params }),

@@ -11,6 +11,8 @@ import { Spinner } from '@/components/Spinner';
 import { useUser } from '../../hooks/useUsers';
 import { useLearningEnrollments, useCertificates } from '../../hooks/useLearning';
 import { StatTile } from './DashboardWidgets';
+import { useLearnerSkills } from '../skills/useSkills';
+import LearnerSkillsTab, { RoleReadinessList } from '../skills/LearnerSkillsTab';
 
 // ──────────────────────────────────────────────────────────
 // LearnerProfilePage — admin 360° view of one learner (TMS.update S6).
@@ -25,16 +27,6 @@ const isComplete = (status) => /complete/i.test(status || '');
 const ROLE_TONE = { Admin: 'info', Coordinator: 'info', Teacher: 'success', Participant: 'secondary' };
 const fmtDate = (v) => (v ? new Date(v).toLocaleDateString(undefined, { day: '2-digit', month: 'short', year: 'numeric' }) : '');
 
-function Phase5({ title }) {
-  const { t } = useTranslation();
-  return (
-    <Card>
-      <CardHeader className="pb-3"><CardTitle className="text-base">{title}</CardTitle></CardHeader>
-      <CardContent><p className="text-sm text-muted-foreground">{t(`${p}.phase5Note`)}</p></CardContent>
-    </Card>
-  );
-}
-
 export default function LearnerProfilePage() {
   const { t } = useTranslation();
   const { userId } = useParams();
@@ -43,6 +35,8 @@ export default function LearnerProfilePage() {
   const { data: user, isLoading, isError } = useUser(userId);
   const { data: enrollData } = useLearningEnrollments({ learnerId: userId });
   const { data: certs = [] } = useCertificates({ learnerId: userId });
+  const { data: learnerSkills } = useLearnerSkills(userId);
+  const skillsCount = learnerSkills?.kpis?.skills ?? '—';
 
   const enrollments = useMemo(() => enrollData?.data || [], [enrollData]);
   const completed = enrollments.filter((e) => isComplete(e.status)).length;
@@ -92,7 +86,7 @@ export default function LearnerProfilePage() {
         <StatTile icon={CircleCheck} tone="success" label={t(`${p}.kpi.completed`)} value={completed} />
         <StatTile icon={Loader} tone="info" label={t(`${p}.kpi.inProgress`)} value={inProgress} />
         <StatTile icon={Award} tone="success" label={t(`${p}.kpi.certificates`)} value={certs.length} />
-        <StatTile icon={Sparkles} tone="neutral" label={t(`${p}.kpi.skills`)} value="—" />
+        <StatTile icon={Sparkles} tone="primary" label={t(`${p}.kpi.skills`)} value={skillsCount} />
         <StatTile icon={TrendingUp} tone="primary" label={t(`${p}.kpi.completion`)} value={pc(completionRate)} />
         <StatTile icon={Clock} tone="neutral" label={t(`${p}.kpi.hours`)} value="—" />
       </div>
@@ -123,7 +117,10 @@ export default function LearnerProfilePage() {
                 ) : <p className="text-sm text-muted-foreground">{t(`${p}.noPrograms`)}</p>}
               </CardContent>
             </Card>
-            <Phase5 title={t(`${p}.roleReadiness`)} />
+            <Card>
+              <CardHeader className="pb-3"><CardTitle className="text-base">{t(`${p}.roleReadiness`)}</CardTitle></CardHeader>
+              <CardContent><RoleReadinessList userId={userId} /></CardContent>
+            </Card>
           </div>
         </TabsContent>
 
@@ -145,7 +142,7 @@ export default function LearnerProfilePage() {
           </Card>
         </TabsContent>
 
-        <TabsContent value="skills"><Phase5 title={t(`${p}.tabs.skills`)} /></TabsContent>
+        <TabsContent value="skills"><LearnerSkillsTab userId={userId} /></TabsContent>
 
         <TabsContent value="certificates">
           <Card>

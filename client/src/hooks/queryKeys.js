@@ -129,4 +129,13 @@ export const qk = {
   automation: {
     rules: ['automation', 'rules'],
   },
+  skills: {
+    all: ['skills'],
+    list: ['skills', 'list'],
+    roleProfiles: ['skills', 'role-profiles'],
+    learner: (userId) => ['skills', 'learner', userId],
+  },
+  branding: {
+    config: ['branding', 'config'],
+  },
 };
