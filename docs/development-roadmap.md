@@ -126,8 +126,12 @@ Bug fixing and integration review rank above net-new feature rollout.
   loaded roster, no new fetch); program + executive completion trends unified on
   the new filled `AreaTrend` hero. Cohort roster (multi-select · bulk
   Issue/Nudge · sortable · at-risk/dept filters · 360° drawer) was already
-  faithful — left as-is. Gates: 389 client tests · lint 63 (cap) · build clean.
-  Commits `d18c042`, `5759f94`, `5308372`, `f2c387a` (branch `feat/tms-update-automation-engine`).
+  faithful — left as-is. **Learner 360:** activity tab restyled into the
+  prototype's connected timeline (tone-coloured marker per event + vertical
+  rail + category badge; same real certs+enrolments feed). Learner catalog
+  (category chips + search + enrol cards) was already faithful — left as-is.
+  Gates: 389 client tests · lint 63 (cap) · build clean. Commits `d18c042`,
+  `5759f94`, `5308372`, `f2c387a`, `f06ac34` (branch `feat/tms-update-automation-engine`).
 - **2026-06-15** — **TMS.update fidelity push — full 30-screen audit + Tier 1&2
   to pixel-faithful (13 commits, branch `feat/tms-update-automation-engine`).**
   Audited every prototype screen ([report](plans/reports/fidelity-audit-260615-1016-tms-update-screens.md));
