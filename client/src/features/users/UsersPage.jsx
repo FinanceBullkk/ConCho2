@@ -7,6 +7,8 @@ import { ShieldAlert, LogOut, BarChart3, Pencil, Trash2, RefreshCw, Download, Bu
 import StudentProgressModal from '../../components/Progress/StudentProgressModal';
 import OrgAssignmentModal from '../../components/OrgAssignmentModal';
 import Portal from '../../components/Portal';
+import { useCustomFields } from '../custom-fields/useCustomFields';
+import { CustomFieldInput } from '../custom-fields/custom-field-input';
 import {
   Dialog, DialogContent, DialogHeader, DialogFooter, DialogTitle,
 } from '@/components/ui/dialog';
@@ -54,6 +56,11 @@ function UserModal({ user, onClose, onSaved }) {
   const updateMutation = useUpdateUser();
   const saving = createMutation.isPending || updateMutation.isPending;
 
+  // Admin-defined User custom fields (shown on the form surface).
+  const { data: cfDefs = [] } = useCustomFields({ entity: 'User' });
+  const formFields = cfDefs.filter((f) => (f.showIn || ['form']).includes('form'));
+  const [cfValues, setCfValues] = useState(() => user?.customFields || {});
+
   const {
     register,
     handleSubmit,
@@ -90,6 +97,7 @@ function UserModal({ user, onClose, onSaved }) {
       if (isEdit && !payload.password)        delete payload.password;
       if (!payload.email)                     delete payload.email;
       if (!payload.currentPassword)           delete payload.currentPassword;
+      if (formFields.length)                  payload.customFields = cfValues;
       if (isEdit) await updateMutation.mutateAsync({ id: user._id, data: payload });
       else        await createMutation.mutateAsync(payload);
       onSaved();
@@ -177,6 +185,20 @@ function UserModal({ user, onClose, onSaved }) {
               </select>
             </div>
           </div>
+
+          {/* Admin-defined custom fields (CustomFieldDefinition entity='User') */}
+          {formFields.length > 0 && (
+            <div className="space-y-3 border-t border-border pt-4">
+              {formFields.map((f) => (
+                <CustomFieldInput
+                  key={f._id}
+                  def={f}
+                  value={cfValues[f.key]}
+                  onChange={(v) => setCfValues((prev) => ({ ...prev, [f.key]: v }))}
+                />
+              ))}
+            </div>
+          )}
 
           {/* Re-auth confirmation */}
           {needsReauth && (

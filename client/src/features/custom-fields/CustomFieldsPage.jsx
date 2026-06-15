@@ -9,7 +9,8 @@ import { cn } from '@/lib/utils';
 import { CustomFieldInput } from './custom-field-input';
 import { useCustomFields, useCreateCustomField, useDeleteCustomField } from './useCustomFields';
 
-const ENTITY = 'Program';
+// Entities whose forms render + persist custom-field values today (not inert).
+const ENTITIES = ['Program', 'User'];
 const ctrl = 'w-full px-3 h-[--control-h] rounded-md bg-background border border-input text-foreground focus:outline-none focus:ring-2 focus:ring-ring';
 
 // Label → snake_case key; guarantee it starts with a letter (server regex).
@@ -28,7 +29,8 @@ const blankForm = { label: '', key: '', keyTouched: false, type: 'text', options
 
 export default function CustomFieldsPage() {
   const { t } = useTranslation();
-  const { data: fields = [], isLoading, isError } = useCustomFields({ entity: ENTITY });
+  const [entity, setEntity] = useState('Program');
+  const { data: fields = [], isLoading, isError } = useCustomFields({ entity });
   const createMutation = useCreateCustomField();
   const deleteMutation = useDeleteCustomField();
 
@@ -52,7 +54,7 @@ export default function CustomFieldsPage() {
     e.preventDefault();
     try {
       await createMutation.mutateAsync({
-        entity: ENTITY,
+        entity,
         key: form.key.trim(),
         label: form.label.trim(),
         type: form.type,
@@ -81,6 +83,21 @@ export default function CustomFieldsPage() {
     <div className="space-y-5">
       <PageHeader title={t('customFields.title')} description={t('customFields.description')} />
 
+      <div className="flex flex-wrap gap-2" role="tablist" aria-label={t('customFields.entityTabs')}>
+        {ENTITIES.map((e) => (
+          <button
+            key={e}
+            type="button"
+            role="tab"
+            aria-selected={entity === e}
+            onClick={() => { setEntity(e); setForm(blankForm); setPreview({}); }}
+            className={`rounded-full border px-3 py-1 text-sm font-medium transition-colors ${entity === e ? 'border-primary bg-primary/15 text-primary' : 'border-border text-muted-foreground hover:text-foreground'}`}
+          >
+            {t(`customFields.entity.${e}`)}
+          </button>
+        ))}
+      </div>
+
       <div className="flex items-start gap-2.5 rounded-lg border border-border bg-card px-4 py-3 text-sm text-muted-foreground">
         <Info className="mt-0.5 size-4 shrink-0 text-primary" aria-hidden="true" />
         <p>{t('customFields.note')}</p>
@@ -91,7 +108,7 @@ export default function CustomFieldsPage() {
         <div className="space-y-4">
           <div className="overflow-hidden rounded-xl border border-border bg-card">
             <div className="border-b border-border px-4 py-3 text-sm font-semibold text-foreground">
-              {t('customFields.programFields')} <span className="text-subtle-foreground">· {fields.length}</span>
+              {t('customFields.entityFields', { entity: t(`customFields.entity.${entity}`) })} <span className="text-subtle-foreground">· {fields.length}</span>
             </div>
             {isLoading && <div className="space-y-2 p-4" data-testid="cf-skeleton">{Array.from({ length: 3 }, (_, i) => <div key={i} className="h-9 animate-pulse rounded-md bg-muted" />)}</div>}
             {isError && !isLoading && <div className="p-4"><EmptyState title={t('customFields.loadError')} description={t('customFields.loadErrorDesc')} /></div>}

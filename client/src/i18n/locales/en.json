@@ -120,8 +120,11 @@
   "customFields": {
     "title": "Custom fields",
     "description": "Define extra fields your organisation needs — no code required.",
-    "note": "Fields defined here appear on the matching record's form (phase 1: Program — they show up in the Program builder) and their values are stored on that record. Admin-only.",
+    "note": "Fields defined here appear on the matching record's form and their values are stored on that record. Admin-only.",
     "programFields": "Program fields",
+    "entityTabs": "Custom-field entity",
+    "entity": { "Program": "Program", "User": "User" },
+    "entityFields": "{{entity}} fields",
     "empty": "No custom fields yet. Add one below.",
     "addField": "Add a field",
     "label": "Label",
