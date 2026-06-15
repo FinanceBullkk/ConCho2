@@ -1,13 +1,14 @@
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link, useParams } from 'react-router-dom';
-import { ArrowLeft, CircleCheck, Loader, Award, Sparkles, TrendingUp, Clock } from 'lucide-react';
+import { ArrowLeft, CircleCheck, Loader, Award, Sparkles, TrendingUp, Clock, BookOpen } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { PageHeader } from '@/components/PageHeader';
 import { EmptyState } from '@/components/EmptyState';
 import { Spinner } from '@/components/Spinner';
+import { cn } from '@/lib/utils';
 import { useUser } from '../../hooks/useUsers';
 import { useLearningEnrollments, useCertificates } from '../../hooks/useLearning';
 import { StatTile } from './DashboardWidgets';
@@ -170,17 +171,33 @@ export default function LearnerProfilePage() {
             <CardHeader className="pb-3"><CardTitle className="text-base">{t(`${p}.activityTitle`)}</CardTitle></CardHeader>
             <CardContent>
               {activity.length ? (
-                <ul className="space-y-2.5">
-                  {activity.map((item, i) => (
-                    <li key={i} className="flex items-start justify-between gap-3 text-sm">
-                      <div className="min-w-0">
-                        <p className="font-medium text-foreground">{item.label}</p>
-                        <p className="truncate text-[11px] text-subtle-foreground">{item.detail}</p>
-                      </div>
-                      <span className="shrink-0 text-xs tabular-nums text-muted-foreground">{fmtDate(item.at)}</span>
-                    </li>
-                  ))}
-                </ul>
+                <ol className="relative">
+                  {activity.map((item, i) => {
+                    const last = i === activity.length - 1;
+                    const issued = item.kind === 'issued';
+                    const Icon = issued ? Award : BookOpen;
+                    return (
+                      <li key={i} className="relative flex gap-3.5 pb-4 last:pb-0">
+                        {/* vertical rail connecting the markers (prototype timeline) */}
+                        {!last && <span className="absolute left-4 top-9 bottom-0 w-px bg-border" aria-hidden="true" />}
+                        <span className={cn(
+                          'relative z-[1] grid size-[34px] shrink-0 place-items-center rounded-lg',
+                          issued ? 'bg-success-tint text-success' : 'bg-primary-tint text-primary',
+                        )}>
+                          <Icon className="size-4" aria-hidden="true" />
+                        </span>
+                        <div className="min-w-0 pt-0.5">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span className="text-sm font-semibold text-foreground">{item.label}</span>
+                            <Badge variant="secondary">{t(`${p}.${issued ? 'catCertificate' : 'catEnrollment'}`)}</Badge>
+                          </div>
+                          {item.detail ? <p className="truncate text-[11px] text-subtle-foreground">{item.detail}</p> : null}
+                          <p className="text-[11px] tabular-nums text-subtle-foreground">{fmtDate(item.at)}</p>
+                        </div>
+                      </li>
+                    );
+                  })}
+                </ol>
               ) : <p className="text-sm text-muted-foreground">{t(`${p}.noActivity`)}</p>}
             </CardContent>
           </Card>
