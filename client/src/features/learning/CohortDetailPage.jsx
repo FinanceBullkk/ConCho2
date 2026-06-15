@@ -10,7 +10,8 @@ import { PageHeader } from '@/components/PageHeader';
 import { EmptyState } from '@/components/EmptyState';
 import { Spinner } from '@/components/Spinner';
 import { useCompletionReport, useLearningCohort, useLearningSessions } from '../../hooks/useLearning';
-import { StatTile } from './DashboardWidgets';
+import { MetricBars, StatTile } from './DashboardWidgets';
+import { DonutStat } from './DashboardCharts';
 import CohortRosterTab from './CohortRosterTab';
 
 // ──────────────────────────────────────────────────────────
@@ -45,6 +46,37 @@ export default function CohortDetailPage() {
     const required = rows.filter((row) => row.assessmentRequired);
     if (!required.length) return null;
     return Math.round((required.filter((row) => row.assessmentMet).length / required.length) * 100);
+  }, [rows]);
+
+  // Status mix for the overview ring (same rule as the roster: complete, else
+  // at-risk when attendance < 50%, else in progress). Real rows only.
+  const statusMix = useMemo(() => {
+    let complete = 0;
+    let atRisk = 0;
+    for (const row of rows) {
+      if (row.complete) complete += 1;
+      else if ((row.attendancePercent ?? 0) < 50) atRisk += 1;
+    }
+    return { complete, atRisk, inProgress: rows.length - complete - atRisk };
+  }, [rows]);
+
+  // Completion % per department, derived from the loaded roster rows.
+  const deptCompletion = useMemo(() => {
+    const map = new Map();
+    for (const row of rows) {
+      const dept = row.learner.department || '—';
+      const cur = map.get(dept) || { total: 0, complete: 0 };
+      cur.total += 1;
+      if (row.complete) cur.complete += 1;
+      map.set(dept, cur);
+    }
+    return [...map.entries()]
+      .map(([dept, v]) => {
+        const percent = v.total ? Math.round((v.complete / v.total) * 100) : 0;
+        return { key: dept, label: dept, percent, display: `${percent}%`, detail: `${v.complete}/${v.total}` };
+      })
+      .sort((a, b) => b.percent - a.percent)
+      .slice(0, 8);
   }, [rows]);
 
   if (isLoading) {
@@ -101,14 +133,33 @@ export default function CohortDetailPage() {
         </TabsList>
 
         <TabsContent value="overview">
-          <Card>
-            <CardHeader className="pb-3"><CardTitle className="text-base">{t(`${c}.tabs.overview`)}</CardTitle></CardHeader>
-            <CardContent className="grid gap-3 sm:grid-cols-3">
-              <StatTile label={t(`${c}.kpi.enrolled`)} value={summary.total ?? 0} />
-              <StatTile label={t(`${c}.kpi.completion`)} value={pc(summary.completionRate)} />
-              <StatTile label={t(`${c}.kpi.certificates`)} value={summary.certificatesIssued ?? 0} />
-            </CardContent>
-          </Card>
+          <div className="grid gap-4 lg:grid-cols-2">
+            <Card>
+              <CardHeader className="pb-3"><CardTitle className="text-base">{t(`${c}.overview.progressTitle`)}</CardTitle></CardHeader>
+              <CardContent>
+                <DonutStat
+                  title={t(`${c}.overview.progressTitle`)}
+                  centerValue={pc(summary.completionRate)}
+                  centerLabel={t(`${c}.overview.progressCenter`)}
+                  segments={[
+                    { label: t(`${c}.status.complete`), value: statusMix.complete, className: 'text-success' },
+                    { label: t(`${c}.status.in_progress`), value: statusMix.inProgress, className: 'text-primary' },
+                    { label: t(`${c}.status.at_risk`), value: statusMix.atRisk, className: 'text-destructive' },
+                  ].filter((s) => s.value > 0)}
+                />
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader className="pb-3"><CardTitle className="text-base">{t(`${c}.overview.byDepartment`)}</CardTitle></CardHeader>
+              <CardContent>
+                {deptCompletion.length ? (
+                  <MetricBars rows={deptCompletion} />
+                ) : (
+                  <p className="text-sm text-muted-foreground">{t(`${c}.overview.noDept`)}</p>
+                )}
+              </CardContent>
+            </Card>
+          </div>
         </TabsContent>
 
         <TabsContent value="roster">

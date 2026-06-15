@@ -911,6 +911,12 @@
       "sessionsEmpty": "No sessions scheduled for this cohort yet.",
       "sessionN": "Session {{n}}",
       "kpi": { "enrolled": "Enrolled", "completion": "Completion", "attendance": "Avg attendance", "assessment": "Assessment pass", "certificates": "Certificates" },
+      "overview": {
+        "progressTitle": "Cohort progress",
+        "progressCenter": "complete",
+        "byDepartment": "Completion by department",
+        "noDept": "No department data yet."
+      },
       "roster": {
         "title": "Roster",
         "empty": "No learners in this cohort yet.",
