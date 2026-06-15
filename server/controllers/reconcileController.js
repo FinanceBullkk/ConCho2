@@ -1,5 +1,6 @@
 const ReconcileReport = require('../models/ReconcileReport');
 const { runReconciliation } = require('../services/reconcileService');
+const { SAFE_CHECKS, healCheck } = require('../services/reconcile/healers');
 const auditService = require('../services/auditService');
 const { handleError } = require('../helpers/handleError');
 
@@ -95,9 +96,56 @@ const triggerRun = async (req, res) => {
   }
 };
 
+/**
+ * GET /api/admin/reconcile/trend?limit=N
+ * Returns the last N reports' summary counts (no issues array), oldest→newest,
+ * for the integrity drift line. Default 14, capped at 60.
+ */
+const getTrend = async (req, res) => {
+  try {
+    const limit = Math.min(Math.max(parseInt(req.query.limit, 10) || 14, 1), 60);
+    const reports = await ReconcileReport.find()
+      .sort({ runAt: -1 })
+      .limit(limit)
+      .select('runAt status summary triggeredBy durationMs')
+      .lean();
+    // Reverse to ascending so the client draws a left-to-right trend line.
+    res.json({ success: true, data: reports.reverse(), meta: { safeChecks: SAFE_CHECKS } });
+  } catch (err) {
+    handleError(res, err);
+  }
+};
+
+/**
+ * POST /api/admin/reconcile/heal  { check, refs? }
+ * Applies the safe, reversible fix for a fixable check. The server re-derives
+ * the current issues (never trusts client row state), heals each, then re-runs
+ * the check to report what remains. 422 if the check isn't auto-healable.
+ * Each fix writes an AuditLog line (entity:'Reconcile'); gated by system.ops +
+ * rate-limited in the router.
+ */
+const triggerHeal = async (req, res) => {
+  try {
+    const { check, refs } = req.body || {};
+    const result = await healCheck({ check, refs, req });
+    res.json({ success: true, data: result });
+  } catch (err) {
+    if (err.statusCode === 422) {
+      return res.status(422).json({
+        success: false,
+        message: err.message,
+        data: { safeChecks: SAFE_CHECKS },
+      });
+    }
+    handleError(res, err);
+  }
+};
+
 module.exports = {
   getLatestReport,
   getReportHistory,
   getReportById,
+  getTrend,
   triggerRun,
+  triggerHeal,
 };

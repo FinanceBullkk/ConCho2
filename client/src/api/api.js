@@ -397,12 +397,21 @@ export const reconcileAPI = {
   triggerRun:     () => api.post('/admin/reconcile/run'),
   getLatest:      () => api.get('/admin/reconcile/latest'),
   getHistory:     () => api.get('/admin/reconcile/history'),
+  getTrend:       (limit) => api.get('/admin/reconcile/trend', { params: limit ? { limit } : {} }),
   getById:        (id) => api.get(`/admin/reconcile/${id}`),
+  heal:           (check, refs) => api.post('/admin/reconcile/heal', refs ? { check, refs } : { check }),
 };
 
 // ── Cron health (scheduled-job heartbeats) ───────────────
 export const cronAPI = {
   getHealth:      () => api.get('/admin/cron/health'),
+};
+
+// ── Analytics time-series (real history-backed trends + funnel) ───
+export const analyticsAPI = {
+  getSeries:          (params) => api.get('/analytics/series', { params }),
+  getFunnel:          (programId) => api.get('/analytics/funnel', { params: programId ? { programId } : {} }),
+  getProgramAnalytics: (id, range) => api.get(`/analytics/program/${id}`, { params: range ? { range } : {} }),
 };
 
 // ── Org model (departments, offices, manager hierarchy, my-team) ───
