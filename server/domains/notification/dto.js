@@ -93,6 +93,11 @@ const PRESENTERS = {
       return `You've been added to ${name}${when}`;
     },
   },
+  automation_notice: {
+    title: 'Automation',
+    link: '/home',
+    body: (m) => m.message || `Automation rule "${m.ruleName || 'rule'}" ran`,
+  },
 };
 
 const FALLBACK = { title: 'Notification', link: '/home', body: () => '' };

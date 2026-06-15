@@ -48,6 +48,9 @@ export const assessmentFormValue = (assessment, selectedCohortId) => ({
   cohortId: assessment?.cohortId || selectedCohortId || '',
   passingScorePercent: assessment?.passingScorePercent ?? 70,
   maxAttempts: assessment?.maxAttempts ?? 0,
+  timeLimitMinutes: assessment?.timeLimitMinutes ?? 0,
+  shuffleQuestions: assessment?.shuffleQuestions ?? false,
+  showAnswersAfter: assessment?.showAnswersAfter ?? false,
   isPublished: assessment?.isPublished ?? true,
 });
 

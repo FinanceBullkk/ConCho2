@@ -38,6 +38,8 @@ const NodeCache = require('node-cache');
 const User = require('../models/User');
 const Team = require('../models/Team');
 const Class = require('../models/Class');
+const LearningProgram = require('../models/LearningProgram');
+const Department = require('../models/Department');
 const { escapeRegex } = require('../helpers/escapeRegex');
 
 const DEFAULT_LIMIT = 5;
@@ -69,7 +71,7 @@ const buildRegexes = (q) => {
  */
 const search = async ({ q, user, limit = DEFAULT_LIMIT }) => {
   if (!q || q.length < 2) {
-    return { users: [], teams: [], classes: [], total: 0 };
+    return { users: [], teams: [], classes: [], programs: [], departments: [], total: 0 };
   }
 
   const lim = Math.min(MAX_LIMIT, Math.max(1, Number(limit) || DEFAULT_LIMIT));
@@ -116,8 +118,16 @@ const search = async ({ q, user, limit = DEFAULT_LIMIT }) => {
     teamFilter.members = userId;
   }
 
-  // Run all three queries in parallel — keep this fast even on cold cache.
-  const [users, teams, classes] = await Promise.all([
+  // Programs (catalog) + departments (org structure) are staff-navigation
+  // aids — exposed only to the two roles the service already privileges
+  // (Admin · Teacher). Participants keep the existing self-scoped surface
+  // (own user record + own teams + their classes), so no info-leak regression.
+  const isStaff = role === 'Admin' || role === 'Teacher';
+  const programFilter = { $or: fieldRegexClauses(['name', 'code']), isDeleted: { $ne: true } };
+  const departmentFilter = { $or: fieldRegexClauses(['name', 'code']), isDeleted: { $ne: true } };
+
+  // Run every entity query in parallel — keep this fast even on cold cache.
+  const [users, teams, classes, programs, departments] = await Promise.all([
     User.find(userFilter)
       .select('empCode name department email role status')
       .limit(lim)
@@ -132,6 +142,12 @@ const search = async ({ q, user, limit = DEFAULT_LIMIT }) => {
       .select('classCode courseName status totalSessions')
       .limit(lim)
       .lean(),
+    isStaff
+      ? LearningProgram.find(programFilter).select('code name status').limit(lim).lean()
+      : Promise.resolve([]),
+    isStaff
+      ? Department.find(departmentFilter).select('name code').limit(lim).lean()
+      : Promise.resolve([]),
   ]);
 
   // For Participants, additionally narrow class results to classes their
@@ -150,7 +166,9 @@ const search = async ({ q, user, limit = DEFAULT_LIMIT }) => {
     users,
     teams,
     classes: scopedClasses,
-    total: users.length + teams.length + scopedClasses.length,
+    programs,
+    departments,
+    total: users.length + teams.length + scopedClasses.length + programs.length + departments.length,
   };
   searchCache.set(cacheKey, result);
   return { ...result, cached: false };

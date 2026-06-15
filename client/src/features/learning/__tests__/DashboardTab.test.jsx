@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import DashboardTab from '../DashboardTab';
@@ -80,6 +80,8 @@ vi.mock('../../../hooks/useLearningDashboard', () => ({
   useExecutiveDashboard: () => ({ data: null, isLoading: true, isError: false, refetch: vi.fn() }),
   useCostConfig: () => ({ data: null }),
   useSetCostConfig: () => ({ mutateAsync: vi.fn(), isPending: false }),
+  // Dept-performance table (own component/test) — loading stub here.
+  useDepartmentPerformance: () => ({ data: null, isLoading: true, isError: false }),
 }));
 
 vi.mock('../../../hooks/useRole', () => ({
@@ -165,7 +167,9 @@ describe('DashboardTab', () => {
     renderTab();
 
     expect(mocks.dashboardCalls.at(-1)).toEqual({ window: '30' });
-    await user.selectOptions(screen.getByLabelText('Window'), '90');
+    // Window picker is now a segmented control (prototype `.seg`) — click the segment.
+    const group = screen.getByRole('group', { name: 'Window' });
+    await user.click(within(group).getByRole('button', { name: '90 days' }));
     expect(mocks.dashboardCalls.at(-1)).toEqual({ window: '90' });
   });
 });

@@ -172,6 +172,32 @@ describe('POST /api/users', () => {
     expect(res.body.data.password).toBeUndefined();
   });
 
+  test('custom field values round-trip on create + update', async () => {
+    const empCode = nextCode();
+    const created = await request(app)
+      .post('/api/users')
+      .set('Authorization', `Bearer ${tokens.admin}`)
+      .set(csrf)
+      .send({
+        empCode,
+        name: 'CF User',
+        email: `${empCode}@example.com`,
+        role: 'Participant',
+        password: 'secure-pass-12345',
+        customFields: { cost_center: 'IC1', grade: 'L4' },
+      });
+    expect(created.status).toBe(201);
+    expect(created.body.data.customFields).toMatchObject({ cost_center: 'IC1', grade: 'L4' });
+
+    const updated = await request(app)
+      .put(`/api/users/${created.body.data._id}`)
+      .set('Authorization', `Bearer ${tokens.admin}`)
+      .set(csrf)
+      .send({ customFields: { cost_center: 'IC2', grade: 'L5' } });
+    expect(updated.status).toBe(200);
+    expect(updated.body.data.customFields).toMatchObject({ cost_center: 'IC2', grade: 'L5' });
+  });
+
   test('rejects duplicate empCode with 4xx', async () => {
     const empCode = nextCode();
     await request(app)

@@ -2,7 +2,7 @@
 capability: attendance
 status: stable
 owners: [domains/attendance, models/Attendance]
-last_updated: 2026-06-13
+last_updated: 2026-06-15
 related_code:
   - server/domains/attendance
   - server/services/attendanceService.js
@@ -63,6 +63,22 @@ so re-marking corrects rather than duplicates. Valid statuses are P/A/L/EL.
 - **GIVEN** a learner marked A
 - **WHEN** the same session is re-submitted with them as P
 - **THEN** the single record updates to P (no duplicate row)
+
+### Requirement: Offline marking + sync (PWA) [BR-1, UC-1]
+
+The mobile attendance PWA SHALL let a teacher mark a session with no
+connectivity: marks are queued in IndexedDB keyed by `(scheduleId, userId)` (a
+re-mark overwrites locally), and flushed via the same `bulkMark` endpoint when
+connectivity returns (Background Sync / `online` event), through the CSRF-safe
+client. Because the server already upserts per `{scheduleId, userId}`, the
+sync is **last-write-wins** with the normal audit entry — no special offline
+endpoint. The queue retries per-schedule; a rejected schedule stays queued.
+
+#### Scenario: Offline mark syncs on reconnect
+- **GIVEN** a teacher marks a session while offline
+- **WHEN** the device regains connectivity
+- **THEN** the queued marks POST to `bulkMark`, upsert one record each, and
+  clear from the local queue
 
 ### Requirement: Enrolled-only allowlist [BR-2, UC-1]
 

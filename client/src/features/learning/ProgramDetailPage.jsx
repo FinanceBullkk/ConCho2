@@ -9,9 +9,10 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { PageHeader } from '@/components/PageHeader';
 import { EmptyState } from '@/components/EmptyState';
 import { Spinner } from '@/components/Spinner';
-import { useLearningProgram, useLearningCohorts, useCompletionRollup } from '../../hooks/useLearning';
+import { useLearningProgram, useLearningCohorts, useCompletionRollup, useCompletionTrend } from '../../hooks/useLearning';
 import { useRole } from '../../hooks/useRole';
 import { StatTile, MetricBars } from './DashboardWidgets';
+import { AreaTrend } from './DashboardCharts';
 import ProgramFormModal from './ProgramFormModal';
 
 // ──────────────────────────────────────────────────────────
@@ -74,7 +75,9 @@ export default function ProgramDetailPage() {
   const { data: program, isLoading, isError } = useLearningProgram(id);
   const { data: cohortsData } = useLearningCohorts({ programId: id });
   const { data: rollup } = useCompletionRollup({ enabled: isAdmin || can('read:reports') });
+  const { data: trend } = useCompletionTrend(id, { enabled: isAdmin || can('read:reports') });
 
+  const trendSeries = trend?.series || [];
   const cohorts = cohortsData?.data || [];
   const stats = (rollup?.programs || []).find((p) => p.key === id) || {};
   const enrolled = stats.learners ?? 0;
@@ -138,7 +141,22 @@ export default function ProgramDetailPage() {
           <TabsTrigger value="settings">{t(`${d}.tabs.settings`)}</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="overview">
+        <TabsContent value="overview" className="space-y-4">
+          {trendSeries.length > 0 && (
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base">{t(`${d}.trendTitle`)}</CardTitle>
+                <p className="text-xs text-muted-foreground">{t(`${d}.trendSub`)}</p>
+              </CardHeader>
+              <CardContent>
+                <AreaTrend
+                  series={[{ key: 'completions', label: t(`${d}.trendTitle`), points: trendSeries.map((s) => s.completions), className: 'text-primary' }]}
+                  labels={trendSeries.map((s) => s.month.slice(5))}
+                  title={t(`${d}.trendTitle`)}
+                />
+              </CardContent>
+            </Card>
+          )}
           <div className="grid gap-4 lg:grid-cols-2">
             <Card>
               <CardHeader className="pb-3">

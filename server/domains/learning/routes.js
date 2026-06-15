@@ -65,6 +65,9 @@ router
   .put(requireCapability('program.manage'), validate({ params: idParam, body: updateProgramBody }), controller.updateProgram)
   .delete(requireCapability('program.manage'), validate({ params: idParam }), controller.archiveProgram);
 
+// Real completion trend (certificates/month, last 8 months) for the detail page.
+router.get('/programs/:id/completion-trend', requireCapability('report.read'), validate({ params: idParam }), controller.getCompletionTrend);
+
 router
   .route('/cohorts')
   .get(validate({ query: listCohortsQuery }), controller.listCohorts)
@@ -232,6 +235,12 @@ router.get(
   validate({ query: operationalDashboardQuery }),
   dashboardController.getOperationalDashboard,
 );
+
+// Home onboarding checklist + at-a-glance counts.
+router.get('/dashboard/setup', requireCapability('report.read'), dashboardController.getSetup);
+
+// Per-department performance (Overview table + Departments cards); ?window=7|30|90|365.
+router.get('/dashboard/departments', requireCapability('report.read'), dashboardController.getDepartmentPerformance);
 
 // ── Executive dashboard + cost config (2-tier dashboard, Phase 3) ──
 // Coarse `report.read` here; the use-case enforces Admin-only inside

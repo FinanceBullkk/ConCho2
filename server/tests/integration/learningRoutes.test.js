@@ -86,6 +86,28 @@ describe('Learning Platform API — programs', () => {
     expect(res.body.data.completionPolicy.requiresAssessment).toBe(true);
   });
 
+  test('completion-trend returns an 8-month zero-filled series; participant 403', async () => {
+    const created = await request(app)
+      .post('/api/learning/programs')
+      .set('Authorization', `Bearer ${tokens.admin}`)
+      .set(csrf)
+      .send({ code: 'trend_prog', name: 'Trend Program', category: 'compliance', defaultSessionCount: 1, deliveryMode: 'online', schedulingMode: 'admin_scheduled' });
+    const id = created.body.data._id;
+
+    const res = await request(app)
+      .get(`/api/learning/programs/${id}/completion-trend`)
+      .set('Authorization', `Bearer ${tokens.admin}`);
+    expect(res.status).toBe(200);
+    expect(res.body.data.series).toHaveLength(8);
+    expect(res.body.data.series[0]).toHaveProperty('month');
+    expect(res.body.data.series[0]).toHaveProperty('completions');
+
+    const denied = await request(app)
+      .get(`/api/learning/programs/${id}/completion-trend`)
+      .set('Authorization', `Bearer ${tokens.leader}`);
+    expect(denied.status).toBe(403);
+  });
+
   test('teacher cannot create a learning program', async () => {
     const res = await request(app)
       .post('/api/learning/programs')
@@ -129,6 +151,27 @@ describe('Learning Platform API — cohorts', () => {
     const stored = await Class.findOne({ classCode: 'LD_TEST_001' }).lean();
     expect(stored.programId.toString()).toBe(program._id.toString());
     expect(stored.courseName).toBe('Technical Bootcamp');
+  });
+
+  test('cohort custom field values round-trip on create + update', async () => {
+    const program = await LearningProgram.create({
+      code: 'CF_COHORT', name: 'CF Cohort Prog', defaultSessionCount: 2,
+    });
+    const created = await request(app)
+      .post('/api/learning/cohorts')
+      .set('Authorization', `Bearer ${tokens.admin}`)
+      .set(csrf)
+      .send({ cohortCode: 'CF_COH_1', programId: program._id.toString(), customFields: { region: 'APAC' } });
+    expect(created.status).toBe(201);
+    expect(created.body.data.customFields).toMatchObject({ region: 'APAC' });
+
+    const updated = await request(app)
+      .put(`/api/learning/cohorts/${created.body.data._id}`)
+      .set('Authorization', `Bearer ${tokens.admin}`)
+      .set(csrf)
+      .send({ customFields: { region: 'EMEA' } });
+    expect(updated.status).toBe(200);
+    expect(updated.body.data.customFields).toMatchObject({ region: 'EMEA' });
   });
 
   test('teacher cannot create a cohort (lacks cohort.manage capability)', async () => {

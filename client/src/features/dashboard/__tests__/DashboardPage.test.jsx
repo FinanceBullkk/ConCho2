@@ -20,6 +20,12 @@ vi.mock('../../../hooks/useRole', () => ({
   useRole: () => ({ can: () => true, canAny: () => true }),
 }));
 
+// Home setup (onboarding + at-a-glance) fires its own query — stub it; the
+// landing's job here is role/gate routing, not the setup cards.
+vi.mock('../../../hooks/useLearningDashboard', () => ({
+  useSetupStatus: () => ({ data: undefined }),
+}));
+
 vi.mock('../ParticipantDashboard', () => ({
   default: () => <div data-testid="participant-dashboard" />,
 }));

@@ -39,15 +39,15 @@ table is just the index. Covers every mounted `/api/*` route surface.
 
 | Capability | Status | Owners (source) | Last updated |
 |---|---|---|---|
-| [scheduling-and-booking](scheduling-and-booking/spec.md) | stable | scheduleService, domains/schedule, domains/room, domains/learning/session | 2026-06-12 |
+| [scheduling-and-booking](scheduling-and-booking/spec.md) | stable | scheduleService, domains/schedule, domains/room, domains/learning/session | 2026-06-15 |
 | [auth-and-sessions](auth-and-sessions/spec.md) | stable | controllers/authController, services/authService, services/mfaService, middleware/auth | 2026-06-12 |
 | [users-and-roles](users-and-roles/spec.md) | stable | controllers/userController, models/User | 2026-06-12 |
 | [teams-and-groups](teams-and-groups/spec.md) | stable | domains/groups, models/Team | 2026-06-12 |
-| [attendance](attendance/spec.md) | stable | domains/attendance, models/Attendance | 2026-06-12 |
+| [attendance](attendance/spec.md) | stable | domains/attendance, models/Attendance | 2026-06-15 |
 | [learning-catalog](learning-catalog/spec.md) | stable | domains/learning, controllers/classController | 2026-06-10 |
 | [enrollment](enrollment/spec.md) | evolving | domains/learning/enrollment, controllers/enrollmentController | 2026-06-09 |
 | [learning-paths](learning-paths/spec.md) | stable | domains/learning/path | 2026-06-08 |
-| [assessments](assessments/spec.md) | stable | domains/assessment, controllers/evaluationController | 2026-06-14 |
+| [assessments](assessments/spec.md) | stable | domains/assessment, controllers/evaluationController | 2026-06-15 |
 | [question-bank](question-bank/spec.md) | stable | domains/assessment (question-bank) | 2026-06-08 |
 | [grading](grading/spec.md) | stable | domains/assessment (grading, manual-grading) | 2026-06-08 |
 | [feedback](feedback/spec.md) | stable | domains/learning/feedback | 2026-06-08 |
@@ -64,7 +64,7 @@ table is just the index. Covers every mounted `/api/*` route surface.
 | [bulk-import](bulk-import/spec.md) | stable | controllers/importController, services/importService | 2026-06-12 |
 | [settings](settings/spec.md) | stable | controllers/settingController, models/Setting | 2026-06-08 |
 | [dashboard-analytics](dashboard-analytics/spec.md) | stable | controllers/dashboardController | 2026-06-08 |
-| [search](search/spec.md) | stable | controllers/searchController, services/searchService | 2026-06-08 |
+| [search](search/spec.md) | stable | controllers/searchController, services/searchService | 2026-06-15 |
 | [admin-db-explorer](admin-db-explorer/spec.md) | stable | routes/adminDbRoutes | 2026-06-08 |
 | [org-and-departments](org-and-departments/spec.md) | stable | domains/org, models/Department, models/Office | 2026-06-10 |
 

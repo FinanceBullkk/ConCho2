@@ -11,6 +11,8 @@ vi.mock('../../../hooks/useLearning', () => ({
   useUpdateCohort: () => ({ mutateAsync: update, isPending: false }),
   useDeleteCohort: () => ({ mutateAsync: remove, isPending: false }),
 }));
+// Cohort custom fields fire their own query — stub to none here.
+vi.mock('../../custom-fields/useCustomFields', () => ({ useCustomFields: () => ({ data: [] }) }));
 
 const cohort = { _id: 'c1', cohortCode: 'LD001', programName: 'Onboarding', status: 'Ongoing', totalSessions: 5 };
 

@@ -46,6 +46,11 @@ const MyTranscriptPage = lazy(() => import('./features/learner/MyTranscriptPage'
 const MyTeamPage = lazy(() => import('./features/groups/MyTeamPage'));
 const RolesAccessPage = lazy(() => import('./features/access/RolesAccessPage'));
 const CustomFieldsPage = lazy(() => import('./features/custom-fields/CustomFieldsPage'));
+const AutomationPage = lazy(() => import('./features/automation/AutomationPage'));
+const SkillsPage = lazy(() => import('./features/skills/SkillsPage'));
+const BrandingPage = lazy(() => import('./features/branding/BrandingPage'));
+const CostRoiSettingsPage = lazy(() => import('./features/settings/CostRoiSettingsPage'));
+const MobileAttendancePage = lazy(() => import('./features/attendance/MobileAttendancePage'));
 
 function RouteFallback() {
   return (
@@ -288,6 +293,9 @@ export default function App() {
                     (classes/teams/schedules/attendance/evaluations/booking). */}
                 <Route path="/english" element={<EnglishPage />} />
                 <Route path="/calendar" element={<CalendarPage />} />
+                <Route path="/mobile-attendance" element={
+                  <ProtectedRoute roles={['Admin', 'Teacher']}><MobileAttendancePage /></ProtectedRoute>
+                } />
                 <Route path="/reports" element={
                   <ProtectedRoute roles={['Admin', 'Teacher']}><ReportsPage /></ProtectedRoute>
                 } />
@@ -304,6 +312,18 @@ export default function App() {
                 } />
                 <Route path="/custom-fields" element={
                   <ProtectedRoute roles={['Admin']}><CustomFieldsPage /></ProtectedRoute>
+                } />
+                <Route path="/automation" element={
+                  <ProtectedRoute roles={['Admin']}><AutomationPage /></ProtectedRoute>
+                } />
+                <Route path="/skills" element={
+                  <ProtectedRoute roles={['Admin']}><SkillsPage /></ProtectedRoute>
+                } />
+                <Route path="/branding" element={
+                  <ProtectedRoute roles={['Admin']}><BrandingPage /></ProtectedRoute>
+                } />
+                <Route path="/cost-roi" element={
+                  <ProtectedRoute roles={['Admin']}><CostRoiSettingsPage /></ProtectedRoute>
                 } />
 
                 {/* Detail pages keep their own routes for deep links */}

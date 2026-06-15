@@ -266,6 +266,7 @@ export const enrollmentsAPI = {
 export const learningAPI = {
   getPrograms: (params) => api.get('/learning/programs', { params }),
   getProgram: (id) => api.get(`/learning/programs/${id}`),
+  getCompletionTrend: (id) => api.get(`/learning/programs/${id}/completion-trend`),
   createProgram: (data) => api.post('/learning/programs', data),
   updateProgram: (id, data) => api.put(`/learning/programs/${id}`, data),
   archiveProgram: (id) => api.delete(`/learning/programs/${id}`),
@@ -324,6 +325,10 @@ export const learningAPI = {
     api.get('/learning/reports/compliance/export', { params, responseType: 'blob' }),
   // Operational dashboard KPI bundle (Admin/Teacher; fail-soft per metric).
   getOperationalDashboard: (params) => api.get('/learning/dashboard/operational', { params }),
+  // Home onboarding checklist + at-a-glance counts.
+  getSetup: () => api.get('/learning/dashboard/setup'),
+  // Per-department performance (Overview table + Departments cards).
+  getDepartmentPerformance: (params) => api.get('/learning/dashboard/departments', { params }),
   // Executive ROI bundle + L&D cost config (Admin-only server-side).
   getExecutiveDashboard: (params) => api.get('/learning/dashboard/executive', { params }),
   getCostConfig: () => api.get('/learning/dashboard/cost-config'),
@@ -346,6 +351,30 @@ export const assessmentAPI = {
   getMyResults: () => api.get('/assessment/results/mine'),
   manualGradeAttempt: (attemptId, data) => api.put(`/assessment/attempts/${attemptId}/manual-grade`, data),
   submitAttempt: (assessmentId, data) => api.post(`/assessment/assessments/${assessmentId}/attempts`, data),
+};
+
+// ── Automation rules (no-code engine, TMS.update gap #3) ──
+export const automationAPI = {
+  listRules: () => api.get('/automation/rules'),
+  createRule: (data) => api.post('/automation/rules', data),
+  updateRule: (id, data) => api.put(`/automation/rules/${id}`, data),
+  deleteRule: (id) => api.delete(`/automation/rules/${id}`),
+};
+
+// ── Skills / competency framework (TMS.update gap #4) ─────
+export const skillsAPI = {
+  list: () => api.get('/skills'),
+  roleProfiles: () => api.get('/skills/role-profiles'),
+  learner: (userId) => api.get(`/skills/learner/${userId}`),
+  create: (data) => api.post('/skills', data),
+  update: (id, data) => api.put(`/skills/${id}`, data),
+  delete: (id) => api.delete(`/skills/${id}`),
+};
+
+// ── Branding & templates designer (TMS.update gap #5) ─────
+export const brandingAPI = {
+  get: () => api.get('/branding'),
+  update: (data) => api.put('/branding', data),
 };
 
 // ── Dashboard Analytics ───────────────────────────────────

@@ -2,7 +2,7 @@
 capability: assessments
 status: stable
 owners: [domains/assessment, controllers/evaluationController]
-last_updated: 2026-06-14
+last_updated: 2026-06-15
 related_code:
   - server/domains/assessment/use-cases.js
   - server/domains/assessment/controller.js
@@ -64,7 +64,8 @@ graded immediately and frozen.
   `programId` (denorm), `items[]` (`single_choice`/`multiple_choice`/
   `short_text`; choice correctness by **option index**; each item has `_id`,
   `points`, optional `questionBankItemId`), `passingScorePercent`, `maxAttempts`
-  (0 = unlimited), `isPublished`, `createdBy`, soft-delete. ≥1 item required.
+  (0 = unlimited), `timeLimitMinutes` (0 = none), `shuffleQuestions`,
+  `showAnswersAfter`, `isPublished`, `createdBy`, soft-delete. ≥1 item required.
 - **AssessmentAttempt** (`server/models/AssessmentAttempt.js`): `assessmentId`,
   `userId`, `cohortId` (denorm), `answers[]` (per-item graded snapshot:
   pointsEarned/Possible, correct, + manual-grade fields), `score`/`maxScore`/
@@ -116,6 +117,24 @@ completion engine via the denormalised `cohortId`.
 - **WHEN** a learner submits answers worth 80%
 - **THEN** the attempt is stored with `passed = true`
 
+### Requirement: Exam settings (time limit · shuffle · reveal) [BR-4, UC-2]
+
+An assessment SHALL persist three exam settings consumed by the learner runner:
+`timeLimitMinutes` (0 = no limit), `shuffleQuestions`, `showAnswersAfter`.
+- **Time limit:** when > 0, the runner counts down and auto-submits at zero.
+- **Shuffle:** randomises item DISPLAY order per attempt. Grading is by `itemId`,
+  so shuffle never changes a score.
+- **Reveal:** when on, after submit the learner sees per-question right/wrong
+  (from the frozen attempt snapshot). The answer key is **never** sent to a
+  learner pre-submit — reveal shows correctness, not the correct option.
+- The author can **Preview as learner** — take the draft exactly as a learner
+  would (timer + shuffle), with no persisted attempt.
+
+#### Scenario: Timed attempt auto-submits
+- **GIVEN** a published assessment with `timeLimitMinutes = 30`
+- **WHEN** the learner's timer reaches zero
+- **THEN** the in-progress attempt is submitted and graded
+
 ### Requirement: Teacher cohort scoping [UC-1, UC-3]
 
 The system SHALL restrict Teacher authoring/management to cohorts they can access
@@ -138,6 +157,8 @@ Inherits `security-platform`. Specifics:
 - [ ] Unpublished/soft-deleted assessment not attemptable.
 - [ ] `maxAttempts` enforced (0 = unlimited).
 - [ ] Submit auto-grades, freezes score, sets `passed` vs `passingScorePercent`.
+- [ ] Exam settings persist; timer auto-submits; shuffle never changes a score;
+      reveal shows right/wrong only (no answer key pre-submit).
 - [ ] Teacher limited to accessible cohorts; Admin unrestricted.
 
 ## Error & Edge Cases
@@ -152,5 +173,7 @@ Inherits `security-platform`. Specifics:
 ## Out of Scope / Deferred
 
 - Multi-session / resumable attempts (v1 is one-shot).
-- Question randomisation, time limits, partial credit on choice items.
+- Server-enforced time limit (the timer auto-submits client-side; a late
+  network submit is not server-rejected on elapsed time). Partial credit on
+  choice items. Revealing the correct option (vs right/wrong) post-submit.
 - Migrating legacy `Evaluation` onto this engine.

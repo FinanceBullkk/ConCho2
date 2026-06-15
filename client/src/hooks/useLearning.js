@@ -19,6 +19,16 @@ export const useLearningProgram = (id, options = {}) =>
     ...options,
   });
 
+// Real monthly completion trend (certificates/month, last 8 months) — report.read.
+export const useCompletionTrend = (id, options = {}) =>
+  useQuery({
+    queryKey: ['learning', 'program', id, 'completion-trend'],
+    queryFn: async () => (await learningAPI.getCompletionTrend(id)).data.data,
+    enabled: Boolean(id),
+    staleTime: 5 * 60 * 1000,
+    ...options,
+  });
+
 // One cohort (detail page header). Returns the cohort DTO directly.
 export const useLearningCohort = (id, options = {}) =>
   useQuery({

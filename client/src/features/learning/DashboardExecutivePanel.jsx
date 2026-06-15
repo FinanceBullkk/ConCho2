@@ -8,7 +8,7 @@ import { EmptyState } from '@/components/EmptyState';
 import { cn } from '@/lib/utils';
 import { useCostConfig, useExecutiveDashboard } from '../../hooks/useLearningDashboard';
 import { MetricBars, MetricUnavailable, StatTile } from './DashboardWidgets';
-import { DonutStat, Sparkline } from './DashboardCharts';
+import { AreaTrend, DonutStat } from './DashboardCharts';
 import DashboardKirkpatrick from './DashboardKirkpatrick';
 import DashboardCostConfigForm from './DashboardCostConfigForm';
 
@@ -249,34 +249,48 @@ export default function DashboardExecutivePanel() {
 
       <FinancialsSection financials={financials} />
 
-      <div className="grid gap-4 lg:grid-cols-2">
+      {/* Trend (hero area chart, wider) + Kirkpatrick rollup */}
+      <div className="grid gap-4 lg:grid-cols-[1.6fr_1fr]">
         <Section title={t(`${x}.trendTitle`)}>
           {trend ? (
-            <Sparkline
-              title={t(`${x}.trendTitle`)}
-              labels={trend.months.map((m) => m.month)}
-              series={[
-                {
-                  key: 'enrollments',
-                  label: t(`${x}.trendEnrollments`),
-                  points: trend.months.map((m) => m.enrollments),
-                  className: 'text-primary',
-                },
-                {
-                  key: 'certificates',
-                  label: t(`${x}.trendCertificates`),
-                  points: trend.months.map((m) => m.certificatesIssued),
-                  className: 'text-muted-foreground',
-                },
-              ]}
-            />
+            <>
+              <div className="flex items-baseline gap-2">
+                <span className="text-2xl font-bold tabular-nums">
+                  {trend.months[trend.months.length - 1]?.enrollments ?? 0}
+                </span>
+                <span className="text-xs text-muted-foreground">
+                  {t(`${x}.trendEnrollments`)} · {trend.months[trend.months.length - 1]?.month}
+                </span>
+              </div>
+              <AreaTrend
+                title={t(`${x}.trendTitle`)}
+                labels={trend.months.map((m) => m.month)}
+                series={[
+                  {
+                    key: 'enrollments',
+                    label: t(`${x}.trendEnrollments`),
+                    points: trend.months.map((m) => m.enrollments),
+                    className: 'text-primary',
+                  },
+                  {
+                    key: 'certificates',
+                    label: t(`${x}.trendCertificates`),
+                    points: trend.months.map((m) => m.certificatesIssued),
+                    className: 'text-muted-foreground',
+                  },
+                ]}
+              />
+            </>
           ) : <MetricUnavailable />}
         </Section>
 
         <Section title={t(`${x}.kirkpatrickTitle`)}>
           {kirkpatrick ? <DashboardKirkpatrick kirkpatrick={kirkpatrick} /> : <MetricUnavailable />}
         </Section>
+      </div>
 
+      {/* Certificate validity + internal mobility */}
+      <div className="grid gap-4 lg:grid-cols-2">
         <Section title={t(`${x}.certTitle`)}>
           {certificates ? (
             <DonutStat

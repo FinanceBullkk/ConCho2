@@ -108,6 +108,22 @@ const scheduleSchema = new mongoose.Schema(
       default: 9,
     },
 
+    // ── Session details (TMS.update) ────────────────────────
+    // Display/metadata only — never affect booking, room, or time logic.
+    // topic = session title; agenda = ordered talking points; materials =
+    // labelled resource links; customFields = CustomFieldDefinition
+    // entity='Session' value map (keyed by the definition's `key`).
+    topic: { type: String, trim: true, default: '' },
+    agenda: { type: [String], default: [] },
+    materials: {
+      type: [new mongoose.Schema(
+        { label: { type: String, trim: true }, url: { type: String, trim: true } },
+        { _id: false },
+      )],
+      default: [],
+    },
+    customFields: { type: Object, default: {} },
+
     // Flattened member list (for attendance / roster views)
     enrolledUsers: [
       {

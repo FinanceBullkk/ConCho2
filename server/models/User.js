@@ -82,6 +82,12 @@ const userSchema = new mongoose.Schema(
       ref: 'Office',
       default: null,
     },
+    // Admin-defined custom fields (CustomFieldDefinition entity='User'), keyed
+    // by the definition's `key`. Same value-map pattern as LearningProgram.
+    customFields: {
+      type: Object,
+      default: {},
+    },
     position: {
       type: String,
       trim: true,

@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
-import { Search, X, Users, GraduationCap, BookOpen, ArrowRight } from 'lucide-react';
+import { Search, X, Users, GraduationCap, BookOpen, Layers, Building2, ArrowRight } from 'lucide-react';
 import { useGlobalSearch } from '../hooks/useSearch';
 import { Spinner } from './Spinner';
 
@@ -10,7 +10,8 @@ import { Spinner } from './Spinner';
 // ──────────────────────────────────────────────────────────
 // A keyboard-driven cross-entity search overlay. Opens on Cmd/Ctrl+K
 // or via the navbar trigger. Results stream from /api/search and are
-// grouped by entity (Users / Teams / Classes).
+// grouped by entity (Users / Teams / Classes / Programs / Departments —
+// the last two are staff-only, see searchService.js).
 //
 // Keyboard:
 //   Esc          — close
@@ -28,18 +29,26 @@ const ROUTE_FOR = {
   // English-class separation: Teams live in the English section now.
   teams:   (t) => `/english?tab=teams&search=${encodeURIComponent(t.name)}`,
   classes: (c) => `/learning?tab=cohorts&search=${encodeURIComponent(c.classCode)}`,
+  // Programs deep-link straight to their detail page; departments land on the
+  // People ▸ Departments tab.
+  programs:    (p) => `/learning/programs/${p._id}`,
+  departments: (d) => `/people?tab=departments&search=${encodeURIComponent(d.name)}`,
 };
 
 const ICON_FOR = {
   users: Users,
   teams: GraduationCap,
   classes: BookOpen,
+  programs: Layers,
+  departments: Building2,
 };
 
 const LABEL_FOR = {
   users: 'Users',
   teams: 'Teams',
   classes: 'Classes',
+  programs: 'Programs',
+  departments: 'Departments',
 };
 
 // Flatten the grouped result into a navigable list of items so arrow
@@ -47,7 +56,7 @@ const LABEL_FOR = {
 function flatten(data) {
   if (!data) return [];
   const out = [];
-  for (const kind of ['users', 'teams', 'classes']) {
+  for (const kind of ['users', 'teams', 'classes', 'programs', 'departments']) {
     for (const item of data[kind] || []) {
       out.push({ kind, item });
     }
@@ -68,6 +77,12 @@ function ResultRow({ kind, item, active, onHover, onOpen }) {
     subtitle = item.classId
       ? `${item.classId.classCode} — ${item.classId.courseName}`
       : 'No class';
+  } else if (kind === 'programs') {
+    title = item.name;
+    subtitle = `${item.code}${item.status ? ` · ${item.status}` : ''}`;
+  } else if (kind === 'departments') {
+    title = item.name;
+    subtitle = item.code;
   } else {
     title = `${item.classCode}`;
     subtitle = `${item.courseName}${item.status ? ` · ${item.status}` : ''}`;
@@ -208,7 +223,7 @@ export default function SearchPalette({ open, onClose }) {
             type="text"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search users, teams, classes…"
+            placeholder="Search programs, people, departments…"
             aria-label="Search query"
             className="flex-1 bg-transparent text-sm text-foreground placeholder:text-subtle-foreground focus:outline-none"
           />

@@ -6,7 +6,10 @@ import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { PageHeader } from '@/components/PageHeader';
 import { EmptyState } from '@/components/EmptyState';
+import { cn } from '@/lib/utils';
 import { useRoles, useCreateRole, useUpdateRole, useDeleteRole } from './useAccess';
+import RoleCompareView, { SensitiveMark } from './RoleCompareView';
+import { isSensitiveCap } from './sensitive-caps';
 
 // Persona-aligned hues for the role column chips.
 const ROLE_HUE = { Admin: 250, Coordinator: 155, Teacher: 200, Participant: 75 };
@@ -33,6 +36,7 @@ export default function RolesAccessPage() {
 
   const [edits, setEdits] = useState(() => new Map()); // roleKey → Set<cap>
   const [newRole, setNewRole] = useState(null); // { key, name } | null
+  const [view, setView] = useState('matrix'); // 'matrix' | 'compare'
 
   const roles = data?.roles ?? [];
   const groups = useMemo(() => {
@@ -98,13 +102,34 @@ export default function RolesAccessPage() {
         description={t('access.description')}
         actions={
           <div className="flex items-center gap-2">
-            <Button size="sm" variant="outline" onClick={() => setNewRole({ key: '', name: '' })}>
-              <Plus className="mr-1.5 size-4" aria-hidden="true" />{t('access.newRole')}
-            </Button>
-            {dirty && (
+            <div className="inline-flex rounded-lg border border-border bg-card p-0.5" role="tablist" aria-label={t('access.viewMode')}>
+              {['matrix', 'compare'].map((v) => (
+                <button
+                  key={v}
+                  type="button"
+                  role="tab"
+                  aria-selected={view === v}
+                  onClick={() => setView(v)}
+                  className={cn(
+                    'rounded-md px-3 py-1 text-sm font-medium transition-colors',
+                    view === v ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground',
+                  )}
+                >
+                  {t(`access.${v}`)}
+                </button>
+              ))}
+            </div>
+            {view === 'matrix' && (
               <>
-                <Button size="sm" variant="ghost" onClick={() => setEdits(new Map())}>{t('access.discard')}</Button>
-                <Button size="sm" onClick={save} disabled={update.isPending}>{update.isPending ? t('access.saving') : t('access.save')}</Button>
+                <Button size="sm" variant="outline" onClick={() => setNewRole({ key: '', name: '' })}>
+                  <Plus className="mr-1.5 size-4" aria-hidden="true" />{t('access.newRole')}
+                </Button>
+                {dirty && (
+                  <>
+                    <Button size="sm" variant="ghost" onClick={() => setEdits(new Map())}>{t('access.discard')}</Button>
+                    <Button size="sm" onClick={save} disabled={update.isPending}>{update.isPending ? t('access.saving') : t('access.save')}</Button>
+                  </>
+                )}
               </>
             )}
           </div>
@@ -113,7 +138,7 @@ export default function RolesAccessPage() {
 
       <div className="flex items-start gap-2.5 rounded-lg border border-border bg-card px-4 py-3 text-sm text-muted-foreground">
         <Info className="mt-0.5 size-4 shrink-0 text-primary" aria-hidden="true" />
-        <p>{t('access.note')}{dirty && <span className="ml-2 font-medium text-warning">· {t('access.unsaved')}</span>}</p>
+        <p>{view === 'compare' ? t('access.compareNote') : t('access.note')}{view === 'matrix' && dirty && <span className="ml-2 font-medium text-warning">· {t('access.unsaved')}</span>}</p>
       </div>
 
       {isLoading && (
@@ -123,7 +148,11 @@ export default function RolesAccessPage() {
       )}
       {isError && !isLoading && <EmptyState title={t('access.loadError')} description={t('access.loadErrorDesc')} />}
 
-      {!isLoading && !isError && data && (
+      {!isLoading && !isError && data && view === 'compare' && (
+        <RoleCompareView roles={roles} groups={groups} />
+      )}
+
+      {!isLoading && !isError && data && view === 'matrix' && (
         <div className="overflow-x-auto rounded-xl border border-border bg-card">
           <table className="w-full border-collapse text-sm">
             <thead>
@@ -151,7 +180,7 @@ export default function RolesAccessPage() {
             </thead>
             <tbody>
               {groups.map((group) => (
-                <ResourceGroup key={group.prefix} group={group} roles={roles} has={has} toggle={toggle} />
+                <ResourceGroup key={group.prefix} group={group} roles={roles} has={has} toggle={toggle} sensitiveLabel={t('access.sensitive')} />
               ))}
             </tbody>
           </table>
@@ -187,7 +216,7 @@ export default function RolesAccessPage() {
   );
 }
 
-function ResourceGroup({ group, roles, has, toggle }) {
+function ResourceGroup({ group, roles, has, toggle, sensitiveLabel }) {
   return (
     <>
       <tr className="bg-surface-2/40">
@@ -201,7 +230,9 @@ function ResourceGroup({ group, roles, has, toggle }) {
         <tr key={cap} className="border-b border-border last:border-0 hover:bg-accent/40">
           <td className="px-4 py-2">
             <div className="flex flex-col">
-              <span className="text-sm font-medium text-foreground">{actionOf(cap)}</span>
+              <span className="flex items-center gap-1.5 text-sm font-medium text-foreground">
+                {actionOf(cap)}{isSensitiveCap(cap) && <SensitiveMark label={sensitiveLabel} />}
+              </span>
               <span className="font-mono text-[11px] text-subtle-foreground">{cap}</span>
             </div>
           </td>

@@ -21,6 +21,15 @@ const getProgram = async (req, res) => {
   }
 };
 
+const getCompletionTrend = async (req, res) => {
+  try {
+    const data = await useCases.getCompletionTrend(req.params.id);
+    res.json({ success: true, data });
+  } catch (error) {
+    handleError(res, error);
+  }
+};
+
 const createProgram = async (req, res) => {
   try {
     const data = await useCases.createProgram(req.body);
@@ -192,6 +201,7 @@ const listDeletedCohorts = async (req, res) => {
 module.exports = {
   listPrograms,
   getProgram,
+  getCompletionTrend,
   createProgram,
   updateProgram,
   archiveProgram,
