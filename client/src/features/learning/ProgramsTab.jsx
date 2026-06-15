@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useNavigate } from 'react-router-dom';
 import { Plus } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -15,6 +16,7 @@ const statusTone = { active: 'default', inactive: 'secondary', archived: 'outlin
 
 export default function ProgramsTab() {
   const { t } = useTranslation();
+  const navigate = useNavigate();
   const { can } = useRole();
   const canManage = can('create:program');
   const { data, isLoading } = useLearningPrograms({ status: 'active' });
@@ -64,8 +66,8 @@ export default function ProgramsTab() {
               {programs.map((program) => (
                 <TableRow
                   key={program._id}
-                  className={canManage ? 'cursor-pointer' : undefined}
-                  onClick={canManage ? () => setModal({ program }) : undefined}
+                  className="cursor-pointer"
+                  onClick={() => navigate(`/learning/programs/${program._id}`)}
                 >
                   <TableCell>
                     <div className="font-medium text-foreground">{program.name}</div>

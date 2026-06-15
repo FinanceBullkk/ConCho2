@@ -17,6 +17,8 @@ const initialForm = (current) => ({
   annualBudgetMinor: current?.annualBudgetMinor == null ? '' : String(current.annualBudgetMinor),
   currency: current?.currency || 'VND',
   hourlyCost: current?.avgLoadedHourlyCostMinor == null ? '' : String(current.avgLoadedHourlyCostMinor),
+  coordinatorCount: current?.coordinatorCount == null ? '' : String(current.coordinatorCount),
+  hoursReclaimed: current?.automationHoursReclaimedPerWeek == null ? '' : String(current.automationHoursReclaimedPerWeek),
 });
 
 export default function DashboardCostConfigForm({ current, onSaved }) {
@@ -32,8 +34,11 @@ export default function DashboardCostConfigForm({ current, onSaved }) {
     event.preventDefault();
     setError('');
     const currency = form.currency.trim().toUpperCase();
+    const optionalWholeOk = (v) => v === '' || isWholeNonNegative(v);
     if (!isWholeNonNegative(form.annualBudgetMinor) || currency.length !== 3
-      || (form.hourlyCost !== '' && !isWholeNonNegative(form.hourlyCost))) {
+      || !optionalWholeOk(form.hourlyCost)
+      || !optionalWholeOk(form.coordinatorCount)
+      || !optionalWholeOk(form.hoursReclaimed)) {
       setError(t(`${x}.invalid`));
       return;
     }
@@ -42,6 +47,8 @@ export default function DashboardCostConfigForm({ current, onSaved }) {
         annualBudgetMinor: Number(form.annualBudgetMinor),
         currency,
         avgLoadedHourlyCostMinor: form.hourlyCost === '' ? null : Number(form.hourlyCost),
+        coordinatorCount: form.coordinatorCount === '' ? null : Number(form.coordinatorCount),
+        automationHoursReclaimedPerWeek: form.hoursReclaimed === '' ? null : Number(form.hoursReclaimed),
       });
       toast.success(t(`${x}.saved`));
       onSaved?.();
@@ -78,6 +85,24 @@ export default function DashboardCostConfigForm({ current, onSaved }) {
             inputMode="numeric"
             value={form.hourlyCost}
             onChange={set('hourlyCost')}
+          />
+        </LearningField>
+        <LearningField label={t(`${x}.coordinatorCount`)}>
+          <input
+            aria-label={t(`${x}.coordinatorCount`)}
+            className={controlClass}
+            inputMode="numeric"
+            value={form.coordinatorCount}
+            onChange={set('coordinatorCount')}
+          />
+        </LearningField>
+        <LearningField label={t(`${x}.hoursReclaimed`)}>
+          <input
+            aria-label={t(`${x}.hoursReclaimed`)}
+            className={controlClass}
+            inputMode="numeric"
+            value={form.hoursReclaimed}
+            onChange={set('hoursReclaimed')}
           />
         </LearningField>
       </div>

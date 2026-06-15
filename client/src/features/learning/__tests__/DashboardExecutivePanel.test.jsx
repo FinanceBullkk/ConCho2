@@ -113,6 +113,8 @@ describe('DashboardExecutivePanel', () => {
       annualBudgetMinor: 2000000,
       currency: 'VND',
       avgLoadedHourlyCostMinor: null,
+      coordinatorCount: null,
+      automationHoursReclaimedPerWeek: null,
     });
   });
 
@@ -124,7 +126,7 @@ describe('DashboardExecutivePanel', () => {
     await user.click(screen.getByRole('button', { name: /save budget/i }));
 
     expect(
-      screen.getByText('Enter a whole non-negative budget and a 3-letter currency code.'),
+      screen.getByText('Enter whole non-negative numbers and a 3-letter currency code.'),
     ).toBeInTheDocument();
     expect(mocks.mutateAsync).not.toHaveBeenCalled();
   });
@@ -141,6 +143,42 @@ describe('DashboardExecutivePanel', () => {
     // Form hidden behind Edit when configured.
     expect(screen.queryByRole('button', { name: /save budget/i })).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: /edit budget/i })).toBeInTheDocument();
+  });
+
+  it('renders ROI heroes + narrative + the efficiency dividend (ROI §10) when configured', () => {
+    mocks.state.data = {
+      ...bundle,
+      financials: {
+        ...configuredFinancials,
+        avgLoadedHourlyCostMinor: 100000,
+        coordinatorCount: 4,
+        automationHoursReclaimedPerWeek: 10,
+        efficiencyDividendMinor: 208000000,
+      },
+    };
+    render(<DashboardExecutivePanel />);
+
+    // Heroes row with the four §10 headline figures.
+    expect(screen.getByText('Training coverage')).toBeInTheDocument();
+    expect(screen.getByText('Completions (12 mo)')).toBeInTheDocument();
+    expect(screen.getByText('Efficiency dividend')).toBeInTheDocument();
+    expect(screen.getByText('208,000,000 VND/yr')).toBeInTheDocument();
+
+    // Narrative banner is assembled from the real bundle.
+    expect(screen.getByText(/Training coverage is 60%/)).toBeInTheDocument();
+    expect(screen.getByText(/efficiency dividend projected/)).toBeInTheDocument();
+
+    // Every hero carries a "How it's calculated" assumption tooltip.
+    expect(screen.getAllByRole('button', { name: "How it's calculated" }).length).toBeGreaterThanOrEqual(3);
+  });
+
+  it('shows the efficiency dividend as not-configured until its inputs are set', () => {
+    mocks.state.data = { ...bundle, financials: configuredFinancials };
+    render(<DashboardExecutivePanel />);
+
+    expect(
+      screen.getByText('Set coordinators, hours reclaimed/week and hourly cost to project automation savings.'),
+    ).toBeInTheDocument();
   });
 
   it('marks a failed metric unavailable and shows the partial warning', () => {

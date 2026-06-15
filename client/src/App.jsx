@@ -25,6 +25,12 @@ const PeoplePage       = lazy(() => import('./pages/PeoplePage'));
 const LearningPage     = lazy(() => import('./features/learning/LearningPage'));
 const EnglishPage      = lazy(() => import('./features/english/EnglishPage'));
 const ReportsPage      = lazy(() => import('./pages/ReportsPage'));
+const DrillListPage    = lazy(() => import('./features/learning/DrillListPage'));
+const ProgramDetailPage = lazy(() => import('./features/learning/ProgramDetailPage'));
+const CohortDetailPage = lazy(() => import('./features/learning/CohortDetailPage'));
+const SessionDetailPage = lazy(() => import('./features/learning/SessionDetailPage'));
+const LearnerProfilePage = lazy(() => import('./features/learning/LearnerProfilePage'));
+const NotificationsPage = lazy(() => import('./features/notifications/NotificationsPage'));
 const SystemPage       = lazy(() => import('./pages/SystemPage'));
 const CalendarPage     = lazy(() => import('./pages/CalendarPage'));
 const ClassDetailPage  = lazy(() => import('./features/classes/ClassDetailPage'));
@@ -255,12 +261,28 @@ export default function App() {
                 <Route path="/home" element={<DashboardPage />} />
                 {/* Manager dashboard — any authenticated user; self-scoped server-side */}
                 <Route path="/my-team" element={<MyTeamPage />} />
+                {/* Notification center — any authenticated user; self-scoped. */}
+                <Route path="/notifications" element={<NotificationsPage />} />
 
                 <Route path="/people" element={
                   <ProtectedRoute roles={['Admin', 'Coordinator']}><PeoplePage /></ProtectedRoute>
                 } />
+                {/* Learner 360° (admin) — usersAPI.getById is Admin-gated. */}
+                <Route path="/people/:userId" element={
+                  <ProtectedRoute roles={['Admin']}><LearnerProfilePage /></ProtectedRoute>
+                } />
                 <Route path="/learning" element={
                   <ProtectedRoute roles={['Admin', 'Coordinator', 'Teacher']}><LearningPage /></ProtectedRoute>
+                } />
+                <Route path="/learning/programs/:id" element={
+                  <ProtectedRoute roles={['Admin', 'Coordinator', 'Teacher']}><ProgramDetailPage /></ProtectedRoute>
+                } />
+                <Route path="/learning/cohorts/:id" element={
+                  <ProtectedRoute roles={['Admin', 'Coordinator', 'Teacher']}><CohortDetailPage /></ProtectedRoute>
+                } />
+                {/* Session attendance marking — Admin/Teacher (the markers). */}
+                <Route path="/learning/sessions/:id" element={
+                  <ProtectedRoute roles={['Admin', 'Teacher']}><SessionDetailPage /></ProtectedRoute>
                 } />
                 {/* English-class section — the whole team-booking world
                     (classes/teams/schedules/attendance/evaluations/booking). */}
@@ -268,6 +290,11 @@ export default function App() {
                 <Route path="/calendar" element={<CalendarPage />} />
                 <Route path="/reports" element={
                   <ProtectedRoute roles={['Admin', 'Teacher']}><ReportsPage /></ProtectedRoute>
+                } />
+                {/* Drill list — filtered learner view behind a dashboard KPI.
+                    Admin-only: it reads the org-wide compliance report. */}
+                <Route path="/reports/drill" element={
+                  <ProtectedRoute roles={['Admin']}><DrillListPage /></ProtectedRoute>
                 } />
                 <Route path="/system" element={
                   <ProtectedRoute roles={['Admin']}><SystemPage /></ProtectedRoute>

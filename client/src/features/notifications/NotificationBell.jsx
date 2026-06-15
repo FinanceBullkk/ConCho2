@@ -120,6 +120,14 @@ export default function NotificationBell() {
             ))}
           </div>
         )}
+
+        <DropdownMenuSeparator />
+        <DropdownMenuItem
+          onSelect={() => navigate('/notifications')}
+          className="justify-center text-xs font-medium text-primary cursor-pointer"
+        >
+          View all notifications
+        </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
   );

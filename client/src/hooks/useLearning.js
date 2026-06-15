@@ -10,6 +10,24 @@ export const useLearningPrograms = (params = {}) =>
     queryFn: async () => (await learningAPI.getPrograms(params)).data,
   });
 
+// One program (detail page). Returns the program DTO directly (unwrapped).
+export const useLearningProgram = (id, options = {}) =>
+  useQuery({
+    queryKey: qk.learning.program(id),
+    queryFn: async () => (await learningAPI.getProgram(id)).data.data,
+    enabled: Boolean(id),
+    ...options,
+  });
+
+// One cohort (detail page header). Returns the cohort DTO directly.
+export const useLearningCohort = (id, options = {}) =>
+  useQuery({
+    queryKey: qk.learning.cohort(id),
+    queryFn: async () => (await learningAPI.getCohort(id)).data.data,
+    enabled: Boolean(id),
+    ...options,
+  });
+
 // English-class separation: `mode: 'team'` routes to /api/english/classes
 // (server forces the team world); 'cohort' filters the generic cohort list.
 export const useLearningCohorts = (params = {}) =>
@@ -328,3 +346,21 @@ export const useSubmitFeedback = () => {
     onSettled: () => invalidateLearning(qc),
   });
 };
+
+// ── Roster bulk actions (cohort detail, S4) ───────────────
+// Manually issue a certificate for one learner in a cohort. The caller loops
+// for bulk issue so it can report per-learner success/failure.
+export const useIssueCertificate = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (data) => learningAPI.issueCertificate(data).then((r) => r.data.data),
+    onSettled: () => invalidateLearning(qc),
+  });
+};
+
+// Nudge selected cohort learners (in-app notification). Resolves to
+// { cohortId, notified }.
+export const useNudgeCohort = () =>
+  useMutation({
+    mutationFn: ({ cohortId, ...data }) => learningAPI.nudgeCohort(cohortId, data).then((r) => r.data.data),
+  });

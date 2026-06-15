@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { Link } from 'react-router-dom';
 import { Plus, UserPlus, CalendarPlus, CalendarRange, Pencil, Archive } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -98,7 +99,9 @@ export default function CohortsTab({ mode = 'cohort', titleKey = 'learning.cohor
             <TableBody>
               {cohorts.map((cohort) => (
                 <TableRow key={cohort._id}>
-                  <TableCell className="font-medium">{cohort.cohortCode}</TableCell>
+                  <TableCell className="font-medium">
+                    <Link to={`/learning/cohorts/${cohort._id}`} className="text-primary hover:underline">{cohort.cohortCode}</Link>
+                  </TableCell>
                   <TableCell>{cohort.programName}</TableCell>
                   <TableCell>
                     <Badge variant={statusTone[cohort.status] || 'secondary'}>{t(`learning.status.${cohort.status}`, cohort.status)}</Badge>

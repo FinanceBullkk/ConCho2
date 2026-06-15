@@ -73,7 +73,9 @@ describe('ProgramFormModal — program builder policies', () => {
     expect(payload.facilitatorPolicy).toEqual({ assignmentRequired: true, visibility: 'all_facilitators' });
     expect(payload.recertifyPolicy).toEqual({ autoAssign: true });
     expect(payload.certificateValidityDays).toBeNull();
-  });
+    // ~10 sequential userEvent steps across the 5-step wizard; the default 5s
+    // budget is tight under full-suite parallel load (passes in <4s isolated).
+  }, 15000);
 
   it('prefills the persisted policies in edit mode', async () => {
     const user = userEvent.setup();
