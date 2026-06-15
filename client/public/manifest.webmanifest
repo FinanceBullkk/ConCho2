@@ -1,0 +1,14 @@
+{
+  "name": "TMS — Attendance",
+  "short_name": "TMS Attend",
+  "description": "Mark training attendance offline; changes sync when back online.",
+  "start_url": "/mobile-attendance",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0b0f14",
+  "theme_color": "#0b0f14",
+  "icons": [
+    { "src": "/favicon.svg", "type": "image/svg+xml", "sizes": "any", "purpose": "any maskable" }
+  ]
+}

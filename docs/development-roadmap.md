@@ -36,8 +36,8 @@ remainder is documented deferred-by-design scope (below), not active debt.
   `deliveryMode` is metadata-only by design (no enforcement contract).
 - **Next:** owner's call — start **Phase 6 PostgreSQL** readiness (Phase 0), the
   gated owner-ops below, or override one of the deferred-by-design items above.
-  (TMS.update north-star: gaps **#1–#6 shipped**; **#7 PWA offline attendance**
-  is the last remaining gap.)
+  (TMS.update north-star: **all 7 gaps shipped** (#1–#7); #7 PWA offline
+  attendance closed 2026-06-15. Remaining = optional pixel-fidelity QA pass.)
 - **Gated / owner-ops:** **D2 Google OIDC + Directory sync** (blocked on owner's
   Google OAuth app + Workspace domain); **paid always-on hosting** + Sentry
   cron-monitor dashboard; **Phase 6 PostgreSQL gate** (plan drafted,
@@ -111,6 +111,21 @@ Bug fixing and integration review rank above net-new feature rollout.
 > [`changelog-archive/2026-q2.md`](changelog-archive/2026-q2.md). Currently
 > inline: **2026-06-14 → 2026-06-15**.
 
+- **2026-06-15** — **TMS.update gap #7 — PWA offline attendance (LAST gap; all 7
+  now shipped).** Installable PWA for marking attendance with weak/no signal.
+  **Client-only** — the server `bulkMark` already upserts per `{scheduleId,
+  userId}` (last-write-wins) + audits, so no backend change. New
+  `features/attendance/`: `MobileAttendancePage` (today's sessions → big-tap
+  present/absent roster + "Mark rest present"), an IndexedDB queue
+  (`attendance-offline-db` keyed by (schedule,user) → last-write-wins locally),
+  a hand-rolled service worker (`public/sw.js`: app-shell + roster GET caching,
+  network-only for other `/api`, **Background Sync** `flush-attendance`) +
+  `manifest.webmanifest`, and `useOfflineAttendance` (online/offline tracking,
+  queue flush via the CSRF-safe axios client on reconnect / SW message /
+  `online` event). SW registered prod-only (main.jsx). New Admin/Teacher route
+  `/mobile-attendance` + Operations nav "Mobile (PWA)". Spec: attendance
+  (offline-marking requirement). Gates: client **381 ✓** (+8: offline-utils +
+  page), lint 63 (cap), build clean (sw.js + manifest emitted).
 - **2026-06-15** — **TMS.update fidelity batch (4 vertical slices) — close the
   visible deltas vs the design screenshots (branch
   `feat/tms-update-automation-engine`).** **C · Roles Compare/diff** (screenshot
