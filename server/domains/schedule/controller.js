@@ -1,10 +1,10 @@
 const scheduleService = require('../../services/scheduleService');
-const Schedule = require('../../models/Schedule');
 const { parsePagination, paginatedResponse } = require('../../helpers/pagination');
 const { handleError } = require('../../helpers/handleError');
 const auditService = require('../../services/auditService');
 const { invalidateAnalyticsCache } = require('../../middleware/analyticsCache');
 const useCases = require('./use-cases');
+const repository = require('./repository');
 
 // ──────────────────────────────────────────────────────────
 // Schedule Controller (Thin HTTP — delegates to scheduleService + use-cases)
@@ -158,7 +158,7 @@ const createSchedule = async (req, res) => {
 // is fetched here for the audit diff.
 const updateSchedule = async (req, res) => {
   try {
-    const existing = await Schedule.findById(req.params.id).lean();
+    const existing = await repository.findScheduleByIdLean(req.params.id);
     if (!existing) {
       return res.status(404).json({ success: false, message: 'Schedule not found' });
     }

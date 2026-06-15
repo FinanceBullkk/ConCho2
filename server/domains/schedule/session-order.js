@@ -1,6 +1,5 @@
-const mongoose = require('mongoose');
 const NodeCache = require('node-cache');
-const Schedule = require('../../models/Schedule');
+const repository = require('./repository');
 
 // ──────────────────────────────────────────────────────────
 // Session-order numbering + cache
@@ -47,11 +46,7 @@ const attachSessionNumbers = async (schedules) => {
   // Single query for all uncached classes. Durable-cancelled sessions never
   // consume a session number — "Session N" counts live sessions only.
   if (uncachedIds.length > 0) {
-    const objectIds = uncachedIds.map(id => new mongoose.Types.ObjectId(id));
-    const allSchedules = await Schedule.find({ classId: { $in: objectIds }, status: 'scheduled' })
-      .select('_id classId startTime')
-      .sort({ startTime: 1 })
-      .lean();
+    const allSchedules = await repository.findScheduledByClassIdsOrdered(uncachedIds);
 
     const tempMap = {};
     for (const s of allSchedules) {
