@@ -1,0 +1,126 @@
+/**
+ * ──────────────────────────────────────────────────────────
+ * Integration Tests — audit tamper-evident hash chain (Build Plan #3a)
+ * ──────────────────────────────────────────────────────────
+ * Proves the chain is real: every write links to the prior row by hash,
+ * verify re-derives it, and tampering (field edit or row deletion) is caught
+ * at the exact seq. Also covers the verify endpoint's auth.
+ */
+
+const request = require('supertest');
+const mongoose = require('mongoose');
+const { getApp, getTokens, getSeedData, getCsrfHeaders } = require('../setup');
+const AuditLog = require('../../models/AuditLog');
+const auditService = require('../../services/auditService');
+const { computeHash, verifyChain, GENESIS_PREV_HASH } = require('../../services/audit-chain');
+
+let app, tokens, csrf;
+
+beforeAll(async () => {
+  app = await getApp();
+  tokens = getTokens();
+  getSeedData();
+  csrf = await getCsrfHeaders(app);
+});
+
+afterAll(async () => {
+  await mongoose.disconnect();
+});
+
+// Build a clean chain of N entries from genesis and return the stored rows.
+const seedChain = async (n) => {
+  await AuditLog.deleteMany({});
+  auditService.__resetChainCache();
+  for (let i = 0; i < n; i += 1) {
+    auditService.record({
+      req: null,
+      action: 'updated',
+      entity: 'User',
+      entityId: new mongoose.Types.ObjectId(),
+      diff: { field: { before: i, after: i + 1 } },
+      note: `entry ${i}`,
+    });
+  }
+  await auditService.flush();
+  return AuditLog.find({ seq: { $exists: true } }).sort({ seq: 1 }).lean();
+};
+
+describe('Audit hash chain — write side', () => {
+  test('writes form a genesis-seeded, self-consistent chain', async () => {
+    const rows = await seedChain(3);
+
+    expect(rows.map((r) => r.seq)).toEqual([1, 2, 3]);
+    expect(rows[0].prevHash).toBe(GENESIS_PREV_HASH);
+
+    for (let i = 0; i < rows.length; i += 1) {
+      // Each row's stored hash re-derives from its own fields.
+      expect(rows[i].hash).toBe(computeHash(rows[i]));
+      // …and links to the prior row.
+      if (i > 0) expect(rows[i].prevHash).toBe(rows[i - 1].hash);
+    }
+  });
+});
+
+describe('Audit hash chain — verifyChain', () => {
+  test('reports ok for an intact chain', async () => {
+    await seedChain(4);
+    const res = await verifyChain({});
+    expect(res.ok).toBe(true);
+    expect(res.checked).toBe(4);
+    expect(res.firstBrokenSeq).toBeNull();
+    expect(res.reason).toBe('verified');
+  });
+
+  test('detects a field tamper at the altered seq (hash-mismatch)', async () => {
+    await seedChain(4);
+    // Alter a stored field WITHOUT recomputing the hash — simulates tampering.
+    await AuditLog.updateOne({ seq: 2 }, { $set: { note: 'TAMPERED' } });
+
+    const res = await verifyChain({});
+    expect(res.ok).toBe(false);
+    expect(res.firstBrokenSeq).toBe(2);
+    expect(res.reason).toBe('hash-mismatch');
+  });
+
+  test('detects a deleted middle row (missing-rows)', async () => {
+    await seedChain(4);
+    await AuditLog.deleteOne({ seq: 2 });
+
+    const res = await verifyChain({});
+    expect(res.ok).toBe(false);
+    expect(res.reason).toBe('missing-rows');
+    expect(res.firstBrokenSeq).toBe(3);
+  });
+
+  test('an empty chain verifies ok', async () => {
+    await AuditLog.deleteMany({});
+    auditService.__resetChainCache();
+    const res = await verifyChain({});
+    expect(res.ok).toBe(true);
+    expect(res.checked).toBe(0);
+  });
+});
+
+describe('POST /api/admin/audit/verify', () => {
+  test('admin gets an intact-chain verdict', async () => {
+    await seedChain(2);
+    const r = await request(app)
+      .post('/api/admin/audit/verify')
+      .set('Authorization', `Bearer ${tokens.admin}`)
+      .set(csrf);
+
+    expect(r.status).toBe(200);
+    expect(r.body.success).toBe(true);
+    expect(r.body.data.ok).toBe(true);
+    expect(r.body.data.checked).toBe(2);
+  });
+
+  test('a non-admin role is forbidden', async () => {
+    const r = await request(app)
+      .post('/api/admin/audit/verify')
+      .set('Authorization', `Bearer ${tokens.teacher}`)
+      .set(csrf);
+
+    expect(r.status).toBe(403);
+  });
+});
