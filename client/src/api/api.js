@@ -266,6 +266,7 @@ export const enrollmentsAPI = {
 export const learningAPI = {
   getPrograms: (params) => api.get('/learning/programs', { params }),
   getProgram: (id) => api.get(`/learning/programs/${id}`),
+  getCompletionTrend: (id) => api.get(`/learning/programs/${id}/completion-trend`),
   createProgram: (data) => api.post('/learning/programs', data),
   updateProgram: (id, data) => api.put(`/learning/programs/${id}`, data),
   archiveProgram: (id) => api.delete(`/learning/programs/${id}`),

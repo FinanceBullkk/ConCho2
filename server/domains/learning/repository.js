@@ -3,6 +3,15 @@ const LearningProgram = require('../../models/LearningProgram');
 const Schedule = require('../../models/Schedule');
 const Team = require('../../models/Team');
 const Enrollment = require('../../models/Enrollment');
+const Certificate = require('../../models/Certificate');
+
+// Certificates issued for a program, grouped by issue month (since `since`).
+// A certificate = a completed program run, so this is the real completion trend.
+const monthlyCompletions = (programId, since) =>
+  Certificate.aggregate([
+    { $match: { programId, isDeleted: { $ne: true }, issuedAt: { $gte: since } } },
+    { $group: { _id: { y: { $year: '$issuedAt' }, m: { $month: '$issuedAt' } }, count: { $sum: 1 } } },
+  ]);
 
 const findPrograms = (filter = {}) =>
   LearningProgram.find(filter).sort({ category: 1, name: 1 });
@@ -109,4 +118,5 @@ module.exports = {
   restoreCohortById,
   findDeletedCohorts,
   countSessionsByCohortIds,
+  monthlyCompletions,
 };

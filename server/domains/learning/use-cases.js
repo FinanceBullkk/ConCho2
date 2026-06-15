@@ -63,6 +63,23 @@ const getProgram = async (id) => {
   return programDto(program);
 };
 
+// Real completion trend: certificates issued for the program, last 8 months,
+// zero-filled so the sparkline always has a full axis.
+const TREND_MONTHS = 8;
+const getCompletionTrend = async (id) => {
+  const now = new Date();
+  const since = new Date(now.getFullYear(), now.getMonth() - (TREND_MONTHS - 1), 1);
+  const rows = await repository.monthlyCompletions(new mongoose.Types.ObjectId(id), since);
+  const counts = new Map(rows.map((r) => [`${r._id.y}-${String(r._id.m).padStart(2, '0')}`, r.count]));
+  const series = [];
+  for (let i = TREND_MONTHS - 1; i >= 0; i -= 1) {
+    const dt = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    const key = `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}`;
+    series.push({ month: key, completions: counts.get(key) || 0 });
+  }
+  return { series };
+};
+
 const createProgram = async (payload) => {
   const created = await repository.createProgram(normalizeProgramPayload(payload));
   return programDto(created);
@@ -314,6 +331,7 @@ const nudgeCohortLearners = async (cohortId, { userIds, message }) => {
 module.exports = {
   listPrograms,
   getProgram,
+  getCompletionTrend,
   createProgram,
   updateProgram,
   archiveProgram,

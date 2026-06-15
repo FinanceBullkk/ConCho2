@@ -86,6 +86,28 @@ describe('Learning Platform API — programs', () => {
     expect(res.body.data.completionPolicy.requiresAssessment).toBe(true);
   });
 
+  test('completion-trend returns an 8-month zero-filled series; participant 403', async () => {
+    const created = await request(app)
+      .post('/api/learning/programs')
+      .set('Authorization', `Bearer ${tokens.admin}`)
+      .set(csrf)
+      .send({ code: 'trend_prog', name: 'Trend Program', category: 'compliance', defaultSessionCount: 1, deliveryMode: 'online', schedulingMode: 'admin_scheduled' });
+    const id = created.body.data._id;
+
+    const res = await request(app)
+      .get(`/api/learning/programs/${id}/completion-trend`)
+      .set('Authorization', `Bearer ${tokens.admin}`);
+    expect(res.status).toBe(200);
+    expect(res.body.data.series).toHaveLength(8);
+    expect(res.body.data.series[0]).toHaveProperty('month');
+    expect(res.body.data.series[0]).toHaveProperty('completions');
+
+    const denied = await request(app)
+      .get(`/api/learning/programs/${id}/completion-trend`)
+      .set('Authorization', `Bearer ${tokens.leader}`);
+    expect(denied.status).toBe(403);
+  });
+
   test('teacher cannot create a learning program', async () => {
     const res = await request(app)
       .post('/api/learning/programs')
