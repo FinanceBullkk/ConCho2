@@ -1325,7 +1325,12 @@
       "updated": "Program updated",
       "archived": "Program archived",
       "archive": "Archive",
-      "archiveConfirm": "Confirm archive?"
+      "archiveConfirm": "Confirm archive?",
+      "cohortsEnrolled": "{{cohorts}} cohorts · {{enrolled}} enrolled",
+      "completionShort": "Completion",
+      "onTrack": "On track",
+      "watch": "Watch",
+      "atRisk": "At risk"
     },
     "paths": {
       "catalog": "Learning Paths",
