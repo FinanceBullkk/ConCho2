@@ -2,10 +2,12 @@
 capability: reconcile-job
 status: stable
 owners: [services/reconcileService, controllers/reconcileController, jobs]
-last_updated: 2026-06-12
+last_updated: 2026-06-15
 related_code:
   - server/services/reconcileService.js
+  - server/services/reconcile/healers.js
   - server/controllers/reconcileController.js
+  - server/routes/reconcileRoutes.js
   - server/models/ReconcileReport.js
   - server/models/CronRun.js
   - server/jobs
@@ -21,8 +23,9 @@ related_plans: []
 
 A nightly, read-only data-integrity sweep that detects drift between related
 collections (schedules, attendance, enrollments, teams) and persists a report for
-Admin review. It never fixes data automatically — fixes go through normal CRUD
-after a human reviews the report.
+Admin review. The *sweep* never mutates domain data. Separately, an Admin may
+**opt in to auto-heal** the four checks whose fix is deterministic, reversible,
+and audited; every other check stays manual and links to the record.
 
 ## Business Requirements (BR)
 
@@ -30,12 +33,16 @@ after a human reviews the report.
 - **BR-2:** Run automatically every night; also runnable on demand by an Admin.
 - **BR-3:** Persist each run's findings for review and trend tracking.
 - **BR-4:** Cron entry points must be authenticated by `CRON_TOKEN`.
+- **BR-5:** An Admin can apply a SAFE auto-heal for fixable checks; each fix is
+  deterministic, audited (`entity:'Reconcile'`), and reversible. Non-safe checks
+  are never auto-healed.
 
 ## Actors & Use Cases (UC)
 
 - **UC-1 (Cron):** `POST /api/cron/reconcile` nightly (02:00 UTC).
-- **UC-2 (Admin):** triggers a manual run and reads past reports
-  (`/api/admin/reconcile`).
+- **UC-2 (Admin):** triggers a manual run, reads past reports + the drift trend
+  (`/api/admin/reconcile`, `/api/admin/reconcile/trend`), and auto-heals a safe
+  check (`POST /api/admin/reconcile/heal`).
 
 ## Entities
 
@@ -84,6 +91,33 @@ The system SHALL run, without mutating data, the checks:
 The system SHALL persist each run as a `ReconcileReport` with all issues grouped
 by check, and record a `Reconcile` audit line.
 
+### Requirement: Safe auto-heal [BR-5, UC-2]
+
+The system SHALL let an Admin auto-heal exactly four SAFE checks via
+`POST /api/admin/reconcile/heal { check, refs? }`:
+- `orphan_room_booking` → delete the dangling RoomBooking ledger row (frees the slot);
+- `stale_waitlist_entry` → set the `waiting` entry to `cancelled` (dissolved);
+- `soft_deleted_in_team_members` → `$pull` the soft-deleted id from `members[]`;
+- `counter_drift` → bump `Counter.seq` up to the max code already in use.
+
+The server SHALL re-derive the affected check (never trust client-supplied row
+state), apply the fix to each current issue, audit each fix (`entity:'Reconcile'`),
+then re-derive the check to report what remains. A non-safe check SHALL be
+rejected with **422** (returning the safe-check list). The route is gated by
+`system.ops` and rate-limited.
+
+#### Scenario: Heal a bricked room slot
+- **GIVEN** a `RoomBooking` whose `Schedule` was hard-deleted (slot bricked)
+- **WHEN** an Admin posts `{ check: 'orphan_room_booking' }`
+- **THEN** the dangling row is deleted, a `Reconcile` audit line is written, and
+  the response reports `healed ≥ 1` with `remaining` re-derived
+
+#### Scenario: Non-safe check is refused
+- **GIVEN** an Admin posts `{ check: 'duplicate_active_enrollment' }`
+- **WHEN** the heal route handles it
+- **THEN** the response is **422** with the list of auto-healable checks; no data
+  is changed
+
 ### Requirement: Scheduled + manual run [BR-2, UC-2]
 
 The system SHALL run nightly via cron and support an Admin-triggered manual run
@@ -96,8 +130,11 @@ uses normal Admin authz.
 
 ## Non-Functional Requirements (NFR)
 
-- **Authz:** `/api/cron/reconcile` = `CRON_TOKEN`; `/api/admin/reconcile` = Admin.
-- **Read-only:** the service never writes to domain collections (only its report).
+- **Authz:** `/api/cron/reconcile` = `CRON_TOKEN`; `/api/admin/reconcile/*` =
+  `system.ops`; `/heal` additionally rate-limited.
+- **Read-only sweep:** the reconcile RUN never writes to domain collections (only
+  its report). Mutation happens ONLY through the explicit, opt-in `/heal` action
+  on the four safe checks — never on the nightly path.
 - **Performance:** batched aggregates (no N+1); shared queries across checks
   (e.g. enrollments fetched once for checks 2 & 3); 90-day lookback bounded by an
   `endTime` index.
@@ -112,7 +149,9 @@ uses normal Admin authz.
 - [ ] A ReconcileReport persists per run with grouped issues.
 - [ ] Nightly cron + Admin manual run both work and produce reports.
 - [ ] `/api/cron/*` rejects requests without a valid CRON_TOKEN.
-- [ ] No domain data is mutated by the job.
+- [ ] No domain data is mutated by the nightly/manual RUN.
+- [ ] Auto-heal fixes only the four safe checks, audits each, and re-derives the
+  remaining count; a non-safe check is rejected with 422.
 
 ## Error & Edge Cases
 
@@ -121,8 +160,13 @@ uses normal Admin authz.
 | Cron without token | 401/403 | supply CRON_TOKEN |
 | Unknown check in old report | tolerated on read | (crash-fix shipped) |
 | No drift found | empty report persisted | none |
+| Heal a non-safe check | 422 + safe-check list; no mutation | resolve from the record |
+| Heal when nothing is broken | no-op (`healed: 0`) | none |
 
 ## Out of Scope / Deferred
 
-- Auto-remediation (fixes are manual by design).
+- Auto-remediation of the non-safe checks (require human judgement — link to the
+  record). Only the four deterministic/reversible checks auto-heal.
+- True one-click UNDO of a heal (the audit line captures before-state for manual
+  reversal).
 - Alerting/notification on new drift (report-only today).

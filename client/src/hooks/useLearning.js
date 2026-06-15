@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { learningAPI, schedulesAPI, englishAPI } from '../api/api';
+import { learningAPI, schedulesAPI, englishAPI, analyticsAPI } from '../api/api';
 import { qk } from './queryKeys';
 
 // ── Reads ─────────────────────────────────────────────────
@@ -24,6 +24,18 @@ export const useCompletionTrend = (id, options = {}) =>
   useQuery({
     queryKey: ['learning', 'program', id, 'completion-trend'],
     queryFn: async () => (await learningAPI.getCompletionTrend(id)).data.data,
+    enabled: Boolean(id),
+    staleTime: 5 * 60 * 1000,
+    ...options,
+  });
+
+// Per-program analytics: stored daily trend series + live funnel (Build Plan #1).
+// `collecting:true` until the snapshot cron/backfill seeds history — UI then
+// shows a "collecting data" state instead of an empty/fake chart. analytics.read.
+export const useProgramAnalytics = (id, range = '90d', options = {}) =>
+  useQuery({
+    queryKey: ['analytics', 'program', id, range],
+    queryFn: async () => (await analyticsAPI.getProgramAnalytics(id, range)).data.data,
     enabled: Boolean(id),
     staleTime: 5 * 60 * 1000,
     ...options,
