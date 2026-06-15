@@ -1,7 +1,9 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { render, screen } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import ReconcilePage from '../ReconcilePage';
+
+vi.mock('sonner', () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
 
 const fixture = vi.hoisted(() => ({
   report: {
@@ -64,7 +66,9 @@ vi.mock('../../../api/api', () => ({
     getHistory: vi.fn().mockResolvedValue({ data: { data: [fixture.report] } }),
     getLatest: vi.fn().mockResolvedValue({ data: { data: fixture.report } }),
     getById: vi.fn(),
-    triggerRun: vi.fn(),
+    getTrend: vi.fn().mockResolvedValue({ data: { data: [] } }),
+    triggerRun: vi.fn().mockResolvedValue({ data: { data: fixture.report } }),
+    heal: vi.fn().mockResolvedValue({ data: { data: { check: 'counter_drift', attempted: 1, healed: 1, failed: 0, remaining: 0, results: [] } } }),
   },
   cronAPI: {
     getHealth: vi.fn().mockResolvedValue({ data: { data: { jobs: [] } } }),
@@ -102,5 +106,32 @@ describe('ReconcilePage', () => {
     expect(screen.getByText('Learner has two active enrollments')).toBeInTheDocument();
     expect(screen.getByText('Prototype-like future check payload')).toBeInTheDocument();
     expect(screen.getByText('Future check payload')).toBeInTheDocument();
+  });
+
+  it('offers Auto-heal only for a healable check and calls heal on click', async () => {
+    const { reconcileAPI } = await import('../../../api/api');
+    renderPage();
+
+    // Filter to a healable check (counter_drift) by clicking its summary card.
+    const cardLabel = (await screen.findAllByText('Counter drift'))[0];
+    fireEvent.click(cardLabel.closest('button'));
+
+    // The healable check exposes an Auto-heal action; clicking it calls heal().
+    const healBtn = await screen.findByRole('button', { name: /Auto-heal 1/i });
+    fireEvent.click(healBtn);
+
+    await waitFor(() => expect(reconcileAPI.heal).toHaveBeenCalledWith('counter_drift'));
+  });
+
+  it('does NOT offer Auto-heal for a non-healable check', async () => {
+    renderPage();
+
+    const cardLabel = (await screen.findAllByText('Duplicate active enrollment'))[0];
+    fireEvent.click(cardLabel.closest('button'));
+
+    expect(await screen.findByText(/Needs manual review/i)).toBeInTheDocument();
+    // No Auto-heal ACTION button (named "Auto-heal <n>"); the "Auto-healable"
+    // card hint is not a button action.
+    expect(screen.queryByRole('button', { name: /Auto-heal \d/i })).not.toBeInTheDocument();
   });
 });

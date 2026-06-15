@@ -93,6 +93,18 @@ const UNKNOWN_CHECK_META = {
   severity: 'info',
 };
 
+// Checks the backend can auto-heal with a safe, deterministic, reversible fix
+// (mirrors SAFE_CHECKS in server/services/reconcile/healers.js). Every other
+// check requires human judgement and links to the record instead.
+export const HEALABLE_CHECKS = new Set([
+  'orphan_room_booking',
+  'stale_waitlist_entry',
+  'soft_deleted_in_team_members',
+  'counter_drift',
+]);
+
+export const isHealableCheck = (check) => HEALABLE_CHECKS.has(check);
+
 export const getReconcileCheckKeys = (report) => {
   const known = Object.keys(RECONCILE_CHECK_META);
   const reported = Object.keys(report?.summary || {}).filter((key) => key !== 'total');
