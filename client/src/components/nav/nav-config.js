@@ -3,7 +3,7 @@ import {
   CalendarCheck, ClipboardCheck, BookA, UsersRound, ClipboardEdit,
   LayoutDashboard, BarChart3, ChartLine, Download,
   Building2, MapPin, DoorOpen, Settings, Database, RefreshCw, ShieldCheck, ScrollText,
-  Compass, Languages, FileText, Zap, Sparkles, Palette, Calculator,
+  Compass, Languages, FileText, Zap, Sparkles, Palette, Calculator, Smartphone,
 } from 'lucide-react';
 
 // ──────────────────────────────────────────────────────────
@@ -53,6 +53,7 @@ export const NAV_GROUPS = [
     items: [
       tab('/calendar', 'schedules', 'nav.sections.schedules', CalendarCheck, { access: ADMIN_ONLY }),
       tab('/calendar', 'attendance', 'nav.sections.attendance', ClipboardCheck, { access: { Admin: 'full', Teacher: 'full' } }),
+      { path: '/mobile-attendance', labelKey: 'nav.sections.mobileAttendance', icon: Smartphone, access: { Admin: 'full', Teacher: 'full' }, parentRoutes: ['/mobile-attendance'] },
     ],
   },
   {
