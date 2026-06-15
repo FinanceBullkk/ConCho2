@@ -801,6 +801,8 @@
         "completed": "Completed",
         "certificates": "Certificates"
       },
+      "trendTitle": "Completion trend",
+      "trendSub": "Certificates issued per month · last 8 months",
       "funnelTitle": "Learner funnel",
       "funnelSub": "Enrolled → Completed → Certified",
       "funnelEnrolled": "Enrolled",

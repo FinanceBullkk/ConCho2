@@ -65,6 +65,9 @@ router
   .put(requireCapability('program.manage'), validate({ params: idParam, body: updateProgramBody }), controller.updateProgram)
   .delete(requireCapability('program.manage'), validate({ params: idParam }), controller.archiveProgram);
 
+// Real completion trend (certificates/month, last 8 months) for the detail page.
+router.get('/programs/:id/completion-trend', requireCapability('report.read'), validate({ params: idParam }), controller.getCompletionTrend);
+
 router
   .route('/cohorts')
   .get(validate({ query: listCohortsQuery }), controller.listCohorts)

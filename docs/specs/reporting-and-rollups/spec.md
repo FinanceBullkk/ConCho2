@@ -179,6 +179,13 @@ falls back to 30.
 - **GIVEN** an Admin requests `?window=365`
 - **THEN** `windowDays = 365`; an invalid window falls back to 30; a Participant gets **403**
 
+### Requirement: Program completion trend [BR-1, UC-3]
+
+`GET /api/learning/programs/:id/completion-trend` (capability `report.read`)
+SHALL return `series[]` of the last 8 months `{ month: 'YYYY-MM', completions }`,
+zero-filled, where completions = certificates issued for the program that month
+(real data — drives the Program-detail trend sparkline).
+
 ## Non-Functional Requirements (NFR)
 
 Inherits `security-platform`. Specifics:
