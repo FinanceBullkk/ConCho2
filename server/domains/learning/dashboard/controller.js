@@ -38,6 +38,16 @@ const getSetup = async (req, res) => {
   }
 };
 
+// Per-department performance table (Overview) + Departments cards.
+const getDepartmentPerformance = async (req, res) => {
+  try {
+    const data = await useCases.buildDepartmentPerformance({ window: req.query.window });
+    res.json({ success: true, data });
+  } catch (error) {
+    handleError(res, error);
+  }
+};
+
 const getCostConfig = async (req, res) => {
   try {
     const data = await executiveUseCases.getCostConfig(req.user);
@@ -67,6 +77,7 @@ module.exports = {
   getOperationalDashboard,
   getExecutiveDashboard,
   getSetup,
+  getDepartmentPerformance,
   getCostConfig,
   putCostConfig,
 };

@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Spinner } from '../../components/Spinner';
 import { useRole } from '../../hooks/useRole';
 import { useDepartments, useCreateDepartment, useArchiveDepartment } from '../../hooks/useOrg';
+import DepartmentPerformance from '../learning/DepartmentPerformance';
 
 // ──────────────────────────────────────────────────────────
 // DepartmentsPage — People → Departments tab (Wave D3).
@@ -66,6 +67,7 @@ export default function DepartmentsPage() {
 
   return (
     <div className="space-y-4">
+      {can('read:reports') && <DepartmentPerformance variant="cards" />}
       {canManage && <CreateDepartmentForm />}
 
       {isLoading ? (

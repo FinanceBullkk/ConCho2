@@ -80,6 +80,8 @@ vi.mock('../../../hooks/useLearningDashboard', () => ({
   useExecutiveDashboard: () => ({ data: null, isLoading: true, isError: false, refetch: vi.fn() }),
   useCostConfig: () => ({ data: null }),
   useSetCostConfig: () => ({ mutateAsync: vi.fn(), isPending: false }),
+  // Dept-performance table (own component/test) — loading stub here.
+  useDepartmentPerformance: () => ({ data: null, isLoading: true, isError: false }),
 }));
 
 vi.mock('../../../hooks/useRole', () => ({

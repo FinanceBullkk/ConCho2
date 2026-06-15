@@ -13,6 +13,7 @@ import { EnumSelect, LearningField } from './LearningField';
 import { MetricBars, MetricUnavailable, StatTile } from './DashboardWidgets';
 import { DonutStat } from './DashboardCharts';
 import { ExpiringCertificatesList, OverdueList } from './DashboardTopLists';
+import DepartmentPerformance from './DepartmentPerformance';
 
 const WINDOWS = ['30', '60', '90'];
 const TOP_BARS = 8; // dense-but-scannable cap for program/department bars
@@ -142,13 +143,13 @@ export default function DashboardOperationalPanel() {
                 />
               </div>
             </div>
-            <div className="grid gap-4 lg:grid-cols-2">
-              <MetricBars title={t('learning.dashboard.byProgram')} rows={completionBars(completion.programs)} />
-              <MetricBars title={t('learning.dashboard.byDepartment')} rows={completionBars(completion.departments)} />
-            </div>
+            <MetricBars title={t('learning.dashboard.byProgram')} rows={completionBars(completion.programs)} />
           </>
         ) : <MetricUnavailable />}
       </Section>
+
+      {/* Department performance table + time-range (real per-dept aggregation) */}
+      <DepartmentPerformance variant="table" />
 
       <Section title={t('learning.dashboard.sections.attendanceSessions')}>
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">

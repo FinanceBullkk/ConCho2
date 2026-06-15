@@ -89,6 +89,7 @@ export const qk = {
     dashboardOperational: (params) => ['learning', 'dashboard', 'operational', params],
     dashboardExecutive: (params) => ['learning', 'dashboard', 'executive', params],
     dashboardSetup: ['learning', 'dashboard', 'setup'],
+    dashboardDepartments: (window) => ['learning', 'dashboard', 'departments', window],
     costConfig: ['learning', 'dashboard', 'cost-config'],
     sessions: (params) => ['learning', 'sessions', params],
   },

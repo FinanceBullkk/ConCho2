@@ -326,6 +326,8 @@ export const learningAPI = {
   getOperationalDashboard: (params) => api.get('/learning/dashboard/operational', { params }),
   // Home onboarding checklist + at-a-glance counts.
   getSetup: () => api.get('/learning/dashboard/setup'),
+  // Per-department performance (Overview table + Departments cards).
+  getDepartmentPerformance: (params) => api.get('/learning/dashboard/departments', { params }),
   // Executive ROI bundle + L&D cost config (Admin-only server-side).
   getExecutiveDashboard: (params) => api.get('/learning/dashboard/executive', { params }),
   getCostConfig: () => api.get('/learning/dashboard/cost-config'),
