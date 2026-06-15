@@ -110,9 +110,15 @@ const scheduleSchema = new mongoose.Schema(
 
     // ── Session details (TMS.update) ────────────────────────
     // Display/metadata only — never affect booking, room, or time logic.
-    // topic = session title; agenda = ordered talking points; materials =
-    // labelled resource links; customFields = CustomFieldDefinition
-    // entity='Session' value map (keyed by the definition's `key`).
+    // sessionTypeId = optional SessionType taxonomy (prefill hints only — the
+    // type NEVER gates slot/room/conflict logic); topic = session title;
+    // agenda = ordered talking points; materials = labelled resource links;
+    // customFields = CustomFieldDefinition entity='Session' value map.
+    sessionTypeId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'SessionType',
+      default: null,
+    },
     topic: { type: String, trim: true, default: '' },
     agenda: { type: [String], default: [] },
     materials: {
