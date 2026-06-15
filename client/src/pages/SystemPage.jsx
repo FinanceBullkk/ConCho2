@@ -181,7 +181,7 @@ function AuditLogTab() {
         <div aria-live="polite" className="mt-3 text-xs">
           {verify.isError ? (
             <p className="text-destructive">
-              Could not verify the chain. {verify.error?.response?.data?.error?.message || 'Please try again.'}
+              Could not verify the chain. {verify.error?.response?.data?.message || 'Please try again.'}
             </p>
           ) : verifyResult ? (
             verifyResult.ok ? (
