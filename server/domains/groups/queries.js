@@ -1,6 +1,4 @@
-const Team = require('../../models/Team');
-const Schedule = require('../../models/Schedule');
-const Attendance = require('../../models/Attendance');
+const repository = require('./repository');
 const { handleError } = require('../../helpers/handleError');
 const { paginatedResponse } = require('../../helpers/pagination');
 
@@ -32,30 +30,21 @@ const getTeams = async (req, res) => {
     const isPaginated = req.query.page !== undefined || req.query.limit !== undefined;
     const slim = req.query.slim === 'true';
 
-    let query = Team.find()
-      .populate('classId', 'classCode courseName status')
-      .populate('leaderId', 'empCode name department status');
-    if (!slim) {
-      query = query.populate('members', 'empCode name department status');
-    }
-    query = query.sort({ name: 1 });
-
     if (isPaginated) {
       // teamRoutes has no zod schema on GET so query params come through as
-      // strings. Coerce to numbers ourselves before handing off to
-      // parsePagination so the response shape carries numeric page/limit
-      // (matches other paginated endpoints that DO have zod schemas).
+      // strings. Coerce to numbers ourselves so the response shape carries
+      // numeric page/limit (matches other paginated endpoints with zod schemas).
       const page = Number(req.query.page) || 1;
       const limit = Math.min(Number(req.query.limit) || 50, 200);
       const skip = (page - 1) * limit;
       const [teams, total] = await Promise.all([
-        query.clone().skip(skip).limit(limit),
-        Team.countDocuments(),
+        repository.findTeamsPage({ slim, skip, limit }),
+        repository.countTeams(),
       ]);
       return res.json(paginatedResponse({ data: teams, total, page, limit }));
     }
 
-    const teams = await query;
+    const teams = await repository.findAllTeams({ slim });
     res.json({ success: true, count: teams.length, data: teams });
   } catch (error) {
     handleError(res, error);
@@ -67,10 +56,7 @@ const getTeams = async (req, res) => {
  */
 const getTeamById = async (req, res) => {
   try {
-    const team = await Team.findById(req.params.id)
-      .populate('classId', 'classCode courseName status')
-      .populate('leaderId', 'empCode name department status')
-      .populate('members', 'empCode name department status');
+    const team = await repository.findTeamByIdPopulated(req.params.id);
 
     if (!team) {
       return res.status(404).json({ success: false, message: 'Team not found' });
@@ -86,25 +72,11 @@ const getTeamById = async (req, res) => {
  */
 const getMyTeams = async (req, res) => {
   try {
-    const teams = await Team.find({
-      $or: [
-        { leaderId: req.user._id },
-        { members: req.user._id },
-      ],
-    })
-      // Nested-populate the program's schedulingMode so the booking client can
-      // gate cells before the server 403/400s (Pass C is enforced at bookSlot).
-      // Class.programId is nullable → a program-less class exposes no nested
-      // program; the client resolver falls back to 'leader_booking' to match
-      // server/domains/schedule/repository.js → findClassSchedulingMode.
-      .populate({
-        path: 'classId',
-        select: 'classCode courseName status programId',
-        populate: { path: 'programId', select: 'schedulingMode' },
-      })
-      .populate('leaderId', 'empCode name department status')
-      .populate('members', 'empCode name department status')
-      .sort({ name: 1 });
+    // Nested program.schedulingMode lets the booking client gate cells before
+    // the server 403/400s (Pass C is enforced at bookSlot). A program-less class
+    // exposes no nested program; the client resolver falls back to
+    // 'leader_booking' (matches schedule repo → findClassSchedulingMode).
+    const teams = await repository.findTeamsForUser(req.user._id);
 
     res.json({ success: true, count: teams.length, data: teams });
   } catch (error) {
@@ -118,11 +90,7 @@ const getMyTeams = async (req, res) => {
  */
 const getDeletedTeams = async (req, res) => {
   try {
-    const teams = await Team.find({ isDeleted: true })
-      .populate('classId', 'classCode courseName')
-      .populate('leaderId', 'empCode name')
-      .sort({ deletedAt: -1 })
-      .lean();
+    const teams = await repository.findDeletedTeams();
 
     res.json({ success: true, count: teams.length, data: teams });
   } catch (error) {
@@ -136,19 +104,13 @@ const getDeletedTeams = async (req, res) => {
 const getTeamProgress = async (req, res) => {
   try {
     const teamId = req.params.id;
-    const team = await Team.findById(teamId)
-      .populate('members', 'empCode name department status')
-      .populate('classId', 'classCode courseName')
-      .lean();
+    const team = await repository.findTeamForProgress(teamId);
 
     if (!team) return res.status(404).json({ success: false, message: 'Team not found' });
 
-    const schedules = await Schedule.find({ bookedTeamId: teamId, status: 'scheduled' })
-      .sort({ startTime: 1 })
-      .lean();
-
+    const schedules = await repository.findTeamScheduledSessions(teamId);
     const scheduleIds = schedules.map(s => s._id);
-    const attendances = await Attendance.find({ scheduleId: { $in: scheduleIds } }).lean();
+    const attendances = await repository.findAttendanceForSchedules(scheduleIds);
 
     res.json({
       success: true,

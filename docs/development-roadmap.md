@@ -50,7 +50,7 @@ remainder is documented deferred-by-design scope (below), not active debt.
 | Phase | Theme | Progress | Status |
 |------|-------|---------:|--------|
 | 0 | Architecture baseline + safety net | ~93% | 🟢 near done |
-| 1 | Backend modular-monolith refactor | ~98% | 🟢 near done (2026-06-10: domains/attendance+groups+schedule routes extracted; repository ADR; schedule use-case tests; frontend `features/` migration complete) |
+| 1 | Backend modular-monolith refactor | ~99% | 🟢 near done (2026-06-10: domains/attendance+groups+schedule routes extracted; repository ADR; schedule use-case tests; frontend `features/` migration complete · 2026-06-15: model access fully consolidated behind per-domain `repository.js` in schedule/attendance/groups — the 3 last all-files-leak domains) |
 | 2 | Learning catalog + generic cohort model | ~95% | 🟢 near done |
 | 3 | Multi-program enrollment + session scheduling | ~85% | 🟢 near done (genuine work shipped; only nomination workflow deferred-by-design) |
 | 4 | Frontend L&D workspace (CRUD UI) | ~82% | 🟢 near done (CRUD + policy editor complete) |
@@ -111,6 +111,21 @@ Bug fixing and integration review rank above net-new feature rollout.
 > [`changelog-archive/2026-q2.md`](changelog-archive/2026-q2.md). Currently
 > inline: **2026-06-14 → 2026-06-15**.
 
+- **2026-06-15** — **Repository-layer consolidation for the 3 leaky domains
+  (Phase 1 architectural; no behaviour change).** `schedule`, `attendance` and
+  `groups` each had Mongoose calls scattered across controller / policy / helper
+  files (attendance + groups had no `repository.js` at all). Every collection
+  touch now lives behind the domain's `repository.js`: **schedule** pulled 18
+  model calls out of 8 files into its existing repo; **attendance** gained a repo
+  (controller/marking/scope reads+writes + the by-employee/team/class/personal
+  analytics pipelines — analytics keeps scope resolution + JS rollups); **groups**
+  gained a repo (list/detail reads, 1-team-per-class/member guards,
+  create/update/soft-delete/restore writes, in-tx enrollment sync). Behaviour
+  preserved 1:1 — same filters/projections/populate/lean, transaction-session
+  passthrough, raw `Team.collection` soft-delete writes, and `.save()` hook
+  semantics. `mongoose` stays only for `startSession` (orchestration) + in-repo
+  ObjectId coercion. Pure refactor → no spec change. Full server suite green
+  (108 suites / 1044 tests).
 - **2026-06-15** — **Dashboard/Reports re-skin → prototype control-room fidelity
   (in-stack, no behaviour change).** Operational dashboard now leads with a
   4-KPI headline (completion · overdue · attendance · certs-expiring, with

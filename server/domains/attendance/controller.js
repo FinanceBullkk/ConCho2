@@ -3,8 +3,7 @@ const auditService = require('../../services/auditService');
 const attendancePolicy = require('../../policy/attendance');
 const sessionInstructorsPolicy = require('../../policy/sessionInstructors');
 const { isCohortAssignedOnly } = require('../schedule/facilitator-visibility-policy');
-const Schedule = require('../../models/Schedule');
-const Class = require('../../models/Class');
+const repository = require('./repository');
 const { handleError } = require('../../helpers/handleError');
 const { parsePagination, paginatedResponse } = require('../../helpers/pagination');
 
@@ -21,9 +20,9 @@ const { parsePagination, paginatedResponse } = require('../../helpers/pagination
 // the UNION. Returns { cls, schedule }, or null when the schedule / class is
 // missing.
 const loadClassForSchedule = async (scheduleId) => {
-  const sch = await Schedule.findById(scheduleId).select('classId sessionInstructorIds').lean();
+  const sch = await repository.findScheduleForAuthz(scheduleId);
   if (!sch) return null;
-  const cls = await Class.findById(sch.classId).lean();
+  const cls = await repository.findClassById(sch.classId);
   if (!cls) return null;
   // facilitatorPolicy.visibility === 'assigned_only' → only named instructors
   // (not the standing cohort-teacher binding) may mark/read this session.
@@ -131,7 +130,7 @@ const getAnalyticsByTeam = async (req, res) => {
 
 const getAnalyticsByClass = async (req, res) => {
   try {
-    const cls = await Class.findById(req.query.classId).lean();
+    const cls = await repository.findClassById(req.query.classId);
     if (!cls) return res.status(404).json({ success: false, message: 'Class not found' });
     const decision = attendancePolicy.canReadBySchedule(req.user, cls);
     if (!decision.allowed) return policyDeny(res, decision);

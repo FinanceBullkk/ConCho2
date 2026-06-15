@@ -21,7 +21,7 @@
 // allowed (history still renders client-side). It never invents fake slots.
 // ──────────────────────────────────────────────────────────
 
-const Setting = require('../../models/Setting');
+const repository = require('./repository');
 const { toVN, VN_TZ } = require('../../helpers/dayjsConfig');
 const { ServiceError } = require('../../helpers/ServiceError');
 
@@ -113,7 +113,7 @@ const toDto = (d) => ({
 
 /** Read the raw ALLOWED_TIME_SLOTS value (array) from Settings. */
 const readRawSlots = async () => {
-  const setting = await Setting.findOne({ key: 'ALLOWED_TIME_SLOTS' }).lean();
+  const setting = await repository.findAllowedTimeSlotsSetting();
   return Array.isArray(setting?.value) ? setting.value : [];
 };
 
