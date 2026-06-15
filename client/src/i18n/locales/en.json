@@ -865,6 +865,7 @@
       "saveError": "Couldn't save attendance.",
       "stillUnmarked": "{{count}} learners still unmarked",
       "presentPct": "present",
+      "find": "Find a learner…",
       "empty": "No learners on this session roster."
     },
     "cohortDetail": {
