@@ -272,6 +272,7 @@ app.use('/api/settings', require('./routes/settingRoutes'));
 app.use('/api/access', require('./domains/access/routes'));
 app.use('/api/custom-fields', require('./domains/custom-field/routes'));
 app.use('/api/dashboard', require('./routes/dashboardRoutes'));
+app.use('/api/analytics', require('./routes/analyticsRoutes'));
 app.use('/api/admin-db', require('./routes/adminDbRoutes'));
 app.use('/api/admin/audit', require('./routes/auditRoutes'));
 app.use('/api/admin/reconcile', require('./routes/reconcileRoutes'));
@@ -404,6 +405,8 @@ if (process.env.NODE_ENV !== 'test') {
     // shutdown path can stop them cleanly (OPS-005).
     const { startReconcileJob, stopReconcileJob } = require('./jobs/reconcileJob');
     startReconcileJob();
+    const { startSnapshotJob, stopSnapshotJob } = require('./jobs/snapshotJob');
+    startSnapshotJob();
 
     // Graceful shutdown on SIGTERM (sent by Render, Kubernetes, systemd on
     // deploy/stop). Give in-flight requests up to 10s to complete, then
@@ -418,6 +421,9 @@ if (process.env.NODE_ENV !== 'test') {
       // Stop scheduled jobs synchronously so no new DB work begins.
       try { if (typeof stopReconcileJob === 'function') stopReconcileJob(); } catch (e) {
         logger.warn({ err: e?.message }, 'stopReconcileJob threw');
+      }
+      try { if (typeof stopSnapshotJob === 'function') stopSnapshotJob(); } catch (e) {
+        logger.warn({ err: e?.message }, 'stopSnapshotJob threw');
       }
 
       server.close(async (err) => {

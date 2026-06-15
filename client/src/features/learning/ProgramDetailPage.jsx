@@ -9,7 +9,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { PageHeader } from '@/components/PageHeader';
 import { EmptyState } from '@/components/EmptyState';
 import { Spinner } from '@/components/Spinner';
-import { useLearningProgram, useLearningCohorts, useCompletionRollup, useCompletionTrend } from '../../hooks/useLearning';
+import { useLearningProgram, useLearningCohorts, useCompletionRollup, useCompletionTrend, useProgramAnalytics } from '../../hooks/useLearning';
 import { useRole } from '../../hooks/useRole';
 import { StatTile, MetricBars } from './DashboardWidgets';
 import { AreaTrend } from './DashboardCharts';
@@ -76,6 +76,7 @@ export default function ProgramDetailPage() {
   const { data: cohortsData } = useLearningCohorts({ programId: id });
   const { data: rollup } = useCompletionRollup({ enabled: isAdmin || can('read:reports') });
   const { data: trend } = useCompletionTrend(id, { enabled: isAdmin || can('read:reports') });
+  const { data: analytics } = useProgramAnalytics(id, '90d', { enabled: isAdmin || can('read:reports') });
 
   const trendSeries = trend?.series || [];
   const cohorts = cohortsData?.data || [];
@@ -208,9 +209,34 @@ export default function ProgramDetailPage() {
         <TabsContent value="analytics">
           <Card>
             <CardHeader className="pb-3"><CardTitle className="text-base">{t(`${d}.analyticsTitle`)}</CardTitle></CardHeader>
-            <CardContent className="space-y-3">
+            <CardContent className="space-y-4">
               <MetricBars title="" rows={funnelRows} />
-              <p className="text-xs text-subtle-foreground">{t(`${d}.analyticsNote`)}</p>
+
+              {/* Server-computed conversion (Build Plan #1 — real funnel). */}
+              {analytics?.funnel?.conversion && (
+                <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
+                  <span>Enrolled → Completed: <span className="font-medium text-foreground tabular-nums">{analytics.funnel.conversion.enrolledToCompleted}%</span></span>
+                  <span>Completed → Certified: <span className="font-medium text-foreground tabular-nums">{analytics.funnel.conversion.completedToCertified}%</span></span>
+                  <span>Overall: <span className="font-medium text-foreground tabular-nums">{analytics.funnel.conversion.overall}%</span></span>
+                </div>
+              )}
+
+              {/* Stored daily trend (real history). Degrades gracefully until the
+                  nightly snapshot/backfill seeds rows — never a fake line. */}
+              {analytics?.series?.active_enrollments?.length > 0 ? (
+                <div>
+                  <p className="mb-2 text-xs font-medium text-muted-foreground">{t(`${d}.activeEnrollmentsTrend`, 'Active enrollments · last 90 days')}</p>
+                  <AreaTrend
+                    series={[{ key: 'active', label: 'Active', points: analytics.series.active_enrollments.map((p) => p.value), className: 'text-primary' }]}
+                    labels={analytics.series.active_enrollments.map((p) => new Date(p.date).toLocaleDateString('en', { month: 'short', day: 'numeric' }))}
+                    title="Active enrollments"
+                  />
+                </div>
+              ) : (
+                <p className="rounded-md border border-dashed border-border px-3 py-2 text-xs text-subtle-foreground">
+                  {t(`${d}.analyticsCollecting`, 'Collecting data — the daily trend builds up from the nightly snapshot.')}
+                </p>
+              )}
             </CardContent>
           </Card>
         </TabsContent>

@@ -37,7 +37,10 @@ remainder is documented deferred-by-design scope (below), not active debt.
 - **Next:** owner's call — start **Phase 6 PostgreSQL** readiness (Phase 0), the
   gated owner-ops below, or override one of the deferred-by-design items above.
   (TMS.update north-star: **all 7 gaps shipped** (#1–#7); #7 PWA offline
-  attendance closed 2026-06-15. Remaining = optional pixel-fidelity QA pass.)
+  attendance closed 2026-06-15. Now executing the **Investment Build Plan** deep
+  features — **#1 analytics time-series shipped 2026-06-15** (and #3a audit
+  hash-chain PR #108, #4 reconcile auto-heal PR #109 in flight); next Wave-3
+  infra: Studio Scheduling (`SessionType`).)
 - **Gated / owner-ops:** **D2 Google OIDC + Directory sync** (blocked on owner's
   Google OAuth app + Workspace domain); **paid always-on hosting** + Sentry
   cron-monitor dashboard; **Phase 6 PostgreSQL gate** (plan drafted,
@@ -111,6 +114,24 @@ Bug fixing and integration review rank above net-new feature rollout.
 > [`changelog-archive/2026-q2.md`](changelog-archive/2026-q2.md). Currently
 > inline: **2026-06-14 → 2026-06-15**.
 
+- **2026-06-15** — **TMS.update Build Plan #1: real analytics time-series
+  (`MetricSnapshot`) + funnel (new infra).** No more trends recomputed/faked at
+  read time — a durable daily rollup now stores real history. New
+  `MetricSnapshot` model (one row per `{scope (global|program), scopeId, key,
+  UTC day}`, ~400d TTL), `jobs/snapshotJob.js` nightly cron (registered +
+  cron-monitored), `services/metricSnapshotService.js` (compute/write/backfill),
+  `services/analyticsSeriesService.js` (series + live enroll→complete→certify
+  funnel + per-program), and `routes/analyticsRoutes.js` →
+  `GET /api/analytics/{series,funnel,program/:id}` (analytics.read + cached).
+  Empty history returns `collecting:true` so the UI shows "collecting data",
+  never a fake line. Backfill script seeds derivable global cumulative history.
+  Client: `analyticsAPI` + `useProgramAnalytics`; Program **Analytics tab** now
+  shows server-computed conversion % + the stored active-enrollments trend (or
+  the collecting state). Tests +12 (snapshot rollup/idempotency, series, funnel,
+  program, empty-state, authz, + program-detail). Server **109/1057** green,
+  client **389** green, lint 63 (cap), build clean. Spec `dashboard-analytics`
+  updated (BR-4 + FR + AC). (Op note: ran low on disk mid-run — cleared ~3GB of
+  orphaned `mongo-mem-*` temp dirs to let the in-memory Mongo suites pass.)
 - **2026-06-15** — **Converge Phase 2: enrollment create-write spine + uniform
   event (behaviour-parity change).** Both enrollment modes now create their Active
   row through ONE write spine (`domains/learning/enrollment/writes.createActiveEnrollment`

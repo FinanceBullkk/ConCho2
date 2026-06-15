@@ -405,6 +405,13 @@ export const cronAPI = {
   getHealth:      () => api.get('/admin/cron/health'),
 };
 
+// ── Analytics time-series (real history-backed trends + funnel) ───
+export const analyticsAPI = {
+  getSeries:          (params) => api.get('/analytics/series', { params }),
+  getFunnel:          (programId) => api.get('/analytics/funnel', { params: programId ? { programId } : {} }),
+  getProgramAnalytics: (id, range) => api.get(`/analytics/program/${id}`, { params: range ? { range } : {} }),
+};
+
 // ── Org model (departments, offices, manager hierarchy, my-team) ───
 export const orgAPI = {
   getDepartments:    (params) => api.get('/org/departments', { params }),
