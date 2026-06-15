@@ -16,6 +16,7 @@ vi.mock('../../../api/api', () => ({
   schedulesAPI: { getById: vi.fn() },
   attendanceAPI: { getBySchedule: vi.fn() },
 }));
+vi.mock('../../../hooks/useRole', () => ({ useRole: () => ({ isAdmin: false }) }));
 vi.mock('../../../hooks/useAttendance', () => ({
   useBulkMarkAttendance: () => ({ mutateAsync: h.bulk, isPending: false }),
 }));
