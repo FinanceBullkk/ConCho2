@@ -85,7 +85,12 @@ derived from role (Admin = superuser), behavior-preserving vs the old
   caps, no `org.manage` — re-center Phase 1; Teacher read-oriented; Participant
   booking + self-enroll); `roleHasCapability(role, cap)`. A Coordinator hits
   legacy `roleGuard('Admin', …)` routes (users, settings, audit, export…) as a
-  plain deny — that boundary is the "no user/security" guarantee.
+  plain deny — that boundary is the "no user/security" guarantee. **TMS.update
+  gaps #4/#5** added `skill.read` (ALL roles — `GET /api/skills`,
+  `GET /api/skills/learner/:userId` self-scoped in the controller), and the
+  Admin-only `skill.manage` (skill CRUD + role profiles + any learner's skills)
+  and `branding.manage` (`/api/branding` read/update) — both Admin-only via the
+  superuser invariant (not added to any other role list).
 - **roleGuard** (`server/middleware/roleGuard.js`): coarse role allowlist
   (legacy routes).
 - **policy/***: pure resource fns `canDoX(actor, doc, opts) → {allowed, reason}`.

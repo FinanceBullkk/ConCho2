@@ -44,6 +44,8 @@ Source: current route middleware. Keep this matrix updated when routes move into
 | `/api/settings` | Admin | Admin | whitelisted keys |
 | `/api/access` | Admin | none | read-only capability matrix (`capability-matrix`); `settings.manage` |
 | `/api/custom-fields` | Admin | Admin | admin-defined custom field definitions (CRUD, soft-delete, audited); `settings.manage` |
+| `/api/skills` | all roles read (`skill.read`); Admin manage | Admin (`skill.manage`) | competency framework — list/role-profiles/learner proficiency; learner read self-or-`skill.manage`; CRUD audited+soft-delete |
+| `/api/branding` | Admin (`branding.manage`) | Admin (`branding.manage`) | tenant branding singleton (org/accent/logo/cert title) feeding the email + certificate pipeline; audited |
 | `/api/dashboard` | Admin | Admin cache invalidation | admin analytics only |
 | `/api/admin-db` | Admin | Admin | generic DB explorer whitelist |
 | `/api/admin/audit` | Admin | none | audit query |

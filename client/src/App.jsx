@@ -47,6 +47,8 @@ const MyTeamPage = lazy(() => import('./features/groups/MyTeamPage'));
 const RolesAccessPage = lazy(() => import('./features/access/RolesAccessPage'));
 const CustomFieldsPage = lazy(() => import('./features/custom-fields/CustomFieldsPage'));
 const AutomationPage = lazy(() => import('./features/automation/AutomationPage'));
+const SkillsPage = lazy(() => import('./features/skills/SkillsPage'));
+const BrandingPage = lazy(() => import('./features/branding/BrandingPage'));
 
 function RouteFallback() {
   return (
@@ -308,6 +310,12 @@ export default function App() {
                 } />
                 <Route path="/automation" element={
                   <ProtectedRoute roles={['Admin']}><AutomationPage /></ProtectedRoute>
+                } />
+                <Route path="/skills" element={
+                  <ProtectedRoute roles={['Admin']}><SkillsPage /></ProtectedRoute>
+                } />
+                <Route path="/branding" element={
+                  <ProtectedRoute roles={['Admin']}><BrandingPage /></ProtectedRoute>
                 } />
 
                 {/* Detail pages keep their own routes for deep links */}
