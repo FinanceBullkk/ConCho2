@@ -45,6 +45,9 @@ const createUserBody = z.object({
   entranceLevel: fields.entranceLevel.optional(),
   currentLevel: fields.currentLevel.optional(),
   password: fields.password,
+  // Admin-defined custom fields (CustomFieldDefinition entity='User'), keyed
+  // by the field's `key`. Free-form value map (server stores as-is).
+  customFields: z.record(z.string(), z.any()).optional(),
 });
 
 const updateUserBody = z.object({
@@ -62,6 +65,7 @@ const updateUserBody = z.object({
   // BUG #9 fix: acting admin's password — required when mutating
   // `password` or `role` of another user. Length cap matches `password`.
   currentPassword: z.string().min(1).max(128).optional(),
+  customFields: z.record(z.string(), z.any()).optional(),
 });
 
 const listUsersQuery = paginationQuery.extend({
