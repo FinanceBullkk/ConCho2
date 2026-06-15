@@ -1,7 +1,8 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
-import { Play, Search, CheckCircle2, Clock, ShieldCheck, AlertTriangle } from 'lucide-react';
+import { toast } from 'sonner';
+import { Play, Search, CheckCircle2, Clock, ShieldCheck, AlertTriangle, Wrench } from 'lucide-react';
 import { reconcileAPI, cronAPI } from '../../api/api';
 import { Button } from '@/components/ui/button';
 import { StatusBadge } from '../../components/StatusBadge';
@@ -10,6 +11,7 @@ import CronHealthPanel from '../../components/CronHealthPanel';
 import {
   getReconcileCheckMeta,
   getReconcileCheckKeys,
+  isHealableCheck,
 } from './reconcile-check-meta';
 
 // ──────────────────────────────────────────────────────────
@@ -48,6 +50,7 @@ function SummaryCard({ checkKey, count, onClick, active }) {
   const meta = getReconcileCheckMeta(checkKey);
   const Icon = meta.icon;
   const tone = count > 0 ? SEVERITY_TONE[meta.severity] : 'success';
+  const healable = count > 0 && isHealableCheck(checkKey);
   return (
     <button
       type="button"
@@ -62,6 +65,11 @@ function SummaryCard({ checkKey, count, onClick, active }) {
       </div>
       <div className="mt-2 text-sm font-medium text-foreground">{t(meta.labelKey)}</div>
       <div className="mt-0.5 text-xs text-subtle-foreground leading-snug">{t(meta.descriptionKey)}</div>
+      {healable && (
+        <div className="mt-2 inline-flex items-center gap-1 text-[11px] font-medium text-primary">
+          <Wrench className="size-3" aria-hidden="true" />Auto-healable
+        </div>
+      )}
     </button>
   );
 }
@@ -171,6 +179,35 @@ export default function ReconcilePage() {
     },
   });
 
+  // Auto-heal a fixable check (Build Plan #4). The server re-derives the live
+  // issues, applies the safe fix to each, and reports what remains. We then run
+  // a fresh reconciliation so the dashboard reflects the now-current state.
+  const healMutation = useMutation({
+    mutationFn: (check) => reconcileAPI.heal(check).then((r) => r.data.data),
+    onSuccess: async (result) => {
+      toast.success(
+        `Auto-heal — fixed ${result.healed} of ${result.attempted}; ${result.remaining} remaining`,
+      );
+      setSelectedReportId(null);
+      await reconcileAPI.triggerRun().catch(() => {});
+      await queryClient.invalidateQueries({ queryKey: ['reconcile'] });
+    },
+    onError: (err) => {
+      toast.error(err.response?.data?.message || 'Auto-heal failed.');
+    },
+  });
+
+  // Aggregate live drift by severity tier for the integrity KPI strip.
+  const severityCounts = useMemo(() => {
+    const acc = { critical: 0, warning: 0, info: 0 };
+    for (const [key, count] of Object.entries(report?.summary || {})) {
+      if (key === 'total') continue;
+      const sev = getReconcileCheckMeta(key).severity;
+      if (acc[sev] != null) acc[sev] += count || 0;
+    }
+    return acc;
+  }, [report]);
+
   // Filtered + severity-sorted issues for the detail panel
   const visibleIssues = report?.issues
     ? (filterCheck ? report.issues.filter((i) => i.check === filterCheck) : report.issues)
@@ -217,6 +254,16 @@ export default function ReconcilePage() {
           <ReconcileKpi icon={ShieldCheck} label="Checks run" value={String(CHECK_KEYS.length)} hint="integrity checks" />
           <ReconcileKpi icon={AlertTriangle} label="Drift found" value={String(report.summary?.total ?? 0)}
             tone={report.summary?.total > 0 ? 'warning' : 'success'} hint={report.summary?.total > 0 ? 'needs attention' : 'all clear'} />
+        </div>
+      )}
+
+      {/* Integrity by severity — aggregates the per-check counts into tiers. */}
+      {report && report.summary?.total > 0 && (
+        <div className="flex flex-wrap items-center gap-2" aria-label="Drift by severity">
+          <span className="text-xs uppercase tracking-wide text-subtle-foreground">By severity</span>
+          <StatusBadge tone="danger" size="sm">Critical {severityCounts.critical}</StatusBadge>
+          <StatusBadge tone="warning" size="sm">Warning {severityCounts.warning}</StatusBadge>
+          <StatusBadge tone="upcoming" size="sm">Info {severityCounts.info}</StatusBadge>
         </div>
       )}
 
@@ -279,20 +326,37 @@ export default function ReconcilePage() {
           {/* Issue list */}
           {report.summary.total > 0 && (
             <div className="bg-card border border-border rounded-lg overflow-hidden">
-              <div className="px-4 py-3 border-b border-border flex items-center justify-between">
+              <div className="px-4 py-3 border-b border-border flex flex-wrap items-center justify-between gap-2">
                 <span className="text-sm font-medium text-foreground">
                   {filterCheck
                     ? `${t(getReconcileCheckMeta(filterCheck).labelKey)} — ${visibleIssues.length} issue(s)`
                     : `All issues — ${report.summary.total}`}
                 </span>
-                {filterCheck && (
-                  <button
-                    onClick={() => setFilterCheck(null)}
-                    className="text-xs text-muted-foreground hover:text-foreground transition-colors"
-                  >
-                    Show all ×
-                  </button>
-                )}
+                <div className="flex items-center gap-3">
+                  {filterCheck && isHealableCheck(filterCheck) && visibleIssues.length > 0 && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => healMutation.mutate(filterCheck)}
+                      disabled={healMutation.isPending}
+                    >
+                      {healMutation.isPending
+                        ? <><Spinner size={14} />Healing…</>
+                        : <><Wrench className="size-3.5" aria-hidden="true" />Auto-heal {visibleIssues.length}</>}
+                    </Button>
+                  )}
+                  {filterCheck && !isHealableCheck(filterCheck) && visibleIssues.length > 0 && (
+                    <span className="text-xs text-subtle-foreground">Needs manual review — open the linked record</span>
+                  )}
+                  {filterCheck && (
+                    <button
+                      onClick={() => setFilterCheck(null)}
+                      className="text-xs text-muted-foreground hover:text-foreground transition-colors"
+                    >
+                      Show all ×
+                    </button>
+                  )}
+                </div>
               </div>
               <div className="divide-y divide-border">
                 {visibleIssues.length === 0 && (

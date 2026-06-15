@@ -38,8 +38,8 @@ remainder is documented deferred-by-design scope (below), not active debt.
   gated owner-ops below, or override one of the deferred-by-design items above.
   (TMS.update north-star: **all 7 gaps shipped** (#1–#7); #7 PWA offline
   attendance closed 2026-06-15. Now executing the **Investment Build Plan** deep
-  features — **#3a audit tamper-evident hash chain shipped 2026-06-15**; next
-  Wave-2/3 infra: reconcile auto-heal, analytics time-series (`MetricSnapshot`),
+  features — **#4 reconcile auto-heal shipped 2026-06-15** (#3a audit hash-chain
+  merged, PR #108); next Wave-3 infra: analytics time-series (`MetricSnapshot`),
   Studio Scheduling (`SessionType`).)
 - **Gated / owner-ops:** **D2 Google OIDC + Directory sync** (blocked on owner's
   Google OAuth app + Workspace domain); **paid always-on hosting** + Sentry
@@ -114,6 +114,23 @@ Bug fixing and integration review rank above net-new feature rollout.
 > [`changelog-archive/2026-q2.md`](changelog-archive/2026-q2.md). Currently
 > inline: **2026-06-14 → 2026-06-15**.
 
+- **2026-06-15** — **TMS.update Build Plan #4: reconcile auto-heal + integrity
+  dashboard.** The 12 read-only checks gain a safe, opt-in repair path. New
+  `services/reconcile/healers.js` heals exactly four deterministic, reversible,
+  audited checks — `orphan_room_booking` (delete the dangling RoomBooking ledger
+  row), `stale_waitlist_entry` (dissolve a `waiting` row to `cancelled`),
+  `soft_deleted_in_team_members` (`$pull` the soft-deleted id), `counter_drift`
+  (bump `Counter.seq` to max-in-use). The server re-derives the affected check
+  (never trusts client row state), heals each current issue, audits it
+  (`entity:'Reconcile'`), then re-derives the remaining count. New
+  `POST /api/admin/reconcile/heal { check, refs? }` (system.ops + rate-limited;
+  non-safe check → 422 with the safe list) + `GET /api/admin/reconcile/trend`
+  (drift line, oldest→newest). Reconcile page: by-severity KPI strip,
+  "Auto-healable" hints, and a per-check **Auto-heal** action that re-runs
+  reconciliation after fixing. Tests +12 (4 healers, no-op, 422, route 422/403,
+  trend ordering, + 2 client). Server **109/1055** green, client **391** green,
+  lint 63 (cap), build clean. Spec `reconcile-job` updated (BR-5 + FR + AC; the
+  read-only sweep stays read-only — only `/heal` mutates).
 - **2026-06-15** — **TMS.update Build Plan #3a: tamper-evident audit hash chain
   (new infra).** `AuditLog` gains `seq`/`prevHash`/`hash`; `auditService.record`
   now **serializes** writes through an in-process append queue so each row links

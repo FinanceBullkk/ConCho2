@@ -397,7 +397,9 @@ export const reconcileAPI = {
   triggerRun:     () => api.post('/admin/reconcile/run'),
   getLatest:      () => api.get('/admin/reconcile/latest'),
   getHistory:     () => api.get('/admin/reconcile/history'),
+  getTrend:       (limit) => api.get('/admin/reconcile/trend', { params: limit ? { limit } : {} }),
   getById:        (id) => api.get(`/admin/reconcile/${id}`),
+  heal:           (check, refs) => api.post('/admin/reconcile/heal', refs ? { check, refs } : { check }),
 };
 
 // ── Cron health (scheduled-job heartbeats) ───────────────
