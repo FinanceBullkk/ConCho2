@@ -16,6 +16,10 @@ const { createRoomBody, updateRoomBody, listRoomsQuery } = require('./schemas');
 
 router.use(protect);
 
+// Room-utilization analytics (Build Plan #5) — read-only, derived from bookings.
+// Registered before '/:id' so the literal path is never shadowed.
+router.get('/utilization', requireCapability('room.read'), controller.utilization);
+
 router
   .route('/')
   .get(requireCapability('room.read'), validate({ query: listRoomsQuery }), controller.listRooms)
