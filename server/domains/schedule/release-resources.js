@@ -1,5 +1,5 @@
 const roomLockPolicy = require('./room-lock-policy');
-const WaitlistEntry = require('../../models/WaitlistEntry');
+const repository = require('./repository');
 
 // ──────────────────────────────────────────────────────────
 // releaseScheduleResources — the ONE cleanup for every Schedule-removal path
@@ -26,18 +26,10 @@ const dissolveWaitlist = async (scheduleIds, session) => {
   const ids = Array.isArray(scheduleIds) ? scheduleIds : [scheduleIds];
   if (ids.length === 0) return { waiterUserIds: [] };
 
-  const waiting = await WaitlistEntry.find(
-    { scheduleId: { $in: ids }, status: 'waiting' },
-    { userId: 1 },
-    { session },
-  ).lean();
+  const waiting = await repository.findWaitingEntries(ids, session);
 
   if (waiting.length > 0) {
-    await WaitlistEntry.updateMany(
-      { scheduleId: { $in: ids }, status: 'waiting' },
-      { $set: { status: 'cancelled' } },
-      { session },
-    );
+    await repository.cancelWaitingEntries(ids, session);
   }
 
   return { waiterUserIds: waiting.map((w) => w.userId) };

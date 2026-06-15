@@ -1,5 +1,4 @@
-const Class = require('../../models/Class');
-const LearningProgram = require('../../models/LearningProgram');
+const repository = require('./repository');
 const { ServiceError } = require('../../helpers/ServiceError');
 
 // ──────────────────────────────────────────────────────────
@@ -33,14 +32,10 @@ const sessionHasFacilitator = (schedule, classDoc) => {
 // sessionInstructorIds and externalTrainer available.
 const assertFacilitatorAssigned = async (schedule) => {
   if (!schedule?.classId) return;
-  const classDoc = await Class.findById(schedule.classId)
-    .select('programId teacherIds')
-    .lean();
+  const classDoc = await repository.findClassForFacilitator(schedule.classId);
   if (!classDoc?.programId) return; // program-less class — nothing to enforce
 
-  const program = await LearningProgram.findById(classDoc.programId)
-    .select('facilitatorPolicy')
-    .lean();
+  const program = await repository.findProgramFacilitatorPolicy(classDoc.programId);
   if (!program?.facilitatorPolicy?.assignmentRequired) return; // opt-in only
 
   if (sessionHasFacilitator(schedule, classDoc)) return;
