@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { Link, useParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { ArrowLeft, Check } from 'lucide-react';
+import { ArrowLeft, Check, Search } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { PageHeader } from '@/components/PageHeader';
@@ -48,6 +48,7 @@ export default function SessionDetailPage() {
   const { id } = useParams();
   const bulkMark = useBulkMarkAttendance();
   const [overrides, setOverrides] = useState({});
+  const [find, setFind] = useState('');
 
   const { data: schedule, isLoading, isError } = useQuery({
     queryKey: qk.schedules.detail(id),
@@ -74,6 +75,11 @@ export default function SessionDetailPage() {
   const count = (code) => records.filter((r) => r.status === code).length;
   const total = records.length;
   const marked = records.filter((r) => r.status).length;
+  // Client-side roster filter (counts above stay over the FULL roster).
+  const q = find.trim().toLowerCase();
+  const shown = q
+    ? records.filter((r) => `${r.name} ${r.empCode || ''} ${r.department || ''}`.toLowerCase().includes(q))
+    : records;
   const presentPct = total ? Math.round((count('P') / total) * 100) : 0;
 
   const setOne = (userId, code) => setOverrides((o) => ({ ...o, [userId]: code }));
@@ -130,9 +136,22 @@ export default function SessionDetailPage() {
             <Button size="sm" variant="outline" onClick={allPresent}><Check className="mr-1.5 size-4" aria-hidden="true" />{t(`${s}.allPresent`)}</Button>
           </CardHeader>
           <CardContent>
+            {records.length > 0 && (
+              <div className="relative mb-3">
+                <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
+                <input
+                  type="text"
+                  value={find}
+                  onChange={(e) => setFind(e.target.value)}
+                  placeholder={t(`${s}.find`)}
+                  aria-label={t(`${s}.find`)}
+                  className="h-9 w-full rounded-md border border-input bg-background pl-9 pr-3 text-sm"
+                />
+              </div>
+            )}
             {records.length ? (
               <ul className="divide-y divide-border">
-                {records.map((rec) => (
+                {shown.map((rec) => (
                   <li key={rec.userId} className="flex flex-wrap items-center justify-between gap-3 py-2.5">
                     <div className="min-w-0">
                       <p className="text-sm font-medium text-foreground">{rec.name}</p>
