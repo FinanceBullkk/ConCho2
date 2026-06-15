@@ -96,6 +96,19 @@ const auditLogSchema = new mongoose.Schema(
 
     // Free-form note set by the caller. e.g. 'Bulk import of 312 users'.
     note: { type: String, default: null },
+
+    // ── Tamper-evident hash chain (Investment Build Plan #3a) ──────────────
+    // Each row links to the previous one by hash so the log is verifiable:
+    // re-deriving the chain proves no row was silently altered, reordered or
+    // deleted. Writes are serialized through auditService so seq + prevHash
+    // stay consistent (see services/audit-chain.js).
+    //
+    // `seq` has NO default on purpose: pre-migration rows leave it ABSENT, so
+    // the partial-unique index below ignores them and only enforces uniqueness
+    // on chained rows. The backfill script assigns seq to legacy rows.
+    seq: { type: Number },                       // monotonic chain position (1-based)
+    prevHash: { type: String, default: null },   // hash of the prior entry (genesis seed for row 1)
+    hash: { type: String, default: null },       // sha256 of this entry's content + prevHash
   },
   {
     timestamps: { createdAt: true, updatedAt: false },
@@ -115,5 +128,15 @@ auditLogSchema.index({ entity: 1, entityId: 1, createdAt: -1 });
 
 // Secondary query path: "everything this actor did".
 auditLogSchema.index({ actorId: 1, createdAt: -1 });
+
+// Hash chain: seq is the chain position. Unique so a serialization bug or a
+// second writer can never fork the chain by reusing a seq — the DB is the final
+// guard. PARTIAL so the index only covers chained rows; pre-migration rows have
+// no seq field and are excluded (a non-partial unique index would reject their
+// shared "missing" key). Also the read path for verify (scan a seq window).
+auditLogSchema.index(
+  { seq: 1 },
+  { unique: true, partialFilterExpression: { seq: { $exists: true } } }
+);
 
 module.exports = mongoose.model('AuditLog', auditLogSchema);
