@@ -830,6 +830,8 @@
       "skillsNote": "Skill mapping for this program arrives with the skills framework.",
       "analyticsTitle": "Program analytics",
       "analyticsNote": "Per-department and score-distribution analytics arrive with the skills framework.",
+      "activeEnrollmentsTrend": "Active enrollments · last 90 days",
+      "analyticsCollecting": "Collecting data — the daily trend builds up from the nightly snapshot.",
       "settingsTitle": "Configuration",
       "capacityPerCohort": "Max participants / cohort",
       "capacityPerSession": "Max participants / session",
