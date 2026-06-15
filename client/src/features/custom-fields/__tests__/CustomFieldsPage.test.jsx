@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import CustomFieldsPage from '../CustomFieldsPage';
 
@@ -42,6 +43,25 @@ describe('CustomFieldsPage', () => {
     // Add form + a remove control are present.
     expect(screen.getByText('customFields.addField')).toBeInTheDocument();
     expect(screen.getByLabelText(/customFields\.remove Budget code/)).toBeInTheDocument();
+  });
+
+  it('exposes the extended types + showIn toggles, and reveals options for multiselect', async () => {
+    const user = userEvent.setup();
+    renderPage();
+
+    // The type dropdown carries all 7 types.
+    const typeSelect = screen.getByLabelText('customFields.type');
+    expect(screen.getByRole('option', { name: 'customFields.typeMultiselect' })).toBeInTheDocument();
+    expect(screen.getByRole('option', { name: 'customFields.typeUser' })).toBeInTheDocument();
+
+    // showIn surfaces are configurable.
+    expect(screen.getByText('customFields.showInForm')).toBeInTheDocument();
+    expect(screen.getByText('customFields.showInExport')).toBeInTheDocument();
+
+    // Options field is hidden for text, shown after switching to multiselect.
+    expect(screen.queryByLabelText('customFields.options')).toBeNull();
+    await user.selectOptions(typeSelect, 'multiselect');
+    expect(screen.getByLabelText('customFields.options')).toBeInTheDocument();
   });
 
   it('shows an error state when loading fails', () => {
