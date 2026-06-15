@@ -12,7 +12,7 @@ import { Spinner } from '@/components/Spinner';
 import { useLearningProgram, useLearningCohorts, useCompletionRollup, useCompletionTrend } from '../../hooks/useLearning';
 import { useRole } from '../../hooks/useRole';
 import { StatTile, MetricBars } from './DashboardWidgets';
-import { Sparkline } from './DashboardCharts';
+import { AreaTrend } from './DashboardCharts';
 import ProgramFormModal from './ProgramFormModal';
 
 // ──────────────────────────────────────────────────────────
@@ -149,8 +149,8 @@ export default function ProgramDetailPage() {
                 <p className="text-xs text-muted-foreground">{t(`${d}.trendSub`)}</p>
               </CardHeader>
               <CardContent>
-                <Sparkline
-                  series={[{ points: trendSeries.map((s) => s.completions) }]}
+                <AreaTrend
+                  series={[{ key: 'completions', label: t(`${d}.trendTitle`), points: trendSeries.map((s) => s.completions), className: 'text-primary' }]}
                   labels={trendSeries.map((s) => s.month.slice(5))}
                   title={t(`${d}.trendTitle`)}
                 />
