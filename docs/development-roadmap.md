@@ -111,6 +111,17 @@ Bug fixing and integration review rank above net-new feature rollout.
 > [`changelog-archive/2026-q2.md`](changelog-archive/2026-q2.md). Currently
 > inline: **2026-06-14 → 2026-06-15**.
 
+- **2026-06-15** — **Dashboard/Reports re-skin → prototype control-room fidelity
+  (in-stack, no behaviour change).** Operational dashboard now leads with a
+  4-KPI headline (completion · overdue · attendance · certs-expiring, with
+  drill-through on overdue/expiring), a segmented period control (`.seg`)
+  replacing the window dropdown, and completion-by-program bars beside the
+  overall-completion ring + an On-track/Watch/At-risk legend. Executive trend
+  promoted to a filled `AreaTrend` hero (headline value + the prototype's wider
+  1.6/1 trend·Kirkpatrick split; certificate validity + mobility get their own
+  row). Pure presentational — same bundle data, same window param, same
+  drill-through → no spec change. Gates: 389 client tests · lint 63 (cap) ·
+  build clean. Commits `d18c042`, `5759f94` (branch `feat/tms-update-automation-engine`).
 - **2026-06-15** — **TMS.update fidelity push — full 30-screen audit + Tier 1&2
   to pixel-faithful (13 commits, branch `feat/tms-update-automation-engine`).**
   Audited every prototype screen ([report](plans/reports/fidelity-audit-260615-1016-tms-update-screens.md));
