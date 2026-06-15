@@ -47,7 +47,7 @@ table is just the index. Covers every mounted `/api/*` route surface.
 | [learning-catalog](learning-catalog/spec.md) | stable | domains/learning, controllers/classController | 2026-06-10 |
 | [enrollment](enrollment/spec.md) | evolving | domains/learning/enrollment, controllers/enrollmentController | 2026-06-09 |
 | [learning-paths](learning-paths/spec.md) | stable | domains/learning/path | 2026-06-08 |
-| [assessments](assessments/spec.md) | stable | domains/assessment, controllers/evaluationController | 2026-06-14 |
+| [assessments](assessments/spec.md) | stable | domains/assessment, controllers/evaluationController | 2026-06-15 |
 | [question-bank](question-bank/spec.md) | stable | domains/assessment (question-bank) | 2026-06-08 |
 | [grading](grading/spec.md) | stable | domains/assessment (grading, manual-grading) | 2026-06-08 |
 | [feedback](feedback/spec.md) | stable | domains/learning/feedback | 2026-06-08 |
@@ -64,7 +64,7 @@ table is just the index. Covers every mounted `/api/*` route surface.
 | [bulk-import](bulk-import/spec.md) | stable | controllers/importController, services/importService | 2026-06-12 |
 | [settings](settings/spec.md) | stable | controllers/settingController, models/Setting | 2026-06-08 |
 | [dashboard-analytics](dashboard-analytics/spec.md) | stable | controllers/dashboardController | 2026-06-08 |
-| [search](search/spec.md) | stable | controllers/searchController, services/searchService | 2026-06-08 |
+| [search](search/spec.md) | stable | controllers/searchController, services/searchService | 2026-06-15 |
 | [admin-db-explorer](admin-db-explorer/spec.md) | stable | routes/adminDbRoutes | 2026-06-08 |
 | [org-and-departments](org-and-departments/spec.md) | stable | domains/org, models/Department, models/Office | 2026-06-10 |
 

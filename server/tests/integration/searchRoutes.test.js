@@ -10,13 +10,19 @@
 
 const request = require('supertest');
 const { getApp, getTokens, getSeedData, teardown } = require('../setup');
+const LearningProgram = require('../../models/LearningProgram');
+const Department = require('../../models/Department');
 
-let app, tokens, seed;
+let app, tokens, seed, searchProgram, searchDept;
 
 beforeAll(async () => {
   app = await getApp();
   tokens = getTokens();
   seed = getSeedData();
+  // Programs + departments aren't in the shared seed — create distinctive
+  // fixtures so the staff-only search branches have something to find.
+  searchProgram = await LearningProgram.create({ code: 'SRCHPROG', name: 'Searchable Leadership Program' });
+  searchDept = await Department.create({ name: 'Searchable Robotics Dept', code: 'SRCHDEPT' });
 });
 
 afterAll(async () => {
@@ -150,5 +156,34 @@ describe('GET /api/search', () => {
 
     expect(res.status).toBe(200);
     expect(res.body.data.teams.some(t => t._id === seed.team._id.toString())).toBe(true);
+  });
+
+  test('Admin: finds programs by name (staff-only entity)', async () => {
+    const res = await request(app)
+      .get('/api/search?q=Searchable')
+      .set('Authorization', `Bearer ${tokens.admin}`);
+
+    expect(res.status).toBe(200);
+    expect(Array.isArray(res.body.data.programs)).toBe(true);
+    expect(res.body.data.programs.some(p => p._id === searchProgram._id.toString())).toBe(true);
+  });
+
+  test('Admin: finds departments by name (staff-only entity)', async () => {
+    const res = await request(app)
+      .get('/api/search?q=Searchable')
+      .set('Authorization', `Bearer ${tokens.admin}`);
+
+    expect(res.status).toBe(200);
+    expect(res.body.data.departments.some(d => d._id === searchDept._id.toString())).toBe(true);
+  });
+
+  test('Participant: never sees programs or departments (staff-only)', async () => {
+    const res = await request(app)
+      .get('/api/search?q=Searchable')
+      .set('Authorization', `Bearer ${tokens.leader}`);
+
+    expect(res.status).toBe(200);
+    expect(res.body.data.programs).toEqual([]);
+    expect(res.body.data.departments).toEqual([]);
   });
 });

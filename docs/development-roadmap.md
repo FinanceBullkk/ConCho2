@@ -111,6 +111,27 @@ Bug fixing and integration review rank above net-new feature rollout.
 > [`changelog-archive/2026-q2.md`](changelog-archive/2026-q2.md). Currently
 > inline: **2026-06-14 → 2026-06-15**.
 
+- **2026-06-15** — **TMS.update fidelity batch (4 vertical slices) — close the
+  visible deltas vs the design screenshots (branch
+  `feat/tms-update-automation-engine`).** **C · Roles Compare/diff** (screenshot
+  14): `RolesAccessPage` gains a Matrix/Compare toggle + a read-only
+  `RoleCompareView` (Role A→B selectors, "N differences" badge, →/= per
+  capability) over the existing grants — FE-only, no authz change. **E · Command
+  palette** (people/programs/departments): `searchService` now also returns
+  `LearningProgram` + `Department` matches **for Admin/Teacher** (staff-only;
+  Participants unchanged); `SearchPalette` renders the two new groups (programs
+  deep-link to `/learning/programs/:id`, departments to People▸Departments).
+  **B · Assessment exam-settings** (screenshots 21–22): `Assessment` gains
+  `timeLimitMinutes`/`shuffleQuestions`/`showAnswersAfter`; the builder exposes an
+  Exam-settings panel + **Preview as learner**; the runner enforces a countdown
+  (auto-submit at 0), per-attempt shuffle (display-only — grading stays by
+  `itemId`), and post-submit right/wrong reveal (never the answer key).
+  **D · Cost/ROI Settings page** (screenshot 27): new Admin `/cost-roi` Configure
+  page reusing the existing cost-config form + a server-computed "Computed
+  outputs" card (no client math; §10 values). Gates: **server 1035 ✓** (+3 search,
+  +2 assessment), **client 373 ✓** (+11), lint 63 (cap), build clean. Specs
+  folded: assessments (exam settings) + search (programs/departments). Remaining
+  TMS.update gap: **#7 PWA offline attendance**.
 - **2026-06-15** — **TMS.update Phase 5 — skills/competency framework (gap #4)
   + branding/template designer (gap #5).** **Skills:** new `Skill` model
   (`programIds[]` program→skill mapping + `targetByRole` + `maxLevel`/

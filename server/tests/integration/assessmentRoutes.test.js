@@ -187,6 +187,26 @@ describe('Assessment API — authoring, attempts, grading', () => {
     expect(res.body.data.items[0].id).toBeTruthy();
   });
 
+  test('exam settings (timeLimit/shuffle/showAnswers) round-trip through create', async () => {
+    const res = await createQuiz(tokens.admin, {
+      timeLimitMinutes: 30,
+      shuffleQuestions: true,
+      showAnswersAfter: true,
+    });
+    expect(res.status).toBe(201);
+    expect(res.body.data.timeLimitMinutes).toBe(30);
+    expect(res.body.data.shuffleQuestions).toBe(true);
+    expect(res.body.data.showAnswersAfter).toBe(true);
+  });
+
+  test('exam settings default to off when omitted', async () => {
+    const res = await createQuiz(tokens.admin);
+    expect(res.status).toBe(201);
+    expect(res.body.data.timeLimitMinutes).toBe(0);
+    expect(res.body.data.shuffleQuestions).toBe(false);
+    expect(res.body.data.showAnswersAfter).toBe(false);
+  });
+
   test('a participant cannot author an assessment (403); a teacher can (201)', async () => {
     await seedRoster(seed.leader._id);
     const blocked = await createQuiz(tokens.leader);

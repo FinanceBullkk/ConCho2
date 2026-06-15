@@ -18,6 +18,7 @@
       "automation": "Automation",
       "skills": "Skills & competencies",
       "branding": "Branding & templates",
+      "costRoi": "Cost & ROI",
       "schedules": "Schedules",
       "attendance": "Attendance",
       "classes": "Classes",
@@ -102,7 +103,17 @@
     "adminLocked": "Admin holds every capability (locked)",
     "systemRole": "System",
     "customRole": "Custom",
-    "unsaved": "Unsaved changes"
+    "unsaved": "Unsaved changes",
+    "viewMode": "View mode",
+    "matrix": "Matrix",
+    "compare": "Compare",
+    "compareNote": "Pick two roles to see exactly where their permissions differ. Read-only — edit grants from the Matrix view.",
+    "roleA": "Role A",
+    "roleB": "Role B",
+    "full": "Full",
+    "identical": "Identical",
+    "differences_one": "{{count}} difference",
+    "differences_other": "{{count}} differences"
   },
   "customFields": {
     "title": "Custom fields",
@@ -225,6 +236,19 @@
     "previewIssued": "Issued",
     "previewVerify": "Verify",
     "previewNote": "The same settings drive email templates and the public verification page."
+  },
+  "costRoi": {
+    "title": "Cost & ROI",
+    "description": "These assumptions power every number on the Executive · ROI dashboard.",
+    "assumptions": "Cost & ROI assumptions",
+    "computed": "Computed outputs",
+    "computedHint": "Updates after you save — exactly what leadership sees on the ROI dashboard.",
+    "costPerEmployee": "Cost / employee",
+    "costPerCompletion": "Cost / completion",
+    "efficiencyDividend": "Efficiency dividend / year",
+    "notConfigured": "Add an annual L&D budget and save to see the ROI outputs.",
+    "viewDashboard": "Open Executive · ROI dashboard",
+    "loadError": "Couldn't load the ROI figures."
   },
   "english": {
     "classesTitle": "Classes"
@@ -1229,6 +1253,25 @@
       "noReviewItemsDesc": "Only submitted short-text answers can be manually graded.",
       "submit": "Submit assessment",
       "submitting": "Submitting…",
+      "examSettings": "Exam settings",
+      "timeLimit": "Time limit (minutes)",
+      "timeLimitHint": "0 means no time limit.",
+      "shuffle": "Shuffle questions each attempt",
+      "showAnswers": "Reveal correct/incorrect after submit",
+      "previewAsLearner": "Preview as learner",
+      "previewTitle": "Learner preview",
+      "previewHint": "This is exactly what a learner sees. Answers are not saved.",
+      "finishPreview": "Finish preview",
+      "previewDone": "Preview finished — nothing was saved.",
+      "untitled": "Untitled assessment",
+      "answered": "{{n}}/{{total}} answered",
+      "timeRemaining": "Time remaining",
+      "timeUp": "Time is up — submitting your attempt.",
+      "yourScore": "Your score",
+      "passed": "Passed",
+      "notPassed": "Not passed",
+      "correctMark": "Correct",
+      "incorrectMark": "Incorrect",
       "types": {
         "single_choice": "Single choice",
         "multiple_choice": "Multiple choice",
@@ -1501,7 +1544,8 @@
       "saving": "Saving…",
       "creating": "Creating…",
       "create": "Create",
-      "remove": "Remove"
+      "remove": "Remove",
+      "close": "Close"
     },
     "saveFailed": "Save failed"
   }

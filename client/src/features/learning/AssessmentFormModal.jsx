@@ -1,6 +1,7 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
+import { Eye } from 'lucide-react';
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
 } from '@/components/ui/dialog';
@@ -15,6 +16,7 @@ import {
   itemPayload,
 } from './assessment-form-utils';
 import QuestionBankImportPicker from './QuestionBankImportPicker';
+import AssessmentAttemptModal from './AssessmentAttemptModal';
 
 export default function AssessmentFormModal({
   cohorts,
@@ -31,6 +33,22 @@ export default function AssessmentFormModal({
   const [items, setItems] = useState(() => assessmentItemsValue(assessment));
   const [questionBankItemIds, setQuestionBankItemIds] = useState([]);
   const [error, setError] = useState('');
+  const [previewOpen, setPreviewOpen] = useState(false);
+
+  // A synthetic, server-shaped assessment built from the current draft so the
+  // author can take the quiz exactly as a learner would (no persistence).
+  const previewAssessment = useMemo(() => ({
+    id: 'preview',
+    title: form.title.trim() || t('learning.assessments.untitled'),
+    description: form.description,
+    timeLimitMinutes: Number(form.timeLimitMinutes) || 0,
+    shuffleQuestions: Boolean(form.shuffleQuestions),
+    showAnswersAfter: false, // preview never grades against the server
+    items: items.map((it, idx) => {
+      const p = itemPayload(it);
+      return { id: String(idx), type: p.type, prompt: p.prompt, points: p.points, options: p.options || [] };
+    }),
+  }), [form, items, t]);
 
   const set = (key) => (value) => setForm((f) => ({ ...f, [key]: value }));
   const setItem = (idx, key, value) => setItems((rows) =>
@@ -48,6 +66,9 @@ export default function AssessmentFormModal({
       cohortId: form.cohortId,
       passingScorePercent: Number(form.passingScorePercent) || 0,
       maxAttempts: Number(form.maxAttempts) || 0,
+      timeLimitMinutes: Number(form.timeLimitMinutes) || 0,
+      shuffleQuestions: Boolean(form.shuffleQuestions),
+      showAnswersAfter: Boolean(form.showAnswersAfter),
       isPublished: Boolean(form.isPublished),
       items: items.map(itemPayload),
       questionBankItemIds,
@@ -100,6 +121,24 @@ export default function AssessmentFormModal({
           <LearningField label={t('learning.fields.description')}>
             <textarea value={form.description} onChange={(e) => set('description')(e.target.value)} className={textareaClass} />
           </LearningField>
+
+          <div className="rounded-md border border-border p-3 space-y-3">
+            <div className="text-sm font-semibold text-foreground">{t('learning.assessments.examSettings')}</div>
+            <div className="grid gap-3 md:grid-cols-2">
+              <LearningField label={t('learning.assessments.timeLimit')} hint={t('learning.assessments.timeLimitHint')}>
+                <input type="number" min={0} max={600} value={form.timeLimitMinutes}
+                  onChange={(e) => set('timeLimitMinutes')(e.target.value)} className={controlClass} />
+              </LearningField>
+            </div>
+            <label className="flex items-center gap-2 text-sm">
+              <input type="checkbox" checked={form.shuffleQuestions} onChange={(e) => set('shuffleQuestions')(e.target.checked)} />
+              {t('learning.assessments.shuffle')}
+            </label>
+            <label className="flex items-center gap-2 text-sm">
+              <input type="checkbox" checked={form.showAnswersAfter} onChange={(e) => set('showAnswersAfter')(e.target.checked)} />
+              {t('learning.assessments.showAnswers')}
+            </label>
+          </div>
 
           <label className="flex items-center gap-2 text-sm">
             <input type="checkbox" checked={form.isPublished} onChange={(e) => set('isPublished')(e.target.checked)} />
@@ -155,7 +194,10 @@ export default function AssessmentFormModal({
 
           <div className="flex gap-3">
             <Button type="button" variant="outline" onClick={addItem}>{t('learning.assessments.addItem')}</Button>
-            <Button type="button" variant="outline" onClick={onClose} className="ml-auto">{t('learning.actions.cancel')}</Button>
+            <Button type="button" variant="outline" onClick={() => setPreviewOpen(true)} className="ml-auto">
+              <Eye className="mr-1.5 size-4" aria-hidden="true" />{t('learning.assessments.previewAsLearner')}
+            </Button>
+            <Button type="button" variant="outline" onClick={onClose}>{t('learning.actions.cancel')}</Button>
             <Button type="submit" disabled={pending}>
               {pending
                 ? t(isEdit ? 'learning.actions.saving' : 'learning.actions.creating')
@@ -164,6 +206,10 @@ export default function AssessmentFormModal({
           </div>
         </form>
       </DialogContent>
+
+      {previewOpen && (
+        <AssessmentAttemptModal assessment={previewAssessment} preview onClose={() => setPreviewOpen(false)} />
+      )}
     </Dialog>
   );
 }
