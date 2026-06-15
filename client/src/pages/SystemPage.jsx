@@ -9,7 +9,7 @@ import { StatusBadge } from '@/components/StatusBadge';
 import TableSkeleton from '@/components/TableSkeleton';
 import QueryError from '@/components/QueryError';
 import Pagination from '@/components/Pagination';
-import { useAuditLog } from '@/hooks/useAuditLog';
+import { useAuditLog, useVerifyAuditChain } from '@/hooks/useAuditLog';
 import { diffJson } from '@/lib/jsonDiff';
 import { cn } from '@/lib/utils';
 import SettingsPage from '../features/settings/SettingsPage';
@@ -29,7 +29,7 @@ const TABS = [
   { id: 'database',   label: 'Database',         icon: Database,   description: 'Browse and edit raw collection data.' },
   { id: 'sync',       label: 'Sync',             icon: RefreshCw,  description: 'Import enrollment data from Google Sheets.' },
   { id: 'reconcile',  label: 'Reconciliation',   icon: ShieldCheck, description: 'Detect data drift across Schedule, Attendance, Enrollment and Team.' },
-  { id: 'audit',      label: 'Audit Log',        icon: ScrollText, description: 'Full history of create, update and delete actions performed by admins.' },
+  { id: 'audit',      label: 'Audit Log',        icon: ScrollText, description: 'Tamper-evident history of create, update and delete actions — hash-chained and verifiable.' },
 ];
 
 // ──────────────────────────────────────────────────────────
@@ -84,6 +84,10 @@ function AuditLogTab() {
   const { data, isLoading, isError, error, refetch, isFetching } = useAuditLog({
     page, limit: 50, entity, action, from, to,
   });
+
+  // Tamper-evident hash-chain integrity check (Build Plan #3a).
+  const verify = useVerifyAuditChain();
+  const verifyResult = verify.data;
 
   const entries    = data?.data  ?? [];
   const meta       = data?.meta  ?? {};
@@ -151,15 +155,52 @@ function AuditLogTab() {
             />
           </div>
 
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => queryClient.invalidateQueries({ queryKey: ['admin-audit'] })}
-            className="ml-auto"
-          >
-            <RefreshCw className="size-3.5" aria-hidden="true" />
-            Refresh
-          </Button>
+          <div className="ml-auto flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => verify.mutate({})}
+              disabled={verify.isPending}
+            >
+              <ShieldCheck className="size-3.5" aria-hidden="true" />
+              {verify.isPending ? 'Verifying…' : 'Verify chain'}
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => queryClient.invalidateQueries({ queryKey: ['admin-audit'] })}
+            >
+              <RefreshCw className="size-3.5" aria-hidden="true" />
+              Refresh
+            </Button>
+          </div>
+        </div>
+
+        {/* Hash-chain integrity result — tamper-evident, per Build Plan #3a.
+            aria-live so screen readers announce the verdict when it lands. */}
+        <div aria-live="polite" className="mt-3 text-xs">
+          {verify.isError ? (
+            <p className="text-destructive">
+              Could not verify the chain. {verify.error?.response?.data?.message || 'Please try again.'}
+            </p>
+          ) : verifyResult ? (
+            verifyResult.ok ? (
+              <p className="inline-flex items-center gap-1.5 rounded-md border border-success/30 bg-success/10 px-2.5 py-1 font-medium text-success">
+                <ShieldCheck className="size-3.5" aria-hidden="true" />
+                Chain verified — {verifyResult.checked} {verifyResult.checked === 1 ? 'entry' : 'entries'} intact
+                {verifyResult.from != null && verifyResult.to != null ? ` (seq ${verifyResult.from}–${verifyResult.to})` : ''}. Tamper-evident.
+              </p>
+            ) : (
+              <p className="inline-flex items-center gap-1.5 rounded-md border border-destructive/30 bg-destructive/10 px-2.5 py-1 font-medium text-destructive">
+                <ShieldCheck className="size-3.5" aria-hidden="true" />
+                Chain integrity check FAILED at seq {verifyResult.firstBrokenSeq} ({verifyResult.reason}). The log may have been altered.
+              </p>
+            )
+          ) : (
+            <p className="text-muted-foreground">
+              Entries are written as a tamper-evident hash chain. Run <span className="font-medium text-foreground">Verify chain</span> to confirm integrity.
+            </p>
+          )}
         </div>
       </div>
 

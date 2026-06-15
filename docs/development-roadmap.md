@@ -38,9 +38,9 @@ remainder is documented deferred-by-design scope (below), not active debt.
   gated owner-ops below, or override one of the deferred-by-design items above.
   (TMS.update north-star: **all 7 gaps shipped** (#1–#7); #7 PWA offline
   attendance closed 2026-06-15. Now executing the **Investment Build Plan** deep
-  features — **#1 analytics time-series shipped 2026-06-15** (and #3a audit
-  hash-chain PR #108, #4 reconcile auto-heal PR #109 in flight); next Wave-3
-  infra: Studio Scheduling (`SessionType`).)
+  features — **#1 analytics time-series shipped 2026-06-15** (#3a audit hash-chain
+  PR #108, #4 reconcile auto-heal PR #109 merged); next Wave-3 infra: Studio
+  Scheduling (`SessionType`).)
 - **Gated / owner-ops:** **D2 Google OIDC + Directory sync** (blocked on owner's
   Google OAuth app + Workspace domain); **paid always-on hosting** + Sentry
   cron-monitor dashboard; **Phase 6 PostgreSQL gate** (plan drafted,
@@ -132,6 +132,40 @@ Bug fixing and integration review rank above net-new feature rollout.
   client **389** green, lint 63 (cap), build clean. Spec `dashboard-analytics`
   updated (BR-4 + FR + AC). (Op note: ran low on disk mid-run — cleared ~3GB of
   orphaned `mongo-mem-*` temp dirs to let the in-memory Mongo suites pass.)
+- **2026-06-15** — **TMS.update Build Plan #4: reconcile auto-heal + integrity
+  dashboard.** The 12 read-only checks gain a safe, opt-in repair path. New
+  `services/reconcile/healers.js` heals exactly four deterministic, reversible,
+  audited checks — `orphan_room_booking` (delete the dangling RoomBooking ledger
+  row), `stale_waitlist_entry` (dissolve a `waiting` row to `cancelled`),
+  `soft_deleted_in_team_members` (`$pull` the soft-deleted id), `counter_drift`
+  (bump `Counter.seq` to max-in-use). The server re-derives the affected check
+  (never trusts client row state), heals each current issue, audits it
+  (`entity:'Reconcile'`), then re-derives the remaining count. New
+  `POST /api/admin/reconcile/heal { check, refs? }` (system.ops + rate-limited;
+  non-safe check → 422 with the safe list) + `GET /api/admin/reconcile/trend`
+  (drift line, oldest→newest). Reconcile page: by-severity KPI strip,
+  "Auto-healable" hints, and a per-check **Auto-heal** action that re-runs
+  reconciliation after fixing. Tests +12 (4 healers, no-op, 422, route 422/403,
+  trend ordering, + 2 client). Server **109/1055** green, client **391** green,
+  lint 63 (cap), build clean. Spec `reconcile-job` updated (BR-5 + FR + AC; the
+  read-only sweep stays read-only — only `/heal` mutates).
+- **2026-06-15** — **TMS.update Build Plan #3a: tamper-evident audit hash chain
+  (new infra).** `AuditLog` gains `seq`/`prevHash`/`hash`; `auditService.record`
+  now **serializes** writes through an in-process append queue so each row links
+  to the prior by sha256 (genesis-seeded; deterministic key order), with a
+  partial-unique `seq` index as the final guard against a forked chain. New
+  `services/audit-chain.js` (hashing + `verifyChain`) + `POST /api/admin/audit/verify`
+  (AUDIT_READ) re-derives a bounded window → `ok` or `firstBrokenSeq`. Window
+  verify reconciles with the TTL — seq = createdAt = expiry order, so only the
+  oldest prefix truncates and expired rows never false-positive; a gap after the
+  window's first row is a deletion (`missing-rows`), a field edit is
+  `hash-mismatch`. System ▸ Audit Log UI gains a **Verify chain** action +
+  tamper-evident state (`aria-live`); backfill script
+  `backfill-audit-hash-chain.js` chains legacy rows (run at deploy). Makes the
+  previously-aspirational "tamper-evident" label **true** (was flagged untruthful
+  in the fidelity audit). Tests +7 (chain/verify/tamper/deletion/auth); full
+  server suite **109/1053** green, client **389** green, lint 63 (cap), build
+  clean. Spec `audit-log` updated (BR-6 + FR + AC; moved out of "deferred").
 - **2026-06-15** — **Converge Phase 2: enrollment create-write spine + uniform
   event (behaviour-parity change).** Both enrollment modes now create their Active
   row through ONE write spine (`domains/learning/enrollment/writes.createActiveEnrollment`
@@ -426,53 +460,9 @@ Bug fixing and integration review rank above net-new feature rollout.
   `assessments` + `evaluations` + domain-model rule updated (deferral cleared). The
   English rubric-grading UI folds into the unified assessment UX in Phase 4. ADR
   `converge-to-one-training-model`. Next: Phase 2 — converge Enrollment.
-- **2026-06-14** — **Converge Phase 0 COMPLETE: event bus (2 flows) + authz
-  finished (no behaviour change).** Part A extended: `certificate_issued` bell row
-  now also rides the event bus (`CERTIFICATE_ISSUED`, published by the completion
-  engine) alongside `cohort_enrolled` — both off inline `recordInApp`. Part B
-  (authz): the **9 Admin-only platform routers** (`users`, `settings`, `import`,
-  `export`, `sync`, `dashboard`, `admin/audit`, `admin-db`, `admin/reconcile`)
-  migrated from `roleGuard('Admin')` to `requireCapability` with 6 new Admin-only
-  capabilities (`user.manage` · `settings.manage` · `data.transfer` ·
-  `analytics.read` · `audit.read` · `system.ops`) — so the app uses ONE coarse-authz
-  mechanism. **Parity guaranteed** (all Admin-only; Admin is superuser; new caps
-  added to no other role) — server **967/98** green, no regression. Intentionally
-  still on `roleGuard` (documented): `/api/auth` + `/api/admin/cron` (security/cron)
-  and the converging-legacy trio (`classes`/`enrollments`/`evaluations`, retired in
-  their convergence phase); scheduleService booking/roster notifications migrate in
-  Phase 3. Specs: `capability-authz` + route-permission-matrix updated (mechanism
-  note; outcomes unchanged). Next: Phase 1 — converge Assessment.
-- **2026-06-14** — **Converge Phase 0 (Part A): in-process domain-event bus +
-  first flow migrated (no behaviour change).** New `lib/event-bus.js`
-  (publish/subscribe; subscribers run awaited after the mutation persists, a
-  throwing subscriber is logged + isolated) + `domains/_shared/events.js`
-  (event catalogue) + `domains/notification/subscribers.js` (registered once at
-  boot in `server.js`). First cross-cutting concern moved off inline wiring: the
-  `cohort_enrolled` bell row now reacts to **`ENROLLMENT_CREATED`** (published by
-  `domains/learning/enrollment` single + bulk) instead of an inline `recordInApp`
-  call — the use-case no longer imports the notification layer. **Byte-parity**
-  held: the existing enrollment integration tests (admin-enroll writes / self-enroll
-  doesn't / bulk) pass unchanged. Tests: +6 event-bus unit — **server 967/98**, no
-  regression. Pure refactor → no spec change. Next: migrate more concerns
-  (audit/completion) + Part B (finish authz roleGuard→capability).
-- **2026-06-14** — **Re-architecture decision: converge to ONE training model
-  (Option A).** Owner judged the system still "messy" post-IA and asked for a
-  whole-system re-architecture vs best-in-class references. Analysis
-  (`plans/reports/architecture-260614-0004-rearchitecture-proposal.md`) found the
-  root cause is **two parallel worlds for the same domain** (English-class vs generic
-  L&D — same Mongo models behind a `mode` flag, dual enroll/assess/session). Owner
-  chose **full convergence** to one spine `Program → Session → Enrollment →
-  Completion → Certificate` (English-class = a delivery profile). Recorded ADR
-  `docs/decisions/converge-to-one-training-model.md` (supersedes the 2026-06-12
-  separation; completes the 2026-06-09 coordinator-scheduled re-center;
-  `leader_booking` → one scheduling mode). Phased plan
-  `plans/260614-0004-converge-to-one-model/` (Phase 0 foundations: domain-event bus +
-  finish authz → Assessment → Enrollment → Scheduling → UX journeys → retire legacy
-  routes). Guardrails kept (modular monolith, no physical renames, Mongo→PG gate,
-  security layers). Docs/decision only this entry — implementation starts next.
-**Older entries (2026-06-13 and earlier)** →
-[`changelog-archive/2026-q2.md`](changelog-archive/2026-q2.md) (118 entries,
-2026-06-01 → 2026-06-13).
+**Older entries (2026-06-14 and earlier)** →
+[`changelog-archive/2026-q2.md`](changelog-archive/2026-q2.md) (121 entries,
+2026-06-01 → 2026-06-14).
 
 ---
 
