@@ -1,4 +1,5 @@
 const repository = require('./repository');
+const writes = require('../learning/enrollment/writes');
 const logger = require('../../lib/logger');
 const {
   sendEnrollmentDropped,
@@ -39,6 +40,7 @@ const syncEnrollments = async (teamId, addedIds, removedIds, classId, opts = {})
   const { session = null } = opts;
   const now = new Date();
   const pendingEmails = [];
+  const pendingEvents = [];
 
   // Resolve target team once (used for email context). Read in-session so
   // it sees any team writes made earlier in the same transaction.
@@ -84,10 +86,18 @@ const syncEnrollments = async (teamId, addedIds, removedIds, classId, opts = {})
     const alreadyActive = await repository.findActiveEnrollmentInTeam(userId, teamId, session);
 
     if (!alreadyActive) {
-      await repository.createEnrollment(
-        { userId, teamId, classId: classId || null, joinedAt: now, status: 'Active' },
-        session,
+      // ONE write spine for both modes (converge Phase 2): create via the
+      // learning/enrollment spine so team-create and cohort-create never drift.
+      const enrollment = await writes.createActiveEnrollment(
+        { userId, teamId, classId: classId || null, joinedAt: now },
+        { session },
       );
+      // Queue the cohort_enrolled announcement for post-commit (a rolled-back tx
+      // must never emit). Only when the team has a cohort — the bell + automation
+      // are cohort-scoped; program-less teams emit nothing (unchanged).
+      if (targetTeam?.classId) {
+        pendingEvents.push({ enrollment, cohort: targetTeam.classId });
+      }
       logger.info({ userId, teamId }, 'Enrollment created (Active)');
     }
   }
@@ -117,7 +127,7 @@ const syncEnrollments = async (teamId, addedIds, removedIds, classId, opts = {})
     }
   }
 
-  return { pendingEmails };
+  return { pendingEmails, pendingEvents };
 };
 
 /**
@@ -134,4 +144,17 @@ const flushPendingEmails = (pendingEmails) => {
   }
 };
 
-module.exports = { syncEnrollments, flushPendingEmails };
+/**
+ * Flush the queued ENROLLMENT_CREATED announcements after the team transaction
+ * commits — mirrors flushPendingEmails but for the domain event (drives the
+ * cohort_enrolled bell + automation). Awaited; the subscriber's bell write is
+ * itself fail-soft, so a notification hiccup never fails the team mutation.
+ */
+const flushPendingEnrollmentEvents = async (pendingEvents) => {
+  if (!Array.isArray(pendingEvents)) return;
+  for (const { enrollment, cohort } of pendingEvents) {
+    await writes.announceEnrollmentCreated(enrollment, cohort, { actorIsSelf: false });
+  }
+};
+
+module.exports = { syncEnrollments, flushPendingEmails, flushPendingEnrollmentEvents };

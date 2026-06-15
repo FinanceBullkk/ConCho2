@@ -2,14 +2,16 @@
 capability: enrollment
 status: evolving
 owners: [domains/learning/enrollment, controllers/enrollmentController]
-last_updated: 2026-06-14
+last_updated: 2026-06-15
 related_code:
   - server/domains/learning/enrollment/use-cases.js
+  - server/domains/learning/enrollment/writes.js
   - server/domains/learning/enrollment/prerequisites.js
   - server/domains/learning/enrollment/repository.js
   - server/domains/learning/enrollment/dto.js
   - server/domains/learning/enrollment/controller.js
   - server/domains/learning/enrollment/schemas.js
+  - server/domains/groups/enrollment-sync.js
   - server/models/Enrollment.js
   - server/controllers/enrollmentController.js
   - client/src/features/learning/EnrollLearnersModal.jsx
@@ -36,15 +38,23 @@ audit trail of transfers) and **cohort-based** enrollment (L&D: a learner
 enrolled directly into a Cohort with `teamId=null`). Cohort-based enrollment adds
 self-enroll with prerequisite gating.
 
-> **Convergence (Phase 2, 2026-06-14):** the two shapes are **one Enrollment
+> **Convergence (Phase 2, read 2026-06-14):** the two shapes are **one Enrollment
 > concept read through one surface**. `GET /api/learning/enrollments/mine`
 > (self-scoped) returns a learner's enrollments across BOTH modes in one shape,
 > each row tagged `mode: 'group'` (joined via a team) or `mode: 'direct'`
 > (enrolled straight into the cohort). The learner "My programs" list consumes it,
 > so a team-booked learner finally sees their cohort there. No model merge, no
-> data move (per ADR `converge-to-one-training-model`). The two **write** paths
-> (team membership sync vs cohort enroll) and uniform enrollment events remain a
-> follow-up.
+> data move (per ADR `converge-to-one-training-model`).
+>
+> **Convergence (Phase 2, write-spine 2026-06-15):** the **create** write path is
+> now unified — both modes create their Active enrollment through ONE spine
+> (`domains/learning/enrollment/writes.createActiveEnrollment` →
+> `repository.insertActiveEnrollment`), and team membership-sync now publishes the
+> same `ENROLLMENT_CREATED` domain event cohort enroll does, so notification (the
+> `cohort_enrolled` bell) and automation react uniformly for both modes. Team
+> events fire **post-commit** (a rolled-back team transaction never emits) and
+> only when the team has a cohort. Still deferred: folding the team
+> transfer/drop close-paths onto the same spine.
 
 ## Business Requirements (BR)
 
@@ -181,6 +191,32 @@ caller (no cross-learner access) regardless of role; rows carry the cohort
 - **WHEN** `/enrollments/mine` is requested
 - **THEN** **401**
 
+### Requirement: Uniform enrollment-created event (both modes) [BR-1, UC-1]
+
+When an Active enrollment is created by an Admin action — **either** a direct
+cohort enroll **or** a team membership-sync that adds a member to a team bound to
+a cohort — the system SHALL publish a single `ENROLLMENT_CREATED` domain event so
+cross-cutting concerns (the `cohort_enrolled` in-app bell + enrollment automation)
+react uniformly. Self-enroll is exempt (already confirmed in the UI). A team event
+fires **post-commit** and **only** when the team has a cohort; a program-less team
+publishes nothing.
+
+#### Scenario: Admin adds a member to a team with a cohort
+- **GIVEN** a team bound to a cohort
+- **WHEN** an Admin adds a learner to that team
+- **THEN** the learner gets a `cohort_enrolled` in-app bell (same shape as a
+  direct cohort enrollee)
+
+#### Scenario: Program-less team
+- **GIVEN** a team with no cohort (`classId` null)
+- **WHEN** an Admin adds a learner to it
+- **THEN** an enrollment is created but **no** event/bell is published
+
+#### Scenario: Rolled-back team transaction
+- **GIVEN** a team update whose transaction fails after the enrollment write
+- **WHEN** the transaction rolls back
+- **THEN** no `ENROLLMENT_CREATED` event is emitted (events flush only post-commit)
+
 ## Non-Functional Requirements (NFR)
 
 Inherits `security-platform`. Specifics:
@@ -203,6 +239,8 @@ Inherits `security-platform`. Specifics:
       over-capacity → `cohort_full` (partial success); non-admin → 403.
 - [ ] `/enrollments/mine` returns both team-based (`group`) and cohort-based
       (`direct`) enrollments in one shape, self-scoped; unauthenticated → 401.
+- [ ] Admin adding a member to a cohort-bound team writes a `cohort_enrolled`
+      bell for that member (same as direct enroll); a program-less team writes none.
 
 ## Error & Edge Cases
 
@@ -229,7 +267,9 @@ Inherits `security-platform`. Specifics:
   (per-session) is enforced in `scheduling-and-booking`.
 - Cohort-based vocabulary fully replacing team enrollment — in progress. **Read
   layer converged (Phase 2, 2026-06-14):** one self read serves both modes
-  (`/enrollments/mine`). Still deferred: unifying the two **write** paths (team
-  membership sync vs cohort enroll) and routing team enrollment through the
-  domain-event bus (so notification/audit subscribe uniformly, as cohort enroll
-  already does) — a behaviour-parity change tracked in the converge plan.
+  (`/enrollments/mine`). **Create write-spine + event converged (Phase 2,
+  2026-06-15):** both modes create through one spine and publish
+  `ENROLLMENT_CREATED`, so notification/automation subscribe uniformly (team
+  events post-commit, cohort-scoped). Still deferred: folding the team
+  **transfer/drop** close-paths onto the same spine (they keep team-specific
+  email side-effects today) — tracked in the converge plan.
