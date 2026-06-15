@@ -1,6 +1,6 @@
-const mongoose = require('mongoose');
-const Team = require('../../models/Team');
-const { syncSchedulesForTeamUpdate } = require('../../models/Team');
+const mongoose = require('mongoose'); // transaction orchestration only (startSession)
+const repository = require('./repository');
+const { syncSchedulesForTeamUpdate } = repository;
 const { notifyPromotions } = require('../schedule/waitlist/promotion');
 const { handleError } = require('../../helpers/handleError');
 const auditService = require('../../services/auditService');
@@ -20,12 +20,7 @@ const { syncEnrollments, flushPendingEmails } = require('./enrollment-sync');
 const checkMemberConflicts = async (memberIds, excludeTeamId = null) => {
   if (!memberIds || memberIds.length === 0) return null;
 
-  const query = { members: { $in: memberIds } };
-  if (excludeTeamId) query._id = { $ne: excludeTeamId };
-
-  const conflictingTeams = await Team.find(query)
-    .populate('members', 'name empCode')
-    .lean();
+  const conflictingTeams = await repository.findTeamsByMembers(memberIds, excludeTeamId);
 
   if (conflictingTeams.length > 0) {
     const details = [];
@@ -50,11 +45,11 @@ const createTeam = async (req, res) => {
 
     // Guard: check if classId is already assigned to another team
     if (classId) {
-      const conflict = await Team.findOne({ classId }).populate('classId', 'classCode').lean();
+      const conflict = await repository.findTeamByClass(classId);
       if (conflict) {
         const code = conflict.classId?.classCode || classId;
         if (forceSwap) {
-          await Team.findByIdAndUpdate(conflict._id, { $set: { classId: null } });
+          await repository.unassignTeamClass(conflict._id);
           logger.info({ classCode: code, fromTeam: conflict.name }, 'Force-swap: class unassigned');
         } else {
           return res.status(409).json({
@@ -90,9 +85,9 @@ const createTeam = async (req, res) => {
     const session = await mongoose.startSession();
     try {
       await session.withTransaction(async () => {
-        [team] = await Team.create(
-          [{ name, classId: classId || null, leaderId, members: memberList }],
-          { session }
+        [team] = await repository.insertTeam(
+          { name, classId: classId || null, leaderId, members: memberList },
+          session,
         );
 
         const result = await syncEnrollments(
@@ -107,10 +102,7 @@ const createTeam = async (req, res) => {
     flushPendingEmails(pendingEmails);
 
     // Return populated (read-only, outside transaction)
-    const populated = await Team.findById(team._id)
-      .populate('classId', 'classCode courseName status')
-      .populate('leaderId', 'empCode name department status')
-      .populate('members', 'empCode name department status');
+    const populated = await repository.findTeamByIdPopulated(team._id);
 
     auditService.record({
       req,
@@ -140,7 +132,7 @@ const updateTeam = async (req, res) => {
     const { name, classId, leaderId, members, forceSwap } = req.body;
 
     // ── Pre-validation (read-only, outside transaction) ─────
-    const currentTeam = await Team.findById(req.params.id).lean();
+    const currentTeam = await repository.findTeamByIdLean(req.params.id);
     if (!currentTeam) {
       return res.status(404).json({ success: false, message: 'Team not found' });
     }
@@ -155,12 +147,11 @@ const updateTeam = async (req, res) => {
         updateData.classId = null;
       } else {
         // Guard: check if classId is already assigned to ANOTHER team
-        const conflict = await Team.findOne({ classId, _id: { $ne: req.params.id } })
-          .populate('classId', 'classCode').lean();
+        const conflict = await repository.findTeamByClassExcluding(classId, req.params.id);
         if (conflict) {
           const code = conflict.classId?.classCode || classId;
           if (forceSwap) {
-            await Team.findByIdAndUpdate(conflict._id, { $set: { classId: null } });
+            await repository.unassignTeamClass(conflict._id);
             logger.info({ classCode: code, fromTeam: conflict.name }, 'Force-swap: class unassigned');
           } else {
             return res.status(409).json({
@@ -217,11 +208,7 @@ const updateTeam = async (req, res) => {
     try {
       await session.withTransaction(async () => {
         // Step 1: Update Team document
-        await Team.findOneAndUpdate(
-          { _id: req.params.id },
-          updateData,
-          { new: true, runValidators: true, session }
-        );
+        await repository.updateTeamDoc(req.params.id, updateData, session);
 
         // Step 2: Sync Schedule.enrolledUsers (if members changed).
         // A member REMOVAL frees seats — the sync promotes FIFO waiters
@@ -267,10 +254,7 @@ const updateTeam = async (req, res) => {
     }
 
     // Return populated (outside transaction — read-only)
-    const populated = await Team.findById(req.params.id)
-      .populate('classId', 'classCode courseName status')
-      .populate('leaderId', 'empCode name department status')
-      .populate('members', 'empCode name department status');
+    const populated = await repository.findTeamByIdPopulated(req.params.id);
 
     auditService.record({
       req,

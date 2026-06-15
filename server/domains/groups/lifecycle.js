@@ -1,6 +1,5 @@
-const mongoose = require('mongoose');
-const Team = require('../../models/Team');
-const Enrollment = require('../../models/Enrollment');
+const mongoose = require('mongoose'); // transaction orchestration only (startSession)
+const repository = require('./repository');
 const { handleError } = require('../../helpers/handleError');
 const auditService = require('../../services/auditService');
 const { invalidateAnalyticsCache } = require('../../middleware/analyticsCache');
@@ -24,7 +23,7 @@ const { invalidateAnalyticsCache } = require('../../middleware/analyticsCache');
  */
 const deleteTeam = async (req, res) => {
   try {
-    const team = await Team.findById(req.params.id);
+    const team = await repository.findTeamDocById(req.params.id);
     if (!team) {
       return res.status(404).json({ success: false, message: 'Team not found' });
     }
@@ -36,19 +35,11 @@ const deleteTeam = async (req, res) => {
     try {
       await session.withTransaction(async () => {
         // Step 1: Close all active enrollments for this team
-        const enrollResult = await Enrollment.updateMany(
-          { teamId: team._id, status: 'Active' },
-          { $set: { status: 'Dropped', leftAt: new Date() } },
-          { session }
-        );
+        const enrollResult = await repository.closeActiveEnrollments(team._id, session);
         closedEnrollments = enrollResult.modifiedCount;
 
-        // Step 2: Soft-delete the team (bypass auto-filter via raw update)
-        await Team.collection.updateOne(
-          { _id: team._id },
-          { $set: { isDeleted: true, deletedAt: new Date() } },
-          { session }
-        );
+        // Step 2: Soft-delete the team (raw write — bypasses the isDeleted hook)
+        await repository.markTeamDeleted(team._id, session);
       });
     } finally {
       session.endSession();
@@ -80,7 +71,7 @@ const deleteTeam = async (req, res) => {
  */
 const restoreTeam = async (req, res) => {
   try {
-    const team = await Team.findOne({ _id: req.params.id, isDeleted: true }).lean();
+    const team = await repository.findDeletedTeamById(req.params.id);
     if (!team) {
       return res.status(404).json({
         success: false,
@@ -88,10 +79,7 @@ const restoreTeam = async (req, res) => {
       });
     }
 
-    await Team.collection.updateOne(
-      { _id: new mongoose.Types.ObjectId(req.params.id) },
-      { $set: { isDeleted: false, deletedAt: null } }
-    );
+    await repository.markTeamRestored(req.params.id);
 
     auditService.record({
       req,

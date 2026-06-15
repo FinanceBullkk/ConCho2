@@ -1,9 +1,14 @@
+const mongoose = require('mongoose');
 const Schedule = require('../../models/Schedule');
 const Team = require('../../models/Team');
 const Attendance = require('../../models/Attendance');
 const Class = require('../../models/Class');
 const LearningProgram = require('../../models/LearningProgram');
 const User = require('../../models/User');
+const WaitlistEntry = require('../../models/WaitlistEntry');
+const Setting = require('../../models/Setting');
+const Room = require('../../models/Room');
+const RoomBooking = require('../../models/RoomBooking');
 
 // ── Schedule ──────────────────────────────────────────────
 
@@ -236,9 +241,127 @@ const findClassCapacityPolicy = async (classId, session) => {
   return program?.capacityPolicy || {};
 };
 
+// ── Model-access consolidation (audit round 9) ────────────
+// The reads/writes below used to live directly in this domain's controller,
+// policy and helper files. They are gathered here so every collection touch
+// goes through the repository (domain convention: no Mongoose outside repo).
+// Behaviour is preserved 1:1 — same filters, projections, populate and lean.
+
+const findScheduleByIdLean = (id) => Schedule.findById(id).lean();
+
+// session-order: live sessions of the given classes, ordered, minimal fields.
+// Accepts string ids and builds the ObjectIds here so the caller never has to
+// touch mongoose. Durable-cancelled rows never consume a session number.
+const findScheduledByClassIdsOrdered = (classIds) => {
+  const objectIds = classIds.map((id) => new mongoose.Types.ObjectId(id));
+  return Schedule.find({ classId: { $in: objectIds }, status: 'scheduled' })
+    .select('_id classId startTime')
+    .sort({ startTime: 1 })
+    .lean();
+};
+
+// use-cases: post-commit calendar-sync populate shape (lean).
+const findScheduleForCalendarSync = (id) =>
+  Schedule.findById(id)
+    .populate('classId', 'classCode courseName')
+    .populate('bookedTeamId', 'name')
+    .populate('enrolledUsers', 'empCode name email')
+    .populate('sessionInstructorIds', 'empCode name email')
+    .lean();
+
+// use-cases: minimal class label for a cancellation email.
+const findScheduleClassLabel = (id) =>
+  Schedule.findById(id)
+    .populate('classId', 'classCode courseName')
+    .select('classId')
+    .lean();
+
+const findUsersForEmail = (userIds) =>
+  User.find({ _id: { $in: userIds } }).select('name email').lean();
+
+// ── Waitlist (release-resources) ──────────────────────────
+const findWaitingEntries = (scheduleIds, session) =>
+  WaitlistEntry.find(
+    { scheduleId: { $in: scheduleIds }, status: 'waiting' },
+    { userId: 1 },
+    { session },
+  ).lean();
+
+const cancelWaitingEntries = (scheduleIds, session) =>
+  WaitlistEntry.updateMany(
+    { scheduleId: { $in: scheduleIds }, status: 'waiting' },
+    { $set: { status: 'cancelled' } },
+    { session },
+  );
+
+// ── Settings (scheduling-window-policy) ───────────────────
+const findAllowedTimeSlotsSetting = () =>
+  Setting.findOne({ key: 'ALLOWED_TIME_SLOTS' }).lean();
+
+// ── Facilitator policy reads (assignment + visibility) ────
+const findClassForFacilitator = (classId) =>
+  Class.findById(classId).select('programId teacherIds').lean();
+
+const findProgramFacilitatorPolicy = (programId) =>
+  LearningProgram.findById(programId).select('facilitatorPolicy').lean();
+
+const findClassProgramId = (cohortId) =>
+  Class.findById(cohortId).select('programId').lean();
+
+const findProgramVisibility = (programId) =>
+  LearningProgram.findById(programId).select('facilitatorPolicy.visibility').lean();
+
+const findClassesProgramIds = (cohortIds) =>
+  Class.find({ _id: { $in: cohortIds } }).select('programId').lean();
+
+const findAssignedOnlyPrograms = (programIds) =>
+  LearningProgram.find({
+    _id: { $in: programIds },
+    'facilitatorPolicy.visibility': 'assigned_only',
+  }).select('_id').lean();
+
+// ── Room-lock ledger (room-lock-policy) ───────────────────
+// Raw collection touches only — the duplicate-key→409 and same-Office
+// invariants stay in room-lock-policy (business rules); the writes live here.
+const findRoomForLock = (roomId, session) => {
+  let q = Room.findById(roomId).select('officeId isActive');
+  if (session) q = q.session(session);
+  return q;
+};
+
+const createRoomBooking = ({ roomId, scheduleId, classId, startTime }, session) =>
+  RoomBooking.create([{ roomId, scheduleId, classId, startTime }], { session });
+
+const setScheduleRoom = (scheduleId, roomId, session) =>
+  Schedule.updateOne({ _id: scheduleId }, { $set: { roomId } }, { session });
+
+const deleteRoomBookings = (scheduleIds, session) =>
+  RoomBooking.deleteMany(
+    { scheduleId: { $in: scheduleIds } },
+    ...(session ? [{ session }] : []),
+  );
+
 module.exports = {
   findScheduleById,
   findScheduleByIdRaw,
+  findScheduleByIdLean,
+  findScheduledByClassIdsOrdered,
+  findScheduleForCalendarSync,
+  findScheduleClassLabel,
+  findUsersForEmail,
+  findWaitingEntries,
+  cancelWaitingEntries,
+  findAllowedTimeSlotsSetting,
+  findClassForFacilitator,
+  findProgramFacilitatorPolicy,
+  findClassProgramId,
+  findProgramVisibility,
+  findClassesProgramIds,
+  findAssignedOnlyPrograms,
+  findRoomForLock,
+  createRoomBooking,
+  setScheduleRoom,
+  deleteRoomBookings,
   updateScheduleById,
   cancelScheduleById,
   attendanceExistsForSchedule,

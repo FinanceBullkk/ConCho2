@@ -1,5 +1,4 @@
-const Class = require('../../models/Class');
-const LearningProgram = require('../../models/LearningProgram');
+const repository = require('./repository');
 
 // ──────────────────────────────────────────────────────────
 // facilitator-visibility-policy
@@ -14,11 +13,9 @@ const LearningProgram = require('../../models/LearningProgram');
 // Is the cohort's program assigned_only? (single cohort)
 const isCohortAssignedOnly = async (cohortId) => {
   if (!cohortId) return false;
-  const cls = await Class.findById(cohortId).select('programId').lean();
+  const cls = await repository.findClassProgramId(cohortId);
   if (!cls?.programId) return false;
-  const program = await LearningProgram.findById(cls.programId)
-    .select('facilitatorPolicy.visibility')
-    .lean();
+  const program = await repository.findProgramVisibility(cls.programId);
   return program?.facilitatorPolicy?.visibility === 'assigned_only';
 };
 
@@ -26,15 +23,12 @@ const isCohortAssignedOnly = async (cohortId) => {
 // string ids). One Class query + one Program query — used by the session list.
 const assignedOnlyCohortIdSet = async (cohortIds) => {
   if (!cohortIds || !cohortIds.length) return new Set();
-  const classes = await Class.find({ _id: { $in: cohortIds } }).select('programId').lean();
+  const classes = await repository.findClassesProgramIds(cohortIds);
   const withProgram = classes.filter((c) => c.programId);
   if (!withProgram.length) return new Set();
 
   const programIds = [...new Set(withProgram.map((c) => String(c.programId)))];
-  const assignedOnlyPrograms = await LearningProgram.find({
-    _id: { $in: programIds },
-    'facilitatorPolicy.visibility': 'assigned_only',
-  }).select('_id').lean();
+  const assignedOnlyPrograms = await repository.findAssignedOnlyPrograms(programIds);
   const assignedOnlyProgramIds = new Set(assignedOnlyPrograms.map((p) => String(p._id)));
 
   const set = new Set();

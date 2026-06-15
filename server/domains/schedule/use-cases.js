@@ -1,8 +1,6 @@
-const mongoose = require('mongoose');
+const mongoose = require('mongoose'); // transaction orchestration only (startSession)
 const calendarService = require('../../services/calendarService');
 const { ServiceError } = require('../../helpers/ServiceError');
-const Schedule = require('../../models/Schedule');
-const User = require('../../models/User');
 const { sendClassCancellation } = require('../../lib/emailTemplates');
 const { invalidateSessionOrderCache } = require('./session-order');
 const schedulingWindowPolicy = require('./scheduling-window-policy');
@@ -271,12 +269,7 @@ const updateSchedule = async (id, body) => {
   // Sync to Google Calendar (fail-soft)
   if (schedule.googleEventId && calendarService.isConfigured()) {
     try {
-      const populated = await Schedule.findById(schedule._id)
-        .populate('classId', 'classCode courseName')
-        .populate('bookedTeamId', 'name')
-        .populate('enrolledUsers', 'empCode name email')
-        .populate('sessionInstructorIds', 'empCode name email')
-        .lean();
+      const populated = await repository.findScheduleForCalendarSync(schedule._id);
       await calendarService.updateEventForSchedule({
         schedule: populated,
         classDoc: populated.classId,
@@ -358,13 +351,11 @@ const deleteSchedule = async (id, { cancelledBy = null, cancelledByName = 'Admin
   // Dissolved waiters are emailed post-commit (owner decision 2026-06-11) —
   // fail-soft, same cancellation template as enrolled learners.
   if (waiterUserIds.length > 0) {
-    const cls = await Schedule.findById(schedule._id)
-      .populate('classId', 'classCode courseName').select('classId').lean();
+    const cls = await repository.findScheduleClassLabel(schedule._id);
     const className = cls?.classId
       ? `${cls.classId.classCode} — ${cls.classId.courseName}`
       : 'your class';
-    const waiters = await User.find({ _id: { $in: waiterUserIds } })
-      .select('name email').lean();
+    const waiters = await repository.findUsersForEmail(waiterUserIds);
     for (const w of waiters) {
       if (!w.email) continue;
       sendClassCancellation({

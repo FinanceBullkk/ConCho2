@@ -1,6 +1,4 @@
-const RoomBooking = require('../../models/RoomBooking');
-const Room = require('../../models/Room');
-const Schedule = require('../../models/Schedule');
+const repository = require('./repository');
 const { ServiceError } = require('../../helpers/ServiceError');
 
 // ──────────────────────────────────────────────────────────
@@ -68,9 +66,7 @@ const acquireRoomLock = async ({ roomId, scheduleId, classId, startTime, officeI
   if (!roomId) return null;
 
   // Validate the room is live + active (soft-delete hook excludes deleted).
-  let roomQuery = Room.findById(roomId).select('officeId isActive');
-  if (session) roomQuery = roomQuery.session(session);
-  const room = await roomQuery;
+  const room = await repository.findRoomForLock(roomId, session);
   if (!room) throw new ServiceError('Room not found', 404);
   if (!room.isActive) throw new ServiceError('Room is not active', 409);
 
@@ -78,10 +74,7 @@ const acquireRoomLock = async ({ roomId, scheduleId, classId, startTime, officeI
   assertSameOffice(room, officeId);
 
   try {
-    await RoomBooking.create(
-      [{ roomId, scheduleId, classId, startTime }],
-      { session },
-    );
+    await repository.createRoomBooking({ roomId, scheduleId, classId, startTime }, session);
   } catch (err) {
     if (isDuplicateKeyError(err)) {
       throw new ServiceError('This room is already booked for this time slot', 409);
@@ -90,7 +83,7 @@ const acquireRoomLock = async ({ roomId, scheduleId, classId, startTime, officeI
   }
 
   // Write Schedule.roomId in the SAME tx success path (never independently).
-  await Schedule.updateOne({ _id: scheduleId }, { $set: { roomId } }, { session });
+  await repository.setScheduleRoom(scheduleId, roomId, session);
   return roomId;
 };
 
@@ -105,10 +98,7 @@ const acquireRoomLock = async ({ roomId, scheduleId, classId, startTime, officeI
 const releaseRoomLock = (scheduleIds, session) => {
   const ids = Array.isArray(scheduleIds) ? scheduleIds : [scheduleIds];
   if (ids.length === 0) return Promise.resolve({ deletedCount: 0 });
-  return RoomBooking.deleteMany(
-    { scheduleId: { $in: ids } },
-    ...(session ? [{ session }] : []),
-  );
+  return repository.deleteRoomBookings(ids, session);
 };
 
 module.exports = {

@@ -1,4 +1,4 @@
-const Schedule = require('../../models/Schedule');
+const repository = require('./repository');
 const { findTeacherVisibleClassIds } = require('../../helpers/teacher-class-scope');
 
 // ──────────────────────────────────────────────────────────
@@ -13,7 +13,7 @@ const scopedScheduleIdsForActor = async (actor) => {
   if (actor?.role !== 'Teacher') return null;
   const classIds = await findTeacherVisibleClassIds(actor._id);
   if (classIds.length === 0) return [];
-  return Schedule.distinct('_id', { classId: { $in: classIds }, status: 'scheduled' });
+  return repository.distinctScheduledIdsForClasses(classIds);
 };
 
 const scopedAttendanceMatch = async (actor) => {

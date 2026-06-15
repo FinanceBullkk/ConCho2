@@ -1,6 +1,4 @@
-const Team = require('../../models/Team');
-const Enrollment = require('../../models/Enrollment');
-const User = require('../../models/User');
+const repository = require('./repository');
 const logger = require('../../lib/logger');
 const {
   sendEnrollmentDropped,
@@ -44,21 +42,12 @@ const syncEnrollments = async (teamId, addedIds, removedIds, classId, opts = {})
 
   // Resolve target team once (used for email context). Read in-session so
   // it sees any team writes made earlier in the same transaction.
-  const targetTeam = await Team.findById(teamId)
-    .populate('classId', 'classCode courseName')
-    .session(session || null)
-    .lean();
+  const targetTeam = await repository.findTeamForEnrollmentContext(teamId, session);
 
   // ── Handle ADDED members ────────────────────────────────
   for (const userId of addedIds) {
     // Check if user has an Active enrollment in ANOTHER team
-    const existingEnrollment = await Enrollment.findOne({
-      userId,
-      status: 'Active',
-      teamId: { $ne: teamId },
-    })
-      .populate('teamId', 'name')
-      .session(session || null);
+    const existingEnrollment = await repository.findActiveEnrollmentInOtherTeam(userId, teamId, session);
 
     if (existingEnrollment) {
       const fromTeamName = existingEnrollment.teamId?.name || 'previous team';
@@ -68,20 +57,16 @@ const syncEnrollments = async (teamId, addedIds, removedIds, classId, opts = {})
       existingEnrollment.leftAt = now;
       existingEnrollment.transferredTo = teamId;
       const carriedNote = existingEnrollment.note;
-      await existingEnrollment.save({ session: session || undefined });
+      await repository.saveEnrollment(existingEnrollment, session);
 
       // Auto-remove from old team's members array
-      await Team.findByIdAndUpdate(
-        existingEnrollment.teamId,
-        { $pull: { members: userId } },
-        { session: session || undefined },
-      );
+      await repository.pullTeamMember(existingEnrollment.teamId, userId, session);
 
       logger.info({ userId, fromTeamId: existingEnrollment.teamId, toTeamId: teamId }, 'Enrollment transferred');
 
       // Queue email send for post-commit flush.
       pendingEmails.push(async () => {
-        const u = await User.findById(userId).select('name email').lean();
+        const u = await repository.findUserContact(userId);
         if (u && u.email) {
           sendEnrollmentTransferred({
             to: u.email,
@@ -96,22 +81,12 @@ const syncEnrollments = async (teamId, addedIds, removedIds, classId, opts = {})
     }
 
     // Check if user already has an Active enrollment in THIS team (avoid duplicates)
-    const alreadyActive = await Enrollment.findOne({
-      userId,
-      teamId,
-      status: 'Active',
-    }).session(session || null);
+    const alreadyActive = await repository.findActiveEnrollmentInTeam(userId, teamId, session);
 
     if (!alreadyActive) {
-      await Enrollment.create(
-        [{
-          userId,
-          teamId,
-          classId: classId || null,
-          joinedAt: now,
-          status: 'Active',
-        }],
-        { session: session || undefined },
+      await repository.createEnrollment(
+        { userId, teamId, classId: classId || null, joinedAt: now, status: 'Active' },
+        session,
       );
       logger.info({ userId, teamId }, 'Enrollment created (Active)');
     }
@@ -119,21 +94,17 @@ const syncEnrollments = async (teamId, addedIds, removedIds, classId, opts = {})
 
   // ── Handle REMOVED members ──────────────────────────────
   for (const userId of removedIds) {
-    const activeEnrollment = await Enrollment.findOne({
-      userId,
-      teamId,
-      status: 'Active',
-    }).session(session || null);
+    const activeEnrollment = await repository.findActiveEnrollmentInTeam(userId, teamId, session);
 
     if (activeEnrollment) {
       activeEnrollment.status = 'Dropped';
       activeEnrollment.leftAt = now;
-      await activeEnrollment.save({ session: session || undefined });
+      await repository.saveEnrollment(activeEnrollment, session);
       logger.info({ userId, teamId }, 'Enrollment marked Dropped');
 
       // Queue email for post-commit flush.
       pendingEmails.push(async () => {
-        const u = await User.findById(userId).select('name email').lean();
+        const u = await repository.findUserContact(userId);
         if (u && u.email) {
           sendEnrollmentDropped({
             to: u.email,
