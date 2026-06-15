@@ -111,6 +111,27 @@ Bug fixing and integration review rank above net-new feature rollout.
 > [`changelog-archive/2026-q2.md`](changelog-archive/2026-q2.md). Currently
 > inline: **2026-06-14 → 2026-06-15**.
 
+- **2026-06-15** — **TMS.update fidelity push — full 30-screen audit + Tier 1&2
+  to pixel-faithful (13 commits, branch `feat/tms-update-automation-engine`).**
+  Audited every prototype screen ([report](plans/reports/fidelity-audit-260615-1016-tms-update-screens.md));
+  closed all real deltas honestly (real data only — no fabricated metrics/inert
+  UI). **Tier 1 (presentational):** roles Compare + sensitive-cap shield icons ·
+  command palette (people/programs/depts) · catalog + audit entity-chips ·
+  Programs card-grid w/ real completion health · reconciliation 3-KPI header ·
+  session roster Find. **Tier 2 (real backend):** Home onboarding checklist +
+  at-a-glance (`GET /dashboard/setup`, 6 real config signals + week counts) ·
+  Department-performance table + cards + time-range (new per-dept aggregation:
+  headcount/completion/coverage/overdue — serves Overview **and** Departments) ·
+  Program completion-trend sparkline (`/programs/:id/completion-trend`,
+  certs/month) · **custom fields across all 4 entities** (Program/User/Cohort/
+  Session — each value round-trips on its real form, no inert tabs) · **session
+  details** (`Schedule.topic/agenda/materials/customFields` metadata + admin
+  edit + Agenda/Materials display). Declined as untruthful: audit "hash-chained"
+  claim, tri-state roles (binary model), any mock sparkline. Specs folded:
+  reporting-and-rollups (setup + dept-perf + completion-trend), attendance
+  (PWA offline), scheduling-and-booking (session details), assessments, search.
+  Gates per commit: server suites green, client **389 ✓**, lint **63 (cap)**,
+  build clean.
 - **2026-06-15** — **TMS.update gap #7 — PWA offline attendance (LAST gap; all 7
   now shipped).** Installable PWA for marking attendance with weak/no signal.
   **Client-only** — the server `bulkMark` already upserts per `{scheduleId,
