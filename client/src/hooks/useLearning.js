@@ -136,6 +136,15 @@ export const useCompletionRollup = (options = {}) =>
     ...options,
   });
 
+// A5 (Modernization H1) — training-hours rollup (labour-law minimums).
+export const useTrainingHours = (params = {}, options = {}) =>
+  useQuery({
+    queryKey: ['learning', 'reports', 'training-hours', params],
+    queryFn: async () => (await learningAPI.getTrainingHours(params)).data.data,
+    staleTime: 5 * 60 * 1000,
+    ...options,
+  });
+
 // Org-wide compliance report — caller controls enabled so the heavy report
 // loads only after the Admin requests it.
 export const useComplianceReport = (filters = {}, options = {}) =>

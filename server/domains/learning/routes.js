@@ -33,7 +33,7 @@ const {
 const feedbackController = require('./feedback/controller');
 const { submitFeedbackBody, listFeedbackQuery } = require('./feedback/schemas');
 const reportsController = require('./reports/controller');
-const { completionReportQuery, completionRollupQuery, complianceReportQuery } = require('./reports/schemas');
+const { completionReportQuery, completionRollupQuery, complianceReportQuery, trainingHoursQuery } = require('./reports/schemas');
 const dashboardController = require('./dashboard/controller');
 const { operationalDashboardQuery, costConfigBody } = require('./dashboard/schemas');
 const { exportLimiter } = require('../../middleware/rateLimiters');
@@ -211,6 +211,14 @@ router.get(
   exportLimiter,
   validate({ query: complianceReportQuery }),
   reportsController.exportComplianceReport,
+);
+
+// A5 (Modernization H1) — training hours per employee / department.
+router.get(
+  '/reports/training-hours',
+  requireCapability('report.read'),
+  validate({ query: trainingHoursQuery }),
+  reportsController.getTrainingHoursReport,
 );
 
 router.get(

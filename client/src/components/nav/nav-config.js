@@ -72,6 +72,7 @@ export const NAV_GROUPS = [
       tab('/reports', 'overview', 'nav.sections.overview', LayoutDashboard, { perm: 'read:dashboard' }),
       tab('/reports', 'learning', 'nav.sections.ldDashboard', BarChart3, { perm: 'read:reports' }),
       tab('/reports', 'completion', 'nav.sections.completion', ChartLine, { perm: 'read:reports' }),
+      tab('/reports', 'hours', 'nav.sections.trainingHours', CalendarClock, { perm: 'read:reports' }),
       tab('/reports', 'analytics', 'nav.sections.attendanceAnalytics', ChartLine, { perm: 'read:attendance' }),
       tab('/reports', 'hr-export', 'nav.sections.hrExport', Download, { perm: 'export:data' }),
     ],
