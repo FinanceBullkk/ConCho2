@@ -8,9 +8,12 @@
 const {
   CAPABILITIES,
   ALL_CAPABILITIES,
+  ROLE_CAPABILITIES,
   roleHasCapability,
   actorHasCapability,
   capabilitiesForRole,
+  setLiveGrants,
+  getLiveGrants,
 } = require('../../policy/capabilities');
 const { requireCapability } = require('../../middleware/requireCapability');
 
@@ -104,6 +107,37 @@ describe('policy/capabilities — role → capability map', () => {
     const caps = capabilitiesForRole('Participant');
     caps.push('mutated');
     expect(capabilitiesForRole('Participant')).not.toContain('mutated');
+  });
+});
+
+describe('policy/capabilities — editable live grants store (gap #2)', () => {
+  // Restore the static scaffold after each mutation so no other suite is affected.
+  afterEach(() => setLiveGrants(ROLE_CAPABILITIES));
+
+  test('setLiveGrants changes what a role holds', () => {
+    expect(roleHasCapability('Teacher', CAPABILITIES.PROGRAM_MANAGE)).toBe(false);
+    setLiveGrants({ ...ROLE_CAPABILITIES, Teacher: [CAPABILITIES.PROGRAM_MANAGE] });
+    expect(roleHasCapability('Teacher', CAPABILITIES.PROGRAM_MANAGE)).toBe(true);
+    expect(roleHasCapability('Teacher', CAPABILITIES.ENROLLMENT_READ)).toBe(false); // replaced, not merged
+  });
+
+  test('Admin grants are immutable (lockout-proof) even if edited away', () => {
+    setLiveGrants({ Admin: [], Teacher: [] }); // try to strip Admin
+    Object.values(CAPABILITIES).forEach((cap) => {
+      expect(roleHasCapability('Admin', cap)).toBe(true);
+    });
+  });
+
+  test('a custom role grants exactly its capabilities', () => {
+    setLiveGrants({ ...ROLE_CAPABILITIES, Auditor: [CAPABILITIES.AUDIT_READ, CAPABILITIES.REPORT_READ] });
+    expect(roleHasCapability('Auditor', CAPABILITIES.AUDIT_READ)).toBe(true);
+    expect(roleHasCapability('Auditor', CAPABILITIES.PROGRAM_MANAGE)).toBe(false);
+  });
+
+  test('getLiveGrants returns plain arrays incl. the full Admin set', () => {
+    const grants = getLiveGrants();
+    expect(Array.isArray(grants.Admin)).toBe(true);
+    expect(grants.Admin.length).toBe(ALL_CAPABILITIES.length);
   });
 });
 
