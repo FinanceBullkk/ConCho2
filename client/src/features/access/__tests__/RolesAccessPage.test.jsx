@@ -1,52 +1,90 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import RolesAccessPage from '../RolesAccessPage';
 
-const h = vi.hoisted(() => ({ state: { data: undefined, isLoading: false, isError: false } }));
+// TMS.update gap #2 P3-S3 — the matrix is now EDITABLE (DB-backed grants +
+// custom roles). Admin column is locked; toggling + Save calls updateRole.
 
-vi.mock('react-i18next', () => ({ useTranslation: () => ({ t: (k) => k }) }));
-vi.mock('../useAccess', () => ({ useCapabilityMatrix: () => h.state }));
+const h = vi.hoisted(() => ({
+  state: { data: undefined, isLoading: false, isError: false },
+  update: vi.fn(), create: vi.fn(), remove: vi.fn(),
+}));
+
+vi.mock('react-i18next', () => ({ useTranslation: () => ({ t: (k, d) => (typeof d === 'string' ? d : k) }) }));
+vi.mock('sonner', () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
+vi.mock('../useAccess', () => ({
+  useRoles: () => h.state,
+  useUpdateRole: () => ({ mutateAsync: h.update, isPending: false }),
+  useCreateRole: () => ({ mutateAsync: h.create, isPending: false }),
+  useDeleteRole: () => ({ mutateAsync: h.remove, isPending: false }),
+}));
 
 const sample = {
-  roles: ['Admin', 'Coordinator', 'Teacher', 'Participant'],
   capabilities: ['program.manage', 'session.book'],
-  grants: {
-    Admin: ['program.manage', 'session.book'],
-    Coordinator: ['program.manage'],
-    Teacher: [],
-    Participant: ['session.book'],
-  },
+  roles: [
+    { key: 'Admin', name: 'Administrator', system: true, capabilities: ['program.manage', 'session.book'] },
+    { key: 'Coordinator', name: 'Coordinator', system: true, capabilities: ['program.manage'] },
+    { key: 'Teacher', name: 'Teacher', system: true, capabilities: [] },
+    { key: 'Participant', name: 'Participant', system: true, capabilities: ['session.book'] },
+  ],
 };
 
 const renderPage = () => render(<MemoryRouter><RolesAccessPage /></MemoryRouter>);
 
-beforeEach(() => { h.state = { data: undefined, isLoading: false, isError: false }; });
+beforeEach(() => {
+  h.state = { data: undefined, isLoading: false, isError: false };
+  h.update.mockReset(); h.update.mockResolvedValue({});
+  h.create.mockReset(); h.create.mockResolvedValue({});
+  h.remove.mockReset(); h.remove.mockResolvedValue({});
+});
 
-describe('RolesAccessPage — capability matrix', () => {
+describe('RolesAccessPage — editable matrix', () => {
   it('renders a skeleton while loading', () => {
     h.state = { data: undefined, isLoading: true, isError: false };
     renderPage();
     expect(screen.getByTestId('access-skeleton')).toBeInTheDocument();
   });
 
-  it('renders the role columns, grouped capabilities, and grant cells', () => {
+  it('renders role columns, capability rows, and locks the Admin column', () => {
     h.state = { data: sample, isLoading: false, isError: false };
     renderPage();
 
-    // Role columns
-    ['Admin', 'Coordinator', 'Teacher', 'Participant'].forEach((r) =>
-      expect(screen.getByText(r)).toBeInTheDocument());
-
-    // Resource group headers (titleized prefix) + capability ids + humanized action
-    expect(screen.getByText('Program')).toBeInTheDocument();
-    expect(screen.getByText('Session')).toBeInTheDocument();
+    expect(screen.getByText('Administrator')).toBeInTheDocument();
+    expect(screen.getByText('Coordinator')).toBeInTheDocument();
     expect(screen.getByText('program.manage')).toBeInTheDocument();
-    expect(screen.getByText('session.book')).toBeInTheDocument();
 
-    // Both granted and not-granted cells are present (Teacher holds nothing here).
-    expect(screen.getAllByLabelText('granted').length).toBeGreaterThan(0);
-    expect(screen.getAllByLabelText('not granted').length).toBeGreaterThan(0);
+    // Admin cells are checked + disabled (superuser, locked).
+    const adminCell = screen.getByRole('checkbox', { name: 'Administrator program.manage' });
+    expect(adminCell).toBeChecked();
+    expect(adminCell).toBeDisabled();
+    // Teacher cell is editable + currently unchecked.
+    expect(screen.getByRole('checkbox', { name: 'Teacher program.manage' })).not.toBeChecked();
+  });
+
+  it('toggling a cell then Save persists the new grant set', async () => {
+    const user = userEvent.setup();
+    h.state = { data: sample, isLoading: false, isError: false };
+    renderPage();
+
+    await user.click(screen.getByRole('checkbox', { name: 'Teacher program.manage' }));
+    await user.click(screen.getByRole('button', { name: 'access.save' }));
+
+    expect(h.update).toHaveBeenCalledWith({ key: 'Teacher', capabilities: ['program.manage'] });
+  });
+
+  it('creates a custom role from the dialog', async () => {
+    const user = userEvent.setup();
+    h.state = { data: sample, isLoading: false, isError: false };
+    renderPage();
+
+    await user.click(screen.getByRole('button', { name: /access\.newRole/ }));
+    await user.type(screen.getByLabelText('access.roleKey'), 'Auditor');
+    await user.type(screen.getByLabelText('access.roleName'), 'Auditor');
+    await user.click(screen.getByRole('button', { name: 'access.create' }));
+
+    expect(h.create).toHaveBeenCalledWith({ key: 'Auditor', name: 'Auditor', capabilities: [] });
   });
 
   it('shows an error state when the matrix fails to load', () => {

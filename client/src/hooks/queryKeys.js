@@ -5,6 +5,7 @@ export const qk = {
   },
   access: {
     capabilityMatrix: ['access', 'capability-matrix'],
+    roles: ['access', 'roles'],
   },
   customFields: {
     all: ['custom-fields'],
