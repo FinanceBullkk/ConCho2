@@ -39,8 +39,10 @@ remainder is documented deferred-by-design scope (below), not active debt.
   (TMS.update north-star: **all 7 gaps shipped** (#1–#7); #7 PWA offline
   attendance closed 2026-06-15. **Investment Build Plan deep features — all 4
   shipped** (#3a audit hash-chain PR #108, #4 reconcile auto-heal PR #109, #1
-  analytics time-series PR #110, #5 Studio Scheduling PR #111). Next:
-  Modernization Horizon 1 (compliance matrix, budget dashboard).)
+  analytics time-series PR #110, #5 Studio Scheduling PR #111). **Modernization
+  Horizon 1 started**: A5 training-hours report shipped 2026-06-16; next A5
+  evidence-pack/presets, then A3 compliance matrix (`RequiredTraining`), A1 budget
+  dashboard (`CostEntry`/`Budget`), A8, B2.)
 - **Gated / owner-ops:** **D2 Google OIDC + Directory sync** (blocked on owner's
   Google OAuth app + Workspace domain); **paid always-on hosting** + Sentry
   cron-monitor dashboard; **Phase 6 PostgreSQL gate** (plan drafted,
@@ -114,6 +116,19 @@ Bug fixing and integration review rank above net-new feature rollout.
 > [`changelog-archive/2026-q2.md`](changelog-archive/2026-q2.md). Currently
 > inline: **2026-06-14 → 2026-06-16**.
 
+- **2026-06-16** — **Modernization Horizon 1 — A5 (part 1): training-hours
+  report.** First Horizon-1 initiative. Audit-ready training hours per employee /
+  department for labour-law minimums, derived (no new model) from attended
+  (`P`/`L`) sessions × `Schedule` duration. New
+  `domains/learning/reports/training-hours-use-case.js` + repository helpers;
+  `GET /api/learning/reports/training-hours?from=&to=&groupBy=user|department&departmentId=`
+  (`report.read`; default last 90d; invalid date → 400; 0-hours employees shown so
+  gaps surface). Client: **Reports ▸ Training hours** tab (group-by toggle, date
+  window, per-user + per-department tables, KPI totals) + nav entry. Tests +5
+  (per-user hours, department rollup, report.read allow/deny, invalid-date 400).
+  Server **113/1087** green, client **391** green, lint 63 (cap), build clean.
+  Spec `reporting-and-rollups` updated (BR-7 + FR + AC). The A5 compliance report
+  already existed (D6); follow-up: evidence-pack (PDF+xlsx) + scheduled presets.
 - **2026-06-16** — **TMS.update Build Plan #5: Studio ▸ Scheduling (session
   types + room utilization) — new infra.** New `SessionType` model
   (name/colour/defaultDurationMin/defaultCapacity/order, soft-delete) + a

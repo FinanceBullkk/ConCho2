@@ -2,13 +2,15 @@
 capability: reporting-and-rollups
 status: stable
 owners: [domains/learning/reports, domains/learning/dashboard]
-last_updated: 2026-06-15
+last_updated: 2026-06-16
 related_code:
   - server/domains/learning/reports/use-cases.js
   - server/domains/learning/reports/completion-rollup-use-case.js
+  - server/domains/learning/reports/training-hours-use-case.js
   - server/domains/learning/reports/repository.js
   - server/domains/learning/dashboard/use-cases.js
   - server/domains/learning/dashboard/repository.js
+  - client/src/features/learning/TrainingHoursTab.jsx
 related_plans:
   - plans/260603-2250-completion-report-rollups
   - plans/260603-2323-learning-reports-lazy-rollups
@@ -40,12 +42,16 @@ stay code-truth.
   sessions, overdue assignments, certificate expiry, assessment pass rate,
   feedback averages, training coverage) that degrades per-metric instead of
   failing whole.
+- **BR-7:** HR gets an audit-ready **training-hours** report per employee and per
+  department (labour-law minimums), derived from attended sessions × duration.
 
 ## Actors & Use Cases (UC)
 
 - **UC-1 (Admin/Teacher):** opens a cohort completion report.
 - **UC-2 (Admin):** views program-level rollups.
 - **UC-3 (Admin/Teacher):** opens the operational dashboard bundle.
+- **UC-4 (Admin/Teacher, `report.read`):** opens the training-hours report
+  (`GET /api/learning/reports/training-hours?from=&to=&groupBy=user|department&departmentId=`).
 
 ## Entities
 
@@ -186,6 +192,23 @@ SHALL return `series[]` of the last 8 months `{ month: 'YYYY-MM', completions }`
 zero-filled, where completions = certificates issued for the program that month
 (real data — drives the Program-detail trend sparkline).
 
+### Requirement: Training-hours report [BR-7, UC-4]
+
+`GET /api/learning/reports/training-hours` (capability `report.read`) SHALL return
+training hours over a window (default last 90 days), where a learner's hours = Σ
+over their **attended** (`P`/`L`) sessions of that session's duration
+(`Schedule.endTime − startTime`). `groupBy=user` returns one row per Participant
+(0-hours included so gaps show); `groupBy=department` rolls up
+`{ employees, withHours, sessions, hours, avgHours }`. Optional `departmentId`
+scopes the set. Read-only — no new model. An invalid date is rejected with **400**.
+
+#### Scenario: Hours from attended sessions
+- **GIVEN** a learner attended (`P`) one 2-hour session in the window
+- **WHEN** an Admin requests the training-hours report
+- **THEN** that learner's row shows `hours: 2`, `sessions: 1`, and the totals + the
+  learner's department roll the 2 hours up
+- **AND** a Participant (no `report.read`) gets **403**
+
 ## Non-Functional Requirements (NFR)
 
 Inherits `security-platform`. Specifics:
@@ -202,6 +225,8 @@ Inherits `security-platform`. Specifics:
 - [ ] Completion rate counts active learners only.
 - [ ] Teacher limited to taught cohorts (403 otherwise); Admin unrestricted.
 - [ ] No data mutated.
+- [ ] Training-hours = Σ attended-session durations; per-user + per-department
+      rollups; `report.read`-gated; invalid date → 400.
 - [ ] Dashboard bundle: completion parity with the rollup endpoint; per-metric
       fail-soft (`null` + `errors[]`, response 200); Teacher class-scoped;
       Participant 403; invalid `window` 400.

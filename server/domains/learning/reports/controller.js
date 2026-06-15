@@ -2,6 +2,7 @@ const auditService = require('../../../services/auditService');
 const { handleError } = require('../../../helpers/handleError');
 const useCases = require('./use-cases');
 const complianceUseCases = require('./compliance-use-cases');
+const trainingHoursUseCase = require('./training-hours-use-case');
 const { buildCompletionWorkbookBuffer, buildComplianceWorkbookBuffer } = require('./export');
 const { ServiceError } = require('../../../helpers/ServiceError');
 
@@ -83,10 +84,21 @@ const exportComplianceReport = async (req, res) => {
   }
 };
 
+// A5 (Modernization H1) — training-hours rollup for labour-law compliance.
+const getTrainingHoursReport = async (req, res) => {
+  try {
+    const data = await trainingHoursUseCase.buildTrainingHoursReport(req.query);
+    res.json({ success: true, data });
+  } catch (error) {
+    handleError(res, error);
+  }
+};
+
 module.exports = {
   getCompletionReport,
   getCompletionRollup,
   exportCompletionReport,
   getComplianceReport,
   exportComplianceReport,
+  getTrainingHoursReport,
 };

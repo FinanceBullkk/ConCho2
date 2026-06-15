@@ -180,6 +180,31 @@ const listProgramCertificates = (userIds, programIds) => {
     .lean();
 };
 
+// ── A5 training-hours (Modernization Horizon 1) ──────────────────────────────
+// Scheduled (non-cancelled) sessions in a date range, with their durations.
+const listSchedulesInRange = ({ from, to }) =>
+  Schedule.find({ status: 'scheduled', startTime: { $gte: from, $lte: to } })
+    .select('_id startTime endTime')
+    .lean();
+
+// Attended (P/L) attendance rows for a set of sessions — the hours-earning rows.
+const listAttendedByScheduleIds = (scheduleIds) => {
+  if (!scheduleIds.length) return [];
+  return Attendance.find({ scheduleId: { $in: scheduleIds }, status: { $in: ATTENDED_STATUSES } })
+    .select('userId scheduleId')
+    .lean();
+};
+
+// Participants for the hours report, optionally scoped to one department.
+const listParticipantsForHours = ({ departmentId } = {}) => {
+  const filter = { role: 'Participant' };
+  if (departmentId) filter.departmentId = departmentId;
+  return User.find(filter)
+    .select('empCode name department departmentId')
+    .populate('departmentId', 'code name')
+    .lean();
+};
+
 module.exports = {
   findCohort,
   listActiveCohorts,
@@ -198,4 +223,7 @@ module.exports = {
   listComplianceAssignments,
   findOrgUsers,
   listProgramCertificates,
+  listSchedulesInRange,
+  listAttendedByScheduleIds,
+  listParticipantsForHours,
 };
