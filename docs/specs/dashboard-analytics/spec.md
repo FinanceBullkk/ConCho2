@@ -51,7 +51,7 @@ attendance), cached so frequent dashboard refreshes don't hammer the DB.
   `{scope (global|program|office), scopeId, key, date (UTC midnight)}` → `value`.
   Keys: `active_enrollments` (point-in-time), `enrollments` / `completions` /
   `certs_issued` (cumulative). Written nightly by `jobs/snapshotJob.js`; TTL
-  ~400 days. Backfilled (derivable global cumulative history) by
+  ~400 days. Backfilled (derivable cumulative history, global + per-program) by
   `scripts/backfill-metric-snapshots.js`.
 
 ## Functional Requirements (FR)
@@ -92,8 +92,8 @@ when no history exists yet (the client shows "collecting data", never a fake
 line). `GET /api/analytics/funnel?programId=` SHALL return the live
 enroll→complete→certify stage counts + conversion %. `GET /api/analytics/program/:id`
 SHALL combine a program's stored series with its funnel. All three are
-`analytics.read`-gated and cached. A backfill script seeds the derivable global
-cumulative history at deploy.
+`analytics.read`-gated and cached. A backfill script seeds the derivable
+cumulative history (global + per-program) at deploy.
 
 #### Scenario: Trend reads stored history
 - **GIVEN** the snapshot cron has run for several days

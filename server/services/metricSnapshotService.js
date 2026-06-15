@@ -8,7 +8,7 @@ const MetricSnapshot = require('../models/MetricSnapshot');
 // ──────────────────────────────────────────────────────────
 // Aggregates the L&D funnel metrics into one durable value per metric, per
 // scope (global + per-program), per UTC day. The nightly snapshotJob calls
-// takeDailySnapshot(); the backfill script calls backfillGlobalHistory() to
+// takeDailySnapshot(); the backfill script calls backfillHistory() to
 // seed the derivable history. analyticsSeriesService reads the rows back.
 //
 // Metrics:
@@ -124,28 +124,60 @@ const countLE = (sortedTs, t) => {
 };
 
 /**
- * Seed historical GLOBAL cumulative metrics that ARE derivable from record
- * timestamps (enrollments by joinedAt, completions by leftAt, certs by
- * issuedAt). active_enrollments is point-in-time and not historically derivable
- * — it is intentionally NOT backfilled (collected going forward).
+ * Seed historical cumulative metrics that ARE derivable from record timestamps,
+ * for BOTH global and per-program scope: enrollments by joinedAt, completions by
+ * leftAt (fallback updatedAt), certs by issuedAt. active_enrollments is
+ * point-in-time and not historically derivable — it is intentionally NOT
+ * backfilled (collected going forward).
  *
  * @param {{ days?: number }} [opts]
  */
-async function backfillGlobalHistory({ days = 180 } = {}) {
+async function backfillHistory({ days = 180 } = {}) {
   const today = utcMidnight();
   const start = utcMidnight();
   start.setUTCDate(start.getUTCDate() - (days - 1));
 
+  const classes = await Class.find({ programId: { $ne: null } })
+    .select('_id programId').lean();
+  const classToProgram = new Map(classes.map((c) => [String(c._id), String(c.programId)]));
+
   const enr = await Enrollment.find({ status: { $ne: 'Transferred' } })
-    .select('joinedAt createdAt status leftAt updatedAt').lean();
+    .select('joinedAt createdAt status leftAt updatedAt classId').lean();
   const certs = await Certificate.find({ status: 'Issued', isDeleted: { $ne: true } })
-    .select('issuedAt createdAt').lean();
+    .select('issuedAt createdAt programId').lean();
 
   const ms = (d) => +new Date(d);
-  const enrolledTs = enr.map((e) => e.joinedAt || e.createdAt).filter(Boolean).map(ms).sort((a, b) => a - b);
-  const completedTs = enr.filter((e) => e.status === 'Completed')
-    .map((e) => e.leftAt || e.updatedAt).filter(Boolean).map(ms).sort((a, b) => a - b);
-  const certTs = certs.map((c) => c.issuedAt || c.createdAt).filter(Boolean).map(ms).sort((a, b) => a - b);
+
+  // Global timestamp pools + per-program pools (programId → {enrolled,completed,cert}).
+  const globalTs = { enrolled: [], completed: [], cert: [] };
+  const perProgram = new Map();
+  const pool = (pid) => {
+    if (!perProgram.has(pid)) perProgram.set(pid, { enrolled: [], completed: [], cert: [] });
+    return perProgram.get(pid);
+  };
+
+  for (const e of enr) {
+    const jt = e.joinedAt || e.createdAt;
+    const ct = e.status === 'Completed' ? (e.leftAt || e.updatedAt) : null;
+    if (jt) globalTs.enrolled.push(ms(jt));
+    if (ct) globalTs.completed.push(ms(ct));
+    const pid = classToProgram.get(String(e.classId));
+    if (pid) {
+      const p = pool(pid);
+      if (jt) p.enrolled.push(ms(jt));
+      if (ct) p.completed.push(ms(ct));
+    }
+  }
+  for (const c of certs) {
+    const it = c.issuedAt || c.createdAt;
+    if (it) globalTs.cert.push(ms(it));
+    const pid = c.programId ? String(c.programId) : null;
+    if (pid && it) pool(pid).cert.push(ms(it));
+  }
+
+  const sortNum = (arr) => arr.sort((a, b) => a - b);
+  [globalTs.enrolled, globalTs.completed, globalTs.cert].forEach(sortNum);
+  for (const p of perProgram.values()) [p.enrolled, p.completed, p.cert].forEach(sortNum);
 
   let upserted = 0;
   let dayCount = 0;
@@ -153,15 +185,22 @@ async function backfillGlobalHistory({ days = 180 } = {}) {
     const day = utcMidnight(d);
     const endOfDay = +day + 24 * 60 * 60 * 1000 - 1;
     const rows = [
-      { scope: 'global', scopeId: null, key: 'enrollments', value: countLE(enrolledTs, endOfDay) },
-      { scope: 'global', scopeId: null, key: 'completions', value: countLE(completedTs, endOfDay) },
-      { scope: 'global', scopeId: null, key: 'certs_issued', value: countLE(certTs, endOfDay) },
+      { scope: 'global', scopeId: null, key: 'enrollments', value: countLE(globalTs.enrolled, endOfDay) },
+      { scope: 'global', scopeId: null, key: 'completions', value: countLE(globalTs.completed, endOfDay) },
+      { scope: 'global', scopeId: null, key: 'certs_issued', value: countLE(globalTs.cert, endOfDay) },
     ];
+    for (const [pid, p] of perProgram) {
+      rows.push(
+        { scope: 'program', scopeId: pid, key: 'enrollments', value: countLE(p.enrolled, endOfDay) },
+        { scope: 'program', scopeId: pid, key: 'completions', value: countLE(p.completed, endOfDay) },
+        { scope: 'program', scopeId: pid, key: 'certs_issued', value: countLE(p.cert, endOfDay) },
+      );
+    }
     const r = await writeSnapshots(day, rows);
     upserted += r.upserted;
     dayCount += 1;
   }
-  return { days: dayCount, upserted };
+  return { days: dayCount, upserted, programs: perProgram.size };
 }
 
 module.exports = {
@@ -170,5 +209,5 @@ module.exports = {
   computeDailyMetrics,
   writeSnapshots,
   takeDailySnapshot,
-  backfillGlobalHistory,
+  backfillHistory,
 };
