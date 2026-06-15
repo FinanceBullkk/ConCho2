@@ -5,6 +5,7 @@ const { requireCapability } = require('../middleware/requireCapability');
 const { CAPABILITIES } = require('../policy/capabilities');
 const { parsePagination, paginatedResponse } = require('../helpers/pagination');
 const { handleError } = require('../helpers/handleError');
+const { verifyChain } = require('../services/audit-chain');
 
 // ──────────────────────────────────────────────────────────
 // Audit Log Query API (Phase 1.1)
@@ -81,6 +82,25 @@ router.get('/entity/:entity/:entityId', async (req, res) => {
       .lean();
 
     res.json({ success: true, count: entries.length, data: entries });
+  } catch (error) {
+    handleError(res, error);
+  }
+});
+
+/**
+ * POST /api/admin/audit/verify?from=<seq>&to=<seq>
+ *
+ * Re-derives the tamper-evident hash chain over a seq window and reports
+ * whether it is intact, or the seq of the first inconsistent row. Read-only
+ * (no mutation) — POST because it is an action, gated by AUDIT_READ above.
+ * Defaults to the most recent window when from/to are omitted.
+ *
+ * 200 → { success: true, data: { ok, checked, from, to, firstBrokenSeq, reason } }
+ */
+router.post('/verify', async (req, res) => {
+  try {
+    const result = await verifyChain({ from: req.query.from, to: req.query.to });
+    res.json({ success: true, data: result });
   } catch (error) {
     handleError(res, error);
   }
