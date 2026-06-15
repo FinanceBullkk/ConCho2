@@ -2,20 +2,23 @@ const Enrollment = require('../../../models/Enrollment');
 const Class = require('../../../models/Class');
 const LearningProgram = require('../../../models/LearningProgram');
 
-// All queries here are scoped to cohort-based enrollments (teamId = null).
-// Team-based enrollments stay owned by the legacy enrollment/team controllers.
+// Reads here are scoped to cohort-based enrollments (teamId = null). The WRITE
+// spine below is shared: `insertActiveEnrollment` is the single place an Active
+// Enrollment row is born for BOTH modes — direct cohort (teamId null) and
+// team/group (teamId set, called by domains/groups via ./writes) — so the two
+// converge on one create path (converge Phase 2 write-spine).
 
 const findActiveCohortEnrollment = (userId, cohortId) =>
   Enrollment.findOne({ userId, classId: cohortId, teamId: null, status: 'Active' }).lean();
 
-const createCohortEnrollment = async ({ userId, cohortId }) => {
-  const doc = await Enrollment.create({
-    userId,
-    classId: cohortId,
-    teamId: null,
-    status: 'Active',
-  });
-  return doc.toObject();
+// The one create for both modes. Session-aware for the team-sync transaction;
+// `joinedAt` is optional (the model defaults it) — the team path passes an
+// explicit timestamp so every row in one sync shares it.
+const insertActiveEnrollment = async ({ userId, classId = null, teamId = null, joinedAt }, session = null) => {
+  const doc = { userId, classId, teamId, status: 'Active' };
+  if (joinedAt) doc.joinedAt = joinedAt;
+  const [created] = await Enrollment.create([doc], session ? { session } : {});
+  return created.toObject();
 };
 
 const listCohortEnrollments = ({ cohortId, learnerId }) => {
@@ -77,7 +80,7 @@ const findCohortCapacityPolicy = async (cohortId) => {
 
 module.exports = {
   findActiveCohortEnrollment,
-  createCohortEnrollment,
+  insertActiveEnrollment,
   listCohortEnrollments,
   listEnrollmentsForLearner,
   findCohortEnrollmentById,

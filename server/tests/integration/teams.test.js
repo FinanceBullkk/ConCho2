@@ -13,6 +13,7 @@ const Attendance = require('../../models/Attendance');
 const User = require('../../models/User');
 const Class = require('../../models/Class');
 const LearningProgram = require('../../models/LearningProgram');
+const NotificationLog = require('../../models/NotificationLog');
 
 let app, tokens, seed, csrf;
 
@@ -308,6 +309,76 @@ describe('PUT /api/teams/:id — capacity guard on member add', () => {
       await Team.findByIdAndDelete(team._id);
       await Class.findByIdAndDelete(cls._id);
       await User.deleteMany({ _id: { $in: [leader._id, m1._id, m2._id] } });
+    }
+  });
+});
+
+// ── Team enroll → cohort_enrolled bell parity (converge Phase 2) ──────────────
+// Team membership-sync now creates Active enrollments through the SAME write
+// spine as direct cohort enrollment, and publishes ENROLLMENT_CREATED so an
+// admin-added member gets the same in-app bell a direct enrollee gets. The bell
+// is cohort-scoped: a program-less team (no classId) publishes nothing.
+
+describe('Team enroll → cohort_enrolled bell parity (converge Phase 2)', () => {
+  test('creating a team with a cohort writes a cohort_enrolled bell for an admin-added member', async () => {
+    const cls = await Class.create({ classCode: 'CONV001', courseName: 'Converge Class', totalSessions: 5 });
+    const leader = await User.create({ empCode: '096701', name: 'Conv Leader', role: 'Participant', department: 'Test', password: 'pass12345678' });
+    const member = await User.create({ empCode: '096702', name: 'Conv Member', role: 'Participant', department: 'Test', password: 'pass12345678' });
+    await NotificationLog.deleteMany({ recipientUserId: { $in: [leader._id, member._id] } });
+
+    try {
+      const res = await request(app)
+        .post('/api/teams')
+        .set('Authorization', `Bearer ${tokens.admin}`).set(csrf)
+        .send({
+          name: 'Converge Team',
+          classId: cls._id.toString(),
+          leaderId: leader._id.toString(),
+          members: [leader._id.toString(), member._id.toString()],
+        });
+      expect(res.status).toBe(201);
+
+      // Same shape a direct cohort enrollee gets (one write spine + one event).
+      const bell = await NotificationLog.findOne({
+        recipientUserId: member._id, type: 'cohort_enrolled',
+      }).lean();
+      expect(bell).toBeTruthy();
+      expect(bell.channel).toBe('in_app');
+      expect(bell.metadata.cohortId).toBe(cls._id.toString());
+
+      await Team.findByIdAndDelete(res.body.data._id);
+    } finally {
+      await Class.findByIdAndDelete(cls._id);
+      await User.deleteMany({ _id: { $in: [leader._id, member._id] } });
+      await NotificationLog.deleteMany({ recipientUserId: { $in: [leader._id, member._id] } });
+    }
+  });
+
+  test('a program-less team (no cohort) writes NO cohort_enrolled bell', async () => {
+    const leader = await User.create({ empCode: '096703', name: 'NoCohort Leader', role: 'Participant', department: 'Test', password: 'pass12345678' });
+    const member = await User.create({ empCode: '096704', name: 'NoCohort Member', role: 'Participant', department: 'Test', password: 'pass12345678' });
+    await NotificationLog.deleteMany({ recipientUserId: { $in: [leader._id, member._id] } });
+
+    try {
+      const res = await request(app)
+        .post('/api/teams')
+        .set('Authorization', `Bearer ${tokens.admin}`).set(csrf)
+        .send({
+          name: 'No Cohort Team',
+          leaderId: leader._id.toString(),
+          members: [leader._id.toString(), member._id.toString()],
+        });
+      expect(res.status).toBe(201);
+
+      const count = await NotificationLog.countDocuments({
+        recipientUserId: { $in: [leader._id, member._id] }, type: 'cohort_enrolled',
+      });
+      expect(count).toBe(0);
+
+      await Team.findByIdAndDelete(res.body.data._id);
+    } finally {
+      await User.deleteMany({ _id: { $in: [leader._id, member._id] } });
+      await NotificationLog.deleteMany({ recipientUserId: { $in: [leader._id, member._id] } });
     }
   });
 });

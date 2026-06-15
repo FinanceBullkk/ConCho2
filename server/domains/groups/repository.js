@@ -156,9 +156,10 @@ const findActiveEnrollmentInTeam = (userId, teamId, session) =>
   Enrollment.findOne({ userId, teamId, status: 'Active' }).session(session || null);
 
 const saveEnrollment = (doc, session) => doc.save({ session: session || undefined });
-
-const createEnrollment = (doc, session) =>
-  Enrollment.create([doc], { session: session || undefined });
+// NOTE: Active-enrollment CREATE moved to the shared write spine
+// (domains/learning/enrollment/writes → repository.insertActiveEnrollment) so
+// team-create and cohort-create converge (Phase 2). This repo keeps the
+// team-specific enrollment READS + close/transfer save only.
 
 // ── User ──────────────────────────────────────────────────
 
@@ -198,7 +199,6 @@ module.exports = {
   findActiveEnrollmentInOtherTeam,
   findActiveEnrollmentInTeam,
   saveEnrollment,
-  createEnrollment,
   // user
   findUserContact,
 };
