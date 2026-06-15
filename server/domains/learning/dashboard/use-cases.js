@@ -2,8 +2,12 @@ const repository = require('./repository');
 const reportsRepository = require('../reports/repository');
 const { buildCompletionRollup } = require('../reports/completion-rollup-use-case');
 const { resolveAssignmentStatuses } = require('../assignment/status-resolver');
+const { coverageByDepartment } = require('./executive-repository');
 const { findTeacherVisibleClassIds } = require('../../../helpers/teacher-class-scope');
 const { composeFailSoft } = require('./compose-fail-soft');
+
+// Time-range windows the Overview department table offers (7d/30d/Quarter/YTD).
+const DEPT_WINDOWS = [7, 30, 90, 365];
 
 // ──────────────────────────────────────────────────────────
 // Operational dashboard — compose existing engines into one read-only bundle.
@@ -161,4 +165,52 @@ const buildSetup = async () => {
   };
 };
 
-module.exports = { buildOperationalDashboard, buildSetup };
+// Per-department performance for the Overview table + Departments cards.
+// headcount/completion are point-in-time; coverage/overdue use the window.
+// All real data — completion = users with ≥1 issued certificate.
+const buildDepartmentPerformance = async (options = {}) => {
+  const now = new Date();
+  const windowDays = DEPT_WINDOWS.includes(Number(options.window)) ? Number(options.window) : DEFAULT_WINDOW_DAYS;
+  const windowStart = new Date(now.getTime() - windowDays * DAY_MS);
+
+  const [headRows, completedRows, coverageRows, assignments] = await Promise.all([
+    repository.headcountByDepartment(),
+    repository.completedUsersByDepartment(),
+    coverageByDepartment(windowStart),
+    reportsRepository.listComplianceAssignments({}),
+  ]);
+
+  // Overdue assignments bucketed by the assignee's department.
+  const statusSets = await Promise.all(assignments.map((a) => resolveAssignmentStatuses(a, now)));
+  const overdueByDept = new Map();
+  statusSets.forEach((rows) => rows.forEach((row) => {
+    if (row.status !== 'overdue') return;
+    const d = row.learner?.department || 'Unassigned';
+    overdueByDept.set(d, (overdueByDept.get(d) || 0) + 1);
+  }));
+
+  const byDept = new Map();
+  const ensure = (d) => {
+    if (!byDept.has(d)) byDept.set(d, { department: d, headcount: 0, completed: 0, active: 0, engaged: 0, overdueCount: 0 });
+    return byDept.get(d);
+  };
+  headRows.forEach((r) => { ensure(r._id).headcount = r.headcount; });
+  completedRows.forEach((r) => { ensure(r._id).completed = r.completed; });
+  coverageRows.forEach((r) => { const x = ensure(r.department); x.active = r.active; x.engaged = r.engaged; });
+  overdueByDept.forEach((count, d) => { ensure(d).overdueCount = count; });
+
+  return {
+    windowDays,
+    departments: [...byDept.values()]
+      .map((x) => ({
+        department: x.department,
+        headcount: x.headcount,
+        completionPercent: x.headcount > 0 ? Math.round((x.completed / x.headcount) * 100) : 0,
+        coveragePercent: x.active > 0 ? Math.round((x.engaged / x.active) * 100) : 0,
+        overdueCount: x.overdueCount,
+      }))
+      .sort((a, b) => b.headcount - a.headcount),
+  };
+};
+
+module.exports = { buildOperationalDashboard, buildSetup, buildDepartmentPerformance };

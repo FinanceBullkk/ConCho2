@@ -197,6 +197,22 @@ const getSetupSignals = async () => {
   };
 };
 
+// Live (non-offboarded) headcount grouped by the legacy `department` string.
+const headcountByDepartment = () => User.aggregate([
+  { $match: { isDeleted: { $ne: true }, status: { $nin: ['Dropped', 'Transferred'] } } },
+  { $group: { _id: { $ifNull: ['$department', 'Unassigned'] }, headcount: { $sum: 1 } } },
+]);
+
+// Users with ≥1 issued certificate (= completed ≥1 program), grouped by dept.
+const completedUsersByDepartment = async () => {
+  const certUserIds = await Certificate.distinct('userId', { isDeleted: { $ne: true } });
+  if (!certUserIds.length) return [];
+  return User.aggregate([
+    { $match: { _id: { $in: certUserIds }, isDeleted: { $ne: true } } },
+    { $group: { _id: { $ifNull: ['$department', 'Unassigned'] }, completed: { $sum: 1 } } },
+  ]);
+};
+
 module.exports = {
   attendanceTotals,
   sessionCounts,
@@ -207,4 +223,6 @@ module.exports = {
   listProgramNames,
   coverageCounts,
   getSetupSignals,
+  headcountByDepartment,
+  completedUsersByDepartment,
 };

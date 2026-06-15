@@ -286,3 +286,30 @@ describe('GET /api/learning/dashboard/setup', () => {
     expect(res.status).toBe(403);
   });
 });
+
+describe('GET /api/learning/dashboard/departments', () => {
+  const getDepts = (token, q = '') =>
+    request(app).get(`/api/learning/dashboard/departments${q}`).set('Authorization', `Bearer ${token}`);
+
+  test('admin: per-dept rows with headcount/completion/coverage/overdue', async () => {
+    const res = await getDepts(tokens.admin);
+    expect(res.status).toBe(200);
+    expect(res.body.data.windowDays).toBe(30); // default
+    const rows = res.body.data.departments;
+    expect(Array.isArray(rows)).toBe(true);
+    expect(rows.length).toBeGreaterThan(0); // seed users carry departments
+    const row = rows[0];
+    ['department', 'headcount', 'completionPercent', 'coveragePercent', 'overdueCount']
+      .forEach((k) => expect(row).toHaveProperty(k));
+    expect(row.headcount).toBeGreaterThan(0);
+  });
+
+  test('window=365 is honored; an invalid window falls back to 30', async () => {
+    expect((await getDepts(tokens.admin, '?window=365')).body.data.windowDays).toBe(365);
+    expect((await getDepts(tokens.admin, '?window=999')).body.data.windowDays).toBe(30);
+  });
+
+  test('participant is forbidden (403)', async () => {
+    expect((await getDepts(tokens.leader)).status).toBe(403);
+  });
+});

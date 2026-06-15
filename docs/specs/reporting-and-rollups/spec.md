@@ -165,6 +165,20 @@ Home onboarding checklist + this-week counts, all derived from real data:
 - **WHEN** they load the setup status
 - **THEN** six steps return with real `done` flags; a Participant gets **403**
 
+### Requirement: Department performance [BR-2, BR-5, UC-3]
+
+`GET /api/learning/dashboard/departments?window=7|30|90|365` (capability
+`report.read`) SHALL return per-department `{ headcount, completionPercent,
+coveragePercent, overdueCount }` (sorted by headcount), all from real data:
+headcount = live users by `department`; completion = users with ≥1 issued
+certificate ÷ headcount; coverage = engaged ÷ active in the window; overdue =
+overdue assignments bucketed by the assignee's department. Invalid `window`
+falls back to 30.
+
+#### Scenario: Window + denial
+- **GIVEN** an Admin requests `?window=365`
+- **THEN** `windowDays = 365`; an invalid window falls back to 30; a Participant gets **403**
+
 ## Non-Functional Requirements (NFR)
 
 Inherits `security-platform`. Specifics:

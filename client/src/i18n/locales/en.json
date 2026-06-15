@@ -1353,6 +1353,23 @@
       "watch": "Watch",
       "atRisk": "At risk"
     },
+    "deptPerf": {
+      "title": "Department performance",
+      "subtitle": "Completion · coverage · overdue, by department",
+      "range": "Time range",
+      "ranges": { "7d": "7d", "30d": "30d", "quarter": "Quarter", "ytd": "YTD" },
+      "department": "Department",
+      "headcount": "Headcount",
+      "completion": "Completion",
+      "coverage": "Coverage",
+      "overdue": "Overdue",
+      "people_one": "{{count}} person",
+      "people_other": "{{count}} people",
+      "overdueCount_one": "{{count}} overdue",
+      "overdueCount_other": "{{count}} overdue",
+      "loadError": "Couldn't load department performance.",
+      "empty": "No department data yet."
+    },
     "paths": {
       "catalog": "Learning Paths",
       "new": "New Path",

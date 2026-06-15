@@ -33,6 +33,15 @@ export const useSetupStatus = (options = {}) =>
     ...options,
   });
 
+// Per-department performance (report.read gated). `window` = 7|30|90|365.
+export const useDepartmentPerformance = (window = 30, options = {}) =>
+  useQuery({
+    queryKey: qk.learning.dashboardDepartments(window),
+    queryFn: async () => (await learningAPI.getDepartmentPerformance({ window })).data.data,
+    staleTime: 60 * 1000,
+    ...options,
+  });
+
 export const useCostConfig = (options = {}) =>
   useQuery({
     queryKey: qk.learning.costConfig,
