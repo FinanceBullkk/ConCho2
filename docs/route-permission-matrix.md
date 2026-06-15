@@ -52,7 +52,7 @@ Source: current route middleware. Keep this matrix updated when routes move into
 | `/api/admin/reconcile` | Admin | Admin manual run | read reports and trigger run |
 | `/api/admin/cron` | Admin | none | cron run health/history (CronRun) |
 | `/api/cron` | cron token | cron token | external scheduled calls: health, reconcile, attendance-reminders, assignment-reminders |
-| `/api/search` | authenticated | none | result scoping in service |
+| `/api/search` | authenticated | none | result scoping in service; users/teams/classes for all, +programs/departments for Admin/Teacher |
 | `/api/sync` | Admin | Admin | Google Sheets sync |
 
 ## Rules

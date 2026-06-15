@@ -49,6 +49,7 @@ const CustomFieldsPage = lazy(() => import('./features/custom-fields/CustomField
 const AutomationPage = lazy(() => import('./features/automation/AutomationPage'));
 const SkillsPage = lazy(() => import('./features/skills/SkillsPage'));
 const BrandingPage = lazy(() => import('./features/branding/BrandingPage'));
+const CostRoiSettingsPage = lazy(() => import('./features/settings/CostRoiSettingsPage'));
 
 function RouteFallback() {
   return (
@@ -316,6 +317,9 @@ export default function App() {
                 } />
                 <Route path="/branding" element={
                   <ProtectedRoute roles={['Admin']}><BrandingPage /></ProtectedRoute>
+                } />
+                <Route path="/cost-roi" element={
+                  <ProtectedRoute roles={['Admin']}><CostRoiSettingsPage /></ProtectedRoute>
                 } />
 
                 {/* Detail pages keep their own routes for deep links */}

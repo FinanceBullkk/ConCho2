@@ -54,6 +54,9 @@ const createAssessment = async (body, actor) => {
     items,
     passingScorePercent: body.passingScorePercent ?? 0,
     maxAttempts: body.maxAttempts ?? 0,
+    timeLimitMinutes: body.timeLimitMinutes ?? 0,
+    shuffleQuestions: body.shuffleQuestions ?? false,
+    showAnswersAfter: body.showAnswersAfter ?? false,
     isPublished: body.isPublished ?? false,
     createdBy: actor._id,
   });
@@ -86,6 +89,9 @@ const updateAssessment = async (id, body, actor) => {
     items,
     passingScorePercent: body.passingScorePercent ?? 0,
     maxAttempts: body.maxAttempts ?? 0,
+    timeLimitMinutes: body.timeLimitMinutes ?? 0,
+    shuffleQuestions: body.shuffleQuestions ?? false,
+    showAnswersAfter: body.showAnswersAfter ?? false,
     isPublished: body.isPublished ?? false,
   });
   return { before, after };

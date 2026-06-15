@@ -92,4 +92,23 @@ describe('RolesAccessPage — editable matrix', () => {
     renderPage();
     expect(screen.getByText('access.loadError')).toBeInTheDocument();
   });
+
+  it('Compare view diffs two roles and flags where their grants differ', async () => {
+    const user = userEvent.setup();
+    h.state = { data: sample, isLoading: false, isError: false };
+    renderPage();
+
+    // Switch from Matrix to Compare.
+    await user.click(screen.getByRole('tab', { name: 'access.compare' }));
+    expect(screen.getByTestId('role-compare')).toBeInTheDocument();
+
+    // Default A=Admin (all caps), B=Coordinator (program.manage only):
+    // program.manage is shared (=), session.book differs (→).
+    expect(screen.getAllByLabelText('same').length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByLabelText('differs').length).toBeGreaterThanOrEqual(1);
+
+    // Switching B to Admin makes the two identical → no differs indicators.
+    await user.selectOptions(screen.getByLabelText('access.roleB'), 'Admin');
+    expect(screen.queryByLabelText('differs')).not.toBeInTheDocument();
+  });
 });

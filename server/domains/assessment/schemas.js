@@ -43,6 +43,9 @@ const createAssessmentBody = z.object({
   questionBankItemIds: z.array(objectId).max(100).optional(),
   passingScorePercent: z.coerce.number().min(0).max(100).optional(),
   maxAttempts: z.coerce.number().int().min(0).optional(),
+  timeLimitMinutes: z.coerce.number().int().min(0).max(600).optional(),
+  shuffleQuestions: z.coerce.boolean().optional(),
+  showAnswersAfter: z.coerce.boolean().optional(),
   isPublished: z.coerce.boolean().optional(),
 }).superRefine((body, ctx) => {
   const authored = body.items?.length || 0;
