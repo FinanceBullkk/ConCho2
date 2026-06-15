@@ -10,7 +10,7 @@ import { CustomFieldInput } from './custom-field-input';
 import { useCustomFields, useCreateCustomField, useDeleteCustomField } from './useCustomFields';
 
 // Entities whose forms render + persist custom-field values today (not inert).
-const ENTITIES = ['Program', 'User', 'Cohort'];
+const ENTITIES = ['Program', 'User', 'Cohort', 'Session'];
 const ctrl = 'w-full px-3 h-[--control-h] rounded-md bg-background border border-input text-foreground focus:outline-none focus:ring-2 focus:ring-ring';
 
 // Label → snake_case key; guarantee it starts with a letter (server regex).

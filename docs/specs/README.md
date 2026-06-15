@@ -39,7 +39,7 @@ table is just the index. Covers every mounted `/api/*` route surface.
 
 | Capability | Status | Owners (source) | Last updated |
 |---|---|---|---|
-| [scheduling-and-booking](scheduling-and-booking/spec.md) | stable | scheduleService, domains/schedule, domains/room, domains/learning/session | 2026-06-12 |
+| [scheduling-and-booking](scheduling-and-booking/spec.md) | stable | scheduleService, domains/schedule, domains/room, domains/learning/session | 2026-06-15 |
 | [auth-and-sessions](auth-and-sessions/spec.md) | stable | controllers/authController, services/authService, services/mfaService, middleware/auth | 2026-06-12 |
 | [users-and-roles](users-and-roles/spec.md) | stable | controllers/userController, models/User | 2026-06-12 |
 | [teams-and-groups](teams-and-groups/spec.md) | stable | domains/groups, models/Team | 2026-06-12 |

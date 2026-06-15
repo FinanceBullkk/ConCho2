@@ -21,6 +21,8 @@ const scheduleService = require('../../services/scheduleService');
 // updateSchedule handles roomId separately (release + reacquire) below.
 const ALLOWED_UPDATE_FIELDS = [
   'classId', 'bookedTeamId', 'startTime', 'endTime', 'roomLink', 'capacity',
+  // Session details — metadata only, no booking/room/time side effects.
+  'topic', 'agenda', 'materials', 'customFields',
 ];
 
 const filterAllowedFields = (body) => {
