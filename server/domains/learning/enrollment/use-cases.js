@@ -1,7 +1,6 @@
 const repository = require('./repository');
+const writes = require('./writes');
 const { assertPrerequisitesMet } = require('./prerequisites');
-const { publish } = require('../../../lib/event-bus');
-const EVENTS = require('../../_shared/events');
 const { ServiceError } = require('../../../helpers/ServiceError');
 
 const sameId = (a, b) => a && b && a.toString() === b.toString();
@@ -58,7 +57,7 @@ const enroll = async ({ cohortId, userId }, actor) => {
 
   let enrollment;
   try {
-    enrollment = await repository.createCohortEnrollment({ userId: targetUserId, cohortId });
+    enrollment = await writes.createActiveEnrollment({ userId: targetUserId, classId: cohortId, teamId: null });
   } catch (error) {
     // Lost a concurrent race against the partial unique index (DI-05b): the
     // app-level check above passed for both callers, only one insert wins.
@@ -68,11 +67,10 @@ const enroll = async ({ cohortId, userId }, actor) => {
     throw error;
   }
 
-  // Cross-cutting side effects (the cohort_enrolled bell row) now react to this
-  // domain event in domains/notification/subscribers.js — the use-case no longer
-  // wires the notification layer directly. Published AFTER the row persists; the
-  // subscriber skips self-enroll (already confirmed in the UI).
-  await publish(EVENTS.ENROLLMENT_CREATED, { enrollment, cohort, actorIsSelf: isSelf });
+  // Cross-cutting side effects (the cohort_enrolled bell row) react to this
+  // domain event in domains/notification/subscribers.js — the write spine emits
+  // it AFTER the row persists; the subscriber skips self-enroll.
+  await writes.announceEnrollmentCreated(enrollment, cohort, { actorIsSelf: isSelf });
 
   return enrollment;
 };
@@ -139,12 +137,12 @@ const bulkEnroll = async ({ cohortId, userIds }, actor) => {
       continue;
     }
     try {
-      const enrollment = await repository.createCohortEnrollment({ userId, cohortId });
+      const enrollment = await writes.createActiveEnrollment({ userId, classId: cohortId, teamId: null });
       enrolled.push(enrollment);
       activeCount += 1;
       // Admin-initiated (never self) → emit; the notification subscriber writes
       // the cohort_enrolled bell row (DRY with single enroll).
-      await publish(EVENTS.ENROLLMENT_CREATED, { enrollment, cohort, actorIsSelf: false });
+      await writes.announceEnrollmentCreated(enrollment, cohort, { actorIsSelf: false });
     } catch (error) {
       // Lost the partial-unique race (someone enrolled them concurrently).
       if (error && error.code === 11000) {

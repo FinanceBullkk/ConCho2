@@ -6,7 +6,7 @@ const { handleError } = require('../../helpers/handleError');
 const auditService = require('../../services/auditService');
 const { invalidateAnalyticsCache } = require('../../middleware/analyticsCache');
 const logger = require('../../lib/logger');
-const { syncEnrollments, flushPendingEmails } = require('./enrollment-sync');
+const { syncEnrollments, flushPendingEmails, flushPendingEnrollmentEvents } = require('./enrollment-sync');
 
 // ──────────────────────────────────────────────────────────
 // Team Controller — create/update handlers (Admin only)
@@ -82,6 +82,7 @@ const createTeam = async (req, res) => {
     // email notifications to flush after commit.
     let team;
     let pendingEmails = [];
+    let pendingEvents = [];
     const session = await mongoose.startSession();
     try {
       await session.withTransaction(async () => {
@@ -95,11 +96,13 @@ const createTeam = async (req, res) => {
           { session },
         );
         pendingEmails = result.pendingEmails;
+        pendingEvents = result.pendingEvents;
       });
     } finally {
       session.endSession();
     }
     flushPendingEmails(pendingEmails);
+    await flushPendingEnrollmentEvents(pendingEvents);
 
     // Return populated (read-only, outside transaction)
     const populated = await repository.findTeamByIdPopulated(team._id);
@@ -203,6 +206,7 @@ const updateTeam = async (req, res) => {
     // Emails are now queued and flushed AFTER the commit so a rollback
     // doesn't generate misleading notifications.
     let pendingEmails = [];
+    let pendingEvents = [];
     let teamSyncPromotions = [];
     const session = await mongoose.startSession();
     try {
@@ -232,11 +236,12 @@ const updateTeam = async (req, res) => {
             : currentTeam.classId?.toString() || null;
 
           if (addedIds.length > 0 || removedIds.length > 0) {
-            const { pendingEmails: emails } = await syncEnrollments(
+            const { pendingEmails: emails, pendingEvents: events } = await syncEnrollments(
               req.params.id, addedIds, removedIds, effectiveClassId,
               { session },
             );
             pendingEmails = emails;
+            pendingEvents = events;
           }
         }
       });
@@ -246,6 +251,7 @@ const updateTeam = async (req, res) => {
 
     // Flush queued notification emails now that the transaction has committed.
     flushPendingEmails(pendingEmails);
+    await flushPendingEnrollmentEvents(pendingEvents);
 
     // Notify waiters promoted by the member-removal seat-free (fail-soft).
     for (const { scheduleId, promoted } of teamSyncPromotions) {

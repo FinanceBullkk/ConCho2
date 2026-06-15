@@ -40,13 +40,22 @@ world saw **nothing** on `/me/programs`. Smallest, safest convergence: unify the
   self-scope / unauthenticated (6).
 - Client (`MyProgramsPage`): renders both modes, group-mode card via fallback name.
 
+## Write-spine slice (2026-06-15) ✅
+- **Done:** one create write-spine — `domains/learning/enrollment/writes.createActiveEnrollment`
+  → `repository.insertActiveEnrollment` is now the SINGLE place an Active
+  enrollment is born for both modes. Cohort `enroll`/`bulkEnroll` AND team
+  `enrollment-sync` create through it (team-create no longer has its own
+  `Enrollment.create`).
+- **Done:** team enrollment now publishes `ENROLLMENT_CREATED` (post-commit, only
+  when the team has a cohort) so the `cohort_enrolled` bell + automation subscribe
+  uniformly for both modes. Behaviour-parity change, covered by parity tests
+  (`teams.test.js`: cohort-bound team → bell; program-less team → none).
+- Full suite 1046 green; spec `enrollment` + domain-model rule + roadmap updated.
+
 ## Deferred (follow-up, not this slice)
-- Unify the two **write** paths (team membership sync in `domains/groups/
-  enrollment-sync.js` vs cohort `enroll`) — currently independent.
-- Route **team enrollment through the domain-event bus** (publish
-  `ENROLLMENT_CREATED`) so notification/audit subscribe uniformly, as cohort
-  enroll already does. This is a behaviour-parity change (team enroll would gain a
-  `cohort_enrolled` bell row) → its own slice with parity tests.
+- Fold the team **transfer/drop** close-paths (`enrollment-sync` Transferred/
+  Dropped saves) onto the shared spine — they still carry team-specific email
+  side-effects and have no generic domain event yet.
 
 ## Done
 One self read serves both enrollment modes; learner My-programs consumes it; tests
