@@ -60,6 +60,26 @@ describe('Custom fields — definition CRUD', () => {
       .send({ entity: 'Program', key: 'x', label: 'X', type: 'text' });
     expect(res.status).toBe(403);
   });
+
+  it('creates the extended types (number/multiselect/date/toggle/user) + showIn (gap #6)', async () => {
+    const ms = await asAdmin('post', '/api/custom-fields')
+      .send({ entity: 'Program', key: 'skills_ms', label: 'Skills', type: 'multiselect', options: ['SQL', 'Excel'], showIn: ['form', 'filter'] });
+    expect(ms.status).toBe(201);
+    expect(ms.body.data).toMatchObject({ type: 'multiselect', options: ['SQL', 'Excel'], showIn: ['form', 'filter'] });
+
+    for (const [key, type] of [['grade_num', 'number'], ['hire_date', 'date'], ['is_active', 'toggle'], ['owner_user', 'user']]) {
+      const res = await asAdmin('post', '/api/custom-fields').send({ entity: 'Program', key, label: key, type });
+      expect(res.status).toBe(201);
+      expect(res.body.data.type).toBe(type);
+      expect(res.body.data.showIn).toEqual(['form']); // server default
+    }
+  });
+
+  it('rejects a multiselect with no options (400)', async () => {
+    const res = await asAdmin('post', '/api/custom-fields')
+      .send({ entity: 'Program', key: 'ms_empty', label: 'MS', type: 'multiselect', options: [] });
+    expect(res.status).toBe(400);
+  });
 });
 
 describe('Custom fields — value round-trip on LearningProgram', () => {

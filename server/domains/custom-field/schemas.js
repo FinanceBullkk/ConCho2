@@ -5,7 +5,8 @@ const { z } = require('zod');
 // shape-only.
 
 const entity = z.enum(['Program']);
-const type = z.enum(['text', 'select']);
+const type = z.enum(['text', 'number', 'select', 'multiselect', 'date', 'toggle', 'user']);
+const surface = z.enum(['form', 'filter', 'export']);
 const key = z.string().trim().toLowerCase().regex(/^[a-z][a-z0-9_]*$/, 'Key must be a snake_case identifier').max(40);
 
 const createBody = z.object({
@@ -14,6 +15,7 @@ const createBody = z.object({
   label: z.string().trim().min(1).max(80),
   type: type.default('text'),
   options: z.array(z.string().trim().min(1).max(60)).max(50).optional().default([]),
+  showIn: z.array(surface).max(3).optional().default(['form']),
   required: z.boolean().optional().default(false),
   order: z.coerce.number().int().min(0).max(1000).optional().default(0),
 });
