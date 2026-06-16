@@ -86,7 +86,18 @@ const auditLogSchema = new mongoose.Schema(
              // Added in Modernization H2 A6 — trainer qualification/availability.
              'TrainerProfile',
              // Added in Modernization H2 A4 — TNA demand intake + annual plan.
-             'TrainingRequest', 'TrainingPlan'],
+             'TrainingRequest', 'TrainingPlan',
+             // Audit-trail fix (2026-06-16 health audit) — these entities were
+             // ALREADY being audited by their controllers, but the enum lagged
+             // behind, so every such write failed schema validation SILENTLY
+             // (audit is fire-and-forget). Backfilled so the mutations are
+             // recorded per the "audit every mutation" golden rule:
+             //   Role          — capability-grant edits (TMS.update gap #2)
+             //   AutomationRule — no-code rule CRUD (gap #3)
+             //   Skill          — skills/competency CRUD (gap #4)
+             //   TenantConfig   — branding update (gap #5)
+             //   Notification   — coordinator "Nudge cohort" (value-layer S4)
+             'Role', 'AutomationRule', 'Skill', 'TenantConfig', 'Notification'],
       required: true,
     },
     entityId: {
