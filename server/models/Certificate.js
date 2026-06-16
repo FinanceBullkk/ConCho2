@@ -34,7 +34,8 @@ const certificateSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       ref: 'User',
       required: [true, 'User reference is required'],
-      index: true,
+      // No single-field index: the { userId, cohortId, status } compound below
+      // covers all userId-prefixed queries (removed redundant index — audit P3).
     },
     cohortId: {
       type: mongoose.Schema.Types.ObjectId,
