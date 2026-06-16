@@ -76,7 +76,9 @@ const auditLogSchema = new mongoose.Schema(
              // Added in TMS.update Build Plan #5 — Studio scheduling taxonomy.
              'SessionType',
              // Added in Modernization H1 A3 — required-training compliance rules.
-             'RequiredTraining'],
+             'RequiredTraining',
+             // Added in Modernization H1 A1 — budget & cost management.
+             'CostEntry', 'Budget'],
       required: true,
     },
     entityId: {

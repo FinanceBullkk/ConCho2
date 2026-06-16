@@ -1,5 +1,6 @@
 const repository = require('./executive-repository');
 const operationalRepository = require('./repository');
+const financeRepository = require('../../finance/repository');
 const { composeFailSoft } = require('./compose-fail-soft');
 const { ServiceError } = require('../../../helpers/ServiceError');
 
@@ -122,9 +123,12 @@ const buildFinancialsBlock = async (now) => {
   const config = await repository.getCostConfig();
   if (!config) return { configured: false };
   const yearAgo = new Date(now.getTime() - 365 * DAY_MS);
-  const [employees, completions] = await Promise.all([
+  const [employees, completions, actualSpend] = await Promise.all([
     repository.activeEmployeeCount(),
     repository.issuedCertificateCount(yearAgo),
+    // A1 actuals: trailing-12-month recorded CostEntry spend (0 until any cost
+    // is logged) — surfaces the real number alongside the budgeted estimate.
+    financeRepository.sumCostEntries({ from: yearAgo, to: now }),
   ]);
   // Efficiency dividend (ROI §10) — automation savings projection. Only
   // computed when all three inputs are present + positive; otherwise null
@@ -141,6 +145,9 @@ const buildFinancialsBlock = async (now) => {
     completionsTrailing12Months: completions,
     costPerEmployeeMinor: employees > 0 ? Math.round(config.annualBudgetMinor / employees) : null,
     costPerCompletionMinor: completions > 0 ? Math.round(config.annualBudgetMinor / completions) : null,
+    // A1 actuals (logged CostEntry rows) vs the budgeted estimate above.
+    actualSpendTrailing12MonthsMinor: actualSpend.totalMinor,
+    costPerCompletionActualMinor: completions > 0 ? Math.round(actualSpend.totalMinor / completions) : null,
     avgLoadedHourlyCostMinor: avgLoadedHourlyCostMinor ?? null,
     coordinatorCount: coordinatorCount ?? null,
     automationHoursReclaimedPerWeek: automationHoursReclaimedPerWeek ?? null,
