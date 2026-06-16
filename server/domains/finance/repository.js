@@ -3,6 +3,7 @@ const Budget = require('../../models/Budget');
 const LearningProgram = require('../../models/LearningProgram');
 const Department = require('../../models/Department');
 const Class = require('../../models/Class');
+const Vendor = require('../../models/Vendor');
 const Setting = require('../../models/Setting');
 
 // ──────────────────────────────────────────────────────────
@@ -108,6 +109,11 @@ const findDepartmentsByIds = (ids) =>
 const findClassesByIds = (ids) =>
   ids.length ? Class.find({ _id: { $in: ids } }).select('classCode courseName').lean() : [];
 
+// A2: resolve real vendor names for the `by=vendor` cost roll-up label (was a
+// `Vendor xxxxxx` id-slice placeholder before the Vendor model existed).
+const findVendorsByIds = (ids) =>
+  ids.length ? Vendor.find({ _id: { $in: ids } }).select('name').lean() : [];
+
 module.exports = {
   getTenantCurrency,
   createCostEntry,
@@ -126,4 +132,5 @@ module.exports = {
   findProgramsByIds,
   findDepartmentsByIds,
   findClassesByIds,
+  findVendorsByIds,
 };

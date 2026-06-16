@@ -102,6 +102,19 @@ const scheduleSchema = new mongoose.Schema(
       default: null,
     },
 
+    // The managed Vendor delivering this session (Modernization H2 — A2).
+    // Nullable + additive: replaces the free-text `externalTrainer` name with a
+    // referenceable provider so spend (CostEntry.scope.vendorId) + ratings roll
+    // up per vendor. The legacy `externalTrainer` subdoc is kept for display +
+    // calendar invites; the migration backfills a Vendor per distinct name. The
+    // booking-picker wiring that SETS this is a follow-up — the field exists so
+    // the link is possible without touching the booking transaction now.
+    vendorId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Vendor',
+      default: null,
+    },
+
     capacity: {
       type: Number,
       min: [1, 'Capacity must be at least 1'],

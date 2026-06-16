@@ -450,6 +450,17 @@ export const financeAPI = {
   getBudgetVariance: (params) => api.get('/finance/budgets/variance', { params }),
 };
 
+// ── Vendors: external-provider management (A2, Horizon 2) ───
+export const vendorsAPI = {
+  list: (params) => api.get('/vendors', { params }),
+  get: (id) => api.get(`/vendors/${id}`),
+  create: (data) => api.post('/vendors', data),
+  update: (id, data) => api.put(`/vendors/${id}`, data),
+  archive: (id) => api.delete(`/vendors/${id}`),
+  getSpend: (id, params) => api.get(`/vendors/${id}/spend`, { params }),
+  addRating: (id, data) => api.post(`/vendors/${id}/ratings`, data),
+};
+
 // ── Org model (departments, offices, manager hierarchy, my-team) ───
 export const orgAPI = {
   getDepartments:    (params) => api.get('/org/departments', { params }),

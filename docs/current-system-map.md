@@ -196,6 +196,7 @@ English literals directly.
 | `/api/session-types` | `domains/session-type/routes.js` | Build Plan #5 Studio Scheduling: session-type taxonomy (`SessionType`) + room-utilization read |
 | `/api/compliance` | `domains/compliance/routes.js` | Modernization H1 A3: required-training rules (`RequiredTraining`) + DERIVED compliance matrix (per-rule compliant/overdue, drill-down); publishes `requirement.changed` |
 | `/api/finance` | `domains/finance/routes.js` | Modernization H1 A1: cost entries (`CostEntry`) + budgets (`Budget`) + roll-up + budget-vs-actual variance; `budget.manage` (read==write); tenant currency enforced |
+| `/api/vendors` | `domains/vendor/routes.js` | Modernization H2 A2: external-provider catalog (`Vendor`) — contacts/contracts/ratings + per-vendor spend (from `CostEntry.scope.vendorId`); `vendor.manage` (read==write); archive = soft-delete + `status:archived` |
 | `/api/skills` | `domains/skill/routes.js` | competency framework: skills CRUD, role profiles, DERIVED proficiency + role gap; **H1 B2** taxonomy tree (`/taxonomy`) + gap-driven program recommendations (`/learner/:id/recommendations`) |
 | `/api/evaluations` | `evaluationRoutes.js` | upsert/list/get/delete evaluations |
 | `/api/enrollments` | `enrollmentRoutes.js` | enrollment list, transfer, bulk operations |
@@ -261,6 +262,7 @@ Current protections:
 | `CostEntry` | Modernization H1 A1: actual training-cost line (scope, type, minor-unit amount, fiscal date) |
 | `Budget` | Modernization H1 A1: planned allowance per fiscal year / department / program (minor units) |
 | `ReportPreset` | Modernization H1 A5 part 2: saved report config (kind/filters/schedule) for evidence pack + reports |
+| `Vendor` | Modernization H2 A2: external training-provider (contacts, delivered programs, contracts, ratings, status); spend rolls up from `CostEntry.scope.vendorId`; `Schedule.vendorId` links a session |
 
 ### Learning Domain Boundary
 
