@@ -303,8 +303,11 @@ export default function App() {
                 <Route path="/mobile-attendance" element={
                   <ProtectedRoute roles={['Admin', 'Teacher']}><MobileAttendancePage /></ProtectedRoute>
                 } />
+                {/* Coordinator holds read:reports (training-ops role) and sees the
+                    Reports nav, so they must reach the page; ReportsPage filters
+                    tabs per-perm (Overview/HR-Export/Attendance stay Admin/Teacher). */}
                 <Route path="/reports" element={
-                  <ProtectedRoute roles={['Admin', 'Teacher']}><ReportsPage /></ProtectedRoute>
+                  <ProtectedRoute roles={['Admin', 'Coordinator', 'Teacher']}><ReportsPage /></ProtectedRoute>
                 } />
                 {/* Drill list — filtered learner view behind a dashboard KPI.
                     Admin-only: it reads the org-wide compliance report. */}

@@ -472,8 +472,12 @@ if (process.env.NODE_ENV !== 'test') {
 // silently. Sentry captures, logger records, then we exit so the orchestrator
 // can restart us cleanly.
 process.on('unhandledRejection', (reason) => {
-  logger.error({ err: reason }, 'Unhandled promise rejection');
+  logger.error({ err: reason }, 'Unhandled promise rejection — exiting');
   if (sentryEnabled()) Sentry.captureException(reason);
+  // Match uncaughtException: an unhandled rejection leaves the process in an
+  // unknown state, so flush Sentry then exit and let the orchestrator restart
+  // us cleanly (this is what the comment above always promised).
+  setTimeout(() => process.exit(1), 1000).unref();
 });
 
 process.on('uncaughtException', (err) => {
