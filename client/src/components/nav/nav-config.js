@@ -4,7 +4,7 @@ import {
   LayoutDashboard, BarChart3, ChartLine, Download,
   Building2, MapPin, DoorOpen, Settings, Database, RefreshCw, ShieldCheck, ScrollText,
   Compass, Languages, FileText, Zap, Sparkles, Palette, Calculator, Smartphone, CalendarClock, Wallet,
-  Handshake, Target,
+  Handshake, UserCog, Target,
 } from 'lucide-react';
 
 // ──────────────────────────────────────────────────────────
@@ -100,6 +100,7 @@ export const NAV_GROUPS = [
       { path: '/cost-roi', labelKey: 'nav.sections.costRoi', icon: Calculator, access: ADMIN_ONLY, parentRoutes: ['/cost-roi'] },
       { path: '/budget', labelKey: 'nav.sections.budget', icon: Wallet, access: { Admin: 'full', Coordinator: 'full' }, parentRoutes: ['/budget'] },
       { path: '/vendors', labelKey: 'nav.sections.vendors', icon: Handshake, access: { Admin: 'full', Coordinator: 'full' }, parentRoutes: ['/vendors'] },
+      { path: '/trainers', labelKey: 'nav.sections.trainers', icon: UserCog, access: { Admin: 'full', Coordinator: 'full' }, perm: 'assign:trainer', parentRoutes: ['/trainers'] },
       { path: '/planning', labelKey: 'nav.sections.planning', icon: Target, access: { Admin: 'full', Coordinator: 'full' }, perm: 'plan:training', parentRoutes: ['/planning'] },
     ],
   },

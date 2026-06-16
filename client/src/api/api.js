@@ -461,6 +461,16 @@ export const vendorsAPI = {
   addRating: (id, data) => api.post(`/vendors/${id}/ratings`, data),
 };
 
+// ── Trainers: trainer-management depth (A6, Horizon 2) ───
+export const trainersAPI = {
+  list: (params) => api.get('/trainers', { params }),
+  get: (userId) => api.get(`/trainers/${userId}`),
+  upsert: (userId, data) => api.put(`/trainers/${userId}`, data),
+  archive: (userId) => api.delete(`/trainers/${userId}`),
+  getLoad: (userId, params) => api.get(`/trainers/${userId}/load`, { params }),
+  addRating: (userId, data) => api.post(`/trainers/${userId}/ratings`, data),
+};
+
 // ── Planning: TNA → annual plan (A4, Horizon 2) ───
 export const planningAPI = {
   listRequests: (params) => api.get('/planning/requests', { params }),

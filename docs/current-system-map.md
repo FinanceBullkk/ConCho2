@@ -197,6 +197,7 @@ English literals directly.
 | `/api/compliance` | `domains/compliance/routes.js` | Modernization H1 A3: required-training rules (`RequiredTraining`) + DERIVED compliance matrix (per-rule compliant/overdue, drill-down); publishes `requirement.changed` |
 | `/api/finance` | `domains/finance/routes.js` | Modernization H1 A1: cost entries (`CostEntry`) + budgets (`Budget`) + roll-up + budget-vs-actual variance; `budget.manage` (read==write); tenant currency enforced |
 | `/api/vendors` | `domains/vendor/routes.js` | Modernization H2 A2: external-provider catalog (`Vendor`) — contacts/contracts/ratings + per-vendor spend (from `CostEntry.scope.vendorId`); `vendor.manage` (read==write); archive = soft-delete + `status:archived` |
+| `/api/trainers` | `domains/trainer/routes.js` | Modernization H2 A6: trainer qualification/availability (`TrainerProfile`) + qualified-and-free listing + per-trainer load + ratings; reuses `session.assign-trainer`. Double-booking 409 enforced at `domains/schedule setTrainers` (overlap on `sessionInstructorIds`) |
 | `/api/skills` | `domains/skill/routes.js` | competency framework: skills CRUD, role profiles, DERIVED proficiency + role gap; **H1 B2** taxonomy tree (`/taxonomy`) + gap-driven program recommendations (`/learner/:id/recommendations`) |
 | `/api/evaluations` | `evaluationRoutes.js` | upsert/list/get/delete evaluations |
 | `/api/enrollments` | `enrollmentRoutes.js` | enrollment list, transfer, bulk operations |
@@ -263,6 +264,7 @@ Current protections:
 | `Budget` | Modernization H1 A1: planned allowance per fiscal year / department / program (minor units) |
 | `ReportPreset` | Modernization H1 A5 part 2: saved report config (kind/filters/schedule) for evidence pack + reports |
 | `Vendor` | Modernization H2 A2: external training-provider (contacts, delivered programs, contracts, ratings, status); spend rolls up from `CostEntry.scope.vendorId`; `Schedule.vendorId` links a session |
+| `TrainerProfile` | Modernization H2 A6: 1:1 qualification/availability record for a Teacher/Admin User (canDeliver programs, availability, ratings, status); load + double-booking read `Schedule.sessionInstructorIds` |
 
 ### Learning Domain Boundary
 
