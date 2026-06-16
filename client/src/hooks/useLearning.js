@@ -166,6 +166,36 @@ export const useDownloadComplianceReport = () =>
     mutationFn: (filters = {}) => learningAPI.downloadComplianceReport(filters),
   });
 
+// A5 part 2 — evidence pack download (raw blob response for saveBlob).
+export const useDownloadEvidencePack = () =>
+  useMutation({
+    mutationFn: (params = {}) => learningAPI.downloadEvidencePack(params),
+  });
+
+// A5 part 2 — saved report presets (report.read).
+export const useReportPresets = (options = {}) =>
+  useQuery({
+    queryKey: qk.learning.reportPresets,
+    queryFn: async () => (await learningAPI.listReportPresets()).data.data,
+    ...options,
+  });
+
+export const useCreateReportPreset = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (data) => learningAPI.createReportPreset(data).then((r) => r.data.data),
+    onSuccess: () => qc.invalidateQueries({ queryKey: qk.learning.reportPresets }),
+  });
+};
+
+export const useDeleteReportPreset = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id) => learningAPI.deleteReportPreset(id).then((r) => r.data.data),
+    onSuccess: () => qc.invalidateQueries({ queryKey: qk.learning.reportPresets }),
+  });
+};
+
 // Invalidate every learning list/detail after a write (programs, cohorts,
 // enrollments) plus dashboard stats which aggregate program/cohort counts.
 const invalidateLearning = (qc) => {

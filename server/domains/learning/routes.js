@@ -33,7 +33,7 @@ const {
 const feedbackController = require('./feedback/controller');
 const { submitFeedbackBody, listFeedbackQuery } = require('./feedback/schemas');
 const reportsController = require('./reports/controller');
-const { completionReportQuery, completionRollupQuery, complianceReportQuery, trainingHoursQuery } = require('./reports/schemas');
+const { completionReportQuery, completionRollupQuery, complianceReportQuery, trainingHoursQuery, evidencePackQuery, presetBody, presetUpdateBody } = require('./reports/schemas');
 const dashboardController = require('./dashboard/controller');
 const { operationalDashboardQuery, costConfigBody } = require('./dashboard/schemas');
 const { exportLimiter } = require('../../middleware/rateLimiters');
@@ -220,6 +220,21 @@ router.get(
   validate({ query: trainingHoursQuery }),
   reportsController.getTrainingHoursReport,
 );
+
+// A5 part 2 — downloadable evidence pack (xlsx: summary + hours + compliance).
+router.get(
+  '/reports/evidence-pack',
+  requireCapability('report.read'),
+  exportLimiter,
+  validate({ query: evidencePackQuery }),
+  reportsController.exportEvidencePack,
+);
+
+// A5 part 2 — saved report presets (CRUD). report.read per the handoff; audited.
+router.get('/reports/presets', requireCapability('report.read'), reportsController.listPresets);
+router.post('/reports/presets', requireCapability('report.read'), validate({ body: presetBody }), reportsController.createPreset);
+router.put('/reports/presets/:id', requireCapability('report.read'), validate({ params: idParam, body: presetUpdateBody }), reportsController.updatePreset);
+router.delete('/reports/presets/:id', requireCapability('report.read'), validate({ params: idParam }), reportsController.archivePreset);
 
 router.get(
   '/reports/completion',

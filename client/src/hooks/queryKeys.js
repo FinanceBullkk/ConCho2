@@ -92,6 +92,7 @@ export const qk = {
     dashboardDepartments: (window) => ['learning', 'dashboard', 'departments', window],
     costConfig: ['learning', 'dashboard', 'cost-config'],
     sessions: (params) => ['learning', 'sessions', params],
+    reportPresets: ['learning', 'report-presets'],
   },
   assessment: {
     all: ['assessment'],
