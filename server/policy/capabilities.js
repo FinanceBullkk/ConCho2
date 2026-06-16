@@ -88,6 +88,10 @@ const CAPABILITIES = Object.freeze({
   // per-vendor spend (management-sensitive, like budget.manage) — Admin +
   // Coordinator only, NOT the broader report.read Teachers hold.
   VENDOR_MANAGE: 'vendor.manage',      // CRUD vendors + contracts + ratings, read spend (admin/coordinator)
+  // ── Training Needs Analysis → annual plan (TMS.update Modernization H2 — A4) ─
+  // Demand intake, aggregation, the costed annual plan, and scheduling plan
+  // items into cohorts — a training-ops planning function (Admin + Coordinator).
+  TRAINING_PLAN: 'training.plan',      // submit/review requests, build the annual plan, schedule cohorts
 });
 
 const ALL_CAPABILITIES = Object.freeze(Object.values(CAPABILITIES));
@@ -124,6 +128,7 @@ const ROLE_CAPABILITIES = Object.freeze({
     CAPABILITIES.COMPLIANCE_MANAGE,
     CAPABILITIES.BUDGET_MANAGE,
     CAPABILITIES.VENDOR_MANAGE,
+    CAPABILITIES.TRAINING_PLAN,
     CAPABILITIES.NOTIFICATION_READ,
     CAPABILITIES.SKILL_READ,
   ]),
