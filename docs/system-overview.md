@@ -176,7 +176,7 @@ Re-architecture into an L&D platform runs in phases (full detail:
 | 2 | Learning catalog + generic cohort model (`LearningProgram`) | ~95% |
 | 3 | Multi-program enrollment + session scheduling | ~85% 🟢 |
 | 4 | Frontend L&D workspace (CRUD UI) | ~82% 🟢 |
-| 5 | Reporting, completion, feedback | ~80% 🟢 |
+| 5 | Reporting, completion, feedback | ~85% 🟢 |
 | 6 | PostgreSQL decision gate | 0% |
 
 **Today:** Wave A (Foundation) is complete — all 4 `schedulingMode`s enforced,
@@ -194,9 +194,17 @@ manager digest) → recertification auto-assignment; program policies
 (completion/capacity/facilitator/recertify) are enforced AND editable in the
 program form. Phases 3/4/5 are re-baselined **🟢 near done** — the genuine
 non-deferred migration debt is shipped; the remainder is deferred-by-design
-(see `development-roadmap.md` status board). For 1000 employees, the next
-platform gaps are Google OIDC + Directory sync (owner-gated) and the Phase 6
-PostgreSQL decision. → see [`lms-roadmap.md`](lms-roadmap.md).
+(see `development-roadmap.md` status board). **TMS.update handoff shipped
+(2026-06-16):** all 4 Investment Build Plan deep features — tamper-evident audit
+hash-chain (`/api/admin/audit/verify`), reconcile auto-heal, real analytics
+time-series (`/api/analytics` + `MetricSnapshot`), and Studio Scheduling
+(`/api/session-types`) — plus **all buildable Modernization Horizon 1 slices**:
+A5 training-hours + evidence-pack/presets, A3 compliance matrix
+(`/api/compliance`), A1 budget & cost (`/api/finance`), and B2 skills-as-spine
+(skills taxonomy + gap-driven recommendations). The **only remaining Horizon 1
+item is A8 HRIS auto-assign — gated** on Google Directory sync. For 1000
+employees, the next platform gaps are Google OIDC + Directory sync (owner-gated)
+and the Phase 6 PostgreSQL decision. → see [`lms-roadmap.md`](lms-roadmap.md).
 
 **Stack:** React 19 + Vite 8 + Tailwind 4 / Express 5 + Mongoose 8 + MongoDB;
 server/client test suites, Playwright e2e, 7 CI gates, deployed on Render.
