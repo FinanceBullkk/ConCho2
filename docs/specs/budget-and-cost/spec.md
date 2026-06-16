@@ -145,8 +145,9 @@ budget-derived estimates. Unconfigured financials are unchanged (`{configured:fa
 
 ## Out of Scope / Deferred
 
-- **A2 Vendor** (Horizon 2) — `scope.vendorId` is nullable; vendor roll-up labels
-  the raw id until the Vendor model lands.
+- **A2 Vendor** (Horizon 2) — SHIPPED 2026-06-16: `scope.vendorId` links to the
+  `Vendor` model and the `by=vendor` roll-up now labels real vendor names. See
+  `docs/specs/vendor-management/spec.md`.
 - Multi-currency / FX conversion — single tenant currency only.
 - Per-program cost-per-completion drill-down (org-level only on the Executive ROI today).
 - PO/invoice attachments — `poRef` is a free-text reference, no document store.

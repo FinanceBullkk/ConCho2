@@ -53,6 +53,7 @@ const StudioSchedulingPage = lazy(() => import('./features/scheduling/StudioSche
 const ComplianceMatrixPage = lazy(() => import('./features/compliance/ComplianceMatrixPage'));
 const CostRoiSettingsPage = lazy(() => import('./features/settings/CostRoiSettingsPage'));
 const BudgetDashboardPage = lazy(() => import('./features/finance/BudgetDashboardPage'));
+const VendorsPage = lazy(() => import('./features/vendor/VendorsPage'));
 const MobileAttendancePage = lazy(() => import('./features/attendance/MobileAttendancePage'));
 
 function RouteFallback() {
@@ -336,6 +337,9 @@ export default function App() {
                 } />
                 <Route path="/budget" element={
                   <ProtectedRoute roles={['Admin', 'Coordinator']}><BudgetDashboardPage /></ProtectedRoute>
+                } />
+                <Route path="/vendors" element={
+                  <ProtectedRoute roles={['Admin', 'Coordinator']}><VendorsPage /></ProtectedRoute>
                 } />
 
                 {/* Detail pages keep their own routes for deep links */}

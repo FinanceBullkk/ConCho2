@@ -151,4 +151,10 @@ export const qk = {
     budgets: (params) => ['finance', 'budgets', params],
     variance: (params) => ['finance', 'variance', params],
   },
+  vendor: {
+    all: ['vendor'],
+    list: (params) => ['vendor', 'list', params],
+    detail: (id) => ['vendor', 'detail', id],
+    spend: (id, params) => ['vendor', 'spend', id, params],
+  },
 };
