@@ -4,6 +4,7 @@ import {
   LayoutDashboard, BarChart3, ChartLine, Download,
   Building2, MapPin, DoorOpen, Settings, Database, RefreshCw, ShieldCheck, ScrollText,
   Compass, Languages, FileText, Zap, Sparkles, Palette, Calculator, Smartphone, CalendarClock, Wallet,
+  Handshake,
 } from 'lucide-react';
 
 // ──────────────────────────────────────────────────────────
@@ -98,6 +99,7 @@ export const NAV_GROUPS = [
       { path: '/compliance', labelKey: 'nav.sections.compliance', icon: ClipboardCheck, access: { Admin: 'full', Coordinator: 'full' }, parentRoutes: ['/compliance'] },
       { path: '/cost-roi', labelKey: 'nav.sections.costRoi', icon: Calculator, access: ADMIN_ONLY, parentRoutes: ['/cost-roi'] },
       { path: '/budget', labelKey: 'nav.sections.budget', icon: Wallet, access: { Admin: 'full', Coordinator: 'full' }, parentRoutes: ['/budget'] },
+      { path: '/vendors', labelKey: 'nav.sections.vendors', icon: Handshake, access: { Admin: 'full', Coordinator: 'full' }, parentRoutes: ['/vendors'] },
     ],
   },
   {

@@ -107,7 +107,9 @@ const resolveLabels = async (by, ids) => {
   } else if (by === 'cohort') {
     (await repository.findClassesByIds(ids)).forEach((c) => map.set(String(c._id), c.courseName || c.classCode));
   } else if (by === 'vendor') {
-    ids.forEach((id) => map.set(String(id), `Vendor ${String(id).slice(-6)}`));
+    // A2: real vendor names; an entry pointing at a trashed vendor falls back to
+    // the id string (resolveLabels' default) — acceptable for a roll-up label.
+    (await repository.findVendorsByIds(ids)).forEach((v) => map.set(String(v._id), v.name));
   } else if (by === 'type') {
     ids.forEach((id) => map.set(String(id), String(id)));
   }

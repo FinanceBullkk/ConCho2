@@ -46,7 +46,13 @@ remainder is documented deferred-by-design scope (below), not active debt.
   `domains/finance`, PR #114), **B2 skills-as-spine** (taxonomy + gap-driven
   recommendations, PR #115). **Only A8 HRIS auto-assign remains — gated** on the
   owner's Google Directory/OAuth setup (D2). PDF/zip evidence + cron-scheduled
-  presets deferred (no PDF dep in-repo; presets flagged no-confirmed-HR-need).)
+  presets deferred (no PDF dep in-repo; presets flagged no-confirmed-HR-need).
+  **Modernization Horizon 2 — STARTED 2026-06-16**: **A2 vendor & external-
+  provider management** (`Vendor` model + `domains/vendor`, PR #119) — catalog +
+  contracts/renewal + ratings + per-vendor spend off the A1 ledger. Remaining H2:
+  **A4 TNA→annual-plan** + **A6 trainer-depth** (buildable next); **B1 AI layer**
+  (gated on an owner LLM-provider + key decision), **B8 Slack/Teams** (gated on an
+  OAuth app + signing secret), **B5 mobile PWA** (verify offline-PWA infra first).)
 - **Gated / owner-ops:** **D2 Google OIDC + Directory sync** (blocked on owner's
   Google OAuth app + Workspace domain); **paid always-on hosting** + Sentry
   cron-monitor dashboard; **Phase 6 PostgreSQL gate** (plan drafted,
@@ -119,6 +125,29 @@ Bug fixing and integration review rank above net-new feature rollout.
 > lines); older entries roll verbatim, newest-first, to
 > [`changelog-archive/2026-q2.md`](changelog-archive/2026-q2.md). Currently
 > inline: **2026-06-14 → 2026-06-16**.
+
+- **2026-06-16** — **Modernization Horizon 2 — A2: vendor & external-provider
+  management.** First Horizon-2 slice. A managed catalog of external providers
+  replacing the free-text `Schedule.externalTrainer` name: contacts, delivered
+  programs, contracts with a derived renewal signal (none/ok/due-soon/expired,
+  60-day window), post-engagement ratings (aggregate score derived), and
+  per-vendor spend rolled up from the A1 cost ledger (`CostEntry.scope.vendorId`).
+  New `Vendor` model (`status` active/archived + soft-delete = two independent
+  lifecycle axes) + `domains/vendor` (repository/schemas/use-cases/controller/
+  routes/dto) mounted at `/api/vendors`; `vendor.manage` capability (Admin +
+  Coordinator, read+write — management-sensitive, not `report.read`); `Vendor`
+  added to the AuditLog enum; additive `Schedule.vendorId` link + a backfill
+  script (`backfill-vendors-from-external-trainers.js`) migrating legacy
+  external-trainer names into individual vendors; the finance `by=vendor` cost
+  roll-up now labels real vendor names (was an id-slice placeholder). Client:
+  `features/vendor` Vendors catalog page (filters + expandable detail: contracts/
+  ratings/spend) + `useVendors` hooks + nav (Configure ▸ Vendors) + `manage:vendor`
+  perm + i18n. Server **117/1115** green, client **391** green, lint 63 (cap),
+  build clean. New spec `vendor-management` + registry row (33). **Deferred
+  (documented):** the booking-picker that SETS `vendorId` (kept off the booking
+  transaction chokepoint — backfill links legacy sessions) + a renewal cron/email
+  (surfaced on read, no confirmed cadence). Follow-up: A6 consumes `delivers` for
+  trainer qualification. PR #119.
 
 - **2026-06-16** — **Modernization Horizon 1 — A5 part 2: evidence pack + report
   presets.** Audit-ready downloadable evidence pack + saved report configs over
