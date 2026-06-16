@@ -157,4 +157,10 @@ export const qk = {
     detail: (id) => ['vendor', 'detail', id],
     spend: (id, params) => ['vendor', 'spend', id, params],
   },
+  trainer: {
+    all: ['trainer'],
+    list: (params) => ['trainer', 'list', params],
+    detail: (userId) => ['trainer', 'detail', userId],
+    load: (userId, params) => ['trainer', 'load', userId, params],
+  },
 };
