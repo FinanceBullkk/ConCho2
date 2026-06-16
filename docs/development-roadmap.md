@@ -47,7 +47,7 @@ remainder is documented deferred-by-design scope (below), not active debt.
   recommendations, PR #115). **Only A8 HRIS auto-assign remains — gated** on the
   owner's Google Directory/OAuth setup (D2). PDF/zip evidence + cron-scheduled
   presets deferred (no PDF dep in-repo; presets flagged no-confirmed-HR-need).
-  **Modernization Horizon 2 — IN PROGRESS 2026-06-16**: **A2 vendor & external-
+  **Modernization Horizon 2 — BUILD-COMPLETE 2026-06-16**: **A2 vendor & external-
   provider management** (`Vendor` + `domains/vendor`, PR #119) — catalog +
   contracts/renewal + ratings + per-vendor spend off the A1 ledger; **A6 trainer-
   management depth** (`TrainerProfile` + `domains/trainer`, PR #120) —
@@ -59,10 +59,12 @@ remainder is documented deferred-by-design scope (below), not active debt.
   budget); **B5 mobile learning surface** (`PushSubscription` + `services/pushService`
   + `domains/mobile` at `/api/me`, PR #122) — Web Push (rides along on `recordInApp`,
   fail-soft without VAPID env) + a composed "Today" feed (overdue/due-soon/upcoming/
-  microlearning) on the existing offline PWA. **4 of 6 H2 slices shipped.** Remaining
-  H2 (gated on owner inputs): **B1 AI layer** (LLM-provider + key decision), **B8
-  Slack/Teams** (OAuth app + signing secret). GitHub repo made **public 2026-06-16**
-  (unlimited free Actions). B5 push DELIVERY activates once the owner sets VAPID env keys.)
+  microlearning) on the existing offline PWA. **Horizon 2 BUILD-COMPLETE
+  (4 of 6 shipped) — the other 2 are not buildable now (owner decision 2026-06-16):**
+  **B1 AI layer = PARKED** (owner has no LLM provider/API key yet — build when one
+  is supplied), **B8 Slack/Teams = DROPPED** (owner does not use Slack/Teams —
+  deferred-by-design, not a gap). GitHub repo made **public 2026-06-16** (unlimited
+  free Actions). B5 push DELIVERY activates once the owner sets VAPID env keys.)
 - **Gated / owner-ops:** **D2 Google OIDC + Directory sync** (blocked on owner's
   Google OAuth app + Workspace domain); **paid always-on hosting** + Sentry
   cron-monitor dashboard; **Phase 6 PostgreSQL gate** (plan drafted,
@@ -135,6 +137,13 @@ Bug fixing and integration review rank above net-new feature rollout.
 > lines); older entries roll verbatim, newest-first, to
 > [`changelog-archive/2026-q2.md`](changelog-archive/2026-q2.md). Currently
 > inline: **2026-06-14 → 2026-06-16**.
+
+- **2026-06-16** — **Horizon 2 closed out (owner decision).** With A2/A4/A6/B5
+  shipped, the owner confirmed the remaining two slices: **B1 (AI layer) is
+  PARKED** — no LLM provider/API key yet; build when one is supplied (hard-depends
+  on the B2 skills graph, already shipped). **B8 (Slack/Teams) is DROPPED** — the
+  org doesn't use Slack or Teams, so it's deferred-by-design, not a gap. Horizon 2
+  is therefore **build-complete**: everything buildable + needed is shipped.
 
 - **2026-06-16** — **Modernization Horizon 2 — B5: mobile learning surface.**
   Turns the offline attendance PWA (gap #7) into a learner surface: Web Push +
