@@ -118,3 +118,45 @@ describe('Skills — role profiles (workforce coverage)', () => {
     expect(teacher.status).toBe(403); // skill.read is not enough — needs skill.manage
   });
 });
+
+describe('Skills — taxonomy + recommendations (B2 skills-as-spine)', () => {
+  it('nests skills by parent and groups by category; rejects self-parent', async () => {
+    const parent = await asAdmin('post', '/api/skills').send({ name: 'Communication', category: 'Soft skills' });
+    const pid = parent.body.data._id;
+    await asAdmin('post', '/api/skills').send({ name: 'Public speaking', category: 'Soft skills', parentId: pid });
+
+    const tax = await asAdmin('get', '/api/skills/taxonomy');
+    expect(tax.status).toBe(200);
+    expect(tax.body.data.total).toBe(2);
+    const cat = tax.body.data.categories.find((c) => c.category === 'Soft skills');
+    const root = cat.skills.find((s) => s.name === 'Communication');
+    expect(root.children.map((c) => c.name)).toContain('Public speaking');
+
+    const selfParent = await asAdmin('put', `/api/skills/${pid}`).send({ parentId: pid });
+    expect(selfParent.status).toBe(400);
+  });
+
+  it('recommends ACTIVE programs that close the role gap, ranked by gap closed', async () => {
+    const progA = await mkProgram('SKB_A', 'Negotiation 101');
+    const progB = await mkProgram('SKB_B', 'Advanced Negotiation');
+    const archived = await LearningProgram.create({ code: 'SKB_X', name: 'Retired Course', status: 'archived' });
+    // Skill "Negotiation" is built by progA + progB; "Influence" by progA + archived.
+    await asAdmin('post', '/api/skills').send({ name: 'Negotiation', programIds: [progA._id.toString(), progB._id.toString()], targetByRole: { Participant: 1 } });
+    await asAdmin('post', '/api/skills').send({ name: 'Influence', programIds: [progA._id.toString(), archived._id.toString()], targetByRole: { Participant: 1 } });
+
+    const res = await asAdmin('get', `/api/skills/learner/${seed.leader._id}/recommendations`);
+    expect(res.status).toBe(200);
+    const recs = res.body.data.recommendations;
+    expect(recs[0]).toMatchObject({ name: 'Negotiation 101', gapClosed: 2 }); // progA advances both
+    expect(recs.map((r) => r.name)).toContain('Advanced Negotiation');
+    expect(recs.map((r) => r.name)).not.toContain('Retired Course'); // archived never recommended
+    expect(res.body.data.totalGaps).toBe(2);
+  });
+
+  it('self-or-manage: a learner reads OWN recommendations, not another learner’s (403)', async () => {
+    const self = await asLeader('get', `/api/skills/learner/${seed.leader._id}/recommendations`);
+    expect(self.status).toBe(200);
+    const other = await asLeader('get', `/api/skills/learner/${seed.member1._id}/recommendations`);
+    expect(other.status).toBe(403);
+  });
+});

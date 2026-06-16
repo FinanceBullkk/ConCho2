@@ -16,8 +16,12 @@ vi.mock('../../../hooks/useLearning', () => ({
   useCertificates: (...a) => h.certs(...a),
 }));
 // Both the page and LearnerSkillsTab/RoleReadinessList import useLearnerSkills
-// from this module → one mock covers all.
-vi.mock('../../skills/useSkills', () => ({ useLearnerSkills: (...a) => h.skills(...a) }));
+// from this module → one mock covers all. Recommendations (B2) are out of scope
+// here → return none so the recommendations card stays hidden.
+vi.mock('../../skills/useSkills', () => ({
+  useLearnerSkills: (...a) => h.skills(...a),
+  useLearnerRecommendations: () => ({ data: { recommendations: [] } }),
+}));
 
 const user = { _id: 'u1', name: 'Mai Lan Pham', role: 'Participant', empCode: '000001', department: 'People & Culture', email: 'mai@northwind.co' };
 const enrollData = { data: [

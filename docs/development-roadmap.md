@@ -41,10 +41,11 @@ remainder is documented deferred-by-design scope (below), not active debt.
   shipped** (#3a audit hash-chain PR #108, #4 reconcile auto-heal PR #109, #1
   analytics time-series PR #110, #5 Studio Scheduling PR #111). **Modernization
   Horizon 1 in progress**: A5 training-hours (PR #112), **A3 role compliance
-  matrix** (`RequiredTraining`, PR #113), and **A1 budget & cost** (`CostEntry`/
-  `Budget` + `domains/finance` + budget dashboard + Executive-ROI actuals) shipped
-  2026-06-16; next A5 evidence-pack/presets, A8 HRIS auto-assign (needs A3 +
-  Directory sync), B2 skills-as-spine.)
+  matrix** (`RequiredTraining`, PR #113), **A1 budget & cost** (`CostEntry`/
+  `Budget` + `domains/finance` + budget dashboard + Executive-ROI actuals, PR #114),
+  and **B2 skills-as-spine** (taxonomy hierarchy + gap-driven program
+  recommendations on the existing derived-skill engine) shipped 2026-06-16; next
+  A5 evidence-pack/presets, A8 HRIS auto-assign (gated on Directory sync).)
 - **Gated / owner-ops:** **D2 Google OIDC + Directory sync** (blocked on owner's
   Google OAuth app + Workspace domain); **paid always-on hosting** + Sentry
   cron-monitor dashboard; **Phase 6 PostgreSQL gate** (plan drafted,
@@ -117,6 +118,25 @@ Bug fixing and integration review rank above net-new feature rollout.
 > lines); older entries roll verbatim, newest-first, to
 > [`changelog-archive/2026-q2.md`](changelog-archive/2026-q2.md). Currently
 > inline: **2026-06-14 → 2026-06-16**.
+
+- **2026-06-16** — **Modernization Horizon 1 — B2: skills-as-spine.** Promoted the
+  derived-skill engine (gap #4) from a badge to a recommendation spine. Added
+  `Skill.parentId` (taxonomy hierarchy) + `GET /api/skills/taxonomy` (skills
+  grouped by category, nested by parent; orphan parents promoted to roots;
+  self-parenting rejected 400), and a **gap-driven recommendations** engine:
+  `GET /api/skills/learner/:userId/recommendations` (self-or-manage) ranks the
+  **active** programs a learner hasn't completed by how many gapped role-skills
+  they advance (deterministic — `gapClosed` desc, ties on remaining gap then name;
+  archived/inactive programs never recommended). Pure `recommendPrograms` in
+  `domains/skill/proficiency.js`; reuses the existing derived proficiency + role
+  gap (no stored proficiency, no parallel `RoleProfile`/`skillsGranted` — the
+  existing `targetByRole`/`programIds` already supersede the handoff sketch).
+  Client: **Recommended-for-you** card on the Learner 360 Skills tab (hidden when
+  no gaps) + a **parent-skill picker** in the Studio skill form. Tests +6 (3 unit
+  ranking/exclusion/no-gap, 3 integration taxonomy/recommendations/self-scope).
+  Server **115/1105** green, client **391** green, lint 63 (cap), build clean. New
+  spec `skills-competency` (the skills capability was previously unspecced) +
+  registry row (32). Follow-up: B1 AI layer re-ranks on top of this contract.
 
 - **2026-06-16** — **Modernization Horizon 1 — A1: budget & cost management.**
   Record actual training costs + per-fiscal-year budgets, roll up spend by any
