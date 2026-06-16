@@ -50,6 +50,7 @@ const AutomationPage = lazy(() => import('./features/automation/AutomationPage')
 const SkillsPage = lazy(() => import('./features/skills/SkillsPage'));
 const BrandingPage = lazy(() => import('./features/branding/BrandingPage'));
 const StudioSchedulingPage = lazy(() => import('./features/scheduling/StudioSchedulingPage'));
+const ComplianceMatrixPage = lazy(() => import('./features/compliance/ComplianceMatrixPage'));
 const CostRoiSettingsPage = lazy(() => import('./features/settings/CostRoiSettingsPage'));
 const MobileAttendancePage = lazy(() => import('./features/attendance/MobileAttendancePage'));
 
@@ -325,6 +326,9 @@ export default function App() {
                 } />
                 <Route path="/scheduling" element={
                   <ProtectedRoute roles={['Admin']}><StudioSchedulingPage /></ProtectedRoute>
+                } />
+                <Route path="/compliance" element={
+                  <ProtectedRoute roles={['Admin', 'Coordinator']}><ComplianceMatrixPage /></ProtectedRoute>
                 } />
                 <Route path="/cost-roi" element={
                   <ProtectedRoute roles={['Admin']}><CostRoiSettingsPage /></ProtectedRoute>

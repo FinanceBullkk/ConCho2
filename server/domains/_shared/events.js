@@ -17,6 +17,11 @@ const EVENTS = {
   // A completion certificate was issued to a learner.
   // payload: { userId, certificateNumber, programName, cohortCode, cohortId }
   CERTIFICATE_ISSUED: 'certificate.issued',
+
+  // A required-training rule was created / edited / archived (A3).
+  // payload: { requirementId, action: 'created'|'updated'|'archived' }
+  // A8 (auto-assign) will subscribe to re-evaluate assignments.
+  REQUIREMENT_CHANGED: 'requirement.changed',
 };
 
 module.exports = EVENTS;
