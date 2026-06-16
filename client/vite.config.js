@@ -70,8 +70,7 @@ export default defineConfig({
                                                               return 'radix-vendor'
           if (id.includes('/@tanstack/') || id.includes('/axios/'))
                                                               return 'query-vendor'
-          if (id.includes('/react-hot-toast/') || id.includes('/sonner/'))
-                                                              return 'toast-vendor'
+          if (id.includes('/sonner/'))                       return 'toast-vendor'
           return undefined
         },
       },
