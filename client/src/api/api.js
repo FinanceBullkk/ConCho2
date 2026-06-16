@@ -323,6 +323,8 @@ export const learningAPI = {
   getComplianceReport: (params) => api.get('/learning/reports/compliance', { params }),
   downloadComplianceReport: (params) =>
     api.get('/learning/reports/compliance/export', { params, responseType: 'blob' }),
+  // A5 (Modernization H1) — training hours per employee / department.
+  getTrainingHours: (params) => api.get('/learning/reports/training-hours', { params }),
   // Operational dashboard KPI bundle (Admin/Teacher; fail-soft per metric).
   getOperationalDashboard: (params) => api.get('/learning/dashboard/operational', { params }),
   // Home onboarding checklist + at-a-glance counts.

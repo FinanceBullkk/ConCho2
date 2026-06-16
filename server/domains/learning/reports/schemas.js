@@ -26,4 +26,15 @@ const complianceReportQuery = z.object({
   { message: 'dueFrom must be before or equal to dueTo', path: ['dueFrom'] },
 );
 
-module.exports = { completionReportQuery, completionRollupQuery, complianceReportQuery };
+// A5 (Modernization H1) — training-hours rollup. from/to default to last 90d.
+const trainingHoursQuery = z.object({
+  from: isoDateOnly.optional(),
+  to: isoDateOnly.optional(),
+  groupBy: z.enum(['user', 'department']).optional(),
+  departmentId: objectId.optional(),
+}).refine(
+  (q) => !q.from || !q.to || q.from <= q.to,
+  { message: 'from must be before or equal to to', path: ['from'] },
+);
+
+module.exports = { completionReportQuery, completionRollupQuery, complianceReportQuery, trainingHoursQuery };
