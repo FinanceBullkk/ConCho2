@@ -34,7 +34,7 @@ and add a row below.
 
 ## Registry
 
-33 capabilities, all written (✅). Behavior lives in each linked `spec.md`; this
+34 capabilities, all written (✅). Behavior lives in each linked `spec.md`; this
 table is just the index. Covers every mounted `/api/*` route surface.
 
 | Capability | Status | Owners (source) | Last updated |
@@ -58,6 +58,7 @@ table is just the index. Covers every mounted `/api/*` route surface.
 | [required-training-compliance](required-training-compliance/spec.md) | stable | domains/compliance, models/RequiredTraining | 2026-06-16 |
 | [budget-and-cost](budget-and-cost/spec.md) | stable | domains/finance, models/CostEntry, models/Budget | 2026-06-16 |
 | [vendor-management](vendor-management/spec.md) | stable | domains/vendor, models/Vendor | 2026-06-16 |
+| [trainer-management](trainer-management/spec.md) | stable | domains/trainer, models/TrainerProfile | 2026-06-16 |
 | [skills-competency](skills-competency/spec.md) | stable | domains/skill, models/Skill | 2026-06-16 |
 | [compliance-and-recertification](compliance-and-recertification/spec.md) | stable | domains/learning/reports (compliance) | 2026-06-08 |
 | [audit-log](audit-log/spec.md) | stable | services/auditService, models/AuditLog | 2026-06-08 |

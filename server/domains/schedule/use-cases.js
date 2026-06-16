@@ -419,6 +419,20 @@ const setTrainers = async (id, { internalIds, externalTrainer }) => {
     throw new ServiceError('Provide internalIds and/or externalTrainer', 400);
   }
 
+  // A6 (Horizon 2): a trainer cannot hold two LIVE sessions at overlapping
+  // times — mirror the room-lock guarantee at the assign chokepoint. App-level
+  // overlap query (sessionInstructorIds + time range) rather than a transaction
+  // ledger: assignment is an admin action, not a high-concurrency booking path.
+  // Only LIVE (scheduled) sessions conflict — a cancelled row frees the slot.
+  if (existing.status === 'scheduled' && update.sessionInstructorIds?.length) {
+    const conflict = await repository.findInstructorConflict(
+      update.sessionInstructorIds, existing.startTime, existing.endTime, id,
+    );
+    if (conflict) {
+      throw new ServiceError('A selected trainer is already booked for an overlapping session', 409);
+    }
+  }
+
   const after = await repository.updateScheduleById(id, update);
   if (!after) throw new ServiceError('Schedule not found', 404);
 
