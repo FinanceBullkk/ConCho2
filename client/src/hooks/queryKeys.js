@@ -134,8 +134,10 @@ export const qk = {
   skills: {
     all: ['skills'],
     list: ['skills', 'list'],
+    taxonomy: ['skills', 'taxonomy'],
     roleProfiles: ['skills', 'role-profiles'],
     learner: (userId) => ['skills', 'learner', userId],
+    recommendations: (userId) => ['skills', 'recommendations', userId],
   },
   branding: {
     config: ['branding', 'config'],

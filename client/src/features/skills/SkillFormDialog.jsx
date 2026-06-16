@@ -4,7 +4,7 @@ import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { useLearningPrograms } from '../../hooks/useLearning';
-import { useCreateSkill, useUpdateSkill } from './useSkills';
+import { useCreateSkill, useUpdateSkill, useSkills } from './useSkills';
 
 // Create/edit a Skill (TMS.update gap #4). Roles that can carry a required
 // level: the learner-facing system roles (Admin is a superuser, not a target).
@@ -33,9 +33,17 @@ export default function SkillFormDialog({ open, onOpenChange, skill }) {
     return Array.isArray(d?.data) ? d.data : Array.isArray(d) ? d : [];
   }, [programsQuery.data]);
 
+  // Other live skills are eligible taxonomy parents (a skill can't parent itself).
+  const skillsQuery = useSkills();
+  const parentOptions = useMemo(
+    () => (skillsQuery.data?.skills ?? []).filter((p) => (p._id || p.id) !== skill?._id),
+    [skillsQuery.data, skill],
+  );
+
   const [form, setForm] = useState(() => ({
     name: skill?.name ?? '',
     category: skill?.category ?? 'General',
+    parentId: skill?.parentId ?? '',
     maxLevel: skill?.maxLevel ?? 5,
     coverageTarget: skill?.coverageTarget ?? '',
     programIds: skill?.programIds ?? [],
@@ -59,6 +67,7 @@ export default function SkillFormDialog({ open, onOpenChange, skill }) {
     const payload = {
       name: form.name.trim(),
       category: form.category.trim() || 'General',
+      parentId: form.parentId || null,
       maxLevel: Number(form.maxLevel) || 5,
       coverageTarget: form.coverageTarget === '' ? null : Number(form.coverageTarget),
       programIds: form.programIds,
@@ -92,9 +101,17 @@ export default function SkillFormDialog({ open, onOpenChange, skill }) {
               <input id="skill-max" type="number" min="1" max="10" className={inputCls} value={form.maxLevel} onChange={(e) => set({ maxLevel: e.target.value })} />
             </Field>
           </div>
-          <Field id="skill-coverage" label={t(`${s}.form.coverageTarget`)}>
-            <input id="skill-coverage" type="number" min="1" className={inputCls} value={form.coverageTarget} placeholder={t(`${s}.form.coverageHint`)} onChange={(e) => set({ coverageTarget: e.target.value })} />
-          </Field>
+          <div className="grid grid-cols-2 gap-3">
+            <Field id="skill-coverage" label={t(`${s}.form.coverageTarget`)}>
+              <input id="skill-coverage" type="number" min="1" className={inputCls} value={form.coverageTarget} placeholder={t(`${s}.form.coverageHint`)} onChange={(e) => set({ coverageTarget: e.target.value })} />
+            </Field>
+            <Field id="skill-parent" label={t(`${s}.form.parent`)}>
+              <select id="skill-parent" className={inputCls} value={form.parentId} onChange={(e) => set({ parentId: e.target.value })}>
+                <option value="">{t(`${s}.form.noParent`)}</option>
+                {parentOptions.map((p) => <option key={p._id || p.id} value={p._id || p.id}>{p.name}</option>)}
+              </select>
+            </Field>
+          </div>
 
           <div>
             <span className="mb-1 block text-small text-muted-foreground">{t(`${s}.form.programs`)}</span>

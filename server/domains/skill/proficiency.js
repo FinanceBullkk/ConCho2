@@ -56,4 +56,44 @@ const roleGap = (skills, role, levelsBySkillId) => {
   return rows;
 };
 
-module.exports = { sid, deriveSkillLevels, targetForRole, roleGap };
+/**
+ * Rank programs by how much of a learner's ROLE-skill gap they close
+ * (skills-as-spine, B2). For every gapped skill (target > current level), the
+ * programs that BUILD it which the learner has NOT completed are candidates —
+ * completing one lifts that skill +1 toward its target. A program's score
+ * (`gapClosed`) = how many distinct gapped skills it advances; ties break on the
+ * total remaining gap it touches, then program name. Deterministic — the B1 AI
+ * layer can re-rank later without changing this contract.
+ * @param {Array} skills - live Skill docs (lean) with programIds
+ * @param {string} role - the learner's system role
+ * @param {Map} levelsBySkillId - output of deriveSkillLevels
+ * @param {Set<string>} completedProgramIds - learner's completed program ids
+ * @param {Map<string,string>} programNameById - id → name (ACTIVE programs only;
+ *        candidates absent from this map are dropped as archived/inactive)
+ * @returns {Array<{programId,name,gapClosed,remainingGap,skills:[{skillId,name,fromLevel,toLevel,target}]}>}
+ */
+const recommendPrograms = (skills, role, levelsBySkillId, completedProgramIds, programNameById) => {
+  const byProgram = new Map();
+  for (const skill of skills) {
+    const target = targetForRole(skill, role);
+    if (target <= 0) continue;
+    const level = levelsBySkillId.get(sid(skill._id))?.level || 0;
+    if (level >= target) continue; // no gap — nothing to recommend for it
+    for (const pid of (skill.programIds || []).map(sid)) {
+      if (completedProgramIds.has(pid)) continue; // already done → no further lift
+      if (!programNameById.has(pid)) continue;    // archived / inactive / missing
+      if (!byProgram.has(pid)) {
+        byProgram.set(pid, { programId: pid, name: programNameById.get(pid), gapClosed: 0, remainingGap: 0, skills: [] });
+      }
+      const entry = byProgram.get(pid);
+      entry.gapClosed += 1;
+      entry.remainingGap += target - level;
+      entry.skills.push({ skillId: sid(skill._id), name: skill.name, fromLevel: level, toLevel: Math.min(level + 1, target), target });
+    }
+  }
+  return [...byProgram.values()].sort(
+    (a, b) => b.gapClosed - a.gapClosed || b.remainingGap - a.remainingGap || (a.name || '').localeCompare(b.name || ''),
+  );
+};
+
+module.exports = { sid, deriveSkillLevels, targetForRole, roleGap, recommendPrograms };

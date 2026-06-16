@@ -72,6 +72,14 @@ const programNamesByIds = async (ids) => {
   return new Map(rows.map((r) => [String(r._id), r.name]));
 };
 
+// Like programNamesByIds but only ACTIVE programs — recommendations must never
+// suggest an archived/inactive program.
+const activeProgramNamesByIds = async (ids) => {
+  if (!ids || ids.length === 0) return new Map();
+  const rows = await LearningProgram.find({ _id: { $in: ids }, status: 'active' }, { name: 1 }).lean();
+  return new Map(rows.map((r) => [String(r._id), r.name]));
+};
+
 module.exports = {
   listLive,
   findById,
@@ -85,4 +93,5 @@ module.exports = {
   listUsersWithRole,
   findUserBasic,
   programNamesByIds,
+  activeProgramNamesByIds,
 };
