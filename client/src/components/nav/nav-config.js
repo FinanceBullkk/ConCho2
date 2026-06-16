@@ -95,6 +95,7 @@ export const NAV_GROUPS = [
       { path: '/skills', labelKey: 'nav.sections.skills', icon: Sparkles, access: ADMIN_ONLY, parentRoutes: ['/skills'] },
       { path: '/branding', labelKey: 'nav.sections.branding', icon: Palette, access: ADMIN_ONLY, parentRoutes: ['/branding'] },
       { path: '/scheduling', labelKey: 'nav.sections.scheduling', icon: CalendarClock, access: ADMIN_ONLY, parentRoutes: ['/scheduling'] },
+      { path: '/compliance', labelKey: 'nav.sections.compliance', icon: ClipboardCheck, access: { Admin: 'full', Coordinator: 'full' }, parentRoutes: ['/compliance'] },
       { path: '/cost-roi', labelKey: 'nav.sections.costRoi', icon: Calculator, access: ADMIN_ONLY, parentRoutes: ['/cost-roi'] },
     ],
   },

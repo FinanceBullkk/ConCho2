@@ -34,7 +34,7 @@ and add a row below.
 
 ## Registry
 
-28 capabilities, all written (✅). Behavior lives in each linked `spec.md`; this
+30 capabilities, all written (✅). Behavior lives in each linked `spec.md`; this
 table is just the index. Covers every mounted `/api/*` route surface.
 
 | Capability | Status | Owners (source) | Last updated |
@@ -54,7 +54,8 @@ table is just the index. Covers every mounted `/api/*` route surface.
 | [feedback](feedback/spec.md) | stable | domains/learning/feedback | 2026-06-08 |
 | [completion-and-certificates](completion-and-certificates/spec.md) | stable | domains/learning/completion | 2026-06-08 |
 | [assignments-and-reminders](assignments-and-reminders/spec.md) | stable | domains/learning/assignment, services/reminderService | 2026-06-08 |
-| [reporting-and-rollups](reporting-and-rollups/spec.md) | stable | domains/learning/reports, domains/learning/dashboard | 2026-06-15 |
+| [reporting-and-rollups](reporting-and-rollups/spec.md) | stable | domains/learning/reports, domains/learning/dashboard | 2026-06-16 |
+| [required-training-compliance](required-training-compliance/spec.md) | stable | domains/compliance, models/RequiredTraining | 2026-06-16 |
 | [compliance-and-recertification](compliance-and-recertification/spec.md) | stable | domains/learning/reports (compliance) | 2026-06-08 |
 | [audit-log](audit-log/spec.md) | stable | services/auditService, models/AuditLog | 2026-06-08 |
 | [export-and-integrations](export-and-integrations/spec.md) | stable | services/exportService, services/calendarService, controllers/syncController, lib | 2026-06-08 |

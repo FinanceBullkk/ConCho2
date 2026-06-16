@@ -40,9 +40,10 @@ remainder is documented deferred-by-design scope (below), not active debt.
   attendance closed 2026-06-15. **Investment Build Plan deep features — all 4
   shipped** (#3a audit hash-chain PR #108, #4 reconcile auto-heal PR #109, #1
   analytics time-series PR #110, #5 Studio Scheduling PR #111). **Modernization
-  Horizon 1 started**: A5 training-hours report shipped 2026-06-16; next A5
-  evidence-pack/presets, then A3 compliance matrix (`RequiredTraining`), A1 budget
-  dashboard (`CostEntry`/`Budget`), A8, B2.)
+  Horizon 1 in progress**: A5 training-hours (PR #112) + **A3 role compliance
+  matrix** (`RequiredTraining`) shipped 2026-06-16; next A5 evidence-pack/presets,
+  A1 budget dashboard (`CostEntry`/`Budget`), A8 HRIS auto-assign (needs A3 +
+  Directory sync), B2 skills-as-spine.)
 - **Gated / owner-ops:** **D2 Google OIDC + Directory sync** (blocked on owner's
   Google OAuth app + Workspace domain); **paid always-on hosting** + Sentry
   cron-monitor dashboard; **Phase 6 PostgreSQL gate** (plan drafted,
@@ -116,6 +117,25 @@ Bug fixing and integration review rank above net-new feature rollout.
 > [`changelog-archive/2026-q2.md`](changelog-archive/2026-q2.md). Currently
 > inline: **2026-06-14 → 2026-06-16**.
 
+- **2026-06-16** — **Modernization Horizon 1 — A3: role-based compliance
+  matrix.** Define "this role / department / office (or everyone) must complete
+  this program within N days, repeating on a cadence" and see a **derived** live
+  matrix. New `RequiredTraining` model + `domains/compliance` (repository +
+  pure-function `derivation.js` + use-cases): `GET/POST/PUT/DELETE
+  /api/compliance/requirements` (read `report.read`, manage `compliance.manage`),
+  `GET /api/compliance/matrix` (compliant/total/% + overdue per rule, drill to
+  non-compliant), `GET /api/compliance/user/:id`. Compliance is DERIVED, never
+  stored: done = Issued `Certificate` for the target program (path = all steps);
+  overdue from `dueWithinDays` anchored at `max(user.createdAt, rule.createdAt)`
+  (no hire-date field); recurrence (once/annual/biennial) re-opens on cadence. New
+  `compliance.manage` cap (Admin + Coordinator); mutations audited
+  (`entity:'RequiredTraining'`) + publish `requirement.changed` (for A8). Client:
+  **Compliance matrix** page (`/compliance`, Admin/Coordinator) — heat-% rows,
+  per-rule drill-down, create/archive rule — wired into the Configure nav. Tests
+  +6 (matrix rollup, per-user compliant/pending, overdue, authz read/manage,
+  validation). Server **114/1093** green, client **391** green, lint 63 (cap),
+  build clean. New spec `required-training-compliance` + registry row. Follow-up:
+  A8 auto-assign subscribes to `requirement.changed`.
 - **2026-06-16** — **Modernization Horizon 1 — A5 (part 1): training-hours
   report.** First Horizon-1 initiative. Audit-ready training hours per employee /
   department for labour-law minimums, derived (no new model) from attended
