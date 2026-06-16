@@ -80,7 +80,9 @@ const auditLogSchema = new mongoose.Schema(
              // Added in Modernization H1 A1 — budget & cost management.
              'CostEntry', 'Budget',
              // Added in Modernization H1 A5 part 2 — saved report presets.
-             'ReportPreset'],
+             'ReportPreset',
+             // Added in Modernization H2 A2 — vendor & external-provider catalog.
+             'Vendor'],
       required: true,
     },
     entityId: {

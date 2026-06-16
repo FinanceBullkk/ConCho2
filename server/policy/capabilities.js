@@ -83,6 +83,11 @@ const CAPABILITIES = Object.freeze({
   // (which Teachers hold) — Admin + Coordinator only, like the Admin-only
   // executive ROI screen the actuals also feed.
   BUDGET_MANAGE: 'budget.manage',      // CRUD cost entries + budgets, read roll-ups/variance (admin/coordinator)
+  // ── Vendor & external-provider management (TMS.update Modernization H2 — A2) ─
+  // Gates BOTH read and write of the vendor catalog: it carries contracts +
+  // per-vendor spend (management-sensitive, like budget.manage) — Admin +
+  // Coordinator only, NOT the broader report.read Teachers hold.
+  VENDOR_MANAGE: 'vendor.manage',      // CRUD vendors + contracts + ratings, read spend (admin/coordinator)
 });
 
 const ALL_CAPABILITIES = Object.freeze(Object.values(CAPABILITIES));
@@ -118,6 +123,7 @@ const ROLE_CAPABILITIES = Object.freeze({
     CAPABILITIES.SESSION_ASSIGN_TRAINER,
     CAPABILITIES.COMPLIANCE_MANAGE,
     CAPABILITIES.BUDGET_MANAGE,
+    CAPABILITIES.VENDOR_MANAGE,
     CAPABILITIES.NOTIFICATION_READ,
     CAPABILITIES.SKILL_READ,
   ]),
