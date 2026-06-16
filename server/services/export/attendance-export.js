@@ -79,14 +79,33 @@ const buildExportPipeline = ({ from, to, includeExported = false, batchId } = {}
   );
 
   // ── Stage 4: Join Class ─────────────────────────────────
+  // Pipeline form + isDeleted guard: $lookup sub-pipelines don't fire the
+  // Mongoose soft-delete hooks, so a simple lookup would leak soft-deleted class
+  // labels (DATA-009 parity with the user join above). preserveNullAndEmptyArrays
+  // so a soft-deleted/missing class never DROPS a real attendance HR record —
+  // the row stays, just without a stale class label.
   pipeline.push(
-    { $lookup: { from: 'classes', localField: 'schedule.classId', foreignField: '_id', as: 'class' } },
-    { $unwind: '$class' }
+    {
+      $lookup: {
+        from: 'classes',
+        let: { cid: '$schedule.classId' },
+        pipeline: [{ $match: { $expr: { $eq: ['$_id', '$$cid'] }, isDeleted: { $ne: true } } }],
+        as: 'class',
+      },
+    },
+    { $unwind: { path: '$class', preserveNullAndEmptyArrays: true } }
   );
 
   // ── Stage 5: Join Team ──────────────────────────────────
   pipeline.push(
-    { $lookup: { from: 'teams', localField: 'schedule.bookedTeamId', foreignField: '_id', as: 'team' } },
+    {
+      $lookup: {
+        from: 'teams',
+        let: { tid: '$schedule.bookedTeamId' },
+        pipeline: [{ $match: { $expr: { $eq: ['$_id', '$$tid'] }, isDeleted: { $ne: true } } }],
+        as: 'team',
+      },
+    },
     { $unwind: { path: '$team', preserveNullAndEmptyArrays: true } }
   );
 
