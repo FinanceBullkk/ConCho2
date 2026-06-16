@@ -1,4 +1,4 @@
-const { hasCompletedProgram } = require('../enrollment/prerequisites');
+const { hasCompletedProgram, completedProgramUserIds } = require('../enrollment/prerequisites');
 const repository = require('./repository');
 const { compactUser } = require('./dto');
 
@@ -18,14 +18,18 @@ const statusFromSignals = ({ complete, inProgress, dueDate, now }) => {
 
 const resolveProgramStatuses = async ({ assignment, users, programId, now }) => {
   const userIds = users.map((user) => user._id);
-  const inProgressSet = await repository.findParticipatingUserIdsForProgram(userIds, programId);
+  // Batched: completion + in-progress for ALL learners in a constant query
+  // count, instead of a per-user hasCompletedProgram fan-out (audit P1). Same
+  // signals → identical statuses.
+  const [inProgressSet, completeSet] = await Promise.all([
+    repository.findParticipatingUserIdsForProgram(userIds, programId),
+    completedProgramUserIds(userIds, programId),
+  ]);
 
-  const rows = [];
-  for (const user of users) {
+  return users.map((user) => {
     const key = user._id.toString();
-    // eslint-disable-next-line no-await-in-loop -- bounded by one assignment target set
-    const complete = await hasCompletedProgram(user._id, programId);
-    rows.push({
+    const complete = completeSet.has(key);
+    return {
       learner: compactUser(user),
       status: statusFromSignals({
         complete,
@@ -35,30 +39,27 @@ const resolveProgramStatuses = async ({ assignment, users, programId, now }) => 
       }),
       complete,
       dueDate: assignment.dueDate,
-    });
-  }
-  return rows;
+    };
+  });
 };
 
 const resolvePathStatuses = async ({ assignment, users, path, now }) => {
   const programs = (path?.programs || []).map((id) => id._id || id);
-  const inProgressSets = await Promise.all(
-    programs.map((programId) =>
-      repository.findParticipatingUserIdsForProgram(users.map((user) => user._id), programId),
-    ),
-  );
+  const userIds = users.map((user) => user._id);
+  // Batched per program (paths are short ordered curricula): completion +
+  // in-progress sets for all learners, instead of a per-user × per-program
+  // hasCompletedProgram fan-out (audit P1). Same signals → identical statuses.
+  const [inProgressSets, completeSets] = await Promise.all([
+    Promise.all(programs.map((programId) => repository.findParticipatingUserIdsForProgram(userIds, programId))),
+    Promise.all(programs.map((programId) => completedProgramUserIds(userIds, programId))),
+  ]);
 
-  const rows = [];
-  for (const user of users) {
-    const completed = [];
-    for (const programId of programs) {
-      // eslint-disable-next-line no-await-in-loop -- paths are short ordered curricula
-      completed.push(await hasCompletedProgram(user._id, programId));
-    }
-    const complete = programs.length > 0 && completed.every(Boolean);
+  return users.map((user) => {
     const key = user._id.toString();
+    const completed = completeSets.map((set) => set.has(key));
+    const complete = programs.length > 0 && completed.every(Boolean);
     const inProgress = completed.some(Boolean) || inProgressSets.some((set) => set.has(key));
-    rows.push({
+    return {
       learner: compactUser(user),
       status: statusFromSignals({
         complete,
@@ -68,9 +69,8 @@ const resolvePathStatuses = async ({ assignment, users, path, now }) => {
       }),
       complete,
       dueDate: assignment.dueDate,
-    });
-  }
-  return rows;
+    };
+  });
 };
 
 // Single-user variant (Cohesion P3 — learner self view). Same signals as the
