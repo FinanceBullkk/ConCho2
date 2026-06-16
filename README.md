@@ -418,6 +418,12 @@ docker run -d --name tms-v2 -p 5000:5000 --env-file .env tms-v2
 | `TMS_TIMEZONE` | | Timezone (default UTC, recommended `Asia/Ho_Chi_Minh`) |
 | `MFA_REQUIRED_ROLES` | | Roles required to enable 2FA (e.g. `Admin`) |
 | `LOG_LEVEL` | | Log level: `info` (default), `debug`, `warn` |
+| `DEFAULT_CURRENCY` | | Single-tenant currency for budget/cost figures (default `USD`) |
+| `METRIC_SNAPSHOT_RETENTION_DAYS` | | Analytics metric-snapshot TTL in days (default `400`) |
+| `SNAPSHOT_CRON` | | Cron for the nightly metric-snapshot job (default `0 1 * * *`) |
+| `VAPID_PUBLIC_KEY` | | Web Push public key — Web Push stays disabled if unset (`npx web-push generate-vapid-keys`) |
+| `VAPID_PRIVATE_KEY` | | Web Push private key — Web Push stays disabled if unset |
+| `VAPID_SUBJECT` | | Web Push contact URI (default `mailto:admin@tms.local`) |
 
 > Advanced tuning knobs (timeouts, cache TTLs, pool sizes, login-lockout
 > thresholds, import batch caps…) are read from env with safe defaults — run

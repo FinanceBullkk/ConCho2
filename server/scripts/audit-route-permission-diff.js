@@ -1,71 +1,32 @@
 /**
  * audit-route-permission-diff.js — Phase 08 docs audit helper (DOCS- series).
  *
- * Enumerates every Express route actually mounted by server.js (live
- * introspection of app._router, not a brittle source-grep) and diffs the
- * base-path inventory against docs/route-permission-matrix.md.
+ * Diffs the base-path inventory mounted by server.js against
+ * docs/route-permission-matrix.md, exiting 1 on a non-empty diff so audits can
+ * gate on it.
  *
- * Usage:  node server/scripts/audit-route-permission-diff.js [--routes]
- *   --routes  also print the full METHOD+path+middleware inventory
+ * Express 5 note (2026-06-16): Express 5 + path-to-regexp 8 compile each mount
+ * into an opaque `match()` function — `layer.regexp`/`layer.path` are undefined,
+ * so the old live-introspection of `app._router.stack` could no longer recover
+ * mount prefixes (it returned bare leaf paths like `/:id`). We now SOURCE-PARSE
+ * server.js (plus the health router it mounts at `/` and `/api`) for mount
+ * prefixes — robust and framework-version independent. Base-path granularity is
+ * unchanged, so the matrix contract is the same.
  *
- * Exit code 1 when the diff is non-empty so future audits can gate on it.
- * Requires no DB: server.js skips connect/listen when NODE_ENV=test.
+ * Usage:  node server/scripts/audit-route-permission-diff.js [--mounts]
+ *   --mounts  also print the parsed code base-path inventory
  */
-
-process.env.NODE_ENV = 'test';
-process.env.JWT_SECRET = process.env.JWT_SECRET || 'audit-route-diff-dummy-secret';
 
 const fs = require('fs');
 const path = require('path');
 
-const app = require('../server');
+const SERVER_FILE = path.join(__dirname, '..', 'server.js');
+const HEALTH_FILE = path.join(__dirname, '..', 'routes', 'healthRoutes.js');
+const MATRIX_FILE = path.join(__dirname, '..', '..', 'docs', 'route-permission-matrix.md');
 
-// ── Walk the Express 4 router tree ──────────────────────────────────
-// Reconstruct mount prefixes from layer regexps (the usual express
-// introspection trick — fast-path mounts like /api/users stringify back
-// cleanly; param segments come back as :param placeholders).
-function regexpToPath(layer) {
-  if (layer.path) return layer.path;
-  const src = layer.regexp && layer.regexp.source;
-  // Root mounts (app.use('/', ...)) — regexp is ^\/?(?=\/|$): no prefix.
-  if (!src || src === '^\\/?$' || src === '^\\/?(?=\\/|$)') return '';
-  let p = src
-    .replace('^\\/', '/')
-    .replace('\\/?(?=\\/|$)', '')
-    .replace(/\$\)?$/, '')
-    .replace(/\\\//g, '/')
-    .replace(/\(\?:\(\[\^\\?\/\]\+\?\)\)/g, ':param')
-    .replace(/\(\?=\/\|\$\)/g, '')
-    .replace(/[()^$?]/g, '');
-  return p;
-}
-
-function collectRoutes(stack, prefix, out) {
-  for (const layer of stack) {
-    if (layer.route) {
-      const methods = Object.keys(layer.route.methods)
-        .filter((m) => m !== '_all')
-        .map((m) => m.toUpperCase());
-      const middleware = layer.route.stack
-        .map((l) => l.name)
-        .filter((n) => n && n !== '<anonymous>');
-      out.push({
-        methods,
-        path: (prefix + layer.route.path).replace(/\/+/g, '/'),
-        middleware,
-      });
-    } else if (layer.name === 'router' && layer.handle && layer.handle.stack) {
-      collectRoutes(layer.handle.stack, prefix + regexpToPath(layer), out);
-    }
-  }
-}
-
-const routes = [];
-collectRoutes(app._router.stack, '', routes);
-
-// ── Base-path inventory from code ───────────────────────────────────
-// Base path = '/health' style root probes, or the first two segments of
-// /api/* (three for /api/admin/*) — matching the matrix's row granularity.
+// Base path = the first segment for non-/api probes (/health, /ready), the
+// first two segments for /api/* , or three for /api/admin/* — matching the
+// matrix's row granularity.
 function basePath(p) {
   const seg = p.split('/').filter(Boolean);
   if (seg[0] !== 'api') return '/' + (seg[0] || '');
@@ -73,13 +34,33 @@ function basePath(p) {
   return '/' + seg.slice(0, 2).join('/');
 }
 
-const codeBases = new Set(routes.map((r) => basePath(r.path)));
+// ── Code base paths (source-parsed) ─────────────────────────────────
+const serverSrc = fs.readFileSync(SERVER_FILE, 'utf8');
+const codeBases = new Set();
+
+// `app.use('/api/...', ...)` domain + admin mounts (the bulk of the surface).
+for (const m of serverSrc.matchAll(/app\.use\(\s*['"`](\/api\/[^'"`]+)['"`]/g)) {
+  codeBases.add(basePath(m[1]));
+}
+// Top-level direct routes, e.g. `app.get('/api/auth/csrf', ...)`. Skip the SPA
+// wildcard fallback (`/{*splat}`) — first char after `/` excludes `*` and `{`.
+for (const m of serverSrc.matchAll(/app\.(?:get|post|put|patch|delete)\(\s*['"`](\/[^'"`*{][^'"`]*)['"`]/g)) {
+  const p = m[1];
+  if (p.startsWith('/api/') || !p.slice(1).includes('/')) codeBases.add(basePath(p));
+}
+// The health router is mounted at both `/` and `/api`; expand its own routes
+// (e.g. /health, /ready → also /api/health, /api/ready) instead of hardcoding.
+const healthSrc = fs.readFileSync(HEALTH_FILE, 'utf8');
+const healthPaths = [...healthSrc.matchAll(/router\.(?:get|post)\(\s*['"`](\/[^'"`]*)['"`]/g)].map((m) => m[1]);
+for (const prefix of ['', '/api']) {
+  for (const hp of healthPaths) codeBases.add(basePath(prefix + hp));
+}
+
 codeBases.delete('/api/docs'); // swagger UI, dev-only mount
 codeBases.delete('/api/docs.json'); // swagger spec JSON, same dev-only surface
 
 // ── Base paths documented in the matrix ─────────────────────────────
-const matrixFile = path.join(__dirname, '../../docs/route-permission-matrix.md');
-const matrix = fs.readFileSync(matrixFile, 'utf8');
+const matrix = fs.readFileSync(MATRIX_FILE, 'utf8');
 const docBases = new Set();
 for (const line of matrix.split('\n')) {
   const m = line.match(/^\|\s*([^|]+)\|/);
@@ -95,12 +76,11 @@ for (const line of matrix.split('\n')) {
 const missingFromDoc = [...codeBases].filter((b) => !docBases.has(b)).sort();
 const missingFromCode = [...docBases].filter((b) => !codeBases.has(b)).sort();
 
-console.log(`routes mounted: ${routes.length}  |  code base paths: ${codeBases.size}  |  matrix rows (paths): ${docBases.size}\n`);
+console.log(`code base paths: ${codeBases.size}  |  matrix rows (paths): ${docBases.size}\n`);
 
-if (process.argv.includes('--routes')) {
-  for (const r of routes.sort((a, b) => a.path.localeCompare(b.path))) {
-    console.log(`${r.methods.join(',').padEnd(11)} ${r.path}  [${r.middleware.join(' → ')}]`);
-  }
+if (process.argv.includes('--mounts')) {
+  console.log('Code base paths:');
+  [...codeBases].sort().forEach((b) => console.log(`  ${b}`));
   console.log('');
 }
 
