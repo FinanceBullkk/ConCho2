@@ -92,6 +92,7 @@ const PERMISSION_MAP = {
   'manage:compliance': ['Admin', 'Coordinator'],   // POST/PUT/DELETE /api/compliance/requirements (A3)
   'manage:budget':     ['Admin', 'Coordinator'],   // /api/finance/* — read+write both need budget.manage (A1)
   'manage:vendor':     ['Admin', 'Coordinator'],   // /api/vendors/* — read+write both need vendor.manage (A2)
+  'plan:training':     ['Admin', 'Coordinator'],   // /api/planning/* — training.plan (A4 TNA)
   'read:feedback':   ['Admin', 'Teacher'],         // GET /api/learning/feedback
   'read:assignments': ['Admin', 'Coordinator', 'Teacher'], // GET /api/learning/assignments (assignment.read)
   'manage:assignments': ['Admin', 'Coordinator'],   // POST/DELETE /api/learning/assignments (assignment.manage)

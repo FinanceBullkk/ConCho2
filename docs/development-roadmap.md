@@ -52,10 +52,14 @@ remainder is documented deferred-by-design scope (below), not active debt.
   contracts/renewal + ratings + per-vendor spend off the A1 ledger; **A6 trainer-
   management depth** (`TrainerProfile` + `domains/trainer`, PR #120) —
   qualification/availability, qualified-and-free listing, per-trainer load,
-  ratings, + a trainer double-booking 409 guard at the assign chokepoint.
-  Remaining H2: **A4 TNA→annual-plan** (buildable next); **B1 AI layer** (gated on
-  an owner LLM-provider + key decision), **B8 Slack/Teams** (gated on an OAuth app
-  + signing secret), **B5 mobile PWA** (verify offline-PWA infra first).)
+  ratings, + a trainer double-booking 409 guard at the assign chokepoint;
+  **A4 TNA→annual-plan** (`TrainingRequest`/`TrainingPlan` + `domains/planning`,
+  PR #121) — demand intake + status machine, demand aggregation, and a costed
+  annual plan that schedules items into cohorts (carrying est cost into the A1
+  budget). **3 of 6 H2 slices shipped.** Remaining H2 (all gated on owner inputs):
+  **B1 AI layer** (LLM-provider + key decision), **B8 Slack/Teams** (OAuth app +
+  signing secret), **B5 mobile PWA** (verify offline-PWA infra first).
+  GitHub repo made **public 2026-06-16** (unlimited free Actions).)
 - **Gated / owner-ops:** **D2 Google OIDC + Directory sync** (blocked on owner's
   Google OAuth app + Workspace domain); **paid always-on hosting** + Sentry
   cron-monitor dashboard; **Phase 6 PostgreSQL gate** (plan drafted,
@@ -128,6 +132,28 @@ Bug fixing and integration review rank above net-new feature rollout.
 > lines); older entries roll verbatim, newest-first, to
 > [`changelog-archive/2026-q2.md`](changelog-archive/2026-q2.md). Currently
 > inline: **2026-06-14 → 2026-06-16**.
+
+- **2026-06-16** — **Modernization Horizon 2 — A4: training-needs-analysis →
+  annual plan.** A demand-intake pipeline: submit training requests → aggregate
+  demand → a costed annual plan → scheduled cohorts. New `TrainingRequest` model
+  (target program/skill, headcount, priority, `YYYY-Qn` quarter, status machine
+  submitted→in-review→approved→planned / rejected) + `TrainingPlan` (one per
+  fiscalYear: items{target,quarter,demand,estCostMinor,cohortIds}); both
+  soft-delete. New `domains/planning` at `/api/planning`: request CRUD + status
+  transitions, demand aggregation (`/demand?by=program|skill|quarter|department`),
+  plan upsert, and **schedule item → cohort** (`/plan/:fy/items/:id/schedule`
+  creates a `Class` from the program, links the cohort, marks matching approved
+  requests `planned`, and **carries the est cost into an A1 `Budget`** — closing
+  the TNA→schedule→budget loop). New `training.plan` capability (Admin +
+  Coordinator); `TrainingRequest`/`TrainingPlan` added to the AuditLog enum;
+  mutations audited. Client: `features/planning` PlanningPage (demand board +
+  requests with status actions + annual-plan editor with schedule-to-cohort) +
+  `usePlanning` hooks + nav (Configure ▸ Training plan) + i18n. Server **119/1127**
+  green, client **391** green, lint 63 (cap), build clean. New spec
+  `training-needs-analysis` + registry row (35). **Deferred (documented):**
+  manager self-service intake (gated to `training.plan` for now), the A7 approval
+  engine (status machine exists; A7 drives it later), skill→cohort scheduling
+  (programs only). PR #121.
 
 - **2026-06-16** — **Modernization Horizon 2 — A6: trainer-management depth.**
   A qualification + availability layer over the Teacher/Admin users who deliver

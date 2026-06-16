@@ -163,4 +163,10 @@ export const qk = {
     detail: (userId) => ['trainer', 'detail', userId],
     load: (userId, params) => ['trainer', 'load', userId, params],
   },
+  planning: {
+    all: ['planning'],
+    requests: (params) => ['planning', 'requests', params],
+    demand: (params) => ['planning', 'demand', params],
+    plan: (fy) => ['planning', 'plan', fy],
+  },
 };
