@@ -9,8 +9,8 @@ import { useRole } from '@/hooks/useRole';
 import { useLearningPrograms } from '../../hooks/useLearning';
 import { useDepartments } from '../../hooks/useOrg';
 import {
-  useTenantCurrency, useBudgetVariance, useCostRollup,
-  useCreateBudget, useArchiveBudget, useCreateCostEntry,
+  useTenantCurrency, useBudgetVariance, useCostRollup, useCostEntries,
+  useCreateBudget, useArchiveBudget, useCreateCostEntry, useArchiveCostEntry,
 } from './useFinance';
 
 // ──────────────────────────────────────────────────────────
@@ -235,6 +235,53 @@ function RollupPanel({ fiscalYear, currency }) {
   );
 }
 
+// Recent logged cost entries with remove — closes the create→view→undo loop so a
+// mis-keyed cost can be corrected from the UI (not just the DB).
+function CostEntriesPanel({ fiscalYear, canManage }) {
+  const { t } = useTranslation();
+  const { data = [], isLoading } = useCostEntries({ fiscalYear });
+  const archive = useArchiveCostEntry();
+  const entries = data || [];
+
+  return (
+    <section className="bg-card border border-border rounded-lg overflow-hidden">
+      <div className="border-b border-border px-4 py-2.5"><h2 className="text-sm font-semibold text-foreground">{t('budget.recentCosts')} · FY{fiscalYear}</h2></div>
+      {isLoading ? (
+        <div className="py-8 flex justify-center"><Spinner size={20} /></div>
+      ) : entries.length === 0 ? (
+        <EmptyState icon={Wallet} title={t('budget.noCosts')} />
+      ) : (
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-border text-left">
+                <th scope="col" className="px-4 py-2 text-overline text-muted-foreground">{t('budget.incurredOn')}</th>
+                <th scope="col" className="px-4 py-2 text-overline text-muted-foreground">{t('budget.type')}</th>
+                <th scope="col" className="px-4 py-2 text-overline text-muted-foreground text-right">{t('budget.actualCol')}</th>
+                <th scope="col" className="px-4 py-2 text-overline text-muted-foreground">{t('budget.poRef')}</th>
+                <th scope="col" className="px-4 py-2 w-12" />
+              </tr>
+            </thead>
+            <tbody>
+              {entries.map((e) => (
+                <tr key={e._id} className="border-b border-border last:border-0">
+                  <td className="px-4 py-2 tabular-nums text-muted-foreground">{e.incurredOn ? new Date(e.incurredOn).toISOString().slice(0, 10) : '—'}</td>
+                  <td className="px-4 py-2">{e.type}</td>
+                  <td className="px-4 py-2 text-right tabular-nums">{fmtMinor(e.amountMinor, e.currency)}</td>
+                  <td className="px-4 py-2 text-muted-foreground text-xs">{e.poRef || '—'}</td>
+                  <td className="px-4 py-2 text-right">
+                    {canManage && <Button size="sm" variant="ghost" onClick={() => archive.mutate(e._id)} aria-label="Remove cost entry"><Archive className="size-3.5" aria-hidden="true" /></Button>}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </section>
+  );
+}
+
 export default function BudgetDashboardPage() {
   const { t } = useTranslation();
   const { can } = useRole();
@@ -276,6 +323,7 @@ export default function BudgetDashboardPage() {
       </section>
 
       <RollupPanel fiscalYear={fiscalYear} currency={currency} />
+      <CostEntriesPanel fiscalYear={fiscalYear} canManage={canManage} />
     </div>
   );
 }
