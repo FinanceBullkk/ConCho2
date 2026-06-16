@@ -4,7 +4,7 @@ import {
   LayoutDashboard, BarChart3, ChartLine, Download,
   Building2, MapPin, DoorOpen, Settings, Database, RefreshCw, ShieldCheck, ScrollText,
   Compass, Languages, FileText, Zap, Sparkles, Palette, Calculator, Smartphone, CalendarClock, Wallet,
-  Handshake, UserCog, Target,
+  Handshake, UserCog, Target, Sun,
 } from 'lucide-react';
 
 // ──────────────────────────────────────────────────────────
@@ -130,6 +130,7 @@ export const LEARNER_GROUPS = [
   {
     id: 'learner-main', labelKey: 'nav.groups.myLearning',
     items: [
+      { path: '/me/today', labelKey: 'nav.learner.today', icon: Sun, access: ALL, parentRoutes: ['/me/today'] },
       { path: '/me/programs', labelKey: 'nav.learner.programs', icon: BookOpen, access: ALL, parentRoutes: ['/me/programs'] },
       { path: '/me/catalog', labelKey: 'nav.learner.catalog', icon: Compass, access: ALL, parentRoutes: ['/me/catalog'] },
       { path: '/me/sessions', labelKey: 'nav.learner.sessions', icon: CalendarCheck, access: ALL, parentRoutes: ['/me/sessions'] },

@@ -483,6 +483,14 @@ export const planningAPI = {
   scheduleItem: (fy, itemId, data) => api.post(`/planning/plan/${fy}/items/${itemId}/schedule`, data),
 };
 
+// ── Me: mobile learning surface (B5, Horizon 2) ───
+export const meAPI = {
+  getVapidKey: () => api.get('/me/push/vapid-key'),
+  subscribePush: (data) => api.post('/me/push/subscribe', data),
+  unsubscribePush: (endpoint) => api.delete('/me/push/subscribe', { data: { endpoint } }),
+  getMobileFeed: () => api.get('/me/mobile-feed'),
+};
+
 // ── Org model (departments, offices, manager hierarchy, my-team) ───
 export const orgAPI = {
   getDepartments:    (params) => api.get('/org/departments', { params }),

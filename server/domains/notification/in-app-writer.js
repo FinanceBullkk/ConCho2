@@ -1,4 +1,5 @@
 const NotificationLog = require('../../models/NotificationLog');
+const pushService = require('../../services/pushService');
 
 // Fail-soft, idempotent in-app notification write for the bell (Cohesion P5+).
 //
@@ -23,6 +24,15 @@ const recordInApp = async ({ type, recipientUserId, learnerId, cadenceKey, metad
       sentAt: new Date(),
       metadata,
     });
+    // B5 (Horizon 2) — ride-along Web Push to the recipient's devices. Fire-and-
+    // forget + fail-soft (no-op when VAPID env unset): the bell row already
+    // landed, so a push hiccup must never affect the triggering mutation.
+    pushService.sendToUser(recipientUserId, {
+      title: metadata.title || 'TMS',
+      body: metadata.body || metadata.message || '',
+      url: metadata.url || '/me/today',
+      tag: type,
+    }).catch(() => { /* best-effort */ });
   } catch (_e) { /* best-effort: duplicate (idempotent) or transient DB hiccup */ }
 };
 
