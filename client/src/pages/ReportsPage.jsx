@@ -1,11 +1,12 @@
 import { useSearchParams } from 'react-router-dom';
-import { LayoutDashboard, BarChart3, ChartLine, Download } from 'lucide-react';
+import { LayoutDashboard, BarChart3, ChartLine, Download, Clock } from 'lucide-react';
 import { Tabs, TabsContent } from '@/components/ui/tabs';
 import { PageHeader } from '@/components/PageHeader';
 import { useRole } from '@/hooks/useRole';
 import AdminAnalyticsPanel from '../features/dashboard/AdminAnalyticsPanel';
 import DashboardTab from '../features/learning/DashboardTab';
 import ReportsTab from '../features/learning/ReportsTab';
+import TrainingHoursTab from '../features/learning/TrainingHoursTab';
 import AttendanceDashboardPage from '../features/attendance/AttendanceDashboardPage';
 import HRExportPage from '../features/admin/HRExportPage';
 
@@ -29,6 +30,7 @@ const ALL_TABS = [
   { id: 'overview',   label: 'Overview',      icon: LayoutDashboard, description: 'Training KPIs — active learners, attendance, course and level breakdowns, class progress.', perm: 'read:dashboard' },
   { id: 'learning',   label: 'L&D Dashboard', icon: BarChart3,       description: 'Operational and executive L&D KPIs — completion, obligations, quality, ROI.',              perm: 'read:reports' },
   { id: 'completion', label: 'Completion',    icon: ChartLine,       description: 'Cohort completion and Admin compliance status for required learning.',                    perm: 'read:reports' },
+  { id: 'hours',      label: 'Training hours', icon: Clock,          description: 'Training hours per employee / department — audit-ready for labour-law minimums.',         perm: 'read:reports' },
   { id: 'analytics',  label: 'Attendance',    icon: ChartLine,       description: 'Attendance rates by employee, team, class.',                                              perm: 'read:attendance' },
   { id: 'hr-export',  label: 'HR Export',     icon: Download,        description: 'Download attendance data as Excel for HR.',                                               perm: 'export:data' },
 ];
@@ -72,6 +74,11 @@ export default function ReportsPage() {
         {can('read:reports') && (
           <TabsContent value="completion" hidden={activeTab !== 'completion'}>
             {activeTab === 'completion' && <ReportsTab />}
+          </TabsContent>
+        )}
+        {can('read:reports') && (
+          <TabsContent value="hours" hidden={activeTab !== 'hours'}>
+            {activeTab === 'hours' && <TrainingHoursTab />}
           </TabsContent>
         )}
         {can('read:attendance') && (
