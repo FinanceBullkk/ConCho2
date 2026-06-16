@@ -76,6 +76,7 @@ const CAPABILITIES = Object.freeze({
   ANALYTICS_READ: 'analytics.read',    // admin dashboard stats/alerts/cache (dashboardRoutes)
   AUDIT_READ: 'audit.read',            // read the audit log (auditRoutes)
   SYSTEM_OPS: 'system.ops',            // DB explorer + reconciliation (adminDb/reconcile)
+  COMPLIANCE_MANAGE: 'compliance.manage', // define required-training rules (A3; admin/coordinator)
 });
 
 const ALL_CAPABILITIES = Object.freeze(Object.values(CAPABILITIES));
@@ -109,6 +110,7 @@ const ROLE_CAPABILITIES = Object.freeze({
     CAPABILITIES.ROOM_READ,
     CAPABILITIES.ROOM_MANAGE,
     CAPABILITIES.SESSION_ASSIGN_TRAINER,
+    CAPABILITIES.COMPLIANCE_MANAGE,
     CAPABILITIES.NOTIFICATION_READ,
     CAPABILITIES.SKILL_READ,
   ]),

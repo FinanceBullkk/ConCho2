@@ -89,6 +89,7 @@ const PERMISSION_MAP = {
   'read:dashboard':  ['Admin'],                    // GET /api/dashboard/* (Admin analytics)
   // Cohort completion reports + xlsx export — server: report.read capability.
   'read:reports':    ['Admin', 'Coordinator', 'Teacher'], // GET /api/learning/reports/*
+  'manage:compliance': ['Admin', 'Coordinator'],   // POST/PUT/DELETE /api/compliance/requirements (A3)
   'read:feedback':   ['Admin', 'Teacher'],         // GET /api/learning/feedback
   'read:assignments': ['Admin', 'Coordinator', 'Teacher'], // GET /api/learning/assignments (assignment.read)
   'manage:assignments': ['Admin', 'Coordinator'],   // POST/DELETE /api/learning/assignments (assignment.manage)

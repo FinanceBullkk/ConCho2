@@ -416,6 +416,16 @@ export const analyticsAPI = {
   getProgramAnalytics: (id, range) => api.get(`/analytics/program/${id}`, { params: range ? { range } : {} }),
 };
 
+// ── Compliance: required-training rules + derived matrix (A3, Horizon 1) ───
+export const complianceAPI = {
+  listRequirements: () => api.get('/compliance/requirements'),
+  createRequirement: (data) => api.post('/compliance/requirements', data),
+  updateRequirement: (id, data) => api.put(`/compliance/requirements/${id}`, data),
+  archiveRequirement: (id) => api.delete(`/compliance/requirements/${id}`),
+  getMatrix: (params) => api.get('/compliance/matrix', { params }),
+  getUserCompliance: (id) => api.get(`/compliance/user/${id}`),
+};
+
 // ── Org model (departments, offices, manager hierarchy, my-team) ───
 export const orgAPI = {
   getDepartments:    (params) => api.get('/org/departments', { params }),
