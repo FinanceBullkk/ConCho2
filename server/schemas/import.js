@@ -37,4 +37,15 @@ const importClassesBody = z.object({
   classes: z.array(importClassItem).min(1).max(200),
 });
 
-module.exports = { importUsersBody, importClassesBody };
+// ── Import History (legacy attendance backfill) ───────────
+// Envelope guardrail only. The controller imports best-effort PER session and
+// reports per-row errors[], so we validate the envelope — `sessions` is a
+// bounded array of objects (rejects a missing/non-array body + caps batch size
+// against a DoS) — WITHOUT deep per-row strictness that would turn the
+// partial-success contract into all-or-nothing. Per-row field correctness stays
+// the controller's job (it already collects errors[] per session).
+const importHistoryBody = z.object({
+  sessions: z.array(z.object({}).passthrough()).max(1000, 'Max 1000 sessions per batch'),
+});
+
+module.exports = { importUsersBody, importClassesBody, importHistoryBody };

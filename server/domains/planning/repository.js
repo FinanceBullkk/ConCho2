@@ -26,10 +26,12 @@ const softDeleteRequest = (id) =>
   ).lean();
 
 // Mark approved requests for a target+quarter as 'planned' (called on schedule).
-const markRequestsPlanned = (kind, id, quarter) =>
+// Optional `session` enlists it in the scheduleItem transaction.
+const markRequestsPlanned = (kind, id, quarter, session) =>
   TrainingRequest.updateMany(
     { 'target.kind': kind, 'target.id': id, targetQuarter: quarter, status: 'approved' },
     { $set: { status: 'planned' } },
+    session ? { session } : {},
   );
 
 // ── Demand aggregation ───────────────────────────────────────────────────────
@@ -62,12 +64,16 @@ const upsertPlan = (fiscalYear, data) =>
     { new: true, upsert: true, runValidators: true, setDefaultsOnInsert: true },
   ).lean();
 
-const findPlanDoc = (fiscalYear) => TrainingPlan.findOne({ fiscalYear }); // hydrated (item edits)
+// hydrated (item edits). Optional `session` reads it inside a transaction.
+const findPlanDoc = (fiscalYear, session) =>
+  (session ? TrainingPlan.findOne({ fiscalYear }).session(session) : TrainingPlan.findOne({ fiscalYear }));
 
 // ── Cohort creation (schedule a plan item) ───────────────────────────────────
 const findProgramById = (id) => LearningProgram.findById(id).select('name code status').lean();
 
-const createCohortClass = (data) => Class.create(data);
+// Optional `session` enlists the insert in the scheduleItem transaction.
+const createCohortClass = (data, session) =>
+  (session ? Class.create([data], { session }).then((arr) => arr[0]) : Class.create(data));
 
 // ── Label lookups (demand display) ───────────────────────────────────────────
 const findProgramsByIds = (ids) =>

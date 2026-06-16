@@ -5,6 +5,7 @@ const { requireCapability } = require('../middleware/requireCapability');
 const { CAPABILITIES } = require('../policy/capabilities');
 const { escapeRegex } = require('../helpers/escapeRegex');
 const auditService = require('../services/auditService');
+const { handleError } = require('../helpers/handleError');
 const router = require('express').Router();
 
 // ──────────────────────────────────────────────────────────
@@ -126,7 +127,7 @@ router.get('/collections', async (_req, res) => {
     }
     res.json({ success: true, data: stats });
   } catch (err) {
-    res.status(500).json({ success: false, message: err.message });
+    handleError(res, err);
   }
 });
 
@@ -191,7 +192,7 @@ router.get('/:collection', async (req, res) => {
       totalPages: Math.ceil(total / limit),
     });
   } catch (err) {
-    res.status(500).json({ success: false, message: err.message });
+    handleError(res, err);
   }
 });
 
@@ -256,6 +257,9 @@ router.put('/:collection/:id', async (req, res) => {
     }
     res.json(response);
   } catch (err) {
+    // PUT validation errors stay a client-facing 400 with the message (a
+    // Mongoose ValidationError/CastError here IS a client mistake); only the
+    // unexpected-500 paths were leaking internals — those now use handleError.
     res.status(400).json({ success: false, message: err.message });
   }
 });
@@ -292,7 +296,7 @@ router.delete('/:collection/:id', async (req, res) => {
 
     res.json({ success: true, message: 'Deleted' });
   } catch (err) {
-    res.status(500).json({ success: false, message: err.message });
+    handleError(res, err);
   }
 });
 
