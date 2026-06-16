@@ -40,12 +40,13 @@ remainder is documented deferred-by-design scope (below), not active debt.
   attendance closed 2026-06-15. **Investment Build Plan deep features — all 4
   shipped** (#3a audit hash-chain PR #108, #4 reconcile auto-heal PR #109, #1
   analytics time-series PR #110, #5 Studio Scheduling PR #111). **Modernization
-  Horizon 1 in progress**: A5 training-hours (PR #112), **A3 role compliance
-  matrix** (`RequiredTraining`, PR #113), **A1 budget & cost** (`CostEntry`/
-  `Budget` + `domains/finance` + budget dashboard + Executive-ROI actuals, PR #114),
-  and **B2 skills-as-spine** (taxonomy hierarchy + gap-driven program
-  recommendations on the existing derived-skill engine) shipped 2026-06-16; next
-  A5 evidence-pack/presets, A8 HRIS auto-assign (gated on Directory sync).)
+  Horizon 1 — all buildable slices SHIPPED 2026-06-16**: A5 training-hours
+  (PR #112) + **A5 part-2** evidence-pack/presets, **A3 role compliance matrix**
+  (`RequiredTraining`, PR #113), **A1 budget & cost** (`CostEntry`/`Budget` +
+  `domains/finance`, PR #114), **B2 skills-as-spine** (taxonomy + gap-driven
+  recommendations, PR #115). **Only A8 HRIS auto-assign remains — gated** on the
+  owner's Google Directory/OAuth setup (D2). PDF/zip evidence + cron-scheduled
+  presets deferred (no PDF dep in-repo; presets flagged no-confirmed-HR-need).)
 - **Gated / owner-ops:** **D2 Google OIDC + Directory sync** (blocked on owner's
   Google OAuth app + Workspace domain); **paid always-on hosting** + Sentry
   cron-monitor dashboard; **Phase 6 PostgreSQL gate** (plan drafted,
@@ -118,6 +119,26 @@ Bug fixing and integration review rank above net-new feature rollout.
 > lines); older entries roll verbatim, newest-first, to
 > [`changelog-archive/2026-q2.md`](changelog-archive/2026-q2.md). Currently
 > inline: **2026-06-14 → 2026-06-16**.
+
+- **2026-06-16** — **Modernization Horizon 1 — A5 part 2: evidence pack + report
+  presets.** Audit-ready downloadable evidence pack + saved report configs over
+  the reporting the system already captures. New `ReportPreset` model (`name`, `kind`
+  hours|compliance|evidence, `filters`, `schedule` none|monthly|quarterly,
+  soft-delete) + CRUD `GET/POST/PUT/DELETE /api/learning/reports/presets`
+  (`report.read`; mutations audited `entity:'ReportPreset'`). `GET
+  /api/learning/reports/evidence-pack?from=&to=&departmentId=` streams ONE
+  timestamped multi-sheet **.xlsx** (Summary cover + Training Hours + Compliance,
+  reusing the existing training-hours + compliance use-cases), audited
+  `entity:'Report'`, row-capped (413), `report.read`-gated. Client: **Download
+  evidence pack** button + saved-preset apply/save/delete on the Reports ▸ Hours
+  tab. Tests +4 (evidence-pack xlsx + audit, preset CRUD + audit, authz read/write,
+  empty-name 400). Server **116/1109** green, client **391** green, lint 63 (cap),
+  build clean. Spec `reporting-and-rollups` extended (evidence pack + presets);
+  `ReportPreset` added to the AuditLog enum. **Deferred (documented):** PDF + zip
+  (no PDF dep in-repo — xlsx is audit-ready) and cron auto-run of scheduled presets
+  (the `schedule` field persists for a future cron; presets flagged
+  no-confirmed-HR-need). This closes all **buildable** Horizon-1 slices; only the
+  Directory-sync-gated A8 remains.
 
 - **2026-06-16** — **Modernization Horizon 1 — B2: skills-as-spine.** Promoted the
   derived-skill engine (gap #4) from a badge to a recommendation spine. Added

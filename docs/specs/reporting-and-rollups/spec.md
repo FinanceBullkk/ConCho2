@@ -213,6 +213,26 @@ scopes the set. Read-only — no new model. An invalid date is rejected with **4
   learner's department roll the 2 hours up
 - **AND** a Participant (no `report.read`) gets **403**
 
+### Requirement: Evidence pack + saved presets [BR-7, UC-4]
+
+`GET /api/learning/reports/evidence-pack?from=&to=&departmentId=` (capability
+`report.read`) SHALL stream a single timestamped **.xlsx** workbook with a Summary
+cover sheet, the training-hours table, and the compliance table, and write an
+audit line (`entity:'Report'`, action `exported`). It refuses to build a partial
+workbook past the compliance row cap (**413**). Saved configs persist via
+`ReportPreset` (`name`, `kind`, `filters`, `schedule`, soft-delete):
+`GET/POST/PUT/DELETE /api/learning/reports/presets` (all `report.read`; mutations
+audited `entity:'ReportPreset'`). The `schedule` field (`none|monthly|quarterly`)
+is persisted for a future cron (not yet auto-run). PDF + zip from the handoff are
+deferred — no PDF dependency in-repo; the multi-sheet xlsx is itself audit-ready.
+
+#### Scenario: Evidence pack downloads and is audited
+- **GIVEN** an Admin requests the evidence pack for a window
+- **WHEN** it generates
+- **THEN** the response is an `.xlsx` attachment (`evidence-pack-<date>.xlsx`) and an
+  `exported` `Report` audit line is written
+- **AND** a Participant (no `report.read`) gets **403**
+
 ## Non-Functional Requirements (NFR)
 
 Inherits `security-platform`. Specifics:
@@ -231,6 +251,9 @@ Inherits `security-platform`. Specifics:
 - [ ] No data mutated.
 - [ ] Training-hours = Σ attended-session durations; per-user + per-department
       rollups; `report.read`-gated; invalid date → 400.
+- [ ] Evidence pack streams a timestamped multi-sheet xlsx (summary + hours +
+      compliance), audited `entity:'Report'`; saved presets CRUD audited
+      `entity:'ReportPreset'`; all `report.read`-gated.
 - [ ] Dashboard bundle: completion parity with the rollup endpoint; per-metric
       fail-soft (`null` + `errors[]`, response 200); Teacher class-scoped;
       Participant 403; invalid `window` 400.

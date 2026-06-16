@@ -78,7 +78,9 @@ const auditLogSchema = new mongoose.Schema(
              // Added in Modernization H1 A3 — required-training compliance rules.
              'RequiredTraining',
              // Added in Modernization H1 A1 — budget & cost management.
-             'CostEntry', 'Budget'],
+             'CostEntry', 'Budget',
+             // Added in Modernization H1 A5 part 2 — saved report presets.
+             'ReportPreset'],
       required: true,
     },
     entityId: {

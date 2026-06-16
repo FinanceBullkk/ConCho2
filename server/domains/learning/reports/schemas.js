@@ -37,4 +37,45 @@ const trainingHoursQuery = z.object({
   { message: 'from must be before or equal to to', path: ['from'] },
 );
 
-module.exports = { completionReportQuery, completionRollupQuery, complianceReportQuery, trainingHoursQuery };
+// A5 part 2 — evidence pack window (drives both hours + compliance sheets).
+const evidencePackQuery = z.object({
+  from: isoDateOnly.optional(),
+  to: isoDateOnly.optional(),
+  departmentId: objectId.optional(),
+}).refine(
+  (q) => !q.from || !q.to || q.from <= q.to,
+  { message: 'from must be before or equal to to', path: ['from'] },
+);
+
+// A5 part 2 — saved report presets.
+const presetFilters = z.object({
+  from: isoDateOnly.optional(),
+  to: isoDateOnly.optional(),
+  departmentId: objectId.optional(),
+  role: z.string().max(40).optional(),
+  programIds: z.array(objectId).max(100).optional(),
+}).optional();
+
+const presetBody = z.object({
+  name: z.string().trim().min(1).max(120),
+  kind: z.enum(['hours', 'compliance', 'evidence']).optional(),
+  filters: presetFilters,
+  schedule: z.enum(['none', 'monthly', 'quarterly']).optional(),
+});
+
+const presetUpdateBody = z.object({
+  name: z.string().trim().min(1).max(120).optional(),
+  kind: z.enum(['hours', 'compliance', 'evidence']).optional(),
+  filters: presetFilters,
+  schedule: z.enum(['none', 'monthly', 'quarterly']).optional(),
+}).refine((b) => Object.keys(b).length > 0, { message: 'At least one field is required' });
+
+module.exports = {
+  completionReportQuery,
+  completionRollupQuery,
+  complianceReportQuery,
+  trainingHoursQuery,
+  evidencePackQuery,
+  presetBody,
+  presetUpdateBody,
+};
