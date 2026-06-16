@@ -186,13 +186,17 @@ English literals directly.
 | `/api/users` | `userRoutes.js` | Admin user CRUD, restore, progress |
 | `/api/teams` | `domains/groups/routes.js` | team CRUD, my teams, restore, progress (Phase 1 domain extraction; `controller` facade → `queries`/`mutations`/`lifecycle`/`enrollment-sync`; `Team` model + `/api/teams` URL unchanged) |
 | `/api/classes` | `classRoutes.js` | class CRUD, course metadata |
-| `/api/learning` | `domains/learning/routes.js` | Learning programs, cohorts, sessions, paths, reports, assignments |
+| `/api/learning` | `domains/learning/routes.js` | Learning programs, cohorts, sessions, paths, assignments, dashboards, and reports — incl. **H1 A5** training-hours + evidence-pack (multi-sheet xlsx) + saved presets (`ReportPreset`) under `/reports/*` |
 | `/api/schedules` | `domains/schedule/routes.js` | availability, booking, cancel, calendars (Phase 1 domain extraction; `controller` → `use-cases`/`queries`/`repository` + policy modules; booking mutations still in `services/scheduleService` by design; `Schedule` model + `/api/schedules` URL unchanged) |
 | `/api/english` | `domains/english-class/routes.js` | English-class separation (2026-06-12): bounded READ-ONLY surface over the team-booking world — `/classes`, `/schedules`, `/attendance-calendar` delegate into learning/schedule use-cases with `mode` forced to `team`; mutations stay on `/api/teams`, `/api/schedules`, `/api/evaluations` |
 | `/api/attendance` | `domains/attendance/routes.js` | attendance marking, analytics, personal stats (Phase 1 domain extraction; `controller` → `use-cases` → `marking`/`analytics`/`scope`; `services/attendanceService.js` kept as a compat facade) |
 | `/api/rooms` | `domains/room/routes.js` | Office-scoped physical Rooms CRUD (re-center Phase 3) |
 | `/api/org` | `domains/org/routes.js` | departments, offices, manager hierarchy + manager dashboard |
 | `/api/assessment` | `domains/assessment/routes.js` | assessment engine, question bank, attempts, manual grading |
+| `/api/session-types` | `domains/session-type/routes.js` | Build Plan #5 Studio Scheduling: session-type taxonomy (`SessionType`) + room-utilization read |
+| `/api/compliance` | `domains/compliance/routes.js` | Modernization H1 A3: required-training rules (`RequiredTraining`) + DERIVED compliance matrix (per-rule compliant/overdue, drill-down); publishes `requirement.changed` |
+| `/api/finance` | `domains/finance/routes.js` | Modernization H1 A1: cost entries (`CostEntry`) + budgets (`Budget`) + roll-up + budget-vs-actual variance; `budget.manage` (read==write); tenant currency enforced |
+| `/api/skills` | `domains/skill/routes.js` | competency framework: skills CRUD, role profiles, DERIVED proficiency + role gap; **H1 B2** taxonomy tree (`/taxonomy`) + gap-driven program recommendations (`/learner/:id/recommendations`) |
 | `/api/evaluations` | `evaluationRoutes.js` | upsert/list/get/delete evaluations |
 | `/api/enrollments` | `enrollmentRoutes.js` | enrollment list, transfer, bulk operations |
 | `/api/sync` | `syncRoutes.js` | sync status and Google Sheets sync |
@@ -200,9 +204,10 @@ English literals directly.
 | `/api/export` | `exportRoutes.js` | Excel/export stats |
 | `/api/settings` | `settingRoutes.js` | Admin settings |
 | `/api/dashboard` | `dashboardRoutes.js` | Admin dashboard stats/filter/alerts/cache |
+| `/api/analytics` | `analyticsRoutes.js` | Build Plan #1: daily `MetricSnapshot` time-series + enrollment→completion funnel + per-program analytics (nightly snapshot job + backfill script) |
 | `/api/admin-db` | `adminDbRoutes.js` | Admin database explorer |
-| `/api/admin/audit` | `auditRoutes.js` | audit log queries |
-| `/api/admin/reconcile` | `reconcileRoutes.js` | manual reconcile and report history |
+| `/api/admin/audit` | `auditRoutes.js` | audit log queries + **tamper-evident hash-chain verify** (`POST /verify`, Build Plan #3a) |
+| `/api/admin/reconcile` | `reconcileRoutes.js` | manual reconcile, trend, and report history + **safe auto-heal** of detected drift (Build Plan #4) |
 | `/api/admin/cron` | `cronHealthRoutes.js` | cron run health/history (CronRun) |
 | `/api/cron` | `cronRoutes.js` | cron-triggered reconcile, attendance reminders, assignment reminders |
 | `/api/search` | `searchRoutes.js` | global search |
@@ -249,6 +254,13 @@ Current protections:
 | `Assignment` | required Program/Path assignment with due date and user/department targets |
 | `NotificationLog` | email notification idempotency and send trace |
 | `Department` | structured org unit for manager/department assignment |
+| `Skill` | competency framework: program→skill mapping, per-role targets, taxonomy `parentId` (H1 B2); proficiency is DERIVED, never stored |
+| `SessionType` | Build Plan #5 Studio Scheduling: session-type taxonomy |
+| `MetricSnapshot` | Build Plan #1: daily metric snapshot for the analytics time-series |
+| `RequiredTraining` | Modernization H1 A3: required-training rule (role/dept/office → program/path, cadence); compliance DERIVED from certificates |
+| `CostEntry` | Modernization H1 A1: actual training-cost line (scope, type, minor-unit amount, fiscal date) |
+| `Budget` | Modernization H1 A1: planned allowance per fiscal year / department / program (minor units) |
+| `ReportPreset` | Modernization H1 A5 part 2: saved report config (kind/filters/schedule) for evidence pack + reports |
 
 ### Learning Domain Boundary
 
