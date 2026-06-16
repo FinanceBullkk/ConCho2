@@ -47,12 +47,15 @@ remainder is documented deferred-by-design scope (below), not active debt.
   recommendations, PR #115). **Only A8 HRIS auto-assign remains — gated** on the
   owner's Google Directory/OAuth setup (D2). PDF/zip evidence + cron-scheduled
   presets deferred (no PDF dep in-repo; presets flagged no-confirmed-HR-need).
-  **Modernization Horizon 2 — STARTED 2026-06-16**: **A2 vendor & external-
-  provider management** (`Vendor` model + `domains/vendor`, PR #119) — catalog +
-  contracts/renewal + ratings + per-vendor spend off the A1 ledger. Remaining H2:
-  **A4 TNA→annual-plan** + **A6 trainer-depth** (buildable next); **B1 AI layer**
-  (gated on an owner LLM-provider + key decision), **B8 Slack/Teams** (gated on an
-  OAuth app + signing secret), **B5 mobile PWA** (verify offline-PWA infra first).)
+  **Modernization Horizon 2 — IN PROGRESS 2026-06-16**: **A2 vendor & external-
+  provider management** (`Vendor` + `domains/vendor`, PR #119) — catalog +
+  contracts/renewal + ratings + per-vendor spend off the A1 ledger; **A6 trainer-
+  management depth** (`TrainerProfile` + `domains/trainer`, PR #120) —
+  qualification/availability, qualified-and-free listing, per-trainer load,
+  ratings, + a trainer double-booking 409 guard at the assign chokepoint.
+  Remaining H2: **A4 TNA→annual-plan** (buildable next); **B1 AI layer** (gated on
+  an owner LLM-provider + key decision), **B8 Slack/Teams** (gated on an OAuth app
+  + signing secret), **B5 mobile PWA** (verify offline-PWA infra first).)
 - **Gated / owner-ops:** **D2 Google OIDC + Directory sync** (blocked on owner's
   Google OAuth app + Workspace domain); **paid always-on hosting** + Sentry
   cron-monitor dashboard; **Phase 6 PostgreSQL gate** (plan drafted,
@@ -125,6 +128,31 @@ Bug fixing and integration review rank above net-new feature rollout.
 > lines); older entries roll verbatim, newest-first, to
 > [`changelog-archive/2026-q2.md`](changelog-archive/2026-q2.md). Currently
 > inline: **2026-06-14 → 2026-06-16**.
+
+- **2026-06-16** — **Modernization Horizon 2 — A6: trainer-management depth.**
+  A qualification + availability layer over the Teacher/Admin users who deliver
+  sessions, so scheduling offers only qualified, free trainers and a trainer is
+  never double-booked. New `TrainerProfile` model (1:1 with a User: `canDeliver`
+  programs, weekly `availability`, ratings, status active/archived + soft-delete)
+  + `domains/trainer` mounted at `/api/trainers`: qualified-and-free listing
+  (`?qualifiedFor=&at=&atEnd=&includeCandidates=`), per-trainer load
+  (`/:id/load`, sessions + hours), ratings (`/:id/ratings`, aggregate derived).
+  **Reuses the existing `session.assign-trainer` capability** (Admin +
+  Coordinator) — no new capability; `TrainerProfile` added to the AuditLog enum.
+  **Trainer double-booking 409 guard** added at the assign chokepoint
+  (`domains/schedule setTrainers` → new `repository.findInstructorConflict`
+  overlap query on `sessionInstructorIds` + time range, `status:'scheduled'`
+  only) — mirrors the room-lock guarantee without touching the booking
+  transaction. Client: `features/trainer` Trainers page (qualification matrix +
+  expandable detail: qualifications/availability editors, load, ratings) +
+  `useTrainers` hooks + nav (Configure ▸ Trainers) + i18n. Server **118/1122**
+  green (no schedule regression), client **391** green, lint 63 (cap), build
+  clean. New spec `trainer-management` + registry row (34). **Deferred
+  (documented):** picker hard-enforcement of qualification (filters the *offer*,
+  admin override allowed — only double-booking is a hard guarantee) + a
+  concurrency ledger (app-level overlap check suffices for the admin-driven assign
+  path). Follow-up: wire the qualified-and-free filter into the per-session
+  AssignTrainersModal picker. PR #120.
 
 - **2026-06-16** — **Modernization Horizon 2 — A2: vendor & external-provider
   management.** First Horizon-2 slice. A managed catalog of external providers

@@ -83,6 +83,8 @@ const auditLogSchema = new mongoose.Schema(
              'ReportPreset',
              // Added in Modernization H2 A2 — vendor & external-provider catalog.
              'Vendor',
+             // Added in Modernization H2 A6 — trainer qualification/availability.
+             'TrainerProfile',
              // Added in Modernization H2 A4 — TNA demand intake + annual plan.
              'TrainingRequest', 'TrainingPlan'],
       required: true,

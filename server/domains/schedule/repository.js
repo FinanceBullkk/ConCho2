@@ -172,6 +172,21 @@ const findScheduleForCollision = (classId, start, end, excludeId, session) => {
   return q;
 };
 
+// A6 (Horizon 2) — trainer double-booking guard. A LIVE session (≠ excludeId)
+// that names ANY of these instructors and overlaps [start,end]. Mirrors the
+// collision query's time-overlap + status:'scheduled' scoping.
+const findInstructorConflict = (instructorIds, start, end, excludeId) => {
+  if (!instructorIds || instructorIds.length === 0) return Promise.resolve(null);
+  const query = {
+    sessionInstructorIds: { $in: instructorIds },
+    startTime: { $lt: end },
+    endTime: { $gt: start },
+    status: 'scheduled',
+  };
+  if (excludeId) query._id = { $ne: excludeId };
+  return Schedule.findOne(query).select('_id classId startTime endTime sessionInstructorIds').lean();
+};
+
 // Cancelled sessions don't consume the team's weekly quota.
 const countSchedulesForTeamInWeek = (teamId, weekStart, weekEnd, excludeId, session) => {
   const query = {
@@ -367,6 +382,7 @@ module.exports = {
   attendanceExistsForSchedule,
   findTeamById,
   findScheduleForCollision,
+  findInstructorConflict,
   countSchedulesForTeamInWeek,
   findClassSchedulingMode,
   findClassCapacityPolicy,
