@@ -471,6 +471,18 @@ export const trainersAPI = {
   addRating: (userId, data) => api.post(`/trainers/${userId}/ratings`, data),
 };
 
+// ── Planning: TNA → annual plan (A4, Horizon 2) ───
+export const planningAPI = {
+  listRequests: (params) => api.get('/planning/requests', { params }),
+  createRequest: (data) => api.post('/planning/requests', data),
+  setRequestStatus: (id, status) => api.patch(`/planning/requests/${id}/status`, { status }),
+  archiveRequest: (id) => api.delete(`/planning/requests/${id}`),
+  getDemand: (params) => api.get('/planning/demand', { params }),
+  getPlan: (fy) => api.get(`/planning/plan/${fy}`),
+  upsertPlan: (fy, data) => api.put(`/planning/plan/${fy}`, data),
+  scheduleItem: (fy, itemId, data) => api.post(`/planning/plan/${fy}/items/${itemId}/schedule`, data),
+};
+
 // ── Org model (departments, offices, manager hierarchy, my-team) ───
 export const orgAPI = {
   getDepartments:    (params) => api.get('/org/departments', { params }),

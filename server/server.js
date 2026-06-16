@@ -264,6 +264,7 @@ app.use('/api/compliance', require('./domains/compliance/routes'));
 app.use('/api/finance', require('./domains/finance/routes'));
 app.use('/api/vendors', require('./domains/vendor/routes'));
 app.use('/api/trainers', require('./domains/trainer/routes'));
+app.use('/api/planning', require('./domains/planning/routes'));
 app.use('/api/assessment', require('./domains/assessment/routes'));
 app.use('/api/schedules', require('./domains/schedule/routes'));
 app.use('/api/english', require('./domains/english-class/routes'));
