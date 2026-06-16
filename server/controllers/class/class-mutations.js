@@ -1,9 +1,5 @@
 const mongoose = require('mongoose');
 const Class = require('../../models/Class');
-const Team = require('../../models/Team');
-const Schedule = require('../../models/Schedule');
-const Enrollment = require('../../models/Enrollment');
-const Evaluation = require('../../models/Evaluation');
 const { getNextSequence } = require('../../helpers/counter');
 const { handleError } = require('../../helpers/handleError');
 const auditService = require('../../services/auditService');
@@ -14,8 +10,9 @@ const learningUseCases = require('../../domains/learning/use-cases');
 // ──────────────────────────────────────────────────────────
 // Split from the legacy classController (Phase 1 modular-monolith).
 // Create (auto classCode + LearningProgram backfill), update (re-map
-// totalSessions + program on course change), delete (referential guards +
-// cascade Evaluation/Enrollment cleanup in a transaction).
+// totalSessions + program on course change), delete (delegates to the domain
+// cohort-delete use-case: referential guards + soft-archive, preserving
+// evaluations + enrollment history per the golden rule).
 
 /**
  * POST /api/classes
@@ -156,57 +153,28 @@ const updateClass = async (req, res) => {
  */
 const deleteClass = async (req, res) => {
   try {
-    const cls = await Class.findById(req.params.id);
-    if (!cls) return res.status(404).json({ success: false, message: 'Class not found' });
-
-    // Guard: check for Teams assigned to this class
-    const teamCount = await Team.countDocuments({ classId: cls._id });
-    if (teamCount > 0) {
-      return res.status(409).json({
-        success: false,
-        message: `Cannot delete: ${teamCount} team(s) are still assigned to this class. Delete or reassign them first.`,
-      });
-    }
-
-    // Guard: check for Schedules referencing this class
-    const scheduleCount = await Schedule.countDocuments({ classId: cls._id });
-    if (scheduleCount > 0) {
-      return res.status(409).json({
-        success: false,
-        message: `Cannot delete: ${scheduleCount} schedule(s) still reference this class. Delete them first.`,
-      });
-    }
-
-    // ── Cascade: cleanup referencing data before delete (DI-03) ──
-    const session = await mongoose.startSession();
-    let deletedEvaluations = 0;
-    let deletedEnrollments = 0;
-    try {
-      await session.withTransaction(async () => {
-        const evalResult = await Evaluation.deleteMany({ classId: cls._id }, { session });
-        deletedEvaluations = evalResult.deletedCount;
-
-        const enrollResult = await Enrollment.deleteMany({ classId: cls._id }, { session });
-        deletedEnrollments = enrollResult.deletedCount;
-
-        await Class.findByIdAndDelete(cls._id, { session });
-      });
-    } finally {
-      session.endSession();
-    }
+    // Delegate to the domain cohort-delete use-case (the /api/learning/cohorts
+    // path). It applies the SAME team/schedule referential guards (409), then
+    // SOFT-archives the Class and closes active enrollments to 'Dropped' while
+    // PRESERVING evaluations + enrollment history (golden rule; recoverable via
+    // cohort restore). This replaces the legacy hard-delete cascade that
+    // hard-deleted Evaluations + Enrollments — an industry-audit P1 (data loss +
+    // "never hard-delete evaluation data" violation), and divergent from the
+    // already-correct domain path.
+    const result = await learningUseCases.deleteCohort(req.params.id);
 
     auditService.record({
       req,
       action: 'deleted',
       entity: 'Class',
-      entityId: cls._id,
-      note: `Cascade: ${deletedEvaluations} evaluations, ${deletedEnrollments} enrollments. Class: ${cls.classCode} - ${cls.courseName}`,
+      entityId: req.params.id,
+      note: `Soft-archived ${result.cohortCode} - ${result.courseName}; closed ${result.closedEnrollments} enrollment(s); evaluations preserved.`,
     });
 
     res.json({
       success: true,
-      message: `Class ${cls.classCode} - ${cls.courseName} deleted`,
-      cascade: { deletedEvaluations, deletedEnrollments },
+      message: `Class ${result.cohortCode} - ${result.courseName} archived`,
+      cascade: { closedEnrollments: result.closedEnrollments, evaluationsPreserved: true },
     });
   } catch (error) {
     handleError(res, error);
