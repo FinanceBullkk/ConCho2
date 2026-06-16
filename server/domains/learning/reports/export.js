@@ -57,22 +57,9 @@ const buildCompletionWorkbookBuffer = async (report) => {
   return workbook.xlsx.writeBuffer();
 };
 
-const buildComplianceWorkbookBuffer = async (report) => {
-  const workbook = new ExcelJS.Workbook();
-  workbook.creator = 'TMS';
-  workbook.created = new Date();
-
-  const sheet = workbook.addWorksheet('Compliance');
-  sheet.addRow([`Generated: ${report.generatedAt}`]);
-  sheet.addRow([
-    `Rows: ${report.summary.rows}`,
-    `Complete: ${report.summary.complete}`,
-    `Overdue: ${report.summary.overdue}`,
-    `Issued: ${report.summary.issued}`,
-    `Missing: ${report.summary.missing}`,
-  ]);
-  sheet.addRow([]);
-
+// Fill a worksheet with the compliance header + per-learner rows. Shared by the
+// standalone compliance export and the evidence pack so the layout stays in sync.
+const fillComplianceSheet = (sheet, rows) => {
   const header = sheet.addRow([
     'Emp Code', 'Learner Name', 'Email', 'Department', 'Manager',
     'Assignment', 'Target Type', 'Target Name', 'Due Date',
@@ -80,8 +67,7 @@ const buildComplianceWorkbookBuffer = async (report) => {
     'Certificate Status', 'Issued At', 'Valid Until', 'Certificate State',
   ]);
   header.font = { bold: true };
-
-  report.rows.forEach((r) => {
+  rows.forEach((r) => {
     sheet.addRow([
       safeCell(r.learner.empCode),
       safeCell(r.learner.name),
@@ -101,9 +87,71 @@ const buildComplianceWorkbookBuffer = async (report) => {
       safeCell(r.certificate.state),
     ]);
   });
-
   sheet.columns.forEach((col) => { col.width = 18; });
+};
+
+const buildComplianceWorkbookBuffer = async (report) => {
+  const workbook = new ExcelJS.Workbook();
+  workbook.creator = 'TMS';
+  workbook.created = new Date();
+
+  const sheet = workbook.addWorksheet('Compliance');
+  sheet.addRow([`Generated: ${report.generatedAt}`]);
+  sheet.addRow([
+    `Rows: ${report.summary.rows}`,
+    `Complete: ${report.summary.complete}`,
+    `Overdue: ${report.summary.overdue}`,
+    `Issued: ${report.summary.issued}`,
+    `Missing: ${report.summary.missing}`,
+  ]);
+  sheet.addRow([]);
+
+  fillComplianceSheet(sheet, report.rows);
   return workbook.xlsx.writeBuffer();
 };
 
-module.exports = { buildCompletionWorkbookBuffer, buildComplianceWorkbookBuffer };
+// A5 part 2 — the downloadable evidence pack: one timestamped workbook with a
+// Summary cover, the training-hours table, and the compliance table. (PDF + zip
+// from the handoff are deferred — no PDF dependency in-repo; the multi-sheet
+// xlsx is itself audit-ready.)
+const buildEvidencePackBuffer = async ({ meta, hoursReport, complianceReport }) => {
+  const workbook = new ExcelJS.Workbook();
+  workbook.creator = 'TMS';
+  workbook.created = new Date();
+
+  const summary = workbook.addWorksheet('Summary');
+  summary.addRow(['Training Evidence Pack']);
+  summary.addRow([`Generated: ${meta.generatedAt}`]);
+  summary.addRow([`Window: ${meta.from} → ${meta.to}`]);
+  summary.addRow([`Department scope: ${safeCell(meta.departmentScope)}`]);
+  summary.addRow([]);
+  summary.addRow(['Training hours']);
+  summary.addRow(['Employees', hoursReport.totals.employees]);
+  summary.addRow(['Sessions attended', hoursReport.totals.sessions]);
+  summary.addRow(['Total hours', hoursReport.totals.hours]);
+  summary.addRow([]);
+  summary.addRow(['Compliance']);
+  summary.addRow(['Rows', complianceReport.summary.rows]);
+  summary.addRow(['Complete', complianceReport.summary.complete]);
+  summary.addRow(['Overdue', complianceReport.summary.overdue]);
+  summary.addRow(['Issued certificates', complianceReport.summary.issued]);
+  summary.addRow(['Missing', complianceReport.summary.missing]);
+  summary.getRow(1).font = { bold: true, size: 14 };
+  summary.getRow(6).font = { bold: true };
+  summary.getRow(11).font = { bold: true };
+  summary.columns.forEach((col) => { col.width = 24; });
+
+  const hoursSheet = workbook.addWorksheet('Training Hours');
+  const hoursHeader = hoursSheet.addRow(['Emp Code', 'Name', 'Department', 'Sessions', 'Hours']);
+  hoursHeader.font = { bold: true };
+  hoursReport.rows.forEach((r) => {
+    hoursSheet.addRow([safeCell(r.empCode), safeCell(r.name), safeCell(r.department), r.sessions, r.hours]);
+  });
+  hoursSheet.columns.forEach((col) => { col.width = 18; });
+
+  fillComplianceSheet(workbook.addWorksheet('Compliance'), complianceReport.rows);
+
+  return workbook.xlsx.writeBuffer();
+};
+
+module.exports = { buildCompletionWorkbookBuffer, buildComplianceWorkbookBuffer, buildEvidencePackBuffer };

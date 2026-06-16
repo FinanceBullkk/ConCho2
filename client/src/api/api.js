@@ -325,6 +325,13 @@ export const learningAPI = {
     api.get('/learning/reports/compliance/export', { params, responseType: 'blob' }),
   // A5 (Modernization H1) — training hours per employee / department.
   getTrainingHours: (params) => api.get('/learning/reports/training-hours', { params }),
+  // A5 part 2 — downloadable evidence pack (xlsx) + saved report presets.
+  downloadEvidencePack: (params) =>
+    api.get('/learning/reports/evidence-pack', { params, responseType: 'blob' }),
+  listReportPresets: () => api.get('/learning/reports/presets'),
+  createReportPreset: (data) => api.post('/learning/reports/presets', data),
+  updateReportPreset: (id, data) => api.put(`/learning/reports/presets/${id}`, data),
+  deleteReportPreset: (id) => api.delete(`/learning/reports/presets/${id}`),
   // Operational dashboard KPI bundle (Admin/Teacher; fail-soft per metric).
   getOperationalDashboard: (params) => api.get('/learning/dashboard/operational', { params }),
   // Home onboarding checklist + at-a-glance counts.
