@@ -1,3 +1,4 @@
+const mongoose = require('mongoose');
 const repository = require('./repository');
 const financeRepo = require('../finance/repository');
 const { ServiceError } = require('../../helpers/ServiceError');
@@ -104,32 +105,46 @@ const scheduleItem = async (fiscalYear, itemId, body, actorId) => {
   const program = await repository.findProgramById(item.target.id);
   if (!program) throw new ServiceError('Program not found', 404);
   if (program.status === 'archived') throw new ServiceError('Program is archived', 400);
+  const currency = item.estCostMinor > 0 ? await financeRepo.getTenantCurrency() : null;
 
+  // Atomic write (audit P2): create the cohort, link it on the plan, mark the
+  // matching approved requests 'planned', and (when estimated) create the A1
+  // budget row — ALL-or-nothing. Previously these 4 multi-document writes ran
+  // without a session, so a mid-way failure left a half-written plan/cohort/budget.
+  const session = await mongoose.startSession();
   let cohort;
-  try {
-    cohort = await repository.createCohortClass({
-      classCode: body.classCode,
-      courseName: program.name,
-      programId: program._id,
-      totalSessions: body.totalSessions,
-    });
-  } catch (e) {
-    if (isDuplicateKey(e)) throw new ServiceError('A cohort with that class code already exists', 409);
-    throw e;
-  }
-
-  item.cohortIds.push(cohort._id);
-  await planDoc.save();
-  await repository.markRequestsPlanned('program', item.target.id, item.quarter);
-
   let budgetId = null;
-  if (item.estCostMinor > 0) {
-    const currency = await financeRepo.getTenantCurrency();
-    const budget = await financeRepo.createBudget({
-      fiscalYear, programId: program._id, amountMinor: item.estCostMinor, currency,
-      label: `TNA ${fiscalYear} · ${program.name}`, createdBy: actorId || null,
+  try {
+    await session.withTransaction(async () => {
+      try {
+        cohort = await repository.createCohortClass({
+          classCode: body.classCode,
+          courseName: program.name,
+          programId: program._id,
+          totalSessions: body.totalSessions,
+        }, session);
+      } catch (e) {
+        if (isDuplicateKey(e)) throw new ServiceError('A cohort with that class code already exists', 409);
+        throw e;
+      }
+
+      // Re-read the plan doc INSIDE the session to push the new cohort id.
+      const txPlan = await repository.findPlanDoc(fiscalYear, session);
+      txPlan.items.id(itemId).cohortIds.push(cohort._id);
+      await txPlan.save({ session });
+
+      await repository.markRequestsPlanned('program', item.target.id, item.quarter, session);
+
+      if (item.estCostMinor > 0) {
+        const budget = await financeRepo.createBudget({
+          fiscalYear, programId: program._id, amountMinor: item.estCostMinor, currency,
+          label: `TNA ${fiscalYear} · ${program.name}`, createdBy: actorId || null,
+        }, session);
+        budgetId = budget._id;
+      }
     });
-    budgetId = budget._id;
+  } finally {
+    session.endSession();
   }
 
   return { cohort, plan: await repository.findPlan(fiscalYear), budgetId };

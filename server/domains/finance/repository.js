@@ -40,7 +40,10 @@ const softDeleteCostEntry = (id) =>
   ).lean();
 
 // ── Budget CRUD ──────────────────────────────────────────────────────────────
-const createBudget = (data) => Budget.create(data);
+// Optional `session` lets a caller enlist this insert in a transaction (e.g. the
+// planning scheduleItem flow). Without it, behaviour is unchanged (single doc).
+const createBudget = (data, session) =>
+  (session ? Budget.create([data], { session }).then((arr) => arr[0]) : Budget.create(data));
 
 const listBudgets = (filter = {}) =>
   Budget.find(filter).sort({ fiscalYear: -1, createdAt: -1 }).limit(500).lean();
