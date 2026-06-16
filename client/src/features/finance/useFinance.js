@@ -33,6 +33,14 @@ export const useCostRollup = (params, options = {}) =>
     ...options,
   });
 
+export const useCostEntries = (params, options = {}) =>
+  useQuery({
+    queryKey: qk.finance.costs(params),
+    queryFn: async () => (await financeAPI.listCostEntries(params)).data.data,
+    staleTime: 60_000,
+    ...options,
+  });
+
 const invalidate = (qc) => qc.invalidateQueries({ queryKey: qk.finance.all });
 
 export const useCreateBudget = () => {
@@ -58,6 +66,15 @@ export const useCreateCostEntry = () => {
   return useMutation({
     mutationFn: (data) => financeAPI.createCostEntry(data).then((r) => r.data.data),
     onSuccess: () => { invalidate(qc); toast.success('Cost logged'); },
+    onError: onErr,
+  });
+};
+
+export const useArchiveCostEntry = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id) => financeAPI.archiveCostEntry(id).then((r) => r.data.data),
+    onSuccess: () => { invalidate(qc); toast.success('Cost entry removed'); },
     onError: onErr,
   });
 };

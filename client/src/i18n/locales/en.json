@@ -277,6 +277,7 @@
     "overBudget": "Over budget",
     "noBudgets": "No budgets for this fiscal year yet.",
     "noCosts": "No cost entries recorded.",
+    "recentCosts": "Recent cost entries",
     "loadError": "Couldn't load the budget data.",
     "amountMinor": "Amount (minor units)",
     "program": "Program",
