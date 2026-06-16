@@ -38,7 +38,7 @@ const cleanup = async () => {
 beforeEach(cleanup);
 
 describe('PERF-003 — analyticsByTeam inverted join', () => {
-  const { analyticsByTeam } = require('../../services/attendanceService');
+  const { analyticsByTeam } = require('../../domains/attendance/use-cases');
   const Team = require('../../models/Team');
   const User = require('../../models/User');
   const Schedule = require('../../models/Schedule');

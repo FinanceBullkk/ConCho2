@@ -153,7 +153,7 @@ describe('DATA-009 — soft-deleted user is excluded from analytics + export joi
   const Schedule = require('../../models/Schedule');
   const Attendance = require('../../models/Attendance');
   const exportService = require('../../services/exportService');
-  const attendanceService = require('../../services/attendanceService');
+  const attendanceService = require('../../domains/attendance/use-cases');
 
   test('analyticsByEmployee aggregation skips soft-deleted users', async () => {
     // Create a fresh user + past schedule + attendance, then soft-delete.
