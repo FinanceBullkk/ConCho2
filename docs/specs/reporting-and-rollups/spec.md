@@ -107,7 +107,11 @@ When `avgLoadedHourlyCostMinor`, `coordinatorCount`, and
 ALSO include an **efficiency dividend** (ROI §10):
 `efficiencyDividendMinor = hoursReclaimedPerWeek × coordinatorCount × 52 ×
 avgLoadedHourlyCostMinor`; it is `null` whenever any input is unset (never
-fabricated). `GET/PUT /api/learning/dashboard/cost-config` (same gating)
+fabricated). When configured, financials ALSO carry A1 actuals —
+`actualSpendTrailing12MonthsMinor` (Σ logged `CostEntry` over the trailing year)
+and `costPerCompletionActualMinor` — surfaced next to the budget-derived
+estimates (see [budget-and-cost](../budget-and-cost/spec.md)).
+`GET/PUT /api/learning/dashboard/cost-config` (same gating)
 read/upsert that Setting; the PUT is validated (integer minor units, 3-letter
 currency, optional `coordinatorCount`/`automationHoursReclaimedPerWeek`) and
 audit-logged with a before/after diff.

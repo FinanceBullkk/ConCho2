@@ -77,6 +77,12 @@ const CAPABILITIES = Object.freeze({
   AUDIT_READ: 'audit.read',            // read the audit log (auditRoutes)
   SYSTEM_OPS: 'system.ops',            // DB explorer + reconciliation (adminDb/reconcile)
   COMPLIANCE_MANAGE: 'compliance.manage', // define required-training rules (A3; admin/coordinator)
+  // ── Budget & cost management (TMS.update Modernization H1 — A1) ───────────
+  // Gates BOTH read and write of finance data: budget figures are
+  // management-sensitive, so reads do NOT roll into the broader report.read
+  // (which Teachers hold) — Admin + Coordinator only, like the Admin-only
+  // executive ROI screen the actuals also feed.
+  BUDGET_MANAGE: 'budget.manage',      // CRUD cost entries + budgets, read roll-ups/variance (admin/coordinator)
 });
 
 const ALL_CAPABILITIES = Object.freeze(Object.values(CAPABILITIES));
@@ -111,6 +117,7 @@ const ROLE_CAPABILITIES = Object.freeze({
     CAPABILITIES.ROOM_MANAGE,
     CAPABILITIES.SESSION_ASSIGN_TRAINER,
     CAPABILITIES.COMPLIANCE_MANAGE,
+    CAPABILITIES.BUDGET_MANAGE,
     CAPABILITIES.NOTIFICATION_READ,
     CAPABILITIES.SKILL_READ,
   ]),

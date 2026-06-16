@@ -426,6 +426,21 @@ export const complianceAPI = {
   getUserCompliance: (id) => api.get(`/compliance/user/${id}`),
 };
 
+// ── Finance: budget & cost management (A1, Horizon 1) ───
+export const financeAPI = {
+  getCurrency: () => api.get('/finance/currency'),
+  listCostEntries: (params) => api.get('/finance/costs', { params }),
+  createCostEntry: (data) => api.post('/finance/costs', data),
+  updateCostEntry: (id, data) => api.put(`/finance/costs/${id}`, data),
+  archiveCostEntry: (id) => api.delete(`/finance/costs/${id}`),
+  getCostRollup: (params) => api.get('/finance/costs/rollup', { params }),
+  listBudgets: (params) => api.get('/finance/budgets', { params }),
+  createBudget: (data) => api.post('/finance/budgets', data),
+  updateBudget: (id, data) => api.put(`/finance/budgets/${id}`, data),
+  archiveBudget: (id) => api.delete(`/finance/budgets/${id}`),
+  getBudgetVariance: (params) => api.get('/finance/budgets/variance', { params }),
+};
+
 // ── Org model (departments, offices, manager hierarchy, my-team) ───
 export const orgAPI = {
   getDepartments:    (params) => api.get('/org/departments', { params }),
