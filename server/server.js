@@ -286,6 +286,7 @@ app.use('/api/admin/cron', require('./routes/cronHealthRoutes'));
 app.use('/api/cron', require('./routes/cronRoutes'));
 app.use('/api/search', require('./routes/searchRoutes'));
 app.use('/api/notifications', require('./domains/notification/routes'));
+app.use('/api/me', require('./domains/mobile/routes'));
 app.use('/api/automation', require('./domains/automation/routes'));
 app.use('/api/skills', require('./domains/skill/routes'));
 app.use('/api/branding', require('./domains/branding/routes'));
