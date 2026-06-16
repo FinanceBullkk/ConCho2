@@ -6,6 +6,7 @@ const skillDto = (skill, holders = 0) => ({
   _id: String(skill._id),
   name: skill.name,
   category: skill.category || 'General',
+  parentId: skill.parentId ? String(skill.parentId) : null,
   hue: skill.hue ?? 250,
   programIds: (skill.programIds || []).map((p) => String(p)),
   programCount: (skill.programIds || []).length,

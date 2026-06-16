@@ -1,4 +1,4 @@
-const { deriveSkillLevels, targetForRole, roleGap } = require('../../domains/skill/proficiency');
+const { deriveSkillLevels, targetForRole, roleGap, recommendPrograms } = require('../../domains/skill/proficiency');
 
 // Pure proficiency derivation (TMS.update gap #4) — no DB/request.
 
@@ -37,5 +37,36 @@ describe('skill proficiency derivation', () => {
     expect(gap).toHaveLength(2);
     expect(gap.find((g) => g.name === 'Sa')).toMatchObject({ target: 3, level: 1, gap: 2 });
     expect(gap.find((g) => g.name === 'Sb')).toMatchObject({ target: 1, level: 1, gap: 0 });
+  });
+});
+
+describe('skill recommendations (recommendPrograms)', () => {
+  // Two gapped skills (Sa needs p1, Sb needs p2/p3); p2 builds BOTH Sa and Sb.
+  const skills = [
+    mkSkill('a', ['p1', 'p2'], { Participant: 2 }), // level 0 → gap 2
+    mkSkill('b', ['p2', 'p3'], { Participant: 1 }), // level 0 → gap 1
+    mkSkill('c', ['p4'], { Teacher: 2 }),           // not required for Participant
+  ];
+  const names = new Map([['p1', 'P1'], ['p2', 'P2'], ['p3', 'P3']]); // p4 omitted (inactive)
+
+  it('ranks programs by how many gapped role-skills they advance', () => {
+    const levels = deriveSkillLevels(skills, new Set());
+    const recs = recommendPrograms(skills, 'Participant', levels, new Set(), names);
+    // p2 advances BOTH Sa and Sb → top; p1 + p3 advance one each.
+    expect(recs[0]).toMatchObject({ programId: 'p2', gapClosed: 2 });
+    expect(recs[0].skills.map((s) => s.name).sort()).toEqual(['Sa', 'Sb']);
+    expect(recs.map((r) => r.programId)).toEqual(['p2', 'p1', 'p3']); // tie p1/p3 break on name
+  });
+
+  it('excludes completed programs and programs not in the active-name map', () => {
+    const levels = deriveSkillLevels(skills, new Set(['p1'])); // p1 done → Sa level 1 (still gap 1)
+    const recs = recommendPrograms(skills, 'Participant', levels, new Set(['p1']), names);
+    expect(recs.find((r) => r.programId === 'p1')).toBeUndefined(); // completed
+    expect(recs.find((r) => r.programId === 'p4')).toBeUndefined(); // inactive (absent from names)
+  });
+
+  it('returns nothing when the role has no gaps', () => {
+    const levels = deriveSkillLevels(skills, new Set(['p1', 'p2', 'p3'])); // both skills met
+    expect(recommendPrograms(skills, 'Participant', levels, new Set(['p1', 'p2', 'p3']), names)).toEqual([]);
   });
 });

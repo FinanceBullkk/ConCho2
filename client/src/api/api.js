@@ -366,8 +366,10 @@ export const automationAPI = {
 // ── Skills / competency framework (TMS.update gap #4) ─────
 export const skillsAPI = {
   list: () => api.get('/skills'),
+  taxonomy: () => api.get('/skills/taxonomy'),
   roleProfiles: () => api.get('/skills/role-profiles'),
   learner: (userId) => api.get(`/skills/learner/${userId}`),
+  recommendations: (userId) => api.get(`/skills/learner/${userId}/recommendations`),
   create: (data) => api.post('/skills', data),
   update: (id, data) => api.put(`/skills/${id}`, data),
   delete: (id) => api.delete(`/skills/${id}`),

@@ -3,7 +3,7 @@ import { Sparkles, Check } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
-import { useLearnerSkills } from './useSkills';
+import { useLearnerSkills, useLearnerRecommendations } from './useSkills';
 
 // Learner 360° "Skills" tab (TMS.update gap #4) — derived proficiency + role gap.
 // Fed by GET /api/skills/learner/:userId (self-or-manage). Honest empty states:
@@ -52,13 +52,44 @@ export function RoleReadinessList({ userId, showTarget = false }) {
   );
 }
 
+// Gap-driven program recommendations (B2 skills-as-spine). Hidden when the
+// learner has no open role gaps — no noise when they're already on target.
+function RecommendedPrograms({ userId }) {
+  const { t } = useTranslation();
+  const { data } = useLearnerRecommendations(userId);
+  const recs = data?.recommendations ?? [];
+  if (!recs.length) return null;
+  return (
+    <Card>
+      <CardHeader className="pb-3">
+        <CardTitle className="text-base">{t(`${p}.recommended`)}</CardTitle>
+        <p className="text-xs text-muted-foreground">{t(`${p}.recommendedHint`)}</p>
+      </CardHeader>
+      <CardContent>
+        <ul className="divide-y divide-border">
+          {recs.map((r) => (
+            <li key={r.programId} className="flex items-center justify-between gap-3 py-3">
+              <div className="min-w-0">
+                <p className="truncate text-sm font-medium text-foreground">{r.name}</p>
+                <p className="truncate text-[11px] text-subtle-foreground">{r.skills.map((sk) => sk.name).join(', ')}</p>
+              </div>
+              <Badge variant="secondary" className="shrink-0">{t(`${p}.closesGaps`, { n: r.gapClosed })}</Badge>
+            </li>
+          ))}
+        </ul>
+      </CardContent>
+    </Card>
+  );
+}
+
 export default function LearnerSkillsTab({ userId }) {
   const { t } = useTranslation();
   const { data } = useLearnerSkills(userId);
   const skills = data?.skills ?? [];
 
   return (
-    <div className="grid gap-4 lg:grid-cols-[1.4fr_1fr]">
+    <div className="space-y-4">
+      <div className="grid gap-4 lg:grid-cols-[1.4fr_1fr]">
       <Card>
         <CardHeader className="pb-3">
           <CardTitle className="text-base">{t(`${p}.skillsAcquired`)}</CardTitle>
@@ -90,6 +121,8 @@ export default function LearnerSkillsTab({ userId }) {
         <CardHeader className="pb-3"><CardTitle className="text-base">{t(`${p}.roleSkillProfile`)}</CardTitle></CardHeader>
         <CardContent><RoleReadinessList userId={userId} showTarget /></CardContent>
       </Card>
+      </div>
+      <RecommendedPrograms userId={userId} />
     </div>
   );
 }

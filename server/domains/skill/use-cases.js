@@ -1,7 +1,7 @@
 const { ServiceError } = require('../../helpers/ServiceError');
 const repository = require('./repository');
 const { skillDto } = require('./dto');
-const { sid, deriveSkillLevels, targetForRole, roleGap } = require('./proficiency');
+const { sid, deriveSkillLevels, targetForRole, roleGap, recommendPrograms } = require('./proficiency');
 
 // Skill / competency framework business rules (TMS.update gap #4).
 
@@ -116,6 +116,73 @@ const getLearnerSkills = async (userId) => {
   };
 };
 
+// ── Taxonomy tree (skills-as-spine, B2) ───────────────────
+// Skills nested by parentId and grouped by category. A skill whose parent is
+// missing/archived is promoted to a root (never dropped).
+const buildTaxonomy = async () => {
+  const skills = await repository.listLive();
+  const nodeById = new Map();
+  for (const s of skills) {
+    nodeById.set(sid(s._id), {
+      id: sid(s._id),
+      name: s.name,
+      category: s.category || 'General',
+      parentId: s.parentId ? sid(s.parentId) : null,
+      maxLevel: s.maxLevel || 5,
+      hue: s.hue ?? 250,
+      programCount: (s.programIds || []).length,
+      children: [],
+    });
+  }
+  const roots = [];
+  for (const node of nodeById.values()) {
+    const parent = node.parentId ? nodeById.get(node.parentId) : null;
+    if (parent) parent.children.push(node);
+    else roots.push(node);
+  }
+  const byCategory = new Map();
+  for (const r of roots) {
+    if (!byCategory.has(r.category)) byCategory.set(r.category, []);
+    byCategory.get(r.category).push(r);
+  }
+  const categories = [...byCategory.entries()]
+    .map(([category, items]) => ({ category, skills: items.sort((a, b) => a.name.localeCompare(b.name)) }))
+    .sort((a, b) => a.category.localeCompare(b.category));
+  return { categories, total: skills.length };
+};
+
+// ── Gap-driven program recommendations (skills-as-spine, B2) ──
+// Rank ACTIVE programs the learner hasn't completed by how much of their role
+// gap they close. Deterministic; the AI layer (B1) re-ranks later.
+const getRecommendations = async (userId, { limit = 10 } = {}) => {
+  const user = await repository.findUserBasic(userId);
+  if (!user) throw new ServiceError('Learner not found', 404);
+
+  const [skills, completed] = await Promise.all([
+    repository.listLive(),
+    repository.completedProgramIdsForUser(userId),
+  ]);
+  const levels = deriveSkillLevels(skills, completed);
+
+  // Candidate program ids = uncompleted building programs of gapped role skills.
+  const candidateIds = new Set();
+  for (const skill of skills) {
+    const target = targetForRole(skill, user.role);
+    if (target <= 0 || (levels.get(sid(skill._id))?.level || 0) >= target) continue;
+    for (const pid of (skill.programIds || []).map(sid)) {
+      if (!completed.has(pid)) candidateIds.add(pid);
+    }
+  }
+  const programNameById = await repository.activeProgramNamesByIds([...candidateIds]);
+  const ranked = recommendPrograms(skills, user.role, levels, completed, programNameById);
+
+  return {
+    learner: { id: String(user._id), name: user.name, role: user.role },
+    recommendations: ranked.slice(0, limit),
+    totalGaps: roleGap(skills, user.role, levels).filter((g) => g.gap > 0).length,
+  };
+};
+
 // ── CRUD ──────────────────────────────────────────────────
 const assertNameFree = async (name, excludeId = null) => {
   if (await repository.findByName(name, excludeId)) {
@@ -135,6 +202,11 @@ const updateSkill = async (id, patch) => {
   if (patch.name && patch.name.toLowerCase() !== before.name.toLowerCase()) {
     await assertNameFree(patch.name, id);
   }
+  // A skill can't be its own taxonomy parent (deeper cycles are out of scope for
+  // the shallow admin-curated hierarchy).
+  if (patch.parentId && String(patch.parentId) === String(id)) {
+    throw new ServiceError('A skill cannot be its own parent', 400);
+  }
   const after = await repository.updateById(id, patch);
   return { before, after };
 };
@@ -150,6 +222,8 @@ module.exports = {
   listSkills,
   getRoleProfiles,
   getLearnerSkills,
+  buildTaxonomy,
+  getRecommendations,
   createSkill,
   updateSkill,
   deleteSkill,

@@ -19,8 +19,10 @@ const { createBody, updateBody, learnerParams } = require('./schemas');
 router.use(protect);
 
 router.get('/', requireCapability(CAPABILITIES.SKILL_READ), controller.listSkills);
+router.get('/taxonomy', requireCapability(CAPABILITIES.SKILL_READ), controller.getTaxonomy);
 router.get('/role-profiles', requireCapability(CAPABILITIES.SKILL_MANAGE), controller.getRoleProfiles);
 router.get('/learner/:userId', requireCapability(CAPABILITIES.SKILL_READ), validate({ params: learnerParams }), controller.getLearnerSkills);
+router.get('/learner/:userId/recommendations', requireCapability(CAPABILITIES.SKILL_READ), validate({ params: learnerParams }), controller.getLearnerRecommendations);
 
 router.post('/', requireCapability(CAPABILITIES.SKILL_MANAGE), validate({ body: createBody }), controller.createSkill);
 router.put('/:id', requireCapability(CAPABILITIES.SKILL_MANAGE), validate({ params: idParam, body: updateBody }), controller.updateSkill);
