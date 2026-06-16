@@ -32,6 +32,25 @@ export function useLearnerSkills(userId, options = {}) {
   });
 }
 
+// Skill taxonomy tree (category → parent → children) — B2 skills-as-spine.
+export function useTaxonomy(options = {}) {
+  return useQuery({
+    queryKey: qk.skills.taxonomy,
+    queryFn: async () => (await skillsAPI.taxonomy()).data.data,
+    ...options,
+  });
+}
+
+// Gap-driven program recommendations for one learner (self-or-manage) — B2.
+export function useLearnerRecommendations(userId, options = {}) {
+  return useQuery({
+    queryKey: qk.skills.recommendations(userId),
+    queryFn: async () => (await skillsAPI.recommendations(userId)).data.data,
+    enabled: Boolean(userId),
+    ...options,
+  });
+}
+
 const invalidate = (qc) => {
   qc.invalidateQueries({ queryKey: qk.skills.all });
 };

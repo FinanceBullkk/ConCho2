@@ -18,6 +18,10 @@ const skillSchema = new mongoose.Schema(
   {
     name: { type: String, required: [true, 'Skill name is required'], trim: true },
     category: { type: String, trim: true, default: 'General' },
+    // Optional taxonomy parent (skills-as-spine, B2). null = a top-level skill.
+    // A shallow hierarchy curated by Admins; `GET /api/skills/taxonomy` nests
+    // children under parents (the use-case guards against self-parenting).
+    parentId: { type: mongoose.Schema.Types.ObjectId, ref: 'Skill', default: null },
     // Display hue (OKLCH base) for the skill chip/card — purely cosmetic.
     hue: { type: Number, default: 250 },
 

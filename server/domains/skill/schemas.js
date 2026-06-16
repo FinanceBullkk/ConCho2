@@ -11,6 +11,7 @@ const targetByRole = z.record(z.string().trim().min(1).max(40), z.coerce.number(
 const createBody = z.object({
   name: z.string().trim().min(1).max(80),
   category: z.string().trim().min(1).max(40).optional().default('General'),
+  parentId: objectId.nullable().optional(),
   hue: z.coerce.number().int().min(0).max(360).optional().default(250),
   programIds: z.array(objectId).max(100).optional().default([]),
   maxLevel: z.coerce.number().int().min(1).max(10).optional().default(5),
@@ -21,6 +22,7 @@ const createBody = z.object({
 const updateBody = z.object({
   name: z.string().trim().min(1).max(80).optional(),
   category: z.string().trim().min(1).max(40).optional(),
+  parentId: objectId.nullable().optional(),
   hue: z.coerce.number().int().min(0).max(360).optional(),
   programIds: z.array(objectId).max(100).optional(),
   maxLevel: z.coerce.number().int().min(1).max(10).optional(),

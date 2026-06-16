@@ -19,6 +19,29 @@ const getRoleProfiles = async (req, res) => {
   }
 };
 
+const getTaxonomy = async (req, res) => {
+  try {
+    res.json({ success: true, data: await useCases.buildTaxonomy() });
+  } catch (error) {
+    handleError(res, error);
+  }
+};
+
+// Self-or-manage (same boundary as getLearnerSkills): a learner sees their OWN
+// recommendations; viewing another learner's needs skill.manage.
+const getLearnerRecommendations = async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const isSelf = String(userId) === String(req.user._id);
+    if (!isSelf && !actorHasCapability(req.user, CAPABILITIES.SKILL_MANAGE)) {
+      return res.status(403).json({ success: false, message: 'Not allowed to view this learner’s recommendations' });
+    }
+    res.json({ success: true, data: await useCases.getRecommendations(userId) });
+  } catch (error) {
+    handleError(res, error);
+  }
+};
+
 // Self-or-manage: a learner reads their OWN skills (skill.read); reading another
 // learner's skills requires skill.manage. The route already enforces skill.read.
 const getLearnerSkills = async (req, res) => {
@@ -64,4 +87,4 @@ const deleteSkill = async (req, res) => {
   }
 };
 
-module.exports = { listSkills, getRoleProfiles, getLearnerSkills, createSkill, updateSkill, deleteSkill };
+module.exports = { listSkills, getRoleProfiles, getTaxonomy, getLearnerSkills, getLearnerRecommendations, createSkill, updateSkill, deleteSkill };
