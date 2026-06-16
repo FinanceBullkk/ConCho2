@@ -45,7 +45,6 @@ const auditLogSchema = new mongoose.Schema(
     action: {
       type: String,
       required: true,
-      index: true,
     },
 
     // Which entity changed.
@@ -153,6 +152,10 @@ auditLogSchema.index({ entity: 1, entityId: 1, createdAt: -1 });
 
 // Secondary query path: "everything this actor did".
 auditLogSchema.index({ actorId: 1, createdAt: -1 });
+
+// Audit-log filter "everything with action X, newest first" (System ▸ Audit ?action=).
+// A single-field action index can't cover the mandatory createdAt sort — compound does.
+auditLogSchema.index({ action: 1, createdAt: -1 });
 
 // Hash chain: seq is the chain position. Unique so a serialization bug or a
 // second writer can never fork the chain by reusing a seq — the DB is the final
