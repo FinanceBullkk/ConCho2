@@ -1,8 +1,14 @@
 import { useState } from 'react';
-import { Clock, Users } from 'lucide-react';
+import { toast } from 'sonner';
+import { Clock, Users, Download, Save, Trash2 } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 import { Spinner } from '../../components/Spinner';
 import { EmptyState } from '@/components/EmptyState';
-import { useTrainingHours } from '../../hooks/useLearning';
+import {
+  useTrainingHours, useDownloadEvidencePack, useReportPresets,
+  useCreateReportPreset, useDeleteReportPreset,
+} from '../../hooks/useLearning';
+import { saveBlob } from './report-download';
 
 // ──────────────────────────────────────────────────────────
 // TrainingHoursTab — A5 (Modernization Horizon 1)
@@ -30,11 +36,58 @@ export default function TrainingHoursTab() {
   const [groupBy, setGroupBy] = useState('user');
   const [from, setFrom] = useState('');
   const [to, setTo] = useState('');
+  const [presetName, setPresetName] = useState('');
+  const [presetId, setPresetId] = useState('');
 
   const params = { groupBy };
   if (from) params.from = from;
   if (to) params.to = to;
   const { data, isLoading, isError } = useTrainingHours(params);
+
+  const downloadPack = useDownloadEvidencePack();
+  const { data: presets = [] } = useReportPresets();
+  const createPreset = useCreateReportPreset();
+  const deletePreset = useDeleteReportPreset();
+
+  const windowFilters = () => {
+    const f = {};
+    if (from) f.from = from;
+    if (to) f.to = to;
+    return f;
+  };
+
+  const onDownloadPack = async () => {
+    try {
+      const res = await downloadPack.mutateAsync(windowFilters());
+      saveBlob(res, 'evidence-pack.xlsx');
+    } catch {
+      toast.error('Could not generate the evidence pack.');
+    }
+  };
+
+  const applyPreset = (id) => {
+    setPresetId(id);
+    const p = presets.find((x) => x._id === id);
+    if (p) { setFrom(p.filters?.from || ''); setTo(p.filters?.to || ''); }
+  };
+
+  const savePreset = async () => {
+    const name = presetName.trim();
+    if (!name) return;
+    try {
+      await createPreset.mutateAsync({ name, kind: 'evidence', filters: windowFilters() });
+      setPresetName('');
+      toast.success('Preset saved');
+    } catch (e) {
+      toast.error(e?.response?.data?.message || 'Could not save preset');
+    }
+  };
+
+  const removePreset = async () => {
+    if (!presetId) return;
+    await deletePreset.mutateAsync(presetId);
+    setPresetId('');
+  };
 
   const rows = data?.rows ?? [];
   const totals = data?.totals;
@@ -63,6 +116,38 @@ export default function TrainingHoursTab() {
           <input id="th-to" type="date" value={to} onChange={(e) => setTo(e.target.value)} className={inputCls} />
         </div>
         <p className="text-xs text-subtle-foreground self-center">Defaults to the last 90 days · hours = attended sessions × duration.</p>
+      </div>
+
+      {/* Evidence pack + saved presets (A5 part 2) */}
+      <div className="bg-card border border-border rounded-lg p-4 flex flex-wrap items-end gap-3">
+        <div className="flex flex-col gap-1">
+          <span className="text-overline text-muted-foreground">Audit evidence</span>
+          <Button size="sm" onClick={onDownloadPack} disabled={downloadPack.isPending}>
+            <Download className="size-3.5" aria-hidden="true" />
+            {downloadPack.isPending ? 'Generating…' : 'Download evidence pack (xlsx)'}
+          </Button>
+        </div>
+        <div className="flex flex-col gap-1">
+          <label htmlFor="th-preset" className="text-overline text-muted-foreground">Saved preset</label>
+          <div className="flex items-center gap-1.5">
+            <select id="th-preset" value={presetId} onChange={(e) => applyPreset(e.target.value)} className={inputCls}>
+              <option value="">Select a preset…</option>
+              {presets.map((p) => <option key={p._id} value={p._id}>{p.name}</option>)}
+            </select>
+            {presetId && (
+              <Button size="sm" variant="ghost" onClick={removePreset} aria-label="Delete preset"><Trash2 className="size-3.5" aria-hidden="true" /></Button>
+            )}
+          </div>
+        </div>
+        <div className="flex flex-col gap-1">
+          <label htmlFor="th-preset-name" className="text-overline text-muted-foreground">Save current window</label>
+          <div className="flex items-center gap-1.5">
+            <input id="th-preset-name" value={presetName} onChange={(e) => setPresetName(e.target.value)} placeholder="Preset name" className={`${inputCls} w-40`} />
+            <Button size="sm" variant="outline" onClick={savePreset} disabled={!presetName.trim() || createPreset.isPending}>
+              <Save className="size-3.5" aria-hidden="true" />Save
+            </Button>
+          </div>
+        </div>
       </div>
 
       {/* KPIs */}
