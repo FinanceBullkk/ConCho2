@@ -169,4 +169,7 @@ export const qk = {
     demand: (params) => ['planning', 'demand', params],
     plan: (fy) => ['planning', 'plan', fy],
   },
+  me: {
+    mobileFeed: ['me', 'mobile-feed'],
+  },
 };

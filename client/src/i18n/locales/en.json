@@ -44,6 +44,7 @@
       "audit": "Audit log"
     },
     "learner": {
+      "today": "Today",
       "programs": "My programs",
       "catalog": "Catalog",
       "sessions": "My sessions",
@@ -420,6 +421,19 @@
     "classCode": "Class code",
     "totalSessions": "Sessions",
     "createCohort": "Create cohort"
+  },
+  "today": {
+    "title": "Today",
+    "description": "Your learning at a glance — what's due, what's coming up, and one thing to do now.",
+    "enablePush": "Enable notifications",
+    "disablePush": "Notifications on",
+    "allClear": "You're all caught up — nothing due right now.",
+    "doNow": "Do this now",
+    "overdue": "Overdue",
+    "dueSoon": "Due soon",
+    "upcoming": "Upcoming sessions",
+    "due": "Due",
+    "join": "Join"
   },
   "mobileAttendance": {
     "title": "Mobile attendance",
