@@ -199,6 +199,7 @@ English literals directly.
 | `/api/vendors` | `domains/vendor/routes.js` | Modernization H2 A2: external-provider catalog (`Vendor`) — contacts/contracts/ratings + per-vendor spend (from `CostEntry.scope.vendorId`); `vendor.manage` (read==write); archive = soft-delete + `status:archived` |
 | `/api/trainers` | `domains/trainer/routes.js` | Modernization H2 A6: trainer qualification/availability (`TrainerProfile`) + qualified-and-free listing + per-trainer load + ratings; reuses `session.assign-trainer`. Double-booking 409 enforced at `domains/schedule setTrainers` (overlap on `sessionInstructorIds`) |
 | `/api/planning` | `domains/planning/routes.js` | Modernization H2 A4: TNA demand intake (`TrainingRequest`) + demand aggregation + costed annual plan (`TrainingPlan`) + schedule plan item → cohort (`Class` + A1 `Budget` carry); `training.plan` (Admin/Coordinator) |
+| `/api/me` | `domains/mobile/routes.js` | Modernization H2 B5: mobile learning surface — Web Push subscribe (`PushSubscription`) + `mobile-feed` (composed due/upcoming/microlearning); self-scoped. Push delivery via `services/pushService` rides along on `domains/notification in-app-writer.recordInApp`, fail-soft without VAPID env |
 | `/api/skills` | `domains/skill/routes.js` | competency framework: skills CRUD, role profiles, DERIVED proficiency + role gap; **H1 B2** taxonomy tree (`/taxonomy`) + gap-driven program recommendations (`/learner/:id/recommendations`) |
 | `/api/evaluations` | `evaluationRoutes.js` | upsert/list/get/delete evaluations |
 | `/api/enrollments` | `enrollmentRoutes.js` | enrollment list, transfer, bulk operations |
@@ -268,6 +269,7 @@ Current protections:
 | `TrainerProfile` | Modernization H2 A6: 1:1 qualification/availability record for a Teacher/Admin User (canDeliver programs, availability, ratings, status); load + double-booking read `Schedule.sessionInstructorIds` |
 | `TrainingRequest` | Modernization H2 A4: TNA demand-intake line (target program/skill, headcount, priority, quarter, status machine submitted→…→planned/rejected) |
 | `TrainingPlan` | Modernization H2 A4: costed annual plan (one per fiscalYear; items: target, quarter, demand, estCostMinor, cohortIds); schedule item → `Class` + A1 `Budget` |
+| `PushSubscription` | Modernization H2 B5: one Web Push device registration per user (endpoint unique, keys); disposable (hard-delete on unsubscribe / 404-410 prune) |
 
 ### Learning Domain Boundary
 

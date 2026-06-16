@@ -63,3 +63,31 @@ self.addEventListener('sync', (event) => {
     );
   }
 });
+
+// ── Web Push (B5 mobile learning surface, Horizon 2) ──────────
+// pushService sends a JSON payload {title, body, url, tag}; show it as a
+// notification. Clicking focuses an open tab on that url (or opens one).
+self.addEventListener('push', (event) => {
+  let data = {};
+  try { data = event.data ? event.data.json() : {}; } catch { data = {}; }
+  const title = data.title || 'TMS';
+  event.waitUntil(self.registration.showNotification(title, {
+    body: data.body || '',
+    tag: data.tag || 'tms',
+    icon: '/favicon.svg',
+    badge: '/favicon.svg',
+    data: { url: data.url || '/me/today' },
+  }));
+});
+
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+  const target = (event.notification.data && event.notification.data.url) || '/me/today';
+  event.waitUntil(
+    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clients) => {
+      const open = clients.find((c) => c.url.includes(target));
+      if (open) return open.focus();
+      return self.clients.openWindow(target);
+    }),
+  );
+});

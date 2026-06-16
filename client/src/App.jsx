@@ -43,6 +43,7 @@ const MyAssessmentsPage = lazy(() => import('./features/learner/MyAssessmentsPag
 const MyFeedbackPage = lazy(() => import('./features/learner/MyFeedbackPage'));
 const MySessionsPage = lazy(() => import('./features/learner/MySessionsPage'));
 const MyTranscriptPage = lazy(() => import('./features/learner/MyTranscriptPage'));
+const TodayPage = lazy(() => import('./features/mobile/TodayPage'));
 const MyTeamPage = lazy(() => import('./features/groups/MyTeamPage'));
 const RolesAccessPage = lazy(() => import('./features/access/RolesAccessPage'));
 const CustomFieldsPage = lazy(() => import('./features/custom-fields/CustomFieldsPage'));
@@ -368,6 +369,7 @@ export default function App() {
                 <Route path="/me/feedback" element={<MyFeedbackPage />} />
                 <Route path="/me/sessions" element={<MySessionsPage />} />
                 <Route path="/me/transcript" element={<MyTranscriptPage />} />
+                <Route path="/me/today" element={<TodayPage />} />
 
                 {/* Legacy redirects */}
                 {LEGACY_REDIRECTS.map(({ from, to }) => (

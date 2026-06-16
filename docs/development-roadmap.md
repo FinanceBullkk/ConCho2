@@ -56,10 +56,13 @@ remainder is documented deferred-by-design scope (below), not active debt.
   **A4 TNA→annual-plan** (`TrainingRequest`/`TrainingPlan` + `domains/planning`,
   PR #121) — demand intake + status machine, demand aggregation, and a costed
   annual plan that schedules items into cohorts (carrying est cost into the A1
-  budget). **3 of 6 H2 slices shipped.** Remaining H2 (all gated on owner inputs):
-  **B1 AI layer** (LLM-provider + key decision), **B8 Slack/Teams** (OAuth app +
-  signing secret), **B5 mobile PWA** (verify offline-PWA infra first).
-  GitHub repo made **public 2026-06-16** (unlimited free Actions).)
+  budget); **B5 mobile learning surface** (`PushSubscription` + `services/pushService`
+  + `domains/mobile` at `/api/me`, PR #122) — Web Push (rides along on `recordInApp`,
+  fail-soft without VAPID env) + a composed "Today" feed (overdue/due-soon/upcoming/
+  microlearning) on the existing offline PWA. **4 of 6 H2 slices shipped.** Remaining
+  H2 (gated on owner inputs): **B1 AI layer** (LLM-provider + key decision), **B8
+  Slack/Teams** (OAuth app + signing secret). GitHub repo made **public 2026-06-16**
+  (unlimited free Actions). B5 push DELIVERY activates once the owner sets VAPID env keys.)
 - **Gated / owner-ops:** **D2 Google OIDC + Directory sync** (blocked on owner's
   Google OAuth app + Workspace domain); **paid always-on hosting** + Sentry
   cron-monitor dashboard; **Phase 6 PostgreSQL gate** (plan drafted,
@@ -132,6 +135,28 @@ Bug fixing and integration review rank above net-new feature rollout.
 > lines); older entries roll verbatim, newest-first, to
 > [`changelog-archive/2026-q2.md`](changelog-archive/2026-q2.md). Currently
 > inline: **2026-06-14 → 2026-06-16**.
+
+- **2026-06-16** — **Modernization Horizon 2 — B5: mobile learning surface.**
+  Turns the offline attendance PWA (gap #7) into a learner surface: Web Push +
+  a "due today" feed. New `PushSubscription` model (one device registration per
+  user, endpoint-unique, disposable) + `services/pushService.js` (`web-push`
+  wrapper — **fail-soft**: no-op when VAPID env keys are unset, prunes dead 404/410
+  subscriptions) + `domains/mobile` mounted at `/api/me` (self-scoped, no cap):
+  `GET /push/vapid-key` (503 if unconfigured), `POST|DELETE /push/subscribe`,
+  `GET /mobile-feed` (overdue + due-soon assignments from assignment `listMine` +
+  upcoming enrolled sessions + one microlearning nudge, all **composed** from
+  existing data — no new content model). **Push rides along** on the in-app
+  notification chokepoint (`domains/notification in-app-writer.recordInApp` →
+  `pushService.sendToUser`, fire-and-forget) so every bell event also pushes.
+  Client: `client/public/sw.js` push + notificationclick handlers; `features/mobile`
+  `usePush` (subscribe with the server VAPID key, on-demand SW registration) +
+  `TodayPage` (feed + enable/disable push) + learner nav (My Learning ▸ Today) +
+  i18n. New `web-push` dep (no high-severity prod vuln). Server **120/1132** green,
+  client **391** green, lint 63 (cap), build clean. New spec `mobile-learning`
+  (status evolving) + registry row (36); `.env.example` documents `VAPID_*`.
+  **Deferred (documented):** push DELIVERY needs the owner to set VAPID env
+  (subscribe + feed work without it); offline-queued quiz completion (reuse the
+  attendance IndexedDB queue) + deeper content (video/SCORM) → B3. PR #122.
 
 - **2026-06-16** — **Modernization Horizon 2 — A4: training-needs-analysis →
   annual plan.** A demand-intake pipeline: submit training requests → aggregate
