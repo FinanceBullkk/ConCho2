@@ -3,7 +3,7 @@ import {
   CalendarCheck, ClipboardCheck, BookA, UsersRound, ClipboardEdit,
   LayoutDashboard, BarChart3, ChartLine, Download,
   Building2, MapPin, DoorOpen, Settings, Database, RefreshCw, ShieldCheck, ScrollText,
-  Compass, Languages, FileText, Zap, Sparkles, Palette, Calculator, Smartphone, CalendarClock,
+  Compass, Languages, FileText, Zap, Sparkles, Palette, Calculator, Smartphone, CalendarClock, Wallet,
 } from 'lucide-react';
 
 // ──────────────────────────────────────────────────────────
@@ -97,6 +97,7 @@ export const NAV_GROUPS = [
       { path: '/scheduling', labelKey: 'nav.sections.scheduling', icon: CalendarClock, access: ADMIN_ONLY, parentRoutes: ['/scheduling'] },
       { path: '/compliance', labelKey: 'nav.sections.compliance', icon: ClipboardCheck, access: { Admin: 'full', Coordinator: 'full' }, parentRoutes: ['/compliance'] },
       { path: '/cost-roi', labelKey: 'nav.sections.costRoi', icon: Calculator, access: ADMIN_ONLY, parentRoutes: ['/cost-roi'] },
+      { path: '/budget', labelKey: 'nav.sections.budget', icon: Wallet, access: { Admin: 'full', Coordinator: 'full' }, parentRoutes: ['/budget'] },
     ],
   },
   {

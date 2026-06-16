@@ -140,4 +140,12 @@ export const qk = {
   branding: {
     config: ['branding', 'config'],
   },
+  finance: {
+    all: ['finance'],
+    currency: ['finance', 'currency'],
+    costs: (params) => ['finance', 'costs', params],
+    rollup: (params) => ['finance', 'rollup', params],
+    budgets: (params) => ['finance', 'budgets', params],
+    variance: (params) => ['finance', 'variance', params],
+  },
 };

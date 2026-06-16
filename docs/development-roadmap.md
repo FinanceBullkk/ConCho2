@@ -6,7 +6,7 @@
 > - *Architecture / orientation* → [`system-overview.md`](system-overview.md)
 > - *Detailed task snapshot (archived)* → [`archive/handoff-2026-06-01.md`](archive/handoff-2026-06-01.md)
 >
-> **Last updated:** 2026-06-15
+> **Last updated:** 2026-06-16
 
 ---
 
@@ -40,9 +40,10 @@ remainder is documented deferred-by-design scope (below), not active debt.
   attendance closed 2026-06-15. **Investment Build Plan deep features — all 4
   shipped** (#3a audit hash-chain PR #108, #4 reconcile auto-heal PR #109, #1
   analytics time-series PR #110, #5 Studio Scheduling PR #111). **Modernization
-  Horizon 1 in progress**: A5 training-hours (PR #112) + **A3 role compliance
-  matrix** (`RequiredTraining`) shipped 2026-06-16; next A5 evidence-pack/presets,
-  A1 budget dashboard (`CostEntry`/`Budget`), A8 HRIS auto-assign (needs A3 +
+  Horizon 1 in progress**: A5 training-hours (PR #112), **A3 role compliance
+  matrix** (`RequiredTraining`, PR #113), and **A1 budget & cost** (`CostEntry`/
+  `Budget` + `domains/finance` + budget dashboard + Executive-ROI actuals) shipped
+  2026-06-16; next A5 evidence-pack/presets, A8 HRIS auto-assign (needs A3 +
   Directory sync), B2 skills-as-spine.)
 - **Gated / owner-ops:** **D2 Google OIDC + Directory sync** (blocked on owner's
   Google OAuth app + Workspace domain); **paid always-on hosting** + Sentry
@@ -116,6 +117,31 @@ Bug fixing and integration review rank above net-new feature rollout.
 > lines); older entries roll verbatim, newest-first, to
 > [`changelog-archive/2026-q2.md`](changelog-archive/2026-q2.md). Currently
 > inline: **2026-06-14 → 2026-06-16**.
+
+- **2026-06-16** — **Modernization Horizon 1 — A1: budget & cost management.**
+  Record actual training costs + per-fiscal-year budgets, roll up spend by any
+  scope dimension, and see budget-vs-actual variance. New `CostEntry`
+  (`scope {programId/cohortId/sessionId/departmentId/vendorId}`, type, minor-unit
+  `amountMinor`, `incurredOn`, `poRef`, soft-delete) + `Budget` (fiscalYear,
+  dept?/program?, minor-unit allowance) models + `domains/finance`
+  (repository/use-cases/schemas/controller/routes): `GET/POST/PUT/DELETE
+  /api/finance/costs` + `/budgets`, `GET /api/finance/costs/rollup?by=program|
+  department|cohort|vendor|type`, `GET /api/finance/budgets/variance?fiscalYear=`
+  (over-budget flagged; cross-year costs excluded). Roll-up/variance/cost-per-
+  completion are **derived**, never stored. **Single tenant currency enforced**
+  on every write (executive cost-config → env → USD); money is integer minor
+  units. New `budget.manage` cap (Admin + Coordinator) gates **both read and
+  write** (budget figures are management-sensitive — deliberately not `report.read`);
+  mutations audited (`entity:'CostEntry'`/`'Budget'`). Executive ROI financials
+  now also carry **trailing-12-month actual spend** + `costPerCompletionActualMinor`
+  next to the budgeted estimate. Client: **Budget dashboard** (`/budget`,
+  Admin/Coordinator) — FY selector, variance table (over-budget badge), cost
+  roll-up (group-by), log-cost + new-budget forms — wired into Configure nav.
+  Tests +6 (CRUD+audit, currency enforcement, roll-up by program/type, variance
+  over-budget, executive actuals, authz). Server **115/1099** green, client **391**
+  green, lint 63 (cap), build clean. New spec `budget-and-cost` + registry row
+  (31); `reporting-and-rollups` noted (executive actuals). Follow-up: A2 Vendor
+  (Horizon 2) fills `scope.vendorId`.
 
 - **2026-06-16** — **Modernization Horizon 1 — A3: role-based compliance
   matrix.** Define "this role / department / office (or everyone) must complete

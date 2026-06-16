@@ -90,6 +90,7 @@ const PERMISSION_MAP = {
   // Cohort completion reports + xlsx export — server: report.read capability.
   'read:reports':    ['Admin', 'Coordinator', 'Teacher'], // GET /api/learning/reports/*
   'manage:compliance': ['Admin', 'Coordinator'],   // POST/PUT/DELETE /api/compliance/requirements (A3)
+  'manage:budget':     ['Admin', 'Coordinator'],   // /api/finance/* — read+write both need budget.manage (A1)
   'read:feedback':   ['Admin', 'Teacher'],         // GET /api/learning/feedback
   'read:assignments': ['Admin', 'Coordinator', 'Teacher'], // GET /api/learning/assignments (assignment.read)
   'manage:assignments': ['Admin', 'Coordinator'],   // POST/DELETE /api/learning/assignments (assignment.manage)
