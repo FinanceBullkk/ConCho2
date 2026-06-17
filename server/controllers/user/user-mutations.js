@@ -1,9 +1,9 @@
 const bcrypt = require('bcryptjs');
-const User = require('../../models/User');
 const { invalidateUserCache } = require('../../middleware/auth');
 const { handleError } = require('../../helpers/handleError');
 const auditService = require('../../services/auditService');
 const { invalidateAnalyticsCache } = require('../../middleware/analyticsCache');
+const repository = require('./user-mutations-repository');
 
 // ──────────────────────────────────────────────────────────
 // User Controller — create/update handlers (Admin only)
@@ -35,7 +35,7 @@ const createUser = async (req, res) => {
       return res.status(400).json({ success: false, message: 'password is required' });
     }
 
-    const user = await User.create({
+    const user = await repository.create({
       empCode,
       name,
       email,
@@ -100,7 +100,7 @@ const updateUser = async (req, res) => {
     if (customFields !== undefined && typeof customFields === 'object') updateData.customFields = customFields;
 
     // Snapshot before-state for audit diff (lean to keep it cheap).
-    const before = await User.findById(req.params.id).lean();
+    const before = await repository.findByIdLean(req.params.id);
     if (!before) {
       return res.status(404).json({ success: false, message: 'User not found' });
     }
@@ -127,7 +127,7 @@ const updateUser = async (req, res) => {
       }
       // Verify the acting admin's password. Use `+password` because the
       // User schema hides password by default.
-      const acting = await User.findById(req.user._id).select('+password');
+      const acting = await repository.findByIdWithPassword(req.user._id);
       if (!acting) {
         return res.status(401).json({ success: false, message: 'Session user not found' });
       }
@@ -157,11 +157,7 @@ const updateUser = async (req, res) => {
       updateData.passwordChangedAt = new Date();
     }
 
-    const user = await User.findOneAndUpdate(
-      { _id: req.params.id },
-      updateData,
-      { new: true, runValidators: true, select: '-password' }
-    );
+    const user = await repository.updateById(req.params.id, updateData);
 
     if (!user) {
       return res.status(404).json({ success: false, message: 'User not found' });
