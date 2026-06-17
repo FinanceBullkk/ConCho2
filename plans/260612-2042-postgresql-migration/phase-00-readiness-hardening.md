@@ -87,7 +87,7 @@ Captured here so Phase 3 implements, not researches.
 | 0.4 | Extract `lib/branding.js` + `routes/auditRoutes.js` reads → repository | WS-A | refactor | Low | ✅ **done 2026-06-17** (branding reuses `domains/branding/repository`; new `services/audit/audit-query-repository.js`) |
 | 0.5 | Extract `services/export/*` aggregations → repository | WS-A | refactor | Low-Med | ✅ **done 2026-06-17** (new `attendance-export-repository.js` + `evaluation-export-repository.js`; pipeline builders kept) |
 | 0.6 | Repository for `metricSnapshotService` + `analyticsSeriesService` | WS-A | refactor | Low-Med | ◻ optional |
-| 0.7 | Dashboard aggregations → `repository` (10+ pipelines) | WS-A | refactor | Med | ◻ optional |
+| 0.7 | Dashboard aggregations → `repository` (10+ pipelines) | WS-A | refactor | Med | ✅ **done 2026-06-17** (`controllers/dashboard/dashboard-stats-repository.js`; added the endpoint's first integration test) |
 | 0.8 | Class/User legacy → repository (or fold into domains) | WS-A | refactor | Med | ◻ optional |
 | 0.9 | Auth + scheduleService boundary | WS-A | refactor | **High** | ⛔ defer to gate-open |
 
