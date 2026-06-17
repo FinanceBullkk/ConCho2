@@ -162,7 +162,7 @@ function EvalModal({ classId, existingEval, preselectedUser, onClose }) {
         <form onSubmit={handleSubmit} className="p-5 space-y-4">
           {/* User */}
           <div>
-            <label className="block text-xs text-muted-foreground mb-1">Learner</label>
+            <label htmlFor="eval-learner-search" className="block text-xs text-muted-foreground mb-1">Learner</label>
             {selectedUser ? (
               <div className="flex items-center justify-between px-3 py-2 rounded-md bg-muted border border-border">
                 <div>
@@ -184,6 +184,7 @@ function EvalModal({ classId, existingEval, preselectedUser, onClose }) {
             ) : (
               <div className="relative">
                 <input
+                  id="eval-learner-search"
                   type="text"
                   value={userSearch}
                   onChange={(e) => setUserSearch(e.target.value)}
@@ -222,8 +223,9 @@ function EvalModal({ classId, existingEval, preselectedUser, onClose }) {
 
           {/* Level */}
           <div>
-            <label className="block text-xs text-muted-foreground mb-1">Level</label>
+            <label htmlFor="eval-level" className="block text-xs text-muted-foreground mb-1">Level</label>
             <input
+              id="eval-level"
               type="text"
               maxLength={120}
               value={form.level}
@@ -243,8 +245,9 @@ function EvalModal({ classId, existingEval, preselectedUser, onClose }) {
 
           {/* Comment */}
           <div>
-            <label className="block text-xs text-muted-foreground mb-1">Teacher comment</label>
+            <label htmlFor="eval-comment" className="block text-xs text-muted-foreground mb-1">Teacher comment</label>
             <textarea
+              id="eval-comment"
               rows={3}
               maxLength={2000}
               value={form.teacherComment}
@@ -506,8 +509,9 @@ export default function EvaluationPage() {
       {/* Class selector card */}
       <div className="flex flex-wrap items-center gap-4 bg-card border border-border rounded-lg p-4">
         <div className="flex items-center gap-2">
-          <label className="text-sm text-muted-foreground shrink-0">Class:</label>
+          <label htmlFor="eval-class-select" className="text-sm text-muted-foreground shrink-0">Class:</label>
           <select
+            id="eval-class-select"
             value={selectedClass}
             onChange={(e) => {
               setSelectedClass(e.target.value);
