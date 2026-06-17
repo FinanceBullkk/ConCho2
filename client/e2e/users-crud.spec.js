@@ -133,9 +133,16 @@ test.describe('Users — CRUD smoke', () => {
               .catch(() => ({ data: [] }));
             const found = (list?.data || []).find((u) => u.empCode === code);
             if (found?._id) {
+              // Echo the readable csrf-token cookie in X-CSRF-Token — the
+              // double-submit CSRF check rejects this DELETE without it, so the
+              // cleanup silently 403'd and left orphaned fixture users.
+              const csrf = document.cookie
+                .split('; ')
+                .find((r) => r.startsWith('csrf-token='))
+                ?.split('=')[1];
               await fetch(`/api/users/${found._id}`, {
                 method: 'DELETE',
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': csrf || '' },
                 credentials: 'same-origin',
               });
             }

@@ -123,6 +123,15 @@ describe('Learning Platform API — completion & certificates', () => {
     expect(after.body.data.complete).toBe(true);
   });
 
+  test('a Participant requesting ANOTHER learner\'s completion is forbidden (403)', async () => {
+    // tokens.leader is a Participant; member1 is a different learner. The
+    // self-scoping guard in getCompletion must reject a cross-learner read.
+    const res = await request(app)
+      .get(`/api/learning/completion?cohortId=${seed.class1._id}&learnerId=${seed.member1._id}`)
+      .set('Authorization', `Bearer ${tokens.leader}`);
+    expect(res.status).toBe(403);
+  });
+
   test('admin issues a certificate when complete; snapshot + verification code present', async () => {
     await linkProgram({ attendanceThresholdPercent: 50 });
     await seedAttendance(4, 2);
