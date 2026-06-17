@@ -249,8 +249,9 @@ export default function AttendanceDashboardPage() {
           {activeTab === 'class' && data?.schedules && (
             <div className="space-y-4">
               <div className="flex items-center gap-3">
-                <label className="text-sm text-muted-foreground">Select Class:</label>
+                <label htmlFor="att-select-class" className="text-sm text-muted-foreground">Select Class:</label>
                 <select
+                  id="att-select-class"
                   value={selectedClass}
                   onChange={(e) => setSelectedClass(e.target.value)}
                   className="px-4 py-2 rounded-md bg-accent border border-border text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
