@@ -88,8 +88,13 @@ Captured here so Phase 3 implements, not researches.
 | 0.5 | Extract `services/export/*` aggregations → repository | WS-A | refactor | Low-Med | ✅ **done 2026-06-17** (new `attendance-export-repository.js` + `evaluation-export-repository.js`; pipeline builders kept) |
 | 0.6 | Repository for `metricSnapshotService` + `analyticsSeriesService` | WS-A | refactor | Low-Med | ◻ optional |
 | 0.7 | Dashboard aggregations → `repository` (10+ pipelines) | WS-A | refactor | Med | ✅ **done 2026-06-17** (`controllers/dashboard/dashboard-stats-repository.js`; added the endpoint's first integration test) |
-| 0.8 | Class/User legacy → repository (or fold into domains) | WS-A | refactor | Med | ◻ optional |
+| 0.8 | Class/User legacy → repository (or fold into domains) | WS-A | refactor | Med | 🟡 **user done 2026-06-17** (`controllers/user/user-mutations-repository.js`; security logic kept in controller); **class part pending** |
 | 0.9 | Auth + scheduleService boundary | WS-A | refactor | **High** | ⛔ defer to gate-open |
+
+> **Phase 0 paused 2026-06-17** after the low/med-risk slices (0.3–0.7 + 0.8-user)
+> to run a **quality-consolidation round** first (owner direction): green the test
+> suites, stabilise the server harness, cut lint warnings, clean `npm audit`,
+> smoke-test the core flow. Resume 0.8-class / 0.9 + the gated Phases 1+ after.
 
 ## Success criteria (Phase 0 "ready")
 
