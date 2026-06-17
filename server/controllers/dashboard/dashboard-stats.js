@@ -1,18 +1,16 @@
-const User = require('../../models/User');
-const Class = require('../../models/Class');
-const Schedule = require('../../models/Schedule');
-const Attendance = require('../../models/Attendance');
-const Team = require('../../models/Team');
 const { handleError } = require('../../helpers/handleError');
 const logger = require('../../lib/logger');
+const repository = require('./dashboard-stats-repository');
 
 // ──────────────────────────────────────────────────────────
 // Dashboard Controller — Admin Analytics (Interactive Filters)
 // ──────────────────────────────────────────────────────────
 // Split from the legacy dashboardController (Phase 1 modular-monolith).
 // Filter options + the filtered analytics aggregation. getDashboardStats is
-// one cohesive endpoint: 14 independent aggregations run in parallel (PHASE 1)
-// then composed in-process with zero extra DB round-trips (PHASE 2).
+// one cohesive endpoint: 14 independent aggregations run in parallel (PHASE 1,
+// in dashboard-stats-repository) then composed in-process with zero extra DB
+// round-trips (PHASE 2, here). All Mongoose access lives in the repository
+// (Phase 0 Postgres readiness).
 
 /**
  * Build a MongoDB filter object from query params.
@@ -34,22 +32,15 @@ const buildUserFilter = (query) => {
 // ──────────────────────────────────────────────────────────
 const getFilterOptions = async (req, res) => {
   try {
-    const base = { role: 'Participant' };
-    const [departments, positions, entranceLevels, currentLevels, statuses] = await Promise.all([
-      User.distinct('department', { ...base, department: { $ne: '' } }),
-      User.distinct('position', { ...base, position: { $ne: '' } }),
-      User.distinct('entranceLevel', { ...base, entranceLevel: { $ne: '' } }),
-      User.distinct('currentLevel', { ...base, currentLevel: { $ne: '' } }),
-      User.distinct('status', base),
-    ]);
+    const d = await repository.getFilterDistincts();
     res.json({
       success: true,
       data: {
-        departments: departments.sort(),
-        positions: positions.sort(),
-        entranceLevels: entranceLevels.sort(),
-        currentLevels: currentLevels.sort(),
-        statuses: statuses.sort(),
+        departments: d.departments.sort(),
+        positions: d.positions.sort(),
+        entranceLevels: d.entranceLevels.sort(),
+        currentLevels: d.currentLevels.sort(),
+        statuses: d.statuses.sort(),
       },
     });
   } catch (error) {
@@ -71,97 +62,10 @@ const getDashboardStats = async (req, res) => {
     const hasFilters = Object.keys(userFilter).length > 1; // >1 because 'role' is always there
 
     // ── Pre-fetch: filtered user IDs (needed for attendance/schedule cross-filter) ──
-    let filteredUserIds = null;
-    if (hasFilters) {
-      const filteredUsers = await User.find(userFilter).select('_id').lean();
-      filteredUserIds = filteredUsers.map(u => u._id);
-    }
+    const filteredUserIds = hasFilters ? await repository.findFilteredUserIds(userFilter) : null;
 
-    // Build attendance filter (only include filtered users' records)
-    const attFilter = filteredUserIds
-      ? { userId: { $in: filteredUserIds } }
-      : {};
-
-    // ═══ PHASE 1: All independent queries in parallel ═══
-    const results = await Promise.allSettled([
-      // 0: User status counts (filtered)
-      User.aggregate([
-        { $match: userFilter },
-        { $group: { _id: '$status', count: { $sum: 1 } } },
-      ]),
-      // 1: Attendance stats (filtered by user set)
-      Attendance.aggregate([
-        ...(filteredUserIds ? [{ $match: { userId: { $in: filteredUserIds } } }] : []),
-        { $group: { _id: null, total: { $sum: 1 }, present: { $sum: { $cond: [{ $in: ['$status', ['P', 'L']] }, 1, 0] } } } },
-      ]),
-      // 2: Recently active user IDs (for at-risk calc)
-      Attendance.distinct('userId', {
-        createdAt: { $gte: thirtyDaysAgo },
-        ...(filteredUserIds ? { userId: { $in: filteredUserIds } } : {}),
-      }),
-      // 3: Teams with class info
-      Team.find().populate('classId', 'courseName status').select('members classId').lean(),
-      // 4: All filtered participants
-      User.find(userFilter).select('_id status').lean(),
-      // 5: Drop reasons (filtered)
-      User.aggregate([
-        { $match: { ...userFilter, status: { $in: ['Inactive', 'Dropped'] }, dropReason: { $ne: '' } } },
-        { $project: { reason: { $cond: { if: { $regexMatch: { input: { $ifNull: ['$dropReason', ''] }, regex: / — / } }, then: { $arrayElemAt: [{ $split: ['$dropReason', ' — '] }, 1] }, else: '$dropReason' } } } },
-        { $group: { _id: '$reason', count: { $sum: 1 } } },
-        { $sort: { count: -1 } },
-        { $limit: 10 },
-      ]),
-      // 6: Drop classifications (filtered)
-      User.aggregate([
-        { $match: { ...userFilter, status: { $in: ['Inactive', 'Dropped'] }, dropReason: { $ne: '' } } },
-        { $project: { classification: { $cond: { if: { $regexMatch: { input: { $ifNull: ['$dropReason', ''] }, regex: / — / } }, then: { $arrayElemAt: [{ $split: ['$dropReason', ' — '] }, 0] }, else: '$dropReason' } } } },
-        { $group: { _id: '$classification', count: { $sum: 1 } } },
-        { $sort: { count: -1 } },
-      ]),
-      // 7: All classes
-      Class.find().sort({ classCode: 1 }).lean(),
-      // 8: Schedule counts by class
-      // Note: teacherId was removed from this aggregate (P2-09) — the field
-      // does not exist on the Schedule schema and always returned null.
-      // Teacher-of-record is not tracked at the schedule level in this version.
-      Schedule.aggregate([
-        // Live sessions only — durable-cancelled rows are history, not progress.
-        { $match: { status: 'scheduled' } },
-        { $group: { _id: '$classId', total: { $sum: 1 }, done: { $sum: { $cond: [{ $lt: ['$endTime', now] }, 1, 0] } } } },
-      ]),
-      // 9: BU (department) breakdown (filtered)
-      User.aggregate([
-        { $match: { ...userFilter, department: { $ne: '' } } },
-        { $group: { _id: { department: '$department', status: '$status' }, count: { $sum: 1 } } },
-        { $group: { _id: '$_id.department', statuses: { $push: { status: '$_id.status', count: '$count' } }, total: { $sum: '$count' } } },
-        { $sort: { total: -1 } },
-      ]),
-      // 10: Position breakdown (filtered)
-      User.aggregate([
-        { $match: { ...userFilter, position: { $ne: '' } } },
-        { $group: { _id: { position: '$position', status: '$status' }, count: { $sum: 1 } } },
-        { $group: { _id: '$_id.position', statuses: { $push: { status: '$_id.status', count: '$count' } }, total: { $sum: '$count' } } },
-        { $sort: { total: -1 } },
-      ]),
-      // 11: Entrance Level (filtered)
-      User.aggregate([
-        { $match: { ...userFilter, entranceLevel: { $ne: '' } } },
-        { $group: { _id: '$entranceLevel', count: { $sum: 1 } } },
-        { $sort: { count: -1 } },
-      ]),
-      // 12: Current Level (filtered)
-      User.aggregate([
-        { $match: { ...userFilter, currentLevel: { $ne: '' } } },
-        { $group: { _id: '$currentLevel', count: { $sum: 1 } } },
-        { $sort: { count: -1 } },
-      ]),
-      // 13: Level progression (filtered)
-      User.aggregate([
-        { $match: { ...userFilter, entranceLevel: { $ne: '' }, currentLevel: { $ne: '' } } },
-        { $project: { same: { $eq: ['$entranceLevel', '$currentLevel'] } } },
-        { $group: { _id: null, total: { $sum: 1 }, progressed: { $sum: { $cond: [{ $not: '$same' }, 1, 0] } }, stayed: { $sum: { $cond: ['$same', 1, 0] } } } },
-      ]),
-    ]);
+    // ═══ PHASE 1: All independent queries in parallel (repository) ═══
+    const results = await repository.runStatsAggregations({ userFilter, filteredUserIds, now, thirtyDaysAgo });
 
     // Safely extract values
     const safeValue = (r, fallback = []) => r.status === 'fulfilled' ? r.value : fallback;

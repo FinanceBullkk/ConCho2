@@ -138,6 +138,15 @@ Bug fixing and integration review rank above net-new feature rollout.
 > [`changelog-archive/2026-q2.md`](changelog-archive/2026-q2.md). Currently
 > inline: **2026-06-14 → 2026-06-17**.
 
+- **2026-06-17** — **Phase 0 readiness — slice 0.7 (dashboard analytics, no PG
+  footprint).** The admin analytics endpoint's data access moved behind
+  `controllers/dashboard/dashboard-stats-repository.js` (distinct dropdowns + the 14
+  parallel aggregations/finds); the controller keeps filter-building + PHASE-2
+  composition. Dropped a dead `attFilter` local. Added the endpoint's **first
+  integration test** (`dashboardStats.test.js` — shape, filter echo, ANALYTICS_READ
+  403). Pure refactor, behaviour identical. Remaining direct-Mongoose: class/user
+  legacy (0.8, Med) + auth/booking (0.9, High — deferred to gate-open).
+
 - **2026-06-17** — **Phase 0 readiness — slices 0.4 + 0.5 (more Mongo-coupling
   extracted, no PG footprint).** Three more legacy data-access leaks moved behind
   repositories (pure refactors, behaviour identical): `lib/branding.js` now reuses
