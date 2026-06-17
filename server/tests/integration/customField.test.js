@@ -82,6 +82,43 @@ describe('Custom fields — definition CRUD', () => {
   });
 });
 
+describe('Custom fields — drag-reorder', () => {
+  it('reorders an entity\'s fields and persists the new order (admin)', async () => {
+    const entity = 'Cohort';
+    const ids = [];
+    for (const key of ['rr_a', 'rr_b', 'rr_c']) {
+      const res = await asAdmin('post', '/api/custom-fields').send({ entity, key, label: key, type: 'text' });
+      expect(res.status).toBe(201);
+      ids.push(res.body.data._id);
+    }
+    const reversed = [ids[2], ids[1], ids[0]];
+    const reorder = await asAdmin('put', '/api/custom-fields/reorder').send({ entity, orderedIds: reversed });
+    expect(reorder.status).toBe(200);
+    expect(reorder.body.data.map((f) => f._id)).toEqual(reversed);
+
+    // The new order is persisted, not just echoed.
+    const list = await asAdmin('get', `/api/custom-fields?entity=${entity}`);
+    expect(list.body.data.map((f) => f._id)).toEqual(reversed);
+  });
+
+  it('rejects orderedIds that are not an exact permutation of the live fields (400)', async () => {
+    const entity = 'Session';
+    const made = await asAdmin('post', '/api/custom-fields').send({ entity, key: 'rr_only', label: 'Only', type: 'text' });
+    expect(made.status).toBe(201);
+    const bad = await asAdmin('put', '/api/custom-fields/reorder')
+      .send({ entity, orderedIds: [new mongoose.Types.ObjectId().toString()] });
+    expect(bad.status).toBe(400);
+  });
+
+  it('denies a non-admin (Teacher) reorder with 403', async () => {
+    const res = await request(app)
+      .put('/api/custom-fields/reorder')
+      .set('Authorization', `Bearer ${tokens.teacher}`).set(csrf)
+      .send({ entity: 'Program', orderedIds: [new mongoose.Types.ObjectId().toString()] });
+    expect(res.status).toBe(403);
+  });
+});
+
 describe('Custom fields — value round-trip on LearningProgram', () => {
   it('persists customFields on a program and returns them on create', async () => {
     const res = await asAdmin('post', '/api/learning/programs').send({

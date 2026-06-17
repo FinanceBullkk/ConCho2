@@ -12,6 +12,7 @@ vi.mock('../useCustomFields', () => ({
   useCustomFields: () => h.state,
   useCreateCustomField: () => ({ mutateAsync: vi.fn(), isPending: false }),
   useDeleteCustomField: () => ({ mutateAsync: vi.fn(), isPending: false }),
+  useReorderCustomFields: () => ({ mutate: vi.fn(), isPending: false }),
 }));
 
 const fields = [
@@ -43,6 +44,18 @@ describe('CustomFieldsPage', () => {
     // Add form + a remove control are present.
     expect(screen.getByText('customFields.addField')).toBeInTheDocument();
     expect(screen.getByLabelText(/customFields\.remove Budget code/)).toBeInTheDocument();
+  });
+
+  it('shows a drag handle per field when more than one exists (reorder)', () => {
+    h.state = { data: fields, isLoading: false, isError: false };
+    renderPage();
+    expect(screen.getAllByLabelText('customFields.reorder')).toHaveLength(2);
+  });
+
+  it('omits drag handles when only one field exists', () => {
+    h.state = { data: [fields[0]], isLoading: false, isError: false };
+    renderPage();
+    expect(screen.queryByLabelText('customFields.reorder')).toBeNull();
   });
 
   it('exposes the extended types + showIn toggles, and reveals options for multiselect', async () => {
