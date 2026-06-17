@@ -45,4 +45,24 @@ const archive = async (req, res) => {
   }
 };
 
-module.exports = { list, create, update, archive };
+const reorder = async (req, res) => {
+  try {
+    const { entity, orderedIds } = req.body;
+    const { before, after } = await useCases.reorderDefinitions(entity, orderedIds);
+    // One audit row for the whole reorder — bulk op has no single entityId.
+    // The diff is the compact key-sequence before vs after.
+    auditService.record({
+      req,
+      action: 'reordered',
+      entity: ENTITY,
+      entityId: null,
+      diff: { before: { order: before.map((f) => f.key) }, after: { order: after.map((f) => f.key) } },
+      note: `Reordered ${entity} custom fields`,
+    });
+    res.json({ success: true, count: after.length, data: after });
+  } catch (error) {
+    handleError(res, error);
+  }
+};
+
+module.exports = { list, create, update, archive, reorder };

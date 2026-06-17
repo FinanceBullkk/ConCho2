@@ -5,7 +5,7 @@ const { validate } = require('../../middleware/validate');
 const { idParam } = require('../../schemas/common');
 const { CAPABILITIES } = require('../../policy/capabilities');
 const controller = require('./controller');
-const { createBody, updateBody, listQuery } = require('./schemas');
+const { createBody, updateBody, listQuery, reorderBody } = require('./schemas');
 
 // ──────────────────────────────────────────────────────────
 // Custom fields (Studio ▸ Custom fields) — mounted at /api/custom-fields.
@@ -19,6 +19,9 @@ router
   .route('/')
   .get(validate({ query: listQuery }), controller.list)
   .post(validate({ body: createBody }), controller.create);
+
+// Bulk drag-reorder — registered before '/:id' so "reorder" isn't read as an id.
+router.put('/reorder', validate({ body: reorderBody }), controller.reorder);
 
 router
   .route('/:id')

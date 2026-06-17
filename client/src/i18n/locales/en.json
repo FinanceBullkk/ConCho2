@@ -160,6 +160,9 @@
     "added": "Custom field added",
     "removed": "Custom field removed",
     "saveFailed": "Save failed",
+    "reorder": "Reorder {{label}} — drag, or use arrow keys",
+    "reorderHint": "Drag to reorder · ↑/↓ to move",
+    "reorderFailed": "Could not save the new order",
     "loadError": "Could not load custom fields",
     "loadErrorDesc": "Refresh to try again. This surface is Admin-only."
   },

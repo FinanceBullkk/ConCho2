@@ -26,4 +26,18 @@ const softDelete = (id) =>
     { new: true },
   ).lean();
 
-module.exports = { list, create, findByIdLean, updateById, softDelete };
+// Persist a new display order: each id's `order` becomes its index in the list.
+// One bulkWrite = atomic-enough per document, no transaction/replica-set needed.
+// The `entity` in the filter guarantees a payload can only touch that entity's
+// own fields, never reach across entities.
+const reorder = (entity, orderedIds) =>
+  CustomFieldDefinition.bulkWrite(
+    orderedIds.map((id, index) => ({
+      updateOne: {
+        filter: { _id: id, entity, isDeleted: false },
+        update: { $set: { order: index } },
+      },
+    })),
+  );
+
+module.exports = { list, create, findByIdLean, updateById, softDelete, reorder };
