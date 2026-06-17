@@ -183,7 +183,7 @@ export default function VendorsPage() {
                         </td>
                         <td className="px-4 py-2">{t(`vendor.types.${v.type}`)}</td>
                         <td className="px-4 py-2 text-right tabular-nums text-muted-foreground">{v.deliversCount}</td>
-                        <td className="px-4 py-2"><Stars avg={v.ratingAvg} count={v.ratingCount} /></td>
+                        <td className="px-4 py-2"><Stars avg={v.ratingAvg} count={v.ratingCount} t={t} /></td>
                         <td className="px-4 py-2"><RenewalBadge status={v.renewalStatus} endsOn={v.latestContractEndsOn} t={t} /></td>
                         <td className="px-4 py-2 text-right">
                           {canManage && v.status !== 'archived' && (
