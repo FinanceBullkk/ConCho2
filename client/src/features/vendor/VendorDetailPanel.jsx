@@ -124,7 +124,7 @@ export default function VendorDetailPanel({ vendorId, canManage, programNameById
       </Block>
 
       <Block title={t('vendor.ratings')}>
-        <Stars avg={vendor.ratingAvg} count={vendor.ratingCount} />
+        <Stars avg={vendor.ratingAvg} count={vendor.ratingCount} t={t} />
         {canManage && <AddRatingForm vendorId={vendorId} />}
       </Block>
 

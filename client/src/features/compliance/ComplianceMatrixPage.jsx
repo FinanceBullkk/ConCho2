@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { ShieldCheck, Plus, Archive, ChevronDown, AlertTriangle } from 'lucide-react';
 import { PageHeader } from '@/components/PageHeader';
 import { Button } from '@/components/ui/button';
@@ -40,6 +41,7 @@ const heatBar = (pct) => {
 const fmtDate = (d) => (d ? new Date(d).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : '—');
 
 function NewRequirementForm({ programs, onClose }) {
+  const { t } = useTranslation();
   const create = useCreateRequirement();
   const [form, setForm] = useState(blankForm);
 
@@ -58,52 +60,53 @@ function NewRequirementForm({ programs, onClose }) {
   return (
     <form onSubmit={submit} className="bg-card border border-border rounded-lg p-4 flex flex-wrap items-end gap-3">
       <div className="flex flex-col gap-1">
-        <label htmlFor="rt-type" className="text-overline text-muted-foreground">Applies to</label>
+        <label htmlFor="rt-type" className="text-overline text-muted-foreground">{t('compliance.appliesTo')}</label>
         <select id="rt-type" value={form.type} onChange={(e) => setForm((f) => ({ ...f, type: e.target.value }))} className={inputCls}>
-          <option value="role">Role</option>
-          <option value="department">Department</option>
-          <option value="office">Office</option>
-          <option value="all">Everyone</option>
+          <option value="role">{t('compliance.role')}</option>
+          <option value="department">{t('compliance.department')}</option>
+          <option value="office">{t('compliance.office')}</option>
+          <option value="all">{t('compliance.everyone')}</option>
         </select>
       </div>
       {form.type !== 'all' && (
         <div className="flex flex-col gap-1">
-          <label htmlFor="rt-value" className="text-overline text-muted-foreground">{form.type === 'role' ? 'Role' : `${form.type} id`}</label>
+          <label htmlFor="rt-value" className="text-overline text-muted-foreground">{form.type === 'role' ? t('compliance.role') : t('compliance.idLabel', { type: form.type })}</label>
           {form.type === 'role' ? (
             <select id="rt-value" value={form.value} onChange={(e) => setForm((f) => ({ ...f, value: e.target.value }))} className={inputCls}>
               {ROLES.map((r) => <option key={r} value={r}>{r}</option>)}
             </select>
           ) : (
-            <input id="rt-value" value={form.value} onChange={(e) => setForm((f) => ({ ...f, value: e.target.value }))} placeholder={`${form.type} id`} className={`${inputCls} min-w-[200px]`} />
+            <input id="rt-value" value={form.value} onChange={(e) => setForm((f) => ({ ...f, value: e.target.value }))} placeholder={t('compliance.idLabel', { type: form.type })} className={`${inputCls} min-w-[200px]`} />
           )}
         </div>
       )}
       <div className="flex flex-col gap-1">
-        <label htmlFor="rt-prog" className="text-overline text-muted-foreground">Program</label>
+        <label htmlFor="rt-prog" className="text-overline text-muted-foreground">{t('compliance.program')}</label>
         <select id="rt-prog" value={form.programId} onChange={(e) => setForm((f) => ({ ...f, programId: e.target.value }))} className={`${inputCls} min-w-[180px]`}>
-          <option value="">Select…</option>
+          <option value="">{t('compliance.select')}</option>
           {programs.map((p) => <option key={p._id} value={p._id}>{p.name}</option>)}
         </select>
       </div>
       <div className="flex flex-col gap-1">
-        <label htmlFor="rt-due" className="text-overline text-muted-foreground">Due within (days)</label>
+        <label htmlFor="rt-due" className="text-overline text-muted-foreground">{t('compliance.dueWithinDays')}</label>
         <input id="rt-due" type="number" min="1" value={form.dueWithinDays} onChange={(e) => setForm((f) => ({ ...f, dueWithinDays: e.target.value }))} className={`${inputCls} w-28`} />
       </div>
       <div className="flex flex-col gap-1">
-        <label htmlFor="rt-rec" className="text-overline text-muted-foreground">Recurrence</label>
+        <label htmlFor="rt-rec" className="text-overline text-muted-foreground">{t('compliance.recurrence')}</label>
         <select id="rt-rec" value={form.recurrence} onChange={(e) => setForm((f) => ({ ...f, recurrence: e.target.value }))} className={inputCls}>
-          <option value="once">Once</option>
-          <option value="annual">Annual</option>
-          <option value="biennial">Biennial</option>
+          <option value="once">{t('compliance.once')}</option>
+          <option value="annual">{t('compliance.annual')}</option>
+          <option value="biennial">{t('compliance.biennial')}</option>
         </select>
       </div>
-      <Button type="submit" size="sm" disabled={create.isPending}><Plus className="size-3.5" aria-hidden="true" />Create</Button>
-      <Button type="button" size="sm" variant="ghost" onClick={onClose}>Cancel</Button>
+      <Button type="submit" size="sm" disabled={create.isPending}><Plus className="size-3.5" aria-hidden="true" />{t('compliance.create')}</Button>
+      <Button type="button" size="sm" variant="ghost" onClick={onClose}>{t('compliance.cancel')}</Button>
     </form>
   );
 }
 
 function MatrixRow({ row, canManage }) {
+  const { t } = useTranslation();
   const archive = useArchiveRequirement();
   const [open, setOpen] = useState(false);
   return (
@@ -115,8 +118,8 @@ function MatrixRow({ row, canManage }) {
             {row.label}
           </button>
         </td>
-        <td className="px-4 py-2 text-muted-foreground text-xs">{row.appliesTo?.type === 'all' ? 'Everyone' : `${row.appliesTo?.type}: ${row.appliesTo?.value?.slice?.(-8) || row.appliesTo?.value}`}</td>
-        <td className="px-4 py-2 text-muted-foreground text-xs whitespace-nowrap">{row.dueWithinDays}d · {row.recurrence}</td>
+        <td className="px-4 py-2 text-muted-foreground text-xs">{row.appliesTo?.type === 'all' ? t('compliance.everyone') : t('compliance.appliesValue', { type: row.appliesTo?.type, value: row.appliesTo?.value?.slice?.(-8) || row.appliesTo?.value })}</td>
+        <td className="px-4 py-2 text-muted-foreground text-xs whitespace-nowrap">{t('compliance.dueCell', { days: row.dueWithinDays, recurrence: row.recurrence })}</td>
         <td className="px-4 py-2 w-44">
           <div className="flex items-center gap-2">
             <span className="h-1.5 w-20 rounded-full bg-muted overflow-hidden"><span className={`block h-full ${heatBar(row.pct)}`} style={{ width: `${row.pct ?? 0}%` }} /></span>
@@ -126,7 +129,7 @@ function MatrixRow({ row, canManage }) {
         <td className="px-4 py-2 tabular-nums text-muted-foreground">{row.compliant}/{row.total}</td>
         <td className="px-4 py-2 tabular-nums">{row.overdue > 0 ? <span className="inline-flex items-center gap-1 text-destructive"><AlertTriangle className="size-3.5" aria-hidden="true" />{row.overdue}</span> : <span className="text-muted-foreground">0</span>}</td>
         <td className="px-4 py-2 text-right">
-          {canManage && <Button size="sm" variant="ghost" onClick={() => archive.mutate(row.id)} aria-label={`Archive ${row.label}`}><Archive className="size-3.5" aria-hidden="true" /></Button>}
+          {canManage && <Button size="sm" variant="ghost" onClick={() => archive.mutate(row.id)} aria-label={t('compliance.archiveAria', { label: row.label })}><Archive className="size-3.5" aria-hidden="true" /></Button>}
         </td>
       </tr>
       {open && (
@@ -134,17 +137,17 @@ function MatrixRow({ row, canManage }) {
           <td colSpan={7} className="px-4 py-3">
             {row.nonCompliant?.length ? (
               <div className="space-y-1">
-                <p className="text-xs font-medium text-muted-foreground">Non-compliant ({row.overdue + row.pending}{row.nonCompliant.length < (row.overdue + row.pending) ? `, showing ${row.nonCompliant.length}` : ''})</p>
+                <p className="text-xs font-medium text-muted-foreground">{t('compliance.nonCompliant', { count: row.overdue + row.pending })}{row.nonCompliant.length < (row.overdue + row.pending) ? t('compliance.showing', { n: row.nonCompliant.length }) : ''}</p>
                 <ul className="grid gap-1 sm:grid-cols-2">
                   {row.nonCompliant.map((n) => (
                     <li key={String(n.userId)} className="flex items-center justify-between gap-3 text-xs">
                       <span>{n.name} <span className="font-mono text-subtle-foreground">{n.empCode}</span></span>
-                      <span className={n.status === 'overdue' ? 'text-destructive' : 'text-warning'}>{n.status} · due {fmtDate(n.dueDate)}</span>
+                      <span className={n.status === 'overdue' ? 'text-destructive' : 'text-warning'}>{t('compliance.statusDue', { status: n.status, date: fmtDate(n.dueDate) })}</span>
                     </li>
                   ))}
                 </ul>
               </div>
-            ) : <p className="text-xs text-success">Everyone matched is compliant.</p>}
+            ) : <p className="text-xs text-success">{t('compliance.allCompliant')}</p>}
           </td>
         </tr>
       )}
@@ -153,6 +156,7 @@ function MatrixRow({ row, canManage }) {
 }
 
 export default function ComplianceMatrixPage() {
+  const { t } = useTranslation();
   const { can } = useRole();
   const canManage = can('manage:compliance');
   const [showForm, setShowForm] = useState(false);
@@ -164,9 +168,9 @@ export default function ComplianceMatrixPage() {
   return (
     <div className="space-y-4">
       <div className="flex items-start justify-between gap-4">
-        <PageHeader title="Compliance matrix" description="Define required training per role/department and track live compliance. Status is derived from certificates — never stored." />
+        <PageHeader title={t('compliance.title')} description={t('compliance.description')} />
         {canManage && !showForm && (
-          <Button size="sm" onClick={() => setShowForm(true)} className="shrink-0 mt-1"><Plus className="size-3.5" aria-hidden="true" />New requirement</Button>
+          <Button size="sm" onClick={() => setShowForm(true)} className="shrink-0 mt-1"><Plus className="size-3.5" aria-hidden="true" />{t('compliance.newRequirement')}</Button>
         )}
       </div>
 
@@ -174,8 +178,8 @@ export default function ComplianceMatrixPage() {
 
       {data?.summary && (
         <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground" aria-live="polite">
-          <span>{data.summary.requirements} requirement(s)</span>·<span>{data.summary.employees} employees</span>
-          {data.summary.overdueTotal > 0 && <span className="inline-flex items-center gap-1 text-destructive"><AlertTriangle className="size-3.5" aria-hidden="true" />{data.summary.overdueTotal} overdue</span>}
+          <span>{t('compliance.requirementsCount', { count: data.summary.requirements })}</span>·<span>{t('compliance.employeesCount', { count: data.summary.employees })}</span>
+          {data.summary.overdueTotal > 0 && <span className="inline-flex items-center gap-1 text-destructive"><AlertTriangle className="size-3.5" aria-hidden="true" />{t('compliance.overdueCount', { count: data.summary.overdueTotal })}</span>}
         </div>
       )}
 
@@ -183,20 +187,20 @@ export default function ComplianceMatrixPage() {
         {isLoading ? (
           <div className="py-12 flex justify-center"><Spinner size={24} /></div>
         ) : isError ? (
-          <div className="py-10 text-center text-destructive text-sm">Could not load the compliance matrix.</div>
+          <div className="py-10 text-center text-destructive text-sm">{t('compliance.loadError')}</div>
         ) : rows.length === 0 ? (
-          <EmptyState icon={ShieldCheck} title="No requirements yet" description={canManage ? 'Create a required-training rule to start tracking compliance.' : 'No required-training rules defined.'} />
+          <EmptyState icon={ShieldCheck} title={t('compliance.emptyTitle')} description={canManage ? t('compliance.emptyManage') : t('compliance.emptyRead')} />
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-border text-left">
-                  <th scope="col" className="px-4 py-2 text-overline text-muted-foreground">Requirement</th>
-                  <th scope="col" className="px-4 py-2 text-overline text-muted-foreground">Applies to</th>
-                  <th scope="col" className="px-4 py-2 text-overline text-muted-foreground">Due</th>
-                  <th scope="col" className="px-4 py-2 text-overline text-muted-foreground">Compliance</th>
-                  <th scope="col" className="px-4 py-2 text-overline text-muted-foreground">Done</th>
-                  <th scope="col" className="px-4 py-2 text-overline text-muted-foreground">Overdue</th>
+                  <th scope="col" className="px-4 py-2 text-overline text-muted-foreground">{t('compliance.colRequirement')}</th>
+                  <th scope="col" className="px-4 py-2 text-overline text-muted-foreground">{t('compliance.appliesTo')}</th>
+                  <th scope="col" className="px-4 py-2 text-overline text-muted-foreground">{t('compliance.colDue')}</th>
+                  <th scope="col" className="px-4 py-2 text-overline text-muted-foreground">{t('compliance.colCompliance')}</th>
+                  <th scope="col" className="px-4 py-2 text-overline text-muted-foreground">{t('compliance.colDone')}</th>
+                  <th scope="col" className="px-4 py-2 text-overline text-muted-foreground">{t('compliance.colOverdue')}</th>
                   <th scope="col" className="px-4 py-2 w-12" />
                 </tr>
               </thead>
