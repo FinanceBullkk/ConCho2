@@ -1,28 +1,12 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
-import { useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
 import { useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { ShieldAlert, LogOut, BarChart3, Pencil, Trash2, RefreshCw, Download, Building2 } from 'lucide-react';
+import { RefreshCw, Download } from 'lucide-react';
 import StudentProgressModal from '../../components/Progress/StudentProgressModal';
 import OrgAssignmentModal from '../../components/OrgAssignmentModal';
 import Portal from '../../components/Portal';
-import { useCustomFields } from '../custom-fields/useCustomFields';
-import { CustomFieldInput } from '../custom-fields/custom-field-input';
-import {
-  Dialog, DialogContent, DialogHeader, DialogFooter, DialogTitle,
-} from '@/components/ui/dialog';
-import { useUsers, useCreateUser, useUpdateUser, useDeleteUser } from '../../hooks/useUsers';
-import { useTeams } from '../../hooks/useTeams';
-import { qk } from '../../hooks/queryKeys';
-import { useAuth } from '../../context/AuthContext';
-import { useRole } from '../../hooks/useRole';
-import { useListUrlState } from '../../hooks/useListUrlState';
-import { authAPI } from '../../api/api';
-import { createUserSchema, editUserSchema } from '../../lib/validations';
 import { DataTable } from '../../components/DataTable';
 import { FilterBar } from '../../components/FilterBar';
-import { StatusBadge } from '../../components/StatusBadge';
 import { StatusChips } from '../../components/StatusChips';
 import { ActiveFilterChips } from '../../components/ActiveFilterChips';
 import { SelectionBar } from '../../components/SelectionBar';
@@ -31,231 +15,22 @@ import { Button } from '@/components/ui/button';
 import {
   DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem,
 } from '@/components/ui/dropdown-menu';
-import { Spinner } from '../../components/Spinner';
-import { cn } from '@/lib/utils';
+import { useUsers, useUpdateUser, useDeleteUser } from '../../hooks/useUsers';
+import { useTeams } from '../../hooks/useTeams';
+import { qk } from '../../hooks/queryKeys';
+import { useAuth } from '../../context/AuthContext';
+import { useRole } from '../../hooks/useRole';
+import { useListUrlState } from '../../hooks/useListUrlState';
+import { authAPI } from '../../api/api';
+import UserModal from './UserModal';
+import AdminActionModal from './AdminActionModal';
+import { buildUserColumns } from './user-columns';
+import { ROLES, STATUSES, STATUS_CHIPS, PAGE_SIZE, BULK_TYPE_CONFIRM_THRESHOLD } from './users-constants';
 
-// Per Screen 5 §E (Users variant):
-//   facets: status · role · BU · level    bulk: change status · change role · export · delete
-const ROLES         = ['Admin', 'Coordinator', 'Teacher', 'Participant'];
-const STATUSES      = ['Active', 'Inactive', 'Dropped', 'Transferred', 'On-hold', 'Waiting for class'];
-const STATUS_CHIPS  = ['Active', 'Inactive', 'On-hold'];   // primary axis per design
-const PAGE_SIZE     = 50;
-const BULK_TYPE_CONFIRM_THRESHOLD = 5;   // §D rule 10
-
-// ── Shared input class for UserModal ──────────────────────
-const INPUT_CLS =
-  'w-full px-3 h-(--control-h) rounded-md bg-background border border-input text-foreground placeholder:text-subtle-foreground focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-40 transition-colors duration-(--dur-fast)';
-
-// ── UserModal ─────────────────────────────────────────────
-
-function UserModal({ user, onClose, onSaved }) {
-  const isEdit = !!user?._id;
-  const { user: currentUser } = useAuth();
-  const isSelf = isEdit && user?._id === currentUser?._id;
-  const createMutation = useCreateUser();
-  const updateMutation = useUpdateUser();
-  const saving = createMutation.isPending || updateMutation.isPending;
-
-  // Admin-defined User custom fields (shown on the form surface).
-  const { data: cfDefs = [] } = useCustomFields({ entity: 'User' });
-  const formFields = cfDefs.filter((f) => (f.showIn || ['form']).includes('form'));
-  const [cfValues, setCfValues] = useState(() => user?.customFields || {});
-
-  const {
-    register,
-    handleSubmit,
-    watch,
-    setError,
-    formState: { errors },
-  } = useForm({
-    resolver: zodResolver(isEdit ? editUserSchema : createUserSchema),
-    defaultValues: {
-      empCode:         user?.empCode || '',
-      name:            user?.name || '',
-      email:           user?.email || '',
-      role:            user?.role || 'Participant',
-      department:      user?.department || '',
-      position:        user?.position || '',
-      status:          user?.status || 'Active',
-      dropReason:      user?.dropReason || '',
-      password:        '',
-      currentPassword: '',
-    },
-  });
-
-  const watchedPassword = watch('password');
-  const watchedRole     = watch('role');
-  const currentStatus   = watch('status');
-
-  const needsReauth = isEdit && !isSelf && (
-    !!watchedPassword || watchedRole !== (user?.role || 'Participant')
-  );
-
-  const onSubmit = handleSubmit(async (data) => {
-    try {
-      const payload = { ...data };
-      if (isEdit && !payload.password)        delete payload.password;
-      if (!payload.email)                     delete payload.email;
-      if (!payload.currentPassword)           delete payload.currentPassword;
-      if (formFields.length)                  payload.customFields = cfValues;
-      if (isEdit) await updateMutation.mutateAsync({ id: user._id, data: payload });
-      else        await createMutation.mutateAsync(payload);
-      onSaved();
-    } catch (err) {
-      const serverMsg = err.response?.data?.message || 'Save failed';
-      if (err.response?.data?.requiresReauth) {
-        setError('currentPassword', { message: 'Enter your admin password to confirm this change' });
-      } else {
-        setError('root', { message: serverMsg });
-      }
-    }
-  });
-
-  const SELECT_CLS =
-    'w-full px-3 h-(--control-h) rounded-md bg-background border border-input text-foreground focus:outline-none focus:ring-2 focus:ring-ring transition-colors duration-(--dur-fast)';
-
-  // Audit PR N (FE-010): hand-rolled overlay replaced with Radix Dialog.
-  // Radix handles focus-trap, ESC-to-close, click-outside-to-close, ARIA
-  // labelling and aria-modal natively. Open state is controlled — closing
-  // the dialog calls back to the parent's setEditing(null) via onClose.
-  return (
-    <Dialog open onOpenChange={(open) => { if (!open) onClose(); }}>
-      <DialogContent
-        className="max-w-md max-h-[92vh] grid-rows-[auto_minmax(0,1fr)_auto] p-0 gap-0"
-        aria-label={isEdit ? 'Edit user' : 'Create user'}
-        onOpenAutoFocus={(e) => {
-          // First field is empCode (disabled on edit). Let Radix default-focus
-          // the first focusable element. Prevent autofocus jump on edit so
-          // the dialog opens neutral instead of grabbing the name field.
-          if (isEdit) e.preventDefault();
-        }}
-      >
-        <form onSubmit={onSubmit} noValidate className="flex flex-col min-h-0">
-        {/* ── Sticky header ── */}
-        <DialogHeader className="px-6 pt-6 pb-4 border-b border-border shrink-0">
-          <DialogTitle className="text-h3 text-foreground">{isEdit ? 'Edit User' : 'Create User'}</DialogTitle>
-        </DialogHeader>
-
-        {/* ── Scrollable body ── */}
-        <div className="overflow-y-auto flex-1 px-6 py-4 space-y-4">
-          {errors.root && (
-            <div role="alert" className="px-3 py-2 rounded-md bg-destructive-tint border border-destructive/30 text-destructive text-sm">
-              {errors.root.message}
-            </div>
-          )}
-
-          {[
-            { name: 'empCode',  label: 'Employee Code',                           type: 'text',     placeholder: 'e.g. 000123',           disabled: isEdit },
-            { name: 'name',     label: 'Full Name',                                type: 'text',     placeholder: 'Full name' },
-            { name: 'email',    label: 'Email (Workspace)',                        type: 'email',    placeholder: 'name@yourdomain.com',   help: 'Required for Google Calendar invites' },
-            { name: 'department', label: 'BU / Department',                       type: 'text',     placeholder: 'e.g. Sales, HR' },
-            { name: 'position', label: 'Position',                                 type: 'text',     placeholder: 'e.g. DEV, QC, Designer' },
-            { name: 'password', label: isEdit ? 'New Password (leave blank to keep)' : 'Password', type: 'password', placeholder: '••••••••' },
-          ].map(({ name, label, type, placeholder, disabled, help }) => (
-            <div key={name}>
-              <label htmlFor={name} className="block text-small text-muted-foreground mb-1.5">{label}</label>
-              <input
-                id={name}
-                type={type}
-                placeholder={placeholder}
-                disabled={disabled}
-                aria-invalid={!!errors[name]}
-                aria-describedby={errors[name] ? `${name}-error` : undefined}
-                className={cn(INPUT_CLS, errors[name] ? 'border-destructive' : 'border-input')}
-                {...register(name)}
-              />
-              {errors[name] && (
-                <p id={`${name}-error`} role="alert" className="mt-1 text-xs text-destructive">{errors[name].message}</p>
-              )}
-              {help && !errors[name] && <p className="text-[11px] text-subtle-foreground mt-1">{help}</p>}
-            </div>
-          ))}
-
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label htmlFor="role" className="block text-small text-muted-foreground mb-1.5">Role</label>
-              <select id="role" className={SELECT_CLS} {...register('role')}>
-                {ROLES.map((r) => <option key={r} value={r} className="bg-popover">{r}</option>)}
-              </select>
-            </div>
-            <div>
-              <label htmlFor="status" className="block text-small text-muted-foreground mb-1.5">Status</label>
-              <select id="status" className={SELECT_CLS} {...register('status')}>
-                {STATUSES.map((s) => <option key={s} value={s} className="bg-popover">{s}</option>)}
-              </select>
-            </div>
-          </div>
-
-          {/* Admin-defined custom fields (CustomFieldDefinition entity='User') */}
-          {formFields.length > 0 && (
-            <div className="space-y-3 border-t border-border pt-4">
-              {formFields.map((f) => (
-                <CustomFieldInput
-                  key={f._id}
-                  def={f}
-                  value={cfValues[f.key]}
-                  onChange={(v) => setCfValues((prev) => ({ ...prev, [f.key]: v }))}
-                />
-              ))}
-            </div>
-          )}
-
-          {/* Re-auth confirmation */}
-          {needsReauth && (
-            <div className="rounded-md border border-warning/30 bg-warning-tint p-3 space-y-2">
-              <p className="text-xs text-warning flex items-center gap-1.5">
-                <svg className="w-3.5 h-3.5 shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                  <path fillRule="evenodd" d="M8.485 2.495c.673-1.167 2.357-1.167 3.03 0l6.28 10.875c.673 1.167-.17 2.625-1.516 2.625H3.72c-1.347 0-2.189-1.458-1.515-2.625L8.485 2.495zM10 5a.75.75 0 01.75.75v3.5a.75.75 0 01-1.5 0v-3.5A.75.75 0 0110 5zm0 9a1 1 0 100-2 1 1 0 000 2z" clipRule="evenodd"/>
-                </svg>
-                Confirm your identity to change another user&apos;s password or role
-              </p>
-              <div>
-                <label htmlFor="currentPassword" className="block text-small text-muted-foreground mb-1.5">Your admin password</label>
-                <input
-                  id="currentPassword"
-                  type="password"
-                  placeholder="Enter your own password"
-                  aria-invalid={!!errors.currentPassword}
-                  className={cn(INPUT_CLS, errors.currentPassword ? 'border-warning' : 'border-warning/40')}
-                  {...register('currentPassword')}
-                />
-                {errors.currentPassword && (
-                  <p role="alert" className="mt-1 text-xs text-warning">{errors.currentPassword.message}</p>
-                )}
-              </div>
-            </div>
-          )}
-
-          {/* Drop Reason */}
-          {['Dropped', 'Inactive', 'Transferred'].includes(currentStatus) && (
-            <div>
-              <label htmlFor="dropReason" className="block text-small text-muted-foreground mb-1.5">Drop / Leave Reason</label>
-              <input
-                id="dropReason"
-                type="text"
-                placeholder="e.g. High workload, Learning goal achieved"
-                className={cn(INPUT_CLS, 'border-input')}
-                {...register('dropReason')}
-              />
-            </div>
-          )}
-        </div>
-
-        {/* ── Sticky footer ── */}
-        <DialogFooter className="px-6 pb-6 pt-4 border-t border-border shrink-0 flex flex-row gap-3 sm:justify-stretch">
-          <Button type="button" variant="outline" className="flex-1" onClick={onClose}>Cancel</Button>
-          <Button type="submit" className="flex-1" disabled={saving}>
-            {saving ? <><Spinner size={14} />Saving…</> : isEdit ? 'Update' : 'Create'}
-          </Button>
-        </DialogFooter>
-        </form>
-      </DialogContent>
-    </Dialog>
-  );
-}
-
-// ── Main page ─────────────────────────────────────────────
-
+// ── Users page (shell) ────────────────────────────────────
+// The form modal (UserModal), the table columns (user-columns) and the
+// admin-action confirm modal (AdminActionModal) live in sibling files; this
+// file orchestrates state, filters, bulk actions and the table.
 export default function UsersPage() {
   const queryClient = useQueryClient();
   const { user: currentUser, isAdmin } = useAuth();
@@ -438,168 +213,14 @@ export default function UsersPage() {
     return chips;
   }, [list]);
 
-  // ── DataTable column definitions ────────────────────────
-  const columns = useMemo(() => [
-    {
-      key: 'empCode', header: 'Code', sortable: true, width: 90,
-      render: (u) => <span className="font-mono text-primary font-medium text-xs">{u.empCode}</span>,
-    },
-    {
-      // UX-02: cap name width so very long Vietnamese names don't widen the
-      // whole row when sort puts them at the top.
-      key: 'name', header: 'Name', sortable: true, width: 220,
-      render: (u) => (
-        <div className="min-w-0">
-          <button
-            onClick={() => setProgressModal({ id: u._id, name: u.name })}
-            className="font-medium text-foreground text-sm hover:text-info hover:underline transition-colors text-left truncate max-w-full"
-            title={u.name}
-          >
-            {u.name}
-          </button>
-          {u.role !== 'Participant' && (
-            <StatusBadge status={u.role} size="sm" className="ml-2" />
-          )}
-        </div>
-      ),
-    },
-    {
-      // UX-02: cap email column width to keep table layout stable when sort
-      // brings users with long emails to the top — otherwise the email cell
-      // expanded and pushed the ACTIONS column off-screen.
-      key: 'email', header: 'Email', sortable: true, width: 200,
-      render: (u) => u.email
-        ? <span className="font-mono text-xs text-muted-foreground block truncate max-w-[180px]" title={u.email}>{u.email}</span>
-        : <span className="text-warning/70 text-xs" title="No email set — won't receive Calendar invites">—</span>,
-    },
-    {
-      key: 'department', header: 'BU', sortable: true, width: 110,
-      render: (u) => <span className="text-muted-foreground text-xs truncate block max-w-full" title={u.department}>{u.department || '—'}</span>,
-    },
-    {
-      key: 'position', header: 'Position', sortable: true, width: 110,
-      render: (u) => <span className="text-muted-foreground text-xs truncate block max-w-full" title={u.position}>{u.position || '—'}</span>,
-    },
-    {
-      key: 'currentLevel', header: 'Level', sortable: true, width: 130,
-      render: (u) => (u.entranceLevel || u.currentLevel) ? (
-        <div className="min-w-0">
-          {u.currentLevel && <div className="text-xs font-medium text-foreground truncate" title={u.currentLevel}>{u.currentLevel}</div>}
-          {u.entranceLevel && u.entranceLevel !== u.currentLevel && (
-            <div className="text-[10px] text-subtle-foreground truncate" title={`from ${u.entranceLevel}`}>from {u.entranceLevel}</div>
-          )}
-        </div>
-      ) : <span className="text-xs text-subtle-foreground">—</span>,
-    },
-    {
-      key: 'status', header: 'Status', sortable: true, width: 130,
-      render: (u) => (
-        <div className="min-w-0">
-          <StatusBadge status={u.status} size="sm" />
-          {u.dropReason && (
-            <div className="text-[10px] text-subtle-foreground mt-0.5 truncate max-w-[120px]" title={u.dropReason}>
-              {u.dropReason}
-            </div>
-          )}
-        </div>
-      ),
-    },
-    {
-      key: '_team', header: 'Team / Class', width: 170,
-      render: (u) => teamsByUser[u._id] ? (
-        <div className="min-w-0">
-          <div className="text-xs font-medium text-foreground truncate" title={teamsByUser[u._id].teamName}>{teamsByUser[u._id].teamName}</div>
-          {teamsByUser[u._id].classCode && (
-            <div className="text-[10px] text-subtle-foreground truncate" title={`${teamsByUser[u._id].classCode} — ${teamsByUser[u._id].courseName}`}>
-              {teamsByUser[u._id].classCode} — {teamsByUser[u._id].courseName}
-            </div>
-          )}
-        </div>
-      ) : <span className="text-xs text-subtle-foreground italic">—</span>,
-    },
-    {
-      key: 'lastActive', header: 'Last Active', width: 100,
-      render: (u) => u.lastActive ? (
-        <div>
-          <div className="text-xs text-foreground">
-            {new Date(u.lastActive).toLocaleDateString('en', { day: '2-digit', month: 'short' })}
-          </div>
-          <div className={cn('text-[10px] font-semibold tabular-nums', u.daysSince > 30 ? 'text-destructive' : u.daysSince > 14 ? 'text-warning' : 'text-subtle-foreground')}>
-            {u.daysSince}d ago{u.daysSince > 30 ? ' !' : ''}
-          </div>
-        </div>
-      ) : <span className="text-xs text-subtle-foreground">—</span>,
-    },
-    {
-      key: '_actions', header: 'Actions', width: 170,
-      render: (u) => (
-        <div className="flex gap-1 flex-wrap">
-          <Button
-            size="sm" variant="ghost"
-            onClick={() => setProgressModal({ id: u._id, name: u.name })}
-            title="View Progress"
-            className="h-7 px-2 text-muted-foreground hover:text-info hover:bg-info/10"
-          >
-            <BarChart3 className="size-3.5" aria-hidden="true" />
-          </Button>
-          {can('update:user') && (
-            <Button
-              size="sm" variant="ghost"
-              onClick={() => setModal(u)}
-              title="Edit user"
-              className="h-7 px-2 text-muted-foreground hover:text-primary hover:bg-primary/10"
-            >
-              <Pencil className="size-3.5" aria-hidden="true" />
-            </Button>
-          )}
-          {can('assign:org') && (
-            <Button
-              size="sm" variant="ghost"
-              onClick={() => setAssignModal(u)}
-              title="Assign manager / department"
-              className="h-7 px-2 text-muted-foreground hover:text-primary hover:bg-primary/10"
-            >
-              <Building2 className="size-3.5" aria-hidden="true" />
-            </Button>
-          )}
-          {can('delete:user') && (
-            <Button
-              size="sm" variant="ghost"
-              onClick={() => setDeleteId(u._id)}
-              title="Delete user"
-              className="h-7 px-2 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
-            >
-              <Trash2 className="size-3.5" aria-hidden="true" />
-            </Button>
-          )}
-          {u._id !== currentUser?._id && (
-            <>
-              {can('force-logout:user') && (
-                <Button
-                  size="sm" variant="ghost"
-                  onClick={() => openAdminAction({ type: 'force-logout', userId: u._id, userName: u.name })}
-                  title="Force logout — invalidate all active sessions"
-                  className="h-7 px-2 text-muted-foreground hover:text-warning hover:bg-warning/10"
-                >
-                  <LogOut className="size-3.5" aria-hidden="true" />
-                </Button>
-              )}
-              {u.mfaEnabled && can('disable-mfa:user') && (
-                <Button
-                  size="sm" variant="ghost"
-                  onClick={() => openAdminAction({ type: 'reset-mfa', userId: u._id, userName: u.name })}
-                  title="Disable MFA — user can log in without 2FA until re-enrolled"
-                  className="h-7 px-2 text-muted-foreground hover:text-warning hover:bg-warning/10"
-                >
-                  <ShieldAlert className="size-3.5" aria-hidden="true" />
-                </Button>
-              )}
-            </>
-          )}
-        </div>
-      ),
-    },
-  ], [teamsByUser, can, currentUser?._id, openAdminAction]);
+  // ── DataTable column definitions (built in ./user-columns) ──
+  const columns = useMemo(
+    () => buildUserColumns({
+      teamsByUser, can, currentUserId: currentUser?._id,
+      setProgressModal, setModal, setAssignModal, setDeleteId, openAdminAction,
+    }),
+    [teamsByUser, can, currentUser?._id, openAdminAction],
+  );
 
   return (
     <div className="space-y-5">
@@ -780,60 +401,15 @@ export default function UsersPage() {
 
       {/* ── Admin action confirmation ────────────────────── */}
       {adminAction && (
-        <Portal>
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
-          <div className="bg-card border border-border rounded-lg p-6 max-w-sm mx-4 space-y-4">
-            <div className="flex items-center justify-center size-10 mx-auto rounded-md bg-warning-tint">
-              {adminAction.type === 'force-logout'
-                ? <LogOut className="size-5 text-warning" aria-hidden="true" />
-                : <ShieldAlert className="size-5 text-warning" aria-hidden="true" />
-              }
-            </div>
-            <h3 className="text-h3 text-foreground text-center">
-              {adminAction.type === 'force-logout' ? 'Force Logout' : 'Disable MFA'}
-            </h3>
-            <p className="text-body text-muted-foreground text-center">
-              {adminAction.type === 'force-logout'
-                ? <>Invalidate all active sessions for <span className="text-foreground font-medium">{adminAction.userName}</span>? They will need to log in again immediately.</>
-                : <>Disable 2FA for <span className="text-foreground font-medium">{adminAction.userName}</span>? They can log in without a code until they re-enroll.</>
-              }
-            </p>
-            <div className="space-y-2">
-              <label htmlFor="admin-action-password" className="block text-sm font-medium text-foreground">
-                Your admin password
-              </label>
-              <input
-                id="admin-action-password"
-                type="password"
-                autoComplete="current-password"
-                className={INPUT_CLS}
-                value={adminActionPassword}
-                onChange={(event) => setAdminActionPassword(event.target.value)}
-                disabled={adminActionLoading}
-              />
-            </div>
-            {adminActionError && (
-              <div className="px-3 py-2 rounded-md bg-destructive-tint border border-destructive/30 text-destructive text-sm text-center">
-                {adminActionError}
-              </div>
-            )}
-            <div className="flex gap-3">
-              <Button
-                variant="outline" className="flex-1"
-                onClick={closeAdminAction}
-                disabled={adminActionLoading}
-              >Cancel</Button>
-              <Button
-                variant="default" className="flex-1 bg-warning text-warning-foreground hover:bg-warning/90"
-                onClick={handleAdminAction}
-                disabled={adminActionLoading}
-              >
-                {adminActionLoading ? <><Spinner size={14} />Processing…</> : 'Confirm'}
-              </Button>
-            </div>
-          </div>
-        </div>
-        </Portal>
+        <AdminActionModal
+          action={adminAction}
+          password={adminActionPassword}
+          error={adminActionError}
+          loading={adminActionLoading}
+          onPasswordChange={setAdminActionPassword}
+          onConfirm={handleAdminAction}
+          onCancel={closeAdminAction}
+        />
       )}
     </div>
   );
