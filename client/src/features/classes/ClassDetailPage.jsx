@@ -94,16 +94,16 @@ function EditClassModal({ cls, onClose }) {
           </DialogHeader>
           {error && <div className="px-4 py-2 rounded-md bg-destructive/10 border border-destructive/20 text-destructive text-sm">{error}</div>}
           <div>
-            <label className="block text-small text-muted-foreground mb-1">Status</label>
-            <select value={status} onChange={(e) => setStatus(e.target.value)}
+            <label htmlFor="class-status" className="block text-small text-muted-foreground mb-1">Status</label>
+            <select id="class-status" value={status} onChange={(e) => setStatus(e.target.value)}
               className="w-full px-3 h-(--control-h) rounded-md bg-background border border-input text-foreground focus:outline-none focus:ring-2 focus:ring-ring transition-colors">
               <option value="Ongoing">Ongoing</option>
               <option value="Completed">Completed</option>
             </select>
           </div>
           <div>
-            <label className="block text-small text-muted-foreground mb-1">Total Sessions</label>
-            <input type="number" value={totalSessions} onChange={(e) => setTotalSessions(Number(e.target.value))} min={1}
+            <label htmlFor="class-total-sessions" className="block text-small text-muted-foreground mb-1">Total Sessions</label>
+            <input id="class-total-sessions" type="number" value={totalSessions} onChange={(e) => setTotalSessions(Number(e.target.value))} min={1}
               className="w-full px-3 h-(--control-h) rounded-md bg-background border border-input text-foreground focus:outline-none focus:ring-2 focus:ring-ring transition-colors" />
           </div>
           <div className="flex gap-3 pt-2">

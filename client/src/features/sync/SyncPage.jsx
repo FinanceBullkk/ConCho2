@@ -85,8 +85,9 @@ export default function SyncPage() {
 
         <div className="grid gap-4 sm:grid-cols-3">
           <div className="sm:col-span-3 space-y-1.5">
-            <label className="text-overline text-muted-foreground">Spreadsheet ID</label>
+            <label htmlFor="sync-spreadsheet-id" className="text-overline text-muted-foreground">Spreadsheet ID</label>
             <Input
+              id="sync-spreadsheet-id"
               type="text"
               value={spreadsheetId}
               onChange={(e) => setSpreadsheetId(e.target.value)}
@@ -100,8 +101,9 @@ export default function SyncPage() {
           </div>
 
           <div className="space-y-1.5">
-            <label className="text-overline text-muted-foreground">Sheet name</label>
+            <label htmlFor="sync-sheet-name" className="text-overline text-muted-foreground">Sheet name</label>
             <Input
+              id="sync-sheet-name"
               type="text"
               value={sheetName}
               onChange={(e) => setSheetName(e.target.value)}
@@ -109,8 +111,9 @@ export default function SyncPage() {
           </div>
 
           <div className="space-y-1.5">
-            <label className="text-overline text-muted-foreground">Cell range</label>
+            <label htmlFor="sync-cell-range" className="text-overline text-muted-foreground">Cell range</label>
             <Input
+              id="sync-cell-range"
               type="text"
               value={range}
               onChange={(e) => setRange(e.target.value)}

@@ -188,8 +188,9 @@ function ScheduleDrawerContent({
 
         <form id="schedule-form" onSubmit={handleSubmit} className="space-y-3">
           <div>
-            <label className="block text-[11px] text-muted-foreground mb-1 font-medium">Team</label>
+            <label htmlFor="sched-team" className="block text-[11px] text-muted-foreground mb-1 font-medium">Team</label>
             <select
+              id="sched-team"
               value={form.bookedTeamId}
               onChange={e => handleTeamChange(e.target.value)}
               required
@@ -219,8 +220,9 @@ function ScheduleDrawerContent({
 
           <div className="grid grid-cols-2 gap-2">
             <div>
-              <label className="block text-[11px] text-muted-foreground mb-1 font-medium">Start</label>
+              <label htmlFor="sched-start" className="block text-[11px] text-muted-foreground mb-1 font-medium">Start</label>
               <input
+                id="sched-start"
                 type="datetime-local"
                 value={form.startTime}
                 onChange={e => f('startTime', e.target.value)}
@@ -230,8 +232,9 @@ function ScheduleDrawerContent({
               />
             </div>
             <div>
-              <label className="block text-[11px] text-muted-foreground mb-1 font-medium">End</label>
+              <label htmlFor="sched-end" className="block text-[11px] text-muted-foreground mb-1 font-medium">End</label>
               <input
+                id="sched-end"
                 type="datetime-local"
                 value={form.endTime}
                 onChange={e => f('endTime', e.target.value)}
@@ -243,10 +246,11 @@ function ScheduleDrawerContent({
           </div>
 
           <div>
-            <label className="block text-[11px] text-muted-foreground mb-1 font-medium">
+            <label htmlFor="sched-room" className="block text-[11px] text-muted-foreground mb-1 font-medium">
               Room / Link <span className="font-normal text-subtle-foreground">(optional)</span>
             </label>
             <input
+              id="sched-room"
               type="text"
               value={form.roomLink}
               onChange={e => f('roomLink', e.target.value)}
@@ -257,8 +261,9 @@ function ScheduleDrawerContent({
           </div>
 
           <div>
-            <label className="block text-[11px] text-muted-foreground mb-1 font-medium">Capacity</label>
+            <label htmlFor="sched-capacity" className="block text-[11px] text-muted-foreground mb-1 font-medium">Capacity</label>
             <input
+              id="sched-capacity"
               type="number"
               value={form.capacity}
               onChange={e => f('capacity', Number(e.target.value))}

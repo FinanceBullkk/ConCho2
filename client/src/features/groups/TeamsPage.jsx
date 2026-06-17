@@ -123,13 +123,13 @@ function TeamModal({ team, participants, classes, teams, onClose, onSaved }) {
         {/* ── Top fields: 2-column layout ─────────────── */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
-            <label className="block text-small text-muted-foreground mb-1">Team Name</label>
-            <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Team name" required
+            <label htmlFor="team-name" className="block text-small text-muted-foreground mb-1">Team Name</label>
+            <input id="team-name" value={name} onChange={(e) => setName(e.target.value)} placeholder="Team name" required
               className="w-full px-3 h-[--control-h] rounded-md bg-background border border-input text-foreground placeholder:text-subtle-foreground focus:outline-none focus:ring-2 focus:ring-ring transition-colors" />
           </div>
           <div>
-            <label className="block text-small text-muted-foreground mb-1">Assigned Class</label>
-            <select value={classId} onChange={(e) => handleClassChange(e.target.value)}
+            <label htmlFor="team-class" className="block text-small text-muted-foreground mb-1">Assigned Class</label>
+            <select id="team-class" value={classId} onChange={(e) => handleClassChange(e.target.value)}
               className="w-full px-3 h-[--control-h] rounded-md bg-background border border-input text-foreground focus:outline-none focus:ring-2 focus:ring-ring transition-colors">
               <option value="" className="bg-popover">— No class —</option>
               {classes.filter(c => c.status === 'Ongoing').map((c) => {
@@ -142,8 +142,8 @@ function TeamModal({ team, participants, classes, teams, onClose, onSaved }) {
 
         {/* ── Team Leader ─────────────────────────────── */}
         <div>
-          <label className="block text-small text-muted-foreground mb-1">Team Leader</label>
-          <select value={leaderId} onChange={(e) => { setLeaderId(e.target.value); if (!memberIds.includes(e.target.value)) setMemberIds((p) => [...p, e.target.value]); }}
+          <label htmlFor="team-leader" className="block text-small text-muted-foreground mb-1">Team Leader</label>
+          <select id="team-leader" value={leaderId} onChange={(e) => { setLeaderId(e.target.value); if (!memberIds.includes(e.target.value)) setMemberIds((p) => [...p, e.target.value]); }}
             className="w-full px-3 h-[--control-h] rounded-md bg-background border border-input text-foreground focus:outline-none focus:ring-2 focus:ring-ring transition-colors">
             <option value="" className="bg-popover">Select leader…</option>
             {participants.map((p) => <option key={p._id} value={p._id} className="bg-popover">{p.name} ({p.empCode})</option>)}

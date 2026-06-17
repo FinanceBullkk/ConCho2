@@ -205,8 +205,9 @@ export default function BookClassPage() {
         </div>
         {leaderTeams.length > 1 && (
           <div className="flex items-center gap-3">
-            <label className="text-sm text-muted-foreground">Booking for:</label>
+            <label htmlFor="book-for-team" className="text-sm text-muted-foreground">Booking for:</label>
             <select
+              id="book-for-team"
               value={selectedTeam}
               onChange={e => setSelectedTeam(e.target.value)}
               className="px-3 h-(--control-h) rounded-md border border-input bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring transition-colors"
