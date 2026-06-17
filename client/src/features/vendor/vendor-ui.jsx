@@ -24,10 +24,13 @@ export function RenewalBadge({ status, endsOn, t }) {
   );
 }
 
-export function Stars({ avg, count }) {
+export function Stars({ avg, count, t }) {
   if (!count) return <span className="text-xs text-muted-foreground">—</span>;
+  // t is optional so the component never crashes if a caller forgets it; the
+  // literal fallback matches the en.json value byte-for-byte.
+  const title = t ? t('vendor.starsTooltip', { avg, count }) : `${avg} from ${count}`;
   return (
-    <span className="inline-flex items-center gap-1 tabular-nums" title={`${avg} from ${count}`}>
+    <span className="inline-flex items-center gap-1 tabular-nums" title={title}>
       <Star className="size-3.5 fill-warning text-warning" aria-hidden="true" />
       <span className="text-sm">{avg}</span>
       <span className="text-xs text-muted-foreground">({count})</span>
