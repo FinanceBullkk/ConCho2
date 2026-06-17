@@ -27,4 +27,11 @@ const updateBody = createBody.partial().refine(
 
 const listQuery = z.object({ entity: entity.optional() });
 
-module.exports = { createBody, updateBody, listQuery };
+// Drag-reorder: the full ordered id list for one entity. The use-case asserts
+// it is an exact permutation of that entity's live fields before persisting.
+const reorderBody = z.object({
+  entity,
+  orderedIds: z.array(z.string().trim().min(1)).min(1).max(200),
+});
+
+module.exports = { createBody, updateBody, listQuery, reorderBody };

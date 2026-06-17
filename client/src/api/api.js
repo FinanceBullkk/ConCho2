@@ -141,6 +141,7 @@ export const customFieldsAPI = {
   getAll: (params) => api.get('/custom-fields', { params }),
   create: (data) => api.post('/custom-fields', data),
   update: (id, data) => api.put(`/custom-fields/${id}`, data),
+  reorder: (data) => api.put('/custom-fields/reorder', data),
   delete: (id) => api.delete(`/custom-fields/${id}`),
 };
 

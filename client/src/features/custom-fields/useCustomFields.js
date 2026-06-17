@@ -41,3 +41,29 @@ export function useDeleteCustomField() {
     onSuccess: invalidate,
   });
 }
+
+// Drag-reorder one entity's fields. Optimistic: the reordered list shows
+// instantly (no flash to the old order), rolls back on error, and re-syncs
+// from the server once the bulk write settles.
+export function useReorderCustomFields() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ entity, orderedIds }) =>
+      customFieldsAPI.reorder({ entity, orderedIds }).then((r) => r.data.data),
+    onMutate: async ({ entity, orderedIds }) => {
+      const key = qk.customFields.list({ entity });
+      await qc.cancelQueries({ queryKey: key });
+      const prev = qc.getQueryData(key);
+      if (prev) {
+        const byId = new Map(prev.map((f) => [f._id, f]));
+        const next = orderedIds.map((id) => byId.get(id)).filter(Boolean);
+        qc.setQueryData(key, next);
+      }
+      return { key, prev };
+    },
+    onError: (_err, _vars, ctx) => {
+      if (ctx?.prev) qc.setQueryData(ctx.key, ctx.prev);
+    },
+    onSettled: () => qc.invalidateQueries({ queryKey: qk.customFields.all }),
+  });
+}

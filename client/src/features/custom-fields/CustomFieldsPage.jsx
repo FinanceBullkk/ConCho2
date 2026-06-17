@@ -1,13 +1,13 @@
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
-import { Plus, Trash2, Info } from 'lucide-react';
+import { Plus, Trash2, Info, GripVertical } from 'lucide-react';
 import { PageHeader } from '@/components/PageHeader';
 import { EmptyState } from '@/components/EmptyState';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { CustomFieldInput } from './custom-field-input';
-import { useCustomFields, useCreateCustomField, useDeleteCustomField } from './useCustomFields';
+import { useCustomFields, useCreateCustomField, useDeleteCustomField, useReorderCustomFields } from './useCustomFields';
 
 // Entities whose forms render + persist custom-field values today (not inert).
 const ENTITIES = ['Program', 'User', 'Cohort', 'Session'];
@@ -33,9 +33,28 @@ export default function CustomFieldsPage() {
   const { data: fields = [], isLoading, isError } = useCustomFields({ entity });
   const createMutation = useCreateCustomField();
   const deleteMutation = useDeleteCustomField();
+  const reorderMutation = useReorderCustomFields();
 
   const [form, setForm] = useState(blankForm);
   const [preview, setPreview] = useState({});
+  const [dragIndex, setDragIndex] = useState(null);
+  const [overIndex, setOverIndex] = useState(null);
+
+  // Drag/keyboard reorder. Persists the whole entity's order in one bulk call;
+  // the hook updates the cache optimistically so the row moves with no flash.
+  const canReorder = fields.length > 1;
+  const resetDrag = () => { setDragIndex(null); setOverIndex(null); };
+  const move = (from, to) => {
+    if (from == null || to < 0 || to >= fields.length || from === to) { resetDrag(); return; }
+    const next = fields.slice();
+    const [moved] = next.splice(from, 1);
+    next.splice(to, 0, moved);
+    reorderMutation.mutate(
+      { entity, orderedIds: next.map((f) => f._id) },
+      { onError: (err) => toast.error(err.response?.data?.message || t('customFields.reorderFailed')) },
+    );
+    resetDrag();
+  };
 
   const set = (key) => (val) => setForm((f) => ({ ...f, [key]: val }));
   const onLabel = (v) => setForm((f) => ({ ...f, label: v, key: f.keyTouched ? f.key : slugify(v) }));
@@ -117,8 +136,34 @@ export default function CustomFieldsPage() {
             )}
             {!isLoading && !isError && fields.length > 0 && (
               <ul className="divide-y divide-border">
-                {fields.map((f) => (
-                  <li key={f._id} className="flex items-center gap-3 px-4 py-2.5">
+                {fields.map((f, i) => (
+                  <li
+                    key={f._id}
+                    onDragOver={canReorder ? (e) => { e.preventDefault(); setOverIndex(i); } : undefined}
+                    onDrop={canReorder ? (e) => { e.preventDefault(); move(dragIndex, i); } : undefined}
+                    className={cn(
+                      'flex items-center gap-2 px-4 py-2.5',
+                      canReorder && overIndex === i && dragIndex !== null && dragIndex !== i && 'bg-accent/60',
+                      dragIndex === i && 'opacity-50',
+                    )}
+                  >
+                    {canReorder && (
+                      <button
+                        type="button"
+                        draggable
+                        aria-label={t('customFields.reorder', { label: f.label })}
+                        title={t('customFields.reorderHint')}
+                        onDragStart={() => setDragIndex(i)}
+                        onDragEnd={resetDrag}
+                        onKeyDown={(e) => {
+                          if (e.key === 'ArrowUp') { e.preventDefault(); move(i, i - 1); }
+                          else if (e.key === 'ArrowDown') { e.preventDefault(); move(i, i + 1); }
+                        }}
+                        className="shrink-0 cursor-grab text-subtle-foreground hover:text-foreground active:cursor-grabbing"
+                      >
+                        <GripVertical className="size-4" aria-hidden="true" />
+                      </button>
+                    )}
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-2">
                         <span className="truncate text-sm font-medium text-foreground">{f.label}</span>

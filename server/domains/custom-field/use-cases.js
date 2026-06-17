@@ -50,4 +50,21 @@ const archiveDefinition = async (id) => {
   return { before: customFieldDto(before), after: customFieldDto(after) };
 };
 
-module.exports = { listDefinitions, createDefinition, updateDefinition, archiveDefinition };
+// Drag-reorder one entity's fields. `orderedIds` must be an EXACT permutation of
+// that entity's current live fields — anything else (missing/extra/stale id)
+// would silently drop or gap the order, so we reject it up front (400).
+const reorderDefinitions = async (entity, orderedIds) => {
+  const current = await repository.list({ entity });
+  const liveIds = new Set(current.map((f) => String(f._id)));
+  const sameLength = orderedIds.length === liveIds.size;
+  const allKnown = orderedIds.every((id) => liveIds.has(String(id)));
+  const noDupes = new Set(orderedIds.map(String)).size === orderedIds.length;
+  if (!sameLength || !allKnown || !noDupes) {
+    throw new ServiceError('orderedIds must list each current field for this entity exactly once', 400);
+  }
+  await repository.reorder(entity, orderedIds);
+  const after = await repository.list({ entity });
+  return { before: current.map(customFieldDto), after: after.map(customFieldDto) };
+};
+
+module.exports = { listDefinitions, createDefinition, updateDefinition, archiveDefinition, reorderDefinitions };

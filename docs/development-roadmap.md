@@ -136,7 +136,18 @@ Bug fixing and integration review rank above net-new feature rollout.
 > **Rolling window:** ~last 2 weeks / ~15 entries kept inline (file ≤ ~400
 > lines); older entries roll verbatim, newest-first, to
 > [`changelog-archive/2026-q2.md`](changelog-archive/2026-q2.md). Currently
-> inline: **2026-06-14 → 2026-06-16**.
+> inline: **2026-06-14 → 2026-06-17**.
+
+- **2026-06-17** — **Custom-fields drag-reorder (closes last TMS.update fidelity
+  gap).** Studio ▸ Custom fields can now reorder an entity's fields by drag (grip
+  handle) or keyboard (↑/↓). New bulk endpoint `PUT /api/custom-fields/reorder`
+  (`settings.manage`-gated) — `bulkWrite` over `domains/custom-field`, entity-scoped,
+  rejects any `orderedIds` that isn't an exact permutation of the entity's live
+  fields (400), one `reordered` audit row. Client: optimistic cache update
+  (`useReorderCustomFields`, rollback on error). Tests: +3 server integration
+  (reorder persists / non-permutation 400 / non-admin 403), +2 client. The earlier
+  fidelity-audit report (`plans/reports/fidelity-audit-260615-1016-…`) was verified
+  STALE (Tier 1 + Tier 2 already shipped); this was its only genuinely-open item.
 
 - **2026-06-16** — **Horizon 2 closed out (owner decision).** With A2/A4/A6/B5
   shipped, the owner confirmed the remaining two slices: **B1 (AI layer) is
