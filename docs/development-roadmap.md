@@ -138,6 +138,15 @@ Bug fixing and integration review rank above net-new feature rollout.
 > [`changelog-archive/2026-q2.md`](changelog-archive/2026-q2.md). Currently
 > inline: **2026-06-14 → 2026-06-17**.
 
+- **2026-06-17** — **Phase 0 readiness — slice 0.8-user + Phase 0 PAUSED for a
+  quality round.** The admin user create/update handlers' Mongoose calls moved
+  behind `controllers/user/user-mutations-repository.js` (security logic — bcrypt
+  hashing, the BUG #9 re-auth gate, audit — stays in the controller). 31 userRoutes
+  tests green. **Per owner direction, Phase 0 is now paused after the low/med-risk
+  slices (0.3–0.7 + 0.8-user)** to run a quality-consolidation round (green test
+  suites, stabilise the server harness, cut lint warnings, clean `npm audit`,
+  smoke-test the core flow) before resuming 0.8-class / 0.9 and the gated Phases 1+.
+
 - **2026-06-17** — **Phase 0 readiness — slice 0.7 (dashboard analytics, no PG
   footprint).** The admin analytics endpoint's data access moved behind
   `controllers/dashboard/dashboard-stats-repository.js` (distinct dropdowns + the 14
