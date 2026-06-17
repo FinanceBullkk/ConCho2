@@ -138,6 +138,19 @@ Bug fixing and integration review rank above net-new feature rollout.
 > [`changelog-archive/2026-q2.md`](changelog-archive/2026-q2.md). Currently
 > inline: **2026-06-14 → 2026-06-17**.
 
+- **2026-06-17** — **Phase 6 PostgreSQL — Phase 0 readiness kicked off (no PG
+  footprint).** Wrote the missing detail plan
+  [`phase-00-readiness-hardening.md`](../plans/260612-2042-postgresql-migration/phase-00-readiness-hardening.md):
+  audited current Mongo-coupling (all 8 `domains/*` already behind repositories;
+  remaining direct-Mongoose surface is legacy controllers/services) + a
+  Mongo-feature→Postgres-equivalent map (TTL→`pg_cron`, partial-unique→partial
+  index/exclusion, `pre('aggregate')` soft-delete hooks→explicit predicates,
+  pipelines→SQL). First low-risk slice executed: **`searchService` Mongoose access
+  extracted into `services/search/search-repository.js`** (service keeps only
+  role-policy + cache + assembly; public API unchanged) — pure refactor, 16/16
+  search integration tests green. High-risk auth/booking ports stay deferred until
+  the ADR gate opens.
+
 - **2026-06-17** — **Custom-fields drag-reorder (closes last TMS.update fidelity
   gap).** Studio ▸ Custom fields can now reorder an entity's fields by drag (grip
   handle) or keyboard (↑/↓). New bulk endpoint `PUT /api/custom-fields/reorder`

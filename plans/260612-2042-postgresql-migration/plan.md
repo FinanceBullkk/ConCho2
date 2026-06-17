@@ -27,7 +27,7 @@ path, pgvector for future AI features.
 
 | # | Phase | File | Trigger | Est. | Status |
 |---|-------|------|---------|------|--------|
-| 0 | Readiness hardening (no PG) | [phase-00](phase-00-readiness-hardening.md) | NOW — alongside normal work | continuous | 🟡 ready to start |
+| 0 | Readiness hardening (no PG) | [phase-00](phase-00-readiness-hardening.md) | NOW — alongside normal work | continuous | 🟡 in progress (detail + audit written 2026-06-17) |
 | 1 | Gate prototype (read-only proof) | [phase-01](phase-01-gate-prototype.md) | gate opens | ~1 wk | ⚪ gated |
 | 2 | Foundation & dual infrastructure | [phase-02](phase-02-foundation-dual-infra.md) | after go decision | ~1 wk | ⚪ gated |
 | 3 | Repository ports (domain by domain) | [phase-03](phase-03-repository-ports.md) | after P2 | ~4–6 wk | ⚪ gated |
