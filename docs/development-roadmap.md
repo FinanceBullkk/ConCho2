@@ -147,6 +147,18 @@ Bug fixing and integration review rank above net-new feature rollout.
   suites, stabilise the server harness, cut lint warnings, clean `npm audit`,
   smoke-test the core flow) before resuming 0.8-class / 0.9 and the gated Phases 1+.
 
+- **2026-06-17** — **Quality round — golden-path smoke test + measured baseline.**
+  Owner-directed consolidation: added `tests/integration/goldenPathFlow.test.js`, a
+  single end-to-end happy path through the **real API** for the core L&D loop
+  (create program → enrol → schedule cohort session → mark attendance → completion
+  met → issue certificate → public verification valid), so a regression anywhere in
+  the chain trips one test. **Measured quality baseline (not impression):** server
+  **1148/1148** tests green (124 suites), client **393/393** green (0 timeouts),
+  **0** skipped/disabled tests, lint **0 errors / 63 warnings (at cap)**, server
+  prod `npm audit` clean at the CI bar (high+) with 13 moderate below it, client
+  audit **0 vulns**. Those last two gaps were then closed in #143 (lint ratcheted
+  **63 → 44**, server prod moderate **13 → 5**); large-file extraction continues.
+
 - **2026-06-17** — **Phase 0 readiness — slice 0.7 (dashboard analytics, no PG
   footprint).** The admin analytics endpoint's data access moved behind
   `controllers/dashboard/dashboard-stats-repository.js` (distinct dropdowns + the 14
