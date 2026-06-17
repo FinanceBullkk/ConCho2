@@ -1,11 +1,11 @@
 const router = require('express').Router();
-const AuditLog = require('../models/AuditLog');
 const { protect } = require('../middleware/auth');
 const { requireCapability } = require('../middleware/requireCapability');
 const { CAPABILITIES } = require('../policy/capabilities');
 const { parsePagination, paginatedResponse } = require('../helpers/pagination');
 const { handleError } = require('../helpers/handleError');
 const { verifyChain } = require('../services/audit-chain');
+const auditQueryRepository = require('../services/audit/audit-query-repository');
 
 // ──────────────────────────────────────────────────────────
 // Audit Log Query API (Phase 1.1)
@@ -49,13 +49,8 @@ router.get('/', async (req, res) => {
     const cappedLimit = Math.min(limit, 200);
 
     const [entries, total] = await Promise.all([
-      AuditLog.find(filter)
-        .sort({ createdAt: -1 })
-        .skip(skip)
-        .limit(cappedLimit)
-        .populate('actorId', 'empCode name role')
-        .lean(),
-      AuditLog.countDocuments(filter),
+      auditQueryRepository.findEntries(filter, { skip, limit: cappedLimit }),
+      auditQueryRepository.countEntries(filter),
     ]);
 
     res.json(paginatedResponse({ data: entries, total, page, limit: cappedLimit }));
@@ -72,14 +67,7 @@ router.get('/', async (req, res) => {
  */
 router.get('/entity/:entity/:entityId', async (req, res) => {
   try {
-    const entries = await AuditLog.find({
-      entity: req.params.entity,
-      entityId: req.params.entityId,
-    })
-      .sort({ createdAt: -1 })
-      .limit(500)
-      .populate('actorId', 'empCode name role')
-      .lean();
+    const entries = await auditQueryRepository.findByEntity(req.params.entity, req.params.entityId);
 
     res.json({ success: true, count: entries.length, data: entries });
   } catch (error) {

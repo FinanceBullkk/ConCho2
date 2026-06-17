@@ -39,8 +39,10 @@ const setBrandingCache = (cfg) => {
 /** Load the singleton from the DB into the cache (boot + on demand). Fail-soft. */
 const loadBranding = async () => {
   try {
-    const TenantConfig = require('../models/TenantConfig');
-    const doc = await TenantConfig.getSingleton();
+    // Lazy require keeps the model access behind the branding domain repository
+    // (Phase 0 PG-readiness) without a boot-order cycle.
+    const brandingRepository = require('../domains/branding/repository');
+    const doc = await brandingRepository.getSingleton();
     if (doc) setBrandingCache(doc);
   } catch {
     // best-effort — keep the defaults if the DB is unavailable
