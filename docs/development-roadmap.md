@@ -138,6 +138,16 @@ Bug fixing and integration review rank above net-new feature rollout.
 > [`changelog-archive/2026-q2.md`](changelog-archive/2026-q2.md). Currently
 > inline: **2026-06-14 → 2026-06-17**.
 
+- **2026-06-17** — **Phase 0 readiness — slices 0.4 + 0.5 (more Mongo-coupling
+  extracted, no PG footprint).** Three more legacy data-access leaks moved behind
+  repositories (pure refactors, behaviour identical): `lib/branding.js` now reuses
+  `domains/branding/repository`; `routes/auditRoutes.js` reads via a new
+  `services/audit/audit-query-repository.js`; the HR exports split their Mongoose
+  calls into `services/export/{attendance,evaluation}-export-repository.js` (pipeline
+  builders + claim-race orchestration kept in the service). 76 audit/branding/export/
+  evaluation integration tests green. Remaining direct-Mongoose surface is now the
+  Med/High-risk legacy controllers (dashboard/class/user) + auth/booking (deferred).
+
 - **2026-06-17** — **Phase 6 PostgreSQL — Phase 0 readiness kicked off (no PG
   footprint).** Wrote the missing detail plan
   [`phase-00-readiness-hardening.md`](../plans/260612-2042-postgresql-migration/phase-00-readiness-hardening.md):

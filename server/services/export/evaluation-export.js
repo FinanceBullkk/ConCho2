@@ -1,8 +1,8 @@
 const mongoose = require('mongoose');
-const Evaluation = require('../../models/Evaluation');
 const { ServiceError } = require('../../helpers/ServiceError');
 const { enforceRowCap } = require('./export-row-cap');
 const { generateEvaluationWorkbook } = require('./evaluation-workbook');
+const evaluationExportRepository = require('./evaluation-export-repository');
 
 // ──────────────────────────────────────────────────────────
 // Evaluation export (data pipeline + flow)
@@ -67,7 +67,8 @@ const buildEvaluationPipeline = ({ from, to, classId } = {}) => {
   return pipeline;
 };
 
-const queryEvaluationData = async (opts = {}) => Evaluation.aggregate(buildEvaluationPipeline(opts));
+const queryEvaluationData = async (opts = {}) =>
+  evaluationExportRepository.aggregate(buildEvaluationPipeline(opts));
 
 const exportEvaluations = async (opts = {}) => {
   const records = await queryEvaluationData(opts);
