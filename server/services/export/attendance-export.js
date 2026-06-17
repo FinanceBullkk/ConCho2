@@ -1,10 +1,10 @@
 // node:crypto randomUUID — the `uuid` package was dropped in the deps-light
 // round (bcb0468); see auth-tokens.js for the production-only failure mode.
 const { randomUUID } = require('crypto');
-const Attendance = require('../../models/Attendance');
 const { ServiceError } = require('../../helpers/ServiceError');
 const { enforceRowCap } = require('./export-row-cap');
 const { generateAttendanceWorkbook } = require('./attendance-workbook');
+const repository = require('./attendance-export-repository');
 
 // ──────────────────────────────────────────────────────────
 // Attendance export (data pipeline + claim-race flow + stats)
@@ -147,7 +147,7 @@ const buildExportPipeline = ({ from, to, includeExported = false, batchId } = {}
  */
 const queryExportData = async (opts = {}) => {
   const pipeline = buildExportPipeline(opts);
-  return Attendance.aggregate(pipeline);
+  return repository.aggregate(pipeline);
 };
 
 /**
@@ -205,7 +205,7 @@ const exportAttendance = async (opts = {}) => {
   }
   idPipeline.push({ $project: { _id: 1 } });
 
-  const matchingDocs = await Attendance.aggregate(idPipeline);
+  const matchingDocs = await repository.aggregate(idPipeline);
   const idsToExport = matchingDocs.map(d => d._id);
 
   if (idsToExport.length === 0) {
@@ -221,10 +221,7 @@ const exportAttendance = async (opts = {}) => {
   //    Using { _id: $in } + { syncStatus: PENDING } ensures we only claim records
   //    that are still PENDING even if a concurrent export ran between step 1 and 2.
   const batchId = randomUUID();
-  const claimedResult = await Attendance.updateMany(
-    { _id: { $in: idsToExport }, syncStatus: 'PENDING' },
-    { $set: { syncStatus: 'EXPORTING', exportBatchId: batchId } }
-  );
+  const claimedResult = await repository.claimBatch(idsToExport, batchId);
 
   // P2R-01: A concurrent export may have claimed all matching records between
   // our ID scan (step 1) and this updateMany (step 2). If modifiedCount === 0
@@ -267,10 +264,7 @@ const exportAttendance = async (opts = {}) => {
   // 5. Mark only our claimed records as EXPORTED.
   //    Because we claimed exactly the records we'll export, every claimed
   //    record appears in the file — no silent "marked but not included" records.
-  const markedResult = await Attendance.updateMany(
-    { exportBatchId: batchId },
-    { $set: { syncStatus: 'EXPORTED', exportedAt: new Date() } }
-  );
+  const markedResult = await repository.markExported(batchId);
 
   return { buffer, filename: filename2, recordCount: records.length, markedCount: markedResult.modifiedCount };
 };
@@ -294,29 +288,22 @@ const getExportStats = async () => {
   );
   countPipeline.push({ $count: 'total' });
 
-  const [pendingResult] = await Attendance.aggregate(countPipeline);
+  const [pendingResult] = await repository.aggregate(countPipeline);
   const pending = pendingResult?.total || 0;
 
-  const exported = await Attendance.countDocuments({ syncStatus: 'EXPORTED' });
+  const exported = await repository.countByStatus('EXPORTED');
 
   // Phase 4 Surface 8 — "Last export" KPI: most recent exportedAt + how
   // many records share that batch (records updated together get the same
   // timestamp). Bucket within ±1s to tolerate per-row timestamp jitter.
   let lastExportAt = null;
   let lastExportCount = 0;
-  const lastDoc = await Attendance
-    .findOne({ syncStatus: 'EXPORTED', exportedAt: { $ne: null } })
-    .select('exportedAt')
-    .sort({ exportedAt: -1 })
-    .lean();
+  const lastDoc = await repository.findLastExported();
   if (lastDoc?.exportedAt) {
     lastExportAt = lastDoc.exportedAt;
     const windowStart = new Date(lastExportAt.getTime() - 1000);
     const windowEnd   = new Date(lastExportAt.getTime() + 1000);
-    lastExportCount = await Attendance.countDocuments({
-      syncStatus: 'EXPORTED',
-      exportedAt: { $gte: windowStart, $lte: windowEnd },
-    });
+    lastExportCount = await repository.countExportedInWindow(windowStart, windowEnd);
   }
 
   return {
