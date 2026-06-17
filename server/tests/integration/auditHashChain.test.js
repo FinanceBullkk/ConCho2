@@ -92,6 +92,23 @@ describe('Audit hash chain — verifyChain', () => {
     expect(res.firstBrokenSeq).toBe(3);
   });
 
+  test('detects a re-linked row whose own hash is self-consistent (broken-link)', async () => {
+    const rows = await seedChain(4);
+    // Tamper row 2's prevHash to a bogus value, then RECOMPUTE its hash so the
+    // row stays self-consistent (passes the hash-mismatch check) and its seq is
+    // still contiguous (passes the missing-rows check) — only the LINK to row 1
+    // is broken. This is the one verify reason the suite never exercised.
+    const row2 = rows[1];
+    const forgedPrev = 'f'.repeat(64);
+    const rehashed = computeHash({ ...row2, prevHash: forgedPrev });
+    await AuditLog.updateOne({ seq: 2 }, { $set: { prevHash: forgedPrev, hash: rehashed } });
+
+    const res = await verifyChain({});
+    expect(res.ok).toBe(false);
+    expect(res.firstBrokenSeq).toBe(2);
+    expect(res.reason).toBe('broken-link');
+  });
+
   test('an empty chain verifies ok', async () => {
     await AuditLog.deleteMany({});
     auditService.__resetChainCache();

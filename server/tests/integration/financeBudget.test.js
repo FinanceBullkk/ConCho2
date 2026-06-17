@@ -155,6 +155,21 @@ describe('Finance API — budget & cost (A1)', () => {
     expect(variance.body.data.totals).toMatchObject({ budgetMinor: 1000000, actualMinor: 1200000, overBudget: true });
   });
 
+  test('budget variance: a zero-amount budget yields null utilizationPct but still flags over-budget', async () => {
+    await setCurrency('VND');
+    const dept = await Department.create({ name: 'Zero Dept', code: `ZD${seq++}` });
+    // Created via the model so the zero/negative-budget guard is exercised
+    // regardless of any API min-amount rule (utilizationPct → null, overBudget true).
+    await Budget.create({ fiscalYear: '2027', departmentId: dept._id, amountMinor: 0, currency: 'VND' });
+    await post(tokens.admin, '/api/finance/costs', { scope: { departmentId: dept._id.toString() }, type: 'trainer', amountMinor: 100000, incurredOn: '2027-04-01' });
+
+    const variance = await get(tokens.admin, '/api/finance/budgets/variance?fiscalYear=2027');
+    expect(variance.status).toBe(200);
+    const row = variance.body.data.rows.find((r) => r.departmentId === dept._id.toString());
+    expect(row).toMatchObject({ budgetMinor: 0, actualMinor: 100000, overBudget: true });
+    expect(row.utilizationPct).toBeNull();
+  });
+
   test('executive ROI surfaces trailing-12-month actual spend from logged costs', async () => {
     await setCurrency('VND');
     await post(tokens.admin, '/api/finance/costs', { type: 'trainer', amountMinor: 250000, incurredOn: new Date().toISOString() });
