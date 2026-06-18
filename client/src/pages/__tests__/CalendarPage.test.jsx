@@ -56,19 +56,21 @@ describe('CalendarPage — generic training calendar (English-class separation)'
     expect(h.schedulesProps).toHaveBeenCalledWith(expect.objectContaining({ mode: 'cohort' }));
   });
 
-  it('Admin ?tab=attendance renders the cohort-world Attendance surface', () => {
+  it('Admin ?tab=attendance renders the UNIFIED Attendance surface (both worlds)', () => {
     h.auth = { user: { _id: 'a1', role: 'Admin' } };
     renderPage('/calendar?tab=attendance');
 
     expect(screen.getByTestId('attendance-page')).toBeInTheDocument();
-    expect(h.attendanceProps).toHaveBeenCalledWith(expect.objectContaining({ mode: 'cohort' }));
+    // Converge Phase 4 slice A1: attendance is unified — mode="all" shows both
+    // scheduling worlds with a client-side Team/Cohort facet.
+    expect(h.attendanceProps).toHaveBeenCalledWith(expect.objectContaining({ mode: 'all' }));
   });
 
-  it('Teacher gets the single Attendance surface (cohort world)', () => {
+  it('Teacher gets the single UNIFIED Attendance surface (both worlds)', () => {
     h.auth = { user: { _id: 't1', role: 'Teacher' } };
     renderPage();
 
     expect(screen.getByTestId('attendance-page')).toBeInTheDocument();
-    expect(h.attendanceProps).toHaveBeenCalledWith(expect.objectContaining({ mode: 'cohort' }));
+    expect(h.attendanceProps).toHaveBeenCalledWith(expect.objectContaining({ mode: 'all' }));
   });
 });

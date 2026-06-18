@@ -138,6 +138,16 @@ Bug fixing and integration review rank above net-new feature rollout.
 > [`changelog-archive/2026-q2.md`](changelog-archive/2026-q2.md). Currently
 > inline: **2026-06-14 → 2026-06-19**.
 
+- **2026-06-19** — **Converge Phase 4 slice A1 — unified Attendance calendar (#160).**
+  Operations Attendance now reads BOTH scheduling worlds in one surface: `CalendarPage` passes
+  `AttendancePage mode="all"`, which fetches the combined `/attendance-calendar` and adds a
+  client-side **Team/Cohort/All** facet driven by each session's `deliveryType` tag (from slice 4b).
+  Attendance marking is world-agnostic (keyed by scheduleId), so no create/edit drawer change was
+  needed — low risk. Teacher visibility scoping unchanged (server still applies the teacher $or
+  scope). The redundant English Attendance tab is the next slice (A1b); the Schedules fold (A2) is
+  separate — it needs a cohort-aware create/edit drawer (the current one is team-centric). Tests:
+  AttendancePage facet (render + filter) + CalendarPage `mode="all"`; client suite 400 + lint (cap 41) + build green.
+
 - **2026-06-19** — **Converge Phase 3 slice 4b — session `deliveryType` world tag (#159).**
   Every row of `GET /api/schedules` + `GET /api/schedules/attendance-calendar` now carries
   a derived `deliveryType` ('team'|'cohort') — computed in `domains/schedule/queries.classifyDeliveryType`
