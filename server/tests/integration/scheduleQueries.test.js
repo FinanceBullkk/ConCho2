@@ -185,6 +185,82 @@ describe('GET /api/schedules/availability — current-week lower bound', () => {
   });
 });
 
+// ── deliveryType world tag (convergence Phase 3 slice 4b) ────
+// Every schedule row carries deliveryType so a UNIFIED calendar can facet team
+// vs cohort sessions. Derived from the class's program schedulingMode:
+// self_enroll|nomination ⇒ 'cohort'; everything else (incl. program-less legacy
+// classes) ⇒ 'team'. Self-contained fixtures (own program/class/schedules),
+// torn down so the trainer-only suite below still sees the seeded state.
+
+describe('GET /api/schedules — deliveryType world tag', () => {
+  const LearningProgram = require('../../models/LearningProgram');
+  const Class = require('../../models/Class');
+  let cohortProgram, cohortClass, cohortSched, teamSched;
+
+  beforeAll(async () => {
+    cohortProgram = await LearningProgram.create({
+      code: 'PROG-COHORT-4B', name: 'Cohort Program 4b', schedulingMode: 'self_enroll',
+    });
+    cohortClass = await Class.create({
+      classCode: 'COHORT4B', courseName: 'Cohort Delivery 4b',
+      totalSessions: 5, programId: cohortProgram._id,
+    });
+    const dayMs = 24 * 60 * 60 * 1000;
+    const start = new Date(Date.now() + 20 * dayMs);
+    cohortSched = await Schedule.create({
+      classId: cohortClass._id,
+      startTime: start, endTime: new Date(start.getTime() + 60 * 60 * 1000),
+      enrolledUsers: [seed.member1._id],
+    });
+    // Contrast row: a team-world session on a program-less seed class.
+    teamSched = await Schedule.create({
+      classId: seed.class1._id, bookedTeamId: seed.team._id,
+      startTime: new Date(start.getTime() + dayMs),
+      endTime: new Date(start.getTime() + dayMs + 60 * 60 * 1000),
+      enrolledUsers: [seed.member1._id],
+    });
+  });
+
+  afterAll(async () => {
+    await Schedule.deleteMany({ _id: { $in: [cohortSched._id, teamSched._id] } });
+    await Class.deleteOne({ _id: cohortClass._id });
+    await LearningProgram.deleteOne({ _id: cohortProgram._id });
+  });
+
+  test('list tags cohort-mode class sessions "cohort" and program-less ones "team"', async () => {
+    const res = await request(app)
+      .get('/api/schedules')
+      .query({ limit: 2000 })
+      .set('Authorization', `Bearer ${tokens.admin}`);
+    expect(res.status).toBe(200);
+    const byId = Object.fromEntries(res.body.data.map((s) => [s._id, s]));
+    expect(byId[cohortSched._id.toString()].deliveryType).toBe('cohort');
+    expect(byId[teamSched._id.toString()].deliveryType).toBe('team');
+  });
+
+  test('mode=cohort returns only cohort-world rows', async () => {
+    const res = await request(app)
+      .get('/api/schedules')
+      .query({ limit: 2000, mode: 'cohort' })
+      .set('Authorization', `Bearer ${tokens.admin}`);
+    expect(res.status).toBe(200);
+    const ids = res.body.data.map((s) => s._id);
+    expect(ids).toContain(cohortSched._id.toString());
+    expect(ids).not.toContain(teamSched._id.toString());
+    expect(res.body.data.every((s) => s.deliveryType === 'cohort')).toBe(true);
+  });
+
+  test('attendance-calendar tags rows with deliveryType', async () => {
+    const res = await request(app)
+      .get('/api/schedules/attendance-calendar')
+      .set('Authorization', `Bearer ${tokens.admin}`);
+    expect(res.status).toBe(200);
+    const byId = Object.fromEntries(res.body.data.map((s) => [s._id, s]));
+    expect(byId[cohortSched._id.toString()].deliveryType).toBe('cohort');
+    expect(byId[teamSched._id.toString()].deliveryType).toBe('team');
+  });
+});
+
 // ── Trainer-only teacher visibility (Wave E polish) ──────────
 // Keep this describe LAST: it rebinds teacherIds on the shared seed classes
 // (and restores them) — the suites above assume the seeded empty arrays.

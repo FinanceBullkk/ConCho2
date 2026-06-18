@@ -2,7 +2,7 @@
 capability: scheduling-and-booking
 status: stable
 owners: [services/scheduleService, domains/schedule, domains/room, domains/learning/session]
-last_updated: 2026-06-18
+last_updated: 2026-06-19
 related_plans:
   - plans/260602-2247-m1-self-enroll-nomination-session-modes
   - plans/260606-1356-wave-e-generic-scheduling
@@ -658,6 +658,22 @@ filter is ignored when the query is already class/program-scoped
 (Participant enrolled-only scope; attendance-calendar Admin/Teacher).
 Mutations have NO `/api/english` routes — they stay on the existing
 mode-gated URLs.
+
+Beyond filtering, **every row** of `GET /api/schedules` and
+`GET /api/schedules/attendance-calendar` SHALL carry a derived
+**`deliveryType`** (`team`|`cohort`) world tag — same classification as the
+split (program-less ⇒ `team`) — so a single UNIFIED calendar can facet both
+worlds without two disjoint endpoints (convergence Phase 3 → 4; mirrors
+`GET /api/learning/cohorts` `deliveryType` from slice 4a). The tag is additive
+and present regardless of whether a `mode` filter is supplied.
+
+#### Scenario: Session rows carry a world tag
+
+- **GIVEN** a team-world session (program-less class) and a cohort-world
+  session (`self_enroll` program's class)
+- **WHEN** an Admin calls `GET /api/schedules` (no `mode` filter)
+- **THEN** each row carries `deliveryType` — `team` for the first, `cohort`
+  for the second; the same holds for `GET /api/schedules/attendance-calendar`
 
 #### Scenario: World split
 
