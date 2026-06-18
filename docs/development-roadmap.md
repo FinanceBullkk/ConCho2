@@ -138,6 +138,14 @@ Bug fixing and integration review rank above net-new feature rollout.
 > [`changelog-archive/2026-q2.md`](changelog-archive/2026-q2.md). Currently
 > inline: **2026-06-14 → 2026-06-18**.
 
+- **2026-06-19** — **Converge Phase 4 slice 2 — retire the redundant English "Classes"
+  tab.** Now that Learning → Cohorts lists both worlds (slice 1), the separate English
+  "Classes" tab duplicated it. Removed the nav item (`nav-config`) + the page tab
+  (`EnglishPage`); Admin's English section now defaults to Teams. Team-world class CRUD
+  lives in the unified catalog (search already deep-links classes there). No data/API
+  change; Sidebar + EnglishPage tests updated; client suite 398 + lint (cap) + build
+  green. Remaining Phase 4: fold English schedules/attendance/evaluations + persona sidebar.
+
 - **2026-06-18** — **Converge Phase 4 — unified Cohorts catalog (the visible fix).**
   Learning → Cohorts is now ONE catalog (`CohortsTab mode="all"`) that lists BOTH
   scheduling worlds — it fetches with no `mode` filter (server returns all) and
