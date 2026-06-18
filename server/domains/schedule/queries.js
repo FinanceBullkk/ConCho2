@@ -2,6 +2,7 @@ const { todayVN } = require('../../helpers/dayjsConfig');
 const { ServiceError } = require('../../helpers/ServiceError');
 const repository = require('./repository');
 const { attachSessionNumbers } = require('./session-order');
+const { getWeekBounds } = require('./session-booking-policy');
 
 // ──────────────────────────────────────────────────────────
 // Schedule read/query use-cases
@@ -19,11 +20,24 @@ const { attachSessionNumbers } = require('./session-order');
 const utcToday = () => todayVN();
 
 /**
- * Get future schedules (availability view).
+ * Get the current week's + future schedules (availability view).
+ *
+ * Lower bound is the START of the CURRENT ISO week — NOT `utcToday()`. The
+ * per-team weekly cap (session-booking-policy.getWeekBounds) counts every
+ * `scheduled` session in the Mon–Sun ISO week, INCLUDING days already past.
+ * Anchoring availability on `today` instead hid an earlier-this-week session
+ * from the booking grid while it still consumed a weekly slot — the leader saw
+ * 1 session yet a 2nd booking was rejected ("max 2 this week"). Aligning the
+ * lower bound with the cap's week window keeps that session visible (the grid
+ * renders past cells read-only), so what the leader sees matches what the cap
+ * counts. Future weeks are unaffected (still a superset of `>= today`).
  * @param {Object} filters  { classId? }
  */
 const getAvailability = (filters = {}) =>
-  repository.findAvailabilitySchedules({ classId: filters.classId, fromDate: utcToday() });
+  repository.findAvailabilitySchedules({
+    classId: filters.classId,
+    fromDate: getWeekBounds(new Date()).weekStart,
+  });
 
 /**
  * Get schedules with filters and pagination.

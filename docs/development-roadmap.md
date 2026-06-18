@@ -6,7 +6,7 @@
 > - *Architecture / orientation* → [`system-overview.md`](system-overview.md)
 > - *Detailed task snapshot (archived)* → [`archive/handoff-2026-06-01.md`](archive/handoff-2026-06-01.md)
 >
-> **Last updated:** 2026-06-16
+> **Last updated:** 2026-06-18
 
 ---
 
@@ -136,7 +136,19 @@ Bug fixing and integration review rank above net-new feature rollout.
 > **Rolling window:** ~last 2 weeks / ~15 entries kept inline (file ≤ ~400
 > lines); older entries roll verbatim, newest-first, to
 > [`changelog-archive/2026-q2.md`](changelog-archive/2026-q2.md). Currently
-> inline: **2026-06-14 → 2026-06-17**.
+> inline: **2026-06-14 → 2026-06-18**.
+
+- **2026-06-18** — **Booking grid shows earlier-this-week sessions (bugfix).**
+  Leader saw 1 session on `/book` yet a 2nd booking 400'd "max 2 this week": the
+  availability read (`domains/schedule/queries.getAvailability`) windowed on
+  `today`, hiding an earlier-this-week session that the weekly cap still counts
+  (the cap spans the whole Mon–Sun ISO week, past days included). Fix: lower
+  bound moved `today` → start of current ISO week (reuses `getWeekBounds`), and
+  the grid renders a past own-session **read-only** ("counts this week", no
+  cancel) so visible == enforced. Owner chose to keep the cap semantics (count
+  past), fix the visibility (P2). Spec `scheduling-and-booking` updated; new
+  `scheduleQueries` availability lower-bound test + booking/client suites green;
+  lint ≤ cap 63.
 
 - **2026-06-17** — **Phase 0 readiness — slice 0.8-user + Phase 0 PAUSED for a
   quality round.** The admin user create/update handlers' Mongoose calls moved

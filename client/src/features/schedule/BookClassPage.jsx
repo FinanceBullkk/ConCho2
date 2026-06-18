@@ -262,6 +262,22 @@ export default function BookClassPage() {
               const variant = bookingCellState({ mySchedule, blocker, isPast, bookable: cellBookable });
 
               if (variant === 'mine') {
+                // Past session of the selected team: kept visible so the leader
+                // can see it still counts toward the weekly cap, but read-only —
+                // a session that has started can't be cancelled (server 409), so
+                // we don't offer the cancel affordance for it.
+                if (isPast) {
+                  return (
+                    <div className="rounded-md p-2.5 h-full min-h-[80px] border border-border bg-muted/30">
+                      <div className="text-xs font-bold truncate text-muted-foreground">
+                        <span className="bg-muted px-1.5 py-0.5 rounded text-[10px] font-bold text-muted-foreground mr-1">Mine</span>
+                        {mySchedule.classId?.classCode}
+                      </div>
+                      <div className="text-[10px] text-muted-foreground truncate mt-0.5">{selectedTeamObj?.name}</div>
+                      <div className="text-[10px] text-muted-foreground/70 mt-1.5">Completed (counts this week)</div>
+                    </div>
+                  );
+                }
                 const isSel = drawerMode === 'cancel' && drawerSchedule?._id === mySchedule._id;
                 return (
                   <div
