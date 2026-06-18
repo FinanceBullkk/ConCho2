@@ -1,3 +1,5 @@
+const { isCohortMode } = require('../_shared/scheduling-modes');
+
 const programDto = (program) => {
   if (!program) return null;
   const p = typeof program.toObject === 'function' ? program.toObject() : program;
@@ -30,12 +32,19 @@ const cohortDto = (cohort, bookedSessions = 0) => {
   const program = c.programId && typeof c.programId === 'object'
     ? programDto(c.programId)
     : null;
+  // deliveryType: which scheduling "world" this cohort belongs to, derived from
+  // the program's schedulingMode via the single source of truth. A program-less
+  // cohort falls back to the team world (leader_booking) — matching the list-split
+  // fallback in repository.findCohortMode*. This lets ONE catalog list both worlds
+  // and facet by type (convergence Phase 3 -> 4) instead of two disjoint nav homes.
+  const deliveryType = isCohortMode(program?.schedulingMode) ? 'cohort' : 'team';
   return {
     _id: c._id,
     cohortCode: c.classCode,
     classCode: c.classCode,
     programId: program?._id || c.programId || null,
     program,
+    deliveryType,
     programName: program?.name || c.courseName,
     legacyCourseName: c.courseName,
     totalSessions: c.totalSessions,

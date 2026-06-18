@@ -138,6 +138,16 @@ Bug fixing and integration review rank above net-new feature rollout.
 > [`changelog-archive/2026-q2.md`](changelog-archive/2026-q2.md). Currently
 > inline: **2026-06-14 → 2026-06-18**.
 
+- **2026-06-18** — **Converge Phase 3 continues — client SSOT + cohort `deliveryType`
+  (slices 2 + 4a).** Slice 2 (#154): client cohort-mode classification consolidated
+  into `lib/scheduling-mode.js` (`isCohortMode` / `COHORT_SCHEDULING_MODES`);
+  `CohortsTab` drops its local `COHORT_MODES` copy. Slice 4a: `cohortDto` now exposes a
+  server-computed `deliveryType` ('team' | 'cohort'; program-less → team) so ONE
+  catalog can list both scheduling worlds + facet by type — the data foundation for the
+  Phase 4 single-catalog UI that ends the "Cohorts tab looks empty" confusion. Both
+  pure/additive (no behaviour regression); unit tests + full server suite + client
+  suite/lint green. Slice 3 (`deliveryProfile`) deferred (YAGNI — no consumer yet).
+
 - **2026-06-18** — **Converge Phase 3 started — scheduling-mode classification SSOT
   (slice 1).** Root-cause work for the "two worlds" UX (admin opens Learning →
   Cohorts, sees nothing because data lives in the English/team world). The
