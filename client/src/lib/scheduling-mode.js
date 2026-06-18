@@ -17,6 +17,19 @@
 export const TEAM_BOOKABLE_MODE = 'leader_booking';
 
 /**
+ * The cohort-scheduling modes — booked against a cohort, not a per-group team.
+ * Client-side single source of truth (mirrors the server SSOT
+ * server/domains/_shared/scheduling-modes.js); import this instead of
+ * re-declaring the `['self_enroll','nomination']` list per component.
+ */
+export const COHORT_SCHEDULING_MODES = ['self_enroll', 'nomination'];
+
+/** True when a schedulingMode books against a cohort (vs a team/group). */
+export function isCohortMode(mode) {
+  return COHORT_SCHEDULING_MODES.includes(mode);
+}
+
+/**
  * Resolve a populated team object → its effective schedulingMode string.
  *
  * Falls back to 'leader_booking' when no program is linked (matches server).
@@ -56,6 +69,6 @@ export function isLeaderBookable(team) {
  */
 export function lockedReason(mode) {
   if (mode === 'admin_scheduled') return 'adminScheduled';
-  if (mode === 'self_enroll' || mode === 'nomination') return 'cohort';
+  if (isCohortMode(mode)) return 'cohort';
   return 'generic';
 }

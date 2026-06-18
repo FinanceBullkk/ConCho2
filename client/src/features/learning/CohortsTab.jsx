@@ -10,6 +10,7 @@ import TableSkeleton from '@/components/TableSkeleton';
 import { EmptyState } from '@/components/EmptyState';
 import { useLearningCohorts } from '../../hooks/useLearning';
 import { useRole } from '../../hooks/useRole';
+import { isCohortMode } from '../../lib/scheduling-mode';
 import CohortFormModal from './CohortFormModal';
 import CohortEditModal from './CohortEditModal';
 import ArchivedCohortsPanel from './ArchivedCohortsPanel';
@@ -20,9 +21,9 @@ import CohortSessionsPanel from './CohortSessionsPanel';
 const statusTone = { Ongoing: 'default', Completed: 'secondary' };
 
 // Coordinator-scheduled offline sessions are created against cohort-mode
-// programs (self_enroll / nomination), team-less (re-center Phase 2).
-const COHORT_MODES = ['self_enroll', 'nomination'];
-const isCohortScheduled = (cohort) => COHORT_MODES.includes(cohort.program?.schedulingMode);
+// programs (self_enroll / nomination), team-less (re-center Phase 2). The
+// cohort-mode classification comes from the shared lib (single source of truth).
+const isCohortScheduled = (cohort) => isCohortMode(cohort.program?.schedulingMode);
 
 // English-class separation props:
 //   mode     — 'cohort' (generic training world, default) | 'team' (English
