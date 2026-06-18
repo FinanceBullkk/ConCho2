@@ -141,6 +141,50 @@ describe('GET /api/schedules/attendance-calendar — status mapping', () => {
   });
 });
 
+// ── getAvailability — current-week lower bound (P2) ──────────
+// The booking grid must show sessions from the START of the current ISO week,
+// not just `today`, so an earlier-this-week session (still counted by the
+// per-team weekly cap) stays visible. Pins the lower bound = week start.
+describe('GET /api/schedules/availability — current-week lower bound', () => {
+  const { getWeekBounds } = require('../../domains/schedule/session-booking-policy');
+  let earlyThisWeek, lastWeek;
+
+  beforeAll(async () => {
+    const { weekStart } = getWeekBounds(new Date());
+    const hour = 60 * 60 * 1000;
+    // At the start of THIS ISO week (a slot the old `fromDate = today` window
+    // would have hidden on any day after Monday).
+    earlyThisWeek = await Schedule.create({
+      classId: seed.class2._id, bookedTeamId: seed.team._id,
+      startTime: new Date(weekStart.getTime() + hour),
+      endTime: new Date(weekStart.getTime() + 2 * hour),
+      enrolledUsers: [],
+    });
+    // The day BEFORE this week's start — belongs to the previous week, must NOT appear.
+    lastWeek = await Schedule.create({
+      classId: seed.class2._id, bookedTeamId: seed.team._id,
+      startTime: new Date(weekStart.getTime() - 23 * hour),
+      endTime: new Date(weekStart.getTime() - 22 * hour),
+      enrolledUsers: [],
+    });
+  });
+
+  afterAll(async () => {
+    await Schedule.deleteMany({ _id: { $in: [earlyThisWeek._id, lastWeek._id] } });
+  });
+
+  test('includes a same-week session at/after week start, excludes a prior-week one', async () => {
+    const res = await request(app)
+      .get('/api/schedules/availability')
+      .query({ classId: seed.class2._id.toString() })
+      .set('Authorization', `Bearer ${tokens.admin}`);
+    expect(res.status).toBe(200);
+    const ids = res.body.data.map((s) => s._id);
+    expect(ids).toContain(earlyThisWeek._id.toString());
+    expect(ids).not.toContain(lastWeek._id.toString());
+  });
+});
+
 // ── Trainer-only teacher visibility (Wave E polish) ──────────
 // Keep this describe LAST: it rebinds teacherIds on the shared seed classes
 // (and restores them) — the suites above assume the seeded empty arrays.

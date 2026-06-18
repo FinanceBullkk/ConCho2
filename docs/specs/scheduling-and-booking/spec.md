@@ -2,7 +2,7 @@
 capability: scheduling-and-booking
 status: stable
 owners: [services/scheduleService, domains/schedule, domains/room, domains/learning/session]
-last_updated: 2026-06-15
+last_updated: 2026-06-18
 related_plans:
   - plans/260602-2247-m1-self-enroll-nomination-session-modes
   - plans/260606-1356-wave-e-generic-scheduling
@@ -176,6 +176,14 @@ window matches no configured slot render as read-only **off-policy** rows
 (fail-closed) while historical sessions still render. This is a presentation
 layer over the server's authoritative window enforcement.
 
+Availability (`GET /api/schedules/availability`) returns sessions from the
+START of the current ISO week (not `today`), so an earlier-this-week session —
+already past but still counted by the weekly cap (see "Weekly cap") — stays
+visible on the grid. A past session of the leader's own team renders **read-only**
+(no "+ Book", no cancel affordance: a started session cannot be cancelled), so
+what the leader sees matches what the cap counts. Future weeks are a superset of
+the prior `>= today` window (unaffected).
+
 #### Scenario: Minute-offset window books exactly
 - **GIVEN** a configured slot `09:15-10:45`
 - **WHEN** a leader books that cell
@@ -192,6 +200,15 @@ layer over the server's authoritative window enforcement.
 - **GIVEN** another class booked the same slot/day
 - **WHEN** the leader views their team's grid (scoped to their Class)
 - **THEN** the slot is still bookable for their Class (collision is per-class)
+
+#### Scenario: Earlier-this-week session stays visible (read-only)
+- **GIVEN** the leader's team has a `scheduled` session earlier this same ISO
+  week (already in the past) plus one upcoming session — i.e. 2/2 for the week
+- **WHEN** the leader opens the booking grid for the current week
+- **THEN** the past session renders on its cell as read-only ("counts this
+  week", no cancel), the upcoming one renders normally, and any further "+ Book"
+  in that week is rejected by the weekly cap (so the visible count matches the
+  enforced count)
 
 ### Requirement: Config is validated on write [BR-2, BR-4, UC-3]
 
