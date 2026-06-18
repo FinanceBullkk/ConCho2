@@ -48,7 +48,7 @@ the source instead of papering the empty state.
 | # | Slice | Outcome | Risk |
 |---|---|---|---|
 | 1 ✅ | **Mode classification = one source of truth** | `domains/_shared/scheduling-modes.js` (zero-dep leaf); policy + both repos import it; cycle + "keep in sync" duplication gone. No behaviour change. | low |
-| 2 | **Client classification = one source** | `CohortsTab` (+ any other) import the existing `client/src/lib/scheduling-mode.js` instead of a local `COHORT_MODES`. | low |
+| 2 ✅ | **Client classification = one source** | `lib/scheduling-mode.js` gains `COHORT_SCHEDULING_MODES` + `isCohortMode`; `CohortsTab` imports it (local `COHORT_MODES` removed) and `lockedReason` reuses it. No behaviour change. | low |
 | 3 | **Derive `deliveryProfile`** | Program DTO exposes `deliveryProfile {instructorLed, groupBased, leaderScheduled}` derived from `schedulingMode` (read-only, additive). Foundation for driving behaviour off a profile, not a string. | low |
 | 4 | **Unify reads behind a `deliveryType` facet** | Session/cohort list DTOs carry `deliveryType` (team|cohort) derived from the source; one list can show both worlds + filter as a facet. `mode=` stays accepted (back-compat) but becomes a thin wrapper over the facet. | med |
 | 5 | **Collapse the fork** | Once the UI consumes the unified list (Phase 4), retire the disjoint `mode` branching + fold the `english-class` delegation into the unified read. | med-high |
@@ -72,6 +72,8 @@ the source instead of papering the empty state.
   intentional UX change in Phase 4.
 
 ## Status
-- **Slice 1 shipped** (branch `refactor/converge-phase3-scheduling-modes-ssot`):
-  `_shared/scheduling-modes.js` + parity unit test; full server suite green.
-- Next: slice 2 (client SSOT), then 3 (deliveryProfile).
+- **Slice 1 shipped (#153):** `_shared/scheduling-modes.js` + parity unit test;
+  full server suite green.
+- **Slice 2 shipped:** client SSOT — `lib/scheduling-mode.js` `isCohortMode` /
+  `COHORT_SCHEDULING_MODES`; `CohortsTab` consumes it; client tests + lint green.
+- Next: slice 3 (`deliveryProfile` derivation on the program DTO).

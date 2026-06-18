@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import {
   TEAM_BOOKABLE_MODE,
+  COHORT_SCHEDULING_MODES,
+  isCohortMode,
   effectiveSchedulingMode,
   isLeaderBookable,
   lockedReason,
@@ -42,6 +44,21 @@ describe('isLeaderBookable', () => {
     expect(isLeaderBookable(teamWithMode('self_enroll'))).toBe(false);
     expect(isLeaderBookable(teamWithMode('nomination'))).toBe(false);
     expect(isLeaderBookable(teamWithMode('some_future_mode'))).toBe(false);
+  });
+});
+
+describe('isCohortMode (client single source of truth)', () => {
+  it('is true for the cohort modes only', () => {
+    expect(isCohortMode('self_enroll')).toBe(true);
+    expect(isCohortMode('nomination')).toBe(true);
+    expect(isCohortMode('leader_booking')).toBe(false);
+    expect(isCohortMode('admin_scheduled')).toBe(false);
+    expect(isCohortMode('some_future_mode')).toBe(false);
+    expect(isCohortMode(undefined)).toBe(false);
+  });
+
+  it('exposes the canonical cohort-mode list', () => {
+    expect(COHORT_SCHEDULING_MODES).toEqual(['self_enroll', 'nomination']);
   });
 });
 
