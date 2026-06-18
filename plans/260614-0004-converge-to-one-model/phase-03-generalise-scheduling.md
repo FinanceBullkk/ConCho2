@@ -50,7 +50,8 @@ the source instead of papering the empty state.
 | 1 ✅ | **Mode classification = one source of truth** | `domains/_shared/scheduling-modes.js` (zero-dep leaf); policy + both repos import it; cycle + "keep in sync" duplication gone. No behaviour change. | low |
 | 2 ✅ | **Client classification = one source** | `lib/scheduling-mode.js` gains `COHORT_SCHEDULING_MODES` + `isCohortMode`; `CohortsTab` imports it (local `COHORT_MODES` removed) and `lockedReason` reuses it. No behaviour change. | low |
 | 3 | **Derive `deliveryProfile`** | Program DTO exposes `deliveryProfile {instructorLed, groupBased, leaderScheduled}` derived from `schedulingMode` (read-only, additive). Foundation for driving behaviour off a profile, not a string. | low |
-| 4 | **Unify reads behind a `deliveryType` facet** | Session/cohort list DTOs carry `deliveryType` (team|cohort) derived from the source; one list can show both worlds + filter as a facet. `mode=` stays accepted (back-compat) but becomes a thin wrapper over the facet. | med |
+| 4a ✅ | **Cohort DTO carries `deliveryType`** | `cohortDto` exposes `deliveryType` ('team'\|'cohort') derived from the program's schedulingMode via the SSOT (program-less → 'team'). Additive — one catalog can now list both worlds + facet by type. `GET /api/learning/cohorts` with no `mode` already returns both worlds. | low-med |
+| 4b | **Session DTO `deliveryType` + `mode=` as thin wrapper** | Same field on the session list DTO; `mode=team\|cohort` kept (back-compat) but expressed via the facet. | med |
 | 5 | **Collapse the fork** | Once the UI consumes the unified list (Phase 4), retire the disjoint `mode` branching + fold the `english-class` delegation into the unified read. | med-high |
 
 > Slices 1–3 are near-zero behaviour risk (pure consolidation / additive DTO).
@@ -74,6 +75,10 @@ the source instead of papering the empty state.
 ## Status
 - **Slice 1 shipped (#153):** `_shared/scheduling-modes.js` + parity unit test;
   full server suite green.
-- **Slice 2 shipped:** client SSOT — `lib/scheduling-mode.js` `isCohortMode` /
+- **Slice 2 shipped (#154):** client SSOT — `lib/scheduling-mode.js` `isCohortMode` /
   `COHORT_SCHEDULING_MODES`; `CohortsTab` consumes it; client tests + lint green.
-- Next: slice 3 (`deliveryProfile` derivation on the program DTO).
+- **Slice 4a shipped:** `cohortDto.deliveryType` (server-computed via SSOT) + unit
+  test; full server suite green. The cohort list can now drive a single catalog.
+- Next: slice 4b (session DTO `deliveryType` + `mode` wrapper), then **Phase 4**
+  (the visible single-catalog UI). Slice 3 (`deliveryProfile`) deferred (YAGNI —
+  no consumer yet).
