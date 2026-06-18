@@ -17,6 +17,7 @@ import { Spinner } from '../../components/Spinner';
 import { StatusBadge } from '../../components/StatusBadge';
 import { CalendarGrid, getMonday, toDateKey } from '../../components/CalendarGrid';
 import { AttendanceDrawer } from '../../components/AttendanceDrawer';
+import { Button } from '@/components/ui/button';
 
 // ──────────────────────────────────────────────────────────
 // AttendancePage — Phase 3 Screen 1 (D2 Drawer)
@@ -53,10 +54,19 @@ const scheduleToKey = (s, offset) =>
 
 const daysSince = (dateStr) => Math.floor((Date.now() - new Date(dateStr).getTime()) / 86400000);
 
-// `mode` (optional, English-class separation): 'team' scopes the calendar to
-// the English/team-booking world, 'cohort' to the generic training world.
+const WORLD_FILTERS = ['all', 'team', 'cohort'];
+
+// `mode` (optional): 'team' scopes the calendar to the English/team-booking
+// world, 'cohort' to the cohort training world, and 'all' shows BOTH worlds
+// with a client-side Team/Cohort facet (converge Phase 4 — the unified
+// surface). Omitted → combined legacy read (both worlds, no facet UI).
 export default function AttendancePage({ mode }) {
   const { isAdmin } = useAuth();
+  // Unified mode reads BOTH worlds (no server mode) and facets client-side by
+  // each row's deliveryType; team|cohort stay server-scoped (English section /
+  // legacy callers).
+  const unified = mode === 'all';
+  const [worldFilter, setWorldFilter] = useState('all');
   const config = useSchedulingConfig();
   const offset = config.data?.utcOffsetMinutes ?? DEFAULT_UTC_OFFSET_MINUTES;
   const bulkMarkMutation = useBulkMarkAttendance();
@@ -92,7 +102,17 @@ export default function AttendancePage({ mode }) {
     return () => window.removeEventListener('keydown', handler);
   }, [selectedSchedule, requestClose]);
 
-  const { data: schedules = [], isLoading: loading } = useAttendanceCalendar(mode ? { mode } : undefined);
+  const { data: allSchedules = [], isLoading: loading } = useAttendanceCalendar(
+    unified ? undefined : (mode ? { mode } : undefined),
+  );
+  // Client-side world facet (only meaningful in unified mode). A row missing a
+  // deliveryType (defensive) is treated as team — matches the server fallback.
+  const schedules = useMemo(
+    () => (unified && worldFilter !== 'all'
+      ? allSchedules.filter((s) => (s.deliveryType || 'team') === worldFilter)
+      : allSchedules),
+    [allSchedules, unified, worldFilter],
+  );
 
   const weekDays = useMemo(() =>
     Array.from({ length: 7 }, (_, i) => new Date(weekStart.getTime() + i * 86400000)),
@@ -248,6 +268,22 @@ export default function AttendancePage({ mode }) {
           Click a session to open the attendance roster
         </p>
       </div>
+
+      {/* ── World facet (unified mode only) ────────────────── */}
+      {unified && (
+        <div className="flex items-center gap-1">
+          {WORLD_FILTERS.map((wf) => (
+            <Button
+              key={wf}
+              size="sm"
+              variant={worldFilter === wf ? 'default' : 'ghost'}
+              onClick={() => setWorldFilter(wf)}
+            >
+              {wf.charAt(0).toUpperCase() + wf.slice(1)}
+            </Button>
+          ))}
+        </div>
+      )}
 
       {/* ── Week stats ─────────────────────────────────────── */}
       <div className="flex flex-wrap gap-2">
