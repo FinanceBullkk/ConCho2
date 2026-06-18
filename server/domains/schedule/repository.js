@@ -9,6 +9,7 @@ const WaitlistEntry = require('../../models/WaitlistEntry');
 const Setting = require('../../models/Setting');
 const Room = require('../../models/Room');
 const RoomBooking = require('../../models/RoomBooking');
+const { COHORT_SCHEDULING_MODES } = require('../_shared/scheduling-modes');
 
 // ── Schedule ──────────────────────────────────────────────
 
@@ -225,9 +226,8 @@ const findClassSchedulingMode = async (classId, session) => {
 // same rule as findClassSchedulingMode above). Callers turn the returned ids
 // into `classId: {$in: ids}` (cohort) or `{$nin: ids}` (team — $nin also
 // matches null/missing programId classes, which is exactly the fallback).
-// Duplicated from scheduling-mode-policy.COHORT_SCHEDULING_MODES because that
-// module requires this one (cycle) — keep the two lists in sync.
-const COHORT_SCHEDULING_MODES = ['self_enroll', 'nomination'];
+// COHORT_SCHEDULING_MODES is imported from the single source of truth
+// (domains/_shared/scheduling-modes) — no longer duplicated here.
 const findCohortModeClassIds = async () => {
   const programs = await LearningProgram.find(
     { schedulingMode: { $in: COHORT_SCHEDULING_MODES } },

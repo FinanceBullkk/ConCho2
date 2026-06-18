@@ -18,9 +18,13 @@
 
 const { ServiceError } = require('../../helpers/ServiceError');
 const repository = require('./repository');
+const schedulingModes = require('../_shared/scheduling-modes');
 
-const TEAM_SCHEDULING_MODES = new Set(['leader_booking', 'admin_scheduled']);
-const COHORT_SCHEDULING_MODES = new Set(['self_enroll', 'nomination']);
+// Sets (for fast `.has()` lookups below) built from the single source of truth
+// in domains/_shared/scheduling-modes. Re-exported as Sets for back-compat with
+// existing callers/tests that spread them.
+const TEAM_SCHEDULING_MODES = new Set(schedulingModes.TEAM_SCHEDULING_MODES);
+const COHORT_SCHEDULING_MODES = new Set(schedulingModes.COHORT_SCHEDULING_MODES);
 
 // Roles allowed to schedule on behalf of the org (re-center Phase 2): a
 // Training Coordinator runs scheduling without full Admin. Distinct from a
