@@ -55,12 +55,14 @@ const renderPage = (entry = '/english') =>
 describe('EnglishPage — bounded English-class section', () => {
   // IA Phase 03: tab strip gone — the sidebar's English Class group drives ?tab=.
   // The page renders the body for the active (or role-default) tab.
-  it('Admin defaults to Classes, scoped to the team world', () => {
+  it('Admin defaults to Teams (Classes tab retired — catalog moved to Learning → Cohorts)', () => {
     h.auth = { user: { _id: 'a1', role: 'Admin' } };
     renderPage();
 
-    expect(screen.getByTestId('classes-tab')).toBeInTheDocument();
-    expect(h.cohortsProps).toHaveBeenCalledWith(expect.objectContaining({ mode: 'team' }));
+    expect(screen.getByTestId('teams-page')).toBeInTheDocument();
+    // The redundant English "Classes" tab is gone (converge Phase 4): team-world
+    // classes now live in the unified Learning → Cohorts catalog.
+    expect(screen.queryByTestId('classes-tab')).toBeNull();
   });
 
   it('Admin Schedules/Attendance tabs pass mode="team"', () => {

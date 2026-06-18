@@ -1,6 +1,6 @@
 import {
   Home, Users, BookOpen, Boxes, Route as RouteIcon, ClipboardList, GraduationCap, MessageSquare,
-  CalendarCheck, ClipboardCheck, BookA, UsersRound, ClipboardEdit,
+  CalendarCheck, ClipboardCheck, UsersRound, ClipboardEdit,
   LayoutDashboard, BarChart3, ChartLine, Download,
   Building2, MapPin, DoorOpen, Settings, Database, RefreshCw, ShieldCheck, ScrollText,
   Compass, Languages, FileText, Zap, Sparkles, Palette, Calculator, Smartphone, CalendarClock, Wallet,
@@ -60,7 +60,9 @@ export const NAV_GROUPS = [
   {
     id: 'english', labelKey: 'nav.groups.english',
     items: [
-      tab('/english', 'classes', 'nav.sections.classes', BookA, { access: ADMIN_ONLY }),
+      // 'classes' tab retired (converge Phase 4): the unified Learning → Cohorts
+      // catalog now lists team-world classes too (filter: Team), so a separate
+      // English "Classes" tab is redundant. Team-world class CRUD lives there.
       tab('/english', 'teams', 'nav.sections.teams', UsersRound, { access: ADMIN_ONLY }),
       tab('/english', 'schedules', 'nav.sections.schedules', CalendarCheck, { access: ADMIN_ONLY }),
       tab('/english', 'attendance', 'nav.sections.attendance', ClipboardList, { access: { Admin: 'full', Teacher: 'full' } }),

@@ -37,7 +37,7 @@ describe('Sidebar — section-group navigation (Phase 03)', () => {
       '/home',
       '/learning?tab=programs', '/learning?tab=paths',
       '/calendar?tab=schedules', '/calendar?tab=attendance',
-      '/english?tab=classes', '/english?tab=evaluations',
+      '/english?tab=schedules', '/english?tab=evaluations',
       '/reports?tab=overview', '/reports?tab=hr-export',
       '/people?tab=users', '/system?tab=settings',
     ].forEach((p) => expect(links).toContain(p));
@@ -54,7 +54,7 @@ describe('Sidebar — section-group navigation (Phase 03)', () => {
     expect(links).toContain('/calendar?tab=attendance');
     expect(links).not.toContain('/calendar?tab=schedules');      // admin-only
     expect(links).toContain('/english?tab=attendance');
-    expect(links).not.toContain('/english?tab=classes');         // admin-only
+    expect(links).not.toContain('/english?tab=schedules');         // admin-only
     expect(links).not.toContain('/people?tab=users');
     expect(links).not.toContain('/system?tab=settings');
   });
@@ -69,7 +69,7 @@ describe('Sidebar — section-group navigation (Phase 03)', () => {
     expect(links).toContain('/people?tab=departments');
     expect(links).not.toContain('/people?tab=users');            // read:users = Admin
     expect(links).not.toContain('/system?tab=settings');
-    expect(links).not.toContain('/english?tab=classes');
+    expect(links).not.toContain('/english?tab=schedules');
   });
 
   it('learner persona shows the /me/* surfaces and hides the admin sections', () => {
