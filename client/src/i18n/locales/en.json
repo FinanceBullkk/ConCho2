@@ -1693,7 +1693,13 @@
       "created": "Cohort created",
       "manage": "Enroll",
       "scheduleSession": "Schedule session",
-      "sessions": "Sessions"
+      "sessions": "Sessions",
+      "colType": "Type",
+      "type_team": "Team",
+      "type_cohort": "Cohort",
+      "filter_all": "All",
+      "filter_team": "Team",
+      "filter_cohort": "Cohort"
     },
     "sessions": {
       "title": "Sessions",
