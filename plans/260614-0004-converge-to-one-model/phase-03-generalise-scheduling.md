@@ -51,7 +51,7 @@ the source instead of papering the empty state.
 | 2 ✅ | **Client classification = one source** | `lib/scheduling-mode.js` gains `COHORT_SCHEDULING_MODES` + `isCohortMode`; `CohortsTab` imports it (local `COHORT_MODES` removed) and `lockedReason` reuses it. No behaviour change. | low |
 | 3 | **Derive `deliveryProfile`** | Program DTO exposes `deliveryProfile {instructorLed, groupBased, leaderScheduled}` derived from `schedulingMode` (read-only, additive). Foundation for driving behaviour off a profile, not a string. | low |
 | 4a ✅ | **Cohort DTO carries `deliveryType`** | `cohortDto` exposes `deliveryType` ('team'\|'cohort') derived from the program's schedulingMode via the SSOT (program-less → 'team'). Additive — one catalog can now list both worlds + facet by type. `GET /api/learning/cohorts` with no `mode` already returns both worlds. | low-med |
-| 4b | **Session DTO `deliveryType` + `mode=` as thin wrapper** | Same field on the session list DTO; `mode=team\|cohort` kept (back-compat) but expressed via the facet. | med |
+| 4b ✅ | **Session `deliveryType` tag** | `GET /api/schedules` + `/attendance-calendar` rows carry `deliveryType` ('team'\|'cohort'), derived in `queries.classifyDeliveryType` from the cohort-mode class set (program-less → 'team'); `mode=team\|cohort` filter kept (back-compat). Additive — unblocks the unified calendar fold (Phase 4). Shipped #159. | med |
 | 5 | **Collapse the fork** | Once the UI consumes the unified list (Phase 4), retire the disjoint `mode` branching + fold the `english-class` delegation into the unified read. | med-high |
 
 > Slices 1–3 are near-zero behaviour risk (pure consolidation / additive DTO).
@@ -79,6 +79,10 @@ the source instead of papering the empty state.
   `COHORT_SCHEDULING_MODES`; `CohortsTab` consumes it; client tests + lint green.
 - **Slice 4a shipped:** `cohortDto.deliveryType` (server-computed via SSOT) + unit
   test; full server suite green. The cohort list can now drive a single catalog.
-- Next: slice 4b (session DTO `deliveryType` + `mode` wrapper), then **Phase 4**
-  (the visible single-catalog UI). Slice 3 (`deliveryProfile`) deferred (YAGNI —
-  no consumer yet).
+- **Slice 4b shipped (#159):** session `deliveryType` on `GET /api/schedules` +
+  `/attendance-calendar` (`queries.classifyDeliveryType`) + 3 integration tests;
+  full server suite green (1168). Sessions now carry a world tag — the unified
+  calendar fold (Phase 4) is unblocked.
+- Next: **Phase 4** unified calendar/attendance UI (both worlds + world filter,
+  mirroring the Cohorts catalog), then retire the disjoint `mode` branching
+  (slice 5). Slice 3 (`deliveryProfile`) deferred (YAGNI — no consumer yet).

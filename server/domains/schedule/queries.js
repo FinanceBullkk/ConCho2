@@ -20,6 +20,21 @@ const { getWeekBounds } = require('./session-booking-policy');
 const utcToday = () => todayVN();
 
 /**
+ * Tag a schedule with its scheduling "world" (deliveryType) so a UNIFIED
+ * calendar can facet team vs cohort sessions (convergence Phase 3 → 4) —
+ * mirrors learning/dto.cohortDto.deliveryType. A schedule whose class is in the
+ * cohort-mode set ⇒ 'cohort'; everything else (incl. program-less legacy
+ * classes — same fallback as findCohortModeClassIds' $nin arm) ⇒ 'team'.
+ * @param {Object} schedule         lean schedule with classId (populated or id)
+ * @param {Set<string>} cohortSet   string class-ids of cohort-mode classes
+ */
+const classifyDeliveryType = (schedule, cohortSet) => {
+  const cls = schedule.classId;
+  const cid = cls && (cls._id || cls);
+  return cid && cohortSet.has(cid.toString()) ? 'cohort' : 'team';
+};
+
+/**
  * Get the current week's + future schedules (availability view).
  *
  * Lower bound is the START of the CURRENT ISO week — NOT `utcToday()`. The
@@ -44,11 +59,17 @@ const getAvailability = (filters = {}) =>
  */
 const listSchedules = async (filters, { page, limit, skip }) => {
   const query = {};
+  // Resolve cohort-world class ids once — used both to split the list by world
+  // (when a mode filter is present) AND to tag every row's deliveryType so a
+  // unified calendar can facet team vs cohort. Empty set (no cohort programs,
+  // the common case today) → $nin matches all / every row tags as 'team'.
+  const cohortClassIds = await repository.findCohortModeClassIds();
+  const cohortClassIdSet = new Set(cohortClassIds.map((id) => id.toString()));
+
   if (filters.classId) query.classId = filters.classId;
   // English-class separation: split lists by scheduling world. An explicit
   // classId is already world-scoped, so mode only applies without one.
   else if (filters.mode === 'team' || filters.mode === 'cohort') {
-    const cohortClassIds = await repository.findCohortModeClassIds();
     query.classId = filters.mode === 'cohort'
       ? { $in: cohortClassIds }
       : { $nin: cohortClassIds }; // $nin includes program-less legacy classes
@@ -87,6 +108,7 @@ const listSchedules = async (filters, { page, limit, skip }) => {
   // from the populated array (mirrors getAttendanceCalendar at line ~155).
   schedules.forEach((s) => {
     s.enrolledCount = Array.isArray(s.enrolledUsers) ? s.enrolledUsers.length : 0;
+    s.deliveryType = classifyDeliveryType(s, cohortClassIdSet);
   });
   return { schedules, total };
 };
@@ -141,10 +163,15 @@ const getAttendanceCalendar = async ({ from, to, mode } = {}, requestUser = null
     if (to) filter.startTime.$lte = new Date(to);
   }
 
+  // Resolve cohort-world class ids once — used both for the optional world
+  // split (team | cohort) and to tag each row's deliveryType for a unified
+  // attendance calendar (convergence Phase 3 → 4).
+  const cohortClassIds = await repository.findCohortModeClassIds();
+  const cohortClassIdSet = new Set(cohortClassIds.map((id) => id.toString()));
+
   // English-class separation: optional world split (team | cohort). The
   // top-level classId condition ANDs with the Teacher $or scope below.
   if (mode === 'team' || mode === 'cohort') {
-    const cohortClassIds = await repository.findCohortModeClassIds();
     filter.classId = mode === 'cohort'
       ? { $in: cohortClassIds }
       : { $nin: cohortClassIds };
@@ -191,7 +218,13 @@ const getAttendanceCalendar = async ({ from, to, mode } = {}, requestUser = null
       attendanceStatus = 'done';    // All marked
     }
 
-    return { ...s, enrolledCount: enrolled, attendanceStatus, markedCount: marked };
+    return {
+      ...s,
+      enrolledCount: enrolled,
+      attendanceStatus,
+      markedCount: marked,
+      deliveryType: classifyDeliveryType(s, cohortClassIdSet),
+    };
   });
 };
 
@@ -201,4 +234,5 @@ module.exports = {
   getById,
   getMyClassSchedules,
   getAttendanceCalendar,
+  classifyDeliveryType,
 };

@@ -136,7 +136,16 @@ Bug fixing and integration review rank above net-new feature rollout.
 > **Rolling window:** ~last 2 weeks / ~15 entries kept inline (file ≤ ~400
 > lines); older entries roll verbatim, newest-first, to
 > [`changelog-archive/2026-q2.md`](changelog-archive/2026-q2.md). Currently
-> inline: **2026-06-14 → 2026-06-18**.
+> inline: **2026-06-14 → 2026-06-19**.
+
+- **2026-06-19** — **Converge Phase 3 slice 4b — session `deliveryType` world tag (#159).**
+  Every row of `GET /api/schedules` + `GET /api/schedules/attendance-calendar` now carries
+  a derived `deliveryType` ('team'|'cohort') — computed in `domains/schedule/queries.classifyDeliveryType`
+  from the cohort-mode class set (program-less → 'team'; same rule as the `mode` split), present
+  with or without a `mode` filter. Additive read field, mirrors the cohort DTO's `deliveryType`
+  (slice 4a); it gives the calendar/attendance grids a per-session world tag so they can be folded
+  into ONE faceted surface (next: Phase 4 unified calendar). 3 integration tests added; full server
+  suite green (127 suites / 1168 tests). Spec `scheduling-and-booking` updated.
 
 - **2026-06-19** — **Converge Phase 4 slice 2 — retire the redundant English "Classes"
   tab.** Now that Learning → Cohorts lists both worlds (slice 1), the separate English
