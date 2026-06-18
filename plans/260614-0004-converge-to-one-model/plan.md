@@ -1,6 +1,6 @@
 # Converge to One Training Model (rearchitecture Option A)
 
-**Created:** 2026-06-14 · **Status:** 🟡 in progress (Phase 0,1,2 shipped) · **Decision:** owner chose
+**Created:** 2026-06-14 · **Status:** 🟡 in progress (Phase 0,1,2 shipped; Phase 3 started — slice 1) · **Decision:** owner chose
 **Option A — full convergence** (ADR `docs/decisions/converge-to-one-training-model.md`).
 **Proposal:** `plans/reports/architecture-260614-0004-rearchitecture-proposal.md`.
 
@@ -23,7 +23,7 @@ tests + lint + spec update. No big-bang.
 | 0 | [Foundations](phase-00-foundations.md) | in-process **domain-event bus** (audit/notify/completion subscribe) + **finish authz** (legacy roleGuard → capability). No behaviour change. | low |
 | 1 | [Converge Assessment](phase-01-converge-assessment.md) | `Evaluation` flows fold onto `Assessment`; one assessment model. | med |
 | 2 | [Converge Enrollment](phase-02-converge-enrollment.md) ✅ | **read layer done (2026-06-14)** — one self read `GET /api/learning/enrollments/mine` serves both modes. **create write-spine + event done (2026-06-15)** — both modes create via one spine + publish `ENROLLMENT_CREATED` (team post-commit). Transfer/drop close-paths still deferred. | med-high |
-| 3 | Generalise Scheduling | retire `Schedule` `mode` fork; Program `schedulingMode`/deliveryProfile drives it (leader_booking = one mode). | high |
+| 3 | [Generalise Scheduling](phase-03-generalise-scheduling.md) 🟡 | retire `Schedule` `mode` fork; Program `schedulingMode`/deliveryProfile drives it (leader_booking = one mode). **Slice 1 done (2026-06-18):** mode classification consolidated into `domains/_shared/scheduling-modes` (one source of truth; cycle + "keep in sync" duplication removed). | high |
 | 4 | UX journeys | re-cut sidebar groups into persona journeys (Set up→Schedule→Enroll→Run→Certify→Report); collapse English↔Operations once storage unified. | med |
 | 5 | Retire legacy `routes/`+`controllers/` | fold remaining legacy into bounded contexts. | med |
 | 6 | (existing) Postgres gate | unchanged — separate plan. | — |
