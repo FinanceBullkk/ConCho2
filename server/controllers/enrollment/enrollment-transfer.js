@@ -3,7 +3,7 @@ const Enrollment = require('../../models/Enrollment');
 const Team = require('../../models/Team');
 const { syncSchedulesForTeamUpdate } = require('../../models/Team');
 const { notifyPromotions } = require('../../domains/schedule/waitlist/promotion');
-const { syncEnrollments, flushPendingEmails } = require('../../domains/groups/controller');
+const { syncEnrollments, flushPendingEmails, flushPendingEnrollmentEvents } = require('../../domains/groups/controller');
 const { handleError } = require('../../helpers/handleError');
 const { invalidateAnalyticsCache } = require('../../middleware/analyticsCache');
 const logger = require('../../lib/logger');
@@ -88,11 +88,16 @@ const transferEnrollment = async (req, res) => {
     const fromOldMembers = (fromTeam.members || []).map((id) => id.toString());
     const fromNewMembers = fromOldMembers.filter((id) => id !== userIdStr);
     const classId = toTeam.classId ? toTeam.classId.toString() : null;
+    // Source cohort — used post-commit to decide whether this transfer lands the
+    // learner in a DIFFERENT cohort (a genuine new enrollment worth a bell) vs a
+    // same-cohort team rebalance (email-only, no redundant bell).
+    const fromClassId = fromTeam.classId ? fromTeam.classId.toString() : null;
 
     // ── SINGLE ATOMIC TRANSACTION ────────────────────────────
     // All four steps run inside one session so any failure rolls back
     // completely — no dual-membership half-state (BUG #1 fix).
     let pendingEmails = [];
+    let pendingEvents = [];
     let sourcePromotions = [];
     const session = await mongoose.startSession();
     try {
@@ -112,7 +117,7 @@ const transferEnrollment = async (req, res) => {
         // Step 3: Close source enrollment, remove user from source team,
         // create new Active enrollment in target team.
         // syncEnrollments accepts session — fully transactional.
-        ({ pendingEmails } = await syncEnrollments(
+        ({ pendingEmails, pendingEvents } = await syncEnrollments(
           toTeamId,
           [userIdStr],
           [],
@@ -138,6 +143,15 @@ const transferEnrollment = async (req, res) => {
 
     // Post-commit: flush queued emails and attach optional transfer note.
     flushPendingEmails(pendingEmails);
+
+    // Converge Phase 2 (2026-06-18): fire the unified ENROLLMENT_CREATED event
+    // (cohort_enrolled bell + enrollment automation) for the new target-team
+    // enrollment — but ONLY when the learner lands in a DIFFERENT cohort than the
+    // one they left. A same-cohort team rebalance keeps the legacy transfer email
+    // only, so the learner is never double-notified (owner decision 2026-06-18).
+    if (classId && classId !== fromClassId) {
+      await flushPendingEnrollmentEvents(pendingEvents);
+    }
 
     // Notify waiters promoted on the source team's freed seats (fail-soft).
     for (const { scheduleId, promoted } of sourcePromotions) {
