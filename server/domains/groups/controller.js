@@ -19,7 +19,7 @@ const {
 } = require('./queries');
 const { createTeam, updateTeam } = require('./mutations');
 const { deleteTeam, restoreTeam } = require('./lifecycle');
-const { syncEnrollments, flushPendingEmails } = require('./enrollment-sync');
+const { syncEnrollments, flushPendingEmails, flushPendingEnrollmentEvents } = require('./enrollment-sync');
 
 module.exports = {
   getTeams, getTeamById, createTeam, updateTeam, deleteTeam,
@@ -27,4 +27,5 @@ module.exports = {
   // Internal helpers exported for cross-controller use (enrollment transfers)
   syncEnrollments,
   flushPendingEmails,
+  flushPendingEnrollmentEvents,
 };
