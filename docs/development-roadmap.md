@@ -138,6 +138,19 @@ Bug fixing and integration review rank above net-new feature rollout.
 > [`changelog-archive/2026-q2.md`](changelog-archive/2026-q2.md). Currently
 > inline: **2026-06-14 → 2026-06-18**.
 
+- **2026-06-18** — **Converge Phase 3 started — scheduling-mode classification SSOT
+  (slice 1).** Root-cause work for the "two worlds" UX (admin opens Learning →
+  Cohorts, sees nothing because data lives in the English/team world). The
+  team/cohort `schedulingMode` split was duplicated in 3 server files
+  (`scheduling-mode-policy`, `schedule/repository`, `learning/repository`) — the
+  last copied it explicitly to dodge a require cycle, with "keep in sync" comments.
+  Extracted to a zero-dependency leaf `domains/_shared/scheduling-modes.js` (one
+  source of truth); policy + both repos import it (cycle gone). Pure refactor, no
+  behaviour change; new parity unit test + full server suite green. Plan:
+  `plans/260614-0004-converge-to-one-model/phase-03-generalise-scheduling.md`.
+  Next slices: client SSOT → `deliveryProfile` → unify reads behind a delivery-type
+  facet (enables the Phase 4 single-catalog UI).
+
 - **2026-06-18** — **Booking grid shows earlier-this-week sessions (bugfix).**
   Leader saw 1 session on `/book` yet a 2nd booking 400'd "max 2 this week": the
   availability read (`domains/schedule/queries.getAvailability`) windowed on
