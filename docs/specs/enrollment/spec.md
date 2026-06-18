@@ -2,7 +2,7 @@
 capability: enrollment
 status: evolving
 owners: [domains/learning/enrollment, controllers/enrollmentController]
-last_updated: 2026-06-15
+last_updated: 2026-06-18
 related_code:
   - server/domains/learning/enrollment/use-cases.js
   - server/domains/learning/enrollment/writes.js
@@ -53,8 +53,15 @@ self-enroll with prerequisite gating.
 > same `ENROLLMENT_CREATED` domain event cohort enroll does, so notification (the
 > `cohort_enrolled` bell) and automation react uniformly for both modes. Team
 > events fire **post-commit** (a rolled-back team transaction never emits) and
-> only when the team has a cohort. Still deferred: folding the team
-> transfer/drop close-paths onto the same spine.
+> only when the team has a cohort.
+>
+> **Convergence (Phase 2, transfer 2026-06-18):** the team **transfer** path now
+> also publishes `ENROLLMENT_CREATED` for the new target-team enrollment —
+> **but only when the learner lands in a DIFFERENT cohort** than the one they
+> left (a same-cohort team rebalance stays email-only, so the transferred learner
+> is never double-notified). Still deferred: the member **drop** close-path
+> (status→Dropped) keeps its team-specific `sendEnrollmentDropped` email and emits
+> no unified event (a drop is a close, not a create).
 
 ## Business Requirements (BR)
 
@@ -217,6 +224,18 @@ publishes nothing.
 - **WHEN** the transaction rolls back
 - **THEN** no `ENROLLMENT_CREATED` event is emitted (events flush only post-commit)
 
+#### Scenario: Transfer to a different cohort
+- **GIVEN** a learner with an Active enrollment in a team bound to cohort A
+- **WHEN** an Admin transfers them to a team bound to cohort B (B ≠ A)
+- **THEN** the new target enrollment fires `ENROLLMENT_CREATED` and the learner
+  gets a `cohort_enrolled` bell (in addition to the legacy transfer email)
+
+#### Scenario: Same-cohort rebalance
+- **GIVEN** two teams bound to the SAME cohort
+- **WHEN** an Admin transfers a learner between them
+- **THEN** no `ENROLLMENT_CREATED` event fires (no redundant bell); the learner
+  receives the transfer email only
+
 ## Non-Functional Requirements (NFR)
 
 Inherits `security-platform`. Specifics:
@@ -241,6 +260,8 @@ Inherits `security-platform`. Specifics:
       (`direct`) enrollments in one shape, self-scoped; unauthenticated → 401.
 - [ ] Admin adding a member to a cohort-bound team writes a `cohort_enrolled`
       bell for that member (same as direct enroll); a program-less team writes none.
+- [ ] Transferring a learner to a DIFFERENT cohort writes a `cohort_enrolled`
+      bell (plus the transfer email); a same-cohort rebalance writes no bell.
 
 ## Error & Edge Cases
 
@@ -270,6 +291,9 @@ Inherits `security-platform`. Specifics:
   (`/enrollments/mine`). **Create write-spine + event converged (Phase 2,
   2026-06-15):** both modes create through one spine and publish
   `ENROLLMENT_CREATED`, so notification/automation subscribe uniformly (team
-  events post-commit, cohort-scoped). Still deferred: folding the team
-  **transfer/drop** close-paths onto the same spine (they keep team-specific
-  email side-effects today) — tracked in the converge plan.
+  events post-commit, cohort-scoped). **Transfer converged (Phase 2,
+  2026-06-18):** the team transfer path fires `ENROLLMENT_CREATED` for the new
+  enrollment when the learner moves to a different cohort (same-cohort rebalance
+  stays email-only). Still deferred: the member **drop** close-path keeps its
+  team-specific `sendEnrollmentDropped` email (a close, not a create — no unified
+  event) — tracked in the converge plan.

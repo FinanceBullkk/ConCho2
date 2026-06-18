@@ -16,7 +16,7 @@ const mongoose = require('mongoose');
 const { getApp, getTokens, getSeedData, getCsrfHeaders, teardown } = require('../setup');
 
 let app, tokens, seed, csrf;
-let Enrollment, Team, Class;
+let Enrollment, Team, Class, User, NotificationLog;
 
 beforeAll(async () => {
   app = await getApp();
@@ -26,6 +26,8 @@ beforeAll(async () => {
   Enrollment = require('../../models/Enrollment');
   Team = require('../../models/Team');
   Class = require('../../models/Class');
+  User = require('../../models/User');
+  NotificationLog = require('../../models/NotificationLog');
 });
 
 afterAll(async () => {
@@ -200,5 +202,72 @@ describe('POST /api/enrollments/:id/transfer', () => {
       .send({ toTeamId: toTeam._id.toString() });
 
     expect(res.status).toBe(403);
+  });
+
+  // ── Unified ENROLLMENT_CREATED event on transfer (converge Phase 2) ──────────
+  // Transfer now routes the target-team enrollment through the shared write spine
+  // AND fires the unified event (cohort_enrolled bell + automation) — but ONLY
+  // when the learner lands in a DIFFERENT cohort, so a same-cohort team rebalance
+  // is never double-notified (it keeps the legacy transfer email only).
+
+  test('transferring to a DIFFERENT cohort writes a cohort_enrolled bell for the learner', async () => {
+    const { cls2, toTeam, enrollment } = await seedTransferScenario();
+    // Clear any prior bells for this learner so the assertion is unambiguous.
+    await NotificationLog.deleteMany({ recipientUserId: seed.member1._id, type: 'cohort_enrolled' });
+
+    const res = await request(app)
+      .post(`/api/enrollments/${enrollment._id}/transfer`)
+      .set('Authorization', `Bearer ${tokens.admin}`)
+      .set(csrf)
+      .send({ toTeamId: toTeam._id.toString() });
+
+    expect(res.status).toBe(200);
+
+    // Same shape a direct cohort enrollee gets (one write spine + one event).
+    const bell = await NotificationLog.findOne({
+      recipientUserId: seed.member1._id, type: 'cohort_enrolled',
+    }).lean();
+    expect(bell).toBeTruthy();
+    expect(bell.channel).toBe('in_app');
+    expect(bell.metadata.cohortId).toBe(cls2._id.toString());
+  });
+
+  test('transferring within the SAME cohort writes NO cohort_enrolled bell (email only)', async () => {
+    counter += 1;
+    const suffix = `${Date.now()}_same_${counter}`;
+    // Two teams sharing ONE class — Team.classId is intentionally NOT unique
+    // ("multiple teams per class allowed"), so a same-cohort rebalance is real.
+    const cls = await Class.create({
+      classCode: `XFER_SAME_${counter}`, courseName: 'Same Cohort', totalSessions: 10,
+    });
+    const mover = await User.create({
+      empCode: `0955${String(counter).padStart(2, '0')}`,
+      name: 'Same Mover', role: 'Participant', department: 'Test', password: 'pass12345678',
+    });
+    const fromTeam = await Team.create({
+      name: `SameFrom-${suffix}`, classId: cls._id, leaderId: seed.leader._id,
+      members: [seed.leader._id, mover._id],
+    });
+    const toTeam = await Team.create({
+      name: `SameTo-${suffix}`, classId: cls._id, leaderId: seed.member2._id,
+      members: [seed.member2._id],
+    });
+    const enrollment = await Enrollment.create({
+      userId: mover._id, teamId: fromTeam._id, classId: cls._id, status: 'Active',
+    });
+    await NotificationLog.deleteMany({ recipientUserId: mover._id });
+
+    const res = await request(app)
+      .post(`/api/enrollments/${enrollment._id}/transfer`)
+      .set('Authorization', `Bearer ${tokens.admin}`)
+      .set(csrf)
+      .send({ toTeamId: toTeam._id.toString() });
+
+    expect(res.status).toBe(200);
+    // Same cohort → no redundant bell (the legacy transfer email still fires).
+    const count = await NotificationLog.countDocuments({
+      recipientUserId: mover._id, type: 'cohort_enrolled',
+    });
+    expect(count).toBe(0);
   });
 });

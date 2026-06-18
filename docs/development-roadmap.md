@@ -151,6 +151,20 @@ Bug fixing and integration review rank above net-new feature rollout.
   Next slices: client SSOT → `deliveryProfile` → unify reads behind a delivery-type
   facet (enables the Phase 4 single-catalog UI).
 
+- **2026-06-18** — **Enrollment convergence: team transfer fires the unified
+  event (Phase 2).** Closed a seam in the enrollment write-spine convergence: a
+  team **transfer** created the new target-team enrollment through the shared
+  spine but dropped the `pendingEvents`, so a transferred learner got the legacy
+  transfer email but **no `cohort_enrolled` bell** (and automation never fired) —
+  while a plain add-member did. Fix: the transfer flow now flushes
+  `flushPendingEnrollmentEvents`, but **only when the learner lands in a different
+  cohort** (owner decision — a same-cohort team rebalance stays email-only, no
+  redundant bell). Touched `controllers/enrollment/enrollment-transfer.js` +
+  `domains/groups/controller.js` (facade export). Spec `enrollment` updated
+  (2 scenarios + AC); 2 new `enrollmentTransfer` tests (different-cohort bell /
+  same-cohort no-bell); enrollment+teams+learning suites green. Still deferred:
+  the member-**drop** close-path (a close, not a create — keeps its team email).
+
 - **2026-06-18** — **Booking grid shows earlier-this-week sessions (bugfix).**
   Leader saw 1 session on `/book` yet a 2nd booking 400'd "max 2 this week": the
   availability read (`domains/schedule/queries.getAvailability`) windowed on
