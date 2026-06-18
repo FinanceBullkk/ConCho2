@@ -138,6 +138,18 @@ Bug fixing and integration review rank above net-new feature rollout.
 > [`changelog-archive/2026-q2.md`](changelog-archive/2026-q2.md). Currently
 > inline: **2026-06-14 → 2026-06-18**.
 
+- **2026-06-18** — **Converge Phase 4 — unified Cohorts catalog (the visible fix).**
+  Learning → Cohorts is now ONE catalog (`CohortsTab mode="all"`) that lists BOTH
+  scheduling worlds — it fetches with no `mode` filter (server returns all) and
+  renders a **deliveryType** column (Team / Cohort) + a world filter (All / Team /
+  Cohort). Per-row actions gate by `deliveryType`: cohort-enroll/schedule/sessions
+  show only on cohort-world rows; team-world rows (English classes) show read/edit.
+  This ends the "admin opens Cohorts and sees nothing" confusion — the English/team
+  classes now appear here too, labelled, alongside cohort-world runs. Verified live
+  (screenshots) + 3 new `CohortsTab` tests; client suite 398 + lint (cap) + build
+  green. The English section stays for now (folding it in / persona-journey sidebar
+  = remaining Phase 4 work).
+
 - **2026-06-18** — **Converge Phase 3 continues — client SSOT + cohort `deliveryType`
   (slices 2 + 4a).** Slice 2 (#154): client cohort-mode classification consolidated
   into `lib/scheduling-mode.js` (`isCohortMode` / `COHORT_SCHEDULING_MODES`);

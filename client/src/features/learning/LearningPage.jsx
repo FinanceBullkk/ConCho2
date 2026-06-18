@@ -48,7 +48,7 @@ export default function LearningPage() {
           {activeTab === 'programs' && <ProgramsTab />}
         </TabsContent>
         <TabsContent value="cohorts" hidden={activeTab !== 'cohorts'}>
-          {activeTab === 'cohorts' && <CohortsTab mode="cohort" />}
+          {activeTab === 'cohorts' && <CohortsTab mode="all" />}
         </TabsContent>
         <TabsContent value="paths" hidden={activeTab !== 'paths'}>
           {activeTab === 'paths' && <PathsTab />}
