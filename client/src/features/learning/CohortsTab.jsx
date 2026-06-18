@@ -19,27 +19,47 @@ import CreateSessionModal from './CreateSessionModal';
 import CohortSessionsPanel from './CohortSessionsPanel';
 
 const statusTone = { Ongoing: 'default', Completed: 'secondary' };
+const WORLD_FILTERS = ['all', 'team', 'cohort'];
 
 // Coordinator-scheduled offline sessions are created against cohort-mode
 // programs (self_enroll / nomination), team-less (re-center Phase 2). The
 // cohort-mode classification comes from the shared lib (single source of truth).
 const isCohortScheduled = (cohort) => isCohortMode(cohort.program?.schedulingMode);
 
-// English-class separation props:
-//   mode     — 'cohort' (generic training world, default) | 'team' (English
-//              section: reads via /api/english/classes; cohort-based enroll is
-//              hidden — team membership drives enrollment in that world).
-//   titleKey — header i18n key override (English section says "Classes").
+// CohortsTab — the training catalog.
+//   mode = 'all'    — UNIFIED catalog (converge Phase 4): lists BOTH scheduling
+//                     worlds (team + cohort) with a deliveryType column + world
+//                     filter; per-row actions gate by each row's deliveryType, so
+//                     an admin no longer hits an "empty" Cohorts tab while the
+//                     data sits in the English/team world.
+//   mode = 'team'   — English section: reads via /api/english/classes; cohort-
+//                     based enroll is hidden (team membership drives enrollment).
+//   mode = 'cohort' — legacy cohort-world-only list.
 export default function CohortsTab({ mode = 'cohort', titleKey = 'learning.cohorts.title' }) {
   const { t } = useTranslation();
   const { can } = useRole();
+  const isUnified = mode === 'all';
+
+  // Unified view fetches BOTH worlds (no mode filter → server returns all).
+  const { data, isLoading } = useLearningCohorts(isUnified ? {} : { mode });
+  const allCohorts = data?.data || [];
+
+  const [worldFilter, setWorldFilter] = useState('all');
+  const cohorts = isUnified && worldFilter !== 'all'
+    ? allCohorts.filter((c) => c.deliveryType === worldFilter)
+    : allCohorts;
+
   const canCreate = can('create:cohort');
-  const isTeamWorld = mode === 'team';
-  const canEnroll = can('enroll:learner') && !isTeamWorld;
+  const canManage = canCreate; // cohort.manage covers create/edit/delete/restore
   const canSchedule = can('book:session');
   const canAssignTrainers = can('assign:trainer');
-  const { data, isLoading } = useLearningCohorts({ mode });
-  const cohorts = data?.data || [];
+  const canEnrollCap = can('enroll:learner');
+  // Per-row: cohort-based enroll only applies to cohort-world rows. Team-world
+  // rows are enrolled via team membership (the English section), never here.
+  const rowCanEnroll = (cohort) => canEnrollCap && cohort.deliveryType === 'cohort';
+
+  const showTypeCol = isUnified;
+  const showActions = canEnrollCap || canSchedule || canManage || canAssignTrainers;
 
   const [createOpen, setCreateOpen] = useState(false);
   const [editCohort, setEditCohort] = useState(null);
@@ -47,13 +67,26 @@ export default function CohortsTab({ mode = 'cohort', titleKey = 'learning.cohor
   const [sessionCohort, setSessionCohort] = useState(null);
   const [sessionsCohort, setSessionsCohort] = useState(null);
   const [showArchived, setShowArchived] = useState(false);
-  // `cohort.manage` (create:cohort) is a single capability covering create/edit/delete/restore.
-  const canManage = canCreate;
-  const showActions = canEnroll || canSchedule || canManage || canAssignTrainers;
 
   const header = (
-    <div className="flex items-center justify-between">
-      <CardTitle>{t(titleKey)}</CardTitle>
+    <div className="flex items-center justify-between gap-3 flex-wrap">
+      <div className="flex items-center gap-3 flex-wrap">
+        <CardTitle>{t(titleKey)}</CardTitle>
+        {isUnified && (
+          <div className="flex items-center gap-1">
+            {WORLD_FILTERS.map((f) => (
+              <Button
+                key={f}
+                size="sm"
+                variant={worldFilter === f ? 'default' : 'ghost'}
+                onClick={() => setWorldFilter(f)}
+              >
+                {t(`learning.cohorts.filter_${f}`)}
+              </Button>
+            ))}
+          </div>
+        )}
+      </div>
       <div className="flex items-center gap-2">
         {canManage && (
           <Button size="sm" variant="ghost" onClick={() => setShowArchived(true)}>
@@ -71,7 +104,7 @@ export default function CohortsTab({ mode = 'cohort', titleKey = 'learning.cohor
 
   let body;
   if (isLoading) {
-    body = <TableSkeleton rows={6} cols={5} />;
+    body = <TableSkeleton rows={6} cols={showTypeCol ? 6 : 5} />;
   } else if (!cohorts.length) {
     body = (
       <Card>
@@ -91,6 +124,7 @@ export default function CohortsTab({ mode = 'cohort', titleKey = 'learning.cohor
               <TableRow>
                 <TableHead>{t('learning.cohorts.colCohort')}</TableHead>
                 <TableHead>{t('learning.cohorts.colProgram')}</TableHead>
+                {showTypeCol && <TableHead>{t('learning.cohorts.colType')}</TableHead>}
                 <TableHead>{t('learning.cohorts.colStatus')}</TableHead>
                 <TableHead className="text-right">{t('learning.cohorts.colSessions')}</TableHead>
                 <TableHead className="text-right">{t('learning.cohorts.colBooked')}</TableHead>
@@ -104,6 +138,13 @@ export default function CohortsTab({ mode = 'cohort', titleKey = 'learning.cohor
                     <Link to={`/learning/cohorts/${cohort._id}`} className="text-primary hover:underline">{cohort.cohortCode}</Link>
                   </TableCell>
                   <TableCell>{cohort.programName}</TableCell>
+                  {showTypeCol && (
+                    <TableCell>
+                      <Badge variant={cohort.deliveryType === 'cohort' ? 'default' : 'outline'}>
+                        {t(`learning.cohorts.type_${cohort.deliveryType}`, cohort.deliveryType)}
+                      </Badge>
+                    </TableCell>
+                  )}
                   <TableCell>
                     <Badge variant={statusTone[cohort.status] || 'secondary'}>{t(`learning.status.${cohort.status}`, cohort.status)}</Badge>
                   </TableCell>
@@ -125,7 +166,7 @@ export default function CohortsTab({ mode = 'cohort', titleKey = 'learning.cohor
                             <CalendarRange className="size-4 mr-1.5" aria-hidden="true" />{t('learning.cohorts.sessions')}
                           </Button>
                         )}
-                        {canEnroll && (
+                        {rowCanEnroll(cohort) && (
                           <Button size="sm" variant="outline" onClick={() => setEnrollCohort(cohort)}>
                             <UserPlus className="size-4 mr-1.5" aria-hidden="true" />{t('learning.cohorts.manage')}
                           </Button>
