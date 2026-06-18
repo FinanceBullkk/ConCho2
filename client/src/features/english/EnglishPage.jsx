@@ -1,10 +1,9 @@
 import { useSearchParams, Link } from 'react-router-dom';
-import { BookA, UsersRound, CalendarCheck, ClipboardList, ClipboardEdit, CalendarPlus, GraduationCap } from 'lucide-react';
+import { UsersRound, CalendarCheck, ClipboardList, ClipboardEdit, CalendarPlus, GraduationCap } from 'lucide-react';
 import { Tabs, TabsContent } from '@/components/ui/tabs';
 import { PageHeader } from '@/components/PageHeader';
 import { useAuth } from '../../context/AuthContext';
 import { useMyTeams } from '../../hooks/useTeams';
-import CohortsTab from '../learning/CohortsTab';
 import TeamsPage from '../groups/TeamsPage';
 import SchedulesPage from '../schedule/SchedulesPage';
 import AttendancePage from '../attendance/AttendancePage';
@@ -31,7 +30,6 @@ import BookClassPage from '../schedule/BookClassPage';
 
 const TABS_BY_ROLE = {
   Admin: [
-    { id: 'classes',     label: 'Classes',      icon: BookA,         description: 'Manage English classes (team-booking world).' },
     { id: 'teams',       label: 'Teams',        icon: UsersRound,    description: 'Manage learning groups and their leaders.' },
     { id: 'schedules',   label: 'Schedules',    icon: CalendarCheck, description: 'Create and manage English-class sessions.' },
     { id: 'attendance',  label: 'Attendance',   icon: ClipboardList, description: 'Mark and review English-class attendance.' },
@@ -50,7 +48,7 @@ const TABS_BY_ROLE = {
 };
 
 const DEFAULT_TAB = {
-  Admin:       'classes',
+  Admin:       'teams',
   Teacher:     'attendance',
   Participant: 'book',
   Leader:      'book',
@@ -140,7 +138,6 @@ export default function EnglishPage() {
 }
 
 function TabContent({ id }) {
-  if (id === 'classes')     return <CohortsTab mode="team" titleKey="english.classesTitle" />;
   if (id === 'teams')       return <TeamsPage />;
   if (id === 'schedules')   return <SchedulesPage mode="team" />;
   if (id === 'attendance')  return <AttendancePage mode="team" />;
