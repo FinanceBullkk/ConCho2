@@ -1,12 +1,11 @@
 import { useSearchParams, Link } from 'react-router-dom';
-import { UsersRound, CalendarCheck, ClipboardList, ClipboardEdit, CalendarPlus, GraduationCap } from 'lucide-react';
+import { UsersRound, CalendarCheck, ClipboardEdit, CalendarPlus, GraduationCap } from 'lucide-react';
 import { Tabs, TabsContent } from '@/components/ui/tabs';
 import { PageHeader } from '@/components/PageHeader';
 import { useAuth } from '../../context/AuthContext';
 import { useMyTeams } from '../../hooks/useTeams';
 import TeamsPage from '../groups/TeamsPage';
 import SchedulesPage from '../schedule/SchedulesPage';
-import AttendancePage from '../attendance/AttendancePage';
 import EvaluationPage from '../evaluations/EvaluationPage';
 import BookClassPage from '../schedule/BookClassPage';
 
@@ -14,14 +13,17 @@ import BookClassPage from '../schedule/BookClassPage';
 // EnglishPage — English-class separation (owner decision 2026-06-12)
 // Route: /english
 //
-// The ENTIRE legacy English-class (team-booking) business lives here, fully
-// separated from the generic Training/Learning surfaces: classes, teams,
-// schedules, attendance and evaluations — all scoped to the team world
-// (reads via /api/english/*; mutations keep their existing mode-gated APIs).
+// The legacy English-class (team-booking) business lives here, separated from
+// the generic Training/Learning surfaces. As convergence Phase 4 folds the
+// duplicated surfaces into unified ones, this section keeps shrinking: the
+// 'classes' tab moved to Learning → Cohorts, and 'attendance' moved to the
+// unified Operations Attendance (/calendar, both worlds + Team/Cohort facet).
+// What remains is genuinely team-world-specific: teams, team-world schedules,
+// the leader booking grid, and English rubric evaluations.
 //
 // Tabs shown depend on role:
-//   Admin    → Classes + Teams + Schedules + Attendance + Evaluations
-//   Teacher  → Attendance + Evaluations
+//   Admin    → Teams + Schedules + Evaluations
+//   Teacher  → Evaluations
 //   Leader/Participant → Team booking, ONLY when they belong to a Team
 //     (otherwise a pointer panel to their generic learning surfaces —
 //     moved here from CalendarPage, Cohesion P4).
@@ -32,11 +34,9 @@ const TABS_BY_ROLE = {
   Admin: [
     { id: 'teams',       label: 'Teams',        icon: UsersRound,    description: 'Manage learning groups and their leaders.' },
     { id: 'schedules',   label: 'Schedules',    icon: CalendarCheck, description: 'Create and manage English-class sessions.' },
-    { id: 'attendance',  label: 'Attendance',   icon: ClipboardList, description: 'Mark and review English-class attendance.' },
     { id: 'evaluations', label: 'Evaluations',  icon: ClipboardEdit, description: 'Enter and review learner evaluation scores.' },
   ],
   Teacher: [
-    { id: 'attendance',  label: 'Attendance',   icon: ClipboardList, description: 'Mark and review English-class attendance.' },
     { id: 'evaluations', label: 'Evaluations',  icon: ClipboardEdit, description: 'Enter and review learner evaluation scores.' },
   ],
   Participant: [
@@ -49,7 +49,7 @@ const TABS_BY_ROLE = {
 
 const DEFAULT_TAB = {
   Admin:       'teams',
-  Teacher:     'attendance',
+  Teacher:     'evaluations',
   Participant: 'book',
   Leader:      'book',
 };
@@ -140,7 +140,6 @@ export default function EnglishPage() {
 function TabContent({ id }) {
   if (id === 'teams')       return <TeamsPage />;
   if (id === 'schedules')   return <SchedulesPage mode="team" />;
-  if (id === 'attendance')  return <AttendancePage mode="team" />;
   if (id === 'evaluations') return <EvaluationPage />;
   if (id === 'book')        return <BookClassPage />;
   return null;

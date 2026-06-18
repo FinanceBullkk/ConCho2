@@ -138,6 +138,16 @@ Bug fixing and integration review rank above net-new feature rollout.
 > [`changelog-archive/2026-q2.md`](changelog-archive/2026-q2.md). Currently
 > inline: **2026-06-14 → 2026-06-19**.
 
+- **2026-06-19** — **Converge Phase 4 slice A1b — retire the redundant English Attendance tab (#161).**
+  Now that Operations Attendance is unified (A1, both worlds + facet), the separate English
+  Attendance tab duplicated it. Removed the nav item (`nav-config`) + the page tab (`EnglishPage`);
+  the Teacher's English section now defaults to Evaluations (its only remaining tab). The e2e
+  attendance-marking flow (`attendance-export.spec.js`) now marks a team-world session through the
+  unified `/calendar?tab=attendance` — strengthening coverage (proves a Teacher marks a team session
+  on the unified surface). English section now hosts only genuinely team-world-specific surfaces:
+  Teams, team schedules, the leader booking grid, English rubric Evaluations. Tests: EnglishPage +
+  Sidebar updated; client suite 400 + lint (cap 41) + build green.
+
 - **2026-06-19** — **Converge Phase 4 slice A1 — unified Attendance calendar (#160).**
   Operations Attendance now reads BOTH scheduling worlds in one surface: `CalendarPage` passes
   `AttendancePage mode="all"`, which fetches the combined `/attendance-calendar` and adds a
