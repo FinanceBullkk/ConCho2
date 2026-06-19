@@ -24,14 +24,16 @@ export default function SchedulesTab({ classId, classes, canEdit }) {
 
   const [filter, setFilter] = useState('upcoming'); // 'past' | 'upcoming' | 'all'
   const [drawerOpen, setDrawerOpen] = useState(false);
+  // Snapshot "now" at mount (lazy state) — render must stay pure
+  // (react-hooks/purity forbids Date.now() during render, incl. inside useMemo).
+  const [nowMs] = useState(() => Date.now());
 
   const filtered = useMemo(() => {
-    const now = Date.now(); // captured at memo time — recomputes on schedules/filter change
     const sorted = [...schedules].sort((a, b) => new Date(a.startTime) - new Date(b.startTime));
-    if (filter === 'past')     return sorted.filter((s) => new Date(s.endTime).getTime() < now);
-    if (filter === 'upcoming') return sorted.filter((s) => new Date(s.endTime).getTime() >= now);
+    if (filter === 'past')     return sorted.filter((s) => new Date(s.endTime).getTime() < nowMs);
+    if (filter === 'upcoming') return sorted.filter((s) => new Date(s.endTime).getTime() >= nowMs);
     return sorted;
-  }, [schedules, filter]);
+  }, [schedules, filter, nowMs]);
 
   const handleRowClick = (s) => {
     // Navigate to /calendar with the week of the session preselected

@@ -80,12 +80,15 @@ export default function BookClassPage() {
 
   useEffect(() => { document.title = 'TMS — Schedule & Book'; }, []);
 
-  // ESC closes drawer
+  // ESC closes drawer. Call the stable setters inline (not closeDrawer, which is
+  // declared lower) so render stays order-clean (react-hooks/immutability); the
+  // empty dep array stays correct because React state setters are stable.
   useEffect(() => {
-    const handler = (e) => { if (e.key === 'Escape') closeDrawer(); };
+    const handler = (e) => {
+      if (e.key === 'Escape') { setDrawerMode(null); setDrawerPrefill(null); setDrawerSchedule(null); }
+    };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
-  // closeDrawer only calls stable state setters — [] is safe
   }, []);
 
   const weekDays = useMemo(() =>
