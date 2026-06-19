@@ -36,6 +36,11 @@ function ScheduleDrawerContent({
   const deleteMutation = useDeleteSchedule();
 
   const isEdit  = mode === 'edit';
+  // A team-less session is a cohort (Learning) session — booked against a
+  // cohort, never a team. The unified Schedules calendar (converge Phase 4)
+  // surfaces both worlds, so the edit drawer must handle these: no team
+  // picker, no team required, and the team binding is left untouched on save.
+  const editingCohort = isEdit && !schedule?.bookedTeamId;
   const saving  = createMutation.isPending || updateMutation.isPending;
   const deleting = deleteMutation.isPending;
 
@@ -110,11 +115,15 @@ function ScheduleDrawerContent({
     setError('');
     try {
       const payload = {
-        ...form,
         classId:   resolvedClassId || form.classId,
         startTime: new Date(form.startTime).toISOString(),
         endTime:   new Date(form.endTime).toISOString(),
+        roomLink:  form.roomLink,
+        capacity:  form.capacity,
       };
+      // A team-less (cohort) session has no bookedTeamId — never send an empty
+      // string (zod rejects '' as an ObjectId) and never overwrite the binding.
+      if (form.bookedTeamId) payload.bookedTeamId = form.bookedTeamId;
       if (isEdit) await updateMutation.mutateAsync({ id: schedule._id, data: payload });
       else        await createMutation.mutateAsync(payload);
       onSaved();
@@ -187,24 +196,32 @@ function ScheduleDrawerContent({
         )}
 
         <form id="schedule-form" onSubmit={handleSubmit} className="space-y-3">
-          <div>
-            <label htmlFor="sched-team" className="block text-[11px] text-muted-foreground mb-1 font-medium">Team</label>
-            <select
-              id="sched-team"
-              value={form.bookedTeamId}
-              onChange={e => handleTeamChange(e.target.value)}
-              required
-              disabled={isReadOnly}
-              className="w-full px-3 h-(--control-h) rounded-md border border-input bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring transition-colors disabled:opacity-60"
-            >
-              <option value="" className="bg-popover">Select team…</option>
-              {assignedTeams.map(t => {
-                const cls   = classById[t.classId?._id || t.classId];
-                const label = cls ? `${t.name} → ${cls.classCode}` : t.name;
-                return <option key={t._id} value={t._id} className="bg-popover">{label}</option>;
-              })}
-            </select>
-          </div>
+          {editingCohort ? (
+            <div className="px-3 py-2 rounded-md bg-muted border border-border text-[11px] text-muted-foreground">
+              Cohort session — no team (roster comes from cohort enrollment). Edit
+              time, room or capacity here; create new cohort sessions from
+              Learning → Cohorts.
+            </div>
+          ) : (
+            <div>
+              <label htmlFor="sched-team" className="block text-[11px] text-muted-foreground mb-1 font-medium">Team</label>
+              <select
+                id="sched-team"
+                value={form.bookedTeamId}
+                onChange={e => handleTeamChange(e.target.value)}
+                required
+                disabled={isReadOnly}
+                className="w-full px-3 h-(--control-h) rounded-md border border-input bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring transition-colors disabled:opacity-60"
+              >
+                <option value="" className="bg-popover">Select team…</option>
+                {assignedTeams.map(t => {
+                  const cls   = classById[t.classId?._id || t.classId];
+                  const label = cls ? `${t.name} → ${cls.classCode}` : t.name;
+                  return <option key={t._id} value={t._id} className="bg-popover">{label}</option>;
+                })}
+              </select>
+            </div>
+          )}
 
           {resolvedClass ? (
             <div className="px-3 py-2 rounded-md bg-success-tint border border-success/20 flex items-center gap-2 text-xs">

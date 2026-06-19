@@ -3,10 +3,10 @@ import { render, screen } from '@testing-library/react';
 import { MemoryRouter, Routes, Route } from 'react-router-dom';
 import CalendarPage from '../CalendarPage';
 
-// English-class separation (2026-06-12): /calendar is the GENERIC training
-// calendar (cohort world). Team-booking surfaces live in /english; a
-// Participant landing here is redirected there. The membership-gating cases
-// that lived in this file (Cohesion P4) moved to EnglishPage.test.jsx.
+// /calendar is the GENERIC training calendar. Converge Phase 4 unified both
+// tabs across the two scheduling worlds (mode="all"). A Participant landing
+// here is redirected to /english. The membership-gating cases that lived in
+// this file (Cohesion P4) moved to EnglishPage.test.jsx.
 
 const h = vi.hoisted(() => ({
   auth: { user: { _id: 'u1', role: 'Participant' } },
@@ -48,12 +48,14 @@ describe('CalendarPage — generic training calendar (English-class separation)'
     expect(screen.queryByTestId('schedules-page')).toBeNull();
   });
 
-  it('Admin defaults to Schedules, scoped to the cohort world', () => {
+  it('Admin defaults to Schedules, UNIFIED across both worlds', () => {
     h.auth = { user: { _id: 'a1', role: 'Admin' } };
     renderPage();
 
     expect(screen.getByTestId('schedules-page')).toBeInTheDocument();
-    expect(h.schedulesProps).toHaveBeenCalledWith(expect.objectContaining({ mode: 'cohort' }));
+    // Converge Phase 4 slice A2: schedules is unified — mode="all" shows both
+    // worlds with a Team/Cohort facet (cell-click create still books a team).
+    expect(h.schedulesProps).toHaveBeenCalledWith(expect.objectContaining({ mode: 'all' }));
   });
 
   it('Admin ?tab=attendance renders the UNIFIED Attendance surface (both worlds)', () => {
