@@ -29,6 +29,7 @@ const DrillListPage    = lazy(() => import('./features/learning/DrillListPage'))
 const ProgramDetailPage = lazy(() => import('./features/learning/ProgramDetailPage'));
 const CohortDetailPage = lazy(() => import('./features/learning/CohortDetailPage'));
 const SessionDetailPage = lazy(() => import('./features/learning/SessionDetailPage'));
+const GradingPage      = lazy(() => import('./features/grading/GradingPage'));
 const LearnerProfilePage = lazy(() => import('./features/learning/LearnerProfilePage'));
 const NotificationsPage = lazy(() => import('./features/notifications/NotificationsPage'));
 const SystemPage       = lazy(() => import('./pages/SystemPage'));
@@ -295,6 +296,11 @@ export default function App() {
                 {/* Session attendance marking — Admin/Teacher (the markers). */}
                 <Route path="/learning/sessions/:id" element={
                   <ProtectedRoute roles={['Admin', 'Teacher']}><SessionDetailPage /></ProtectedRoute>
+                } />
+                {/* Unified Grading workspace (converge Phase 4 C2) — quiz manual
+                    grading + English rubric evaluations in one place. */}
+                <Route path="/grading" element={
+                  <ProtectedRoute roles={['Admin', 'Coordinator', 'Teacher']}><GradingPage /></ProtectedRoute>
                 } />
                 {/* English-class section — the whole team-booking world
                     (classes/teams/schedules/attendance/evaluations/booking). */}

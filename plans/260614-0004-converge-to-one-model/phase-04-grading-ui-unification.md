@@ -1,6 +1,6 @@
 # Phase 4 — Grading-UI Unification (Evaluations ⊕ Assessments)  ·  "slice C"
 
-**Created:** 2026-06-19 · **Status:** 🟡 IN PROGRESS — C1 shipped (#165); C2–C4 next.
+**Created:** 2026-06-19 · **Status:** 🟡 IN PROGRESS — C1 (#165) + C2 (#166) shipped; C3–C4 next.
 (All 3 open questions resolved by owner 2026-06-19; see *Resolved decisions*.)
 **Parent:** [`plan.md`](plan.md) (Converge to One Training Model) · **ADR:**
 `docs/decisions/converge-to-one-training-model.md` (Phase-1 note: *"grading-UI folds
@@ -57,9 +57,14 @@ engine; `Evaluation` rows become `Assessment`+`Result` rows.
   4 integration tests; full server suite green (1177). Spec `grading` updated.
   *(Design note: "gradable units" — an assessment for quiz, a class for rubric — not
   individual pending items, because the native entry modals are already per-unit.)*
-- **C2 — client: Grading workspace page.** New `features/grading/GradingPage.jsx` that
-  consumes C1, groups by mode, and opens the existing `EvalModal` (rubric) /
-  `ManualGradingModal` (quiz) in place. React-Query hook + tests.
+- **C2 ✅ (shipped #166) — client: Grading workspace page.** `features/grading/GradingPage.jsx`
+  + `useGrading` hook (`assessmentAPI.getGradingQueue` + `qk.assessment.gradingQueue`) consume
+  C1 and group by mode. Quiz row → fetches the full assessment (`useAssessment`) and opens the
+  native `ManualGradingModal` in place; rubric row → opens the existing `EvaluationPage` scoped
+  to the class (added an optional `classId` prop — backward-compatible: hides the picker, keeps
+  status + Admin "show all") behind a Back link. Route `/grading` (Admin/Coordinator/Teacher).
+  4 component tests; client suite 409 + lint (cap 41) + build green. *(No new server behaviour →
+  no spec delta; the grading-queue contract was spec'd in C1.)*
 - **C3 — IA/nav: surface it + retire the English Evaluations tab.** Add the Grading
   workspace to nav under the **Learning** group (owner decision Q1), capability-gated,
   near Assessments. Once it covers rubric entry, **retire** the standalone English
