@@ -138,6 +138,16 @@ Bug fixing and integration review rank above net-new feature rollout.
 > [`changelog-archive/2026-q2.md`](changelog-archive/2026-q2.md). Currently
 > inline: **2026-06-14 → 2026-06-19**.
 
+- **2026-06-19** — **Converge Phase 4 slice C1 — grading-queue read endpoint (#165).**
+  First slice of the grading-UI unification. `GET /api/assessment/grading-queue` (capability
+  `assessment.manage`) returns the staff "to-grade" feed across BOTH modes as gradable **units**:
+  `quiz` = published `short_text` assessments + attempt counts (Teacher scoped to their cohorts);
+  `rubric` = team-world (English) classes + evaluation counts (Admin/Teacher only; cohort-world
+  excluded via the `_shared/scheduling-modes` SSOT). Additive read in `domains/assessment`
+  (use-cases/repository/dto/controller/routes); no writes, not audited. 4 integration tests; full
+  server suite green (129 suites / 1177). Spec `grading` updated. Next: C2 (Grading workspace page
+  under Learning) → C3 (nav + retire English Evaluations tab) → C4 (spec/docs).
+
 - **2026-06-19** — **Converge Phase 4 — grading-UI unification (slice C) PLANNED (not built).**
   Investigated folding Evaluations and found it is NOT a display-fold (no generic twin to redirect to):
   rubric scoring (`Evaluation`: 4 fixed scores/learner/class) vs quiz manual grading (`ManualGradingModal`)

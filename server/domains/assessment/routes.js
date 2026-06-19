@@ -110,4 +110,15 @@ router.get(
   controller.getMyResults,
 );
 
+// ── Grading queue (convergence Phase 4 — slice C1) ────────
+// The staff grading workspace feed: gradable units across BOTH modes (quiz
+// assessments needing manual review + rubric/English classes), scoped to what
+// the actor can grade. Gated by assessment.manage — the grader gate, which
+// equals the union (every rubric grader, Admin or Teacher, also holds it).
+router.get(
+  '/grading-queue',
+  requireCapability('assessment.manage'),
+  controller.getGradingQueue,
+);
+
 module.exports = router;
