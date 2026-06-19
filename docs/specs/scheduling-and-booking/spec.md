@@ -2,7 +2,7 @@
 capability: scheduling-and-booking
 status: stable
 owners: [services/scheduleService, domains/schedule, domains/room, domains/learning/session]
-last_updated: 2026-06-19
+last_updated: 2026-06-20
 related_plans:
   - plans/260602-2247-m1-self-enroll-nomination-session-modes
   - plans/260606-1356-wave-e-generic-scheduling
@@ -642,52 +642,38 @@ for class bindings (legacy) / assigned cohorts (learning API); Participant sees
 own/my-class/enrolled sessions. Other teams' taken slots are visible but
 non-bookable.
 
-### Requirement: Scheduling-world list split (English-class separation) [BR-5, UC-4]
+### Requirement: Unified scheduling-world reads + deliveryType tag [BR-5, UC-4]
 
-List reads SHALL support an optional `mode=team|cohort` filter that splits
-sessions/classes into the two scheduling worlds: **team** =
-`leader_booking`/`admin_scheduled` programs **plus program-less legacy
-classes** (fallback parity with `findClassSchedulingMode`); **cohort** =
-`self_enroll`/`nomination`. Applies to `GET /api/schedules`,
-`GET /api/schedules/attendance-calendar`, `GET /api/learning/cohorts`; the
-filter is ignored when the query is already class/program-scoped
-(`classId`/`programId` given). A bounded read-only surface
-`GET /api/english/{classes,schedules,attendance-calendar}`
-(`server/domains/english-class/`) delegates to the same use-cases with
-`mode` **forced** to `team`, preserving each delegated endpoint's gating
-(Participant enrolled-only scope; attendance-calendar Admin/Teacher).
-Mutations have NO `/api/english` routes — they stay on the existing
-mode-gated URLs.
+List reads return BOTH scheduling worlds in one response; the UI facets team vs
+cohort **client-side** off a per-row tag — there is no server-side world split.
+**Every row** of `GET /api/schedules` and `GET /api/schedules/attendance-calendar`
+(and every cohort of `GET /api/learning/cohorts`, slice 4a) SHALL carry a derived
+**`deliveryType`** (`team`|`cohort`): **team** = `leader_booking`/`admin_scheduled`
+programs **plus program-less legacy classes** (fallback parity); **cohort** =
+`self_enroll`/`nomination`. The tag is additive and always present.
 
-Beyond filtering, **every row** of `GET /api/schedules` and
-`GET /api/schedules/attendance-calendar` SHALL carry a derived
-**`deliveryType`** (`team`|`cohort`) world tag — same classification as the
-split (program-less ⇒ `team`) — so a single UNIFIED calendar can facet both
-worlds without two disjoint endpoints (convergence Phase 3 → 4; mirrors
-`GET /api/learning/cohorts` `deliveryType` from slice 4a). The tag is additive
-and present regardless of whether a `mode` filter is supplied.
+> Convergence Phase 3 slice 5 (2026-06-20) RETIRED the prior two-world split: the
+> `mode=team|cohort` query filter and the bounded `GET /api/english/*` read
+> delegation (`domains/english-class/`) were removed. The unified reads serve
+> every world; the unified catalog/calendar/attendance UI filters by
+> `deliveryType`. The `/english` learner **booking grid** stays, served by
+> `/api/schedules`. Booking-time `schedulingMode` authz is UNCHANGED (still
+> enforced at create — leader-booking an `admin_scheduled` program → 403, etc.).
 
 #### Scenario: Session rows carry a world tag
 
 - **GIVEN** a team-world session (program-less class) and a cohort-world
   session (`self_enroll` program's class)
-- **WHEN** an Admin calls `GET /api/schedules` (no `mode` filter)
+- **WHEN** an Admin calls `GET /api/schedules`
 - **THEN** each row carries `deliveryType` — `team` for the first, `cohort`
   for the second; the same holds for `GET /api/schedules/attendance-calendar`
 
-#### Scenario: World split
+#### Scenario: A stray mode filter is ignored (no server-side split)
 
-- **GIVEN** a team-world session (program-less class) and a cohort-world
-  session (`self_enroll` program's class)
-- **WHEN** an Admin calls `GET /api/schedules?mode=cohort` and
-  `GET /api/english/schedules`
-- **THEN** the first returns only the cohort-world session and the second
-  only the team-world session
-
-#### Scenario: Invalid mode
-
-- **WHEN** a caller passes `mode=banana`
-- **THEN** validation rejects the request with 400
+- **GIVEN** the same two sessions
+- **WHEN** an Admin calls `GET /api/schedules?mode=cohort`
+- **THEN** the server ignores the `mode` param and returns BOTH worlds (each
+  tagged `deliveryType`) — the split is client-side, not server-side
 
 ## Non-Functional Requirements (NFR)
 

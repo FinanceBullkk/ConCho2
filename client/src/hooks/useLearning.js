@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { learningAPI, schedulesAPI, englishAPI, analyticsAPI } from '../api/api';
+import { learningAPI, schedulesAPI, analyticsAPI } from '../api/api';
 import { qk } from './queryKeys';
 
 // ── Reads ─────────────────────────────────────────────────
@@ -50,15 +50,13 @@ export const useLearningCohort = (id, options = {}) =>
     ...options,
   });
 
-// English-class separation: `mode: 'team'` routes to /api/english/classes
-// (server forces the team world); 'cohort' filters the generic cohort list.
+// Cohort catalog — returns BOTH scheduling worlds; the unified UI facets team
+// vs cohort by the cohort DTO's deliveryType client-side (convergence Phase 3
+// slice 5 retired the server-side mode=team|cohort split).
 export const useLearningCohorts = (params = {}) =>
   useQuery({
     queryKey: qk.learning.cohorts(params),
-    queryFn: async () =>
-      (await (params.mode === 'team'
-        ? englishAPI.getClasses(params)
-        : learningAPI.getCohorts(params))).data,
+    queryFn: async () => (await learningAPI.getCohorts(params)).data,
   });
 
 export const useLearningEnrollments = (params = {}, options = {}) =>

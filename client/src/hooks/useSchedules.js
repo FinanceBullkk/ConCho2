@@ -1,20 +1,15 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { schedulesAPI, englishAPI } from '../api/api';
+import { schedulesAPI } from '../api/api';
 import { qk } from './queryKeys';
 
-// English-class separation: `mode: 'team'` routes reads to the bounded
-// /api/english surface (server forces the team world); any other mode value
-// (e.g. 'cohort') is passed as a filter to the generic /api/schedules.
-// Routing happens inside queryFn — never call hooks conditionally.
+// Session list — returns BOTH scheduling worlds (each row tagged deliveryType);
+// the unified UI facets team vs cohort client-side (convergence Phase 3 slice 5
+// retired the server-side mode=team|cohort split + the /api/english surface).
 export const useSchedules = (params, options = {}) =>
   useQuery({
     queryKey: qk.schedules.list(params),
-    queryFn: () =>
-      (params?.mode === 'team'
-        ? englishAPI.getSchedules(params)
-        : schedulesAPI.getAll(params)
-      ).then((r) => r.data),
+    queryFn: () => schedulesAPI.getAll(params).then((r) => r.data),
     ...options,
   });
 
@@ -43,11 +38,7 @@ export const useMyClassSchedules = (options = {}) =>
 export const useAttendanceCalendar = (params, options = {}) =>
   useQuery({
     queryKey: qk.schedules.attendanceCalendar(params),
-    queryFn: () =>
-      (params?.mode === 'team'
-        ? englishAPI.getAttendanceCalendar()
-        : schedulesAPI.getAttendanceCalendar(params)
-      ).then((r) => r.data.data),
+    queryFn: () => schedulesAPI.getAttendanceCalendar(params).then((r) => r.data.data),
     ...options,
   });
 
