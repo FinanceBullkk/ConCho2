@@ -22,9 +22,13 @@ import EvalModal from './EvalModal';
 // this file orchestrates class selection, the merge with the roster, and stats.
 // ──────────────────────────────────────────────────────────
 
-export default function EvaluationPage() {
+// `classId` (optional, converge Phase 4 slice C2): when provided, the page is
+// scoped to that class and the class picker is hidden — used by the unified
+// Grading workspace to grade one English class in place. Standalone use (the
+// legacy English Evaluations tab) omits it and keeps the picker.
+export default function EvaluationPage({ classId: fixedClassId = '' }) {
   const { isAdmin } = useAuth();
-  const [selectedClass, setSelectedClass] = useState('');
+  const [selectedClass, setSelectedClass] = useState(fixedClassId);
   const [modal, setModal] = useState(null); // null | { eval?, user? }
   const [showAll, setShowAll] = useState(false);
 
@@ -111,27 +115,31 @@ export default function EvaluationPage() {
         )}
       </div>
 
-      {/* Class selector card */}
+      {/* Class selector card. When scoped (fixedClassId) the picker is hidden —
+          the host (Grading workspace) already chose the class — but the status
+          badge + Admin "show all" toggle stay. */}
       <div className="flex flex-wrap items-center gap-4 bg-card border border-border rounded-lg p-4">
-        <div className="flex items-center gap-2">
-          <label htmlFor="eval-class-select" className="text-sm text-muted-foreground shrink-0">Class:</label>
-          <select
-            id="eval-class-select"
-            value={selectedClass}
-            onChange={(e) => {
-              setSelectedClass(e.target.value);
-              setShowAll(false);
-            }}
-            className="px-3 py-2 rounded-md bg-background border border-input text-foreground focus:outline-none focus:ring-2 focus:ring-ring text-sm"
-          >
-            <option value="">— Select a class —</option>
-            {classes.map((c) => (
-              <option key={c._id} value={c._id}>
-                {c.classCode} — {c.courseName}
-              </option>
-            ))}
-          </select>
-        </div>
+        {!fixedClassId && (
+          <div className="flex items-center gap-2">
+            <label htmlFor="eval-class-select" className="text-sm text-muted-foreground shrink-0">Class:</label>
+            <select
+              id="eval-class-select"
+              value={selectedClass}
+              onChange={(e) => {
+                setSelectedClass(e.target.value);
+                setShowAll(false);
+              }}
+              className="px-3 py-2 rounded-md bg-background border border-input text-foreground focus:outline-none focus:ring-2 focus:ring-ring text-sm"
+            >
+              <option value="">— Select a class —</option>
+              {classes.map((c) => (
+                <option key={c._id} value={c._id}>
+                  {c.classCode} — {c.courseName}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
 
         {selectedClassData && (
           <span

@@ -138,6 +138,16 @@ Bug fixing and integration review rank above net-new feature rollout.
 > [`changelog-archive/2026-q2.md`](changelog-archive/2026-q2.md). Currently
 > inline: **2026-06-14 → 2026-06-19**.
 
+- **2026-06-19** — **Converge Phase 4 slice C2 — unified Grading workspace page (#166).**
+  New `/grading` route (Admin/Coordinator/Teacher) + `features/grading/GradingPage.jsx` + `useGrading`
+  hook consume the C1 feed and group gradable units by mode. Quiz row → fetches the full assessment
+  and opens the native `ManualGradingModal` in place; rubric row → opens the existing `EvaluationPage`
+  **scoped to the class** via a new optional `classId` prop (backward-compatible — hides the picker,
+  keeps the status badge + Admin "show all"), behind a Back link. Reuses both native entry surfaces —
+  no grading logic duplicated. Client-only (consumes the C1 contract; no new server behaviour → no spec
+  delta). 4 component tests; client suite 409 + lint (cap 41) + build green. Next: C3 (Learning nav item
+  + retire the English Evaluations tab) → C4.
+
 - **2026-06-19** — **Converge Phase 4 slice C1 — grading-queue read endpoint (#165).**
   First slice of the grading-UI unification. `GET /api/assessment/grading-queue` (capability
   `assessment.manage`) returns the staff "to-grade" feed across BOTH modes as gradable **units**:
