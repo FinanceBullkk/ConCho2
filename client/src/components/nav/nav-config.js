@@ -47,6 +47,11 @@ export const NAV_GROUPS = [
       tab('/learning', 'assignments', 'learning.tabs.assignments', ClipboardList, { access: LEARNING_ACCESS, perm: 'read:assignments' }),
       tab('/learning', 'assessments', 'learning.tabs.assessments', GraduationCap, { access: LEARNING_ACCESS }),
       tab('/learning', 'feedback', 'learning.tabs.feedback', MessageSquare, { access: LEARNING_ACCESS, perm: 'read:feedback' }),
+      // Grading workspace (converge Phase 4 C2/C3) — a standalone page (not a
+      // /learning tab) that lists gradable units across BOTH modes (quiz manual
+      // grading + English rubric); replaces the retired English Evaluations tab.
+      // Leaf in the Learning group, mirroring Operations' mobile-attendance leaf.
+      { path: '/grading', labelKey: 'nav.sections.grading', icon: ClipboardEdit, access: { Admin: 'full', Coordinator: 'full', Teacher: 'full' }, parentRoutes: ['/grading'] },
     ],
   },
   {
@@ -61,12 +66,11 @@ export const NAV_GROUPS = [
     id: 'english', labelKey: 'nav.groups.english',
     items: [
       // Retired tabs (converge Phase 4): 'classes' → unified Learning → Cohorts
-      // catalog (filter: Team); 'attendance' AND 'schedules' → the unified
-      // Operations calendar (/calendar, mode=all) which shows both worlds with a
-      // Team/Cohort facet. What remains is genuinely team-world-specific: teams,
-      // the leader booking grid, and English rubric evaluations.
+      // catalog; 'attendance' + 'schedules' → the unified Operations calendar;
+      // 'evaluations' → the unified Grading workspace (/grading, Learning group).
+      // What remains is genuinely team-world-specific: Teams (admin) + the leader
+      // booking grid (in the learner nav).
       tab('/english', 'teams', 'nav.sections.teams', UsersRound, { access: ADMIN_ONLY }),
-      tab('/english', 'evaluations', 'nav.sections.evaluations', ClipboardEdit, { access: { Admin: 'full', Teacher: 'full' } }),
     ],
   },
   {

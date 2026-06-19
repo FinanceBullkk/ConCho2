@@ -2,12 +2,13 @@
 capability: evaluations
 status: stable
 owners: [controllers/evaluationController, models/Evaluation]
-last_updated: 2026-06-14
+last_updated: 2026-06-19
 related_code:
   - server/controllers/evaluationController.js
   - server/models/Evaluation.js
   - server/routes/evaluationRoutes.js
   - client/src/features/evaluations/EvaluationPage.jsx
+  - client/src/features/grading/GradingPage.jsx
 related_plans: []
 ---
 
@@ -24,8 +25,12 @@ related_plans: []
 > model + its write/grading UI are retained (English rubric); the
 > Evaluation→Assessment "deferral" is cleared (the convergence is by unified
 > read/concept, not a destructive model merge — see ADR
-> `converge-to-one-training-model`). The grading-UI surface folds into the unified
-> assessment UX in Phase 4 (UX journeys).
+> `converge-to-one-training-model`). **The grading-UI surface is now unified
+> (Phase 4 slice C):** staff grade rubric evaluations (this) and quiz attempts
+> from ONE **Grading workspace** (`/grading`, Learning group) fed by
+> `GET /api/assessment/grading-queue`; each row opens its native entry
+> (`EvaluationPage` scoped to a class for rubric, the manual-grade modal for
+> quiz). The standalone English "Evaluations" tab was retired.
 
 ## Purpose
 
