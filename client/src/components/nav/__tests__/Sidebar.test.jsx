@@ -38,12 +38,13 @@ describe('Sidebar — section-group navigation (Phase 03)', () => {
       '/learning?tab=programs', '/learning?tab=paths',
       '/grading',                                          // unified Grading workspace (Learning group)
       '/calendar?tab=schedules', '/calendar?tab=attendance',
-      '/english?tab=teams',
+      '/people?tab=users', '/people?tab=teams',            // Teams moved to People (converge Phase 4)
       '/reports?tab=overview', '/reports?tab=hr-export',
-      '/people?tab=users', '/system?tab=settings',
+      '/system?tab=settings',
     ].forEach((p) => expect(links).toContain(p));
-    // English Evaluations tab retired (converge Phase 4 C3) — folded into /grading.
-    expect(hrefs(renderSidebar().container)).not.toContain('/english?tab=evaluations');
+    // The English admin group is retired (converge Phase 4): every English admin
+    // surface folded into a unified one — no '/english?tab=*' admin links remain.
+    expect(hrefs(renderSidebar().container).some((h) => h.startsWith('/english'))).toBe(false);
   });
 
   it('Teacher: learning (read, no Paths), reports (no Overview), unified calendar attendance + Grading; no People/System', () => {
@@ -57,8 +58,7 @@ describe('Sidebar — section-group navigation (Phase 03)', () => {
     expect(links).toContain('/calendar?tab=attendance');         // unified attendance (both worlds)
     expect(links).not.toContain('/calendar?tab=schedules');      // admin-only
     expect(links).toContain('/grading');                         // rubric grading folded into the unified Grading workspace
-    expect(links).not.toContain('/english?tab=evaluations');     // retired — folded into /grading
-    expect(links).not.toContain('/english?tab=teams');           // admin-only
+    expect(links.some((h) => h.startsWith('/english'))).toBe(false); // English admin group retired (converge Phase 4)
     expect(links).not.toContain('/people?tab=users');
     expect(links).not.toContain('/system?tab=settings');
   });

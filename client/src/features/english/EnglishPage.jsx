@@ -1,37 +1,27 @@
 import { useSearchParams, Link } from 'react-router-dom';
-import { UsersRound, CalendarPlus, GraduationCap } from 'lucide-react';
+import { CalendarPlus, GraduationCap } from 'lucide-react';
 import { Tabs, TabsContent } from '@/components/ui/tabs';
 import { PageHeader } from '@/components/PageHeader';
 import { useAuth } from '../../context/AuthContext';
 import { useMyTeams } from '../../hooks/useTeams';
-import TeamsPage from '../groups/TeamsPage';
 import BookClassPage from '../schedule/BookClassPage';
 
 // ──────────────────────────────────────────────────────────
-// EnglishPage — English-class separation (owner decision 2026-06-12)
+// EnglishPage — the leader booking surface (converge Phase 4 end state)
 // Route: /english
 //
-// The legacy English-class (team-booking) business lives here, separated from
-// the generic Training/Learning surfaces. Convergence Phase 4 folded every
-// duplicated surface into a unified one, so this section has shrunk to what is
-// genuinely team-world-specific: 'classes' → Learning → Cohorts; 'attendance' +
-// 'schedules' → the unified Operations calendar (/calendar); 'evaluations' →
-// the unified Grading workspace (/grading, Learning group). What remains:
-// Teams (admin) + the leader booking grid.
-//
-// Tabs shown depend on role:
-//   Admin    → Teams
-//   Teacher  → none (rubric evaluations moved to the Grading workspace)
+// Convergence Phase 4 folded every English admin surface into a unified one —
+// 'classes' → Learning → Cohorts; 'attendance' + 'schedules' → the unified
+// Operations calendar (/calendar); 'evaluations' → the Grading workspace
+// (/grading); 'teams' → People (/people?tab=teams). What remains here is just
+// the LEADER BOOKING GRID, so this page is now learner-persona-only:
 //   Leader/Participant → Team booking, ONLY when they belong to a Team
-//     (otherwise a pointer panel to their generic learning surfaces —
-//     moved here from CalendarPage, Cohesion P4).
-//   Coordinator → none (cohort-world role; nav item is disabled)
+//     (otherwise a pointer panel to their generic learning surfaces — Cohesion P4).
+//   Admin/Teacher/Coordinator → nothing here (their English work moved to the
+//     unified surfaces above); they reach those from the Admin Console nav.
 // ──────────────────────────────────────────────────────────
 
 const TABS_BY_ROLE = {
-  Admin: [
-    { id: 'teams', label: 'Teams', icon: UsersRound, description: 'Manage learning groups and their leaders.' },
-  ],
   Participant: [
     { id: 'book', label: 'Team booking', icon: CalendarPlus, description: 'View available sessions and book your slot.' },
   ],
@@ -41,7 +31,6 @@ const TABS_BY_ROLE = {
 };
 
 const DEFAULT_TAB = {
-  Admin:       'teams',
   Participant: 'book',
   Leader:      'book',
 };
@@ -130,7 +119,6 @@ export default function EnglishPage() {
 }
 
 function TabContent({ id }) {
-  if (id === 'teams') return <TeamsPage />;
-  if (id === 'book')  return <BookClassPage />;
+  if (id === 'book') return <BookClassPage />;
   return null;
 }

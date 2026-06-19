@@ -27,9 +27,6 @@ vi.mock('../../../hooks/useTeams', () => ({
 vi.mock('../../learning/CohortsTab', () => ({
   default: (props) => { h.cohortsProps(props); return <div data-testid="classes-tab" />; },
 }));
-vi.mock('../../groups/TeamsPage', () => ({
-  default: () => <div data-testid="teams-page" />,
-}));
 vi.mock('../../schedule/BookClassPage', () => ({
   default: () => <div data-testid="book-class-page" />,
 }));
@@ -44,32 +41,21 @@ const renderPage = (entry = '/english') =>
 describe('EnglishPage — bounded English-class section', () => {
   // IA Phase 03: tab strip gone — the sidebar's English Class group drives ?tab=.
   // The page renders the body for the active (or role-default) tab.
-  it('Admin defaults to Teams (Classes tab retired — catalog moved to Learning → Cohorts)', () => {
+  it('Admin has no English section now — Teams moved to People (converge Phase 4)', () => {
     h.auth = { user: { _id: 'a1', role: 'Admin' } };
     renderPage();
 
-    expect(screen.getByTestId('teams-page')).toBeInTheDocument();
-    // The redundant English "Classes" tab is gone (converge Phase 4): team-world
-    // classes now live in the unified Learning → Cohorts catalog.
-    expect(screen.queryByTestId('classes-tab')).toBeNull();
+    // Every English admin surface folded into a unified one (classes→Cohorts,
+    // attendance/schedules→/calendar, evaluations→/grading) and Teams moved to
+    // People — so /english is learner-only now. Admin sees the not-available header.
+    expect(screen.getByText(/not available for your role/i)).toBeInTheDocument();
+    expect(screen.queryByTestId('teams-page')).toBeNull();
   });
 
-  it('Admin ?tab=schedules falls back to Teams (Schedules retired — unified at /calendar)', () => {
-    h.auth = { user: { _id: 'a1', role: 'Admin' } };
-    renderPage('/english?tab=schedules');
-    // Schedules is no longer an English tab — team-world schedules live in the
-    // unified Operations calendar. An old deep link falls back to the first tab.
-    expect(screen.getByTestId('teams-page')).toBeInTheDocument();
-    expect(screen.queryByTestId('schedules-page')).toBeNull();
-  });
-
-  it('Teacher has no English tabs now — evaluations moved to the Grading workspace', () => {
+  it('Teacher has no English section — they grade from the unified /grading workspace', () => {
     h.auth = { user: { _id: 't1', role: 'Teacher' } };
     renderPage();
 
-    // Rubric grading folded into the unified /grading workspace (converge Phase 4
-    // C3), so the English section is admin-only (Teams). A Teacher sees the
-    // not-available header here and grades from /grading instead.
     expect(screen.getByText(/not available for your role/i)).toBeInTheDocument();
     expect(screen.queryByTestId('evaluation-page')).toBeNull();
   });

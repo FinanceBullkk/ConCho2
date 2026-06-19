@@ -33,7 +33,7 @@ const ADMIN_PAGES = [
   // in the PageHeader title slot. Match the greeting prefix.
   { path: '/home',                     headerHeading: /^Hello, /,            innerHeading: null },
   { path: '/people?tab=users',         headerHeading: /^People$/,            innerHeading: /^User Management$/ },
-  { path: '/english?tab=teams',        headerHeading: /^English Class$/,     innerHeading: /^Teams$/ },
+  { path: '/people?tab=teams',         headerHeading: /^People$/,            innerHeading: /^Teams$/ },
   // CohortsTab renders its title via CardTitle (not a heading role) — same
   // reason /learning?tab=cohorts has innerHeading: null.
   { path: '/english?tab=classes',      headerHeading: /^English Class$/,     innerHeading: null },

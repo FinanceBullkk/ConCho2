@@ -29,9 +29,10 @@ test.describe('Permissions / RBAC', () => {
       .toBeVisible();
   });
 
-  test('Admin sees the create-team action on English Class → Teams tab', async ({ adminPage }) => {
-    // English-class separation (2026-06-12): Teams moved from /people to /english.
-    await adminPage.goto('/english?tab=teams');
+  test('Admin sees the create-team action on People → Teams tab', async ({ adminPage }) => {
+    // Converge Phase 4: Teams moved back to People (/people?tab=teams) when the
+    // English admin section was retired.
+    await adminPage.goto('/people?tab=teams');
     await expect(adminPage.getByRole('heading', { name: /^Teams$/ }))
       .toBeVisible({ timeout: 10_000 });
     // TeamsPage is English-only now ("+ Create team") after the UI

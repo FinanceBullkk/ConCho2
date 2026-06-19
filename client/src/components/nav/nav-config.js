@@ -62,17 +62,12 @@ export const NAV_GROUPS = [
       { path: '/mobile-attendance', labelKey: 'nav.sections.mobileAttendance', icon: Smartphone, access: { Admin: 'full', Teacher: 'full' }, parentRoutes: ['/mobile-attendance'] },
     ],
   },
-  {
-    id: 'english', labelKey: 'nav.groups.english',
-    items: [
-      // Retired tabs (converge Phase 4): 'classes' → unified Learning → Cohorts
-      // catalog; 'attendance' + 'schedules' → the unified Operations calendar;
-      // 'evaluations' → the unified Grading workspace (/grading, Learning group).
-      // What remains is genuinely team-world-specific: Teams (admin) + the leader
-      // booking grid (in the learner nav).
-      tab('/english', 'teams', 'nav.sections.teams', UsersRound, { access: ADMIN_ONLY }),
-    ],
-  },
+  // English admin group RETIRED (converge Phase 4): every English admin surface
+  // folded into a unified one — 'classes' → Learning → Cohorts; 'attendance' +
+  // 'schedules' → the unified Operations calendar; 'evaluations' → the Grading
+  // workspace; 'teams' → People (below). The leader booking grid stays in the
+  // learner nav (LEARNER_GROUPS.learner-english), so /english lives on for
+  // Participants/Leaders only.
   {
     id: 'reports', labelKey: 'nav.groups.reports',
     items: [
@@ -88,6 +83,10 @@ export const NAV_GROUPS = [
     id: 'people', labelKey: 'nav.groups.people',
     items: [
       tab('/people', 'users', 'people.tabs.users', Users, { perm: 'read:users' }),
+      // Teams (learning groups) — moved here from the retired English admin group
+      // (converge Phase 4): a Team is a group of people, so it belongs in People.
+      // read:teams = Admin (+ Participant, who can't reach /people) → admin-only here.
+      tab('/people', 'teams', 'people.tabs.teams', UsersRound, { perm: 'read:teams' }),
       tab('/people', 'departments', 'people.tabs.departments', Building2, { perm: 'read:department' }),
       tab('/people', 'offices', 'people.tabs.offices', MapPin, { perm: 'read:office' }),
       tab('/people', 'rooms', 'people.tabs.rooms', DoorOpen, { perm: 'read:room' }),
