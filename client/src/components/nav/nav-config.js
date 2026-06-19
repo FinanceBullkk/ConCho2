@@ -60,13 +60,12 @@ export const NAV_GROUPS = [
   {
     id: 'english', labelKey: 'nav.groups.english',
     items: [
-      // Retired tabs (converge Phase 4): 'classes' — the unified Learning →
-      // Cohorts catalog lists team-world classes too (filter: Team); and
-      // 'attendance' — the unified Operations Attendance (/calendar, mode=all)
-      // shows both worlds with a Team/Cohort facet, so a separate English
-      // attendance surface is redundant (marking is world-agnostic).
+      // Retired tabs (converge Phase 4): 'classes' → unified Learning → Cohorts
+      // catalog (filter: Team); 'attendance' AND 'schedules' → the unified
+      // Operations calendar (/calendar, mode=all) which shows both worlds with a
+      // Team/Cohort facet. What remains is genuinely team-world-specific: teams,
+      // the leader booking grid, and English rubric evaluations.
       tab('/english', 'teams', 'nav.sections.teams', UsersRound, { access: ADMIN_ONLY }),
-      tab('/english', 'schedules', 'nav.sections.schedules', CalendarCheck, { access: ADMIN_ONLY }),
       tab('/english', 'evaluations', 'nav.sections.evaluations', ClipboardEdit, { access: { Admin: 'full', Teacher: 'full' } }),
     ],
   },

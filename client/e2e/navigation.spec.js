@@ -39,7 +39,10 @@ const ADMIN_PAGES = [
   { path: '/english?tab=classes',      headerHeading: /^English Class$/,     innerHeading: null },
   { path: '/learning?tab=cohorts',     headerHeading: /^Learning$/,          innerHeading: null },
   { path: '/calendar?tab=schedules',   headerHeading: /^Calendar$/,          innerHeading: /^Schedule Management$/ },
-  { path: '/english?tab=schedules',    headerHeading: /^English Class$/,     innerHeading: /^Schedule Management$/ },
+  // English 'schedules' tab retired (converge Phase 4 A2b): team-world schedules
+  // live in the unified /calendar above. An old deep link falls back to the
+  // English section's first tab (Teams) — assert only that it still loads.
+  { path: '/english?tab=schedules',    headerHeading: /^English Class$/,     innerHeading: null },
   { path: '/system',                   headerHeading: /^(System|Settings)$/, innerHeading: null },
 ];
 
