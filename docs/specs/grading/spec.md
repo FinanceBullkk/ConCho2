@@ -2,11 +2,12 @@
 capability: grading
 status: stable
 owners: [domains/assessment (grading, manual-grading-use-cases)]
-last_updated: 2026-06-08
+last_updated: 2026-06-19
 related_code:
   - server/domains/assessment/grading.js
   - server/domains/assessment/manual-grading-use-cases.js
   - server/domains/assessment/access.js
+  - server/domains/assessment/use-cases.js
   - server/models/AssessmentAttempt.js
 related_plans:
   - plans/260603-2239-manual-grading-short-text
@@ -98,6 +99,37 @@ timestamp + note, and recompute the attempt's score/percent/passed.
 The system SHALL require `assertTeacherCanAccessCohort(actor, cohort, 'grade')`;
 Admin is unrestricted, Teachers limited to accessible cohorts.
 
+### Requirement: Unified grading queue [BR-4, UC-2]
+
+`GET /api/assessment/grading-queue` (capability `assessment.manage` — the grader
+gate, which equals the union since every rubric grader also holds it) SHALL
+return the staff "to-grade" feed across BOTH assessment modes, scoped to what the
+actor can grade:
+- **quiz** — published assessments that contain a `short_text` item, each with
+  its attempt count. Admin/Coordinator see all; a Teacher is scoped to accessible
+  cohorts (`visibleCohortIdsForTeacher`).
+- **rubric** — team-world (English) classes with their evaluation counts. Only
+  Admin/Teacher record rubric evaluations, so other roles get an empty `rubric`
+  list; cohort-world (`self_enroll`/`nomination`) classes are excluded.
+
+Read-only (not audited). Convergence Phase 4 (slice C1) — the unified Grading
+workspace consumes this feed; grading entry still opens each mode's native
+surface (manual-grade modal / rubric entry).
+
+#### Scenario: Grader reads the queue
+
+- **GIVEN** a published `short_text` assessment with an attempt, and a team-world
+  class that has an evaluation
+- **WHEN** an Admin GETs `/api/assessment/grading-queue`
+- **THEN** `quiz[]` includes that assessment (`attemptCount ≥ 1`) and `rubric[]`
+  includes that class (`evaluatedCount ≥ 1`); a cohort-world class is absent from
+  `rubric[]`
+
+#### Scenario: Non-grader denied
+
+- **WHEN** a learner (no `assessment.manage`) GETs the queue
+- **THEN** it is denied (403)
+
 ## Non-Functional Requirements (NFR)
 
 Inherits `security-platform`. Specifics:
@@ -113,6 +145,7 @@ Inherits `security-platform`. Specifics:
 - [ ] Manual grade only on short_text (else 422); can't exceed points (422).
 - [ ] Manual grade recomputes attempt total/pass and records grader/time/note.
 - [ ] Unknown item target → 404; unauthorised grader → denied.
+- [ ] Grading queue lists short_text quiz units (attempt counts) + team-world rubric classes (evaluation counts), scoped to the grader; non-graders 403.
 
 ## Error & Edge Cases
 

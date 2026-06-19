@@ -1,7 +1,7 @@
 # Phase 4 — Grading-UI Unification (Evaluations ⊕ Assessments)  ·  "slice C"
 
-**Created:** 2026-06-19 · **Status:** 🔵 PLANNED — ready to build (all 3 open questions
-resolved by owner 2026-06-19; see *Resolved decisions*); not started.
+**Created:** 2026-06-19 · **Status:** 🟡 IN PROGRESS — C1 shipped (#165); C2–C4 next.
+(All 3 open questions resolved by owner 2026-06-19; see *Resolved decisions*.)
 **Parent:** [`plan.md`](plan.md) (Converge to One Training Model) · **ADR:**
 `docs/decisions/converge-to-one-training-model.md` (Phase-1 note: *"grading-UI folds
 into the unified assessment UX in Phase 4"*).
@@ -48,11 +48,15 @@ engine; `Evaluation` rows become `Assessment`+`Result` rows.
 → **Recommendation: Option 1.**
 
 ## Slices (Option 1 — each independently shippable, tests + lint + build green)
-- **C1 — server: unified "to-grade" read.** One additive endpoint
-  (`GET /api/assessment/grading-queue` or extend assessment results) returning pending
-  gradable items across modes: rubric = enrolled-but-unevaluated per class; quiz =
-  submitted-ungraded attempts. Each item tagged `{ mode: 'rubric'|'quiz', target, label }`.
-  Reuses `domains/assessment` + `Evaluation` repos; no writes. Integration tests.
+- **C1 ✅ (shipped #165) — server: unified "to-grade" read.** `GET /api/assessment/grading-queue`
+  (capability `assessment.manage`) returns gradable **units** across both modes —
+  quiz = published `short_text` assessments + attempt counts (teacher-cohort-scoped);
+  rubric = team-world (English) classes + evaluation counts (Admin/Teacher only,
+  cohort-world excluded). Additive read in `domains/assessment` (reuses the `Evaluation`
+  repo + the `_shared/scheduling-modes` SSOT for team/cohort classification); no writes.
+  4 integration tests; full server suite green (1177). Spec `grading` updated.
+  *(Design note: "gradable units" — an assessment for quiz, a class for rubric — not
+  individual pending items, because the native entry modals are already per-unit.)*
 - **C2 — client: Grading workspace page.** New `features/grading/GradingPage.jsx` that
   consumes C1, groups by mode, and opens the existing `EvalModal` (rubric) /
   `ManualGradingModal` (quiz) in place. React-Query hook + tests.

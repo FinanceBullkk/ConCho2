@@ -222,6 +222,36 @@ const getMyResults = async (actor) => {
   return { attempts, evaluations };
 };
 
+// Staff grading queue — gradable UNITS across BOTH modes, scoped to what the
+// actor can grade (convergence Phase 4 slice C1). The route is gated by
+// assessment.manage (the grader gate = the union: every rubric grader, Admin or
+// Teacher, also holds assessment.manage). Quiz units are cohort-scoped (Admin/
+// Coordinator: all; Teacher: their cohorts). Rubric units are team-world
+// (English) classes and only Admin/Teacher record evaluations, so others get an
+// empty rubric list. Read-only → not audited.
+const getGradingQueue = async (actor) => {
+  const teacher = actor?.role === 'Teacher';
+  const cohortIds = teacher ? await visibleCohortIdsForTeacher(actor) : null;
+
+  const assessments = await repository.listShortTextAssessments(cohortIds);
+  const attemptCounts = await repository.countAttemptsByAssessment(
+    assessments.map((a) => a._id),
+  );
+
+  let classes = [];
+  let evalCounts = [];
+  if (actor?.role === 'Admin' || teacher) {
+    const cohortModeIds = await repository.findCohortModeClassIds();
+    classes = await repository.listGradableClasses({
+      includeIds: cohortIds, // null for Admin → all live classes
+      excludeIds: cohortModeIds, // drop quiz-world classes
+    });
+    evalCounts = await repository.countEvaluationsByClass(classes.map((c) => c._id));
+  }
+
+  return { assessments, attemptCounts, classes, evalCounts };
+};
+
 module.exports = {
   createAssessment,
   updateAssessment,
@@ -231,4 +261,5 @@ module.exports = {
   submitAttempt,
   listAttempts,
   getMyResults,
+  getGradingQueue,
 };

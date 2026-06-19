@@ -50,7 +50,7 @@ table is just the index. Covers every mounted `/api/*` route surface.
 | [learning-paths](learning-paths/spec.md) | stable | domains/learning/path | 2026-06-08 |
 | [assessments](assessments/spec.md) | stable | domains/assessment, controllers/evaluationController | 2026-06-15 |
 | [question-bank](question-bank/spec.md) | stable | domains/assessment (question-bank) | 2026-06-08 |
-| [grading](grading/spec.md) | stable | domains/assessment (grading, manual-grading) | 2026-06-08 |
+| [grading](grading/spec.md) | stable | domains/assessment (grading, manual-grading) | 2026-06-19 |
 | [feedback](feedback/spec.md) | stable | domains/learning/feedback | 2026-06-08 |
 | [completion-and-certificates](completion-and-certificates/spec.md) | stable | domains/learning/completion | 2026-06-08 |
 | [assignments-and-reminders](assignments-and-reminders/spec.md) | stable | domains/learning/assignment, services/reminderService | 2026-06-08 |
