@@ -1,11 +1,10 @@
 import { useSearchParams, Link } from 'react-router-dom';
-import { UsersRound, ClipboardEdit, CalendarPlus, GraduationCap } from 'lucide-react';
+import { UsersRound, CalendarPlus, GraduationCap } from 'lucide-react';
 import { Tabs, TabsContent } from '@/components/ui/tabs';
 import { PageHeader } from '@/components/PageHeader';
 import { useAuth } from '../../context/AuthContext';
 import { useMyTeams } from '../../hooks/useTeams';
 import TeamsPage from '../groups/TeamsPage';
-import EvaluationPage from '../evaluations/EvaluationPage';
 import BookClassPage from '../schedule/BookClassPage';
 
 // ──────────────────────────────────────────────────────────
@@ -13,16 +12,16 @@ import BookClassPage from '../schedule/BookClassPage';
 // Route: /english
 //
 // The legacy English-class (team-booking) business lives here, separated from
-// the generic Training/Learning surfaces. As convergence Phase 4 folds the
-// duplicated surfaces into unified ones, this section keeps shrinking: the
-// 'classes' tab moved to Learning → Cohorts, and both 'attendance' and
-// 'schedules' moved to the unified Operations calendar (/calendar — both
-// worlds + a Team/Cohort facet). What remains is genuinely team-world-
-// specific: teams, the leader booking grid, and English rubric evaluations.
+// the generic Training/Learning surfaces. Convergence Phase 4 folded every
+// duplicated surface into a unified one, so this section has shrunk to what is
+// genuinely team-world-specific: 'classes' → Learning → Cohorts; 'attendance' +
+// 'schedules' → the unified Operations calendar (/calendar); 'evaluations' →
+// the unified Grading workspace (/grading, Learning group). What remains:
+// Teams (admin) + the leader booking grid.
 //
 // Tabs shown depend on role:
-//   Admin    → Teams + Evaluations
-//   Teacher  → Evaluations
+//   Admin    → Teams
+//   Teacher  → none (rubric evaluations moved to the Grading workspace)
 //   Leader/Participant → Team booking, ONLY when they belong to a Team
 //     (otherwise a pointer panel to their generic learning surfaces —
 //     moved here from CalendarPage, Cohesion P4).
@@ -31,11 +30,7 @@ import BookClassPage from '../schedule/BookClassPage';
 
 const TABS_BY_ROLE = {
   Admin: [
-    { id: 'teams',       label: 'Teams',        icon: UsersRound,    description: 'Manage learning groups and their leaders.' },
-    { id: 'evaluations', label: 'Evaluations',  icon: ClipboardEdit, description: 'Enter and review learner evaluation scores.' },
-  ],
-  Teacher: [
-    { id: 'evaluations', label: 'Evaluations',  icon: ClipboardEdit, description: 'Enter and review learner evaluation scores.' },
+    { id: 'teams', label: 'Teams', icon: UsersRound, description: 'Manage learning groups and their leaders.' },
   ],
   Participant: [
     { id: 'book', label: 'Team booking', icon: CalendarPlus, description: 'View available sessions and book your slot.' },
@@ -47,7 +42,6 @@ const TABS_BY_ROLE = {
 
 const DEFAULT_TAB = {
   Admin:       'teams',
-  Teacher:     'evaluations',
   Participant: 'book',
   Leader:      'book',
 };
@@ -136,8 +130,7 @@ export default function EnglishPage() {
 }
 
 function TabContent({ id }) {
-  if (id === 'teams')       return <TeamsPage />;
-  if (id === 'evaluations') return <EvaluationPage />;
-  if (id === 'book')        return <BookClassPage />;
+  if (id === 'teams') return <TeamsPage />;
+  if (id === 'book')  return <BookClassPage />;
   return null;
 }

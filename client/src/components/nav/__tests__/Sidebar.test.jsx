@@ -36,14 +36,17 @@ describe('Sidebar — section-group navigation (Phase 03)', () => {
     [
       '/home',
       '/learning?tab=programs', '/learning?tab=paths',
+      '/grading',                                          // unified Grading workspace (Learning group)
       '/calendar?tab=schedules', '/calendar?tab=attendance',
-      '/english?tab=teams', '/english?tab=evaluations',
+      '/english?tab=teams',
       '/reports?tab=overview', '/reports?tab=hr-export',
       '/people?tab=users', '/system?tab=settings',
     ].forEach((p) => expect(links).toContain(p));
+    // English Evaluations tab retired (converge Phase 4 C3) — folded into /grading.
+    expect(hrefs(renderSidebar().container)).not.toContain('/english?tab=evaluations');
   });
 
-  it('Teacher: learning (read, no Paths), reports (no Overview), unified calendar attendance + english evaluations; no People/System', () => {
+  it('Teacher: learning (read, no Paths), reports (no Overview), unified calendar attendance + Grading; no People/System', () => {
     h.user = { role: 'Teacher' };
     const links = hrefs(renderSidebar().container);
     expect(links).toContain('/learning?tab=programs');
@@ -53,9 +56,9 @@ describe('Sidebar — section-group navigation (Phase 03)', () => {
     expect(links).not.toContain('/reports?tab=overview');        // read:dashboard = Admin
     expect(links).toContain('/calendar?tab=attendance');         // unified attendance (both worlds)
     expect(links).not.toContain('/calendar?tab=schedules');      // admin-only
-    expect(links).toContain('/english?tab=evaluations');         // English rubric grading
-    expect(links).not.toContain('/english?tab=attendance');      // retired — folded into /calendar
-    expect(links).not.toContain('/english?tab=schedules');         // admin-only
+    expect(links).toContain('/grading');                         // rubric grading folded into the unified Grading workspace
+    expect(links).not.toContain('/english?tab=evaluations');     // retired — folded into /grading
+    expect(links).not.toContain('/english?tab=teams');           // admin-only
     expect(links).not.toContain('/people?tab=users');
     expect(links).not.toContain('/system?tab=settings');
   });

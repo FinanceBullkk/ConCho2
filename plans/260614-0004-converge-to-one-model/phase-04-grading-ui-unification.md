@@ -1,6 +1,7 @@
 # Phase 4 — Grading-UI Unification (Evaluations ⊕ Assessments)  ·  "slice C"
 
-**Created:** 2026-06-19 · **Status:** 🟡 IN PROGRESS — C1 (#165) + C2 (#166) shipped; C3–C4 next.
+**Created:** 2026-06-19 · **Status:** ✅ COMPLETE (2026-06-19) — C1 (#165), C2 (#166), C3+C4 (#167)
+shipped. The grading UI is unified; the English Evaluations tab is retired.
 (All 3 open questions resolved by owner 2026-06-19; see *Resolved decisions*.)
 **Parent:** [`plan.md`](plan.md) (Converge to One Training Model) · **ADR:**
 `docs/decisions/converge-to-one-training-model.md` (Phase-1 note: *"grading-UI folds
@@ -65,14 +66,17 @@ engine; `Evaluation` rows become `Assessment`+`Result` rows.
   status + Admin "show all") behind a Back link. Route `/grading` (Admin/Coordinator/Teacher).
   4 component tests; client suite 409 + lint (cap 41) + build green. *(No new server behaviour →
   no spec delta; the grading-queue contract was spec'd in C1.)*
-- **C3 — IA/nav: surface it + retire the English Evaluations tab.** Add the Grading
-  workspace to nav under the **Learning** group (owner decision Q1), capability-gated,
-  near Assessments. Once it covers rubric entry, **retire** the standalone English
-  **Evaluations** tab (nav + `EnglishPage`) — same unify→retire pattern as A1b/A2b
-  (owner decision Q2). After this, the English section = **Teams + leader booking grid**
-  only, and the section may collapse to a single non-tabbed surface.
-- **C4 — spec + docs.** Fold deltas into `docs/specs/evaluations` + `docs/specs/grading`
-  (+ `assessments`); registry; roadmap changelog; this plan → archived.
+- **C3 ✅ (shipped #167) — IA/nav: surface it + retire the English Evaluations tab.** Added a
+  **Grading** leaf to the **Learning** nav group (owner Q1; standalone `/grading` route, leaf-in-
+  group like Operations' mobile-attendance) + `nav.sections.grading` label. **Retired** the English
+  **Evaluations** tab (nav + `EnglishPage`, dropping the `EvaluationPage`/`ClipboardEdit` imports)
+  (owner Q2). English section is now **Teams** (admin) + the leader booking grid; a Teacher's
+  English section is now "not available" (they grade from `/grading`). EnglishPage + Sidebar tests
+  updated; client suite 408 + lint (cap 41) + build green.
+- **C4 ✅ (shipped #167) — spec + docs.** Folded the delta into `docs/specs/evaluations` (grading-UI
+  surface is now the unified `/grading` workspace; English tab retired) + bumped registry;
+  `grading` spec already carried the grading-queue requirement (C1). Roadmap changelog updated; this
+  plan marked COMPLETE.
 
 ## Related code
 - Rubric: `client/src/features/evaluations/{EvaluationPage,EvalModal,ScoreInput,eval-columns,eval-helpers,useEvaluations}.jsx/js`; `server/models/Evaluation.js`; rubric routes/controller.

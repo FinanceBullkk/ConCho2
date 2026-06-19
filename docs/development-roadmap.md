@@ -138,6 +138,17 @@ Bug fixing and integration review rank above net-new feature rollout.
 > [`changelog-archive/2026-q2.md`](changelog-archive/2026-q2.md). Currently
 > inline: **2026-06-14 → 2026-06-19**.
 
+- **2026-06-19** — **Converge Phase 4 slice C3+C4 — surface Grading, retire the English Evaluations tab (#167).**
+  Final grading-UI slice. Added a **Grading** leaf to the Learning nav group (standalone `/grading`,
+  leaf-in-group like Operations' mobile-attendance) + `nav.sections.grading` label, and **retired** the
+  English **Evaluations** tab (`nav-config` + `EnglishPage`, dropping `EvaluationPage`/`ClipboardEdit`
+  imports). The English section is now **Teams** (admin) + the leader booking grid; a Teacher's English
+  section is "not available" (they grade from `/grading`). Spec `evaluations` updated (grading-UI surface
+  is now the unified workspace; English tab retired) + registry. EnglishPage + Sidebar tests updated;
+  client 408 + lint (cap 41) + build green. **Grading-UI unification (slice C) COMPLETE** — the unified
+  Grading workspace grades quiz + rubric from one place, no model merge. Only the persona-journey sidebar
+  re-cut remains in Phase 4.
+
 - **2026-06-19** — **Converge Phase 4 slice C2 — unified Grading workspace page (#166).**
   New `/grading` route (Admin/Coordinator/Teacher) + `features/grading/GradingPage.jsx` + `useGrading`
   hook consume the C1 feed and group gradable units by mode. Quiz row → fetches the full assessment

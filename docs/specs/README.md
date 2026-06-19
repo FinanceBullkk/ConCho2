@@ -68,7 +68,7 @@ table is just the index. Covers every mounted `/api/*` route surface.
 | [reconcile-job](reconcile-job/spec.md) | stable | services/reconcileService, controllers/reconcileController, jobs | 2026-06-12 |
 | [capability-authz](capability-authz/spec.md) | evolving | middleware/requireCapability, policy/capabilities, middleware/roleGuard, policy, domains/access, models/Role | 2026-06-15 |
 | [security-platform](security-platform/spec.md) | stable | middleware (csrf, rateLimiters, validate, sanitize), helmet, soft-delete | 2026-06-12 |
-| [evaluations](evaluations/spec.md) | stable | controllers/evaluationController, models/Evaluation (legacy 4-skill; instructor-scored mode of assessments) | 2026-06-14 |
+| [evaluations](evaluations/spec.md) | stable | controllers/evaluationController, models/Evaluation (legacy 4-skill; instructor-scored mode of assessments) | 2026-06-19 |
 | [bulk-import](bulk-import/spec.md) | stable | controllers/importController, services/importService | 2026-06-12 |
 | [settings](settings/spec.md) | stable | controllers/settingController, models/Setting | 2026-06-08 |
 | [dashboard-analytics](dashboard-analytics/spec.md) | stable | controllers/dashboardController | 2026-06-08 |
