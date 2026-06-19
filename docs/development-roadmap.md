@@ -138,6 +138,17 @@ Bug fixing and integration review rank above net-new feature rollout.
 > [`changelog-archive/2026-q2.md`](changelog-archive/2026-q2.md). Currently
 > inline: **2026-06-14 → 2026-06-19**.
 
+- **2026-06-19** — **Converge Phase 4 slice D — sidebar persona cleanup; PHASE 4 COMPLETE (#168).**
+  Retired the now-vestigial English **admin** nav group and moved **Teams → People**
+  (`/people?tab=teams` — a Team is a group of people, matching the shipped target IA). `/english`
+  is now learner-persona-only (the leader booking grid); Admin/Teacher reach every former English
+  surface from the unified Admin Console nav. Updated `nav-config`, `PeoplePage` (Teams tab,
+  `read:teams` = admin-only there), `EnglishPage` (booking-only), and the cross-links in `AlertBand` +
+  `SearchPalette`; e2e `navigation`/`permissions` specs repointed to `/people?tab=teams`. EnglishPage +
+  Sidebar tests updated; client 407 + lint (cap 41) + build green. **Phase 4 (UX journeys) is COMPLETE** —
+  the parallel-world convergence (catalog · calendar · attendance · schedules · grading) plus the
+  persona-clean sidebar are all shipped. (Phase 3 slice 5 `mode`-fork removal + Phase 5/6 remain.)
+
 - **2026-06-19** — **Converge Phase 4 slice C3+C4 — surface Grading, retire the English Evaluations tab (#167).**
   Final grading-UI slice. Added a **Grading** leaf to the Learning nav group (standalone `/grading`,
   leaf-in-group like Operations' mobile-attendance) + `nav.sections.grading` label, and **retired** the
