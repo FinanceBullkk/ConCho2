@@ -59,21 +59,14 @@ const getAvailability = (filters = {}) =>
  */
 const listSchedules = async (filters, { page, limit, skip }) => {
   const query = {};
-  // Resolve cohort-world class ids once — used both to split the list by world
-  // (when a mode filter is present) AND to tag every row's deliveryType so a
-  // unified calendar can facet team vs cohort. Empty set (no cohort programs,
-  // the common case today) → $nin matches all / every row tags as 'team'.
+  // Resolve cohort-world class ids once — used to tag every row's deliveryType
+  // so a UNIFIED calendar can facet team vs cohort client-side. Convergence
+  // Phase 3 slice 5 retired the server-side mode=team|cohort split (the UI now
+  // fetches all worlds and facets locally); empty set → every row tags 'team'.
   const cohortClassIds = await repository.findCohortModeClassIds();
   const cohortClassIdSet = new Set(cohortClassIds.map((id) => id.toString()));
 
   if (filters.classId) query.classId = filters.classId;
-  // English-class separation: split lists by scheduling world. An explicit
-  // classId is already world-scoped, so mode only applies without one.
-  else if (filters.mode === 'team' || filters.mode === 'cohort') {
-    query.classId = filters.mode === 'cohort'
-      ? { $in: cohortClassIds }
-      : { $nin: cohortClassIds }; // $nin includes program-less legacy classes
-  }
 
   // Durable cancellation (phase-04 slice A): every list is LIVE-only by
   // default — the admin grid renders rows as occupied cells, so a cancelled
@@ -154,7 +147,7 @@ const getMyClassSchedules = async (userId) => {
  *   "partial" — some attendance marked but count < enrolledCount
  *   "done"    — attendance count >= enrolledCount
  */
-const getAttendanceCalendar = async ({ from, to, mode } = {}, requestUser = null) => {
+const getAttendanceCalendar = async ({ from, to } = {}, requestUser = null) => {
   // Step 1: Build filter (optional date range for performance)
   const filter = {};
   if (from || to) {
@@ -163,19 +156,11 @@ const getAttendanceCalendar = async ({ from, to, mode } = {}, requestUser = null
     if (to) filter.startTime.$lte = new Date(to);
   }
 
-  // Resolve cohort-world class ids once — used both for the optional world
-  // split (team | cohort) and to tag each row's deliveryType for a unified
-  // attendance calendar (convergence Phase 3 → 4).
+  // Resolve cohort-world class ids once — used to tag each row's deliveryType
+  // for the UNIFIED attendance calendar (faceted client-side; the server-side
+  // mode=team|cohort split was retired in convergence Phase 3 slice 5).
   const cohortClassIds = await repository.findCohortModeClassIds();
   const cohortClassIdSet = new Set(cohortClassIds.map((id) => id.toString()));
-
-  // English-class separation: optional world split (team | cohort). The
-  // top-level classId condition ANDs with the Teacher $or scope below.
-  if (mode === 'team' || mode === 'cohort') {
-    filter.classId = mode === 'cohort'
-      ? { $in: cohortClassIds }
-      : { $nin: cohortClassIds };
-  }
 
   // Teachers see classes they are assigned to (empty teacherIds keeps the
   // legacy graceful-migration behaviour used by attendance/evaluation policy)

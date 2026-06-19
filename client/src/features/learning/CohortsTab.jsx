@@ -26,15 +26,12 @@ const WORLD_FILTERS = ['all', 'team', 'cohort'];
 // cohort-mode classification comes from the shared lib (single source of truth).
 const isCohortScheduled = (cohort) => isCohortMode(cohort.program?.schedulingMode);
 
-// CohortsTab — the training catalog.
-//   mode = 'all'    — UNIFIED catalog (converge Phase 4): lists BOTH scheduling
-//                     worlds (team + cohort) with a deliveryType column + world
-//                     filter; per-row actions gate by each row's deliveryType, so
-//                     an admin no longer hits an "empty" Cohorts tab while the
-//                     data sits in the English/team world.
-//   mode = 'team'   — English section: reads via /api/english/classes; cohort-
-//                     based enroll is hidden (team membership drives enrollment).
-//   mode = 'cohort' — legacy cohort-world-only list.
+// CohortsTab — the UNIFIED training catalog (rendered with mode='all'): lists
+// BOTH scheduling worlds (team + cohort) with a deliveryType column + world
+// filter; per-row actions gate by each row's deliveryType, so an admin no longer
+// hits an "empty" Cohorts tab while data sits in the team world. Convergence
+// Phase 3 slice 5 removed the old server-side mode=team|cohort split + the
+// /api/english reads — 'all' is the only live value; 'team'/'cohort' are vestigial.
 export default function CohortsTab({ mode = 'cohort', titleKey = 'learning.cohorts.title' }) {
   const { t } = useTranslation();
   const { can } = useRole();

@@ -41,9 +41,9 @@ server/domains/<domain>/
 ```
 - `learning/` = full reference implementation (has own routes). `learning/session/` is a sub-domain.
 - `schedule/` = has its **own routes** since 2026-06-10 (mounted at `/api/schedules`; the legacy `scheduleController` was retired). `scheduleService` remains the transaction-heavy booking-mutation chokepoint the domain delegates into.
-- **21 domains today** (all mounted in `server.js`; `_shared` is helpers, not a mounted domain). This is the canonical inventory — other docs point here.
+- **20 domains today** (all mounted in `server.js`; `_shared` is helpers, not a mounted domain). This is the canonical inventory — other docs point here.
 
-  **8 core training domains:**
+  **7 core training domains:**
   - `learning` — programs/cohorts/sessions/enrollment/completion engine (`/api/learning`); full reference implementation.
   - `schedule` — session booking + room/waitlist/capacity + scheduling-mode enforcement (`/api/schedules`; own routes since 2026-06-10, legacy `scheduleController` retired).
   - `attendance` — attendance marking + facilitator-assignment gate (`/api/attendance`).
@@ -51,7 +51,7 @@ server/domains/<domain>/
   - `assessment` — assessment engine + question bank + grading (`/api/assessment`).
   - `org` — departments, offices, manager hierarchy (`/api/org`).
   - `room` — office-scoped physical rooms (`/api/rooms`).
-  - `english-class` — READ-ONLY delegation surface over the team-booking world (`/api/english`; no own repository/mutations by design — separation 2026-06-12).
+  - *(`english-class` retired 2026-06-20 — convergence Phase 3 slice 5: the `/api/english` READ delegation + the server-side `mode=team|cohort` split were removed; the unified reads return both worlds tagged `deliveryType`, faceted client-side. The `/english` learner booking grid stays, served by `/api/schedules`.)*
 
   **13 capability domains** (added through Horizon 1/2 + TMS.update gaps — see `docs/development-roadmap.md`):
   - `access` — Roles & capabilities: RBAC grant editing + custom roles (`/api/access`, `role.manage`).

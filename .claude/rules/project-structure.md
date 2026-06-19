@@ -5,10 +5,9 @@ Monorepo: `client/` (React SPA) + `server/` (Express API). Root `package.json` o
 ## Server layout
 ```
 server/
-├── domains/        # modular-monolith boundaries — 21 domains (FULL inventory: domain-model-and-migration.md)
+├── domains/        # modular-monolith boundaries — 20 domains (FULL inventory: domain-model-and-migration.md)
 │   ├── learning/        # full reference domain: routes→controller→use-cases→repository→dto→schemas
 │   ├── schedule/        # own routes (/api/schedules) + booking/room/waitlist/capacity + scheduling-mode
-│   ├── english-class/   # READ-ONLY /api/english surface over the team-booking world (separation 2026-06-12)
 │   ├── _shared/         # cross-domain helpers (not a mounted domain)
 │   └── …                # + 18 more: attendance, groups, assessment, org, room, access, automation, branding,
 │                        #   compliance, custom-field, finance, mobile, notification, planning, session-type,

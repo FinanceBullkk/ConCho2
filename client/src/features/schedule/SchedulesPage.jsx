@@ -33,10 +33,9 @@ const scheduleTimeLabel = (s) => {
 
 const WORLD_FILTERS = ['all', 'team', 'cohort'];
 
-// `mode` (optional): 'team' scopes the grid to the English/team-booking world
-// (reads via /api/english), 'cohort' to the cohort training world, and 'all'
-// shows BOTH worlds with a client-side Team/Cohort facet (converge Phase 4 —
-// the unified surface). Omitted → combined legacy read (both worlds, no facet).
+// `mode='all'` shows BOTH scheduling worlds with a client-side Team/Cohort facet
+// (the unified surface). Convergence Phase 3 slice 5 removed the old server-side
+// team/cohort split + the /api/english reads, so 'all' is the only live value.
 // Note: cell-click CREATE always books a TEAM session (the manual-create API
 // requires a team); cohort sessions are created from Learning → Cohorts.
 export default function SchedulesPage({ mode }) {
