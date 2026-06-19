@@ -31,11 +31,18 @@ const scheduleTimeLabel = (s) => {
   return `${String(a.getHours()).padStart(2,'0')}:${String(a.getMinutes()).padStart(2,'0')}–${String(b.getHours()).padStart(2,'0')}:${String(b.getMinutes()).padStart(2,'0')}`;
 };
 
-// `mode` (optional, English-class separation): 'team' scopes the grid to the
-// English/team-booking world (reads via /api/english), 'cohort' to the generic
-// training world. Omitted → combined legacy behavior.
+const WORLD_FILTERS = ['all', 'team', 'cohort'];
+
+// `mode` (optional): 'team' scopes the grid to the English/team-booking world
+// (reads via /api/english), 'cohort' to the cohort training world, and 'all'
+// shows BOTH worlds with a client-side Team/Cohort facet (converge Phase 4 —
+// the unified surface). Omitted → combined legacy read (both worlds, no facet).
+// Note: cell-click CREATE always books a TEAM session (the manual-create API
+// requires a team); cohort sessions are created from Learning → Cohorts.
 export default function SchedulesPage({ mode }) {
   const [searchParams, setSearchParams] = useSearchParams();
+  const unified = mode === 'all';
+  const [worldFilter, setWorldFilter] = useState('all');
   const config = useSchedulingConfig();
   const offset = config.data?.utcOffsetMinutes ?? DEFAULT_UTC_OFFSET_MINUTES;
   const { can } = useRole();
@@ -70,15 +77,23 @@ export default function SchedulesPage({ mode }) {
   // closeDrawer only calls stable state setters — [] is safe
   }, []);
 
+  // Unified mode reads BOTH worlds (no server mode) and facets client-side by
+  // each row's deliveryType; team|cohort stay server-scoped.
   const schedParams = useMemo(
-    () => (mode ? { limit: 2000, mode } : { limit: 2000 }),
+    () => (mode && mode !== 'all' ? { limit: 2000, mode } : { limit: 2000 }),
     [mode],
   );
   const { data: schedData, isLoading } = useSchedules(schedParams);
   // Memoized: `schedData?.data || []` minted a fresh [] every render, making
   // every downstream useMemo (scheduleMap, rows, …) recompute per render.
-  const schedules    = useMemo(() => schedData?.data || [], [schedData]);
-  const totalCount   = schedData?.total || schedules.length;
+  const allSchedules = useMemo(() => schedData?.data || [], [schedData]);
+  const schedules    = useMemo(
+    () => (unified && worldFilter !== 'all'
+      ? allSchedules.filter((s) => (s.deliveryType || 'team') === worldFilter)
+      : allSchedules),
+    [allSchedules, unified, worldFilter],
+  );
+  const totalCount   = schedData?.total || allSchedules.length;
   const { data: classes = [] } = useClasses();
   const { data: teams  = [] } = useTeams();
 
@@ -167,6 +182,22 @@ export default function SchedulesPage({ mode }) {
           </Button>
         )}
       </div>
+
+      {/* ── World facet (unified mode only) ─────────────── */}
+      {unified && (
+        <div className="flex items-center gap-1">
+          {WORLD_FILTERS.map((wf) => (
+            <Button
+              key={wf}
+              size="sm"
+              variant={worldFilter === wf ? 'default' : 'ghost'}
+              onClick={() => setWorldFilter(wf)}
+            >
+              {wf.charAt(0).toUpperCase() + wf.slice(1)}
+            </Button>
+          ))}
+        </div>
+      )}
 
       {/* ── Main: calendar + drawer ─────────────────────── */}
       <div className="lg:flex lg:gap-5 lg:items-start">
@@ -285,7 +316,7 @@ export default function SchedulesPage({ mode }) {
             prefill={selectedCell}
             classes={classes}
             teams={teams}
-            allSchedules={schedules}
+            allSchedules={allSchedules}
             isReadOnly={!canUpdate && !canCreate}
             onClose={closeDrawer}
             onSaved={closeDrawer}

@@ -10,14 +10,14 @@ import AttendancePage from '../features/attendance/AttendancePage';
 // CalendarPage — Phase 2 IA-S3 · English-class separation 2026-06-12
 // Route: /calendar
 //
-// GENERIC training calendar.
-//   • Attendance — UNIFIED (converge Phase 4): shows BOTH scheduling worlds
-//     (team + cohort) with a client-side Team/Cohort facet, so staff mark
-//     attendance for everything in one place (mode="all").
-//   • Schedules — still cohort-world only (mode="cohort"); the create/edit
-//     drawer is team-centric, so folding the schedule grid waits on a
-//     cohort-aware drawer (Phase 4 slice A2). The English section at /english
-//     still hosts team-world schedules + the leader booking grid until then.
+// GENERIC training calendar — UNIFIED across both scheduling worlds (converge
+// Phase 4). Both tabs read mode="all": team + cohort sessions show together
+// with a client-side Team/Cohort facet.
+//   • Attendance — mark any session in one place (marking is world-agnostic).
+//   • Schedules — view/edit any session; the edit drawer handles team-less
+//     (cohort) sessions. Cell-click CREATE books a TEAM session (the manual
+//     create API requires a team); cohort sessions are created from Learning →
+//     Cohorts. The English section keeps the leader booking grid + rubric only.
 // Participants have no calendar surface — they are redirected to /english
 // (team members get the booking grid; others a pointer panel).
 //
@@ -85,7 +85,7 @@ export default function CalendarPage() {
 }
 
 function TabContent({ id }) {
-  if (id === 'schedules')  return <SchedulesPage mode="cohort" />;
+  if (id === 'schedules')  return <SchedulesPage mode="all" />;
   if (id === 'attendance') return <AttendancePage mode="all" />;
   return null;
 }
