@@ -16,8 +16,8 @@
 
 | # | Slice | Maps to | Risk | Status |
 |---|---|---|---|---|
-| 1 | **Correctness lint burndown** — fix 9 real react-hooks warnings (Date.now-in-render ×3, use-before-declare ×3, setState-in-effect ×3); lower ratchet | W4/W5 | low | 🟡 in progress |
-| 2 | a11y burndown — keyboard handlers for clickable non-interactive els (28 warnings) → ratchet toward 0 | W6 | low | 🔴 todo |
+| 1 | **Correctness lint burndown** — fixed 6 real react-hooks warnings (Date.now-in-render ×3, use-before-declare ×3); ratchet 41→35 | W4/W5 | low | ✅ done (PR #175) |
+| 2 | **a11y burndown** — cleared all 28 jsx-a11y warnings across 8 files (keyboard handlers / convert-to-button / role=presentation / managed autofocus), adversarially verified; ratchet 35→7 | W6 | low | ✅ done (PR #175) |
 | 3 | Finish convergence / retire dead legacy — fold Evaluation write-path + enrollment close-paths onto shared spines; delete superseded legacy routes/controllers as domains absorb them | W2 | med | 🔴 todo |
 | 4 | classBinding → fail-closed (after confirming prod teacherIds are backfilled) | W3 | med (data) | 🔴 todo (needs prod check) |
 | 5 | Error/edge-path test depth — server branch cov 65.8%↑, frontend 40→60% | W7 | low | 🔴 todo |
