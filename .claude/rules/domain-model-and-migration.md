@@ -41,7 +41,32 @@ server/domains/<domain>/
 ```
 - `learning/` = full reference implementation (has own routes). `learning/session/` is a sub-domain.
 - `schedule/` = has its **own routes** since 2026-06-10 (mounted at `/api/schedules`; the legacy `scheduleController` was retired). `scheduleService` remains the transaction-heavy booking-mutation chokepoint the domain delegates into.
-- 8 domains today: `learning`, `schedule`, `attendance`, `groups`, `assessment`, `org`, `room`, `english-class` (READ-ONLY delegation surface at `/api/english` over the team-booking world — English-class separation 2026-06-12; no own repository/mutations by design).
+- **21 domains today** (all mounted in `server.js`; `_shared` is helpers, not a mounted domain). This is the canonical inventory — other docs point here.
+
+  **8 core training domains:**
+  - `learning` — programs/cohorts/sessions/enrollment/completion engine (`/api/learning`); full reference implementation.
+  - `schedule` — session booking + room/waitlist/capacity + scheduling-mode enforcement (`/api/schedules`; own routes since 2026-06-10, legacy `scheduleController` retired).
+  - `attendance` — attendance marking + facilitator-assignment gate (`/api/attendance`).
+  - `groups` — Team/group management (`/api/teams`; `Team` model name kept).
+  - `assessment` — assessment engine + question bank + grading (`/api/assessment`).
+  - `org` — departments, offices, manager hierarchy (`/api/org`).
+  - `room` — office-scoped physical rooms (`/api/rooms`).
+  - `english-class` — READ-ONLY delegation surface over the team-booking world (`/api/english`; no own repository/mutations by design — separation 2026-06-12).
+
+  **13 capability domains** (added through Horizon 1/2 + TMS.update gaps — see `docs/development-roadmap.md`):
+  - `access` — Roles & capabilities: RBAC grant editing + custom roles (`/api/access`, `role.manage`).
+  - `automation` — no-code when→if→then rules run by the event-bus runner (`/api/automation`).
+  - `branding` — branding & templates: singleton `TenantConfig` feeding the cert/email pipeline (`/api/branding`).
+  - `compliance` — compliance matrix + required-training rules, A3 (`/api/compliance`).
+  - `custom-field` — custom field definitions, Studio (`/api/custom-fields`).
+  - `finance` — budgets + cost entries, A1 (`/api/finance`).
+  - `mobile` — self-scoped learner feed + Web Push subscription, B5 (`/api/me`).
+  - `notification` — in-app notification bell over the email `NotificationLog`, P5 (`/api/notifications`).
+  - `planning` — Training Needs Analysis: demand intake → costed annual plan, A4 (`/api/planning`).
+  - `session-type` — session-type catalog (metadata only, never gates slot/room logic) (`/api/session-types`).
+  - `skill` — skills/competency framework, TMS gap #4 (`/api/skills`).
+  - `trainer` — trainer qualification/availability, A6 (`/api/trainers`).
+  - `vendor` — training vendor catalog + contracts + spend, A2 (`/api/vendors`).
 
 ## Program policy enforcement truth (audit round 8)
 `LearningProgram` carries `schedulingMode` (`leader_booking` | `admin_scheduled` | `self_enroll` | `nomination`) plus `deliveryMode`, `completionPolicy`, `capacityPolicy`, `facilitatorPolicy`. **`schedulingMode` is now ENFORCED** on every server session-create path via `domains/schedule/scheduling-mode-policy.js` (team modes `leader_booking`/`admin_scheduled` book against a group; cohort modes `self_enroll`/`nomination` book against a cohort) — gated at the shared `scheduleService.bookSlot` chokepoint (covers the legacy `/api/schedules/book-slot` leader route AND the `learning/session` adapter), `scheduleService.adminCreate`, and `domains/schedule/use-cases.updateSchedule` reassign. Effects: leader self-booking an `admin_scheduled` program → 403; team-booking a cohort program → 400; unknown mode → 501; a program-less class still books (fallback `leader_booking`). **`capacityPolicy` is ENFORCED** (`domains/schedule/session-booking-policy.js` maxParticipantsPerSession on booking; `domains/learning/enrollment/use-cases.js` maxParticipants per cohort — Wave E2). **`completionPolicy` is ENFORCED** (drives the completion engine + rollups, `domains/learning/completion/`). **`facilitatorPolicy` is FULLY ENFORCED**: `assignmentRequired` (`domains/schedule/facilitator-assignment-policy.js`, gated at `domains/attendance/marking.bulkMark`: a required-facilitator session can't be marked until a per-session instructor, external trainer, or cohort teacher is assigned → 422) AND `visibility: assigned_only` (`domains/schedule/facilitator-visibility-policy.js`: a Teacher reaches an assigned_only program's sessions — list/detail/attendance — only when named on `sessionInstructorIds`; the standing cohort-teacher binding no longer grants access; Admin unaffected). **`deliveryMode` is metadata-only by design** (online/offline/hybrid = display + reporting context, no behavioural contract → nothing to enforce). So no program-policy field remains as unintended debt.
