@@ -21,7 +21,7 @@ Verified code paths:
 - Auth state: `client/src/context/AuthContext.jsx`
 - Server entry: `server/server.js`
 - API routes: `server/routes/*` (legacy) + `server/domains/<domain>/routes.js`
-- Domain logic: `server/services/*` and `server/domains/<domain>/*` (learning, schedule, attendance, groups, assessment, org, room)
+- Domain logic: `server/services/*` and `server/domains/<domain>/*` (21 domains — full inventory in `.claude/rules/domain-model-and-migration.md`; core: learning, schedule, attendance, groups, assessment, org, room, english-class)
 - Data models: `server/models/*`
 - Validation schemas: `server/schemas/*`
 - Domain vocabulary (glossary): `CONTEXT-MAP.md` (root) → `server/CONTEXT.md`. This map = where code lives; `CONTEXT.md` = what the terms mean.

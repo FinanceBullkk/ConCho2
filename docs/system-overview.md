@@ -97,7 +97,7 @@ flowchart LR
     subgraph Domains["domains/ — target direction"]
         direction TB
         L["learning/ (FULL domain)<br/>routes→controller→use-cases→repository→dto"]
-        S["schedule/ (ADAPTER)<br/>no routes; legacy controller delegates in"]
+        S["schedule/ (FULL domain)<br/>own routes /api/schedules; delegates into scheduleService"]
     end
     LS -. extract toward .-> Domains
     L --> M[(Mongoose models)]
@@ -105,9 +105,12 @@ flowchart LR
     LS --> M
 ```
 
-- **Full domain** (`learning/`): owns its routes at `/api/learning/*`.
-- **Adapter** (`schedule/`): no routes; the legacy `scheduleController`
-  delegates `update`/`delete` into it — the incremental-extraction pattern.
+- **Full domain** (`learning/`): owns its routes at `/api/learning/*`. 21 domains now
+  follow this pattern (full inventory: `.claude/rules/domain-model-and-migration.md`).
+- **schedule/** also owns its routes now (`/api/schedules`, since 2026-06-10; legacy
+  `scheduleController` retired). `scheduleService` stays the transaction-heavy
+  booking-mutation chokepoint the domain delegates into. The diagram boxes are
+  illustrative archetypes, not the full domain list.
 
 ---
 
