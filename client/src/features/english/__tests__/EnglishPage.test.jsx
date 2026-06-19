@@ -30,9 +30,6 @@ vi.mock('../../learning/CohortsTab', () => ({
 vi.mock('../../groups/TeamsPage', () => ({
   default: () => <div data-testid="teams-page" />,
 }));
-vi.mock('../../evaluations/EvaluationPage', () => ({
-  default: () => <div data-testid="evaluation-page" />,
-}));
 vi.mock('../../schedule/BookClassPage', () => ({
   default: () => <div data-testid="book-class-page" />,
 }));
@@ -66,21 +63,15 @@ describe('EnglishPage — bounded English-class section', () => {
     expect(screen.queryByTestId('schedules-page')).toBeNull();
   });
 
-  it('Teacher defaults to the Evaluations surface (attendance folded to the unified calendar)', () => {
+  it('Teacher has no English tabs now — evaluations moved to the Grading workspace', () => {
     h.auth = { user: { _id: 't1', role: 'Teacher' } };
     renderPage();
 
-    expect(screen.getByTestId('evaluation-page')).toBeInTheDocument();
-    // Attendance is no longer an English tab — it lives in the unified Operations
-    // Attendance (/calendar, both worlds + Team/Cohort facet).
-    expect(screen.queryByTestId('attendance-page')).toBeNull();
-    expect(screen.queryByTestId('classes-tab')).toBeNull();
-  });
-
-  it('Teacher ?tab=evaluations renders the Evaluations surface', () => {
-    h.auth = { user: { _id: 't1', role: 'Teacher' } };
-    renderPage('/english?tab=evaluations');
-    expect(screen.getByTestId('evaluation-page')).toBeInTheDocument();
+    // Rubric grading folded into the unified /grading workspace (converge Phase 4
+    // C3), so the English section is admin-only (Teams). A Teacher sees the
+    // not-available header here and grades from /grading instead.
+    expect(screen.getByText(/not available for your role/i)).toBeInTheDocument();
+    expect(screen.queryByTestId('evaluation-page')).toBeNull();
   });
 
   it('Participant WITH a team gets the booking grid (no tab chrome)', () => {
