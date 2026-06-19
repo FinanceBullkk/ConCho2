@@ -267,7 +267,6 @@ app.use('/api/trainers', require('./domains/trainer/routes'));
 app.use('/api/planning', require('./domains/planning/routes'));
 app.use('/api/assessment', require('./domains/assessment/routes'));
 app.use('/api/schedules', require('./domains/schedule/routes'));
-app.use('/api/english', require('./domains/english-class/routes'));
 app.use('/api/attendance', require('./domains/attendance/routes'));
 app.use('/api/evaluations', require('./routes/evaluationRoutes'));
 app.use('/api/enrollments', require('./routes/enrollmentRoutes'));

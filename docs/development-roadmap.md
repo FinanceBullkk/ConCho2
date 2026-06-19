@@ -136,7 +136,22 @@ Bug fixing and integration review rank above net-new feature rollout.
 > **Rolling window:** ~last 2 weeks / ~15 entries kept inline (file ≤ ~400
 > lines); older entries roll verbatim, newest-first, to
 > [`changelog-archive/2026-q2.md`](changelog-archive/2026-q2.md). Currently
-> inline: **2026-06-14 → 2026-06-19**.
+> inline: **2026-06-14 → 2026-06-20**.
+
+- **2026-06-20** — **Converge Phase 3 slice 5 — collapse the scheduling `mode` fork; PHASE 3 COMPLETE.**
+  Retired the two-world server split now that the unified UI (Phase 4) consumes one read:
+  removed the `mode=team|cohort` branching from `GET /api/schedules`, `/attendance-calendar`,
+  and `GET /api/learning/cohorts`, and **deleted the `english-class` domain** (`/api/english`
+  read delegation + `domains/english-class/`) → **20 domains** (was 21). The unified reads
+  return BOTH scheduling worlds tagged `deliveryType`, faceted client-side; the client
+  `englishAPI` + the dead `mode='team'` hook branches were removed. **Behaviour-parity for the
+  live app** — every UI surface already used `mode='all'`; the `/english` learner booking grid
+  stays (served by `/api/schedules`); booking-time `schedulingMode` authz unchanged. Verified:
+  full server suite + client `test:run` (491) + lint (cap 41) green; the obsolete `mode=cohort`
+  filter test repointed to assert the param is now ignored. Spec `scheduling-and-booking` updated
+  (unified reads + `deliveryType`; `mode`/`/api/english` removed); domain inventory + route matrix
+  + system map synced (21→20). Convergence **Phase 3 COMPLETE** (slice 3 `deliveryProfile` deferred
+  — YAGNI); Phase 5 (retire legacy `routes/`+`controllers/`) + Phase 6 (Postgres gate) remain.
 
 - **2026-06-19** — **Converge Phase 4 slice D — sidebar persona cleanup; PHASE 4 COMPLETE (#168).**
   Retired the now-vestigial English **admin** nav group and moved **Teams → People**

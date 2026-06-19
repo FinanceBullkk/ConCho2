@@ -21,7 +21,7 @@ Verified code paths:
 - Auth state: `client/src/context/AuthContext.jsx`
 - Server entry: `server/server.js`
 - API routes: `server/routes/*` (legacy) + `server/domains/<domain>/routes.js`
-- Domain logic: `server/services/*` and `server/domains/<domain>/*` (21 domains — full inventory in `.claude/rules/domain-model-and-migration.md`; core: learning, schedule, attendance, groups, assessment, org, room, english-class)
+- Domain logic: `server/services/*` and `server/domains/<domain>/*` (20 domains — full inventory in `.claude/rules/domain-model-and-migration.md`; core: learning, schedule, attendance, groups, assessment, org, room)
 - Data models: `server/models/*`
 - Validation schemas: `server/schemas/*`
 - Domain vocabulary (glossary): `CONTEXT-MAP.md` (root) → `server/CONTEXT.md`. This map = where code lives; `CONTEXT.md` = what the terms mean.
@@ -187,8 +187,7 @@ English literals directly.
 | `/api/teams` | `domains/groups/routes.js` | team CRUD, my teams, restore, progress (Phase 1 domain extraction; `controller` facade → `queries`/`mutations`/`lifecycle`/`enrollment-sync`; `Team` model + `/api/teams` URL unchanged) |
 | `/api/classes` | `classRoutes.js` | class CRUD, course metadata |
 | `/api/learning` | `domains/learning/routes.js` | Learning programs, cohorts, sessions, paths, assignments, dashboards, and reports — incl. **H1 A5** training-hours + evidence-pack (multi-sheet xlsx) + saved presets (`ReportPreset`) under `/reports/*` |
-| `/api/schedules` | `domains/schedule/routes.js` | availability, booking, cancel, calendars (Phase 1 domain extraction; `controller` → `use-cases`/`queries`/`repository` + policy modules; booking mutations still in `services/scheduleService` by design; `Schedule` model + `/api/schedules` URL unchanged) |
-| `/api/english` | `domains/english-class/routes.js` | English-class separation (2026-06-12): bounded READ-ONLY surface over the team-booking world — `/classes`, `/schedules`, `/attendance-calendar` delegate into learning/schedule use-cases with `mode` forced to `team`; mutations stay on `/api/teams`, `/api/schedules`, `/api/evaluations` |
+| `/api/schedules` | `domains/schedule/routes.js` | availability, booking, cancel, calendars (Phase 1 domain extraction; `controller` → `use-cases`/`queries`/`repository` + policy modules; booking mutations still in `services/scheduleService` by design; `Schedule` model + `/api/schedules` URL unchanged). Reads return BOTH scheduling worlds tagged `deliveryType`, faceted client-side (the `/api/english` read surface + server-side `mode=team\|cohort` split were retired in convergence Phase 3 slice 5, 2026-06-20) |
 | `/api/attendance` | `domains/attendance/routes.js` | attendance marking, analytics, personal stats (Phase 1 domain extraction; `controller` → `use-cases` → `marking`/`analytics`/`scope`; `services/attendanceService.js` kept as a compat facade) |
 | `/api/rooms` | `domains/room/routes.js` | Office-scoped physical Rooms CRUD (re-center Phase 3) |
 | `/api/org` | `domains/org/routes.js` | departments, offices, manager hierarchy + manager dashboard |

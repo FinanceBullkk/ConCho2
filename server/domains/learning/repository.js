@@ -4,7 +4,6 @@ const Schedule = require('../../models/Schedule');
 const Team = require('../../models/Team');
 const Enrollment = require('../../models/Enrollment');
 const Certificate = require('../../models/Certificate');
-const { COHORT_SCHEDULING_MODES } = require('../_shared/scheduling-modes');
 
 // Certificates issued for a program, grouped by issue month (since `since`).
 // A certificate = a completed program run, so this is the real completion trend.
@@ -34,16 +33,6 @@ const findCohorts = (filter = {}) =>
   Class.find(filter)
     .populate('programId')
     .sort({ classCode: 1, courseName: 1 });
-
-// Program ids of the COHORT scheduling world (self_enroll | nomination). Team
-// world = every other program + program-less classes. The mode list comes from
-// the single source of truth (domains/_shared/scheduling-modes) — not duplicated.
-const findCohortModeProgramIds = async () => {
-  const programs = await LearningProgram.find(
-    { schedulingMode: { $in: COHORT_SCHEDULING_MODES } },
-  ).select('_id').lean();
-  return programs.map((p) => p._id);
-};
 
 const findCohortById = (id) =>
   Class.findById(id).populate('programId');
@@ -106,7 +95,6 @@ module.exports = {
   createProgram,
   updateProgramById,
   findCohorts,
-  findCohortModeProgramIds,
   findCohortById,
   createCohort,
   updateCohortById,

@@ -238,7 +238,11 @@ describe('GET /api/schedules — deliveryType world tag', () => {
     expect(byId[teamSched._id.toString()].deliveryType).toBe('team');
   });
 
-  test('mode=cohort returns only cohort-world rows', async () => {
+  // Convergence Phase 3 slice 5: the server-side mode=team|cohort split is
+  // retired — the UI facets by deliveryType client-side. A stray mode= param is
+  // now ignored; the list returns BOTH worlds (each tagged). This pins the
+  // removal so the filter is not re-added.
+  test('a stray mode= filter is ignored — both worlds returned, tagged', async () => {
     const res = await request(app)
       .get('/api/schedules')
       .query({ limit: 2000, mode: 'cohort' })
@@ -246,8 +250,7 @@ describe('GET /api/schedules — deliveryType world tag', () => {
     expect(res.status).toBe(200);
     const ids = res.body.data.map((s) => s._id);
     expect(ids).toContain(cohortSched._id.toString());
-    expect(ids).not.toContain(teamSched._id.toString());
-    expect(res.body.data.every((s) => s.deliveryType === 'cohort')).toBe(true);
+    expect(ids).toContain(teamSched._id.toString());
   });
 
   test('attendance-calendar tags rows with deliveryType', async () => {

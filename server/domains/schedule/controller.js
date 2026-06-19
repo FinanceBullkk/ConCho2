@@ -258,8 +258,8 @@ const setTrainers = async (req, res) => {
 
 const getAttendanceCalendar = async (req, res) => {
   try {
-    const { from, to, mode } = req.query;
-    const data = await scheduleService.getAttendanceCalendar({ from, to, mode }, req.user);
+    const { from, to } = req.query;
+    const data = await scheduleService.getAttendanceCalendar({ from, to }, req.user);
     res.json({ success: true, count: data.length, data });
   } catch (error) {
     handleError(res, error);
