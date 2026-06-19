@@ -30,10 +30,12 @@ test.describe.serial('attendance marking → HR export', () => {
       bookedTeamId: team._id,
     });
 
-    // ── Teacher marks it on English Class → Attendance ─────
-    // (English-class separation: EL002 is a team-world class, so its
-    // attendance lives in /english — the generic /calendar is cohort-only.)
-    await page.goto('/english?tab=attendance');
+    // ── Teacher marks it on the unified Operations Attendance ─────
+    // (Converge Phase 4: attendance is unified at /calendar (mode="all") and
+    // shows BOTH worlds with a Team/Cohort facet — the separate English
+    // attendance tab was retired. EL002 is a team-world class; it appears here
+    // for the teacher, proving the unified surface covers team marking.)
+    await page.goto('/calendar?tab=attendance');
     await expect(page.getByRole('heading', { name: 'Attendance' }).first()).toBeVisible();
 
     // Navigate back to the week the fixture landed in (the free-slot scan

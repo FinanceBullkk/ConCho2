@@ -43,7 +43,7 @@ describe('Sidebar — section-group navigation (Phase 03)', () => {
     ].forEach((p) => expect(links).toContain(p));
   });
 
-  it('Teacher: learning (read, no Paths), reports (no Overview), calendar/english attendance only; no People/System', () => {
+  it('Teacher: learning (read, no Paths), reports (no Overview), unified calendar attendance + english evaluations; no People/System', () => {
     h.user = { role: 'Teacher' };
     const links = hrefs(renderSidebar().container);
     expect(links).toContain('/learning?tab=programs');
@@ -51,9 +51,10 @@ describe('Sidebar — section-group navigation (Phase 03)', () => {
     expect(links).not.toContain('/learning?tab=paths');         // manage:path = Admin/Coord
     expect(links).toContain('/reports?tab=learning');
     expect(links).not.toContain('/reports?tab=overview');        // read:dashboard = Admin
-    expect(links).toContain('/calendar?tab=attendance');
+    expect(links).toContain('/calendar?tab=attendance');         // unified attendance (both worlds)
     expect(links).not.toContain('/calendar?tab=schedules');      // admin-only
-    expect(links).toContain('/english?tab=attendance');
+    expect(links).toContain('/english?tab=evaluations');         // English rubric grading
+    expect(links).not.toContain('/english?tab=attendance');      // retired — folded into /calendar
     expect(links).not.toContain('/english?tab=schedules');         // admin-only
     expect(links).not.toContain('/people?tab=users');
     expect(links).not.toContain('/system?tab=settings');

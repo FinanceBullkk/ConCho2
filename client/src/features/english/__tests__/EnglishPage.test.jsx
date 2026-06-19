@@ -12,7 +12,6 @@ const h = vi.hoisted(() => ({
   auth: { user: { _id: 'u1', role: 'Participant' } },
   teams: { data: [], isLoading: false },
   schedulesProps: vi.fn(),
-  attendanceProps: vi.fn(),
   cohortsProps: vi.fn(),
 }));
 
@@ -34,9 +33,6 @@ vi.mock('../../groups/TeamsPage', () => ({
 }));
 vi.mock('../../schedule/SchedulesPage', () => ({
   default: (props) => { h.schedulesProps(props); return <div data-testid="schedules-page" />; },
-}));
-vi.mock('../../attendance/AttendancePage', () => ({
-  default: (props) => { h.attendanceProps(props); return <div data-testid="attendance-page" />; },
 }));
 vi.mock('../../evaluations/EvaluationPage', () => ({
   default: () => <div data-testid="evaluation-page" />,
@@ -65,22 +61,20 @@ describe('EnglishPage — bounded English-class section', () => {
     expect(screen.queryByTestId('classes-tab')).toBeNull();
   });
 
-  it('Admin Schedules/Attendance tabs pass mode="team"', () => {
+  it('Admin Schedules tab passes mode="team"', () => {
     h.auth = { user: { _id: 'a1', role: 'Admin' } };
     renderPage('/english?tab=schedules');
     expect(h.schedulesProps).toHaveBeenCalledWith(expect.objectContaining({ mode: 'team' }));
-
-    renderPage('/english?tab=attendance');
-    expect(h.attendanceProps).toHaveBeenCalledWith(expect.objectContaining({ mode: 'team' }));
   });
 
-  it('Teacher defaults to the Attendance surface (team world)', () => {
+  it('Teacher defaults to the Evaluations surface (attendance folded to the unified calendar)', () => {
     h.auth = { user: { _id: 't1', role: 'Teacher' } };
     renderPage();
 
-    expect(screen.getByTestId('attendance-page')).toBeInTheDocument();
-    expect(h.attendanceProps).toHaveBeenCalledWith(expect.objectContaining({ mode: 'team' }));
-    // not the admin-only Classes surface
+    expect(screen.getByTestId('evaluation-page')).toBeInTheDocument();
+    // Attendance is no longer an English tab — it lives in the unified Operations
+    // Attendance (/calendar, both worlds + Team/Cohort facet).
+    expect(screen.queryByTestId('attendance-page')).toBeNull();
     expect(screen.queryByTestId('classes-tab')).toBeNull();
   });
 
