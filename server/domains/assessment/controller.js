@@ -2,7 +2,7 @@ const auditService = require('../../services/auditService');
 const { handleError } = require('../../helpers/handleError');
 const useCases = require('./use-cases');
 const manualGradingUseCases = require('./manual-grading-use-cases');
-const { assessmentDto, attemptDto, attemptResultDto, evaluationResultDto } = require('./dto');
+const { assessmentDto, attemptDto, attemptResultDto, evaluationResultDto, gradingQueueDto } = require('./dto');
 
 const createAssessment = async (req, res) => {
   try {
@@ -142,6 +142,18 @@ const getMyResults = async (req, res) => {
   }
 };
 
+// GET /assessment/grading-queue — the staff grading workspace feed: gradable
+// units across both modes (quiz assessments + rubric/English classes), scoped to
+// what the actor can grade. Read-only → not audited.
+const getGradingQueue = async (req, res) => {
+  try {
+    const queue = await useCases.getGradingQueue(req.user);
+    res.json({ success: true, data: gradingQueueDto(queue) });
+  } catch (error) {
+    handleError(res, error);
+  }
+};
+
 module.exports = {
   createAssessment,
   listAssessments,
@@ -152,4 +164,5 @@ module.exports = {
   listAttempts,
   manualGradeAttempt,
   getMyResults,
+  getGradingQueue,
 };

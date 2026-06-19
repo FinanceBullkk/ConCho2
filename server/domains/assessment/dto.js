@@ -125,4 +125,41 @@ const evaluationResultDto = (e) => {
   };
 };
 
-module.exports = { assessmentDto, attemptDto, attemptResultDto, evaluationResultDto };
+// ── Grading queue (convergence Phase 4 — slice C1) ─────────
+// ONE shape for the staff grading workspace: gradable units across both modes.
+// Each carries `mode` + the identifier its native entry modal needs (assessment
+// id for quiz → ManualGradingModal; classId for rubric → the evaluation entry).
+const gradingQueueDto = ({ assessments = [], attemptCounts = [], classes = [], evalCounts = [] }) => {
+  const attemptMap = new Map(attemptCounts.map((a) => [String(a._id), a.count]));
+  const evalMap = new Map(evalCounts.map((e) => [String(e._id), e.count]));
+  return {
+    quiz: assessments.map((a) => {
+      const c = a.cohortId;
+      const pop = c && typeof c === 'object' && c.classCode !== undefined;
+      return {
+        mode: 'quiz',
+        id: String(a._id),
+        title: a.title,
+        cohortId: pop ? String(c._id) : (a.cohortId ? String(a.cohortId) : null),
+        cohortCode: pop ? c.classCode : undefined,
+        attemptCount: attemptMap.get(String(a._id)) || 0,
+      };
+    }),
+    rubric: classes.map((c) => ({
+      mode: 'rubric',
+      classId: String(c._id),
+      classCode: c.classCode,
+      courseName: c.courseName,
+      status: c.status,
+      evaluatedCount: evalMap.get(String(c._id)) || 0,
+    })),
+  };
+};
+
+module.exports = {
+  assessmentDto,
+  attemptDto,
+  attemptResultDto,
+  evaluationResultDto,
+  gradingQueueDto,
+};
