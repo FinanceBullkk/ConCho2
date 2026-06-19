@@ -11,7 +11,6 @@ import EnglishPage from '../EnglishPage';
 const h = vi.hoisted(() => ({
   auth: { user: { _id: 'u1', role: 'Participant' } },
   teams: { data: [], isLoading: false },
-  schedulesProps: vi.fn(),
   cohortsProps: vi.fn(),
 }));
 
@@ -30,9 +29,6 @@ vi.mock('../../learning/CohortsTab', () => ({
 }));
 vi.mock('../../groups/TeamsPage', () => ({
   default: () => <div data-testid="teams-page" />,
-}));
-vi.mock('../../schedule/SchedulesPage', () => ({
-  default: (props) => { h.schedulesProps(props); return <div data-testid="schedules-page" />; },
 }));
 vi.mock('../../evaluations/EvaluationPage', () => ({
   default: () => <div data-testid="evaluation-page" />,
@@ -61,10 +57,13 @@ describe('EnglishPage — bounded English-class section', () => {
     expect(screen.queryByTestId('classes-tab')).toBeNull();
   });
 
-  it('Admin Schedules tab passes mode="team"', () => {
+  it('Admin ?tab=schedules falls back to Teams (Schedules retired — unified at /calendar)', () => {
     h.auth = { user: { _id: 'a1', role: 'Admin' } };
     renderPage('/english?tab=schedules');
-    expect(h.schedulesProps).toHaveBeenCalledWith(expect.objectContaining({ mode: 'team' }));
+    // Schedules is no longer an English tab — team-world schedules live in the
+    // unified Operations calendar. An old deep link falls back to the first tab.
+    expect(screen.getByTestId('teams-page')).toBeInTheDocument();
+    expect(screen.queryByTestId('schedules-page')).toBeNull();
   });
 
   it('Teacher defaults to the Evaluations surface (attendance folded to the unified calendar)', () => {

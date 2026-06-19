@@ -138,6 +138,18 @@ Bug fixing and integration review rank above net-new feature rollout.
 > [`changelog-archive/2026-q2.md`](changelog-archive/2026-q2.md). Currently
 > inline: **2026-06-14 → 2026-06-19**.
 
+- **2026-06-19** — **Converge Phase 4 slice A2b — retire the English Schedules tab (#163).**
+  Now that Operations Schedules is unified (A2a, both worlds + facet), the separate English Schedules
+  tab duplicated it. Removed the nav item (`nav-config`) + the page tab (`EnglishPage`, with its
+  `SchedulesPage`/`CalendarCheck` imports). Old `/english?tab=schedules` links fall back gracefully to
+  Teams. The e2e `navigation.spec.js` case for that path now asserts graceful fallback (`innerHeading:
+  null`); the unified schedules is covered by the existing `/calendar?tab=schedules` case. **Milestone:
+  the parallel-world duplication is now fully converged — ONE catalog (Cohorts), ONE calendar, ONE
+  attendance, ONE schedules surface.** The English section is minimal: Teams + Evaluations + the leader
+  booking grid. Tests: EnglishPage + Sidebar updated; client suite 405 + lint (cap 41) + build green.
+  Remaining Phase 4: evaluations grading-UI unification (a real feature build, not a display-fold — own
+  plan) + the persona-journey sidebar re-cut.
+
 - **2026-06-19** — **Converge Phase 4 slice A2a — unified Schedules calendar + cohort-safe edit drawer (#162).**
   Operations Schedules now shows BOTH scheduling worlds: `CalendarPage` passes `SchedulesPage mode="all"`,
   which fetches the combined list and adds the same client-side **Team/Cohort/All** facet (via session

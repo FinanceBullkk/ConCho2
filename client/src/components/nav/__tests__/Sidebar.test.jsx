@@ -37,7 +37,7 @@ describe('Sidebar — section-group navigation (Phase 03)', () => {
       '/home',
       '/learning?tab=programs', '/learning?tab=paths',
       '/calendar?tab=schedules', '/calendar?tab=attendance',
-      '/english?tab=schedules', '/english?tab=evaluations',
+      '/english?tab=teams', '/english?tab=evaluations',
       '/reports?tab=overview', '/reports?tab=hr-export',
       '/people?tab=users', '/system?tab=settings',
     ].forEach((p) => expect(links).toContain(p));
