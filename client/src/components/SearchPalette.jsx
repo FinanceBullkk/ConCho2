@@ -26,8 +26,9 @@ import { Spinner } from './Spinner';
 // We now build the modern URL directly so the search filter survives.
 const ROUTE_FOR = {
   users:   (u) => `/people?tab=users&search=${encodeURIComponent(u.empCode)}`,
-  // English-class separation: Teams live in the English section now.
-  teams:   (t) => `/english?tab=teams&search=${encodeURIComponent(t.name)}`,
+  // Teams (learning groups) live under People (converge Phase 4 — moved back
+  // from the retired English admin section).
+  teams:   (t) => `/people?tab=teams&search=${encodeURIComponent(t.name)}`,
   classes: (c) => `/learning?tab=cohorts&search=${encodeURIComponent(c.classCode)}`,
   // Programs deep-link straight to their detail page; departments land on the
   // People ▸ Departments tab.

@@ -27,13 +27,13 @@ const ALERT_DEFS = [
     key: 'teamsWithoutLeader',
     icon: UserPlus,
     label: (n) => `${n} team${n !== 1 ? 's' : ''} without leader`,
-    to: '/english?tab=teams',
+    to: '/people?tab=teams',
   },
   {
     key: 'teamsUnassigned',
     icon: Layers,
     label: (n) => `${n} team${n !== 1 ? 's' : ''} unassigned`,
-    to: '/english?tab=teams',
+    to: '/people?tab=teams',
   },
 ];
 
