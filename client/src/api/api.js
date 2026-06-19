@@ -361,6 +361,9 @@ export const assessmentAPI = {
   getMyResults: () => api.get('/assessment/results/mine'),
   manualGradeAttempt: (attemptId, data) => api.put(`/assessment/attempts/${attemptId}/manual-grade`, data),
   submitAttempt: (assessmentId, data) => api.post(`/assessment/assessments/${assessmentId}/attempts`, data),
+  // Staff grading workspace feed: gradable units across both modes (quiz +
+  // rubric), scoped to what the actor can grade (convergence Phase 4 slice C1).
+  getGradingQueue: () => api.get('/assessment/grading-queue'),
 };
 
 // ── Automation rules (no-code engine, TMS.update gap #3) ──

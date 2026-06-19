@@ -101,6 +101,7 @@ export const qk = {
     questionBank: (params) => ['assessment', 'question-bank', params],
     attempts: (params) => ['assessment', 'attempts', params],
     myResults: ['assessment', 'results', 'mine'],
+    gradingQueue: ['assessment', 'grading-queue'],
   },
   org: {
     all: ['org'],
