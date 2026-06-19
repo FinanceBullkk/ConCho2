@@ -138,6 +138,18 @@ Bug fixing and integration review rank above net-new feature rollout.
 > [`changelog-archive/2026-q2.md`](changelog-archive/2026-q2.md). Currently
 > inline: **2026-06-14 → 2026-06-19**.
 
+- **2026-06-19** — **Converge Phase 4 slice A2a — unified Schedules calendar + cohort-safe edit drawer (#162).**
+  Operations Schedules now shows BOTH scheduling worlds: `CalendarPage` passes `SchedulesPage mode="all"`,
+  which fetches the combined list and adds the same client-side **Team/Cohort/All** facet (via session
+  `deliveryType`). The `ScheduleDrawer` now handles team-less (cohort) sessions on EDIT — it hides the team
+  picker (shows a cohort note), drops the team-required constraint, and OMITS `bookedTeamId` from the save
+  payload so an empty string never hits the API and the (absent) binding is untouched (this also fixes a
+  latent bug where editing a cohort session 400'd). Per owner decision **A2-α**, cell-click CREATE still
+  books a TEAM session (the manual-create API requires a team) — cohort sessions are still created from
+  Learning → Cohorts; the create paths are NOT merged (that stays Phase 5). Tests: SchedulesPage facet
+  (render + filter) + ScheduleDrawer cohort-edit (no picker, payload omits team) + CalendarPage `mode="all"`;
+  client suite 405 + lint (cap 41) + build green. Next: retire the English Schedules tab (A2b).
+
 - **2026-06-19** — **Converge Phase 4 slice A1b — retire the redundant English Attendance tab (#161).**
   Now that Operations Attendance is unified (A1, both worlds + facet), the separate English
   Attendance tab duplicated it. Removed the nav item (`nav-config`) + the page tab (`EnglishPage`);
