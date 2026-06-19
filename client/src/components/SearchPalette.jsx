@@ -175,13 +175,11 @@ export default function SearchPalette({ open, onClose }) {
   // Render grouped: walk flat list but inject group headers when kind changes.
   // Must be called unconditionally (before any early return) for rules-of-hooks.
   const rendered = useMemo(() => {
-    let prevKind = null;
-    let runningIdx = 0;
-    return flat.map(({ kind, item }) => {
-      const isNewGroup = kind !== prevKind;
-      prevKind = kind;
-      const idx = runningIdx;
-      runningIdx += 1;
+    // Functional walk (no reassigned closure vars — react-hooks/immutability):
+    // the running index IS the map index, and a group header is injected whenever
+    // this row's kind differs from the previous row's.
+    return flat.map(({ kind, item }, idx) => {
+      const isNewGroup = idx === 0 || kind !== flat[idx - 1].kind;
       return (
         <div key={`${kind}-${item._id || idx}`}>
           {isNewGroup && (

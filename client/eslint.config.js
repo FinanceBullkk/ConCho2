@@ -24,6 +24,10 @@ import { defineConfig, globalIgnores } from 'eslint/config'
 //   PR J  — 138 (initial baseline)
 //   PR U  — 113 (after FE-010 modal migrations + autofix removed
 //                redundant eslint-disable comments)
+//   …     —  41 (incremental burndown across later PRs)
+//   Q-B#1 —  35 (quality-first slice 1: fixed 6 React Compiler
+//                correctness warnings — Date.now()-in-render purity ×3,
+//                use-before-declare immutability ×3)
 //
 // Specifically downgraded from `error` (plugin default) → `warn`:
 //   - jsx-a11y/*   — 92 pre-existing violations (P3-06 follow-up)
