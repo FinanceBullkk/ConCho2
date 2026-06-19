@@ -60,12 +60,13 @@ export const NAV_GROUPS = [
   {
     id: 'english', labelKey: 'nav.groups.english',
     items: [
-      // 'classes' tab retired (converge Phase 4): the unified Learning → Cohorts
-      // catalog now lists team-world classes too (filter: Team), so a separate
-      // English "Classes" tab is redundant. Team-world class CRUD lives there.
+      // Retired tabs (converge Phase 4): 'classes' — the unified Learning →
+      // Cohorts catalog lists team-world classes too (filter: Team); and
+      // 'attendance' — the unified Operations Attendance (/calendar, mode=all)
+      // shows both worlds with a Team/Cohort facet, so a separate English
+      // attendance surface is redundant (marking is world-agnostic).
       tab('/english', 'teams', 'nav.sections.teams', UsersRound, { access: ADMIN_ONLY }),
       tab('/english', 'schedules', 'nav.sections.schedules', CalendarCheck, { access: ADMIN_ONLY }),
-      tab('/english', 'attendance', 'nav.sections.attendance', ClipboardList, { access: { Admin: 'full', Teacher: 'full' } }),
       tab('/english', 'evaluations', 'nav.sections.evaluations', ClipboardEdit, { access: { Admin: 'full', Teacher: 'full' } }),
     ],
   },
