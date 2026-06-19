@@ -5,20 +5,19 @@ Monorepo: `client/` (React SPA) + `server/` (Express API). Root `package.json` o
 ## Server layout
 ```
 server/
-├── domains/        # modular-monolith boundaries (L&D migration) — see domain-model-and-migration.md
-│   ├── learning/   # full reference domain: routes, controller, use-cases, repository, dto, schemas
-│   ├── schedule/   # own routes (/api/schedules) + booking/room/waitlist policies
-│   ├── attendance/ # full domain (was attendanceController/attendanceService)
-│   ├── groups/     # full domain (was teamController; Team model + /api/teams URL kept)
-│   ├── assessment/ # assessment engine + question bank + grading
-│   ├── org/        # departments, offices, manager hierarchy
-│   ├── room/       # office-scoped physical rooms
-│   └── english-class/ # READ-ONLY /api/english surface over the team-booking world (separation 2026-06-12)
-├── routes/         # legacy Express routers (17 files) — mounted in server.js
+├── domains/        # modular-monolith boundaries — 21 domains (FULL inventory: domain-model-and-migration.md)
+│   ├── learning/        # full reference domain: routes→controller→use-cases→repository→dto→schemas
+│   ├── schedule/        # own routes (/api/schedules) + booking/room/waitlist/capacity + scheduling-mode
+│   ├── english-class/   # READ-ONLY /api/english surface over the team-booking world (separation 2026-06-12)
+│   ├── _shared/         # cross-domain helpers (not a mounted domain)
+│   └── …                # + 18 more: attendance, groups, assessment, org, room, access, automation, branding,
+│                        #   compliance, custom-field, finance, mobile, notification, planning, session-type,
+│                        #   skill, trainer, vendor (each: own /api/<domain> router — see canonical inventory)
+├── routes/         # legacy Express routers (18 files) — mounted in server.js
 ├── controllers/    # legacy request handlers (13 facades + auth/class/dashboard/enrollment/user subdirs)
 ├── services/       # business logic (auth, schedule, attendance, export, reconcile...)
 ├── policy/         # resource-level authz (ownership/binding) — called from controllers AFTER roleGuard
-├── models/         # Mongoose schemas (27 files)
+├── models/         # Mongoose schemas (43 files)
 ├── middleware/     # auth, csrfProtection, roleGuard, requireCapability, rateLimiters, validate, cronAuth, requestId, analyticsCache
 ├── schemas/        # zod request schemas
 ├── jobs/           # node-cron schedules
