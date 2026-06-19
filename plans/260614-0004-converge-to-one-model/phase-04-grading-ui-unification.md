@@ -1,6 +1,7 @@
 # Phase 4 — Grading-UI Unification (Evaluations ⊕ Assessments)  ·  "slice C"
 
-**Created:** 2026-06-19 · **Status:** 🔵 PLANNED (not started; owner approved planning-only).
+**Created:** 2026-06-19 · **Status:** 🔵 PLANNED — ready to build (all 3 open questions
+resolved by owner 2026-06-19; see *Resolved decisions*); not started.
 **Parent:** [`plan.md`](plan.md) (Converge to One Training Model) · **ADR:**
 `docs/decisions/converge-to-one-training-model.md` (Phase-1 note: *"grading-UI folds
 into the unified assessment UX in Phase 4"*).
@@ -56,10 +57,11 @@ engine; `Evaluation` rows become `Assessment`+`Result` rows.
   consumes C1, groups by mode, and opens the existing `EvalModal` (rubric) /
   `ManualGradingModal` (quiz) in place. React-Query hook + tests.
 - **C3 — IA/nav: surface it + retire the English Evaluations tab.** Add the Grading
-  workspace to nav (Learning or Reports group, capability-gated). Once it covers rubric
-  entry, retire the standalone English **Evaluations** tab (nav + `EnglishPage`) — the
-  same unify→retire pattern as A1b/A2b. After this, the English section = **Teams +
-  leader booking grid** only.
+  workspace to nav under the **Learning** group (owner decision Q1), capability-gated,
+  near Assessments. Once it covers rubric entry, **retire** the standalone English
+  **Evaluations** tab (nav + `EnglishPage`) — same unify→retire pattern as A1b/A2b
+  (owner decision Q2). After this, the English section = **Teams + leader booking grid**
+  only, and the section may collapse to a single non-tabbed surface.
 - **C4 — spec + docs.** Fold deltas into `docs/specs/evaluations` + `docs/specs/grading`
   (+ `assessments`); registry; roadmap changelog; this plan → archived.
 
@@ -79,7 +81,20 @@ engine; `Evaluation` rows become `Assessment`+`Result` rows.
 - Rubric is English-class-specific in DATA — the workspace must not imply rubric applies to cohort programs.
 - Scope creep toward Option 2 — resist; this plan is UX/read convergence only.
 
-## Open questions (for owner before C1)
-1. **Home for the Grading workspace** — Learning group, Reports group, or a new "Grading" nav item? (Recommend: Learning, near Assessments.)
-2. **Retire the English Evaluations tab fully** after C3 (English → Teams + booking only), or keep a thin redirect? (Recommend: retire, matching A1b/A2b.)
-3. **Capability gate** — should rubric entry move under `grade:assessment` (today it is role/teacher-of-record scoped), or keep its current gate? (Affects authz parity.)
+## Resolved decisions (owner, 2026-06-19)
+1. **Home = the Learning nav group**, near Assessments. The Grading workspace is a
+   Learning-domain surface (capability-gated), not Reports.
+2. **Retire the English Evaluations tab** after C3 (owner: "you decide" → retire, for
+   consistency with A1b/A2b). End state: English section = **Teams + leader booking
+   grid** only — at that point it may drop its tab chrome entirely (single surface).
+3. **Authz (owner: "you decide"):** keep rubric's **existing** write-authz on the entry
+   path — do NOT move rubric writes under `grade:assessment` in this phase (that would
+   change who can grade English rubrics = an authz regression risk). Instead:
+   - the **workspace ACCESS** is gated by the UNION — a user sees it if they can grade
+     **either** mode (rubric's current gate OR `grade:assessment`);
+   - each row's entry modal still enforces **its own** server-side authz unchanged.
+   A single unified `grade` capability can be revisited later (Phase 5/6) if wanted — out
+   of scope here to preserve behaviour parity.
+
+> All three open questions are now resolved → C is ready to build slice-by-slice (C1→C4)
+> when scheduled. No further owner input needed before C1.
