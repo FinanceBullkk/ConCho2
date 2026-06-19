@@ -202,6 +202,13 @@ export default function SearchPalette({ open, onClose }) {
   if (!open) return null;
 
   return createPortal(
+    // Clicking the translucent backdrop (outside the panel, which stops click
+    // propagation) dismisses the modal — a pointer convenience. Keyboard users
+    // dismiss via the Escape handler on the panel or the visible Close button,
+    // so the backdrop needs no key listener. role="dialog" + aria-modal are
+    // load-bearing for the modal, so we keep them rather than demote the node
+    // to a <button> (it wraps interactive descendants) or a presentation role.
+    // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-noninteractive-element-interactions
     <div
       role="dialog"
       aria-modal="true"
@@ -210,6 +217,7 @@ export default function SearchPalette({ open, onClose }) {
       onClick={onClose}
     >
       <div
+        role="presentation"
         onClick={(e) => e.stopPropagation()}
         onKeyDown={onKeyDown}
         className="w-full max-w-2xl rounded-lg bg-card border border-border shadow-2xl overflow-hidden"
