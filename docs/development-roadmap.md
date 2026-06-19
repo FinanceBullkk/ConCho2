@@ -138,6 +138,16 @@ Bug fixing and integration review rank above net-new feature rollout.
 > [`changelog-archive/2026-q2.md`](changelog-archive/2026-q2.md). Currently
 > inline: **2026-06-14 → 2026-06-19**.
 
+- **2026-06-19** — **Converge Phase 4 — grading-UI unification (slice C) PLANNED (not built).**
+  Investigated folding Evaluations and found it is NOT a display-fold (no generic twin to redirect to):
+  rubric scoring (`Evaluation`: 4 fixed scores/learner/class) vs quiz manual grading (`ManualGradingModal`)
+  are different models, so "folding" = building a unified staff grading workspace — a real feature.
+  Wrote a phased mini-plan (`plans/260614-0004-converge-to-one-model/phase-04-grading-ui-unification.md`):
+  recommended approach is a "Grading workspace" (one list across both modes, reusing the native
+  `EvalModal`/`ManualGradingModal`; no model merge), sliced C1 server read → C2 client page → C3 nav +
+  retire English Evaluations tab → C4 spec. Owner approved planning-only; not started. The parallel-world
+  surface convergence (catalog/calendar/attendance/schedules) is otherwise complete.
+
 - **2026-06-19** — **Converge Phase 4 slice A2b — retire the English Schedules tab (#163).**
   Now that Operations Schedules is unified (A2a, both worlds + facet), the separate English Schedules
   tab duplicated it. Removed the nav item (`nav-config`) + the page tab (`EnglishPage`, with its
