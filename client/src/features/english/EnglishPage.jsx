@@ -1,11 +1,10 @@
 import { useSearchParams, Link } from 'react-router-dom';
-import { UsersRound, CalendarCheck, ClipboardEdit, CalendarPlus, GraduationCap } from 'lucide-react';
+import { UsersRound, ClipboardEdit, CalendarPlus, GraduationCap } from 'lucide-react';
 import { Tabs, TabsContent } from '@/components/ui/tabs';
 import { PageHeader } from '@/components/PageHeader';
 import { useAuth } from '../../context/AuthContext';
 import { useMyTeams } from '../../hooks/useTeams';
 import TeamsPage from '../groups/TeamsPage';
-import SchedulesPage from '../schedule/SchedulesPage';
 import EvaluationPage from '../evaluations/EvaluationPage';
 import BookClassPage from '../schedule/BookClassPage';
 
@@ -16,13 +15,13 @@ import BookClassPage from '../schedule/BookClassPage';
 // The legacy English-class (team-booking) business lives here, separated from
 // the generic Training/Learning surfaces. As convergence Phase 4 folds the
 // duplicated surfaces into unified ones, this section keeps shrinking: the
-// 'classes' tab moved to Learning → Cohorts, and 'attendance' moved to the
-// unified Operations Attendance (/calendar, both worlds + Team/Cohort facet).
-// What remains is genuinely team-world-specific: teams, team-world schedules,
-// the leader booking grid, and English rubric evaluations.
+// 'classes' tab moved to Learning → Cohorts, and both 'attendance' and
+// 'schedules' moved to the unified Operations calendar (/calendar — both
+// worlds + a Team/Cohort facet). What remains is genuinely team-world-
+// specific: teams, the leader booking grid, and English rubric evaluations.
 //
 // Tabs shown depend on role:
-//   Admin    → Teams + Schedules + Evaluations
+//   Admin    → Teams + Evaluations
 //   Teacher  → Evaluations
 //   Leader/Participant → Team booking, ONLY when they belong to a Team
 //     (otherwise a pointer panel to their generic learning surfaces —
@@ -33,7 +32,6 @@ import BookClassPage from '../schedule/BookClassPage';
 const TABS_BY_ROLE = {
   Admin: [
     { id: 'teams',       label: 'Teams',        icon: UsersRound,    description: 'Manage learning groups and their leaders.' },
-    { id: 'schedules',   label: 'Schedules',    icon: CalendarCheck, description: 'Create and manage English-class sessions.' },
     { id: 'evaluations', label: 'Evaluations',  icon: ClipboardEdit, description: 'Enter and review learner evaluation scores.' },
   ],
   Teacher: [
@@ -139,7 +137,6 @@ export default function EnglishPage() {
 
 function TabContent({ id }) {
   if (id === 'teams')       return <TeamsPage />;
-  if (id === 'schedules')   return <SchedulesPage mode="team" />;
   if (id === 'evaluations') return <EvaluationPage />;
   if (id === 'book')        return <BookClassPage />;
   return null;
