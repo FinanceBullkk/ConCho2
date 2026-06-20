@@ -175,13 +175,11 @@ export default function SearchPalette({ open, onClose }) {
   // Render grouped: walk flat list but inject group headers when kind changes.
   // Must be called unconditionally (before any early return) for rules-of-hooks.
   const rendered = useMemo(() => {
-    let prevKind = null;
-    let runningIdx = 0;
-    return flat.map(({ kind, item }) => {
-      const isNewGroup = kind !== prevKind;
-      prevKind = kind;
-      const idx = runningIdx;
-      runningIdx += 1;
+    // Functional walk (no reassigned closure vars — react-hooks/immutability):
+    // the running index IS the map index, and a group header is injected whenever
+    // this row's kind differs from the previous row's.
+    return flat.map(({ kind, item }, idx) => {
+      const isNewGroup = idx === 0 || kind !== flat[idx - 1].kind;
       return (
         <div key={`${kind}-${item._id || idx}`}>
           {isNewGroup && (
@@ -204,6 +202,13 @@ export default function SearchPalette({ open, onClose }) {
   if (!open) return null;
 
   return createPortal(
+    // Clicking the translucent backdrop (outside the panel, which stops click
+    // propagation) dismisses the modal — a pointer convenience. Keyboard users
+    // dismiss via the Escape handler on the panel or the visible Close button,
+    // so the backdrop needs no key listener. role="dialog" + aria-modal are
+    // load-bearing for the modal, so we keep them rather than demote the node
+    // to a <button> (it wraps interactive descendants) or a presentation role.
+    // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-noninteractive-element-interactions
     <div
       role="dialog"
       aria-modal="true"
@@ -212,6 +217,7 @@ export default function SearchPalette({ open, onClose }) {
       onClick={onClose}
     >
       <div
+        role="presentation"
         onClick={(e) => e.stopPropagation()}
         onKeyDown={onKeyDown}
         className="w-full max-w-2xl rounded-lg bg-card border border-border shadow-2xl overflow-hidden"

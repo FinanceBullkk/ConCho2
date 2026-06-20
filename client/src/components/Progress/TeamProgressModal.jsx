@@ -49,10 +49,19 @@ export default function TeamProgressModal({ teamId, onClose }) {
 
   return (
     <Portal>
-      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" onClick={onClose}>
+      <div
+        className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
+        onClick={onClose}
+        role="button"
+        tabIndex={0}
+        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onClose(); } }}
+      >
         <div
           className="bg-card rounded-lg w-full max-w-5xl max-h-[90vh] overflow-hidden flex flex-col shadow-2xl border border-border"
           onClick={e => e.stopPropagation()}
+          role="button"
+          tabIndex={0}
+          onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); } }}
         >
           {/* Header */}
           <div className="p-6 border-b border-border flex justify-between items-center bg-accent">

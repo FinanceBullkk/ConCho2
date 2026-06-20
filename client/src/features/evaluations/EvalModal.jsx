@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Spinner } from '../../components/Spinner';
@@ -27,6 +27,14 @@ export default function EvalModal({ classId, existingEval, preselectedUser, onCl
       : null);
   const [selectedUser, setSelectedUser] = useState(resolvedPreset);
   const [userSearch, setUserSearch] = useState('');
+  const searchInputRef = useRef(null);
+
+  // Replaces the autoFocus attribute (jsx-a11y/no-autofocus): focus the learner
+  // search input whenever it is rendered (i.e. when no learner is selected yet),
+  // matching the prior autoFocus-on-mount behaviour.
+  useEffect(() => {
+    if (!selectedUser) searchInputRef.current?.focus();
+  }, [selectedUser]);
 
   // FLOW-001: the learner picker now reads the class-scoped roster (Teacher-
   // callable) instead of the Admin-only org-wide /api/users search — that 403'd
@@ -108,13 +116,13 @@ export default function EvalModal({ classId, existingEval, preselectedUser, onCl
             ) : (
               <div className="relative">
                 <input
+                  ref={searchInputRef}
                   id="eval-learner-search"
                   type="text"
                   value={userSearch}
                   onChange={(e) => setUserSearch(e.target.value)}
                   placeholder="Search by name or employee code..."
                   className={INPUT_CLS}
-                  autoFocus
                 />
                 {searchResults.length > 0 && (
                   <div className="absolute top-full left-0 right-0 z-10 mt-1 bg-card border border-border rounded-md shadow-lg max-h-48 overflow-y-auto">
