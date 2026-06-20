@@ -90,4 +90,20 @@ export const handlers = [
   http.get('/api/org/offices', () => ok([{ _id: 'o1', name: 'HQ' }])),
   http.get('/api/org/my-team', () => ok([{ _id: 'u3', name: 'Direct Report' }])),
   http.post('/api/org/departments', () => ok({ _id: 'd2', name: 'Sales' })),
+
+  // ── Batch 5 — scheduling config + global search ──
+  http.get('/api/learning/sessions/config', () =>
+    ok({
+      timezone: 'Asia/Ho_Chi_Minh',
+      utcOffsetMinutes: 420,
+      weeklyTeamLimit: 2,
+      slots: [
+        { id: 's1', label: '10:00–11:00', startHour: 10, startMinute: 0, endHour: 11, endMinute: 0, durationMinutes: 60 },
+      ],
+    })
+  ),
+  http.get('/api/search', ({ request }) => {
+    const q = new URL(request.url).searchParams.get('q') || '';
+    return ok([{ _id: 'res1', type: 'user', label: `Match: ${q}` }]);
+  }),
 ];
