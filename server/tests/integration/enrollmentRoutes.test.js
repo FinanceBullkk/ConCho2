@@ -17,7 +17,7 @@ const mongoose = require('mongoose');
 const { getApp, getTokens, getSeedData, getCsrfHeaders, teardown } = require('../setup');
 
 let app, tokens, seed, csrf;
-let Enrollment, Team, Class;
+let Enrollment, Team, Class, Schedule;
 
 beforeAll(async () => {
   app = await getApp();
@@ -27,6 +27,7 @@ beforeAll(async () => {
   Enrollment = require('../../models/Enrollment');
   Team = require('../../models/Team');
   Class = require('../../models/Class');
+  Schedule = require('../../models/Schedule');
 });
 
 afterAll(async () => {
@@ -309,5 +310,126 @@ describe('POST /api/enrollments/check-conflicts', () => {
 
     expect(res.status).toBe(200);
     expect(res.body.data).toEqual([]);
+  });
+});
+
+// ── Close-path invariants → future-schedule roster pull ──────────
+// Pins the BUG #2 transactional behaviour that the (deferred) close-path
+// convergence — folding the ~6 scattered `status:'Dropped'` writes onto one
+// enrollment spine — MUST preserve: dropping a learner removes them from FUTURE
+// scheduled rosters; On-hold is reversible and must NOT pull; past sessions are
+// frozen history. Single (PUT) and bulk (PATCH) paths share the same helper.
+
+describe('Enrollment close-path → future-schedule roster pull', () => {
+  const futureSession = (cls, userIds) => {
+    const start = new Date(Date.now() + 7 * 86400000); // +7d
+    return Schedule.create({
+      classId: cls._id,
+      startTime: start,
+      endTime: new Date(start.getTime() + 3600000),
+      enrolledUsers: userIds,
+      status: 'scheduled',
+    });
+  };
+  const rosterIds = async (id) =>
+    (await Schedule.findById(id).lean()).enrolledUsers.map(String);
+
+  test('PUT /:id status→Dropped pulls the learner from future schedules + sets leftAt', async () => {
+    const { cls, enrollments } = await seedTeamWithEnrollments();
+    const uid = seed.leader._id;
+    const sched = await futureSession(cls, [uid, seed.member1._id]);
+
+    const res = await request(app)
+      .put(`/api/enrollments/${enrollments[0]._id}`)
+      .set('Authorization', `Bearer ${tokens.admin}`)
+      .set(csrf)
+      .send({ status: 'Dropped' });
+
+    expect(res.status).toBe(200);
+    expect(res.body.data.status).toBe('Dropped');
+    expect(res.body.data.leftAt).toBeTruthy();
+
+    const ids = await rosterIds(sched._id);
+    expect(ids).not.toContain(uid.toString());          // pulled
+    expect(ids).toContain(seed.member1._id.toString()); // others untouched
+  });
+
+  test('PUT /:id status→On-hold sets leftAt but KEEPS the learner in future schedules (reversible)', async () => {
+    const { cls, enrollments } = await seedTeamWithEnrollments();
+    const uid = seed.member1._id;
+    const sched = await futureSession(cls, [uid]);
+
+    const res = await request(app)
+      .put(`/api/enrollments/${enrollments[1]._id}`)
+      .set('Authorization', `Bearer ${tokens.admin}`)
+      .set(csrf)
+      .send({ status: 'On-hold' });
+
+    expect(res.status).toBe(200);
+    expect(res.body.data.status).toBe('On-hold');
+    expect(res.body.data.leftAt).toBeTruthy();
+    expect(await rosterIds(sched._id)).toContain(uid.toString()); // NOT pulled
+  });
+
+  test('PATCH /bulk-status Dropped pulls every dropped learner, keeps the rest', async () => {
+    const { cls, enrollments } = await seedTeamWithEnrollments();
+    const sched = await futureSession(cls, [seed.leader._id, seed.member1._id, seed.member2._id]);
+
+    const res = await request(app)
+      .patch('/api/enrollments/bulk-status')
+      .set('Authorization', `Bearer ${tokens.admin}`)
+      .set(csrf)
+      .send({ enrollmentIds: [enrollments[0]._id.toString(), enrollments[1]._id.toString()], status: 'Dropped' });
+
+    expect(res.status).toBe(200);
+    expect(res.body.modifiedCount).toBe(2);
+
+    const ids = await rosterIds(sched._id);
+    expect(ids).not.toContain(seed.leader._id.toString());
+    expect(ids).not.toContain(seed.member1._id.toString());
+    expect(ids).toContain(seed.member2._id.toString()); // not dropped → kept
+  });
+
+  test('PATCH /bulk-status On-hold does NOT pull from future schedules (reversible)', async () => {
+    const { cls, enrollments } = await seedTeamWithEnrollments();
+    const uid = seed.leader._id;
+    const sched = await futureSession(cls, [uid]);
+
+    const res = await request(app)
+      .patch('/api/enrollments/bulk-status')
+      .set('Authorization', `Bearer ${tokens.admin}`)
+      .set(csrf)
+      .send({ enrollmentIds: [enrollments[0]._id.toString()], status: 'On-hold' });
+
+    expect(res.status).toBe(200);
+    expect(await rosterIds(sched._id)).toContain(uid.toString()); // kept
+  });
+
+  test('Dropping leaves PAST session rosters frozen (only future sessions are pulled)', async () => {
+    const { cls, enrollments } = await seedTeamWithEnrollments();
+    const uid = seed.leader._id;
+    const start = new Date(Date.now() - 7 * 86400000); // -7d (past)
+    const past = await Schedule.create({
+      classId: cls._id, startTime: start, endTime: new Date(start.getTime() + 3600000),
+      enrolledUsers: [uid], status: 'scheduled',
+    });
+
+    await request(app)
+      .put(`/api/enrollments/${enrollments[0]._id}`)
+      .set('Authorization', `Bearer ${tokens.admin}`)
+      .set(csrf)
+      .send({ status: 'Dropped' });
+
+    expect(await rosterIds(past._id)).toContain(uid.toString()); // history frozen
+  });
+
+  test('PATCH /bulk-status returns 403 for non-Admin', async () => {
+    const { enrollments } = await seedTeamWithEnrollments();
+    const res = await request(app)
+      .patch('/api/enrollments/bulk-status')
+      .set('Authorization', `Bearer ${tokens.teacher}`)
+      .set(csrf)
+      .send({ enrollmentIds: [enrollments[0]._id.toString()], status: 'Dropped' });
+    expect(res.status).toBe(403);
   });
 });
