@@ -34,9 +34,10 @@
 const fs = require('fs');
 const path = require('path');
 
-// Re-use the same dangerous-script guard as other operator scripts.
-const guard = require('./lib/dangerousScriptGuard');
-guard.requireProductionAck();
+// Re-use the same dangerous-script guard as other operator scripts. It is a
+// function ({ scriptName, mongoose }) called AFTER connect (so it can print the
+// real DB host/name) and only blocks the actual write — see below.
+const dangerousScriptGuard = require('./lib/dangerousScriptGuard');
 
 const mongoose = require('mongoose');
 require('dotenv').config({ path: path.resolve(__dirname, '..', '.env') });
@@ -97,6 +98,12 @@ const main = async () => {
     await mongoose.disconnect();
     return;
   }
+
+  // Production-mutation guard — gates ONLY the write below; the dry-run / no-csv /
+  // no-confirm paths already returned (read-only). In production this requires
+  // ALLOW_PROD_DATA_MUTATION=YES_I_HAVE_BACKUP. Called post-connect so the banner
+  // shows the real DB host/name the operator is about to mutate.
+  dangerousScriptGuard({ scriptName: 'migrate-teacherIds', mongoose });
 
   const session = await mongoose.startSession();
   try {
