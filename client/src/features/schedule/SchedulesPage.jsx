@@ -68,12 +68,15 @@ export default function SchedulesPage({ mode }) {
 
   useEffect(() => { document.title = 'TMS — Schedules'; }, []);
 
-  // ESC closes drawer
+  // ESC closes drawer. Call the stable setters inline (not closeDrawer, which is
+  // declared lower) so render stays order-clean (react-hooks/immutability); the
+  // empty dep array stays correct because React state setters are stable.
   useEffect(() => {
-    const handler = (e) => { if (e.key === 'Escape') closeDrawer(); };
+    const handler = (e) => {
+      if (e.key === 'Escape') { setDrawerMode(null); setSelectedSchedule(null); setSelectedCell(null); }
+    };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
-  // closeDrawer only calls stable state setters — [] is safe
   }, []);
 
   // Unified mode reads BOTH worlds (no server mode) and facets client-side by
@@ -235,7 +238,10 @@ export default function SchedulesPage({ mode }) {
                       return (
                         <div
                           key={s._id}
+                          role="button"
+                          tabIndex={0}
                           onClick={() => handleScheduleClick(s)}
+                          onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleScheduleClick(s); } }}
                           className={`rounded-md p-2 border transition-colors relative overflow-hidden ${canUpdate ? 'cursor-pointer' : ''} ${
                             isConflict
                               ? 'border-l-[3px] border-l-destructive/60 border-destructive/25 bg-destructive/[0.05]'
@@ -275,12 +281,13 @@ export default function SchedulesPage({ mode }) {
 
               if (canCreate) {
                 return (
-                  <div
+                  <button
+                    type="button"
                     className="h-full min-h-[80px] flex items-center justify-center rounded-md border border-transparent hover:bg-success/10 hover:border-success/20 cursor-pointer transition-colors duration-(--dur) group/cell"
                     onClick={() => handleCellClick(day, slot)}
                   >
                     <span className="text-[10px] text-subtle-foreground opacity-0 group-hover/cell:opacity-100 transition-opacity font-medium">+ Create</span>
-                  </div>
+                  </button>
                 );
               }
               return <div className="h-full min-h-[80px] rounded-md" />;

@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Users, BarChart3, AlertTriangle, PauseCircle, RefreshCw, BookOpen, Building2, UserCog } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
@@ -33,6 +33,15 @@ export default function AdminAnalyticsPanel() {
   const [orgTab, setOrgTab] = useState('bu'); // 'bu' | 'position'
   const [showAllClasses, setShowAllClasses] = useState(false);
   const activeFilterCount = Object.values(filters).filter(Boolean).length;
+
+  // "Updated N minutes ago" needs a live clock without reading Date.now() during
+  // render (react-hooks/purity). Tick once a minute from an interval (setState in
+  // a timer callback, not synchronously in the effect → no set-state-in-effect).
+  const [nowMs, setNowMs] = useState(() => Date.now());
+  useEffect(() => {
+    const id = setInterval(() => setNowMs(Date.now()), 60_000);
+    return () => clearInterval(id);
+  }, []);
 
   const setFilter = useCallback((key, value) => {
     setFilters(prev => {
@@ -77,7 +86,7 @@ export default function AdminAnalyticsPanel() {
   const o = stats?.overview || {};
   const pct = (n) => (n * 100).toFixed(1) + '%';
 
-  const minutesAgo = Math.round((Date.now() - dataUpdatedAt) / 60000);
+  const minutesAgo = Math.max(0, Math.round((nowMs - dataUpdatedAt) / 60000));
   const updatedText = minutesAgo
     ? t('dashboard.updatedMinutesAgo', { count: minutesAgo })
     : t('dashboard.updatedLessThanMinute');

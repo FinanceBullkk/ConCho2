@@ -210,6 +210,7 @@ export default function TeamModal({ team, participants, classes, teams, onClose,
       {/* Swap confirmation dialog */}
       {swapConfirm && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/70" onClick={() => setSwapConfirm(null)} aria-hidden="true">
+          {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions -- inner panel stops backdrop clicks from bubbling to the dismiss handler; not an interactive control (no keyboard action to add) */}
           <div className="bg-card border border-border rounded-lg p-6 max-w-sm mx-4 space-y-4 " onClick={(e) => e.stopPropagation()}>
             <h3 className="text-h3 text-foreground text-center">Swap Class Assignment?</h3>
             <p className="text-sm text-muted-foreground text-center">
@@ -231,6 +232,7 @@ export default function TeamModal({ team, participants, classes, teams, onClose,
       {/* Transfer confirmation dialog */}
       {transferConfirm && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/70" onClick={() => setTransferConfirm(null)} aria-hidden="true">
+          {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions -- inner panel stops backdrop clicks from bubbling to the dismiss handler; not an interactive control (no keyboard action to add) */}
           <div className="bg-card border border-border rounded-lg p-6 max-w-md mx-4 space-y-4 " onClick={(e) => e.stopPropagation()}>
             <h3 className="text-h3 text-foreground text-center">Transfer Members?</h3>
             <p className="text-sm text-muted-foreground text-center">

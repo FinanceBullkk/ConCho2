@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { X, TriangleAlert, Clock } from 'lucide-react';
 import { detectConflicts } from '../lib/schedule-conflicts';
 import { Button } from '@/components/ui/button';
@@ -24,6 +24,10 @@ function BookDrawerContent({
 }) {
   const isBook   = mode === 'book';
   const isCancel = mode === 'cancel';
+  // Capture "now" once at mount (lazy state) instead of reading Date.now() during
+  // render — render must stay pure (react-hooks/purity). The drawer is short-lived,
+  // so a mount-time snapshot is fine for the 24h cutoff guard below.
+  const [nowMs] = useState(() => Date.now());
 
   // Conflict detection (book mode)
   const conflicts = useMemo(() => {
@@ -36,7 +40,7 @@ function BookDrawerContent({
 
   // 24h cutoff guard (cancel mode)
   const isWithin24h = isCancel && schedule
-    ? new Date(schedule.startTime).getTime() - Date.now() < 24 * 60 * 60 * 1000
+    ? new Date(schedule.startTime).getTime() - nowMs < 24 * 60 * 60 * 1000
     : false;
 
   const headerDate = isBook ? prefill?.startTime : schedule?.startTime;

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import {
   Users, UsersRound, BookOpen, Calendar, ClipboardCheck,
   ClipboardList, FileText, Hash, Settings, File,
@@ -146,7 +146,7 @@ function EditModal({ doc, fields, collection, onClose, onSaved }) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60" onClick={onClose} aria-hidden="true">
-      <form onSubmit={handleSubmit} onClick={e => e.stopPropagation()}
+      <form onSubmit={handleSubmit} role="presentation" onClick={e => e.stopPropagation()} onKeyDown={e => e.stopPropagation()}
         className="bg-card border border-border rounded-lg p-6 w-full max-w-2xl mx-4 space-y-4 max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between">
           <h2 className="text-lg font-bold text-foreground flex items-center gap-2">
@@ -249,6 +249,18 @@ export default function DatabaseExplorer() {
   ];
 
   const totalPages = Math.ceil(total / limit);
+
+  // Managed focus for the inline cell editor: the active edit input/select is
+  // re-rendered per-branch (datetime/select/boolean/text) and per-cell, so one
+  // shared ref + an effect keyed on the cell identity replaces the four removed
+  // autoFocus attributes (no-autofocus). The key excludes `value`, so the effect
+  // re-runs only when a DIFFERENT cell enters edit mode (not on every keystroke),
+  // and depends on the primitive `activeCellKey` so exhaustive-deps stays clean.
+  const cellEditRef = useRef(null);
+  const activeCellKey = editingCell ? `${editingCell.docId}:${editingCell.field}:${editingCell.mode}` : null;
+  useEffect(() => {
+    if (activeCellKey) cellEditRef.current?.focus();
+  }, [activeCellKey]);
 
   const beginCellEdit = (doc, field) => {
     const mode = cellEditMode(field, doc[field]);
@@ -402,14 +414,14 @@ export default function DatabaseExplorer() {
                       if (isEditing) return (
                         <td key={f} className="px-2 py-1 bg-primary/10 border border-primary/40 min-w-[140px]">
                           {editingCell.mode === 'datetime' && (
-                            <input type="datetime-local" autoFocus disabled={savingCell}
+                            <input type="datetime-local" ref={cellEditRef} disabled={savingCell}
                               value={editingCell.value}
                               onChange={e => setEditingCell(c => ({ ...c, value: e.target.value }))}
                               onBlur={saveCellEdit} onKeyDown={onKey}
                               className="w-full px-2 py-1 rounded bg-background border border-input text-foreground text-xs focus:outline-none focus:ring-1 focus:ring-ring" />
                           )}
                           {editingCell.mode === 'select' && (
-                            <select autoFocus disabled={savingCell}
+                            <select ref={cellEditRef} disabled={savingCell}
                               value={editingCell.value}
                               onChange={e => setEditingCell(c => ({ ...c, value: e.target.value }))}
                               onBlur={saveCellEdit} onKeyDown={onKey}
@@ -418,7 +430,7 @@ export default function DatabaseExplorer() {
                             </select>
                           )}
                           {editingCell.mode === 'boolean' && (
-                            <select autoFocus disabled={savingCell}
+                            <select ref={cellEditRef} disabled={savingCell}
                               value={String(editingCell.value)}
                               onChange={e => setEditingCell(c => ({ ...c, value: e.target.value === 'true' }))}
                               onBlur={saveCellEdit} onKeyDown={onKey}
@@ -428,7 +440,7 @@ export default function DatabaseExplorer() {
                             </select>
                           )}
                           {editingCell.mode === 'text' && (
-                            <input type="text" autoFocus disabled={savingCell}
+                            <input type="text" ref={cellEditRef} disabled={savingCell}
                               value={editingCell.value}
                               onChange={e => setEditingCell(c => ({ ...c, value: e.target.value }))}
                               onBlur={saveCellEdit} onKeyDown={onKey}

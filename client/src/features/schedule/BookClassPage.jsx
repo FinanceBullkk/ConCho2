@@ -80,12 +80,15 @@ export default function BookClassPage() {
 
   useEffect(() => { document.title = 'TMS — Schedule & Book'; }, []);
 
-  // ESC closes drawer
+  // ESC closes drawer. Call the stable setters inline (not closeDrawer, which is
+  // declared lower) so render stays order-clean (react-hooks/immutability); the
+  // empty dep array stays correct because React state setters are stable.
   useEffect(() => {
-    const handler = (e) => { if (e.key === 'Escape') closeDrawer(); };
+    const handler = (e) => {
+      if (e.key === 'Escape') { setDrawerMode(null); setDrawerPrefill(null); setDrawerSchedule(null); }
+    };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
-  // closeDrawer only calls stable state setters — [] is safe
   }, []);
 
   const weekDays = useMemo(() =>
@@ -280,7 +283,8 @@ export default function BookClassPage() {
                 }
                 const isSel = drawerMode === 'cancel' && drawerSchedule?._id === mySchedule._id;
                 return (
-                  <div
+                  <button
+                    type="button"
                     className={`rounded-md p-2.5 h-full min-h-[80px] border transition-colors duration-(--dur) cursor-pointer ${
                       isSel ? 'bg-success/15 border-success/50' : 'bg-success/10 border-success/25 hover:border-success/50'
                     }`}
@@ -297,7 +301,7 @@ export default function BookClassPage() {
                     </div>
                     <div className="text-[10px] text-muted-foreground truncate mt-0.5">{selectedTeamObj?.name}</div>
                     <div className="text-[10px] text-success/60 mt-1.5">Click to cancel</div>
-                  </div>
+                  </button>
                 );
               }
 
@@ -319,7 +323,8 @@ export default function BookClassPage() {
                 const isSel = drawerMode === 'book' && selectedCellKey === cellKey;
 
                 return (
-                  <div
+                  <button
+                    type="button"
                     className={`rounded-md h-full min-h-[80px] flex items-center justify-center border border-dashed transition-colors duration-(--dur) cursor-pointer ${
                       isSel
                         ? 'border-primary/60 bg-primary/10'
@@ -339,7 +344,7 @@ export default function BookClassPage() {
                     }}
                   >
                     <span className="text-[11px] text-primary/60 font-medium">+ Book</span>
-                  </div>
+                  </button>
                 );
               }
 

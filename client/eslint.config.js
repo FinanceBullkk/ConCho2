@@ -24,6 +24,15 @@ import { defineConfig, globalIgnores } from 'eslint/config'
 //   PR J  — 138 (initial baseline)
 //   PR U  — 113 (after FE-010 modal migrations + autofix removed
 //                redundant eslint-disable comments)
+//   …     —  41 (incremental burndown across later PRs)
+//   Q-B#1 —  35 (quality-first slice 1: fixed 6 React Compiler
+//                correctness warnings — Date.now()-in-render purity ×3,
+//                use-before-declare immutability ×3)
+//   Q-B#2 —   7 (quality-first slice 2: cleared all 28 jsx-a11y warnings
+//                across 8 files — keyboard handlers / convert-to-button /
+//                role=presentation / managed autofocus, adversarially
+//                verified. Remaining 7 = set-state-in-effect ×3 +
+//                react-hook-form watch() ×3 + react-refresh ×1)
 //
 // Specifically downgraded from `error` (plugin default) → `warn`:
 //   - jsx-a11y/*   — 92 pre-existing violations (P3-06 follow-up)
