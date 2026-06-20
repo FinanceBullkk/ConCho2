@@ -21,6 +21,9 @@ const path = require('path');
 const dangerousScriptGuard = require(path.join(__dirname, 'lib', 'dangerousScriptGuard'));
 
 const mongoose = require('mongoose');
+// Resilient connector (forces Google DNS for Atlas SRV + backoff retry) — same
+// as the server, so this one-shot script survives flaky ISP-DNS SRV lookups.
+const connectDB = require('../config/db');
 
 const main = async () => {
   if (!process.env.MONGO_URI) {
@@ -28,7 +31,7 @@ const main = async () => {
     process.exit(1);
   }
 
-  await mongoose.connect(process.env.MONGO_URI);
+  await connectDB();
   dangerousScriptGuard({ scriptName: 'backfill-lastActiveAt', mongoose });
   const User = require('../models/User');
   const Attendance = require('../models/Attendance');

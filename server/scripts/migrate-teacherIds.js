@@ -42,6 +42,10 @@ const dangerousScriptGuard = require('./lib/dangerousScriptGuard');
 
 const mongoose = require('mongoose');
 require('dotenv').config({ path: path.resolve(__dirname, '..', '.env') });
+// Reuse the app's resilient connector — it forces Google Public DNS for Atlas
+// SRV resolution (ISP DNS often refuses the SRV lookup → querySrv ECONNREFUSED)
+// and retries with backoff, so the script connects as reliably as the server.
+const connectDB = require('../config/db');
 
 const args = process.argv.slice(2);
 const flag = (name) => args.includes(`--${name}`);
@@ -61,7 +65,7 @@ const main = async () => {
     process.exit(1);
   }
 
-  await mongoose.connect(process.env.MONGO_URI);
+  await connectDB();
 
   const Class = require('../models/Class');
   const User = require('../models/User');
