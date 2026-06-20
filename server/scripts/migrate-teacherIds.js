@@ -13,8 +13,9 @@
  *
  *   1. Operator runs `node scripts/migrate-teacherIds.js --dry-run`
  *      to see which classes still have empty teacherIds.
- *   2. Operator builds a CSV mapping classCode -> teacher empCode and
- *      runs `node scripts/migrate-teacherIds.js --csv mapping.csv`.
+ *   2. Operator gets a fill-ready CSV skeleton (unbound class codes, empty
+ *      teacher column) via `--skeleton mapping.csv`, fills the empCode column,
+ *      then runs `node scripts/migrate-teacherIds.js --csv mapping.csv --confirm`.
  *   3. Script verifies every classCode + empCode exists, then sets
  *      teacherIds on each class via bulkWrite.
  *
@@ -34,9 +35,10 @@
 const fs = require('fs');
 const path = require('path');
 
-// Re-use the same dangerous-script guard as other operator scripts.
-const guard = require('./lib/dangerousScriptGuard');
-guard.requireProductionAck();
+// Re-use the same dangerous-script guard as other operator scripts. It is a
+// function ({ scriptName, mongoose }) called AFTER connect (so it can print the
+// real DB host/name) and only blocks the actual write — see below.
+const dangerousScriptGuard = require('./lib/dangerousScriptGuard');
 
 const mongoose = require('mongoose');
 require('dotenv').config({ path: path.resolve(__dirname, '..', '.env') });
@@ -51,6 +53,7 @@ const valueFor = (name) => {
 const isDryRun = flag('dry-run');
 const csvPath = valueFor('csv');
 const confirm = flag('confirm');
+const skeletonPath = valueFor('skeleton');
 
 const main = async () => {
   if (!process.env.MONGO_URI) {
@@ -72,6 +75,21 @@ const main = async () => {
     console.log(`  - ${c.classCode} ${c.courseName} (${c.status})`);
   }
 
+  // --skeleton <path>: write a fill-ready CSV (one row per unbound class, empCode
+  // blank) so the operator edits a file instead of transcribing class codes by
+  // hand. Read-only — pairs with the no-csv exit below.
+  if (skeletonPath) {
+    const header =
+      '# Teacher-binding backfill — fill the empCode column, then run:\n' +
+      '#   node scripts/migrate-teacherIds.js --csv <this-file> --confirm\n' +
+      '# One teacher per line; repeat the classCode for a multi-teacher class.\n' +
+      '# Rows with a blank empCode are skipped (that class stays unbound).\n' +
+      '# classCode,teacherEmpCode\n';
+    const body = empty.map((c) => `${c.classCode},`).join('\n') + (empty.length ? '\n' : '');
+    fs.writeFileSync(skeletonPath, header + body);
+    console.log(`\nWrote fill-ready CSV skeleton (${empty.length} row(s)) to ${skeletonPath}`);
+  }
+
   if (isDryRun || !csvPath) {
     console.log('\nDry-run mode (or no --csv supplied). Exiting without writes.');
     console.log('To apply: provide --csv path/to/mapping.csv --confirm');
@@ -85,6 +103,7 @@ const main = async () => {
   const lines = raw.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
   const mapping = new Map(); // classCode -> Set<empCode>
   for (const line of lines) {
+    if (line.startsWith('#')) continue; // skip skeleton/template comment lines
     const [classCode, empCode] = line.split(',').map(s => s.trim());
     if (!classCode || !empCode) continue;
     if (!mapping.has(classCode)) mapping.set(classCode, new Set());
@@ -97,6 +116,12 @@ const main = async () => {
     await mongoose.disconnect();
     return;
   }
+
+  // Production-mutation guard — gates ONLY the write below; the dry-run / no-csv /
+  // no-confirm paths already returned (read-only). In production this requires
+  // ALLOW_PROD_DATA_MUTATION=YES_I_HAVE_BACKUP. Called post-connect so the banner
+  // shows the real DB host/name the operator is about to mutate.
+  dangerousScriptGuard({ scriptName: 'migrate-teacherIds', mongoose });
 
   const session = await mongoose.startSession();
   try {

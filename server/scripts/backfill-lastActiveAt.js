@@ -16,9 +16,9 @@
 require('dotenv').config();
 const path = require('path');
 
-// Re-use the same dangerous-script guard as other operator scripts.
-const guard = require(path.join(__dirname, 'lib', 'dangerousScriptGuard'));
-guard.requireProductionAck();
+// Re-use the same dangerous-script guard ({ scriptName, mongoose }) — called
+// post-connect (below) so it can report the real DB host/name before the write.
+const dangerousScriptGuard = require(path.join(__dirname, 'lib', 'dangerousScriptGuard'));
 
 const mongoose = require('mongoose');
 
@@ -29,6 +29,7 @@ const main = async () => {
   }
 
   await mongoose.connect(process.env.MONGO_URI);
+  dangerousScriptGuard({ scriptName: 'backfill-lastActiveAt', mongoose });
   const User = require('../models/User');
   const Attendance = require('../models/Attendance');
 
