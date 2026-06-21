@@ -1,10 +1,11 @@
 # PostgreSQL Migration Plan (MongoDB → PostgreSQL)
 
-> Executes the ADR `docs/decisions/mongo-now-postgres-later.md`. The ADR's gate
-> stays in force: **Phases 1+ start only when the gate opens (post-launch,
-> pain demonstrated or owner decision). Phase 0 runs now** — it is pure
-> readiness hardening with zero PostgreSQL footprint.
-> Status: `planned` · Owner: anhha · Created: 2026-06-12
+> Executes the ADR `docs/decisions/mongo-now-postgres-later.md`. **Gate OPENED by
+> owner 2026-06-21** (commit to full migration; driver: future-proofing the
+> relational L&D platform; convergence Phase 3+4 complete → model stable enough) —
+> Phases 1+ unblocked. Sequence: finish the remaining safe Phase-0 slices, then the
+> Phase 1 gate prototype (needs a real PG instance + Mongo snapshot).
+> Status: `in progress` · Owner: anhha · Created: 2026-06-12 · Gate opened: 2026-06-21
 
 ## Why (vision recap)
 
@@ -27,8 +28,8 @@ path, pgvector for future AI features.
 
 | # | Phase | File | Trigger | Est. | Status |
 |---|-------|------|---------|------|--------|
-| 0 | Readiness hardening (no PG) | [phase-00](phase-00-readiness-hardening.md) | NOW — alongside normal work | continuous | 🟡 in progress (detail + audit written 2026-06-17) |
-| 1 | Gate prototype (read-only proof) | [phase-01](phase-01-gate-prototype.md) | gate opens | ~1 wk | ⚪ gated |
+| 0 | Readiness hardening (no PG) | [phase-00](phase-00-readiness-hardening.md) | NOW — alongside normal work | continuous | ✅ **COMPLETE 2026-06-21** (WS-A 0.2–0.8 extracted; 0.9 auth/booking deferred-by-design to Phase 3) |
+| 1 | Gate prototype (read-only proof) | [phase-01](phase-01-gate-prototype.md) | **gate OPEN 2026-06-21** | ~1 wk | 🟡 **NEXT** — host LOCKED (Neon); plan authored. Blocked only on the owner creating a free Neon DB + sharing its connection string |
 | 2 | Foundation & dual infrastructure | [phase-02](phase-02-foundation-dual-infra.md) | after go decision | ~1 wk | ⚪ gated |
 | 3 | Repository ports (domain by domain) | [phase-03](phase-03-repository-ports.md) | after P2 | ~4–6 wk | ⚪ gated |
 | 4 | Test parity (full suite on PG) | [phase-04](phase-04-test-parity.md) | overlaps P3 | ~1–2 wk | ⚪ gated |
@@ -49,8 +50,12 @@ prod stays on MongoDB until the Phase 5 cutover weekend.
 - **Tooling (recommendation, confirm in P1):** Knex (CJS-native query builder
   + migrations) over Prisma/Drizzle — server is CommonJS, repository pattern
   already owns query shape; an ORM adds a second model layer we don't need.
-- **Hosting (recommendation, confirm in P2):** Render managed PostgreSQL
-  (same platform as the app; Neon as fallback for branch databases).
+- **Hosting (LOCKED 2026-06-21):** **Neon** (serverless managed Postgres).
+  Chosen over Render PG for: persistent free tier (Render free PG is deleted
+  ~90d), **database branching** (branch a snapshot for the P1 prototype + each
+  migration rehearsal, then discard), and a clean free→paid path to production.
+  Cross-provider latency vs the Render-hosted app is negligible at internal
+  ~1000-user scale. App stays on Render; only the DB connection string differs.
 
 ## Key risks
 
@@ -58,8 +63,26 @@ Booking transaction chokepoint (scheduleService) port — highest complexity;
 soft-delete query discipline (hooks → explicit predicates); ETL fidelity for
 730d audit history; test-harness swap throughput in CI.
 
+## Production cost (estimate, ~2026 — re-check at release)
+
+For ~1000 internal users (moderate, bursty load). App stays on Render; Atlas is
+dropped at cutover so net cost barely moves.
+
+| Item | Start | Comfortable | Note |
+|---|---|---|---|
+| App (Render) | ~$7/mo | ~$25/mo | paid = no spin-down |
+| Postgres (Neon) | $0 (free) | ~$19/mo | start free, upgrade when data/load grows |
+| Domain | ~$1/mo | ~$1/mo | ~$12/yr |
+| Email | $0 | $0 | reuse Google Workspace SMTP |
+| Error tracking (Sentry) | $0 | $0 | free tier suffices |
+| **Total** | **~$8/mo** | **~$45/mo** | |
+
+Release checklist: upgrade app→paid, Neon→paid (backups/PITR), custom domain +
+HTTPS, wire Workspace email, import the 1000-employee dataset, final test +
+cutover weekend.
+
 ## Unresolved questions
 
 1. Tooling final call (Knex vs Prisma) — decide with P1 prototype evidence.
-2. Hosting final call (Render PG vs Neon) + backup/PITR tier.
+2. ~~Hosting final call~~ **RESOLVED 2026-06-21 → Neon** (backup/PITR tier picked at the paid-upgrade step).
 3. Cutover window: which weekend; who owns the freeze comms to 1000 users.

@@ -1,7 +1,4 @@
-const MetricSnapshot = require('../models/MetricSnapshot');
-const Enrollment = require('../models/Enrollment');
-const Certificate = require('../models/Certificate');
-const Class = require('../models/Class');
+const repository = require('./metrics-repository');
 
 // ──────────────────────────────────────────────────────────
 // Analytics series service (Investment Build Plan #1)
@@ -29,15 +26,7 @@ async function getSeries({ key, scope = 'global', scopeId = null, range = '90d' 
   since.setUTCHours(0, 0, 0, 0);
   since.setUTCDate(since.getUTCDate() - (days - 1));
 
-  const rows = await MetricSnapshot.find({
-    key,
-    scope,
-    scopeId: scopeId || null,
-    date: { $gte: since },
-  })
-    .sort({ date: 1 })
-    .select('date value')
-    .lean();
+  const rows = await repository.findSnapshotSeries({ key, scope, scopeId, since });
 
   return rows.map((r) => ({ date: r.date, value: r.value }));
 }
@@ -49,7 +38,7 @@ async function getSeries({ key, scope = 'global', scopeId = null, range = '90d' 
 async function getFunnel({ programId = null } = {}) {
   let classIds = null;
   if (programId) {
-    const classes = await Class.find({ programId }).select('_id').lean();
+    const classes = await repository.findClassIdsForProgram(programId);
     classIds = classes.map((c) => c._id);
   }
 
@@ -60,9 +49,9 @@ async function getFunnel({ programId = null } = {}) {
   if (programId) certMatch.programId = programId;
 
   const [enrolled, completed, certified] = await Promise.all([
-    Enrollment.countDocuments(enrollMatch),
-    Enrollment.countDocuments({ ...enrollMatch, status: 'Completed' }),
-    Certificate.countDocuments(certMatch),
+    repository.countEnrollments(enrollMatch),
+    repository.countEnrollments({ ...enrollMatch, status: 'Completed' }),
+    repository.countCertificates(certMatch),
   ]);
 
   const pct = (a, b) => (b > 0 ? Math.round((a / b) * 100) : 0);

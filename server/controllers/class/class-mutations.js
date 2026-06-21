@@ -1,9 +1,8 @@
-const mongoose = require('mongoose');
-const Class = require('../../models/Class');
 const { getNextSequence } = require('../../helpers/counter');
 const { handleError } = require('../../helpers/handleError');
 const auditService = require('../../services/auditService');
 const learningUseCases = require('../../domains/learning/use-cases');
+const repository = require('./class-repository');
 
 // ──────────────────────────────────────────────────────────
 // Class Controller — create/update/delete handlers
@@ -34,9 +33,7 @@ const createClass = async (req, res) => {
     }
 
     // Auto-map totalSessions from courseName
-    const Setting = mongoose.model('Setting');
-    const setting = await Setting.findOne({ key: 'COURSE_SESSIONS' });
-    const courseSessions = setting ? setting.value : {};
+    const courseSessions = await repository.courseSessionsMap();
     let totalSessions = courseSessions[courseName];
     let program = null;
 
@@ -48,10 +45,7 @@ const createClass = async (req, res) => {
     // ── Rule: Only 1 Ongoing course per classCode ──────────
     const effectiveStatus = status || 'Ongoing';
     if (effectiveStatus === 'Ongoing') {
-      const existingOngoing = await Class.findOne({
-        classCode: classCode.toUpperCase(),
-        status: 'Ongoing',
-      });
+      const existingOngoing = await repository.findOngoingByClassCode(classCode.toUpperCase());
       if (existingOngoing) {
         return res.status(409).json({
           success: false,
@@ -60,7 +54,7 @@ const createClass = async (req, res) => {
       }
     }
 
-    const cls = await Class.create({
+    const cls = await repository.createClassDoc({
       classCode: classCode.toUpperCase(),
       courseName,
       programId: program?._id || null,
@@ -94,15 +88,14 @@ const createClass = async (req, res) => {
  */
 const updateClass = async (req, res) => {
   try {
-    const existingCls = await Class.findById(req.params.id);
+    const existingCls = await repository.findClassDocById(req.params.id);
     if (!existingCls) return res.status(404).json({ success: false, message: 'Class not found' });
 
     // If courseName is being changed, recalculate totalSessions
     if (req.body.courseName && !req.body.totalSessions) {
-      const Setting = mongoose.model('Setting');
-      const setting = await Setting.findOne({ key: 'COURSE_SESSIONS' });
-      if (setting && setting.value[req.body.courseName]) {
-        req.body.totalSessions = setting.value[req.body.courseName];
+      const courseSessions = await repository.courseSessionsMap();
+      if (courseSessions[req.body.courseName]) {
+        req.body.totalSessions = courseSessions[req.body.courseName];
         const program = await learningUseCases.ensureProgramForLegacyCourse(req.body.courseName, req.body.totalSessions);
         req.body.programId = program?._id || existingCls.programId || null;
       }
@@ -112,11 +105,7 @@ const updateClass = async (req, res) => {
     const newStatus = req.body.status || existingCls.status;
     if (newStatus === 'Ongoing' && existingCls.status !== 'Ongoing') {
       // Changing TO Ongoing — check for conflicts
-      const conflict = await Class.findOne({
-        _id: { $ne: existingCls._id },
-        classCode: existingCls.classCode,
-        status: 'Ongoing',
-      });
+      const conflict = await repository.findOngoingByClassCode(existingCls.classCode, existingCls._id);
       if (conflict) {
         return res.status(409).json({
           success: false,
@@ -125,9 +114,7 @@ const updateClass = async (req, res) => {
       }
     }
 
-    const cls = await Class.findByIdAndUpdate(req.params.id, req.body, {
-      new: true, runValidators: true,
-    });
+    const cls = await repository.updateClassById(req.params.id, req.body);
     if (!cls) return res.status(404).json({ success: false, message: 'Class not found' });
 
     auditService.record({
