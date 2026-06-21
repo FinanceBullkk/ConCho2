@@ -1,11 +1,7 @@
-const mongoose = require('mongoose');
-const Class = require('../../models/Class');
-const Team = require('../../models/Team');
-const Schedule = require('../../models/Schedule');
-const Enrollment = require('../../models/Enrollment');
 const classPolicy = require('../../policy/class');
 const { handleError } = require('../../helpers/handleError');
 const learningUseCases = require('../../domains/learning/use-cases');
+const repository = require('./class-repository');
 
 // ──────────────────────────────────────────────────────────
 // Class Controller — read handlers
@@ -31,19 +27,12 @@ const getClasses = async (req, res) => {
     const HARD_CAP = 500;
     const limit = Math.min(Math.max(parseInt(req.query.limit, 10) || HARD_CAP, 1), HARD_CAP);
     const page = Math.max(parseInt(req.query.page, 10) || 1, 1);
-    const classes = await Class.find(filter)
-      .sort({ classCode: 1, courseName: 1 })
-      .skip((page - 1) * limit)
-      .limit(limit)
-      .lean();
+    const classes = await repository.findClasses(filter, { page, limit });
 
-    // Batch-count booked sessions per class (1 aggregation)
+    // Batch-count booked sessions per class (1 aggregation; LIVE only —
+    // cancelled rows freed their slot).
     const classIds = classes.map(c => c._id);
-    const sessionCounts = await Schedule.aggregate([
-      // bookedSessions counts LIVE sessions — cancelled rows freed their slot.
-      { $match: { classId: { $in: classIds }, status: 'scheduled' } },
-      { $group: { _id: '$classId', bookedSessions: { $sum: 1 } } },
-    ]);
+    const sessionCounts = await repository.aggregateBookedSessionCounts(classIds);
     const countMap = {};
     sessionCounts.forEach(s => { countMap[s._id.toString()] = s.bookedSessions; });
 
@@ -82,9 +71,7 @@ const getCourseList = async (req, res) => {
       });
     }
 
-    const Setting = mongoose.model('Setting');
-    const setting = await Setting.findOne({ key: 'COURSE_SESSIONS' });
-    const courseSessions = setting ? setting.value : {};
+    const courseSessions = await repository.courseSessionsMap();
     const courseNames = Object.keys(courseSessions);
 
     res.json({
@@ -105,21 +92,15 @@ const getCourseList = async (req, res) => {
  */
 const getClassById = async (req, res) => {
   try {
-    const cls = await Class.findById(req.params.id).lean();
+    const cls = await repository.findClassLeanById(req.params.id);
     if (!cls) return res.status(404).json({ success: false, message: 'Class not found' });
 
     // Per-user gate. For Participant we look up enrollment existence.
     let participantEnrollmentExists = false;
     if (req.user?.role === 'Participant') {
-      const teamIds = await Team.find({
-        classId: cls._id,
-        isDeleted: { $ne: true },
-      }).distinct('_id');
+      const teamIds = await repository.findTeamIdsForClass(cls._id);
       if (teamIds.length > 0) {
-        participantEnrollmentExists = !!(await Enrollment.exists({
-          userId: req.user._id,
-          teamId: { $in: teamIds },
-        }));
+        participantEnrollmentExists = !!(await repository.enrollmentExists(req.user._id, teamIds));
       }
     }
 
@@ -131,7 +112,7 @@ const getClassById = async (req, res) => {
     }
 
     // Attach booked session count (live only — cancelled rows freed their slot)
-    const bookedSessions = await Schedule.countDocuments({ classId: cls._id, status: 'scheduled' });
+    const bookedSessions = await repository.countBookedSessions(cls._id);
     res.json({ success: true, data: { ...cls, bookedSessions } });
   } catch (error) {
     handleError(res, error);

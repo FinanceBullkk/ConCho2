@@ -1,8 +1,8 @@
 # Phase 0 — Readiness Hardening (no PostgreSQL)
 
 > Parent: [`plan.md`](plan.md) · ADR: `docs/decisions/mongo-now-postgres-later.md`
-> Status: `in progress` · Trigger: **NOW** (runs alongside normal work) ·
-> Created: 2026-06-17 · Owner: anhha
+> Status: **COMPLETE 2026-06-21** (all safe WS-A slices extracted; 0.9 auth/booking
+> deferred-by-design per the success criteria) · Created: 2026-06-17 · Owner: anhha
 
 ## Goal
 
@@ -82,19 +82,34 @@ Captured here so Phase 3 implements, not researches.
 | # | Task | Stream | Type | Risk | Worth doing pre-gate? |
 |---|------|--------|------|------|----------------------|
 | 0.1 | This doc — feature inventory + mapping | WS-B | docs | none | ✅ done |
-| 0.2 | ADR-style "soft-delete query discipline" note + grep guard for aggregations missing `isDeleted` | WS-B | docs | none | ✅ yes |
+| 0.2 | ADR-style "soft-delete query discipline" note + grep guard for `$lookup` missing `isDeleted` | WS-B | docs | none | ✅ **done 2026-06-21** (`docs/decisions/soft-delete-query-discipline.md` + `tests/unit/soft-delete-lookup-guard.test.js`; all 6 sites compliant — no leaks remain) |
 | 0.3 | Extract `searchService` model access → `repository` | WS-A | refactor | Low | ✅ **done 2026-06-17** (`services/search/search-repository.js`) |
 | 0.4 | Extract `lib/branding.js` + `routes/auditRoutes.js` reads → repository | WS-A | refactor | Low | ✅ **done 2026-06-17** (branding reuses `domains/branding/repository`; new `services/audit/audit-query-repository.js`) |
 | 0.5 | Extract `services/export/*` aggregations → repository | WS-A | refactor | Low-Med | ✅ **done 2026-06-17** (new `attendance-export-repository.js` + `evaluation-export-repository.js`; pipeline builders kept) |
-| 0.6 | Repository for `metricSnapshotService` + `analyticsSeriesService` | WS-A | refactor | Low-Med | ◻ optional |
+| 0.6 | Repository for `metricSnapshotService` + `analyticsSeriesService` | WS-A | refactor | Low-Med | ✅ **done 2026-06-21** (shared `services/metrics-repository.js`; both services keep pure aggregation/derivation; analytics 11/11 green) |
 | 0.7 | Dashboard aggregations → `repository` (10+ pipelines) | WS-A | refactor | Med | ✅ **done 2026-06-17** (`controllers/dashboard/dashboard-stats-repository.js`; added the endpoint's first integration test) |
-| 0.8 | Class/User legacy → repository (or fold into domains) | WS-A | refactor | Med | 🟡 **user done 2026-06-17** (`controllers/user/user-mutations-repository.js`; security logic kept in controller); **class part pending** |
-| 0.9 | Auth + scheduleService boundary | WS-A | refactor | **High** | ⛔ defer to gate-open |
+| 0.8 | Class/User legacy → repository (or fold into domains) | WS-A | refactor | Med | ✅ **done** — user `controllers/user/user-mutations-repository.js` (2026-06-17); **class `controllers/class/class-repository.js` (2026-06-21)**; security/policy/audit kept in the controllers |
+| 0.9 | Auth + scheduleService boundary | WS-A | refactor | **High** | ⛔ **deferred by design** — documented (WS-A/WS-B), untouched. Per the success criteria, High-risk auth/booking may stay documented-but-untouched; porting them speculatively carries the most regression risk for the least Phase-0 value. Do in careful slices during Phase 3 (repository ports). |
 
 > **Phase 0 paused 2026-06-17** after the low/med-risk slices (0.3–0.7 + 0.8-user)
 > to run a **quality-consolidation round** first (owner direction): green the test
 > suites, stabilise the server harness, cut lint warnings, clean `npm audit`,
 > smoke-test the core flow. Resume 0.8-class / 0.9 + the gated Phases 1+ after.
+>
+> **Gate OPENED by owner 2026-06-21** — commit to the full Mongo→Postgres
+> migration (driver: future-proofing the relational L&D platform; convergence
+> Phase 3+4 complete so the model is stable enough). Phases 1–5 are now unblocked.
+> Sequencing decision: **finish the remaining safe Phase-0 slices first** (0.2 done
+> this date; 0.8-class + 0.6 next), THEN Phase 1 gate prototype (needs a real PG
+> instance + Mongo snapshot — owner provisions infra). 0.9 auth/scheduleService
+> still done in careful slices with the full suite green, not speculatively.
+>
+> **Phase 0 COMPLETE 2026-06-21.** All safe WS-A slices (0.2–0.8) are extracted —
+> every legacy read/mutation outside the High-risk auth/booking chokepoints now
+> goes through a `repository.js`, and the WS-B feature-equivalence map + the
+> soft-delete `$lookup` guard are in place. 0.9 (auth + `scheduleService`) is
+> deferred-by-design and will be ported in Phase 3 slices. **Next: Phase 1 gate
+> prototype** — owner provisions a PostgreSQL instance + Mongo snapshot.
 
 ## Success criteria (Phase 0 "ready")
 
@@ -111,9 +126,9 @@ Captured here so Phase 3 implements, not researches.
 
 ## Unresolved questions
 
-1. How far to take WS-A pre-gate? Recommendation: do **0.2–0.5** (zero/low risk,
-   real hygiene wins) now; hold 0.6–0.9 until the gate opens so we don't churn
-   load-bearing code for a migration that may stay gated.
+1. ~~How far to take WS-A pre-gate?~~ **RESOLVED 2026-06-21** — gate opened, so
+   0.2–0.8 all extracted; only 0.9 (auth + booking) held back, to be ported in
+   Phase 3 slices (highest regression risk, lowest Phase-0 value).
 2. Should the soft-delete predicate become per-table SQL **views** or inline
    `WHERE` everywhere? (Decide in P1 with prototype evidence.)
 3. Confirm `MetricSnapshot` retention window (RETENTION_DAYS value) for the TTL row.
