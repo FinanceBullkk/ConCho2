@@ -34,8 +34,12 @@ remainder is documented deferred-by-design scope (below), not active debt.
   rule: converge-when-touched, no big-bang); compliance report presets (no
   confirmed HR need); recert for already-expired certs + path-based recert.
   `deliveryMode` is metadata-only by design (no enforcement contract).
-- **Next:** owner's call — start **Phase 6 PostgreSQL** readiness (Phase 0), the
-  gated owner-ops below, or override one of the deferred-by-design items above.
+- **Next:** **Phase 6 PostgreSQL migration — gate OPENED by owner 2026-06-21**
+  (commit to full migration; driver: future-proofing the relational L&D platform).
+  In progress: finishing the safe Phase-0 readiness slices (0.2 soft-delete guard
+  done 2026-06-21; 0.8-class + 0.6 next), then the Phase 1 gate prototype (needs a
+  real PG instance + Mongo snapshot — owner provisions infra). Plan:
+  `plans/260612-2042-postgresql-migration/`.
   (TMS.update north-star: **all 7 gaps shipped** (#1–#7); #7 PWA offline
   attendance closed 2026-06-15. **Investment Build Plan deep features — all 4
   shipped** (#3a audit hash-chain PR #108, #4 reconcile auto-heal PR #109, #1
@@ -67,8 +71,8 @@ remainder is documented deferred-by-design scope (below), not active debt.
   free Actions). B5 push DELIVERY activates once the owner sets VAPID env keys.)
 - **Gated / owner-ops:** **D2 Google OIDC + Directory sync** (blocked on owner's
   Google OAuth app + Workspace domain); **paid always-on hosting** + Sentry
-  cron-monitor dashboard; **Phase 6 PostgreSQL gate** (plan drafted,
-  `plans/260612-2042-postgresql-migration/`; Phase 0 readiness can start now).
+  cron-monitor dashboard. (**Phase 6 PostgreSQL gate OPENED 2026-06-21** — moved
+  to *Next* above; in progress.)
 
 ---
 
@@ -136,7 +140,19 @@ Bug fixing and integration review rank above net-new feature rollout.
 > **Rolling window:** ~last 2 weeks / ~15 entries kept inline (file ≤ ~400
 > lines); older entries roll verbatim, newest-first, to
 > [`changelog-archive/2026-q2.md`](changelog-archive/2026-q2.md). Currently
-> inline: **2026-06-14 → 2026-06-20**.
+> inline: **2026-06-14 → 2026-06-21**.
+
+- **2026-06-21** — **PostgreSQL migration gate OPENED (owner) + close-path audit fix.**
+  Owner committed to the full Mongo→Postgres migration (driver: future-proofing
+  the relational L&D platform; convergence Phase 3+4 done → model stable). Resumed
+  the safe Phase-0 readiness: **item 0.2 — soft-delete `$lookup` discipline** —
+  new ADR `docs/decisions/soft-delete-query-discipline.md` + a guard test
+  (`tests/unit/soft-delete-lookup-guard.test.js`) that fails CI if any `$lookup`
+  into a soft-deletable collection omits the `isDeleted` filter; audited all 6
+  current sites — compliant, no leaks remain (locks in the PR #180 DATA-009 fix).
+  Separately, the **enrollment close-path audit** (owner kept the 6 paths, asked
+  to verify) found + fixed one real bug: `PUT /api/enrollments/:id` left no audit
+  trail while its bulk twin did (PR #182). Server 1183/1183 green.
 
 - **2026-06-20** — **Converge Phase 3 slice 5 — collapse the scheduling `mode` fork; PHASE 3 COMPLETE.**
   Retired the two-world server split now that the unified UI (Phase 4) consumes one read:

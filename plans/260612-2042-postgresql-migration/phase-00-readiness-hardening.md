@@ -82,7 +82,7 @@ Captured here so Phase 3 implements, not researches.
 | # | Task | Stream | Type | Risk | Worth doing pre-gate? |
 |---|------|--------|------|------|----------------------|
 | 0.1 | This doc — feature inventory + mapping | WS-B | docs | none | ✅ done |
-| 0.2 | ADR-style "soft-delete query discipline" note + grep guard for aggregations missing `isDeleted` | WS-B | docs | none | ✅ yes |
+| 0.2 | ADR-style "soft-delete query discipline" note + grep guard for `$lookup` missing `isDeleted` | WS-B | docs | none | ✅ **done 2026-06-21** (`docs/decisions/soft-delete-query-discipline.md` + `tests/unit/soft-delete-lookup-guard.test.js`; all 6 sites compliant — no leaks remain) |
 | 0.3 | Extract `searchService` model access → `repository` | WS-A | refactor | Low | ✅ **done 2026-06-17** (`services/search/search-repository.js`) |
 | 0.4 | Extract `lib/branding.js` + `routes/auditRoutes.js` reads → repository | WS-A | refactor | Low | ✅ **done 2026-06-17** (branding reuses `domains/branding/repository`; new `services/audit/audit-query-repository.js`) |
 | 0.5 | Extract `services/export/*` aggregations → repository | WS-A | refactor | Low-Med | ✅ **done 2026-06-17** (new `attendance-export-repository.js` + `evaluation-export-repository.js`; pipeline builders kept) |
@@ -95,6 +95,14 @@ Captured here so Phase 3 implements, not researches.
 > to run a **quality-consolidation round** first (owner direction): green the test
 > suites, stabilise the server harness, cut lint warnings, clean `npm audit`,
 > smoke-test the core flow. Resume 0.8-class / 0.9 + the gated Phases 1+ after.
+>
+> **Gate OPENED by owner 2026-06-21** — commit to the full Mongo→Postgres
+> migration (driver: future-proofing the relational L&D platform; convergence
+> Phase 3+4 complete so the model is stable enough). Phases 1–5 are now unblocked.
+> Sequencing decision: **finish the remaining safe Phase-0 slices first** (0.2 done
+> this date; 0.8-class + 0.6 next), THEN Phase 1 gate prototype (needs a real PG
+> instance + Mongo snapshot — owner provisions infra). 0.9 auth/scheduleService
+> still done in careful slices with the full suite green, not speculatively.
 
 ## Success criteria (Phase 0 "ready")
 

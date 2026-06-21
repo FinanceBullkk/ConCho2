@@ -1,10 +1,11 @@
 # PostgreSQL Migration Plan (MongoDB → PostgreSQL)
 
-> Executes the ADR `docs/decisions/mongo-now-postgres-later.md`. The ADR's gate
-> stays in force: **Phases 1+ start only when the gate opens (post-launch,
-> pain demonstrated or owner decision). Phase 0 runs now** — it is pure
-> readiness hardening with zero PostgreSQL footprint.
-> Status: `planned` · Owner: anhha · Created: 2026-06-12
+> Executes the ADR `docs/decisions/mongo-now-postgres-later.md`. **Gate OPENED by
+> owner 2026-06-21** (commit to full migration; driver: future-proofing the
+> relational L&D platform; convergence Phase 3+4 complete → model stable enough) —
+> Phases 1+ unblocked. Sequence: finish the remaining safe Phase-0 slices, then the
+> Phase 1 gate prototype (needs a real PG instance + Mongo snapshot).
+> Status: `in progress` · Owner: anhha · Created: 2026-06-12 · Gate opened: 2026-06-21
 
 ## Why (vision recap)
 
@@ -27,7 +28,7 @@ path, pgvector for future AI features.
 
 | # | Phase | File | Trigger | Est. | Status |
 |---|-------|------|---------|------|--------|
-| 0 | Readiness hardening (no PG) | [phase-00](phase-00-readiness-hardening.md) | NOW — alongside normal work | continuous | 🟡 in progress (detail + audit written 2026-06-17) |
+| 0 | Readiness hardening (no PG) | [phase-00](phase-00-readiness-hardening.md) | NOW — alongside normal work | continuous | 🟡 in progress (0.3–0.7 + 0.8-user + **0.2 done 2026-06-21**; 0.8-class/0.6/0.9 remain) |
 | 1 | Gate prototype (read-only proof) | [phase-01](phase-01-gate-prototype.md) | gate opens | ~1 wk | ⚪ gated |
 | 2 | Foundation & dual infrastructure | [phase-02](phase-02-foundation-dual-infra.md) | after go decision | ~1 wk | ⚪ gated |
 | 3 | Repository ports (domain by domain) | [phase-03](phase-03-repository-ports.md) | after P2 | ~4–6 wk | ⚪ gated |
