@@ -30,6 +30,21 @@ Postgres than local in-memory Mongo. See
 | 2.6 | **Reference repository port** | ONE small read repository (e.g. metrics funnel) implemented against PG behind the same interface — proves the Phase-3 pattern |
 | 2.7 | **CI lane (later)** | a job that spins a PG service, runs migrations + the reference repo test; added when 2.6 is stable |
 
+## Progress (2026-06-21)
+
+- ✅ **2.1 / 2.4 / 2.5 DONE** — Knex + pg wired (`db/pg/knexfile.js`), first
+  migration `db/pg/migrations/001_core_training_schema.js` applied cleanly to
+  Neon: **9/9 core tables** (programs/users/classes/teams/team_members/enrollments/
+  schedules/attendances/certificates) with text PK + jsonb + soft-delete columns.
+  Trap-equivalents **verified enforcing** on Neon (`pg-foundation-verify.js`):
+  Schedule double-booking partial-unique guard rejects a 2nd `scheduled` slot
+  (23505) while a `cancelled` row reuses the freed slot; soft-delete-aware
+  `emp_code` uniqueness rejects a duplicate active row.
+- ⬜ **2.2 / 2.3** `config/pg.js` + `DB_BACKEND` flag — next (touch real app config).
+- ⬜ **2.6** reference repository port (funnel) against PG behind the same interface.
+- ⬜ **2.7** CI lane.
+- ⬜ **2.5b** TTL jobs (AuditLog 730d etc.) + FK constraints — later migration.
+
 ## Success criteria
 
 - `knex migrate:latest` applies cleanly to a fresh Neon DB; the schema carries
