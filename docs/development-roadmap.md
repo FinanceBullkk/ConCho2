@@ -41,7 +41,7 @@ remainder is documented deferred-by-design scope (below), not active debt.
   flag (default `mongo` → running app unchanged), CI-proven Mongo==PG. **Wave A
   read-only DONE (5 ports):** metrics-funnel + metric time-series (metrics surface
   complete) · per-team/employee/class attendance rollups (trilogy complete).
-  **Wave B (whole-repository CRUD) IN PROGRESS:** `room` (#6) + `org` (#7) done.
+  **Wave B (whole-repository CRUD) IN PROGRESS:** `room` (#6) + `org` (#7) + `session-type` (#8) done.
   Master plan: `plans/260612-2042-postgresql-migration/master-execution-plan.md`.
   (TMS.update north-star: **all 7 gaps shipped** (#1–#7); #7 PWA offline
   attendance closed 2026-06-15. **Investment Build Plan deep features — all 4
@@ -89,7 +89,7 @@ remainder is documented deferred-by-design scope (below), not active debt.
 | 3 | Multi-program enrollment + session scheduling | ~85% | 🟢 near done (genuine work shipped; only nomination workflow deferred-by-design) |
 | 4 | Frontend L&D workspace (CRUD UI) | ~82% | 🟢 near done (CRUD + policy editor complete) |
 | 5 | Reporting, completion, feedback | ~80% | 🟢 near done (cert lifecycle + recert closed; Evaluation→Assessment convergence deferred-by-design) |
-| 6 | PostgreSQL decision gate | ~9% | 🟡 in progress (gate OPENED 2026-06-21; foundation #184 on main; repo ports underway — Wave A read-only DONE 5 ports + Wave B CRUD: `room` + `org` whole-repo ports done; `DB_BACKEND=mongo` default) |
+| 6 | PostgreSQL decision gate | ~10% | 🟡 in progress (gate OPENED 2026-06-21; foundation #184 on main; repo ports underway — Wave A read-only DONE 5 ports + Wave B CRUD: `room` + `org` + `session-type` whole-repo ports done; `DB_BACKEND=mongo` default) |
 
 ## LTMS waves (forward — see [`lms-roadmap.md`](lms-roadmap.md))
 
@@ -144,6 +144,20 @@ Bug fixing and integration review rank above net-new feature rollout.
 > lines); older entries roll verbatim, newest-first, to
 > [`changelog-archive/2026-q2.md`](changelog-archive/2026-q2.md). Currently
 > inline: **2026-06-14 → 2026-06-21**.
+
+- **2026-06-21** — **Phase 3 Wave-B — 3rd whole-repository port: `domains/session-type` (metadata catalog).**
+  `domains/session-type/repository.js` (6 methods: `create`/`list`/`findByIdLean`/
+  `updateById`/`softDelete`/`maxOrder`) ported to dual-backend via the
+  `repository.{mongo,pg}.js` + `DB_BACKEND` selector. New **migration
+  `005_session_types`** (`order` → `display_order` — `order` is a SQL reserved
+  word). Parity-proven on real Neon: create schema defaults (color `#6366f1`,
+  duration 60, capacity null, order 0), `list` in display order, soft-delete hides
+  the row + drops `maxOrder`, update normalizes. Tests: pg-parity **7 suites / 35
+  green on Neon** + CI-safe Mongo integration; existing `studioScheduling` suite
+  (9) passes unchanged through the selector. (Also fixed an org-parity flake — the
+  certificate seed now satisfies all unique indexes + forces `Certificate.init()`
+  so the autoIndex race can't pass locally yet fail on CI.) DB_BACKEND=mongo
+  default unchanged.
 
 - **2026-06-21** — **Phase 3 Wave-B — 2nd whole-repository port: `domains/org` (departments + manager hierarchy).**
   `domains/org/repository.js` (13 methods) ported to dual-backend via the
