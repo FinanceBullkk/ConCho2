@@ -49,7 +49,11 @@ Postgres than local in-memory Mongo. See
   (`pg-reference-repo-proof.js`): same data into both stores → **PG == Mongo ==
   oracle, identical numbers** (3988/1001/1276). The Phase-3 port pattern proven
   end-to-end behind one interface.
-- ⬜ **2.7** CI lane (PG service + migrate + repo test) — when foundation merges.
+- ✅ **2.7 DONE** — CI `pg-parity` job (`.github/workflows/ci.yml`): a Postgres
+  service + `knex migrate:latest` + the `tests/pg-parity/*` parity tests run on
+  every PR, so each ported repo is proven Mongo==PG in CI (no Neon per-port).
+  SSL is conditional (off for localhost/CI, on for Neon). The tests SKIP in the
+  mongo server-tests job (no `PG_URL`).
 - ⬜ **2.5b** TTL jobs (AuditLog 730d etc.) + FK constraints — later migration.
 
 **Phase 2 foundation COMPLETE** (core slices). 2.7/2.5b are merge-time/later follow-ups.

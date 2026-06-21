@@ -13,7 +13,9 @@ const getPool = () => {
   if (!pool) {
     const connectionString = process.env.PG_URL || process.env.PG_PROTOTYPE_URL;
     if (!connectionString) throw new Error('PG connection string missing (PG_URL / PG_PROTOTYPE_URL)');
-    pool = new Pool({ connectionString, ssl: { rejectUnauthorized: false }, max: 5 });
+    // SSL for managed/remote PG (Neon); off for a local/CI postgres (no SSL).
+    const ssl = /localhost|127\.0\.0\.1/.test(connectionString) ? false : { rejectUnauthorized: false };
+    pool = new Pool({ connectionString, ssl, max: 5 });
   }
   return pool;
 };
