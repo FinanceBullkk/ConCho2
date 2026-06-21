@@ -40,10 +40,19 @@ Postgres than local in-memory Mongo. See
   Schedule double-booking partial-unique guard rejects a 2nd `scheduled` slot
   (23505) while a `cancelled` row reuses the freed slot; soft-delete-aware
   `emp_code` uniqueness rejects a duplicate active row.
-- ⬜ **2.2 / 2.3** `config/pg.js` + `DB_BACKEND` flag — next (touch real app config).
-- ⬜ **2.6** reference repository port (funnel) against PG behind the same interface.
-- ⬜ **2.7** CI lane.
+- ✅ **2.2 / 2.3 DONE** — `config/pg.js` (lazy pooled PG connection, SSL for Neon)
+  + `config/db-backend.js` (`DB_BACKEND` flag, default `mongo` → running app
+  unchanged). Inert until a repo routes to PG.
+- ✅ **2.6 DONE** — reference repository port: `services/metrics-funnel/` with one
+  semantic interface (`getFunnelCounts`), two impls (`mongo.js` reusing the Phase-0
+  repo + `pg.js` SQL), and an `index.js` factory selecting by `DB_BACKEND`. Proof
+  (`pg-reference-repo-proof.js`): same data into both stores → **PG == Mongo ==
+  oracle, identical numbers** (3988/1001/1276). The Phase-3 port pattern proven
+  end-to-end behind one interface.
+- ⬜ **2.7** CI lane (PG service + migrate + repo test) — when foundation merges.
 - ⬜ **2.5b** TTL jobs (AuditLog 730d etc.) + FK constraints — later migration.
+
+**Phase 2 foundation COMPLETE** (core slices). 2.7/2.5b are merge-time/later follow-ups.
 
 ## Success criteria
 
