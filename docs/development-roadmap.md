@@ -41,7 +41,7 @@ remainder is documented deferred-by-design scope (below), not active debt.
   flag (default `mongo` → running app unchanged), CI-proven Mongo==PG. **Wave A
   read-only DONE (5 ports):** metrics-funnel + metric time-series (metrics surface
   complete) · per-team/employee/class attendance rollups (trilogy complete).
-  **Wave B (whole-repository CRUD) IN PROGRESS:** room (#6) + org (#7) + session-type (#8) + skill (#9) + trainer (#10) + vendor (#11) + **learning programs+cohorts (#12)** + **learning/enrollment (#13)** + **learning/completion (#14)** done; next the remaining `learning/*` sub-domains (session/path/feedback/reports/dashboard), then the transaction-heavy `groups` (needs the dual-backend transaction abstraction).
+  **Wave B (whole-repository CRUD) IN PROGRESS:** room (#6) + org (#7) + session-type (#8) + skill (#9) + trainer (#10) + vendor (#11) + **learning programs+cohorts (#12)** + **learning/enrollment (#13)** + **learning/completion (#14)** + **learning/feedback (#15)** done; next the remaining `learning/*` sub-domains (session/path/reports/dashboard), then the transaction-heavy `groups` (needs the dual-backend transaction abstraction).
   Master plan: `plans/260612-2042-postgresql-migration/master-execution-plan.md`.
   (TMS.update north-star: **all 7 gaps shipped** (#1–#7); #7 PWA offline
   attendance closed 2026-06-15. **Investment Build Plan deep features — all 4
@@ -89,7 +89,7 @@ remainder is documented deferred-by-design scope (below), not active debt.
 | 3 | Multi-program enrollment + session scheduling | ~85% | 🟢 near done (genuine work shipped; only nomination workflow deferred-by-design) |
 | 4 | Frontend L&D workspace (CRUD UI) | ~82% | 🟢 near done (CRUD + policy editor complete) |
 | 5 | Reporting, completion, feedback | ~80% | 🟢 near done (cert lifecycle + recert closed; Evaluation→Assessment convergence deferred-by-design) |
-| 6 | PostgreSQL decision gate | ~22% | 🟡 in progress (gate OPENED 2026-06-21; foundation #184 on main; repo ports underway — Wave A read-only DONE 5 ports + Wave B CRUD: room/org/session-type/skill/trainer/vendor + learning programs+cohorts/enrollment/completion (9) whole-repo ports done; `DB_BACKEND=mongo` default) |
+| 6 | PostgreSQL decision gate | ~24% | 🟡 in progress (gate OPENED 2026-06-21; foundation #184 on main; repo ports underway — Wave A read-only DONE 5 ports + Wave B CRUD: room/org/session-type/skill/trainer/vendor + learning programs+cohorts/enrollment/completion/feedback (10) whole-repo ports done; `DB_BACKEND=mongo` default) |
 
 ## LTMS waves (forward — see [`lms-roadmap.md`](lms-roadmap.md))
 
@@ -144,6 +144,19 @@ Bug fixing and integration review rank above net-new feature rollout.
 > lines); older entries roll verbatim, newest-first, to
 > [`changelog-archive/2026-q2.md`](changelog-archive/2026-q2.md). Currently
 > inline: **2026-06-14 → 2026-06-21**.
+
+- **2026-06-22** — **Phase 3 Wave-B — 10th port: `domains/learning/feedback`.**
+  `domains/learning/feedback/repository.js` (4 methods + the `isCohortParticipant`
+  helper re-export) → dual-backend via the `repository.{mongo,pg}.js` + selector:
+  `findCohort` + `findFeedback` + `upsertFeedback` (idempotent submit) +
+  `listFeedback` (populate user+cohort). **No new migration** — `feedbacks` shipped
+  with 011. Parity-proven on real Neon: upsert one-per-(cohort,user) via
+  `ON CONFLICT`; the **undefined-skip update** (Mongoose strips `undefined` from
+  `$set` so that field stays unchanged — the PG impl updates only the fields the
+  caller actually provided, an explicit null still applies); `populate` → a
+  soft-deleted user/cohort reads null; `findCohort` hides deleted. Tests: pg-parity
+  **14 suites / 76 green on Neon** + CI-safe; the existing feedback suite passes
+  unchanged through the selector. DB_BACKEND=mongo default unchanged.
 
 - **2026-06-22** — **Phase 3 Wave-B — 9th port: `domains/learning/completion` (completion engine + certificate CRUD).**
   `domains/learning/completion/repository.js` (15 methods) → dual-backend via the
