@@ -30,8 +30,8 @@ path, pgvector for future AI features.
 |---|-------|------|---------|------|--------|
 | 0 | Readiness hardening (no PG) | [phase-00](phase-00-readiness-hardening.md) | NOW — alongside normal work | continuous | ✅ **COMPLETE 2026-06-21** (WS-A 0.2–0.8 extracted; 0.9 auth/booking deferred-by-design to Phase 3) |
 | 1 | Gate prototype (read-only proof) | [phase-01](phase-01-gate-prototype.md) | gate OPEN 2026-06-21 | ~1 wk | ✅ **DONE 2026-06-21 → GO** — Neon parity PASS vs Mongo; heavy read ~6× faster |
-| 2 | Foundation & dual infrastructure | [phase-02](phase-02-foundation-dual-infra.md) | go confirmed | ~1 wk | 🟡 **IN PROGRESS** — head-to-head done; Knex foundation next (on spike branch) |
-| 3 | Repository ports (domain by domain) | [phase-03](phase-03-repository-ports.md) | after P2 | ~4–6 wk | ⚪ gated |
+| 2 | Foundation & dual infrastructure | [phase-02](phase-02-foundation-dual-infra.md) | go confirmed | ~1 wk | ✅ **CORE COMPLETE 2026-06-21** — Knex+migration+traps on Neon; config/pg + DB_BACKEND; reference repo port proven (PG==Mongo). 2.7 CI / 2.5b TTL+FK = follow-ups |
+| 3 | Repository ports (domain by domain) | [phase-03](phase-03-repository-ports.md) | after P2 | ~4–6 wk | 🟡 **NEXT** — the marathon; merges the spike foundation to main + ports repos one by one |
 | 4 | Test parity (full suite on PG) | [phase-04](phase-04-test-parity.md) | overlaps P3 | ~1–2 wk | ⚪ gated |
 | 5 | Cutover & decommission | [phase-05](phase-05-cutover-decommission.md) | P3+P4 green | ~1 wk + 30d bake | ⚪ gated |
 
