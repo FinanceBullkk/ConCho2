@@ -1,14 +1,15 @@
 # Phase 1 — Gate Prototype (read-only proof on Neon)
 
 > Parent: [`plan.md`](plan.md) · ADR: `docs/decisions/mongo-now-postgres-later.md`
-> Status: **PROTOTYPE RUN 2026-06-21 → GO (provisional)** · Trigger: gate OPEN 2026-06-21 ·
+> Status: **COMPLETE 2026-06-21 → GO confirmed** · Trigger: gate OPEN 2026-06-21 ·
 > Host: **Neon** (locked) · Owner: anhha
 >
 > **Evidence:** `plans/reports/report-260621-pg-gate-prototype-evidence.md`.
-> Synthetic 500k-scale on Neon: heavy reads fast (one-team ~28 ms, all-teams rollup
-> ~144 ms, funnel ~23 ms); soft-delete + partial-unique traps port cleanly. Verdict
-> **GO** → proceed to Phase 2, folding the Mongo head-to-head parity check into P2's
-> first step. Prototype script: `server/scripts/dev-tools/pg-prototype-benchmark.js`.
+> Synthetic-scale on Neon: heavy reads fast; soft-delete + partial-unique traps
+> port cleanly. **Head-to-head vs Mongo: numbers PARITY PASS (identical) + the heavy
+> per-team rollup ~6× faster on remote Postgres than local in-memory Mongo.** Gate
+> fully closed → Phase 2 foundation. Scripts: `pg-prototype-benchmark.js`,
+> `pg-vs-mongo-parity.js`.
 
 ## Goal
 
