@@ -78,6 +78,7 @@ describePg('PG-parity: org repository (departments + manager hierarchy + rollups
     mem = await MongoMemoryServer.create();
     await mongoose.connect(mem.getUri());
     await mongoose.model('Department').init(); // partial-unique code index
+    await mongoose.model('Certificate').init(); // unique certNumber/verificationCode + partial (userId,cohortId)
     const db = mongoose.connection.db;
 
     await db.collection('departments').insertMany(DEPTS.map((d) => ({
@@ -93,7 +94,10 @@ describePg('PG-parity: org repository (departments + manager hierarchy + rollups
     })));
     await db.collection('certificates').insertMany(CERTS.map((c) => ({
       _id: oid(c.id), userId: oid(c.user), programId: oid(c.prog), status: c.status, isDeleted: c.deleted,
-      certificateNumber: `CN-${c.id}`, // unique — the model has a unique index on certificateNumber
+      // satisfy ALL Certificate unique indexes (else the autoIndex race makes this
+      // pass locally but fail in CI): certificateNumber + verificationCode unique,
+      // and the partial-unique (userId, cohortId) WHERE Issued+notDeleted.
+      certificateNumber: `CN-${c.id}`, verificationCode: `VC-${c.id}`, cohortId: oid(c.id),
     })));
 
     await query('TRUNCATE departments, users, enrollments, certificates');
