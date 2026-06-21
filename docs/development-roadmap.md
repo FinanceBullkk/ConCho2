@@ -142,17 +142,23 @@ Bug fixing and integration review rank above net-new feature rollout.
 > [`changelog-archive/2026-q2.md`](changelog-archive/2026-q2.md). Currently
 > inline: **2026-06-14 → 2026-06-21**.
 
-- **2026-06-21** — **PostgreSQL migration gate OPENED (owner) + close-path audit fix.**
+- **2026-06-21** — **PostgreSQL migration gate OPENED (owner) + Phase 0 COMPLETE + close-path audit fix.**
   Owner committed to the full Mongo→Postgres migration (driver: future-proofing
-  the relational L&D platform; convergence Phase 3+4 done → model stable). Resumed
-  the safe Phase-0 readiness: **item 0.2 — soft-delete `$lookup` discipline** —
-  new ADR `docs/decisions/soft-delete-query-discipline.md` + a guard test
+  the relational L&D platform; convergence Phase 3+4 done → model stable). **Phase 0
+  readiness hardening is now COMPLETE** — all safe WS-A slices extracted so the
+  port swaps repository internals, not business logic:
+  **0.2** soft-delete `$lookup` discipline — new ADR
+  `docs/decisions/soft-delete-query-discipline.md` + a guard test
   (`tests/unit/soft-delete-lookup-guard.test.js`) that fails CI if any `$lookup`
-  into a soft-deletable collection omits the `isDeleted` filter; audited all 6
-  current sites — compliant, no leaks remain (locks in the PR #180 DATA-009 fix).
-  Separately, the **enrollment close-path audit** (owner kept the 6 paths, asked
-  to verify) found + fixed one real bug: `PUT /api/enrollments/:id` left no audit
-  trail while its bulk twin did (PR #182). Server 1183/1183 green.
+  into a soft-deletable collection omits `isDeleted` (audited all 6 sites — clean,
+  locks in the PR #180 DATA-009 fix); **0.8-class** legacy class read/mutation
+  data access → `controllers/class/class-repository.js`; **0.6** metric/analytics
+  → shared `services/metrics-repository.js`. Only **0.9** (auth + `scheduleService`)
+  is deferred-by-design (highest regression risk, lowest Phase-0 value) → ported in
+  Phase 3. **Next: Phase 1 gate prototype** — owner provisions a PG instance + Mongo
+  snapshot. Separately, the **enrollment close-path audit** (owner kept the 6 paths,
+  asked to verify) found + fixed one real bug: `PUT /api/enrollments/:id` left no
+  audit trail while its bulk twin did (PR #182). Server 1183/1183 green.
 
 - **2026-06-20** — **Converge Phase 3 slice 5 — collapse the scheduling `mode` fork; PHASE 3 COMPLETE.**
   Retired the two-world server split now that the unified UI (Phase 4) consumes one read:

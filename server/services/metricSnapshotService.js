@@ -1,7 +1,4 @@
-const Enrollment = require('../models/Enrollment');
-const Certificate = require('../models/Certificate');
-const Class = require('../models/Class');
-const MetricSnapshot = require('../models/MetricSnapshot');
+const repository = require('./metrics-repository');
 
 // ──────────────────────────────────────────────────────────
 // Metric snapshot service (Investment Build Plan #1)
@@ -33,18 +30,12 @@ const utcMidnight = (d = new Date()) => {
  * @returns {Promise<Array<{scope,scopeId,key,value}>>}
  */
 async function computeDailyMetrics() {
-  const classes = await Class.find({ programId: { $ne: null } })
-    .select('_id programId').lean();
+  const classes = await repository.findProgramClasses();
   const classToProgram = new Map(classes.map((c) => [String(c._id), String(c.programId)]));
 
   const [enrollAgg, certAgg] = await Promise.all([
-    Enrollment.aggregate([
-      { $group: { _id: { classId: '$classId', status: '$status' }, count: { $sum: 1 } } },
-    ]),
-    Certificate.aggregate([
-      { $match: { status: 'Issued', isDeleted: { $ne: true } } },
-      { $group: { _id: '$programId', count: { $sum: 1 } } },
-    ]),
+    repository.aggregateEnrollmentsByClassStatus(),
+    repository.aggregateIssuedCertsByProgram(),
   ]);
 
   const blank = () => ({ active_enrollments: 0, enrollments: 0, completions: 0, certs_issued: 0 });
@@ -91,18 +82,8 @@ async function computeDailyMetrics() {
 async function writeSnapshots(date, metrics) {
   if (!metrics.length) return { upserted: 0, total: 0 };
   const day = utcMidnight(date);
-  const ops = metrics.map((m) => {
-    const scopeId = m.scopeId || null;
-    return {
-      updateOne: {
-        filter: { scope: m.scope, scopeId, key: m.key, date: day },
-        update: { $set: { value: m.value }, $setOnInsert: { scope: m.scope, scopeId, key: m.key, date: day } },
-        upsert: true,
-      },
-    };
-  });
-  const res = await MetricSnapshot.bulkWrite(ops, { ordered: false });
-  return { upserted: res.upsertedCount || 0, modified: res.modifiedCount || 0, total: metrics.length };
+  const res = await repository.upsertSnapshots(day, metrics);
+  return { upserted: res.upserted, modified: res.modified, total: metrics.length };
 }
 
 /** Take + persist today's snapshot. Called by the nightly cron. */
@@ -137,14 +118,11 @@ async function backfillHistory({ days = 180 } = {}) {
   const start = utcMidnight();
   start.setUTCDate(start.getUTCDate() - (days - 1));
 
-  const classes = await Class.find({ programId: { $ne: null } })
-    .select('_id programId').lean();
+  const classes = await repository.findProgramClasses();
   const classToProgram = new Map(classes.map((c) => [String(c._id), String(c.programId)]));
 
-  const enr = await Enrollment.find({ status: { $ne: 'Transferred' } })
-    .select('joinedAt createdAt status leftAt updatedAt classId').lean();
-  const certs = await Certificate.find({ status: 'Issued', isDeleted: { $ne: true } })
-    .select('issuedAt createdAt programId').lean();
+  const enr = await repository.findNonTransferredEnrollments();
+  const certs = await repository.findIssuedCertificates();
 
   const ms = (d) => +new Date(d);
 
