@@ -6,7 +6,7 @@
 > - *Architecture / orientation* → [`system-overview.md`](system-overview.md)
 > - *Detailed task snapshot (archived)* → [`archive/handoff-2026-06-01.md`](archive/handoff-2026-06-01.md)
 >
-> **Last updated:** 2026-06-18
+> **Last updated:** 2026-06-21
 
 ---
 
@@ -36,9 +36,11 @@ remainder is documented deferred-by-design scope (below), not active debt.
   `deliveryMode` is metadata-only by design (no enforcement contract).
 - **Next:** **Phase 6 PostgreSQL migration — gate OPENED by owner 2026-06-21**
   (commit to full migration; driver: future-proofing the relational L&D platform).
-  In progress: finishing the safe Phase-0 readiness slices (0.2 soft-delete guard
-  done 2026-06-21; 0.8-class + 0.6 next), then the Phase 1 gate prototype (needs a
-  real PG instance + Mongo snapshot — owner provisions infra). Plan:
+  Phase 0 readiness COMPLETE; foundation on main (#184). **Now in Phase 3
+  (repository ports)** — porting each repo to dual-backend behind the `DB_BACKEND`
+  flag (default `mongo` → running app unchanged), CI-proven Mongo==PG. **4 Wave-A
+  read-only ports landed:** metrics-funnel (reference) · per-team + per-employee +
+  per-class attendance rollups (attendance-analytics trilogy complete). Plan:
   `plans/260612-2042-postgresql-migration/`.
   (TMS.update north-star: **all 7 gaps shipped** (#1–#7); #7 PWA offline
   attendance closed 2026-06-15. **Investment Build Plan deep features — all 4
@@ -86,7 +88,7 @@ remainder is documented deferred-by-design scope (below), not active debt.
 | 3 | Multi-program enrollment + session scheduling | ~85% | 🟢 near done (genuine work shipped; only nomination workflow deferred-by-design) |
 | 4 | Frontend L&D workspace (CRUD UI) | ~82% | 🟢 near done (CRUD + policy editor complete) |
 | 5 | Reporting, completion, feedback | ~80% | 🟢 near done (cert lifecycle + recert closed; Evaluation→Assessment convergence deferred-by-design) |
-| 6 | PostgreSQL decision gate | 0% | ⚪ gated |
+| 6 | PostgreSQL decision gate | ~6% | 🟡 in progress (gate OPENED 2026-06-21; foundation #184 on main; Phase 3 repo ports underway — 4 Wave-A dual-backend ports landed, `DB_BACKEND=mongo` default) |
 
 ## LTMS waves (forward — see [`lms-roadmap.md`](lms-roadmap.md))
 
@@ -141,6 +143,23 @@ Bug fixing and integration review rank above net-new feature rollout.
 > lines); older entries roll verbatim, newest-first, to
 > [`changelog-archive/2026-q2.md`](changelog-archive/2026-q2.md). Currently
 > inline: **2026-06-14 → 2026-06-21**.
+
+- **2026-06-21** — **Phase 3 (repository ports) — 4th dual-backend port: per-class attendance roster.**
+  Mongo→Postgres ports continue behind the `DB_BACKEND` flag (default `mongo` →
+  running app 100% unchanged; no dual-write — code switches, data cuts once).
+  Foundation + first ports already on main (#184 metrics-funnel reference + per-team
+  rollup; #185/#186 per-employee rollup + banker's-round parity fix). **This change**
+  ports `analyticsByClass` → `services/attendance-by-class/{mongo,pg,index}.js`,
+  completing the attendance-analytics trilogy (by-employee · by-team · **by-class**).
+  One semantic interface `getClassAttendance(classId)` → `{schedules, roster}`
+  (per-session matrix): the Mongo impl reuses the real production query; the PG impl
+  is two indexed reads — class live sessions + an attendance JOIN users on
+  `is_deleted = false`. **Three traps proven identical on real Neon Postgres** (CI
+  pg-parity lane): soft-deleted user excluded (DATA-009), cancelled session excluded
+  (`status='scheduled'`), other-class session excluded (`class_id` JOIN). No new
+  migration (existing tables). `rate` via JS `toFixed` on BOTH sides → no banker's-
+  round divergence. Tests green: pg-parity 3 suites/6 on Neon + CI-safe Mongo
+  integration. DB_BACKEND=mongo default unchanged.
 
 - **2026-06-21** — **PostgreSQL migration gate OPENED (owner) + Phase 0 COMPLETE + close-path audit fix.**
   Owner committed to the full Mongo→Postgres migration (driver: future-proofing
