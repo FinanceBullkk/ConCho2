@@ -38,10 +38,11 @@ remainder is documented deferred-by-design scope (below), not active debt.
   (commit to full migration; driver: future-proofing the relational L&D platform).
   Phase 0 readiness COMPLETE; foundation on main (#184). **Now in Phase 3
   (repository ports)** — porting each repo to dual-backend behind the `DB_BACKEND`
-  flag (default `mongo` → running app unchanged), CI-proven Mongo==PG. **5 Wave-A
-  read-only ports landed:** metrics-funnel + metric time-series (metrics surface
-  complete) · per-team + per-employee + per-class attendance rollups (attendance-
-  analytics trilogy complete). Plan: `plans/260612-2042-postgresql-migration/`.
+  flag (default `mongo` → running app unchanged), CI-proven Mongo==PG. **Wave A
+  read-only DONE (5 ports):** metrics-funnel + metric time-series (metrics surface
+  complete) · per-team/employee/class attendance rollups (trilogy complete).
+  **Wave B (whole-repository CRUD) STARTED:** `room` done (#6, first WRITE port).
+  Master plan: `plans/260612-2042-postgresql-migration/master-execution-plan.md`.
   (TMS.update north-star: **all 7 gaps shipped** (#1–#7); #7 PWA offline
   attendance closed 2026-06-15. **Investment Build Plan deep features — all 4
   shipped** (#3a audit hash-chain PR #108, #4 reconcile auto-heal PR #109, #1
@@ -88,7 +89,7 @@ remainder is documented deferred-by-design scope (below), not active debt.
 | 3 | Multi-program enrollment + session scheduling | ~85% | 🟢 near done (genuine work shipped; only nomination workflow deferred-by-design) |
 | 4 | Frontend L&D workspace (CRUD UI) | ~82% | 🟢 near done (CRUD + policy editor complete) |
 | 5 | Reporting, completion, feedback | ~80% | 🟢 near done (cert lifecycle + recert closed; Evaluation→Assessment convergence deferred-by-design) |
-| 6 | PostgreSQL decision gate | ~7% | 🟡 in progress (gate OPENED 2026-06-21; foundation #184 on main; Phase 3 repo ports underway — 5 Wave-A dual-backend ports landed, `DB_BACKEND=mongo` default) |
+| 6 | PostgreSQL decision gate | ~8% | 🟡 in progress (gate OPENED 2026-06-21; foundation #184 on main; repo ports underway — Wave A read-only DONE 5 ports + Wave B CRUD started: `room` whole-repo write port; `DB_BACKEND=mongo` default) |
 
 ## LTMS waves (forward — see [`lms-roadmap.md`](lms-roadmap.md))
 
@@ -143,6 +144,21 @@ Bug fixing and integration review rank above net-new feature rollout.
 > lines); older entries roll verbatim, newest-first, to
 > [`changelog-archive/2026-q2.md`](changelog-archive/2026-q2.md). Currently
 > inline: **2026-06-14 → 2026-06-21**.
+
+- **2026-06-21** — **Phase 3 Wave-B STARTED — 1st whole-repository WRITE port: `domains/room`.**
+  Shift from read-slices to porting **whole `repository.js` interfaces** per domain
+  (the right granularity; plan: [`master-execution-plan.md`](../plans/260612-2042-postgresql-migration/master-execution-plan.md)).
+  `domains/room/repository.js` split into `repository.{mongo,pg}.js` behind a
+  `DB_BACKEND` selector (consumers' `require('./repository')` unchanged). Full CRUD
+  on Postgres — create/find/list/update/soft-delete + `findLiveOffice` +
+  `countFutureSessionsForRoom`. New **migration `003_offices_rooms`** (offices,
+  rooms + `schedules.room_id`). First WRITE-port pattern established + parity-proven
+  on real Neon: setter fidelity (code UPPERCASE, name trim), `populate('officeId')`
+  drops a soft-deleted office (DATA-009), partial-unique `code` among LIVE rooms
+  (reusable after soft-delete), office-scope + literal search + name order, soft-
+  delete hides the row, future-session count. Tests: pg-parity **5 suites / 19
+  green on Neon** (8 room cases) + CI-safe Mongo integration; the existing room
+  suite passes unchanged through the selector. DB_BACKEND=mongo default unchanged.
 
 - **2026-06-21** — **Phase 3 (repository ports) — 5th dual-backend port: metric time-series (metrics surface complete).**
   Ports the snapshot trend reader (`analyticsSeriesService.getSeries` → the
