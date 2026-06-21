@@ -34,6 +34,11 @@ const updateEnrollment = async (req, res) => {
     }
     if (note !== undefined) update.note = note;
 
+    // Snapshot the pre-update state for the audit diff (golden rule: every
+    // mutation is audited — this single-update path previously skipped audit
+    // while its bulk twin recorded it).
+    const before = await Enrollment.findById(req.params.id).lean();
+
     // Wrap enrollment update + schedule pull in one transaction so a crash
     // between the two writes cannot leave a dropped user in future rosters (BUG #2 fix).
     let enrollment = null;
@@ -59,6 +64,17 @@ const updateEnrollment = async (req, res) => {
     if (!enrollment) {
       return res.status(404).json({ success: false, message: 'Enrollment not found' });
     }
+
+    // Audit the admin override — mirrors the bulk twin (BUG: single path was
+    // the one close-path that left no audit trail).
+    auditService.record({
+      req,
+      action: 'updated',
+      entity: 'Enrollment',
+      entityId: enrollment._id,
+      diff: auditService.diff(before, enrollment.toObject()),
+      note: 'Admin enrollment status/note override',
+    });
 
     // Populate post-commit (populate does not run inside transactions).
     await enrollment.populate('userId', 'empCode name department status');
