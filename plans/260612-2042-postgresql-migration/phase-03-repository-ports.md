@@ -47,6 +47,17 @@ The Phase-1/2 work lives on `spike/pg-prototype`. The first Phase-3 PR brings th
 | D | schedule / `scheduleService` booking chokepoint | **highest risk** — multi-doc transactions, double-booking guard, waitlists |
 | E | auth + session/token paths | load-bearing security — port last, most scrutiny |
 
+## Ports landed (running log — newest first)
+
+| # | Service | Interface | Tables | Traps proven | PR |
+|---|---------|-----------|--------|--------------|----|
+| 4 | `services/attendance-by-class` | `getClassAttendance(classId)` → `{schedules, roster}` | schedules, attendances, users | soft-delete (DATA-009) · cancelled session (`status='scheduled'`) · other-class (`class_id` JOIN) | (this) |
+| 3 | `services/attendance-by-employee` | `getEmployeeAttendanceRollup()` | attendances, users | soft-delete · banker's-round (`$round`⇔`round(double)`) | #185/#186 |
+| 2 | `services/attendance-rollup` | `getTeamAttendanceRollup()` | teams, team_members, attendances | soft-delete (team) · LEFT JOIN zero-attendance | #184 |
+| 1 | `services/metrics-funnel` | `getFunnelCounts({programId})` | classes, enrollments, certificates | soft-delete (cert) | #184 |
+
+**Wave-A still open (read-only):** dashboard reads (`controllers/dashboard/dashboard-stats-repository.js` — large 14-query bundle; many User cols live in `meta` jsonb → needs schema columns or jsonb extraction first), `learning/dashboard/executive-repository.js` (KPIs; cert expiry buckets need `validUntil` → currently in cert `meta`), metric time-series (`analyticsSeriesService` — needs a `metric_snapshots` table migration). Then Wave B (learning/org/room CRUD).
+
 ## Success criteria
 
 - Every repository has a PG impl behind the same interface + a green parity test.
