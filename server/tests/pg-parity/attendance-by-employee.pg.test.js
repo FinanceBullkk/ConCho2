@@ -32,6 +32,15 @@ describePg('PG-parity: per-employee attendance rollup (+ soft-delete trap)', () 
     const users = Array.from({ length: USERS }, (_, i) => ({ idx: i, isDeleted: i % 5 === 0 })); // 20% deleted
     const attendance = Array.from({ length: ATTENDANCE }, (_, i) => ({ idx: i, userIdx: Math.floor(Math.random() * USERS), status: pick(ST) }));
 
+    // Deterministic rounding guard: a user with EXACTLY a .x5 rate (1 present /
+    // 16 total = 6.25%). Mongo $round and PG round(double) both go half-to-even
+    // → 6.2; a naive JS Math.round would give 6.3. Pins the banker's-round fix.
+    const tieIdx = USERS; // fresh active user, outside the random pool
+    users.push({ idx: tieIdx, isDeleted: false });
+    for (let k = 0; k < 16; k += 1) {
+      attendance.push({ idx: ATTENDANCE + k, userIdx: tieIdx, status: k === 0 ? 'P' : 'A' });
+    }
+
     mem = await MongoMemoryServer.create();
     await mongoose.connect(mem.getUri());
     const db = mongoose.connection.db;
