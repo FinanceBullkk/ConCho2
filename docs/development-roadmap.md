@@ -38,10 +38,10 @@ remainder is documented deferred-by-design scope (below), not active debt.
   (commit to full migration; driver: future-proofing the relational L&D platform).
   Phase 0 readiness COMPLETE; foundation on main (#184). **Now in Phase 3
   (repository ports)** — porting each repo to dual-backend behind the `DB_BACKEND`
-  flag (default `mongo` → running app unchanged), CI-proven Mongo==PG. **4 Wave-A
-  read-only ports landed:** metrics-funnel (reference) · per-team + per-employee +
-  per-class attendance rollups (attendance-analytics trilogy complete). Plan:
-  `plans/260612-2042-postgresql-migration/`.
+  flag (default `mongo` → running app unchanged), CI-proven Mongo==PG. **5 Wave-A
+  read-only ports landed:** metrics-funnel + metric time-series (metrics surface
+  complete) · per-team + per-employee + per-class attendance rollups (attendance-
+  analytics trilogy complete). Plan: `plans/260612-2042-postgresql-migration/`.
   (TMS.update north-star: **all 7 gaps shipped** (#1–#7); #7 PWA offline
   attendance closed 2026-06-15. **Investment Build Plan deep features — all 4
   shipped** (#3a audit hash-chain PR #108, #4 reconcile auto-heal PR #109, #1
@@ -88,7 +88,7 @@ remainder is documented deferred-by-design scope (below), not active debt.
 | 3 | Multi-program enrollment + session scheduling | ~85% | 🟢 near done (genuine work shipped; only nomination workflow deferred-by-design) |
 | 4 | Frontend L&D workspace (CRUD UI) | ~82% | 🟢 near done (CRUD + policy editor complete) |
 | 5 | Reporting, completion, feedback | ~80% | 🟢 near done (cert lifecycle + recert closed; Evaluation→Assessment convergence deferred-by-design) |
-| 6 | PostgreSQL decision gate | ~6% | 🟡 in progress (gate OPENED 2026-06-21; foundation #184 on main; Phase 3 repo ports underway — 4 Wave-A dual-backend ports landed, `DB_BACKEND=mongo` default) |
+| 6 | PostgreSQL decision gate | ~7% | 🟡 in progress (gate OPENED 2026-06-21; foundation #184 on main; Phase 3 repo ports underway — 5 Wave-A dual-backend ports landed, `DB_BACKEND=mongo` default) |
 
 ## LTMS waves (forward — see [`lms-roadmap.md`](lms-roadmap.md))
 
@@ -143,6 +143,23 @@ Bug fixing and integration review rank above net-new feature rollout.
 > lines); older entries roll verbatim, newest-first, to
 > [`changelog-archive/2026-q2.md`](changelog-archive/2026-q2.md). Currently
 > inline: **2026-06-14 → 2026-06-21**.
+
+- **2026-06-21** — **Phase 3 (repository ports) — 5th dual-backend port: metric time-series (metrics surface complete).**
+  Ports the snapshot trend reader (`analyticsSeriesService.getSeries` → the
+  `metrics-repository.findSnapshotSeries` query) to dual-backend — the sibling of
+  the metrics-funnel reference, so the **metrics/analytics Wave-A surface is now
+  complete** (funnel counts + trend series). New `services/metric-series/{mongo,pg,
+  index}.js`; semantic interface `getMetricSeries({key,scope,scopeId,since})` →
+  `[{date,value}]` ascending (range→since derivation stays in the service). First
+  port to add a table: **migration `002_metric_snapshots`** — `metric_snapshots`
+  with a UNIQUE `(scope, COALESCE(scope_id,''), key, date)` mirroring the Mongo
+  unique index (COALESCE so a null `scope_id`/global collides null-as-value, not
+  Postgres' null-DISTINCT default). Parity proven on real Neon across every query
+  shape: scope + scopeId filtering (global never picks up program/office rows),
+  key filter, `since` lower-bound, ascending order, empty-series → `[]`. TTL
+  (Mongo ~400d) deferred to a pg_cron/app-scheduled delete (with the AuditLog
+  migration). Tests: pg-parity now **4 suites / 11 green on Neon** + CI-safe Mongo
+  integration. DB_BACKEND=mongo default unchanged.
 
 - **2026-06-21** — **Phase 3 (repository ports) — 4th dual-backend port: per-class attendance roster.**
   Mongo→Postgres ports continue behind the `DB_BACKEND` flag (default `mongo` →
