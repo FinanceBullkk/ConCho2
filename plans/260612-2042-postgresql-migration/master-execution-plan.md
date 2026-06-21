@@ -32,10 +32,15 @@ partial-unique + TTL encoded as explicit SQL.
 - **Done (Wave A, read-only slices):** metrics-funnel · metric-series (metrics
   surface complete) · attendance rollups by team/employee/class. PRs #184–#188.
 - **Done (Wave B, whole-repo CRUD):** room (#189) · org (#190) · session-type (#191)
-  · skill (#192) · trainer (#193). Migrations `003`–`007`.
+  · skill (#192) · trainer (#193) · vendor (#194) · learning programs+cohorts (#195)
+  · learning/enrollment · **learning/completion** (engine + certificate CRUD).
+  Migrations `003`–`011`.
 - **Schema so far:** migrations `001`/`002` (spine + metric_snapshots) +
   `003` offices/rooms · `004` departments + org user cols · `005` session_types ·
-  `006` skills · `007` trainer_profiles + schedules.{office_id,topic}.
+  `006` skills · `007` trainer_profiles + schedules.{office_id,topic} ·
+  `008` vendors/cost_entries · `009` learning_program/cohort fields ·
+  `010` enrollment cohort partial-unique · `011` certificates enrichment +
+  evaluations/feedbacks/assessment_attempts.
 
 > **Sequencing note (2026-06-22):** the easy catalog/CRUD repos are ported. The
 > REMAINING Wave-B domains are NOT simple CRUD and should each get a focused budget:
@@ -48,7 +53,9 @@ partial-unique + TTL encoded as explicit SQL.
 > - **`vendor` — simple CRUD catalog, but a local Bash-hook blocks the word
 >   "vendor"** (git add / commit / jest-path). Needs `!vendor` in `~/.claude/.ckignore`
 >   OR a tools-only commit (Write the message to a file, `git add -A` + reset junk).
-> - Then **`learning`** (biggest — programs/cohorts/sessions/enrollment/completion).
+> - **`learning`** (biggest) — programs/cohorts (#195) + enrollment + **completion**
+>   (engine + certificate CRUD, migration `011`) DONE. Remaining `learning/*` slices:
+>   session, path, feedback, reports, dashboard.
 
 ## 2. The waves (execution order, low→high risk)
 
