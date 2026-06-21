@@ -80,6 +80,63 @@ jobs:
           NODE_OPTIONS: --max-old-space-size=4096
 
   # ──────────────────────────────────────────────────────────
+  # PG-migration parity (Postgres service)
+  # Runs the dual-backend repository parity tests (tests/pg-parity/*) against a
+  # REAL Postgres so every ported repository is proven Mongo==PG. These tests
+  # SKIP in the mongo server-tests job (no PG_URL there). Part of the
+  # Mongo→Postgres migration (plans/260612-2042-postgresql-migration/); inert
+  # for the running app (DB_BACKEND stays mongo).
+  # ──────────────────────────────────────────────────────────
+  pg-parity:
+    name: PG parity (Postgres)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: ci
+          POSTGRES_PASSWORD: ci
+          POSTGRES_DB: tmsci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U ci"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
+
+    env:
+      PG_URL: postgresql://ci:ci@localhost:5432/tmsci
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: server/package-lock.json
+
+      - name: Install server dependencies
+        working-directory: server
+        run: npm ci --no-audit --no-fund --no-progress
+
+      - name: Apply PG migrations
+        working-directory: server
+        run: npx knex migrate:latest --knexfile db/pg/knexfile.js
+
+      - name: Run PG-parity tests
+        working-directory: server
+        run: npx jest tests/pg-parity --runInBand
+        env:
+          NODE_ENV: test
+          JWT_SECRET: ci-test-secret-not-used-for-anything-real
+          SENTRY_DSN: ''
+
+  # ──────────────────────────────────────────────────────────
   # GATE: client unit + hook tests (Vitest)
   # Added in audit PR 9 (QA-001). Previously only the build was gated,
   # so client logic regressions could land on main undetected.

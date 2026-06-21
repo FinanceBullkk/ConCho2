@@ -1,0 +1,72 @@
+# Phase 3 — Repository Ports (domain by domain)
+
+> Parent: [`plan.md`](plan.md) · Trigger: Phase 2 foundation complete (2026-06-21) ·
+> Host: Neon · Tooling: Knex · Owner: anhha · Est: ~4–6 weeks
+
+## Goal
+
+Port every repository to dual-backend behind its existing interface, CI-proven
+against Postgres, **while production keeps running on MongoDB** (`DB_BACKEND=mongo`
+default). No behaviour change; each port is a pure internals swap (Mongo ↔ SQL)
+validated by a parity test. The data cuts over once, later (Phase 5).
+
+## Step 3.0 — merge the foundation to main (first real PR)
+
+The Phase-1/2 work lives on `spike/pg-prototype`. The first Phase-3 PR brings the
+**inert** foundation to main:
+- `knex` + `pg` as **real deps** (regenerate the lockfile in the same PR — the
+  `npm ci` + audit gates must stay green).
+- `db/pg/` (knexfile + `001_core_training_schema`), `config/pg.js`,
+  `config/db-backend.js`, `services/metrics-funnel/` (the reference port).
+- A **parity test** under `tests/` that runs the reference funnel through BOTH
+  impls on identical data (the `pg-reference-repo-proof` logic, as a Jest test).
+- Default `DB_BACKEND=mongo` → the running app is 100% unchanged.
+- Keep the throwaway dev-tools scripts (benchmark/parity) — they are local-only.
+
+> This is the moment the migration stops being a spike. After it merges, every
+> subsequent port is a small PR following the same template.
+
+## Port template (repeat per domain)
+
+1. Define/confirm the **semantic** repository interface (not Mongo-query-shaped).
+2. Add a `*.pg.js` impl + a factory selecting by `DB_BACKEND` (like
+   `services/metrics-funnel/`). Reuse the Phase-0 Mongo repository for the `mongo`
+   side.
+3. Add a Knex migration for that domain's tables (+ trap-equivalents: soft-delete
+   predicates, partial unique indexes, any TTL/exclusion constraints).
+4. Add a **parity Jest test**: same data → identical results via Mongo and PG.
+5. Tests green on both backends; `DB_BACKEND=mongo` default unchanged. Small PR.
+
+## Suggested order (low-risk → high-risk)
+
+| Wave | Domains | Why this order |
+|------|---------|----------------|
+| A | metrics/analytics (**reference done**), reports, dashboard reads | read-only, no writes — safest first |
+| B | learning (programs/cohorts), org, room, session-type, skill, vendor, trainer | CRUD, few cross-doc invariants |
+| C | groups, enrollment, attendance, compliance, finance, planning | writes + some transactions |
+| D | schedule / `scheduleService` booking chokepoint | **highest risk** — multi-doc transactions, double-booking guard, waitlists |
+| E | auth + session/token paths | load-bearing security — port last, most scrutiny |
+
+## Success criteria
+
+- Every repository has a PG impl behind the same interface + a green parity test.
+- Full server suite passes with `DB_BACKEND=postgres` (Phase 4 overlaps here).
+- `DB_BACKEND=mongo` (prod default) behaviour identical throughout.
+
+## Out of scope
+
+- Data ETL + cutover (Phase 5). No dual-write — code switches, data cuts once.
+- Dropping Mongoose models — kept until the Phase 5 cutover bakes.
+
+## Risks
+
+- Lockfile/dep gate on the 3.0 PR — regenerate with the CI npm version.
+- Booking chokepoint (Wave D) — transaction semantics + the partial-unique
+  double-booking guard must match exactly (already prototyped in Phase 2).
+- Interface leakage — some Phase-0 repos expose Mongo-query shapes (e.g.
+  `countEnrollments(match)`); make them semantic as they are ported.
+
+## Unresolved questions
+
+- Per-table soft-delete **views** vs inline `WHERE` — decide on the first Wave-A port.
+- `pg_cron` vs app-scheduled TTL deletes — decide with the AuditLog migration.
