@@ -41,7 +41,7 @@ remainder is documented deferred-by-design scope (below), not active debt.
   flag (default `mongo` → running app unchanged), CI-proven Mongo==PG. **Wave A
   read-only DONE (5 ports):** metrics-funnel + metric time-series (metrics surface
   complete) · per-team/employee/class attendance rollups (trilogy complete).
-  **Wave B (whole-repository CRUD) IN PROGRESS:** `room` (#6) + `org` (#7) + `session-type` (#8) + `skill` (#9) done.
+  **Wave B (whole-repository CRUD) IN PROGRESS:** `room` (#6) + `org` (#7) + `session-type` (#8) + `skill` (#9) + `trainer` (#10) done.
   Master plan: `plans/260612-2042-postgresql-migration/master-execution-plan.md`.
   (TMS.update north-star: **all 7 gaps shipped** (#1–#7); #7 PWA offline
   attendance closed 2026-06-15. **Investment Build Plan deep features — all 4
@@ -89,7 +89,7 @@ remainder is documented deferred-by-design scope (below), not active debt.
 | 3 | Multi-program enrollment + session scheduling | ~85% | 🟢 near done (genuine work shipped; only nomination workflow deferred-by-design) |
 | 4 | Frontend L&D workspace (CRUD UI) | ~82% | 🟢 near done (CRUD + policy editor complete) |
 | 5 | Reporting, completion, feedback | ~80% | 🟢 near done (cert lifecycle + recert closed; Evaluation→Assessment convergence deferred-by-design) |
-| 6 | PostgreSQL decision gate | ~12% | 🟡 in progress (gate OPENED 2026-06-21; foundation #184 on main; repo ports underway — Wave A read-only DONE 5 ports + Wave B CRUD: `room`/`org`/`session-type`/`skill` whole-repo ports done; `DB_BACKEND=mongo` default) |
+| 6 | PostgreSQL decision gate | ~14% | 🟡 in progress (gate OPENED 2026-06-21; foundation #184 on main; repo ports underway — Wave A read-only DONE 5 ports + Wave B CRUD: `room`/`org`/`session-type`/`skill`/`trainer` whole-repo ports done; `DB_BACKEND=mongo` default) |
 
 ## LTMS waves (forward — see [`lms-roadmap.md`](lms-roadmap.md))
 
@@ -144,6 +144,21 @@ Bug fixing and integration review rank above net-new feature rollout.
 > lines); older entries roll verbatim, newest-first, to
 > [`changelog-archive/2026-q2.md`](changelog-archive/2026-q2.md). Currently
 > inline: **2026-06-14 → 2026-06-21**.
+
+- **2026-06-22** — **Phase 3 Wave-B — 5th whole-repository port: `domains/trainer` (A6 trainer depth).**
+  `domains/trainer/repository.js` (9 methods) ported to dual-backend via the
+  `repository.{mongo,pg}.js` + `DB_BACKEND` selector: TrainerProfile CRUD
+  (`upsertProfile` setDefaultsOnInsert → `INSERT … ON CONFLICT(user_id) DO UPDATE`,
+  `pushRating`, `softDeleteProfile`), user pickers, and the Schedule load /
+  availability reads (`sessionsForTrainer`, `busyInstructorIds` overlap Set). New
+  **migration `007_trainer_profiles`** — `trainer_profiles` (`can_deliver text[]`,
+  `availability`/`ratings jsonb`) + the `schedules.{office_id,topic}` columns the
+  reads select. Parity-proven on real Neon: upsert insert-defaults vs partial
+  update, soft-delete hides+archives, `listProfiles` status/canDeliver filter,
+  candidate pool (Teacher/Admin, `status≠Dropped` **including NULL** via
+  `IS DISTINCT FROM`), session window/order, busy-overlap Set. Tests: pg-parity
+  **9 suites / 48 green on Neon** + CI-safe Mongo integration; existing `trainer`
+  suite passes unchanged through the selector. DB_BACKEND=mongo default unchanged.
 
 - **2026-06-22** — **Phase 3 Wave-B — 4th whole-repository port: `domains/skill` (competency framework).**
   `domains/skill/repository.js` (13 methods) ported to dual-backend via the

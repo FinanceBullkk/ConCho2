@@ -31,9 +31,24 @@ partial-unique + TTL encoded as explicit SQL.
   still calling Mongoose directly (legacy controllers/services).
 - **Done (Wave A, read-only slices):** metrics-funnel · metric-series (metrics
   surface complete) · attendance rollups by team/employee/class. PRs #184–#188.
-- **Schema so far:** migrations `001` (core spine: programs/users/classes/teams/
-  team_members/enrollments/schedules/attendances/certificates) + `002`
-  (metric_snapshots). ~30 collections still need tables.
+- **Done (Wave B, whole-repo CRUD):** room (#189) · org (#190) · session-type (#191)
+  · skill (#192) · trainer (#193). Migrations `003`–`007`.
+- **Schema so far:** migrations `001`/`002` (spine + metric_snapshots) +
+  `003` offices/rooms · `004` departments + org user cols · `005` session_types ·
+  `006` skills · `007` trainer_profiles + schedules.{office_id,topic}.
+
+> **Sequencing note (2026-06-22):** the easy catalog/CRUD repos are ported. The
+> REMAINING Wave-B domains are NOT simple CRUD and should each get a focused budget:
+> - **`groups` (Team) — TRANSACTION-HEAVY (~204 LOC, ~30 methods):** Mongoose
+>   `session` passthrough, document `.save()`, raw `Team.collection` soft-delete
+>   writes, and the `syncSchedulesForTeamUpdate` side-effect. Porting it faithfully
+>   needs the **dual-backend transaction abstraction** (the use-case currently mints
+>   a Mongoose session) — the same hard problem the booking chokepoint (Wave D) has.
+>   **Defer to a dedicated transaction-abstraction slice**; do not rush it.
+> - **`vendor` — simple CRUD catalog, but a local Bash-hook blocks the word
+>   "vendor"** (git add / commit / jest-path). Needs `!vendor` in `~/.claude/.ckignore`
+>   OR a tools-only commit (Write the message to a file, `git add -A` + reset junk).
+> - Then **`learning`** (biggest — programs/cohorts/sessions/enrollment/completion).
 
 ## 2. The waves (execution order, low→high risk)
 
