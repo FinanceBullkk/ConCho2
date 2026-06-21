@@ -1,46 +1,12 @@
-const Feedback = require('../../../models/Feedback');
-const Class = require('../../../models/Class');
-const { isCohortParticipant } = require('../../../helpers/cohortMembership');
-
-const findCohort = (cohortId) =>
-  Class.findById(cohortId).select('_id classCode courseName programId isDeleted').lean();
-
-const findFeedback = (cohortId, userId) =>
-  Feedback.findOne({ cohortId, userId, isDeleted: false }).lean();
-
-// Idempotent submit: one feedback per learner per cohort, re-submit updates.
-const upsertFeedback = (data) =>
-  Feedback.findOneAndUpdate(
-    { cohortId: data.cohortId, userId: data.userId },
-    {
-      $set: {
-        programId: data.programId,
-        rating: data.rating,
-        contentRating: data.contentRating,
-        instructorRating: data.instructorRating,
-        comment: data.comment,
-        submittedBy: data.submittedBy,
-        isDeleted: false,
-      },
-    },
-    { new: true, upsert: true, setDefaultsOnInsert: true, runValidators: true },
-  ).lean();
-
-const listFeedback = ({ cohortId, learnerId }) => {
-  const filter = { isDeleted: false };
-  if (cohortId) filter.cohortId = cohortId;
-  if (learnerId) filter.userId = learnerId;
-  return Feedback.find(filter)
-    .populate('userId', 'empCode name department')
-    .populate('cohortId', 'classCode courseName')
-    .sort({ updatedAt: -1 })
-    .lean();
-};
+// learning/feedback/repository — backend selector (Phase 3 Wave-B port).
+// Consumers keep `require('./repository')` unchanged; this resolves to the Mongo
+// or Postgres impl by DB_BACKEND. `impls` is exported so the parity test can
+// exercise both backends in one run. Default DB_BACKEND=mongo → app unchanged.
+const { isPostgres } = require('../../../config/db-backend');
+const mongo = require('./repository.mongo');
+const pg = require('./repository.pg');
 
 module.exports = {
-  findCohort,
-  isCohortParticipant,
-  findFeedback,
-  upsertFeedback,
-  listFeedback,
+  ...(isPostgres ? pg : mongo),
+  impls: { mongo, pg },
 };
