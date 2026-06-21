@@ -17,7 +17,7 @@ const mongoose = require('mongoose');
 const { getApp, getTokens, getSeedData, getCsrfHeaders, teardown } = require('../setup');
 
 let app, tokens, seed, csrf;
-let Enrollment, Team, Class, Schedule;
+let Enrollment, Team, Class, Schedule, AuditLog;
 
 beforeAll(async () => {
   app = await getApp();
@@ -28,6 +28,7 @@ beforeAll(async () => {
   Team = require('../../models/Team');
   Class = require('../../models/Class');
   Schedule = require('../../models/Schedule');
+  AuditLog = require('../../models/AuditLog');
 });
 
 afterAll(async () => {
@@ -231,6 +232,29 @@ describe('PUT /api/enrollments/:id', () => {
     expect(res.status).toBe(200);
     expect(res.body.data.status).toBe(originalStatus);
     expect(res.body.data.note).toBe('Just a note');
+  });
+
+  test('records an audit entry for the admin status override (parity with bulk path)', async () => {
+    const { enrollments } = await seedTeamWithEnrollments();
+    const target = enrollments[0];
+
+    const res = await request(app)
+      .put(`/api/enrollments/${target._id}`)
+      .set('Authorization', `Bearer ${tokens.admin}`)
+      .set(csrf)
+      .send({ status: 'Dropped', note: 'Left the program' });
+    expect(res.status).toBe(200);
+
+    // Golden rule: every mutation is audited. This single-update path used to
+    // skip audit while its bulk twin recorded it — pin that it now writes one.
+    const log = await AuditLog.findOne({
+      action: 'updated',
+      entity: 'Enrollment',
+      entityId: target._id,
+    }).sort('-createdAt').lean();
+
+    expect(log).toBeTruthy();
+    expect(log.diff).toBeDefined();
   });
 
   test('returns 404 for unknown id', async () => {
