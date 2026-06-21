@@ -6,6 +6,7 @@ import {
   Compass, Languages, FileText, Zap, Sparkles, Palette, Calculator, Smartphone, CalendarClock, Wallet,
   Handshake, UserCog, Target, Sun,
 } from 'lucide-react';
+import { isFeatureEnabled } from '../../config/features';
 
 // ──────────────────────────────────────────────────────────
 // nav-config — single source of truth for the app's primary navigation.
@@ -43,15 +44,15 @@ export const NAV_GROUPS = [
     items: [
       tab('/learning', 'programs', 'learning.tabs.programs', BookOpen, { access: LEARNING_ACCESS }),
       tab('/learning', 'cohorts', 'learning.tabs.cohorts', Boxes, { access: LEARNING_ACCESS }),
-      tab('/learning', 'paths', 'learning.tabs.paths', RouteIcon, { access: LEARNING_ACCESS, perm: 'manage:path' }),
-      tab('/learning', 'assignments', 'learning.tabs.assignments', ClipboardList, { access: LEARNING_ACCESS, perm: 'read:assignments' }),
-      tab('/learning', 'assessments', 'learning.tabs.assessments', GraduationCap, { access: LEARNING_ACCESS }),
+      tab('/learning', 'paths', 'learning.tabs.paths', RouteIcon, { access: LEARNING_ACCESS, perm: 'manage:path', feature: 'paths' }),
+      tab('/learning', 'assignments', 'learning.tabs.assignments', ClipboardList, { access: LEARNING_ACCESS, perm: 'read:assignments', feature: 'assignments' }),
+      tab('/learning', 'assessments', 'learning.tabs.assessments', GraduationCap, { access: LEARNING_ACCESS, feature: 'assessments' }),
       tab('/learning', 'feedback', 'learning.tabs.feedback', MessageSquare, { access: LEARNING_ACCESS, perm: 'read:feedback' }),
       // Grading workspace (converge Phase 4 C2/C3) — a standalone page (not a
       // /learning tab) that lists gradable units across BOTH modes (quiz manual
       // grading + English rubric); replaces the retired English Evaluations tab.
       // Leaf in the Learning group, mirroring Operations' mobile-attendance leaf.
-      { path: '/grading', labelKey: 'nav.sections.grading', icon: ClipboardEdit, access: { Admin: 'full', Coordinator: 'full', Teacher: 'full' }, parentRoutes: ['/grading'] },
+      { path: '/grading', labelKey: 'nav.sections.grading', icon: ClipboardEdit, access: { Admin: 'full', Coordinator: 'full', Teacher: 'full' }, feature: 'grading', parentRoutes: ['/grading'] },
     ],
   },
   {
@@ -88,8 +89,8 @@ export const NAV_GROUPS = [
       // read:teams = Admin (+ Participant, who can't reach /people) → admin-only here.
       tab('/people', 'teams', 'people.tabs.teams', UsersRound, { perm: 'read:teams' }),
       tab('/people', 'departments', 'people.tabs.departments', Building2, { perm: 'read:department' }),
-      tab('/people', 'offices', 'people.tabs.offices', MapPin, { perm: 'read:office' }),
-      tab('/people', 'rooms', 'people.tabs.rooms', DoorOpen, { perm: 'read:room' }),
+      tab('/people', 'offices', 'people.tabs.offices', MapPin, { perm: 'read:office', feature: 'offices' }),
+      tab('/people', 'rooms', 'people.tabs.rooms', DoorOpen, { perm: 'read:room', feature: 'rooms' }),
     ],
   },
   {
@@ -99,13 +100,13 @@ export const NAV_GROUPS = [
       { path: '/custom-fields', labelKey: 'nav.sections.customFields', icon: FileText, access: ADMIN_ONLY, parentRoutes: ['/custom-fields'] },
       { path: '/automation', labelKey: 'nav.sections.automation', icon: Zap, access: ADMIN_ONLY, parentRoutes: ['/automation'] },
       { path: '/skills', labelKey: 'nav.sections.skills', icon: Sparkles, access: ADMIN_ONLY, parentRoutes: ['/skills'] },
-      { path: '/branding', labelKey: 'nav.sections.branding', icon: Palette, access: ADMIN_ONLY, parentRoutes: ['/branding'] },
+      { path: '/branding', labelKey: 'nav.sections.branding', icon: Palette, access: ADMIN_ONLY, feature: 'branding', parentRoutes: ['/branding'] },
       { path: '/scheduling', labelKey: 'nav.sections.scheduling', icon: CalendarClock, access: ADMIN_ONLY, parentRoutes: ['/scheduling'] },
       { path: '/compliance', labelKey: 'nav.sections.compliance', icon: ClipboardCheck, access: { Admin: 'full', Coordinator: 'full' }, parentRoutes: ['/compliance'] },
       { path: '/cost-roi', labelKey: 'nav.sections.costRoi', icon: Calculator, access: ADMIN_ONLY, parentRoutes: ['/cost-roi'] },
       { path: '/budget', labelKey: 'nav.sections.budget', icon: Wallet, access: { Admin: 'full', Coordinator: 'full' }, parentRoutes: ['/budget'] },
       { path: '/vendors', labelKey: 'nav.sections.vendors', icon: Handshake, access: { Admin: 'full', Coordinator: 'full' }, parentRoutes: ['/vendors'] },
-      { path: '/trainers', labelKey: 'nav.sections.trainers', icon: UserCog, access: { Admin: 'full', Coordinator: 'full' }, perm: 'assign:trainer', parentRoutes: ['/trainers'] },
+      { path: '/trainers', labelKey: 'nav.sections.trainers', icon: UserCog, access: { Admin: 'full', Coordinator: 'full' }, perm: 'assign:trainer', feature: 'trainers', parentRoutes: ['/trainers'] },
       { path: '/planning', labelKey: 'nav.sections.planning', icon: Target, access: { Admin: 'full', Coordinator: 'full' }, perm: 'plan:training', parentRoutes: ['/planning'] },
     ],
   },
@@ -114,7 +115,7 @@ export const NAV_GROUPS = [
     items: [
       tab('/system', 'settings', 'nav.sections.settings', Settings, { access: ADMIN_ONLY }),
       tab('/system', 'database', 'nav.sections.database', Database, { access: ADMIN_ONLY }),
-      tab('/system', 'sync', 'nav.sections.sync', RefreshCw, { access: ADMIN_ONLY }),
+      tab('/system', 'sync', 'nav.sections.sync', RefreshCw, { access: ADMIN_ONLY, feature: 'sync' }),
       tab('/system', 'reconcile', 'nav.sections.reconcile', ShieldCheck, { access: ADMIN_ONLY }),
       tab('/system', 'audit', 'nav.sections.audit', ScrollText, { access: ADMIN_ONLY }),
     ],
@@ -139,8 +140,8 @@ export const LEARNER_GROUPS = [
       { path: '/me/programs', labelKey: 'nav.learner.programs', icon: BookOpen, access: ALL, parentRoutes: ['/me/programs'] },
       { path: '/me/catalog', labelKey: 'nav.learner.catalog', icon: Compass, access: ALL, parentRoutes: ['/me/catalog'] },
       { path: '/me/sessions', labelKey: 'nav.learner.sessions', icon: CalendarCheck, access: ALL, parentRoutes: ['/me/sessions'] },
-      { path: '/me/paths', labelKey: 'nav.learner.paths', icon: RouteIcon, access: ALL, parentRoutes: ['/me/paths'] },
-      { path: '/me/assessments', labelKey: 'nav.learner.assessments', icon: GraduationCap, access: ALL, parentRoutes: ['/me/assessments'] },
+      { path: '/me/paths', labelKey: 'nav.learner.paths', icon: RouteIcon, access: ALL, feature: 'paths', parentRoutes: ['/me/paths'] },
+      { path: '/me/assessments', labelKey: 'nav.learner.assessments', icon: GraduationCap, access: ALL, feature: 'assessments', parentRoutes: ['/me/assessments'] },
       { path: '/me/feedback', labelKey: 'nav.learner.feedback', icon: MessageSquare, access: ALL, parentRoutes: ['/me/feedback'] },
       { path: '/me/transcript', labelKey: 'nav.learner.transcript', icon: ScrollText, access: ALL, parentRoutes: ['/me/transcript'] },
     ],
@@ -162,6 +163,7 @@ export const MY_TEAM_ITEM = {
 
 // ── Helpers ───────────────────────────────────────────────
 export function isItemVisible(item, role, can) {
+  if (item.feature && !isFeatureEnabled(item.feature)) return false;
   if (item.access && (item.access[role] ?? 'none') === 'none') return false;
   if (item.perm && !(can && can(item.perm))) return false;
   return true;
