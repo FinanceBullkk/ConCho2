@@ -41,7 +41,7 @@ remainder is documented deferred-by-design scope (below), not active debt.
   flag (default `mongo` → running app unchanged), CI-proven Mongo==PG. **Wave A
   read-only DONE (5 ports):** metrics-funnel + metric time-series (metrics surface
   complete) · per-team/employee/class attendance rollups (trilogy complete).
-  **Wave B (whole-repository CRUD) STARTED:** `room` done (#6, first WRITE port).
+  **Wave B (whole-repository CRUD) IN PROGRESS:** `room` (#6) + `org` (#7) done.
   Master plan: `plans/260612-2042-postgresql-migration/master-execution-plan.md`.
   (TMS.update north-star: **all 7 gaps shipped** (#1–#7); #7 PWA offline
   attendance closed 2026-06-15. **Investment Build Plan deep features — all 4
@@ -89,7 +89,7 @@ remainder is documented deferred-by-design scope (below), not active debt.
 | 3 | Multi-program enrollment + session scheduling | ~85% | 🟢 near done (genuine work shipped; only nomination workflow deferred-by-design) |
 | 4 | Frontend L&D workspace (CRUD UI) | ~82% | 🟢 near done (CRUD + policy editor complete) |
 | 5 | Reporting, completion, feedback | ~80% | 🟢 near done (cert lifecycle + recert closed; Evaluation→Assessment convergence deferred-by-design) |
-| 6 | PostgreSQL decision gate | ~8% | 🟡 in progress (gate OPENED 2026-06-21; foundation #184 on main; repo ports underway — Wave A read-only DONE 5 ports + Wave B CRUD started: `room` whole-repo write port; `DB_BACKEND=mongo` default) |
+| 6 | PostgreSQL decision gate | ~9% | 🟡 in progress (gate OPENED 2026-06-21; foundation #184 on main; repo ports underway — Wave A read-only DONE 5 ports + Wave B CRUD: `room` + `org` whole-repo ports done; `DB_BACKEND=mongo` default) |
 
 ## LTMS waves (forward — see [`lms-roadmap.md`](lms-roadmap.md))
 
@@ -144,6 +144,22 @@ Bug fixing and integration review rank above net-new feature rollout.
 > lines); older entries roll verbatim, newest-first, to
 > [`changelog-archive/2026-q2.md`](changelog-archive/2026-q2.md). Currently
 > inline: **2026-06-14 → 2026-06-21**.
+
+- **2026-06-21** — **Phase 3 Wave-B — 2nd whole-repository port: `domains/org` (departments + manager hierarchy).**
+  `domains/org/repository.js` (13 methods) ported to dual-backend via the
+  `repository.{mongo,pg}.js` + `DB_BACKEND` selector. Covers department CRUD,
+  `countUsersInDepartment`, the manager hierarchy (`updateUserAssignment` /
+  `listDirectReports`), and the two batched dashboard rollups
+  (`aggregateActiveEnrollments` / `aggregateIssuedCertificates`). New **migration
+  `004_departments_org`** — `departments` table + the org user columns
+  (`department_id`, `manager_id`, `position`, `status`) migration 001's minimal
+  `users` lacked. Parity-proven on real Neon: dept code UPPERCASE/partial-unique/
+  reuse-after-soft-delete, `listDirectReports` manager-scope + `populate('departmentId')`
+  (a soft-deleted dept → `departmentId:null`, legacy `department` string kept) +
+  excludes other-manager/soft-deleted reports, aggregates filter by status/`isDeleted`
+  with distinct programs. Tests: pg-parity **6 suites / 29 green on Neon** (10 org
+  cases) + CI-safe Mongo integration; existing `orgRoutes` suite (15) passes
+  unchanged through the selector. DB_BACKEND=mongo default unchanged.
 
 - **2026-06-21** — **Phase 3 Wave-B STARTED — 1st whole-repository WRITE port: `domains/room`.**
   Shift from read-slices to porting **whole `repository.js` interfaces** per domain
