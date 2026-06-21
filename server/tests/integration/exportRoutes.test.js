@@ -180,4 +180,34 @@ describe('GET /api/export/evaluations', () => {
 
     expect(res.status).toBe(401);
   });
+
+  // DATA-009 regression: the classes $lookup must filter soft-deleted classes,
+  // or a deleted cohort's label leaks into the HR evaluation export. ($lookup
+  // sub-pipelines don't fire Mongoose's pre('aggregate') soft-delete hook.)
+  test('does NOT leak a soft-deleted class label into the export', async () => {
+    const Evaluation = require('../../models/Evaluation');
+    const Class = require('../../models/Class');
+    const code = `DEL_${Date.now()}`;
+    const { insertedId: classId } = await Class.collection.insertOne({
+      classCode: code, courseName: 'Foundation', totalSessions: 5,
+      status: 'Ongoing', isDeleted: false, teacherIds: [],
+      createdAt: new Date(), updatedAt: new Date(),
+    });
+    await Evaluation.collection.insertOne({
+      classId, userId: seed.member1._id, level: 'B1',
+      grammarScore: 8, vocabularyScore: 7, pronunciationScore: 7, fluencyScore: 8,
+      teacherComment: 'ok', isDeleted: false,
+      createdAt: new Date(), updatedAt: new Date(),
+    });
+    // Soft-delete the class — its evaluations must survive but lose the label.
+    await Class.collection.updateOne({ _id: classId }, { $set: { isDeleted: true } });
+
+    const res = await request(app)
+      .get('/api/export/evaluations?format=json')
+      .set('Authorization', `Bearer ${tokens.admin}`);
+
+    expect(res.status).toBe(200);
+    // The deleted cohort's code must NOT appear in any exported row.
+    expect(res.body.data.some((r) => r.classCode === code)).toBe(false);
+  });
 });
