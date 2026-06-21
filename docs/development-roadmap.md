@@ -41,7 +41,7 @@ remainder is documented deferred-by-design scope (below), not active debt.
   flag (default `mongo` → running app unchanged), CI-proven Mongo==PG. **Wave A
   read-only DONE (5 ports):** metrics-funnel + metric time-series (metrics surface
   complete) · per-team/employee/class attendance rollups (trilogy complete).
-  **Wave B (whole-repository CRUD) IN PROGRESS:** `room` (#6) + `org` (#7) + `session-type` (#8) done.
+  **Wave B (whole-repository CRUD) IN PROGRESS:** `room` (#6) + `org` (#7) + `session-type` (#8) + `skill` (#9) done.
   Master plan: `plans/260612-2042-postgresql-migration/master-execution-plan.md`.
   (TMS.update north-star: **all 7 gaps shipped** (#1–#7); #7 PWA offline
   attendance closed 2026-06-15. **Investment Build Plan deep features — all 4
@@ -89,7 +89,7 @@ remainder is documented deferred-by-design scope (below), not active debt.
 | 3 | Multi-program enrollment + session scheduling | ~85% | 🟢 near done (genuine work shipped; only nomination workflow deferred-by-design) |
 | 4 | Frontend L&D workspace (CRUD UI) | ~82% | 🟢 near done (CRUD + policy editor complete) |
 | 5 | Reporting, completion, feedback | ~80% | 🟢 near done (cert lifecycle + recert closed; Evaluation→Assessment convergence deferred-by-design) |
-| 6 | PostgreSQL decision gate | ~10% | 🟡 in progress (gate OPENED 2026-06-21; foundation #184 on main; repo ports underway — Wave A read-only DONE 5 ports + Wave B CRUD: `room` + `org` + `session-type` whole-repo ports done; `DB_BACKEND=mongo` default) |
+| 6 | PostgreSQL decision gate | ~12% | 🟡 in progress (gate OPENED 2026-06-21; foundation #184 on main; repo ports underway — Wave A read-only DONE 5 ports + Wave B CRUD: `room`/`org`/`session-type`/`skill` whole-repo ports done; `DB_BACKEND=mongo` default) |
 
 ## LTMS waves (forward — see [`lms-roadmap.md`](lms-roadmap.md))
 
@@ -144,6 +144,22 @@ Bug fixing and integration review rank above net-new feature rollout.
 > lines); older entries roll verbatim, newest-first, to
 > [`changelog-archive/2026-q2.md`](changelog-archive/2026-q2.md). Currently
 > inline: **2026-06-14 → 2026-06-21**.
+
+- **2026-06-22** — **Phase 3 Wave-B — 4th whole-repository port: `domains/skill` (competency framework).**
+  `domains/skill/repository.js` (13 methods) ported to dual-backend via the
+  `repository.{mongo,pg}.js` + `DB_BACKEND` selector: skill CRUD + the
+  certificate-derived completion signal (`completedProgramIdsForUser` /
+  `…ByUser` / `holdersByProgram`, Map/Set shapes) + supporting user/program reads.
+  New **migration `006_skills`** — `skills` with `program_ids text[]` +
+  `target_by_role jsonb`. Parity-proven on real Neon: create defaults, name
+  partial-unique (case-insensitive guard) + reuse after soft-delete, soft-delete
+  hides, completion reads filter status/isDeleted/null-program, user reads exclude
+  soft-deleted, program names all-vs-active. Tests: pg-parity **8 suites / 43 green
+  on Neon** + CI-safe Mongo integration; existing skill/proficiency suites (24)
+  pass unchanged through the selector. (Parity lessons captured in the phase-03
+  plan: satisfy all Mongoose unique indexes + `Model.init()` for CI determinism;
+  Mongoose drops empty Mixed `{}` while PG jsonb keeps it.) DB_BACKEND=mongo
+  default unchanged.
 
 - **2026-06-21** — **Phase 3 Wave-B — 3rd whole-repository port: `domains/session-type` (metadata catalog).**
   `domains/session-type/repository.js` (6 methods: `create`/`list`/`findByIdLean`/
