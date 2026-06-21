@@ -36,8 +36,20 @@ const buildEvaluationPipeline = ({ from, to, classId } = {}) => {
       },
     },
     { $unwind: '$user' },
-    { $lookup: { from: 'classes', localField: 'classId', foreignField: '_id', as: 'class' } },
-    { $unwind: '$class' },
+    // DATA-009 parity: $lookup sub-pipelines don't fire the Mongoose soft-delete
+    // hooks, so a plain join leaks soft-deleted class labels into the HR export.
+    // Guard isDeleted at the join (like the user join above + attendance-export);
+    // preserveNullAndEmptyArrays keeps the evaluation row (a real record) even
+    // when its class was soft-deleted — only the class label drops out.
+    {
+      $lookup: {
+        from: 'classes',
+        let: { cid: '$classId' },
+        pipeline: [{ $match: { $expr: { $eq: ['$_id', '$$cid'] }, isDeleted: { $ne: true } } }],
+        as: 'class',
+      },
+    },
+    { $unwind: { path: '$class', preserveNullAndEmptyArrays: true } },
     {
       $project: {
         _id: 1,
