@@ -12,6 +12,11 @@ vi.mock('../../../context/AuthContext', () => ({ useAuth: () => ({ user: h.user 
 vi.mock('../../../context/PersonaContext', () => ({ usePersona: () => ({ persona: h.persona }) }));
 vi.mock('../../../hooks/useOrg', () => ({ useMyTeam: () => ({ data: h.myTeam }) }));
 vi.mock('react-i18next', () => ({ useTranslation: () => ({ t: (k) => k }) }));
+// These tests verify ROLE + CAPABILITY gating — independent of which modules a
+// given deployment hides via feature flags. Force all features ON so the
+// assertions test the permanent gating logic, not the local feature choices.
+// (Feature-flag gating itself is covered in feature-gating.test.js.)
+vi.mock('../../../config/features', () => ({ isFeatureEnabled: () => true }));
 
 function renderSidebar(initialPath = '/home') {
   return render(
