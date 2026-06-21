@@ -28,8 +28,8 @@ path, pgvector for future AI features.
 
 | # | Phase | File | Trigger | Est. | Status |
 |---|-------|------|---------|------|--------|
-| 0 | Readiness hardening (no PG) | [phase-00](phase-00-readiness-hardening.md) | NOW — alongside normal work | continuous | 🟡 in progress (0.3–0.7 + 0.8-user + **0.2 done 2026-06-21**; 0.8-class/0.6/0.9 remain) |
-| 1 | Gate prototype (read-only proof) | [phase-01](phase-01-gate-prototype.md) | gate opens | ~1 wk | ⚪ gated |
+| 0 | Readiness hardening (no PG) | [phase-00](phase-00-readiness-hardening.md) | NOW — alongside normal work | continuous | ✅ **COMPLETE 2026-06-21** (WS-A 0.2–0.8 extracted; 0.9 auth/booking deferred-by-design to Phase 3) |
+| 1 | Gate prototype (read-only proof) | [phase-01](phase-01-gate-prototype.md) | **gate OPEN 2026-06-21** | ~1 wk | 🟡 **NEXT** — blocked only on a real PG instance + Mongo snapshot (owner provisions infra); phase file to be authored when infra is ready |
 | 2 | Foundation & dual infrastructure | [phase-02](phase-02-foundation-dual-infra.md) | after go decision | ~1 wk | ⚪ gated |
 | 3 | Repository ports (domain by domain) | [phase-03](phase-03-repository-ports.md) | after P2 | ~4–6 wk | ⚪ gated |
 | 4 | Test parity (full suite on PG) | [phase-04](phase-04-test-parity.md) | overlaps P3 | ~1–2 wk | ⚪ gated |
