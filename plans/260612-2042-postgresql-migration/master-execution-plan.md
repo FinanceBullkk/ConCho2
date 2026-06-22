@@ -35,7 +35,7 @@ partial-unique + TTL encoded as explicit SQL.
   · skill (#192) · trainer (#193) · vendor (#194) · learning programs+cohorts (#195)
   · learning/enrollment (#196) · learning/completion (#197) · learning/path (#199)
   · branding (#200) · access (#201) · custom-field (#202) · finance (#203)
-  · automation (#204) · **compliance**. Migrations `003`–`018`.
+  · automation (#204) · compliance (#205) · **notification**. Migrations `003`–`019`.
 - **Schema so far:** migrations `001`/`002` (spine + metric_snapshots) +
   `003` offices/rooms · `004` departments + org user cols · `005` session_types ·
   `006` skills · `007` trainer_profiles + schedules.{office_id,topic} ·
@@ -44,7 +44,7 @@ partial-unique + TTL encoded as explicit SQL.
   evaluations/feedbacks/assessment_attempts · `012` learning_paths ·
   `013` tenant_config · `014` roles · `015` custom_field_definitions ·
   `016` budgets + settings · `017` automation_rules · `018` required_training +
-  users.office_id.
+  users.office_id · `019` notification_logs + users.notification_preferences.
 
 > **Sequencing note (2026-06-22):** the easy catalog/CRUD repos are ported. The
 > REMAINING Wave-B domains are NOT simple CRUD and should each get a focused budget:
