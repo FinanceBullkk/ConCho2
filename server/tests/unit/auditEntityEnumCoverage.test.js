@@ -22,7 +22,11 @@ const SCAN_DIRS = ['domains', 'controllers', 'services', 'jobs', 'middleware'].m
   path.join(__dirname, '..', '..', d)
 );
 
-const ENTITY_LITERAL = /entity:\s*['"]([A-Za-z]+)['"]/g;
+// Audited entity values are PascalCase model names ('Certificate', 'Role', …),
+// so require an uppercase initial. This excludes lowercase `entity: 'entity'`
+// column-map literals in the dual-backend Postgres repositories
+// (domains/**/repository.pg.js), which are SQL field maps — not audit calls.
+const ENTITY_LITERAL = /entity:\s*['"]([A-Z][A-Za-z]*)['"]/g;
 
 /** Recursively collect *.js files under a dir, skipping test files. */
 const collectJsFiles = (dir, acc = []) => {
