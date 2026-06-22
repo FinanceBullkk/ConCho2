@@ -41,7 +41,7 @@ remainder is documented deferred-by-design scope (below), not active debt.
   flag (default `mongo` → running app unchanged), CI-proven Mongo==PG. **Wave A
   read-only DONE (5 ports):** metrics-funnel + metric time-series (metrics surface
   complete) · per-team/employee/class attendance rollups (trilogy complete).
-  **Wave B (whole-repository CRUD) IN PROGRESS:** room (#6) + org (#7) + session-type (#8) + skill (#9) + trainer (#10) + vendor (#11) + **learning programs+cohorts (#12)** + **learning/enrollment (#13)** + **learning/completion (#14)** + **learning/feedback (#15)** + **learning/path (#16)** + **branding (#17)** + **access (#18)** + **custom-field (#19)** + **finance (#20)** done; next small capability domains (planning/compliance/automation/notification/mobile) + heavier learning sub-domains (session/reports/dashboard) + other domains, then the transaction-heavy `groups` + schedule chokepoint (need the dual-backend transaction abstraction).
+  **Wave B (whole-repository CRUD) IN PROGRESS:** room (#6) + org (#7) + session-type (#8) + skill (#9) + trainer (#10) + vendor (#11) + **learning programs+cohorts (#12)** + **learning/enrollment (#13)** + **learning/completion (#14)** + **learning/feedback (#15)** + **learning/path (#16)** + **branding (#17)** + **access (#18)** + **custom-field (#19)** + **finance (#20)** + **automation (#21)** done; next small capability domains (compliance/notification/mobile) + heavier learning sub-domains (session/reports/dashboard) + other domains, then the transaction-heavy `groups` + schedule chokepoint + **planning** (need the dual-backend transaction abstraction).
   Master plan: `plans/260612-2042-postgresql-migration/master-execution-plan.md`.
   (TMS.update north-star: **all 7 gaps shipped** (#1–#7); #7 PWA offline
   attendance closed 2026-06-15. **Investment Build Plan deep features — all 4
@@ -144,6 +144,22 @@ Bug fixing and integration review rank above net-new feature rollout.
 > lines); older entries roll verbatim, newest-first, to
 > [`changelog-archive/2026-q2.md`](changelog-archive/2026-q2.md). Currently
 > inline: **2026-06-14 → 2026-06-21**.
+
+- **2026-06-22** — **Phase 3 Wave-B — 16th port: `domains/automation` (no-code rules).**
+  `domains/automation/repository.js` (7 methods) → dual-backend via the
+  `repository.{mongo,pg}.js` + selector: `listLive` / `findById` /
+  `findEnabledByTrigger` (the event-bus runner hot path) / `create` / `updateById`
+  / `softDeleteById` / `recordRun`. New **migration `017`** — `automation_rules`
+  (`conditions`/`actions` jsonb arrays, `enabled`/`system` flags, `run_count`;
+  soft-deleted; partial-unique `name` among LIVE SYSTEM rules — idempotent
+  seeding). Parity-proven on real Neon: `listLive` order (system desc, name asc) +
+  soft-delete excluded; `findEnabledByTrigger` filters enabled+trigger+live;
+  create defaults (enabled/system false, conditions/actions []); `recordRun`
+  increments `run_count` mirroring Mongo `updateOne({_id})` (no is_deleted
+  predicate). Tests: pg-parity **20 suites / 107 green on Neon** + CI-safe selector
+  test; the automation route suite (7) passes unchanged through the selector.
+  DB_BACKEND=mongo default unchanged. (Planning deferred — transaction-heavy
+  `scheduleItem` belongs with the groups/schedule transaction-abstraction slice.)
 
 - **2026-06-22** — **Phase 3 Wave-B — 15th port: `domains/finance` (A1 budget & cost).**
   `domains/finance/repository.js` (18 methods) → dual-backend via the
