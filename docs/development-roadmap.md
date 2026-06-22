@@ -41,7 +41,7 @@ remainder is documented deferred-by-design scope (below), not active debt.
   flag (default `mongo` → running app unchanged), CI-proven Mongo==PG. **Wave A
   read-only DONE (5 ports):** metrics-funnel + metric time-series (metrics surface
   complete) · per-team/employee/class attendance rollups (trilogy complete).
-  **Wave B (whole-repository CRUD) IN PROGRESS:** room (#6) + org (#7) + session-type (#8) + skill (#9) + trainer (#10) + vendor (#11) + **learning programs+cohorts (#12)** + **learning/enrollment (#13)** + **learning/completion (#14)** + **learning/feedback (#15)** + **learning/path (#16)** + **branding (#17)** + **access (#18)** + **custom-field (#19)** + **finance (#20)** + **automation (#21)** + **compliance (#22)** done; next small capability domains (notification/mobile) + heavier learning sub-domains (session/reports/dashboard) + other domains, then the transaction-heavy `groups` + schedule chokepoint + **planning** (need the dual-backend transaction abstraction).
+  **Wave B (whole-repository CRUD) IN PROGRESS:** room (#6) + org (#7) + session-type (#8) + skill (#9) + trainer (#10) + vendor (#11) + **learning programs+cohorts (#12)** + **learning/enrollment (#13)** + **learning/completion (#14)** + **learning/feedback (#15)** + **learning/path (#16)** + **branding (#17)** + **access (#18)** + **custom-field (#19)** + **finance (#20)** + **automation (#21)** + **compliance (#22)** + **notification (#23)** done; next `mobile` + heavier learning sub-domains (session/reports/dashboard) + other domains, then the transaction-heavy `groups` + schedule chokepoint + **planning** (need the dual-backend transaction abstraction).
   Master plan: `plans/260612-2042-postgresql-migration/master-execution-plan.md`.
   (TMS.update north-star: **all 7 gaps shipped** (#1–#7); #7 PWA offline
   attendance closed 2026-06-15. **Investment Build Plan deep features — all 4
@@ -144,6 +144,24 @@ Bug fixing and integration review rank above net-new feature rollout.
 > lines); older entries roll verbatim, newest-first, to
 > [`changelog-archive/2026-q2.md`](changelog-archive/2026-q2.md). Currently
 > inline: **2026-06-14 → 2026-06-21**.
+
+- **2026-06-22** — **Phase 3 Wave-B — 18th port: `domains/notification` (in-app bell, P5).**
+  `domains/notification/repository.js` (7 methods) → dual-backend via the
+  `repository.{mongo,pg}.js` + selector: bell feed/unread/mark surface
+  (`findForUser` / `countUnreadForUser` / `markRead` / `markAllReadForUser`) +
+  per-user preferences (`findUserPreferences` / `updateUserPreferences`). New
+  **migration `019`** — `notification_logs` (read/mark surface; bell index
+  `{recipient_user_id, created_at desc}`) + an additive `users.notification_
+  preferences` jsonb column. Parity-proven on real Neon: feed + unread count
+  exclude `status='pending'` (transient) rows; `markRead` is self-scoped (another
+  user's id → null); `markAllReadForUser` filters only `read_at IS NULL` (no status
+  filter, mirroring Mongo `updateMany` — so it also marks pending rows); a user
+  with no prefs OMITS the key (Mongo default undefined). **Deferred with the
+  writers** (the email/cron jobs that CREATE rows stay on Mongo until cutover): the
+  180-day retention TTL (→ scheduled cleanup, Wave E) and the 7-column cadence
+  UNIQUE. Tests: pg-parity **22 suites / 121 green on Neon** + CI-safe selector
+  test; the notifications-mine suite passes unchanged through the selector.
+  DB_BACKEND=mongo default unchanged.
 
 - **2026-06-22** — **Phase 3 Wave-B — 17th port: `domains/compliance` (A3 required-training matrix).**
   `domains/compliance/repository.js` (10 methods) → dual-backend via the
