@@ -41,7 +41,7 @@ remainder is documented deferred-by-design scope (below), not active debt.
   flag (default `mongo` → running app unchanged), CI-proven Mongo==PG. **Wave A
   read-only DONE (5 ports):** metrics-funnel + metric time-series (metrics surface
   complete) · per-team/employee/class attendance rollups (trilogy complete).
-  **Wave B (whole-repository CRUD) IN PROGRESS:** room (#6) + org (#7) + session-type (#8) + skill (#9) + trainer (#10) + vendor (#11) + **learning programs+cohorts (#12)** + **learning/enrollment (#13)** + **learning/completion (#14)** + **learning/feedback (#15)** + **learning/path (#16)** + **branding (#17)** + **access (#18)** + **custom-field (#19)** + **finance (#20)** + **automation (#21)** done; next small capability domains (compliance/notification/mobile) + heavier learning sub-domains (session/reports/dashboard) + other domains, then the transaction-heavy `groups` + schedule chokepoint + **planning** (need the dual-backend transaction abstraction).
+  **Wave B (whole-repository CRUD) IN PROGRESS:** room (#6) + org (#7) + session-type (#8) + skill (#9) + trainer (#10) + vendor (#11) + **learning programs+cohorts (#12)** + **learning/enrollment (#13)** + **learning/completion (#14)** + **learning/feedback (#15)** + **learning/path (#16)** + **branding (#17)** + **access (#18)** + **custom-field (#19)** + **finance (#20)** + **automation (#21)** + **compliance (#22)** done; next small capability domains (notification/mobile) + heavier learning sub-domains (session/reports/dashboard) + other domains, then the transaction-heavy `groups` + schedule chokepoint + **planning** (need the dual-backend transaction abstraction).
   Master plan: `plans/260612-2042-postgresql-migration/master-execution-plan.md`.
   (TMS.update north-star: **all 7 gaps shipped** (#1–#7); #7 PWA offline
   attendance closed 2026-06-15. **Investment Build Plan deep features — all 4
@@ -144,6 +144,22 @@ Bug fixing and integration review rank above net-new feature rollout.
 > lines); older entries roll verbatim, newest-first, to
 > [`changelog-archive/2026-q2.md`](changelog-archive/2026-q2.md). Currently
 > inline: **2026-06-14 → 2026-06-21**.
+
+- **2026-06-22** — **Phase 3 Wave-B — 17th port: `domains/compliance` (A3 required-training matrix).**
+  `domains/compliance/repository.js` (10 methods) → dual-backend via the
+  `repository.{mongo,pg}.js` + selector: RequiredTraining CRUD + the matrix's
+  read-only signals (workforce, issued certificates, program/path labels). New
+  **migration `018`** — `required_training` (`appliesTo`/`target` subobjects
+  flattened to columns; soft-deleted) + an additive `users.office_id` column (the
+  workforce read selects it for office-scoped requirements; no earlier port needed
+  it — same precedent as the settings table). Parity-proven on real Neon:
+  `appliesTo`/`target` ↔ flat columns (update replaces the pair); RequiredTraining/
+  User/Certificate filter `is_deleted` while `LearningPath` does NOT (no find-hook →
+  deleted paths still returned, mirrored) and LearningProgram has no soft-delete;
+  `listWorkforce` is Active-only + role/department filter; `listIssuedCertificates`
+  Issued+live with the empty-id guard. Tests: pg-parity **21 suites / 112 green on
+  Neon** + CI-safe selector test; the complianceMatrix + compliance-completion-batch
+  suites (8) pass unchanged through the selector. DB_BACKEND=mongo default unchanged.
 
 - **2026-06-22** — **Phase 3 Wave-B — 16th port: `domains/automation` (no-code rules).**
   `domains/automation/repository.js` (7 methods) → dual-backend via the
