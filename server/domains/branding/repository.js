@@ -1,15 +1,12 @@
-const TenantConfig = require('../../models/TenantConfig');
+// branding/repository — backend selector (Phase 3 Wave-B port).
+// Consumers keep `require('./repository')` unchanged; this resolves to the Mongo
+// or Postgres impl by DB_BACKEND. `impls` is exported so the parity test can
+// exercise both backends in one run. Default DB_BACKEND=mongo → app unchanged.
+const { isPostgres } = require('../../config/db-backend');
+const mongo = require('./repository.mongo');
+const pg = require('./repository.pg');
 
-// All Mongoose access for the branding domain (TMS.update gap #5). The config is
-// a singleton (key='default').
-
-const getSingleton = () => TenantConfig.getSingleton();
-
-const update = (patch) =>
-  TenantConfig.findOneAndUpdate(
-    { key: 'default' },
-    { $set: patch },
-    { upsert: true, new: true, setDefaultsOnInsert: true },
-  ).lean();
-
-module.exports = { getSingleton, update };
+module.exports = {
+  ...(isPostgres ? pg : mongo),
+  impls: { mongo, pg },
+};
