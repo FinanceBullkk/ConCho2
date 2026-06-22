@@ -1,0 +1,39 @@
+/**
+ * ──────────────────────────────────────────────────────────
+ * Integration Test — compliance repository dual-backend selector (Wave-B)
+ * ──────────────────────────────────────────────────────────
+ * Pins the DB_BACKEND selector → mongo by default, both impls load (PG without a
+ * connection), and the Mongo RequiredTraining CRUD is intact through the
+ * selector. Exact Mongo↔PG parity proven on real Postgres by
+ * tests/pg-parity/compliance-repository.pg.test.js.
+ */
+const mongoose = require('mongoose');
+const { getApp } = require('../setup');
+const repo = require('../../domains/compliance/repository');
+
+beforeAll(async () => { await getApp(); });
+afterAll(async () => { await mongoose.disconnect(); });
+
+describe('compliance repository dual-backend selector', () => {
+  test('selector resolves to mongo by default + both impls load (PG loads without connecting)', () => {
+    expect(repo.createRequirement).toBe(repo.impls.mongo.createRequirement);
+    expect(typeof repo.impls.mongo.listWorkforce).toBe('function');
+    expect(typeof repo.impls.pg.findPathsByIds).toBe('function');
+  });
+
+  test('mongo RequiredTraining CRUD through the selector', async () => {
+    const r = await repo.impls.mongo.createRequirement({
+      appliesTo: { type: 'role', value: 'Teacher' }, target: { kind: 'program', id: new mongoose.Types.ObjectId() },
+    });
+    expect(r.dueWithinDays).toBe(90); // default
+    expect(r.mandatory).toBe(true);
+
+    const id = r._id;
+    expect(await repo.impls.mongo.findRequirementById(id)).toBeTruthy();
+    const upd = await repo.impls.mongo.updateRequirement(id, { recurrence: 'annual' });
+    expect(upd.recurrence).toBe('annual');
+
+    await repo.impls.mongo.softDeleteRequirement(id);
+    expect(await repo.impls.mongo.findRequirementById(id)).toBeNull(); // hidden
+  });
+});
