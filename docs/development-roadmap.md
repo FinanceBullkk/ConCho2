@@ -41,7 +41,7 @@ remainder is documented deferred-by-design scope (below), not active debt.
   flag (default `mongo` → running app unchanged), CI-proven Mongo==PG. **Wave A
   read-only DONE (5 ports):** metrics-funnel + metric time-series (metrics surface
   complete) · per-team/employee/class attendance rollups (trilogy complete).
-  **Wave B (whole-repository CRUD) IN PROGRESS:** room (#6) + org (#7) + session-type (#8) + skill (#9) + trainer (#10) + vendor (#11) + **learning programs+cohorts (#12)** + **learning/enrollment (#13)** + **learning/completion (#14)** + **learning/feedback (#15)** + **learning/path (#16)** + **branding (#17)** + **access (#18)** + **custom-field (#19)** + **finance (#20)** + **automation (#21)** + **compliance (#22)** + **notification (#23)** done; next `mobile` + heavier learning sub-domains (session/reports/dashboard) + other domains, then the transaction-heavy `groups` + schedule chokepoint + **planning** (need the dual-backend transaction abstraction).
+  **Wave B (whole-repository CRUD) IN PROGRESS:** room (#6) + org (#7) + session-type (#8) + skill (#9) + trainer (#10) + vendor (#11) + **learning programs+cohorts (#12)** + **learning/enrollment (#13)** + **learning/completion (#14)** + **learning/feedback (#15)** + **learning/path (#16)** + **branding (#17)** + **access (#18)** + **custom-field (#19)** + **finance (#20)** + **automation (#21)** + **compliance (#22)** + **notification (#23)** + **mobile (#24)** done — **simple capability-domain lane CLOSED**; next the heavier learning sub-domains (session/reports/dashboard/assignment) + `org`-adjacent reads, then the transaction-heavy `groups` + schedule chokepoint + **planning** (need the dual-backend transaction abstraction).
   Master plan: `plans/260612-2042-postgresql-migration/master-execution-plan.md`.
   (TMS.update north-star: **all 7 gaps shipped** (#1–#7); #7 PWA offline
   attendance closed 2026-06-15. **Investment Build Plan deep features — all 4
@@ -144,6 +144,25 @@ Bug fixing and integration review rank above net-new feature rollout.
 > lines); older entries roll verbatim, newest-first, to
 > [`changelog-archive/2026-q2.md`](changelog-archive/2026-q2.md). Currently
 > inline: **2026-06-14 → 2026-06-21**.
+
+- **2026-06-23** — **Phase 3 Wave-B — 19th port: `domains/mobile` (mobile learning surface, B5).**
+  `domains/mobile/repository.js` (3 methods) → dual-backend via the
+  `repository.{mongo,pg}.js` + selector: Web-Push subscription `upsert`/`remove` +
+  the learner's upcoming enrolled sessions. New **migration `020`** —
+  `push_subscriptions` (globally-unique `endpoint`; `keys` jsonb; NO soft-delete —
+  unsubscribe is a hard delete) + additive `schedules.room_link`/`meet_link`
+  columns (the upcoming-sessions feed selects them; default `''` per the Schedule
+  model). Parity-proven on real Neon: `upsertSubscription` keys on the unique
+  endpoint (ON CONFLICT re-homes the device to the new user — no duplicate row);
+  `removeSubscription` hard-deletes returning `{deletedCount}`;
+  `upcomingSessionsForUser` is `enrolled_users` array-contains + scheduled +
+  `start_time >= from`, ordered ascending, `populate(classId)` dropping a deleted
+  class to null (cancelled/past sessions excluded). Tests: pg-parity **23 suites /
+  125 green on Neon** + CI-safe selector test; the mobile route suite passes
+  unchanged through the selector. DB_BACKEND=mongo default unchanged. **This closes
+  the simple capability-domain lane** — the remaining ports are the heavier
+  learning sub-domains (session/reports/dashboard) + the transaction-heavy tail
+  (groups, schedule chokepoint, planning).
 
 - **2026-06-22** — **Phase 3 Wave-B — 18th port: `domains/notification` (in-app bell, P5).**
   `domains/notification/repository.js` (7 methods) → dual-backend via the
