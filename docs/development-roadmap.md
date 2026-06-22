@@ -41,7 +41,7 @@ remainder is documented deferred-by-design scope (below), not active debt.
   flag (default `mongo` → running app unchanged), CI-proven Mongo==PG. **Wave A
   read-only DONE (5 ports):** metrics-funnel + metric time-series (metrics surface
   complete) · per-team/employee/class attendance rollups (trilogy complete).
-  **Wave B (whole-repository CRUD) IN PROGRESS:** room (#6) + org (#7) + session-type (#8) + skill (#9) + trainer (#10) + vendor (#11) + **learning programs+cohorts (#12)** + **learning/enrollment (#13)** + **learning/completion (#14)** + **learning/feedback (#15)** + **learning/path (#16)** + **branding (#17)** + **access (#18)** done; next small capability domains (automation/custom-field/notification) + heavier learning sub-domains (session/reports/dashboard) + other domains, then the transaction-heavy `groups` + schedule chokepoint (need the dual-backend transaction abstraction).
+  **Wave B (whole-repository CRUD) IN PROGRESS:** room (#6) + org (#7) + session-type (#8) + skill (#9) + trainer (#10) + vendor (#11) + **learning programs+cohorts (#12)** + **learning/enrollment (#13)** + **learning/completion (#14)** + **learning/feedback (#15)** + **learning/path (#16)** + **branding (#17)** + **access (#18)** + **custom-field (#19)** done; next small capability domains (automation/notification/finance/planning/compliance) + heavier learning sub-domains (session/reports/dashboard) + other domains, then the transaction-heavy `groups` + schedule chokepoint (need the dual-backend transaction abstraction).
   Master plan: `plans/260612-2042-postgresql-migration/master-execution-plan.md`.
   (TMS.update north-star: **all 7 gaps shipped** (#1–#7); #7 PWA offline
   attendance closed 2026-06-15. **Investment Build Plan deep features — all 4
@@ -144,6 +144,21 @@ Bug fixing and integration review rank above net-new feature rollout.
 > lines); older entries roll verbatim, newest-first, to
 > [`changelog-archive/2026-q2.md`](changelog-archive/2026-q2.md). Currently
 > inline: **2026-06-14 → 2026-06-21**.
+
+- **2026-06-22** — **Phase 3 Wave-B — 14th port: `domains/custom-field` (Studio custom fields).**
+  `domains/custom-field/repository.js` (6 methods) → dual-backend via the
+  `repository.{mongo,pg}.js` + selector: definition CRUD (`list` / `create` /
+  `findByIdLean` / `updateById` / `softDelete`) + drag-`reorder`. New **migration
+  `015`** — `custom_field_definitions` (`options`/`show_in` text[], `required` flag,
+  `display_order` since `order` is SQL-reserved; partial-unique `(entity,key)` among
+  live rows). Parity-proven on real Neon: list sort (entity/order/createdAt) + entity
+  filter + soft-delete excluded; create applies the Mongoose defaults
+  (type/options/showIn/required/order) + lowercases the key; the `(entity,key)`
+  live-row unique violation (23505 → `{code:11000}`) rejects identically on create
+  AND on a key-collision update; a key freed by soft-delete re-creates; `reorder`
+  rewrites `display_order` by index. Tests: pg-parity **18 suites / 95 green on Neon**
+  + CI-safe selector test; the existing customField route suite passes unchanged
+  through the selector. DB_BACKEND=mongo default unchanged.
 
 - **2026-06-22** — **Phase 3 Wave-B — 13th port: `domains/access` (RBAC roles).**
   `domains/access/repository.js` (5 methods) → dual-backend via the
