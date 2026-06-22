@@ -41,7 +41,7 @@ remainder is documented deferred-by-design scope (below), not active debt.
   flag (default `mongo` → running app unchanged), CI-proven Mongo==PG. **Wave A
   read-only DONE (5 ports):** metrics-funnel + metric time-series (metrics surface
   complete) · per-team/employee/class attendance rollups (trilogy complete).
-  **Wave B (whole-repository CRUD) IN PROGRESS:** room (#6) + org (#7) + session-type (#8) + skill (#9) + trainer (#10) + vendor (#11) + **learning programs+cohorts (#12)** + **learning/enrollment (#13)** + **learning/completion (#14)** + **learning/feedback (#15)** + **learning/path (#16)** + **branding (#17)** + **access (#18)** + **custom-field (#19)** done; next small capability domains (automation/notification/finance/planning/compliance) + heavier learning sub-domains (session/reports/dashboard) + other domains, then the transaction-heavy `groups` + schedule chokepoint (need the dual-backend transaction abstraction).
+  **Wave B (whole-repository CRUD) IN PROGRESS:** room (#6) + org (#7) + session-type (#8) + skill (#9) + trainer (#10) + vendor (#11) + **learning programs+cohorts (#12)** + **learning/enrollment (#13)** + **learning/completion (#14)** + **learning/feedback (#15)** + **learning/path (#16)** + **branding (#17)** + **access (#18)** + **custom-field (#19)** + **finance (#20)** done; next small capability domains (planning/compliance/automation/notification/mobile) + heavier learning sub-domains (session/reports/dashboard) + other domains, then the transaction-heavy `groups` + schedule chokepoint (need the dual-backend transaction abstraction).
   Master plan: `plans/260612-2042-postgresql-migration/master-execution-plan.md`.
   (TMS.update north-star: **all 7 gaps shipped** (#1–#7); #7 PWA offline
   attendance closed 2026-06-15. **Investment Build Plan deep features — all 4
@@ -144,6 +144,23 @@ Bug fixing and integration review rank above net-new feature rollout.
 > lines); older entries roll verbatim, newest-first, to
 > [`changelog-archive/2026-q2.md`](changelog-archive/2026-q2.md). Currently
 > inline: **2026-06-14 → 2026-06-21**.
+
+- **2026-06-22** — **Phase 3 Wave-B — 15th port: `domains/finance` (A1 budget & cost).**
+  `domains/finance/repository.js` (18 methods) → dual-backend via the
+  `repository.{mongo,pg}.js` + selector: CostEntry + Budget CRUD, cost roll-ups
+  (Σ by scope dimension / type), budget-vs-actual inputs, label lookups, and the
+  tenant-currency read. New **migration `016`** — `budgets` (fiscal-year allowance,
+  `amount_minor` bigint) + a generic `settings` KV table (`value` jsonb; finance's
+  `getTenantCurrency` reads the `LND_COST_CONFIG` row — added now, the settings
+  domain port reuses it, same precedent as cost_entries in 008). `cost_entries`
+  already existed (008). Parity-proven on real Neon: the CostEntry `scope`
+  subobject ↔ flat `scope_*` columns (an update REPLACES the whole scope);
+  soft-delete excluded on reads AND aggregations (CostEntry's `pre('aggregate')`
+  hook); create defaults (`type` 'other') + currency uppercased; rollup null bucket
+  + totalMinor-desc sort; label lookups hide deleted department/class/vendor while
+  programs (no soft-delete) are never hidden. Tests: pg-parity **19 suites / 103
+  green on Neon** + CI-safe selector test; the financeBudget route suite (7) passes
+  unchanged through the selector. DB_BACKEND=mongo default unchanged.
 
 - **2026-06-22** — **Phase 3 Wave-B — 14th port: `domains/custom-field` (Studio custom fields).**
   `domains/custom-field/repository.js` (6 methods) → dual-backend via the
