@@ -1,44 +1,12 @@
-const LearningPath = require('../../../models/LearningPath');
+// learning/path/repository — backend selector (Phase 3 Wave-B port).
+// Consumers keep `require('./repository')` unchanged; this resolves to the Mongo
+// or Postgres impl by DB_BACKEND. `impls` is exported so the parity test can
+// exercise both backends in one run. Default DB_BACKEND=mongo → app unchanged.
+const { isPostgres } = require('../../../config/db-backend');
+const mongo = require('./repository.mongo');
+const pg = require('./repository.pg');
 
-// Populate programs with just the catalog summary fields the DTO needs.
-const PROGRAM_FIELDS = 'code name category status schedulingMode';
-
-const create = async (data) => {
-  const created = await LearningPath.create(data);
-  return findByIdLean(created._id);
+module.exports = {
+  ...(isPostgres ? pg : mongo),
+  impls: { mongo, pg },
 };
-
-// Mongoose doc (not lean) — for the audit `before` snapshot + existence checks.
-const findById = (id) => LearningPath.findOne({ _id: id, isDeleted: false });
-
-const findByIdLean = (id) =>
-  LearningPath.findOne({ _id: id, isDeleted: false })
-    .populate('programs', PROGRAM_FIELDS)
-    .lean();
-
-const list = ({ status, search }) => {
-  const filter = { isDeleted: false };
-  if (status) filter.status = status;
-  if (search) {
-    const rx = new RegExp(search.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
-    filter.$or = [{ code: rx }, { title: rx }];
-  }
-  return LearningPath.find(filter)
-    .populate('programs', PROGRAM_FIELDS)
-    .sort({ title: 1 })
-    .lean();
-};
-
-const updateById = (id, data) =>
-  LearningPath.findOneAndUpdate(
-    { _id: id, isDeleted: false },
-    { $set: data },
-    { new: true, runValidators: true },
-  )
-    .populate('programs', PROGRAM_FIELDS)
-    .lean();
-
-const softDelete = (id) =>
-  updateById(id, { isDeleted: true, deletedAt: new Date(), status: 'archived' });
-
-module.exports = { create, findById, findByIdLean, list, updateById, softDelete };
