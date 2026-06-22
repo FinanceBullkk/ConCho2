@@ -40,9 +40,13 @@ jobs:
   server-tests:
     name: Server tests (Jest)
     runs-on: ubuntu-latest
-    # 15 (was 10): green runs hit 8.2 min as the suite grew past 80 files —
-    # headroom, not slack; the suite itself is unchanged by this bump.
-    timeout-minutes: 15
+    # 25 (was 15, was 10): the suite grew past 150 files during the Postgres
+    # dual-backend port marathon (each port adds an integration suite); with
+    # --runInBand + --detectOpenHandles the per-file setup pushed a green run
+    # past the 15-min wall (timed out at 15m21s on PR #202). Headroom, not slack
+    # — the suite itself is unchanged. Durable speedup (drop --detectOpenHandles
+    # / shard the job) is tracked as a follow-up, not blocking the marathon.
+    timeout-minutes: 25
 
     steps:
       - uses: actions/checkout@v5
@@ -73,11 +77,12 @@ jobs:
           # Disable Sentry in CI so we don't pollute the dashboard
           SENTRY_DSN: ''
           # --runInBand keeps every suite's module registry in ONE node
-          # process; at 82 suites the default heap (~2GB) OOMs near the end
-          # ("Ineffective mark-compacts near heap limit" — first seen
-          # 2026-06-11 on main). 4GB fits the ubuntu-latest runner and stops
-          # the GC thrash that was also inflating runtimes toward the timeout.
-          NODE_OPTIONS: --max-old-space-size=4096
+          # process; the heap grows with suite count. 2GB OOMed at 82 suites
+          # (2026-06-11), 4GB OOMed at ~156 suites during the Postgres port
+          # marathon ("Ineffective mark-compacts near heap limit", PR #202).
+          # 8GB fits the ubuntu-latest runner (16GB) with runway for the rest
+          # of the marathon and stops the GC thrash inflating runtimes.
+          NODE_OPTIONS: --max-old-space-size=8192
 
   # ──────────────────────────────────────────────────────────
   # PG-migration parity (Postgres service)
