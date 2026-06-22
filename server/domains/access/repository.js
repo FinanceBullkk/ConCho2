@@ -1,13 +1,12 @@
-const Role = require('../../models/Role');
+// access/repository — backend selector (Phase 3 Wave-B port).
+// Consumers keep `require('./repository')` unchanged; this resolves to the Mongo
+// or Postgres impl by DB_BACKEND. `impls` is exported so the parity test can
+// exercise both backends in one run. Default DB_BACKEND=mongo → app unchanged.
+const { isPostgres } = require('../../config/db-backend');
+const mongo = require('./repository.mongo');
+const pg = require('./repository.pg');
 
-// All Mongoose access for the roles domain (TMS.update gap #2). Live = not
-// soft-deleted; system roles sort first, then by key.
-const listLive = () => Role.find({ isDeleted: false }).sort({ system: -1, key: 1 }).lean();
-const findByKey = (key) => Role.findOne({ key, isDeleted: false }).lean();
-const create = (data) => Role.create(data);
-const updateByKey = (key, patch) =>
-  Role.findOneAndUpdate({ key, isDeleted: false }, { $set: patch }, { new: true }).lean();
-const softDeleteByKey = (key) =>
-  Role.findOneAndUpdate({ key, isDeleted: false }, { $set: { isDeleted: true, deletedAt: new Date() } }, { new: true }).lean();
-
-module.exports = { listLive, findByKey, create, updateByKey, softDeleteByKey };
+module.exports = {
+  ...(isPostgres ? pg : mongo),
+  impls: { mongo, pg },
+};
