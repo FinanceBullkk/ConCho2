@@ -41,7 +41,7 @@ remainder is documented deferred-by-design scope (below), not active debt.
   flag (default `mongo` → running app unchanged), CI-proven Mongo==PG. **Wave A
   read-only DONE (5 ports):** metrics-funnel + metric time-series (metrics surface
   complete) · per-team/employee/class attendance rollups (trilogy complete).
-  **Wave B (whole-repository CRUD) IN PROGRESS:** room (#6) + org (#7) + session-type (#8) + skill (#9) + trainer (#10) + vendor (#11) + **learning programs+cohorts (#12)** + **learning/enrollment (#13)** + **learning/completion (#14)** + **learning/feedback (#15)** + **learning/path (#16)** + **branding (#17)** + **access (#18)** + **custom-field (#19)** + **finance (#20)** + **automation (#21)** + **compliance (#22)** + **notification (#23)** + **mobile (#24)** + **org/office (#25)** done. **Port-now set** (sequencing report `plans/reports/plan-260623-0720-*`): office ✓ → next assessment-question-bank · report-presets · executive-dashboard · dashboard · learning/assignment · attendance · learning/reports (+ assessment domain). Then the transaction-heavy tail (`groups` · schedule chokepoint · `planning` · learning/session) — all need the dual-backend transaction abstraction built first.
+  **Wave B (whole-repository CRUD) IN PROGRESS:** room (#6) + org (#7) + session-type (#8) + skill (#9) + trainer (#10) + vendor (#11) + **learning programs+cohorts (#12)** + **learning/enrollment (#13)** + **learning/completion (#14)** + **learning/feedback (#15)** + **learning/path (#16)** + **branding (#17)** + **access (#18)** + **custom-field (#19)** + **finance (#20)** + **automation (#21)** + **compliance (#22)** + **notification (#23)** + **mobile (#24)** + **org/office (#25)** + **assessment/question-bank (#26)** done. **Port-now set** (sequencing report `plans/reports/plan-260623-0720-*`): office ✓ · question-bank ✓ → next report-presets · executive-dashboard · dashboard · learning/assignment · attendance · learning/reports (+ assessment domain). Then the transaction-heavy tail (`groups` · schedule chokepoint · `planning` · learning/session) — all need the dual-backend transaction abstraction built first.
   Master plan: `plans/260612-2042-postgresql-migration/master-execution-plan.md`.
   (TMS.update north-star: **all 7 gaps shipped** (#1–#7); #7 PWA offline
   attendance closed 2026-06-15. **Investment Build Plan deep features — all 4
@@ -144,6 +144,22 @@ Bug fixing and integration review rank above net-new feature rollout.
 > lines); older entries roll verbatim, newest-first, to
 > [`changelog-archive/2026-q2.md`](changelog-archive/2026-q2.md). Currently
 > inline: **2026-06-14 → 2026-06-21**.
+
+- **2026-06-23** — **Phase 3 Wave-B — 21st port: `domains/assessment/question-bank-repository`.**
+  `question-bank-repository.js` (5 methods) → dual-backend via the
+  `question-bank-repository.{mongo,pg}.js` + selector: reusable question-bank item
+  CRUD. New **migration `021`** — `assessment_questions` (type/prompt;
+  `options`/`correct_option_indexes`/`accepted_answers` NULLABLE — Mongo
+  `default:undefined`, omitted when unset; `tags` text[] default []; `points`
+  double precision; soft-deleted; GIN index on tags). Parity-proven on real Neon:
+  the `default:undefined` arrays are **omitted** from the read shape when unset (a
+  short_text item carries no `options`/`correctOptionIndexes` keys); `listQuestions`
+  filters (type/tag via `= ANY(tags)`/programId) + prompt `~*` (mirroring
+  `$regex/$options:'i'`) + updatedAt-desc sort; `softDeleteQuestion` has no
+  `is_deleted` guard (mirroring `findByIdAndUpdate`); explicit soft-delete (the model
+  has no Mongoose hooks). Tests: pg-parity **25 suites / 125 green on Neon** + CI-safe
+  selector test; the assessmentRoutes suite (23) passes unchanged through the
+  selector. DB_BACKEND=mongo default unchanged.
 
 - **2026-06-23** — **Phase 3 Wave-B — 20th port: `domains/org/office-repository` (offices).**
   `domains/org/office-repository.js` (6 methods) → dual-backend via the
