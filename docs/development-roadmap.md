@@ -41,7 +41,7 @@ remainder is documented deferred-by-design scope (below), not active debt.
   flag (default `mongo` → running app unchanged), CI-proven Mongo==PG. **Wave A
   read-only DONE (5 ports):** metrics-funnel + metric time-series (metrics surface
   complete) · per-team/employee/class attendance rollups (trilogy complete).
-  **Wave B (whole-repository CRUD) IN PROGRESS:** room (#6) + org (#7) + session-type (#8) + skill (#9) + trainer (#10) + vendor (#11) + **learning programs+cohorts (#12)** + **learning/enrollment (#13)** + **learning/completion (#14)** + **learning/feedback (#15)** + **learning/path (#16)** + **branding (#17)** + **access (#18)** + **custom-field (#19)** + **finance (#20)** + **automation (#21)** + **compliance (#22)** + **notification (#23)** + **mobile (#24)** + **org/office (#25)** + **assessment/question-bank (#26)** + **report-presets (#27)** + **executive-dashboard (#28)** done. **Port-now set** (sequencing report `plans/reports/plan-260623-0720-*`): office ✓ · question-bank ✓ · report-presets ✓ · executive-dashboard ✓ → next dashboard (committed) · learning/assignment · attendance · learning/reports (+ assessment domain). Then the transaction-heavy tail (`groups` · schedule chokepoint · `planning` · learning/session) — all need the dual-backend transaction abstraction built first.
+  **Wave B (whole-repository CRUD) IN PROGRESS:** room (#6) + org (#7) + session-type (#8) + skill (#9) + trainer (#10) + vendor (#11) + **learning programs+cohorts (#12)** + **learning/enrollment (#13)** + **learning/completion (#14)** + **learning/feedback (#15)** + **learning/path (#16)** + **branding (#17)** + **access (#18)** + **custom-field (#19)** + **finance (#20)** + **automation (#21)** + **compliance (#22)** + **notification (#23)** + **mobile (#24)** + **org/office (#25)** + **assessment/question-bank (#26)** + **report-presets (#27)** + **executive-dashboard (#28)** + **dashboard (#29)** done. **Port-now set** (sequencing report `plans/reports/plan-260623-0720-*`): office ✓ · question-bank ✓ · report-presets ✓ · executive-dashboard ✓ · dashboard ✓ → next learning/assignment (mig 023) · attendance (mig 024) · learning/reports · assessment domain. Then the transaction-heavy tail (`groups` · schedule chokepoint · `planning` · learning/session) — all need the dual-backend transaction abstraction built first.
   Master plan: `plans/260612-2042-postgresql-migration/master-execution-plan.md`.
   (TMS.update north-star: **all 7 gaps shipped** (#1–#7); #7 PWA offline
   attendance closed 2026-06-15. **Investment Build Plan deep features — all 4
@@ -144,6 +144,20 @@ Bug fixing and integration review rank above net-new feature rollout.
 > lines); older entries roll verbatim, newest-first, to
 > [`changelog-archive/2026-q2.md`](changelog-archive/2026-q2.md). Currently
 > inline: **2026-06-14 → 2026-06-21**.
+
+- **2026-06-23** — **Phase 3 Wave-B — 24th port: `learning/dashboard/repository` (operational dashboard aggregations).**
+  `repository.js` (11 methods) → dual-backend via the `repository.{mongo,pg}.js` +
+  selector: attendance/session/certificate-expiry/assessment/feedback/coverage
+  rollups + onboarding setup signals + dept headcount/completion. **No migration**
+  (all tables exist). Parity-proven on real Neon: `ATTENDED_STATUSES` (P|L) via
+  count `FILTER`; `cohortScope` null = org-wide; `$ifNull` → `COALESCE(department,
+  'Unassigned')`; `completionPolicy` jsonb predicate (`->>'…'` casts); the Monday
+  week window for setup signals. Same aggregate-`$in` cast trap as executive
+  (cohort-scoped methods get native id types per backend). Soft-delete explicit on
+  Certificate/AssessmentAttempt/Feedback/User/Department; none on Attendance/
+  Schedule(status)/Enrollment(status). Tests: pg-parity **28 suites / 145 green on
+  Neon** + CI-safe selector test; the dashboardStats + learningDashboardOperational
+  suites pass unchanged through the selector. DB_BACKEND=mongo default unchanged.
 
 - **2026-06-23** — **Phase 3 Wave-B — 23rd port: `learning/dashboard/executive-repository` (executive aggregations).**
   `executive-repository.js` (9 methods) → dual-backend via the
