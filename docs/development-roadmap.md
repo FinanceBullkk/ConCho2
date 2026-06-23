@@ -41,7 +41,7 @@ remainder is documented deferred-by-design scope (below), not active debt.
   flag (default `mongo` → running app unchanged), CI-proven Mongo==PG. **Wave A
   read-only DONE (5 ports):** metrics-funnel + metric time-series (metrics surface
   complete) · per-team/employee/class attendance rollups (trilogy complete).
-  **Wave B (whole-repository CRUD) IN PROGRESS:** room (#6) + org (#7) + session-type (#8) + skill (#9) + trainer (#10) + vendor (#11) + **learning programs+cohorts (#12)** + **learning/enrollment (#13)** + **learning/completion (#14)** + **learning/feedback (#15)** + **learning/path (#16)** + **branding (#17)** + **access (#18)** + **custom-field (#19)** + **finance (#20)** + **automation (#21)** + **compliance (#22)** + **notification (#23)** + **mobile (#24)** done — **simple capability-domain lane CLOSED**; next the heavier learning sub-domains (session/reports/dashboard/assignment) + `org`-adjacent reads, then the transaction-heavy `groups` + schedule chokepoint + **planning** (need the dual-backend transaction abstraction).
+  **Wave B (whole-repository CRUD) IN PROGRESS:** room (#6) + org (#7) + session-type (#8) + skill (#9) + trainer (#10) + vendor (#11) + **learning programs+cohorts (#12)** + **learning/enrollment (#13)** + **learning/completion (#14)** + **learning/feedback (#15)** + **learning/path (#16)** + **branding (#17)** + **access (#18)** + **custom-field (#19)** + **finance (#20)** + **automation (#21)** + **compliance (#22)** + **notification (#23)** + **mobile (#24)** + **org/office (#25)** done. **Port-now set** (sequencing report `plans/reports/plan-260623-0720-*`): office ✓ → next assessment-question-bank · report-presets · executive-dashboard · dashboard · learning/assignment · attendance · learning/reports (+ assessment domain). Then the transaction-heavy tail (`groups` · schedule chokepoint · `planning` · learning/session) — all need the dual-backend transaction abstraction built first.
   Master plan: `plans/260612-2042-postgresql-migration/master-execution-plan.md`.
   (TMS.update north-star: **all 7 gaps shipped** (#1–#7); #7 PWA offline
   attendance closed 2026-06-15. **Investment Build Plan deep features — all 4
@@ -144,6 +144,21 @@ Bug fixing and integration review rank above net-new feature rollout.
 > lines); older entries roll verbatim, newest-first, to
 > [`changelog-archive/2026-q2.md`](changelog-archive/2026-q2.md). Currently
 > inline: **2026-06-14 → 2026-06-21**.
+
+- **2026-06-23** — **Phase 3 Wave-B — 20th port: `domains/org/office-repository` (offices).**
+  `domains/org/office-repository.js` (6 methods) → dual-backend via the
+  `office-repository.{mongo,pg}.js` + selector: Office CRUD + `countUsersInOffice`.
+  **No migration** — `offices` (003) + `users.office_id` (018) + the
+  `uq_offices_code_active` partial-unique all already exist (Office mirrors the
+  already-ported Department). Parity-proven on real Neon: soft-delete excluded on
+  reads (isDeleted/deletedAt are select:false → omitted); `listOffices` substring
+  search (name/code, %/_ escaped) + name-asc sort; the unique-code violation
+  (23505 → `{code:11000}`) rejects on create AND a code-collision update; a code
+  freed by soft-delete re-creates; `countUsersInOffice` counts live users only.
+  Tests: pg-parity **24 suites / 138 green on Neon** + CI-safe selector test; the
+  officeRoutes suite passes unchanged through the selector. DB_BACKEND=mongo default
+  unchanged. **First port of the planned port-now set** (sequencing report:
+  `plans/reports/plan-260623-0720-pg-ports-remaining-sequencing.md`).
 
 - **2026-06-23** — **Phase 3 Wave-B — 19th port: `domains/mobile` (mobile learning surface, B5).**
   `domains/mobile/repository.js` (3 methods) → dual-backend via the
