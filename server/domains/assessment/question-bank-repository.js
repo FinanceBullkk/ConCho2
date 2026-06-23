@@ -1,41 +1,12 @@
-const AssessmentQuestion = require('../../models/AssessmentQuestion');
-
-const createQuestion = async (data) => {
-  const doc = await AssessmentQuestion.create(data);
-  return doc.toObject();
-};
-
-const findQuestionById = (id) =>
-  AssessmentQuestion.findOne({ _id: id, isDeleted: false }).lean();
-
-const updateQuestion = (id, data) =>
-  AssessmentQuestion.findOneAndUpdate(
-    { _id: id, isDeleted: false },
-    { $set: data },
-    { new: true, runValidators: true },
-  ).lean();
-
-const listQuestions = ({ programId, cohortId, type, tag, q }) => {
-  const filter = { isDeleted: false };
-  if (programId) filter.programId = programId;
-  if (cohortId) filter.cohortId = cohortId;
-  if (type) filter.type = type;
-  if (tag) filter.tags = tag;
-  if (q) filter.prompt = { $regex: q, $options: 'i' };
-  return AssessmentQuestion.find(filter).sort({ updatedAt: -1 }).lean();
-};
-
-const softDeleteQuestion = (id) =>
-  AssessmentQuestion.findByIdAndUpdate(
-    id,
-    { isDeleted: true, deletedAt: new Date() },
-    { new: true },
-  ).lean();
+// assessment/question-bank-repository — backend selector (Phase 3 Wave-B port).
+// Consumers keep `require('./question-bank-repository')` unchanged; this resolves
+// to the Mongo or Postgres impl by DB_BACKEND. `impls` is exported so the parity
+// test can exercise both backends in one run. Default DB_BACKEND=mongo → unchanged.
+const { isPostgres } = require('../../config/db-backend');
+const mongo = require('./question-bank-repository.mongo');
+const pg = require('./question-bank-repository.pg');
 
 module.exports = {
-  createQuestion,
-  findQuestionById,
-  updateQuestion,
-  listQuestions,
-  softDeleteQuestion,
+  ...(isPostgres ? pg : mongo),
+  impls: { mongo, pg },
 };
