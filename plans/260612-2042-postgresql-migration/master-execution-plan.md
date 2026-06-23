@@ -35,8 +35,8 @@ partial-unique + TTL encoded as explicit SQL.
   · skill (#192) · trainer (#193) · vendor (#194) · learning programs+cohorts (#195)
   · learning/enrollment (#196) · learning/completion (#197) · learning/path (#199)
   · branding (#200) · access (#201) · custom-field (#202) · finance (#203)
-  · automation (#204) · compliance (#205) · notification (#206) · **mobile**.
-  Migrations `003`–`020`.
+  · automation (#204) · compliance (#205) · notification (#206) · mobile (#207)
+  · **org/office** (no migration). Migrations `003`–`020`.
 - **Schema so far:** migrations `001`/`002` (spine + metric_snapshots) +
   `003` offices/rooms · `004` departments + org user cols · `005` session_types ·
   `006` skills · `007` trainer_profiles + schedules.{office_id,topic} ·
