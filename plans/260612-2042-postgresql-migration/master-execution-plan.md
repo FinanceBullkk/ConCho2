@@ -37,8 +37,8 @@ partial-unique + TTL encoded as explicit SQL.
   · branding (#200) · access (#201) · custom-field (#202) · finance (#203)
   · automation (#204) · compliance (#205) · notification (#206) · mobile (#207)
   · org/office (#208, no migration) · assessment/question-bank (#209)
-  · report-presets (#210) · **executive-dashboard** (no migration).
-  Migrations `003`–`022`.
+  · report-presets (#210) · executive-dashboard (#211, no migration)
+  · **dashboard** (no migration). Migrations `003`–`022`.
 - **Schema so far:** migrations `001`/`002` (spine + metric_snapshots) +
   `003` offices/rooms · `004` departments + org user cols · `005` session_types ·
   `006` skills · `007` trainer_profiles + schedules.{office_id,topic} ·
