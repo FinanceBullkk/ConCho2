@@ -1,4 +1,3 @@
-const mongoose = require('mongoose');
 const Team = require('../../models/Team');
 const Enrollment = require('../../models/Enrollment');
 const User = require('../../models/User');
@@ -80,11 +79,6 @@ const findAttendanceForSchedules = (scheduleIds) =>
 
 const findTeamByIdLean = (id) => Team.findById(id).lean();
 
-const findTeamDocById = (id) => Team.findById(id); // live doc (needs .name etc.)
-
-const findDeletedTeamById = (id) =>
-  Team.findOne({ _id: id, isDeleted: true }).lean();
-
 // "1 team per class" guard — the team currently holding a class (if any).
 const findTeamByClass = (classId) =>
   Team.findOne({ classId }).populate('classId', 'classCode').lean();
@@ -113,30 +107,11 @@ const unassignTeamClass = (teamId) =>
 const pullTeamMember = (teamId, userId, session) =>
   Team.findByIdAndUpdate(teamId, { $pull: { members: userId } }, { session: session || undefined });
 
-// Soft-delete flips go through the RAW driver collection on purpose: the
-// model's pre-find hook auto-filters isDeleted, so a Mongoose update couldn't
-// re-find a deleted doc to restore it.
-const markTeamDeleted = (teamId, session) =>
-  Team.collection.updateOne(
-    { _id: teamId },
-    { $set: { isDeleted: true, deletedAt: new Date() } },
-    { session },
-  );
-
-const markTeamRestored = (id) =>
-  Team.collection.updateOne(
-    { _id: new mongoose.Types.ObjectId(id) },
-    { $set: { isDeleted: false, deletedAt: null } },
-  );
-
-// ── Enrollment writes/reads (lifecycle + enrollment-sync) ─
-
-const closeActiveEnrollments = (teamId, session) =>
-  Enrollment.updateMany(
-    { teamId, status: 'Active' },
-    { $set: { status: 'Dropped', leftAt: new Date() } },
-    { session },
-  );
+// ── Enrollment writes/reads (enrollment-sync) ─
+// The soft-delete lifecycle writes (markTeamDeleted / markTeamRestored /
+// closeActiveEnrollments) + their pre-reads (findTeamDocById /
+// findDeletedTeamById) moved to ./lifecycle-repository — the dual-backend
+// groups slice 1 (runs on the _shared/unit-of-work transaction boundary).
 
 // In-session lean team read for email context (sees same-tx team writes).
 const findTeamForEnrollmentContext = (teamId, session) =>
@@ -181,8 +156,6 @@ module.exports = {
   findAttendanceForSchedules,
   // mutation pre-reads / guards
   findTeamByIdLean,
-  findTeamDocById,
-  findDeletedTeamById,
   findTeamByClass,
   findTeamByClassExcluding,
   findTeamsByMembers,
@@ -191,10 +164,7 @@ module.exports = {
   updateTeamDoc,
   unassignTeamClass,
   pullTeamMember,
-  markTeamDeleted,
-  markTeamRestored,
   // enrollment
-  closeActiveEnrollments,
   findTeamForEnrollmentContext,
   findActiveEnrollmentInOtherTeam,
   findActiveEnrollmentInTeam,
