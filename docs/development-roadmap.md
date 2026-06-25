@@ -6,7 +6,7 @@
 > - *Architecture / orientation* → [`system-overview.md`](system-overview.md)
 > - *Detailed task snapshot (archived)* → [`archive/handoff-2026-06-01.md`](archive/handoff-2026-06-01.md)
 >
-> **Last updated:** 2026-06-22
+> **Last updated:** 2026-06-24
 
 ---
 
@@ -41,7 +41,7 @@ remainder is documented deferred-by-design scope (below), not active debt.
   flag (default `mongo` → running app unchanged), CI-proven Mongo==PG. **Wave A
   read-only DONE (5 ports):** metrics-funnel + metric time-series (metrics surface
   complete) · per-team/employee/class attendance rollups (trilogy complete).
-  **Wave B (whole-repository CRUD) IN PROGRESS:** room (#6) + org (#7) + session-type (#8) + skill (#9) + trainer (#10) + vendor (#11) + **learning programs+cohorts (#12)** + **learning/enrollment (#13)** + **learning/completion (#14)** + **learning/feedback (#15)** + **learning/path (#16)** + **branding (#17)** + **access (#18)** + **custom-field (#19)** + **finance (#20)** + **automation (#21)** + **compliance (#22)** + **notification (#23)** + **mobile (#24)** + **org/office (#25)** + **assessment/question-bank (#26)** + **report-presets (#27)** + **executive-dashboard (#28)** + **dashboard (#29)** done. **Port-now set** (sequencing report `plans/reports/plan-260623-0720-*`): office ✓ · question-bank ✓ · report-presets ✓ · executive-dashboard ✓ · dashboard ✓ → next learning/assignment (mig 023) · attendance (mig 024) · learning/reports · assessment domain. Then the transaction-heavy tail (`groups` · schedule chokepoint · `planning` · learning/session) — all need the dual-backend transaction abstraction built first.
+  **Wave B (whole-repository CRUD) IN PROGRESS:** room (#6) + org (#7) + session-type (#8) + skill (#9) + trainer (#10) + vendor (#11) + **learning programs+cohorts (#12)** + **learning/enrollment (#13)** + **learning/completion (#14)** + **learning/feedback (#15)** + **learning/path (#16)** + **branding (#17)** + **access (#18)** + **custom-field (#19)** + **finance (#20)** + **automation (#21)** + **compliance (#22)** + **notification (#23)** + **mobile (#24)** + **org/office (#25)** + **assessment/question-bank (#26)** + **report-presets (#27)** + **executive-dashboard (#28)** + **dashboard (#29)** + **learning/assignment (#30)** done. **Port-now set** (sequencing report `plans/reports/plan-260623-0720-*`): office ✓ · question-bank ✓ · report-presets ✓ · executive-dashboard ✓ · dashboard ✓ · learning/assignment ✓ (mig 023) → next attendance (mig 024) · learning/reports · assessment domain. Then the transaction-heavy tail (`groups` · schedule chokepoint · `planning` · learning/session) — all need the dual-backend transaction abstraction built first.
   Master plan: `plans/260612-2042-postgresql-migration/master-execution-plan.md`.
   (TMS.update north-star: **all 7 gaps shipped** (#1–#7); #7 PWA offline
   attendance closed 2026-06-15. **Investment Build Plan deep features — all 4
@@ -143,8 +143,22 @@ Bug fixing and integration review rank above net-new feature rollout.
 > **Rolling window:** ~last 2 weeks / ~15 entries kept inline (file ≤ ~400
 > lines); older entries roll verbatim, newest-first, to
 > [`changelog-archive/2026-q2.md`](changelog-archive/2026-q2.md). Currently
-> inline: **2026-06-14 → 2026-06-21**.
+> inline: **2026-06-14 → 2026-06-24**.
 
+- **2026-06-24** — **Phase 3 Wave-B — 25th port: `learning/assignment/repository` (required-training assignments).**
+  `repository.js` (12 methods + 2 status constants) → dual-backend via `repository.{mongo,pg}.js`
+  + selector. **Migration 023** `assignments` (single-target `program|path` XOR CHECK;
+  `user_ids`/`department_ids` text[]; partial-unique `source_certificate_id` WHERE NOT NULL =
+  the recert idempotency backstop). Parity-proven on real Neon: ORDERED userIds/departmentIds
+  populate that DROPS soft-deleted refs (User+Department find-hooks) while preserving array
+  order; programId/pathId embed REGARDLESS of archived/deleted (LearningProgram has no
+  soft-delete, LearningPath no find-hook); `status {$ne:'archived'}` incl. NULL status →
+  `IS DISTINCT FROM`; findAssignableUsers name binary order (JS cmp, not PG collation);
+  self_enroll cohort gate; participating-set (statuses ∩ program cohorts via subquery).
+  recert-assignment-service writes the `Assignment` model directly (bypasses this repo —
+  Mongo-only, a separate concern). Tests: new pg-parity suite **10/10 green on Neon** + the 5
+  assignment mongo suites (routes/mine/recert/reminders/cadence) pass unchanged through the
+  selector. DB_BACKEND=mongo default unchanged.
 - **2026-06-23** — **Phase 3 Wave-B — 24th port: `learning/dashboard/repository` (operational dashboard aggregations).**
   `repository.js` (11 methods) → dual-backend via the `repository.{mongo,pg}.js` +
   selector: attendance/session/certificate-expiry/assessment/feedback/coverage
