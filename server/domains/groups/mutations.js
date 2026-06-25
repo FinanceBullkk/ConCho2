@@ -1,5 +1,6 @@
-const mongoose = require('mongoose'); // transaction orchestration only (startSession)
+const { runInTransaction } = require('../_shared/unit-of-work');
 const repository = require('./repository');
+const teamWrite = require('./team-write-repository');
 const { syncSchedulesForTeamUpdate } = repository;
 const { notifyPromotions } = require('../schedule/waitlist/promotion');
 const { handleError } = require('../../helpers/handleError');
@@ -49,7 +50,7 @@ const createTeam = async (req, res) => {
       if (conflict) {
         const code = conflict.classId?.classCode || classId;
         if (forceSwap) {
-          await repository.unassignTeamClass(conflict._id);
+          await teamWrite.unassignTeamClass(conflict._id);
           logger.info({ classCode: code, fromTeam: conflict.name }, 'Force-swap: class unassigned');
         } else {
           return res.status(409).json({
@@ -83,24 +84,19 @@ const createTeam = async (req, res) => {
     let team;
     let pendingEmails = [];
     let pendingEvents = [];
-    const session = await mongoose.startSession();
-    try {
-      await session.withTransaction(async () => {
-        [team] = await repository.insertTeam(
-          { name, classId: classId || null, leaderId, members: memberList },
-          session,
-        );
+    await runInTransaction(async (tx) => {
+      team = await teamWrite.insertTeam(
+        { name, classId: classId || null, leaderId, members: memberList },
+        tx,
+      );
 
-        const result = await syncEnrollments(
-          team._id.toString(), memberList, [], classId || null,
-          { session },
-        );
-        pendingEmails = result.pendingEmails;
-        pendingEvents = result.pendingEvents;
-      });
-    } finally {
-      session.endSession();
-    }
+      const result = await syncEnrollments(
+        team._id.toString(), memberList, [], classId || null,
+        { session: tx.session },
+      );
+      pendingEmails = result.pendingEmails;
+      pendingEvents = result.pendingEvents;
+    });
     flushPendingEmails(pendingEmails);
     await flushPendingEnrollmentEvents(pendingEvents);
 
@@ -154,7 +150,7 @@ const updateTeam = async (req, res) => {
         if (conflict) {
           const code = conflict.classId?.classCode || classId;
           if (forceSwap) {
-            await repository.unassignTeamClass(conflict._id);
+            await teamWrite.unassignTeamClass(conflict._id);
             logger.info({ classCode: code, fromTeam: conflict.name }, 'Force-swap: class unassigned');
           } else {
             return res.status(409).json({
@@ -208,46 +204,41 @@ const updateTeam = async (req, res) => {
     let pendingEmails = [];
     let pendingEvents = [];
     let teamSyncPromotions = [];
-    const session = await mongoose.startSession();
-    try {
-      await session.withTransaction(async () => {
-        // Step 1: Update Team document
-        await repository.updateTeamDoc(req.params.id, updateData, session);
+    await runInTransaction(async (tx) => {
+      // Step 1: Update Team document
+      await teamWrite.updateTeamDoc(req.params.id, updateData, tx);
 
-        // Step 2: Sync Schedule.enrolledUsers (if members changed).
-        // A member REMOVAL frees seats — the sync promotes FIFO waiters
-        // in-tx (phase-04 slice B) and returns them for post-commit notify.
-        if (membersChanged) {
-          ({ promotions: teamSyncPromotions } = await syncSchedulesForTeamUpdate({
-            teamId: req.params.id,
-            oldMembers: oldMemberStrs,
-            newMembers: newMemberStrs,
-            session,
-          }));
+      // Step 2: Sync Schedule.enrolledUsers (if members changed).
+      // A member REMOVAL frees seats — the sync promotes FIFO waiters
+      // in-tx (phase-04 slice B) and returns them for post-commit notify.
+      if (membersChanged) {
+        ({ promotions: teamSyncPromotions } = await syncSchedulesForTeamUpdate({
+          teamId: req.params.id,
+          oldMembers: oldMemberStrs,
+          newMembers: newMemberStrs,
+          session: tx.session,
+        }));
+      }
+
+      // Step 3: Sync Enrollment records (if members changed)
+      if (membersChanged) {
+        const addedIds = newMemberStrs.filter(id => !oldMemberStrs.includes(id));
+        const removedIds = oldMemberStrs.filter(id => !newMemberStrs.includes(id));
+
+        const effectiveClassId = updateData.classId !== undefined
+          ? updateData.classId
+          : currentTeam.classId?.toString() || null;
+
+        if (addedIds.length > 0 || removedIds.length > 0) {
+          const { pendingEmails: emails, pendingEvents: events } = await syncEnrollments(
+            req.params.id, addedIds, removedIds, effectiveClassId,
+            { session: tx.session },
+          );
+          pendingEmails = emails;
+          pendingEvents = events;
         }
-
-        // Step 3: Sync Enrollment records (if members changed)
-        if (membersChanged) {
-          const addedIds = newMemberStrs.filter(id => !oldMemberStrs.includes(id));
-          const removedIds = oldMemberStrs.filter(id => !newMemberStrs.includes(id));
-
-          const effectiveClassId = updateData.classId !== undefined
-            ? updateData.classId
-            : currentTeam.classId?.toString() || null;
-
-          if (addedIds.length > 0 || removedIds.length > 0) {
-            const { pendingEmails: emails, pendingEvents: events } = await syncEnrollments(
-              req.params.id, addedIds, removedIds, effectiveClassId,
-              { session },
-            );
-            pendingEmails = emails;
-            pendingEvents = events;
-          }
-        }
-      });
-    } finally {
-      session.endSession();
-    }
+      }
+    });
 
     // Flush queued notification emails now that the transaction has committed.
     flushPendingEmails(pendingEmails);
