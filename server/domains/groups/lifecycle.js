@@ -1,5 +1,5 @@
-const mongoose = require('mongoose'); // transaction orchestration only (startSession)
-const repository = require('./repository');
+const { runInTransaction } = require('../_shared/unit-of-work');
+const repository = require('./lifecycle-repository');
 const { handleError } = require('../../helpers/handleError');
 const auditService = require('../../services/auditService');
 const { invalidateAnalyticsCache } = require('../../middleware/analyticsCache');
@@ -23,27 +23,21 @@ const { invalidateAnalyticsCache } = require('../../middleware/analyticsCache');
  */
 const deleteTeam = async (req, res) => {
   try {
-    const team = await repository.findTeamDocById(req.params.id);
+    const team = await repository.findTeamById(req.params.id);
     if (!team) {
       return res.status(404).json({ success: false, message: 'Team not found' });
     }
 
-    // ── TRANSACTION: Soft-delete (UX-03) ──────────────────
-    const session = await mongoose.startSession();
+    // ── TRANSACTION: Soft-delete (UX-03) — backend-agnostic Unit of Work ──
     let closedEnrollments = 0;
+    await runInTransaction(async (tx) => {
+      // Step 1: Close all active enrollments for this team
+      const enrollResult = await repository.closeActiveEnrollments(team._id, tx);
+      closedEnrollments = enrollResult.modifiedCount;
 
-    try {
-      await session.withTransaction(async () => {
-        // Step 1: Close all active enrollments for this team
-        const enrollResult = await repository.closeActiveEnrollments(team._id, session);
-        closedEnrollments = enrollResult.modifiedCount;
-
-        // Step 2: Soft-delete the team (raw write — bypasses the isDeleted hook)
-        await repository.markTeamDeleted(team._id, session);
-      });
-    } finally {
-      session.endSession();
-    }
+      // Step 2: Soft-delete the team (raw write — bypasses the isDeleted hook)
+      await repository.markTeamDeleted(team._id, tx);
+    });
 
     auditService.record({
       req,
