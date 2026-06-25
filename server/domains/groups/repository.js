@@ -95,14 +95,10 @@ const findTeamsByMembers = (memberIds, excludeTeamId = null) => {
 };
 
 // ── Team writes ───────────────────────────────────────────
-
-const insertTeam = (doc, session) => Team.create([doc], { session });
-
-const updateTeamDoc = (id, data, session) =>
-  Team.findOneAndUpdate({ _id: id }, data, { new: true, runValidators: true, session });
-
-const unassignTeamClass = (teamId) =>
-  Team.findByIdAndUpdate(teamId, { $set: { classId: null } });
+// insertTeam / updateTeamDoc / unassignTeamClass moved to
+// ./team-write-repository (dual-backend groups slice 2 — the member-array ⇄
+// team_members junction bridge). pullTeamMember stays here until the
+// enrollment-sync slice (it shares the transfer close-path).
 
 const pullTeamMember = (teamId, userId, session) =>
   Team.findByIdAndUpdate(teamId, { $pull: { members: userId } }, { session: session || undefined });
@@ -160,9 +156,6 @@ module.exports = {
   findTeamByClassExcluding,
   findTeamsByMembers,
   // team writes
-  insertTeam,
-  updateTeamDoc,
-  unassignTeamClass,
   pullTeamMember,
   // enrollment
   findTeamForEnrollmentContext,
