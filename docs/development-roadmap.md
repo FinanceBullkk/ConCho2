@@ -6,7 +6,7 @@
 > - *Architecture / orientation* → [`system-overview.md`](system-overview.md)
 > - *Detailed task snapshot (archived)* → [`archive/handoff-2026-06-01.md`](archive/handoff-2026-06-01.md)
 >
-> **Last updated:** 2026-06-24
+> **Last updated:** 2026-06-25
 
 ---
 
@@ -41,7 +41,7 @@ remainder is documented deferred-by-design scope (below), not active debt.
   flag (default `mongo` → running app unchanged), CI-proven Mongo==PG. **Wave A
   read-only DONE (5 ports):** metrics-funnel + metric time-series (metrics surface
   complete) · per-team/employee/class attendance rollups (trilogy complete).
-  **Wave B (whole-repository CRUD) IN PROGRESS:** room (#6) + org (#7) + session-type (#8) + skill (#9) + trainer (#10) + vendor (#11) + **learning programs+cohorts (#12)** + **learning/enrollment (#13)** + **learning/completion (#14)** + **learning/feedback (#15)** + **learning/path (#16)** + **branding (#17)** + **access (#18)** + **custom-field (#19)** + **finance (#20)** + **automation (#21)** + **compliance (#22)** + **notification (#23)** + **mobile (#24)** + **org/office (#25)** + **assessment/question-bank (#26)** + **report-presets (#27)** + **executive-dashboard (#28)** + **dashboard (#29)** + **learning/assignment (#30)** done. **Port-now set** (sequencing report `plans/reports/plan-260623-0720-*`): office ✓ · question-bank ✓ · report-presets ✓ · executive-dashboard ✓ · dashboard ✓ · learning/assignment ✓ (mig 023) → next attendance (mig 024) · learning/reports · assessment domain. Then the transaction-heavy tail (`groups` · schedule chokepoint · `planning` · learning/session) — all need the dual-backend transaction abstraction built first.
+  **Wave B (whole-repository CRUD) IN PROGRESS:** room (#6) + org (#7) + session-type (#8) + skill (#9) + trainer (#10) + vendor (#11) + **learning programs+cohorts (#12)** + **learning/enrollment (#13)** + **learning/completion (#14)** + **learning/feedback (#15)** + **learning/path (#16)** + **branding (#17)** + **access (#18)** + **custom-field (#19)** + **finance (#20)** + **automation (#21)** + **compliance (#22)** + **notification (#23)** + **mobile (#24)** + **org/office (#25)** + **assessment/question-bank (#26)** + **report-presets (#27)** + **executive-dashboard (#28)** + **dashboard (#29)** + **learning/assignment (#30)** done. **Port-now set** (sequencing report `plans/reports/plan-260623-0720-*`): office ✓ · question-bank ✓ · report-presets ✓ · executive-dashboard ✓ · dashboard ✓ · learning/assignment ✓ (mig 023) → next attendance (mig 024) · learning/reports · assessment domain. Then the transaction-heavy tail (`groups` · schedule chokepoint · `planning` · learning/session) — **the dual-backend transaction abstraction is now BUILT + parity-proven (2026-06-25, real Neon), unblocking them** (`domains/_shared/unit-of-work`).
   Master plan: `plans/260612-2042-postgresql-migration/master-execution-plan.md`.
   (TMS.update north-star: **all 7 gaps shipped** (#1–#7); #7 PWA offline
   attendance closed 2026-06-15. **Investment Build Plan deep features — all 4
@@ -89,7 +89,7 @@ remainder is documented deferred-by-design scope (below), not active debt.
 | 3 | Multi-program enrollment + session scheduling | ~85% | 🟢 near done (genuine work shipped; only nomination workflow deferred-by-design) |
 | 4 | Frontend L&D workspace (CRUD UI) | ~82% | 🟢 near done (CRUD + policy editor complete) |
 | 5 | Reporting, completion, feedback | ~80% | 🟢 near done (cert lifecycle + recert closed; Evaluation→Assessment convergence deferred-by-design) |
-| 6 | PostgreSQL decision gate | ~30% | 🟡 in progress (gate OPENED 2026-06-21; foundation #184 on main; repo ports underway — Wave A read-only DONE 5 ports + Wave B CRUD: room/org/session-type/skill/trainer/vendor/branding/access + learning programs+cohorts/enrollment/completion/feedback/path (13) whole-repo ports done; `DB_BACKEND=mongo` default) |
+| 6 | PostgreSQL decision gate | ~33% | 🟡 in progress (gate OPENED 2026-06-21; foundation #184 on main; repo ports underway — Wave A read-only DONE 5 ports + Wave B CRUD: room/org/session-type/skill/trainer/vendor/branding/access + learning programs+cohorts/enrollment/completion/feedback/path (13) whole-repo ports done; **Wave-D keystone: dual-backend transaction abstraction built + parity-proven 2026-06-25 on real Neon → unblocks groups/planning/schedule-chokepoint**; `DB_BACKEND=mongo` default) |
 
 ## LTMS waves (forward — see [`lms-roadmap.md`](lms-roadmap.md))
 
@@ -143,8 +143,10 @@ Bug fixing and integration review rank above net-new feature rollout.
 > **Rolling window:** ~last 2 weeks / ~15 entries kept inline (file ≤ ~400
 > lines); older entries roll verbatim, newest-first, to
 > [`changelog-archive/2026-q2.md`](changelog-archive/2026-q2.md). Currently
-> inline: **2026-06-14 → 2026-06-24**.
+> inline: **2026-06-14 → 2026-06-25**.
 
+- **2026-06-25** — **Phase 3 Wave-D KEYSTONE — dual-backend transaction abstraction built + parity-proven (Mongo==PG on real Neon).**
+  New `domains/_shared/unit-of-work.js` `runInTransaction(tx⇒…)` — Mongo `session.withTransaction` ⇄ PG `BEGIN/COMMIT/ROLLBACK` on a checked-out pool client; `tx` is opaque to use-cases (carries `session` | `client`), fn's return committed, any throw rolls back + re-throws. First atomic-write seam `domains/schedule/booking-write-repository.{mongo,pg}.js` + selector (insert/count/cancel) over the existing `schedules` table + `uq_sched_slot_scheduled` partial-unique (mig 001) — PG 23505 re-thrown as Mongo-style `{code:11000}` so the booking use-case's 409 branch is backend-agnostic (established convention). Two suites pin commit · rollback · double-booking guard · cancelled-frees-slot **identical on both backends**: `tests/integration/booking-transaction-abstraction.test.js` (non-gated, Mongo replSet — 4/4 local) + `tests/pg-parity/booking-transaction.pg.test.js` (gated — **4/4 on real Neon**). **Retires the migration's highest-risk unknown** → unblocks the transaction-heavy tail (`groups`, `planning`, the schedule booking chokepoint, learning cohort-archive). Inert: not wired into scheduleService; DB_BACKEND=mongo default unchanged.
 - **2026-06-24** — **Phase 3 Wave-B — 25th port: `learning/assignment/repository` (required-training assignments).**
   `repository.js` (12 methods + 2 status constants) → dual-backend via `repository.{mongo,pg}.js`
   + selector. **Migration 023** `assignments` (single-target `program|path` XOR CHECK;
