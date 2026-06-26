@@ -41,7 +41,7 @@ remainder is documented deferred-by-design scope (below), not active debt.
   flag (default `mongo` → running app unchanged), CI-proven Mongo==PG. **Wave A
   read-only DONE (5 ports):** metrics-funnel + metric time-series (metrics surface
   complete) · per-team/employee/class attendance rollups (trilogy complete).
-  **Wave B (whole-repository CRUD) IN PROGRESS:** room (#6) + org (#7) + session-type (#8) + skill (#9) + trainer (#10) + vendor (#11) + **learning programs+cohorts (#12)** + **learning/enrollment (#13)** + **learning/completion (#14)** + **learning/feedback (#15)** + **learning/path (#16)** + **branding (#17)** + **access (#18)** + **custom-field (#19)** + **finance (#20)** + **automation (#21)** + **compliance (#22)** + **notification (#23)** + **mobile (#24)** + **org/office (#25)** + **assessment/question-bank (#26)** + **report-presets (#27)** + **executive-dashboard (#28)** + **dashboard (#29)** + **learning/assignment (#30)** done. **Port-now set** (sequencing report `plans/reports/plan-260623-0720-*`): office ✓ · question-bank ✓ · report-presets ✓ · executive-dashboard ✓ · dashboard ✓ · learning/assignment ✓ (mig 023) → next attendance (mig 024) · learning/reports · assessment domain. Then the transaction-heavy tail (`groups` · schedule chokepoint · `planning` · learning/session) — **the dual-backend transaction abstraction is now BUILT + parity-proven (2026-06-25, real Neon), unblocking them** (`domains/_shared/unit-of-work`).
+  **Wave B (whole-repository CRUD) IN PROGRESS:** room (#6) + org (#7) + session-type (#8) + skill (#9) + trainer (#10) + vendor (#11) + **learning programs+cohorts (#12)** + **learning/enrollment (#13)** + **learning/completion (#14)** + **learning/feedback (#15)** + **learning/path (#16)** + **branding (#17)** + **access (#18)** + **custom-field (#19)** + **finance (#20)** + **automation (#21)** + **compliance (#22)** + **notification (#23)** + **mobile (#24)** + **org/office (#25)** + **assessment/question-bank (#26)** + **report-presets (#27)** + **executive-dashboard (#28)** + **dashboard (#29)** + **learning/assignment (#30)** done. **Port-now set** (sequencing report `plans/reports/plan-260623-0720-*`): office ✓ · question-bank ✓ · report-presets ✓ · executive-dashboard ✓ · dashboard ✓ · learning/assignment ✓ (mig 023) · attendance ✓ (mig 025) → next learning/reports · assessment domain. Then the transaction-heavy tail (`groups` · schedule chokepoint · `planning` · learning/session) — **the dual-backend transaction abstraction is now BUILT + parity-proven (2026-06-25, real Neon), unblocking them** (`domains/_shared/unit-of-work`).
   Master plan: `plans/260612-2042-postgresql-migration/master-execution-plan.md`.
   (TMS.update north-star: **all 7 gaps shipped** (#1–#7); #7 PWA offline
   attendance closed 2026-06-15. **Investment Build Plan deep features — all 4
@@ -89,7 +89,7 @@ remainder is documented deferred-by-design scope (below), not active debt.
 | 3 | Multi-program enrollment + session scheduling | ~85% | 🟢 near done (genuine work shipped; only nomination workflow deferred-by-design) |
 | 4 | Frontend L&D workspace (CRUD UI) | ~82% | 🟢 near done (CRUD + policy editor complete) |
 | 5 | Reporting, completion, feedback | ~80% | 🟢 near done (cert lifecycle + recert closed; Evaluation→Assessment convergence deferred-by-design) |
-| 6 | PostgreSQL decision gate | ~33% | 🟡 in progress (gate OPENED 2026-06-21; foundation #184 on main; repo ports underway — Wave A read-only DONE 5 ports + Wave B CRUD: room/org/session-type/skill/trainer/vendor/branding/access + learning programs+cohorts/enrollment/completion/feedback/path (13) whole-repo ports done; **Wave-D keystone: dual-backend transaction abstraction built + parity-proven 2026-06-25 on real Neon → unblocks groups/planning/schedule-chokepoint; groups transaction port COMPLETE (lifecycle + team-write/membership-bridge + enrollment-sync, slices 1-3) 2026-06-26; syncSchedules/reads Mongo-only by design**; `DB_BACKEND=mongo` default) |
+| 6 | PostgreSQL decision gate | ~33% | 🟡 in progress (gate OPENED 2026-06-21; foundation #184 on main; repo ports underway — Wave A read-only DONE 5 ports + Wave B CRUD: room/org/session-type/skill/trainer/vendor/branding/access + learning programs+cohorts/enrollment/completion/feedback/path (13) whole-repo ports done; **Wave-D keystone: dual-backend transaction abstraction built + parity-proven 2026-06-25 on real Neon → unblocks groups/planning/schedule-chokepoint; groups transaction port COMPLETE (lifecycle + team-write/membership-bridge + enrollment-sync, slices 1-3) 2026-06-26; syncSchedules/reads Mongo-only by design**; **attendance repository ported (mig 025) 2026-06-26 — reads/bulk-upsert/lastActive/4 analytics aggregations, 16/16 parity**; `DB_BACKEND=mongo` default) |
 
 ## LTMS waves (forward — see [`lms-roadmap.md`](lms-roadmap.md))
 
@@ -145,6 +145,20 @@ Bug fixing and integration review rank above net-new feature rollout.
 > [`changelog-archive/2026-q2.md`](changelog-archive/2026-q2.md). Currently
 > inline: **2026-06-14 → 2026-06-26**.
 
+- **2026-06-26** — **Phase 3 Wave-B — attendance repository ported to dual-backend.** The
+  14-method `domains/attendance/repository.js` split into `repository.{mongo,pg}.js` + selector
+  (DB_BACKEND). Covers the authz/scope schedule+class reads, the per-schedule/per-user record reads
+  (populate→LEFT JOIN with soft-delete drop-to-null on User/Class; Schedule has no soft-delete hook),
+  the bulk-upsert (Mongo `bulkWrite` ⇄ `INSERT … ON CONFLICT DO UPDATE`; matched/modified/upserted
+  reproduced exactly — Mongoose's `updatedAt` bump means modified==matched even on a no-op re-mark),
+  `bumpUsersLastActive` (`$max` ⇄ `GREATEST`, never moves backward), and the four analytics
+  aggregations (by-employee paginated rollup with banker's-rounded rate + `$lookup`-isDeleted ⇄
+  JOIN…is_deleted, by-team via the `team_members` junction, per-user counts, personal stats).
+  **Migration 025** adds attendance scalar columns (remark/photo_url/sync_status/export_batch_id/
+  exported_at) + the compound indexes (incl. the `{schedule_id,user_id}` UNIQUE upsert target) and
+  `users.last_active_at`. Parity-proven Mongo==PG on real Neon (16/16) + mongo-default attendance
+  suite (47) green. DB_BACKEND=mongo default unchanged. Trap caught: `aggregate()` doesn't cast
+  hex→ObjectId (unlike `.find()`) — scope ids arrive already-typed per backend.
 - **2026-06-26** — **Phase 3 Wave-D — groups enrollment-sync port (slice 3 of 3) — the groups transaction port is COMPLETE.**
   The hardest slice. The team enrollment-sync held LIVE Enrollment docs and mutated + `.save()`d them
   (no Postgres analogue). Now `domains/groups/enrollment-sync-repository.{mongo,pg}.js` + selector —

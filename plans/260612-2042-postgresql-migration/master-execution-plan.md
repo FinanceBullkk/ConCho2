@@ -38,7 +38,12 @@ partial-unique + TTL encoded as explicit SQL.
   · automation (#204) · compliance (#205) · notification (#206) · mobile (#207)
   · org/office (#208, no migration) · assessment/question-bank (#209)
   · report-presets (#210) · executive-dashboard (#211, no migration)
-  · **dashboard** (no migration). Migrations `003`–`022`.
+  · dashboard (no migration) · learning/assignment (mig `023`)
+  · **attendance** (mig `025` — scalar cols + compound indexes + users.last_active_at).
+  Migrations `003`–`023`, `025`.
+  - **Wave-D tail (transaction abstraction built):** groups transaction port COMPLETE
+    (lifecycle + team-write/membership + enrollment-sync; mig `024`
+    enrollments.transferred_to). Remaining tail: planning · learning/session · schedule chokepoint.
 - **Schema so far:** migrations `001`/`002` (spine + metric_snapshots) +
   `003` offices/rooms · `004` departments + org user cols · `005` session_types ·
   `006` skills · `007` trainer_profiles + schedules.{office_id,topic} ·
