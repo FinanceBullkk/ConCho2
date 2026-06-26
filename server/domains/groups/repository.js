@@ -1,6 +1,4 @@
 const Team = require('../../models/Team');
-const Enrollment = require('../../models/Enrollment');
-const User = require('../../models/User');
 const Schedule = require('../../models/Schedule');
 const Attendance = require('../../models/Attendance');
 // Schedule-roster sync helper lives on the Team model module; re-exported here
@@ -94,48 +92,17 @@ const findTeamsByMembers = (memberIds, excludeTeamId = null) => {
   return Team.find(query).populate('members', 'name empCode').lean();
 };
 
-// ── Team writes ───────────────────────────────────────────
-// insertTeam / updateTeamDoc / unassignTeamClass moved to
-// ./team-write-repository (dual-backend groups slice 2 — the member-array ⇄
-// team_members junction bridge). pullTeamMember stays here until the
-// enrollment-sync slice (it shares the transfer close-path).
-
-const pullTeamMember = (teamId, userId, session) =>
-  Team.findByIdAndUpdate(teamId, { $pull: { members: userId } }, { session: session || undefined });
-
-// ── Enrollment writes/reads (enrollment-sync) ─
-// The soft-delete lifecycle writes (markTeamDeleted / markTeamRestored /
-// closeActiveEnrollments) + their pre-reads (findTeamDocById /
-// findDeletedTeamById) moved to ./lifecycle-repository — the dual-backend
-// groups slice 1 (runs on the _shared/unit-of-work transaction boundary).
-
-// In-session lean team read for email context (sees same-tx team writes).
-const findTeamForEnrollmentContext = (teamId, session) =>
-  Team.findById(teamId)
-    .populate('classId', 'classCode courseName')
-    .session(session || null)
-    .lean();
-
-// Live Enrollment docs (non-lean) so the caller can mutate + save() them,
-// preserving the model's pre-save hooks/validators exactly.
-const findActiveEnrollmentInOtherTeam = (userId, teamId, session) =>
-  Enrollment.findOne({ userId, status: 'Active', teamId: { $ne: teamId } })
-    .populate('teamId', 'name')
-    .session(session || null);
-
-const findActiveEnrollmentInTeam = (userId, teamId, session) =>
-  Enrollment.findOne({ userId, teamId, status: 'Active' }).session(session || null);
-
-const saveEnrollment = (doc, session) => doc.save({ session: session || undefined });
-// NOTE: Active-enrollment CREATE moved to the shared write spine
-// (domains/learning/enrollment/writes → repository.insertActiveEnrollment) so
-// team-create and cohort-create converge (Phase 2). This repo keeps the
-// team-specific enrollment READS + close/transfer save only.
-
-// ── User ──────────────────────────────────────────────────
-
-const findUserContact = (userId) =>
-  User.findById(userId).select('name email').lean();
+// ── Moved to dual-backend seams (Wave-D groups port) ──────
+// slice 1 → ./lifecycle-repository (soft-delete cascade: markTeamDeleted /
+//   markTeamRestored / closeActiveEnrollments + their pre-reads);
+// slice 2 → ./team-write-repository (insertTeam / updateTeamDoc /
+//   unassignTeamClass + the member-array ⇄ team_members junction bridge);
+// slice 3 → ./enrollment-sync-repository (findTeamForEnrollmentContext /
+//   findActiveEnrollmentInOtherTeam / transferEnrollment / findActiveEnrollmentInTeam /
+//   dropEnrollment / pullTeamMember / findUserContact — the live-doc `.save()`
+//   transfer/drop became explicit updates on the unit-of-work boundary).
+// This module now keeps the remaining Mongo-only READ surface (team lists /
+// single reads / mutation guards / the schedule-roster sync re-export).
 
 module.exports = {
   syncSchedulesForTeamUpdate,
@@ -155,13 +122,4 @@ module.exports = {
   findTeamByClass,
   findTeamByClassExcluding,
   findTeamsByMembers,
-  // team writes
-  pullTeamMember,
-  // enrollment
-  findTeamForEnrollmentContext,
-  findActiveEnrollmentInOtherTeam,
-  findActiveEnrollmentInTeam,
-  saveEnrollment,
-  // user
-  findUserContact,
 };
