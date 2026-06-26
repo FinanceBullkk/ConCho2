@@ -40,8 +40,10 @@ partial-unique + TTL encoded as explicit SQL.
   · report-presets (#210) · executive-dashboard (#211, no migration)
   · dashboard (no migration) · learning/assignment (mig `023`)
   · attendance (mig `025` — scalar cols + compound indexes + users.last_active_at)
-  · **learning/reports** (no new migration — reuses 001/004/011/012/023/025; 20-method report read surface).
-  Migrations `003`–`023`, `025`.
+  · learning/reports (no new migration — reuses 001/004/011/012/023/025; 20-method report read surface)
+  · **assessment** (mig `026` — `assessments` table, items jsonb + GIN; definitions/attempts/grading-queue).
+  Migrations `003`–`023`, `025`–`026`. **Port-now set COMPLETE** — only the transaction-heavy tail
+  (planning · learning/session · schedule chokepoint) remains, on the unit-of-work abstraction.
   - **Wave-D tail (transaction abstraction built):** groups transaction port COMPLETE
     (lifecycle + team-write/membership + enrollment-sync; mig `024`
     enrollments.transferred_to). Remaining tail: planning · learning/session · schedule chokepoint.
