@@ -89,7 +89,7 @@ remainder is documented deferred-by-design scope (below), not active debt.
 | 3 | Multi-program enrollment + session scheduling | ~85% | 🟢 near done (genuine work shipped; only nomination workflow deferred-by-design) |
 | 4 | Frontend L&D workspace (CRUD UI) | ~82% | 🟢 near done (CRUD + policy editor complete) |
 | 5 | Reporting, completion, feedback | ~80% | 🟢 near done (cert lifecycle + recert closed; Evaluation→Assessment convergence deferred-by-design) |
-| 6 | PostgreSQL decision gate | ~33% | 🟡 in progress (gate OPENED 2026-06-21; foundation #184 on main; repo ports underway — Wave A read-only DONE 5 ports + Wave B CRUD: room/org/session-type/skill/trainer/vendor/branding/access + learning programs+cohorts/enrollment/completion/feedback/path (13) whole-repo ports done; **Wave-D keystone: dual-backend transaction abstraction built + parity-proven 2026-06-25 on real Neon → unblocks groups/planning/schedule-chokepoint; groups port slices 1+2 (lifecycle + team-write/membership bridge) done 2026-06-26, slice 3 (enrollment-sync) next**; `DB_BACKEND=mongo` default) |
+| 6 | PostgreSQL decision gate | ~33% | 🟡 in progress (gate OPENED 2026-06-21; foundation #184 on main; repo ports underway — Wave A read-only DONE 5 ports + Wave B CRUD: room/org/session-type/skill/trainer/vendor/branding/access + learning programs+cohorts/enrollment/completion/feedback/path (13) whole-repo ports done; **Wave-D keystone: dual-backend transaction abstraction built + parity-proven 2026-06-25 on real Neon → unblocks groups/planning/schedule-chokepoint; groups transaction port COMPLETE (lifecycle + team-write/membership-bridge + enrollment-sync, slices 1-3) 2026-06-26; syncSchedules/reads Mongo-only by design**; `DB_BACKEND=mongo` default) |
 
 ## LTMS waves (forward — see [`lms-roadmap.md`](lms-roadmap.md))
 
@@ -145,6 +145,18 @@ Bug fixing and integration review rank above net-new feature rollout.
 > [`changelog-archive/2026-q2.md`](changelog-archive/2026-q2.md). Currently
 > inline: **2026-06-14 → 2026-06-26**.
 
+- **2026-06-26** — **Phase 3 Wave-D — groups enrollment-sync port (slice 3 of 3) — the groups transaction port is COMPLETE.**
+  The hardest slice. The team enrollment-sync held LIVE Enrollment docs and mutated + `.save()`d them
+  (no Postgres analogue). Now `domains/groups/enrollment-sync-repository.{mongo,pg}.js` + selector —
+  `findActiveEnrollmentInOtherTeam` / `transferEnrollment` / `findActiveEnrollmentInTeam` /
+  `dropEnrollment` (explicit updates) + `pullTeamMember` (Mongo `$pull` ⇄ PG `team_members` DELETE) +
+  `findTeamForEnrollmentContext` / `findUserContact`, all on the unit-of-work tx. `enrollment-sync.js`
+  rewritten (live-doc→explicit; normalises `opts.tx || {session}` so the legacy enrollment-transfer
+  caller is untouched). **Migration 024** adds `enrollments.transferred_to`. Parity-proven Mongo==PG on
+  real Neon (5/5: context read · transfer+roster-pull · drop · contact · rollback) + teams integration
+  (14) green. **`syncSchedulesForTeamUpdate` (roster + capacity + waitlist FIFO promotion) stays
+  Mongo-only by design** — it is a SCHEDULE/waitlist concern, ported with that domain, not groups.
+  Groups' remaining Mongo-only surface = pure reads. DB_BACKEND=mongo default unchanged.
 - **2026-06-26** — **Phase 3 Wave-D — groups transaction port (slices 1+2 of 3) on the unit-of-work abstraction.**
   First transaction-heavy domain ported onto the new `runInTransaction` boundary.
   **Slice 1 (lifecycle):** `domains/groups/lifecycle-repository.{mongo,pg}.js` + selector — the team
