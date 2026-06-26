@@ -39,7 +39,8 @@ partial-unique + TTL encoded as explicit SQL.
   · org/office (#208, no migration) · assessment/question-bank (#209)
   · report-presets (#210) · executive-dashboard (#211, no migration)
   · dashboard (no migration) · learning/assignment (mig `023`)
-  · **attendance** (mig `025` — scalar cols + compound indexes + users.last_active_at).
+  · attendance (mig `025` — scalar cols + compound indexes + users.last_active_at)
+  · **learning/reports** (no new migration — reuses 001/004/011/012/023/025; 20-method report read surface).
   Migrations `003`–`023`, `025`.
   - **Wave-D tail (transaction abstraction built):** groups transaction port COMPLETE
     (lifecycle + team-write/membership + enrollment-sync; mig `024`
