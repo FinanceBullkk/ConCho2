@@ -23,6 +23,16 @@ const { COHORT_SCHEDULING_MODES } = require('../_shared/scheduling-modes');
 const ids = (a) => (a || []).map(String);
 const num = (v) => (v == null ? null : Number(v));
 
+// ── slice S3a: transaction handle + dup-key mapping ───────
+// The txn methods below join the caller's Unit-of-Work via tx.client (BEGIN/
+// COMMIT on a checked-out client); a non-tx call falls back to the pool. PG's
+// 23505 (unique violation) is re-thrown as a Mongo-style { code: 11000 } so the
+// room-lock policy's isDuplicateKeyError (err.code === 11000) stays unchanged.
+const crypto = require('crypto');
+const exec = (tx, text, params) => (tx && tx.client ? tx.client.query(text, params) : query(text, params));
+const newId = () => crypto.randomBytes(12).toString('hex');
+const duplicateError = () => { const e = new Error('duplicate key value (slot/room already taken)'); e.code = 11000; return e; };
+
 const baseSchedule = (r) => ({
   ...(r.meta || {}), // extras (externalTrainer/vendorId/…) — core columns override below
   _id: r.id,
@@ -350,7 +360,134 @@ const findAllowedTimeSlotsSetting = async () => {
   } : null;
 };
 
+// ──────────────────────────────────────────────────────────
+// slice S3a — booking/cancel/room-lock/waitlist/mode/capacity TXN methods.
+// Dual-backend twins of the session-aware mongo methods, threaded through tx.
+// (updateScheduleById generic field-mapper + findTeamById opts-session land in
+// slice S3b with the scheduleService orchestration cutover.)
+// ──────────────────────────────────────────────────────────
+
+// Only LIVE rows collide: time-overlap + status='scheduled' (mirrors the
+// partial-unique). Caller checks truthiness only → minimal { _id } shape.
+const findScheduleForCollision = async (classId, start, end, excludeId, tx) => {
+  const args = [String(classId), new Date(end).toISOString(), new Date(start).toISOString()];
+  let excl = '';
+  if (excludeId) { args.push(String(excludeId)); excl = `AND id <> $${args.length}`; }
+  const { rows } = await exec(tx,
+    `SELECT id FROM schedules WHERE class_id = $1 AND start_time < $2 AND end_time > $3 AND status = 'scheduled' ${excl} LIMIT 1`, args);
+  return rows[0] ? { _id: rows[0].id } : null;
+};
+
+// Cancelled sessions don't consume the team's weekly quota (status='scheduled').
+const countSchedulesForTeamInWeek = async (teamId, weekStart, weekEnd, excludeId, tx) => {
+  const args = [String(teamId), new Date(weekStart).toISOString(), new Date(weekEnd).toISOString()];
+  let excl = '';
+  if (excludeId) { args.push(String(excludeId)); excl = `AND id <> $${args.length}`; }
+  const { rows } = await exec(tx,
+    `SELECT count(*)::int AS n FROM schedules
+      WHERE booked_team_id = $1 AND start_time >= $2 AND start_time <= $3 AND status = 'scheduled' ${excl}`, args);
+  return rows[0].n;
+};
+
+// Class.programId → LearningProgram.capacityPolicy; {} for a program-less (or
+// soft-deleted) class — the "open until populated" fallback.
+const findClassCapacityPolicy = async (classId, tx) => {
+  if (!classId) return {};
+  const { rows } = await exec(tx, `SELECT program_id FROM classes WHERE id = $1 AND is_deleted = false`, [String(classId)]);
+  if (!rows[0] || !rows[0].program_id) return {};
+  const { rows: pr } = await exec(tx, `SELECT capacity_policy FROM learning_programs WHERE id = $1`, [String(rows[0].program_id)]);
+  return (pr[0] && pr[0].capacity_policy) || {};
+};
+
+// Class.programId → LearningProgram.schedulingMode; 'leader_booking' fallback.
+const findClassSchedulingMode = async (classId, tx) => {
+  if (!classId) return 'leader_booking';
+  const { rows } = await exec(tx, `SELECT program_id FROM classes WHERE id = $1 AND is_deleted = false`, [String(classId)]);
+  if (!rows[0] || !rows[0].program_id) return 'leader_booking';
+  const { rows: pr } = await exec(tx, `SELECT scheduling_mode FROM learning_programs WHERE id = $1`, [String(rows[0].program_id)]);
+  return (pr[0] && pr[0].scheduling_mode) || 'leader_booking';
+};
+
+// Attendance.exists shape: { _id } | null (caller uses truthiness).
+const attendanceExistsForSchedule = async (scheduleId, tx) => {
+  const { rows } = await exec(tx, `SELECT id FROM attendances WHERE schedule_id = $1 LIMIT 1`, [String(scheduleId)]);
+  return rows[0] ? { _id: rows[0].id } : null;
+};
+
+// Durable cancel: conditional flip (one winner; loser → null → 409). roomId
+// nulled in the same write (caller drops the ledger row in the same tx — B3).
+const cancelScheduleById = async (id, { cancelledBy = null, cancelReason = '' } = {}, tx) => {
+  const { rows } = await exec(tx,
+    `UPDATE schedules
+        SET status = 'cancelled', cancelled_at = now(), cancelled_by = $2, cancel_reason = $3, room_id = NULL, updated_at = now()
+      WHERE id = $1 AND status = 'scheduled' RETURNING *`,
+    [String(id), cancelledBy == null ? null : String(cancelledBy), cancelReason || '']);
+  return rows[0] ? baseSchedule(rows[0]) : null;
+};
+
+// ── Waitlist release (release-resources) ──────────────────
+const findWaitingEntries = async (scheduleIds, tx) => {
+  const list = ids(scheduleIds);
+  if (!list.length) return [];
+  const { rows } = await exec(tx,
+    `SELECT id, user_id FROM waitlist_entries WHERE schedule_id = ANY($1) AND status = 'waiting'`, [list]);
+  return rows.map((r) => ({ _id: r.id, userId: r.user_id }));
+};
+
+const cancelWaitingEntries = async (scheduleIds, tx) => {
+  const list = ids(scheduleIds);
+  if (!list.length) return { modifiedCount: 0 };
+  const res = await exec(tx,
+    `UPDATE waitlist_entries SET status = 'cancelled', updated_at = now() WHERE schedule_id = ANY($1) AND status = 'waiting'`, [list]);
+  return { modifiedCount: res.rowCount };
+};
+
+// ── Room-lock ledger (room-lock-policy) ───────────────────
+const findRoomForLock = async (roomId, tx) => {
+  const { rows } = await exec(tx, `SELECT id, office_id, is_active FROM rooms WHERE id = $1 AND is_deleted = false`, [String(roomId)]);
+  const r = rows[0];
+  return r ? { _id: r.id, officeId: r.office_id || null, isActive: r.is_active } : null;
+};
+
+// THE room lock: unique (room_id,start_time) → 23505 → { code:11000 } → 409.
+const createRoomBooking = async ({ roomId, scheduleId, classId, startTime }, tx) => {
+  try {
+    const { rows } = await exec(tx,
+      `INSERT INTO room_bookings(id, room_id, schedule_id, class_id, start_time) VALUES ($1, $2, $3, $4, $5) RETURNING id`,
+      [newId(), String(roomId), String(scheduleId), String(classId), new Date(startTime).toISOString()]);
+    return [{ _id: rows[0].id }]; // mongo create([...]) returns an array; caller ignores
+  } catch (error) {
+    if (error && error.code === '23505') throw duplicateError();
+    throw error;
+  }
+};
+
+const setScheduleRoom = async (scheduleId, roomId, tx) => {
+  const res = await exec(tx, `UPDATE schedules SET room_id = $2, updated_at = now() WHERE id = $1`,
+    [String(scheduleId), roomId == null ? null : String(roomId)]);
+  return { modifiedCount: res.rowCount };
+};
+
+const deleteRoomBookings = async (scheduleIds, tx) => {
+  const list = ids(scheduleIds);
+  if (!list.length) return { deletedCount: 0 };
+  const res = await exec(tx, `DELETE FROM room_bookings WHERE schedule_id = ANY($1)`, [list]);
+  return { deletedCount: res.rowCount };
+};
+
 module.exports = {
+  findScheduleForCollision,
+  countSchedulesForTeamInWeek,
+  findClassCapacityPolicy,
+  findClassSchedulingMode,
+  attendanceExistsForSchedule,
+  cancelScheduleById,
+  findWaitingEntries,
+  cancelWaitingEntries,
+  findRoomForLock,
+  createRoomBooking,
+  setScheduleRoom,
+  deleteRoomBookings,
   findScheduleById,
   findScheduleByIdRaw,
   findScheduleByIdLean,
