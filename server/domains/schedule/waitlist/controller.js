@@ -15,7 +15,8 @@ const join = async (req, res) => {
       diff: { after: { scheduleId: req.params.id, position } },
       note: 'Joined session waitlist',
     });
-    res.status(201).json({ success: true, data: { ...entry.toObject(), position } });
+    // entry is a plain object from either backend (mongo .toObject() / pg row map).
+    res.status(201).json({ success: true, data: { ...entry, position } });
   } catch (error) {
     handleError(res, error);
   }
