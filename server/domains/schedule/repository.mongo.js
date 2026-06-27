@@ -183,6 +183,29 @@ const findTeamById = (id, opts = {}) => {
   return q;
 };
 
+// Booking team load (slice S3b-1) — replaces the in-tx Team write-lock + populate
+// in scheduleService (bookSlot lock:true, adminCreate lock:false). lock:true
+// serializes concurrent same-team bookings via the Mongo `findByIdAndUpdate
+// {updatedAt}` write trick (pg twin uses SELECT … FOR UPDATE). Returns a plain
+// shape {_id, classId, leaderId, members:[{_id,status}]} so callers stay
+// backend-agnostic. members soft-delete-dropped via populate.
+const loadTeamForBooking = async (teamId, tx, { lock = false } = {}) => {
+  const session = sessionOf(tx);
+  let q = lock
+    ? Team.findByIdAndUpdate(teamId, { $set: { updatedAt: new Date() } }, { new: true })
+    : Team.findById(teamId);
+  q = q.populate('members', '_id status');
+  if (session) q = q.session(session);
+  const t = await q;
+  if (!t) return null;
+  return {
+    _id: t._id,
+    classId: t.classId || null,
+    leaderId: t.leaderId || null,
+    members: (t.members || []).map((m) => ({ _id: m._id, status: m.status })),
+  };
+};
+
 // ── Composite queries (used by use-cases) ─────────────────
 
 // Only LIVE sessions collide — a durable-cancelled row frees its slot
@@ -415,6 +438,7 @@ module.exports = {
   cancelScheduleById,
   attendanceExistsForSchedule,
   findTeamById,
+  loadTeamForBooking,
   findScheduleForCollision,
   findInstructorConflict,
   countSchedulesForTeamInWeek,

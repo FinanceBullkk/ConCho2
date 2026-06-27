@@ -11,6 +11,7 @@ const roomLockPolicy = require('./room-lock-policy');
 const { releaseScheduleResources, dissolveWaitlist } = require('./release-resources');
 const waitlistPromotion = require('./waitlist/promotion');
 const scheduleService = require('../../services/scheduleService');
+const { runInTransaction } = require('../_shared/unit-of-work');
 
 // ── Shared helpers ────────────────────────────────────────
 
@@ -320,25 +321,20 @@ const deleteSchedule = async (id, { cancelledBy = null, cancelledByName = 'Admin
   }
 
   const googleEventId = schedule.googleEventId;
-  const session = await mongoose.startSession();
   let waiterUserIds = [];
 
-  try {
-    await session.withTransaction(async () => {
-      // Same-tx resource release: room ledger row dropped + live waitlist
-      // entries dissolved to 'cancelled' (slice B).
-      ({ waiterUserIds } = await releaseScheduleResources([schedule._id], session));
-      const flipped = await repository.cancelScheduleById(
-        schedule._id, { cancelledBy, cancelReason }, session,
-      );
-      // Atomic conditional flip: a concurrent cancel already won.
-      if (!flipped) {
-        throw new ServiceError('This session is already cancelled', 409);
-      }
-    });
-  } finally {
-    session.endSession();
-  }
+  await runInTransaction(async (tx) => {
+    // Same-tx resource release: room ledger row dropped + live waitlist
+    // entries dissolved to 'cancelled' (slice B).
+    ({ waiterUserIds } = await releaseScheduleResources([schedule._id], tx));
+    const flipped = await repository.cancelScheduleById(
+      schedule._id, { cancelledBy, cancelReason }, tx,
+    );
+    // Atomic conditional flip: a concurrent cancel already won.
+    if (!flipped) {
+      throw new ServiceError('This session is already cancelled', 409);
+    }
+  });
 
   invalidateSessionOrderCache(schedule.classId);
 

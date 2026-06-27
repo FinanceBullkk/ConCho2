@@ -26,6 +26,19 @@ const insertScheduledSession = async (
   return { _id: doc._id, classId: doc.classId, startTime: doc.startTime, status: doc.status };
 };
 
+// Broad create seam (slice S3b-1) — the single in-tx insert for ALL three create
+// paths (bookSlot / bookCohortSlot / adminCreate). Accepts the full bounded field
+// set; status is forced to 'scheduled'. Mongoose maps schema fields directly (the
+// pg twin folds the column-less extras into meta jsonb). Same E11000 double-booking
+// guard as the narrow seam above.
+const insertSession = async (fields, tx = {}) => {
+  const [doc] = await Schedule.create(
+    [{ ...fields, status: 'scheduled' }],
+    tx.session ? { session: tx.session } : {},
+  );
+  return { _id: doc._id, classId: doc.classId, startTime: doc.startTime, status: doc.status };
+};
+
 // Count LIVE sessions for a class — used to observe commit/rollback outcomes.
 const countScheduledForClass = (classId, tx = {}) => {
   let q = Schedule.countDocuments({ classId, status: 'scheduled' });
@@ -44,4 +57,4 @@ const cancelSession = async (id, tx = {}) => {
   return doc ? { _id: doc._id, status: doc.status } : null;
 };
 
-module.exports = { insertScheduledSession, countScheduledForClass, cancelSession };
+module.exports = { insertScheduledSession, insertSession, countScheduledForClass, cancelSession };
