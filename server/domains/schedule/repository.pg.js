@@ -1,0 +1,379 @@
+const { query } = require('../../config/pg');
+const { COHORT_SCHEDULING_MODES } = require('../_shared/scheduling-modes');
+
+// ──────────────────────────────────────────────────────────
+// schedule/repository — POSTGRES impl, slice S1 (PURE READS only).
+// Same interface as ./repository.mongo for the no-`session` read methods; the
+// session-aware writes (collision/cancel/room-lock/waitlist/mode/capacity) land
+// in slice S3 and fall back to mongo via the selector's mongo ⊕ pg merge.
+//
+// Fidelity notes the parity test pins (Mongo ⇔ SQL):
+//   • populate('classId'/'bookedTeamId'/'leaderId'/'enrolledUsers'/
+//     'sessionInstructorIds') → batch embed; Class/Team/User soft-delete hooks →
+//     a deleted ref drops to null (array populates drop + preserve order).
+//   • schedules.enrolled_users / session_instructor_ids are text[]; a scalar
+//     Mongo array-match (`enrolledUsers: userId`, `sessionInstructorIds:{$in}`)
+//     → `$id = ANY(col)` / `col && $ids` (overlap).
+//   • LIVE-only reads filter status='scheduled'; durable-cancelled rows are history.
+//   • the Schedule extras (externalTrainer/vendorId/sessionTypeId/agenda/materials/
+//     customFields/googleEventId/remindersSentAt) ride in schedules.meta jsonb →
+//     spread back as top-level keys (core columns win on collision).
+// ──────────────────────────────────────────────────────────
+
+const ids = (a) => (a || []).map(String);
+const num = (v) => (v == null ? null : Number(v));
+
+const baseSchedule = (r) => ({
+  ...(r.meta || {}), // extras (externalTrainer/vendorId/…) — core columns override below
+  _id: r.id,
+  classId: r.class_id || null,
+  bookedTeamId: r.booked_team_id || null,
+  officeId: r.office_id || null,
+  startTime: r.start_time,
+  endTime: r.end_time,
+  roomLink: r.room_link == null ? '' : r.room_link,
+  roomId: r.room_id || null,
+  sessionInstructorIds: ids(r.session_instructor_ids),
+  topic: r.topic == null ? '' : r.topic,
+  meetLink: r.meet_link == null ? '' : r.meet_link,
+  enrolledUsers: ids(r.enrolled_users),
+  capacity: r.capacity == null ? undefined : Number(r.capacity),
+  status: r.status,
+  cancelledAt: r.cancelled_at || null,
+  cancelledBy: r.cancelled_by || null,
+  cancelReason: r.cancel_reason == null ? '' : r.cancel_reason,
+  createdAt: r.created_at,
+  updatedAt: r.updated_at,
+});
+
+// ── batch ref embeds (soft-delete-aware, drop-to-null) ────
+const embedClasses = async (rows, withTotal = false) => {
+  const cids = [...new Set(rows.map((r) => r.class_id).filter(Boolean))];
+  if (!cids.length) return new Map();
+  const cols = withTotal ? 'id, class_code, course_name, total_sessions' : 'id, class_code, course_name';
+  const { rows: cs } = await query(`SELECT ${cols} FROM classes WHERE id = ANY($1) AND is_deleted = false`, [cids]);
+  return new Map(cs.map((c) => [c.id, withTotal
+    ? { _id: c.id, classCode: c.class_code, courseName: c.course_name, totalSessions: num(c.total_sessions) }
+    : { _id: c.id, classCode: c.class_code, courseName: c.course_name }]));
+};
+
+const embedTeams = async (rows) => {
+  const tids = [...new Set(rows.map((r) => r.booked_team_id).filter(Boolean))];
+  if (!tids.length) return new Map();
+  const { rows: ts } = await query(`SELECT id, name FROM teams WHERE id = ANY($1) AND is_deleted = false`, [tids]);
+  return new Map(ts.map((t) => [t.id, { _id: t.id, name: t.name }]));
+};
+
+const USER_COLS = { empCode: 'emp_code', name: 'name', department: 'department', status: 'status', email: 'email' };
+const fetchUsers = async (idList, fields) => {
+  const uniq = [...new Set(ids(idList))];
+  if (!uniq.length) return new Map();
+  const cols = ['id', ...fields.map((f) => USER_COLS[f])].join(', ');
+  const { rows } = await query(`SELECT ${cols} FROM users WHERE id = ANY($1) AND is_deleted = false`, [uniq]);
+  return new Map(rows.map((r) => {
+    const o = { _id: r.id };
+    for (const f of fields) o[f] = r[USER_COLS[f]];
+    return [r.id, o];
+  }));
+};
+const orderedEmbed = (idArr, map) => ids(idArr).map((id) => map.get(id)).filter(Boolean);
+
+// ── Mongo-filter → SQL translator (bounded to the keys queries.js builds) ──
+// Handles: classId, status, enrolledUsers (scalar→ANY), startTime {$gte,$lte},
+// and $or [{classId:{$in}}, {sessionInstructorIds: scalar}] (calendar teacher scope).
+const scheduleWhere = (filter = {}) => {
+  const conds = [];
+  const args = [];
+  const add = (sql, val) => { args.push(val); conds.push(sql.replace('$?', `$${args.length}`)); };
+  if (filter.classId) add('class_id = $?', String(filter.classId));
+  if (filter.status) add('status = $?', filter.status);
+  if (filter.enrolledUsers) add('$? = ANY(enrolled_users)', String(filter.enrolledUsers));
+  if (filter.startTime) {
+    if (filter.startTime.$gte) add('start_time >= $?', new Date(filter.startTime.$gte).toISOString());
+    if (filter.startTime.$lte) add('start_time <= $?', new Date(filter.startTime.$lte).toISOString());
+  }
+  if (Array.isArray(filter.$or)) {
+    const ors = [];
+    for (const clause of filter.$or) {
+      if (clause.classId && Array.isArray(clause.classId.$in)) {
+        args.push(clause.classId.$in.map(String)); ors.push(`class_id = ANY($${args.length})`);
+      } else if (clause.sessionInstructorIds) {
+        args.push(String(clause.sessionInstructorIds)); ors.push(`$${args.length} = ANY(session_instructor_ids)`);
+      }
+    }
+    if (ors.length) conds.push(`(${ors.join(' OR ')})`);
+  }
+  return { where: conds.length ? conds.join(' AND ') : 'true', args };
+};
+
+// ── Schedule reads ────────────────────────────────────────
+const findScheduleById = async (id) => {
+  const { rows } = await query(`SELECT * FROM schedules WHERE id = $1`, [String(id)]);
+  if (!rows[0]) return null;
+  const s = rows[0];
+  const [classMap, teamMap, userMap] = await Promise.all([
+    embedClasses([s]), embedTeams([s]),
+    fetchUsers(s.enrolled_users, ['empCode', 'name', 'department', 'status']),
+  ]);
+  const out = baseSchedule(s);
+  out.classId = s.class_id ? (classMap.get(s.class_id) || null) : null;
+  out.bookedTeamId = s.booked_team_id ? (teamMap.get(s.booked_team_id) || null) : null;
+  out.enrolledUsers = orderedEmbed(s.enrolled_users, userMap);
+  return out;
+};
+
+const findScheduleByIdRaw = async (id) => {
+  const { rows } = await query(`SELECT * FROM schedules WHERE id = $1`, [String(id)]);
+  return rows[0] ? baseSchedule(rows[0]) : null;
+};
+
+const findScheduleByIdLean = findScheduleByIdRaw;
+
+const findAvailabilitySchedules = async ({ classId, fromDate }) => {
+  const args = [new Date(fromDate).toISOString()];
+  let extra = '';
+  if (classId) { args.push(String(classId)); extra = `AND class_id = $${args.length}`; }
+  const { rows } = await query(
+    `SELECT * FROM schedules WHERE start_time >= $1 AND status = 'scheduled' ${extra} ORDER BY start_time ASC, id ASC`, args);
+  const [classMap, teamMap] = await Promise.all([embedClasses(rows), embedTeams(rows)]);
+  return rows.map((s) => {
+    const out = baseSchedule(s);
+    out.classId = s.class_id ? (classMap.get(s.class_id) || null) : null;
+    out.bookedTeamId = s.booked_team_id ? (teamMap.get(s.booked_team_id) || null) : null;
+    return out;
+  });
+};
+
+const findSchedulesPage = async (filter, { skip, limit }) => {
+  const { where, args } = scheduleWhere(filter);
+  args.push(limit, skip);
+  const { rows } = await query(
+    `SELECT * FROM schedules WHERE ${where} ORDER BY start_time ASC, id ASC LIMIT $${args.length - 1} OFFSET $${args.length}`, args);
+  const [classMap, teamMap, userMap] = await Promise.all([
+    embedClasses(rows, true), embedTeams(rows),
+    fetchUsers(rows.flatMap((r) => r.enrolled_users || []), ['empCode', 'name', 'department']),
+  ]);
+  return rows.map((s) => {
+    const out = baseSchedule(s);
+    out.classId = s.class_id ? (classMap.get(s.class_id) || null) : null;
+    out.bookedTeamId = s.booked_team_id ? (teamMap.get(s.booked_team_id) || null) : null;
+    out.enrolledUsers = orderedEmbed(s.enrolled_users, userMap);
+    return out;
+  });
+};
+
+const countSchedules = async (filter) => {
+  const { where, args } = scheduleWhere(filter);
+  const { rows } = await query(`SELECT count(*)::int AS n FROM schedules WHERE ${where}`, args);
+  return rows[0].n;
+};
+
+const findTeamsByMember = async (userId) => {
+  // Team.find({members:userId}) → team_members junction; populate('leaderId').
+  const { rows } = await query(
+    `SELECT t.id, t.class_id, t.name, t.leader_id
+       FROM teams t JOIN team_members tm ON tm.team_id = t.id
+      WHERE tm.user_id = $1 AND t.is_deleted = false`, [String(userId)]);
+  const leaderMap = await fetchUsers(rows.map((r) => r.leader_id).filter(Boolean), ['name', 'empCode', 'email', 'department']);
+  return rows.map((t) => ({
+    _id: t.id, classId: t.class_id || null, name: t.name,
+    leaderId: t.leader_id ? (leaderMap.get(t.leader_id) || null) : null,
+  }));
+};
+
+const findUpcomingForClasses = async (classIds, fromDate, limit) => {
+  const { rows } = await query(
+    `SELECT * FROM schedules
+      WHERE class_id = ANY($1) AND start_time >= $2 AND status = 'scheduled'
+      ORDER BY start_time ASC, id ASC LIMIT $3`,
+    [ids(classIds), new Date(fromDate).toISOString(), limit]);
+  const [classMap, teamMap] = await Promise.all([embedClasses(rows, true), embedTeams(rows)]);
+  return rows.map((s) => {
+    const out = baseSchedule(s);
+    out.classId = s.class_id ? (classMap.get(s.class_id) || null) : null;
+    out.bookedTeamId = s.booked_team_id ? (teamMap.get(s.booked_team_id) || null) : null;
+    return out;
+  });
+};
+
+const findCalendarSchedules = async (filter) => {
+  // The method adds status='scheduled' on top of the passed filter.
+  const { where, args } = scheduleWhere({ ...filter, status: 'scheduled' });
+  const { rows } = await query(`SELECT * FROM schedules WHERE ${where} ORDER BY start_time ASC, id ASC`, args);
+  const [classMap, teamMap] = await Promise.all([embedClasses(rows, true), embedTeams(rows)]);
+  return rows.map((s) => {
+    const out = baseSchedule(s); // enrolledUsers stays as id[] (not populated here)
+    out.classId = s.class_id ? (classMap.get(s.class_id) || null) : null;
+    out.bookedTeamId = s.booked_team_id ? (teamMap.get(s.booked_team_id) || null) : null;
+    return out;
+  });
+};
+
+const findScheduledByClassIdsOrdered = async (classIds) => {
+  const { rows } = await query(
+    `SELECT id, class_id, start_time FROM schedules
+      WHERE class_id = ANY($1) AND status = 'scheduled' ORDER BY start_time ASC, id ASC`, [ids(classIds)]);
+  return rows.map((r) => ({ _id: r.id, classId: r.class_id, startTime: r.start_time }));
+};
+
+const findScheduleForCalendarSync = async (id) => {
+  const { rows } = await query(`SELECT * FROM schedules WHERE id = $1`, [String(id)]);
+  if (!rows[0]) return null;
+  const s = rows[0];
+  const [classMap, teamMap, enrMap, instrMap] = await Promise.all([
+    embedClasses([s]), embedTeams([s]),
+    fetchUsers(s.enrolled_users, ['empCode', 'name', 'email']),
+    fetchUsers(s.session_instructor_ids, ['empCode', 'name', 'email']),
+  ]);
+  const out = baseSchedule(s);
+  out.classId = s.class_id ? (classMap.get(s.class_id) || null) : null;
+  out.bookedTeamId = s.booked_team_id ? (teamMap.get(s.booked_team_id) || null) : null;
+  out.enrolledUsers = orderedEmbed(s.enrolled_users, enrMap);
+  out.sessionInstructorIds = orderedEmbed(s.session_instructor_ids, instrMap);
+  return out;
+};
+
+const findScheduleClassLabel = async (id) => {
+  const { rows } = await query(`SELECT id, class_id FROM schedules WHERE id = $1`, [String(id)]);
+  if (!rows[0]) return null;
+  const classMap = await embedClasses([rows[0]]);
+  return { _id: rows[0].id, classId: rows[0].class_id ? (classMap.get(rows[0].class_id) || null) : null };
+};
+
+const findUsersForEmail = async (userIds) => {
+  const list = ids(userIds);
+  if (!list.length) return [];
+  const { rows } = await query(`SELECT id, name, email FROM users WHERE id = ANY($1) AND is_deleted = false`, [list]);
+  return rows.map((r) => ({ _id: r.id, name: r.name, email: r.email }));
+};
+
+const aggregateAttendanceCounts = async (scheduleIds) => {
+  const list = ids(scheduleIds);
+  if (!list.length) return [];
+  const { rows } = await query(
+    `SELECT schedule_id AS _id, count(*)::int AS count FROM attendances
+      WHERE schedule_id = ANY($1) GROUP BY schedule_id`, [list]);
+  return rows.map((r) => ({ _id: r._id, count: r.count }));
+};
+
+// ── Trainers / instructors ────────────────────────────────
+const findValidInstructorIds = async (instructorIds) => {
+  if (!Array.isArray(instructorIds) || instructorIds.length === 0) return [];
+  const { rows } = await query(
+    `SELECT id FROM users
+      WHERE id = ANY($1) AND role = ANY($2) AND status IS DISTINCT FROM 'Dropped' AND is_deleted = false`,
+    [ids(instructorIds), ['Teacher', 'Admin']]);
+  return rows.map((r) => r.id);
+};
+
+const findInstructorConflict = async (instructorIds, start, end, excludeId) => {
+  if (!instructorIds || instructorIds.length === 0) return null;
+  const args = [ids(instructorIds), new Date(end).toISOString(), new Date(start).toISOString()];
+  let excl = '';
+  if (excludeId) { args.push(String(excludeId)); excl = `AND id <> $${args.length}`; }
+  // sessionInstructorIds {$in} on an array = overlap (&&); time-overlap; live only.
+  const { rows } = await query(
+    `SELECT id, class_id, start_time, end_time, session_instructor_ids FROM schedules
+      WHERE session_instructor_ids && $1 AND start_time < $2 AND end_time > $3 AND status = 'scheduled' ${excl}
+      LIMIT 1`, args);
+  const r = rows[0];
+  return r ? {
+    _id: r.id, classId: r.class_id, startTime: r.start_time, endTime: r.end_time,
+    sessionInstructorIds: ids(r.session_instructor_ids),
+  } : null;
+};
+
+// ── Teacher scope / scheduling-world / facilitator reads ──
+const findTeacherScopedClassIds = async (teacherId) => {
+  // own classes OR legacy empty teacher_ids (graceful migration).
+  const { rows } = await query(
+    `SELECT id FROM classes WHERE is_deleted = false AND ($1 = ANY(teacher_ids) OR cardinality(teacher_ids) = 0 OR teacher_ids IS NULL)`,
+    [String(teacherId)]);
+  return rows.map((r) => ({ _id: r.id }));
+};
+
+const findCohortModeClassIds = async () => {
+  const { rows } = await query(
+    `SELECT id FROM classes
+      WHERE is_deleted = false
+        AND program_id IN (SELECT id FROM learning_programs WHERE scheduling_mode = ANY($1))`,
+    [COHORT_SCHEDULING_MODES]);
+  return rows.map((r) => r.id);
+};
+
+const findClassForFacilitator = async (classId) => {
+  const { rows } = await query(`SELECT id, program_id, teacher_ids FROM classes WHERE id = $1 AND is_deleted = false`, [String(classId)]);
+  const c = rows[0];
+  return c ? { _id: c.id, programId: c.program_id || null, teacherIds: ids(c.teacher_ids) } : null;
+};
+
+const findProgramFacilitatorPolicy = async (programId) => {
+  const { rows } = await query(`SELECT id, facilitator_policy FROM learning_programs WHERE id = $1`, [String(programId)]);
+  return rows[0] ? { _id: rows[0].id, facilitatorPolicy: rows[0].facilitator_policy || undefined } : null;
+};
+
+const findClassProgramId = async (cohortId) => {
+  const { rows } = await query(`SELECT id, program_id FROM classes WHERE id = $1 AND is_deleted = false`, [String(cohortId)]);
+  return rows[0] ? { _id: rows[0].id, programId: rows[0].program_id || null } : null;
+};
+
+const findProgramVisibility = async (programId) => {
+  const { rows } = await query(`SELECT id, facilitator_policy FROM learning_programs WHERE id = $1`, [String(programId)]);
+  if (!rows[0]) return null;
+  const vis = rows[0].facilitator_policy && rows[0].facilitator_policy.visibility;
+  return { _id: rows[0].id, facilitatorPolicy: vis === undefined ? undefined : { visibility: vis } };
+};
+
+const findClassesProgramIds = async (cohortIds) => {
+  const list = ids(cohortIds);
+  if (!list.length) return [];
+  const { rows } = await query(`SELECT id, program_id FROM classes WHERE id = ANY($1) AND is_deleted = false`, [list]);
+  return rows.map((r) => ({ _id: r.id, programId: r.program_id || null }));
+};
+
+const findAssignedOnlyPrograms = async (programIds) => {
+  const list = ids(programIds);
+  if (!list.length) return [];
+  const { rows } = await query(
+    `SELECT id FROM learning_programs WHERE id = ANY($1) AND facilitator_policy->>'visibility' = 'assigned_only'`, [list]);
+  return rows.map((r) => ({ _id: r.id }));
+};
+
+// ── Settings ──────────────────────────────────────────────
+const findAllowedTimeSlotsSetting = async () => {
+  const { rows } = await query(`SELECT id, key, value, description, created_at, updated_at FROM settings WHERE key = 'ALLOWED_TIME_SLOTS' LIMIT 1`);
+  const r = rows[0];
+  return r ? {
+    _id: r.id, key: r.key, value: r.value,
+    description: r.description == null ? '' : r.description,
+    createdAt: r.created_at, updatedAt: r.updated_at,
+  } : null;
+};
+
+module.exports = {
+  findScheduleById,
+  findScheduleByIdRaw,
+  findScheduleByIdLean,
+  findScheduledByClassIdsOrdered,
+  findScheduleForCalendarSync,
+  findScheduleClassLabel,
+  findUsersForEmail,
+  findAllowedTimeSlotsSetting,
+  findClassForFacilitator,
+  findProgramFacilitatorPolicy,
+  findClassProgramId,
+  findProgramVisibility,
+  findClassesProgramIds,
+  findAssignedOnlyPrograms,
+  findInstructorConflict,
+  findCohortModeClassIds,
+  findValidInstructorIds,
+  findAvailabilitySchedules,
+  findSchedulesPage,
+  countSchedules,
+  findTeamsByMember,
+  findUpcomingForClasses,
+  findCalendarSchedules,
+  findTeacherScopedClassIds,
+  aggregateAttendanceCounts,
+};
