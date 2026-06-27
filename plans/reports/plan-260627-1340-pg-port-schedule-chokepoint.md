@@ -44,7 +44,7 @@ Existing `schedules` cols (001/003/007/020): class_id, booked_team_id, start_tim
 ## 4. Slices (each = 1 PR, parity-proven on Neon, mongo-default suite green)
 - **S0 — migration 027** (tables + schedule cols). ✅ DONE 2026-06-27.
 - **S1 — schedule reads** (25 no-`session` methods) → `repository.{mongo,pg}.js` + **merge selector** (mongo ⊕ pg → un-ported writes stay mongo). ✅ DONE 2026-06-27 (13/13 parity, 67 mongo-default green).
-- **S2 — `waitlist/repository.js`** (10) → dual-backend. Reads + simple writes; partial-unique double-join. Parity test.
+- **S2 — `waitlist/repository.js`** (10) → dual-backend. Reads + simple writes; partial-unique double-join. Parity test. ✅ DONE 2026-06-27 (10/10 parity on Neon, 23 mongo-default waitlist green). Clean-swap selector (all 10 ported). One behavior-preserving tweak: controller `entry.toObject()` → `{...entry}` (both backends return plain objects).
 - **S3 — schedule txn-aware methods + scheduleService 3 blocks.** Port the ~14 `session`→`tx` methods (collision, weekly-cap, cancel, room-lock trio, findRoomForLock, attendanceExists, mode/capacity reads, waiting cancel) + migrate `bookSlot`/`adminCreate`/`cancelSession` from `startSession`→`runInTransaction` + `release-resources`. Parity + **rollback harness** (force mid-tx throw → assert zero partial writes both backends).
 - **S4 — FIFO promotion** (`waitlist/promotion.promoteIfSeatFree`) dual-backend: guarded array_append + FIFO order + stale-head resolve + M5 overfill belt. Parity test incl. the overfill-abort + a concurrent-promoter case. (`notifyPromotions` is post-commit/email — Mongo-only side-effect, leave.)
 
