@@ -1,4 +1,3 @@
-const mongoose = require('mongoose'); // transaction orchestration only (startSession)
 const calendarService = require('../../services/calendarService');
 const { ServiceError } = require('../../helpers/ServiceError');
 const { sendClassCancellation } = require('../../lib/emailTemplates');
@@ -10,8 +9,8 @@ const schedulingModePolicy = require('./scheduling-mode-policy');
 const roomLockPolicy = require('./room-lock-policy');
 const { releaseScheduleResources, dissolveWaitlist } = require('./release-resources');
 const waitlistPromotion = require('./waitlist/promotion');
-const scheduleService = require('../../services/scheduleService');
 const { runInTransaction } = require('../_shared/unit-of-work');
+const scheduleService = require('../../services/scheduleService');
 
 // ── Shared helpers ────────────────────────────────────────
 
@@ -50,12 +49,10 @@ const updateSchedule = async (id, body) => {
     body.bookedTeamId && body.bookedTeamId !== existing.bookedTeamId?.toString(),
   );
 
-  const session = await mongoose.startSession();
   let schedule;
   let capacityPromotions = [];
 
-  try {
-    await session.withTransaction(async () => {
+  await runInTransaction(async (tx) => {
       // ── Time validation ────────────────────────────────
       if (body.startTime || body.endTime) {
         const start = new Date(body.startTime || existing.startTime);
@@ -74,7 +71,7 @@ const updateSchedule = async (id, body) => {
         // Collision check (scoped to same class)
         const classId = body.classId || existing.classId;
         const collision = await repository.findScheduleForCollision(
-          classId, start, end, existing._id, session,
+          classId, start, end, existing._id, tx,
         );
         if (collision) {
           throw new ServiceError(
@@ -87,7 +84,7 @@ const updateSchedule = async (id, body) => {
           const teamId = body.bookedTeamId || existing.bookedTeamId;
           const { weekStart, weekEnd } = bookingPolicy.getWeekBounds(start);
           const weeklyCount = await repository.countSchedulesForTeamInWeek(
-            teamId, weekStart, weekEnd, existing._id, session,
+            teamId, weekStart, weekEnd, existing._id, tx,
           );
           if (weeklyCount >= bookingPolicy.WEEKLY_TEAM_LIMIT) {
             throw new ServiceError(
@@ -99,7 +96,7 @@ const updateSchedule = async (id, body) => {
 
       // ── Attendance block ───────────────────────────────
       if (teamReassigned) {
-        const hasAttendance = await repository.attendanceExistsForSchedule(existing._id, session);
+        const hasAttendance = await repository.attendanceExistsForSchedule(existing._id, tx);
         if (hasAttendance) {
           throw new ServiceError(
             'Cannot reassign schedule — attendance records already exist for this session', 409,
@@ -108,7 +105,7 @@ const updateSchedule = async (id, body) => {
 
         // Cross-class guard
         const targetTeam = await repository.findTeamById(body.bookedTeamId, {
-          select: 'classId', lean: true, session,
+          select: 'classId', lean: true, session: tx,
         });
         if (!targetTeam) {
           throw new ServiceError('Target team not found', 400);
@@ -123,7 +120,7 @@ const updateSchedule = async (id, body) => {
         // program's session (structural). Class is unchanged on reassign, so the
         // mode is resolved from the existing class. Admin override otherwise.
         const schedulingMode = await schedulingModePolicy.resolveSchedulingMode(
-          { classId: existing.classId }, session,
+          { classId: existing.classId }, tx,
         );
         schedulingModePolicy.assertTeamModeStructural({ schedulingMode });
 
@@ -131,7 +128,7 @@ const updateSchedule = async (id, body) => {
         const start = new Date(body.startTime || existing.startTime);
         const { weekStart, weekEnd } = bookingPolicy.getWeekBounds(start);
         const weeklyCount = await repository.countSchedulesForTeamInWeek(
-          body.bookedTeamId, weekStart, weekEnd, existing._id, session,
+          body.bookedTeamId, weekStart, weekEnd, existing._id, tx,
         );
         if (weeklyCount >= bookingPolicy.WEEKLY_TEAM_LIMIT) {
           throw new ServiceError(
@@ -151,7 +148,7 @@ const updateSchedule = async (id, body) => {
           select: 'members',
           populate: { path: 'members', select: '_id status' },
           lean: true,
-          session,
+          session: tx,
         });
         if (newTeam) {
           updateData.enrolledUsers = bookingPolicy.snapshotActiveMembers(newTeam);
@@ -167,7 +164,7 @@ const updateSchedule = async (id, body) => {
         const finalRoster = updateData.enrolledUsers ?? existing.enrolledUsers ?? [];
         const finalCapacity = updateData.capacity !== undefined ? updateData.capacity : existing.capacity;
         const finalClassId = updateData.classId || existing.classId;
-        const { maxParticipantsPerSession } = await repository.findClassCapacityPolicy(finalClassId, session);
+        const { maxParticipantsPerSession } = await repository.findClassCapacityPolicy(finalClassId, tx);
         const cap = bookingPolicy.effectiveSessionCapacity({
           scheduleCapacity: finalCapacity,
           maxPerSession: maxParticipantsPerSession,
@@ -177,7 +174,7 @@ const updateSchedule = async (id, body) => {
         }
       }
 
-      schedule = await repository.updateScheduleById(id, updateData, session);
+      schedule = await repository.updateScheduleById(id, updateData, tx);
       if (!schedule) {
         throw new ServiceError('Schedule not found', 404);
       }
@@ -193,7 +190,7 @@ const updateSchedule = async (id, body) => {
       const classMoved = updateData.classId !== undefined
         && String(updateData.classId) !== String(existing.classId);
       if (teamReassigned || classMoved) {
-        await dissolveWaitlist([existing._id], session);
+        await dissolveWaitlist([existing._id], tx);
       }
 
       // ── Capacity-raise promotion (phase-04 slice B, M3) ──
@@ -202,7 +199,7 @@ const updateSchedule = async (id, body) => {
       // promoteIfSeatFree no-ops when nothing is free, so a lower/equal
       // capacity edit costs one indexed read.
       if (body.capacity !== undefined) {
-        capacityPromotions = await waitlistPromotion.promoteIfSeatFree(id, session);
+        capacityPromotions = await waitlistPromotion.promoteIfSeatFree(id, tx);
       }
 
       // ── Room reassignment (Phase 3, DELTA A) ────────────
@@ -223,12 +220,12 @@ const updateSchedule = async (id, body) => {
 
         if (requestedRoomId === null) {
           // Clear the room → drop the ledger row + null the field.
-          await roomLockPolicy.releaseRoomLock([existing._id], session);
-          await repository.updateScheduleById(id, { roomId: null }, session);
+          await roomLockPolicy.releaseRoomLock([existing._id], tx);
+          await repository.updateScheduleById(id, { roomId: null }, tx);
           schedule.roomId = null;
         } else if (roomChanged || startChanged || classChanged) {
           // Key would change → release the old claim then reacquire the new one.
-          await roomLockPolicy.releaseRoomLock([existing._id], session);
+          await roomLockPolicy.releaseRoomLock([existing._id], tx);
           await roomLockPolicy.acquireRoomLock(
             {
               roomId: requestedRoomId,
@@ -237,7 +234,7 @@ const updateSchedule = async (id, body) => {
               startTime: finalStart,
               officeId: existing.officeId || null,
             },
-            { session },
+            { session: tx },
           );
           schedule.roomId = requestedRoomId;
         }
@@ -247,7 +244,7 @@ const updateSchedule = async (id, body) => {
         if (existing.roomId) {
           const finalStart = new Date(body.startTime || existing.startTime);
           const finalClassId = updateData.classId || existing.classId;
-          await roomLockPolicy.releaseRoomLock([existing._id], session);
+          await roomLockPolicy.releaseRoomLock([existing._id], tx);
           await roomLockPolicy.acquireRoomLock(
             {
               roomId: existing.roomId,
@@ -256,14 +253,11 @@ const updateSchedule = async (id, body) => {
               startTime: finalStart,
               officeId: existing.officeId || null,
             },
-            { session },
+            { session: tx },
           );
         }
       }
-    });
-  } finally {
-    session.endSession();
-  }
+  });
 
   // ── Post-commit: calendar sync + cache invalidation ──
 
