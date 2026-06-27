@@ -46,7 +46,11 @@ partial-unique + TTL encoded as explicit SQL.
   (planning · learning/session · schedule chokepoint) remains, on the unit-of-work abstraction.
   - **Wave-D tail (transaction abstraction built):** groups transaction port COMPLETE
     (lifecycle + team-write/membership + enrollment-sync; mig `024`
-    enrollments.transferred_to). Remaining tail: planning · learning/session · schedule chokepoint.
+    enrollments.transferred_to). **Schedule chokepoint port COMPLETE end-to-end** (mig `027`):
+    S0 tables + S1 reads + S2 waitlist + S3a 12 txn methods + S3b create/cancel/update cutover +
+    S4 FIFO promotion + **S5 read-path completion** (the 6 `scheduleService` booking/cancel re-fetches
+    routed through dual-backend reads — `scheduleService` now has ZERO direct Mongoose). Remaining tail:
+    planning · learning/session.
 - **Schema so far:** migrations `001`/`002` (spine + metric_snapshots) +
   `003` offices/rooms · `004` departments + org user cols · `005` session_types ·
   `006` skills · `007` trainer_profiles + schedules.{office_id,topic} ·
