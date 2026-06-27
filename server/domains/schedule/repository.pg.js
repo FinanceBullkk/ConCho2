@@ -425,6 +425,26 @@ const cancelScheduleById = async (id, { cancelledBy = null, cancelReason = '' } 
   return rows[0] ? baseSchedule(rows[0]) : null;
 };
 
+// Booking team load (slice S3b-1). lock:true → SELECT … FOR UPDATE row-locks the
+// team row so concurrent same-team bookings serialize (the PG analogue of Mongo's
+// findByIdAndUpdate {updatedAt} write trick); the blocked txn then re-reads the
+// weekly-cap count AFTER the winner commits (READ COMMITTED). members are
+// soft-delete-dropped (u.is_deleted=false).
+const loadTeamForBooking = async (teamId, tx, { lock = false } = {}) => {
+  const { rows } = await exec(tx,
+    `SELECT id, class_id, leader_id FROM teams WHERE id = $1 AND is_deleted = false ${lock ? 'FOR UPDATE' : ''}`,
+    [String(teamId)]);
+  const t = rows[0];
+  if (!t) return null;
+  const { rows: mem } = await exec(tx,
+    `SELECT u.id, u.status FROM team_members tm JOIN users u ON u.id = tm.user_id
+      WHERE tm.team_id = $1 AND u.is_deleted = false`, [String(teamId)]);
+  return {
+    _id: t.id, classId: t.class_id || null, leaderId: t.leader_id || null,
+    members: mem.map((m) => ({ _id: m.id, status: m.status })),
+  };
+};
+
 // ── Waitlist release (release-resources) ──────────────────
 const findWaitingEntries = async (scheduleIds, tx) => {
   const list = ids(scheduleIds);
@@ -488,6 +508,7 @@ module.exports = {
   createRoomBooking,
   setScheduleRoom,
   deleteRoomBookings,
+  loadTeamForBooking,
   findScheduleById,
   findScheduleByIdRaw,
   findScheduleByIdLean,

@@ -1,4 +1,3 @@
-const mongoose = require('mongoose');
 const Schedule = require('../models/Schedule');
 const Team = require('../models/Team');
 const User = require('../models/User');
@@ -43,6 +42,8 @@ const schedulingModePolicy = require('../domains/schedule/scheduling-mode-policy
 const roomLockPolicy = require('../domains/schedule/room-lock-policy');
 const { releaseScheduleResources } = require('../domains/schedule/release-resources');
 const repository = require('../domains/schedule/repository');
+const bookingWriteRepository = require('../domains/schedule/booking-write-repository');
+const { runInTransaction } = require('../domains/_shared/unit-of-work');
 const {
   createCalendarEventForSchedule,
   effectiveAttendeesForSchedule,
@@ -124,19 +125,13 @@ const bookSlot = async ({ teamId, startTime, endTime, requestUser }) => {
   const schedulingMode = await schedulingModePolicy.resolveSchedulingMode({ teamId });
   schedulingModePolicy.assertTeamMode({ schedulingMode, actor: requestUser });
 
-  // ── TRANSACTION: Atomic booking ───────────────────────
-  const session = await mongoose.startSession();
+  // ── TRANSACTION: Atomic booking (backend-agnostic Unit of Work) ──
   let created;
-
   try {
-    await session.withTransaction(async () => {
-      // Step 1: Acquire Write Lock on Team document
-      // By updating 'updatedAt', we force MongoDB to serialize concurrent requests for the same team.
-      const team = await Team.findByIdAndUpdate(
-        teamId,
-        { $set: { updatedAt: new Date() } },
-        { session, new: true }
-      ).populate('members', '_id status');
+    await runInTransaction(async (tx) => {
+      // Lock + load the team. lock:true serializes concurrent same-team bookings
+      // (Mongo: findByIdAndUpdate {updatedAt}; PG: SELECT … FOR UPDATE).
+      const team = await repository.loadTeamForBooking(teamId, tx, { lock: true });
 
       if (!team) throw new ServiceError('Team not found', 404);
       if (!team.classId) {
@@ -145,7 +140,7 @@ const bookSlot = async ({ teamId, startTime, endTime, requestUser }) => {
 
       // ── Authorization check ───────────────────────────────
       if (requestUser.role !== 'Admin') {
-        if (!team.leaderId || team.leaderId.toString() !== requestUser._id.toString()) {
+        if (!team.leaderId || String(team.leaderId) !== String(requestUser._id)) {
           throw new ServiceError('Only Admin or the Team Leader can book for this team', 403);
         }
       }
@@ -155,24 +150,17 @@ const bookSlot = async ({ teamId, startTime, endTime, requestUser }) => {
       const enrolledUsers = bookingPolicy.snapshotActiveMembers(team);
       await bookingPolicy.assertBookable(
         { classId: team.classId, teamId, start, end, incomingCount: enrolledUsers.length },
-        { session, enforceWeeklyCap: true },
+        { session: tx, enforceWeeklyCap: true },
       );
 
-      // Create the Schedule
-      const [doc] = await Schedule.create(
-        [{
-          classId: team.classId,
-          bookedTeamId: teamId,
-          startTime: start,
-          endTime: end,
-          enrolledUsers,
-        }],
-        { session }
+      // Create the Schedule through the dual-backend write seam.
+      created = await bookingWriteRepository.insertSession(
+        { classId: team.classId, bookedTeamId: teamId, startTime: start, endTime: end, enrolledUsers },
+        tx,
       );
-      created = doc;
     });
   } catch (err) {
-    // Part 2: Catch duplicate key error from unique index (concurrent booking)
+    // Catch duplicate key error from the partial-unique index (concurrent booking)
     if (err.code === 11000 || err.message?.includes('E11000')) {
       throw new ServiceError(
         'This time slot is already taken (concurrent booking detected)',
@@ -180,8 +168,6 @@ const bookSlot = async ({ teamId, startTime, endTime, requestUser }) => {
       );
     }
     throw err;
-  } finally {
-    session.endSession();
   }
 
   // Invalidate session-order cache for the affected class
@@ -258,35 +244,33 @@ const bookCohortSlot = async ({ cohortId, startTime, endTime, enrolledUserIds = 
 
   await assertValidBookingSlot(start, end);
 
-  const session = await mongoose.startSession();
   let created;
   try {
-    await session.withTransaction(async () => {
+    await runInTransaction(async (tx) => {
       // No team, no weekly cap — same-cohort collision + capacity guard apply.
       await bookingPolicy.assertBookable(
         { classId: cohortId, start, end, incomingCount: enrolledUserIds.length },
-        { session, enforceWeeklyCap: false },
+        { session: tx, enforceWeeklyCap: false },
       );
 
-      const [doc] = await Schedule.create(
-        [{
+      created = await bookingWriteRepository.insertSession(
+        {
           classId: cohortId,
           bookedTeamId: null,
           officeId: officeId || null,
           startTime: start,
           endTime: end,
           enrolledUsers: enrolledUserIds,
-        }],
-        { session },
+        },
+        tx,
       );
-      created = doc;
 
       // Phase 3: claim the room (DELTA A — same-Office guard + per-room lock).
       // Runs in-tx after create so a room conflict (409) or office mismatch
       // (422) rolls the whole booking back. No-op when no room was picked.
       await roomLockPolicy.acquireRoomLock(
-        { roomId, scheduleId: doc._id, classId: cohortId, startTime: start, officeId: officeId || null },
-        { session },
+        { roomId, scheduleId: created._id, classId: cohortId, startTime: start, officeId: officeId || null },
+        { session: tx },
       );
     });
   } catch (err) {
@@ -297,8 +281,6 @@ const bookCohortSlot = async ({ cohortId, startTime, endTime, enrolledUserIds = 
       );
     }
     throw err;
-  } finally {
-    session.endSession();
   }
 
   invalidateSessionOrderCache(created.classId);
@@ -401,24 +383,19 @@ const cancelSlot = async (scheduleId, requestUser, { cancelReason = '' } = {}) =
   // the room-lock ledger row is dropped (room re-bookable; roomId nulled, B3)
   // and live waitlist entries dissolve to 'cancelled' (slice B) — the
   // dissolved waiters are emailed post-commit below.
-  const session = await mongoose.startSession();
   let waiterUserIds = [];
-  try {
-    await session.withTransaction(async () => {
-      ({ waiterUserIds } = await releaseScheduleResources([schedule._id], session));
-      const flipped = await repository.cancelScheduleById(
-        schedule._id,
-        { cancelledBy: requestUser._id, cancelReason },
-        session,
-      );
-      // Atomic conditional: null means a concurrent cancel won the race.
-      if (!flipped) {
-        throw new ServiceError('This session is already cancelled', 409);
-      }
-    });
-  } finally {
-    session.endSession();
-  }
+  await runInTransaction(async (tx) => {
+    ({ waiterUserIds } = await releaseScheduleResources([schedule._id], tx));
+    const flipped = await repository.cancelScheduleById(
+      schedule._id,
+      { cancelledBy: requestUser._id, cancelReason },
+      tx,
+    );
+    // Atomic conditional: null means a concurrent cancel won the race.
+    if (!flipped) {
+      throw new ServiceError('This session is already cancelled', 409);
+    }
+  });
   invalidateSessionOrderCache(classId);
 
   // Best-effort: cancel the Google Calendar event so all attendees get
@@ -497,21 +474,18 @@ const adminCreate = async (data) => {
   const schedulingMode = await schedulingModePolicy.resolveSchedulingMode({ classId });
   schedulingModePolicy.assertTeamModeStructural({ schedulingMode });
 
-  // ── TRANSACTION: All checks + create (atomic) ─────────
-  const session = await mongoose.startSession();
+  // ── TRANSACTION: All checks + create (atomic, backend-agnostic) ──
   let created;
   let enrolledUsers = [];
 
   try {
-    await session.withTransaction(async () => {
+    await runInTransaction(async (tx) => {
       // ── Resolve team + class mismatch check ──────────────
       if (bookedTeamId) {
-        const team = await Team.findById(bookedTeamId)
-          .populate('members', '_id status')
-          .session(session);
+        const team = await repository.loadTeamForBooking(bookedTeamId, tx);
         if (!team) throw new ServiceError('Team not found', 404);
 
-        if (team.classId && team.classId.toString() !== classId.toString()) {
+        if (team.classId && String(team.classId) !== String(classId)) {
           throw new ServiceError(
             'This team is assigned to a different class. Cannot book for this classId.',
             400
@@ -525,27 +499,21 @@ const adminCreate = async (data) => {
 
       await bookingPolicy.assertBookable(
         { classId, teamId: bookedTeamId, start, end, incomingCount: enrolledUsers.length, scheduleCapacity: data.capacity },
-        { session, enforceWeeklyCap: true },
+        { session: tx, enforceWeeklyCap: true },
       );
 
       // Phase 3: strip roomId from the raw spread — it is set ONLY via the room
       // lock (B3) so Schedule.roomId and the ledger row never drift.
       const { roomId, ...scheduleData } = data;
 
-      const [doc] = await Schedule.create(
-        [{
-          ...scheduleData,
-          startTime: start,
-          endTime: end,
-          enrolledUsers,
-        }],
-        { session }
+      created = await bookingWriteRepository.insertSession(
+        { ...scheduleData, startTime: start, endTime: end, enrolledUsers },
+        tx,
       );
-      created = doc;
 
       await roomLockPolicy.acquireRoomLock(
-        { roomId, scheduleId: doc._id, classId, startTime: start, officeId: scheduleData.officeId || null },
-        { session },
+        { roomId, scheduleId: created._id, classId, startTime: start, officeId: scheduleData.officeId || null },
+        { session: tx },
       );
     });
   } catch (err) {
@@ -556,8 +524,6 @@ const adminCreate = async (data) => {
       );
     }
     throw err;
-  } finally {
-    session.endSession();
   }
 
   invalidateSessionOrderCache(classId);
