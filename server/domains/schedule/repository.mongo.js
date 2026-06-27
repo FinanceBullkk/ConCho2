@@ -116,10 +116,12 @@ const aggregateAttendanceCounts = (scheduleIds) =>
     { $group: { _id: '$scheduleId', count: { $sum: 1 } } },
   ]);
 
-const updateScheduleById = (id, data, session) =>
-  Schedule.findByIdAndUpdate(id, data, {
+const updateScheduleById = (id, data, tx) => {
+  const session = sessionOf(tx);
+  return Schedule.findByIdAndUpdate(id, data, {
     new: true, runValidators: true, ...(session && { session }),
   });
+};
 
 // ── Trainers (re-center Phase 3, DELTA B) ─────────────────
 // Validate internal-trainer identities: only live (non-deleted), active
@@ -179,7 +181,8 @@ const findTeamById = (id, opts = {}) => {
   if (opts.select) q = q.select(opts.select);
   if (opts.populate) q = q.populate(opts.populate);
   if (opts.lean) q = q.lean();
-  if (opts.session) q = q.session(opts.session);
+  const session = sessionOf(opts.session);
+  if (session) q = q.session(session);
   return q;
 };
 

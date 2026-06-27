@@ -495,7 +495,62 @@ const deleteRoomBookings = async (scheduleIds, tx) => {
   return { deletedCount: res.rowCount };
 };
 
+// ── slice S3b-2: the last 2 deferred methods (generic update + team-by-id) ──
+// updateScheduleById = the field-mapped UPDATE twin of insertSession: core fields
+// → columns, column-less extras (agenda/materials/customFields/externalTrainer/…)
+// merge into meta jsonb. Empty data → no-op returning the current row (mirrors
+// Mongo findByIdAndUpdate(id, {})). Returns baseSchedule(updated row).
+const UPDATE_COLS = {
+  classId: 'class_id', bookedTeamId: 'booked_team_id', roomId: 'room_id', roomLink: 'room_link', topic: 'topic',
+};
+const UPDATE_DATE_COLS = { startTime: 'start_time', endTime: 'end_time' };
+const UPDATE_ARRAY_COLS = { enrolledUsers: 'enrolled_users', sessionInstructorIds: 'session_instructor_ids' };
+
+const updateScheduleById = async (id, data, tx) => {
+  const sets = [];
+  const args = [];
+  const meta = {};
+  const add = (col, val, cast = '') => { args.push(val); sets.push(`${col} = $${args.length}${cast}`); };
+  for (const [k, v] of Object.entries(data || {})) {
+    if (v === undefined) continue;
+    if (UPDATE_COLS[k]) add(UPDATE_COLS[k], v == null ? null : String(v));
+    else if (UPDATE_DATE_COLS[k]) add(UPDATE_DATE_COLS[k], v == null ? null : new Date(v).toISOString());
+    else if (UPDATE_ARRAY_COLS[k]) add(UPDATE_ARRAY_COLS[k], (v || []).map(String), '::text[]');
+    else if (k === 'capacity') add('capacity', v == null ? null : Number(v));
+    else meta[k] = v;
+  }
+  if (Object.keys(meta).length) { args.push(JSON.stringify(meta)); sets.push(`meta = COALESCE(meta, '{}'::jsonb) || $${args.length}::jsonb`); }
+  if (!sets.length) { // empty update → no-op, return current row
+    const { rows } = await exec(tx, `SELECT * FROM schedules WHERE id = $1`, [String(id)]);
+    return rows[0] ? baseSchedule(rows[0]) : null;
+  }
+  sets.push('updated_at = now()');
+  args.push(String(id));
+  const { rows } = await exec(tx, `UPDATE schedules SET ${sets.join(', ')} WHERE id = $${args.length} RETURNING *`, args);
+  return rows[0] ? baseSchedule(rows[0]) : null;
+};
+
+// Team-by-id with the 2 shapes the schedule domain uses: {select:'classId'} →
+// {_id, classId}; {select:'members', populate members} → +members:[{_id,status}].
+// tx travels in opts.session (pg exec). Soft-deleted team → null; deleted members dropped.
+const findTeamById = async (id, opts = {}) => {
+  const tx = opts.session;
+  const { rows } = await exec(tx, `SELECT id, class_id FROM teams WHERE id = $1 AND is_deleted = false`, [String(id)]);
+  const t = rows[0];
+  if (!t) return null;
+  const out = { _id: t.id, classId: t.class_id || null };
+  if (opts.select && opts.select.includes('members')) {
+    const { rows: mem } = await exec(tx,
+      `SELECT u.id, u.status FROM team_members tm JOIN users u ON u.id = tm.user_id WHERE tm.team_id = $1 AND u.is_deleted = false`,
+      [String(id)]);
+    out.members = mem.map((m) => ({ _id: m.id, status: m.status }));
+  }
+  return out;
+};
+
 module.exports = {
+  updateScheduleById,
+  findTeamById,
   findScheduleForCollision,
   countSchedulesForTeamInWeek,
   findClassCapacityPolicy,
