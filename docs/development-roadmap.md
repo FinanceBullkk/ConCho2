@@ -41,7 +41,7 @@ remainder is documented deferred-by-design scope (below), not active debt.
   flag (default `mongo` → running app unchanged), CI-proven Mongo==PG. **Wave A
   read-only DONE (5 ports):** metrics-funnel + metric time-series (metrics surface
   complete) · per-team/employee/class attendance rollups (trilogy complete).
-  **Wave B (whole-repository CRUD) IN PROGRESS:** room (#6) + org (#7) + session-type (#8) + skill (#9) + trainer (#10) + vendor (#11) + **learning programs+cohorts (#12)** + **learning/enrollment (#13)** + **learning/completion (#14)** + **learning/feedback (#15)** + **learning/path (#16)** + **branding (#17)** + **access (#18)** + **custom-field (#19)** + **finance (#20)** + **automation (#21)** + **compliance (#22)** + **notification (#23)** + **mobile (#24)** + **org/office (#25)** + **assessment/question-bank (#26)** + **report-presets (#27)** + **executive-dashboard (#28)** + **dashboard (#29)** + **learning/assignment (#30)** done. **Port-now set** (sequencing report `plans/reports/plan-260623-0720-*`): office ✓ · question-bank ✓ · report-presets ✓ · executive-dashboard ✓ · dashboard ✓ · learning/assignment ✓ (mig 023) · attendance ✓ (mig 025) · learning/reports ✓ (no new mig) · assessment ✓ (mig 026) — **port-now set COMPLETE**. **Transaction tail IN PROGRESS:** schedule chokepoint sliced — S0 tables + S1 reads + S2 waitlist repo + S3a 12 txn repo methods (+ rollback harness) ✓ (mig 027) → next S3b (design doc → orchestration cutover: scheduleService runInTransaction + updateScheduleById/findTeamById) · S4 FIFO promotion; then planning · learning/session. Then the transaction-heavy tail (`groups` · schedule chokepoint · `planning` · learning/session) — **the dual-backend transaction abstraction is now BUILT + parity-proven (2026-06-25, real Neon), unblocking them** (`domains/_shared/unit-of-work`).
+  **Wave B (whole-repository CRUD) IN PROGRESS:** room (#6) + org (#7) + session-type (#8) + skill (#9) + trainer (#10) + vendor (#11) + **learning programs+cohorts (#12)** + **learning/enrollment (#13)** + **learning/completion (#14)** + **learning/feedback (#15)** + **learning/path (#16)** + **branding (#17)** + **access (#18)** + **custom-field (#19)** + **finance (#20)** + **automation (#21)** + **compliance (#22)** + **notification (#23)** + **mobile (#24)** + **org/office (#25)** + **assessment/question-bank (#26)** + **report-presets (#27)** + **executive-dashboard (#28)** + **dashboard (#29)** + **learning/assignment (#30)** done. **Port-now set** (sequencing report `plans/reports/plan-260623-0720-*`): office ✓ · question-bank ✓ · report-presets ✓ · executive-dashboard ✓ · dashboard ✓ · learning/assignment ✓ (mig 023) · attendance ✓ (mig 025) · learning/reports ✓ (no new mig) · assessment ✓ (mig 026) — **port-now set COMPLETE**. **Transaction tail IN PROGRESS:** schedule chokepoint sliced — S0 tables + S1 reads + S2 waitlist repo + S3a 12 txn repo methods + S3b-1 create/cancel cutover (bookSlot/bookCohortSlot/adminCreate/cancelSlot/deleteSchedule → runInTransaction, seams loadTeamForBooking+insertSession, FOR UPDATE concurrency proof) ✓ (mig 027) → next S3b-2 updateSchedule (after S4) · S4 FIFO promotion · post-commit read-path completion; then planning · learning/session. Then the transaction-heavy tail (`groups` · schedule chokepoint · `planning` · learning/session) — **the dual-backend transaction abstraction is now BUILT + parity-proven (2026-06-25, real Neon), unblocking them** (`domains/_shared/unit-of-work`).
   Master plan: `plans/260612-2042-postgresql-migration/master-execution-plan.md`.
   (TMS.update north-star: **all 7 gaps shipped** (#1–#7); #7 PWA offline
   attendance closed 2026-06-15. **Investment Build Plan deep features — all 4
@@ -145,6 +145,20 @@ Bug fixing and integration review rank above net-new feature rollout.
 > [`changelog-archive/2026-q2.md`](changelog-archive/2026-q2.md). Currently
 > inline: **2026-06-14 → 2026-06-26**.
 
+- **2026-06-27** — **Phase 3 Wave-D — schedule chokepoint slice S3b-1: booking create/cancel orchestration cut over to `runInTransaction`.**
+  `scheduleService` (`bookSlot`/`bookCohortSlot`/`adminCreate`/`cancelSlot`) + `domains/schedule/use-cases.deleteSchedule`
+  migrated from `mongoose.startSession().withTransaction`→ the backend-agnostic `runInTransaction`. Two new
+  dual-backend seams: **`loadTeamForBooking`** (replaces the in-tx Team write-lock+populate — mongo
+  `findByIdAndUpdate {updatedAt}`, **pg `SELECT … FOR UPDATE`**) and **`insertSession`** (the single create seam for
+  all 3 create paths — core columns + meta-extras fold; 23505→`{code:11000}`). Key simplifier: the policy/release
+  layers (`assertBookable`/`acquireRoomLock`/`releaseScheduleResources`) are pure pass-through, so the cutover just
+  threads `tx` (S3a already made the repo tx-aware). **P1 concurrency proven** — `schedule-booking-seams.pg.test.js`
+  6/6 on Neon incl. two concurrent same-team bookings → exactly one wins / weekly cap held on BOTH backends, + a
+  rollback case. mongo-default unchanged: booking/race/abstraction/studio 31, cancel/usecases/reassign/learning/room/
+  teams/mode/authz 94; full pg-parity 40 suites/250. Also fixed a latent pg-parity flake (learning-reports cert seed
+  null verificationCode). **Post-commit reads (re-fetch populate / cancel email-load / waiter User.find) stay
+  Mongo-direct — deferred read-path completion; harmless while DB_BACKEND=mongo.** DB_BACKEND=mongo default unchanged.
+  **Next: S3b-2 updateSchedule (after S4) · S4 FIFO promotion.**
 - **2026-06-27** — **Phase 3 Wave-D — schedule chokepoint slice S3a (12 txn repo methods) ported to dual-backend + rollback harness.**
   The session-aware booking/cancel/room-lock/waitlist/mode/capacity/attendance methods of `domains/schedule/repository`
   (collision, weekly-cap, capacity-policy, scheduling-mode, attendanceExists, cancelScheduleById, findWaitingEntries,

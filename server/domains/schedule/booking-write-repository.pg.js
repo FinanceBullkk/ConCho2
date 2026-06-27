@@ -51,6 +51,47 @@ const insertScheduledSession = async (
   }
 };
 
+// Broad create seam (slice S3b-1) — the single in-tx insert for ALL three create
+// paths. Core fields map to columns; the column-less extras (agenda/materials/
+// customFields/externalTrainer/vendorId/sessionTypeId/…) fold into meta jsonb,
+// exactly as repository.pg's baseSchedule spreads them back on read. status is
+// forced 'scheduled'; 23505 (the {class_id,start_time} partial-unique) → 11000.
+const SESSION_COLS = {
+  classId: 'class_id', bookedTeamId: 'booked_team_id', officeId: 'office_id',
+  roomId: 'room_id', topic: 'topic', roomLink: 'room_link', meetLink: 'meet_link',
+};
+const SESSION_DATE_COLS = { startTime: 'start_time', endTime: 'end_time' };
+const SESSION_ARRAY_COLS = { enrolledUsers: 'enrolled_users', sessionInstructorIds: 'session_instructor_ids' };
+
+const insertSession = async (fields, tx = {}) => {
+  const cols = ['id', 'status'];
+  const vals = [newId(), 'scheduled'];
+  const casts = ['', ''];
+  const meta = {};
+  for (const [k, v] of Object.entries(fields || {})) {
+    if (v === undefined || k === 'status') continue;
+    if (SESSION_COLS[k]) { cols.push(SESSION_COLS[k]); vals.push(v == null ? null : String(v)); casts.push(''); }
+    else if (SESSION_DATE_COLS[k]) { cols.push(SESSION_DATE_COLS[k]); vals.push(v == null ? null : new Date(v).toISOString()); casts.push(''); }
+    else if (SESSION_ARRAY_COLS[k]) { cols.push(SESSION_ARRAY_COLS[k]); vals.push((v || []).map(String)); casts.push('::text[]'); }
+    else if (k === 'capacity') { cols.push('capacity'); vals.push(v == null ? null : Number(v)); casts.push(''); }
+    else { meta[k] = v; }
+  }
+  if (Object.keys(meta).length) { cols.push('meta'); vals.push(JSON.stringify(meta)); casts.push('::jsonb'); }
+  const ph = vals.map((_, i) => `$${i + 1}${casts[i]}`).join(',');
+  try {
+    const { rows } = await exec(
+      tx,
+      `INSERT INTO schedules(${cols.join(',')}) VALUES (${ph}) RETURNING id, class_id, start_time, status`,
+      vals,
+    );
+    const r = rows[0];
+    return { _id: r.id, classId: r.class_id, startTime: r.start_time, status: r.status };
+  } catch (error) {
+    if (error && error.code === '23505') throw duplicateError();
+    throw error;
+  }
+};
+
 const countScheduledForClass = async (classId, tx = {}) => {
   const { rows } = await exec(
     tx,
@@ -70,4 +111,4 @@ const cancelSession = async (id, tx = {}) => {
   return rows[0] ? { _id: rows[0].id, status: rows[0].status } : null;
 };
 
-module.exports = { insertScheduledSession, countScheduledForClass, cancelSession };
+module.exports = { insertScheduledSession, insertSession, countScheduledForClass, cancelSession };
