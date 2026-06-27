@@ -98,11 +98,14 @@ describePg('PG-parity: domains/learning/reports repository', () => {
       { _id: oid(AT2), scheduleId: oid(S1), userId: oid(U2), status: 'A' },
       { _id: oid(AT3), scheduleId: oid(S2), userId: oid(U3), status: 'L' },
     ]);
+    // verificationCode is required:true + unique on the model — set distinct values
+    // (raw insertMany bypasses validation, so omitting them yielded null×4 → E11000
+    // once the unique index finished building; flaky under the multi-file pg-parity run).
     await db.collection(coll('Certificate')).insertMany([
-      { _id: oid(CERT1), userId: oid(U1), cohortId: oid(C1), programId: oid(P1), certificateNumber: 'N1', status: 'Issued', issuedAt: new Date(D('10')), validityDays: 365, isDeleted: false },
-      { _id: oid(CERT2), userId: oid(U2), cohortId: oid(C1), programId: oid(P1), certificateNumber: 'N2', status: 'Revoked', issuedAt: new Date(D('11')), isDeleted: false },
-      { _id: oid(CERT3), userId: oid(U1), cohortId: oid(C2), programId: oid(P1), certificateNumber: 'N3', status: 'Issued', issuedAt: new Date(D('12')), isDeleted: false },
-      { _id: oid(CERTDEL), userId: oid(U3), cohortId: oid(C1), programId: oid(P1), certificateNumber: 'N4', status: 'Issued', issuedAt: new Date(D('13')), isDeleted: true },
+      { _id: oid(CERT1), userId: oid(U1), cohortId: oid(C1), programId: oid(P1), certificateNumber: 'N1', verificationCode: 'VC1', status: 'Issued', issuedAt: new Date(D('10')), validityDays: 365, isDeleted: false },
+      { _id: oid(CERT2), userId: oid(U2), cohortId: oid(C1), programId: oid(P1), certificateNumber: 'N2', verificationCode: 'VC2', status: 'Revoked', issuedAt: new Date(D('11')), isDeleted: false },
+      { _id: oid(CERT3), userId: oid(U1), cohortId: oid(C2), programId: oid(P1), certificateNumber: 'N3', verificationCode: 'VC3', status: 'Issued', issuedAt: new Date(D('12')), isDeleted: false },
+      { _id: oid(CERTDEL), userId: oid(U3), cohortId: oid(C1), programId: oid(P1), certificateNumber: 'N4', verificationCode: 'VC4', status: 'Issued', issuedAt: new Date(D('13')), isDeleted: true },
     ]);
     await db.collection(coll('Evaluation')).insertMany([
       { _id: oid(EVAL1), classId: oid(C1), userId: oid(U1), isDeleted: false },

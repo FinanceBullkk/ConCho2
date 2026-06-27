@@ -14,10 +14,26 @@ const { COHORT_SCHEDULING_MODES } = require('../_shared/scheduling-modes');
 // ──────────────────────────────────────────────────────────
 // schedule/repository — MONGO impl (Phase 3 Wave-D dual-backend port).
 // Verbatim of the pre-port repository.js. The PURE READS are mirrored by
-// ./repository.pg (slice S1); the session-aware booking/cancel/room-lock/waitlist
-// writes stay Mongo until slice S3 (the selector merges mongo ⊕ pg so un-ported
-// methods fall back here). ./repository resolves by DB_BACKEND.
+// ./repository.pg (slice S1); slice S3a additionally mirrors the 12 booking/
+// cancel/room-lock/waitlist/mode/capacity/attendance txn methods. The 2 remaining
+// orchestration-coupled writes (updateScheduleById generic field-mapper +
+// findTeamById opts-session) stay Mongo until slice S3b — the selector merges
+// mongo ⊕ pg so an un-ported method falls back here. ./repository resolves by DB_BACKEND.
 // ──────────────────────────────────────────────────────────
+
+// Transaction handle normaliser (slice S3a). The dual-backend convention threads
+// a Unit-of-Work wrapper ({ session } on mongo, { client } on pg). These methods
+// ALSO have legacy callers (scheduleService / use-cases reassign / policies /
+// Team-sync) that still pass a RAW mongoose ClientSession positionally — so the
+// mongo impl accepts BOTH. NB: a mongoose ClientSession exposes a `.client`
+// getter, so we must NOT discriminate on `.client`; key off `.session` (wrapper)
+// then the `.startTransaction` duck-type (raw session). Anything else → no session.
+const sessionOf = (tx) => {
+  if (!tx) return undefined;
+  if (tx.session) return tx.session;                        // { session } UoW wrapper
+  if (typeof tx.startTransaction === 'function') return tx; // raw mongoose ClientSession
+  return undefined;                                         // { client } (pg, unused here) / {} / undefined
+};
 
 // ── Schedule ──────────────────────────────────────────────
 
@@ -130,8 +146,9 @@ const findValidInstructorIds = async (ids) => {
 // resolve as one winner (doc returned) and one loser (null → caller 409s).
 // roomId is nulled in the same write — the caller releases the RoomBooking
 // ledger row in the same tx, and field + ledger must never drift (B3).
-const cancelScheduleById = (id, { cancelledBy = null, cancelReason = '' } = {}, session) =>
-  Schedule.findOneAndUpdate(
+const cancelScheduleById = (id, { cancelledBy = null, cancelReason = '' } = {}, tx) => {
+  const session = sessionOf(tx);
+  return Schedule.findOneAndUpdate(
     { _id: id, status: 'scheduled' },
     {
       $set: {
@@ -144,10 +161,12 @@ const cancelScheduleById = (id, { cancelledBy = null, cancelReason = '' } = {}, 
     },
     { new: true, ...(session && { session }) },
   );
+};
 
 // ── Attendance ────────────────────────────────────────────
 
-const attendanceExistsForSchedule = (scheduleId, session) => {
+const attendanceExistsForSchedule = (scheduleId, tx) => {
+  const session = sessionOf(tx);
   let q = Attendance.exists({ scheduleId });
   if (session) q = q.session(session);
   return q;
@@ -168,7 +187,8 @@ const findTeamById = (id, opts = {}) => {
 
 // Only LIVE sessions collide — a durable-cancelled row frees its slot
 // (mirrors the partial-unique index, which is scoped the same way).
-const findScheduleForCollision = (classId, start, end, excludeId, session) => {
+const findScheduleForCollision = (classId, start, end, excludeId, tx) => {
+  const session = sessionOf(tx);
   const query = {
     classId,
     startTime: { $lt: end },
@@ -197,7 +217,8 @@ const findInstructorConflict = (instructorIds, start, end, excludeId) => {
 };
 
 // Cancelled sessions don't consume the team's weekly quota.
-const countSchedulesForTeamInWeek = (teamId, weekStart, weekEnd, excludeId, session) => {
+const countSchedulesForTeamInWeek = (teamId, weekStart, weekEnd, excludeId, tx) => {
+  const session = sessionOf(tx);
   const query = {
     bookedTeamId: teamId,
     startTime: { $gte: weekStart, $lte: weekEnd },
@@ -215,7 +236,8 @@ const countSchedulesForTeamInWeek = (teamId, weekStart, weekEnd, excludeId, sess
 // repo-wide "open until populated" rule) so legacy program-less cohorts keep
 // their team-booking behaviour. Mirrors the fallback in
 // domains/learning/session/repository.findSchedulingContextBy* — keep in sync.
-const findClassSchedulingMode = async (classId, session) => {
+const findClassSchedulingMode = async (classId, tx) => {
+  const session = sessionOf(tx);
   if (!classId) return 'leader_booking';
   let cq = Class.findById(classId).select('programId').lean();
   if (session) cq = cq.session(session);
@@ -252,7 +274,8 @@ const findCohortModeClassIds = async () => {
 // LearningProgram.capacityPolicy. Returns {} for a program-less class (the
 // "open until populated" rule) so such classes fall back to the per-session
 // Schedule.capacity field. Mirrors findClassSchedulingMode.
-const findClassCapacityPolicy = async (classId, session) => {
+const findClassCapacityPolicy = async (classId, tx) => {
+  const session = sessionOf(tx);
   if (!classId) return {};
   let cq = Class.findById(classId).select('programId').lean();
   if (session) cq = cq.session(session);
@@ -303,18 +326,18 @@ const findUsersForEmail = (userIds) =>
   User.find({ _id: { $in: userIds } }).select('name email').lean();
 
 // ── Waitlist (release-resources) ──────────────────────────
-const findWaitingEntries = (scheduleIds, session) =>
+const findWaitingEntries = (scheduleIds, tx) =>
   WaitlistEntry.find(
     { scheduleId: { $in: scheduleIds }, status: 'waiting' },
     { userId: 1 },
-    { session },
+    { session: sessionOf(tx) },
   ).lean();
 
-const cancelWaitingEntries = (scheduleIds, session) =>
+const cancelWaitingEntries = (scheduleIds, tx) =>
   WaitlistEntry.updateMany(
     { scheduleId: { $in: scheduleIds }, status: 'waiting' },
     { $set: { status: 'cancelled' } },
-    { session },
+    { session: sessionOf(tx) },
   );
 
 // ── Settings (scheduling-window-policy) ───────────────────
@@ -346,23 +369,26 @@ const findAssignedOnlyPrograms = (programIds) =>
 // ── Room-lock ledger (room-lock-policy) ───────────────────
 // Raw collection touches only — the duplicate-key→409 and same-Office
 // invariants stay in room-lock-policy (business rules); the writes live here.
-const findRoomForLock = (roomId, session) => {
+const findRoomForLock = (roomId, tx) => {
+  const session = sessionOf(tx);
   let q = Room.findById(roomId).select('officeId isActive');
   if (session) q = q.session(session);
   return q;
 };
 
-const createRoomBooking = ({ roomId, scheduleId, classId, startTime }, session) =>
-  RoomBooking.create([{ roomId, scheduleId, classId, startTime }], { session });
+const createRoomBooking = ({ roomId, scheduleId, classId, startTime }, tx) =>
+  RoomBooking.create([{ roomId, scheduleId, classId, startTime }], { session: sessionOf(tx) });
 
-const setScheduleRoom = (scheduleId, roomId, session) =>
-  Schedule.updateOne({ _id: scheduleId }, { $set: { roomId } }, { session });
+const setScheduleRoom = (scheduleId, roomId, tx) =>
+  Schedule.updateOne({ _id: scheduleId }, { $set: { roomId } }, { session: sessionOf(tx) });
 
-const deleteRoomBookings = (scheduleIds, session) =>
-  RoomBooking.deleteMany(
+const deleteRoomBookings = (scheduleIds, tx) => {
+  const session = sessionOf(tx);
+  return RoomBooking.deleteMany(
     { scheduleId: { $in: scheduleIds } },
     ...(session ? [{ session }] : []),
   );
+};
 
 module.exports = {
   findScheduleById,
