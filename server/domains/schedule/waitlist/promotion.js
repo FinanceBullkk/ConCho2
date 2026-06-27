@@ -1,10 +1,10 @@
 const Schedule = require('../../../models/Schedule');
-const WaitlistEntry = require('../../../models/WaitlistEntry');
 const NotificationLog = require('../../../models/NotificationLog');
 const User = require('../../../models/User');
 const logger = require('../../../lib/logger');
 const { sendWaitlistPromoted } = require('../../../lib/emailTemplates');
 const scheduleRepository = require('../repository');
+const repository = require('./repository');
 const bookingPolicy = require('../session-booking-policy');
 
 // ──────────────────────────────────────────────────────────
@@ -19,17 +19,18 @@ const bookingPolicy = require('../session-booking-policy');
 
 /**
  * Seat FIFO waiters into freed seats. Caller owns the transaction.
+ * Dual-backend (slice S4): the business logic stays here; every DB op flows
+ * through the waitlist repository (tx-aware). `tx` is a Unit-of-Work handle OR a
+ * raw mongoose session (legacy callers) — the repo's sessionOf shim accepts both.
  * @returns {Promise<Array<{ userId, entryId }>>} promotions (for post-commit notify)
  */
-const promoteIfSeatFree = async (scheduleId, session) => {
-  const sched = await Schedule.findById(scheduleId)
-    .select('status startTime classId capacity enrolledUsers')
-    .session(session);
+const promoteIfSeatFree = async (scheduleId, tx) => {
+  const sched = await repository.findScheduleForPromotion(scheduleId, tx);
   if (!sched || sched.status !== 'scheduled') return [];
   if (new Date(sched.startTime) <= new Date()) return [];
 
   const { maxParticipantsPerSession } =
-    await scheduleRepository.findClassCapacityPolicy(sched.classId, session);
+    await scheduleRepository.findClassCapacityPolicy(sched.classId, tx);
   const cap = bookingPolicy.effectiveSessionCapacity({
     scheduleCapacity: sched.capacity,
     maxPerSession: maxParticipantsPerSession,
@@ -44,15 +45,11 @@ const promoteIfSeatFree = async (scheduleId, session) => {
   // would otherwise be re-fetched on EVERY free event, fail the guarded push,
   // and permanently clog the queue for everyone behind it. Stale rows are
   // resolved in place WITHOUT consuming a seat and the scan continues.
-  const candidates = await WaitlistEntry.find({ scheduleId, status: 'waiting' })
-    .sort({ createdAt: 1 })
-    .session(session);
+  const candidates = await repository.findWaitingEntriesForPromotion(scheduleId, tx);
 
   const promotions = [];
   const resolveEntry = async (entry, { notify }) => {
-    entry.status = 'promoted';
-    entry.promotedAt = new Date();
-    await entry.save({ session });
+    await repository.markEntryPromoted(entry._id, tx);
     // Stale rows get no promotion email — the path that seated them already
     // notified; only genuinely seated waiters go to notifyPromotions.
     if (notify) promotions.push({ userId: entry.userId, entryId: entry._id });
@@ -69,24 +66,15 @@ const promoteIfSeatFree = async (scheduleId, session) => {
     }
 
     // eslint-disable-next-line no-await-in-loop -- FIFO must seat in order
-    const res = await Schedule.updateOne(
-      {
-        _id: scheduleId,
-        status: 'scheduled',
-        enrolledUsers: { $ne: entry.userId },
-        $expr: { $lt: [{ $size: '$enrolledUsers' }, cap] },
-      },
-      { $push: { enrolledUsers: entry.userId } },
-      { session },
-    );
+    const modified = await repository.seatWaiterIfRoom(scheduleId, entry.userId, cap, tx);
 
-    if (res.modifiedCount !== 1) {
+    if (modified !== 1) {
       // Guard refused despite local tracking — re-read (defense-in-depth):
       // user actually seated → resolve the stale row; else the cap is
       // genuinely hit and no further seat exists — stop scanning.
       // eslint-disable-next-line no-await-in-loop
-      const fresh = await Schedule.findById(scheduleId).select('enrolledUsers').session(session);
-      if ((fresh?.enrolledUsers || []).some((u) => String(u) === userKey)) {
+      const enrolled = await repository.findScheduleEnrolledUsers(scheduleId, tx);
+      if (enrolled.some((u) => String(u) === userKey)) {
         // eslint-disable-next-line no-await-in-loop
         await resolveEntry(entry, { notify: false });
         continue;
@@ -102,8 +90,8 @@ const promoteIfSeatFree = async (scheduleId, session) => {
 
   // M5 belt: the roster must never exceed the effective cap — abort the whole
   // seat-freeing transaction rather than persist an overfull session.
-  const after = await Schedule.findById(scheduleId).select('enrolledUsers').session(session);
-  if ((after?.enrolledUsers || []).length > cap) {
+  const after = await repository.findScheduleEnrolledUsers(scheduleId, tx);
+  if (after.length > cap) {
     throw new Error(`waitlist promotion overfilled schedule ${scheduleId} (> ${cap})`);
   }
 

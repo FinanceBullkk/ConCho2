@@ -24,6 +24,10 @@ const { query } = require('../../../config/pg');
 // ObjectId-shaped id for new rows (24 hex) — uniform with migrated Mongo ids.
 const newId = () => crypto.randomBytes(12).toString('hex');
 
+// slice S4: the FIFO promotion ops run INSIDE the seat-freeing tx → join the
+// caller's checked-out client (tx.client); a non-tx call falls back to the pool.
+const exec = (tx, text, params) => (tx && tx.client ? tx.client.query(text, params) : query(text, params));
+
 // PG 23505 → Mongo-style duplicate-key error so use-cases stay backend-agnostic.
 const duplicateError = () => {
   const e = new Error('duplicate key value (already on this waitlist)');
@@ -212,6 +216,51 @@ const listMyWaitingEntries = async (userId) => {
   }));
 };
 
+// ── FIFO promotion ops (slice S4) — tx-aware (join the seat-freeing tx) ──
+// The business logic (loop / freeRemaining / stale-head / M5 belt) lives in
+// promotion.js; these are the dual-backend DB primitives it drives.
+const findScheduleForPromotion = async (scheduleId, tx) => {
+  const { rows } = await exec(tx,
+    `SELECT id, status, start_time, class_id, capacity, enrolled_users FROM schedules WHERE id = $1`,
+    [String(scheduleId)]);
+  const s = rows[0];
+  if (!s) return null;
+  return {
+    _id: s.id, status: s.status, startTime: s.start_time, classId: s.class_id || null,
+    capacity: s.capacity == null ? undefined : Number(s.capacity),
+    enrolledUsers: (s.enrolled_users || []).map(String),
+  };
+};
+
+const findWaitingEntriesForPromotion = async (scheduleId, tx) => {
+  const { rows } = await exec(tx,
+    `SELECT id, user_id FROM waitlist_entries WHERE schedule_id = $1 AND status = 'waiting' ORDER BY created_at ASC, id ASC`,
+    [String(scheduleId)]);
+  return rows.map((r) => ({ _id: r.id, userId: r.user_id }));
+};
+
+// THE guarded seat (T-FIFO-push): append only when LIVE, not already seated, and
+// still under cap — the atomic conditional UPDATE that makes a concurrent
+// promoter/booking unable to overfill. Returns the rows affected (0 = refused).
+const seatWaiterIfRoom = async (scheduleId, userId, cap, tx) => {
+  const res = await exec(tx,
+    `UPDATE schedules SET enrolled_users = array_append(enrolled_users, $2), updated_at = now()
+      WHERE id = $1 AND status = 'scheduled' AND NOT ($2 = ANY(enrolled_users)) AND cardinality(enrolled_users) < $3`,
+    [String(scheduleId), String(userId), cap]);
+  return res.rowCount;
+};
+
+const findScheduleEnrolledUsers = async (scheduleId, tx) => {
+  const { rows } = await exec(tx, `SELECT enrolled_users FROM schedules WHERE id = $1`, [String(scheduleId)]);
+  return rows[0] ? (rows[0].enrolled_users || []).map(String) : [];
+};
+
+const markEntryPromoted = async (entryId, tx) => {
+  await exec(tx,
+    `UPDATE waitlist_entries SET status = 'promoted', promoted_at = now(), updated_at = now() WHERE id = $1`,
+    [String(entryId)]);
+};
+
 module.exports = {
   findScheduleForJoin,
   findTeamMembers,
@@ -223,4 +272,9 @@ module.exports = {
   withdrawMyEntry,
   listEntriesForSchedule,
   listMyWaitingEntries,
+  findScheduleForPromotion,
+  findWaitingEntriesForPromotion,
+  seatWaiterIfRoom,
+  findScheduleEnrolledUsers,
+  markEntryPromoted,
 };
