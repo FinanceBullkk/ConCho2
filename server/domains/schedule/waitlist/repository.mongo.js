@@ -81,6 +81,70 @@ const listMyWaitingEntries = (userId) =>
     .sort({ createdAt: 1 })
     .lean();
 
+// ── FIFO promotion ops (slice S4) — tx-aware (the seat-freeing tx) ──
+// Accept BOTH a raw mongoose session (legacy callers: Team.syncSchedulesFor-
+// TeamUpdate, use-cases.updateSchedule) AND a UoW { session } wrapper, via the
+// same sessionOf shim as the schedule repo (key off .session / .startTransaction,
+// NEVER .client — a mongoose ClientSession exposes a .client getter).
+const sessionOf = (tx) => {
+  if (!tx) return undefined;
+  if (tx.session) return tx.session;
+  if (typeof tx.startTransaction === 'function') return tx;
+  return undefined;
+};
+
+const findScheduleForPromotion = async (scheduleId, tx) => {
+  const session = sessionOf(tx);
+  let q = Schedule.findById(scheduleId).select('status startTime classId capacity enrolledUsers').lean();
+  if (session) q = q.session(session);
+  const s = await q;
+  if (!s) return null;
+  return {
+    _id: s._id, status: s.status, startTime: s.startTime, classId: s.classId || null,
+    capacity: s.capacity == null ? undefined : s.capacity,
+    enrolledUsers: (s.enrolledUsers || []).map(String),
+  };
+};
+
+const findWaitingEntriesForPromotion = async (scheduleId, tx) => {
+  const session = sessionOf(tx);
+  let q = WaitlistEntry.find({ scheduleId, status: 'waiting' }).sort({ createdAt: 1 }).select('_id userId').lean();
+  if (session) q = q.session(session);
+  const rows = await q;
+  return rows.map((r) => ({ _id: r._id, userId: String(r.userId) }));
+};
+
+// THE guarded seat (T-FIFO-push): the conditional $push that a concurrent
+// promoter/booking can never overfill. Returns modifiedCount (0 = refused).
+const seatWaiterIfRoom = async (scheduleId, userId, cap, tx) => {
+  const res = await Schedule.updateOne(
+    {
+      _id: scheduleId,
+      status: 'scheduled',
+      enrolledUsers: { $ne: userId },
+      $expr: { $lt: [{ $size: '$enrolledUsers' }, cap] },
+    },
+    { $push: { enrolledUsers: userId } },
+    { session: sessionOf(tx) },
+  );
+  return res.modifiedCount;
+};
+
+const findScheduleEnrolledUsers = async (scheduleId, tx) => {
+  const session = sessionOf(tx);
+  let q = Schedule.findById(scheduleId).select('enrolledUsers').lean();
+  if (session) q = q.session(session);
+  const s = await q;
+  return (s && s.enrolledUsers ? s.enrolledUsers : []).map(String);
+};
+
+const markEntryPromoted = (entryId, tx) =>
+  WaitlistEntry.updateOne(
+    { _id: entryId },
+    { $set: { status: 'promoted', promotedAt: new Date() } },
+    { session: sessionOf(tx) },
+  );
+
 module.exports = {
   findScheduleForJoin,
   findTeamMembers,
@@ -92,4 +156,9 @@ module.exports = {
   withdrawMyEntry,
   listEntriesForSchedule,
   listMyWaitingEntries,
+  findScheduleForPromotion,
+  findWaitingEntriesForPromotion,
+  seatWaiterIfRoom,
+  findScheduleEnrolledUsers,
+  markEntryPromoted,
 };
