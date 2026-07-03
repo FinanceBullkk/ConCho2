@@ -35,7 +35,7 @@ const P1 = hex(0xD01); const P2 = hex(0xD02);
 const C1 = hex(0xD11); const C2 = hex(0xD12); const C3 = hex(0xD13); const CDEL = hex(0xD14);
 const U1 = hex(0xD21); const U2 = hex(0xD22); const UDEL = hex(0xD23); const T1 = hex(0xD24);
 const ADM = hex(0xD25); const DROPPED = hex(0xD26); const LEADER = hex(0xD27);
-const TM1 = hex(0xD31);
+const TM1 = hex(0xD31); const TMDEL = hex(0xD32);
 const S1 = hex(0xD41); const S2 = hex(0xD42); const SOLD = hex(0xD43); const SC = hex(0xD44);
 const A1 = hex(0xD51); const A2 = hex(0xD52);
 const SET1 = hex(0xD61); const O1 = hex(0xD71); const R1 = hex(0xD72);
@@ -77,6 +77,7 @@ describePg('PG-parity: domains/schedule repository (S1 reads)', () => {
     ]);
     await db.collection(coll('Team')).insertMany([
       { _id: oid(TM1), name: 'Team1', classId: oid(C1), leaderId: oid(LEADER), members: [oid(U1), oid(U2)], isDeleted: false },
+      { _id: oid(TMDEL), name: 'TeamDel', classId: oid(C1), leaderId: oid(LEADER), members: [], isDeleted: true },
     ]);
     await db.collection(coll('Schedule')).insertMany([
       { _id: oid(S1), classId: oid(C1), bookedTeamId: oid(TM1), officeId: oid(O1), startTime: new Date(FUT), endTime: new Date(FUT), status: 'scheduled', enrolledUsers: [oid(U1), oid(U2), oid(UDEL)], sessionInstructorIds: [oid(T1)], roomId: oid(R1), capacity: 5, topic: 'Topic1' },
@@ -116,7 +117,7 @@ describePg('PG-parity: domains/schedule repository (S1 reads)', () => {
         ($6,'DR','Drop',NULL,NULL,'Teacher','Dropped',false),
         ($7,'LD','Lead','l@x.io','Eng','Participant','Active',false)`,
       [U1, U2, UDEL, T1, ADM, DROPPED, LEADER]);
-    await query(`INSERT INTO teams(id,name,class_id,leader_id,is_deleted) VALUES ($1,'Team1',$2,$3,false)`, [TM1, C1, LEADER]);
+    await query(`INSERT INTO teams(id,name,class_id,leader_id,is_deleted) VALUES ($1,'Team1',$2,$3,false),($4,'TeamDel',$2,$3,true)`, [TM1, C1, LEADER, TMDEL]);
     await query(`INSERT INTO team_members(team_id,user_id) VALUES ($1,$2),($1,$3)`, [TM1, U1, U2]);
     await query(
       `INSERT INTO schedules(id,class_id,booked_team_id,office_id,start_time,end_time,status,enrolled_users,session_instructor_ids,room_id,capacity,topic) VALUES
@@ -265,5 +266,38 @@ describePg('PG-parity: domains/schedule repository (S1 reads)', () => {
     const [m, p] = await both((r) => r.findAllowedTimeSlotsSetting());
     expect(norm(m).value).toEqual(SLOTS); expect(norm(p).value).toEqual(SLOTS);
     expect(norm(p).key).toBe('ALLOWED_TIME_SLOTS');
+  });
+
+  // ── Post-commit read-path completion (booking/cancel re-fetches) ──
+  test('findScheduleForResponse: booking response populate (empCode name)', async () => {
+    const proj = (x) => { const n = norm(x); return {
+      cls: n.classId.classCode, team: n.bookedTeamId.name,
+      enrolled: sortStr(n.enrolledUsers.map((u) => u.empCode)),
+      names: sortStr(n.enrolledUsers.map((u) => u.name)), status: n.status,
+    }; };
+    const [m, p] = await both((r) => r.findScheduleForResponse(S1));
+    expect(proj(m)).toEqual({ cls: 'C-1', team: 'Team1', enrolled: ['E1', 'E2'], names: ['Alice', 'Bob'], status: 'scheduled' }); // UDEL dropped
+    expect(proj(p)).toEqual(proj(m));
+  });
+
+  test('findScheduleForCancellation: class label + enrolled emails, bookedTeamId raw', async () => {
+    const proj = (x) => { const n = norm(x); return {
+      cls: n.classId.classCode,
+      mails: sortStr(n.enrolledUsers.map((u) => u.email)),
+      names: sortStr(n.enrolledUsers.map((u) => u.name)),
+      team: String(n.bookedTeamId), // RAW id, NOT populated
+    }; };
+    const [m, p] = await both((r) => r.findScheduleForCancellation(S1));
+    expect(proj(m)).toEqual({ cls: 'C-1', mails: ['a@x.io', 'b@x.io'], names: ['Alice', 'Bob'], team: TM1 }); // UDEL dropped
+    expect(proj(p)).toEqual(proj(m));
+  });
+
+  test('findTeamLeaderId: leader id, soft-delete + missing → null', async () => {
+    const [m, p] = await both((r) => r.findTeamLeaderId(TM1));
+    expect(String(norm(m).leaderId)).toBe(LEADER); expect(String(norm(p).leaderId)).toBe(LEADER);
+    const [md, pd] = await both((r) => r.findTeamLeaderId(TMDEL));
+    expect(md).toBeNull(); expect(pd).toBeNull(); // soft-deleted team hidden
+    const [mx, px] = await both((r) => r.findTeamLeaderId(hex(0xDEAD)));
+    expect(mx).toBeNull(); expect(px).toBeNull(); // missing
   });
 });

@@ -1,6 +1,3 @@
-const Schedule = require('../models/Schedule');
-const Team = require('../models/Team');
-const User = require('../models/User');
 const calendarService = require('./calendarService');
 const auditService = require('./auditService');
 const {
@@ -189,10 +186,7 @@ const bookSlot = async ({ teamId, startTime, endTime, requestUser }) => {
   }
 
   // Populate for response (re-fetch so the response includes googleEventId/meetLink).
-  const populated = await Schedule.findById(created._id)
-    .populate('classId', 'classCode courseName')
-    .populate('bookedTeamId', 'name')
-    .populate('enrolledUsers', 'empCode name');
+  const populated = await repository.findScheduleForResponse(created._id);
 
   // Send booking confirmation email to the requestUser (non-blocking, fail-soft)
   // and mirror it into the booker's notification bell. In-app row has no email;
@@ -298,9 +292,7 @@ const bookCohortSlot = async ({ cohortId, startTime, endTime, enrolledUserIds = 
     });
   }
 
-  const populated = await Schedule.findById(created._id)
-    .populate('classId', 'classCode courseName')
-    .populate('enrolledUsers', 'empCode name');
+  const populated = await repository.findScheduleForResponse(created._id);
   // Surface the scheduled cohort session in each enrolled learner's bell
   // (the admin/coordinator who scheduled it is not on the roster).
   await notifyRosterEnrolled(populated, requestUser?._id);
@@ -323,9 +315,7 @@ const bookCohortSlot = async ({ cohortId, startTime, endTime, enrolledUserIds = 
  */
 const cancelSlot = async (scheduleId, requestUser, { cancelReason = '' } = {}) => {
   // Populate so we still have user emails + class info for notifications.
-  const schedule = await Schedule.findById(scheduleId)
-    .populate('classId', 'classCode courseName')
-    .populate('enrolledUsers', 'name email');
+  const schedule = await repository.findScheduleForCancellation(scheduleId);
   if (!schedule) throw new ServiceError('Schedule not found', 404);
 
   // Double-cancel guard (pre-check for a clean message; the atomic conditional
@@ -358,7 +348,7 @@ const cancelSlot = async (scheduleId, requestUser, { cancelReason = '' } = {}) =
         throw new ServiceError('Only a coordinator or admin can cancel this session', 403);
       }
     } else {
-      const team = await Team.findById(schedule.bookedTeamId);
+      const team = await repository.findTeamLeaderId(schedule.bookedTeamId);
       if (!team || !team.leaderId || team.leaderId.toString() !== requestUser._id.toString()) {
         throw new ServiceError('Only Admin or the Team Leader can cancel this booking', 403);
       }
@@ -430,8 +420,7 @@ const cancelSlot = async (scheduleId, requestUser, { cancelReason = '' } = {}) =
   // Dissolved waiters are notified too (owner decision 2026-06-11) — they were
   // counting on a seat; same cancellation template, fail-soft.
   if (waiterUserIds.length > 0) {
-    const waiters = await User.find({ _id: { $in: waiterUserIds } })
-      .select('name email').lean();
+    const waiters = await repository.findUsersForEmail(waiterUserIds);
     for (const w of waiters) {
       if (!w.email) continue;
       sendClassCancellation({
@@ -531,10 +520,7 @@ const adminCreate = async (data) => {
   // Best-effort calendar event (admin-created path).
   await createCalendarEventForSchedule(created._id);
 
-  const populated = await Schedule.findById(created._id)
-    .populate('classId', 'classCode courseName')
-    .populate('bookedTeamId', 'name')
-    .populate('enrolledUsers', 'empCode name');
+  const populated = await repository.findScheduleForResponse(created._id);
   // Notify the snapshotted team roster (admin-created team session). adminCreate
   // takes only `data` — no actor handle — so the whole roster is notified; the
   // admin is virtually never one of the team's active members.

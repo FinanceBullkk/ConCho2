@@ -139,6 +139,45 @@ const findScheduleByIdRaw = async (id) => {
 
 const findScheduleByIdLean = findScheduleByIdRaw;
 
+// ── Post-commit re-fetch reads (read-path completion) ─────
+// Twins of the scheduleService booking/cancel re-fetches. Same embed shape as
+// findScheduleById but projection-scoped to each call's legacy populate.
+
+// bookSlot / bookCohortSlot / adminCreate response: classId(classCode courseName)
+// + bookedTeamId(name) + enrolledUsers(empCode name). googleEventId/meetLink ride
+// the meta spread / meet_link column in baseSchedule (booking response needs them).
+const findScheduleForResponse = async (id) => {
+  const { rows } = await query(`SELECT * FROM schedules WHERE id = $1`, [String(id)]);
+  if (!rows[0]) return null;
+  const s = rows[0];
+  const [classMap, teamMap, userMap] = await Promise.all([
+    embedClasses([s]), embedTeams([s]),
+    fetchUsers(s.enrolled_users, ['empCode', 'name']),
+  ]);
+  const out = baseSchedule(s);
+  out.classId = s.class_id ? (classMap.get(s.class_id) || null) : null;
+  out.bookedTeamId = s.booked_team_id ? (teamMap.get(s.booked_team_id) || null) : null;
+  out.enrolledUsers = orderedEmbed(s.enrolled_users, userMap);
+  return out;
+};
+
+// cancelSlot load: classId(classCode courseName) + enrolledUsers(name email);
+// bookedTeamId stays the RAW id (baseSchedule default) — leader-auth loads the
+// team via findTeamLeaderId.
+const findScheduleForCancellation = async (id) => {
+  const { rows } = await query(`SELECT * FROM schedules WHERE id = $1`, [String(id)]);
+  if (!rows[0]) return null;
+  const s = rows[0];
+  const [classMap, userMap] = await Promise.all([
+    embedClasses([s]),
+    fetchUsers(s.enrolled_users, ['name', 'email']),
+  ]);
+  const out = baseSchedule(s);
+  out.classId = s.class_id ? (classMap.get(s.class_id) || null) : null;
+  out.enrolledUsers = orderedEmbed(s.enrolled_users, userMap);
+  return out;
+};
+
 const findAvailabilitySchedules = async ({ classId, fromDate }) => {
   const args = [new Date(fromDate).toISOString()];
   let extra = '';
@@ -548,9 +587,17 @@ const findTeamById = async (id, opts = {}) => {
   return out;
 };
 
+// cancelSlot leader-auth — minimal team-leader lookup. is_deleted predicate
+// mirrors the Mongo Team soft-delete pre-find hook.
+const findTeamLeaderId = async (teamId) => {
+  const { rows } = await query(`SELECT id, leader_id FROM teams WHERE id = $1 AND is_deleted = false`, [String(teamId)]);
+  return rows[0] ? { _id: rows[0].id, leaderId: rows[0].leader_id || null } : null;
+};
+
 module.exports = {
   updateScheduleById,
   findTeamById,
+  findTeamLeaderId,
   findScheduleForCollision,
   countSchedulesForTeamInWeek,
   findClassCapacityPolicy,
@@ -566,6 +613,8 @@ module.exports = {
   loadTeamForBooking,
   findScheduleById,
   findScheduleByIdRaw,
+  findScheduleForResponse,
+  findScheduleForCancellation,
   findScheduleByIdLean,
   findScheduledByClassIdsOrdered,
   findScheduleForCalendarSync,
