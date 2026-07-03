@@ -23,6 +23,10 @@ const newId = () => crypto.randomBytes(12).toString('hex');
 const hasOwn = (o, k) => Object.prototype.hasOwnProperty.call(o, k);
 const idOrNull = (v) => (v == null ? null : String(v));
 const upper = (v) => (v == null ? v : String(v).toUpperCase());
+// Runs on the caller's UoW tx client when provided (the planning scheduleItem
+// transaction enlists createBudget); plain pool query otherwise.
+const exec = (tx, text, params) =>
+  (tx && tx.client ? tx.client.query(text, params) : query(text, params));
 
 // isDeleted/deletedAt are `select:false` on both models → lean reads omit them;
 // the row mappers mirror that (the columns are still used in WHERE predicates).
@@ -144,9 +148,11 @@ const softDeleteCostEntry = async (id) => {
 };
 
 // ── Budget CRUD ──────────────────────────────────────────────
-// session IGNORED in PG (deferred to the Wave-D transaction abstraction).
-const createBudget = async (data /* , session */) => {
-  const { rows } = await query(
+// Optional `tx` (UoW wrapper) enlists the insert in the caller's transaction
+// (the planning scheduleItem flow) — Wave-D closed the earlier deferral.
+const createBudget = async (data, tx) => {
+  const { rows } = await exec(
+    tx,
     `INSERT INTO budgets(id, fiscal_year, department_id, program_id, amount_minor, currency, label, created_by)
      VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING *`,
     [

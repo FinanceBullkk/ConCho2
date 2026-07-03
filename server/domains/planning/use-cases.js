@@ -1,6 +1,6 @@
-const mongoose = require('mongoose');
 const repository = require('./repository');
 const financeRepo = require('../finance/repository');
+const { runInTransaction } = require('../_shared/unit-of-work');
 const { ServiceError } = require('../../helpers/ServiceError');
 
 // ──────────────────────────────────────────────────────────
@@ -95,9 +95,9 @@ const upsertPlan = async (fiscalYear, body, actorId) => {
 // approved requests 'planned', and (when an estimate is set) carry the cost into
 // an A1 Budget row (tenant currency) — closing the TNA → schedule → budget loop.
 const scheduleItem = async (fiscalYear, itemId, body, actorId) => {
-  const planDoc = await repository.findPlanDoc(fiscalYear);
-  if (!planDoc) throw new ServiceError('Plan not found', 404);
-  const item = planDoc.items.id(itemId);
+  const plan = await repository.findPlan(fiscalYear);
+  if (!plan) throw new ServiceError('Plan not found', 404);
+  const item = (plan.items || []).find((i) => String(i._id) === String(itemId));
   if (!item) throw new ServiceError('Plan item not found', 404);
   if (item.target.kind !== 'program') {
     throw new ServiceError('Only program plan items can be scheduled into a cohort', 400);
@@ -107,45 +107,40 @@ const scheduleItem = async (fiscalYear, itemId, body, actorId) => {
   if (program.status === 'archived') throw new ServiceError('Program is archived', 400);
   const currency = item.estCostMinor > 0 ? await financeRepo.getTenantCurrency() : null;
 
-  // Atomic write (audit P2): create the cohort, link it on the plan, mark the
-  // matching approved requests 'planned', and (when estimated) create the A1
-  // budget row — ALL-or-nothing. Previously these 4 multi-document writes ran
-  // without a session, so a mid-way failure left a half-written plan/cohort/budget.
-  const session = await mongoose.startSession();
+  // Atomic write (audit P2): create the cohort, link it on the plan item, mark
+  // the matching approved requests 'planned', and (when estimated) create the
+  // A1 budget row — ALL-or-nothing on the backend-agnostic runInTransaction
+  // (Mongo session ⇄ PG BEGIN/COMMIT). The plan link is an explicit positional
+  // update (pushCohortIdToPlanItem) — the old hydrated-doc push had no
+  // Postgres analogue.
   let cohort;
   let budgetId = null;
-  try {
-    await session.withTransaction(async () => {
-      try {
-        cohort = await repository.createCohortClass({
-          classCode: body.classCode,
-          courseName: program.name,
-          programId: program._id,
-          totalSessions: body.totalSessions,
-        }, session);
-      } catch (e) {
-        if (isDuplicateKey(e)) throw new ServiceError('A cohort with that class code already exists', 409);
-        throw e;
-      }
+  await runInTransaction(async (tx) => {
+    try {
+      cohort = await repository.createCohortClass({
+        classCode: body.classCode,
+        courseName: program.name,
+        programId: program._id,
+        totalSessions: body.totalSessions,
+      }, tx);
+    } catch (e) {
+      if (isDuplicateKey(e)) throw new ServiceError('A cohort with that class code already exists', 409);
+      throw e;
+    }
 
-      // Re-read the plan doc INSIDE the session to push the new cohort id.
-      const txPlan = await repository.findPlanDoc(fiscalYear, session);
-      txPlan.items.id(itemId).cohortIds.push(cohort._id);
-      await txPlan.save({ session });
+    const matched = await repository.pushCohortIdToPlanItem(fiscalYear, itemId, cohort._id, tx);
+    if (!matched) throw new ServiceError('Plan item not found', 404);
 
-      await repository.markRequestsPlanned('program', item.target.id, item.quarter, session);
+    await repository.markRequestsPlanned('program', item.target.id, item.quarter, tx);
 
-      if (item.estCostMinor > 0) {
-        const budget = await financeRepo.createBudget({
-          fiscalYear, programId: program._id, amountMinor: item.estCostMinor, currency,
-          label: `TNA ${fiscalYear} · ${program.name}`, createdBy: actorId || null,
-        }, session);
-        budgetId = budget._id;
-      }
-    });
-  } finally {
-    session.endSession();
-  }
+    if (item.estCostMinor > 0) {
+      const budget = await financeRepo.createBudget({
+        fiscalYear, programId: program._id, amountMinor: item.estCostMinor, currency,
+        label: `TNA ${fiscalYear} · ${program.name}`, createdBy: actorId || null,
+      }, tx);
+      budgetId = budget._id;
+    }
+  });
 
   return { cohort, plan: await repository.findPlan(fiscalYear), budgetId };
 };

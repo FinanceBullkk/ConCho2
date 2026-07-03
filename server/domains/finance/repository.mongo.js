@@ -40,10 +40,19 @@ const softDeleteCostEntry = (id) =>
   ).lean();
 
 // ── Budget CRUD ──────────────────────────────────────────────────────────────
-// Optional `session` lets a caller enlist this insert in a transaction (e.g. the
-// planning scheduleItem flow). Without it, behaviour is unchanged (single doc).
-const createBudget = (data, session) =>
-  (session ? Budget.create([data], { session }).then((arr) => arr[0]) : Budget.create(data));
+// Optional `tx` lets a caller enlist this insert in a transaction (the planning
+// scheduleItem flow). Accepts the UoW wrapper ({ session }) OR a raw Mongoose
+// session (legacy shape) — same sessionOf convention as the schedule repo.
+const sessionOf = (tx) => {
+  if (!tx) return undefined;
+  if (tx.session) return tx.session;                        // { session } UoW wrapper
+  if (typeof tx.startTransaction === 'function') return tx; // raw mongoose ClientSession
+  return undefined;
+};
+const createBudget = (data, tx) => {
+  const session = sessionOf(tx);
+  return session ? Budget.create([data], { session }).then((arr) => arr[0]) : Budget.create(data);
+};
 
 const listBudgets = (filter = {}) =>
   Budget.find(filter).sort({ fiscalYear: -1, createdAt: -1 }).limit(500).lean();
