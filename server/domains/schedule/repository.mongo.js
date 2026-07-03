@@ -45,6 +45,31 @@ const findScheduleById = (id) =>
 
 const findScheduleByIdRaw = (id) => Schedule.findById(id);
 
+// ── Post-commit re-fetch reads (read-path completion) ─────
+// scheduleService re-fetches the populated Schedule for its booking/cancel
+// responses + notifications. These were the last Mongo-direct reads in the
+// chokepoint; routing them here lets DB_BACKEND=postgres run booking end-to-end.
+// Each mirrors the legacy populate/lean shape exactly (behaviour preserved 1:1).
+
+// bookSlot / bookCohortSlot / adminCreate response. NON-lean on purpose: the
+// res.json serialisation applies the Schedule toJSON virtuals (enrolledCount /
+// availableSpots) — the legacy re-fetch was non-lean too, so the response shape
+// is preserved 1:1. (bookCohortSlot has no team → bookedTeamId populates null.)
+const findScheduleForResponse = (id) =>
+  Schedule.findById(id)
+    .populate('classId', 'classCode courseName')
+    .populate('bookedTeamId', 'name')
+    .populate('enrolledUsers', 'empCode name');
+
+// cancelSlot load — class label + enrolled-user emails for the cancellation
+// notifications. bookedTeamId stays RAW (leader-auth loads the team separately
+// via findTeamLeaderId). Lean: used only for field reads + auth, never serialised.
+const findScheduleForCancellation = (id) =>
+  Schedule.findById(id)
+    .populate('classId', 'classCode courseName')
+    .populate('enrolledUsers', 'name email')
+    .lean();
+
 // ── Read queries (Phase 1 extraction from scheduleService) ────
 // Each mirrors the exact populate/sort/lean shape the legacy read functions
 // used, so behaviour is preserved 1:1.
@@ -185,6 +210,12 @@ const findTeamById = (id, opts = {}) => {
   if (session) q = q.session(session);
   return q;
 };
+
+// cancelSlot leader-auth — minimal team-leader lookup (read-path completion).
+// The Team soft-delete pre-find hook hides deleted teams, matching the pg
+// `is_deleted = false` predicate.
+const findTeamLeaderId = (teamId) =>
+  Team.findById(teamId).select('leaderId').lean();
 
 // Booking team load (slice S3b-1) — replaces the in-tx Team write-lock + populate
 // in scheduleService (bookSlot lock:true, adminCreate lock:false). lock:true
@@ -419,6 +450,9 @@ const deleteRoomBookings = (scheduleIds, tx) => {
 module.exports = {
   findScheduleById,
   findScheduleByIdRaw,
+  findScheduleForResponse,
+  findScheduleForCancellation,
+  findTeamLeaderId,
   findScheduleByIdLean,
   findScheduledByClassIdsOrdered,
   findScheduleForCalendarSync,
