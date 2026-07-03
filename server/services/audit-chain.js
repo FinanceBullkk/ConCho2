@@ -1,5 +1,5 @@
 const crypto = require('crypto');
-const AuditLog = require('../models/AuditLog');
+const auditRepository = require('./audit-repository');
 
 // ──────────────────────────────────────────────────────────
 // Audit hash chain — content hashing + verification
@@ -82,15 +82,14 @@ const computeHash = (row) =>
  * window's FIRST surviving row (its predecessor may have expired); we skip that
  * one link. Any gap AFTER the first row is necessarily a deletion, not expiry.
  *
- * @param {{ from?: number|string, to?: number|string }} [opts]
+ * @param {{ from?: number|string, to?: number|string, repo?: Object }} [opts]
+ *   `repo` defaults to the DB_BACKEND-selected audit repository; the pg-parity
+ *   test passes each impl explicitly to verify the chain on both backends.
  * @returns {Promise<{ ok:boolean, checked:number, from:number|null,
  *   to:number|null, firstBrokenSeq:number|null, reason:string }>}
  */
-const verifyChain = async ({ from, to } = {}) => {
-  const head = await AuditLog.findOne({ seq: { $exists: true } })
-    .sort({ seq: -1 })
-    .select('seq')
-    .lean();
+const verifyChain = async ({ from, to, repo = auditRepository } = {}) => {
+  const head = await repo.findChainHead();
 
   if (!head) {
     return { ok: true, checked: 0, from: null, to: null, firstBrokenSeq: null, reason: 'empty-chain' };
@@ -105,10 +104,7 @@ const verifyChain = async ({ from, to } = {}) => {
   // Clamp window to MAX_WINDOW even when an explicit, oversized range is given.
   if (toSeq - fromSeq + 1 > MAX_WINDOW) fromSeq = toSeq - MAX_WINDOW + 1;
 
-  const rows = await AuditLog.find({ seq: { $gte: fromSeq, $lte: toSeq } })
-    .sort({ seq: 1 })
-    .select('seq prevHash hash actorId actorRole actorEmpCode action entity entityId diff note')
-    .lean();
+  const rows = await repo.findChainWindow(fromSeq, toSeq);
 
   const broken = (seq, reason) => ({
     ok: false, checked: rows.length, from: fromSeq, to: toSeq, firstBrokenSeq: seq, reason,
