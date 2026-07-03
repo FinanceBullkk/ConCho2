@@ -1,4 +1,4 @@
-const AuditLog = require('../models/AuditLog');
+const auditRepository = require('./audit-repository');
 const logger = require('../lib/logger');
 const { GENESIS_PREV_HASH, computeHash } = require('./audit-chain');
 
@@ -90,11 +90,8 @@ let queue = Promise.resolve();
 let headPromise = null;
 
 const loadHead = async () => {
-  const last = await AuditLog.findOne({ seq: { $exists: true } })
-    .sort({ seq: -1 })
-    .select('seq hash')
-    .lean();
-  return last ? { seq: last.seq, hash: last.hash } : { seq: 0, hash: GENESIS_PREV_HASH };
+  const last = await auditRepository.findChainHead();
+  return last || { seq: 0, hash: GENESIS_PREV_HASH };
 };
 
 const appendChained = async (doc) => {
@@ -105,7 +102,7 @@ const appendChained = async (doc) => {
   const prevHash = head.hash;
   const hash = computeHash({ ...doc, seq, prevHash });
 
-  await AuditLog.create({ ...doc, seq, prevHash, hash });
+  await auditRepository.insertChainedRow({ ...doc, seq, prevHash, hash });
 
   // Advance the cached head only after the write lands.
   headPromise = Promise.resolve({ seq, hash });
