@@ -47,10 +47,43 @@ The Phase-1/2 work lives on `spike/pg-prototype`. The first Phase-3 PR brings th
 | D | schedule / `scheduleService` booking chokepoint | **highest risk** — multi-doc transactions, double-booking guard, waitlists |
 | E | auth + session/token paths | load-bearing security — port last, most scrutiny |
 
+## Wave F ledger (legacy tail — status per file, 2026-07-04)
+
+**Ported in F-PR-1:** `controllers/dashboard/dashboard-stats-repository` (14-query
+bundle, mig 031 profile columns) · `controllers/class/class-repository` (writes
+delegate to the proven learning cohort path) · `services/metrics-repository`
+(snapshot upsert ON CONFLICT + funnel count grammar) · `services/audit/audit-query-repository`
+· `services/export/evaluation-export-repository` · `services/search/search-repository`.
+
+**Remaining seams (F-PR-2 — blocked-by-design, not forgotten):**
+- `services/export/attendance-export-repository` — its `aggregate(pipeline)`
+  leaks the Mongo pipeline shape (multi-$lookup attendance→schedule→user→class
+  with DATA-009 soft-delete sub-pipelines). Port = first refactor to a SEMANTIC
+  method owning the join, then the SQL twin. claim/mark/count methods trivial.
+- `controllers/user/user-mutations-repository` + `user-queries`/`user-lifecycle`
+  — blocked by the User AUTO-RELEASE post-findOneAndUpdate hook (status→Dropped
+  ⇒ transactional pull from future schedules + waitlist promotion). The PG twin
+  must route through the schedule domain's dual-backend seams, NOT replicate a
+  Mongoose hook. Pairs with `importService` (same write path).
+
+**Ops/cron disposition (direct-Mongoose, not repository seams):**
+- `services/reconcile/*` (6) + `reconcileController` — Mongo-consistency
+  checker; ports with the `reconcile_report` table as its own slice (its 30d
+  TTL then joins the E2 purge job), or retires at cutover — owner call.
+- `syncController` (Sheets export) · `importService`/`importController` ·
+  `reminderService` · `pushService` · `dashboard-alerts` · `settingController` ·
+  `controllers/enrollment/*` (4) · `evaluationController` ·
+  `cronHealthController` + `lib/cronMonitor` (CronRun heartbeats) ·
+  `helpers/{counter,teacher-class-scope,cohortMembership}` ·
+  `services/auth/auth-tokens` (TokenBlocklist → `token_blocklist` table + its
+  expiry window joins the E2 purge) — port as Wave-G's full-suite PG lane
+  surfaces each one; none block the lane's bring-up.
+
 ## Ports landed (running log — newest first)
 
 | # | Service | Interface | Tables | Traps proven | PR |
 |---|---------|-----------|--------|--------------|----|
+| 23 | **Wave-F PR-1 — the 6 legacy Phase-0 seams** (`dashboard-stats` · `class` · `metrics` · `audit-query` · `evaluation-export` · `search`; see the Wave F ledger above) | each split `.mongo/.pg` + selector, exact legacy interfaces preserved (incl. `toObject()`-bearing hydrated readers + raw-pipeline `aggregate()` callers) | users profile columns (**migration 031** — entrance_level/current_level/drop_reason); everything else reused | Mongo spread-CLOBBER on same-key pipeline predicates mirrored (dashboard) · `modified` = changed-only (ON CONFLICT … WHERE IS DISTINCT FROM) · funnel/count filter grammars fail-loud on unknown shapes · $project join-miss OMITS keys (not null) · runValidators enum parity via schema enumValues · reverse-parsed pipeline + assertKnownShape guard (evaluation-export) · regex⇄ILIKE · 28/28 new parity; full pg-parity dir 53 suites/326 green | (this) |
 | 22 | `services/auth/auth-repository` E4 extension (**Wave-E slice E4 — auth mutations → WAVE E COMPLETE**) | 13 methods under `controllers/auth/*` + `policy/auth` re-auth: `findByIdWithPassword`/`updatePassword` (callers replicate the pre-save bcrypt(12) + now()-1s skew) · MFA lifecycle (`setMfaPendingSecret`/`findForMfaSetupVerify`/`clearMfaPendingSecret`/`enableMfa`/`findForMfaDisable`/`disableMfa`) · `findUserRef`/`bumpPasswordChangedAt` (force-logout kill switch) · reset (`findForPasswordReset`/`savePasswordResetToken`/`clearPasswordResetToken`/`consumePasswordResetToken`) | users (no new migration — 030 columns) | atomic single-use reset consume (findOneAndUpdate ⇄ UPDATE…RETURNING; 2nd consume null, expired null) · lowercase empCode lookup matches (query setter ⇄ upper()) · bare `+select` is NOT inclusive — anchor with a real field · MFA enable wipes pending, disable empties codes, both backends · OPS-014 test respied onto the seam (backend-agnostic) | (this) |
 | 21 | `services/auth/auth-repository` (**Wave-E slice E3 — login + middleware reads**) | `findForLogin` + `recordFailedLoginAttempt` (atomic roll) + `resetLoginCounters` + `findForMfaVerify` + `saveMfaLastUsedCounter`/`saveMfaBackupCodes` + `findAuthUserById` (the 10-field middleware projection, NodeCache 30s stays in the caller) | users security columns (**migration 030** — password/reset pair/must_change, mfa_enabled/secret/pending pair/backup_codes text[]/last_used_counter, failed_login_attempts/lock_until) | select:false ⇔ fixed EXPLICIT projections (security readers are the only password/mfa surfacers; middleware row pinned no-leak) · lockout: pipeline-update ⇄ single CASE UPDATE, same counter/lock transition + counter restarts after lock · bigint counter → Number · text[] NULL → [] · soft-deleted user invisible on every reader | (this) |
 | 20 | `jobs/retentionPurgeJob` (**Wave-E slice E2 — the PG TTL stand-in**) | `purgeExpiredRows()` nightly 02:30 UTC (cronMonitor `retention-purge`; PG-only `isPostgres` guard, no-op on Mongo) | audit_log 730d · notification_logs 180d · metric_snapshots 400d (**no new migration** — the debt migs 002/019 deferred to Wave E) | env + default lockstep with the model TTL indexes · strict-< boundary (edge row survives) · call-time env override · deletions unaudited by design ⇔ Mongo TTL deletions | (this) |
