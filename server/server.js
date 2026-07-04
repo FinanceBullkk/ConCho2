@@ -413,6 +413,10 @@ if (process.env.NODE_ENV !== 'test') {
     startReconcileJob();
     const { startSnapshotJob, stopSnapshotJob } = require('./jobs/snapshotJob');
     startSnapshotJob();
+    // PG-only nightly retention DELETE (Wave-E2) — no-op under DB_BACKEND=mongo
+    // (Mongo enforces retention with TTL indexes).
+    const { startRetentionPurgeJob, stopRetentionPurgeJob } = require('./jobs/retentionPurgeJob');
+    startRetentionPurgeJob();
 
     // Graceful shutdown on SIGTERM (sent by Render, Kubernetes, systemd on
     // deploy/stop). Give in-flight requests up to 10s to complete, then
@@ -430,6 +434,9 @@ if (process.env.NODE_ENV !== 'test') {
       }
       try { if (typeof stopSnapshotJob === 'function') stopSnapshotJob(); } catch (e) {
         logger.warn({ err: e?.message }, 'stopSnapshotJob threw');
+      }
+      try { if (typeof stopRetentionPurgeJob === 'function') stopRetentionPurgeJob(); } catch (e) {
+        logger.warn({ err: e?.message }, 'stopRetentionPurgeJob threw');
       }
 
       server.close(async (err) => {
