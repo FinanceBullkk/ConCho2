@@ -47,6 +47,38 @@ The Phase-1/2 work lives on `spike/pg-prototype`. The first Phase-3 PR brings th
 | D | schedule / `scheduleService` booking chokepoint | **highest risk** — multi-doc transactions, double-booking guard, waitlists |
 | E | auth + session/token paths | load-bearing security — port last, most scrutiny |
 
+## Wave F ledger (legacy tail — status per file, 2026-07-04)
+
+**Ported in F-PR-1:** `controllers/dashboard/dashboard-stats-repository` (14-query
+bundle, mig 031 profile columns) · `controllers/class/class-repository` (writes
+delegate to the proven learning cohort path) · `services/metrics-repository`
+(snapshot upsert ON CONFLICT + funnel count grammar) · `services/audit/audit-query-repository`
+· `services/export/evaluation-export-repository` · `services/search/search-repository`.
+
+**Remaining seams (F-PR-2 — blocked-by-design, not forgotten):**
+- `services/export/attendance-export-repository` — its `aggregate(pipeline)`
+  leaks the Mongo pipeline shape (multi-$lookup attendance→schedule→user→class
+  with DATA-009 soft-delete sub-pipelines). Port = first refactor to a SEMANTIC
+  method owning the join, then the SQL twin. claim/mark/count methods trivial.
+- `controllers/user/user-mutations-repository` + `user-queries`/`user-lifecycle`
+  — blocked by the User AUTO-RELEASE post-findOneAndUpdate hook (status→Dropped
+  ⇒ transactional pull from future schedules + waitlist promotion). The PG twin
+  must route through the schedule domain's dual-backend seams, NOT replicate a
+  Mongoose hook. Pairs with `importService` (same write path).
+
+**Ops/cron disposition (direct-Mongoose, not repository seams):**
+- `services/reconcile/*` (6) + `reconcileController` — Mongo-consistency
+  checker; ports with the `reconcile_report` table as its own slice (its 30d
+  TTL then joins the E2 purge job), or retires at cutover — owner call.
+- `syncController` (Sheets export) · `importService`/`importController` ·
+  `reminderService` · `pushService` · `dashboard-alerts` · `settingController` ·
+  `controllers/enrollment/*` (4) · `evaluationController` ·
+  `cronHealthController` + `lib/cronMonitor` (CronRun heartbeats) ·
+  `helpers/{counter,teacher-class-scope,cohortMembership}` ·
+  `services/auth/auth-tokens` (TokenBlocklist → `token_blocklist` table + its
+  expiry window joins the E2 purge) — port as Wave-G's full-suite PG lane
+  surfaces each one; none block the lane's bring-up.
+
 ## Ports landed (running log — newest first)
 
 | # | Service | Interface | Tables | Traps proven | PR |
