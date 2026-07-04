@@ -5,7 +5,7 @@ const { handleError } = require('../../helpers/handleError');
 const { sendMail } = require('../../lib/mailer');
 const logger = require('../../lib/logger');
 // CODE-017: hoisted from per-handler lazy requires (legacy-cycle relic).
-const User = require('../../models/User');
+const authRepository = require('../../services/auth/auth-repository');
 const { invalidateUserCache } = require('../../middleware/auth');
 
 // ──────────────────────────────────────────────────────────
@@ -62,7 +62,7 @@ const forgotPassword = async (req, res) => {
   setImmediate(() => {
     (async () => {
       try {
-        const user = await User.findOne({ empCode: normalizedEmpCode, isDeleted: { $ne: true } });
+        const user = await authRepository.findForPasswordReset(normalizedEmpCode);
         if (!user || !user.email) {
           // SEC-008: do NOT log raw empCode. Use a short SHA-256 prefix so
           // ops can correlate without enabling enumeration via log aggregator.
@@ -89,9 +89,7 @@ const forgotPassword = async (req, res) => {
         const hashedToken = crypto.createHash('sha256').update(rawToken).digest('hex');
         const expires = new Date(Date.now() + 60 * 60 * 1000); // 1h
 
-        user.passwordResetToken = hashedToken;
-        user.passwordResetExpires = expires;
-        await user.save({ validateBeforeSave: false });
+        await authRepository.savePasswordResetToken(user._id, hashedToken, expires);
 
         const clientOrigin = process.env.CLIENT_ORIGIN || 'http://localhost:5173';
         // SEC-005: token in URL PATH (not query string) — reduces leak via
@@ -116,9 +114,7 @@ const forgotPassword = async (req, res) => {
           logger.info({ empCodeHash: hashEmpCodeForLog(normalizedEmpCode) }, 'Forgot-password: completed background flow');
         } catch (mailErr) {
           // Roll back the token so the user can retry without ambiguity.
-          user.passwordResetToken = null;
-          user.passwordResetExpires = null;
-          await user.save({ validateBeforeSave: false });
+          await authRepository.clearPasswordResetToken(user._id);
           logger.warn({ err: mailErr, empCodeHash: hashEmpCodeForLog(normalizedEmpCode) }, 'Password reset email failed');
         }
       } catch (err) {
@@ -166,22 +162,7 @@ const resetPassword = async (req, res) => {
     // Atomic find-and-clear: first concurrent request nulls the token;
     // any subsequent request finds no matching document → 400.
     // Prevents double-spend race condition.
-    const user = await User.findOneAndUpdate(
-      {
-        passwordResetToken: hashedToken,
-        passwordResetExpires: { $gt: new Date() },
-        isDeleted: { $ne: true },
-      },
-      {
-        $set: {
-          password: hashedPassword,
-          passwordResetToken: null,
-          passwordResetExpires: null,
-          passwordChangedAt: new Date(),
-        },
-      },
-      { new: true },
-    );
+    const user = await authRepository.consumePasswordResetToken(hashedToken, hashedPassword);
 
     if (!user) {
       return res.status(400).json({ success: false, message: 'Reset token is invalid or has expired' });

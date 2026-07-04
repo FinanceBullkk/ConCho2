@@ -46,7 +46,7 @@ Out of scope (Wave F): admin user CRUD (`user-mutations-repository`),
 - [x] E1 audit_log port — shipped 2026-07-04 (mig 029; 8/8 Neon parity + 48/48 Mongo audit suites)
 - [x] E2 retention purge job — shipped 2026-07-04 (jobs/retentionPurgeJob.js; 5/5 Neon; reconcile_report/token_blocklist windows deferred to their ports)
 - [x] E3 users security columns + login/middleware port — shipped 2026-07-04 (mig 030; 6/6 Neon parity + 37/37 Mongo auth/MFA suites; Mongo security readers tightened to explicit inclusion projections)
-- [ ] E4 auth mutations port
+- [x] E4 auth mutations port — shipped 2026-07-04 (no new mig; 13 repo methods; 6/6 Neon parity + 54/54 Mongo suites; OPS-014 test respied onto the seam) — **WAVE E COMPLETE**
 
 ## Risks
 - Hash over `diff`: Mongo stores Mixed (Date objects) vs PG jsonb (ISO strings)

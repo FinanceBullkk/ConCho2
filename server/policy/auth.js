@@ -17,7 +17,7 @@
  */
 
 const bcrypt = require('bcryptjs');
-const User = require('../models/User');
+const authRepository = require('../services/auth/auth-repository');
 
 /**
  * Verify the actor (admin) supplied their own current password in the
@@ -38,8 +38,8 @@ const requireReauth = async (req) => {
     };
   }
 
-  // Re-read the actor with +password so bcrypt has the hash.
-  const fresh = await User.findById(req.user._id).select('+password');
+  // Re-read the actor with +password so bcrypt has the hash (dual-backend).
+  const fresh = await authRepository.findByIdWithPassword(req.user._id);
   if (!fresh) {
     return { allowed: false, status: 401, message: 'Actor not found', reason: 'no-actor' };
   }

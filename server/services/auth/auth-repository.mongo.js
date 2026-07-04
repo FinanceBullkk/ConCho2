@@ -75,6 +75,108 @@ const findAuthUserById = (userId) =>
     .select('_id empCode name role department departmentId status passwordChangedAt mfaEnabled mustChangePassword')
     .lean();
 
+// ── E4 — auth mutations (password change/reset, MFA lifecycle, admin) ───────
+
+// Re-auth / change-password read: {_id, empCode, password} only. (A bare
+// '+password' is not an inclusive projection — empCode anchors inclusion.)
+const findByIdWithPassword = (userId) =>
+  User.findById(userId).select('empCode +password').lean();
+
+// changePassword write. Callers hash + set passwordChangedAt = now()-1s
+// themselves (mirroring the User pre('save') hook — update writes skip it).
+const updatePassword = (userId, { passwordHash, passwordChangedAt, mustChangePassword }) =>
+  User.updateOne(
+    { _id: userId },
+    { $set: { password: passwordHash, passwordChangedAt, mustChangePassword } },
+  );
+
+// MFA enrollment (setup → verify-setup) + disable.
+const setMfaPendingSecret = (userId, secret, expiresAt) =>
+  User.updateOne(
+    { _id: userId },
+    { $set: { mfaPendingSecret: secret, mfaPendingSecretExpires: expiresAt } },
+  );
+
+const findForMfaSetupVerify = (userId) =>
+  User.findById(userId).select('_id +mfaPendingSecret +mfaPendingSecretExpires').lean();
+
+const clearMfaPendingSecret = (userId) =>
+  User.updateOne(
+    { _id: userId },
+    { $set: { mfaPendingSecret: null, mfaPendingSecretExpires: null } },
+  );
+
+// Promote the proven pending secret to permanent + enable (F5 two-step).
+const enableMfa = (userId, { secret, backupCodes }) =>
+  User.updateOne(
+    { _id: userId },
+    {
+      $set: {
+        mfaSecret: secret,
+        mfaPendingSecret: null,
+        mfaPendingSecretExpires: null,
+        mfaEnabled: true,
+        mfaBackupCodes: backupCodes,
+      },
+    },
+  );
+
+const findForMfaDisable = (userId) =>
+  User.findById(userId).select('_id mfaEnabled +mfaSecret +mfaBackupCodes').lean();
+
+// Shared by self-disable AND the admin override.
+const disableMfa = (userId) =>
+  User.updateOne(
+    { _id: userId },
+    { $set: { mfaEnabled: false, mfaSecret: null, mfaBackupCodes: [] } },
+  );
+
+// Admin handlers' target lookup: {_id, empCode, role}.
+const findUserRef = (userId) =>
+  User.findById(userId).select('_id empCode role').lean();
+
+// Force-logout kill switch — the middleware rejects any token with
+// iat < passwordChangedAt, catching sessions the JTI blocklist can't.
+const bumpPasswordChangedAt = (userId) =>
+  User.updateOne({ _id: userId }, { $set: { passwordChangedAt: new Date() } });
+
+// ── Password reset (forgot / reset) ─────────────────────────────────────────
+// The empCode schema setter (uppercase+trim) applies to the query value, so a
+// lower-cased lookup still matches — the pg impl mirrors with upper().
+const findForPasswordReset = (empCode) =>
+  User.findOne({ empCode })
+    .select('_id email name passwordResetToken passwordResetExpires')
+    .lean();
+
+const savePasswordResetToken = (userId, tokenHash, expiresAt) =>
+  User.updateOne(
+    { _id: userId },
+    { $set: { passwordResetToken: tokenHash, passwordResetExpires: expiresAt } },
+  );
+
+const clearPasswordResetToken = (userId) =>
+  User.updateOne(
+    { _id: userId },
+    { $set: { passwordResetToken: null, passwordResetExpires: null } },
+  );
+
+// Atomic find-and-clear (double-spend guard): the first concurrent consume
+// claims the row; later ones find no match → null. passwordChangedAt = now()
+// exactly (this manual path never had the pre-save -1s skew).
+const consumePasswordResetToken = (tokenHash, passwordHash) =>
+  User.findOneAndUpdate(
+    { passwordResetToken: tokenHash, passwordResetExpires: { $gt: new Date() } },
+    {
+      $set: {
+        password: passwordHash,
+        passwordResetToken: null,
+        passwordResetExpires: null,
+        passwordChangedAt: new Date(),
+      },
+    },
+    { new: true, select: '_id empCode' },
+  ).lean();
+
 module.exports = {
   findForLogin,
   recordFailedLoginAttempt,
@@ -83,4 +185,18 @@ module.exports = {
   saveMfaLastUsedCounter,
   saveMfaBackupCodes,
   findAuthUserById,
+  findByIdWithPassword,
+  updatePassword,
+  setMfaPendingSecret,
+  findForMfaSetupVerify,
+  clearMfaPendingSecret,
+  enableMfa,
+  findForMfaDisable,
+  disableMfa,
+  findUserRef,
+  bumpPasswordChangedAt,
+  findForPasswordReset,
+  savePasswordResetToken,
+  clearPasswordResetToken,
+  consumePasswordResetToken,
 };

@@ -3,7 +3,8 @@ const auditService = require('../../services/auditService');
 const { handleError } = require('../../helpers/handleError');
 const { rotateCsrfToken } = require('../../middleware/csrfProtection');
 // CODE-017: hoisted from per-handler lazy requires (legacy-cycle relic).
-const User = require('../../models/User');
+const bcrypt = require('bcryptjs');
+const authRepository = require('../../services/auth/auth-repository');
 const { invalidateUserCache } = require('../../middleware/auth');
 
 // ──────────────────────────────────────────────────────────
@@ -183,18 +184,24 @@ const getMe = async (req, res) => {
 const changePassword = async (req, res) => {
   try {
     const { currentPassword, newPassword } = req.body;
-    const user = await User.findById(req.user._id).select('+password');
+    const user = await authRepository.findByIdWithPassword(req.user._id);
     if (!user) {
       return res.status(404).json({ success: false, message: 'User not found' });
     }
-    const isMatch = await user.matchPassword(currentPassword);
+    const isMatch = await bcrypt.compare(currentPassword, user.password);
     if (!isMatch) {
       return res.status(401).json({ success: false, message: 'Current password is incorrect' });
     }
-    user.password = newPassword;
-    user.passwordChangedAt = new Date();
-    user.mustChangePassword = false; // Clear forced-change flag (SEC-04)
-    await user.save();
+    // Mirrors the User pre('save') hook exactly (update writes skip hooks):
+    // bcrypt(12) + passwordChangedAt = now()-1s (clock-skew guard so the
+    // fresh token minted in the same second still passes the iat check).
+    const salt = await bcrypt.genSalt(12);
+    const passwordHash = await bcrypt.hash(newPassword, salt);
+    await authRepository.updatePassword(user._id, {
+      passwordHash,
+      passwordChangedAt: new Date(Date.now() - 1000),
+      mustChangePassword: false, // Clear forced-change flag (SEC-04)
+    });
     // Invalidate auth cache — forces re-read with new passwordChangedAt on next request.
     // This also immediately rejects the current token (iat < changedAt).
     invalidateUserCache(user._id);
