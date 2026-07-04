@@ -1,5 +1,6 @@
 const jwt = require('jsonwebtoken');
-const User = require('../../models/User');
+const bcrypt = require('bcryptjs');
+const authRepository = require('./auth-repository');
 const mfaService = require('../mfaService');
 const auditService = require('../auditService');
 const logger = require('../../lib/logger');
@@ -42,8 +43,7 @@ const authenticate = async (empCode, password, req = null) => {
 
   const normalizedCode = empCode.trim().toUpperCase();
 
-  const user = await User.findOne({ empCode: normalizedCode })
-    .select('+password +failedLoginAttempts +lockUntil +mfaSecret');
+  const user = await authRepository.findForLogin(normalizedCode);
   if (!user) {
     // Generic message — do not reveal whether the account exists.
     throw new ServiceError('Invalid credentials', 401);
@@ -60,32 +60,15 @@ const authenticate = async (empCode, password, req = null) => {
     throw new ServiceError(`Account is ${user.status}. Contact admin.`, 403);
   }
 
-  const isMatch = await user.matchPassword(password);
+  const isMatch = await bcrypt.compare(password, user.password);
   if (!isMatch) {
-    // Single atomic pipeline update — avoids read-modify-write race when
-    // concurrent bad-login requests arrive simultaneously (F2 audit fix).
-    const updated = await User.findOneAndUpdate(
-      { _id: user._id },
-      [
-        { $set: { _na: { $add: [{ $ifNull: ['$failedLoginAttempts', 0] }, 1] } } },
-        {
-          $set: {
-            failedLoginAttempts: {
-              $cond: [{ $gte: ['$_na', MAX_FAILED_ATTEMPTS] }, 0, '$_na'],
-            },
-            lockUntil: {
-              $cond: [
-                { $gte: ['$_na', MAX_FAILED_ATTEMPTS] },
-                { $add: ['$$NOW', LOCK_MINUTES * 60 * 1000] },
-                '$lockUntil',
-              ],
-            },
-          },
-        },
-        { $unset: '_na' },
-      ],
-      { new: true, select: '+failedLoginAttempts +lockUntil' },
-    );
+    // Single atomic counter roll in the repository — avoids read-modify-write
+    // race when concurrent bad-login requests arrive simultaneously (F2 audit
+    // fix; Mongo aggregation-pipeline update ⇄ PG CASE update).
+    const updated = await authRepository.recordFailedLoginAttempt(user._id, {
+      maxAttempts: MAX_FAILED_ATTEMPTS,
+      lockMinutes: LOCK_MINUTES,
+    });
     if (updated?.lockUntil && updated.lockUntil > new Date()) {
       logger.warn({ empCode: normalizedCode }, 'Account locked due to repeated failed login attempts');
       // Audit PR L (SEC-013): record the lockout transition (not every failed
@@ -105,10 +88,7 @@ const authenticate = async (empCode, password, req = null) => {
 
   // Successful login — clear any failure state.
   if (user.failedLoginAttempts > 0 || user.lockUntil) {
-    await User.updateOne(
-      { _id: user._id },
-      { $set: { failedLoginAttempts: 0, lockUntil: null } }
-    );
+    await authRepository.resetLoginCounters(user._id);
   }
 
   // If MFA is enabled, do NOT issue a full session. Issue a short-lived
@@ -191,8 +171,7 @@ const verifyMfaLogin = async (mfaPendingToken, code, req = null) => {
     throw new ServiceError('Invalid MFA challenge token', 401);
   }
 
-  const user = await User.findById(decoded.id)
-    .select('+mfaSecret +mfaBackupCodes +mfaLastUsedCounter');
+  const user = await authRepository.findForMfaVerify(decoded.id);
   // P2 fix: also check account is Active — a suspended account must not be
   // able to complete the MFA second-leg and obtain a full session token.
   if (!user || !user.mfaEnabled || !user.mfaSecret || user.status !== 'Active') {
@@ -213,14 +192,12 @@ const verifyMfaLogin = async (mfaPendingToken, code, req = null) => {
   if (totpValid) {
     // Persist the absolute step counter so any code from this step (or earlier)
     // cannot be replayed, while a later step still logs in (SEC-018 fix).
-    user.mfaLastUsedCounter = counter;
-    await user.save();
+    await authRepository.saveMfaLastUsedCounter(user._id, counter);
     ok = true;
   } else {
     const remaining = await mfaService.consumeBackupCode(user.mfaBackupCodes || [], code);
     if (remaining) {
-      user.mfaBackupCodes = remaining;
-      await user.save();
+      await authRepository.saveMfaBackupCodes(user._id, remaining);
       backupCodeUsed = true;
       ok = true;
       logger.warn(

@@ -1,5 +1,5 @@
 const jwt = require('jsonwebtoken');
-const User = require('../models/User');
+const authRepository = require('../services/auth/auth-repository');
 const NodeCache = require('node-cache');
 const { isTokenRevoked } = require('../services/authService');
 
@@ -121,9 +121,9 @@ const protect = async (req, res, next) => {
     if (!user) {
       // departmentId added for self-scoped department reads (Cohesion P3 —
       // own-assignments view resolves department-targeted assignments).
-      user = await User.findById(decoded.id)
-        .select('_id empCode name role department departmentId status passwordChangedAt mfaEnabled mustChangePassword')
-        .lean();
+      // Fixed 10-field projection via the dual-backend auth repository —
+      // never carries password/mfaSecret (Wave-E slice E3).
+      user = await authRepository.findAuthUserById(decoded.id);
       if (user) userCache.set(cacheKey, user);
     }
 
