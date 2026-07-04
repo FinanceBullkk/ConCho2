@@ -22,7 +22,7 @@
 - 3 pg-parity attendance suites: 6/6 green on BOTH `DB_BACKEND=postgres` and default-mongo+PG_URL (real parity-gate mode).
 - 24 dual-backend suites: 49/49 green on both backends.
 - Full PG lane local (Docker postgres:16, migrations 1–31): 82 failed / 132 passed / 214 total.
-- Full default-Mongo suite: running at report time (spot checks green: access/settings/customField/auth 35/35; result appended to PR).
+- Full default-Mongo suite (local): 207/214 green on first pass; the 7 reds triaged on an idle machine → **5 machine-load flakes** (pass clean rerun: attendance-by-employee, auditDataRound2, cronRoutes, exportRowCap, p2-regression) + **1 pre-existing local-env failure** (auditWriteSide — fails on pristine `main` locally too, CI green; not this PR) + **1 real timing regression FIXED**: `dataIntegrity` DATA-002 relied on the Class partial-unique index winning the autoIndex race; the batch-1 setup.js require tree shifted timing → race lost consistently. Fix: `await Class.init()` in the DATA-002 beforeAll (ledger-precedent). 3/3 deterministic green after.
 - Every local FAIL cross-checked ∈ baseline-fail set at 31/62/80-suite checkpoints + final → no regression at any point.
 
 ## Remaining 82 (batch 2+)
@@ -34,6 +34,8 @@ All = suites seeding EXTRA fixtures via raw Mongoose in-file (and/or asserting v
 Docker `tms-pg` (postgres:16, ci/ci@localhost:5432/tmsci, `--restart unless-stopped`) · 31 knex migrations applied · server `npm ci` refreshed · `.env.pg-prototype` (gitignored) → knex + parity suites auto-target local PG. NOTE: parity suites now RUN locally (no longer skip) — keep container up. Jest runs: one at a time, wrap long runs in `caffeinate -i`.
 
 ## Unresolved questions
+
+- `auditWriteSide.test.js` fails on THIS Mac even on pristine `main` (2 tests: cron-auth-failed audit row timing) while CI is green — local-env sensitivity (TZ Asia/Saigon? audit queue flush timing?). Track separately; not a gate.
 
 - Suite total local = 214 vs CI summary 208 — count-method quirk (CI log also lists 214 distinct suite names); reconcile when promoting the lane to a required gate.
 - Ops/cron Mongo-direct files (Wave F ledger): port as their suites surface in batches, or hold for a dedicated slice? Current plan: as surfaced.
