@@ -17,6 +17,8 @@
 const mongoose = require('mongoose');
 const crypto = require('crypto');
 const { MongoMemoryReplSet } = require('mongodb-memory-server');
+const { isPostgres } = require('../config/db-backend');
+const pgTestUtils = require('./pg-test-utils');
 
 // tests/global-setup.js starts ONE shared replica set per jest run and exposes
 // its URI on process.env.MONGO_URI. Each test file connects under its OWN
@@ -58,6 +60,11 @@ const setup = async () => {
 
   // Connect mongoose to this file's private database on the (shared) server.
   await mongoose.connect(process.env.MONGO_URI, { dbName: TEST_DB_NAME });
+
+  // Wave G (DB_BACKEND=postgres lane): PG has ONE shared database for the whole
+  // run — truncate it at file setup so each file starts as clean as its private
+  // Mongo database. No-op on the default Mongo lane.
+  await pgTestUtils.resetPgDatabase();
 
   // Import app AFTER env vars are set
   app = require('../server');
@@ -123,6 +130,16 @@ const setup = async () => {
     leaderId: leader._id, members: [leader._id, member1._id, member2._id],
   });
 
+  // Wave G: mirror the core fixtures into PG (same ids, same bcrypt hashes) so
+  // the ported read-paths — auth middleware above all — see the same world the
+  // Mongoose seeds created. The Setting stays Mongo-only (settings reads are
+  // not ported). No-op on the default Mongo lane.
+  await pgTestUtils.mirrorCoreSeedToPg({
+    users: [admin, teacher, leader, member1, member2, inactiveUser],
+    classes: [cls, cls2],
+    teams: [team],
+  });
+
   // Generate tokens directly — avoids coupling to login response shape.
   // Bearer token auth is still accepted by the protect middleware.
   const jwt = require('jsonwebtoken');
@@ -157,6 +174,11 @@ const teardown = async () => {
   }
   await mongoose.disconnect();
   if (mongoServer) await mongoServer.stop();
+  // Release the PG pool's sockets so jest can exit cleanly on the PG lane.
+  if (isPostgres) {
+    const { closePool } = require('../config/pg');
+    await closePool();
+  }
   initialized = false;
 };
 

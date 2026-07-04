@@ -2,7 +2,7 @@
  * ──────────────────────────────────────────────────────────
  * Integration Test — skill repository dual-backend selector (Wave-B)
  * ──────────────────────────────────────────────────────────
- * Pins that the DB_BACKEND selector resolves to the Mongo impl by default, both
+ * Pins that the selector resolves to the impl selected by DB_BACKEND (Mongo on the default lane — app unchanged), both
  * impls load (PG loads without a connection), and the Mongo path is intact
  * through the selector (skill CRUD + a completion-signal read). Exact Mongo↔PG
  * parity proven on real Postgres by tests/pg-parity/skill-repository.pg.test.js.
@@ -10,6 +10,7 @@
 const mongoose = require('mongoose');
 const { getApp } = require('../setup');
 const skillRepo = require('../../domains/skill/repository');
+const { isPostgres } = require('../../config/db-backend');
 const Certificate = require('../../models/Certificate');
 
 const uniq = () => Math.random().toString(16).slice(2, 8);
@@ -28,8 +29,8 @@ beforeAll(async () => {
 afterAll(async () => { await mongoose.disconnect(); });
 
 describe('skill repository dual-backend selector', () => {
-  test('selector resolves to mongo by default + both impls load (PG loads without connecting)', () => {
-    expect(skillRepo.create).toBe(skillRepo.impls.mongo.create);
+  test('selector resolves to the active DB_BACKEND + both impls load', () => {
+    expect(skillRepo.create).toBe(skillRepo.impls[isPostgres ? 'pg' : 'mongo'].create); // selector = active backend (mongo on the default lane)
     expect(typeof skillRepo.impls.mongo.create).toBe('function');
     expect(typeof skillRepo.impls.pg.create).toBe('function');
   });

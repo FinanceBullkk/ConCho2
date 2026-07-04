@@ -2,7 +2,7 @@
  * ──────────────────────────────────────────────────────────
  * Integration Test — learning/path repository dual-backend selector (Wave-B)
  * ──────────────────────────────────────────────────────────
- * Pins the DB_BACKEND selector → mongo by default, both impls load (PG without a
+ * Pins the DB_BACKEND selector → the impl selected by DB_BACKEND (Mongo on the default lane — app unchanged), both impls load (PG without a
  * connection), and the Mongo path-CRUD is intact through the selector. Exact
  * Mongo↔PG parity proven on real Postgres by
  * tests/pg-parity/path-repository.pg.test.js.
@@ -10,14 +10,15 @@
 const mongoose = require('mongoose');
 const { getApp } = require('../setup');
 const repo = require('../../domains/learning/path/repository');
+const { isPostgres } = require('../../config/db-backend');
 
 const uniq = () => Math.random().toString(16).slice(2, 6).toUpperCase();
 beforeAll(async () => { await getApp(); });
 afterAll(async () => { await mongoose.disconnect(); });
 
 describe('learning/path repository dual-backend selector', () => {
-  test('selector resolves to mongo by default + both impls load (PG loads without connecting)', () => {
-    expect(repo.create).toBe(repo.impls.mongo.create);
+  test('selector resolves to the active DB_BACKEND + both impls load', () => {
+    expect(repo.create).toBe(repo.impls[isPostgres ? 'pg' : 'mongo'].create); // selector = active backend (mongo on the default lane)
     expect(typeof repo.impls.mongo.create).toBe('function');
     expect(typeof repo.impls.pg.findByIdLean).toBe('function');
   });
