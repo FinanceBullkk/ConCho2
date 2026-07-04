@@ -2,7 +2,7 @@
  * ──────────────────────────────────────────────────────────
  * Integration Test — vendor repository dual-backend selector (Wave-B)
  * ──────────────────────────────────────────────────────────
- * Pins the DB_BACKEND selector → mongo by default, both impls load (PG without a
+ * Pins that the selector resolves to the impl selected by DB_BACKEND (Mongo on the default lane — app unchanged), both impls load (PG without a
  * connection), and the Mongo path is intact through the selector (CRUD + rating +
  * soft-delete + spend roll-up). Exact Mongo↔PG parity proven on real Postgres by
  * tests/pg-parity/vendor-repository.pg.test.js.
@@ -10,13 +10,14 @@
 const mongoose = require('mongoose');
 const { getApp } = require('../setup');
 const repo = require('../../domains/vendor/repository');
+const { isPostgres } = require('../../config/db-backend');
 
 beforeAll(async () => { await getApp(); });
 afterAll(async () => { await mongoose.disconnect(); });
 
 describe('vendor repository dual-backend selector', () => {
-  test('selector resolves to mongo by default + both impls load (PG loads without connecting)', () => {
-    expect(repo.createVendor).toBe(repo.impls.mongo.createVendor);
+  test('selector resolves to the active DB_BACKEND + both impls load', () => {
+    expect(repo.createVendor).toBe(repo.impls[isPostgres ? 'pg' : 'mongo'].createVendor); // selector = active backend (mongo on the default lane)
     expect(typeof repo.impls.mongo.createVendor).toBe('function');
     expect(typeof repo.impls.pg.createVendor).toBe('function');
   });

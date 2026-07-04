@@ -3,9 +3,13 @@
 // parity test proves the PG SQL matches live behaviour, not a re-implementation.
 // Admin actor ⇒ no Teacher scoping; large limit ⇒ all teams.
 const { analyticsByTeam } = require('../../domains/attendance/analytics');
+// Pin the MONGO repository impl explicitly — on the DB_BACKEND=postgres lane the
+// attendance selector resolves to pg, and this wrapper must stay the Mongo side
+// of the parity comparison.
+const { impls } = require('../../domains/attendance/repository');
 
 const getTeamAttendanceRollup = async () => {
-  const { data } = await analyticsByTeam({ page: 1, limit: 1_000_000, skip: 0 }, { role: 'Admin' });
+  const { data } = await analyticsByTeam({ page: 1, limit: 1_000_000, skip: 0 }, { role: 'Admin' }, { repo: impls.mongo });
   return data.map((t) => ({
     teamId: String(t._id),
     name: t.name,

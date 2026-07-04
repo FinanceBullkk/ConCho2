@@ -3,7 +3,7 @@
  * Integration Test — room repository dual-backend selector (Phase 3 Wave-B)
  * ──────────────────────────────────────────────────────────
  * First WHOLE-repository port. Pins that the DB_BACKEND selector resolves to the
- * Mongo impl by default (app unchanged), both impls load (the PG impl loads
+ * impl selected by DB_BACKEND (Mongo on the default lane — app unchanged), both impls load (the PG impl loads
  * without opening a connection), and the Mongo CRUD path is intact through the
  * selector. Exact Mongo↔PG parity (CRUD + traps) is proven on real Postgres by
  * tests/pg-parity/room-repository.pg.test.js.
@@ -11,6 +11,7 @@
 const mongoose = require('mongoose');
 const { getApp } = require('../setup');
 const roomRepo = require('../../domains/room/repository');
+const { isPostgres } = require('../../config/db-backend');
 const Office = require('../../models/Office');
 
 const uniq = () => Math.random().toString(16).slice(2, 8);
@@ -27,9 +28,9 @@ afterAll(async () => {
 });
 
 describe('room repository dual-backend selector', () => {
-  test('selector resolves to mongo by default + both impls load (PG loads without connecting)', () => {
+  test('selector resolves to the active DB_BACKEND + both impls load', () => {
     expect(typeof roomRepo.createRoom).toBe('function');
-    expect(roomRepo.createRoom).toBe(roomRepo.impls.mongo.createRoom); // default = mongo
+    expect(roomRepo.createRoom).toBe(roomRepo.impls[isPostgres ? 'pg' : 'mongo'].createRoom); // selector = active backend (mongo on the default lane)
     expect(typeof roomRepo.impls.mongo.createRoom).toBe('function');
     expect(typeof roomRepo.impls.pg.createRoom).toBe('function');
   });

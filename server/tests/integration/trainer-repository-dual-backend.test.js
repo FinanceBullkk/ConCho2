@@ -2,7 +2,7 @@
  * ──────────────────────────────────────────────────────────
  * Integration Test — trainer repository dual-backend selector (Wave-B)
  * ──────────────────────────────────────────────────────────
- * Pins the DB_BACKEND selector → mongo by default, both impls load (PG without a
+ * Pins that the selector resolves to the impl selected by DB_BACKEND (Mongo on the default lane — app unchanged), both impls load (PG without a
  * connection), and the Mongo path is intact through the selector (profile upsert
  * + rating + soft-delete). Exact Mongo↔PG parity proven on real Postgres by
  * tests/pg-parity/trainer-repository.pg.test.js.
@@ -10,14 +10,15 @@
 const mongoose = require('mongoose');
 const { getApp } = require('../setup');
 const trainerRepo = require('../../domains/trainer/repository');
+const { isPostgres } = require('../../config/db-backend');
 
 let userId;
 beforeAll(async () => { await getApp(); userId = new mongoose.Types.ObjectId(); });
 afterAll(async () => { await mongoose.disconnect(); });
 
 describe('trainer repository dual-backend selector', () => {
-  test('selector resolves to mongo by default + both impls load (PG loads without connecting)', () => {
-    expect(trainerRepo.upsertProfile).toBe(trainerRepo.impls.mongo.upsertProfile);
+  test('selector resolves to the active DB_BACKEND + both impls load', () => {
+    expect(trainerRepo.upsertProfile).toBe(trainerRepo.impls[isPostgres ? 'pg' : 'mongo'].upsertProfile); // selector = active backend (mongo on the default lane)
     expect(typeof trainerRepo.impls.mongo.upsertProfile).toBe('function');
     expect(typeof trainerRepo.impls.pg.upsertProfile).toBe('function');
   });

@@ -2,20 +2,22 @@
  * ──────────────────────────────────────────────────────────
  * Integration Test — executive-dashboard repository dual-backend selector (Wave-B)
  * ──────────────────────────────────────────────────────────
- * Pins the DB_BACKEND selector → mongo by default and both impls load (PG without
+ * Pins that the selector resolves to the impl selected by DB_BACKEND
+ * (Mongo on the default lane — app unchanged) and both impls load (PG without
  * a connection). Exact Mongo↔PG parity proven on real Postgres by
  * tests/pg-parity/executive-dashboard-repository.pg.test.js.
  */
 const mongoose = require('mongoose');
 const { getApp } = require('../setup');
 const repo = require('../../domains/learning/dashboard/executive-repository');
+const { isPostgres } = require('../../config/db-backend');
 
 beforeAll(async () => { await getApp(); });
 afterAll(async () => { await mongoose.disconnect(); });
 
 describe('executive-dashboard repository dual-backend selector', () => {
-  test('selector resolves to mongo by default + both impls load (PG loads without connecting)', () => {
-    expect(repo.activeEmployeeCount).toBe(repo.impls.mongo.activeEmployeeCount);
+  test('selector resolves to the active DB_BACKEND + both impls load', () => {
+    expect(repo.activeEmployeeCount).toBe(repo.impls[isPostgres ? 'pg' : 'mongo'].activeEmployeeCount); // selector = active backend (mongo on the default lane)
     expect(typeof repo.impls.mongo.certificateValidityRollup).toBe('function');
     expect(typeof repo.impls.pg.coverageByDepartment).toBe('function');
     expect(typeof repo.impls.pg.issuedProgramSetsByUser).toBe('function');

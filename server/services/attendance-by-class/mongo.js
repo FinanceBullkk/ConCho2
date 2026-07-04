@@ -6,6 +6,10 @@
 // (ISO timestamps + a scheduleId→status map), so the PG impl can return the
 // identical structure and the parity test is a plain deep-equal.
 const { analyticsByClass } = require('../../domains/attendance/analytics');
+// Pin the MONGO repository impl explicitly — on the DB_BACKEND=postgres lane the
+// attendance selector resolves to pg, and this wrapper must stay the Mongo side
+// of the parity comparison.
+const { impls } = require('../../domains/attendance/repository');
 
 const iso = (d) => (d ? new Date(d).toISOString() : null);
 
@@ -15,7 +19,7 @@ const iso = (d) => (d ? new Date(d).toISOString() : null);
 const rateOf = (present, total) => (total > 0 ? parseFloat(((present / total) * 100).toFixed(1)) : 0);
 
 const getClassAttendance = async (classId) => {
-  const { schedules, roster } = await analyticsByClass(classId);
+  const { schedules, roster } = await analyticsByClass(classId, { repo: impls.mongo });
 
   return {
     schedules: schedules

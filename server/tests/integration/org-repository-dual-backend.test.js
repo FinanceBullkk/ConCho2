@@ -2,7 +2,8 @@
  * ──────────────────────────────────────────────────────────
  * Integration Test — org repository dual-backend selector (Phase 3 Wave-B)
  * ──────────────────────────────────────────────────────────
- * Pins that the DB_BACKEND selector resolves to the Mongo impl by default, both
+ * Pins that the selector resolves to the impl selected by DB_BACKEND
+ * (Mongo on the default lane — app unchanged), both
  * impls load (PG impl loads without a connection), and the Mongo path is intact
  * through the selector (department CRUD + manager-hierarchy rollups). Exact
  * Mongo↔PG parity is proven on real Postgres by
@@ -11,6 +12,7 @@
 const mongoose = require('mongoose');
 const { getApp } = require('../setup');
 const orgRepo = require('../../domains/org/repository');
+const { isPostgres } = require('../../config/db-backend');
 const User = require('../../models/User');
 const Enrollment = require('../../models/Enrollment');
 const Certificate = require('../../models/Certificate');
@@ -38,8 +40,8 @@ afterAll(async () => {
 });
 
 describe('org repository dual-backend selector', () => {
-  test('selector resolves to mongo by default + both impls load (PG loads without connecting)', () => {
-    expect(orgRepo.createDepartment).toBe(orgRepo.impls.mongo.createDepartment);
+  test('selector resolves to the active DB_BACKEND + both impls load', () => {
+    expect(orgRepo.createDepartment).toBe(orgRepo.impls[isPostgres ? 'pg' : 'mongo'].createDepartment); // selector = active backend (mongo on the default lane)
     expect(typeof orgRepo.impls.mongo.createDepartment).toBe('function');
     expect(typeof orgRepo.impls.pg.createDepartment).toBe('function');
   });

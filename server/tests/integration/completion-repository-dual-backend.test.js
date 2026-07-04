@@ -2,7 +2,8 @@
  * ──────────────────────────────────────────────────────────
  * Integration Test — learning/completion repository dual-backend selector (Wave-B)
  * ──────────────────────────────────────────────────────────
- * Pins the DB_BACKEND selector → mongo by default, both impls load (PG without a
+ * Pins the DB_BACKEND selector → the impl selected by DB_BACKEND (Mongo on the
+ * default lane — app unchanged), both impls load (PG without a
  * connection), and the Mongo completion-engine reads are intact through the
  * selector. Exact Mongo↔PG parity (engine + certificate CRUD + the QB-008 race)
  * is proven on real Postgres by tests/pg-parity/completion-repository.pg.test.js.
@@ -11,6 +12,7 @@ const mongoose = require('mongoose');
 const { getApp } = require('../setup');
 require('../../models/Setting'); // Class.courseName validator
 const repo = require('../../domains/learning/completion/repository');
+const { isPostgres } = require('../../config/db-backend');
 const Class = require('../../models/Class');
 
 const uniq = () => Math.random().toString(16).slice(2, 6).toUpperCase();
@@ -24,8 +26,8 @@ beforeAll(async () => {
 afterAll(async () => { await mongoose.disconnect(); });
 
 describe('learning/completion repository dual-backend selector', () => {
-  test('selector resolves to mongo by default + both impls load (PG loads without connecting)', () => {
-    expect(repo.createCertificate).toBe(repo.impls.mongo.createCertificate);
+  test('selector resolves to the active DB_BACKEND + both impls load', () => {
+    expect(repo.createCertificate).toBe(repo.impls[isPostgres ? 'pg' : 'mongo'].createCertificate); // selector = active backend (mongo on the default lane)
     expect(typeof repo.impls.mongo.resolveCompletionContext).toBe('function');
     expect(typeof repo.impls.pg.createCertificate).toBe('function');
     expect(typeof repo.impls.pg.findPassingAttempt).toBe('function');
