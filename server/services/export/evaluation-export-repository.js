@@ -1,9 +1,13 @@
-const Evaluation = require('../../models/Evaluation');
+// evaluation-export-repository — backend selector (Phase 3 Wave-F, legacy-tail port).
+// Consumers (services/export/evaluation-export.js) keep
+// `require('./evaluation-export-repository')` unchanged; resolves to the Mongo
+// or Postgres impl by DB_BACKEND. `impls` is exported so the parity test drives
+// both backends in one run. Default DB_BACKEND=mongo → app unchanged.
+const { isPostgres } = require('../../config/db-backend');
+const mongo = require('./evaluation-export-repository.mongo');
+const pg = require('./evaluation-export-repository.pg');
 
-// evaluation-export-repository — Mongoose execution for the evaluation export.
-// The pipeline SHAPE stays in evaluation-export.js (it gets rewritten to SQL at
-// the Postgres port); this file isolates the model handle (Phase 0 readiness).
-
-const aggregate = (pipeline) => Evaluation.aggregate(pipeline);
-
-module.exports = { aggregate };
+module.exports = {
+  ...(isPostgres ? pg : mongo),
+  impls: { mongo, pg },
+};
