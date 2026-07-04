@@ -61,13 +61,14 @@ describe('GET /api/admin/cron/health — authz', () => {
 
     expect(res.status).toBe(200);
     expect(res.body.data.overall).toBe('degraded');
-    expect(res.body.count).toBe(5);
+    expect(res.body.count).toBe(6);
     const jobs = Object.fromEntries(res.body.data.jobs.map((job) => [job.jobName, job]));
     expect(jobs).toHaveProperty('reconcile');
     expect(jobs).toHaveProperty('attendance-reminders');
     expect(jobs).toHaveProperty('assignment-reminders');
     expect(jobs).toHaveProperty('certificate-expiry-reminders');
     expect(jobs).toHaveProperty('metric-snapshot');
+    expect(jobs).toHaveProperty('retention-purge'); // Wave-E2 PG retention purge
     expect(Object.values(jobs).every((job) => job.health === 'never')).toBe(true);
     expect(Object.values(jobs).every((job) => job.runCount === 0)).toBe(true);
   });
