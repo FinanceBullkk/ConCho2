@@ -10,10 +10,12 @@ const User = require('../../models/User');
 // this same seam.
 
 // Login lookup — the ONLY reader that surfaces `password` (+ lockout state
-// and mfaSecret), mirroring the explicit +selects on the select:false fields.
+// and mfaSecret). EXPLICIT inclusion projection (was an additive +select):
+// both backends return the same fixed field set, and nothing beyond what the
+// login flow actually reads travels in memory.
 const findForLogin = (empCode) =>
   User.findOne({ empCode })
-    .select('+password +failedLoginAttempts +lockUntil +mfaSecret')
+    .select('empCode name role department status mustChangePassword mfaEnabled +password +failedLoginAttempts +lockUntil +mfaSecret')
     .lean();
 
 // Atomic failed-login roll (F2 audit fix — single pipeline update, no
@@ -51,10 +53,11 @@ const resetLoginCounters = (userId) =>
   User.updateOne({ _id: userId }, { $set: { failedLoginAttempts: 0, lockUntil: null } });
 
 // MFA second-leg lookup — surfaces the TOTP secret, backup-code hashes and
-// the replay counter (all select:false).
+// the replay counter (all select:false). Explicit inclusion projection for
+// the same fixed-shape reason as findForLogin.
 const findForMfaVerify = (userId) =>
   User.findById(userId)
-    .select('+mfaSecret +mfaBackupCodes +mfaLastUsedCounter')
+    .select('empCode name role department status mustChangePassword mfaEnabled +mfaSecret +mfaBackupCodes +mfaLastUsedCounter')
     .lean();
 
 // Persist the absolute TOTP step counter (SEC-018 replay guard).
