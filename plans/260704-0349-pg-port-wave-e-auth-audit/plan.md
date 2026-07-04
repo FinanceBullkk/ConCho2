@@ -44,7 +44,7 @@ Out of scope (Wave F): admin user CRUD (`user-mutations-repository`),
 
 ## Status
 - [x] E1 audit_log port — shipped 2026-07-04 (mig 029; 8/8 Neon parity + 48/48 Mongo audit suites)
-- [ ] E2 retention purge job
+- [x] E2 retention purge job — shipped 2026-07-04 (jobs/retentionPurgeJob.js; 5/5 Neon; reconcile_report/token_blocklist windows deferred to their ports)
 - [ ] E3 users security columns + login/middleware port
 - [ ] E4 auth mutations port
 
