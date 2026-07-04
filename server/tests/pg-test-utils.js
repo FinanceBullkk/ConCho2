@@ -40,80 +40,27 @@ const resetPgDatabase = async () => {
   await query(`TRUNCATE ${tables} RESTART IDENTITY CASCADE`);
 };
 
-// Mongoose doc/POJO → plain object (keeps in-memory-only fields like the
-// freshly hashed password, which is select:false on later reads).
-const plain = (doc) => (typeof doc?.toObject === 'function' ? doc.toObject({ virtuals: false }) : { ...doc });
-const id = (v) => (v == null ? null : String(v));
+// Row shapes live in ONE place (pg-row-mappers.js); the upsert executor lives
+// in pg-auto-mirror.js. These wrappers stay for explicit fixture mirroring —
+// idempotent (upsert), so they coexist with the auto-mirror plugin.
+const { mirrorDoc } = require('./pg-auto-mirror');
 
-/**
- * Mirror a User doc into the PG `users` table (migrations 001/004/030/031).
- * Reads the bcrypt hash off the in-memory doc (present right after
- * User.create()), so PG logins verify against the identical hash.
- */
+/** Mirror a User doc into PG `users` (same ObjectId-hex id + bcrypt hash). */
 const mirrorUserToPg = async (doc) => {
   if (!isPostgres) return;
-  const d = plain(doc);
-  const password = doc.password || d.password || null;
-  await query(
-    `INSERT INTO users(
-       id, emp_code, email, name, department, role, status,
-       department_id, manager_id, position, office_id,
-       password, password_changed_at, must_change_password,
-       mfa_enabled, mfa_secret, mfa_backup_codes, mfa_last_used_counter,
-       failed_login_attempts, lock_until, notification_preferences,
-       entrance_level, current_level, drop_reason, last_active_at,
-       is_deleted, deleted_at, created_at, updated_at
-     ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,
-               $19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29)`,
-    [
-      id(d._id), d.empCode, d.email ?? null, d.name, d.department ?? '', d.role, d.status ?? 'Active',
-      id(d.departmentId), id(d.managerId), d.position ?? null, id(d.officeId),
-      password, d.passwordChangedAt ?? null, d.mustChangePassword ?? false,
-      d.mfaEnabled ?? false, d.mfaSecret ?? null, d.mfaBackupCodes ?? [], d.mfaLastUsedCounter ?? null,
-      d.failedLoginAttempts ?? 0, d.lockUntil ?? null, d.notificationPreferences ?? null,
-      d.entranceLevel ?? '', d.currentLevel ?? '', d.dropReason ?? '', d.lastActiveAt ?? null,
-      d.isDeleted ?? false, d.deletedAt ?? null, d.createdAt ?? new Date(), d.updatedAt ?? new Date(),
-    ],
-  );
+  await mirrorDoc('User', doc);
 };
 
-/** Mirror a Class doc into the PG `classes` table. */
+/** Mirror a Class doc into PG `classes`. */
 const mirrorClassToPg = async (doc) => {
   if (!isPostgres) return;
-  const d = plain(doc);
-  await query(
-    `INSERT INTO classes(
-       id, class_code, course_name, program_id, total_sessions, status,
-       teacher_ids, custom_fields, is_deleted, deleted_at, created_at, updated_at
-     ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)`,
-    [
-      id(d._id), d.classCode, d.courseName ?? null, id(d.programId), d.totalSessions ?? null,
-      d.status ?? null, (d.teacherIds || []).map(id), d.customFields ?? null,
-      d.isDeleted ?? false, d.deletedAt ?? null, d.createdAt ?? new Date(), d.updatedAt ?? new Date(),
-    ],
-  );
+  await mirrorDoc('Class', doc);
 };
 
 /** Mirror a Team doc into PG `teams` + the `team_members` junction. */
 const mirrorTeamToPg = async (doc) => {
   if (!isPostgres) return;
-  const d = plain(doc);
-  await query(
-    `INSERT INTO teams(id, name, class_id, leader_id, is_deleted, deleted_at, created_at, updated_at)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
-    [
-      id(d._id), d.name, id(d.classId), id(d.leaderId),
-      d.isDeleted ?? false, d.deletedAt ?? null, d.createdAt ?? new Date(), d.updatedAt ?? new Date(),
-    ],
-  );
-  const members = (d.members || []).map(id);
-  if (members.length) {
-    await query(
-      `INSERT INTO team_members(team_id, user_id)
-       VALUES ${members.map((_, j) => `($1,$${j + 2})`).join(',')}`,
-      [id(d._id), ...members],
-    );
-  }
+  await mirrorDoc('Team', doc);
 };
 
 /**
