@@ -5,7 +5,7 @@ const { handleError } = require('../../helpers/handleError');
 // dodged died with the legacy authController split (no module here requires
 // back into controllers).
 const mfaService = require('../../services/mfaService');
-const User = require('../../models/User');
+const authRepository = require('../../services/auth/auth-repository');
 const { invalidateUserCache } = require('../../middleware/auth');
 
 // ──────────────────────────────────────────────────────────
@@ -33,14 +33,10 @@ const mfaSetup = async (req, res) => {
     // Store in mfaPendingSecret only — mfaSecret is written in verify-setup
     // after the user proves possession of the device (F5 audit fix).
     // 15-minute window is enough to scan a QR code and enter a code.
-    await User.updateOne(
-      { _id: req.user._id },
-      {
-        $set: {
-          mfaPendingSecret: setup.base32,
-          mfaPendingSecretExpires: new Date(Date.now() + 15 * 60 * 1000),
-        },
-      },
+    await authRepository.setMfaPendingSecret(
+      req.user._id,
+      setup.base32,
+      new Date(Date.now() + 15 * 60 * 1000),
     );
 
     res.json({
@@ -67,8 +63,7 @@ const mfaVerifySetup = async (req, res) => {
   try {
     const { code } = req.body;
 
-    const user = await User.findById(req.user._id)
-      .select('+mfaPendingSecret +mfaPendingSecretExpires');
+    const user = await authRepository.findForMfaSetupVerify(req.user._id);
     if (!user || !user.mfaPendingSecret) {
       return res.status(400).json({
         success: false,
@@ -77,10 +72,7 @@ const mfaVerifySetup = async (req, res) => {
     }
 
     if (user.mfaPendingSecretExpires < new Date()) {
-      await User.updateOne(
-        { _id: user._id },
-        { $set: { mfaPendingSecret: null, mfaPendingSecretExpires: null } },
-      );
+      await authRepository.clearMfaPendingSecret(user._id);
       return res.status(400).json({
         success: false,
         message: 'MFA setup expired. Call /mfa/setup again.',
@@ -93,12 +85,10 @@ const mfaVerifySetup = async (req, res) => {
 
     // User proved possession — promote pending secret to permanent and enable MFA.
     const { plain, hashed } = await mfaService.generateBackupCodes();
-    user.mfaSecret = user.mfaPendingSecret;
-    user.mfaPendingSecret = null;
-    user.mfaPendingSecretExpires = null;
-    user.mfaEnabled = true;
-    user.mfaBackupCodes = hashed;
-    await user.save();
+    await authRepository.enableMfa(user._id, {
+      secret: user.mfaPendingSecret,
+      backupCodes: hashed,
+    });
 
     // Bust the auth-middleware user cache so the next /auth/me reflects
     // mfaEnabled=true immediately (otherwise the SPA reads a stale
@@ -153,7 +143,7 @@ const mfaDisable = async (req, res) => {
   try {
     const { code } = req.body;
 
-    const user = await User.findById(req.user._id).select('+mfaSecret +mfaBackupCodes');
+    const user = await authRepository.findForMfaDisable(req.user._id);
     if (!user || !user.mfaEnabled) {
       return res.status(400).json({ success: false, message: 'MFA is not enabled' });
     }
@@ -167,10 +157,7 @@ const mfaDisable = async (req, res) => {
       return res.status(401).json({ success: false, message: 'Invalid code' });
     }
 
-    user.mfaEnabled = false;
-    user.mfaSecret = null;
-    user.mfaBackupCodes = [];
-    await user.save();
+    await authRepository.disableMfa(user._id);
 
     invalidateUserCache(user._id);
 

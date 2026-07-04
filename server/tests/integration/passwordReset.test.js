@@ -438,14 +438,17 @@ describe('forgot-password logger scrub (SEC-008)', () => {
 
 describe('forgot-password background DB failure logs at error (OPS-014)', () => {
   const logger = require('../../lib/logger');
-  const User = require('../../models/User');
+  const authRepository = require('../../services/auth/auth-repository');
 
   test('a background DB failure is logged at error, not warn', async () => {
     const errorSpy = jest.spyOn(logger, 'error').mockImplementation(() => {});
     const warnSpy = jest.spyOn(logger, 'warn').mockImplementation(() => {});
     // The caller already got a 200 by the time the lookup runs — a DB blip
     // here silently corrupts the flow, which is exactly what ops must see.
-    const findSpy = jest.spyOn(User, 'findOne').mockRejectedValueOnce(new Error('db down'));
+    // Spies the dual-backend repository seam (Wave-E E4) — backend-agnostic.
+    const findSpy = jest
+      .spyOn(authRepository, 'findForPasswordReset')
+      .mockRejectedValueOnce(new Error('db down'));
 
     try {
       const csrf = await getCsrfHeaders(app);
