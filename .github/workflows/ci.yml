@@ -142,6 +142,71 @@ jobs:
           SENTRY_DSN: ''
 
   # ──────────────────────────────────────────────────────────
+  # INFORMATIONAL (Wave G bring-up): the FULL server suite on Postgres
+  # Runs the entire Jest suite with DB_BACKEND=postgres against the same
+  # postgres:16 service — phase G of the Mongo→Postgres master plan: the
+  # divergence-INVENTORY lane. `continue-on-error: true` while red on purpose:
+  # the first runs enumerate every test that still assumes Mongo internals
+  # (fixtures seeded via raw Mongoose, hook-dependent flows, unported ops
+  # files — see the Wave F ledger). As divergences are fixed this lane trends
+  # green; when it IS green, drop continue-on-error and promote it to a
+  # REQUIRED gate (both lanes must then stay green through the Phase-5
+  # cutover). Deliberately NOT a merge gate yet — bringing it up must not
+  # freeze main.
+  # ──────────────────────────────────────────────────────────
+  server-tests-pg:
+    name: Server tests on Postgres (informational)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    continue-on-error: true
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: ci
+          POSTGRES_PASSWORD: ci
+          POSTGRES_DB: tmsci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U ci"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
+
+    env:
+      PG_URL: postgresql://ci:ci@localhost:5432/tmsci
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: server/package-lock.json
+
+      - name: Install server dependencies
+        working-directory: server
+        run: npm ci --no-audit --no-fund --no-progress
+
+      - name: Apply PG migrations
+        working-directory: server
+        run: npx knex migrate:latest --knexfile db/pg/knexfile.js
+
+      - name: Run Jest test suite on the Postgres backend
+        working-directory: server
+        run: npm test
+        env:
+          NODE_ENV: test
+          JWT_SECRET: ci-test-secret-not-used-for-anything-real
+          SENTRY_DSN: ''
+          NODE_OPTIONS: --max-old-space-size=8192
+          DB_BACKEND: postgres
+
+  # ──────────────────────────────────────────────────────────
   # GATE: client unit + hook tests (Vitest)
   # Added in audit PR 9 (QA-001). Previously only the build was gated,
   # so client logic regressions could land on main undetected.
