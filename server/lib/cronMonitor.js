@@ -65,6 +65,12 @@ const CRON_JOBS = {
     expectedIntervalMs: 24 * HOUR_MS, // nightly analytics rollup
     schedule: '0 1 * * *', // 01:00 UTC = 08:00 ICT
   },
+  retentionPurge: {
+    jobName: 'retention-purge',
+    monitorSlug: 'retention-purge',
+    expectedIntervalMs: 24 * HOUR_MS, // nightly PG retention DELETE (Wave-E2)
+    schedule: '30 2 * * *', // 02:30 UTC — after the 02:00 reconcile
+  },
 };
 
 async function recordStart(jobName) {
