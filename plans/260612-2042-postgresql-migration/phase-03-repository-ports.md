@@ -79,6 +79,18 @@ delegate to the proven learning cohort path) · `services/metrics-repository`
   expiry window joins the E2 purge) — port as Wave-G's full-suite PG lane
   surfaces each one; none block the lane's bring-up.
 
+## Wave G — full-suite Postgres lane (bring-up 2026-07-04)
+
+`server-tests-pg` CI job LIVE (informational, `continue-on-error` while red —
+promote to required gate #8 once green). **First inventory** (run 2026-07-04 on
+PR #237): `Test Suites: 117 failed, 91 passed, 208 total · Tests: 783 failed,
+770 passed, 1553 total` — half the suite green on Postgres on day one.
+Failure classes: **114 integration suites** — fixtures seeded via raw Mongoose
+while the app reads PG (fix = seed through the dual-backend seams / dual-seed
+helper, suite by suite); **3 pg-parity suites** — selector-vs-impls coupling
+when the selector itself resolves to pg (fix = drive `impls.*` explicitly).
+Ops files from the Wave F ledger surface here too as their suites are reached.
+
 ## Ports landed (running log — newest first)
 
 | # | Service | Interface | Tables | Traps proven | PR |
