@@ -15,10 +15,15 @@ const { scopedAttendanceMatch } = require('./scope');
  * Analytics: attendance stats grouped by employee.
  * @param {string|undefined} filterUserId  Optional userId filter
  * @param {object}           pagination    { page, limit, skip }
+ * @param {object}           actor
+ * @param {object}           [opts.repo]   Repository override — the pg-parity
+ *   wrappers (services/attendance-by-*) pin a SPECIFIC impl so "the Mongo
+ *   side" stays Mongo even when the selector resolves to pg (DB_BACKEND lane).
+ *   Production callers omit it → the DB_BACKEND selector, unchanged.
  */
-const analyticsByEmployee = async (filterUserId, { page = 1, limit = 100, skip = 0 } = {}, actor) => {
+const analyticsByEmployee = async (filterUserId, { page = 1, limit = 100, skip = 0 } = {}, actor, { repo = repository } = {}) => {
   const match = await scopedAttendanceMatch(actor);
-  const { data, total } = await repository.aggregateByEmployee(match, filterUserId, { skip, limit });
+  const { data, total } = await repo.aggregateByEmployee(match, filterUserId, { skip, limit });
   return { data, total, page, limit };
 };
 
@@ -43,14 +48,16 @@ const analyticsByEmployee = async (filterUserId, { page = 1, limit = 100, skip =
  * the previous cross-product $lookup.
  *
  * @param {object} pagination  { page, limit, skip }
+ * @param {object} actor
+ * @param {object} [opts.repo]  Repository override (see analyticsByEmployee).
  */
-const analyticsByTeam = async ({ page = 1, limit = 100, skip = 0 } = {}, actor) => {
+const analyticsByTeam = async ({ page = 1, limit = 100, skip = 0 } = {}, actor, { repo = repository } = {}) => {
   const scopedClassIds = actor?.role === 'Teacher'
     ? await findTeacherVisibleClassIds(actor._id)
     : null;
 
   // ── Step 1: fetch teams (soft-delete hook + class scope in the repo) ──
-  const teamsRaw = await repository.aggregateTeamsForAnalytics(scopedClassIds);
+  const teamsRaw = await repo.aggregateTeamsForAnalytics(scopedClassIds);
 
   // ── Step 2: per-user attendance counters ───────────────────
   // Union of all member IDs across teams (deduped, as strings — the repo
@@ -63,9 +70,9 @@ const analyticsByTeam = async ({ page = 1, limit = 100, skip = 0 } = {}, actor) 
 
   if (allMemberIds.length > 0) {
     const scheduleIds = scopedClassIds
-      ? await repository.distinctScheduledIdsForClasses(scopedClassIds)
+      ? await repo.distinctScheduledIdsForClasses(scopedClassIds)
       : null;
-    const grouped = await repository.aggregateAttendanceCountsByUser(allMemberIds, scheduleIds);
+    const grouped = await repo.aggregateAttendanceCountsByUser(allMemberIds, scheduleIds);
     perUser = new Map(grouped.map((g) => [String(g._id), g]));
   }
 
@@ -106,14 +113,15 @@ const analyticsByTeam = async ({ page = 1, limit = 100, skip = 0 } = {}, actor) 
 
 /**
  * Analytics: attendance stats for a specific class.
+ * @param {object} [opts.repo]  Repository override (see analyticsByEmployee).
  */
-const analyticsByClass = async (classId) => {
+const analyticsByClass = async (classId, { repo = repository } = {}) => {
   if (!classId) throw new ServiceError('classId is required');
 
-  const schedules = await repository.findScheduledForClass(classId);
+  const schedules = await repo.findScheduledForClass(classId);
   const scheduleIds = schedules.map(s => s._id);
 
-  const records = await repository.findAttendanceForSchedules(scheduleIds);
+  const records = await repo.findAttendanceForSchedules(scheduleIds);
 
   const userMap = {};
   // Filter out orphan records where user was deleted (populate → null)

@@ -2,7 +2,8 @@
  * ──────────────────────────────────────────────────────────
  * Integration Test — mobile repository dual-backend selector (Wave-B)
  * ──────────────────────────────────────────────────────────
- * Pins the DB_BACKEND selector → mongo by default, both impls load (PG without a
+ * Pins that the selector resolves to the impl selected by DB_BACKEND
+ * (Mongo on the default lane — app unchanged), both impls load (PG without a
  * connection), and the Mongo push-subscription CRUD is intact through the
  * selector. Exact Mongo↔PG parity proven on real Postgres by
  * tests/pg-parity/mobile-repository.pg.test.js.
@@ -10,13 +11,14 @@
 const mongoose = require('mongoose');
 const { getApp } = require('../setup');
 const repo = require('../../domains/mobile/repository');
+const { isPostgres } = require('../../config/db-backend');
 
 beforeAll(async () => { await getApp(); });
 afterAll(async () => { await mongoose.disconnect(); });
 
 describe('mobile repository dual-backend selector', () => {
-  test('selector resolves to mongo by default + both impls load (PG loads without connecting)', () => {
-    expect(repo.upsertSubscription).toBe(repo.impls.mongo.upsertSubscription);
+  test('selector resolves to the active DB_BACKEND + both impls load', () => {
+    expect(repo.upsertSubscription).toBe(repo.impls[isPostgres ? 'pg' : 'mongo'].upsertSubscription); // selector = active backend (mongo on the default lane)
     expect(typeof repo.impls.mongo.upcomingSessionsForUser).toBe('function');
     expect(typeof repo.impls.pg.removeSubscription).toBe('function');
   });

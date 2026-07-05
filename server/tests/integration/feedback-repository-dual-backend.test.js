@@ -2,7 +2,8 @@
  * ──────────────────────────────────────────────────────────
  * Integration Test — learning/feedback repository dual-backend selector (Wave-B)
  * ──────────────────────────────────────────────────────────
- * Pins the DB_BACKEND selector → mongo by default, both impls load (PG without a
+ * Pins that the selector resolves to the impl selected by DB_BACKEND
+ * (Mongo on the default lane — app unchanged), both impls load (PG without a
  * connection), and the Mongo feedback path is intact through the selector. Exact
  * Mongo↔PG parity proven on real Postgres by
  * tests/pg-parity/feedback-repository.pg.test.js.
@@ -10,14 +11,15 @@
 const mongoose = require('mongoose');
 const { getApp } = require('../setup');
 const repo = require('../../domains/learning/feedback/repository');
+const { isPostgres } = require('../../config/db-backend');
 
 let cohortId; let userId;
 beforeAll(async () => { await getApp(); cohortId = new mongoose.Types.ObjectId(); userId = new mongoose.Types.ObjectId(); });
 afterAll(async () => { await mongoose.disconnect(); });
 
 describe('learning/feedback repository dual-backend selector', () => {
-  test('selector resolves to mongo by default + both impls load (PG loads without connecting)', () => {
-    expect(repo.upsertFeedback).toBe(repo.impls.mongo.upsertFeedback);
+  test('selector resolves to the active DB_BACKEND + both impls load', () => {
+    expect(repo.upsertFeedback).toBe(repo.impls[isPostgres ? 'pg' : 'mongo'].upsertFeedback); // selector = active backend (mongo on the default lane)
     expect(typeof repo.impls.mongo.upsertFeedback).toBe('function');
     expect(typeof repo.impls.pg.upsertFeedback).toBe('function');
     expect(typeof repo.isCohortParticipant).toBe('function'); // pure helper re-exported
