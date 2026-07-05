@@ -31,6 +31,13 @@ afterAll(async () => {
 describe('DATA-002 — Class Ongoing partial unique', () => {
   const Class = require('../../models/Class');
 
+  // The dup-insert below needs the partial unique index BUILT, not just
+  // declared — autoIndex builds in the background and loses the race on a
+  // slow/loaded machine (ledger lesson: force Model.init()).
+  beforeAll(async () => {
+    await Class.init();
+  });
+
   test('two Ongoing classes with same classCode fail with E11000', async () => {
     const code = 'DI002-' + Math.random().toString(16).slice(2, 8).toUpperCase();
     await Class.create({

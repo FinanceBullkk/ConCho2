@@ -91,6 +91,33 @@ helper, suite by suite); **3 pg-parity suites** — selector-vs-impls coupling
 when the selector itself resolves to pg (fix = drive `impls.*` explicitly).
 Ops files from the Wave F ledger surface here too as their suites are reached.
 
+**Batch 1 — shared-fixture foundation (2026-07-05): 117 → 82 failing suites**
+(38 flipped green by name, 0 newly red; tests 783 → 414 failing; measured on a
+local Docker postgres:16, same migrations as CI). What shipped:
+- `tests/pg-test-utils.js` (NEW) — `resetPgDatabase()` truncates every app
+  table at file-setup (PG twin of Mongo's per-file private database; jest is
+  `--runInBand` so this is race-free) + `mirror{User,Class,Team}ToPg(doc)`
+  insert Mongoose-created fixtures into PG with the SAME ObjectId-hex ids and
+  the SAME bcrypt hash. Every export no-ops unless `DB_BACKEND=postgres`.
+- `tests/setup.js` — resets PG per file, mirrors the core seed (6 users /
+  2 classes / 1 team) after the Mongoose seeds, closes the PG pool in
+  teardown. This alone un-401s every authed request on the lane (auth
+  middleware reads the ported `users` table).
+- The 24 `*-repository-dual-backend` suites — the "selector resolves to mongo
+  by default" pin became backend-aware: `impls[isPostgres ? 'pg' : 'mongo']`
+  (the selector's impls keys are `pg`/`mongo`, NOT the env literal).
+- The 3 attendance pg-parity suites — root cause was the "mongo" wrappers
+  (`services/attendance-{rollup,by-class,by-employee}/mongo.js`) reusing the
+  production `domains/attendance/analytics` path, which reads the domain
+  repository SELECTOR → resolves to pg on the lane. `analytics.js` now takes
+  an optional `{ repo }` override (production callers unchanged); the wrappers
+  pin `repository.impls.mongo`.
+**Remaining 82 suites** = the long tail that seeds extra fixtures via raw
+Mongoose inside the file (and/or asserts via models) — convert suite-by-suite
+to the `pg-test-utils` mirrors (grow `mirrorScheduleToPg`, `mirrorEnrollmentToPg`,
+… as the batches need them). Local bring-up for this work: Docker `tms-pg`
+container + `.env.pg-prototype` (gitignored) documented in that env file.
+
 ## Ports landed (running log — newest first)
 
 | # | Service | Interface | Tables | Traps proven | PR |

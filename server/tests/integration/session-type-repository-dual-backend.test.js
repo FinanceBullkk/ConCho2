@@ -2,7 +2,7 @@
  * ──────────────────────────────────────────────────────────
  * Integration Test — session-type repository dual-backend selector (Wave-B)
  * ──────────────────────────────────────────────────────────
- * Pins that the DB_BACKEND selector resolves to the Mongo impl by default, both
+ * Pins that the selector resolves to the impl selected by DB_BACKEND (Mongo on the default lane — app unchanged), both
  * impls load (PG loads without a connection), and the Mongo catalog path is
  * intact through the selector. Exact Mongo↔PG parity proven on real Postgres by
  * tests/pg-parity/session-type-repository.pg.test.js.
@@ -10,13 +10,14 @@
 const mongoose = require('mongoose');
 const { getApp } = require('../setup');
 const typeRepo = require('../../domains/session-type/repository');
+const { isPostgres } = require('../../config/db-backend');
 
 beforeAll(async () => { await getApp(); });
 afterAll(async () => { await mongoose.disconnect(); });
 
 describe('session-type repository dual-backend selector', () => {
-  test('selector resolves to mongo by default + both impls load (PG loads without connecting)', () => {
-    expect(typeRepo.create).toBe(typeRepo.impls.mongo.create);
+  test('selector resolves to the active DB_BACKEND + both impls load', () => {
+    expect(typeRepo.create).toBe(typeRepo.impls[isPostgres ? 'pg' : 'mongo'].create); // selector = active backend (mongo on the default lane)
     expect(typeof typeRepo.impls.mongo.create).toBe('function');
     expect(typeof typeRepo.impls.pg.create).toBe('function');
   });
