@@ -7,6 +7,7 @@
 const request = require('supertest');
 const mongoose = require('mongoose');
 const { getApp, getTokens, getSeedData, getCsrfHeaders, teardown } = require('../setup');
+const { readActiveRow, findActiveRowWhere } = require('../pg-test-utils');
 const Team = require('../../models/Team');
 const Schedule = require('../../models/Schedule');
 const Attendance = require('../../models/Attendance');
@@ -200,16 +201,16 @@ describe('Team Delete', () => {
     expect(res.status).toBe(200);
     expect(res.body.success).toBe(true);
 
-    // Team is soft-deleted, not removed.
-    const stillThere = await Team.findOne({ _id: target._id, isDeleted: true });
+    // Team is soft-deleted, not removed. Backend-agnostic read — the lifecycle
+    // cascade runs through the ported seam (PG-only rows on the pg lane).
+    const stillThere = await readActiveRow('Team', target._id);
     expect(stillThere).not.toBeNull();
+    expect(stillThere.isDeleted).toBe(true);
     expect(stillThere.deletedAt).toBeTruthy();
 
     // Cascade: the Active enrollment is closed (status flips off Active).
-    const enrolls = await Enrollment.find({ teamId: target._id });
-    for (const e of enrolls) {
-      expect(e.status).not.toBe('Active');
-    }
+    const closed = await findActiveRowWhere('Enrollment', { teamId: target._id, status: 'Active' });
+    expect(closed).toBeNull();
   });
 });
 
