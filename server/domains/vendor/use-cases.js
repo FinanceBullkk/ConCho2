@@ -13,10 +13,11 @@ const fiscalYearRange = (fiscalYear) => {
   return { from: new Date(Date.UTC(y, 0, 1)), to: new Date(Date.UTC(y, 11, 31, 23, 59, 59, 999)) };
 };
 
-// create returns a hydrated doc — shape it directly.
+// createVendor returns a hydrated Mongoose doc (mongo) or a plain row (pg) —
+// normalize before shaping so the DTO gets a POJO on either backend.
 const create = async (body, actorId) => {
   const created = await repository.createVendor({ ...body, createdBy: actorId || null });
-  return dto.toVendor(created.toObject());
+  return dto.toVendor(typeof created.toObject === 'function' ? created.toObject() : created);
 };
 
 const list = async (query = {}) => {
