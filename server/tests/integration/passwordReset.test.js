@@ -15,6 +15,7 @@ const request = require('supertest');
 const crypto = require('crypto');
 const { getApp, getTokens, getSeedData, teardown, getCsrfHeaders } = require('../setup');
 const { sendMail } = require('../../lib/mailer');
+const { readActiveRow } = require('../pg-test-utils');
 
 let app, tokens, seed;
 
@@ -77,8 +78,9 @@ describe('POST /api/auth/forgot-password', () => {
     // earlier in the same chain, so it's committed by the time sendMail runs).
     await waitFor(() => sendMail.mock.calls.length >= 1);
 
-    // Token should have been stored on the user
-    const user = await User.findById(seed.admin._id);
+    // Token should have been stored on the user (app writes it through the
+    // DB_BACKEND-selected auth repo — read the active backend, not Mongoose).
+    const user = await readActiveRow('User', seed.admin._id);
     expect(user.passwordResetToken).toBeTruthy();
     expect(user.passwordResetExpires).toBeTruthy();
 
@@ -198,9 +200,8 @@ describe('POST /api/auth/reset-password', () => {
     expect(res.body.success).toBe(true);
     expect(res.body.message).toMatch(/Password reset successful/);
 
-    // Token should be cleared from the user document
-    const User = require('../../models/User');
-    const user = await User.findById(seed.leader._id);
+    // Token should be cleared from the user document (active backend).
+    const user = await readActiveRow('User', seed.leader._id);
     expect(user.passwordResetToken).toBeNull();
     expect(user.passwordResetExpires).toBeNull();
   });
@@ -320,7 +321,7 @@ describe('POST /api/auth/reset-password/:token (SEC-005 path-style)', () => {
     expect(res.body.success).toBe(true);
 
     // token consumed
-    const after = await User.findById(seed.member1._id);
+    const after = await readActiveRow('User', seed.member1._id);
     expect(after.passwordResetToken).toBeNull();
   });
 
