@@ -1,4 +1,5 @@
 const Role = require('../../models/Role');
+const repository = require('./repository');
 const { ROLE_CAPABILITIES, ALL_CAPABILITIES, setLiveGrants } = require('../../policy/capabilities');
 
 // ──────────────────────────────────────────────────────────
@@ -30,9 +31,12 @@ const seedSystemRoles = async () => {
 };
 
 // Load all live roles into `liveGrants`. System roles fall back to the static
-// scaffold if (somehow) absent, so authz can never come up empty.
+// scaffold if (somehow) absent, so authz can never come up empty. Reads through
+// the DB_BACKEND-selected repository so a grant edit written to PG is reflected
+// in live authz (the direct Role.find read only saw Mongo — access writes are
+// ported to repository.pg, so the refresh must read the same backend).
 const loadGrantsIntoMemory = async () => {
-  const roles = await Role.find({ isDeleted: false }).lean();
+  const roles = await repository.listLive();
   const grants = {};
   for (const role of roles) grants[role.key] = role.capabilities || [];
   for (const { key } of SYSTEM_ROLES) if (!grants[key]) grants[key] = seedCapsFor(key);
