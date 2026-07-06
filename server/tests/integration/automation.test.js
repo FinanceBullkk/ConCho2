@@ -1,6 +1,7 @@
 const request = require('supertest');
 const mongoose = require('mongoose');
 const { getApp, getTokens, getCsrfHeaders, teardown } = require('../setup');
+const { readActiveRow } = require('../pg-test-utils');
 const AutomationRule = require('../../models/AutomationRule');
 const NotificationLog = require('../../models/NotificationLog');
 const EVENTS = require('../../domains/_shared/events');
@@ -71,7 +72,7 @@ describe('Automation — runner', () => {
     const rows = await NotificationLog.find({ type: 'automation_notice', recipientUserId: userId });
     expect(rows).toHaveLength(1);
     expect(rows[0].metadata.message).toBe('done');
-    const after = await AutomationRule.findById(rule._id).lean();
+    const after = await readActiveRow('AutomationRule', rule._id);
     expect(after.runCount).toBe(1);
   });
 
