@@ -132,6 +132,23 @@ const findActiveRowWhere = async (modelName, where) => {
 };
 
 /**
+ * Update one row (by id) on the ACTIVE backend — for test scaffolding that
+ * mutates a row the app wrote through a ported repository (PG-only), which a
+ * Mongoose Model.findByIdAndUpdate would miss. `patch` keys are camelCase and map
+ * to snake columns on PG. On Mongo it runs the equivalent findByIdAndUpdate.
+ */
+const updateActiveRow = async (modelName, id, patch) => {
+  if (!isPostgres) {
+    const mongoose = require('mongoose');
+    return mongoose.model(modelName).findByIdAndUpdate(id, { $set: patch });
+  }
+  const table = await tableFor(modelName);
+  const keys = Object.keys(patch);
+  const clause = keys.map((k, i) => `"${camelToSnake(k)}" = $${i + 2}`).join(', ');
+  return query(`UPDATE "${table}" SET ${clause} WHERE id = $1`, [String(id), ...keys.map((k) => patch[k])]);
+};
+
+/**
  * Latest audit-log row matching a Mongo-shaped filter, from the ACTIVE backend.
  * Mirrors `AuditLog.findOne(filter).sort('-createdAt').lean()`. On the pg lane
  * the app writes audit rows through the DB_BACKEND-selected repository (PG only),
@@ -214,6 +231,7 @@ module.exports = {
   mirrorCoreSeedToPg,
   readActiveRow,
   findActiveRowWhere,
+  updateActiveRow,
   findActiveAuditRow,
   findActiveAuditChain,
   updateActiveAuditRowBySeq,
