@@ -225,6 +225,117 @@ const autoMirrorPlugin = (schema) => {
   });
 };
 
+// ── Raw-driver collection mirror ─────────────────────────────
+// The schema plugin above only covers Mongoose model/query writes. App + test
+// code sometimes writes through the RAW driver collection
+// (`Model.collection.updateOne/insertOne/…`) to bypass Mongoose middleware — e.g.
+// `deleteUser` mutates empCode/isDeleted past the soft-delete find-filter, and
+// several suites backdate `createdAt` or plant docs the same way. Those raw writes
+// fire NO schema hook, so nothing reaches PG (softDeleteEmpCodeReuse 500,
+// complianceMatrix, learningAssignmentRoutes). Patch NativeCollection's write
+// methods to mirror them too.
+//
+// Installed ONLY on the pg lane (from registerAutoMirror when isPostgres) → zero
+// effect on the Mongo gate. Mongoose-internal ops also flow through these methods
+// and get mirrored a second time on top of the schema hook — harmless: every
+// mirror is an idempotent upsert / delete-by-id. Fail-SOFT: a mirror error never
+// breaks the underlying driver write.
+const NativeCollection = require('mongoose/lib/drivers/node-mongodb-native/collection');
+
+let COLL_TO_MODEL = null; // built lazily on first raw write (models compiled by then)
+const modelForCollection = (collectionName) => {
+  if (!COLL_TO_MODEL || !COLL_TO_MODEL.has(collectionName)) {
+    COLL_TO_MODEL = new Map();
+    for (const name of Object.keys(mongoose.models)) {
+      const c = mongoose.models[name].collection;
+      if (c && c.collectionName) COLL_TO_MODEL.set(c.collectionName, name);
+    }
+  }
+  return COLL_TO_MODEL.get(collectionName) || null;
+};
+
+// Raw _id capture (ObjectIds), session-aware so a write inside a Mongoose
+// transaction re-reads its own uncommitted rows.
+const rawFindIds = async (coll, filter, session) => {
+  const rows = await coll.find(filter, session ? { session } : undefined).project({ _id: 1 }).toArray();
+  return rows.map((r) => r._id);
+};
+
+const patchRawCollectionWrites = () => {
+  const proto = NativeCollection.prototype;
+  if (proto.__pgMirrorPatched) return;
+  proto.__pgMirrorPatched = true;
+
+  const wrapUpdate = (name) => {
+    const orig = proto[name];
+    proto[name] = async function pgMirrorUpdate(filter, update, options, ...rest) {
+      const modelName = modelForCollection(this.collectionName);
+      if (!modelName) return orig.call(this, filter, update, options, ...rest);
+      const session = options && options.session;
+      let ids = [];
+      try { ids = await rawFindIds(this, filter, session); } catch (_) { /* fail-soft */ }
+      const res = await orig.call(this, filter, update, options, ...rest);
+      try {
+        if (res && res.upsertedId) ids.push(res.upsertedId._id || res.upsertedId);
+        if (ids.length) {
+          const docs = await this.find({ _id: { $in: ids } }, session ? { session } : undefined).toArray();
+          for (const doc of docs) await mirrorDoc(modelName, doc);
+        }
+      } catch (e) { warnOnce(`${modelName} (raw ${name} mirror skipped: ${e.code || e.message})`); }
+      return res;
+    };
+  };
+
+  const wrapDelete = (name) => {
+    const orig = proto[name];
+    proto[name] = async function pgMirrorDelete(filter, options, ...rest) {
+      const modelName = modelForCollection(this.collectionName);
+      if (!modelName) return orig.call(this, filter, options, ...rest);
+      const session = options && options.session;
+      const isEmpty = !filter || Object.keys(filter).length === 0;
+      let ids = [];
+      if (!isEmpty) { try { ids = (await rawFindIds(this, filter, session)).map(String); } catch (_) { /* fail-soft */ } }
+      const res = await orig.call(this, filter, options, ...rest);
+      try {
+        if (isEmpty) {
+          const mapper = MAPPERS[modelName];
+          if (mapper && mapper.junction) await query(`DELETE FROM "${mapper.junction.table}"`);
+          const table = await tableFor(modelName);
+          if (table) await query(`DELETE FROM "${table}"`);
+        } else {
+          await deleteRows(modelName, ids);
+        }
+      } catch (e) { warnOnce(`${modelName} (raw ${name} mirror skipped: ${e.code || e.message})`); }
+      return res;
+    };
+  };
+
+  const origInsertOne = proto.insertOne;
+  proto.insertOne = async function pgMirrorInsertOne(doc, options, ...rest) {
+    const modelName = modelForCollection(this.collectionName);
+    const res = await origInsertOne.call(this, doc, options, ...rest);
+    if (modelName) {
+      try { await mirrorDoc(modelName, doc); } catch (e) { warnOnce(`${modelName} (raw insertOne mirror skipped: ${e.code || e.message})`); }
+    }
+    return res;
+  };
+
+  const origInsertMany = proto.insertMany;
+  proto.insertMany = async function pgMirrorInsertMany(docs, options, ...rest) {
+    const modelName = modelForCollection(this.collectionName);
+    const res = await origInsertMany.call(this, docs, options, ...rest);
+    if (modelName && Array.isArray(docs)) {
+      for (const doc of docs) { try { await mirrorDoc(modelName, doc); } catch (e) { warnOnce(`${modelName} (raw insertMany mirror skipped: ${e.code || e.message})`); } }
+    }
+    return res;
+  };
+
+  wrapUpdate('updateOne');
+  wrapUpdate('updateMany');
+  wrapDelete('deleteOne');
+  wrapDelete('deleteMany');
+};
+
 /** Register globally — call BEFORE any model file is required (setup.js load). */
 const registerAutoMirror = (mongoose) => {
   if (!isPostgres) return;
@@ -235,6 +346,7 @@ const registerAutoMirror = (mongoose) => {
     );
   }
   mongoose.plugin(autoMirrorPlugin);
+  patchRawCollectionWrites();
 };
 
 module.exports = { registerAutoMirror, mirrorDoc, tableFor };
