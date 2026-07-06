@@ -13,6 +13,9 @@ const { getApp, getTokens, getSeedData, getCsrfHeaders } = require('../setup');
 const AuditLog = require('../../models/AuditLog');
 const auditService = require('../../services/auditService');
 const { computeHash, verifyChain, GENESIS_PREV_HASH } = require('../../services/audit-chain');
+const {
+  findActiveAuditChain, updateActiveAuditRowBySeq, deleteActiveAuditRowBySeq,
+} = require('../pg-test-utils');
 
 let app, tokens, csrf;
 
@@ -42,7 +45,9 @@ const seedChain = async (n) => {
     });
   }
   await auditService.flush();
-  return AuditLog.find({ seq: { $exists: true } }).sort({ seq: 1 }).lean();
+  // Read the chain from the ACTIVE backend — on the pg lane the rows the service
+  // just wrote live in PG, not Mongo (a Mongoose find would return []).
+  return findActiveAuditChain();
 };
 
 describe('Audit hash chain — write side', () => {
@@ -74,7 +79,7 @@ describe('Audit hash chain — verifyChain', () => {
   test('detects a field tamper at the altered seq (hash-mismatch)', async () => {
     await seedChain(4);
     // Alter a stored field WITHOUT recomputing the hash — simulates tampering.
-    await AuditLog.updateOne({ seq: 2 }, { $set: { note: 'TAMPERED' } });
+    await updateActiveAuditRowBySeq(2, { note: 'TAMPERED' });
 
     const res = await verifyChain({});
     expect(res.ok).toBe(false);
@@ -84,7 +89,7 @@ describe('Audit hash chain — verifyChain', () => {
 
   test('detects a deleted middle row (missing-rows)', async () => {
     await seedChain(4);
-    await AuditLog.deleteOne({ seq: 2 });
+    await deleteActiveAuditRowBySeq(2);
 
     const res = await verifyChain({});
     expect(res.ok).toBe(false);
@@ -101,7 +106,7 @@ describe('Audit hash chain — verifyChain', () => {
     const row2 = rows[1];
     const forgedPrev = 'f'.repeat(64);
     const rehashed = computeHash({ ...row2, prevHash: forgedPrev });
-    await AuditLog.updateOne({ seq: 2 }, { $set: { prevHash: forgedPrev, hash: rehashed } });
+    await updateActiveAuditRowBySeq(2, { prevHash: forgedPrev, hash: rehashed });
 
     const res = await verifyChain({});
     expect(res.ok).toBe(false);

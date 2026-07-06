@@ -166,6 +166,46 @@ const findActiveAuditRow = async (filter = {}) => {
   return rowToCamel(rows[0]);
 };
 
+/**
+ * The whole seq-ordered audit chain from the ACTIVE backend, lean-shaped for
+ * services/audit-chain.computeHash. Mirrors
+ * `AuditLog.find({ seq: { $exists: true } }).sort({ seq: 1 }).lean()`.
+ * seq is a PG bigint (node-pg returns a STRING) — coerced back to Number so the
+ * canonical hash payload (JSON.stringify(seq)) matches the write-time Number.
+ */
+const findActiveAuditChain = async () => {
+  if (!isPostgres) {
+    const AuditLog = require('../models/AuditLog');
+    return AuditLog.find({ seq: { $exists: true } }).sort({ seq: 1 }).lean();
+  }
+  const { rows } = await query('SELECT * FROM audit_log WHERE seq IS NOT NULL ORDER BY seq ASC');
+  return rows.map((r) => {
+    const c = rowToCamel(r);
+    if (c.seq != null) c.seq = Number(c.seq);
+    return c;
+  });
+};
+
+/** Tamper one audit row (by seq) on the ACTIVE backend. `set` keys are camelCase. */
+const updateActiveAuditRowBySeq = async (seq, set) => {
+  if (!isPostgres) {
+    const AuditLog = require('../models/AuditLog');
+    return AuditLog.updateOne({ seq }, { $set: set });
+  }
+  const keys = Object.keys(set);
+  const clause = keys.map((k, i) => `"${camelToSnake(k)}" = $${i + 2}`).join(', ');
+  return query(`UPDATE audit_log SET ${clause} WHERE seq = $1`, [seq, ...keys.map((k) => set[k])]);
+};
+
+/** Delete one audit row (by seq) on the ACTIVE backend. */
+const deleteActiveAuditRowBySeq = async (seq) => {
+  if (!isPostgres) {
+    const AuditLog = require('../models/AuditLog');
+    return AuditLog.deleteOne({ seq });
+  }
+  return query('DELETE FROM audit_log WHERE seq = $1', [seq]);
+};
+
 module.exports = {
   resetPgDatabase,
   mirrorUserToPg,
@@ -175,4 +215,7 @@ module.exports = {
   readActiveRow,
   findActiveRowWhere,
   findActiveAuditRow,
+  findActiveAuditChain,
+  updateActiveAuditRowBySeq,
+  deleteActiveAuditRowBySeq,
 };
