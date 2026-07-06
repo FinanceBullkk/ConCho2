@@ -228,6 +228,23 @@ patch: wrap `NativeCollection.prototype.{updateOne,updateMany,deleteOne,deleteMa
 insertMany}` to mirror affected rows to PG (fail-soft; session-aware — pass `options.session`
 to the pre/post re-reads; only mapped models). Start batch 7 here (unblocks a class).
 
+### Batch 7 progress (branch `feat/pg-lane-wave-g-batch7`, stacked on #244)
+- ✅ **Raw-collection mirror patch** (`pg-auto-mirror.js`): patches
+  `NativeCollection.prototype.{updateOne,updateMany,deleteOne,deleteMany,insertOne,
+  insertMany}` to mirror raw-driver writes to PG (session-aware, mapped-models-only,
+  fail-soft, PG-lane-only). **Fixes softDeleteEmpCodeReuse 6/6.** Regression 128/128
+  across 16 write-heavy suites; Mongo unaffected.
+- ✅ **Learning programs/cohorts chainable** (`domains/learning/repository.pg.js`,
+  PRODUCTION, PG-only): the use-cases chain `.skip().limit().lean().sort()` on repo
+  reads (Mongo returns Queries; PG returned arrays → `.skip is not a function` → 500).
+  Wrapped the 5 chained read methods in a Query-lite thenable. **Fixes learningRoutes
+  22/22** (+4 cohort reverse-asserts). Parity 10/10 PG + 2/2 Mongo.
+- ⏳ **Learning sub-domains** (enrollment/completion) triaged: MIXED — several
+  reverse-asserts (withdraw/revoke/bulk read the PG-written row/count via Mongoose)
+  + concurrency/capacity tests that also read counts from Mongo. Need a
+  `countActiveRowsWhere` helper + per-test conversions. NOT the chainable root
+  (sub-domain repos don't chain). Next-session work.
+
 ### Suggested batch-7 order
 1. raw-collection mirror patch (infra) → re-run softDelete/complianceMatrix/learningAssignment.
 2. Learning cluster B (triage 1 suite → find shared root → sweep).
