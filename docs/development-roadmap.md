@@ -143,8 +143,20 @@ Bug fixing and integration review rank above net-new feature rollout.
 > **Rolling window:** ~last 2 weeks / ~15 entries kept inline (file ≤ ~400
 > lines); older entries roll verbatim, newest-first, to
 > [`changelog-archive/2026-q2.md`](changelog-archive/2026-q2.md). Currently
-> inline: **2026-06-20 → 2026-07-06** (06-14→06-19 rolled 2026-07-04).
+> inline: **2026-06-20 → 2026-07-07** (06-14→06-19 rolled 2026-07-04).
 
+- **2026-07-07** — **Wave G batches 7–9 — PG lane app-gap cluster (batches 5–8 merged #243–#246, ~44 → ~19 failing).**
+  Batches 7 (#245, raw-collection mirror + learning programs/cohorts chainable) and 8 (#246, domain-tractable cluster + TrainingRequest
+  mapper) merged. **Batch 9 (branch `feat/pg-lane-wave-g-batch9`) — 6 app-gap suites green both lanes** (reconcileAutoHeal,
+  analyticsTimeseries, assignmentReminderRoutes, roomOfficeScope, complianceMatrix, lastActivePerf). 17 fails via reverse-asserts (new
+  find-many/`distinctActiveValues` helpers) + 3 REAL pg-repo divergences: assignment `findAssignableUsers` normalises populated `{_id}`
+  summaries to ids (Mongo casts in `$in`; PG `.map(String)` gave `"[object Object]"` → whole reminder service found nothing) · room
+  `createRoom`/`updateRoomById` map the live-code 23505 → Mongo-style 11000 (409 not 500) · metrics-repository `matchToWhere` treats a
+  bson ObjectId as scalar equality (direct `getFunnel` passed an ObjectId programId). 6th fail = **getUsers list read ported to
+  dual-backend** (`controllers/user/user-list-repository.{mongo,pg,index}` + pg-parity): the attendance write-through bumps
+  `last_active_at` in PG, but the Mongoose read saw a stale null — mongo path byte-identical, pg path reads the users table (byte-order
+  `COLLATE "C"` sort). `updateActiveRow` Mongo path switched to raw `collection.updateOne` (findByIdAndUpdate let the timestamps plugin
+  clobber an explicit `createdAt`). Ledger: `plans/260705-0316-wave-g-batch2-suite-conversion/plan.md`.
 - **2026-07-06** — **Wave G batches 2–6 — PG lane suite conversion grind (CI-official failing: 117→77→58→47→44; batches 5–6 in flight).**
   Batch 2 (PR #240): `pg-auto-mirror.js` global mongoose plugin (mirrors every mapped-model write into PG via `pg-row-mappers.js`) +
   groups reads port + 2 real pg-lane bug fixes → 77→58. Batch 3 (PR #241): 4 missing mappers (Assessment/AssessmentAttempt/
