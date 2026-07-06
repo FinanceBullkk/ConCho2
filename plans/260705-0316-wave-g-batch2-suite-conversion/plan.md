@@ -191,6 +191,50 @@ New `pg-test-utils` exports: `findActiveAuditRow`, `findActiveAuditChain`,
   reaching Mongo/PG symmetrically) = the **F-PR-2 attendance-export refactor**;
   deferred with enrollmentTransfer/autoReleaseScope.
 
+## Batch 7 worklist — CI-authoritative fail-list (33 suites, from #244 PG-lane job 2026-07-06)
+
+> **Source = CI, not local.** A local `jest --runInBand` over all 208 suites **OOMs**
+> (V8 heap) without CI's 8GB — the crash prints spurious FAILs for late suites
+> (roleGrants/vendor/learningReportsRoutes/enrollmentRoutes/… are FALSE fails; they
+> pass on CI). Always pull the real list from the PG-lane CI job:
+> `gh run view --job <id> --log | grep -oE "FAIL tests/[^ ]+"`. For a local full run,
+> export `NODE_OPTIONS=--max-old-space-size=8192` (run-pg.sh sets it).
+
+**A — GATED (ask owner first; schedule roster-sync + waitlist promotion port, Wave-D tail):**
+bookingRace · scheduleCancel · scheduleReassign · scheduleUseCases · sessionTrainers ·
+waitlist · autoReleaseScope · enrollmentTransfer  (8)
+
+**B — Learning cluster (investigate as ONE cluster — likely shared root):**
+learningRoutes · learningAssignmentRoutes · learningCertificateExpiryRoutes ·
+learningCompletionRoutes · learningComplianceReportsRoutes · learningDashboardExecutive ·
+learningEnrollmentRoutes · learningFeedbackRoutes · learningPrerequisiteRoutes ·
+learningSessionRoutes  (10)
+
+**C — Domain tractable (owner-named; likely 1 real bug each):**
+automation · planning · studioScheduling · mobile · reportsEvidencePackPresets · adminDb  (6)
+
+**D — App-gap (real PG-repo divergence, per earlier triage):**
+complianceMatrix · lastActivePerf · roomOfficeScope · assignmentReminderRoutes ·
+analyticsTimeseries · reconcileAutoHeal  (6)
+
+**E — Deferred / raw-collection class:**
+mfa · p2-regression (F-PR-2) · softDeleteEmpCodeReuse  (3)
+
+### #2 decision — raw-collection mirror patch IS justified
+`Model.collection.updateOne/insertOne` (raw driver) bypasses the auto-mirror. Confirmed
+gt of **softDeleteEmpCodeReuse** (deleteUser/restoreUser) + **complianceMatrix** (backdate
+createdAt) + **learningAssignmentRoutes** (raw user update) → ≥3 suites. Do ONE test-infra
+patch: wrap `NativeCollection.prototype.{updateOne,updateMany,deleteOne,deleteMany,insertOne,
+insertMany}` to mirror affected rows to PG (fail-soft; session-aware — pass `options.session`
+to the pre/post re-reads; only mapped models). Start batch 7 here (unblocks a class).
+
+### Suggested batch-7 order
+1. raw-collection mirror patch (infra) → re-run softDelete/complianceMatrix/learningAssignment.
+2. Learning cluster B (triage 1 suite → find shared root → sweep).
+3. Domain tractable C (automation → planning → studio → mobile → reports → adminDb).
+4. App-gap D per-suite.
+5. Ask owner re: GATED A. Deferred E last (mfa rewrite; p2 = F-PR-2).
+
 ## Unresolved
 
 - 214-vs-208 suite-count reconciliation before gate promotion.

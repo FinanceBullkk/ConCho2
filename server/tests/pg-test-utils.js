@@ -18,6 +18,22 @@
  *
  * Every export is a NO-OP unless DB_BACKEND=postgres — converted suites can
  * call these unconditionally and stay 100% inert on the default Mongo lane.
+ *
+ * ── Which helper when (reverse-assert / scaffolding on the pg lane) ──────────
+ *   readActiveRow(model, id)          findById  → plain camelCase row (or null)
+ *   findActiveRowWhere(model, where)  findOne by top-level scalar equality
+ *   updateActiveRow(model, id, patch) update a PG-only row a Mongoose write would
+ *                                     miss (patch keys camelCase → snake columns)
+ *   findActiveAuditRow(filter)        latest audit row (entity/entityId/actorId/
+ *                                     action[str|RegExp] + createdAt range)
+ *   findActiveAuditChain()            whole seq-ordered chain (seq→Number)
+ *   update/deleteActiveAuditRowBySeq  tamper/remove one audit row by seq
+ * Rule of thumb: the app writes through a ported repo (PG only) → a Mongoose
+ * read/write sees stale/empty; route the assertion (or scaffolding mutation)
+ * through the matching helper so it hits the ACTIVE backend on either lane.
+ * NOTE: raw `Model.collection.updateOne(...)` in APP code bypasses the auto-mirror
+ * entirely (softDeleteEmpCodeReuse) — that needs the raw-collection mirror patch,
+ * not one of these helpers.
  */
 const { isPostgres } = require('../config/db-backend');
 const { query } = require('../config/pg');
