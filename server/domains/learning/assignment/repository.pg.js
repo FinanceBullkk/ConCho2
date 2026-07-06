@@ -29,6 +29,11 @@ const ASSIGNABLE_USER_STATUSES = ['Active', 'On-hold', 'Waiting for class'];
 const newId = () => crypto.randomBytes(12).toString('hex');
 // Mongo binary (byte) sort order — NOT PG locale collation (see path repo).
 const cmp = (x, y) => ((x || '') < (y || '') ? -1 : (x || '') > (y || '') ? 1 : 0);
+// Callers may pass raw ids OR POPULATED summary objects: status-resolver hands
+// findAssignableUsers `assignment.userIds`/`departmentIds`, which `list` returns
+// populated ({_id,…}). Mongoose casts such objects to their _id inside $in; mirror
+// that leniency so `.map(String)` doesn't yield "[object Object]" and match nothing.
+const toId = (v) => String(v && typeof v === 'object' && v._id != null ? v._id : v);
 
 // ── populate summaries (lean shapes the DTO + status-resolver consume) ──
 const programSummary = (r) => ({ _id: r.id, code: r.code, name: r.name, category: r.category, status: r.status });
@@ -194,7 +199,7 @@ const findAssignableUsers = async ({ userIds = [], departmentIds = [] } = {}) =>
       WHERE (id = ANY($1) OR department_id = ANY($2))
         AND is_deleted = false
         AND status = ANY($3)`,
-    [userIds.map(String), departmentIds.map(String), ASSIGNABLE_USER_STATUSES]);
+    [userIds.map(toId), departmentIds.map(toId), ASSIGNABLE_USER_STATUSES]);
   rows.sort((a, b) => cmp(a.name, b.name)); // Mongo {name:1} binary order
   return rows.map(userSummary);
 };
