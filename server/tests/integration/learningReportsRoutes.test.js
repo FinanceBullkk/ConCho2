@@ -8,6 +8,7 @@ const Evaluation = require('../../models/Evaluation');
 const Feedback = require('../../models/Feedback');
 const AssessmentAttempt = require('../../models/AssessmentAttempt');
 const LearningProgram = require('../../models/LearningProgram');
+const { mirrorUserToPg } = require('../pg-test-utils');
 
 let app, tokens, seed, csrf;
 
@@ -148,6 +149,11 @@ describe('Learning Platform API — completion reports', () => {
       { _id: ghost._id },
       { $set: { isDeleted: true, deletedAt: new Date() } },
     );
+    // The raw-driver write bypasses the auto-mirror middleware; on the pg lane the
+    // ported report reads users from PG, so propagate the offboard there too
+    // (no-op on the Mongo lane).
+    const ghostRaw = await mongoose.connection.db.collection('users').findOne({ _id: ghost._id });
+    await mirrorUserToPg(ghostRaw);
 
     // After: ghost is dropped from rows + denominator; rate reflects active only.
     const after = await report(tokens.admin);

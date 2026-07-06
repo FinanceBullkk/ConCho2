@@ -1,5 +1,7 @@
 const request = require('supertest');
 const { getApp, getTokens, getSeedData, getCsrfHeaders, teardown } = require('../setup');
+const { isPostgres } = require('../../config/db-backend');
+const { readActiveRow } = require('../pg-test-utils');
 const Class = require('../../models/Class');
 const Evaluation = require('../../models/Evaluation');
 const Enrollment = require('../../models/Enrollment');
@@ -57,17 +59,24 @@ describe('Legacy DELETE /api/classes/:id — soft-archive (audit P1)', () => {
     expect(res.status).toBe(200);
     expect(res.body.cascade.evaluationsPreserved).toBe(true);
 
-    // Class soft-archived (hidden from normal find via the soft-delete hook, recoverable).
-    expect(await Class.findById(cls._id)).toBeNull();
-    const archived = await Class.findOne({ _id: cls._id, isDeleted: true }).lean();
+    // Class soft-archived (recoverable, not hard-deleted). "Hidden from normal
+    // find" is the Mongo soft-delete query hook — assert it only on that backend;
+    // the ported delete writes the flag to PG, so read the active row there.
+    if (!isPostgres) {
+      expect(await Class.findById(cls._id)).toBeNull();
+    }
+    const archived = await readActiveRow('Class', cls._id);
     expect(archived).not.toBeNull();
+    expect(archived.isDeleted).toBe(true);
 
     // Evaluation PRESERVED — NOT hard-deleted (the golden-rule fix).
     const evalStill = await Evaluation.findById(evalDoc._id).lean();
     expect(evalStill).not.toBeNull();
 
     // Enrollment closed to 'Dropped' — preserved as history, not hard-deleted.
-    const enrollStill = await Enrollment.findById(enrollDoc._id).lean();
+    // The close-write goes through the ported repo (PG-only on that lane), so
+    // read the active backend rather than a Mongoose find.
+    const enrollStill = await readActiveRow('Enrollment', enrollDoc._id);
     expect(enrollStill).not.toBeNull();
     expect(enrollStill.status).toBe('Dropped');
   });

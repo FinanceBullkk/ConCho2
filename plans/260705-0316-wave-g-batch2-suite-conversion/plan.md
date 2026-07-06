@@ -96,10 +96,44 @@ edits; attendance-rollup fully green.
 4. Mongoose-virtual-specific tests (e.g. ARCH-02 enrolledCount) → re-point at
    the API response shape, not the model virtual.
 
+## Batch 2 shipped (PR #240) — CI lane 77 → 58 failing suites.
+
+## Batch 3 shipped (PR #241, stacked on #240)
+
+Added the 4 highest-frequency missing mappers (**Assessment, AssessmentAttempt,
+Assignment, Feedback**) → assessment cluster 32/32 both lanes + assignments-mine
++ learningReports rollups green. Reverse-assert conversions on 8 suites. **Three
+REAL org-domain divergences the lane caught + fixed** (production code, verified
+both backends):
+1. `office-repository.pg createOffice` inserted `code` raw → Mongoose
+   uppercase/trim setters not replicated. Fixed in `officeVal` (create+update).
+2. `repository.pg updateUserAssignment` `USER_ASSIGN_COL` dropped `officeId` →
+   office-archive guard under-counted (409→200 wrong-allow).
+3. `repository.pg createDepartment` didn't map PG 23505 → Mongo E11000 → dup
+   code 500 instead of 409.
+
+## Remaining app-gaps found (production ports for a follow-up, NOT test debt)
+
+- **enrollmentTransfer** — response built from a Mongo-only `Enrollment.findOne`
+  re-read of a PG-written row → `data:null`. Needs a dual-backend find+populate
+  (F-PR-2 class).
+- **autoReleaseScope** — User auto-release post-hook passes a raw Mongoose
+  ClientSession as `tx` into the waitlist seam; on PG, `exec` checks `tx.client`
+  and a Mongoose session EXPOSES `.client` → wrong dispatch. The KNOWN F-PR-2
+  "auto-release hook must route through the schedule dual-backend seams" item.
+- **complianceMatrix** (overdue-window), **lastActivePerf** (GET /users read
+  path), **roomOfficeScope** (room-booking flows), **assignmentReminder**
+  (reminder read/idempotency) — deeper per-suite read/logic divergences; batch 4.
+
+## Unmapped models still seeded by some suites (add to MAPPERS as the lane names them)
+Counter · LearningPath · WaitlistEntry · CronRun · RoomBooking · Room · Role ·
+CostEntry · Budget · Vendor · TrainingRequest · RequiredTraining · TrainerProfile
+(+ long tail). Most have ported repos; a mapper is only needed when a test seeds
+the model DIRECTLY via Mongoose.
+
 ## Unresolved
 
 - 214-vs-208 suite-count reconciliation before gate promotion.
 - `learningSessionRoutes` beforeAll timeout — fixture-only or latent flake.
-- Full-lane measurement WITH the plugin: running at write time (result → here).
-- Notification write path: verify recordInApp writes via Mongoose (mirror covers)
-  or via a ported repo (needs reverse read helper in bell asserts).
+- Batch-3 agent fan-out was cut short twice (Mac sleep, then session limits) →
+  ~46 of the 58 suites remain untriaged; batch 4 continues inline.

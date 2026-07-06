@@ -171,6 +171,54 @@ const MAPPERS = {
       ...base,
     },
   },
+  // Assessment engine (converge Phase 1) — the ported assessment domain reads
+  // these from PG, so quiz fixtures must mirror. `items`/`answers` are jsonb
+  // ARRAYS → stringify (node-pg would otherwise emit a text[] literal).
+  Assessment: {
+    table: 'assessments',
+    cols: {
+      title: 'title', description: 'description', cohort_id: (d) => id(d.cohortId),
+      program_id: (d) => id(d.programId),
+      items: (d) => (d.items == null ? null : JSON.stringify(d.items)),
+      passing_score_percent: 'passingScorePercent', max_attempts: 'maxAttempts',
+      time_limit_minutes: 'timeLimitMinutes', shuffle_questions: 'shuffleQuestions',
+      show_answers_after: 'showAnswersAfter', is_published: 'isPublished',
+      created_by: (d) => id(d.createdBy),
+      ...base,
+    },
+  },
+  AssessmentAttempt: {
+    table: 'assessment_attempts',
+    cols: {
+      assessment_id: (d) => id(d.assessmentId), user_id: (d) => id(d.userId),
+      cohort_id: (d) => id(d.cohortId),
+      answers: (d) => (d.answers == null ? null : JSON.stringify(d.answers)),
+      score: 'score', max_score: 'maxScore', score_percent: 'scorePercent',
+      passed: 'passed', submitted_at: 'submittedAt',
+      ...base,
+    },
+  },
+  Assignment: {
+    table: 'assignments',
+    cols: {
+      title: 'title', description: 'description', target_type: 'targetType',
+      program_id: (d) => id(d.programId), path_id: (d) => id(d.pathId),
+      due_date: 'dueDate', user_ids: (d) => ids(d.userIds), department_ids: (d) => ids(d.departmentIds),
+      status: 'status', created_by: (d) => id(d.createdBy),
+      source_certificate_id: (d) => id(d.sourceCertificateId),
+      ...base,
+    },
+  },
+  Feedback: {
+    table: 'feedbacks',
+    cols: {
+      cohort_id: (d) => id(d.cohortId), user_id: (d) => id(d.userId),
+      program_id: (d) => id(d.programId), rating: 'rating',
+      content_rating: 'contentRating', instructor_rating: 'instructorRating',
+      comment: 'comment', submitted_by: (d) => id(d.submittedBy),
+      ...base,
+    },
+  },
   AuditLog: {
     table: 'audit_log',
     cols: {

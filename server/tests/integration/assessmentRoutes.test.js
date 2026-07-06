@@ -1,6 +1,7 @@
 const request = require('supertest');
 const jwt = require('jsonwebtoken');
 const { getApp, getTokens, getSeedData, getCsrfHeaders, teardown } = require('../setup');
+const { readActiveRow } = require('../pg-test-utils');
 const Assessment = require('../../models/Assessment');
 const AssessmentAttempt = require('../../models/AssessmentAttempt');
 const AssessmentQuestion = require('../../models/AssessmentQuestion');
@@ -298,7 +299,7 @@ describe('Assessment API — authoring, attempts, grading', () => {
     expect(updated.body.data.items[0].type).toBe('multiple_choice');
     expect(updated.body.data.items[0].correctOptionIndexes).toEqual([1, 2]);
 
-    const stored = await Assessment.findById(created.body.data.id).lean();
+    const stored = await readActiveRow('Assessment', created.body.data.id);
     expect(stored.items).toHaveLength(1);
     expect(stored.items[0].prompt).toBe('Pick even numbers');
   });
@@ -366,7 +367,7 @@ describe('Assessment API — authoring, attempts, grading', () => {
     expect(graded.body.data.answers[0].manualPointsEarned).toBe(2);
     expect(graded.body.data.answers[0].manualNote).toBe('Accepted by reviewer');
 
-    const stored = await AssessmentAttempt.findById(submitted.body.data.id).lean();
+    const stored = await readActiveRow('AssessmentAttempt', submitted.body.data.id);
     expect(stored.passed).toBe(true);
     expect(stored.answers[0].manualGradedBy.toString()).toBe(seed.admin._id.toString());
   });
@@ -467,7 +468,7 @@ describe('Assessment API — authoring, attempts, grading', () => {
       .get(`/api/assessment/assessments?cohortId=${seed.class1._id}`)
       .set('Authorization', `Bearer ${tokens.admin}`);
     expect(list.body.count).toBe(0);
-    const stored = await Assessment.findById(created.body.data.id).lean();
+    const stored = await readActiveRow('Assessment', created.body.data.id);
     expect(stored.isDeleted).toBe(true);
   });
 

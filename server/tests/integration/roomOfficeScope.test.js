@@ -10,6 +10,7 @@ const request = require('supertest');
 const jwt = require('jsonwebtoken');
 const mongoose = require('mongoose');
 const { getApp, getTokens, getSeedData, getCsrfHeaders, teardown } = require('../setup');
+const { findActiveRowWhere } = require('../pg-test-utils');
 const Schedule = require('../../models/Schedule');
 const Setting = require('../../models/Setting');
 const Class = require('../../models/Class');
@@ -133,11 +134,12 @@ describe('Rooms CRUD + authz (Office-scoped)', () => {
   test('room create is audited (pins the AuditLog entity enum)', async () => {
     const create = await as(tokens.admin)('post', '/api/rooms')
       .send({ name: 'Audited', code: 'AUD1', officeId: officeA._id.toString() });
-    const AuditLog = require('../../models/AuditLog');
+    // Audit is written through the ported repository (rows live in PG on the
+    // lane) — read the active backend so the assertion holds on either lane.
     let row = null;
     for (let i = 0; i < 20 && !row; i += 1) {
       // eslint-disable-next-line no-await-in-loop
-      row = await AuditLog.findOne({ entity: 'Room', action: 'created', entityId: create.body.data._id }).lean();
+      row = await findActiveRowWhere('AuditLog', { entity: 'Room', action: 'created', entityId: create.body.data._id });
       // eslint-disable-next-line no-await-in-loop
       if (!row) await new Promise((r) => setTimeout(r, 50));
     }
