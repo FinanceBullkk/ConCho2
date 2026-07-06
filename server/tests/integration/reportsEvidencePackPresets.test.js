@@ -1,5 +1,6 @@
 const request = require('supertest');
 const { getApp, getTokens, teardown, getCsrfHeaders } = require('../setup');
+const { findActiveAuditRow } = require('../pg-test-utils');
 const AuditLog = require('../../models/AuditLog');
 const ReportPreset = require('../../models/ReportPreset');
 
@@ -48,7 +49,7 @@ describe('Reports — evidence pack + presets (A5 part 2)', () => {
     expect(Number(res.headers['content-length'])).toBeGreaterThan(0); // a real workbook was sent
 
     await new Promise((r) => setTimeout(r, 40)); // audit is fire-and-forget
-    const log = await AuditLog.findOne({ action: 'exported', entity: 'Report' }).lean();
+    const log = await findActiveAuditRow({ action: 'exported', entity: 'Report' });
     expect(log).toBeTruthy();
     expect(log.note).toContain('evidence-pack.xlsx');
   });
@@ -68,7 +69,7 @@ describe('Reports — evidence pack + presets (A5 part 2)', () => {
     const id = created.body.data._id;
 
     await new Promise((r) => setTimeout(r, 40));
-    const log = await AuditLog.findOne({ entity: 'ReportPreset', action: 'created' }).lean();
+    const log = await findActiveAuditRow({ entity: 'ReportPreset', action: 'created' });
     expect(log).toMatchObject({ actorRole: 'Admin' });
 
     expect((await get(tokens.admin, '/api/learning/reports/presets')).body.count).toBe(1);

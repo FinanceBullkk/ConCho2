@@ -233,6 +233,21 @@ const MAPPERS = {
       created_at: (d) => d.createdAt ?? new Date(),
     },
   },
+  // Nested `target: {kind,id}` subobject flattens to target_kind/target_id — the
+  // generic reflective mapper can't (it reads doc.targetKind, which doesn't exist),
+  // so requests seeded via Mongoose would mirror with NULL target and markPlanned
+  // matches nothing.
+  TrainingRequest: {
+    table: 'training_requests',
+    cols: {
+      requested_by: (d) => id(d.requestedBy), department_id: (d) => id(d.departmentId),
+      target_kind: (d) => (d.target ? d.target.kind : null), target_id: (d) => id(d.target && d.target.id),
+      headcount: 'headcount', rationale: (d) => d.rationale ?? '', priority: (d) => d.priority ?? 'med',
+      target_quarter: 'targetQuarter', status: (d) => d.status ?? 'submitted',
+      created_by: (d) => id(d.createdBy),
+      ...base,
+    },
+  },
 };
 
 /** Build the full PG row (including id) for a mapped model's doc/POJO. */

@@ -10,6 +10,7 @@
 const request = require('supertest');
 const mongoose = require('mongoose');
 const { getApp, getTokens, getSeedData, getCsrfHeaders } = require('../setup');
+const { readActiveRow, findActiveAuditRow } = require('../pg-test-utils');
 
 const SessionType = require('../../models/SessionType');
 const Office = require('../../models/Office');
@@ -113,12 +114,14 @@ describe('Session types CRUD + authz', () => {
       .set('Authorization', `Bearer ${tokens.admin}`);
     expect(list.body.data.find((t) => String(t._id) === String(typeId))).toBeUndefined();
 
-    // Explicit isDeleted filter bypasses the soft-delete hook.
-    const raw = await SessionType.findOne({ _id: typeId, isDeleted: true }).lean();
+    // Read the active backend: the archive soft-deletes in PG (a Mongoose findOne
+    // would read the not-soft-deleted Mongo twin).
+    const raw = await readActiveRow('SessionType', typeId);
     expect(raw).not.toBeNull();
+    expect(raw.isDeleted).toBe(true);
 
     await settle();
-    const audit = await AuditLog.findOne({ entity: 'SessionType' }).sort('-createdAt').lean();
+    const audit = await findActiveAuditRow({ entity: 'SessionType' });
     expect(audit).not.toBeNull();
   });
 });
