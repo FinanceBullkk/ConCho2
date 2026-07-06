@@ -211,4 +211,4 @@ const registerAutoMirror = (mongoose) => {
   mongoose.plugin(autoMirrorPlugin);
 };
 
-module.exports = { registerAutoMirror, mirrorDoc };
+module.exports = { registerAutoMirror, mirrorDoc, tableFor };
