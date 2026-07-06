@@ -131,6 +131,41 @@ const findActiveRowWhere = async (modelName, where) => {
   return rowToCamel(rows[0]);
 };
 
+/**
+ * Latest audit-log row matching a Mongo-shaped filter, from the ACTIVE backend.
+ * Mirrors `AuditLog.findOne(filter).sort('-createdAt').lean()`. On the pg lane
+ * the app writes audit rows through the DB_BACKEND-selected repository (PG only),
+ * so a Mongoose read sees nothing — this reads the right backend.
+ *
+ * Supports the filter shapes the audit suites use: entity / entityId / actorId /
+ * action (string OR RegExp → PG `~` regex match) + createdAt:{$gte,$lte}. Returns
+ * a LEAN-shaped row (actorId as the raw id string, NOT populated) so both
+ * `row.actorId.toString()` and `row.action`/`row.note` asserts hold on either lane.
+ */
+const findActiveAuditRow = async (filter = {}) => {
+  if (!isPostgres) {
+    const AuditLog = require('../models/AuditLog');
+    return AuditLog.findOne(filter).sort('-createdAt').lean();
+  }
+  const conds = [];
+  const args = [];
+  const COL = { entity: 'entity', entityId: 'entity_id', actorId: 'actor_id', action: 'action' };
+  for (const [k, col] of Object.entries(COL)) {
+    const v = filter[k];
+    if (v == null) continue;
+    if (v instanceof RegExp) { args.push(v.source); conds.push(`"${col}" ~ $${args.length}`); }
+    else { args.push(String(v)); conds.push(`"${col}" = $${args.length}`); }
+  }
+  if (filter.createdAt && filter.createdAt.$gte) { args.push(filter.createdAt.$gte); conds.push(`created_at >= $${args.length}`); }
+  if (filter.createdAt && filter.createdAt.$lte) { args.push(filter.createdAt.$lte); conds.push(`created_at <= $${args.length}`); }
+  const where = conds.length ? `WHERE ${conds.join(' AND ')}` : '';
+  const { rows } = await query(
+    `SELECT * FROM audit_log ${where} ORDER BY created_at DESC, seq DESC NULLS LAST LIMIT 1`,
+    args,
+  );
+  return rowToCamel(rows[0]);
+};
+
 module.exports = {
   resetPgDatabase,
   mirrorUserToPg,
@@ -139,4 +174,5 @@ module.exports = {
   mirrorCoreSeedToPg,
   readActiveRow,
   findActiveRowWhere,
+  findActiveAuditRow,
 };
