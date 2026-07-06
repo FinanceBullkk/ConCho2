@@ -19,6 +19,10 @@ const crypto = require('crypto');
 const { MongoMemoryReplSet } = require('mongodb-memory-server');
 const { isPostgres } = require('../config/db-backend');
 const pgTestUtils = require('./pg-test-utils');
+// Wave G batch 2: register the Mongoose→PG auto-mirror as a GLOBAL plugin
+// BEFORE any model compiles — raw-Mongoose fixture seeding in legacy suites
+// then lands on BOTH backends without per-suite edits. No-op on Mongo lane.
+require('./pg-auto-mirror').registerAutoMirror(mongoose);
 
 // tests/global-setup.js starts ONE shared replica set per jest run and exposes
 // its URI on process.env.MONGO_URI. Each test file connects under its OWN

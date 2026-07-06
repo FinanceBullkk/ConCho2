@@ -7,6 +7,8 @@
 
 const request = require('supertest');
 const { getApp, getTokens, getSeedData, getCsrfHeaders, teardown } = require('../setup');
+const { readActiveRow } = require('../pg-test-utils');
+const { isPostgres } = require('../../config/db-backend');
 const Schedule = require('../../models/Schedule');
 const Setting = require('../../models/Setting');
 const Class = require('../../models/Class');
@@ -300,7 +302,9 @@ describe('DELETE /api/schedules/:id/cancel', () => {
       .expect(200);
 
     // Durable cancel (phase-04 slice A): the doc persists as history.
-    const check = await Schedule.findById(scheduleId);
+    // Backend-agnostic read — the app writes through the ported repos, so on
+    // the pg lane this row exists ONLY in PG (invisible to Schedule.findById).
+    const check = await readActiveRow('Schedule', scheduleId);
     expect(check).not.toBeNull();
     expect(check.status).toBe('cancelled');
   });
@@ -332,11 +336,15 @@ describe('Schedule.enrolledCount virtual (ARCH-02)', () => {
       .send({ teamId: seed.team._id.toString(), startTime: start.toISOString(), endTime: end.toISOString() })
       .expect(201);
 
-    const doc = await Schedule.findById(res.body.data._id);
-    // Virtual should equal array length — no stored field can drift
-    expect(doc.enrolledCount).toBe(doc.enrolledUsers.length);
-    // Confirm no stored field (raw object should not have it)
-    const raw = doc.toObject({ virtuals: false });
-    expect(raw.enrolledCount).toBeUndefined();
+    // The contract: enrolledCount is DERIVED from enrolledUsers, never stored.
+    // The API response carries the derived value on both lanes.
+    const row = await readActiveRow('Schedule', res.body.data._id);
+    expect(res.body.data.enrolledCount).toBe(row.enrolledUsers.length);
+    if (!isPostgres) {
+      // Mongo-only shape checks: the mongoose virtual + no stored field.
+      const doc = await Schedule.findById(res.body.data._id);
+      expect(doc.enrolledCount).toBe(doc.enrolledUsers.length);
+      expect(doc.toObject({ virtuals: false }).enrolledCount).toBeUndefined();
+    }
   });
 });

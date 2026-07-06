@@ -90,9 +90,13 @@ const createTeam = async (req, res) => {
         tx,
       );
 
+      // Hand the WHOLE unit-of-work handle through opts.tx — repo impls read
+      // tx.session (Mongo) OR tx.client (PG). The old `{ session: tx.session }`
+      // dropped the PG client, so in-transaction reads missed the just-inserted
+      // team → no bell/email events on the postgres backend.
       const result = await syncEnrollments(
         team._id.toString(), memberList, [], classId || null,
-        { session: tx.session },
+        { tx },
       );
       pendingEmails = result.pendingEmails;
       pendingEvents = result.pendingEvents;
@@ -230,9 +234,10 @@ const updateTeam = async (req, res) => {
           : currentTeam.classId?.toString() || null;
 
         if (addedIds.length > 0 || removedIds.length > 0) {
+          // Whole UoW handle through opts.tx — see the createTeam note.
           const { pendingEmails: emails, pendingEvents: events } = await syncEnrollments(
             req.params.id, addedIds, removedIds, effectiveClassId,
-            { session: tx.session },
+            { tx },
           );
           pendingEmails = emails;
           pendingEvents = events;

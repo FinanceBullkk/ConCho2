@@ -68,8 +68,38 @@ NEVER two jest runs at once; wrap long runs in `caffeinate -i`.
 (remove `continue-on-error`) → Wave G closed; F-PR-2 runs alongside as its
 suites surface (attendance-export refactor · user-mutations auto-release hook).
 
+## Spike verdict (2026-07-05 ~06:00) — Option B WORKS, adopted
+
+Batch-1 CI-official baseline: **117 → 77 failing** (CI runner, less flaky than local).
+Batch 2a shipped: `pg-auto-mirror.js` (global mongoose plugin, registered by
+setup.js BEFORE model compile — hooks save/insertMany/findOneAndUpdate/update*/
+delete*; upsert via `pg-row-mappers.js`, 15 models) + `deleteMany({})` → PG
+full-table wipe (app-written rows are invisible to Mongo-side id capture).
+Spike proof: 4 heavy suites went all-fail → 25/32 tests green, zero per-suite
+edits; attendance-rollup fully green.
+
+**Failure taxonomy the spike exposed (what remains):**
+1. **Nested-selector wrappers** (batch-1 class): `metrics-funnel/mongo.js` +
+   `metric-series/mongo.js` required the `metrics-repository` SELECTOR (F-PR-1)
+   → pinned `impls.mongo` ✓ fixed in 2a. Audit other `*/mongo.js` wrappers.
+2. **REAL app-gap — groups reads are Mongo-only** (deliberate leftover: "groups'
+   remaining Mongo-only surface = pure reads"). On the lane, `createTeam` writes
+   through the dual-backend seam (→ PG) then `findTeamByIdPopulated` reads Mongo
+   → `data: null`. Blocks teams.test + bell-parity + downstream team flows.
+   Fix = port `domains/groups/repository.js` reads (~15 methods, several
+   populates) per the Wave-B template + parity tests. **The lane is doing its
+   job — this is migration work it surfaced, not test debt.**
+3. **Reverse-direction asserts**: tests assert via Mongoose models on rows the
+   app wrote into PG (`Schedule.findById` after a booking → null). Fix = a
+   backend-agnostic `readActiveRow(modelName, id)` test helper (reverse map via
+   MAPPERS) + mechanical per-suite assert swaps — workflow-agent friendly.
+4. Mongoose-virtual-specific tests (e.g. ARCH-02 enrolledCount) → re-point at
+   the API response shape, not the model virtual.
+
 ## Unresolved
 
-- Option B spike verdict (hook-after-compile runtime + update/delete fidelity).
 - 214-vs-208 suite-count reconciliation before gate promotion.
 - `learningSessionRoutes` beforeAll timeout — fixture-only or latent flake.
+- Full-lane measurement WITH the plugin: running at write time (result → here).
+- Notification write path: verify recordInApp writes via Mongoose (mirror covers)
+  or via a ported repo (needs reverse read helper in bell asserts).

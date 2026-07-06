@@ -158,6 +158,10 @@ const findScheduleForResponse = async (id) => {
   out.classId = s.class_id ? (classMap.get(s.class_id) || null) : null;
   out.bookedTeamId = s.booked_team_id ? (teamMap.get(s.booked_team_id) || null) : null;
   out.enrolledUsers = orderedEmbed(s.enrolled_users, userMap);
+  // The Mongo twin is the one HYDRATED re-fetch (res.json runs toJSON with
+  // virtuals) — so the booking response carries the derived enrolledCount.
+  // Lean reads must NOT get this key (their Mongo twins lack the virtual).
+  out.enrolledCount = (s.enrolled_users || []).length;
   return out;
 };
 
