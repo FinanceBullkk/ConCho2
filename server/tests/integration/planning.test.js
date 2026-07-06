@@ -1,6 +1,7 @@
 const request = require('supertest');
 const jwt = require('jsonwebtoken');
 const { getApp, getTokens, getSeedData, teardown, getCsrfHeaders } = require('../setup');
+const { findActiveRowWhere, countActiveRowsWhere, findActiveAuditRow } = require('../pg-test-utils');
 const TrainingRequest = require('../../models/TrainingRequest');
 const TrainingPlan = require('../../models/TrainingPlan');
 const Class = require('../../models/Class');
@@ -83,7 +84,7 @@ describe('Planning API — TNA → annual plan (A4)', () => {
     const id = created.body.data._id;
 
     await new Promise((r) => setTimeout(r, 30));
-    expect(await AuditLog.findOne({ entity: 'TrainingRequest', action: 'created' }).lean()).toBeTruthy();
+    expect(await findActiveAuditRow({ entity: 'TrainingRequest', action: 'created' })).toBeTruthy();
 
     expect((await get(tokens.admin, '/api/planning/requests')).body.count).toBe(1);
 
@@ -138,18 +139,20 @@ describe('Planning API — TNA → annual plan (A4)', () => {
     expect(sched.body.data.budgetId).toBeTruthy();
 
     // Cohort exists + linked to the plan item
-    const cohort = await Class.findOne({ classCode: 'TNA001' }).lean();
+    const cohort = await findActiveRowWhere('Class', { classCode: 'TNA001' });
     expect(String(cohort.programId)).toBe(program._id.toString());
-    const plan = await TrainingPlan.findOne({ fiscalYear: '2026' }).lean();
+    const plan = await findActiveRowWhere('TrainingPlan', { fiscalYear: '2026' });
     expect(plan.items[0].cohortIds.map(String)).toContain(cohort._id.toString());
 
     // Approved requests flipped to planned
-    const planned = await TrainingRequest.countDocuments({ 'target.id': program._id, status: 'planned' });
+    const planned = await countActiveRowsWhere('TrainingRequest', { 'target.id': program._id, status: 'planned' });
     expect(planned).toBe(2);
 
     // Est cost carried into an A1 budget
-    const budget = await Budget.findOne({ fiscalYear: '2026', programId: program._id }).lean();
-    expect(budget).toMatchObject({ amountMinor: 500000, currency: 'VND' });
+    const budget = await findActiveRowWhere('Budget', { fiscalYear: '2026', programId: program._id });
+    expect(budget.currency).toBe('VND');
+    // PG bigint (amount_minor) comes back as a string via node-pg — compare numerically.
+    expect(Number(budget.amountMinor)).toBe(500000);
   });
 
   test('scheduling a skill plan item is rejected (cohorts come from programs)', async () => {

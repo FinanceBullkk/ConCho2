@@ -1,5 +1,6 @@
 const request = require('supertest');
 const { getApp, getTokens, getSeedData, teardown, getCsrfHeaders } = require('../setup');
+const { findActiveRowWhere, countActiveRowsWhere } = require('../pg-test-utils');
 const PushSubscription = require('../../models/PushSubscription');
 const Schedule = require('../../models/Schedule');
 
@@ -43,18 +44,18 @@ describe('Mobile API — mobile learning surface (B5)', () => {
   test('push subscribe stores the device; unsubscribe removes it', async () => {
     const sub = await post(tokens.leader, '/api/me/push/subscribe', SUB);
     expect(sub.status).toBe(201);
-    const stored = await PushSubscription.findOne({ endpoint: SUB.endpoint }).lean();
+    const stored = await findActiveRowWhere('PushSubscription', { endpoint: SUB.endpoint });
     expect(String(stored.userId)).toBe(seed.leader._id.toString());
 
     const un = await del(tokens.leader, '/api/me/push/subscribe', { endpoint: SUB.endpoint });
     expect(un.status).toBe(200);
-    expect(await PushSubscription.findOne({ endpoint: SUB.endpoint }).lean()).toBeNull();
+    expect(await findActiveRowWhere('PushSubscription', { endpoint: SUB.endpoint })).toBeNull();
   });
 
   test('subscribe is idempotent on endpoint (re-subscribe upserts)', async () => {
     await post(tokens.leader, '/api/me/push/subscribe', SUB);
     await post(tokens.leader, '/api/me/push/subscribe', SUB);
-    expect(await PushSubscription.countDocuments({ endpoint: SUB.endpoint })).toBe(1);
+    expect(await countActiveRowsWhere('PushSubscription', { endpoint: SUB.endpoint })).toBe(1);
   });
 
   test('vapid-key returns 503 when Web Push is not configured (no VAPID env in test)', async () => {

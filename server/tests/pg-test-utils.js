@@ -147,6 +147,27 @@ const findActiveRowWhere = async (modelName, where) => {
   return rowToCamel(rows[0]);
 };
 
+/** count docs matching top-level scalar equality on the ACTIVE backend. */
+const countActiveRowsWhere = async (modelName, where = {}) => {
+  if (!isPostgres) {
+    const mongoose = require('mongoose');
+    const raw = Object.fromEntries(Object.entries(where).map(([k, v]) => [k, oid(v)]));
+    return mongoose.model(modelName).collection.countDocuments(raw);
+  }
+  const table = await tableFor(modelName);
+  const keys = Object.keys(where);
+  // A Mongo nested path (`target.id`) maps to a PG flat snake column
+  // (`target_id`) — translate dots → underscore before snake-casing.
+  const col = (k) => camelToSnake(k.replace(/\./g, '_'));
+  const clause = keys.length
+    ? `WHERE ${keys.map((k, i) => `"${col(k)}" = $${i + 1}`).join(' AND ')}` : '';
+  const { rows } = await query(
+    `SELECT count(*)::int AS n FROM "${table}" ${clause}`,
+    keys.map((k) => (where[k] == null ? null : String(where[k]))),
+  );
+  return rows[0].n;
+};
+
 /**
  * Update one row (by id) on the ACTIVE backend — for test scaffolding that
  * mutates a row the app wrote through a ported repository (PG-only), which a
@@ -247,6 +268,7 @@ module.exports = {
   mirrorCoreSeedToPg,
   readActiveRow,
   findActiveRowWhere,
+  countActiveRowsWhere,
   updateActiveRow,
   findActiveAuditRow,
   findActiveAuditChain,
