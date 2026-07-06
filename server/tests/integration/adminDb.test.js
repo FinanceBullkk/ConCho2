@@ -19,6 +19,7 @@
 const request = require('supertest');
 const mongoose = require('mongoose');
 const { getApp, getTokens, getSeedData, getCsrfHeaders } = require('../setup');
+const { findActiveAuditRow } = require('../pg-test-utils');
 
 let app, tokens, seed, csrf;
 
@@ -169,11 +170,11 @@ describe('adminDb writes AuditLog on every mutation (SEC-013)', () => {
     // Wait for fire-and-forget write to settle.
     await new Promise(r => setTimeout(r, 60));
 
-    const log = await AuditLog.findOne({
+    const log = await findActiveAuditRow({
       action: 'db-admin-updated',
       entity: 'User',
       entityId: seed.member1._id,
-    }).sort('-createdAt').lean();
+    });
 
     expect(log).not.toBeNull();
     expect(log.actorRole).toBe('Admin');
@@ -191,10 +192,10 @@ describe('adminDb writes AuditLog on every mutation (SEC-013)', () => {
 
     await new Promise(r => setTimeout(r, 60));
 
-    const log = await AuditLog.findOne({
+    const log = await findActiveAuditRow({
       action: 'db-admin-updated',
       entityId: seed.member2._id,
-    }).sort('-createdAt').lean();
+    });
 
     expect(log).not.toBeNull();
     expect(log.note).toMatch(/ignored protected fields/);
