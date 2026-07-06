@@ -245,6 +245,18 @@ to the pre/post re-reads; only mapped models). Start batch 7 here (unblocks a cl
   `countActiveRowsWhere` helper + per-test conversions. NOT the chainable root
   (sub-domain repos don't chain). Next-session work.
 
+### Batch 8 (branch `feat/pg-lane-wave-g-batch8`, stacked on #245) — domain-tractable cluster
+✅ **6 suites green both lanes** (automation, adminDb, studioScheduling, mobile,
+planning, reportsEvidencePackPresets) — 10 reverse-asserts routed through
+readActiveRow / findActiveRowWhere / findActiveAuditRow + new `countActiveRowsWhere`
+(Mongo nested path `target.id` → PG `target_id`). Two real infra gaps: explicit
+**TrainingRequest mapper** (nested `target:{kind,id}` → flat `target_kind/target_id`;
+generic reflective mapper couldn't → NULL target → markRequestsPlanned no-op) +
+bigint `amount_minor` → node-pg string (numeric compare). Remaining CI fail-list
+after batch 8: ~25 suites (learning sub-domains, complianceMatrix/lastActivePerf/
+roomOfficeScope/assignmentReminder/analyticsTimeseries/reconcileAutoHeal app-gaps,
+learning* tail, mfa, p2-regression, GATED schedule cluster).
+
 ### Suggested batch-7 order
 1. raw-collection mirror patch (infra) → re-run softDelete/complianceMatrix/learningAssignment.
 2. Learning cluster B (triage 1 suite → find shared root → sweep).
