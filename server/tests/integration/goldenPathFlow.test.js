@@ -15,6 +15,7 @@
  */
 const request = require('supertest');
 const { getApp, getTokens, getSeedData, getCsrfHeaders, teardown } = require('../setup');
+const { updateActiveRow } = require('../pg-test-utils');
 const Schedule = require('../../models/Schedule');
 const Attendance = require('../../models/Attendance');
 const Enrollment = require('../../models/Enrollment');
@@ -105,9 +106,11 @@ describe('Golden path — core L&D loop end to end', () => {
     expect(sess.body.data.enrolledLearnerCount).toBe(1);
     const scheduleId = sess.body.data.scheduleId;
 
-    // Move the booked session into the past so attendance is markable.
+    // Move the booked session into the past so attendance is markable. The
+    // session was created through the ported booking path (PG-only on the lane),
+    // so a Mongoose findByIdAndUpdate would miss it — shift it on the active backend.
     const past = new Date(Date.now() - 7 * 86400000);
-    await Schedule.findByIdAndUpdate(scheduleId, {
+    await updateActiveRow('Schedule', scheduleId, {
       startTime: past,
       endTime: new Date(past.getTime() + 60 * 60 * 1000),
     });
