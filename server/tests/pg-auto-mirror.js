@@ -109,6 +109,10 @@ const upsertRow = async (table, row) => {
 
 /** Mirror one doc (hydrated or lean) of a model into PG. */
 const mirrorDoc = async (modelName, doc) => {
+  // Some Mongoose ops fire hooks with no resolvable modelName (subdoc/embedded
+  // schemas). Skip them — no model, nothing to mirror (matches pre-generic
+  // behaviour; without this guard toSnake(undefined) would throw).
+  if (!modelName || !doc) return;
   const mapper = MAPPERS[modelName];
   const d = typeof doc.toObject === 'function' ? doc.toObject({ virtuals: false }) : doc;
   // No explicit mapper → reflect the PG table (long tail). No table → warn+skip
@@ -140,6 +144,7 @@ const mirrorDoc = async (modelName, doc) => {
 // Resolve a model's table (explicit mapper first, else reflected). Null when
 // the model has no PG table (Mongo-only). Used by both delete paths.
 const tableFor = async (modelName) => {
+  if (!modelName) return null;
   if (MAPPERS[modelName]) return MAPPERS[modelName].table;
   await loadTables();
   return resolveTable(modelName);
