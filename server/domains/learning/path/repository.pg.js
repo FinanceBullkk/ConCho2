@@ -54,6 +54,17 @@ const pathVal = (k, v) => {
 };
 
 const create = async (data) => {
+  try {
+    return await createInner(data);
+  } catch (error) {
+    // Re-map the PG unique violation to Mongo's E11000 so the use-case's
+    // duplicate-code → 409 mapping fires on either backend.
+    if (error && error.code === '23505') { const e = new Error('duplicate path code'); e.code = 11000; throw e; }
+    throw error;
+  }
+};
+
+const createInner = async (data) => {
   const { rows } = await query(
     `INSERT INTO learning_paths(id,code,title,description,programs,status)
      VALUES ($1,$2,$3,$4,$5,$6) RETURNING id`,

@@ -1,6 +1,7 @@
 const request = require('supertest');
 const mongoose = require('mongoose');
 const { getApp, getTokens, getSeedData, getCsrfHeaders, teardown } = require('../setup');
+const { readActiveRow } = require('../pg-test-utils');
 const Skill = require('../../models/Skill');
 const Certificate = require('../../models/Certificate');
 const LearningProgram = require('../../models/LearningProgram');
@@ -56,7 +57,7 @@ describe('Skills — CRUD + authz', () => {
 
     const del = await asAdmin('delete', `/api/skills/${id}`);
     expect(del.status).toBe(200);
-    const after = await Skill.findById(id).lean();
+    const after = await readActiveRow('Skill', id);
     expect(after.isDeleted).toBe(true);
   });
 
