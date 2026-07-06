@@ -257,6 +257,27 @@ after batch 8: ~25 suites (learning sub-domains, complianceMatrix/lastActivePerf
 roomOfficeScope/assignmentReminder/analyticsTimeseries/reconcileAutoHeal app-gaps,
 learning* tail, mfa, p2-regression, GATED schedule cluster).
 
+### Batch 9 triage (app-gap cluster, 6 suites / 18 fails — branch `feat/pg-lane-wave-g-batch9`)
+Added helpers (verified safe, batch-8 suites still green): shared `buildScalarWhere`
+(null→IS NULL, dotted `target.id`→`target_id`) + **`findActiveRowsWhere`** (find-many)
++ **`distinctActiveValues`** (Mongo `.distinct`). Triage:
+- **Mostly reverse-asserts** (convertible with the helpers): reconcileAutoHeal (audit +
+  RoomBooking/WaitlistEntry/Team reads; Counter is Mongo-only — leave), roomOfficeScope
+  (Schedule/RoomBooking reads + count), analyticsTimeseries (MetricSnapshot find/findOne/
+  count), assignmentReminderRoutes (NotificationLog findOne + `.distinct('cadenceKey')`).
+- **Real app-gaps (deeper — need production investigation, NOT quick):**
+  - **roomOfficeScope**: "duplicate code among live rooms → 409" returns **500** — room repo
+    PG 23505 not mapped to 409 (same class as the earlier dept/office fixes).
+  - **analyticsTimeseries getFunnel/getProgramAnalytics**: `metrics-funnel/pg.js` exists
+    (dual-backend) but the funnel still mis-counts on PG — wiring/selector or count-source
+    divergence to trace.
+  - **complianceMatrix overdue**: derivation anchors on `max(user.createdAt,
+    requirement.createdAt)`; overdue=0 means one backdate isn't landing as `past` even
+    with the raw-collection mirror — trace the created_at mirror value in PG.
+  - **lastActivePerf**: GET /users lastActive/daysSince surface — check the users read path.
+Next session: convert the reverse-assert parts with the new helpers, fix the room
+23505→409 mapping, then the funnel + compliance + lastActive gaps one at a time.
+
 ### Suggested batch-7 order
 1. raw-collection mirror patch (infra) → re-run softDelete/complianceMatrix/learningAssignment.
 2. Learning cluster B (triage 1 suite → find shared root → sweep).
