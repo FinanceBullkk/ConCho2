@@ -6,6 +6,7 @@
 
 const request = require('supertest');
 const { getApp, getTokens, getSeedData, getCsrfHeaders, teardown } = require('../setup');
+const { readActiveRow } = require('../pg-test-utils');
 
 let app, tokens, seed, csrf;
 
@@ -173,7 +174,9 @@ describe('Forced password change enforcement', () => {
 
     expect(changed.status).toBe(200);
 
-    const after = await User.findById(forced._id).lean();
+    // The password change persists through the ported auth repo (PG-only on
+    // the pg lane), so read the active backend, not Mongoose.
+    const after = await readActiveRow('User', forced._id);
     expect(after.mustChangePassword).toBe(false);
   });
 });
