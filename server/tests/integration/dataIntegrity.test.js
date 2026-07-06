@@ -12,6 +12,7 @@
 const request = require('supertest');
 const mongoose = require('mongoose');
 const { getApp, getTokens, getSeedData, getCsrfHeaders } = require('../setup');
+const { readActiveRow } = require('../pg-test-utils');
 
 let app, tokens, seed, csrf;
 
@@ -131,7 +132,9 @@ describe('DATA-005 — cancelSlot refuses past schedules', () => {
 
     expect(res.status).toBe(200);
     // Phase-04 slice A: the doc persists as cancelled history (never deleted).
-    const after = await Schedule.findById(sch._id);
+    // The ported cancel flips status in PG (booking-write-repository.pg.cancelSlot);
+    // read the active backend so the durable flip is visible on either lane.
+    const after = await readActiveRow('Schedule', sch._id);
     expect(after).not.toBeNull();
     expect(after.status).toBe('cancelled');
 
