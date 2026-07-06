@@ -38,6 +38,10 @@ const MAPPERS = {
       position: 'position', office_id: (d) => id(d.officeId),
       password: 'password', password_changed_at: 'passwordChangedAt',
       must_change_password: (d) => d.mustChangePassword ?? false,
+      // Reset-token fixtures are planted via Mongoose (passwordReset suite);
+      // mirror them so the ported auth repo (consumePasswordResetToken/
+      // findForPasswordReset, PG-only) can see the planted token.
+      password_reset_token: 'passwordResetToken', password_reset_expires: 'passwordResetExpires',
       mfa_enabled: (d) => d.mfaEnabled ?? false, mfa_secret: 'mfaSecret',
       mfa_backup_codes: (d) => d.mfaBackupCodes ?? [], mfa_last_used_counter: 'mfaLastUsedCounter',
       failed_login_attempts: (d) => d.failedLoginAttempts ?? 0, lock_until: 'lockUntil',
