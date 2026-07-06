@@ -20,6 +20,7 @@
  * skipped (Setting is intentionally unmapped — its reads are Mongo-direct).
  * Registered only when DB_BACKEND=postgres; otherwise this module is inert.
  */
+const mongoose = require('mongoose');
 const { isPostgres } = require('../config/db-backend');
 const { query } = require('../config/pg');
 const { MAPPERS, toRow } = require('./pg-row-mappers');
@@ -197,7 +198,12 @@ const autoMirrorPlugin = (schema) => {
     const byFilter = await this.model.find(this.getFilter()).select('_id').lean();
     for (const r of byFilter) ids.add(String(r._id));
     if (ids.size === 0) return;
-    const docs = await this.model.find({ _id: { $in: [...ids] } }).lean();
+    // Re-read by id via the RAW driver collection so a JUST-soft-deleted doc
+    // (whose isDeleted flipped to true in THIS update) is still returned. A
+    // mongoose find() would apply the model's soft-delete pre-find hook and hide
+    // it, so the is_deleted=true transition would never mirror to PG (DATA-009).
+    const objIds = [...ids].map((s) => (/^[0-9a-f]{24}$/i.test(s) ? new mongoose.Types.ObjectId(s) : s));
+    const docs = await this.model.collection.find({ _id: { $in: objIds } }).toArray();
     for (const doc of docs) await mirrorDoc(this.model.modelName, doc);
   });
 
