@@ -19,6 +19,15 @@ const { query } = require('../../config/pg');
 // ObjectId-shaped id for new rows (24 hex) — uniform with migrated Mongo ids.
 const newId = () => crypto.randomBytes(12).toString('hex');
 
+// The live-code unique violation (uq_rooms_code_active, 23505) → a Mongo-style
+// { code: 11000 } so the use-case's asConflict maps it to 409 on either backend
+// (same precedent as office/department/path repos).
+const duplicateError = () => {
+  const e = new Error('duplicate room code');
+  e.code = 11000;
+  return e;
+};
+
 // Map a room row (+ optionally joined office cols) to the Mongoose-lean shape.
 const roomRow = (r, { populated = true } = {}) => {
   const room = {
@@ -37,18 +46,24 @@ const roomRow = (r, { populated = true } = {}) => {
 };
 
 const createRoom = async (data) => {
-  const { rows } = await query(
-    `INSERT INTO rooms(id,name,code,office_id,seats,is_active)
-     VALUES ($1,$2,$3,$4,$5,$6) RETURNING *`,
-    [
-      newId(),
-      String(data.name).trim(),
-      String(data.code).trim().toUpperCase(),
-      data.officeId,
-      data.seats == null ? null : data.seats,
-      data.isActive == null ? true : data.isActive,
-    ],
-  );
+  let rows;
+  try {
+    ({ rows } = await query(
+      `INSERT INTO rooms(id,name,code,office_id,seats,is_active)
+       VALUES ($1,$2,$3,$4,$5,$6) RETURNING *`,
+      [
+        newId(),
+        String(data.name).trim(),
+        String(data.code).trim().toUpperCase(),
+        data.officeId,
+        data.seats == null ? null : data.seats,
+        data.isActive == null ? true : data.isActive,
+      ],
+    ));
+  } catch (error) {
+    if (error && error.code === '23505') throw duplicateError();
+    throw error;
+  }
   return roomRow(rows[0], { populated: false }); // Room.create returns un-populated officeId
 };
 
@@ -97,10 +112,16 @@ const updateRoomById = async (id, data) => {
   }
   sets.push('updated_at = now()');
   args.push(id);
-  const { rows } = await query(
-    `UPDATE rooms SET ${sets.join(', ')} WHERE id = $${args.length} AND is_deleted = false RETURNING id`,
-    args,
-  );
+  let rows;
+  try {
+    ({ rows } = await query(
+      `UPDATE rooms SET ${sets.join(', ')} WHERE id = $${args.length} AND is_deleted = false RETURNING id`,
+      args,
+    ));
+  } catch (error) {
+    if (error && error.code === '23505') throw duplicateError();
+    throw error;
+  }
   return rows[0] ? findRoomByIdLean(id) : null; // re-read with office populated (matches .populate)
 };
 

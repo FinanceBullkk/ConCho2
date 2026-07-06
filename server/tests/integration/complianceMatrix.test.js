@@ -15,9 +15,7 @@ const Department = require('../../models/Department');
 const User = require('../../models/User');
 const LearningProgram = require('../../models/LearningProgram');
 const Certificate = require('../../models/Certificate');
-const RequiredTraining = require('../../models/RequiredTraining');
-const AuditLog = require('../../models/AuditLog');
-const { findActiveRowWhere } = require('../pg-test-utils');
+const { findActiveRowWhere, updateActiveRow } = require('../pg-test-utils');
 
 let app, tokens, seed, csrf;
 const uniq = () => Math.random().toString(16).slice(2, 8);
@@ -99,8 +97,11 @@ describe('compliance matrix', () => {
 
   test('overdue once the due window has passed', async () => {
     const past = new Date(Date.now() - 100 * 24 * 60 * 60 * 1000);
-    // Raw driver updates so Mongoose timestamps don't overwrite createdAt.
-    await RequiredTraining.collection.updateOne({ _id: new mongoose.Types.ObjectId(reqId) }, { $set: { createdAt: past } });
+    // The requirement is created through the ported compliance repo (PG-only on
+    // the lane), so a raw Mongo updateOne can't backdate it — write the active
+    // backend. The user exists on both (Mongoose-seeded → mirrored); its raw
+    // updateOne backdates Mongo and the mirror carries created_at to PG.
+    await updateActiveRow('RequiredTraining', reqId, { createdAt: past });
     await User.collection.updateOne({ _id: pendingUser._id }, { $set: { createdAt: past } });
 
     const r = await request(app).get('/api/compliance/matrix').set('Authorization', `Bearer ${tokens.admin}`);

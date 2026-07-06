@@ -185,13 +185,15 @@ const distinctActiveValues = async (modelName, field, where = {}) => {
 /**
  * Update one row (by id) on the ACTIVE backend — for test scaffolding that
  * mutates a row the app wrote through a ported repository (PG-only), which a
- * Mongoose Model.findByIdAndUpdate would miss. `patch` keys are camelCase and map
- * to snake columns on PG. On Mongo it runs the equivalent findByIdAndUpdate.
+ * Mongoose write would miss. `patch` keys are camelCase and map to snake columns
+ * on PG. On Mongo it runs a RAW driver `collection.updateOne` (not
+ * findByIdAndUpdate): it bypasses Mongoose middleware + the timestamps plugin,
+ * matching the PG direct-UPDATE semantics — so an explicit `createdAt`/`updatedAt`
+ * in `patch` sticks (findByIdAndUpdate lets the timestamps plugin clobber it).
  */
 const updateActiveRow = async (modelName, id, patch) => {
   if (!isPostgres) {
-    const mongoose = require('mongoose');
-    return mongoose.model(modelName).findByIdAndUpdate(id, { $set: patch });
+    return require('mongoose').model(modelName).collection.updateOne({ _id: oid(id) }, { $set: patch });
   }
   const table = await tableFor(modelName);
   const keys = Object.keys(patch);
