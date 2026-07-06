@@ -13,6 +13,7 @@ const request = require('supertest');
 const jwt = require('jsonwebtoken');
 const mongoose = require('mongoose');
 const { getApp, getTokens, getSeedData, getCsrfHeaders } = require('../setup');
+const { readActiveRow } = require('../pg-test-utils');
 
 let app, tokens, seed, csrf;
 
@@ -156,10 +157,10 @@ describe('SEC-009 — admin force-logout + mfa admin-disable require re-auth', (
       .send({ currentPassword: ADMIN_PASSWORD });
 
     expect(res.status).toBe(200);
-    // mfaBackupCodes is `select: false` in the schema (secrets-by-default)
-    // so we must include it explicitly to read it back.
-    const after = await User.findById(seed.member1._id)
-      .select('+mfaSecret +mfaBackupCodes').lean();
+    // The app clears MFA through the DB_BACKEND-selected auth repo (PG on the
+    // lane); read the active backend so the cleared state is visible (a Mongoose
+    // findById would see the stale, still-enabled Mongo row).
+    const after = await readActiveRow('User', seed.member1._id);
     expect(after.mfaEnabled).toBe(false);
     expect(after.mfaSecret).toBeNull();
     expect(Array.isArray(after.mfaBackupCodes) ? after.mfaBackupCodes : []).toEqual([]);

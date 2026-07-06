@@ -18,6 +18,22 @@
  *
  * Every export is a NO-OP unless DB_BACKEND=postgres — converted suites can
  * call these unconditionally and stay 100% inert on the default Mongo lane.
+ *
+ * ── Which helper when (reverse-assert / scaffolding on the pg lane) ──────────
+ *   readActiveRow(model, id)          findById  → plain camelCase row (or null)
+ *   findActiveRowWhere(model, where)  findOne by top-level scalar equality
+ *   updateActiveRow(model, id, patch) update a PG-only row a Mongoose write would
+ *                                     miss (patch keys camelCase → snake columns)
+ *   findActiveAuditRow(filter)        latest audit row (entity/entityId/actorId/
+ *                                     action[str|RegExp] + createdAt range)
+ *   findActiveAuditChain()            whole seq-ordered chain (seq→Number)
+ *   update/deleteActiveAuditRowBySeq  tamper/remove one audit row by seq
+ * Rule of thumb: the app writes through a ported repo (PG only) → a Mongoose
+ * read/write sees stale/empty; route the assertion (or scaffolding mutation)
+ * through the matching helper so it hits the ACTIVE backend on either lane.
+ * NOTE: raw `Model.collection.updateOne(...)` in APP code bypasses the auto-mirror
+ * entirely (softDeleteEmpCodeReuse) — that needs the raw-collection mirror patch,
+ * not one of these helpers.
  */
 const { isPostgres } = require('../config/db-backend');
 const { query } = require('../config/pg');
@@ -131,6 +147,98 @@ const findActiveRowWhere = async (modelName, where) => {
   return rowToCamel(rows[0]);
 };
 
+/**
+ * Update one row (by id) on the ACTIVE backend — for test scaffolding that
+ * mutates a row the app wrote through a ported repository (PG-only), which a
+ * Mongoose Model.findByIdAndUpdate would miss. `patch` keys are camelCase and map
+ * to snake columns on PG. On Mongo it runs the equivalent findByIdAndUpdate.
+ */
+const updateActiveRow = async (modelName, id, patch) => {
+  if (!isPostgres) {
+    const mongoose = require('mongoose');
+    return mongoose.model(modelName).findByIdAndUpdate(id, { $set: patch });
+  }
+  const table = await tableFor(modelName);
+  const keys = Object.keys(patch);
+  const clause = keys.map((k, i) => `"${camelToSnake(k)}" = $${i + 2}`).join(', ');
+  return query(`UPDATE "${table}" SET ${clause} WHERE id = $1`, [String(id), ...keys.map((k) => patch[k])]);
+};
+
+/**
+ * Latest audit-log row matching a Mongo-shaped filter, from the ACTIVE backend.
+ * Mirrors `AuditLog.findOne(filter).sort('-createdAt').lean()`. On the pg lane
+ * the app writes audit rows through the DB_BACKEND-selected repository (PG only),
+ * so a Mongoose read sees nothing — this reads the right backend.
+ *
+ * Supports the filter shapes the audit suites use: entity / entityId / actorId /
+ * action (string OR RegExp → PG `~` regex match) + createdAt:{$gte,$lte}. Returns
+ * a LEAN-shaped row (actorId as the raw id string, NOT populated) so both
+ * `row.actorId.toString()` and `row.action`/`row.note` asserts hold on either lane.
+ */
+const findActiveAuditRow = async (filter = {}) => {
+  if (!isPostgres) {
+    const AuditLog = require('../models/AuditLog');
+    return AuditLog.findOne(filter).sort('-createdAt').lean();
+  }
+  const conds = [];
+  const args = [];
+  const COL = { entity: 'entity', entityId: 'entity_id', actorId: 'actor_id', action: 'action' };
+  for (const [k, col] of Object.entries(COL)) {
+    const v = filter[k];
+    if (v == null) continue;
+    if (v instanceof RegExp) { args.push(v.source); conds.push(`"${col}" ~ $${args.length}`); }
+    else { args.push(String(v)); conds.push(`"${col}" = $${args.length}`); }
+  }
+  if (filter.createdAt && filter.createdAt.$gte) { args.push(filter.createdAt.$gte); conds.push(`created_at >= $${args.length}`); }
+  if (filter.createdAt && filter.createdAt.$lte) { args.push(filter.createdAt.$lte); conds.push(`created_at <= $${args.length}`); }
+  const where = conds.length ? `WHERE ${conds.join(' AND ')}` : '';
+  const { rows } = await query(
+    `SELECT * FROM audit_log ${where} ORDER BY created_at DESC, seq DESC NULLS LAST LIMIT 1`,
+    args,
+  );
+  return rowToCamel(rows[0]);
+};
+
+/**
+ * The whole seq-ordered audit chain from the ACTIVE backend, lean-shaped for
+ * services/audit-chain.computeHash. Mirrors
+ * `AuditLog.find({ seq: { $exists: true } }).sort({ seq: 1 }).lean()`.
+ * seq is a PG bigint (node-pg returns a STRING) — coerced back to Number so the
+ * canonical hash payload (JSON.stringify(seq)) matches the write-time Number.
+ */
+const findActiveAuditChain = async () => {
+  if (!isPostgres) {
+    const AuditLog = require('../models/AuditLog');
+    return AuditLog.find({ seq: { $exists: true } }).sort({ seq: 1 }).lean();
+  }
+  const { rows } = await query('SELECT * FROM audit_log WHERE seq IS NOT NULL ORDER BY seq ASC');
+  return rows.map((r) => {
+    const c = rowToCamel(r);
+    if (c.seq != null) c.seq = Number(c.seq);
+    return c;
+  });
+};
+
+/** Tamper one audit row (by seq) on the ACTIVE backend. `set` keys are camelCase. */
+const updateActiveAuditRowBySeq = async (seq, set) => {
+  if (!isPostgres) {
+    const AuditLog = require('../models/AuditLog');
+    return AuditLog.updateOne({ seq }, { $set: set });
+  }
+  const keys = Object.keys(set);
+  const clause = keys.map((k, i) => `"${camelToSnake(k)}" = $${i + 2}`).join(', ');
+  return query(`UPDATE audit_log SET ${clause} WHERE seq = $1`, [seq, ...keys.map((k) => set[k])]);
+};
+
+/** Delete one audit row (by seq) on the ACTIVE backend. */
+const deleteActiveAuditRowBySeq = async (seq) => {
+  if (!isPostgres) {
+    const AuditLog = require('../models/AuditLog');
+    return AuditLog.deleteOne({ seq });
+  }
+  return query('DELETE FROM audit_log WHERE seq = $1', [seq]);
+};
+
 module.exports = {
   resetPgDatabase,
   mirrorUserToPg,
@@ -139,4 +247,9 @@ module.exports = {
   mirrorCoreSeedToPg,
   readActiveRow,
   findActiveRowWhere,
+  updateActiveRow,
+  findActiveAuditRow,
+  findActiveAuditChain,
+  updateActiveAuditRowBySeq,
+  deleteActiveAuditRowBySeq,
 };

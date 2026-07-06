@@ -14,6 +14,7 @@
 const request = require('supertest');
 const mongoose = require('mongoose');
 const { getApp, getTokens, getSeedData, getCsrfHeaders } = require('../setup');
+const { findActiveAuditRow } = require('../pg-test-utils');
 
 let app, tokens, seed, csrf;
 
@@ -28,12 +29,20 @@ afterAll(async () => {
   await mongoose.disconnect();
 });
 
-// auditService.record is fire-and-forget; wait a tick for the write to land.
-const flush = () => new Promise((r) => setTimeout(r, 80));
+// Read the latest matching audit row from the ACTIVE backend (Mongo or PG).
+const last = (filter) => findActiveAuditRow(filter);
 
-const last = async (filter) => {
-  const AuditLog = require('../../models/AuditLog');
-  return AuditLog.findOne(filter).sort('-createdAt').lean();
+// auditService.record is fire-and-forget — the row lands on a later tick. Poll
+// until it appears (deterministic on either lane, robust under --runInBand host
+// load) instead of a fixed sleep that races and flakes when the machine is busy.
+const lastEventually = async (filter, { timeout = 3000, interval = 25 } = {}) => {
+  const start = Date.now();
+  let row = await last(filter);
+  while (!row && Date.now() - start < timeout) {
+    await new Promise((r) => setTimeout(r, interval));
+    row = await last(filter);
+  }
+  return row;
 };
 
 describe('Audit log write-side coverage', () => {
@@ -49,8 +58,7 @@ describe('Audit log write-side coverage', () => {
       .send({ name: 'Audit-Write Test Name' });
     expect(r.status).toBe(200);
 
-    await flush();
-    const row = await last({ entity: 'User', entityId: seed.member1._id, action: 'updated' });
+    const row = await lastEventually({ entity: 'User', entityId: seed.member1._id, action: 'updated' });
     expect(row).not.toBeNull();
     expect(row.actorRole).toBe('Admin');
     expect(row.actorId.toString()).toBe(seed.admin._id.toString());
@@ -72,8 +80,7 @@ describe('Audit log write-side coverage', () => {
       .set(csrf);
     expect(r.status).toBe(200);
 
-    await flush();
-    const row = await last({ entity: 'User', entityId: disposable._id });
+    const row = await lastEventually({ entity: 'User', entityId: disposable._id });
     expect(row).not.toBeNull();
     expect(row.action).toMatch(/deleted|soft-deleted/);
   });
@@ -98,8 +105,7 @@ describe('Audit log write-side coverage', () => {
       });
     expect(r.status).toBe(200);
 
-    await flush();
-    const row = await last({ entity: 'Evaluation', action: /created|updated/ });
+    const row = await lastEventually({ entity: 'Evaluation', action: /created|updated/ });
     expect(row).not.toBeNull();
   });
 
@@ -116,14 +122,13 @@ describe('Audit log write-side coverage', () => {
     // tolerate both as long as the audit row reflects the attempt.
     expect([200, 400]).toContain(r.status);
 
-    await flush();
     // Setting-update audit lines exist when the change took. We assert
     // an audit row exists for entity=Setting created within last 5s.
     if (r.status === 200) {
-      const recent = await AuditLog.findOne({
+      const recent = await lastEventually({
         entity: 'Setting',
         createdAt: { $gte: new Date(Date.now() - 5000) },
-      }).sort('-createdAt').lean();
+      });
       expect(recent).not.toBeNull();
     }
   });
@@ -136,8 +141,7 @@ describe('Audit log write-side coverage', () => {
       .set(csrf);
     expect(r.status).toBe(200);
 
-    await flush();
-    const row = await last({ entity: 'Auth', action: 'logged-out' });
+    const row = await lastEventually({ entity: 'Auth', action: 'logged-out' });
     expect(row).not.toBeNull();
   });
 
@@ -149,8 +153,7 @@ describe('Audit log write-side coverage', () => {
       .send({ currentPassword: 'admin12345' });
     expect(r.status).toBe(200);
 
-    await flush();
-    const row = await last({ entity: 'User', entityId: seed.member2._id, action: 'force-logged-out' });
+    const row = await lastEventually({ entity: 'User', entityId: seed.member2._id, action: 'force-logged-out' });
     expect(row).not.toBeNull();
     expect(row.note).toMatch(/force-logout|admin/i);
   });
@@ -180,8 +183,7 @@ describe('Audit log write-side coverage', () => {
     expect([200, 400]).toContain(r.status);
 
     if (r.status === 200) {
-      await flush();
-      const row = await last({ entity: 'Import', action: 'imported' });
+      const row = await lastEventually({ entity: 'Import', action: 'imported' });
       expect(row).not.toBeNull();
       expect(row.note).toMatch(/users:/);
     }
@@ -202,8 +204,7 @@ describe('Audit log write-side coverage', () => {
       .send({});
     expect(r.status).toBe(200);
 
-    await flush();
-    const row = await last({ entity: 'Reconcile', action: 'reconciled' });
+    const row = await lastEventually({ entity: 'Reconcile', action: 'reconciled' });
     expect(row).not.toBeNull();
     expect(row.note).toMatch(/manual run/);
   });
@@ -216,8 +217,7 @@ describe('Audit log write-side coverage', () => {
       .send({ settings: [{ key: 'ALLOWED_TIME_SLOTS', value: [] }] });
     expect(r.status).toBe(403);
 
-    await flush();
-    const row = await last({ entity: 'Auth', action: 'csrf-failed' });
+    const row = await lastEventually({ entity: 'Auth', action: 'csrf-failed' });
     expect(row).not.toBeNull();
     expect(row.note).toMatch(/PUT.*\/api\/settings/);
   });
@@ -232,8 +232,7 @@ describe('Audit log write-side coverage', () => {
       .set('Authorization', 'Bearer this-is-the-wrong-token');
     expect(r.status).toBe(401);
 
-    await flush();
-    const row = await last({ entity: 'Auth', action: 'cron-auth-failed' });
+    const row = await lastEventually({ entity: 'Auth', action: 'cron-auth-failed' });
     expect(row).not.toBeNull();
     expect(row.note).toMatch(/\/api\/cron\/health/);
 

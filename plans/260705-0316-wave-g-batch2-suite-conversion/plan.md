@@ -131,9 +131,115 @@ CostEntry · Budget · Vendor · TrainingRequest · RequiredTraining · TrainerP
 (+ long tail). Most have ported repos; a mapper is only needed when a test seeds
 the model DIRECTLY via Mongoose.
 
+## Batch 5 shipped (PR #243, stacked on #242→main)
+trainer + finance reverse-asserts; auto-mirror upsert-without-`{new:true}`
+(finance `LND_COST_CONFIG` currency Setting) → both suites green both lanes.
+
+## Batch 6 shipped (branch `feat/pg-lane-wave-g-batch6`) — audit/security cluster
+8 suites green both lanes (25 tests). Cluster went 11→3 failing suites (combined
+PG run: 8/11 pass). Attacked the named audit/security cluster:
+
+1. **auditWriteSide** (9) — new `findActiveAuditRow(filter)` helper (entity/entityId/
+   actorId/action[string|RegExp] + createdAt range, lean actorId shape) — the app
+   writes audit via the DB_BACKEND-selected repo (PG only). Also replaced the fixed
+   80ms fire-and-forget `flush()` with a poll (`lastEventually`) — the sleep raced
+   under `--runInBand` load and flaked csrf/cron tails on BOTH lanes.
+2. **passwordReset** (6) — **mapper gap**: User mapper omitted
+   `password_reset_token`/`password_reset_expires` → Mongoose-planted tokens never
+   reached PG (reset 400 + stale-token cooldown blocked send). Added the 2 cols +
+   3 reads → `readActiveRow`.
+3. **phaseAHardening DATA-009** (1) — **auto-mirror bug**: the UPDATE post-hook
+   re-read via `this.model.find()`, which applies the soft-delete pre-find hook →
+   a just-soft-deleted doc was hidden → `is_deleted=true` never mirrored to PG.
+   Re-read by id via the RAW driver collection. (Fixes soft-delete transitions
+   generally; regression-checked 49/49 on core mirrored-update suites.)
+4. **auditHashChain** (4) — `findActiveAuditChain` (seq bigint→Number so the
+   canonical hash matches) + `updateActiveAuditRowBySeq`/`deleteActiveAuditRowBySeq`
+   so chain read + tampers hit the active backend.
+5. **dataIntegrity DATA-005** (1) — reverse-assert: ported cancel flips
+   `status='cancelled'` in PG; read via `readActiveRow('Schedule', …)`.
+6. **accessRoles** (2) — **real port gap**: `grants-loader.loadGrantsIntoMemory`
+   read roles via `Role.find` (Mongo) while access writes are ported to
+   `repository.pg` → live-grants refresh stayed stale. Routed through
+   `repository.listLive()` (dual-backend). (Also wrong in a real PG deploy.)
+7. **goldenPathFlow** (1) — e2e scaffolding shifted the booked (PG-only) session
+   into the past via Mongoose → missed PG → attendance-mark 400. New
+   `updateActiveRow(model,id,patch)` helper; shift on the active backend.
+8. **authHardening** (1) — reverse-assert: mfa admin-disable planted MFA via
+   `User.updateOne` (mirrors to PG), app cleared PG, read via Mongoose saw stale →
+   `readActiveRow('User', …)`.
+
+New `pg-test-utils` exports: `findActiveAuditRow`, `findActiveAuditChain`,
+`updateActiveAuditRowBySeq`, `deleteActiveAuditRowBySeq`, `updateActiveRow`.
+
+### Deferred from this cluster (next batch — precise root causes)
+- **softDeleteEmpCodeReuse** (4) — `user-lifecycle.deleteUser`/`restoreUser` write
+  the soft-delete via **raw `User.collection.updateOne`** (to bypass the soft-delete
+  find-filter); raw-driver writes bypass the auto-mirror → PG keeps `is_deleted=false`
+  + old empCode → replacement create hits `uq_users_emp_code_active` → 500. Needs
+  EITHER a global `NativeCollection.prototype` mirror patch (session/txn hazards) OR
+  a dual-backend port of the delete/restore state write. (In real PG mode deleteUser
+  wouldn't soft-delete at all — genuine port gap.)
+- **mfa** (7) — the suite does read-modify-write on `select:false` security fields
+  through Mongoose: `beforeAll` loads `mfaSecret` from Mongo (undefined — app wrote
+  it to PG only) and `u.save()` mirrors the stale Mongo doc → CLOBBERS PG's
+  `mfa_secret`/`mfa_enabled`. Any Mongoose user write clobbers PG mfa state. Fix =
+  rewrite the suite to drive the whole flow through the API + active-backend reads
+  (carry the secret from the `/mfa/setup` response; inject backup codes via
+  `updateActiveRow`), avoiding Mongoose user-state writes. Non-trivial rewrite.
+- **p2-regression** (2) — export syncStatus stuck `EXPORTING` (finalize phase not
+  reaching Mongo/PG symmetrically) = the **F-PR-2 attendance-export refactor**;
+  deferred with enrollmentTransfer/autoReleaseScope.
+
+## Batch 7 worklist — CI-authoritative fail-list (33 suites, from #244 PG-lane job 2026-07-06)
+
+> **Source = CI, not local.** A local `jest --runInBand` over all 208 suites **OOMs**
+> (V8 heap) without CI's 8GB — the crash prints spurious FAILs for late suites
+> (roleGrants/vendor/learningReportsRoutes/enrollmentRoutes/… are FALSE fails; they
+> pass on CI). Always pull the real list from the PG-lane CI job:
+> `gh run view --job <id> --log | grep -oE "FAIL tests/[^ ]+"`. For a local full run,
+> export `NODE_OPTIONS=--max-old-space-size=8192` (run-pg.sh sets it).
+
+**A — GATED (ask owner first; schedule roster-sync + waitlist promotion port, Wave-D tail):**
+bookingRace · scheduleCancel · scheduleReassign · scheduleUseCases · sessionTrainers ·
+waitlist · autoReleaseScope · enrollmentTransfer  (8)
+
+**B — Learning cluster (investigate as ONE cluster — likely shared root):**
+learningRoutes · learningAssignmentRoutes · learningCertificateExpiryRoutes ·
+learningCompletionRoutes · learningComplianceReportsRoutes · learningDashboardExecutive ·
+learningEnrollmentRoutes · learningFeedbackRoutes · learningPrerequisiteRoutes ·
+learningSessionRoutes  (10)
+
+**C — Domain tractable (owner-named; likely 1 real bug each):**
+automation · planning · studioScheduling · mobile · reportsEvidencePackPresets · adminDb  (6)
+
+**D — App-gap (real PG-repo divergence, per earlier triage):**
+complianceMatrix · lastActivePerf · roomOfficeScope · assignmentReminderRoutes ·
+analyticsTimeseries · reconcileAutoHeal  (6)
+
+**E — Deferred / raw-collection class:**
+mfa · p2-regression (F-PR-2) · softDeleteEmpCodeReuse  (3)
+
+### #2 decision — raw-collection mirror patch IS justified
+`Model.collection.updateOne/insertOne` (raw driver) bypasses the auto-mirror. Confirmed
+gt of **softDeleteEmpCodeReuse** (deleteUser/restoreUser) + **complianceMatrix** (backdate
+createdAt) + **learningAssignmentRoutes** (raw user update) → ≥3 suites. Do ONE test-infra
+patch: wrap `NativeCollection.prototype.{updateOne,updateMany,deleteOne,deleteMany,insertOne,
+insertMany}` to mirror affected rows to PG (fail-soft; session-aware — pass `options.session`
+to the pre/post re-reads; only mapped models). Start batch 7 here (unblocks a class).
+
+### Suggested batch-7 order
+1. raw-collection mirror patch (infra) → re-run softDelete/complianceMatrix/learningAssignment.
+2. Learning cluster B (triage 1 suite → find shared root → sweep).
+3. Domain tractable C (automation → planning → studio → mobile → reports → adminDb).
+4. App-gap D per-suite.
+5. Ask owner re: GATED A. Deferred E last (mfa rewrite; p2 = F-PR-2).
+
 ## Unresolved
 
 - 214-vs-208 suite-count reconciliation before gate promotion.
 - `learningSessionRoutes` beforeAll timeout — fixture-only or latent flake.
-- Batch-3 agent fan-out was cut short twice (Mac sleep, then session limits) →
-  ~46 of the 58 suites remain untriaged; batch 4 continues inline.
+- GATED (ask owner before undertaking): schedule roster-sync + waitlist promotion
+  dual-backend port (`syncSchedulesForTeamUpdate` is intentionally Mongo-only) —
+  blocks scheduleCancel/Reassign/UseCases, bookingRace, waitlist, sessionTrainers +
+  the 2 F-PR-2 suites (enrollmentTransfer, autoReleaseScope). Wave-D-tail, large.
