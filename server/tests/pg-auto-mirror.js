@@ -190,7 +190,12 @@ const autoMirrorPlugin = (schema) => {
 
   schema.post(UPDATE_OPS, async function (res) {
     const ids = new Set(this.__mirrorIds || []);
-    if (res && res._id) ids.add(String(res._id)); // upsert-created doc
+    if (res && res._id) ids.add(String(res._id)); // upsert-created doc (with {new:true})
+    // Also re-run the CURRENT filter: an upsert-create WITHOUT {new:true} returns
+    // a null res and matched no pre-ids, so the new doc is only reachable via the
+    // filter it was created under (finance seeds LND_COST_CONFIG this way).
+    const byFilter = await this.model.find(this.getFilter()).select('_id').lean();
+    for (const r of byFilter) ids.add(String(r._id));
     if (ids.size === 0) return;
     const docs = await this.model.find({ _id: { $in: [...ids] } }).lean();
     for (const doc of docs) await mirrorDoc(this.model.modelName, doc);

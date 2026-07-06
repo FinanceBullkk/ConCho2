@@ -1,6 +1,7 @@
 const request = require('supertest');
 const jwt = require('jsonwebtoken');
 const { getApp, getTokens, getSeedData, teardown, getCsrfHeaders } = require('../setup');
+const { findActiveRowWhere } = require('../pg-test-utils');
 const CostEntry = require('../../models/CostEntry');
 const Budget = require('../../models/Budget');
 const AuditLog = require('../../models/AuditLog');
@@ -85,7 +86,7 @@ describe('Finance API — budget & cost (A1)', () => {
     const id = created.body.data._id;
 
     await new Promise((resolve) => setTimeout(resolve, 30)); // audit is fire-and-forget
-    const log = await AuditLog.findOne({ entity: 'CostEntry', action: 'created' }).lean();
+    const log = await findActiveRowWhere('AuditLog', { entity: 'CostEntry', action: 'created' });
     expect(log).toMatchObject({ actorRole: 'Admin' });
 
     expect((await get(tokens.admin, '/api/finance/costs')).body.count).toBe(1);
