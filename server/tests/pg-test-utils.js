@@ -40,80 +40,27 @@ const resetPgDatabase = async () => {
   await query(`TRUNCATE ${tables} RESTART IDENTITY CASCADE`);
 };
 
-// Mongoose doc/POJO → plain object (keeps in-memory-only fields like the
-// freshly hashed password, which is select:false on later reads).
-const plain = (doc) => (typeof doc?.toObject === 'function' ? doc.toObject({ virtuals: false }) : { ...doc });
-const id = (v) => (v == null ? null : String(v));
+// Row shapes live in ONE place (pg-row-mappers.js); the upsert executor lives
+// in pg-auto-mirror.js. These wrappers stay for explicit fixture mirroring —
+// idempotent (upsert), so they coexist with the auto-mirror plugin.
+const { mirrorDoc } = require('./pg-auto-mirror');
 
-/**
- * Mirror a User doc into the PG `users` table (migrations 001/004/030/031).
- * Reads the bcrypt hash off the in-memory doc (present right after
- * User.create()), so PG logins verify against the identical hash.
- */
+/** Mirror a User doc into PG `users` (same ObjectId-hex id + bcrypt hash). */
 const mirrorUserToPg = async (doc) => {
   if (!isPostgres) return;
-  const d = plain(doc);
-  const password = doc.password || d.password || null;
-  await query(
-    `INSERT INTO users(
-       id, emp_code, email, name, department, role, status,
-       department_id, manager_id, position, office_id,
-       password, password_changed_at, must_change_password,
-       mfa_enabled, mfa_secret, mfa_backup_codes, mfa_last_used_counter,
-       failed_login_attempts, lock_until, notification_preferences,
-       entrance_level, current_level, drop_reason, last_active_at,
-       is_deleted, deleted_at, created_at, updated_at
-     ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,
-               $19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29)`,
-    [
-      id(d._id), d.empCode, d.email ?? null, d.name, d.department ?? '', d.role, d.status ?? 'Active',
-      id(d.departmentId), id(d.managerId), d.position ?? null, id(d.officeId),
-      password, d.passwordChangedAt ?? null, d.mustChangePassword ?? false,
-      d.mfaEnabled ?? false, d.mfaSecret ?? null, d.mfaBackupCodes ?? [], d.mfaLastUsedCounter ?? null,
-      d.failedLoginAttempts ?? 0, d.lockUntil ?? null, d.notificationPreferences ?? null,
-      d.entranceLevel ?? '', d.currentLevel ?? '', d.dropReason ?? '', d.lastActiveAt ?? null,
-      d.isDeleted ?? false, d.deletedAt ?? null, d.createdAt ?? new Date(), d.updatedAt ?? new Date(),
-    ],
-  );
+  await mirrorDoc('User', doc);
 };
 
-/** Mirror a Class doc into the PG `classes` table. */
+/** Mirror a Class doc into PG `classes`. */
 const mirrorClassToPg = async (doc) => {
   if (!isPostgres) return;
-  const d = plain(doc);
-  await query(
-    `INSERT INTO classes(
-       id, class_code, course_name, program_id, total_sessions, status,
-       teacher_ids, custom_fields, is_deleted, deleted_at, created_at, updated_at
-     ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)`,
-    [
-      id(d._id), d.classCode, d.courseName ?? null, id(d.programId), d.totalSessions ?? null,
-      d.status ?? null, (d.teacherIds || []).map(id), d.customFields ?? null,
-      d.isDeleted ?? false, d.deletedAt ?? null, d.createdAt ?? new Date(), d.updatedAt ?? new Date(),
-    ],
-  );
+  await mirrorDoc('Class', doc);
 };
 
 /** Mirror a Team doc into PG `teams` + the `team_members` junction. */
 const mirrorTeamToPg = async (doc) => {
   if (!isPostgres) return;
-  const d = plain(doc);
-  await query(
-    `INSERT INTO teams(id, name, class_id, leader_id, is_deleted, deleted_at, created_at, updated_at)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
-    [
-      id(d._id), d.name, id(d.classId), id(d.leaderId),
-      d.isDeleted ?? false, d.deletedAt ?? null, d.createdAt ?? new Date(), d.updatedAt ?? new Date(),
-    ],
-  );
-  const members = (d.members || []).map(id);
-  if (members.length) {
-    await query(
-      `INSERT INTO team_members(team_id, user_id)
-       VALUES ${members.map((_, j) => `($1,$${j + 2})`).join(',')}`,
-      [id(d._id), ...members],
-    );
-  }
+  await mirrorDoc('Team', doc);
 };
 
 /**
@@ -127,10 +74,65 @@ const mirrorCoreSeedToPg = async ({ users = [], classes = [], teams = [] }) => {
   for (const t of teams) await mirrorTeamToPg(t);
 };
 
+// ── Backend-agnostic assertion reads ────────────────────────
+// On the pg lane the app WRITES through ported repositories (rows land in PG
+// only), so a legacy `Model.findById(...)` assertion reads Mongo and sees null.
+// These helpers read from the ACTIVE backend and return camelCase-keyed plain
+// objects, so asserts like `row.status` / `row.enrolledUsers.length` work
+// unchanged on either lane.
+const { MAPPERS } = require('./pg-row-mappers');
+
+const snakeToCamel = (s) => s.replace(/_([a-z])/g, (_, c) => c.toUpperCase());
+const camelToSnake = (s) => s.replace(/[A-Z]/g, (c) => `_${c.toLowerCase()}`);
+const rowToCamel = (row) => {
+  if (!row) return null;
+  const out = {};
+  for (const [k, v] of Object.entries(row)) out[k === 'id' ? '_id' : snakeToCamel(k)] = v;
+  return out;
+};
+
+// Mongo side reads the RAW collection (driver-level) — the PG side is a raw
+// SELECT, so the Mongo twin must bypass mongoose query middleware too (else
+// soft-delete find-hooks hide the very rows an assertion wants to inspect).
+const oid = (v) => {
+  const mongoose = require('mongoose');
+  return /^[0-9a-f]{24}$/i.test(String(v)) ? new mongoose.Types.ObjectId(String(v)) : v;
+};
+
+/** findById on the active backend → plain object (or null), middleware-free. */
+const readActiveRow = async (modelName, id) => {
+  if (!isPostgres) {
+    const mongoose = require('mongoose');
+    return mongoose.model(modelName).collection.findOne({ _id: oid(id) });
+  }
+  const { table } = MAPPERS[modelName];
+  const { rows } = await query(`SELECT * FROM "${table}" WHERE id = $1`, [String(id)]);
+  return rowToCamel(rows[0]);
+};
+
+/** findOne by top-level equality fields on the active backend, middleware-free. */
+const findActiveRowWhere = async (modelName, where) => {
+  if (!isPostgres) {
+    const mongoose = require('mongoose');
+    const raw = Object.fromEntries(Object.entries(where).map(([k, v]) => [k, oid(v)]));
+    return mongoose.model(modelName).collection.findOne(raw);
+  }
+  const { table } = MAPPERS[modelName];
+  const keys = Object.keys(where);
+  const clause = keys.map((k, i) => `"${camelToSnake(k)}" = $${i + 1}`).join(' AND ');
+  const { rows } = await query(
+    `SELECT * FROM "${table}" WHERE ${clause} LIMIT 1`,
+    keys.map((k) => (where[k] == null ? null : String(where[k]))),
+  );
+  return rowToCamel(rows[0]);
+};
+
 module.exports = {
   resetPgDatabase,
   mirrorUserToPg,
   mirrorClassToPg,
   mirrorTeamToPg,
   mirrorCoreSeedToPg,
+  readActiveRow,
+  findActiveRowWhere,
 };

@@ -8,7 +8,9 @@
 // Semantic interface: getMetricSeries({ key, scope, scopeId, since })
 //   → [{ date: ISO, value }] ascending by date. `since` is a concrete Date — the
 //   range→since derivation stays in analyticsSeriesService (pure date logic).
-const repo = require('../metrics-repository');
+// Pin impls.mongo explicitly — metrics-repository became a DB_BACKEND selector
+// in Wave F-PR-1; this wrapper must stay Mongo on the pg lane.
+const repo = require('../metrics-repository').impls.mongo;
 
 const iso = (d) => new Date(d).toISOString();
 
