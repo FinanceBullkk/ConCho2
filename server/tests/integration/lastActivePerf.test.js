@@ -9,6 +9,9 @@
 const request = require('supertest');
 const mongoose = require('mongoose');
 const { getApp, getTokens, getSeedData, getCsrfHeaders } = require('../setup');
+// On the pg lane bulkMark write-throughs land in PG only (ported attendance
+// repo), so a Mongoose User.findById assertion reads the wrong backend.
+const { readActiveRow } = require('../pg-test-utils');
 
 let app, tokens, seed, csrf;
 
@@ -65,12 +68,12 @@ describe('PERF-008 — lastActiveAt write-through', () => {
 
     // member1 marked Present → lastActiveAt should match the schedule's
     // startTime (NOT the createdAt of the Attendance doc).
-    const m1 = await User.findById(seed.member1._id).lean();
+    const m1 = await readActiveRow('User', seed.member1._id);
     expect(m1.lastActiveAt).toBeTruthy();
     expect(new Date(m1.lastActiveAt).toISOString()).toBe(past.toISOString());
 
     // member2 marked Absent → lastActiveAt MUST stay null.
-    const m2 = await User.findById(seed.member2._id).lean();
+    const m2 = await readActiveRow('User', seed.member2._id);
     expect(m2.lastActiveAt).toBeNull();
   });
 
@@ -91,7 +94,7 @@ describe('PERF-008 — lastActiveAt write-through', () => {
       .set(csrf)
       .send({ records: [{ userId: seed.member1._id, status: 'P' }] });
 
-    let m1 = await User.findById(seed.member1._id).lean();
+    let m1 = await readActiveRow('User', seed.member1._id);
     expect(new Date(m1.lastActiveAt).getTime()).toBe(recent.getTime());
 
     // Now mark an OLDER session — lastActiveAt should NOT regress.
@@ -110,7 +113,7 @@ describe('PERF-008 — lastActiveAt write-through', () => {
       .set(csrf)
       .send({ records: [{ userId: seed.member1._id, status: 'P' }] });
 
-    m1 = await User.findById(seed.member1._id).lean();
+    m1 = await readActiveRow('User', seed.member1._id);
     expect(new Date(m1.lastActiveAt).getTime()).toBe(recent.getTime()); // still recent
   });
 
@@ -130,7 +133,7 @@ describe('PERF-008 — lastActiveAt write-through', () => {
       .set(csrf)
       .send({ records: [{ userId: seed.member1._id, status: 'L' }] });
 
-    const m1 = await User.findById(seed.member1._id).lean();
+    const m1 = await readActiveRow('User', seed.member1._id);
     expect(m1.lastActiveAt).toBeTruthy();
   });
 
@@ -150,7 +153,7 @@ describe('PERF-008 — lastActiveAt write-through', () => {
       .set(csrf)
       .send({ records: [{ userId: seed.member1._id, status: 'EL' }] });
 
-    const m1 = await User.findById(seed.member1._id).lean();
+    const m1 = await readActiveRow('User', seed.member1._id);
     expect(m1.lastActiveAt).toBeNull();
   });
 
