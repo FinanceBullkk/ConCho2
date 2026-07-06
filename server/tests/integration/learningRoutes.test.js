@@ -1,6 +1,7 @@
 const request = require('supertest');
 const mongoose = require('mongoose');
 const { getApp, getTokens, getCsrfHeaders, teardown } = require('../setup');
+const { readActiveRow, findActiveRowWhere } = require('../pg-test-utils');
 const Class = require('../../models/Class');
 const LearningProgram = require('../../models/LearningProgram');
 const NotificationLog = require('../../models/NotificationLog');
@@ -148,7 +149,7 @@ describe('Learning Platform API — cohorts', () => {
     expect(res.body.data.program.code).toBe('TEST_TECHNICAL');
     expect(res.body.data.totalSessions).toBe(4);
 
-    const stored = await Class.findOne({ classCode: 'LD_TEST_001' }).lean();
+    const stored = await findActiveRowWhere('Class', { classCode: 'LD_TEST_001' });
     expect(stored.programId.toString()).toBe(program._id.toString());
     expect(stored.courseName).toBe('Technical Bootcamp');
   });
@@ -236,7 +237,7 @@ describe('Learning Platform API — cohort edit/delete', () => {
     expect(res.status).toBe(200);
     expect(res.body.data.status).toBe('Completed');
     expect(res.body.data.totalSessions).toBe(8);
-    const stored = await Class.findById(cohort._id).lean();
+    const stored = await readActiveRow('Class', cohort._id);
     expect(stored.status).toBe('Completed');
     expect(stored.totalSessions).toBe(8);
   });
@@ -266,10 +267,10 @@ describe('Learning Platform API — cohort edit/delete', () => {
 
     expect(res.status).toBe(200);
     expect(res.body.cascade).toBeDefined();
-    // Hidden from normal queries (soft-delete pre-hook) ...
-    expect(await Class.findById(cohort._id)).toBeNull();
-    // ... but the document is preserved (recoverable).
-    const archived = await Class.findOne({ _id: cohort._id, isDeleted: true }).lean();
+    // Soft-archived on the active backend: preserved (recoverable) with
+    // isDeleted=true. (A Mongoose findById would read the not-soft-deleted Mongo
+    // twin — the ported delete flips is_deleted in PG only.)
+    const archived = await readActiveRow('Class', cohort._id);
     expect(archived).not.toBeNull();
     expect(archived.isDeleted).toBe(true);
     expect(archived.deletedAt).toBeTruthy();
@@ -315,7 +316,7 @@ describe('Learning Platform API — cohort edit/delete', () => {
       .delete(`/api/learning/cohorts/${cohort._id}`)
       .set('Authorization', `Bearer ${tokens.admin}`).set(csrf);
 
-    const after = await Enrollment.findById(enrollment._id).lean();
+    const after = await readActiveRow('Enrollment', enrollment._id);
     expect(after).not.toBeNull();          // preserved (not hard-deleted)
     expect(after.status).toBe('Dropped');  // closed
     await Enrollment.findByIdAndDelete(enrollment._id);

@@ -22,6 +22,33 @@ const newId = () => crypto.randomBytes(12).toString('hex');
 const hasOwn = (o, k) => Object.prototype.hasOwnProperty.call(o, k);
 const cmp = (x, y) => ((x || '') < (y || '') ? -1 : (x || '') > (y || '') ? 1 : 0);
 
+// Mongoose-Query-lite over an eager PG read. The programs/cohorts use-cases were
+// written against the Mongo repo (which returns chainable Queries) and chain
+// `.skip().limit().lean().sort()` on the read result. This PG impl resolves to
+// plain arrays/objects, so those chained calls would throw (`.skip is not a
+// function` → 500). Wrap a read in a thenable that supports the same chain and
+// applies skip/limit in memory (program/cohort catalogs are small). Awaiting it —
+// chained or not — resolves to the value; single-doc reads ignore skip/limit.
+const chainable = (loader) => {
+  let s = 0;
+  let l = Infinity;
+  const q = {
+    skip(n) { s = n || 0; return q; },
+    limit(n) { l = (n == null) ? Infinity : n; return q; },
+    lean() { return q; },
+    sort() { return q; },      // the repo query already ORDERs
+    populate() { return q; },  // the repo already embeds the program
+    then(onF, onR) {
+      return Promise.resolve().then(loader)
+        .then((v) => (Array.isArray(v) && (s || l !== Infinity)
+          ? v.slice(s, l === Infinity ? undefined : s + l) : v))
+        .then(onF, onR);
+    },
+    catch(onR) { return q.then(undefined, onR); },
+  };
+  return q;
+};
+
 const D_COMPLETION = { attendanceThresholdPercent: 0, requiresAssessment: false, requiresFeedback: false };
 const D_CAPACITY = { maxParticipants: null, maxParticipantsPerSession: null };
 const D_FACILITATOR = { assignmentRequired: false, visibility: 'all_facilitators' };
@@ -113,7 +140,7 @@ const updateProgramById = async (id, payload) => {
   return rows[0] ? programRow(rows[0]) : null;
 };
 
-const findPrograms = async (filter = {}) => {
+const findPrograms = (filter = {}) => chainable(async () => {
   const conds = [];
   const args = [];
   if (filter.status) { args.push(filter.status); conds.push(`status = $${args.length}`); }
@@ -121,12 +148,12 @@ const findPrograms = async (filter = {}) => {
   const where = conds.length ? `WHERE ${conds.join(' AND ')}` : '';
   const { rows } = await query(`SELECT * FROM learning_programs ${where}`, args);
   return rows.map(programRow).sort((a, b) => cmp(a.category, b.category) || cmp(a.name, b.name));
-};
+});
 
-const findProgramById = async (id) => {
+const findProgramById = (id) => chainable(async () => {
   const { rows } = await query(`SELECT * FROM learning_programs WHERE id = $1`, [id]);
   return rows[0] ? programRow(rows[0]) : null;
-};
+});
 
 const findProgramByName = async (name) => {
   const { rows } = await query(`SELECT * FROM learning_programs WHERE lower(name) = lower($1) LIMIT 1`, [name]);
@@ -177,7 +204,7 @@ const updateCohortById = async (id, update) => {
   return rows[0] ? cohortRow(rows[0]) : null;
 };
 
-const findCohorts = async (filter = {}) => {
+const findCohorts = (filter = {}) => chainable(async () => {
   const conds = ['is_deleted = false'];
   const args = [];
   if (filter.status) { args.push(filter.status); conds.push(`status = $${args.length}`); }
@@ -185,13 +212,13 @@ const findCohorts = async (filter = {}) => {
   const { rows } = await query(
     `SELECT * FROM classes WHERE ${conds.join(' AND ')} ORDER BY class_code ASC, course_name ASC`, args);
   return embedPrograms(rows);
-};
+});
 
-const findCohortById = async (id) => {
+const findCohortById = (id) => chainable(async () => {
   const { rows } = await query(`SELECT * FROM classes WHERE id = $1 AND is_deleted = false`, [id]);
   if (!rows[0]) return null;
   return (await embedPrograms(rows))[0];
-};
+});
 
 const findOngoingCohortConflict = async (classCode, excludeId) => {
   const { rows } = await query(
@@ -232,10 +259,10 @@ const restoreCohortById = async (cohortId) => {
   return rows[0] ? cohortRow(rows[0]) : null;
 };
 
-const findDeletedCohorts = async () => {
+const findDeletedCohorts = () => chainable(async () => {
   const { rows } = await query(`SELECT * FROM classes WHERE is_deleted = true ORDER BY deleted_at DESC`);
   return embedPrograms(rows);
-};
+});
 
 const countSessionsByCohortIds = async (cohortIds) => {
   if (!cohortIds.length) return {};
