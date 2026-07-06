@@ -143,8 +143,21 @@ Bug fixing and integration review rank above net-new feature rollout.
 > **Rolling window:** ~last 2 weeks / ~15 entries kept inline (file ≤ ~400
 > lines); older entries roll verbatim, newest-first, to
 > [`changelog-archive/2026-q2.md`](changelog-archive/2026-q2.md). Currently
-> inline: **2026-06-20 → 2026-07-04** (06-14→06-19 rolled 2026-07-04).
+> inline: **2026-06-20 → 2026-07-06** (06-14→06-19 rolled 2026-07-04).
 
+- **2026-07-06** — **Wave G batches 2–6 — PG lane suite conversion grind (CI-official failing: 117→77→58→47→44; batches 5–6 in flight).**
+  Batch 2 (PR #240): `pg-auto-mirror.js` global mongoose plugin (mirrors every mapped-model write into PG via `pg-row-mappers.js`) +
+  groups reads port + 2 real pg-lane bug fixes → 77→58. Batch 3 (PR #241): 4 missing mappers (Assessment/AssessmentAttempt/
+  Assignment/Feedback) + 3 REAL org-domain divergences fixed (office uppercase setter, user-assignment officeId drop, dept 23505→11000)
+  → 58→47. Batch 4 (PR #242): generic reflective long-tail mapper (fail-soft) + vendor/learning-path fixes → 47→44. Batch 5 (PR #243,
+  pending): trainer + finance reverse-asserts + auto-mirror upsert-without-`{new:true}` (finance `LND_COST_CONFIG` currency Setting).
+  **Batch 6 (branch `feat/pg-lane-wave-g-batch6`, pending PR) — the audit/security cluster: 8 suites green both lanes** (auditWriteSide,
+  passwordReset, phaseAHardening DATA-009, auditHashChain, dataIntegrity DATA-005, accessRoles, goldenPathFlow, authHardening — combined
+  PG run 8/11 of the cluster). Reusable `pg-test-utils` helpers added (`findActiveAuditRow`/`findActiveAuditChain`/seq-tamper/
+  `updateActiveRow`); auto-mirror now mirrors soft-delete transitions (raw-collection re-read); 2 REAL port gaps fixed (access
+  grants-loader read via dual-backend repo; User mapper reset-token cols). Deferred with precise root causes: softDeleteEmpCodeReuse
+  (raw-collection soft-delete bypasses mirror), mfa (Mongoose read-modify-write on select:false fields clobbers PG), p2-regression
+  (F-PR-2 export refactor). Ledger: `plans/260705-0316-wave-g-batch2-suite-conversion/plan.md`.
 - **2026-07-05** — **Wave G batch 1 — shared-fixture foundation: the PG lane drops 117 → 82 failing suites** (38 suites flip
   green by name, 0 newly red; tests 783 → 414 failing). Root causes closed: (1) `tests/setup.js` seeded ONLY Mongo while the
   ported readers (auth middleware first) read PG → every authed request 401'd — NEW `tests/pg-test-utils.js` truncates the
