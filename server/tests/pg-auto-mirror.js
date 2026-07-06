@@ -121,7 +121,17 @@ const mirrorDoc = async (modelName, doc) => {
     await loadTables();
     const table = resolveTable(modelName);
     if (!table) return warnOnce(modelName);
-    await upsertRow(table, genericRow(d, await loadCols(table)));
+    // The reflective row is HEURISTIC (snake⟷camel by convention) — a renamed
+    // or nested model field (e.g. SessionType `order`→display_order) reflects to
+    // undefined → NULL and can trip a NOT NULL column. Fail SOFT here: a bad
+    // generic mirror must never break the Mongoose write it rides on (explicit
+    // MAPPERS stay fail-loud). The row simply isn't mirrored; add an explicit
+    // mapper if that model's PG reads are asserted.
+    try {
+      await upsertRow(table, genericRow(d, await loadCols(table)));
+    } catch (e) {
+      warnOnce(`${modelName} (generic mirror skipped: ${e.code || e.message})`);
+    }
     return;
   }
   // select:false fields (User.password) exist in-memory right after create/save
