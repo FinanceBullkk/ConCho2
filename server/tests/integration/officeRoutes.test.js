@@ -11,6 +11,7 @@ const request = require('supertest');
 const mongoose = require('mongoose');
 const jwt = require('jsonwebtoken');
 const { getApp, getTokens, getSeedData, getCsrfHeaders, teardown } = require('../setup');
+const { findActiveRowWhere } = require('../pg-test-utils');
 
 let app, tokens, seed, csrf, coordinator, coordinatorToken;
 
@@ -42,11 +43,11 @@ const as = (token) => (method, path) =>
   request(app)[method](path).set('Authorization', `Bearer ${token}`).set(csrf);
 
 // Audit writes are fire-and-forget — poll briefly instead of a fixed sleep.
+// Read from the active backend: audit rows land in PG only on the pg lane.
 const waitForAudit = async (filter, tries = 20) => {
-  const AuditLog = require('../../models/AuditLog');
   for (let i = 0; i < tries; i += 1) {
     // eslint-disable-next-line no-await-in-loop -- bounded poll for an async fire-and-forget write
-    const row = await AuditLog.findOne(filter).lean();
+    const row = await findActiveRowWhere('AuditLog', filter);
     if (row) return row;
     // eslint-disable-next-line no-await-in-loop
     await new Promise((r) => setTimeout(r, 50));

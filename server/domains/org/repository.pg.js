@@ -37,12 +37,19 @@ const userRow = (r) => (r == null ? null : {
 
 // ── Departments ───────────────────────────────────────────
 const createDepartment = async (data) => {
-  const { rows } = await query(
-    `INSERT INTO departments(id,name,code,description) VALUES ($1,$2,$3,$4) RETURNING *`,
-    [newId(), String(data.name).trim(), String(data.code).trim().toUpperCase(),
-      data.description == null ? '' : String(data.description).trim()],
-  );
-  return deptRow(rows[0]);
+  try {
+    const { rows } = await query(
+      `INSERT INTO departments(id,name,code,description) VALUES ($1,$2,$3,$4) RETURNING *`,
+      [newId(), String(data.name).trim(), String(data.code).trim().toUpperCase(),
+        data.description == null ? '' : String(data.description).trim()],
+    );
+    return deptRow(rows[0]);
+  } catch (error) {
+    // Re-map the PG unique violation to Mongo's E11000 so the use-case's
+    // backend-agnostic duplicate → 409 mapping fires on either backend.
+    if (error && error.code === '23505') { const e = new Error('duplicate department code'); e.code = 11000; throw e; }
+    throw error;
+  }
 };
 
 const findDepartmentByIdLean = async (id) => {
@@ -94,7 +101,10 @@ const findUserByIdLean = async (id) => {
 };
 const findUserById = findUserByIdLean;
 
-const USER_ASSIGN_COL = { managerId: 'manager_id', departmentId: 'department_id', position: 'position', status: 'status' };
+// officeId included — the Mongo impl `$set`s the whole patch, so the office
+// assignment must persist on PG too (else the office-archive "users still
+// assigned" guard under-counts and wrongly allows the delete).
+const USER_ASSIGN_COL = { managerId: 'manager_id', departmentId: 'department_id', position: 'position', status: 'status', officeId: 'office_id' };
 
 const updateUserAssignment = async (id, patch) => {
   const sets = [];

@@ -17,6 +17,7 @@ const LearningProgram = require('../../models/LearningProgram');
 const Certificate = require('../../models/Certificate');
 const RequiredTraining = require('../../models/RequiredTraining');
 const AuditLog = require('../../models/AuditLog');
+const { findActiveRowWhere } = require('../pg-test-utils');
 
 let app, tokens, seed, csrf;
 const uniq = () => Math.random().toString(16).slice(2, 8);
@@ -71,7 +72,9 @@ const myRow = (body) => body.data.rows.find((x) => String(x.id) === String(reqId
 describe('compliance matrix', () => {
   test('creating a requirement audits + the matrix reflects it immediately', async () => {
     await settle();
-    const audit = await AuditLog.findOne({ entity: 'RequiredTraining', action: 'created' }).sort('-createdAt').lean();
+    // Audit rows are written through the ported repo (PG-only on the pg lane),
+    // so read from the active backend instead of Mongoose.
+    const audit = await findActiveRowWhere('AuditLog', { entity: 'RequiredTraining', action: 'created' });
     expect(audit).not.toBeNull();
 
     const r = await request(app).get('/api/compliance/matrix').set('Authorization', `Bearer ${tokens.admin}`);

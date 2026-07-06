@@ -15,9 +15,10 @@
 const request = require('supertest');
 const mongoose = require('mongoose');
 const { getApp, getTokens, getSeedData, getCsrfHeaders, teardown } = require('../setup');
+const { findActiveRowWhere } = require('../pg-test-utils');
 
 let app, tokens, seed, csrf;
-let Enrollment, Team, Class, Schedule, AuditLog;
+let Enrollment, Team, Class, Schedule;
 
 beforeAll(async () => {
   app = await getApp();
@@ -28,7 +29,6 @@ beforeAll(async () => {
   Team = require('../../models/Team');
   Class = require('../../models/Class');
   Schedule = require('../../models/Schedule');
-  AuditLog = require('../../models/AuditLog');
 });
 
 afterAll(async () => {
@@ -247,11 +247,13 @@ describe('PUT /api/enrollments/:id', () => {
 
     // Golden rule: every mutation is audited. This single-update path used to
     // skip audit while its bulk twin recorded it — pin that it now writes one.
-    const log = await AuditLog.findOne({
+    // Audit is written through the ported repo (rows land in PG only on that
+    // lane), so read the active backend rather than a Mongoose find.
+    const log = await findActiveRowWhere('AuditLog', {
       action: 'updated',
       entity: 'Enrollment',
       entityId: target._id,
-    }).sort('-createdAt').lean();
+    });
 
     expect(log).toBeTruthy();
     expect(log.diff).toBeDefined();

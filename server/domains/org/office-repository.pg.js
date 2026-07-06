@@ -32,7 +32,9 @@ const createOffice = async (data) => {
   try {
     const { rows } = await query(
       `INSERT INTO offices(id,name,code,address,timezone) VALUES ($1,$2,$3,$4,$5) RETURNING *`,
-      [newId(), data.name, data.code, data.address == null ? '' : data.address, data.timezone == null ? '' : data.timezone]);
+      [newId(), officeVal('name', data.name), officeVal('code', data.code),
+        data.address == null ? '' : officeVal('address', data.address),
+        data.timezone == null ? '' : officeVal('timezone', data.timezone)]);
     return officeRow(rows[0]);
   } catch (error) {
     if (error && error.code === '23505') throw duplicateError();
@@ -60,7 +62,14 @@ const listOffices = async ({ search } = {}) => {
 };
 
 const OFFICE_COL = { name: 'name', code: 'code', address: 'address', timezone: 'timezone', isDeleted: 'is_deleted', deletedAt: 'deleted_at' };
-const officeVal = (k, v) => (k === 'deletedAt' && v ? new Date(v).toISOString() : v);
+// Replicate the Mongoose Office schema setters (name/address/timezone trim,
+// code trim+UPPERCASE) so create/update normalize identically on both backends.
+const officeVal = (k, v) => {
+  if (k === 'deletedAt') return v ? new Date(v).toISOString() : v;
+  if (k === 'code') return v == null ? v : String(v).trim().toUpperCase();
+  if (k === 'name' || k === 'address' || k === 'timezone') return v == null ? v : String(v).trim();
+  return v;
+};
 
 const updateOfficeById = async (id, data) => {
   const sets = [];
