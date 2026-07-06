@@ -1,5 +1,6 @@
 const request = require('supertest');
 const { getApp, getTokens, getSeedData, getCsrfHeaders, teardown } = require('../setup');
+const { readActiveRow } = require('../pg-test-utils');
 const LearningProgram = require('../../models/LearningProgram');
 const LearningPath = require('../../models/LearningPath');
 const Class = require('../../models/Class');
@@ -162,7 +163,8 @@ describe('Learning Platform API — learning paths (Wave C v1)', () => {
       .set('Authorization', `Bearer ${tokens.admin}`);
     expect(get.status).toBe(404);
 
-    // soft-deleted, not hard-deleted — the doc is still recoverable in storage
-    expect(await LearningPath.findById(id)).not.toBeNull();
+    // soft-deleted, not hard-deleted — the row is still recoverable in storage
+    // (read the active backend: the row lives in PG on the pg lane).
+    expect(await readActiveRow('LearningPath', id)).not.toBeNull();
   });
 });

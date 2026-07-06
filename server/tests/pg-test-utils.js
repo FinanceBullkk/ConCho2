@@ -99,13 +99,17 @@ const oid = (v) => {
   return /^[0-9a-f]{24}$/i.test(String(v)) ? new mongoose.Types.ObjectId(String(v)) : v;
 };
 
+// Resolve a model's PG table via the explicit MAPPERS or the auto-mirror's
+// reflective resolver (so readActiveRow works for the long-tail models too).
+const { tableFor } = require('./pg-auto-mirror');
+
 /** findById on the active backend → plain object (or null), middleware-free. */
 const readActiveRow = async (modelName, id) => {
   if (!isPostgres) {
     const mongoose = require('mongoose');
     return mongoose.model(modelName).collection.findOne({ _id: oid(id) });
   }
-  const { table } = MAPPERS[modelName];
+  const table = await tableFor(modelName);
   const { rows } = await query(`SELECT * FROM "${table}" WHERE id = $1`, [String(id)]);
   return rowToCamel(rows[0]);
 };
@@ -117,7 +121,7 @@ const findActiveRowWhere = async (modelName, where) => {
     const raw = Object.fromEntries(Object.entries(where).map(([k, v]) => [k, oid(v)]));
     return mongoose.model(modelName).collection.findOne(raw);
   }
-  const { table } = MAPPERS[modelName];
+  const table = await tableFor(modelName);
   const keys = Object.keys(where);
   const clause = keys.map((k, i) => `"${camelToSnake(k)}" = $${i + 1}`).join(' AND ');
   const { rows } = await query(
