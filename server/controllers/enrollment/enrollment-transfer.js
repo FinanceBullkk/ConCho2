@@ -4,6 +4,8 @@ const Team = require('../../models/Team');
 const { syncSchedulesForTeamUpdate } = require('../../models/Team');
 const { notifyPromotions } = require('../../domains/schedule/waitlist/promotion');
 const { syncEnrollments, flushPendingEmails, flushPendingEnrollmentEvents } = require('../../domains/groups/controller');
+const enrollmentSyncRepo = require('../../domains/groups/enrollment-sync-repository');
+const teamWrite = require('../../domains/groups/team-write-repository');
 const { handleError } = require('../../helpers/handleError');
 const { invalidateAnalyticsCache } = require('../../middleware/analyticsCache');
 const logger = require('../../lib/logger');
@@ -102,12 +104,12 @@ const transferEnrollment = async (req, res) => {
     const session = await mongoose.startSession();
     try {
       await session.withTransaction(async () => {
-        // Step 1: Add user to target team
-        await Team.findByIdAndUpdate(
-          toTeamId,
-          { $addToSet: { members: enrollment.userId } },
-          { session },
-        );
+        // Step 1: Add user to target team. Dual-backend via updateTeamDoc (the
+        // members-array ⇔ team_members-junction bridge) so the add lands in the
+        // active backend — a Mongoose $addToSet mirrors the teams row but not the
+        // PG junction. toNew = toOld + user (snapshotted pre-tx), so a full
+        // members replace is equivalent to the old $addToSet here.
+        await teamWrite.updateTeamDoc(toTeamId, { members: toNew }, { session });
 
         // Step 2: Sync target team's future schedules (member added)
         await syncSchedulesForTeamUpdate({
@@ -160,10 +162,9 @@ const transferEnrollment = async (req, res) => {
     }
 
     if (note) {
-      await Enrollment.findOneAndUpdate(
-        { userId: enrollment.userId, teamId: toTeamId, status: 'Active' },
-        { $set: { note } },
-      );
+      // Dual-backend: on the PG lane the new enrollment lives in Postgres, so a
+      // Mongoose findOneAndUpdate would no-op — route through the active backend.
+      await enrollmentSyncRepo.setActiveTeamEnrollmentNote(enrollment.userId, toTeamId, note);
     }
 
     logger.info({ enrollmentId: req.params.id, fromTeamId, toTeamId, userId: userIdStr }, 'Enrollment transferred');
@@ -178,16 +179,12 @@ const transferEnrollment = async (req, res) => {
 
     invalidateAnalyticsCache();
 
-    // Return the new Active enrollment (in target team)
-    const newEnrollment = await Enrollment.findOne({
-      userId: enrollment.userId,
-      teamId: toTeamId,
-      status: 'Active',
-    })
-      .populate('userId', 'empCode name department status')
-      .populate('teamId', 'name')
-      .populate('classId', 'classCode courseName totalSessions')
-      .populate('transferredTo', 'name');
+    // Return the new Active enrollment (in target team) — active-backend read so
+    // the PG lane reads the enrollment it actually wrote (a Mongoose re-fetch
+    // would return null on Postgres).
+    const newEnrollment = await enrollmentSyncRepo.findActiveTeamEnrollmentPopulated(
+      enrollment.userId, toTeamId,
+    );
 
     res.json({ success: true, data: newEnrollment });
   } catch (error) {

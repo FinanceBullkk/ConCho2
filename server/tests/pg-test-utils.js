@@ -293,6 +293,20 @@ const deleteActiveAuditRowBySeq = async (seq) => {
   return query('DELETE FROM audit_log WHERE seq = $1', [seq]);
 };
 
+/**
+ * Team member ids on the ACTIVE backend. Mongo stores them in the embedded
+ * `Team.members` array; Postgres in the `team_members` junction — this reads
+ * whichever is live so a membership assertion works on both lanes.
+ */
+const readActiveTeamMemberIds = async (teamId) => {
+  if (!isPostgres) {
+    const doc = await require('mongoose').model('Team').collection.findOne({ _id: oid(teamId) });
+    return (doc?.members || []).map(String);
+  }
+  const { rows } = await query(`SELECT user_id FROM team_members WHERE team_id = $1`, [String(teamId)]);
+  return rows.map((r) => String(r.user_id));
+};
+
 module.exports = {
   resetPgDatabase,
   mirrorUserToPg,
@@ -306,6 +320,7 @@ module.exports = {
   distinctActiveValues,
   deleteActiveRowsWhere,
   updateActiveRow,
+  readActiveTeamMemberIds,
   findActiveAuditRow,
   findActiveAuditChain,
   updateActiveAuditRowBySeq,

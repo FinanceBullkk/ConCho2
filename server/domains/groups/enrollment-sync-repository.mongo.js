@@ -82,4 +82,22 @@ module.exports = {
   dropEnrollment,
   pullTeamMember,
   findUserContact,
+  findActiveTeamEnrollmentPopulated,
+  setActiveTeamEnrollmentNote,
 };
+
+// The learner's Active enrollment in a team, populated for the transfer HTTP
+// response (post-commit read — same shape the legacy controller re-fetched).
+function findActiveTeamEnrollmentPopulated(userId, teamId) {
+  return Enrollment.findOne({ userId, teamId, status: 'Active' })
+    .populate('userId', 'empCode name department status')
+    .populate('teamId', 'name')
+    .populate('classId', 'classCode courseName totalSessions')
+    .populate('transferredTo', 'name');
+}
+
+// Attach a note to the learner's Active enrollment in a team (transfer note,
+// post-commit). Explicit update — the legacy path used findOneAndUpdate too.
+function setActiveTeamEnrollmentNote(userId, teamId, note) {
+  return Enrollment.findOneAndUpdate({ userId, teamId, status: 'Active' }, { $set: { note } });
+}
