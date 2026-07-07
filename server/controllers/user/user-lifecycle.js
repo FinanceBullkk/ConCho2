@@ -1,8 +1,8 @@
-const mongoose = require('mongoose');
-const User = require('../../models/User');
-const Team = require('../../models/Team');
-const Schedule = require('../../models/Schedule');
-const Enrollment = require('../../models/Enrollment');
+// Dual-backend (Mongo ⇔ Postgres) — Phase 5 slice 4 (B1): the soft-delete
+// cascade + restore ride the user/schedule repos on ONE unit-of-work tx.
+const { runInTransaction } = require('../../domains/_shared/unit-of-work');
+const userRepo = require('./user-repository');
+const scheduleRepo = require('../../domains/schedule/repository');
 const { invalidateUserCache } = require('../../middleware/auth');
 const { handleError } = require('../../helpers/handleError');
 const auditService = require('../../services/auditService');
@@ -34,13 +34,13 @@ const { invalidateAnalyticsCache } = require('../../middleware/analyticsCache');
  */
 const deleteUser = async (req, res) => {
   try {
-    const user = await User.findById(req.params.id);
+    const user = await userRepo.findLiveUserById(req.params.id);
     if (!user) {
       return res.status(404).json({ success: false, message: 'User not found' });
     }
 
     // Guard: Block if user is a team leader
-    const ledTeams = await Team.find({ leaderId: user._id }).select('name').lean();
+    const ledTeams = await userRepo.findTeamsLedByUser(user._id);
     if (ledTeams.length > 0) {
       const teamNames = ledTeams.map(t => t.name).join(', ');
       return res.status(409).json({
@@ -49,70 +49,31 @@ const deleteUser = async (req, res) => {
       });
     }
 
-    // ── TRANSACTION: Soft-delete cascade (UX-03) ──────────
-    const session = await mongoose.startSession();
+    // ── TRANSACTION: Soft-delete cascade (UX-03) — one unit-of-work ─────
     let pulledFromTeams = 0;
     let pulledFromSchedules = 0;
     let closedEnrollments = 0;
 
-    try {
-      await session.withTransaction(async () => {
-        // Step 1: Pull from Team.members
-        const teamResult = await Team.updateMany(
-          { members: user._id },
-          { $pull: { members: user._id } },
-          { session }
-        );
-        pulledFromTeams = teamResult.modifiedCount;
+    await runInTransaction(async (tx) => {
+      // Step 1: Pull from Team.members (⇔ the team_members junction on PG)
+      pulledFromTeams = (await userRepo.pullUserFromAllTeams(user._id, tx)).modifiedCount;
 
-        // Step 2: Pull from future LIVE Schedule.enrolledUsers (cancelled
-        // sessions keep their roster snapshot as history — phase-04 slice A)
-        const now = new Date();
-        const schedResult = await Schedule.updateMany(
-          { startTime: { $gt: now }, enrolledUsers: user._id, status: 'scheduled' },
-          { $pull: { enrolledUsers: user._id } },
-          { session }
-        );
-        pulledFromSchedules = schedResult.modifiedCount;
+      // Step 2: Pull from future LIVE Schedule.enrolledUsers (cancelled
+      // sessions keep their roster snapshot as history — phase-04 slice A)
+      pulledFromSchedules = (await scheduleRepo.pullUsersFromFutureSchedules([user._id], tx)).modifiedCount;
 
-        // Step 3: Close active enrollments
-        const enrollResult = await Enrollment.updateMany(
-          { userId: user._id, status: 'Active' },
-          { $set: { status: 'Dropped', leftAt: new Date() } },
-          { session }
-        );
-        closedEnrollments = enrollResult.modifiedCount;
+      // Step 3: Close active enrollments
+      closedEnrollments = (await userRepo.bulkDropActiveEnrollmentsByUser(user._id, tx)).modifiedCount;
 
-        // Step 4: Soft-delete the user (bypass auto-filter via raw update)
-        //
-        // Audit PR Q (DATA-008): mutate empCode + park email so the
-        // original identifier slots are freed up for reuse. The unique
-        // constraint on empCode and the partial-unique on email both
-        // stay in place; the suffix `__DEL_<ts36>` is reversible via the
-        // restore handler. Done as a raw collection update so we bypass
-        // the soft-delete auto-filter (which would otherwise hide the
-        // row from the update query).
-        const tagSuffix = `__DEL_${Date.now().toString(36).toUpperCase()}`;
-        const releasedEmpCode = `${user.empCode}${tagSuffix}`;
-        const releasedEmail = user.email || null;
-        await User.collection.updateOne(
-          { _id: user._id },
-          {
-            $set: {
-              isDeleted: true,
-              deletedAt: new Date(),
-              status: 'Dropped',
-              empCode: releasedEmpCode,
-              email: null,
-              _softDeletedEmail: releasedEmail,
-            },
-          },
-          { session }
-        );
-      });
-    } finally {
-      session.endSession();
-    }
+      // Step 4: Soft-delete the user. Audit PR Q (DATA-008): mutate empCode +
+      // park email so the identifier slots free up for reuse; the suffix
+      // `__DEL_<ts36>` is reversible via the restore handler.
+      const tagSuffix = `__DEL_${Date.now().toString(36).toUpperCase()}`;
+      await userRepo.softDeleteUserWithParking(user._id, {
+        releasedEmpCode: `${user.empCode}${tagSuffix}`,
+        releasedEmail: user.email || null,
+      }, tx);
+    });
 
     // Invalidate auth cache so deleted user can't make requests
     invalidateUserCache(user._id);
@@ -144,9 +105,7 @@ const deleteUser = async (req, res) => {
 const restoreUser = async (req, res) => {
   try {
     // Must bypass auto-filter to find deleted users
-    const user = await User.findOne({ _id: req.params.id, isDeleted: true })
-      .select('+isDeleted +deletedAt +_softDeletedEmail')
-      .lean();
+    const user = await userRepo.findDeletedUserById(req.params.id);
 
     if (!user) {
       return res.status(404).json({
@@ -166,10 +125,7 @@ const restoreUser = async (req, res) => {
     // Conflict check — use raw collection (not Mongoose) to bypass the
     // pre-find soft-delete filter; active replacements must be visible.
     if (tagMatch) {
-      const empClash = await User.collection.findOne({
-        empCode: originalEmpCode,
-        isDeleted: { $ne: true },
-      });
+      const empClash = await userRepo.findActiveUserByEmpCode(originalEmpCode);
       if (empClash) {
         return res.status(409).json({
           success: false,
@@ -178,10 +134,7 @@ const restoreUser = async (req, res) => {
       }
     }
     if (originalEmail) {
-      const emailClash = await User.collection.findOne({
-        email: originalEmail,
-        isDeleted: { $ne: true },
-      });
+      const emailClash = await userRepo.findActiveUserByEmail(originalEmail);
       if (emailClash) {
         return res.status(409).json({
           success: false,
@@ -190,19 +143,10 @@ const restoreUser = async (req, res) => {
       }
     }
 
-    await User.collection.updateOne(
-      { _id: new mongoose.Types.ObjectId(req.params.id) },
-      {
-        $set: {
-          isDeleted: false,
-          deletedAt: null,
-          status: 'Inactive',
-          empCode: originalEmpCode,
-          email: originalEmail,
-          _softDeletedEmail: null,
-        },
-      }
-    );
+    await userRepo.restoreUserIdentity(req.params.id, {
+      empCode: originalEmpCode,
+      email: originalEmail,
+    });
 
     invalidateUserCache(req.params.id);
 

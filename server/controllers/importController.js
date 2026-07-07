@@ -1,8 +1,12 @@
 const importService = require('../services/importService');
 const auditService = require('../services/auditService');
 const { handleError } = require('../helpers/handleError');
-const Schedule = require('../models/Schedule');
-const Attendance = require('../models/Attendance');
+// Dual-backend (Mongo ⇔ Postgres) — Phase 5 slice 4 (B6): the historical
+// import writes ride the booking-write/attendance seams on ONE unit-of-work
+// per session (a failure rolls the schedule + its attendance back together).
+const { runInTransaction } = require('../domains/_shared/unit-of-work');
+const bookingWriteRepo = require('../domains/schedule/booking-write-repository');
+const attendanceRepo = require('../domains/attendance/repository');
 const { invalidateAnalyticsCache } = require('../middleware/analyticsCache');
 
 // ──────────────────────────────────────────────────────────
@@ -75,7 +79,6 @@ const bulkImportHistory = async (req, res) => {
     }
 
     let schedulesCreated = 0, attendanceCreated = 0, errors = [];
-    const dbSession = await Schedule.startSession();
 
     for (const s of sessions) {
       try {
@@ -83,18 +86,19 @@ const bulkImportHistory = async (req, res) => {
         // counters after the transaction succeeds. If the transaction rolls back,
         // the outer counters are never incremented — no overreport.
         let sessionSchedules = 0, sessionAttendance = 0;
-        await dbSession.withTransaction(async () => {
+        // eslint-disable-next-line no-await-in-loop -- one atomic unit per session row
+        await runInTransaction(async (tx) => {
           // Create schedule directly (no validation — historical data)
-          const [schedule] = await Schedule.create(
-            [{
+          const schedule = await bookingWriteRepo.insertSession(
+            {
               classId: s.classId,
               bookedTeamId: s.teamId,
               startTime: new Date(s.startTime),
               endTime: new Date(s.endTime),
               capacity: Math.max(s.students?.length || 0, 9),
               enrolledUsers: (s.students || []).map(st => st.userId),
-            }],
-            { session: dbSession }
+            },
+            tx,
           );
           sessionSchedules = 1;
 
@@ -105,8 +109,7 @@ const bulkImportHistory = async (req, res) => {
               userId: st.userId,
               status: st.status,
             }));
-            const result = await Attendance.insertMany(records, { session: dbSession });
-            sessionAttendance = result.length;
+            sessionAttendance = await attendanceRepo.insertAttendanceMany(records, tx);
           }
         });
         // Transaction committed — now safe to update outer counters

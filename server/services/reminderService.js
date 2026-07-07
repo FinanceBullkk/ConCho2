@@ -28,7 +28,9 @@
  *     was still null, so a concurrent cron either claims a disjoint
  *     set or claims zero.
  */
-const Schedule = require('../models/Schedule');
+// Dual-backend (Mongo ⇔ Postgres) — Phase 5 slice 4 (B7); the claim/stamp
+// concurrency control rides the schedule repository (mig 034 on PG).
+const scheduleRepo = require('../domains/schedule/repository');
 const logger = require('../lib/logger');
 const { sendScheduleReminder } = require('../lib/emailTemplates');
 
@@ -83,20 +85,11 @@ const sendUpcomingReminders = async ({
   // Concurrent cron firings either claim a disjoint slice or claim
   // zero — never the same schedule twice.
   const claimStamp = new Date();
-  const claimFilter = {
-    startTime: { $gte: now, $lte: windowEnd },
-    // Durable-cancelled sessions must never be reminded (phase-04 slice A).
-    status: 'scheduled',
-    $or: [{ remindersSentAt: { $exists: false } }, { remindersSentAt: null }],
-  };
+  await scheduleRepo.claimUpcomingReminders(now, windowEnd, claimStamp);
 
-  await Schedule.updateMany(claimFilter, { $set: { remindersSentAt: claimStamp } });
-
-  // Re-fetch ONLY the schedules we just claimed (matched on claimStamp).
-  // populate inline so the email template has user + class context.
-  const claimed = await Schedule.find({ remindersSentAt: claimStamp })
-    .populate('classId', 'classCode courseName')
-    .populate('enrolledUsers', 'name email');
+  // Re-fetch ONLY the schedules we just claimed (matched on claimStamp),
+  // populated so the email template has user + class context.
+  const claimed = await scheduleRepo.findClaimedForReminder(claimStamp);
 
   if (claimed.length === 0) {
     return { scanned: 0, notified: 0, emailed: 0, failed: 0 };
@@ -157,10 +150,7 @@ const sendUpcomingReminders = async ({
 
   // ── PHASE 3: ROLL BACK FAILURES IN ONE UPDATE ──────────────
   if (rollbackIds.length > 0) {
-    await Schedule.updateMany(
-      { _id: { $in: rollbackIds } },
-      { $set: { remindersSentAt: null } },
-    );
+    await scheduleRepo.rollbackReminderClaim(rollbackIds);
   }
 
   logger.info(

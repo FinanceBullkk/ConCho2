@@ -1,4 +1,5 @@
-const Setting = require('../models/Setting');
+// Dual-backend (Mongo ⇔ Postgres) — Phase 5 slice 4 (B4); DB_BACKEND selects.
+const settingsRepo = require('../domains/settings/repository');
 const auditService = require('../services/auditService');
 const { handleError } = require('../helpers/handleError');
 const schedulingWindowPolicy = require('../domains/schedule/scheduling-window-policy');
@@ -6,7 +7,7 @@ const schedulingWindowPolicy = require('../domains/schedule/scheduling-window-po
 // GET /api/settings
 const getSettings = async (req, res) => {
   try {
-    const settings = await Setting.find();
+    const settings = await settingsRepo.findAll();
     res.json({ success: true, data: settings });
   } catch (error) {
     handleError(res, error);
@@ -46,23 +47,15 @@ const updateSettings = async (req, res) => {
     // Audit PR L (SEC-013): capture the before-state so the audit row has
     // a real {before, after} diff per key, not just the new value.
     const beforeDocs = validItems.length
-      ? await Setting.find({ key: { $in: validItems.map((i) => i.key) } }).lean()
+      ? await settingsRepo.findByKeysLean(validItems.map((i) => i.key))
       : [];
     const beforeByKey = Object.fromEntries(beforeDocs.map((d) => [d.key, d.value]));
 
     if (validItems.length > 0) {
-      await Setting.bulkWrite(
-        validItems.map((item) => ({
-          updateOne: {
-            filter: { key: item.key },
-            update: { $set: { value: item.value } },
-            upsert: true,
-          },
-        }))
-      );
+      await settingsRepo.upsertMany(validItems);
     }
 
-    const updated = await Setting.find({ key: { $in: validItems.map((i) => i.key) } });
+    const updated = await settingsRepo.findByKeys(validItems.map((i) => i.key));
 
     // Audit PR L (SEC-013): one audit row per setting changed. Diff lets a
     // reviewer see the exact before/after — useful when a setting flip
