@@ -10,6 +10,12 @@ const request = require('supertest');
 const jwt = require('jsonwebtoken');
 const { getApp, getTokens, getSeedData, getCsrfHeaders, teardown } = require('../setup');
 const Schedule = require('../../models/Schedule');
+// Trainer edits write through the ported schedule chokepoint (PG-only on the
+// lane) — read the stored session from the active backend. externalTrainer is a
+// top-level field on Mongo but lives in the schedules.meta jsonb on PG, so
+// normalise across both.
+const { readActiveRow } = require('../pg-test-utils');
+const storedExternalTrainer = (row) => row.externalTrainer ?? row.meta?.externalTrainer ?? null;
 const Setting = require('../../models/Setting');
 const Class = require('../../models/Class');
 const LearningProgram = require('../../models/LearningProgram');
@@ -203,8 +209,8 @@ describe('External trainer — invite/display only, no access, no leak', () => {
       .send({ internalIds: [], externalTrainer: null });
     expect(clear.status).toBe(200);
 
-    const stored = await Schedule.findById(scheduleId).lean();
+    const stored = await readActiveRow('Schedule', scheduleId);
     expect(stored.sessionInstructorIds).toHaveLength(0);
-    expect(stored.externalTrainer).toBeNull();
+    expect(storedExternalTrainer(stored)).toBeNull();
   });
 });
