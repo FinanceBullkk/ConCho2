@@ -1,4 +1,3 @@
-const Role = require('../../models/Role');
 const repository = require('./repository');
 const { ROLE_CAPABILITIES, ALL_CAPABILITIES, setLiveGrants } = require('../../policy/capabilities');
 
@@ -18,15 +17,15 @@ const SYSTEM_ROLES = [
 const seedCapsFor = (key) =>
   (key === 'Admin' ? [...ALL_CAPABILITIES] : [...(ROLE_CAPABILITIES[key] || [])]);
 
-// Idempotent: create each system role only if missing ($setOnInsert), so an
-// admin's later capability edits are NEVER clobbered on reboot.
+// Idempotent: create each system role only if missing, so an admin's later
+// capability edits are NEVER clobbered on reboot. Dual-backend (phase-05 A1):
+// the seed goes through the DB_BACKEND-selected repository — previously a raw
+// `Role.updateOne` upsert wrote Mongo even in PG mode, so grants persisted to
+// one store while authz read the other (split-brain RBAC).
 const seedSystemRoles = async () => {
   for (const { key, name } of SYSTEM_ROLES) {
-    await Role.updateOne(
-      { key },
-      { $setOnInsert: { key, name, system: true, capabilities: seedCapsFor(key), isDeleted: false } },
-      { upsert: true },
-    );
+    // eslint-disable-next-line no-await-in-loop -- 4 fixed system roles, boot-time
+    await repository.seedRoleIfMissing({ key, name, capabilities: seedCapsFor(key) });
   }
 };
 

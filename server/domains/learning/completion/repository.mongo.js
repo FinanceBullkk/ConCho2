@@ -107,6 +107,19 @@ const markRevoked = (id, reason) =>
 const findByVerificationCode = (code) =>
   Certificate.findOne({ verificationCode: code, isDeleted: false }).lean();
 
+// ── Recert auto-assignment scan reads (phase-05 A2, moved verbatim from
+// recert-assignment-service so the scan hits the ACTIVE backend) ──
+const findAutoRecertPrograms = () =>
+  LearningProgram.find({ 'recertifyPolicy.autoAssign': true }).select('_id name').lean();
+
+const findExpiringIssuedCertificates = (programIds, from, to) =>
+  Certificate.find({
+    status: 'Issued',
+    isDeleted: false,
+    programId: { $in: programIds },
+    validUntil: { $ne: null, $gte: from, $lte: to },
+  }).select('_id userId programId validUntil certificateNumber programName').lean();
+
 module.exports = {
   ATTENDED_STATUSES,
   DEFAULT_POLICY,
@@ -124,4 +137,6 @@ module.exports = {
   listCertificates,
   markRevoked,
   findByVerificationCode,
+  findAutoRecertPrograms,
+  findExpiringIssuedCertificates,
 };

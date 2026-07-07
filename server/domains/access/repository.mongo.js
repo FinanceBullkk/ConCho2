@@ -11,4 +11,14 @@ const updateByKey = (key, patch) =>
 const softDeleteByKey = (key) =>
   Role.findOneAndUpdate({ key, isDeleted: false }, { $set: { isDeleted: true, deletedAt: new Date() } }, { new: true }).lean();
 
-module.exports = { listLive, findByKey, create, updateByKey, softDeleteByKey };
+// Idempotent boot seed (phase-05 A1): create a system role ONLY if missing —
+// $setOnInsert so an admin's later capability edits are NEVER clobbered on
+// reboot. (Moved verbatim from domains/access/grants-loader.js.)
+const seedRoleIfMissing = ({ key, name, capabilities }) =>
+  Role.updateOne(
+    { key },
+    { $setOnInsert: { key, name, system: true, capabilities, isDeleted: false } },
+    { upsert: true },
+  );
+
+module.exports = { listLive, findByKey, create, updateByKey, softDeleteByKey, seedRoleIfMissing };

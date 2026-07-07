@@ -146,6 +146,16 @@ Bug fixing and integration review rank above net-new feature rollout.
 > inline: **2026-07-02 → 2026-07-07** (06-20→06-27 rolled 2026-07-07;
 > 06-14→06-19 rolled 2026-07-04).
 
+- **2026-07-07** — **Phase-05 cutover-blocker slice 1 — A1 RBAC grants seed + A2 recert auto-assignment dual-backend (the 2 CRITICAL split-brain writes).**
+  Branch `fix/pg-cutover-critical-a1-a2`, per the phase-05 "zero raw-Mongoose write" gate (owner: proceed CRITICAL-first;
+  reconcile=RETIRE at cutover; Counter=gapless). **A1**: `grants-loader.seedSystemRoles` wrote `Role.updateOne` upserts to Mongo
+  even in PG mode while authz READ the PG repo → split-brain RBAC. New dual `seedRoleIfMissing` ($setOnInsert ⇔ INSERT…WHERE NOT
+  EXISTS live-key). **A2**: the recert scan+create (`recert-assignment-service`) was raw Mongoose → auto-created recert
+  assignments vanished on PG (compliance loss). New dual reads `findAutoRecertPrograms`/`findExpiringIssuedCertificates`
+  (completion repo) + `findBySourceCertificateId` (assignment repo, deliberately NO deleted/status filter — "one recert EVER per
+  cert") + assignment PG `create` maps the `uq_assignments_source_cert` 23505 → 11000 (race loser stays backend-agnostic).
+  roleGrants 3/3 + recertAssignment 5/5 both lanes (reverse-asserted via active-backend helpers); access+accessRoles 9/9
+  unchanged. Next slice: mig 033 `counters` (gapless `UPDATE…RETURNING`) + `token_blocklist`.
 - **2026-07-07** — **#255 + #256 closed — the two deferred PG follow-ups: transfer atomicity + notifyPromotions dual-backend (mig 032).**
   Two PRs. **#255 (transfer atomicity)**: `enrollment-transfer` moved from a raw mongoose `session.withTransaction` to the
   dual-backend `runInTransaction` UoW and passes the whole `tx` to every write; the real gap was `insertActiveEnrollment`'s PG

@@ -1,6 +1,5 @@
-const Certificate = require('../../../models/Certificate');
-const LearningProgram = require('../../../models/LearningProgram');
-const Assignment = require('../../../models/Assignment');
+const completionRepository = require('./repository');
+const assignmentRepository = require('../assignment/repository');
 const logger = require('../../../lib/logger');
 
 // ──────────────────────────────────────────────────────────
@@ -16,6 +15,11 @@ const logger = require('../../../lib/logger');
 // check incl. archived → an Admin who archives it is respected and it is NOT
 // recreated; the partial unique index on sourceCertificateId is the race
 // backstop). Opt-in, so programs without autoAssign are untouched.
+//
+// Dual-backend (phase-05 A2): every DB op flows through the DB_BACKEND-selected
+// repositories — previously the Assignment.create wrote Mongo even in PG mode,
+// so auto-created recert assignments vanished on a PG deployment (compliance
+// data loss), and the scan reads only saw Mongo certificates.
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const WINDOW_DAYS = 30;
@@ -24,30 +28,24 @@ const createRecertificationAssignments = async ({ now = new Date() } = {}) => {
   const summary = { scanned: 0, created: 0, skipped: 0 };
   const windowEnd = new Date(now.getTime() + WINDOW_DAYS * DAY_MS);
 
-  const autoPrograms = await LearningProgram.find({ 'recertifyPolicy.autoAssign': true })
-    .select('_id name').lean();
+  const autoPrograms = await completionRepository.findAutoRecertPrograms();
   if (!autoPrograms.length) return summary;
 
   const programIds = autoPrograms.map((p) => p._id);
   const nameById = new Map(autoPrograms.map((p) => [String(p._id), p.name]));
 
-  const certs = await Certificate.find({
-    status: 'Issued',
-    isDeleted: false,
-    programId: { $in: programIds },
-    validUntil: { $ne: null, $gte: now, $lte: windowEnd },
-  }).select('_id userId programId validUntil certificateNumber programName').lean();
+  const certs = await completionRepository.findExpiringIssuedCertificates(programIds, now, windowEnd);
   summary.scanned = certs.length;
 
   for (const cert of certs) {
     // eslint-disable-next-line no-await-in-loop -- idempotency check, bounded by cert count
-    const exists = await Assignment.findOne({ sourceCertificateId: cert._id }).select('_id').lean();
+    const exists = await assignmentRepository.findBySourceCertificateId(cert._id);
     if (exists) { summary.skipped += 1; continue; }
 
     const programLabel = cert.programName || nameById.get(String(cert.programId)) || 'program';
     try {
       // eslint-disable-next-line no-await-in-loop
-      await Assignment.create({
+      await assignmentRepository.create({
         title: `Recertify: ${programLabel}`,
         description: `Auto-created because certificate ${cert.certificateNumber} is nearing expiry.`,
         targetType: 'program',

@@ -107,6 +107,12 @@ const findOpenSelfEnrollCohort = async (programId) => {
     .lean();
 };
 
+// Recert idempotency check (phase-05 A2): deliberately NO isDeleted/status
+// filter — "at most ONE recert assignment EVER per certificate", so an archived
+// or soft-deleted one is respected and never recreated.
+const findBySourceCertificateId = (certificateId) =>
+  Assignment.findOne({ sourceCertificateId: certificateId }).select('_id').lean();
+
 module.exports = {
   PARTICIPATING_STATUSES,
   ASSIGNABLE_USER_STATUSES,
@@ -122,4 +128,5 @@ module.exports = {
   findActiveAssignmentsForUser,
   findOpenSelfEnrollCohort,
   findParticipatingUserIdsForProgram,
+  findBySourceCertificateId,
 };
