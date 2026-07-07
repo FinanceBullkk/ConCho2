@@ -138,8 +138,11 @@ const buildScalarWhere = (where = {}) => {
   const conds = [];
   const args = [];
   for (const k of Object.keys(where)) {
-    if (where[k] == null) conds.push(`"${col(k)}" IS NULL`);
-    else { args.push(String(where[k])); conds.push(`"${col(k)}" = $${args.length}`); }
+    const v = where[k];
+    if (v == null) conds.push(`"${col(k)}" IS NULL`);
+    // Booleans bind natively (a stringified "false" would trip PG's boolean =
+    // text). Everything else stringifies (ids/enums/dates via ISO text).
+    else { args.push(typeof v === 'boolean' ? v : String(v)); conds.push(`"${col(k)}" = $${args.length}`); }
   }
   return { clause: conds.length ? `WHERE ${conds.join(' AND ')}` : '', args };
 };
@@ -180,6 +183,19 @@ const distinctActiveValues = async (modelName, field, where = {}) => {
   const fcol = camelToSnake(field.replace(/\./g, '_'));
   const { rows } = await query(`SELECT DISTINCT "${fcol}" AS v FROM "${table}" ${clause}`, args);
   return rows.map((r) => r.v).filter((v) => v !== null);
+};
+
+/**
+ * Delete rows matching top-level scalar equality on the ACTIVE backend — for
+ * between-test cleanup of a row the app wrote through a ported repo (PG-only),
+ * which a Mongoose `Model.deleteMany(filter)` would miss on the pg lane (its
+ * mirror only deletes rows it also found in Mongo). `where` keys are camelCase.
+ */
+const deleteActiveRowsWhere = async (modelName, where = {}) => {
+  if (!isPostgres) return require('mongoose').model(modelName).collection.deleteMany(mongoFilter(where));
+  const table = await tableFor(modelName);
+  const { clause, args } = buildScalarWhere(where);
+  return query(`DELETE FROM "${table}" ${clause}`, args);
 };
 
 /**
@@ -287,6 +303,7 @@ module.exports = {
   findActiveRowsWhere,
   countActiveRowsWhere,
   distinctActiveValues,
+  deleteActiveRowsWhere,
   updateActiveRow,
   findActiveAuditRow,
   findActiveAuditChain,
