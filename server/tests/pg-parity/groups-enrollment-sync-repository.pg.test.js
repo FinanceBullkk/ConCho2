@@ -55,6 +55,13 @@ const enrollmentState = async (b, id) => {
   const d = await Enrollment.findById(id).lean();
   return d ? { status: d.status, transferredTo: d.transferredTo == null ? null : String(d.transferredTo) } : null;
 };
+const enrollmentCountForUserTeam = async (b, userId, teamId) => {
+  if (b.repo === repo.impls.pg) {
+    const { rows } = await query(`SELECT count(*)::int AS n FROM enrollments WHERE user_id = $1 AND team_id = $2`, [String(userId), String(teamId)]);
+    return rows[0].n;
+  }
+  return Enrollment.countDocuments({ userId, teamId });
+};
 const teamMembers = async (b, teamId) => {
   if (b.repo === repo.impls.pg) {
     const { rows } = await query(`SELECT user_id FROM team_members WHERE team_id = $1`, [teamId]);
@@ -165,6 +172,26 @@ describePg('PG-parity: groups enrollment-sync repository', () => {
       await b.repo.setActiveTeamEnrollmentNote(b.u1, b.t1, 'transfer note X'); // eslint-disable-line no-await-in-loop
       const e = await b.repo.findActiveTeamEnrollmentPopulated(b.u1, b.t1); // eslint-disable-line no-await-in-loop
       expect(e.note).toBe('transfer note X');
+    }
+  });
+
+  test('rollback covers the CREATED enrollment too (#255): insertActiveEnrollment joins the tx on both backends', async () => {
+    const enrollmentRepo = require('../../domains/learning/enrollment/repository');
+    const IMPLS = { mongo: enrollmentRepo.impls.mongo, pg: enrollmentRepo.impls.pg };
+    for (const [name, b] of Object.entries(BACKENDS)) {
+      const insert = IMPLS[name].insertActiveEnrollment;
+      // A tx that closes the source enrollment AND creates the target one, then
+      // throws — BOTH writes must vanish (pre-#255 the PG insert escaped to the
+      // pool as autocommit and survived the rollback).
+      await expect( // eslint-disable-line no-await-in-loop
+        b.run(async (tx) => {
+          await b.repo.transferEnrollment(b.e3, { toTeamId: b.t1, leftAt: new Date() }, tx);
+          await insert({ userId: b.u3, classId: null, teamId: b.t1, joinedAt: new Date() }, tx);
+          throw new Error('boom mid-create');
+        }),
+      ).rejects.toThrow('boom mid-create');
+      expect((await enrollmentState(b, b.e3)).status).toBe('Active'); // transfer rolled back
+      expect(await enrollmentCountForUserTeam(b, b.u3, b.t1)).toBe(0); // created row rolled back
     }
   });
 

@@ -43,11 +43,16 @@ const findActiveCohortEnrollment = async (userId, cohortId) => {
   return rows[0] ? enrollmentRow(rows[0]) : null;
 };
 
-// session IGNORED in PG (deferred to Wave-D); joinedAt defaults to now() like the model.
-const insertActiveEnrollment = async ({ userId, classId = null, teamId = null, joinedAt } /* , session */) => {
+// Transaction-aware (#255): when the caller passes the UoW tx handle
+// ({client} on PG) the INSERT joins that BEGIN/COMMIT unit, so the transfer/
+// team-sync enrollment create rolls back with the team + schedule writes. A raw
+// mongoose session (legacy Mongo callers) has no client → pool autocommit.
+// joinedAt defaults to now() like the model.
+const insertActiveEnrollment = async ({ userId, classId = null, teamId = null, joinedAt }, handle = null) => {
+  const exec = (text, params) => (handle && handle.client ? handle.client.query(text, params) : query(text, params));
   let rows;
   try {
-    ({ rows } = await query(
+    ({ rows } = await exec(
       `INSERT INTO enrollments(id,user_id,class_id,team_id,status,joined_at)
        VALUES ($1,$2,$3,$4,'Active',$5) RETURNING *`,
       [newId(), String(userId), classId == null ? null : String(classId), teamId == null ? null : String(teamId),

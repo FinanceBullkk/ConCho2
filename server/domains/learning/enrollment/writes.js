@@ -17,8 +17,11 @@ const EVENTS = require('../../_shared/events');
 // roll it back with the team/schedule writes. Returns the created row (plain
 // object) — the caller uses it for the event payload + (cohort path) the API
 // response.
-const createActiveEnrollment = ({ userId, classId = null, teamId = null, joinedAt }, { session = null } = {}) =>
-  repository.insertActiveEnrollment({ userId, classId, teamId, joinedAt }, session);
+// Transaction-aware (#255): pass the whole UoW handle via `tx` ({session} on
+// Mongo, {client} on PG) so the insert joins the caller's transaction on EITHER
+// backend — or a raw mongoose `session` (legacy callers). Each impl normalises.
+const createActiveEnrollment = ({ userId, classId = null, teamId = null, joinedAt }, { session = null, tx = null } = {}) =>
+  repository.insertActiveEnrollment({ userId, classId, teamId, joinedAt }, tx || session);
 
 // Announce a freshly-persisted enrollment on the domain-event bus. No-op when
 // there is no cohort (program-less team) — the bell + automation are
