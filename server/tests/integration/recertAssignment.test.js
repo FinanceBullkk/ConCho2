@@ -13,6 +13,9 @@ const Certificate = require('../../models/Certificate');
 const LearningProgram = require('../../models/LearningProgram');
 const Assignment = require('../../models/Assignment');
 const { createRecertificationAssignments } = require('../../domains/learning/completion/recert-assignment-service');
+// Active-backend readers (phase-05 A2): the recert service now writes/reads
+// through the dual repositories — a Mongoose read is stale on the PG lane.
+const { findActiveRowWhere, countActiveRowsWhere, updateActiveRow } = require('../pg-test-utils');
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const NOW = new Date('2026-07-01T00:00:00.000Z');
@@ -67,7 +70,7 @@ describe('createRecertificationAssignments', () => {
     const summary = await createRecertificationAssignments({ now: NOW });
 
     expect(summary.created).toBe(1);
-    const a = await Assignment.findOne({ sourceCertificateId: cert._id }).lean();
+    const a = await findActiveRowWhere('Assignment', { sourceCertificateId: cert._id });
     expect(a).toBeTruthy();
     expect(a.targetType).toBe('program');
     expect(String(a.programId)).toBe(String(program._id));
@@ -85,22 +88,23 @@ describe('createRecertificationAssignments', () => {
 
     expect(second.created).toBe(0);
     expect(second.skipped).toBe(1);
-    expect(await Assignment.countDocuments({ sourceCertificateId: { $ne: null } })).toBe(1);
+    // Only recert assignments exist in this test → count-all ≡ the old $ne:null count.
+    expect(await countActiveRowsWhere('Assignment', {})).toBe(1);
   });
 
   test('an archived recert assignment is NOT recreated (respects admin intent)', async () => {
     const program = await makeProgram(true);
     const cert = await makeCert(program._id);
     await createRecertificationAssignments({ now: NOW });
-    await Assignment.updateOne(
-      { sourceCertificateId: cert._id }, { $set: { isDeleted: true, deletedAt: NOW } },
-    );
+    // Archive on the ACTIVE backend — the assignment row lives where the app wrote it.
+    const created = await findActiveRowWhere('Assignment', { sourceCertificateId: cert._id });
+    await updateActiveRow('Assignment', created._id, { isDeleted: true, deletedAt: NOW });
 
     const summary = await createRecertificationAssignments({ now: NOW });
 
     expect(summary.created).toBe(0);
     expect(summary.skipped).toBe(1);
-    expect(await Assignment.countDocuments({ sourceCertificateId: cert._id })).toBe(1);
+    expect(await countActiveRowsWhere('Assignment', { sourceCertificateId: cert._id })).toBe(1);
   });
 
   test('a program without autoAssign is untouched', async () => {
@@ -111,7 +115,7 @@ describe('createRecertificationAssignments', () => {
 
     expect(summary.scanned).toBe(0);
     expect(summary.created).toBe(0);
-    expect(await Assignment.countDocuments({})).toBe(0);
+    expect(await countActiveRowsWhere('Assignment', {})).toBe(0);
   });
 
   test('a cert outside the 30-day window is ignored', async () => {
@@ -122,6 +126,6 @@ describe('createRecertificationAssignments', () => {
     const summary = await createRecertificationAssignments({ now: NOW });
 
     expect(summary.scanned).toBe(0);
-    expect(await Assignment.countDocuments({})).toBe(0);
+    expect(await countActiveRowsWhere('Assignment', {})).toBe(0);
   });
 });

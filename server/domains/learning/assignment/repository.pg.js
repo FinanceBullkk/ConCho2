@@ -127,19 +127,31 @@ const create = async (data) => {
   const targetType = data.targetType;
   const programId = targetType === 'program' ? (data.programId == null ? null : String(data.programId)) : null;
   const pathId = targetType === 'path' ? (data.pathId == null ? null : String(data.pathId)) : null;
-  const { rows } = await query(
-    `INSERT INTO assignments(id, title, description, target_type, program_id, path_id, due_date,
-       user_ids, department_ids, status, created_by, source_certificate_id)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12) RETURNING id`,
-    [
-      newId(), String(data.title), data.description == null ? '' : String(data.description),
-      targetType, programId, pathId,
-      data.dueDate == null ? null : new Date(data.dueDate).toISOString(),
-      (data.userIds || []).map(String), (data.departmentIds || []).map(String),
-      data.status == null ? 'active' : data.status,
-      data.createdBy == null ? null : String(data.createdBy),
-      data.sourceCertificateId == null ? null : String(data.sourceCertificateId),
-    ]);
+  let rows;
+  try {
+    ({ rows } = await query(
+      `INSERT INTO assignments(id, title, description, target_type, program_id, path_id, due_date,
+         user_ids, department_ids, status, created_by, source_certificate_id)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12) RETURNING id`,
+      [
+        newId(), String(data.title), data.description == null ? '' : String(data.description),
+        targetType, programId, pathId,
+        data.dueDate == null ? null : new Date(data.dueDate).toISOString(),
+        (data.userIds || []).map(String), (data.departmentIds || []).map(String),
+        data.status == null ? 'active' : data.status,
+        data.createdBy == null ? null : String(data.createdBy),
+        data.sourceCertificateId == null ? null : String(data.sourceCertificateId),
+      ]));
+  } catch (error) {
+    // uq_assignments_source_cert (recert race) → Mongo-style dup so the recert
+    // service's `err.code === 11000` lost-the-race branch stays backend-agnostic.
+    if (error && error.code === '23505') {
+      const e = new Error('duplicate assignment (source certificate already assigned)');
+      e.code = 11000;
+      throw e;
+    }
+    throw error;
+  }
   return findById(rows[0].id); // matches Mongo create → findById (populated)
 };
 
@@ -240,6 +252,15 @@ const findParticipatingUserIdsForProgram = async (userIds, programId) => {
   return new Set(rows.map((r) => String(r.user_id)));
 };
 
+// Recert idempotency check (phase-05 A2): deliberately NO is_deleted/status
+// filter — "at most ONE recert assignment EVER per certificate" (archived or
+// soft-deleted ones are respected, never recreated). Mirrors the Mongo twin.
+const findBySourceCertificateId = async (certificateId) => {
+  const { rows } = await query(
+    `SELECT id FROM assignments WHERE source_certificate_id = $1 LIMIT 1`, [String(certificateId)]);
+  return rows[0] ? { _id: rows[0].id } : null;
+};
+
 module.exports = {
   PARTICIPATING_STATUSES,
   ASSIGNABLE_USER_STATUSES,
@@ -255,4 +276,5 @@ module.exports = {
   findActiveAssignmentsForUser,
   findOpenSelfEnrollCohort,
   findParticipatingUserIdsForProgram,
+  findBySourceCertificateId,
 };
