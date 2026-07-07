@@ -237,6 +237,29 @@ const findByVerificationCode = async (code) => {
   return rows[0] ? certRow(rows[0]) : null;
 };
 
+// ── Recert auto-assignment scan reads (phase-05 A2) ───────
+// recertify_policy is jsonb; `autoAssign: true` ⇔ jsonb boolean true.
+const findAutoRecertPrograms = async () => {
+  const { rows } = await query(
+    `SELECT id, name FROM learning_programs WHERE (recertify_policy ->> 'autoAssign')::boolean IS TRUE`);
+  return rows.map((r) => ({ _id: r.id, name: r.name }));
+};
+
+const findExpiringIssuedCertificates = async (programIds, from, to) => {
+  const { rows } = await query(
+    `SELECT id, user_id, program_id, valid_until, certificate_number, program_name
+       FROM certificates
+      WHERE status = 'Issued' AND is_deleted = false
+        AND program_id = ANY($1::text[])
+        AND valid_until IS NOT NULL AND valid_until >= $2 AND valid_until <= $3`,
+    [(programIds || []).map(String), new Date(from).toISOString(), new Date(to).toISOString()]);
+  return rows.map((r) => ({
+    _id: r.id, userId: r.user_id || null, programId: r.program_id || null,
+    validUntil: r.valid_until, certificateNumber: r.certificate_number,
+    programName: r.program_name || '',
+  }));
+};
+
 module.exports = {
   ATTENDED_STATUSES,
   DEFAULT_POLICY,
@@ -254,4 +277,6 @@ module.exports = {
   listCertificates,
   markRevoked,
   findByVerificationCode,
+  findAutoRecertPrograms,
+  findExpiringIssuedCertificates,
 };

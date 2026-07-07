@@ -54,4 +54,17 @@ const softDeleteByKey = async (key) => {
   return rows[0] ? roleRow(rows[0]) : null;
 };
 
-module.exports = { listLive, findByKey, create, updateByKey, softDeleteByKey };
+// Idempotent boot seed (phase-05 A1): create a system role ONLY if a live row
+// with that key doesn't exist — the NOT EXISTS guard mirrors $setOnInsert
+// (never clobbers an admin's later capability edits); the partial-unique key
+// index is the race backstop.
+const seedRoleIfMissing = async ({ key, name, capabilities }) => {
+  await query(
+    `INSERT INTO roles(id, key, name, system, capabilities)
+     SELECT $1, $2, $3, true, $4
+      WHERE NOT EXISTS (SELECT 1 FROM roles WHERE key = $2 AND is_deleted = false)`,
+    [newId(), key, name, (capabilities || []).map(String)],
+  );
+};
+
+module.exports = { listLive, findByKey, create, updateByKey, softDeleteByKey, seedRoleIfMissing };
