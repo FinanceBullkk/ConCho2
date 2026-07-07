@@ -165,14 +165,18 @@ const updateSchedule = async (req, res) => {
 
     const schedule = await useCases.updateSchedule(req.params.id, req.body);
 
+    // Dual-backend: use-cases returns a hydrated Mongoose doc on Mongo but a
+    // plain row on Postgres. Normalise to a plain object for the audit diff.
+    const scheduleAfter = typeof schedule.toObject === 'function' ? schedule.toObject() : schedule;
+
     auditService.record({
       req,
       action: 'updated',
       entity: 'Schedule',
       entityId: req.params.id,
       diff: auditService.diff
-        ? auditService.diff(existing, schedule.toObject())
-        : { before: existing, after: schedule.toObject() },
+        ? auditService.diff(existing, scheduleAfter)
+        : { before: existing, after: scheduleAfter },
     });
 
     // Calendar event update audit (if synced)

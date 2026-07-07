@@ -145,6 +145,15 @@ Bug fixing and integration review rank above net-new feature rollout.
 > [`changelog-archive/2026-q2.md`](changelog-archive/2026-q2.md). Currently
 > inline: **2026-06-20 → 2026-07-07** (06-14→06-19 rolled 2026-07-04).
 
+- **2026-07-07** — **Wave G batch 13 / GATED Slice A — scheduleReassign green both lanes (PG lane ~6 → ~5 failing).**
+  Branch `feat/pg-slice-a-schedule-reassign`. Root cause was NOT a missing port: the reassign path (`PUT /api/schedules/:id`
+  → `updateSchedule`) is already fully dual-backend (`findTeamById`/`snapshotActiveMembers`/`updateScheduleById`/`dissolveWaitlist`/
+  `promoteIfSeatFree` all mig-027 dual) — but the schedule controller's audit-diff called `schedule.toObject()`, which 500s on PG
+  (use-cases returns a plain row, not a Mongoose doc). Guarded it (`typeof toObject === 'function' ? … : …`, same pattern as
+  `use-cases.js:375`). Reverse-asserted the 5 stale `Schedule.findById` reads → `readActiveRow` (PG-only writes don't reflect back to
+  the Mongo memory server). scheduleReassign 9/9 both lanes; scheduleCancel 10/10 unchanged. **Correction to the Slice 0 note:**
+  `syncSchedulesForTeamUpdate` does NOT gate reassign — it gates the waitlist team-member-edit path, so its port moves to Slice B.
+  Remaining 5 = waitlist, autoReleaseScope, enrollmentTransfer, bookingRace (Slices B–E) + p2-regression (Wave F PR-2).
 - **2026-07-07** — **Wave G batch 12 — GATED Slice 0: 3 schedule suites green both lanes (PG lane ~9 → ~6 failing).**
   First slice of the GATED schedule cluster (branch `feat/pg-lane-wave-g-batch12`, per
   `plans/reports/proposal-260707-1001-gated-schedule-cluster-port.md`). `scheduleCancel` + `scheduleUseCases` + `sessionTrainers`
