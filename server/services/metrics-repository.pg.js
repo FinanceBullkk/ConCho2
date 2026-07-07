@@ -117,6 +117,12 @@ const findClassIdsForProgram = async (programId) => {
   return rows.map((r) => ({ _id: r.id }));
 };
 
+// A scalar value that happens to be an object: a bson ObjectId (has _bsontype)
+// or a Date. The funnel passes `programId` as an ObjectId when getFunnel is
+// called directly (the HTTP route passes a string) — Mongo matches it by
+// equality, so treat it as scalar equality here rather than an operator map.
+const isScalarObject = (v) => v instanceof Date || (v != null && v._bsontype !== undefined);
+
 // The funnel's known filter grammar → WHERE. Throws on unknown shapes so a
 // future filter change fails loudly instead of counting wrong.
 const matchToWhere = (match, columns) => {
@@ -125,7 +131,7 @@ const matchToWhere = (match, columns) => {
   for (const [key, val] of Object.entries(match)) {
     const col = columns[key];
     if (!col) throw new Error(`metrics-repository.pg: unsupported filter key "${key}"`);
-    if (val !== null && typeof val === 'object') {
+    if (val !== null && typeof val === 'object' && !isScalarObject(val)) {
       if ('$ne' in val && Object.keys(val).length === 1) {
         if (key === 'isDeleted' && val.$ne === true) {
           parts.push(`${col} = false`);

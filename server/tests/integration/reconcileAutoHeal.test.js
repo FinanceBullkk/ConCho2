@@ -9,6 +9,7 @@
 const request = require('supertest');
 const mongoose = require('mongoose');
 const { getApp, getTokens, getSeedData, getCsrfHeaders } = require('../setup');
+const { findActiveAuditRow } = require('../pg-test-utils');
 const { healCheck, SAFE_CHECKS } = require('../../services/reconcile/healers');
 const { checkCounterDrift } = require('../../services/reconcile/counter-checks');
 
@@ -17,7 +18,6 @@ const WaitlistEntry = require('../../models/WaitlistEntry');
 const Team = require('../../models/Team');
 const Counter = require('../../models/Counter');
 const User = require('../../models/User');
-const AuditLog = require('../../models/AuditLog');
 
 let app, tokens, seed, csrf;
 
@@ -31,9 +31,6 @@ beforeAll(async () => {
 afterAll(async () => {
   await mongoose.disconnect();
 });
-
-// auditService.record is fire-and-forget; wait a tick for the write to land.
-const settle = () => new Promise((r) => setTimeout(r, 80));
 
 describe('Reconcile auto-heal — healers', () => {
   test('orphan_room_booking → deletes the dangling ledger row + audits', async () => {
@@ -49,9 +46,15 @@ describe('Reconcile auto-heal — healers', () => {
     expect(result.healed).toBeGreaterThanOrEqual(1);
     expect(await RoomBooking.countDocuments({ scheduleId })).toBe(0);
 
-    await settle();
-    const row = await AuditLog.findOne({ entity: 'Reconcile', action: 'reconciled' })
-      .sort('-createdAt').lean();
+    // Audit is fire-and-forget through the ported repo (PG-only on the lane) —
+    // poll the active backend until it lands (a fixed sleep flakes under load).
+    let row = null;
+    for (let i = 0; i < 20 && !row; i += 1) {
+      // eslint-disable-next-line no-await-in-loop
+      row = await findActiveAuditRow({ entity: 'Reconcile', action: 'reconciled' });
+      // eslint-disable-next-line no-await-in-loop
+      if (!row) await new Promise((r) => setTimeout(r, 50));
+    }
     expect(row).not.toBeNull();
     expect(row.note).toMatch(/auto-heal orphan_room_booking/);
   });
