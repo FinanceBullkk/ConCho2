@@ -1,7 +1,7 @@
 const request = require('supertest');
 const jwt = require('jsonwebtoken');
 const { getApp, getTokens, getSeedData, teardown, getCsrfHeaders } = require('../setup');
-const { findActiveRowWhere, countActiveRowsWhere, findActiveAuditRow } = require('../pg-test-utils');
+const { pollUntil, findActiveRowWhere, countActiveRowsWhere, findActiveAuditRow } = require('../pg-test-utils');
 const TrainingRequest = require('../../models/TrainingRequest');
 const TrainingPlan = require('../../models/TrainingPlan');
 const Class = require('../../models/Class');
@@ -83,8 +83,8 @@ describe('Planning API — TNA → annual plan (A4)', () => {
     expect(created.body.data).toMatchObject({ headcount: 12, status: 'submitted' });
     const id = created.body.data._id;
 
-    await new Promise((r) => setTimeout(r, 30));
-    expect(await findActiveAuditRow({ entity: 'TrainingRequest', action: 'created' })).toBeTruthy();
+    // Audit is fire-and-forget — poll instead of a fixed sleep (CI-load flake).
+    expect(await pollUntil(() => findActiveAuditRow({ entity: 'TrainingRequest', action: 'created' }))).toBeTruthy();
 
     expect((await get(tokens.admin, '/api/planning/requests')).body.count).toBe(1);
 

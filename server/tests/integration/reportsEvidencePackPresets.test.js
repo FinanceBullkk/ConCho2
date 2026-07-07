@@ -1,17 +1,10 @@
 const request = require('supertest');
 const { getApp, getTokens, teardown, getCsrfHeaders } = require('../setup');
-const { findActiveAuditRow } = require('../pg-test-utils');
+const { pollUntil, findActiveAuditRow } = require('../pg-test-utils');
 
 // Audit writes are fire-and-forget — a fixed sleep flakes under full-suite
 // load (seen on the pg lane). Poll briefly instead; assertions stay strict.
-const waitForAuditRow = async (filter, { timeoutMs = 3000, stepMs = 50 } = {}) => {
-  const deadline = Date.now() + timeoutMs;
-  for (;;) {
-    const row = await findActiveAuditRow(filter);
-    if (row || Date.now() > deadline) return row;
-    await new Promise((r) => setTimeout(r, stepMs));
-  }
-};
+const waitForAuditRow = (filter) => pollUntil(() => findActiveAuditRow(filter));
 const AuditLog = require('../../models/AuditLog');
 const ReportPreset = require('../../models/ReportPreset');
 

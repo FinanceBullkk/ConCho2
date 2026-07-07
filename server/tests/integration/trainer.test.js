@@ -1,7 +1,7 @@
 const request = require('supertest');
 const jwt = require('jsonwebtoken');
 const { getApp, getTokens, getSeedData, teardown, getCsrfHeaders } = require('../setup');
-const { findActiveRowWhere } = require('../pg-test-utils');
+const { pollUntil, findActiveRowWhere } = require('../pg-test-utils');
 const TrainerProfile = require('../../models/TrainerProfile');
 const Schedule = require('../../models/Schedule');
 const LearningProgram = require('../../models/LearningProgram');
@@ -70,8 +70,8 @@ describe('Trainer API — trainer management (A6)', () => {
     expect(created.body.data).toMatchObject({ userId: tId, hasProfile: true });
     expect(created.body.data.canDeliver).toContain(program._id.toString());
 
-    await new Promise((r) => setTimeout(r, 30));
-    expect(await findActiveRowWhere('AuditLog', { entity: 'TrainerProfile', action: 'created' })).toBeTruthy();
+    // Audit is fire-and-forget — poll instead of a fixed sleep (CI-load flake).
+    expect(await pollUntil(() => findActiveRowWhere('AuditLog', { entity: 'TrainerProfile', action: 'created' }))).toBeTruthy();
 
     const updated = await put(tokens.admin, `/api/trainers/${tId}`, { note: 'Lead facilitator' });
     expect(updated.status).toBe(200);
