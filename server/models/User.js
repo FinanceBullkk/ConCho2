@@ -369,87 +369,15 @@ userSchema.post('findOneAndUpdate', async function (doc) {
     'Auto-Release triggered (Dropped)'
   );
 
-  // Lazy-load Schedule to avoid circular dependency
-  const Schedule = mongoose.model('Schedule');
-  const today = new Date();
-  today.setUTCHours(0, 0, 0, 0); // UTC midnight — timezone-safe
-
-  // ── TRANSACTION: Atomic pull + scoped cleanup (SYNC-02) ──
-  // SCOPE FIX (BUG #1): The previous version deleted EVERY empty future
-  // schedule across the whole DB after the pull, which would nuke
-  // unrelated empty placeholders an admin had pre-created. We now:
-  //   1. Snapshot the IDs of schedules this user was actually in,
-  //   2. $pull only within that set,
-  //   3. Delete only schedules from that same set that became empty.
-  // This keeps the original intent (release abandoned solo bookings)
-  // without touching schedules belonging to other teams.
-  const session = await mongoose.startSession();
-  // Promotions collected in-tx, notified AFTER commit (phase-04 slice B).
-  const promotionsBySchedule = [];
-  try {
-    await session.withTransaction(async () => {
-      // 1. Find the IDs of future LIVE schedules the user is currently in.
-      //    Durable-cancelled sessions keep their roster snapshot as history
-      //    (phase-04 slice A) — a Dropped user is not pulled from them.
-      const affectedIds = await Schedule.find(
-        { startTime: { $gte: today }, enrolledUsers: doc._id, status: 'scheduled' },
-        { _id: 1 },
-        { session }
-      ).distinct('_id');
-
-      if (affectedIds.length === 0) {
-        logger.info({ empCode: doc.empCode }, 'Auto-Release: no future enrollments to release');
-        return;
-      }
-
-      // 2. Pull user from those schedules only.
-      const result = await Schedule.updateMany(
-        { _id: { $in: affectedIds } },
-        { $pull: { enrolledUsers: doc._id } },
-        { session }
-      );
-      logger.info(
-        { empCode: doc.empCode, removed: result.modifiedCount },
-        'Auto-Release: removed user from future schedules'
-      );
-
-      // 3. Seat-freer (slice B): the pull freed one seat on every affected
-      //    schedule — seat FIFO waiters INSIDE this tx, BEFORE the empty
-      //    sweep, so a waiter can rescue a session that just lost its last
-      //    enrolled member.
-      const { promoteIfSeatFree } = require('../domains/schedule/waitlist/promotion');
-      for (const scheduleId of affectedIds) {
-        // eslint-disable-next-line no-await-in-loop -- few schedules per user
-        const promoted = await promoteIfSeatFree(scheduleId, session);
-        if (promoted.length > 0) promotionsBySchedule.push({ scheduleId, promoted });
-      }
-
-      // 4. Delete only the affected schedules that are STILL empty after the
-      //    promotion pass. Their room-lock ledger rows are released AND any
-      //    (structurally impossible, but belt) waitlist rows dissolved in the
-      //    same tx — a deleted session must never brick a room slot or
-      //    strand a waiter.
-      const emptyIds = await Schedule.find(
-        { _id: { $in: affectedIds }, enrolledUsers: { $size: 0 } },
-        { _id: 1 },
-        { session }
-      ).distinct('_id');
-      if (emptyIds.length > 0) {
-        const { releaseScheduleResources } = require('../domains/schedule/release-resources');
-        await releaseScheduleResources(emptyIds, session);
-        const emptyResult = await Schedule.deleteMany(
-          { _id: { $in: emptyIds } },
-          { session }
-        );
-        logger.info(
-          { empCode: doc.empCode, deleted: emptyResult.deletedCount },
-          'Auto-Release: deleted empty schedules (scoped to affected set)'
-        );
-      }
-    });
-  } finally {
-    session.endSession();
-  }
+  // Delegate the roster release to the dual-backend orchestrator (2026-07-07,
+  // Wave G Slice B/C): it runs its OWN transaction (Mongo session ⇄ PG BEGIN/
+  // COMMIT via the UoW), snapshots the future LIVE schedules the user is in,
+  // pulls them, FIFO-promotes the freed seats, and sweeps the still-empty
+  // sessions (release room-lock + dissolve waitlist, then delete) — scoped to
+  // the user's own schedules only. Promotions are returned for the post-commit
+  // notify below (never inside the tx). Lazy require avoids a circular import.
+  const { releaseUserFromFutureSchedules } = require('../domains/schedule/roster-sync');
+  const { promotions: promotionsBySchedule } = await releaseUserFromFutureSchedules(doc._id);
 
   // Post-commit: notify promoted waiters (fail-soft — email + NotificationLog
   // + calendar refresh). Never inside the tx.

@@ -18,8 +18,10 @@ const { syncSchedulesForTeamUpdate } = require('../../models/Team');
 //   findActiveEnrollmentInOtherTeam / transferEnrollment / findActiveEnrollmentInTeam /
 //   dropEnrollment / pullTeamMember / findUserContact);
 // Wave-G → ./read-repository (the 13 reads below: team lists / single reads /
-//   mutation guards). syncSchedulesForTeamUpdate stays Mongo-only BY DESIGN —
-//   it ports with the schedule/waitlist concern, not the groups reads.
+//   mutation guards). syncSchedulesForTeamUpdate is now dual-backend (Wave-G
+//   Slice B/C, 2026-07-07): the Team model re-export delegates to
+//   domains/schedule/roster-sync, which runs the roster rebuild + FIFO promotion
+//   + empty-sweep on either backend (Mongo $pull/$push ⇔ PG enrolled_users text[]).
 const {
   findTeamsPage, findAllTeams, countTeams,
   findTeamByIdPopulated, findTeamsForUser, findDeletedTeams,

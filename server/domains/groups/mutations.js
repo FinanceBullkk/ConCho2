@@ -220,7 +220,7 @@ const updateTeam = async (req, res) => {
           teamId: req.params.id,
           oldMembers: oldMemberStrs,
           newMembers: newMemberStrs,
-          session: tx.session,
+          tx,
         }));
       }
 
