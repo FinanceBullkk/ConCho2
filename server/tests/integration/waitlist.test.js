@@ -17,7 +17,7 @@ const { getApp, getTokens, getSeedData, getCsrfHeaders } = require('../setup');
 const Schedule = require('../../models/Schedule');
 const Enrollment = require('../../models/Enrollment');
 const WaitlistEntry = require('../../models/WaitlistEntry');
-const NotificationLog = require('../../models/NotificationLog');
+require('../../models/NotificationLog'); // registered for findActiveRowWhere's model lookup (reads moved to the active backend, #256)
 const User = require('../../models/User');
 const Team = require('../../models/Team');
 const { readActiveRow, findActiveRowWhere, countActiveRowsWhere } = require('../pg-test-utils');
@@ -237,7 +237,9 @@ describe('Waitlist — FIFO auto-promotion', () => {
     expect(first.promotedAt).toBeInstanceOf(Date);
     expect(second.status).toBe('waiting');
 
-    const log = await NotificationLog.findOne({
+    // Active-backend read (#256): the promotion log now writes through the
+    // dual-backend waitlist repo — a Mongoose read is stale on the PG lane.
+    const log = await findActiveRowWhere('NotificationLog', {
       type: 'waitlist_promoted', learnerId: seed.member1._id,
       cadenceKey: `${sch._id}:${seed.member1._id}`,
     });
@@ -361,13 +363,13 @@ describe('Waitlist — review regressions (2026-06-11)', () => {
     // Stale head resolved in place — no seat consumed, no promotion email...
     const head = await findActiveRowWhere('WaitlistEntry', { scheduleId: sch._id, userId: seed.member1._id });
     expect(head.status).toBe('promoted');
-    expect(await NotificationLog.findOne({
+    expect(await findActiveRowWhere('NotificationLog', {
       type: 'waitlist_promoted', cadenceKey: `${sch._id}:${seed.member1._id}`,
     })).toBeNull();
     // ...and the waiter BEHIND it got the freed seat + the email.
     const second = await findActiveRowWhere('WaitlistEntry', { scheduleId: sch._id, userId: seed.leader._id });
     expect(second.status).toBe('promoted');
-    expect(await NotificationLog.findOne({
+    expect(await findActiveRowWhere('NotificationLog', {
       type: 'waitlist_promoted', cadenceKey: `${sch._id}:${seed.leader._id}`,
     })).not.toBeNull();
   });
