@@ -15,7 +15,7 @@
 const request = require('supertest');
 const mongoose = require('mongoose');
 const { getApp, getTokens, getSeedData, getCsrfHeaders, teardown } = require('../setup');
-const { findActiveRowWhere } = require('../pg-test-utils');
+const { pollUntil, findActiveRowWhere } = require('../pg-test-utils');
 
 let app, tokens, seed, csrf;
 let Enrollment, Team, Class, Schedule;
@@ -249,11 +249,12 @@ describe('PUT /api/enrollments/:id', () => {
     // skip audit while its bulk twin recorded it — pin that it now writes one.
     // Audit is written through the ported repo (rows land in PG only on that
     // lane), so read the active backend rather than a Mongoose find.
-    const log = await findActiveRowWhere('AuditLog', {
+    // Audit is fire-and-forget — poll instead of racing it (CI-load flake).
+    const log = await pollUntil(() => findActiveRowWhere('AuditLog', {
       action: 'updated',
       entity: 'Enrollment',
       entityId: target._id,
-    });
+    }));
 
     expect(log).toBeTruthy();
     expect(log.diff).toBeDefined();
