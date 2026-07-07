@@ -145,6 +145,19 @@ Bug fixing and integration review rank above net-new feature rollout.
 > [`changelog-archive/2026-q2.md`](changelog-archive/2026-q2.md). Currently
 > inline: **2026-06-20 → 2026-07-07** (06-14→06-19 rolled 2026-07-04).
 
+- **2026-07-07** — **Wave G batch 14 / GATED Slice B+C — dual-backend schedule roster-sync: waitlist + autoReleaseScope green both lanes (PG lane ~5 → ~3 failing).**
+  Branch `feat/pg-slice-bc-roster-sync`. Two Mongo-only side-effect paths shared one machinery (find future LIVE schedules →
+  roster mutate → FIFO-promote freed seats → sweep still-empty): `models/Team.js syncSchedulesForTeamUpdate` (team member-edit)
+  and `models/User.js` post-findOneAndUpdate auto-release hook. On PG both crashed (`tx.client.query is not a function` — a raw
+  mongoose session reached the PG-resolved `promoteIfSeatFree`). Ported ONCE, backend-agnostic, into
+  `domains/schedule/roster-sync.js` over `runInTransaction` + the already-dual waitlist/schedule repos + **5 new dual-backend repo
+  primitives** (`findFutureTeamSchedules`/`findFutureUserSchedules`/`applyRosterDelta`/`findEmptyScheduleIds`/`deleteSchedulesByIds`
+  — Mongo `$pull`/`$push` verbatim ⇔ PG `enrolled_users text[]` array SQL, so **Mongo behaviour is 1:1 unchanged**). Team.js +
+  User.js became thin delegates; `groups/mutations.js` now passes the whole UoW handle (`tx`), not `tx.session`. waitlist 18/18 +
+  autoReleaseScope 1/1 both lanes; parity `schedule-roster-sync-repository.pg.test.js` 6/6 (incl. tx-rollback harness); teams 14/14
+  + enrollmentTransfer 11/11 Mongo (no regression); PG blast-radius 7 suites/71 tests green. Deferred: `notifyPromotions`
+  (post-commit, fail-soft) stays Mongo-only — writes NotificationLog to Mongo even in PG mode; port with the notification concern.
+  Remaining 3 = enrollmentTransfer, bookingRace (Slices D–E) + p2-regression (Wave F PR-2).
 - **2026-07-07** — **Wave G batch 13 / GATED Slice A — scheduleReassign green both lanes (PG lane ~6 → ~5 failing).**
   Branch `feat/pg-slice-a-schedule-reassign`. Root cause was NOT a missing port: the reassign path (`PUT /api/schedules/:id`
   → `updateSchedule`) is already fully dual-backend (`findTeamById`/`snapshotActiveMembers`/`updateScheduleById`/`dissolveWaitlist`/

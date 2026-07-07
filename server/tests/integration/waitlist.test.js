@@ -20,6 +20,7 @@ const WaitlistEntry = require('../../models/WaitlistEntry');
 const NotificationLog = require('../../models/NotificationLog');
 const User = require('../../models/User');
 const Team = require('../../models/Team');
+const { readActiveRow, findActiveRowWhere, countActiveRowsWhere } = require('../pg-test-utils');
 
 let app, tokens, seed, csrf;
 const sign = (id) => jwt.sign({ id: id.toString() }, process.env.JWT_SECRET, { expiresIn: '1h' });
@@ -125,7 +126,7 @@ describe('Waitlist — join policy', () => {
       joinAs(tokens.member1, sch._id),
     ]);
     expect([a.status, b.status].sort()).toEqual([201, 409]);
-    expect(await WaitlistEntry.countDocuments({
+    expect(await countActiveRowsWhere('WaitlistEntry', {
       scheduleId: sch._id, userId: seed.member1._id, status: 'waiting',
     })).toBe(1);
   });
@@ -140,7 +141,7 @@ describe('Waitlist — leave / mine / staff list', () => {
     const res = await request(app).delete(`/api/schedules/${sch._id}/waitlist`)
       .set('Authorization', `Bearer ${tokens.member1}`).set(csrf);
     expect(res.status).toBe(200);
-    const entry = await WaitlistEntry.findOne({ scheduleId: sch._id, userId: seed.member1._id });
+    const entry = await findActiveRowWhere('WaitlistEntry', { scheduleId: sch._id, userId: seed.member1._id });
     expect(entry.status).toBe('withdrawn');
 
     const again = await request(app).delete(`/api/schedules/${sch._id}/waitlist`)
@@ -205,9 +206,9 @@ describe('Waitlist — queue dissolves with the session', () => {
       .set('Authorization', `Bearer ${tokens.admin}`).set(csrf);
     expect(res.status).toBe(200);
 
-    const entry = await WaitlistEntry.findOne({ scheduleId: sch._id, userId: seed.member1._id });
+    const entry = await findActiveRowWhere('WaitlistEntry', { scheduleId: sch._id, userId: seed.member1._id });
     expect(entry.status).toBe('cancelled');
-    expect((await Schedule.findById(sch._id)).status).toBe('cancelled');
+    expect((await readActiveRow('Schedule', sch._id)).status).toBe('cancelled');
   });
 });
 
@@ -225,13 +226,13 @@ describe('Waitlist — FIFO auto-promotion', () => {
       .send({ capacity: 2 });
     expect(res.status).toBe(200);
 
-    const after = await Schedule.findById(sch._id);
+    const after = await readActiveRow('Schedule', sch._id);
     expect(after.enrolledUsers.map(String)).toContain(String(seed.member1._id)); // FIFO winner
     expect(after.enrolledUsers.map(String)).not.toContain(String(seed.leader._id));
     expect(after.enrolledUsers.length).toBe(2); // never above cap
 
-    const first = await WaitlistEntry.findOne({ scheduleId: sch._id, userId: seed.member1._id });
-    const second = await WaitlistEntry.findOne({ scheduleId: sch._id, userId: seed.leader._id });
+    const first = await findActiveRowWhere('WaitlistEntry', { scheduleId: sch._id, userId: seed.member1._id });
+    const second = await findActiveRowWhere('WaitlistEntry', { scheduleId: sch._id, userId: seed.leader._id });
     expect(first.status).toBe('promoted');
     expect(first.promotedAt).toBeInstanceOf(Date);
     expect(second.status).toBe('waiting');
@@ -257,10 +258,10 @@ describe('Waitlist — FIFO auto-promotion', () => {
     // ({new:true} so the post hook sees the NEW status — same as the app).
     await User.findOneAndUpdate({ _id: dropper._id }, { status: 'Dropped' }, { new: true });
 
-    const after = await Schedule.findById(sch._id);
+    const after = await readActiveRow('Schedule', sch._id);
     expect(after).not.toBeNull(); // not emptied — the promotion refilled it
     expect(after.enrolledUsers.map(String)).toEqual([String(seed.member1._id)]);
-    const entry = await WaitlistEntry.findOne({ scheduleId: sch._id, userId: seed.member1._id });
+    const entry = await findActiveRowWhere('WaitlistEntry', { scheduleId: sch._id, userId: seed.member1._id });
     expect(entry.status).toBe('promoted');
   });
 
@@ -280,11 +281,11 @@ describe('Waitlist — FIFO auto-promotion', () => {
       .send({ members: [seed.leader._id.toString(), seed.member2._id.toString()] });
     expect(res.status).toBe(200);
 
-    const after = await Schedule.findById(sch._id);
+    const after = await readActiveRow('Schedule', sch._id);
     expect(after.enrolledUsers.map(String).sort()).toEqual(
       [String(seed.leader._id), String(seed.member2._id)].sort(),
     );
-    const entry = await WaitlistEntry.findOne({ scheduleId: sch._id, userId: seed.member2._id });
+    const entry = await findActiveRowWhere('WaitlistEntry', { scheduleId: sch._id, userId: seed.member2._id });
     expect(entry.status).toBe('promoted');
 
     // Restore team membership for any later suites in this file's DB.
@@ -351,20 +352,20 @@ describe('Waitlist — review regressions (2026-06-11)', () => {
       .send({ capacity: 2 });
     expect(res.status).toBe(200);
 
-    const after = await Schedule.findById(sch._id);
+    const after = await readActiveRow('Schedule', sch._id);
     expect(after.enrolledUsers.map(String).sort()).toEqual(
       [String(seed.member1._id), String(seed.leader._id)].sort(),
     );
     expect(after.enrolledUsers.length).toBe(2); // never above cap
 
     // Stale head resolved in place — no seat consumed, no promotion email...
-    const head = await WaitlistEntry.findOne({ scheduleId: sch._id, userId: seed.member1._id });
+    const head = await findActiveRowWhere('WaitlistEntry', { scheduleId: sch._id, userId: seed.member1._id });
     expect(head.status).toBe('promoted');
     expect(await NotificationLog.findOne({
       type: 'waitlist_promoted', cadenceKey: `${sch._id}:${seed.member1._id}`,
     })).toBeNull();
     // ...and the waiter BEHIND it got the freed seat + the email.
-    const second = await WaitlistEntry.findOne({ scheduleId: sch._id, userId: seed.leader._id });
+    const second = await findActiveRowWhere('WaitlistEntry', { scheduleId: sch._id, userId: seed.leader._id });
     expect(second.status).toBe('promoted');
     expect(await NotificationLog.findOne({
       type: 'waitlist_promoted', cadenceKey: `${sch._id}:${seed.leader._id}`,
@@ -391,9 +392,9 @@ describe('Waitlist — review regressions (2026-06-11)', () => {
     expect(res.status).toBe(200);
 
     // Roster rebuilt to the NEW team; the old-team waiter is dissolved.
-    const after = await Schedule.findById(sch._id);
+    const after = await readActiveRow('Schedule', sch._id);
     expect(after.enrolledUsers.map(String)).toEqual([String(seed.leader._id)]);
-    const entry = await WaitlistEntry.findOne({ scheduleId: sch._id, userId: seed.member2._id });
+    const entry = await findActiveRowWhere('WaitlistEntry', { scheduleId: sch._id, userId: seed.member2._id });
     expect(entry.status).toBe('cancelled');
 
     // A later capacity raise must promote NOBODY from the dissolved queue.
@@ -401,7 +402,7 @@ describe('Waitlist — review regressions (2026-06-11)', () => {
       .set('Authorization', `Bearer ${tokens.admin}`).set(csrf)
       .send({ capacity: 3 });
     expect(raise.status).toBe(200);
-    const roster = (await Schedule.findById(sch._id)).enrolledUsers.map(String);
+    const roster = (await readActiveRow('Schedule', sch._id)).enrolledUsers.map(String);
     expect(roster).not.toContain(String(seed.member2._id));
   });
 });

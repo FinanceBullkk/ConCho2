@@ -14,6 +14,7 @@
  */
 
 const { getApp, getSeedData, teardown } = require('../setup');
+const { readActiveRow } = require('../pg-test-utils');
 
 let seed;
 let User, Schedule, Class, Team;
@@ -92,12 +93,12 @@ test('BUG #1 fix: dropping a user does NOT delete empty schedules of other teams
   // ── Assertions ────────────────────────────────────────
   // schedA: user pulled, then schedA is empty, then schedA gets deleted —
   // because schedA WAS in the affected set.
-  const schedAAfter = await Schedule.findById(schedA._id);
+  const schedAAfter = await readActiveRow('Schedule', schedA._id);
   expect(schedAAfter).toBeNull();
 
   // placeholder: was not in the affected set (user never enrolled there) →
   // MUST survive the cascade. This is the regression check.
-  const placeholderAfter = await Schedule.findById(placeholder._id);
+  const placeholderAfter = await readActiveRow('Schedule', placeholder._id);
   expect(placeholderAfter).not.toBeNull();
   expect(placeholderAfter._id.toString()).toBe(placeholder._id.toString());
 });
