@@ -105,9 +105,11 @@ const ensureProgramForLegacyCourse = async (courseName, defaultSessionCount = 1)
 
   const byName = await repository.findProgramByName(courseName);
   if (byName) {
+    // Backfill the legacy link through the dual-backend repo. The old
+    // `byName.save()` assumed a hydrated Mongoose doc; the PG impl returns a
+    // plain row (no .save()), so it threw under DB_BACKEND=postgres.
     if (!byName.legacyCourseName) {
-      byName.legacyCourseName = courseName;
-      await byName.save();
+      return repository.updateProgramById(byName._id, { legacyCourseName: courseName });
     }
     return byName;
   }

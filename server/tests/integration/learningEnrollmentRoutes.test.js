@@ -5,6 +5,9 @@ const Class = require('../../models/Class');
 const LearningProgram = require('../../models/LearningProgram');
 const NotificationLog = require('../../models/NotificationLog');
 const { runReconciliation } = require('../../services/reconcileService');
+// Enrollments are written through the ported PG repo (PG-only on the lane), so
+// Mongoose count/find assertions read the wrong backend — route to the active one.
+const { readActiveRow, countActiveRowsWhere } = require('../pg-test-utils');
 
 let app, tokens, seed, csrf;
 
@@ -72,7 +75,7 @@ describe('Learning Platform API — cohort enrollments', () => {
 
     expect([a.status, b.status].sort((x, y) => x - y)).toEqual([201, 409]);
 
-    const active = await Enrollment.countDocuments({
+    const active = await countActiveRowsWhere('Enrollment', {
       userId: seed.member1._id, classId: seed.class1._id, teamId: null, status: 'Active',
     });
     expect(active).toBe(1);
@@ -131,7 +134,7 @@ describe('Learning Platform API — cohort enrollments', () => {
     expect(second.status).toBe(422);
     expect(second.body.message).toMatch(/full|capacity/i);
 
-    const active = await Enrollment.countDocuments({
+    const active = await countActiveRowsWhere('Enrollment', {
       classId: seed.class1._id, teamId: null, status: 'Active',
     });
     expect(active).toBe(1);
@@ -150,7 +153,7 @@ describe('Learning Platform API — cohort enrollments', () => {
     expect(del.status).toBe(200);
     expect(del.body.data.status).toBe('Dropped');
 
-    const stored = await Enrollment.findById(id).lean();
+    const stored = await readActiveRow('Enrollment', id);
     expect(stored).toBeTruthy();
     expect(stored.status).toBe('Dropped');
     expect(stored.leftAt).toBeTruthy();
@@ -215,7 +218,7 @@ describe('Learning Platform API — bulk cohort enrollment', () => {
     expect(res.body.data.enrolledCount).toBe(2);
     expect(res.body.data.skipped).toEqual([]);
 
-    const active = await Enrollment.countDocuments({
+    const active = await countActiveRowsWhere('Enrollment', {
       classId: seed.class1._id, teamId: null, status: 'Active',
     });
     expect(active).toBe(2);
@@ -254,7 +257,7 @@ describe('Learning Platform API — bulk cohort enrollment', () => {
     expect(res.body.data.enrolledCount).toBe(1);
     expect(res.body.data.skipped.map((s) => s.reason)).toEqual(['cohort_full']);
 
-    const active = await Enrollment.countDocuments({
+    const active = await countActiveRowsWhere('Enrollment', {
       classId: seed.class1._id, teamId: null, status: 'Active',
     });
     expect(active).toBe(1);

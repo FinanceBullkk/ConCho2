@@ -17,6 +17,16 @@ const { query } = require('../../../config/pg');
 
 const newId = () => crypto.randomBytes(12).toString('hex');
 
+// The cohort partial-unique (mig 010) rejects a concurrent-race duplicate with
+// 23505 — re-throw it as a Mongo-style { code: 11000 } so the use-case's
+// duplicate handler maps it to 409 (the sequential dup is caught earlier by the
+// findActiveCohortEnrollment pre-check; only the race reaches the insert).
+const duplicateError = () => {
+  const e = new Error('duplicate active enrollment');
+  e.code = 11000;
+  return e;
+};
+
 const enrollmentRow = (r) => (r == null ? null : {
   _id: r.id, userId: r.user_id || null, classId: r.class_id || null, teamId: r.team_id || null,
   status: r.status, joinedAt: r.joined_at, leftAt: r.left_at || null, note: r.note == null ? undefined : r.note,
@@ -35,11 +45,17 @@ const findActiveCohortEnrollment = async (userId, cohortId) => {
 
 // session IGNORED in PG (deferred to Wave-D); joinedAt defaults to now() like the model.
 const insertActiveEnrollment = async ({ userId, classId = null, teamId = null, joinedAt } /* , session */) => {
-  const { rows } = await query(
-    `INSERT INTO enrollments(id,user_id,class_id,team_id,status,joined_at)
-     VALUES ($1,$2,$3,$4,'Active',$5) RETURNING *`,
-    [newId(), String(userId), classId == null ? null : String(classId), teamId == null ? null : String(teamId),
-      joinedAt ? new Date(joinedAt).toISOString() : new Date().toISOString()]);
+  let rows;
+  try {
+    ({ rows } = await query(
+      `INSERT INTO enrollments(id,user_id,class_id,team_id,status,joined_at)
+       VALUES ($1,$2,$3,$4,'Active',$5) RETURNING *`,
+      [newId(), String(userId), classId == null ? null : String(classId), teamId == null ? null : String(teamId),
+        joinedAt ? new Date(joinedAt).toISOString() : new Date().toISOString()]));
+  } catch (error) {
+    if (error && error.code === '23505') throw duplicateError();
+    throw error;
+  }
   return enrollmentRow(rows[0]);
 };
 
