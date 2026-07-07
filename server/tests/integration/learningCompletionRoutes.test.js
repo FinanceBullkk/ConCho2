@@ -9,7 +9,7 @@ const Class = require('../../models/Class');
 const LearningProgram = require('../../models/LearningProgram');
 // Certificates are written through the ported completion PG repo (PG-only on the
 // lane) — count/read on the active backend, not Mongoose.
-const { readActiveRow, countActiveRowsWhere } = require('../pg-test-utils');
+const { readActiveRow, findActiveRowWhere, countActiveRowsWhere } = require('../pg-test-utils');
 
 let app, tokens, seed, csrf;
 
@@ -147,9 +147,9 @@ describe('Learning Platform API — completion & certificates', () => {
     expect(res.body.data.completion.attendancePercent).toBe(50);
     expect(res.body.data.learner.name).toBeTruthy();
     // Cohesion P5 follow-up: issuing a certificate writes an in-app notification.
-    const note = await NotificationLog.findOne({
+    const note = await findActiveRowWhere('NotificationLog', {
       recipientUserId: seed.member1._id, type: 'certificate_issued',
-    }).lean();
+    });
     expect(note).toBeTruthy();
     expect(note.channel).toBe('in_app');
   });

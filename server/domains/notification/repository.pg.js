@@ -60,6 +60,59 @@ const markAllReadForUser = async (userId) => {
   return rowCount || 0;
 };
 
+// ── Write seam (Phase 5 slice 3 — A4/A5/A6) ───────────────
+// Twin of the Mongo NotificationLog.create/updateOne pair. The mig-032 dedupe
+// unique (7 fields, NULLS NOT DISTINCT) makes retries idempotent — 23505
+// re-throws as { code: 11000 } so every caller's "already notified" branch
+// stays backend-agnostic (same mapping as waitlist insertPromotionLog, #256).
+const newId = () => require('crypto').randomBytes(12).toString('hex');
+
+const insertLog = async (data) => {
+  let rows;
+  try {
+    ({ rows } = await query(
+      `INSERT INTO notification_logs(id, type, channel, recipient_email, recipient_user_id,
+                                     assignment_id, learner_id, cadence_key, status, error, sent_at, metadata)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12::jsonb) RETURNING *`,
+      [
+        newId(), data.type, data.channel || 'email', data.recipientEmail || '',
+        data.recipientUserId == null ? null : String(data.recipientUserId),
+        data.assignmentId == null ? null : String(data.assignmentId),
+        data.learnerId == null ? null : String(data.learnerId),
+        data.cadenceKey, data.status,
+        data.error || '',
+        data.sentAt == null ? null : new Date(data.sentAt).toISOString(),
+        JSON.stringify(data.metadata || {}),
+      ]));
+  } catch (error) {
+    if (error && error.code === '23505') {
+      const dup = new Error('duplicate notification (cadence already recorded)');
+      dup.code = 11000;
+      throw dup;
+    }
+    throw error;
+  }
+  return logRow(rows[0]);
+};
+
+// Bounded $set twin — only the fields the reminder finishers actually patch.
+const UPDATE_LOG_COLS = { status: 'status', error: 'error', sentAt: 'sent_at', readAt: 'read_at', metadata: 'metadata' };
+
+const updateLogById = async (id, set) => {
+  const sets = [];
+  const args = [String(id)];
+  for (const [k, col] of Object.entries(UPDATE_LOG_COLS)) {
+    if (set[k] === undefined) continue;
+    args.push(k === 'metadata' ? JSON.stringify(set[k] || {}) : set[k]);
+    sets.push(`${col} = $${args.length}${k === 'metadata' ? '::jsonb' : ''}`);
+  }
+  if (!sets.length) return { acknowledged: true, matchedCount: 0, modifiedCount: 0 };
+  sets.push('updated_at = now()');
+  const { rowCount } = await query(
+    `UPDATE notification_logs SET ${sets.join(', ')} WHERE id = $1`, args);
+  return { acknowledged: true, matchedCount: rowCount, modifiedCount: rowCount };
+};
+
 const findUserPreferences = async (userId) => {
   const { rows } = await query(
     `SELECT id, notification_preferences FROM users WHERE id = $1 AND is_deleted = false`, [String(userId)]);
@@ -76,5 +129,6 @@ const updateUserPreferences = async (userId, prefs) => {
 
 module.exports = {
   findForUser, countUnreadForUser, markRead, markAllReadForUser, FEED_LIMIT,
+  insertLog, updateLogById,
   findUserPreferences, updateUserPreferences,
 };

@@ -33,6 +33,16 @@ const markAllReadForUser = async (userId) => {
   return res.modifiedCount || 0;
 };
 
+// ── Write seam (Phase 5 slice 3 — A4/A5/A6) ───────────────
+// The in-app bell writer + the expiry/assignment reminder crons create and
+// finish NotificationLog rows through here so the writes follow DB_BACKEND.
+// insertLog throws the raw duplicate error ({code:11000} via the 7-field
+// dedupe unique) — each caller owns its own "already notified" branch.
+const insertLog = (data) => NotificationLog.create(data);
+
+const updateLogById = (id, set) =>
+  NotificationLog.updateOne({ _id: id }, { $set: set });
+
 // Per-user notification preferences (self-scoped via the userId predicate).
 const findUserPreferences = (userId) =>
   User.findById(userId).select('notificationPreferences').lean();
@@ -43,5 +53,6 @@ const updateUserPreferences = (userId, prefs) =>
 
 module.exports = {
   findForUser, countUnreadForUser, markRead, markAllReadForUser, FEED_LIMIT,
+  insertLog, updateLogById,
   findUserPreferences, updateUserPreferences,
 };

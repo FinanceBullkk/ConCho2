@@ -84,4 +84,22 @@ const recordRun = async (id) => {
   return { acknowledged: true, matchedCount: rowCount, modifiedCount: rowCount };
 };
 
-module.exports = { listLive, findById, findEnabledByTrigger, create, updateById, softDeleteById, recordRun };
+// Boot-time system-rule seed (Phase 5 slice 3 — A8). Twin of the Mongo
+// $setOnInsert upsert keyed (name, system) with NO deleted filter: a
+// soft-deleted system rule still matches (NOT EXISTS fails) and stays deleted —
+// admins hiding a system rule survive a restart. INSERT…WHERE NOT EXISTS is
+// the slice-1 seedRoleIfMissing precedent (boot is single-threaded; the mig-017
+// partial unique backstops a race).
+const upsertSystemRuleByName = async (rule) => {
+  await query(
+    `INSERT INTO automation_rules(id, name, trigger, conditions, actions, enabled, system)
+     SELECT $1, $2, $3, $4::jsonb, $5::jsonb, $6, true
+      WHERE NOT EXISTS (SELECT 1 FROM automation_rules WHERE name = $2 AND system = true)`,
+    [
+      newId(), rule.name, rule.trigger,
+      JSON.stringify(rule.conditions || []), JSON.stringify(rule.actions || []),
+      rule.enabled == null ? false : rule.enabled,
+    ]);
+};
+
+module.exports = { listLive, findById, findEnabledByTrigger, create, updateById, softDeleteById, recordRun, upsertSystemRuleByName };

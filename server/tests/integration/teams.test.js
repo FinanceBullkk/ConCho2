@@ -7,7 +7,7 @@
 const request = require('supertest');
 const mongoose = require('mongoose');
 const { getApp, getTokens, getSeedData, getCsrfHeaders, teardown } = require('../setup');
-const { readActiveRow, findActiveRowWhere } = require('../pg-test-utils');
+const { readActiveRow, findActiveRowWhere, countActiveRowsWhere } = require('../pg-test-utils');
 const Team = require('../../models/Team');
 const Schedule = require('../../models/Schedule');
 const Attendance = require('../../models/Attendance');
@@ -340,9 +340,9 @@ describe('Team enroll → cohort_enrolled bell parity (converge Phase 2)', () =>
       expect(res.status).toBe(201);
 
       // Same shape a direct cohort enrollee gets (one write spine + one event).
-      const bell = await NotificationLog.findOne({
+      const bell = await findActiveRowWhere('NotificationLog', {
         recipientUserId: member._id, type: 'cohort_enrolled',
-      }).lean();
+      });
       expect(bell).toBeTruthy();
       expect(bell.channel).toBe('in_app');
       expect(bell.metadata.cohortId).toBe(cls._id.toString());
@@ -371,9 +371,9 @@ describe('Team enroll → cohort_enrolled bell parity (converge Phase 2)', () =>
         });
       expect(res.status).toBe(201);
 
-      const count = await NotificationLog.countDocuments({
-        recipientUserId: { $in: [leader._id, member._id] }, type: 'cohort_enrolled',
-      });
+      const count =
+        (await countActiveRowsWhere('NotificationLog', { recipientUserId: leader._id, type: 'cohort_enrolled' }))
+        + (await countActiveRowsWhere('NotificationLog', { recipientUserId: member._id, type: 'cohort_enrolled' }));
       expect(count).toBe(0);
 
       await Team.findByIdAndDelete(res.body.data._id);

@@ -35,6 +35,8 @@ describePg('PG-parity: notification repository', () => {
   beforeAll(async () => {
     mem = await MongoMemoryServer.create();
     await mongoose.connect(mem.getUri());
+    // insertLog's duplicate-cadence parity needs the model's 7-field unique built.
+    await mongoose.model('NotificationLog').init();
     const db = mongoose.connection.db;
 
     await db.collection(coll('User')).insertMany([
@@ -102,6 +104,41 @@ describePg('PG-parity: notification repository', () => {
     expect(m).toBe(2); expect(p).toBe(2);
     const [mC, pC] = await both((r) => r.countUnreadForUser(U1));
     expect(mC).toBe(0); expect(pC).toBe(0);
+  });
+
+  describe('write seam — insertLog/updateLogById (Phase 5 slice 3, A4–A6)', () => {
+    test('insertLog: identical rows + defaults (email "", metadata {}); returns _id', async () => {
+      const data = { type: 'certificate_expiring', channel: 'email', recipientUserId: U1, cadenceKey: 'w1', status: 'pending' };
+      const [m, p] = await both((r) => r.insertLog({ ...data }));
+      expect(m._id).toBeTruthy(); expect(p._id).toBeTruthy();
+      const proj = (x) => { const n = norm(x); return {
+        type: n.type, channel: n.channel, email: n.recipientEmail ?? '', cadence: n.cadenceKey,
+        status: n.status, error: n.error ?? '', meta: n.metadata || {},
+      }; };
+      expect(proj(p)).toEqual(proj(m));
+    });
+
+    test('insertLog: duplicate cadence tuple → {code:11000} on both (mig 032 ⇔ Mongo unique)', async () => {
+      const data = { type: 'assignment_due_soon', channel: 'email', recipientEmail: 'x@y.io', recipientUserId: U2, cadenceKey: 'dup1', status: 'pending' };
+      await both((r) => r.insertLog({ ...data }));
+      const codes = await Promise.all([repo.impls.mongo, repo.impls.pg].map(async (r) => {
+        try { await r.insertLog({ ...data }); return null; } catch (e) { return e.code; }
+      }));
+      expect(codes).toEqual([11000, 11000]);
+    });
+
+    test('updateLogById: finisher patch (status/error/sentAt) — identical', async () => {
+      const mk = { type: 'assignment_overdue', channel: 'email', recipientUserId: U1, cadenceKey: 'fin1', status: 'pending' };
+      const [m, p] = await both((r) => r.insertLog({ ...mk }));
+      const at = new Date('2026-07-07T00:00:00.000Z');
+      await repo.impls.mongo.updateLogById(m._id, { status: 'sent', sentAt: at });
+      await repo.impls.pg.updateLogById(p._id, { status: 'sent', sentAt: at });
+      const mRow = await mongoose.model('NotificationLog').findById(m._id).lean();
+      const { rows } = await query('SELECT * FROM notification_logs WHERE id = $1', [String(p._id)]);
+      expect(mRow.status).toBe('sent'); expect(rows[0].status).toBe('sent');
+      expect(new Date(mRow.sentAt).toISOString()).toBe(at.toISOString());
+      expect(new Date(rows[0].sent_at).toISOString()).toBe(at.toISOString());
+    });
   });
 
   test('preferences: read (omit when unset) + update — identical', async () => {

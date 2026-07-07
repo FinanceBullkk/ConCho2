@@ -7,7 +7,7 @@
 
 const request = require('supertest');
 const { getApp, getTokens, getSeedData, getCsrfHeaders, teardown } = require('../setup');
-const { readActiveRow } = require('../pg-test-utils');
+const { readActiveRow, findActiveRowWhere, findActiveRowsWhere, countActiveRowsWhere } = require('../pg-test-utils');
 const { isPostgres } = require('../../config/db-backend');
 const Schedule = require('../../models/Schedule');
 const Setting = require('../../models/Setting');
@@ -92,9 +92,9 @@ describe('POST /api/schedules/book-slot', () => {
       })
       .expect(201);
 
-    const note = await NotificationLog.findOne({
+    const note = await findActiveRowWhere('NotificationLog', {
       recipientUserId: seed.leader._id, type: 'booking_confirmed',
-    }).lean();
+    });
     expect(note).toBeTruthy();
     expect(note.channel).toBe('in_app');
     expect(note.readAt).toBeNull();
@@ -114,7 +114,7 @@ describe('POST /api/schedules/book-slot', () => {
       .expect(201);
 
     // The two non-booker members (member1, member2) each get session_enrolled.
-    const memberRows = await NotificationLog.find({ type: 'session_enrolled' }).lean();
+    const memberRows = await findActiveRowsWhere('NotificationLog', { type: 'session_enrolled' });
     const recipients = memberRows.map((r) => String(r.recipientUserId)).sort();
     expect(recipients).toEqual(
       [String(seed.member1._id), String(seed.member2._id)].sort(),
@@ -122,7 +122,7 @@ describe('POST /api/schedules/book-slot', () => {
     expect(memberRows.every((r) => r.channel === 'in_app')).toBe(true);
 
     // The booker is excluded — they only get booking_confirmed, not session_enrolled.
-    const bookerEnrolled = await NotificationLog.countDocuments({
+    const bookerEnrolled = await countActiveRowsWhere('NotificationLog', {
       recipientUserId: seed.leader._id, type: 'session_enrolled',
     });
     expect(bookerEnrolled).toBe(0);

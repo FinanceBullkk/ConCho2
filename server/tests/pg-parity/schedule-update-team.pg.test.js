@@ -106,6 +106,16 @@ describePg('PG-parity: schedule repo updateScheduleById + findTeamById (S3b-2)',
     expect(proj(m)).toEqual({ agenda: ['a1'], ext: 'Ext' }); expect(proj(p)).toEqual({ agenda: ['a1'], ext: 'Ext' });
   });
 
+  test('updateScheduleById: A3 calendar writeback — meetLink hits the COLUMN, googleEventId rides meta', async () => {
+    // Without the meetLink UPDATE_COLS mapping the value would land in meta
+    // while baseSchedule reads the meet_link column → '' on every PG read.
+    await both((r) => r.updateScheduleById(SU2, { googleEventId: 'evt_123', meetLink: 'https://meet.google.com/abc' }));
+    const proj = (x) => { const n = norm(x); return { evt: n.googleEventId, link: n.meetLink }; };
+    const [m, p] = await both((r) => r.findScheduleByIdRaw(SU2));
+    expect(proj(m)).toEqual({ evt: 'evt_123', link: 'https://meet.google.com/abc' });
+    expect(proj(p)).toEqual(proj(m));
+  });
+
   test('updateScheduleById: { roomId: null } clears the field', async () => {
     await both((r) => r.updateScheduleById(SU3, { roomId: null }));
     const [m, p] = await both((r) => r.findScheduleByIdRaw(SU3));

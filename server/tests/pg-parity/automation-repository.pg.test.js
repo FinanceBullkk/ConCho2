@@ -111,4 +111,36 @@ describePg('PG-parity: automation repository', () => {
     expect(await repo.impls.mongo.findById(R1)).toBeNull();
     expect(await repo.impls.pg.findById(R1)).toBeNull();
   });
+
+  test('upsertSystemRuleByName (A8 seed): inserts when missing, never clobbers, never resurrects — identical', async () => {
+    const rule = { name: 'Seeded sys rule', trigger: 'ENROLLMENT_CREATED', conditions: [], actions: [{ type: 'log', params: {} }], enabled: false, system: true };
+    const find = () => both((r) => r.listLive().then((rows) => rows.find((x) => x.name === rule.name) || null));
+
+    await both((r) => r.upsertSystemRuleByName(rule));
+    let [m, p] = await find();
+    // KNOWN benign divergence: Mongoose `minimize` strips an EMPTY params {}
+    // on write (row has {type:'log'}), PG jsonb stores it verbatim. Consumers
+    // read `action.params?.x`, so behaviour is identical — normalize here.
+    const normParams = (x) => ({ ...x, actions: (x.actions || []).map((a) => ({ ...a, params: a.params || {} })) });
+    const want = { name: 'Seeded sys rule', trigger: 'ENROLLMENT_CREATED', conditions: [], actions: [{ type: 'log', params: {} }], enabled: false, system: true, runCount: 0 };
+    expect(normParams(proj(m))).toEqual(want);
+    expect(normParams(proj(p))).toEqual(want);
+
+    // Re-seed with a different payload → the ORIGINAL row is kept
+    // ($setOnInsert ⇔ INSERT…WHERE NOT EXISTS).
+    await both((r) => r.upsertSystemRuleByName({ ...rule, actions: [{ type: 'notify', params: { to: 'x' } }], enabled: true }));
+    ;[m, p] = await find();
+    expect(normParams(proj(m)).actions).toEqual([{ type: 'log', params: {} }]);
+    expect(proj(m).enabled).toBe(false);
+    expect(normParams(proj(p))).toEqual(normParams(proj(m)));
+
+    // Admin-hidden (soft-deleted) system rule is NOT resurrected on reboot —
+    // the match key deliberately ignores is_deleted (Mongo filter has no
+    // isDeleted predicate; the PG NOT EXISTS mirrors it).
+    await repo.impls.mongo.softDeleteById(String(m._id));
+    await repo.impls.pg.softDeleteById(String(p._id));
+    await both((r) => r.upsertSystemRuleByName(rule));
+    const [m2, p2] = await find();
+    expect(m2).toBeNull(); expect(p2).toBeNull();
+  });
 });

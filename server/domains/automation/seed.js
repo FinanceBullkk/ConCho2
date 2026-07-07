@@ -1,4 +1,4 @@
-const AutomationRule = require('../../models/AutomationRule');
+const repository = require('./repository');
 const EVENTS = require('../_shared/events');
 
 // The build-spec §9 flows, seeded as DISABLED system rules so they appear in
@@ -28,13 +28,11 @@ const SYSTEM_RULES = [
   { name: 'Nudge unmarked attendance', trigger: 'attendance.unmarked', conditions: [], actions: [{ type: 'log', params: {} }], enabled: false, system: true },
 ];
 
+// Dual-backend (Phase 5 slice 3 — A8): the seed writes follow DB_BACKEND via
+// the repository's insert-if-missing (a soft-deleted system rule stays deleted).
 const seedSystemRules = async () => {
   for (const rule of SYSTEM_RULES) {
-    await AutomationRule.updateOne(
-      { name: rule.name, system: true },
-      { $setOnInsert: rule },
-      { upsert: true },
-    );
+    await repository.upsertSystemRuleByName(rule);
   }
 };
 

@@ -1,4 +1,7 @@
-const Schedule = require('../../models/Schedule');
+// Dual-backend (Mongo ⇔ Postgres) — Phase 5 slice 3 (A3): both the populate
+// re-fetch and the event-id/Meet-link writeback ride the schedule repository,
+// so the calendar lifecycle keeps working after the DB_BACKEND=postgres flip.
+const repository = require('./repository');
 const calendarService = require('../../services/calendarService');
 const logger = require('../../lib/logger');
 
@@ -55,12 +58,7 @@ const createCalendarEventForSchedule = async (scheduleId) => {
   try {
     // Re-fetch with full population so we have everyone's email (learners +
     // internal trainers); the external trainer email travels on the doc.
-    const schedule = await Schedule.findById(scheduleId)
-      .populate('classId', 'classCode courseName')
-      .populate('bookedTeamId', 'name')
-      .populate('enrolledUsers', 'empCode name email')
-      .populate('sessionInstructorIds', 'empCode name email')
-      .lean();
+    const schedule = await repository.findScheduleForCalendarSync(scheduleId);
     if (!schedule) return null;
 
     const result = await calendarService.createEventForSchedule({
@@ -71,10 +69,10 @@ const createCalendarEventForSchedule = async (scheduleId) => {
     });
     if (!result) return null;
 
-    await Schedule.updateOne(
-      { _id: scheduleId },
-      { $set: { googleEventId: result.eventId, meetLink: result.meetLink || '' } }
-    );
+    await repository.updateScheduleById(scheduleId, {
+      googleEventId: result.eventId,
+      meetLink: result.meetLink || '',
+    });
 
     return result;
   } catch (err) {
@@ -94,12 +92,7 @@ const createCalendarEventForSchedule = async (scheduleId) => {
 const syncCalendarForSchedule = async (scheduleId) => {
   if (!calendarService.isConfigured()) return null;
   try {
-    const schedule = await Schedule.findById(scheduleId)
-      .populate('classId', 'classCode courseName')
-      .populate('bookedTeamId', 'name')
-      .populate('enrolledUsers', 'empCode name email')
-      .populate('sessionInstructorIds', 'empCode name email')
-      .lean();
+    const schedule = await repository.findScheduleForCalendarSync(scheduleId);
     if (!schedule) return null;
     // Skip past sessions (m4) — calendar updates only matter for upcoming ones.
     if (new Date(schedule.startTime) <= new Date()) return null;

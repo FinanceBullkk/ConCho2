@@ -1,4 +1,6 @@
-const NotificationLog = require('../../models/NotificationLog');
+// Dual-backend write seam (Phase 5 slice 3 — A4): the bell row follows
+// DB_BACKEND instead of always landing in Mongo.
+const repository = require('./repository');
 const pushService = require('../../services/pushService');
 
 // Fail-soft, idempotent in-app notification write for the bell (Cohesion P5+).
@@ -14,7 +16,7 @@ const pushService = require('../../services/pushService');
 // `channel:'in_app'` rows have no email — they exist purely for the feed.
 const recordInApp = async ({ type, recipientUserId, learnerId, cadenceKey, metadata = {} }) => {
   try {
-    await NotificationLog.create({
+    await repository.insertLog({
       type,
       channel: 'in_app',
       recipientUserId,
