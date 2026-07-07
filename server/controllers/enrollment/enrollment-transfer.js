@@ -1,4 +1,3 @@
-const mongoose = require('mongoose');
 const Enrollment = require('../../models/Enrollment');
 const Team = require('../../models/Team');
 const { syncSchedulesForTeamUpdate } = require('../../models/Team');
@@ -6,6 +5,7 @@ const { notifyPromotions } = require('../../domains/schedule/waitlist/promotion'
 const { syncEnrollments, flushPendingEmails, flushPendingEnrollmentEvents } = require('../../domains/groups/controller');
 const enrollmentSyncRepo = require('../../domains/groups/enrollment-sync-repository');
 const teamWrite = require('../../domains/groups/team-write-repository');
+const { runInTransaction } = require('../../domains/_shared/unit-of-work');
 const { handleError } = require('../../helpers/handleError');
 const { invalidateAnalyticsCache } = require('../../middleware/analyticsCache');
 const logger = require('../../lib/logger');
@@ -96,35 +96,37 @@ const transferEnrollment = async (req, res) => {
     const fromClassId = fromTeam.classId ? fromTeam.classId.toString() : null;
 
     // ── SINGLE ATOMIC TRANSACTION ────────────────────────────
-    // All four steps run inside one session so any failure rolls back
-    // completely — no dual-membership half-state (BUG #1 fix).
+    // All four steps run inside ONE unit-of-work so any failure rolls back
+    // completely — no dual-membership half-state (BUG #1 fix). #255: the raw
+    // mongoose session became the dual-backend UoW (Mongo session.withTransaction
+    // ⇄ PG BEGIN/COMMIT on one client) and every write receives the whole `tx`
+    // handle, so the transfer is atomic on EITHER backend — previously the PG
+    // lane's writes escaped to the pool as separate autocommit statements.
     let pendingEmails = [];
     let pendingEvents = [];
     let sourcePromotions = [];
-    const session = await mongoose.startSession();
-    try {
-      await session.withTransaction(async () => {
+    await runInTransaction(async (tx) => {
         // Step 1: Add user to target team. Dual-backend via updateTeamDoc (the
         // members-array ⇔ team_members-junction bridge) so the add lands in the
         // active backend — a Mongoose $addToSet mirrors the teams row but not the
         // PG junction. toNew = toOld + user (snapshotted pre-tx), so a full
         // members replace is equivalent to the old $addToSet here.
-        await teamWrite.updateTeamDoc(toTeamId, { members: toNew }, { session });
+        await teamWrite.updateTeamDoc(toTeamId, { members: toNew }, tx);
 
         // Step 2: Sync target team's future schedules (member added)
         await syncSchedulesForTeamUpdate({
-          teamId: toTeamId, oldMembers: toOld, newMembers: toNew, session,
+          teamId: toTeamId, oldMembers: toOld, newMembers: toNew, tx,
         });
 
         // Step 3: Close source enrollment, remove user from source team,
         // create new Active enrollment in target team.
-        // syncEnrollments accepts session — fully transactional.
+        // syncEnrollments accepts the UoW handle — fully transactional.
         ({ pendingEmails, pendingEvents } = await syncEnrollments(
           toTeamId,
           [userIdStr],
           [],
           classId,
-          { session },
+          { tx },
         ));
 
         // Step 4: Sync source team's future schedules (member removed) — the
@@ -135,13 +137,10 @@ const transferEnrollment = async (req, res) => {
             teamId: fromTeamId,
             oldMembers: fromOldMembers,
             newMembers: fromNewMembers,
-            session,
+            tx,
           }));
         }
-      });
-    } finally {
-      session.endSession();
-    }
+    });
 
     // Post-commit: flush queued emails and attach optional transfer note.
     flushPendingEmails(pendingEmails);

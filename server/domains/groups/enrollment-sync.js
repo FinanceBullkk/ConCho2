@@ -88,9 +88,11 @@ const syncEnrollments = async (teamId, addedIds, removedIds, classId, opts = {})
     if (!alreadyActive) {
       // ONE write spine for both modes (converge Phase 2): create via the
       // learning/enrollment spine so team-create and cohort-create never drift.
+      // Pass the whole UoW handle (#255) so the insert joins the caller's
+      // transaction on EITHER backend (Mongo session ⇄ PG client).
       const enrollment = await writes.createActiveEnrollment(
         { userId, teamId, classId: classId || null, joinedAt: now },
-        { session: tx.session },
+        { tx },
       );
       // Queue the cohort_enrolled announcement for post-commit (a rolled-back tx
       // must never emit). Only when the team has a cohort — the bell + automation
