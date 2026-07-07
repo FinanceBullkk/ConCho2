@@ -3,8 +3,8 @@ const Team = require('../../models/Team');
 const Schedule = require('../../models/Schedule');
 const Attendance = require('../../models/Attendance');
 const Enrollment = require('../../models/Enrollment');
+const listRepository = require('./user-list-repository');
 const { parsePagination, paginatedResponse } = require('../../helpers/pagination');
-const { escapeRegex } = require('../../helpers/escapeRegex');
 const { handleError } = require('../../helpers/handleError');
 
 // ──────────────────────────────────────────────────────────
@@ -20,22 +20,6 @@ const { handleError } = require('../../helpers/handleError');
  */
 const getUsers = async (req, res) => {
   try {
-    const filter = {};
-    if (req.query.role) filter.role = req.query.role;
-    if (req.query.status) filter.status = req.query.status;
-    if (req.query.department) filter.department = { $regex: escapeRegex(req.query.department), $options: 'i' };
-
-    // Text search across empCode, name, department, position
-    if (req.query.search) {
-      const s = escapeRegex(req.query.search);
-      filter.$or = [
-        { empCode: { $regex: s, $options: 'i' } },
-        { name: { $regex: s, $options: 'i' } },
-        { department: { $regex: s, $options: 'i' } },
-        { position: { $regex: s, $options: 'i' } },
-      ];
-    }
-
     const { page, limit, skip } = parsePagination(req);
 
     // Sortable columns whitelist. `lastActive` is the client-facing column
@@ -46,20 +30,30 @@ const getUsers = async (req, res) => {
     const sortField = sortBy === 'lastActive' ? 'lastActiveAt' : sortBy;
     const sortOrder = req.query.sortOrder === 'desc' ? -1 : 1;
 
+    // Reads follow DB_BACKEND (Wave-G port): the pg impl reads the users table
+    // so PG-written denormalisations (last_active_at, bumped by the ported
+    // attendance write-through) surface here — a Mongoose read would miss them
+    // on the pg lane. Filter/sort/pagination semantics are identical on both.
+    const spec = {
+      role: req.query.role,
+      status: req.query.status,
+      department: req.query.department,
+      search: req.query.search,
+      sortField, sortOrder, skip, limit,
+    };
+
     const [users, total] = await Promise.all([
-      User.find(filter).sort({ [sortField]: sortOrder, _id: 1 }).skip(skip).limit(limit),
-      User.countDocuments(filter),
+      listRepository.listUsers(spec),
+      listRepository.countUsers(spec),
     ]);
 
-    // PERF-008 (audit PR H): lastActiveAt is now denormalised onto the
-    // User document by attendanceService.bulkMark (write-through cache).
-    // No more per-page Attendance×Schedule aggregation. For users who
-    // existed BEFORE the cache was wired (lastActiveAt === null) the
-    // value will populate on the next bulkMark; if you need a fresh
-    // snapshot today, run `node server/scripts/backfill-lastActiveAt.js`.
+    // PERF-008 (audit PR H): lastActiveAt is denormalised onto the User document
+    // by attendanceService.bulkMark (write-through cache) — no per-page
+    // Attendance×Schedule aggregation. The mongo impl returns hydrated docs
+    // (toObject), the pg impl plain rows; enrich either uniformly.
     const enrichedUsers = users.map((u) => {
-      const obj = u.toObject();
-      const lastDate = u.lastActiveAt || null;
+      const obj = typeof u.toObject === 'function' ? u.toObject() : u;
+      const lastDate = obj.lastActiveAt || null;
       obj.lastActive = lastDate;
       obj.daysSince = lastDate
         ? Math.floor((Date.now() - new Date(lastDate).getTime()) / (1000 * 60 * 60 * 24))

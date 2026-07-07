@@ -10,7 +10,7 @@ const request = require('supertest');
 const jwt = require('jsonwebtoken');
 const mongoose = require('mongoose');
 const { getApp, getTokens, getSeedData, getCsrfHeaders, teardown } = require('../setup');
-const { findActiveRowWhere } = require('../pg-test-utils');
+const { findActiveRowWhere, readActiveRow, countActiveRowsWhere } = require('../pg-test-utils');
 const Schedule = require('../../models/Schedule');
 const Setting = require('../../models/Setting');
 const Class = require('../../models/Class');
@@ -166,9 +166,11 @@ describe('Room assignment on a cohort session', () => {
     expect(res.body.data.roomId).toBe(room._id.toString());
     expect(res.body.data.room).toMatchObject({ code: 'SO1' });
 
-    const stored = await Schedule.findById(res.body.data.scheduleId).lean();
+    // The session + room ledger are written through the ported schedule repo
+    // (PG-only on the lane) — read the active backend so the assert holds on both.
+    const stored = await readActiveRow('Schedule', res.body.data.scheduleId);
     expect(String(stored.roomId)).toBe(String(room._id));
-    const ledger = await RoomBooking.findOne({ scheduleId: stored._id }).lean();
+    const ledger = await findActiveRowWhere('RoomBooking', { scheduleId: stored._id });
     expect(ledger).not.toBeNull();
     expect(String(ledger.roomId)).toBe(String(room._id));
   });
@@ -215,7 +217,7 @@ describe('Room assignment on a cohort session', () => {
     expect(second.status).toBe(409);
     expect(second.body.message).toMatch(/already booked/i);
 
-    expect(await RoomBooking.countDocuments({ roomId: room._id })).toBe(1);
+    expect(await countActiveRowsWhere('RoomBooking', { roomId: room._id })).toBe(1);
   });
 
   test('cancelling a roomed session frees the slot (room re-bookable)', async () => {

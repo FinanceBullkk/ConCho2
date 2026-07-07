@@ -10,6 +10,9 @@
 const request = require('supertest');
 const mongoose = require('mongoose');
 const { getApp, getTokens, getSeedData } = require('../setup');
+// Snapshots are written through the ported metrics repo (PG-only on the lane),
+// so Mongoose MetricSnapshot reads see nothing — route them to the active backend.
+const { findActiveRowsWhere, findActiveRowWhere, countActiveRowsWhere } = require('../pg-test-utils');
 const {
   takeDailySnapshot,
   backfillHistory,
@@ -20,7 +23,6 @@ const LearningProgram = require('../../models/LearningProgram');
 const Class = require('../../models/Class');
 const Enrollment = require('../../models/Enrollment');
 const Certificate = require('../../models/Certificate');
-const MetricSnapshot = require('../../models/MetricSnapshot');
 
 let app, tokens, seed, programId, cohortId;
 
@@ -62,7 +64,7 @@ afterAll(async () => {
 
 describe('metric snapshot rollup', () => {
   test('writes per-program rows matching the live counts', async () => {
-    const rows = await MetricSnapshot.find({ scope: 'program', scopeId: programId }).lean();
+    const rows = await findActiveRowsWhere('MetricSnapshot', { scope: 'program', scopeId: programId });
     const byKey = Object.fromEntries(rows.map((r) => [r.key, r.value]));
     expect(byKey.active_enrollments).toBe(2);
     expect(byKey.completions).toBe(1);
@@ -71,14 +73,14 @@ describe('metric snapshot rollup', () => {
   });
 
   test('writes global rows too', async () => {
-    const active = await MetricSnapshot.findOne({ scope: 'global', scopeId: null, key: 'active_enrollments' }).lean();
+    const active = await findActiveRowWhere('MetricSnapshot', { scope: 'global', scopeId: null, key: 'active_enrollments' });
     expect(active).not.toBeNull();
     expect(active.value).toBeGreaterThanOrEqual(2);
   });
 
   test('re-running the same day is idempotent (upsert, no duplicate)', async () => {
     await takeDailySnapshot();
-    const count = await MetricSnapshot.countDocuments({ scope: 'program', scopeId: programId, key: 'active_enrollments' });
+    const count = await countActiveRowsWhere('MetricSnapshot', { scope: 'program', scopeId: programId, key: 'active_enrollments' });
     expect(count).toBe(1);
   });
 });
@@ -110,10 +112,10 @@ describe('analyticsSeriesService', () => {
     const r = await backfillHistory({ days: 7 });
     expect(r.days).toBe(7);
     expect(r.programs).toBeGreaterThanOrEqual(1);
-    const globalRows = await MetricSnapshot.find({ scope: 'global', key: 'enrollments' }).lean();
+    const globalRows = await findActiveRowsWhere('MetricSnapshot', { scope: 'global', key: 'enrollments' });
     expect(globalRows.length).toBeGreaterThanOrEqual(1);
     // Per-program cumulative was seeded too (this program's enrollments today = 3).
-    const progRows = await MetricSnapshot.find({ scope: 'program', scopeId: programId, key: 'enrollments' }).lean();
+    const progRows = await findActiveRowsWhere('MetricSnapshot', { scope: 'program', scopeId: programId, key: 'enrollments' });
     expect(progRows.length).toBeGreaterThanOrEqual(1);
     expect(Math.max(...progRows.map((x) => x.value))).toBe(3);
   });

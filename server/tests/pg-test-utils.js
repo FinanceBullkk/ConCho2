@@ -130,54 +130,70 @@ const readActiveRow = async (modelName, id) => {
   return rowToCamel(rows[0]);
 };
 
+// Build a WHERE from top-level scalar equality. A Mongo nested path (`target.id`)
+// maps to a PG flat snake column (`target_id`); a null value → `IS NULL` (SQL
+// `col = NULL` is never true). The Mongo twin passes the raw filter to the driver.
+const buildScalarWhere = (where = {}) => {
+  const col = (k) => camelToSnake(k.replace(/\./g, '_'));
+  const conds = [];
+  const args = [];
+  for (const k of Object.keys(where)) {
+    if (where[k] == null) conds.push(`"${col(k)}" IS NULL`);
+    else { args.push(String(where[k])); conds.push(`"${col(k)}" = $${args.length}`); }
+  }
+  return { clause: conds.length ? `WHERE ${conds.join(' AND ')}` : '', args };
+};
+const mongoFilter = (where) => Object.fromEntries(Object.entries(where).map(([k, v]) => [k, oid(v)]));
+
 /** findOne by top-level equality fields on the active backend, middleware-free. */
 const findActiveRowWhere = async (modelName, where) => {
-  if (!isPostgres) {
-    const mongoose = require('mongoose');
-    const raw = Object.fromEntries(Object.entries(where).map(([k, v]) => [k, oid(v)]));
-    return mongoose.model(modelName).collection.findOne(raw);
-  }
+  if (!isPostgres) return require('mongoose').model(modelName).collection.findOne(mongoFilter(where));
   const table = await tableFor(modelName);
-  const keys = Object.keys(where);
-  const clause = keys.map((k, i) => `"${camelToSnake(k)}" = $${i + 1}`).join(' AND ');
-  const { rows } = await query(
-    `SELECT * FROM "${table}" WHERE ${clause} LIMIT 1`,
-    keys.map((k) => (where[k] == null ? null : String(where[k]))),
-  );
+  const { clause, args } = buildScalarWhere(where);
+  const { rows } = await query(`SELECT * FROM "${table}" ${clause} LIMIT 1`, args);
   return rowToCamel(rows[0]);
+};
+
+/** find MANY by top-level scalar equality on the active backend → array. */
+const findActiveRowsWhere = async (modelName, where = {}) => {
+  if (!isPostgres) return require('mongoose').model(modelName).collection.find(mongoFilter(where)).toArray();
+  const table = await tableFor(modelName);
+  const { clause, args } = buildScalarWhere(where);
+  const { rows } = await query(`SELECT * FROM "${table}" ${clause}`, args);
+  return rows.map(rowToCamel);
 };
 
 /** count docs matching top-level scalar equality on the ACTIVE backend. */
 const countActiveRowsWhere = async (modelName, where = {}) => {
-  if (!isPostgres) {
-    const mongoose = require('mongoose');
-    const raw = Object.fromEntries(Object.entries(where).map(([k, v]) => [k, oid(v)]));
-    return mongoose.model(modelName).collection.countDocuments(raw);
-  }
+  if (!isPostgres) return require('mongoose').model(modelName).collection.countDocuments(mongoFilter(where));
   const table = await tableFor(modelName);
-  const keys = Object.keys(where);
-  // A Mongo nested path (`target.id`) maps to a PG flat snake column
-  // (`target_id`) — translate dots → underscore before snake-casing.
-  const col = (k) => camelToSnake(k.replace(/\./g, '_'));
-  const clause = keys.length
-    ? `WHERE ${keys.map((k, i) => `"${col(k)}" = $${i + 1}`).join(' AND ')}` : '';
-  const { rows } = await query(
-    `SELECT count(*)::int AS n FROM "${table}" ${clause}`,
-    keys.map((k) => (where[k] == null ? null : String(where[k]))),
-  );
+  const { clause, args } = buildScalarWhere(where);
+  const { rows } = await query(`SELECT count(*)::int AS n FROM "${table}" ${clause}`, args);
   return rows[0].n;
+};
+
+/** distinct values of `field` (matching `where`) on the ACTIVE backend → array. */
+const distinctActiveValues = async (modelName, field, where = {}) => {
+  if (!isPostgres) return require('mongoose').model(modelName).collection.distinct(field, mongoFilter(where));
+  const table = await tableFor(modelName);
+  const { clause, args } = buildScalarWhere(where);
+  const fcol = camelToSnake(field.replace(/\./g, '_'));
+  const { rows } = await query(`SELECT DISTINCT "${fcol}" AS v FROM "${table}" ${clause}`, args);
+  return rows.map((r) => r.v).filter((v) => v !== null);
 };
 
 /**
  * Update one row (by id) on the ACTIVE backend — for test scaffolding that
  * mutates a row the app wrote through a ported repository (PG-only), which a
- * Mongoose Model.findByIdAndUpdate would miss. `patch` keys are camelCase and map
- * to snake columns on PG. On Mongo it runs the equivalent findByIdAndUpdate.
+ * Mongoose write would miss. `patch` keys are camelCase and map to snake columns
+ * on PG. On Mongo it runs a RAW driver `collection.updateOne` (not
+ * findByIdAndUpdate): it bypasses Mongoose middleware + the timestamps plugin,
+ * matching the PG direct-UPDATE semantics — so an explicit `createdAt`/`updatedAt`
+ * in `patch` sticks (findByIdAndUpdate lets the timestamps plugin clobber it).
  */
 const updateActiveRow = async (modelName, id, patch) => {
   if (!isPostgres) {
-    const mongoose = require('mongoose');
-    return mongoose.model(modelName).findByIdAndUpdate(id, { $set: patch });
+    return require('mongoose').model(modelName).collection.updateOne({ _id: oid(id) }, { $set: patch });
   }
   const table = await tableFor(modelName);
   const keys = Object.keys(patch);
@@ -268,7 +284,9 @@ module.exports = {
   mirrorCoreSeedToPg,
   readActiveRow,
   findActiveRowWhere,
+  findActiveRowsWhere,
   countActiveRowsWhere,
+  distinctActiveValues,
   updateActiveRow,
   findActiveAuditRow,
   findActiveAuditChain,
