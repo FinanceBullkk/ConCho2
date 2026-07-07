@@ -145,6 +145,15 @@ Bug fixing and integration review rank above net-new feature rollout.
 > [`changelog-archive/2026-q2.md`](changelog-archive/2026-q2.md). Currently
 > inline: **2026-06-20 → 2026-07-07** (06-14→06-19 rolled 2026-07-04).
 
+- **2026-07-07** — **Wave G batch 10 — learning-tail cluster: 8 suites green both lanes (PG lane ~18 → ~10 failing).**
+  Batch 10 (branch `feat/pg-lane-wave-g-batch10`, stacked on #247) clears the whole learning-* tail (learningEnrollmentRoutes,
+  learningCompletionRoutes, learningSessionRoutes, learningFeedbackRoutes, learningAssignmentRoutes, learningComplianceReportsRoutes,
+  learningDashboardExecutive, learningCertificateExpiryRoutes — 78/78 each lane). 15 fails: mostly reverse-asserts (Enrollment/
+  Certificate/Schedule/Feedback/Assignment reads+counts + audit reads, now polled). 1 REAL pg-repo gap: enrollment `insertActiveEnrollment`
+  maps the cohort partial-unique 23505 → Mongo-style 11000 (the concurrent-enroll race loser was 500 not 409; sequential dup is caught by
+  the pre-check). 2 PG-only-write + Mongoose-scaffolding no-ops fixed on the active backend (cert-expiry `validUntil` via `updateActiveRow`;
+  dashboard cost-config Setting cleared via new `deleteActiveRowsWhere` — it leaked into null-before-set). `use-cases.ensureProgramForLegacyCourse`
+  backfills via `updateProgramById` (PG rows have no `.save()`). Remaining ~10 = GATED schedule cluster (8) + deferred mfa/p2 (2).
 - **2026-07-07** — **Wave G batches 7–9 — PG lane app-gap cluster (batches 5–8 merged #243–#246, ~44 → ~19 failing).**
   Batches 7 (#245, raw-collection mirror + learning programs/cohorts chainable) and 8 (#246, domain-tractable cluster + TrainingRequest
   mapper) merged. **Batch 9 (branch `feat/pg-lane-wave-g-batch9`) — 6 app-gap suites green both lanes** (reconcileAutoHeal,
