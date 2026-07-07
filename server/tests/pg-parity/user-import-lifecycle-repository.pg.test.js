@@ -24,6 +24,10 @@ const describePg = PG_URL ? describe : describe.skip;
 const { query, closePool } = require('../../config/pg');
 const userRepo = require('../../controllers/user/user-repository');
 const classRepo = require('../../controllers/class/class-repository');
+require('../../models/User');
+require('../../models/Team');
+require('../../models/Class');
+require('../../models/Enrollment');
 
 const hex = (n) => n.toString(16).padStart(24, '0');
 const oid = (h) => new mongoose.Types.ObjectId(h);
@@ -95,11 +99,12 @@ describePg('PG-parity: user repo — import upserts + lifecycle (B1/B6)', () => 
     expect(rows[0].role).toBe('Participant');
     expect(rows[0].name).toBe('Existing Renamed');
 
-    // IDENTICAL re-import → matched, modified 0, no insert.
+    // IDENTICAL re-import still counts modified (Mongoose timestamps bump
+    // updatedAt on every matched doc; the PG DO UPDATE mirrors it).
     const [m2, p2] = await both((r) => r.bulkUpsertUsersByEmpCode([
       { empCode: 'IMP001', set: { empCode: 'IMP001', name: 'Existing Renamed', department: 'D2' }, setOnInsert: {} },
     ]));
-    expect(m2).toEqual({ upsertedCount: 0, modifiedCount: 0, matchedCount: 1 });
+    expect(m2).toEqual({ upsertedCount: 0, modifiedCount: 1, matchedCount: 1 });
     expect(p2).toEqual(m2);
   });
 
@@ -130,7 +135,7 @@ describePg('PG-parity: user repo — import upserts + lifecycle (B1/B6)', () => 
     expect(pE.modifiedCount).toBe(1);
 
     // Park identifiers.
-    await both((r) => r.softDeleteUserWithParking(ULC, { releasedEmpCode: 'LC0001__DEL_TEST', releasedEmail: 'lc@x.io' }));
+    const parkRes = await both((r) => r.softDeleteUserWithParking(ULC, { releasedEmpCode: 'LC0001__DEL_TEST', releasedEmail: 'lc@x.io' }));
     const [mDel, pDel] = await both((r) => r.findDeletedUserById(ULC));
     expect(mDel.empCode).toBe('LC0001__DEL_TEST');
     expect(mDel._softDeletedEmail).toBe('lc@x.io');

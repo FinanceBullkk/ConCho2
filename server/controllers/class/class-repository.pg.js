@@ -161,8 +161,9 @@ const findTrashedClassesByKeyPairs = async (keyPairs) => {
   return rows.map((r) => r.class_code);
 };
 
-// Upsert on uq_classes_code_course_active (partial: is_deleted = false). The
-// IS DISTINCT guard mirrors Mongo modifiedCount (identical re-import → 0).
+// Upsert on uq_classes_code_course_active (partial: is_deleted = false).
+// Matched rows always update (updated_at ⇔ Mongoose timestamps bump), so
+// modified == matched — same as Mongo bulkWrite.
 const CLASS_COLS = { totalSessions: 'total_sessions', status: 'status' };
 
 const bulkUpsertClassesByCodeCourse = async (items, tx) => {
@@ -184,21 +185,16 @@ const bulkUpsertClassesByCodeCourse = async (items, tx) => {
     const setClause = updateCols.length
       ? updateCols.map((c) => `${c} = EXCLUDED.${c}`).join(', ')
       : 'class_code = EXCLUDED.class_code'; // degenerate no-field case
-    const distinctGuard = updateCols.length
-      ? updateCols.map((c) => `classes.${c} IS DISTINCT FROM EXCLUDED.${c}`).join(' OR ')
-      : 'false';
     // eslint-disable-next-line no-await-in-loop -- bounded by import batch size
     const { rows } = await importExec(tx,
       `INSERT INTO classes(id, ${cols.join(', ')})
        VALUES ($1, ${cols.map((_, i) => `$${i + 2}`).join(', ')})
        ON CONFLICT (class_code, course_name) WHERE is_deleted = false
        DO UPDATE SET ${setClause}, updated_at = now()
-       WHERE ${distinctGuard}
        RETURNING (xmax = 0) AS inserted`,
       [importNewId(), ...vals]);
     if (rows[0] && rows[0].inserted) upsertedCount += 1;
-    else if (rows[0]) { matchedCount += 1; modifiedCount += 1; }
-    else matchedCount += 1;
+    else { matchedCount += 1; modifiedCount += 1; }
   }
   return { upsertedCount, modifiedCount, matchedCount };
 };

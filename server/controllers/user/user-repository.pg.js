@@ -10,9 +10,10 @@ const { query } = require('../../config/pg');
 //     not conflict, but the service-level trash guard refuses those upfront
 //     (same DATA-013 flow as Mongo, whose pre-load is hook-filtered).
 //   • counts mirror Mongo bulkWrite: upsertedCount = fresh inserts;
-//     matchedCount = items that hit an existing live row; modifiedCount =
-//     matched rows whose $set actually CHANGED a value (the DO UPDATE carries
-//     an IS DISTINCT guard so an identical re-import reports modified 0).
+//     matchedCount = modifiedCount = items that hit an existing live row —
+//     Mongoose timestamps bump updatedAt on every matched doc, so Mongo's
+//     modifiedCount equals matched even for an identical re-import; the PG
+//     DO UPDATE mirrors that (always writes, bumps updated_at).
 //   • $setOnInsert (password/mustChangePassword/role) applies on INSERT only —
 //     DO UPDATE never touches those columns (DATA-010 role guard).
 
@@ -55,29 +56,25 @@ const bulkUpsertUsersByEmpCode = async (items, tx) => {
     const updateCols = Object.entries(USER_COLS)
       .filter(([k]) => set[k] !== undefined && k !== 'empCode')
       .map(([, col]) => col);
-    const setClause = updateCols.map((c) => `${c} = EXCLUDED.${c}`).join(', ');
-    const distinctGuard = updateCols
-      .map((c) => `users.${c} IS DISTINCT FROM EXCLUDED.${c}`)
-      .join(' OR ');
-    // RETURNING (xmax = 0) → true when the row was freshly INSERTED. A matched
-    // row with an identical $set fails the IS DISTINCT guard → no row returned
-    // (matched but not modified, mirroring Mongo's modifiedCount).
+    const setClause = updateCols.length
+      ? updateCols.map((c) => `${c} = EXCLUDED.${c}`).join(', ')
+      : 'emp_code = EXCLUDED.emp_code';
+    // RETURNING (xmax = 0) → true when the row was freshly INSERTED; false on
+    // DO UPDATE. Matched rows always update (updated_at bump ⇔ Mongoose
+    // timestamps), so modified == matched — same as Mongo bulkWrite.
     // eslint-disable-next-line no-await-in-loop -- bounded by import batch size
     const { rows } = await exec(tx,
       `INSERT INTO users(id, ${cols.join(', ')})
        VALUES ($1, ${cols.map((_, i) => `$${i + 2}`).join(', ')})
        ON CONFLICT (emp_code) WHERE is_deleted = false
        DO UPDATE SET ${setClause}, updated_at = now()
-       WHERE ${distinctGuard}
        RETURNING (xmax = 0) AS inserted`,
       [newId(), ...vals]);
     if (rows[0] && rows[0].inserted) {
       upsertedCount += 1;
-    } else if (rows[0]) {
+    } else {
       matchedCount += 1;
       modifiedCount += 1;
-    } else {
-      matchedCount += 1; // conflict hit, identical values → unmodified
     }
   }
   return { upsertedCount, modifiedCount, matchedCount };

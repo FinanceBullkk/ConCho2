@@ -20,6 +20,9 @@ const describePg = PG_URL ? describe : describe.skip;
 
 const { query, closePool } = require('../../config/pg');
 const repo = require('../../domains/evaluation/repository');
+// Register the fixture models this standalone suite touches via coll().
+require('../../models/Class');
+require('../../models/User');
 
 const hex = (n) => n.toString(16).padStart(24, '0');
 const oid = (h) => new mongoose.Types.ObjectId(h);
@@ -149,7 +152,7 @@ describePg('PG-parity: evaluation repository', () => {
   test('roster: Active enrollments only, trashed users drop — identical', async () => {
     const [m, p] = await both((r) => r.findActiveEnrollmentsWithUsers(C1));
     const names = (rows) => rows.map((e) => (e.userId ? e.userId.name : null)).sort();
-    expect(names(m)).toEqual([null, 'Learner One']); // UDEL enrollment → userId null
+    expect(names(m)).toEqual(['Learner One', null]); // UDEL enrollment → userId null (nulls sort last)
     expect(names(p)).toEqual(names(m));
   });
 });

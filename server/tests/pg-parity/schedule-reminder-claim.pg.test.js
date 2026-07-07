@@ -22,6 +22,9 @@ const describePg = PG_URL ? describe : describe.skip;
 
 const { query, closePool } = require('../../config/pg');
 const repo = require('../../domains/schedule/repository');
+require('../../models/Class');
+require('../../models/User');
+require('../../models/Schedule');
 
 const hex = (n) => n.toString(16).padStart(24, '0');
 const oid = (h) => new mongoose.Types.ObjectId(h);
@@ -39,7 +42,11 @@ const SPAST = hex(0xd26); // past roster — pull must not touch
 
 const NOW = new Date('2026-08-01T00:00:00.000Z');
 const IN1H = new Date('2026-08-01T01:00:00.000Z');
+// Every SCHEDULED fixture needs a DISTINCT startTime — the {classId,startTime}
+// partial-unique (status scheduled) rejects same-slot rows.
+const IN2H = new Date('2026-08-01T02:00:00.000Z');
 const IN30H = new Date('2026-08-02T06:00:00.000Z');
+const IN31H = new Date('2026-08-02T07:00:00.000Z');
 const WINDOW_END = new Date('2026-08-02T00:00:00.000Z'); // +24h
 const OLD_STAMP = new Date('2026-07-31T23:00:00.000Z');
 
@@ -64,10 +71,10 @@ describePg('PG-parity: schedule reminder claim (B7)', () => {
     });
     await db.collection(coll('Schedule')).insertMany([
       sched(SIN, IN1H, 'scheduled'),
-      sched(SCAN, IN1H, 'cancelled'),
+      sched(SCAN, IN1H, 'cancelled'),   // cancelled → may share SIN's slot
       sched(SOUT, IN30H, 'scheduled'),
-      sched(SPRE, IN1H, 'scheduled', { remindersSentAt: OLD_STAMP }),
-      sched(SPULL, IN30H, 'scheduled'),
+      sched(SPRE, IN2H, 'scheduled', { remindersSentAt: OLD_STAMP }),
+      sched(SPULL, IN31H, 'scheduled'),
       sched(SPAST, new Date('2026-07-01T00:00:00.000Z'), 'scheduled'),
     ]);
 
@@ -82,8 +89,8 @@ describePg('PG-parity: schedule reminder claim (B7)', () => {
     await ipg(SIN, IN1H, 'scheduled');
     await ipg(SCAN, IN1H, 'cancelled');
     await ipg(SOUT, IN30H, 'scheduled');
-    await ipg(SPRE, IN1H, 'scheduled', OLD_STAMP);
-    await ipg(SPULL, IN30H, 'scheduled');
+    await ipg(SPRE, IN2H, 'scheduled', OLD_STAMP);
+    await ipg(SPULL, IN31H, 'scheduled');
     await ipg(SPAST, new Date('2026-07-01T00:00:00.000Z'), 'scheduled');
   }, 60_000);
 

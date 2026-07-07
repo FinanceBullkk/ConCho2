@@ -70,12 +70,14 @@ const bulkDropActiveEnrollmentsByUser = async (userId, tx) => {
   return { modifiedCount: res.modifiedCount };
 };
 
-// Raw collection update — bypasses the soft-delete auto-filter (which would
-// hide the row from a Mongoose update). Parks empCode/email so the identifier
-// slots free up for reuse (DATA-008); reversible via restoreUserIdentity.
+// Mongoose updateOne — NOT in the model's SOFT_DELETE_HOOKS (find/findOne/
+// findOneAndUpdate/…), so it reaches the row without the auto-filter AND casts
+// the id (the legacy raw-collection write was driver-level: a string id
+// silently matches nothing). Parks empCode/email so the identifier slots free
+// up for reuse (DATA-008); reversible via restoreUserIdentity.
 const softDeleteUserWithParking = (userId, { releasedEmpCode, releasedEmail }, tx) =>
-  User.collection.updateOne(
-    { _id: userId },
+  User.updateOne(
+    { _id: new mongoose.Types.ObjectId(String(userId)) },
     {
       $set: {
         isDeleted: true,
@@ -103,7 +105,7 @@ const findActiveUserByEmail = (email) =>
   User.collection.findOne({ email, isDeleted: { $ne: true } });
 
 const restoreUserIdentity = (id, { empCode, email }) =>
-  User.collection.updateOne(
+  User.updateOne(
     { _id: new mongoose.Types.ObjectId(String(id)) },
     {
       $set: {
