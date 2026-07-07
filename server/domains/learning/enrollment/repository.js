@@ -3,9 +3,10 @@
 // or Postgres impl by DB_BACKEND. `impls` is exported so the parity test can
 // exercise both backends in one run. Default DB_BACKEND=mongo → app unchanged.
 //
-// NOTE: insertActiveEnrollment is session-aware in Mongo (the team-sync
-// transaction in domains/groups). The PG impl ignores `session` — cross-method
-// atomicity is deferred to the dual-backend transaction abstraction (Wave-D).
+// NOTE: insertActiveEnrollment is transaction-aware on BOTH backends (#255):
+// it accepts a raw mongoose session (legacy) or the UoW tx handle — {session}
+// joins the Mongo transaction, {client} joins the PG BEGIN/COMMIT unit — so the
+// team-sync/transfer enrollment create rolls back with the team/schedule writes.
 const { isPostgres } = require('../../../config/db-backend');
 const mongo = require('./repository.mongo');
 const pg = require('./repository.pg');

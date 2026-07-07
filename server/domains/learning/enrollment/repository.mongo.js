@@ -10,10 +10,15 @@ const LearningProgram = require('../../../models/LearningProgram');
 const findActiveCohortEnrollment = (userId, cohortId) =>
   Enrollment.findOne({ userId, classId: cohortId, teamId: null, status: 'Active' }).lean();
 
-// The one create for both modes. Session-aware for the team-sync transaction;
-// `joinedAt` is optional (the model defaults it) — the team path passes an
-// explicit timestamp so every row in one sync shares it.
-const insertActiveEnrollment = async ({ userId, classId = null, teamId = null, joinedAt }, session = null) => {
+// The one create for both modes. Transaction-aware for the team-sync/transfer
+// transactions; `joinedAt` is optional (the model defaults it) — the team path
+// passes an explicit timestamp so every row in one sync shares it.
+// `handle` (#255) is either a raw mongoose session (legacy) or the UoW tx
+// handle ({session} on Mongo / {client} on PG — the latter is ignored here).
+const insertActiveEnrollment = async ({ userId, classId = null, teamId = null, joinedAt }, handle = null) => {
+  const session = handle && typeof handle.startTransaction === 'function'
+    ? handle            // raw mongoose ClientSession
+    : handle?.session;  // UoW tx handle (undefined for {client}/null)
   const doc = { userId, classId, teamId, status: 'Active' };
   if (joinedAt) doc.joinedAt = joinedAt;
   const [created] = await Enrollment.create([doc], session ? { session } : {});
