@@ -145,6 +145,12 @@ Bug fixing and integration review rank above net-new feature rollout.
 > [`changelog-archive/2026-q2.md`](changelog-archive/2026-q2.md). Currently
 > inline: **2026-06-20 → 2026-07-07** (06-14→06-19 rolled 2026-07-04).
 
+- **2026-07-07** — **Wave G batch 15 / GATED Slice E — bookingRace green both lanes (PG lane ~3 → ~2 failing).**
+  Branch `feat/pg-slice-e-booking-race-count`. Pure reverse-assert — the booking chokepoint (unique-slot 409 + weekly-2-cap 400
+  race) is already dual-backend (mig 027), so the concurrency *behaviour* already passed on PG; only the post-race
+  `Schedule.countDocuments({bookedTeamId})` assertions read the Mongo memory server (stale — the booking wrote to Postgres).
+  Routed the 3 counts → `countActiveRowsWhere('Schedule', …)`. No production change. bookingRace 4/4 both lanes. Remaining 2 =
+  enrollmentTransfer (Slice D) + p2-regression (Wave F PR-2).
 - **2026-07-07** — **Wave G batch 14 / GATED Slice B+C — dual-backend schedule roster-sync: waitlist + autoReleaseScope green both lanes (PG lane ~5 → ~3 failing).**
   Branch `feat/pg-slice-bc-roster-sync`. Two Mongo-only side-effect paths shared one machinery (find future LIVE schedules →
   roster mutate → FIFO-promote freed seats → sweep still-empty): `models/Team.js syncSchedulesForTeamUpdate` (team member-edit)
