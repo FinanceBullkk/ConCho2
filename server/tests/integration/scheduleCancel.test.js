@@ -11,6 +11,10 @@
 const request = require('supertest');
 const mongoose = require('mongoose');
 const { getApp, getTokens, getSeedData, getCsrfHeaders } = require('../setup');
+// Cancel + book flow through the ported schedule chokepoint (PG-only on the
+// lane), so a Mongoose Schedule read sees the pre-cancel/stale state — read the
+// active backend.
+const { readActiveRow, findActiveRowsWhere } = require('../pg-test-utils');
 
 const Schedule = require('../../models/Schedule');
 const Attendance = require('../../models/Attendance');
@@ -72,7 +76,7 @@ describe('Durable cancel — leader cancelSlot', () => {
     expect(res.status).toBe(200);
     expect(res.body.message).toMatch(/cancelled/i);
 
-    const after = await Schedule.findById(sch._id);
+    const after = await readActiveRow('Schedule', sch._id);
     expect(after).not.toBeNull();
     expect(after.status).toBe('cancelled');
     expect(after.cancelledAt).toBeInstanceOf(Date);
@@ -128,7 +132,7 @@ describe('Durable cancel — freed slot re-books', () => {
     expect(again.status).toBe(201);
 
     // Exactly one LIVE row + one cancelled row share the slot now.
-    const rows = await Schedule.find({ classId: seed.class1._id, startTime: start });
+    const rows = await findActiveRowsWhere('Schedule', { classId: seed.class1._id, startTime: start });
     expect(rows).toHaveLength(2);
     expect(rows.filter((r) => r.status === 'scheduled')).toHaveLength(1);
     expect(rows.filter((r) => r.status === 'cancelled')).toHaveLength(1);

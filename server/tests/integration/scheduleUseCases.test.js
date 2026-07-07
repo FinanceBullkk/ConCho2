@@ -14,6 +14,9 @@
 const mongoose = require('mongoose');
 const { getApp, getSeedData, teardown } = require('../setup');
 const useCases = require('../../domains/schedule/use-cases');
+// deleteSchedule cancels through the ported chokepoint (PG-only on the lane) —
+// read the flipped doc from the active backend, not Mongoose.
+const { readActiveRow } = require('../pg-test-utils');
 
 let seed;
 let Schedule, Team, Class, User, Attendance;
@@ -139,7 +142,7 @@ describe('domains/schedule use-cases — deleteSchedule', () => {
 
     expect(result.calendarDeleted).toBe(false);
     // Phase-04 slice A: never hard-deleted — the doc persists as history.
-    const after = await Schedule.findById(sched._id);
+    const after = await readActiveRow('Schedule', sched._id);
     expect(after).not.toBeNull();
     expect(after.status).toBe('cancelled');
     expect(after.cancelReason).toBe('room flooded');
