@@ -598,10 +598,70 @@ const findTeamLeaderId = async (teamId) => {
   return rows[0] ? { _id: rows[0].id, leaderId: rows[0].leader_id || null } : null;
 };
 
+// ── Roster-sync primitives (team member-edit + user auto-release) ──
+// PG twins of the Mongo repo methods used by domains/schedule/roster-sync.
+// LIVE future schedules only (status='scheduled', start_time >= today).
+const findFutureTeamSchedules = async (teamId, today, tx) => {
+  const { rows } = await exec(tx,
+    `SELECT id, class_id, capacity, enrolled_users FROM schedules
+     WHERE start_time >= $1 AND booked_team_id = $2 AND status = 'scheduled'`,
+    [new Date(today).toISOString(), String(teamId)]);
+  return rows.map((r) => ({
+    _id: r.id,
+    classId: r.class_id || null,
+    capacity: r.capacity == null ? undefined : Number(r.capacity),
+    enrolledUsers: ids(r.enrolled_users),
+  }));
+};
+
+const findFutureUserSchedules = async (userId, today, tx) => {
+  const { rows } = await exec(tx,
+    `SELECT id, enrolled_users FROM schedules
+     WHERE start_time >= $1 AND $2 = ANY(enrolled_users) AND status = 'scheduled'`,
+    [new Date(today).toISOString(), String(userId)]);
+  return rows.map((r) => ({ _id: r.id, enrolledUsers: ids(r.enrolled_users) }));
+};
+
+// Array twin of $pull removed + $push added on enrolled_users text[]: strip any
+// id in removeIds (array_agg over the survivors), then append addIds. The
+// orchestrator only passes present-to-remove / absent-to-add ids (no dups).
+const applyRosterDelta = async (scheduleId, removeIds, addIds, tx) => {
+  await exec(tx,
+    `UPDATE schedules
+     SET enrolled_users = (
+       COALESCE(
+         (SELECT array_agg(u) FROM unnest(COALESCE(enrolled_users, '{}'::text[])) AS u
+          WHERE u <> ALL($2::text[])),
+         '{}'::text[]
+       ) || $3::text[]
+     ), updated_at = now()
+     WHERE id = $1`,
+    [String(scheduleId), removeIds.map(String), addIds.map(String)]);
+};
+
+const findEmptyScheduleIds = async (scheduleIds, tx) => {
+  if (!scheduleIds.length) return [];
+  const { rows } = await exec(tx,
+    `SELECT id FROM schedules
+     WHERE id = ANY($1::text[]) AND cardinality(COALESCE(enrolled_users, '{}'::text[])) = 0`,
+    [scheduleIds.map(String)]);
+  return rows.map((r) => r.id);
+};
+
+const deleteSchedulesByIds = async (scheduleIds, tx) => {
+  if (!scheduleIds.length) return;
+  await exec(tx, `DELETE FROM schedules WHERE id = ANY($1::text[])`, [scheduleIds.map(String)]);
+};
+
 module.exports = {
   updateScheduleById,
   findTeamById,
   findTeamLeaderId,
+  findFutureTeamSchedules,
+  findFutureUserSchedules,
+  applyRosterDelta,
+  findEmptyScheduleIds,
+  deleteSchedulesByIds,
   findScheduleForCollision,
   countSchedulesForTeamInWeek,
   findClassCapacityPolicy,

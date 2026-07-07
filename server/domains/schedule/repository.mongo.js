@@ -447,6 +447,60 @@ const deleteRoomBookings = (scheduleIds, tx) => {
   );
 };
 
+// ── Roster-sync primitives (team member-edit + user auto-release) ──
+// Shared by domains/schedule/roster-sync. LIVE future schedules only
+// (status:'scheduled', startTime >= today) — durable-cancelled rows are frozen
+// history and are never re-rostered.
+const findFutureTeamSchedules = (teamId, today, tx) =>
+  Schedule.find(
+    { startTime: { $gte: today }, bookedTeamId: teamId, status: 'scheduled' },
+    { classId: 1, capacity: 1, enrolledUsers: 1 },
+    { session: sessionOf(tx) },
+  ).lean();
+
+const findFutureUserSchedules = (userId, today, tx) =>
+  Schedule.find(
+    { startTime: { $gte: today }, enrolledUsers: userId, status: 'scheduled' },
+    { enrolledUsers: 1 },
+    { session: sessionOf(tx) },
+  ).lean();
+
+// $pull removed then $push added (Mongo forbids both in one op) — the exact
+// two-op sequence the pre-port Team.js sync used, so the write is unchanged.
+const applyRosterDelta = async (scheduleId, removeIds, addIds, tx) => {
+  const session = sessionOf(tx);
+  const opts = session ? { session } : {};
+  if (removeIds.length > 0) {
+    await Schedule.updateOne(
+      { _id: scheduleId },
+      { $pull: { enrolledUsers: { $in: removeIds.map((id) => new mongoose.Types.ObjectId(String(id))) } } },
+      opts,
+    );
+  }
+  if (addIds.length > 0) {
+    await Schedule.updateOne(
+      { _id: scheduleId },
+      { $push: { enrolledUsers: { $each: addIds.map((id) => new mongoose.Types.ObjectId(String(id))) } } },
+      opts,
+    );
+  }
+};
+
+const findEmptyScheduleIds = (scheduleIds, tx) =>
+  Schedule.find(
+    { _id: { $in: scheduleIds }, enrolledUsers: { $size: 0 } },
+    { _id: 1 },
+    { session: sessionOf(tx) },
+  ).distinct('_id');
+
+const deleteSchedulesByIds = (scheduleIds, tx) => {
+  const session = sessionOf(tx);
+  return Schedule.deleteMany(
+    { _id: { $in: scheduleIds } },
+    ...(session ? [{ session }] : []),
+  );
+};
+
 module.exports = {
   findScheduleById,
   findScheduleByIdRaw,
@@ -471,6 +525,11 @@ module.exports = {
   createRoomBooking,
   setScheduleRoom,
   deleteRoomBookings,
+  findFutureTeamSchedules,
+  findFutureUserSchedules,
+  applyRosterDelta,
+  findEmptyScheduleIds,
+  deleteSchedulesByIds,
   updateScheduleById,
   cancelScheduleById,
   attendanceExistsForSchedule,
