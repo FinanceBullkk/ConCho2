@@ -49,3 +49,10 @@ run-pg.sh/run-mongo.sh trong scratchpad (lock `/tmp/concho2-jest.lock` + caffein
 ## Owner decisions 2026-07-08 ~02:15
 - **Prod PG = Neon FREE** (thực tế ~100 users; 1000 là kỳ vọng xa). Điều kiện đi kèm: đo data size lúc ETL dry-run (<0.5GB), chấp nhận autosuspend cold-start (hoặc tái dùng cron-pinger trong giờ làm việc), thêm pg_dump backup job vào checklist J + cập nhật docs/backup-dr.md (Neon free chỉ giữ ~6h history). "Neon paid" GỠ khỏi blocker J.
 - **Bake sau cutover: rút ngắn** — owner muốn dùng PG ngay; đề xuất giữ Atlas read-only nằm im 1–2 tuần (chốt số cụ thể lúc J) rồi hủy. App chạy 100% PG từ ngày flip bất kể bake.
+
+## CẬP NHẬT 2026-07-08 ~03:25 — slice 4 targeted XANH CẢ 2 LANE
+- Round-2 fixes committed: user-mutations-repository split dual (PG twin replicate pre-save hash + status→Dropped auto-release hook); listTrashedUsers (user-list-repository) + getDeletedUsers swap; classRow PG thêm teacherIds; evaluation PG CastError contract; profile cols (drop_reason/entrance_level/current_level) là CỘT thật mig 031 (không phải meta).
+- Targeted PG: 16 suite / 174 test XANH. Targeted Mongo: 16 suite / 174 test XANH.
+- Docs slice-4 committed (roadmap entry + phase-05 refresh + roll E1–E3 sang q3 archive; roadmap 381 dòng).
+- **Đang chạy nền: FULL PG suite** (`slice4-pg-full.log`) → tiếp: full Mongo → push → PR → merge (standing approval).
+- Prompt điều phối session sau đã đưa owner (inline trong chat) — bao phủ: ship slice 4 → slice 5 F3 → D-CronRun → H ETL (+đo size Neon free) → I FK (viết sẵn) → pg_dump backup → B5-reads → J checklist (owner chốt ngày + bake).
