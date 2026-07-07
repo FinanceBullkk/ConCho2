@@ -1,7 +1,7 @@
 const request = require('supertest');
 const mongoose = require('mongoose');
 const { getApp, getTokens, getCsrfHeaders, teardown } = require('../setup');
-const { readActiveRow, findActiveRowWhere } = require('../pg-test-utils');
+const { readActiveRow, findActiveRowWhere, findActiveRowsWhere } = require('../pg-test-utils');
 const Class = require('../../models/Class');
 const LearningProgram = require('../../models/LearningProgram');
 const NotificationLog = require('../../models/NotificationLog');
@@ -377,7 +377,8 @@ describe('Learning Platform API — cohort nudge (S4)', () => {
 
     expect(res.status).toBe(201);
     expect(res.body.data.notified).toBe(2);
-    const rows = await NotificationLog.find({ type: 'coordinator_nudge', recipientUserId: { $in: [u1, u2] } });
+    const rows = (await findActiveRowsWhere('NotificationLog', { type: 'coordinator_nudge', recipientUserId: u1 }))
+      .concat(await findActiveRowsWhere('NotificationLog', { type: 'coordinator_nudge', recipientUserId: u2 }));
     expect(rows).toHaveLength(2);
     expect(rows[0].channel).toBe('in_app');
   });
@@ -387,7 +388,7 @@ describe('Learning Platform API — cohort nudge (S4)', () => {
     const body = { userIds: [u1] };
     await request(app).post(`/api/learning/cohorts/${cohortId}/nudge`).set('Authorization', `Bearer ${tokens.admin}`).set(csrf).send(body);
     await request(app).post(`/api/learning/cohorts/${cohortId}/nudge`).set('Authorization', `Bearer ${tokens.admin}`).set(csrf).send(body);
-    const rows = await NotificationLog.find({ type: 'coordinator_nudge', recipientUserId: u1 });
+    const rows = await findActiveRowsWhere('NotificationLog', { type: 'coordinator_nudge', recipientUserId: u1 });
     expect(rows).toHaveLength(1);
   });
 

@@ -4,6 +4,10 @@ jest.mock('../../lib/mailer', () => ({
 
 const request = require('supertest');
 const { getApp, getSeedData, teardown } = require('../setup');
+// The reminder service writes NotificationLog through the dual-backend repo
+// (Phase 5 slice 3) — on the pg lane rows land in PG only, so asserts read
+// the ACTIVE backend.
+const { findActiveRowWhere, findActiveRowsWhere, countActiveRowsWhere, distinctActiveValues } = require('../pg-test-utils');
 const { sendMail } = require('../../lib/mailer');
 const Assignment = require('../../models/Assignment');
 const Certificate = require('../../models/Certificate');
@@ -134,7 +138,7 @@ describe('assignment reminder service', () => {
     expect(second.sent).toBe(0);
     expect(second.duplicates).toBe(1);
     expect(sendMail).toHaveBeenCalledTimes(1);
-    const logs = await NotificationLog.find({ cadenceKey: 'due_7' }).lean();
+    const logs = await findActiveRowsWhere('NotificationLog', { cadenceKey: 'due_7' });
     expect(logs).toHaveLength(1);
     expect(logs[0]).toMatchObject({ status: 'sent', type: 'assignment_due_soon' });
   });
@@ -152,7 +156,7 @@ describe('assignment reminder service', () => {
     await sendAssignmentReminders({ now: new Date('2026-06-29T12:00:00.000Z') });
 
     expect(sendMail).toHaveBeenCalledTimes(2);
-    const keys = await NotificationLog.find({}).distinct('cadenceKey');
+    const keys = await distinctActiveValues('NotificationLog', 'cadenceKey', {});
     expect(keys.sort()).toEqual(['due_1', 'due_7']);
   });
 
@@ -170,7 +174,7 @@ describe('assignment reminder service', () => {
 
     expect(summary.sent).toBe(0);
     expect(sendMail).not.toHaveBeenCalled();
-    expect(await NotificationLog.countDocuments()).toBe(0);
+    expect(await countActiveRowsWhere('NotificationLog', {})).toBe(0);
   });
 
   test('overdue learner receives every-3-day reminders without same-bucket resend', async () => {
@@ -187,7 +191,7 @@ describe('assignment reminder service', () => {
     await sendAssignmentReminders({ now: new Date('2026-07-04T12:00:00.000Z') });
 
     expect(sendMail).toHaveBeenCalledTimes(2);
-    const keys = await NotificationLog.find({ type: 'assignment_overdue' }).distinct('cadenceKey');
+    const keys = await distinctActiveValues('NotificationLog', 'cadenceKey', { type: 'assignment_overdue' });
     expect(keys.sort()).toEqual(['overdue_d1', 'overdue_d4']);
   });
 
@@ -229,7 +233,7 @@ describe('assignment reminder service', () => {
 
     expect(summary.skipped).toBe(1);
     expect(sendMail).not.toHaveBeenCalled();
-    const log = await NotificationLog.findOne({ learnerId: seed.member1._id }).lean();
+    const log = await findActiveRowWhere('NotificationLog', { learnerId: seed.member1._id });
     expect(log).toMatchObject({ status: 'skipped', error: 'recipient email missing' });
   });
 
@@ -245,7 +249,7 @@ describe('assignment reminder service', () => {
     const summary = await sendAssignmentReminders({ now: new Date('2026-07-02T12:00:00.000Z') });
 
     expect(summary.skipped).toBe(1);
-    const log = await NotificationLog.findOne({ type: 'manager_assignment_digest' }).lean();
+    const log = await findActiveRowWhere('NotificationLog', { type: 'manager_assignment_digest' });
     expect(log).toMatchObject({ status: 'skipped', error: 'recipient email missing' });
   });
 });

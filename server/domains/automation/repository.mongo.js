@@ -14,4 +14,14 @@ const softDeleteById = (id) =>
 const recordRun = (id) =>
   AutomationRule.updateOne({ _id: id }, { $inc: { runCount: 1 }, $set: { lastRunAt: new Date() } });
 
-module.exports = { listLive, findById, findEnabledByTrigger, create, updateById, softDeleteById, recordRun };
+// Boot-time system-rule seed (Phase 5 slice 3 — A8): insert-if-missing keyed by
+// (name, system) with NO isDeleted predicate — a soft-deleted (admin-hidden)
+// system rule matches and is NOT resurrected on the next boot.
+const upsertSystemRuleByName = (rule) =>
+  AutomationRule.updateOne(
+    { name: rule.name, system: true },
+    { $setOnInsert: rule },
+    { upsert: true },
+  );
+
+module.exports = { listLive, findById, findEnabledByTrigger, create, updateById, softDeleteById, recordRun, upsertSystemRuleByName };

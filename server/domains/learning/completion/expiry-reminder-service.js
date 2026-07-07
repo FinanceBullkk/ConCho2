@@ -1,5 +1,6 @@
 const Certificate = require('../../../models/Certificate');
-const NotificationLog = require('../../../models/NotificationLog');
+// Dual-backend NotificationLog write seam (Phase 5 slice 3 — A5).
+const notificationRepo = require('../../notification/repository');
 const logger = require('../../../lib/logger');
 const {
   sendCertificateExpiring,
@@ -31,7 +32,7 @@ const bucketFor = (d) => (d <= 7 ? 'expiry_7' : 'expiry_30');
 
 const createLog = async (data) => {
   try {
-    return await NotificationLog.create(data);
+    return await notificationRepo.insertLog(data);
   } catch (error) {
     if (error && error.code === 11000) return null; // this bucket already sent
     throw error;
@@ -39,9 +40,9 @@ const createLog = async (data) => {
 };
 
 const finishLog = (id, patch) =>
-  NotificationLog.updateOne(
-    { _id: id },
-    { $set: patch.status === 'sent' ? { ...patch, sentAt: new Date() } : patch },
+  notificationRepo.updateLogById(
+    id,
+    patch.status === 'sent' ? { ...patch, sentAt: new Date() } : patch,
   );
 
 // Weekly digest to each manager of their direct reports' expiring certificates.

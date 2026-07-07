@@ -11,6 +11,7 @@
 const request = require('supertest');
 const { getApp, getTokens, getSeedData, getCsrfHeaders, teardown } = require('../setup');
 const NotificationLog = require('../../models/NotificationLog');
+const { readActiveRow, countActiveRowsWhere } = require('../pg-test-utils');
 const User = require('../../models/User');
 
 let app, tokens, seed, csrf;
@@ -97,7 +98,7 @@ describe('POST /api/notifications/:id/read', () => {
       .expect(404);
 
     // untouched
-    const reread = await NotificationLog.findById(others._id).lean();
+    const reread = await readActiveRow('NotificationLog', others._id);
     expect(reread.readAt).toBeNull();
   });
 });
@@ -118,7 +119,7 @@ describe('POST /api/notifications/read-all', () => {
     const after = await mine(tokens.leader).expect(200);
     expect(after.body.unreadCount).toBe(0);
 
-    const otherUnread = await NotificationLog.countDocuments({
+    const otherUnread = await countActiveRowsWhere('NotificationLog', {
       recipientUserId: seed.member1._id, readAt: null,
     });
     expect(otherUnread).toBe(1);

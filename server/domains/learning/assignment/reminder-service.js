@@ -1,4 +1,5 @@
-const NotificationLog = require('../../../models/NotificationLog');
+// Dual-backend NotificationLog write seam (Phase 5 slice 3 — A6).
+const notificationRepo = require('../../notification/repository');
 const User = require('../../../models/User');
 const logger = require('../../../lib/logger');
 const {
@@ -31,7 +32,7 @@ const targetName = (assignment) => {
 
 const createLog = async (data) => {
   try {
-    return await NotificationLog.create(data);
+    return await notificationRepo.insertLog(data);
   } catch (error) {
     if (error && error.code === 11000) return null;
     throw error;
@@ -39,9 +40,9 @@ const createLog = async (data) => {
 };
 
 const finishLog = (id, patch) =>
-  NotificationLog.updateOne(
-    { _id: id },
-    { $set: patch.status === 'sent' ? { ...patch, sentAt: new Date() } : patch },
+  notificationRepo.updateLogById(
+    id,
+    patch.status === 'sent' ? { ...patch, sentAt: new Date() } : patch,
   );
 
 const daysOverdueFor = (dueDate, now) => Math.abs(daysBetweenUtcDates(now, dueDate));

@@ -545,6 +545,10 @@ const deleteRoomBookings = async (scheduleIds, tx) => {
 // Mongo findByIdAndUpdate(id, {})). Returns baseSchedule(updated row).
 const UPDATE_COLS = {
   classId: 'class_id', bookedTeamId: 'booked_team_id', roomId: 'room_id', roomLink: 'room_link', topic: 'topic',
+  // meet_link is a REAL column (mig 020) — without this mapping the calendar
+  // writeback (A3) would land in meta while baseSchedule reads the column,
+  // silently dropping the Meet link on every PG read.
+  meetLink: 'meet_link',
 };
 const UPDATE_DATE_COLS = { startTime: 'start_time', endTime: 'end_time' };
 const UPDATE_ARRAY_COLS = { enrolledUsers: 'enrolled_users', sessionInstructorIds: 'session_instructor_ids' };
