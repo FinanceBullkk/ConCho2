@@ -14,6 +14,7 @@
 const request = require('supertest');
 const mongoose = require('mongoose');
 const { getApp, getTokens, getSeedData, getCsrfHeaders, teardown } = require('../setup');
+const { readActiveRow, readActiveTeamMemberIds } = require('../pg-test-utils');
 
 let app, tokens, seed, csrf;
 let Enrollment, Team, Class, User, NotificationLog;
@@ -89,17 +90,18 @@ describe('POST /api/enrollments/:id/transfer', () => {
     expect(res.body.data.teamId._id.toString()).toBe(toTeam._id.toString());
     expect(res.body.data.note).toBe('Level adjustment');
 
-    // Source enrollment is now Transferred
-    const old = await Enrollment.findById(enrollment._id);
+    // Source enrollment is now Transferred (active-backend read)
+    const old = await readActiveRow('Enrollment', enrollment._id);
     expect(old.status).toBe('Transferred');
     expect(old.transferredTo.toString()).toBe(toTeam._id.toString());
     expect(old.leftAt).toBeTruthy();
 
-    // Team members arrays updated
-    const fromAfter = await Team.findById(fromTeam._id);
-    const toAfter = await Team.findById(toTeam._id);
-    expect(fromAfter.members.map(m => m.toString())).not.toContain(seed.member1._id.toString());
-    expect(toAfter.members.map(m => m.toString())).toContain(seed.member1._id.toString());
+    // Team members arrays updated (active-backend — Mongo embeds the members
+    // array, Postgres stores the team_members junction).
+    const fromMembers = await readActiveTeamMemberIds(fromTeam._id);
+    const toMembers = await readActiveTeamMemberIds(toTeam._id);
+    expect(fromMembers.map(m => m.toString())).not.toContain(seed.member1._id.toString());
+    expect(toMembers.map(m => m.toString())).toContain(seed.member1._id.toString());
   });
 
   test('returns 400 when toTeamId is missing', async () => {

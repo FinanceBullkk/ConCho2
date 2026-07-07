@@ -147,6 +147,27 @@ describePg('PG-parity: groups enrollment-sync repository', () => {
     }
   });
 
+  test('findActiveTeamEnrollmentPopulated — populated transfer-response shape identical', async () => {
+    for (const b of Object.values(BACKENDS)) {
+      const e = await b.repo.findActiveTeamEnrollmentPopulated(b.u1, b.t1); // eslint-disable-line no-await-in-loop
+      expect(e.status).toBe('Active');
+      expect(String(e.userId._id)).toBe(String(b.u1));
+      expect(e.userId.name).toBe('Alice');
+      expect(String(e.teamId._id)).toBe(String(b.t1));
+      expect(e.teamId.name).toBe('Alpha');
+      expect(e.classId.courseName).toBe('Course One');
+      expect(e.transferredTo ?? null).toBeNull(); // E1 has no transferred_to
+    }
+  });
+
+  test('setActiveTeamEnrollmentNote — writes the note on the Active team enrollment, identical', async () => {
+    for (const b of Object.values(BACKENDS)) {
+      await b.repo.setActiveTeamEnrollmentNote(b.u1, b.t1, 'transfer note X'); // eslint-disable-line no-await-in-loop
+      const e = await b.repo.findActiveTeamEnrollmentPopulated(b.u1, b.t1); // eslint-disable-line no-await-in-loop
+      expect(e.note).toBe('transfer note X');
+    }
+  });
+
   test('rollback: a throw rolls back the transfer + the roster pull — identical', async () => {
     for (const b of Object.values(BACKENDS)) {
       const source = await b.repo.findActiveEnrollmentInOtherTeam(b.u3, b.t1); // eslint-disable-line no-await-in-loop
