@@ -146,6 +146,19 @@ Bug fixing and integration review rank above net-new feature rollout.
 > inline: **2026-07-02 → 2026-07-07** (06-20→06-27 rolled 2026-07-07;
 > 06-14→06-19 rolled 2026-07-04).
 
+- **2026-07-07** — **#255 + #256 closed — the two deferred PG follow-ups: transfer atomicity + notifyPromotions dual-backend (mig 032).**
+  Two PRs. **#255 (transfer atomicity)**: `enrollment-transfer` moved from a raw mongoose `session.withTransaction` to the
+  dual-backend `runInTransaction` UoW and passes the whole `tx` to every write; the real gap was `insertActiveEnrollment`'s PG
+  impl IGNORING the session handle (the enrollment INSERT escaped the tx as a pool autocommit) — it now execs on `tx.client`; the
+  write spine `createActiveEnrollment` accepts `{tx}` (raw session still works). Parity gains the rollback-covers-the-created-
+  enrollment case (8/8); enrollmentTransfer+teams+enrollmentRoutes+learningEnrollmentRoutes 66/66 both lanes.
+  **#256 (notifyPromotions)**: the post-commit waitlist-promotion notifier was Mongo-only (bell/email NotificationLog wrote to
+  Mongo even in PG mode). Ported onto the dual repos — schedule/class-label + user emails via `findScheduleForCancellation`/
+  `findUsersForEmail`, the log insert/status via new waitlist-repo twins `insertPromotionLog`/`setPromotionLogStatus`.
+  **mig 032** adds the `notification_logs` 7-field unique index (`NULLS NOT DISTINCT` — Mongo treats null as a value) so the
+  idempotent duplicate → 23505 → `{code:11000}` matches Mongo E11000. waitlist 18/18 both lanes; waitlist parity 12/12 (incl.
+  dup-idempotency + status transitions); notifyPromotions-caller sweep (scheduleUseCases/autoReleaseScope/enrollmentTransfer/
+  scheduleReassign) 32/32 both lanes. **All PG-migration deferred debt is now closed — next: Phase 4/5 cutover.**
 - **2026-07-07** — **Wave F PR-2 — attendance-export ported to dual-backend: p2-regression green both lanes → the PG lane is at ZERO failing and gate #8 covers the WHOLE suite (exclusion dropped).**
   Branch `feat/pg-wave-f-pr2-attendance-export`. Per the F-PR-2 ledger plan: the raw `aggregate(pipeline)` leak refactored into
   SEMANTIC methods (`findExportRows`/`findPendingIdsInRange`/`countExportablePending` + claim/mark/counts) — Mongo pipelines moved

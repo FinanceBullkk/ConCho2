@@ -274,4 +274,57 @@ describePg('PG-parity: domains/schedule/waitlist repository (S2)', () => {
     const [mc, pc] = await both(dup);
     expect(mc).toBe(11000); expect(pc).toBe(11000);
   });
+
+  // ── promotion NotificationLog (#256) ─────────────────────
+  // notification-log observers (raw collection / table — no model middleware).
+  const mongoLog = async (sid, uid, full = false) => {
+    const d = await mongoose.model('NotificationLog').collection.findOne({ cadenceKey: `${sid}:${uid}` });
+    if (!d) return null;
+    return full
+      ? { status: d.status, sentAt: d.sentAt ?? null, error: d.error ?? '' }
+      : { type: d.type, status: d.status, recipientEmail: d.recipientEmail, cadenceKey: d.cadenceKey };
+  };
+  const pgLog = async (sid, uid, full = false) => {
+    const { rows } = await query(`SELECT * FROM notification_logs WHERE cadence_key = $1`, [`${sid}:${uid}`]);
+    const r = rows[0];
+    if (!r) return null;
+    return full
+      ? { status: r.status, sentAt: r.sent_at ?? null, error: r.error ?? '' }
+      : { type: r.type, status: r.status, recipientEmail: r.recipient_email, cadenceKey: r.cadence_key };
+  };
+
+  test('insertPromotionLog: pending row parity; duplicate → code 11000 (mig-032 unique twin)', async () => {
+    const NotificationLog = require('../../models/NotificationLog'); // register for the raw-collection observer
+    await NotificationLog.init(); // build the 7-field unique index BEFORE the dup-insert (deterministic E11000)
+    await NotificationLog.collection.deleteMany({});
+    await query('TRUNCATE notification_logs');
+    const [m, p] = await both((r) => r.insertPromotionLog({ scheduleId: SW1, userId: WU1, recipientEmail: 'alice@x.io' }));
+    expect(m._id).toBeTruthy(); expect(p._id).toBeTruthy();
+    const want = { type: 'waitlist_promoted', status: 'pending', recipientEmail: 'alice@x.io', cadenceKey: `${SW1}:${WU1}` };
+    expect(await mongoLog(SW1, WU1)).toEqual(want);
+    expect(await pgLog(SW1, WU1)).toEqual(want);
+    // retry (same schedule+user) → idempotent duplicate on BOTH backends
+    const dup = async (r) => {
+      try { await r.insertPromotionLog({ scheduleId: SW1, userId: WU1, recipientEmail: 'alice@x.io' }); return null; }
+      catch (e) { return e.code; }
+    };
+    const [mc, pc] = await both(dup);
+    expect(mc).toBe(11000); expect(pc).toBe(11000);
+  });
+
+  test('setPromotionLogStatus: sent (with sentAt) then skipped (with error) — parity', async () => {
+    const [m, p] = await both((r) => r.insertPromotionLog({ scheduleId: SW2, userId: WU2, recipientEmail: '' }));
+    const at = new Date('2026-08-01T00:00:00Z');
+    await repo.impls.mongo.setPromotionLogStatus(m._id, { status: 'sent', sentAt: at });
+    await repo.impls.pg.setPromotionLogStatus(p._id, { status: 'sent', sentAt: at });
+    let mrow = await mongoLog(SW2, WU2, true); let prow = await pgLog(SW2, WU2, true);
+    expect(mrow.status).toBe('sent'); expect(prow.status).toBe('sent');
+    expect(new Date(mrow.sentAt).toISOString()).toBe(at.toISOString());
+    expect(new Date(prow.sentAt).toISOString()).toBe(at.toISOString());
+    await repo.impls.mongo.setPromotionLogStatus(m._id, { status: 'skipped', error: 'no email' });
+    await repo.impls.pg.setPromotionLogStatus(p._id, { status: 'skipped', error: 'no email' });
+    mrow = await mongoLog(SW2, WU2, true); prow = await pgLog(SW2, WU2, true);
+    expect(mrow.status).toBe('skipped'); expect(mrow.error).toBe('no email');
+    expect(prow.status).toBe('skipped'); expect(prow.error).toBe('no email');
+  });
 });

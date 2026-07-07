@@ -261,6 +261,34 @@ const markEntryPromoted = async (entryId, tx) => {
     [String(entryId)]);
 };
 
+// ── Post-commit promotion notification log (#256) ─────────
+// Twin of the Mongo NotificationLog.create: the uq_notification_logs_dedupe
+// unique index (mig 032, NULLS NOT DISTINCT — Mongo treats null as a value)
+// makes retries idempotent — 23505 re-throws as { code: 11000 } so the caller's
+// "already notified" branch stays backend-agnostic. Post-commit → pool write.
+const insertPromotionLog = async ({ scheduleId, userId, recipientEmail }) => {
+  let rows;
+  try {
+    ({ rows } = await query(
+      `INSERT INTO notification_logs(id,type,channel,recipient_email,recipient_user_id,learner_id,cadence_key,status,metadata)
+       VALUES ($1,'waitlist_promoted','email',$2,$3,$3,$4,'pending',$5::jsonb) RETURNING id`,
+      [newId(), recipientEmail || '', String(userId), `${scheduleId}:${userId}`,
+        JSON.stringify({ scheduleId: String(scheduleId) })]));
+  } catch (error) {
+    if (error && error.code === '23505') throw duplicateError();
+    throw error;
+  }
+  return { _id: rows[0].id };
+};
+
+const setPromotionLogStatus = async (logId, { status, sentAt = null, error = null }) => {
+  const sets = ['status = $2', 'updated_at = now()'];
+  const args = [String(logId), String(status)];
+  if (sentAt) { args.push(new Date(sentAt).toISOString()); sets.push(`sent_at = $${args.length}`); }
+  if (error != null) { args.push(String(error)); sets.push(`error = $${args.length}`); }
+  await query(`UPDATE notification_logs SET ${sets.join(', ')} WHERE id = $1`, args);
+};
+
 module.exports = {
   findScheduleForJoin,
   findTeamMembers,
@@ -277,4 +305,6 @@ module.exports = {
   seatWaiterIfRoom,
   findScheduleEnrolledUsers,
   markEntryPromoted,
+  insertPromotionLog,
+  setPromotionLogStatus,
 };
