@@ -18,6 +18,7 @@ Server tests need env `NODE_ENV=test` and a dummy `JWT_SECRET` (required at boot
 5. **secrets-scan** — gitleaks (fails on any secret pattern)
 6. **audit** — `npm audit` high+ (prod deps on server, full on client)
 7. **e2e-tests** — Playwright against real seeded backend (slowest, ~5–10 min)
+8. **server-tests-pg** — the full Jest suite on the Postgres backend (`DB_BACKEND=postgres`). Promoted from informational to REQUIRED (Wave G, 2026-07-07) after the GATED schedule roster-sync/waitlist cluster closed. **Excludes `p2-regression`** (blocked on Wave F PR-2); drop the exclusion in `ci.yml` when F-PR-2 lands. Keeps Mongo==Postgres green through the Phase-5 cutover.
 
 ### Merge discipline (QA-012 — gates are NOT machine-enforced)
 GitHub branch protection is unavailable on this repo (private repo, Free plan), so

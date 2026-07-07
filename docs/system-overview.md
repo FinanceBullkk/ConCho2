@@ -210,7 +210,8 @@ employees, the next platform gaps are Google OIDC + Directory sync (owner-gated)
 and the Phase 6 PostgreSQL decision. → see [`lms-roadmap.md`](lms-roadmap.md).
 
 **Stack:** React 19 + Vite 8 + Tailwind 4 / Express 5 + Mongoose 8 + MongoDB;
-server/client test suites, Playwright e2e, 7 CI gates, deployed on Render.
+server/client test suites, Playwright e2e, 8 CI gates (incl. the full Jest suite
+on the Postgres backend — Wave G, 2026-07-07), deployed on Render.
 
 ## 8. Delivery discipline — no feature factory
 

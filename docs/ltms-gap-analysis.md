@@ -77,7 +77,7 @@ What is **genuinely solid** and should not be re-litigated: auth/MFA, two-layer
 authz (`roleGuard` + `policy/` + capability map), CSRF, rate limits, audit log
 (730-day), soft-delete/trash, the completion engine + certificates, assessment
 v1 + question bank + manual grading, completion reports + rollups, the
-modular-monolith `domains/` direction, 7 CI gates.
+modular-monolith `domains/` direction, 8 CI gates.
 
 ---
 

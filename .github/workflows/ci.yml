@@ -20,6 +20,13 @@ name: CI
 #                    Mongo replica set (audit PR V — P2-09). Catches
 #                    regressions that unit tests alone can't (full auth +
 #                    permission + UI flows). Slowest gate (~5-10 min).
+#   server-tests-pg — the FULL Jest suite on the Postgres backend
+#                    (DB_BACKEND=postgres). Promoted from informational to
+#                    REQUIRED gate #8 (Wave G, 2026-07-07) once the GATED
+#                    schedule roster-sync/waitlist cluster closed. EXCLUDES
+#                    `p2-regression` (blocked on Wave F PR-2 attendance-export
+#                    refactor); drop the exclusion when F-PR-2 lands. Keeps
+#                    Mongo==Postgres green through the Phase-5 cutover.
 # ──────────────────────────────────────────────────────────
 
 on:
@@ -142,23 +149,23 @@ jobs:
           SENTRY_DSN: ''
 
   # ──────────────────────────────────────────────────────────
-  # INFORMATIONAL (Wave G bring-up): the FULL server suite on Postgres
+  # GATE #8 (Wave G, 2026-07-07): the FULL server suite on Postgres
   # Runs the entire Jest suite with DB_BACKEND=postgres against the same
-  # postgres:16 service — phase G of the Mongo→Postgres master plan: the
-  # divergence-INVENTORY lane. `continue-on-error: true` while red on purpose:
-  # the first runs enumerate every test that still assumes Mongo internals
-  # (fixtures seeded via raw Mongoose, hook-dependent flows, unported ops
-  # files — see the Wave F ledger). As divergences are fixed this lane trends
-  # green; when it IS green, drop continue-on-error and promote it to a
-  # REQUIRED gate (both lanes must then stay green through the Phase-5
-  # cutover). Deliberately NOT a merge gate yet — bringing it up must not
-  # freeze main.
+  # postgres:16 service — phase G of the Mongo→Postgres master plan. Was the
+  # informational divergence-INVENTORY lane (`continue-on-error: true`) during
+  # bring-up; PROMOTED to a REQUIRED gate once the GATED schedule
+  # roster-sync/waitlist cluster closed (Slices 0/A/B+C/D/E). Both lanes must
+  # now stay green through the Phase-5 cutover — a PG divergence blocks merge.
+  #
+  # EXCLUSION: `p2-regression` is skipped — it is blocked on Wave F PR-2 (the
+  # attendance-export pipeline refactor + user-mutations auto-release), tracked
+  # separately. Drop `--testPathIgnorePatterns` when F-PR-2 lands so the gate
+  # covers the whole suite with zero exclusions.
   # ──────────────────────────────────────────────────────────
   server-tests-pg:
-    name: Server tests on Postgres (informational)
+    name: Server tests on Postgres
     runs-on: ubuntu-latest
     timeout-minutes: 30
-    continue-on-error: true
 
     services:
       postgres:
@@ -196,9 +203,12 @@ jobs:
         working-directory: server
         run: npx knex migrate:latest --knexfile db/pg/knexfile.js
 
-      - name: Run Jest test suite on the Postgres backend
+      # p2-regression is excluded until Wave F PR-2 lands (see the gate comment
+      # above). --testPathIgnorePatterns REPLACES the jest default, so the
+      # node_modules ignore is re-specified alongside it.
+      - name: Run Jest test suite on the Postgres backend (excluding p2-regression)
         working-directory: server
-        run: npm test
+        run: npm test -- --testPathIgnorePatterns "/node_modules/" "p2-regression"
         env:
           NODE_ENV: test
           JWT_SECRET: ci-test-secret-not-used-for-anything-real
