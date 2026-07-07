@@ -1,6 +1,3 @@
-const Schedule = require('../../../models/Schedule');
-const NotificationLog = require('../../../models/NotificationLog');
-const User = require('../../../models/User');
 const logger = require('../../../lib/logger');
 const { sendWaitlistPromoted } = require('../../../lib/emailTemplates');
 const scheduleRepository = require('../repository');
@@ -102,34 +99,31 @@ const promoteIfSeatFree = async (scheduleId, tx) => {
 // One NotificationLog row per promotion — the unique tuple (type + recipient
 // + cadenceKey `<scheduleId>:<userId>`) makes retries idempotent: a duplicate
 // insert means "already notified", so the email is skipped, never doubled.
+// Dual-backend (#256): every DB op flows through the dual repositories —
+// schedule/class-label + user emails via schedule/repository, the log
+// insert/status via the waitlist repository (Mongo E11000 ⇔ PG 23505→11000
+// on the mig-032 unique index) — so the bell/email record lands in the ACTIVE
+// backend, not always Mongo.
 const notifyPromotions = async (scheduleId, promotions = []) => {
   if (!promotions.length) return;
   try {
-    const sched = await Schedule.findById(scheduleId)
-      .populate('classId', 'classCode courseName')
-      .lean();
+    // Schedule + populated class label (also embeds the roster — unused here).
+    const sched = await scheduleRepository.findScheduleForCancellation(scheduleId);
     if (!sched) return;
     const className = sched.classId
       ? `${sched.classId.classCode} — ${sched.classId.courseName}`
       : 'your class';
 
-    const users = await User.find({ _id: { $in: promotions.map((p) => p.userId) } })
-      .select('name email').lean();
+    const users = await scheduleRepository.findUsersForEmail(promotions.map((p) => p.userId));
     const byId = new Map(users.map((u) => [String(u._id), u]));
 
     for (const { userId } of promotions) {
       const user = byId.get(String(userId));
-      const cadenceKey = `${scheduleId}:${userId}`;
       let log;
       try {
         // eslint-disable-next-line no-await-in-loop
-        log = await NotificationLog.create({
-          type: 'waitlist_promoted',
-          recipientEmail: user?.email || '',
-          recipientUserId: userId,
-          learnerId: userId,
-          cadenceKey,
-          metadata: { scheduleId: String(scheduleId) },
+        log = await repository.insertPromotionLog({
+          scheduleId, userId, recipientEmail: user?.email || '',
         });
       } catch (err) {
         if (err.code === 11000) continue; // already notified (idempotent)
@@ -144,13 +138,13 @@ const notifyPromotions = async (scheduleId, promotions = []) => {
           startTime: sched.startTime,
         });
         // eslint-disable-next-line no-await-in-loop
-        await NotificationLog.updateOne(
-          { _id: log._id },
-          { $set: sent ? { status: 'sent', sentAt: new Date() } : { status: 'failed', error: 'send returned null' } },
+        await repository.setPromotionLogStatus(
+          log._id,
+          sent ? { status: 'sent', sentAt: new Date() } : { status: 'failed', error: 'send returned null' },
         );
       } else {
         // eslint-disable-next-line no-await-in-loop
-        await NotificationLog.updateOne({ _id: log._id }, { $set: { status: 'skipped', error: 'no email' } });
+        await repository.setPromotionLogStatus(log._id, { status: 'skipped', error: 'no email' });
       }
     }
 

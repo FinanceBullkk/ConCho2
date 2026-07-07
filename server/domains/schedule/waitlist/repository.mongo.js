@@ -145,6 +145,31 @@ const markEntryPromoted = (entryId, tx) =>
     { session: sessionOf(tx) },
   );
 
+// ── Post-commit promotion notification log (#256) ─────────
+// One row per promotion; the model's 7-field unique tuple makes retries
+// idempotent — a duplicate insert throws E11000 (the caller treats it as
+// "already notified"). Post-commit + fail-soft → no tx handle.
+const insertPromotionLog = async ({ scheduleId, userId, recipientEmail }) => {
+  const NotificationLog = require('../../../models/NotificationLog');
+  const doc = await NotificationLog.create({
+    type: 'waitlist_promoted',
+    recipientEmail: recipientEmail || '',
+    recipientUserId: userId,
+    learnerId: userId,
+    cadenceKey: `${scheduleId}:${userId}`,
+    metadata: { scheduleId: String(scheduleId) },
+  });
+  return { _id: doc._id };
+};
+
+const setPromotionLogStatus = (logId, { status, sentAt = null, error = null }) => {
+  const NotificationLog = require('../../../models/NotificationLog');
+  const set = { status };
+  if (sentAt) set.sentAt = sentAt;
+  if (error != null) set.error = error;
+  return NotificationLog.updateOne({ _id: logId }, { $set: set });
+};
+
 module.exports = {
   findScheduleForJoin,
   findTeamMembers,
@@ -161,4 +186,6 @@ module.exports = {
   seatWaiterIfRoom,
   findScheduleEnrolledUsers,
   markEntryPromoted,
+  insertPromotionLog,
+  setPromotionLogStatus,
 };
