@@ -16,6 +16,7 @@
 const request = require('supertest');
 const mongoose = require('mongoose');
 const { getApp, getTokens, getSeedData, getCsrfHeaders } = require('../setup');
+const { countActiveRowsWhere } = require('../pg-test-utils');
 
 let app, tokens, seed, csrf;
 
@@ -75,9 +76,9 @@ describe('Booking race — Promise.all double-fire on identical slot', () => {
     const statuses = [r1.status, r2.status].sort();
     expect(statuses).toEqual([201, 409]);
 
-    // And the DB has EXACTLY ONE schedule for the slot.
-    const Schedule = require('../../models/Schedule');
-    const count = await Schedule.countDocuments({
+    // And the DB has EXACTLY ONE schedule for the slot (active-backend read —
+    // the booking wrote to Postgres on the PG lane).
+    const count = await countActiveRowsWhere('Schedule', {
       bookedTeamId: seed.team._id,
       startTime: start,
     });
@@ -117,8 +118,7 @@ describe('Booking race — weekly 2-session cap', () => {
 
     expect([r0.status, r1.status, r2.status].sort((a, b) => a - b)).toEqual([201, 201, 400]);
 
-    const Schedule = require('../../models/Schedule');
-    const count = await Schedule.countDocuments({ bookedTeamId: seed.team._id });
+    const count = await countActiveRowsWhere('Schedule', { bookedTeamId: seed.team._id });
     expect(count).toBe(2);
   });
 
@@ -143,8 +143,7 @@ describe('Booking race — weekly 2-session cap', () => {
 
     expect([r3.status, r4.status].sort()).toEqual([400, 400]);
     // And the DB confirms only 2 schedules total.
-    const Schedule = require('../../models/Schedule');
-    const count = await Schedule.countDocuments({ bookedTeamId: seed.team._id });
+    const count = await countActiveRowsWhere('Schedule', { bookedTeamId: seed.team._id });
     expect(count).toBe(2);
   });
 });
