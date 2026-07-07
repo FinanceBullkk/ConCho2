@@ -15,6 +15,12 @@ const request = require('supertest');
 const speakeasy = require('speakeasy');
 const mongoose = require('mongoose');
 const { getApp, getTokens, getSeedData, getCsrfHeaders } = require('../setup');
+// MFA secrets/backup-codes/counter are written to the ACTIVE backend by the
+// ported auth mutations (PG-only on the lane) AND are select:false on the User
+// model — so a Mongoose read sees null and, worse, any Mongoose read-modify-write
+// (u.save()/updateOne) re-mirrors Mongo's null mfaSecret OVER the PG value. Read
+// and mutate these fields through the active-backend helpers on both lanes.
+const { readActiveRow, updateActiveRow } = require('../pg-test-utils');
 
 let app, tokens, seed, csrf;
 
@@ -47,8 +53,6 @@ const totpFor = (base32) => speakeasy.totp({ secret: base32, encoding: 'base32' 
 // ──────────────────────────────────────────────────────────
 
 describe('MFA setup → verify-setup', () => {
-  const User = require('../../models/User');
-
   test('POST /mfa/setup returns QR + base32 secret and stores pending secret', async () => {
     const r = await request(app)
       .post('/api/auth/mfa/setup')
@@ -60,7 +64,7 @@ describe('MFA setup → verify-setup', () => {
     expect(r.body.data.secretBase32).toMatch(/^[A-Z2-7]+$/);
 
     // Pending secret is now persisted on the user — but mfaEnabled stays false.
-    const u = await User.findById(seed.leader._id).select('+mfaPendingSecret mfaEnabled').lean();
+    const u = await readActiveRow('User', seed.leader._id);
     expect(u.mfaPendingSecret).toBe(r.body.data.secretBase32);
     expect(u.mfaEnabled).toBe(false);
   });
@@ -73,13 +77,13 @@ describe('MFA setup → verify-setup', () => {
       .send({ code: '000000' });
     expect(r.status).toBe(401);
 
-    const u = await User.findById(seed.leader._id).lean();
+    const u = await readActiveRow('User', seed.leader._id);
     expect(u.mfaEnabled).toBeFalsy();
   });
 
   test('POST /mfa/verify-setup with valid code enables MFA and returns backup codes', async () => {
     // Re-fetch the pending secret (the previous test didn't clear it).
-    const before = await User.findById(seed.leader._id).select('+mfaPendingSecret').lean();
+    const before = await readActiveRow('User', seed.leader._id);
     expect(before.mfaPendingSecret).toBeTruthy();
 
     const code = totpFor(before.mfaPendingSecret);
@@ -94,7 +98,7 @@ describe('MFA setup → verify-setup', () => {
     expect(Array.isArray(r.body.data.backupCodes)).toBe(true);
     expect(r.body.data.backupCodes.length).toBeGreaterThanOrEqual(8);
 
-    const after = await User.findById(seed.leader._id).select('+mfaSecret +mfaBackupCodes mfaEnabled').lean();
+    const after = await readActiveRow('User', seed.leader._id);
     expect(after.mfaEnabled).toBe(true);
     expect(after.mfaSecret).toBe(before.mfaPendingSecret);
     expect(after.mfaBackupCodes.length).toBe(r.body.data.backupCodes.length);
@@ -102,7 +106,6 @@ describe('MFA setup → verify-setup', () => {
 });
 
 describe('MFA login flow', () => {
-  const User = require('../../models/User');
   let mfaSecret, backupCodes;
 
   beforeAll(async () => {
@@ -113,10 +116,12 @@ describe('MFA login flow', () => {
     const mfaService = require('../../services/mfaService');
     const codes = await mfaService.generateBackupCodes();
     backupCodes = codes.plain;
-    const u = await User.findById(seed.leader._id).select('+mfaSecret');
+    // Read the real secret from the active backend (a Mongoose read would see
+    // null on the pg lane), and set the fresh backup codes there directly — a
+    // u.save() would re-mirror Mongo's null mfaSecret over the PG value.
+    const u = await readActiveRow('User', seed.leader._id);
     mfaSecret = u.mfaSecret;
-    u.mfaBackupCodes = codes.hashed;
-    await u.save();
+    await updateActiveRow('User', seed.leader._id, { mfaBackupCodes: codes.hashed });
   });
 
   test('POST /login with MFA-enabled user returns mfaRequired:true and sets pending cookie', async () => {
@@ -157,7 +162,7 @@ describe('MFA login flow', () => {
     // mfaLastUsedCounter, so trying it here would always reject as
     // replay. Reset the counter so this test exercises the replay-
     // protection branch on a fresh code.
-    await User.updateOne({ _id: seed.leader._id }, { $set: { mfaLastUsedCounter: null } });
+    await updateActiveRow('User', seed.leader._id, { mfaLastUsedCounter: null });
 
     // First verification — should succeed.
     const login1 = await request(app)
@@ -207,7 +212,7 @@ describe('MFA login flow', () => {
     expect(r.body.data.backupCodeUsed).toBe(true);
 
     // Backup code count should drop by 1.
-    const after = await User.findById(seed.leader._id).select('+mfaBackupCodes').lean();
+    const after = await readActiveRow('User', seed.leader._id);
     expect(after.mfaBackupCodes.length).toBe(backupCodes.length - 1);
   });
 
@@ -229,11 +234,9 @@ describe('MFA login flow', () => {
 });
 
 describe('MFA admin-disable (re-auth gate from PR 7 / SEC-009)', () => {
-  const User = require('../../models/User');
-
   test('admin can disable MFA with currentPassword; MFA fields are cleared', async () => {
     // Sanity: leader still has MFA enabled from the setup block.
-    const before = await User.findById(seed.leader._id).select('+mfaSecret +mfaBackupCodes mfaEnabled').lean();
+    const before = await readActiveRow('User', seed.leader._id);
     expect(before.mfaEnabled).toBe(true);
 
     const r = await request(app)
@@ -244,7 +247,7 @@ describe('MFA admin-disable (re-auth gate from PR 7 / SEC-009)', () => {
 
     expect(r.status).toBe(200);
 
-    const after = await User.findById(seed.leader._id).select('+mfaSecret +mfaBackupCodes mfaEnabled').lean();
+    const after = await readActiveRow('User', seed.leader._id);
     expect(after.mfaEnabled).toBe(false);
     expect(after.mfaSecret).toBeNull();
     expect((after.mfaBackupCodes ?? []).length).toBe(0);
