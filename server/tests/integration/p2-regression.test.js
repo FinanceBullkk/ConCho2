@@ -17,6 +17,7 @@
 
 const request = require('supertest');
 const { getApp, getTokens, getSeedData, getCsrfHeaders, teardown } = require('../setup');
+const { readActiveRow } = require('../pg-test-utils');
 
 let app, tokens, seed, csrf;
 let Attendance, Schedule, Enrollment, Class, Team;
@@ -36,6 +37,23 @@ beforeAll(async () => {
 afterAll(teardown);
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
+
+/**
+ * Poll an Attendance row (active backend) until its syncStatus reaches the
+ * expected value, up to ~2s. markExported runs AFTER the download stream has
+ * ended (step 5 of the claim flow), so the HTTP 200 can resolve a beat before
+ * the mark lands — that ordering is real production behaviour, not a bug.
+ * The assertion itself stays strict: the caller still expects the final value.
+ */
+const waitForSyncStatus = async (attendanceId, expected, tries = 20) => {
+  let row = null;
+  for (let i = 0; i < tries; i += 1) {
+    row = await readActiveRow('Attendance', attendanceId); // eslint-disable-line no-await-in-loop
+    if (row && row.syncStatus === expected) return row;
+    await new Promise((r) => setTimeout(r, 100)); // eslint-disable-line no-await-in-loop
+  }
+  return row;
+};
 
 /** Create a schedule + one PENDING attendance record for a given startTime. */
 const seedAttendanceAt = async (startTime, userId, classId, teamId) => {
@@ -81,11 +99,11 @@ describe('P2-08R — export date range only marks in-range records as EXPORTED',
     expect(res.status).toBe(200);
     expect(res.headers['content-type']).toMatch(/spreadsheet|octet-stream/);
 
-    // Re-fetch both records from DB
-    const [inDb, outDb] = await Promise.all([
-      Attendance.findById(attInside._id).select('syncStatus').lean(),
-      Attendance.findById(attOutside._id).select('syncStatus').lean(),
-    ]);
+    // Re-fetch both records from the ACTIVE backend (the export claim/mark now
+    // writes through the dual-backend repository — a Mongoose read is stale on
+    // the PG lane). Poll the in-range record: markExported lands post-stream.
+    const inDb = await waitForSyncStatus(attInside._id, 'EXPORTED');
+    const outDb = await readActiveRow('Attendance', attOutside._id);
 
     expect(inDb.syncStatus).toBe('EXPORTED');  // inside range: must be exported
     expect(outDb.syncStatus).toBe('PENDING');  // outside range: must be untouched
@@ -117,8 +135,9 @@ describe('P2-08R — export date range only marks in-range records as EXPORTED',
     const statuses = [res1.status, res2.status].sort((a, b) => a - b);
     expect(statuses).toEqual([200, 404]);
 
-    // The record must be fully EXPORTED — not stuck in EXPORTING.
-    const inDb = await Attendance.findById(attendance._id).select('syncStatus').lean();
+    // The record must be fully EXPORTED — not stuck in EXPORTING. Active-backend
+    // read + poll (markExported lands after the winner's download stream ends).
+    const inDb = await waitForSyncStatus(attendance._id, 'EXPORTED');
     expect(inDb.syncStatus).toBe('EXPORTED');
   });
 });

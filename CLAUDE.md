@@ -15,7 +15,7 @@ clone.
 - **Audit every mutation**; **soft-delete, never hard-delete** user/attendance/evaluation data.
 - **English-only UI.** User-facing strings are English (single `en` locale via `t()` + `en.json`; `vi.json` removed). Never add Vietnamese strings.
 - **Don't fight the migration** — when a `domains/<domain>/` module exists, extend it; don't pile new logic into the legacy controller.
-- **Tests are gates, not suggestions** — never skip/weaken tests or fake a pass. 8 CI gates must stay green (the 8th, `server-tests-pg`, promoted 2026-07-07 — full Jest suite on Postgres, excludes `p2-regression` pending Wave F PR-2); the eslint ratchet cap only goes down.
+- **Tests are gates, not suggestions** — never skip/weaken tests or fake a pass. 8 CI gates must stay green (the 8th, `server-tests-pg`, promoted 2026-07-07 — the FULL Jest suite on Postgres, zero exclusions); the eslint ratchet cap only goes down.
 - **Never commit secrets.** `server/.env` is gitignored; rotate immediately if leaked.
 - **Implementing? Follow `.claude/rules/implementation-workflow.md`** — work from `docs/development-roadmap.md`; updating the tracker is part of Definition of Done (don't wait to be asked). Run `/next` to execute the next milestone.
 - **No feature factory.** Build to a milestone, then review wiring, UX flow,

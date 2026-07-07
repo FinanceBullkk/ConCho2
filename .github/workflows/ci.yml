@@ -23,10 +23,10 @@ name: CI
 #   server-tests-pg — the FULL Jest suite on the Postgres backend
 #                    (DB_BACKEND=postgres). Promoted from informational to
 #                    REQUIRED gate #8 (Wave G, 2026-07-07) once the GATED
-#                    schedule roster-sync/waitlist cluster closed. EXCLUDES
-#                    `p2-regression` (blocked on Wave F PR-2 attendance-export
-#                    refactor); drop the exclusion when F-PR-2 lands. Keeps
-#                    Mongo==Postgres green through the Phase-5 cutover.
+#                    schedule roster-sync/waitlist cluster closed; Wave-F PR-2
+#                    (attendance-export port) then closed `p2-regression` and
+#                    the temporary exclusion was dropped — zero exclusions.
+#                    Keeps Mongo==Postgres green through the Phase-5 cutover.
 # ──────────────────────────────────────────────────────────
 
 on:
@@ -156,11 +156,9 @@ jobs:
   # bring-up; PROMOTED to a REQUIRED gate once the GATED schedule
   # roster-sync/waitlist cluster closed (Slices 0/A/B+C/D/E). Both lanes must
   # now stay green through the Phase-5 cutover — a PG divergence blocks merge.
-  #
-  # EXCLUSION: `p2-regression` is skipped — it is blocked on Wave F PR-2 (the
-  # attendance-export pipeline refactor + user-mutations auto-release), tracked
-  # separately. Drop `--testPathIgnorePatterns` when F-PR-2 lands so the gate
-  # covers the whole suite with zero exclusions.
+  # Wave-F PR-2 (attendance-export dual-backend port) closed `p2-regression` on
+  # 2026-07-07 and the temporary exclusion was dropped — the gate covers the
+  # WHOLE suite with zero exclusions.
   # ──────────────────────────────────────────────────────────
   server-tests-pg:
     name: Server tests on Postgres
@@ -203,12 +201,9 @@ jobs:
         working-directory: server
         run: npx knex migrate:latest --knexfile db/pg/knexfile.js
 
-      # p2-regression is excluded until Wave F PR-2 lands (see the gate comment
-      # above). --testPathIgnorePatterns REPLACES the jest default, so the
-      # node_modules ignore is re-specified alongside it.
-      - name: Run Jest test suite on the Postgres backend (excluding p2-regression)
+      - name: Run Jest test suite on the Postgres backend
         working-directory: server
-        run: npm test -- --testPathIgnorePatterns "/node_modules/" "p2-regression"
+        run: npm test
         env:
           NODE_ENV: test
           JWT_SECRET: ci-test-secret-not-used-for-anything-real

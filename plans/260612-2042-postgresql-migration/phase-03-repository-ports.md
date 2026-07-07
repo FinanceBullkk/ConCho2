@@ -55,16 +55,23 @@ delegate to the proven learning cohort path) · `services/metrics-repository`
 (snapshot upsert ON CONFLICT + funnel count grammar) · `services/audit/audit-query-repository`
 · `services/export/evaluation-export-repository` · `services/search/search-repository`.
 
-**Remaining seams (F-PR-2 — blocked-by-design, not forgotten):**
-- `services/export/attendance-export-repository` — its `aggregate(pipeline)`
-  leaks the Mongo pipeline shape (multi-$lookup attendance→schedule→user→class
-  with DATA-009 soft-delete sub-pipelines). Port = first refactor to a SEMANTIC
-  method owning the join, then the SQL twin. claim/mark/count methods trivial.
+**Remaining seams (F-PR-2) — CLOSED 2026-07-07:**
+- `services/export/attendance-export-repository` — **PORTED (Wave-F PR-2,
+  2026-07-07)**: refactored to SEMANTIC methods per the plan above
+  (`findExportRows` / `findPendingIdsInRange` / `countExportablePending` +
+  claim/mark/counts), Mongo pipelines moved verbatim into the `.mongo` impl,
+  SQL twin in `.pg` (INNER schedule+user joins ⇔ $unwind drop; LEFT class/team
+  ⇔ preserveNull with omitted-key parity). Parity test
+  `tests/pg-parity/attendance-export-repository.pg.test.js`. This closed
+  `p2-regression` — the last PG-lane fail — and the ci.yml gate-#8 exclusion
+  was dropped in the same PR.
 - `controllers/user/user-mutations-repository` + `user-queries`/`user-lifecycle`
-  — blocked by the User AUTO-RELEASE post-findOneAndUpdate hook (status→Dropped
-  ⇒ transactional pull from future schedules + waitlist promotion). The PG twin
-  must route through the schedule domain's dual-backend seams, NOT replicate a
-  Mongoose hook. Pairs with `importService` (same write path).
+  — **BLOCKER RETIRED (Wave G Slice B/C, 2026-07-07)**: the User AUTO-RELEASE
+  hook now delegates to the dual-backend `domains/schedule/roster-sync`
+  (`releaseUserFromFutureSchedules`), so the hook no longer pins these files to
+  Mongo. The user WRITE seams themselves still go through Mongoose(+test mirror)
+  — no suite is red on them; port them as ordinary follow-ups with
+  `importService` (same write path) when touched.
 
 **Ops/cron disposition (direct-Mongoose, not repository seams):**
 - `services/reconcile/*` (6) + `reconcileController` — Mongo-consistency
