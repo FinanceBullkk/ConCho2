@@ -12,6 +12,10 @@ jest.mock('../../lib/mailer', () => ({ sendMail: jest.fn() }));
 
 const request = require('supertest');
 const { getApp, getSeedData, teardown } = require('../setup');
+// The expiry-reminder service writes NotificationLog through the dual-backend
+// repo (Phase 5 slice 3) — on the pg lane rows land in PG only, so asserts
+// read the ACTIVE backend.
+const { findActiveRowWhere, countActiveRowsWhere } = require('../pg-test-utils');
 const { sendMail } = require('../../lib/mailer');
 const Certificate = require('../../models/Certificate');
 const NotificationLog = require('../../models/NotificationLog');
@@ -77,7 +81,7 @@ describe('sendCertificateExpiryReminders', () => {
     expect(summary.sent).toBe(1);
     expect(sendMail).toHaveBeenCalledTimes(1);
 
-    const log = await NotificationLog.findOne({ type: 'certificate_expiring' }).lean();
+    const log = await findActiveRowWhere('NotificationLog', { type: 'certificate_expiring' });
     expect(log.channel).toBe('email');
     expect(log.status).toBe('sent');
     expect(log.cadenceKey).toMatch(/:expiry_7$/);
@@ -91,7 +95,7 @@ describe('sendCertificateExpiryReminders', () => {
 
     await sendCertificateExpiryReminders({ now: NOW });
 
-    const log = await NotificationLog.findOne({ type: 'certificate_expiring' }).lean();
+    const log = await findActiveRowWhere('NotificationLog', { type: 'certificate_expiring' });
     expect(log.cadenceKey).toMatch(/:expiry_30$/);
   });
 
@@ -105,7 +109,7 @@ describe('sendCertificateExpiryReminders', () => {
 
     expect(second.sent).toBe(0);
     expect(second.duplicates).toBe(1);
-    expect(await NotificationLog.countDocuments({ type: 'certificate_expiring' })).toBe(1);
+    expect(await countActiveRowsWhere('NotificationLog', { type: 'certificate_expiring' })).toBe(1);
     expect(sendMail).toHaveBeenCalledTimes(1);
   });
 
@@ -116,7 +120,7 @@ describe('sendCertificateExpiryReminders', () => {
 
     expect(summary.skipped).toBe(1);
     expect(sendMail).not.toHaveBeenCalled();
-    const log = await NotificationLog.findOne({ type: 'certificate_expiring' }).lean();
+    const log = await findActiveRowWhere('NotificationLog', { type: 'certificate_expiring' });
     expect(log.status).toBe('skipped'); // non-pending → appears in the bell
   });
 
@@ -130,7 +134,7 @@ describe('sendCertificateExpiryReminders', () => {
     const summary = await sendCertificateExpiryReminders({ now: NOW });
 
     expect(summary.scanned).toBe(0);
-    expect(await NotificationLog.countDocuments({})).toBe(0);
+    expect(await countActiveRowsWhere('NotificationLog', {})).toBe(0);
     expect(sendMail).not.toHaveBeenCalled();
   });
 });
@@ -177,7 +181,7 @@ describe('manager digest of expiring certificates', () => {
     const summary = await sendCertificateExpiryReminders({ now: NOW });
 
     expect(summary.managerDigests).toBe(1);
-    const log = await NotificationLog.findOne({ type: 'manager_certificate_expiry_digest' }).lean();
+    const log = await findActiveRowWhere('NotificationLog', { type: 'manager_certificate_expiry_digest' });
     expect(log.recipientUserId.toString()).toBe(seed.teacher._id.toString());
     expect(log.cadenceKey).toMatch(/^manager_cert_expiry_/);
     expect(log.metadata.learnerCount).toBe(1);
@@ -190,7 +194,7 @@ describe('manager digest of expiring certificates', () => {
     const second = await sendCertificateExpiryReminders({ now: NOW });
 
     expect(second.managerDigests).toBe(0);
-    expect(await NotificationLog.countDocuments({ type: 'manager_certificate_expiry_digest' })).toBe(1);
+    expect(await countActiveRowsWhere('NotificationLog', { type: 'manager_certificate_expiry_digest' })).toBe(1);
   });
 
   test('a learner with no manager produces no digest', async () => {
@@ -200,6 +204,6 @@ describe('manager digest of expiring certificates', () => {
     const summary = await sendCertificateExpiryReminders({ now: NOW });
 
     expect(summary.managerDigests).toBe(0);
-    expect(await NotificationLog.countDocuments({ type: 'manager_certificate_expiry_digest' })).toBe(0);
+    expect(await countActiveRowsWhere('NotificationLog', { type: 'manager_certificate_expiry_digest' })).toBe(0);
   });
 });

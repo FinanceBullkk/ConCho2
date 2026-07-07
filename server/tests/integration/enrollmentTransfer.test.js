@@ -14,7 +14,7 @@
 const request = require('supertest');
 const mongoose = require('mongoose');
 const { getApp, getTokens, getSeedData, getCsrfHeaders, teardown } = require('../setup');
-const { readActiveRow, readActiveTeamMemberIds } = require('../pg-test-utils');
+const { readActiveRow, readActiveTeamMemberIds, findActiveRowWhere, countActiveRowsWhere, deleteActiveRowsWhere } = require('../pg-test-utils');
 
 let app, tokens, seed, csrf;
 let Enrollment, Team, Class, User, NotificationLog;
@@ -215,7 +215,7 @@ describe('POST /api/enrollments/:id/transfer', () => {
   test('transferring to a DIFFERENT cohort writes a cohort_enrolled bell for the learner', async () => {
     const { cls2, toTeam, enrollment } = await seedTransferScenario();
     // Clear any prior bells for this learner so the assertion is unambiguous.
-    await NotificationLog.deleteMany({ recipientUserId: seed.member1._id, type: 'cohort_enrolled' });
+    await deleteActiveRowsWhere('NotificationLog', { recipientUserId: seed.member1._id, type: 'cohort_enrolled' });
 
     const res = await request(app)
       .post(`/api/enrollments/${enrollment._id}/transfer`)
@@ -226,9 +226,9 @@ describe('POST /api/enrollments/:id/transfer', () => {
     expect(res.status).toBe(200);
 
     // Same shape a direct cohort enrollee gets (one write spine + one event).
-    const bell = await NotificationLog.findOne({
+    const bell = await findActiveRowWhere('NotificationLog', {
       recipientUserId: seed.member1._id, type: 'cohort_enrolled',
-    }).lean();
+    });
     expect(bell).toBeTruthy();
     expect(bell.channel).toBe('in_app');
     expect(bell.metadata.cohortId).toBe(cls2._id.toString());
@@ -257,7 +257,7 @@ describe('POST /api/enrollments/:id/transfer', () => {
     const enrollment = await Enrollment.create({
       userId: mover._id, teamId: fromTeam._id, classId: cls._id, status: 'Active',
     });
-    await NotificationLog.deleteMany({ recipientUserId: mover._id });
+    await deleteActiveRowsWhere('NotificationLog', { recipientUserId: mover._id });
 
     const res = await request(app)
       .post(`/api/enrollments/${enrollment._id}/transfer`)
@@ -267,7 +267,7 @@ describe('POST /api/enrollments/:id/transfer', () => {
 
     expect(res.status).toBe(200);
     // Same cohort → no redundant bell (the legacy transfer email still fires).
-    const count = await NotificationLog.countDocuments({
+    const count = await countActiveRowsWhere('NotificationLog', {
       recipientUserId: mover._id, type: 'cohort_enrolled',
     });
     expect(count).toBe(0);

@@ -1,7 +1,7 @@
 const request = require('supertest');
 const jwt = require('jsonwebtoken');
 const { getApp, getTokens, getSeedData, teardown, getCsrfHeaders } = require('../setup');
-const { findActiveRowWhere } = require('../pg-test-utils');
+const { pollUntil, findActiveRowWhere } = require('../pg-test-utils');
 const Vendor = require('../../models/Vendor');
 const CostEntry = require('../../models/CostEntry');
 const AuditLog = require('../../models/AuditLog');
@@ -71,8 +71,8 @@ describe('Vendor API — vendor management (A2)', () => {
     expect(created.body.data).toMatchObject({ name: 'Acme Training', type: 'provider', status: 'active' });
     const id = created.body.data._id;
 
-    await new Promise((resolve) => setTimeout(resolve, 30)); // audit is fire-and-forget
-    const log = await findActiveRowWhere('AuditLog', { entity: 'Vendor', action: 'created' });
+    // Audit is fire-and-forget — poll instead of a fixed sleep (CI-load flake).
+    const log = await pollUntil(() => findActiveRowWhere('AuditLog', { entity: 'Vendor', action: 'created' }));
     expect(log).toMatchObject({ actorRole: 'Admin' });
 
     const list = await get(tokens.admin, '/api/vendors');

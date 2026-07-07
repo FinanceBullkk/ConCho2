@@ -16,6 +16,18 @@ So every raw-Mongoose write below is a **cutover blocker**, regardless of whethe
 
 Definition of done for this gate: **grep of production `domains/`+`services/`+`controllers/`+`jobs/` for raw-Mongoose writes returns only repo-layer (`*.mongo.js`) hits.** Enforced by the F3 lane counter (below).
 
+> **Status refresh (2026-07-07 night, slice 3):** **A3–A6 + A8 CLOSED — the
+> ENTIRE section-A split-brain inventory is ported.** A3: `calendar-sync`
+> reads via the already-dual `findScheduleForCalendarSync` + writes via
+> `updateScheduleById`; PG `UPDATE_COLS` gained `meetLink → meet_link`
+> (writeback previously landed in `meta` while `baseSchedule` reads the
+> column → link dropped). A4–A6: ONE shared write seam `insertLog`/
+> `updateLogById` on `domains/notification/repository` (23505→11000 via the
+> mig-032 unique). A8: `upsertSystemRuleByName` (soft-deleted system rule NOT
+> resurrected — Mongo-semantics match). Remaining: **B1–B7 (slice 4, in
+> progress — B5's Team/Class/Schedule bulk READS stay Mongo-direct, tracked
+> follow-up) · F3 lane counter (slice 5) · D-CronRun.**
+>
 > **Status refresh (2026-07-07 night, slice 2):** **A1 + A2 CLOSED** (slice 1,
 > PR #261: dual `seedRoleIfMissing` + recert scan/create through completion/
 > assignment repos). **D-Counter + D-TokenBlocklist CLOSED** (slice 2, mig 033:

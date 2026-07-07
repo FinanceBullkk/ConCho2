@@ -7,7 +7,7 @@ const NotificationLog = require('../../models/NotificationLog');
 const { runReconciliation } = require('../../services/reconcileService');
 // Enrollments are written through the ported PG repo (PG-only on the lane), so
 // Mongoose count/find assertions read the wrong backend — route to the active one.
-const { readActiveRow, countActiveRowsWhere } = require('../pg-test-utils');
+const { readActiveRow, findActiveRowWhere, countActiveRowsWhere } = require('../pg-test-utils');
 
 let app, tokens, seed, csrf;
 
@@ -164,9 +164,9 @@ describe('Learning Platform API — cohort enrollments', () => {
       cohortId: seed.class1._id.toString(), userId: seed.member1._id.toString(),
     });
 
-    const note = await NotificationLog.findOne({
+    const note = await findActiveRowWhere('NotificationLog', {
       recipientUserId: seed.member1._id, type: 'cohort_enrolled',
-    }).lean();
+    });
     expect(note).toBeTruthy();
     expect(note.channel).toBe('in_app');
     expect(note.readAt).toBeNull();
@@ -182,7 +182,7 @@ describe('Learning Platform API — cohort enrollments', () => {
     const ok = await enroll(tokens.leader, { cohortId: seed.class1._id.toString() });
     expect(ok.status).toBe(201);
 
-    const count = await NotificationLog.countDocuments({ type: 'cohort_enrolled' });
+    const count = await countActiveRowsWhere('NotificationLog', { type: 'cohort_enrolled' });
     expect(count).toBe(0);
   });
 
@@ -223,7 +223,7 @@ describe('Learning Platform API — bulk cohort enrollment', () => {
     });
     expect(active).toBe(2);
 
-    const bellRows = await NotificationLog.countDocuments({ type: 'cohort_enrolled' });
+    const bellRows = await countActiveRowsWhere('NotificationLog', { type: 'cohort_enrolled' });
     expect(bellRows).toBe(2);
   });
 

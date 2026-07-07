@@ -1,9 +1,8 @@
 const request = require('supertest');
 const mongoose = require('mongoose');
 const { getApp, getTokens, getCsrfHeaders, teardown } = require('../setup');
-const { readActiveRow } = require('../pg-test-utils');
+const { readActiveRow, findActiveRowWhere, findActiveRowsWhere, deleteActiveRowsWhere } = require('../pg-test-utils');
 const AutomationRule = require('../../models/AutomationRule');
-const NotificationLog = require('../../models/NotificationLog');
 const EVENTS = require('../../domains/_shared/events');
 const { handleEvent } = require('../../domains/automation/runner');
 const { seedSystemRules } = require('../../domains/automation/seed');
@@ -15,7 +14,7 @@ let app, tokens, csrf;
 beforeAll(async () => { app = await getApp(); tokens = getTokens(); csrf = await getCsrfHeaders(app); });
 afterEach(async () => {
   await AutomationRule.deleteMany({});
-  await NotificationLog.deleteMany({ type: 'automation_notice' });
+  await deleteActiveRowsWhere('NotificationLog', { type: 'automation_notice' });
 });
 afterAll(async () => { await teardown(); });
 
@@ -55,7 +54,7 @@ describe('Automation — CRUD', () => {
 
   it('refuses to delete a seeded system rule (400)', async () => {
     await seedSystemRules();
-    const sys = await AutomationRule.findOne({ system: true });
+    const sys = await findActiveRowWhere('AutomationRule', { system: true });
     const del = await asAdmin('delete', `/api/automation/rules/${sys._id}`);
     expect(del.status).toBe(400);
   });
@@ -69,7 +68,7 @@ describe('Automation — runner', () => {
     });
     await handleEvent(EVENTS.CERTIFICATE_ISSUED, { userId, certificateNumber: 'CERT-1', programName: 'P' });
 
-    const rows = await NotificationLog.find({ type: 'automation_notice', recipientUserId: userId });
+    const rows = await findActiveRowsWhere('NotificationLog', { type: 'automation_notice', recipientUserId: userId });
     expect(rows).toHaveLength(1);
     expect(rows[0].metadata.message).toBe('done');
     const after = await readActiveRow('AutomationRule', rule._id);
@@ -85,14 +84,14 @@ describe('Automation — runner', () => {
     });
     await handleEvent(EVENTS.CERTIFICATE_ISSUED, { userId, certificateNumber: 'C2', programName: 'P' });
 
-    const rows = await NotificationLog.find({ type: 'automation_notice', recipientUserId: userId });
+    const rows = await findActiveRowsWhere('NotificationLog', { type: 'automation_notice', recipientUserId: userId });
     expect(rows).toHaveLength(0);
   });
 
   it('seeds the §9 flows idempotently (5 system rules, all disabled)', async () => {
     await seedSystemRules();
     await seedSystemRules();
-    const rules = await AutomationRule.find({ system: true });
+    const rules = await findActiveRowsWhere('AutomationRule', { system: true });
     expect(rules).toHaveLength(5);
     expect(rules.every((r) => !r.enabled)).toBe(true);
   });

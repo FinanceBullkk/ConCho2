@@ -147,6 +147,20 @@ Bug fixing and integration review rank above net-new feature rollout.
 > [`2026-q3.md`](changelog-archive/2026-q3.md); 06-20→06-27 rolled 2026-07-07;
 > 06-14→06-19 rolled 2026-07-04 → [`2026-q2.md`](changelog-archive/2026-q2.md)).
 
+- **2026-07-07** — **Phase-05 cutover-blocker slice 3 — A3–A6 + A8 dual-backend: the ENTIRE section-A split-brain inventory is now ported.**
+  Branch `fix/pg-cutover-slice3-calendar-notification-seed`. **A3 (calendar)**: `calendar-sync.js` rode raw populate + `Schedule.updateOne`
+  for the event-id/Meet-link writeback → now `repository.findScheduleForCalendarSync` (the dual read already existed) +
+  `updateScheduleById`; the PG repo's `UPDATE_COLS` gained **`meetLink → meet_link`** — without it the writeback landed in `meta`
+  jsonb while `baseSchedule` reads the COLUMN, silently dropping the Meet link on every PG read (parity-pinned). **A4–A6
+  (NotificationLog writers)**: ONE shared write seam on `domains/notification/repository` — `insertLog` (PG maps the mig-032
+  dedupe-unique 23505→`{code:11000}`; every caller's "already notified" branch stays backend-agnostic) + `updateLogById` — carried
+  by in-app-writer (bell), expiry-reminder + assignment-reminder crons. **A8 (automation seed)**: `upsertSystemRuleByName`
+  ($setOnInsert upsert ⇔ `INSERT…WHERE NOT EXISTS` keyed (name, system) with NO deleted filter → an admin-hidden system rule is
+  NOT resurrected on reboot; benign divergence documented: Mongoose minimize strips empty `params:{}`). Tests: 11 integration
+  suites reverse-asserted onto the active backend (~30 sites); parity +5 cases. **Also de-flaked the fire-and-forget audit
+  asserts suite-wide** (rode with #262): shared `pollUntil` in pg-test-utils replaces fixed sleeps (trainer/planning/adminDb/
+  reportsEvidencePack — trainer's 30ms sleep failed gate #8 on CI). pg lane targeted 172+19 + mongo lane 192/192; full suites
+  green both lanes pre-merge. Next: slice 4 (B-tail — B1–B7) + slice 5 (F3 lane counter).
 - **2026-07-07** — **Phase-05 cutover-blocker slice 2 — mig 033 `counters` + `token_blocklist`: the two Mongo-only ops models blocking cutover (D-Counter gapless numbering + D-TokenBlocklist JWT revocation).**
   Branch `fix/pg-cutover-counters-token-blocklist`, per the phase-05 gate (owner: Counter=GAPLESS, not a PG SEQUENCE).
   **Counter**: `helpers/counter.getNextSequence` (empCode/classCode/certificateNumber) was Mongo-only → cert numbering breaks at

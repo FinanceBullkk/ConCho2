@@ -12,7 +12,7 @@ const Office = require('../../models/Office');
 const NotificationLog = require('../../models/NotificationLog');
 // Sessions are booked through the ported schedule repo (PG-only on the lane) —
 // read the Schedule from the active backend, not Mongoose.
-const { readActiveRow } = require('../pg-test-utils');
+const { readActiveRow, findActiveRowsWhere } = require('../pg-test-utils');
 
 let app, tokens, seed, csrf, office, coordinatorToken;
 
@@ -427,7 +427,7 @@ describe('Learning Platform API — sessions', () => {
     expect(stored.enrolledUsers).toHaveLength(2);
 
     // Each enrolled cohort learner is surfaced in their notification bell.
-    const enrolledRows = await NotificationLog.find({ type: 'session_enrolled' }).lean();
+    const enrolledRows = await findActiveRowsWhere('NotificationLog', { type: 'session_enrolled' });
     const recipients = enrolledRows.map((r) => String(r.recipientUserId)).sort();
     expect(recipients).toEqual(
       [String(seed.member1._id), String(seed.member2._id)].sort(),
