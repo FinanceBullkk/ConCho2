@@ -72,6 +72,9 @@ const classRow = (r) => (r == null ? null : {
   _id: r.id,
   classCode: r.class_code,
   courseName: r.course_name,
+  // teacherIds feeds the evaluation/read policy binding — omitting it made
+  // "open until populated" treat every class as unbound on PG (403 → 200).
+  teacherIds: (r.teacher_ids || []).map(String),
   programId: r.program_id || null,
   totalSessions: r.total_sessions == null ? null : Number(r.total_sessions),
   status: r.status,

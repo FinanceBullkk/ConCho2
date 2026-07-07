@@ -95,4 +95,11 @@ const countUsers = async ({ role, status, department, search } = {}) => {
   return rows[0].n;
 };
 
-module.exports = { listUsers, countUsers };
+// Admin trash view (Phase 5 slice 4, B1) — parked rows, newest deletion first.
+const listTrashedUsers = async () => {
+  const { rows } = await query(
+    'SELECT * FROM users WHERE is_deleted = true ORDER BY deleted_at DESC');
+  return rows.map(rowToUser);
+};
+
+module.exports = { listUsers, countUsers, listTrashedUsers };

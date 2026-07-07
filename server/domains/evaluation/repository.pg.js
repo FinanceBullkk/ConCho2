@@ -114,11 +114,25 @@ const populateRows = async (rows) => {
   });
 };
 
+// Mongo casts filter ids and throws CastError on garbage (handleError → 400).
+// PG text columns would happily match nothing — mirror the CastError contract.
+const castId = (v, path) => {
+  if (!/^[0-9a-f]{24}$/i.test(String(v))) {
+    const e = new Error(`Cast to ObjectId failed for value "${v}" at path "${path}"`);
+    e.name = 'CastError';
+    e.kind = 'ObjectId';
+    e.path = path;
+    e.value = v;
+    throw e;
+  }
+  return String(v);
+};
+
 const findAllPopulated = async (filter) => {
   const conds = ['is_deleted = false'];
   const args = [];
-  if (filter.classId) { args.push(String(filter.classId)); conds.push(`class_id = $${args.length}`); }
-  if (filter.userId) { args.push(String(filter.userId)); conds.push(`user_id = $${args.length}`); }
+  if (filter.classId) { args.push(castId(filter.classId, 'classId')); conds.push(`class_id = $${args.length}`); }
+  if (filter.userId) { args.push(castId(filter.userId, 'userId')); conds.push(`user_id = $${args.length}`); }
   const { rows } = await query(`SELECT * FROM evaluations WHERE ${conds.join(' AND ')}`, args);
   return populateRows(rows);
 };
