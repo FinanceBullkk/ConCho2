@@ -19,7 +19,7 @@
 const request = require('supertest');
 const mongoose = require('mongoose');
 const { getApp, getTokens, getSeedData, getCsrfHeaders } = require('../setup');
-const { findActiveAuditRow } = require('../pg-test-utils');
+const { pollUntil, findActiveAuditRow } = require('../pg-test-utils');
 
 let app, tokens, seed, csrf;
 
@@ -167,14 +167,12 @@ describe('adminDb writes AuditLog on every mutation (SEC-013)', () => {
       .send({ name: 'Audit-Test Member' });
     expect(r.status).toBe(200);
 
-    // Wait for fire-and-forget write to settle.
-    await new Promise(r => setTimeout(r, 60));
-
-    const log = await findActiveAuditRow({
+    // Audit is fire-and-forget — poll instead of a fixed sleep (CI-load flake).
+    const log = await pollUntil(() => findActiveAuditRow({
       action: 'db-admin-updated',
       entity: 'User',
       entityId: seed.member1._id,
-    });
+    }));
 
     expect(log).not.toBeNull();
     expect(log.actorRole).toBe('Admin');
@@ -190,12 +188,10 @@ describe('adminDb writes AuditLog on every mutation (SEC-013)', () => {
       .send({ name: 'Stripped Test', mfaEnabled: false, role: 'Admin' });
     expect(r.status).toBe(200);
 
-    await new Promise(r => setTimeout(r, 60));
-
-    const log = await findActiveAuditRow({
+    const log = await pollUntil(() => findActiveAuditRow({
       action: 'db-admin-updated',
       entityId: seed.member2._id,
-    });
+    }));
 
     expect(log).not.toBeNull();
     expect(log.note).toMatch(/ignored protected fields/);

@@ -52,7 +52,7 @@ const countAll = async () => {
 
 describePg('pg retention purge (Mongo TTL stand-in)', () => {
   beforeEach(async () => {
-    await query('TRUNCATE audit_log, notification_logs, metric_snapshots');
+    await query('TRUNCATE audit_log, notification_logs, metric_snapshots, token_blocklist');
   });
 
   afterAll(async () => {
@@ -65,6 +65,8 @@ describePg('pg retention purge (Mongo TTL stand-in)', () => {
     expect(byTable.audit_log).toMatchObject({ column: 'created_at', days: 730 });
     expect(byTable.notification_logs).toMatchObject({ column: 'created_at', days: 180 });
     expect(byTable.metric_snapshots).toMatchObject({ column: 'date', days: 400 });
+    // TTL expireAfterSeconds: 0 ⇔ delete as soon as expires_at < now (mig 033).
+    expect(byTable.token_blocklist).toMatchObject({ column: 'expires_at', days: 0 });
   });
 
   test('deletes rows past each window, keeps rows inside it', async () => {
@@ -74,17 +76,27 @@ describePg('pg retention purge (Mongo TTL stand-in)', () => {
     await seedAged(0xf30, 181);   // past notification_logs 180 (audit row stays)
     await seedAged(0xf40, 10);    // fresh everywhere
 
+    // token_blocklist's window is "the JWT itself has expired" (expires_at < now).
+    await query(
+      `INSERT INTO token_blocklist(id, jti, expires_at)
+       VALUES ($1, 'jti-expired', now() - interval '1 hour'),
+              ($2, 'jti-live',    now() + interval '1 hour')`,
+      [hex(0xf41), hex(0xf42)]
+    );
+
     const deleted = await purgeExpiredRows();
 
     expect(deleted).toEqual({
       audit_log: 1,           // only the 731d row
       notification_logs: 3,   // 731d + 401d + 181d rows
       metric_snapshots: 2,    // 731d + 401d rows
+      token_blocklist: 1,     // only the already-expired JTI
     });
     expect(await countAll()).toEqual({
       audit_log: 3,
       notification_logs: 1,
       metric_snapshots: 2,
+      token_blocklist: 1,
     });
   });
 
@@ -119,6 +131,7 @@ describePg('pg retention purge (Mongo TTL stand-in)', () => {
       audit_log: 0,
       notification_logs: 0,
       metric_snapshots: 0,
+      token_blocklist: 0,
     });
   });
 });
