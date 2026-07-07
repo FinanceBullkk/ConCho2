@@ -140,9 +140,10 @@ const buildScalarWhere = (where = {}) => {
   for (const k of Object.keys(where)) {
     const v = where[k];
     if (v == null) conds.push(`"${col(k)}" IS NULL`);
-    // Booleans bind natively (a stringified "false" would trip PG's boolean =
-    // text). Everything else stringifies (ids/enums/dates via ISO text).
-    else { args.push(typeof v === 'boolean' ? v : String(v)); conds.push(`"${col(k)}" = $${args.length}`); }
+    // Booleans + Dates bind natively — a stringified "false" trips PG's boolean =
+    // text, and String(Date) is a locale string that won't match a timestamptz.
+    // Everything else stringifies (ids/enums via text).
+    else { args.push(typeof v === 'boolean' || v instanceof Date ? v : String(v)); conds.push(`"${col(k)}" = $${args.length}`); }
   }
   return { clause: conds.length ? `WHERE ${conds.join(' AND ')}` : '', args };
 };
