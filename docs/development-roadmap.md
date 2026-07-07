@@ -145,6 +145,20 @@ Bug fixing and integration review rank above net-new feature rollout.
 > [`changelog-archive/2026-q2.md`](changelog-archive/2026-q2.md). Currently
 > inline: **2026-06-20 → 2026-07-07** (06-14→06-19 rolled 2026-07-04).
 
+- **2026-07-07** — **Wave G batch 16 / GATED Slice D — enrollmentTransfer green both lanes: GATED schedule cluster CLOSED (PG lane ~2 → ~1 failing).**
+  Branch `feat/pg-slice-d-enrollment-transfer`. The transfer's enrollment writes already reach Postgres (`syncEnrollments`' dual
+  repos fall back to the pool; source-team pull is a dual DELETE), but three Mongoose-only bits broke the PG lane: (1) the HTTP
+  response re-fetch (`Enrollment.findOne(...).populate`) read Mongo → null; (2) the transfer note (`findOneAndUpdate`) missed the PG
+  enrollment; (3) Step-1 target-team add (`Team.findByIdAndUpdate $addToSet`) mirrored the `teams` row but not the `team_members`
+  junction. Fixed with mostly READS (no transfer-transaction rewrite): added dual-backend `findActiveTeamEnrollmentPopulated` +
+  `setActiveTeamEnrollmentNote` to `groups/enrollment-sync-repository` (mongo populate ⇔ pg LEFT JOINs); routed Step 1 through
+  `team-write-repository.updateTeamDoc` (members-array ⇔ team_members-junction bridge; `toNew` snapshotted pre-tx so a full replace
+  ≡ the old `$addToSet`); reverse-asserted the source-enrollment + team-members reads (`readActiveRow` + new
+  `readActiveTeamMemberIds`). enrollmentTransfer 11/11 both lanes; teams + enrollmentRoutes + learningEnrollmentRoutes 55/55 Mongo
+  (no regression); parity `groups-enrollment-sync-repository` 7/7. **GATED schedule roster-sync/waitlist cluster fully closed
+  (Slices 0→A→B+C→D→E).** PG lane now **1 failing = `p2-regression` only** (blocked on Wave F PR-2, out of scope). Deferred: the
+  transfer is not atomic on the PG lane (pool writes, not one UoW tx) + `notifyPromotions` stays Mongo-only — both separate
+  follow-ups; the Mongo production path stays fully transactional and unchanged.
 - **2026-07-07** — **Wave G batch 15 / GATED Slice E — bookingRace green both lanes (PG lane ~3 → ~2 failing).**
   Branch `feat/pg-slice-e-booking-race-count`. Pure reverse-assert — the booking chokepoint (unique-slot 409 + weekly-2-cap 400
   race) is already dual-backend (mig 027), so the concurrency *behaviour* already passed on PG; only the post-race

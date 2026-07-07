@@ -81,6 +81,43 @@ const findUserContact = async (userId) => {
   return rows[0] ? { name: rows[0].name, email: rows[0].email } : null;
 };
 
+// The learner's Active enrollment in a team, populated for the transfer HTTP
+// response — user/team/class + the transferred-to team, each dropped to null
+// when soft-deleted (mirrors the Mongo populate hooks).
+const findActiveTeamEnrollmentPopulated = async (userId, teamId) => {
+  const { rows } = await query(
+    `SELECT e.id, e.status, e.note, e.joined_at, e.left_at, e.created_at, e.updated_at,
+            u.id AS u_id, u.emp_code AS u_emp, u.name AS u_name, u.department AS u_dept, u.status AS u_status,
+            t.id AS t_id, t.name AS t_name,
+            c.id AS c_id, c.class_code AS c_code, c.course_name AS c_course, c.total_sessions AS c_total,
+            tt.id AS tt_id, tt.name AS tt_name
+       FROM enrollments e
+       LEFT JOIN users u    ON u.id = e.user_id         AND u.is_deleted = false
+       LEFT JOIN teams t    ON t.id = e.team_id          AND t.is_deleted = false
+       LEFT JOIN classes c  ON c.id = e.class_id         AND c.is_deleted = false
+       LEFT JOIN teams tt   ON tt.id = e.transferred_to  AND tt.is_deleted = false
+      WHERE e.user_id = $1 AND e.team_id = $2 AND e.status = 'Active'
+      LIMIT 1`,
+    [String(userId), String(teamId)]);
+  const r = rows[0];
+  if (!r) return null;
+  return {
+    _id: r.id, status: r.status, note: r.note == null ? undefined : r.note,
+    joinedAt: r.joined_at, leftAt: r.left_at || null,
+    userId: r.u_id ? { _id: r.u_id, empCode: r.u_emp, name: r.u_name, department: r.u_dept, status: r.u_status } : null,
+    teamId: r.t_id ? { _id: r.t_id, name: r.t_name } : null,
+    classId: r.c_id ? { _id: r.c_id, classCode: r.c_code, courseName: r.c_course, totalSessions: r.c_total == null ? null : Number(r.c_total) } : null,
+    transferredTo: r.tt_id ? { _id: r.tt_id, name: r.tt_name } : null,
+    createdAt: r.created_at, updatedAt: r.updated_at,
+  };
+};
+
+// Attach a note to the learner's Active enrollment in a team (transfer note,
+// post-commit — non-tx pool write).
+const setActiveTeamEnrollmentNote = (userId, teamId, note) =>
+  query(`UPDATE enrollments SET note = $3, updated_at = now() WHERE user_id = $1 AND team_id = $2 AND status = 'Active'`,
+    [String(userId), String(teamId), note]);
+
 module.exports = {
   findTeamForEnrollmentContext,
   findActiveEnrollmentInOtherTeam,
@@ -89,4 +126,6 @@ module.exports = {
   dropEnrollment,
   pullTeamMember,
   findUserContact,
+  findActiveTeamEnrollmentPopulated,
+  setActiveTeamEnrollmentNote,
 };
