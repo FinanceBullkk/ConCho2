@@ -16,10 +16,11 @@ const logger = require('../lib/logger');
 //   audit_log.created_at         — AUDIT_RETENTION_DAYS (730)          ⇔ models/AuditLog
 //   notification_logs.created_at — fixed 180                           ⇔ models/NotificationLog
 //   metric_snapshots.date        — METRIC_SNAPSHOT_RETENTION_DAYS (400) ⇔ models/MetricSnapshot
+//   token_blocklist.expires_at   — days 0 (< now)                      ⇔ models/TokenBlocklist
+//                                  (TTL expireAfterSeconds: 0 — mig 033, Phase-5 slice 2)
 //
-// NOT here yet (their PG tables don't exist until those ports land):
-//   reconcile_report.run_at 30d · token_blocklist.expires_at < now — add
-//   windows when the reconcile / auth-token ports ship (Wave E3/E4+).
+// NOT here: reconcile_report — reconcile RETIRES at cutover (owner decision
+// 2026-07-07, phase-05 plan); it never gets a PG table.
 //
 // Runs ONLY when DB_BACKEND=postgres — on Mongo the TTL indexes do the work.
 // Purge deletions are NOT audited, matching Mongo TTL deletions (automatic
@@ -34,6 +35,10 @@ const retentionWindows = () => [
   { table: 'audit_log', column: 'created_at', days: Number(process.env.AUDIT_RETENTION_DAYS || 730) },
   { table: 'notification_logs', column: 'created_at', days: 180 },
   { table: 'metric_snapshots', column: 'date', days: Number(process.env.METRIC_SNAPSHOT_RETENTION_DAYS || 400) },
+  // TokenBlocklist TTL is expireAfterSeconds: 0 → prune as soon as the JWT
+  // itself has expired (expires_at < now). Expired-but-unpurged rows are
+  // unobservable: JWT verify rejects the token before the blocklist lookup.
+  { table: 'token_blocklist', column: 'expires_at', days: 0 },
 ];
 
 /**

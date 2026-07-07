@@ -16,6 +16,15 @@ So every raw-Mongoose write below is a **cutover blocker**, regardless of whethe
 
 Definition of done for this gate: **grep of production `domains/`+`services/`+`controllers/`+`jobs/` for raw-Mongoose writes returns only repo-layer (`*.mongo.js`) hits.** Enforced by the F3 lane counter (below).
 
+> **Status refresh (2026-07-07 night, slice 2):** **A1 + A2 CLOSED** (slice 1,
+> PR #261: dual `seedRoleIfMissing` + recert scan/create through completion/
+> assignment repos). **D-Counter + D-TokenBlocklist CLOSED** (slice 2, mig 033:
+> `counters` — `id` = counter name, gapless `INSERT…ON CONFLICT DO UPDATE
+> seq=seq+1 RETURNING`, `helpers/counter.js` now a dual seam; `token_blocklist`
+> — `services/auth/token-blocklist-repository.{js,mongo,pg}`, TTL ⇔ purge-job
+> window `expires_at < now()`). D-CronRun stays open (port or advisory lock);
+> D-ReconcileReport retired with reconcile (owner decision).
+>
 > **Status refresh (2026-07-07 evening, post Wave-G/F close):** already CLOSED by
 > the gate-#8 push: **A7** (waitlist-promotion NotificationLog — #256/PR #260,
 > dual `insertPromotionLog`/`setPromotionLogStatus` + mig 032 unique twin) ·

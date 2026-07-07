@@ -307,7 +307,23 @@ const readActiveTeamMemberIds = async (teamId) => {
   return rows.map((r) => String(r.user_id));
 };
 
+/**
+ * Poll an async producer until it returns a truthy value (or time out) —
+ * for fire-and-forget writes (audit rows) that a fixed sleep races under
+ * full-suite/CI load. Returns the first truthy value, or the LAST value
+ * (usually null) after timeoutMs, so callers keep their strict asserts.
+ */
+const pollUntil = async (fn, { timeoutMs = 3000, stepMs = 50 } = {}) => {
+  const deadline = Date.now() + timeoutMs;
+  for (;;) {
+    const out = await fn();
+    if (out || Date.now() > deadline) return out;
+    await new Promise((r) => setTimeout(r, stepMs));
+  }
+};
+
 module.exports = {
+  pollUntil,
   resetPgDatabase,
   mirrorUserToPg,
   mirrorClassToPg,
