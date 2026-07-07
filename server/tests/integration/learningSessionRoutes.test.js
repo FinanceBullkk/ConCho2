@@ -10,6 +10,9 @@ const Enrollment = require('../../models/Enrollment');
 const User = require('../../models/User');
 const Office = require('../../models/Office');
 const NotificationLog = require('../../models/NotificationLog');
+// Sessions are booked through the ported schedule repo (PG-only on the lane) —
+// read the Schedule from the active backend, not Mongoose.
+const { readActiveRow } = require('../pg-test-utils');
 
 let app, tokens, seed, csrf, office, coordinatorToken;
 
@@ -90,7 +93,7 @@ describe('Learning Platform API — sessions', () => {
     expect(res.body.data.enrolledLearners).toHaveLength(3);
     expect(res.body.data.enrolledUsers).toBeUndefined();
 
-    const stored = await Schedule.findById(res.body.data.scheduleId).lean();
+    const stored = await readActiveRow('Schedule', res.body.data.scheduleId);
     expect(stored.bookedTeamId.toString()).toBe(seed.team._id.toString());
   });
 
@@ -418,7 +421,7 @@ describe('Learning Platform API — sessions', () => {
     expect(res.body.data.officeId).toBe(office._id.toString());
     expect(res.body.data.office).toMatchObject({ code: 'HCMS' });
 
-    const stored = await Schedule.findById(res.body.data.scheduleId).lean();
+    const stored = await readActiveRow('Schedule', res.body.data.scheduleId);
     expect(stored.bookedTeamId).toBeNull();
     expect(stored.officeId.toString()).toBe(office._id.toString());
     expect(stored.enrolledUsers).toHaveLength(2);

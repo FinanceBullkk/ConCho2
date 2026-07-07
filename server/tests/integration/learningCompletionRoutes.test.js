@@ -7,6 +7,9 @@ const Certificate = require('../../models/Certificate');
 const NotificationLog = require('../../models/NotificationLog');
 const Class = require('../../models/Class');
 const LearningProgram = require('../../models/LearningProgram');
+// Certificates are written through the ported completion PG repo (PG-only on the
+// lane) — count/read on the active backend, not Mongoose.
+const { readActiveRow, countActiveRowsWhere } = require('../pg-test-utils');
 
 let app, tokens, seed, csrf;
 
@@ -180,7 +183,7 @@ describe('Learning Platform API — completion & certificates', () => {
     expect(statuses).toEqual([201, 409]);
 
     // DB truth: exactly one active certificate exists for this learner+cohort.
-    const active = await Certificate.countDocuments({
+    const active = await countActiveRowsWhere('Certificate', {
       userId: seed.member1._id,
       cohortId: seed.class1._id,
       status: 'Issued',
@@ -203,7 +206,7 @@ describe('Learning Platform API — completion & certificates', () => {
 
     expect(res.status).toBe(200);
     expect(res.body.data.status).toBe('Revoked');
-    const stored = await Certificate.findById(id).lean();
+    const stored = await readActiveRow('Certificate', id);
     expect(stored.status).toBe('Revoked');
     expect(stored.isDeleted).toBe(false);
   });

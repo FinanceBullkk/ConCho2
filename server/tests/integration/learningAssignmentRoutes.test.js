@@ -8,6 +8,9 @@ const Enrollment = require('../../models/Enrollment');
 const LearningPath = require('../../models/LearningPath');
 const LearningProgram = require('../../models/LearningProgram');
 const User = require('../../models/User');
+// Assignments are written through the ported PG repo (PG-only on the lane) —
+// read the archived row from the active backend, not Mongoose.
+const { readActiveRow } = require('../pg-test-utils');
 const { statusFromSignals } = require('../../domains/learning/assignment/status-resolver');
 
 let app, tokens, seed, csrf;
@@ -232,7 +235,7 @@ describe('Learning Platform API — assignments + due dates (Wave D4 v1)', () =>
       .set('Authorization', `Bearer ${tokens.admin}`);
     expect(activeList.body.count).toBe(0);
 
-    const stored = await Assignment.findById(created.body.data._id).lean();
+    const stored = await readActiveRow('Assignment', created.body.data._id);
     expect(stored.isDeleted).toBe(true);
   });
 });

@@ -6,6 +6,10 @@ const Certificate = require('../../models/Certificate');
 const Class = require('../../models/Class');
 const LearningProgram = require('../../models/LearningProgram');
 const Schedule = require('../../models/Schedule');
+// The certificate is issued through the ported completion PG repo (PG-only on
+// the lane), so a Mongoose findByIdAndUpdate to backdate validUntil is a no-op —
+// shift it on the active backend so the report sees the expired state.
+const { updateActiveRow } = require('../pg-test-utils');
 
 let app, tokens, seed, csrf;
 let seq = 0;
@@ -84,7 +88,7 @@ describe('Learning Platform API — certificate expiry state', () => {
     const program = await createProgram({ certificateValidityDays: 90 });
     await seedCompleteCohort(program);
     const issued = await issueCertificate();
-    await Certificate.findByIdAndUpdate(issued.body.data.id, {
+    await updateActiveRow('Certificate', issued.body.data.id, {
       validUntil: new Date('2026-01-01T00:00:00.000Z'),
     });
     await Assignment.create({
