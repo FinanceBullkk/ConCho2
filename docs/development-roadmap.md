@@ -145,6 +145,15 @@ Bug fixing and integration review rank above net-new feature rollout.
 > [`changelog-archive/2026-q2.md`](changelog-archive/2026-q2.md). Currently
 > inline: **2026-06-20 → 2026-07-07** (06-14→06-19 rolled 2026-07-04).
 
+- **2026-07-07** — **Wave G batch 12 — GATED Slice 0: 3 schedule suites green both lanes (PG lane ~9 → ~6 failing).**
+  First slice of the GATED schedule cluster (branch `feat/pg-lane-wave-g-batch12`, per
+  `plans/reports/proposal-260707-1001-gated-schedule-cluster-port.md`). `scheduleCancel` + `scheduleUseCases` + `sessionTrainers`
+  were reverse-assert-fixable: the booking/cancel/trainer chokepoint is already dual-backend (mig 027), so only the Mongoose READ
+  lagged — routed cancel-flip / freed-slot / trainer-clear reads through `readActiveRow`/`findActiveRowsWhere`. `sessionTrainers`
+  normalises `externalTrainer` (top-level field on Mongo, `schedules.meta` jsonb on PG). `buildScalarWhere` now binds Date values
+  natively (String(Date) never matches a timestamptz). No production change. Remaining ~6 = 5 GATED (scheduleReassign, waitlist,
+  bookingRace, autoReleaseScope, enrollmentTransfer — need the Mongo-only syncSchedulesForTeamUpdate / waitlist-promotion /
+  auto-release ported, Slices A-E) + p2-regression (Wave F PR-2).
 - **2026-07-07** — **Wave G batch 11 — mfa suite green both lanes (PG lane ~10 → ~9 failing).**
   `mfa.test.js` (9/9 both lanes, branch `feat/pg-lane-wave-g-batch11`). The ported auth mutations write mfaSecret/
   mfaPendingSecret/mfaBackupCodes/mfaLastUsedCounter to the active backend and those are `select:false` — a Mongoose read saw null
