@@ -142,10 +142,25 @@ Bug fixing and integration review rank above net-new feature rollout.
 
 > **Rolling window:** ~last 2 weeks / ~15 entries kept inline (file ≤ ~400
 > lines); older entries roll verbatim, newest-first, to
-> [`changelog-archive/2026-q2.md`](changelog-archive/2026-q2.md). Currently
-> inline: **2026-07-02 → 2026-07-07** (06-20→06-27 rolled 2026-07-07;
-> 06-14→06-19 rolled 2026-07-04).
+> [`changelog-archive/`](changelog-archive/) (per-quarter files). Currently
+> inline: **2026-07-04 → 2026-07-07** (07-02→07-03 rolled 2026-07-07 →
+> [`2026-q3.md`](changelog-archive/2026-q3.md); 06-20→06-27 rolled 2026-07-07;
+> 06-14→06-19 rolled 2026-07-04 → [`2026-q2.md`](changelog-archive/2026-q2.md)).
 
+- **2026-07-07** — **Phase-05 cutover-blocker slice 2 — mig 033 `counters` + `token_blocklist`: the two Mongo-only ops models blocking cutover (D-Counter gapless numbering + D-TokenBlocklist JWT revocation).**
+  Branch `fix/pg-cutover-counters-token-blocklist`, per the phase-05 gate (owner: Counter=GAPLESS, not a PG SEQUENCE).
+  **Counter**: `helpers/counter.getNextSequence` (empCode/classCode/certificateNumber) was Mongo-only → cert numbering breaks at
+  cutover. Now dual (unit-of-work style, impls inline): Mongo `findOneAndUpdate $inc upsert` ⇔ PG `INSERT…ON CONFLICT DO UPDATE
+  seq=seq+1 RETURNING` — row-lock atomic AND the increment rolls back with a failed tx (gapless-per-commit, parity-pinned incl.
+  the rollback-reissues-the-number case + N-concurrent-distinct). `counters.id` = the counter NAME (not a `key` column): every
+  migrated table keys on `id`, so the test auto-mirror reflects fixture writes/deletes (reconcileDrift's counter reset) correctly.
+  **TokenBlocklist (SECURITY)**: `auth-tokens.revokeToken/isTokenRevoked` wrote/read Mongo-only → revoked JWTs stay valid on PG.
+  New `services/auth/token-blocklist-repository.{js,mongo,pg}` seam (upsert-$setOnInsert ⇔ `ON CONFLICT (jti) DO NOTHING` —
+  double-logout keeps the ORIGINAL row); auth middleware consults it on every authed request. Mongo's TTL index becomes a
+  retention window: `token_blocklist.expires_at < now()` (days 0) added to `retentionPurgeJob` (E2 pattern; the reconcile_report
+  window note removed for good — reconcile RETIRES at cutover). Parity: counter 4/4 + token-blocklist 4/4 + retention-purge 5/5;
+  auth/authHardening/mfa/adminDb/reconcileDrift/reconcileAutoHeal/learningCompletionRoutes 88/88 PG lane; full suite green both
+  lanes. Next slice: A3 calendar-link writeback + A4–A6 NotificationLog writers (one shared seam) + A8 automation seed.
 - **2026-07-07** — **Phase-05 cutover-blocker slice 1 — A1 RBAC grants seed + A2 recert auto-assignment dual-backend (the 2 CRITICAL split-brain writes).**
   Branch `fix/pg-cutover-critical-a1-a2`, per the phase-05 "zero raw-Mongoose write" gate (owner: proceed CRITICAL-first;
   reconcile=RETIRE at cutover; Counter=gapless). **A1**: `grants-loader.seedSystemRoles` wrote `Role.updateOne` upserts to Mongo
@@ -355,35 +370,6 @@ Bug fixing and integration review rank above net-new feature rollout.
   ObjectId/Date vs text/ISO row shapes; tamper → hash-mismatch + deletion → missing-rows verdicts agree; dup-seq
   23505⇄11000) + 48/48 existing Mongo audit tests. Wave-E plan: `plans/260704-0349-pg-port-wave-e-auth-audit/`.
 
-- **2026-07-03** — **Phase 3 Wave-D — learning/session ported to dual-backend — the LAST repo port: Phase 3 repository ports COMPLETE.**
-  `domains/learning/session/repository.js` (9 read-only methods) split into `repository.{mongo,pg}.js` + a clean-swap selector.
-  **No new migration** — every column already existed, and session WRITES were already dual-backend via the sealed
-  `scheduleService` chokepoint; this was the read surface. The PG twin mirrors the 6-way `populateSessionQuery` as batch
-  embeds (cohort + nested FULL program object, team, office, room, instructors, roster) with per-model soft-delete drop
-  semantics pinned (Class/Team/User/Office/Room find-hooks drop deleted refs; LearningProgram/Enrollment have NO hook →
-  never hidden). PERF-016 preserved (list roster = ids-only but still soft-delete-drops); PERF-014 preserved (reads
-  read-THROUGH the shared session-order cache — ordering already rides the dual-backend schedule repo); the filter
-  translator is bounded to `buildFilter`'s shapes (participant/teacher `$or` widenings, startTime window, scalars,
-  pagination). `.lean({virtuals:true})` stays a documented no-op (BUG-003) → no virtuals in row shapes. Parity-proven
-  Mongo==PG on real Neon (**6/6** — embeds/deleted-ref drops/meta extras/numbering, 7 filter variants + pagination,
-  full-roster detail, context lookups, enrollment/team lookups, capacity map) + full pg-parity sweep **44 suites / 279
-  green** + mongo-default session suites **33/33** unchanged. DB_BACKEND=mongo default unchanged.
-  **Next: Wave E (auth & audit) — port LAST deliberately.**
-
-- **2026-07-02** — **Phase 3 Wave-D — planning domain ported to dual-backend (mig 028) — the TNA `scheduleItem` transaction now runs on the UoW.**
-  `domains/planning/repository.js` (15 methods) split into `repository.{mongo,pg}.js` + a clean-swap selector. **Migration 028**:
-  `training_requests` (target {kind,id} subobject → flat columns, compliance-018 precedent; Mongo compound indexes mirrored) +
-  `training_plans` (`fiscal_year` FULL-unique; `items` = jsonb subdoc array with app-side `_id`s, assessments-026 precedent).
-  **The `scheduleItem` 4-write transaction** (cohort insert + plan-item link + approved→planned flip + A1 budget row) cut over
-  from `mongoose.startSession()` → the backend-agnostic `runInTransaction`; the hydrated-doc `items.id().cohortIds.push()+save()`
-  (no PG analogue) became the explicit dual-backend **`pushCohortIdToPlanItem`** (Mongo positional `$push` ⇔ PG jsonb rewrite
-  under `SELECT … FOR UPDATE`); **`financeRepo.createBudget` is now tx-aware on BOTH backends** (closes the Wave-B "session
-  IGNORED in PG" deferral; the mongo twin gained the `sessionOf` shim). PG mirrors the Mongo traps: `upsertPlan` mints FRESH
-  item `_id`s on every `$set` + applies the subdoc defaults; label lookups replicate the hook asymmetry (deleted skills still
-  labelled — Skill has NO find-hook; deleted departments hidden); classes 23505 → `{code:11000}` → the same 409. Parity-proven
-  Mongo==PG on real Neon (**8/8** incl. tx commit / full 4-write rollback / duplicate-classCode) + full pg-parity sweep
-  **43 suites / 273 green** + mongo-default planning/finance suites (14) unchanged. DB_BACKEND=mongo default unchanged.
-  **Next: learning/session — the LAST repo port before Wave E (auth & audit).**
 ## How to keep this current
 
 After each milestone or significant change: update the phase/wave %, move the

@@ -3,7 +3,8 @@ const jwt = require('jsonwebtoken');
 // round (bcb0468); CI keeps devDeps so a transitive uuid masked this file's
 // leftover require until the production (omit=dev) install on Render.
 const { randomUUID } = require('crypto');
-const TokenBlocklist = require('../../models/TokenBlocklist');
+// Dual-backend (Mongo ⇔ Postgres) — Phase 5 slice 2; DB_BACKEND selects.
+const tokenBlocklistRepo = require('./token-blocklist-repository');
 
 // ──────────────────────────────────────────────────────────
 // Auth Service — token / cookie / MFA-policy helpers
@@ -124,18 +125,11 @@ const isMfaRequiredForRole = (role) => MFA_REQUIRED_ROLES.includes(role);
 const revokeToken = async (jti, expSeconds, opts = {}) => {
   if (!jti || !expSeconds) return;
   // upsert so a duplicate revocation (e.g. double-logout-click) is a no-op.
-  await TokenBlocklist.updateOne(
-    { jti },
-    {
-      $setOnInsert: {
-        jti,
-        userId: opts.userId || null,
-        expiresAt: new Date(expSeconds * 1000),
-        reason: opts.reason || 'logout',
-      },
-    },
-    { upsert: true }
-  );
+  await tokenBlocklistRepo.insertRevocation(jti, {
+    userId: opts.userId || null,
+    expiresAt: new Date(expSeconds * 1000),
+    reason: opts.reason || 'logout',
+  });
 };
 
 /**
@@ -145,8 +139,7 @@ const revokeToken = async (jti, expSeconds, opts = {}) => {
  */
 const isTokenRevoked = async (jti) => {
   if (!jti) return false;
-  const hit = await TokenBlocklist.findOne({ jti }).select('_id').lean();
-  return !!hit;
+  return tokenBlocklistRepo.isJtiRevoked(jti);
 };
 
 /**

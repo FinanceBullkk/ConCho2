@@ -1,6 +1,17 @@
 const request = require('supertest');
 const { getApp, getTokens, teardown, getCsrfHeaders } = require('../setup');
 const { findActiveAuditRow } = require('../pg-test-utils');
+
+// Audit writes are fire-and-forget — a fixed sleep flakes under full-suite
+// load (seen on the pg lane). Poll briefly instead; assertions stay strict.
+const waitForAuditRow = async (filter, { timeoutMs = 3000, stepMs = 50 } = {}) => {
+  const deadline = Date.now() + timeoutMs;
+  for (;;) {
+    const row = await findActiveAuditRow(filter);
+    if (row || Date.now() > deadline) return row;
+    await new Promise((r) => setTimeout(r, stepMs));
+  }
+};
 const AuditLog = require('../../models/AuditLog');
 const ReportPreset = require('../../models/ReportPreset');
 
@@ -48,8 +59,7 @@ describe('Reports — evidence pack + presets (A5 part 2)', () => {
     expect(res.headers['x-tms-record-count']).toBeDefined();
     expect(Number(res.headers['content-length'])).toBeGreaterThan(0); // a real workbook was sent
 
-    await new Promise((r) => setTimeout(r, 40)); // audit is fire-and-forget
-    const log = await findActiveAuditRow({ action: 'exported', entity: 'Report' });
+    const log = await waitForAuditRow({ action: 'exported', entity: 'Report' });
     expect(log).toBeTruthy();
     expect(log.note).toContain('evidence-pack.xlsx');
   });
@@ -68,8 +78,7 @@ describe('Reports — evidence pack + presets (A5 part 2)', () => {
     expect(created.body.data).toMatchObject({ name: 'Monthly compliance', kind: 'evidence', schedule: 'monthly' });
     const id = created.body.data._id;
 
-    await new Promise((r) => setTimeout(r, 40));
-    const log = await findActiveAuditRow({ entity: 'ReportPreset', action: 'created' });
+    const log = await waitForAuditRow({ entity: 'ReportPreset', action: 'created' });
     expect(log).toMatchObject({ actorRole: 'Admin' });
 
     expect((await get(tokens.admin, '/api/learning/reports/presets')).body.count).toBe(1);
