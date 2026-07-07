@@ -14,6 +14,8 @@
 
 const mongoose = require('mongoose');
 const { getApp, getSeedData } = require('../setup');
+// Slice-4 ports write through DB_BACKEND repos — assert on the ACTIVE backend.
+const { findActiveRowsWhere, countActiveRowsWhere } = require('../pg-test-utils');
 
 let seed;
 
@@ -65,11 +67,8 @@ describe('PERF-005 — reminder bulk claim', () => {
     expect(r.notified).toBe(5);
 
     // All schedules have remindersSentAt populated.
-    const Count = await Schedule.countDocuments({
-      roomLink: 'PR-F-reminder-fixture',
-      remindersSentAt: { $ne: null },
-    });
-    expect(Count).toBe(5);
+    const rows = await findActiveRowsWhere('Schedule', { roomLink: 'PR-F-reminder-fixture' });
+    expect(rows.filter((r) => r.remindersSentAt != null)).toHaveLength(5);
   });
 
   test('subsequent run within the same window is a no-op (claims 0)', async () => {
@@ -97,16 +96,11 @@ describe('PERF-005 — reminder bulk claim', () => {
     ]);
 
     // Every schedule must have remindersSentAt populated (no nulls left).
-    const remaining = await Schedule.countDocuments({
-      roomLink: 'PR-F-reminder-fixture',
-      remindersSentAt: null,
-    });
-    expect(remaining).toBe(0);
+    const rowsAfter = await findActiveRowsWhere('Schedule', { roomLink: 'PR-F-reminder-fixture' });
+    expect(rowsAfter.filter((r) => r.remindersSentAt == null)).toHaveLength(0);
 
     // And nothing is left in a "rolled back" state for a third run to pick up.
-    const stillThere = await Schedule.countDocuments({
-      roomLink: 'PR-F-reminder-fixture',
-    });
+    const stillThere = await countActiveRowsWhere('Schedule', { roomLink: 'PR-F-reminder-fixture' });
     expect(stillThere).toBe(10);
   });
 });

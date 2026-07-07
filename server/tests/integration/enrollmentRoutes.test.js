@@ -15,7 +15,7 @@
 const request = require('supertest');
 const mongoose = require('mongoose');
 const { getApp, getTokens, getSeedData, getCsrfHeaders, teardown } = require('../setup');
-const { pollUntil, findActiveRowWhere } = require('../pg-test-utils');
+const { pollUntil, findActiveRowWhere, readActiveRow } = require('../pg-test-utils');
 
 let app, tokens, seed, csrf;
 let Enrollment, Team, Class, Schedule;
@@ -359,7 +359,7 @@ describe('Enrollment close-path → future-schedule roster pull', () => {
     });
   };
   const rosterIds = async (id) =>
-    (await Schedule.findById(id).lean()).enrolledUsers.map(String);
+    ((await readActiveRow('Schedule', id)).enrolledUsers || []).map(String);
 
   test('PUT /:id status→Dropped pulls the learner from future schedules + sets leftAt', async () => {
     const { cls, enrollments } = await seedTeamWithEnrollments();
