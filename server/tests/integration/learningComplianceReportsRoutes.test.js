@@ -8,6 +8,9 @@ const Department = require('../../models/Department');
 const Enrollment = require('../../models/Enrollment');
 const LearningProgram = require('../../models/LearningProgram');
 const User = require('../../models/User');
+// Audit rows are written through the ported repo (PG-only on the lane) — read
+// the active backend, not Mongoose.
+const { findActiveAuditRow } = require('../pg-test-utils');
 
 let app, tokens, seed;
 let seq = 0;
@@ -177,8 +180,14 @@ describe('Learning Platform API — compliance reports (Wave D6 v1.1)', () => {
     expect(res.headers['content-disposition']).toContain('compliance-report-');
     expect(res.headers['x-tms-record-count']).toBe('2');
 
-    await waitForAudit();
-    const log = await AuditLog.findOne({ action: 'exported', entity: 'Report' }).lean();
+    // Audit is fire-and-forget through the ported repo — poll the active backend.
+    let log = null;
+    for (let i = 0; i < 20 && !log; i += 1) {
+      // eslint-disable-next-line no-await-in-loop
+      log = await findActiveAuditRow({ action: 'exported', entity: 'Report' });
+      // eslint-disable-next-line no-await-in-loop
+      if (!log) await new Promise((r) => setTimeout(r, 50));
+    }
     expect(log).toMatchObject({ actorRole: 'Admin' });
     expect(log.note).toContain('compliance-report.xlsx');
   });

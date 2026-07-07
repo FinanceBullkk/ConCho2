@@ -5,6 +5,9 @@ const Schedule = require('../../models/Schedule');
 const Feedback = require('../../models/Feedback');
 const Class = require('../../models/Class');
 const LearningProgram = require('../../models/LearningProgram');
+// Feedback is written through the ported PG repo (PG-only on the lane) — count
+// on the active backend, not Mongoose.
+const { countActiveRowsWhere } = require('../pg-test-utils');
 
 let app, tokens, seed, csrf;
 
@@ -88,7 +91,7 @@ describe('Learning Platform API — cohort feedback', () => {
     const res = await submit(tokens.leader, { cohortId: seed.class1._id.toString(), rating: 5 });
     expect(res.status).toBe(200);
     expect(res.body.data.rating).toBe(5);
-    const count = await Feedback.countDocuments({ cohortId: seed.class1._id, userId: seed.leader._id });
+    const count = await countActiveRowsWhere('Feedback', { cohortId: seed.class1._id, userId: seed.leader._id });
     expect(count).toBe(1);
   });
 

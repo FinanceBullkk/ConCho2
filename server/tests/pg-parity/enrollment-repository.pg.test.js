@@ -96,9 +96,13 @@ describePg('PG-parity: learning/enrollment repository', () => {
     const [m, p] = await both((r) => r.insertActiveEnrollment({ userId: fresh, classId: C1 }));
     expect(eproj(m)).toEqual({ user: fresh, cls: C1, team: null, status: 'Active' });
     expect(eproj(p)).toEqual(eproj(m));
-    // duplicate active cohort enrollment (same user+cohort) rejected on both
-    await expect(repo.impls.mongo.insertActiveEnrollment({ userId: fresh, classId: C1 })).rejects.toBeDefined();
-    await expect(repo.impls.pg.insertActiveEnrollment({ userId: fresh, classId: C1 })).rejects.toBeDefined();
+    // duplicate active cohort enrollment (same user+cohort) rejected on both,
+    // with the SAME Mongo-style { code: 11000 } (PG maps 23505 → 11000) so the
+    // use-case's duplicate handler returns 409 on either backend, not a raw 500.
+    await expect(repo.impls.mongo.insertActiveEnrollment({ userId: fresh, classId: C1 }))
+      .rejects.toMatchObject({ code: 11000 });
+    await expect(repo.impls.pg.insertActiveEnrollment({ userId: fresh, classId: C1 }))
+      .rejects.toMatchObject({ code: 11000 });
   });
 
   test('findActiveCohortEnrollment + findCohortEnrollmentById + markDropped — identical', async () => {

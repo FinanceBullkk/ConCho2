@@ -12,6 +12,10 @@ const LearningPath = require('../../models/LearningPath');
 const LearningProgram = require('../../models/LearningProgram');
 const Schedule = require('../../models/Schedule');
 const Setting = require('../../models/Setting');
+// Audit rows + the cost-config Setting are written through ported repos (PG-only
+// on the lane) — read audit + clear the Setting on the ACTIVE backend, else a
+// Mongoose read/deleteMany misses them (the cost-config leaks across tests).
+const { findActiveAuditRow, deleteActiveRowsWhere } = require('../pg-test-utils');
 
 let app, tokens, seed;
 let seq = 0;
@@ -41,7 +45,7 @@ afterEach(async () => {
     LearningProgram.deleteMany({}),
     Schedule.deleteMany({}),
     Class.deleteMany({ classCode: /^EXD/ }),
-    Setting.deleteMany({ key: 'LND_COST_CONFIG' }), // never touch ALLOWED_TIME_SLOTS
+    deleteActiveRowsWhere('Setting', { key: 'LND_COST_CONFIG' }), // never touch ALLOWED_TIME_SLOTS
   ]);
 });
 
@@ -223,8 +227,14 @@ describe('Learning Platform API — executive dashboard (ROI tier)', () => {
     });
     expect(res.status).toBe(200);
 
-    await new Promise((resolve) => setTimeout(resolve, 30)); // audit is fire-and-forget
-    const log = await AuditLog.findOne({ entity: 'Setting', action: 'created' }).lean();
+    // audit is fire-and-forget through the ported repo — poll the active backend.
+    let log = null;
+    for (let i = 0; i < 20 && !log; i += 1) {
+      // eslint-disable-next-line no-await-in-loop
+      log = await findActiveAuditRow({ entity: 'Setting', action: 'created' });
+      // eslint-disable-next-line no-await-in-loop
+      if (!log) await new Promise((r) => setTimeout(r, 50));
+    }
     expect(log).toMatchObject({ actorRole: 'Admin' });
     expect(log.note).toContain('LND_COST_CONFIG');
   });
