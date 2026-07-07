@@ -14,6 +14,7 @@
 const request = require('supertest');
 const mongoose = require('mongoose');
 const { getApp, getTokens, getSeedData, getCsrfHeaders, teardown } = require('../setup');
+const { readActiveRow } = require('../pg-test-utils');
 
 let app, tokens, seed, csrf;
 let Schedule, Team, Class, User, Attendance;
@@ -97,7 +98,7 @@ describe('Schedule reassignment — roster rebuild', () => {
     expect(res.status).toBe(200);
     expect(res.body.success).toBe(true);
 
-    const updated = await Schedule.findById(sched._id).lean();
+    const updated = await readActiveRow('Schedule', sched._id);
     const enrolledIds = (updated.enrolledUsers || []).map(id => id.toString());
 
     expect(enrolledIds).toContain(leaderB._id.toString());
@@ -113,7 +114,7 @@ describe('Schedule reassignment — roster rebuild', () => {
       .set(csrf)
       .send({ bookedTeamId: teamB._id.toString() });
 
-    const updated = await Schedule.findById(sched._id).lean();
+    const updated = await readActiveRow('Schedule', sched._id);
     const enrolledIds = (updated.enrolledUsers || []).map(id => id.toString());
 
     expect(enrolledIds).not.toContain(leaderA._id.toString());
@@ -159,7 +160,7 @@ describe('Schedule reassignment — roster rebuild', () => {
 
     expect(res.status).toBe(200);
 
-    const updated = await Schedule.findById(sched._id).lean();
+    const updated = await readActiveRow('Schedule', sched._id);
     const enrolledIds = (updated.enrolledUsers || []).map(id => id.toString());
 
     expect(enrolledIds).toContain(leaderD._id.toString());
@@ -261,7 +262,7 @@ describe('Schedule update — capacity edit guard (Wave E2)', () => {
 
     expect(res.status).toBe(422);
     expect(res.body.message).toMatch(/capacity/);
-    const after = await Schedule.findById(sched._id).lean();
+    const after = await readActiveRow('Schedule', sched._id);
     expect(after.capacity).toBe(9); // not written
   });
 
@@ -274,7 +275,7 @@ describe('Schedule update — capacity edit guard (Wave E2)', () => {
       .send({ capacity: 2 });
 
     expect(res.status).toBe(200);
-    const after = await Schedule.findById(sched._id).lean();
+    const after = await readActiveRow('Schedule', sched._id);
     expect(after.capacity).toBe(2);
   });
 
