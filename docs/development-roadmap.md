@@ -145,6 +145,13 @@ Bug fixing and integration review rank above net-new feature rollout.
 > [`changelog-archive/2026-q2.md`](changelog-archive/2026-q2.md). Currently
 > inline: **2026-06-20 → 2026-07-07** (06-14→06-19 rolled 2026-07-04).
 
+- **2026-07-07** — **Wave G batch 11 — mfa suite green both lanes (PG lane ~10 → ~9 failing).**
+  `mfa.test.js` (9/9 both lanes, branch `feat/pg-lane-wave-g-batch11`). The ported auth mutations write mfaSecret/
+  mfaPendingSecret/mfaBackupCodes/mfaLastUsedCounter to the active backend and those are `select:false` — a Mongoose read saw null
+  (broke TOTP), and the login-flow `beforeAll`'s read-modify-write (`u.save()`) re-mirrored Mongo's null mfaSecret OVER the PG value
+  (login 500 / verify 401). Rewrote all 10 User mfa reads/writes to `readActiveRow`/`updateActiveRow` (raw on Mongo, direct SQL on
+  PG — no middleware/mirror/clobber). Test-only. **PG lane remainder = 9: the GATED schedule roster-sync/waitlist cluster (8) +
+  p2-regression (blocked on Wave F PR-2 attendance-export refactor). No workable suites left without owner sign-off.**
 - **2026-07-07** — **Wave G batch 10 — learning-tail cluster: 8 suites green both lanes (PG lane ~18 → ~10 failing).**
   Batch 10 (branch `feat/pg-lane-wave-g-batch10`, stacked on #247) clears the whole learning-* tail (learningEnrollmentRoutes,
   learningCompletionRoutes, learningSessionRoutes, learningFeedbackRoutes, learningAssignmentRoutes, learningComplianceReportsRoutes,
