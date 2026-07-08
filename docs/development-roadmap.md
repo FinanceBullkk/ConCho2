@@ -148,6 +148,21 @@ Bug fixing and integration review rank above net-new feature rollout.
 > [`2026-q3.md`](changelog-archive/2026-q3.md); 06-20→06-27 rolled 2026-07-07;
 > 06-14→06-19 rolled 2026-07-04 → [`2026-q2.md`](changelog-archive/2026-q2.md)).
 
+- **2026-07-08** — **Phase-05 slice 5 — F3 write-gate + D-CronRun: the "zero raw-Mongoose write" gate is now MACHINE-ENFORCED on the PG lane.**
+  Branch `fix/pg-cutover-slice5-f3-cronrun`. **D-CronRun**: mig 035 `cron_runs` + dual heartbeat seam
+  `lib/cron-run-repository.{js,mongo,pg}` (upsert-by-job_name; COALESCE preserves `lastSuccessAt` across error runs ⇔ the
+  conditional-$set; bigint cadence → Number on read); `cronMonitor.recordStart/End` + `cronHealthController` swapped (fail-soft
+  stays in the monitor so impls throw for parity); advisory-lock alternative REJECTED — CronRun is durable queryable state, never
+  a lock. Parity +5 cases; 3 CronRun-touching integration suites reverse-asserted (`deleteActiveRowsWhere`/`findActiveRowWhere`).
+  **F3 write-gate** (`tests/pg-write-gate.js`): every Mongoose write entry (Model statics + `Document#save` + raw driver
+  collection ops) records its causal stack frame on the PG lane; fixture writes (`/server/tests/`), repo-layer `*.mongo.js`
+  (parity-driven), and the RETIRED reconcile paths are sanctioned — any OTHER production frame appends to a run-scoped JSONL
+  (env-published by `global-setup`) and `global-teardown` THROWS → the lane (and CI gate #8) goes red. Flag-around-setup-hooks
+  was rejected on evidence: 63/126 integration files write fixtures inside test bodies. Classifier unit-tested (7 cases).
+  The auto-mirror keeps fixtures green; the gate keeps unported app writes from hiding behind it — "lane green" now MEANS
+  "no production Mongoose write fired". Also in-flight this session: p2-regression P2-03R reverse-assert (the one REAL fail in
+  slice-4's full-PG run — its post-mutation assert still read Mongo while the B2-tail seam writes PG-only; 3 other fails =
+  known getApp-boot load-flakes, 32/32 isolated both lanes).
 - **2026-07-08** — **Phase-05 cutover-blocker slice 4 — B-tail (B1–B7) dual-backend: the ENTIRE section-B inventory is ported; only F3 + D-CronRun remain before the "zero raw-Mongoose write" gate closes.**
   Branch `fix/pg-cutover-slice4-b-tail`. **B4** settings repo (`domains/settings/`, upsert-by-key) · **B3** evaluation repo
   (`domains/evaluation/`: revive-in-place upsert ON CONFLICT (class_id,user_id), averageScore mapper ⇔ the Mongo virtual,

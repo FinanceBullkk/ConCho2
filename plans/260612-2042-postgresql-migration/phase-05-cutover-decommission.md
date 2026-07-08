@@ -16,6 +16,21 @@ So every raw-Mongoose write below is a **cutover blocker**, regardless of whethe
 
 Definition of done for this gate: **grep of production `domains/`+`services/`+`controllers/`+`jobs/` for raw-Mongoose writes returns only repo-layer (`*.mongo.js`) hits.** Enforced by the F3 lane counter (below).
 
+> **Status refresh (2026-07-08, slice 5):** **F3 + D-CronRun CLOSED — the gate
+> is machine-enforced.** D-CronRun: mig 035 `cron_runs` +
+> `lib/cron-run-repository` seam (heartbeat is durable queryable state, NOT a
+> lock — advisory-lock alternative rejected); cronMonitor +
+> cronHealthController swapped. F3: `tests/pg-write-gate.js` — stack-frame
+> attribution at every Mongoose write entry; production frames (excluding
+> `*.mongo.js` repo impls and the RETIRED `services/reconcile*` allowlist)
+> fail the run via a globalTeardown throw on the PG lane, so gate #8 green
+> now PROVES zero raw-Mongoose production writes — the verification gate this
+> doc was created for. **Remaining: B5 bulk reads (branch ready) · H ETL
+> (script + dry-run rehearsed: 11 collections, counts matched, 0 dangling
+> refs, mig 036 applied clean post-ETL on the dry DB, size 10MB ≪ 0.5GB Neon
+> gate) · I FK (mig 036 written, NOT applied to CI docker) · J cutover
+> (checklist: `cutover-checklist.md`).**
+>
 > **Status refresh (2026-07-08, slice 4):** **B1–B7 CLOSED — the ENTIRE
 > section-B tail is ported.** B4 settings repo · B3 evaluation repo (revive
 > upsert + CastError contract + policy class reads incl. the missing
