@@ -237,16 +237,21 @@ const countSchedulesByCohort = async (cohortId) => {
   return rows[0].n;
 };
 
-// session IGNORED in PG (see header) — each statement runs on the pool.
-const closeEnrollmentsByCohort = async (cohortId, leftAt /* , session */) => {
-  const { rowCount } = await query(
+// `tx` is the Unit-of-Work handle ({ client } on PG). When present, run on that
+// checked-out client so the cohort soft-archive commits atomically with the
+// enrollment close; without it, fall back to the auto-commit pool (Wave K-1 —
+// the use-case now drives both via runInTransaction).
+const closeEnrollmentsByCohort = async (cohortId, leftAt, tx) => {
+  const exec = tx?.client ? (t, p) => tx.client.query(t, p) : query;
+  const { rowCount } = await exec(
     `UPDATE enrollments SET status = 'Dropped', left_at = $2 WHERE class_id = $1 AND status = 'Active'`,
     [String(cohortId), leftAt == null ? null : new Date(leftAt).toISOString()]);
   return { acknowledged: true, matchedCount: rowCount, modifiedCount: rowCount };
 };
 
-const softDeleteCohort = async (cohortId, deletedAt /* , session */) => {
-  const { rows } = await query(
+const softDeleteCohort = async (cohortId, deletedAt, tx) => {
+  const exec = tx?.client ? (t, p) => tx.client.query(t, p) : query;
+  const { rows } = await exec(
     `UPDATE classes SET is_deleted = true, deleted_at = $2, updated_at = now() WHERE id = $1 RETURNING *`,
     [String(cohortId), deletedAt == null ? new Date().toISOString() : new Date(deletedAt).toISOString()]);
   return rows[0] ? cohortRow(rows[0]) : null;

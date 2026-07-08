@@ -56,17 +56,18 @@ const countSchedulesByCohort = (cohortId) => Schedule.countDocuments({ classId: 
 // Soft-archive (recoverable): close active enrollments (status→Dropped, like
 // Team delete) and mark the cohort deleted. Evaluations are PRESERVED (golden
 // rule: never hard-delete evaluation data).
-const closeEnrollmentsByCohort = (cohortId, leftAt, session) =>
+// `tx` is the Unit-of-Work handle ({ session } on Mongo); undefined = no txn.
+const closeEnrollmentsByCohort = (cohortId, leftAt, tx) =>
   Enrollment.updateMany(
     { classId: cohortId, status: 'Active' },
     { $set: { status: 'Dropped', leftAt } },
-    { session },
+    { session: tx?.session },
   );
-const softDeleteCohort = (cohortId, deletedAt, session) =>
+const softDeleteCohort = (cohortId, deletedAt, tx) =>
   Class.findOneAndUpdate(
     { _id: cohortId },
     { $set: { isDeleted: true, deletedAt } },
-    { new: true, session },
+    { new: true, session: tx?.session },
   );
 // Restore needs an explicit isDeleted filter so the soft-delete pre-hook does
 // not auto-exclude the very doc we want back.
