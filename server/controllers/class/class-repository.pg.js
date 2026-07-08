@@ -122,6 +122,13 @@ const aggregateBookedSessionCounts = async (classIds) => {
 
 const findClassLeanById = (id) => fetchClassRow(id);
 
+/** Sheets-sync lookup (Phase 5 B5-reads): ALL live classes, code+id only. */
+const findAllClassCodesLean = async () => {
+  const { rows } = await query(
+    `SELECT id, class_code FROM classes WHERE is_deleted = false`);
+  return rows.map((r) => ({ _id: r.id, classCode: r.class_code }));
+};
+
 const findTeamIdsForClass = async (classId) => {
   const { rows } = await query(
     `SELECT id FROM teams WHERE class_id = $1 AND is_deleted = false`,
@@ -211,6 +218,7 @@ module.exports = {
   findClasses,
   aggregateBookedSessionCounts,
   findClassLeanById,
+  findAllClassCodesLean,
   findTeamIdsForClass,
   enrollmentExists,
   countBookedSessions,
