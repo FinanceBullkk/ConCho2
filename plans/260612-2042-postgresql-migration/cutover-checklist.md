@@ -1,7 +1,23 @@
 # Wave J — Cutover checklist (Mongo Atlas → Neon PG)
 
-**Status:** ready — 🧪 items rehearsed 2026-07-08; PROD items await owner scheduling
+**Status:** ✅ **EXECUTED 2026-07-08 — prod live on PostgreSQL/Neon.** 1-week bake in progress.
 **Created:** 2026-07-08 · **Parent:** `master-execution-plan.md` Wave J/K, `phase-05-cutover-decommission.md`
+
+> ### ✅ Cutover executed — 2026-07-08 (fresh-start path)
+> **Divergence from the plan below:** owner confirmed **no real users / no real data** yet →
+> took the **fresh-start** path instead of the Atlas-ETL-with-freeze the steps assume.
+> **No freeze, no Atlas prod ETL.** What actually ran:
+> 1. Seeded a throwaway local `mongod` (full sample, 33 docs / 11 collections).
+> 2. **ETL that seed → prod Neon** (`etl-mongo-to-pg.js`): 11 tables, counts matched, **0 dangling**, **10 MB** (≪ 0.5 GB Neon-FREE gate).
+> 3. **Applied mig 036** (copy-then-migrate): **30 FK + 323 CHECK**, `knex_migrations` = 36; copy removed from `migrations/` (uncommitted).
+> 4. **Local smoke** on `DB_BACKEND=postgres`→Neon: boot + `/health` + `/ready`; login (bcrypt vs PG user) + capability gates; reads `schedules`=3 / `cohorts`=3; **live write round-trip** (bad→good login moved `failed_login_attempts` 0→1→0 in Neon).
+> 5. **Owner flipped Render**: set `DB_BACKEND=postgres` + `PG_URL`, **kept `MONGO_URI`** (boot still calls `connectDB()`; Atlas stays as bake fallback).
+> 6. **Flip CONFIRMED on prod** `concho2.onrender.com`: teacher login 200 + `/api/schedules`=3 + a prod write-probe drove `failed_login_attempts` **0→1 in Neon** (proves prod writes land in Neon, not Atlas `tms2`).
+> - **Neon:** PostgreSQL **17.10**, region ap-southeast-1 (Singapore).
+> - **Backup:** `pg-backup` workflow in `ConCho2-backups` re-run green after fixing a client-version bug (runner shipped `pg_dump` 16 vs Neon 17 → pinned `/usr/lib/postgresql/17/bin` onto PATH). Daily `schedule:` enabled.
+> - **Bake:** Atlas `tms2` left **untouched** (not read-only-enforced — nothing to freeze). Fix-forward 1 week.
+> - **Open follow-ups:** `/ready` still probes Mongo only (patch to probe PG under `DB_BACKEND=postgres`); cron-pinger ≤4-min resume = owner (cron-job.org); **Wave K decommission** owner-scheduled after bake.
+
 **Decisions baked in (owner 2026-07-08 + delegated same day):** Neon **FREE** tier (~100 real users; dry-run size 10MB ≪ 0.5GB gate) · bake = **1 week** Atlas read-only · reconcile **RETIRED** at cutover (not ported) · **adminDb explorer RETIRED at Wave K** (Neon console/psql replaces it; write-gate row E1) · cron-pinger reused at ≤4-min work-hours cadence · **backups live in the PRIVATE `ConCho2-backups` repo** (the code repo is PUBLIC — its Actions artifacts are world-downloadable; PII dumps, even encrypted, must not be public) · waitlist CASCADE kept (promoteAndSweep needs it).
 
 > **HARD RULE:** everything below marked 🔒 touches prod (Atlas, Render env, real users) — DO NOT execute without the owner. Everything marked 🧪 can be rehearsed end-to-end on a Neon branch/throwaway DB by the agent alone.
