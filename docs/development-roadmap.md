@@ -148,6 +148,16 @@ Bug fixing and integration review rank above net-new feature rollout.
 > [`2026-q3.md`](changelog-archive/2026-q3.md); 06-20→06-27 rolled 2026-07-07;
 > 06-14→06-19 rolled 2026-07-04 → [`2026-q2.md`](changelog-archive/2026-q2.md)).
 
+- **2026-07-08** — **Phase-05 B5-reads — syncController's 3 bulk pre-loads onto the dual seams; Sheets sync survives cutover; the DEAD capacity guard comes alive.**
+  Branch `fix/pg-b5-sync-bulk-reads`. Teams via `groups/read-repository.findAllTeams` (PG twin rebuilds members from the
+  `team_members` junction, drops soft-deleted users like the populate hook — order-insensitive, sync treats members as a set) ·
+  classes via NEW `class-repository.findAllClassCodesLean` ({_id,classCode} — the full-doc read was over-fetch) · live schedules
+  via NEW `schedule repository.findLiveSchedulesForSync`. **Bug fix (spec delta folded into export-and-integrations):** the
+  capacity guard compared `schedule.enrolledCount` — a VIRTUAL that `.lean()` never materialized → always false → over-capacity
+  sheet rows enrolled silently. Now computed from `enrolledUsers.length` (queries.js precedent) → over-capacity rows land in
+  `errors`. First real `/api/sync` coverage: 4-case integration suite (authz 403 / 400 no-Google-call / happy path with
+  googleapis+googleAuth mocked + write reverse-assert / capacity-live) + 2-case parity for the new seams. `syncController` now
+  has ZERO direct Mongoose end-to-end.
 - **2026-07-08** — **Phase-05 slice 5 — F3 write-gate + D-CronRun: the "zero raw-Mongoose write" gate is now MACHINE-ENFORCED on the PG lane.**
   Branch `fix/pg-cutover-slice5-f3-cronrun`. **D-CronRun**: mig 035 `cron_runs` + dual heartbeat seam
   `lib/cron-run-repository.{js,mongo,pg}` (upsert-by-job_name; COALESCE preserves `lastSuccessAt` across error runs ⇔ the
