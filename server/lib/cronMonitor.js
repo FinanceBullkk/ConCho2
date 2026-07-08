@@ -1,6 +1,8 @@
 const { Sentry, isEnabled } = require('./sentry');
 const logger = require('./logger');
-const CronRun = require('../models/CronRun');
+// Phase-5 D-CronRun: heartbeat rows ride the dual-backend seam (Mongo or PG by
+// DB_BACKEND) — a raw Mongoose write here would land in a dead Mongo at cutover.
+const cronRunRepo = require('./cron-run-repository');
 
 // ──────────────────────────────────────────────────────────
 // Cron Monitor — production-readiness self-monitoring for cron jobs.
@@ -73,13 +75,12 @@ const CRON_JOBS = {
   },
 };
 
+// The fail-soft try/catch lives HERE (not in the repository impls) so the
+// parity test can assert the impls' real errors while a heartbeat-write
+// failure still never breaks (or masks) the job being monitored.
 async function recordStart(jobName) {
   try {
-    await CronRun.updateOne(
-      { jobName },
-      { $set: { lastStatus: 'running', lastStartedAt: new Date() }, $setOnInsert: { jobName } },
-      { upsert: true }
-    );
+    await cronRunRepo.upsertStart(jobName, new Date());
   } catch (err) {
     logger.warn({ err: err.message, jobName }, 'cronMonitor: heartbeat start write failed');
   }
@@ -87,15 +88,9 @@ async function recordStart(jobName) {
 
 async function recordEnd(jobName, { status, durationMs, error, expectedIntervalMs }) {
   try {
-    const now = new Date();
-    const set = { lastStatus: status, lastRunAt: now, lastDurationMs: durationMs, lastError: error || null };
-    if (status === 'ok') set.lastSuccessAt = now;
-    if (expectedIntervalMs != null) set.expectedIntervalMs = expectedIntervalMs;
-
-    const inc = { runCount: 1 };
-    if (status === 'error') inc.failCount = 1;
-
-    await CronRun.updateOne({ jobName }, { $set: set, $inc: inc, $setOnInsert: { jobName } }, { upsert: true });
+    await cronRunRepo.upsertEnd(jobName, {
+      status, finishedAt: new Date(), durationMs, error, expectedIntervalMs,
+    });
   } catch (err) {
     logger.warn({ err: err.message, jobName }, 'cronMonitor: heartbeat end write failed');
   }
