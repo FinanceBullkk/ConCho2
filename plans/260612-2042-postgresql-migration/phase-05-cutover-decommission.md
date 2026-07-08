@@ -16,6 +16,21 @@ So every raw-Mongoose write below is a **cutover blocker**, regardless of whethe
 
 Definition of done for this gate: **grep of production `domains/`+`services/`+`controllers/`+`jobs/` for raw-Mongoose writes returns only repo-layer (`*.mongo.js`) hits.** Enforced by the F3 lane counter (below).
 
+> **Status refresh (2026-07-08, slice 5):** **F3 + D-CronRun CLOSED — the gate
+> is machine-enforced.** D-CronRun: mig 035 `cron_runs` +
+> `lib/cron-run-repository` seam (heartbeat is durable queryable state, NOT a
+> lock — advisory-lock alternative rejected); cronMonitor +
+> cronHealthController swapped. F3: `tests/pg-write-gate.js` — stack-frame
+> attribution at every Mongoose write entry; production frames (excluding
+> `*.mongo.js` repo impls and the RETIRED `services/reconcile*` allowlist)
+> fail the run via a globalTeardown throw on the PG lane, so gate #8 green
+> now PROVES zero raw-Mongoose production writes — the verification gate this
+> doc was created for. **Remaining: B5 bulk reads (branch ready) · H ETL
+> (script + dry-run rehearsed: 11 collections, counts matched, 0 dangling
+> refs, mig 036 applied clean post-ETL on the dry DB, size 10MB ≪ 0.5GB Neon
+> gate) · I FK (mig 036 written, NOT applied to CI docker) · J cutover
+> (checklist: `cutover-checklist.md`).**
+>
 > **Status refresh (2026-07-08, slice 4):** **B1–B7 CLOSED — the ENTIRE
 > section-B tail is ported.** B4 settings repo · B3 evaluation repo (revive
 > upsert + CastError contract + policy class reads incl. the missing
@@ -126,9 +141,16 @@ These lose/desync live data the instant prod flips (write→Mongo, read→PG).
 4. **C reconcile** (owner: port vs retire) + **F3 lane counter** → promote `server-tests-pg` to gate #8.
 5. **A8 automation seed** (trivial, last).
 
+## E. Found by the F3 gate (first full-suite run, 2026-07-08)
+
+| # | File | What | Disposition |
+|---|---|---|---|
+| E1 | `routes/adminDbRoutes.js` (whole router) | Admin DB explorer — raw-Mongoose reads AND writes (`findByIdAndUpdate` :236, create/delete handlers) on arbitrary collections, by design | **Owner call before Wave J** — recommend RETIRE at cutover (Neon console / psql covers the ops need); rebuilding a generic PG explorer is a real feature, not a port. Write-gate: sanctioned with a tracked comment until decided. The original inventory grep covered `domains/ services/ controllers/ jobs/` — **routes/ was missed**; the gate exists precisely to catch this. |
+
 ## Unresolved questions
 
 1. **C1/C reconcile:** port the consistency checker to PG, or retire it at cutover (its whole job is Mongo-integrity)? Owner call.
+1b. **E1 adminDbRoutes** (above): retire the Mongo DB explorer at cutover, or rebuild on PG? Owner call — retire recommended.
 2. **Counter under PG:** PG SEQUENCE (fast, gapless-not-guaranteed) vs a `counters` row with `UPDATE … RETURNING` (matches Mongo `findOneAndUpdate $inc` semantics)? Certificate numbering may require gapless — confirm.
 3. **F3 attribution:** cheapest reliable way to separate test-fixture Mongoose writes from production ones on the lane (module flag around fixture setup is simplest; confirm no fixture writes leak outside setup hooks).
 4. **B6 import in a Mongo session:** the bulk import wraps writes in a Mongoose `session` — the PG twin must move onto the `unit-of-work` (`runInTransaction`), same as the schedule/groups/planning ports.

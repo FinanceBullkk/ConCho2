@@ -13,13 +13,13 @@ jest.mock('../../lib/mailer', () => ({ sendMail: jest.fn() }));
 const request = require('supertest');
 const { getApp, getSeedData, teardown } = require('../setup');
 // The expiry-reminder service writes NotificationLog through the dual-backend
-// repo (Phase 5 slice 3) — on the pg lane rows land in PG only, so asserts
-// read the ACTIVE backend.
-const { findActiveRowWhere, countActiveRowsWhere } = require('../pg-test-utils');
+// repo (Phase 5 slice 3) and the cron heartbeat rides the cron-run seam
+// (slice 5, D-CronRun) — on the pg lane rows land in PG only, so asserts +
+// cleanup for both read/delete on the ACTIVE backend.
+const { findActiveRowWhere, countActiveRowsWhere, deleteActiveRowsWhere } = require('../pg-test-utils');
 const { sendMail } = require('../../lib/mailer');
 const Certificate = require('../../models/Certificate');
 const NotificationLog = require('../../models/NotificationLog');
-const CronRun = require('../../models/CronRun');
 const User = require('../../models/User');
 const { sendCertificateExpiryReminders } = require('../../domains/learning/completion/expiry-reminder-service');
 
@@ -40,7 +40,7 @@ beforeAll(async () => {
 
 afterAll(async () => {
   delete process.env['CRON_TOKEN'];
-  await CronRun.deleteMany({ jobName: 'certificate-expiry-reminders' });
+  await deleteActiveRowsWhere('CronRun', { jobName: 'certificate-expiry-reminders' });
   await teardown();
 });
 
@@ -141,7 +141,7 @@ describe('sendCertificateExpiryReminders', () => {
 
 describe('POST /api/cron/certificate-expiry-reminders', () => {
   afterEach(async () => {
-    await CronRun.deleteMany({ jobName: 'certificate-expiry-reminders' });
+    await deleteActiveRowsWhere('CronRun', { jobName: 'certificate-expiry-reminders' });
   });
 
   test('requires the cron token and records a CronRun heartbeat when authenticated', async () => {
@@ -156,7 +156,7 @@ describe('POST /api/cron/certificate-expiry-reminders', () => {
     expect(authorized.body.success).toBe(true);
     expect(authorized.body.data).toHaveProperty('scanned');
 
-    const run = await CronRun.findOne({ jobName: 'certificate-expiry-reminders' }).lean();
+    const run = await findActiveRowWhere('CronRun', { jobName: 'certificate-expiry-reminders' });
     expect(run).toMatchObject({ lastStatus: 'ok' });
   });
 });

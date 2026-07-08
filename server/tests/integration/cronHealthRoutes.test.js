@@ -11,7 +11,9 @@
 
 const request = require('supertest');
 const { getApp, getTokens, teardown } = require('../setup');
-const CronRun = require('../../models/CronRun');
+// D-CronRun (Phase 5 slice 5): heartbeats ride the dual-backend seam — on the
+// pg lane rows land in PG only, so cleanup deletes on the ACTIVE backend.
+const { deleteActiveRowsWhere } = require('../pg-test-utils');
 
 const VALID_CRON_TOKEN = 'test-cron-token-32chars-minimum!!';
 
@@ -53,7 +55,7 @@ describe('GET /api/admin/cron/health — authz', () => {
   });
 
   test('Admin sees configured jobs as never before first heartbeat', async () => {
-    await CronRun.deleteMany({});
+    await deleteActiveRowsWhere('CronRun', {});
 
     const res = await request(app)
       .get('/api/admin/cron/health')

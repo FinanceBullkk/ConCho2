@@ -41,10 +41,12 @@ const warnOnce = (name) => {
 // reflecting the table's columns and coercing doc fields by column type. This
 // covers the ~20 low-frequency domain models (vendor/skill/trainer/automation/
 // learning-path/finance/room/waitlist/…) without a hand-written entry each.
-// Models with NO table (CronRun/ReconcileReport — Mongo-only ops; reconcile
-// RETIRES at cutover) fall through to warnOnce. Counter gained a PG table in
-// mig 033 (Phase-5 slice 2) — its `id` PK is the counter NAME, so fixture
+// Models with NO table (ReconcileReport — reconcile RETIRES at cutover, owner
+// 2026-07-08) fall through to warnOnce. Counter gained a PG table in mig 033
+// (Phase-5 slice 2) — its `id` PK is the counter NAME, so fixture
 // writes/deletes (reconcileDrift's beforeEach reset) reflect correctly.
+// CronRun gained cron_runs in mig 035 (Phase-5 slice 5, D-CronRun) — its
+// columns are exact snake_case of the schema fields, so reflection is clean.
 let PG_TABLES = null;                 // Set<tableName>
 const PG_COLS = new Map();            // table → [ [column, dataType], … ]
 const TABLE_FOR_MODEL = new Map();    // modelName → tableName | null (cached)
