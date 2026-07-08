@@ -21,7 +21,7 @@ This runbook covers the backup strategy and disaster recovery procedures for the
 | Asset | Backup mechanism | Retention |
 |---|---|---|
 | **PostgreSQL data (post-cutover)** | Neon point-in-time history | **~6 hours** (Free tier) |
-| **PostgreSQL data (post-cutover)** | Daily encrypted `pg_dump` → GitHub Actions artifact (`.github/workflows/pg-backup.yml`, 18:00 UTC, restore-verified on every run) | **30 days** |
+| **PostgreSQL data (post-cutover)** | Daily encrypted `pg_dump` → Actions artifact in the **private `ConCho2-backups` repo** (18:00 UTC, restore-verified on every run — see §3.A) | **30 days** |
 | **PostgreSQL data (post-cutover)** | Monthly offline copy: owner downloads the 1st-of-month artifact to their machine (Time-Machine covered) | Owner-managed |
 | MongoDB data (until Wave K) | Atlas daily snapshots | 2 days (M0 limit) |
 | Application source code | GitHub repository | Full history |
@@ -57,17 +57,26 @@ that window you can restore via the Neon console (**Branches → Restore /
 Time Travel**) without touching any dump. There are no scheduled snapshots
 beyond it — which is exactly why the pg_dump layer exists.
 
-**Our pg_dump layer** (`.github/workflows/pg-backup.yml`):
-- Daily at 18:00 UTC (01:00 ICT), plus on-demand via *Run workflow*.
-- `pg_dump --format=custom --no-owner --no-privileges` of the whole database
-  (including `knex_migrations` — required for a working restore).
-- Encrypted with AES-256 (`BACKUP_PASSPHRASE` secret) because the dump holds
-  employee PII; uploaded as a GitHub Actions artifact, **30-day retention**.
+**Our pg_dump layer** — the `pg-backup.yml` workflow in the **PRIVATE
+`FinanceBullkk/ConCho2-backups` repo** (NOT this repo: ConCho2 is PUBLIC, and
+Actions artifacts on a public repo are downloadable by anyone — PII dumps,
+even encrypted, must not be published; decided 2026-07-08):
+- Daily at 18:00 UTC (01:00 ICT) — the cron block ships commented-out and is
+  enabled at Wave-J step 8 (before secrets exist it would only spam red runs);
+  on-demand any time via *Run workflow*.
+- Checks out the public ConCho2 repo for `server/scripts/verify-pg-backup.js`,
+  then `pg_dump --format=custom --no-owner --no-privileges` of the whole
+  database (including `knex_migrations` — required for a working restore).
+- Encrypted with AES-256 (`BACKUP_PASSPHRASE` secret) as defense-in-depth even
+  inside the private repo; uploaded as an artifact, **30-day retention**
+  (private-repo storage quota ~500MB fits 30×~10MB comfortably).
 - A `counts.json` manifest (key-table row counts) is written at dump time.
 - A second job restores the artifact into a throwaway `postgres:17` service
-  and runs `server/scripts/verify-pg-backup.js --counts=counts.json` — every
-  dump is restore-verified the moment it is taken. A red scheduled run emails
-  the repo owner (GitHub default).
+  and runs `verify-pg-backup.js --counts=counts.json` — every dump is
+  restore-verified the moment it is taken. A red scheduled run emails the
+  repo owner (GitHub default).
+- Actions minutes: the job is ~3 min/day ≈ 90 min/month — well inside the
+  2,000 free monthly minutes for private repos.
 
 **Ops caveats:**
 - GitHub disables cron workflows after **60 days of repo inactivity** — the
@@ -152,12 +161,15 @@ Document these values in a secure note in case the service must be recreated:
 | Region | (note your current region, e.g., Singapore) |
 | Node version | (check Render → Environment → Node version) |
 
-### 4.4 GitHub Actions secrets (pg-backup workflow)
+### 4.4 GitHub Actions secrets (pg-backup workflow — set in the PRIVATE `ConCho2-backups` repo)
 
 | Secret | Description | Custody rule |
 |---|---|---|
 | `NEON_PG_URL` | Full Neon connection string used by the nightly dump | Re-enter if the Neon project is recreated |
 | `BACKUP_PASSPHRASE` | AES-256 key for the dump artifacts | **MUST also live in the owner's password manager.** GitHub secrets are write-only; if this value is lost, every existing backup artifact is permanently unreadable |
+
+> Both secrets belong to `FinanceBullkk/ConCho2-backups` (Settings → Secrets →
+> Actions), NOT this repo — the public ConCho2 repo must never hold them.
 
 ---
 

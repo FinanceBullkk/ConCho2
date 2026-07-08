@@ -1,8 +1,8 @@
 # Wave J — Cutover checklist (Mongo Atlas → Neon PG)
 
-**Status:** draft — READY items rehearsable on Neon branch; PROD items require owner
+**Status:** ready — 🧪 items rehearsed 2026-07-08; PROD items await owner scheduling
 **Created:** 2026-07-08 · **Parent:** `master-execution-plan.md` Wave J/K, `phase-05-cutover-decommission.md`
-**Owner decisions baked in (2026-07-08):** Neon **FREE** tier (~100 real users; size gate <0.5GB at ETL dry-run) · bake = **1–2 weeks** Atlas read-only (owner picks exact number at J) · reconcile **RETIRED** at cutover (not ported) · cron-pinger reused to keep Neon warm during work hours.
+**Decisions baked in (owner 2026-07-08 + delegated same day):** Neon **FREE** tier (~100 real users; dry-run size 10MB ≪ 0.5GB gate) · bake = **1 week** Atlas read-only · reconcile **RETIRED** at cutover (not ported) · **adminDb explorer RETIRED at Wave K** (Neon console/psql replaces it; write-gate row E1) · cron-pinger reused at ≤4-min work-hours cadence · **backups live in the PRIVATE `ConCho2-backups` repo** (the code repo is PUBLIC — its Actions artifacts are world-downloadable; PII dumps, even encrypted, must not be public) · waitlist CASCADE kept (promoteAndSweep needs it).
 
 > **HARD RULE:** everything below marked 🔒 touches prod (Atlas, Render env, real users) — DO NOT execute without the owner. Everything marked 🧪 can be rehearsed end-to-end on a Neon branch/throwaway DB by the agent alone.
 
@@ -44,7 +44,12 @@
 
 ## 5. Apply FK/CHECK hardening (🔒)
 
-- [ ] `npx knex migrate:latest` picks up mig 036 (REFERENCES + CHECK enums) — only after step 4 shows zero dangling refs
+- [ ] mig 036 lives in `server/db/pg/migrations-cutover/` (deliberately NOT auto-applied — the jest harness TRUNCATEs per-table, which FKs forbid; CI proved this). Apply by copy-then-migrate, only after step 4 shows zero dangling refs:
+  ```bash
+  cp server/db/pg/migrations-cutover/036_fk_check_hardening.js server/db/pg/migrations/
+  npx knex migrate:latest --knexfile db/pg/knexfile.js   # against Neon
+  ```
+  Do NOT commit the copy back into `migrations/` — CI must keep skipping it until Wave K retires the Mongo test harness.
 
 ## 6. Smoke on staging config (🧪)
 
@@ -60,13 +65,13 @@
 
 ## 8. Post-flip ops (🔒 setup, then automatic)
 
-- [ ] Cron-pinger (reuse `docs/cron-pinger-setup.md` pattern) pings during VN work hours → masks Neon FREE autosuspend cold-start
-- [ ] pg_dump backup job live (schedule + retention per `docs/backup-dr.md` update); first dump verified restorable
+- [ ] Cron-pinger (reuse `docs/cron-pinger-setup.md` pattern) pings during VN work hours at **≤4-min cadence** against a PG-touching endpoint → masks Neon FREE autosuspend cold-start
+- [ ] pg_dump backup live in the PRIVATE **`ConCho2-backups`** repo (🔒 owner creates it — one command: `gh repo create FinanceBullkk/ConCho2-backups --private`; then copy the STAGED files from this plan dir into it: `pg-backup.yml` → `.github/workflows/pg-backup.yml`, `pg-backup-repo-readme.md` → `README.md`): add secrets `NEON_PG_URL` + `BACKUP_PASSPHRASE` there (passphrase ALSO into the owner's password manager — lost passphrase = unreadable backups), **uncomment the `schedule:` cron block**, run once via *Run workflow*, confirm the restore-verify job green
 - [ ] Sentry watched for 48h (5xx spike = candidate rollback trigger)
 
 ## 9. Bake + rollback plan
 
-- [ ] Atlas stays **read-only, untouched** for the bake: **[1–2 weeks — owner sets exact number here: ___ ]**
+- [ ] Atlas stays **read-only, untouched** for the bake: **1 week** (decided 2026-07-08 — rollback value decays within days anyway; the daily restore-verified pg_dump is the real safety net)
 - [ ] **Rollback (during bake only):** flip `DB_BACKEND` back to mongo on Render + re-freeze + reverse-ETL of the delta is NOT built — rollback means accepting loss of writes made on PG since flip. Decision rule: rollback only for data-corruption-class failures in the first days; otherwise fix-forward on PG.
 - [ ] During bake: NO writes to Atlas from anywhere (app is 100% PG from flip day)
 

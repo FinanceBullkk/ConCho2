@@ -1,33 +1,37 @@
 # pg-backup — daily pg_dump of the production Neon database → encrypted
-# GitHub-Actions artifact (30d retention) + automatic restore-verify.
+# artifact (30d retention) + automatic restore-verify.
 #
-# Why this exists (Wave H, owner decisions 2026-07-08): prod PG is Neon FREE,
-# which keeps only ~6h of point-in-time history — anything older must come
-# from our own dumps. Render free has no persistent disk and sleeps, so the
-# app host cannot run the job; GH Actions is the only always-on compute
-# already trusted with this repo. See docs/backup-dr.md.
+# LIVES IN THIS PRIVATE REPO on purpose: the ConCho2 code repo is PUBLIC and
+# Actions artifacts there are downloadable by anyone — employee-PII dumps,
+# even encrypted, must not be published. This repo holds the schedule, the
+# secrets, and the artifacts; the code repo holds the verify script (checked
+# out below — it's public, no token needed). See ConCho2 docs/backup-dr.md.
 #
-# Required repo secrets (owner-managed):
+# Required secrets (Settings → Secrets → Actions of THIS repo):
 #   NEON_PG_URL        — full Neon connection string (pooled endpoint is fine)
 #   BACKUP_PASSPHRASE  — artifact encryption key. MUST also live in the
 #                        owner's password manager: a lost passphrase makes
 #                        every artifact useless.
 #
 # Ops notes:
-#   • schedule 18:00 UTC = 01:00 ICT (after VN work hours); RPO stays ≤24h.
-#   • GitHub disables cron workflows after 60 days of repo inactivity, and a
-#     failed scheduled run emails the repo owner by default (our free alert).
-#   • pg_dump client major version must be ≥ the Neon server major — the
-#     verify job restores into the same major (postgres:17) it dumps with.
-#   • monthly offline copy: download the 1st-of-month artifact to the owner's
-#     machine (Time-Machine covered) — see the drill checklist in backup-dr.md.
+#   • The cron is COMMENTED OUT until Wave-J step 8 (before the secrets exist
+#     it would only produce red runs + owner-email spam). Enable by
+#     uncommenting `schedule:` below after adding the secrets.
+#   • 18:00 UTC = 01:00 ICT (after VN work hours); RPO stays ≤24h.
+#   • GitHub disables cron workflows after 60 days of repo inactivity — the
+#     monthly drill in backup-dr.md checks the runs are green.
+#   • pg_dump client major must be ≥ the Neon server major (pinned to 17;
+#     re-check `SELECT version()` when the Neon project is created).
+#   • Job cost ≈3 min/day ≈ 90 min/month — inside the 2,000 free monthly
+#     Actions minutes for private repos.
 
 name: pg-backup
 
 on:
-  schedule:
-    - cron: '0 18 * * *'
   workflow_dispatch: {}
+  # Enable at Wave-J step 8 (cutover-checklist.md) — after secrets are set:
+  # schedule:
+  #   - cron: '0 18 * * *'
 
 jobs:
   dump:
@@ -64,7 +68,7 @@ jobs:
             ));" > counts.json
           cat counts.json
 
-      - name: Encrypt (dump contains employee PII)
+      - name: Encrypt (defense-in-depth — dump contains employee PII)
         env:
           BACKUP_PASSPHRASE: ${{ secrets.BACKUP_PASSPHRASE }}
         run: |
@@ -97,7 +101,12 @@ jobs:
           --health-cmd pg_isready --health-interval 5s
           --health-timeout 5s --health-retries 10
     steps:
-      - uses: actions/checkout@v4
+      # The verify script lives in the PUBLIC code repo — no token needed.
+      - name: Checkout ConCho2 (public) for the verify script
+        uses: actions/checkout@v4
+        with:
+          repository: FinanceBullkk/ConCho2
+          ref: main
 
       - name: Install PostgreSQL 17 client
         run: |
