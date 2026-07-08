@@ -58,6 +58,13 @@ const findAttendanceForSchedules = (scheduleIds) =>
   Attendance.find({ scheduleId: { $in: scheduleIds } })
     .populate('userId', 'empCode name').lean();
 
+// enrollment enrichment (K1b slice 3) — raw (scheduleId,userId,status) rows for
+// a set of live sessions + learners; the caller rolls them up per (user,class).
+// Minimal projection, no populate.
+const findAttendanceStatusRows = (scheduleIds, userIds) =>
+  Attendance.find({ scheduleId: { $in: scheduleIds }, userId: { $in: userIds } })
+    .select('scheduleId userId status').lean();
+
 const bulkWriteAttendance = (operations) => Attendance.bulkWrite(operations);
 
 // PERF-008: denormalise lastActiveAt onto User. $max never moves the timestamp
@@ -203,6 +210,7 @@ module.exports = {
   findAttendanceBySchedule,
   findAttendanceByUser,
   findAttendanceForSchedules,
+  findAttendanceStatusRows,
   bulkWriteAttendance,
   insertAttendanceMany,
   bumpUsersLastActive,

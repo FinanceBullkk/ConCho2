@@ -1,7 +1,8 @@
-const Schedule = require('../../models/Schedule');
-const Attendance = require('../../models/Attendance');
-// Dual-backend roster pull (Phase 5 slice 4, B2-tail); DB_BACKEND selects.
+// Dual-backend roster pull (Phase 5 slice 4, B2-tail) + the attendance-enrichment
+// reads (K1b slice 3: live sessions by class + raw attendance rows). DB_BACKEND
+// selects Mongo or Postgres so the enrichment reads the active backend.
 const scheduleRepo = require('../../domains/schedule/repository');
+const attendanceRepo = require('../../domains/attendance/repository');
 
 // ──────────────────────────────────────────────────────────
 // Enrollment Controller — shared helpers
@@ -20,12 +21,11 @@ const enrichWithAttendance = async (enrollments) => {
   const userIds = enrollments.map(e => e.userId?._id?.toString()).filter(Boolean);
 
   const schedules = classIds.length
-    ? await Schedule.find({ classId: { $in: classIds }, status: 'scheduled' }).select('_id classId').lean()
+    ? await scheduleRepo.findScheduledByClassIdsOrdered(classIds)
     : [];
   const scheduleIds = schedules.map(s => s._id);
   const attendanceRecords = scheduleIds.length
-    ? await Attendance.find({ scheduleId: { $in: scheduleIds }, userId: { $in: userIds } })
-        .select('scheduleId userId status').lean()
+    ? await attendanceRepo.findAttendanceStatusRows(scheduleIds, userIds)
     : [];
 
   const scheduleMap = {};
