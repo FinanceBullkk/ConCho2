@@ -1,9 +1,14 @@
 # Backup & Disaster Recovery Runbook
 
 **System:** Training Management System (TMS)  
-**Database:** MongoDB Atlas M0 (free tier)  
-**Hosting:** Render (API server), GitHub (source code)  
-**Last reviewed:** 2026-06-11 (audit phase 05 — OPS-009)
+**Database:** MongoDB Atlas M0 → **Neon PostgreSQL (Free)** at the Wave-J cutover (see `plans/260612-2042-postgresql-migration/cutover-checklist.md`)  
+**Hosting:** Render (API server), GitHub (source code + backup automation)  
+**Last reviewed:** 2026-07-08 (Wave H — pg_dump pipeline added)
+
+> **Dual-state note:** until the Wave-J flip, Mongo/Atlas sections are the live
+> runbook and the PostgreSQL/Neon sections are staged. From the flip, PG is
+> primary; Atlas stays **read-only** through the 1–2-week bake and the Mongo
+> sections retire with Atlas at Wave K.
 
 ---
 
@@ -15,7 +20,10 @@ This runbook covers the backup strategy and disaster recovery procedures for the
 
 | Asset | Backup mechanism | Retention |
 |---|---|---|
-| MongoDB data | Atlas daily snapshots | 2 days (M0 limit) |
+| **PostgreSQL data (post-cutover)** | Neon point-in-time history | **~6 hours** (Free tier) |
+| **PostgreSQL data (post-cutover)** | Daily encrypted `pg_dump` → GitHub Actions artifact (`.github/workflows/pg-backup.yml`, 18:00 UTC, restore-verified on every run) | **30 days** |
+| **PostgreSQL data (post-cutover)** | Monthly offline copy: owner downloads the 1st-of-month artifact to their machine (Time-Machine covered) | Owner-managed |
+| MongoDB data (until Wave K) | Atlas daily snapshots | 2 days (M0 limit) |
 | Application source code | GitHub repository | Full history |
 
 ### What is NOT backed up automatically
@@ -24,7 +32,8 @@ This runbook covers the backup strategy and disaster recovery procedures for the
 |---|---|---|
 | Environment variables (Render) | Lost if Render project is deleted or recreated | Screenshot / export manually — see Section 4 |
 | Render service configuration (build command, start command, region) | Lost if service is deleted | Document manually — see Section 4 |
-| Atlas connection string | Changes if cluster is replaced | Stored in Render env vars; re-enter after restore |
+| Atlas / Neon connection string | Changes if cluster/project is replaced | Stored in Render env vars; re-enter after restore |
+| **GitHub Actions secrets** (`NEON_PG_URL`, `BACKUP_PASSPHRASE`) | Not exportable; a lost `BACKUP_PASSPHRASE` makes every dump artifact **permanently unreadable** | `BACKUP_PASSPHRASE` MUST also live in the owner's password manager — see Section 4.4 |
 
 ---
 
@@ -32,22 +41,51 @@ This runbook covers the backup strategy and disaster recovery procedures for the
 
 | Metric | Target | Rationale |
 |---|---|---|
-| **RPO** (Recovery Point Objective) | **24 hours** | Atlas M0 provides daily snapshots; up to 24 h of data may be lost in a worst-case restore |
-| **RTO** (Recovery Time Objective) | **4 hours** | Time to restore Atlas snapshot, update env vars, redeploy, and verify |
+| **RPO** (Recovery Point Objective) | **≤6 h** if the incident is caught inside Neon's history window (Time Travel / branch restore); **≤24 h** otherwise (latest daily pg_dump artifact). Pre-cutover: 24 h (Atlas daily snapshot) | Two-tier: Neon Free keeps ~6 h of point-in-time history; our own daily dump covers everything older |
+| **RTO** (Recovery Time Objective) | **4 hours** | Time to restore (Neon branch or pg_restore into a fresh branch), update env vars, redeploy, and verify |
 
 These targets are appropriate for an internal training management system with non-critical uptime requirements.
 
 ---
 
-## 3. What Atlas Backs Up
+## 3. What the database providers back up
 
-### Atlas M0 automatic snapshots
+### 3.A PostgreSQL — Neon Free + our pg_dump layer (primary from Wave J)
+
+**Neon provides:** ~6 hours of point-in-time history on the Free tier. Within
+that window you can restore via the Neon console (**Branches → Restore /
+Time Travel**) without touching any dump. There are no scheduled snapshots
+beyond it — which is exactly why the pg_dump layer exists.
+
+**Our pg_dump layer** (`.github/workflows/pg-backup.yml`):
+- Daily at 18:00 UTC (01:00 ICT), plus on-demand via *Run workflow*.
+- `pg_dump --format=custom --no-owner --no-privileges` of the whole database
+  (including `knex_migrations` — required for a working restore).
+- Encrypted with AES-256 (`BACKUP_PASSPHRASE` secret) because the dump holds
+  employee PII; uploaded as a GitHub Actions artifact, **30-day retention**.
+- A `counts.json` manifest (key-table row counts) is written at dump time.
+- A second job restores the artifact into a throwaway `postgres:17` service
+  and runs `server/scripts/verify-pg-backup.js --counts=counts.json` — every
+  dump is restore-verified the moment it is taken. A red scheduled run emails
+  the repo owner (GitHub default).
+
+**Ops caveats:**
+- GitHub disables cron workflows after **60 days of repo inactivity** — the
+  monthly drill (Section 6) checks the workflow is still green.
+- The pg_dump client major version must be ≥ the Neon server major (workflow
+  pins `postgresql-client-17`; re-check at ETL dry-run via `SELECT version()`).
+- Neon Free autosuspends after ~5 min idle. The cron-pinger keep-warm cadence
+  must be **≤4 min** during work hours to actually prevent cold starts, and
+  the ping target must execute a PG query (`/ready` gains a PG check at
+  cutover — the current `/api/cron/health` GET does zero DB queries).
+
+### 3.B MongoDB — Atlas M0 automatic snapshots (until Wave K)
 
 - Atlas M0 clusters receive **daily snapshots** taken automatically.
 - Retention is **2 days** (the two most recent daily snapshots are kept).
 - Snapshots are managed by Atlas and cannot be triggered manually on M0.
 
-### Accessing snapshots in the Atlas UI
+Accessing snapshots in the Atlas UI:
 
 1. Log in at [https://cloud.mongodb.com](https://cloud.mongodb.com).
 2. Navigate to your **Project** → **Clusters**.
@@ -73,7 +111,9 @@ Critical env vars to document:
 
 | Variable | Description |
 |---|---|
-| `MONGO_URI` | Atlas connection string (used by main server) |
+| `MONGO_URI` | Atlas connection string — **retires at Wave K** (read-only during the bake) |
+| `PG_URL` | Neon connection string (primary database from the Wave-J flip) |
+| `DB_BACKEND` | `postgres` from the Wave-J flip (unset/`mongo` before it) |
 | `JWT_SECRET` | JWT signing secret |
 | `JWT_EXPIRE` | Session TTL — `1d` in production (DOCS-003) |
 | `IMPORT_DEFAULT_PASSWORD` | **Boot-required in production** — server refuses to start without it (envValidator) |
@@ -112,11 +152,54 @@ Document these values in a secure note in case the service must be recreated:
 | Region | (note your current region, e.g., Singapore) |
 | Node version | (check Render → Environment → Node version) |
 
+### 4.4 GitHub Actions secrets (pg-backup workflow)
+
+| Secret | Description | Custody rule |
+|---|---|---|
+| `NEON_PG_URL` | Full Neon connection string used by the nightly dump | Re-enter if the Neon project is recreated |
+| `BACKUP_PASSPHRASE` | AES-256 key for the dump artifacts | **MUST also live in the owner's password manager.** GitHub secrets are write-only; if this value is lost, every existing backup artifact is permanently unreadable |
+
 ---
 
 ## 5. Restore Procedure
 
 Use this procedure when data loss is confirmed or when restoring to a new cluster is required.
+
+### 5.A PostgreSQL restore (primary from Wave J)
+
+**Path 1 — incident caught within ~6 h (Neon history window):**
+
+1. Neon console → project → **Restore** (Time Travel): pick the timestamp
+   just before the incident; restore into a new branch.
+2. Point Render's `PG_URL` at the restored branch (**Environment** tab →
+   save → auto-redeploy), or promote the branch in Neon.
+3. Verify: `GET /ready`, then
+   `PG_URL="<restored-url>" node server/scripts/verify-pg-backup.js`,
+   then the UI smoke test (login / classes / schedules / attendance).
+
+**Path 2 — older than the history window (dump restore):**
+
+1. GitHub → Actions → **pg-backup** → pick the newest green run → download
+   the artifact (`tms-<stamp>.dump.enc` + `counts.json`).
+2. Decrypt: `openssl enc -d -aes-256-cbc -pbkdf2 -pass env:BACKUP_PASSPHRASE -in tms-<stamp>.dump.enc -out tms.dump`
+   (passphrase from the owner's password manager).
+3. Create a fresh Neon branch/database, then:
+   `pg_restore --no-owner --no-privileges -d "<new-branch-url>" tms.dump`
+4. Verify the restore BEFORE flipping traffic:
+   `PG_URL="<new-branch-url>" node server/scripts/verify-pg-backup.js --counts=counts.json`
+5. Update `PG_URL` on Render → redeploy → `/ready` + UI smoke test.
+6. Document the incident (Section 9). Data written after the dump timestamp
+   is lost — notify affected users (≤24 h window).
+
+**Local rehearsal (no Neon needed):** restore into a throwaway docker PG —
+```bash
+docker run --rm -d --name pg-verify -e POSTGRES_PASSWORD=verify -p 5544:5432 postgres:17
+pg_restore --no-owner --no-privileges -d "postgresql://postgres:verify@localhost:5544/postgres" tms.dump
+PG_URL="postgresql://postgres:verify@localhost:5544/postgres" node server/scripts/verify-pg-backup.js
+docker rm -f pg-verify
+```
+
+### 5.B MongoDB restore (until Wave K)
 
 ### Prerequisites
 
@@ -189,6 +272,20 @@ If you restored to the **same cluster**, the connection string does not change �
 
 Run this checklist on the **first Monday of each month**.
 
+**PostgreSQL items (from Wave J — the automated verify job replaces the manual count-check):**
+
+- [ ] **pg-backup workflow green** — GitHub → Actions → pg-backup: every
+  scheduled run in the last month green (each run IS a restore-verify).
+- [ ] **Download the 1st-of-month artifact offline** — decrypt-test it with
+  the password-manager passphrase, keep the copy on the owner's machine.
+- [ ] **Spot-run the verify script against live Neon**
+  ```bash
+  PG_URL="<neon-connection-string>" node server/scripts/verify-pg-backup.js
+  ```
+  Confirm exit code 0.
+
+**MongoDB items (until Wave K):**
+
 - [ ] **Run verify-backup script**
   ```bash
   MONGO_URI="<atlas-connection-string>" node server/scripts/verify-backup.js
@@ -224,6 +321,12 @@ Run this checklist on the **first Monday of each month**.
 ### 6.2 Quarterly dry-run restore on staging
 
 Run this checklist **once per quarter** to verify the full restore path end-to-end before you need it in an incident. This drill targets a **staging** environment so production is never touched.
+
+> **From Wave J** the quarterly drill becomes the PG dump-restore rehearsal:
+> run Section 5.A **Path 2** against a throwaway docker PG (or a Neon staging
+> branch + the staging Render service), using the latest workflow artifact.
+> Record the result in the quarterly drill log below. The Atlas steps that
+> follow retire at Wave K.
 
 #### Prerequisites
 
@@ -289,9 +392,9 @@ Run this checklist **once per quarter** to verify the full restore path end-to-e
 
 **Steps:**
 
-1. Confirm the outage via health endpoint (`GET /ready`) and Atlas cluster status page.
-2. Check Atlas cluster status — if cluster is down, wait for Atlas auto-recovery or escalate to Atlas support.
-3. If data loss is confirmed, begin restore procedure (Section 5) immediately.
+1. Confirm the outage via health endpoint (`GET /ready`) and the database provider status page (post-cutover: [https://neonstatus.com](https://neonstatus.com); pre-cutover: Atlas cluster status).
+2. Check provider status — if the cluster/project is down, wait for auto-recovery or escalate to provider support.
+3. If data loss is confirmed, begin the restore procedure (Section 5.A for PG — Path 1 if within ~6 h, else Path 2; Section 5.B for Mongo) immediately.
 4. Notify team lead / system owner within 30 minutes of detection.
 5. Post status updates every 30 minutes until resolved.
 6. After restore, run `MONGO_URI="<connection-string>" node server/scripts/verify-backup.js` and complete smoke test.
@@ -323,11 +426,12 @@ Run this checklist **once per quarter** to verify the full restore path end-to-e
 **Steps:**
 
 1. Check Render metrics (CPU, memory) — free tier has limited resources.
-2. Check Atlas metrics for slow queries.
+2. Check database metrics for slow queries (Neon console → Monitoring; Atlas metrics pre-cutover).
 3. Review recent code changes for missing `await`, N+1 queries, or missing indexes.
-4. Check Render logs for `MongooseError: buffering timed out` or similar.
-5. If Atlas M0 connection pool is exhausted, consider reducing `maxPoolSize` in Mongoose config.
-6. Document findings; address in next sprint if non-critical.
+4. Check Render logs for connection errors (`MongooseError: buffering timed out` pre-cutover; PG `connection terminated`/timeout post-cutover).
+5. Connection-pool exhaustion: Atlas M0 → reduce Mongoose `maxPoolSize`; Neon Free → use the **pooled** connection string and mind the Free-tier connection cap.
+6. **Neon-specific:** first request after ~5 min idle pays an autosuspend cold start (seconds). If users report "slow first load", check the cron-pinger is running at ≤4-min cadence during work hours and actually executing a PG query (see Section 3.A caveats).
+7. Document findings; address in next sprint if non-critical.
 
 ---
 
@@ -337,7 +441,8 @@ Run this checklist **once per quarter** to verify the full restore path end-to-e
 |---|---|---|---|
 | System Owner / Admin | <!-- name --> | <!-- email / phone --> | Primary decision-maker for P1 incidents |
 | Developer on call | <!-- name --> | <!-- email / phone --> | Handles technical restore steps |
-| MongoDB Atlas support | Atlas support portal | [https://support.mongodb.com](https://support.mongodb.com) | For cluster-level issues (M0 = community support only) |
+| Neon support | Neon support portal | [https://neon.tech/docs/introduction/support](https://neon.tech/docs/introduction/support) + [https://neonstatus.com](https://neonstatus.com) | Primary DB from Wave J (Free = community support) |
+| MongoDB Atlas support | Atlas support portal | [https://support.mongodb.com](https://support.mongodb.com) | Until Wave K (M0 = community support only) |
 | Render support | Render support portal | [https://render.com/support](https://render.com/support) | For hosting/deployment issues |
 
 ---
