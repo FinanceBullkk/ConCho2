@@ -1,5 +1,7 @@
-const mongoose = require('mongoose');
-const Enrollment = require('../../models/Enrollment');
+// Dual-backend (Mongo ⇔ Postgres) — Phase 5 slice 4 (B2-tail): the status
+// writes + the future-roster pull ride the repos on ONE unit-of-work tx.
+const { runInTransaction } = require('../../domains/_shared/unit-of-work');
+const enrollmentRepo = require('../../domains/learning/enrollment/repository');
 const { handleError } = require('../../helpers/handleError');
 const { invalidateAnalyticsCache } = require('../../middleware/analyticsCache');
 const auditService = require('../../services/auditService');
@@ -37,29 +39,20 @@ const updateEnrollment = async (req, res) => {
     // Snapshot the pre-update state for the audit diff (golden rule: every
     // mutation is audited — this single-update path previously skipped audit
     // while its bulk twin recorded it).
-    const before = await Enrollment.findById(req.params.id).lean();
+    const before = await enrollmentRepo.findEnrollmentByIdLean(req.params.id);
 
     // Wrap enrollment update + schedule pull in one transaction so a crash
     // between the two writes cannot leave a dropped user in future rosters (BUG #2 fix).
     let enrollment = null;
-    const session = await mongoose.startSession();
-    try {
-      await session.withTransaction(async () => {
-        enrollment = await Enrollment.findByIdAndUpdate(
-          req.params.id,
-          update,
-          { new: true, runValidators: true, session },
-        );
-        if (!enrollment) return; // handled below after commit
+    await runInTransaction(async (tx) => {
+      enrollment = await enrollmentRepo.updateEnrollmentById(req.params.id, update, tx);
+      if (!enrollment) return; // handled below after commit
 
-        if (status === 'Dropped') {
-          const uid = enrollment.userId?._id ?? enrollment.userId;
-          await pullDroppedUsersFromFutureSchedules([uid], session);
-        }
-      });
-    } finally {
-      session.endSession();
-    }
+      if (status === 'Dropped') {
+        const uid = enrollment.userId?._id ?? enrollment.userId;
+        await pullDroppedUsersFromFutureSchedules([uid], tx);
+      }
+    });
 
     if (!enrollment) {
       return res.status(404).json({ success: false, message: 'Enrollment not found' });
@@ -72,18 +65,16 @@ const updateEnrollment = async (req, res) => {
       action: 'updated',
       entity: 'Enrollment',
       entityId: enrollment._id,
-      diff: auditService.diff(before, enrollment.toObject()),
+      diff: auditService.diff(before, enrollment.toObject ? enrollment.toObject() : enrollment),
       note: 'Admin enrollment status/note override',
     });
 
-    // Populate post-commit (populate does not run inside transactions).
-    await enrollment.populate('userId', 'empCode name department status');
-    await enrollment.populate('teamId', 'name');
-    await enrollment.populate('classId', 'classCode courseName totalSessions');
-    await enrollment.populate('transferredTo', 'name');
+    // Re-fetch populated post-commit (populate does not run inside
+    // transactions; the dual read embeds on either backend).
+    const populated = await enrollmentRepo.findEnrollmentByIdPopulated(req.params.id);
 
     invalidateAnalyticsCache();
-    res.json({ success: true, data: enrollment });
+    res.json({ success: true, data: populated });
   } catch (error) {
     handleError(res, error);
   }
@@ -115,32 +106,20 @@ const bulkUpdateEnrollmentStatus = async (req, res) => {
     // (team is a booking unit, separate from enrollment status).
     let droppedUserIds = [];
     if (status === 'Dropped') {
-      const affected = await Enrollment.find(
-        { _id: { $in: enrollmentIds } },
-        { userId: 1 }
-      ).lean();
+      const affected = await enrollmentRepo.findEnrollmentUserIdsByIds(enrollmentIds);
       droppedUserIds = affected.map(e => e.userId);
     }
 
     // Wrap both writes in one transaction — prevents ghost attendance records
     // when server crashes between enrollment update and schedule pull (BUG #2 fix).
     let result;
-    const session = await mongoose.startSession();
-    try {
-      await session.withTransaction(async () => {
-        result = await Enrollment.updateMany(
-          { _id: { $in: enrollmentIds } },
-          update,
-          { session },
-        );
+    await runInTransaction(async (tx) => {
+      result = await enrollmentRepo.bulkUpdateEnrollmentsByIds(enrollmentIds, update, tx);
 
-        if (droppedUserIds.length > 0) {
-          await pullDroppedUsersFromFutureSchedules(droppedUserIds, session);
-        }
-      });
-    } finally {
-      session.endSession();
-    }
+      if (droppedUserIds.length > 0) {
+        await pullDroppedUsersFromFutureSchedules(droppedUserIds, tx);
+      }
+    });
 
     auditService.record({
       req, action: 'bulk-status-change', entity: 'Enrollment',

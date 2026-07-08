@@ -34,4 +34,12 @@ const listUsers = ({ sortField, sortOrder, skip, limit, ...q }) =>
 
 const countUsers = (q) => User.countDocuments(buildFilter(q));
 
-module.exports = { listUsers, countUsers };
+// Admin trash view (Phase 5 slice 4, B1): the lifecycle writes are dual, so
+// the trash read must follow the active backend too.
+const listTrashedUsers = () =>
+  User.find({ isDeleted: true })
+    .select('+isDeleted +deletedAt')
+    .sort({ deletedAt: -1 })
+    .lean();
+
+module.exports = { listUsers, countUsers, listTrashedUsers };

@@ -657,6 +657,60 @@ const deleteSchedulesByIds = async (scheduleIds, tx) => {
   await exec(tx, `DELETE FROM schedules WHERE id = ANY($1::text[])`, [scheduleIds.map(String)]);
 };
 
+// ── Dropped-user roster pull (Phase 5 slice 4, B2-tail) ─────────────────────
+// Twin of the Mongo $pull-$in across future live rosters. `enrolled_users &&`
+// keeps the UPDATE to affected rows only; tx-aware via exec.
+const pullUsersFromFutureSchedules = async (userIds, tx) => {
+  if (!userIds || userIds.length === 0) return { modifiedCount: 0 };
+  const { rowCount } = await exec(tx,
+    `UPDATE schedules
+        SET enrolled_users = COALESCE(
+              (SELECT array_agg(u) FROM unnest(enrolled_users) AS u WHERE u <> ALL($1::text[])),
+              '{}'::text[]
+            ), updated_at = now()
+      WHERE start_time > now() AND status = 'scheduled' AND enrolled_users && $1::text[]`,
+    [userIds.map(String)]);
+  return { modifiedCount: rowCount };
+};
+
+// ── Reminder claim/stamp (Phase 5 slice 4, B7 — mig 034) ───────────────────
+// Twin of the Mongo atomic bulk claim. reminders_sent_at IS NULL covers both
+// the Mongo "$exists:false" (legacy rows) and explicit null (rolled back).
+const claimUpcomingReminders = async (now, windowEnd, claimStamp) => {
+  const { rowCount } = await query(
+    `UPDATE schedules SET reminders_sent_at = $3, updated_at = now()
+      WHERE start_time >= $1 AND start_time <= $2
+        AND status = 'scheduled' AND reminders_sent_at IS NULL`,
+    [new Date(now).toISOString(), new Date(windowEnd).toISOString(), new Date(claimStamp).toISOString()]);
+  return { acknowledged: true, matchedCount: rowCount, modifiedCount: rowCount };
+};
+
+// Exact-stamp re-fetch + the email-template embeds (class label, recipient
+// name/email — soft-deleted refs drop like the hook-filtered populate).
+const findClaimedForReminder = async (claimStamp) => {
+  const { rows } = await query(
+    `SELECT * FROM schedules WHERE reminders_sent_at = $1`,
+    [new Date(claimStamp).toISOString()]);
+  if (!rows.length) return [];
+  const [classMap, userMap] = await Promise.all([
+    embedClasses(rows),
+    fetchUsers([...new Set(rows.flatMap((r) => r.enrolled_users || []))], ['name', 'email']),
+  ]);
+  return rows.map((s) => {
+    const out = baseSchedule(s);
+    out.classId = s.class_id ? (classMap.get(s.class_id) || null) : null;
+    out.enrolledUsers = orderedEmbed(s.enrolled_users, userMap);
+    return out;
+  });
+};
+
+const rollbackReminderClaim = async (scheduleIds) => {
+  const { rowCount } = await query(
+    `UPDATE schedules SET reminders_sent_at = NULL, updated_at = now() WHERE id = ANY($1::text[])`,
+    [scheduleIds.map(String)]);
+  return { acknowledged: true, matchedCount: rowCount, modifiedCount: rowCount };
+};
+
 module.exports = {
   updateScheduleById,
   findTeamById,
@@ -664,6 +718,10 @@ module.exports = {
   findFutureTeamSchedules,
   findFutureUserSchedules,
   applyRosterDelta,
+  pullUsersFromFutureSchedules,
+  claimUpcomingReminders,
+  findClaimedForReminder,
+  rollbackReminderClaim,
   findEmptyScheduleIds,
   deleteSchedulesByIds,
   findScheduleForCollision,

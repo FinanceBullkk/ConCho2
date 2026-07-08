@@ -16,6 +16,8 @@
 const request = require('supertest');
 const mongoose = require('mongoose');
 const { getApp, getTokens, getSeedData, getCsrfHeaders, teardown } = require('../setup');
+// Slice-4 ports write through DB_BACKEND repos — assert on the ACTIVE backend.
+const { readActiveRow, findActiveRowWhere } = require('../pg-test-utils');
 
 let app, tokens, seed, csrf;
 let User, Schedule, Attendance;
@@ -483,12 +485,12 @@ describe('DELETE /api/users/:id', () => {
 
     expect(res.status).toBe(200);
 
-    const pastAfter = await Schedule.findById(pastSchedule._id).lean();
-    const futureAfter = await Schedule.findById(futureSchedule._id).lean();
-    const attendanceAfter = await Attendance.findOne({
+    const pastAfter = await readActiveRow('Schedule', pastSchedule._id);
+    const futureAfter = await readActiveRow('Schedule', futureSchedule._id);
+    const attendanceAfter = await findActiveRowWhere('Attendance', {
       scheduleId: pastSchedule._id,
       userId: target._id,
-    }).lean();
+    });
 
     expect(pastAfter.enrolledUsers.map(String)).toContain(String(target._id));
     expect(futureAfter.enrolledUsers.map(String)).not.toContain(String(target._id));

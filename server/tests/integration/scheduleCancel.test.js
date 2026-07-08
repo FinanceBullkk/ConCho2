@@ -109,7 +109,7 @@ describe('Durable cancel — leader cancelSlot', () => {
 
     const res = await leaderCancel(sch._id, { cancelReason: 'x'.repeat(501) });
     expect(res.status).toBe(400);
-    expect((await Schedule.findById(sch._id)).status).toBe('scheduled');
+    expect((await readActiveRow('Schedule', sch._id)).status).toBe('scheduled');
   });
 });
 
@@ -254,7 +254,7 @@ describe('Durable cancel — operational queries exclude cancelled rows', () => 
 
     await sendUpcomingReminders({ now: new Date(soonLive.start.getTime() - 60 * 60_000) });
 
-    expect((await Schedule.findById(liveSoon._id)).remindersSentAt).not.toBeNull();
-    expect((await Schedule.findById(goneSoon._id)).remindersSentAt).toBeNull();
+    expect((await readActiveRow('Schedule', liveSoon._id)).remindersSentAt).not.toBeNull();
+    expect((await readActiveRow('Schedule', goneSoon._id)).remindersSentAt ?? null).toBeNull();
   });
 });

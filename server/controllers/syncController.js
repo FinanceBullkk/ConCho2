@@ -1,6 +1,10 @@
 const Schedule = require('../models/Schedule');
 const Team = require('../models/Team');
 const Class = require('../models/Class');
+// Dual-backend roster write (Phase 5 slice 4, B5) — the enroll writes follow
+// DB_BACKEND via the schedule repo; the bulk READS above stay Mongo-direct
+// (tracked as a phase-05 follow-up — sync is read-heavy but write-gated).
+const scheduleRepo = require('../domains/schedule/repository');
 const auditService = require('../services/auditService');
 const { handleError } = require('../helpers/handleError');
 const logger = require('../lib/logger');
@@ -241,17 +245,9 @@ const syncFromGoogleSheets = async (req, res) => {
         continue;
       }
 
-      // ── Queue the update (will be executed via bulkWrite) ─
+      // ── Queue the update (executed via the dual-backend repo below) ─
       const memberIds = activeNew.map(m => m._id);
-      bulkOps.push({
-        updateOne: {
-          filter: { _id: schedule._id },
-          update: {
-            $set: { bookedTeamId: team._id },
-            $push: { enrolledUsers: { $each: memberIds } },
-          },
-        },
-      });
+      bulkOps.push({ scheduleId: schedule._id, teamId: team._id, memberIds });
 
       report.enrolled++;
       report.details.push({
@@ -264,11 +260,18 @@ const syncFromGoogleSheets = async (req, res) => {
       });
     }
 
-    // ── 4. Execute all updates in a single bulkWrite ─────
-    // Instead of N individual updateOne calls, one DB roundtrip.
+    // ── 4. Execute the queued updates through the schedule repo ─────
+    // (was one Mongoose bulkWrite; now per-row book + roster-add via the
+    // dual-backend seams — sync is admin-triggered and low-volume, and the
+    // repo pair mirrors the old $set + $push exactly.)
+    for (const op of bulkOps) {
+      // eslint-disable-next-line no-await-in-loop -- bounded by sheet rows
+      await scheduleRepo.updateScheduleById(op.scheduleId, { bookedTeamId: op.teamId });
+      // eslint-disable-next-line no-await-in-loop
+      await scheduleRepo.applyRosterDelta(op.scheduleId, [], op.memberIds);
+    }
     if (bulkOps.length > 0) {
-      await Schedule.bulkWrite(bulkOps);
-      logger.info({ ops: bulkOps.length }, 'Schedule bulkWrite executed');
+      logger.info({ ops: bulkOps.length }, 'Schedule roster sync writes executed');
     }
 
     logger.info({ ...report }, 'Google Sheets sync complete');

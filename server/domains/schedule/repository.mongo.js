@@ -501,6 +501,49 @@ const deleteSchedulesByIds = (scheduleIds, tx) => {
   );
 };
 
+// ── Dropped-user roster pull (Phase 5 slice 4, B2-tail) ─────────────────────
+// Remove userIds from all FUTURE live schedule rosters when they are Dropped
+// (On-hold is reversible and intentionally excluded). tx-aware: joins the
+// caller's unit-of-work so the enrollment write + pull stay atomic (BUG #2).
+const pullUsersFromFutureSchedules = async (userIds, tx) => {
+  if (!userIds || userIds.length === 0) return { modifiedCount: 0 };
+  const session = sessionOf(tx);
+  const res = await Schedule.updateMany(
+    { startTime: { $gt: new Date() }, enrolledUsers: { $in: userIds }, status: 'scheduled' },
+    { $pull: { enrolledUsers: { $in: userIds } } },
+    session ? { session } : {},
+  );
+  return { modifiedCount: res.modifiedCount };
+};
+
+// ── Reminder claim/stamp (Phase 5 slice 4, B7) ─────────────────────────────
+// The cron's concurrency control: ONE atomic bulk claim stamps every candidate
+// with a unique claimStamp; concurrent firings claim disjoint sets (or zero).
+const claimUpcomingReminders = (now, windowEnd, claimStamp) =>
+  Schedule.updateMany(
+    {
+      startTime: { $gte: now, $lte: windowEnd },
+      // Durable-cancelled sessions must never be reminded (phase-04 slice A).
+      status: 'scheduled',
+      $or: [{ remindersSentAt: { $exists: false } }, { remindersSentAt: null }],
+    },
+    { $set: { remindersSentAt: claimStamp } },
+  );
+
+// Re-fetch ONLY the schedules just claimed (exact claimStamp match), with the
+// email-template context populated.
+const findClaimedForReminder = (claimStamp) =>
+  Schedule.find({ remindersSentAt: claimStamp })
+    .populate('classId', 'classCode courseName')
+    .populate('enrolledUsers', 'name email');
+
+// All-sends-failed → free the claim so the next cron retries.
+const rollbackReminderClaim = (scheduleIds) =>
+  Schedule.updateMany(
+    { _id: { $in: scheduleIds } },
+    { $set: { remindersSentAt: null } },
+  );
+
 module.exports = {
   findScheduleById,
   findScheduleByIdRaw,
@@ -528,6 +571,10 @@ module.exports = {
   findFutureTeamSchedules,
   findFutureUserSchedules,
   applyRosterDelta,
+  pullUsersFromFutureSchedules,
+  claimUpcomingReminders,
+  findClaimedForReminder,
+  rollbackReminderClaim,
   findEmptyScheduleIds,
   deleteSchedulesByIds,
   updateScheduleById,

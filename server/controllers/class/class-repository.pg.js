@@ -72,6 +72,9 @@ const classRow = (r) => (r == null ? null : {
   _id: r.id,
   classCode: r.class_code,
   courseName: r.course_name,
+  // teacherIds feeds the evaluation/read policy binding — omitting it made
+  // "open until populated" treat every class as unbound on PG (403 → 200).
+  teacherIds: (r.teacher_ids || []).map(String),
   programId: r.program_id || null,
   totalSessions: r.total_sessions == null ? null : Number(r.total_sessions),
   status: r.status,
@@ -143,6 +146,62 @@ const countBookedSessions = async (classId) => {
   return rows[0].n;
 };
 
+// ── Import bulk upsert (Phase 5 slice 4, B6) ────────────────────────────────
+const importCrypto = require('crypto');
+const importNewId = () => importCrypto.randomBytes(12).toString('hex');
+const importExec = (tx, text, params) => (tx && tx.client ? tx.client.query(text, params) : query(text, params));
+
+const findTrashedClassesByKeyPairs = async (keyPairs) => {
+  if (!keyPairs.length) return [];
+  const conds = [];
+  const args = [];
+  for (const kp of keyPairs) {
+    args.push(kp.classCode, String(kp.courseName));
+    conds.push(`(class_code = $${args.length - 1} AND course_name = $${args.length})`);
+  }
+  const { rows } = await query(
+    `SELECT class_code FROM classes WHERE is_deleted = true AND (${conds.join(' OR ')})`, args);
+  return rows.map((r) => r.class_code);
+};
+
+// Upsert on uq_classes_code_course_active (partial: is_deleted = false).
+// Matched rows always update (updated_at ⇔ Mongoose timestamps bump), so
+// modified == matched — same as Mongo bulkWrite.
+const CLASS_COLS = { totalSessions: 'total_sessions', status: 'status' };
+
+const bulkUpsertClassesByCodeCourse = async (items, tx) => {
+  let upsertedCount = 0;
+  let modifiedCount = 0;
+  let matchedCount = 0;
+  for (const { classCode, courseName, set, setOnInsert } of items) {
+    const insertFields = { ...set, ...(setOnInsert || {}) };
+    const cols = ['class_code', 'course_name'];
+    const vals = [classCode, courseName];
+    for (const [k, col] of Object.entries(CLASS_COLS)) {
+      if (insertFields[k] === undefined) continue;
+      cols.push(col);
+      vals.push(k === 'totalSessions' ? Number(insertFields[k]) : insertFields[k]);
+    }
+    const updateCols = Object.entries(CLASS_COLS)
+      .filter(([k]) => set[k] !== undefined)
+      .map(([, col]) => col);
+    const setClause = updateCols.length
+      ? updateCols.map((c) => `${c} = EXCLUDED.${c}`).join(', ')
+      : 'class_code = EXCLUDED.class_code'; // degenerate no-field case
+    // eslint-disable-next-line no-await-in-loop -- bounded by import batch size
+    const { rows } = await importExec(tx,
+      `INSERT INTO classes(id, ${cols.join(', ')})
+       VALUES ($1, ${cols.map((_, i) => `$${i + 2}`).join(', ')})
+       ON CONFLICT (class_code, course_name) WHERE is_deleted = false
+       DO UPDATE SET ${setClause}, updated_at = now()
+       RETURNING (xmax = 0) AS inserted`,
+      [importNewId(), ...vals]);
+    if (rows[0] && rows[0].inserted) upsertedCount += 1;
+    else { matchedCount += 1; modifiedCount += 1; }
+  }
+  return { upsertedCount, modifiedCount, matchedCount };
+};
+
 module.exports = {
   courseSessionsMap,
   findOngoingByClassCode,
@@ -155,4 +214,6 @@ module.exports = {
   findTeamIdsForClass,
   enrollmentExists,
   countBookedSessions,
+  findTrashedClassesByKeyPairs,
+  bulkUpsertClassesByCodeCourse,
 };

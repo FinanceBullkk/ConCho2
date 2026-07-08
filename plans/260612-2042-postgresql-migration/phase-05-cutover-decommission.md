@@ -16,6 +16,22 @@ So every raw-Mongoose write below is a **cutover blocker**, regardless of whethe
 
 Definition of done for this gate: **grep of production `domains/`+`services/`+`controllers/`+`jobs/` for raw-Mongoose writes returns only repo-layer (`*.mongo.js`) hits.** Enforced by the F3 lane counter (below).
 
+> **Status refresh (2026-07-08, slice 4):** **B1–B7 CLOSED — the ENTIRE
+> section-B tail is ported.** B4 settings repo · B3 evaluation repo (revive
+> upsert + CastError contract + policy class reads incl. the missing
+> `teacherIds` PG mapping) · B5 sync roster WRITE (bulk READS Team/Class/
+> Schedule stay Mongo-direct — tracked follow-up below) · B7 mig 034
+> `reminders_sent_at` + atomic claim seams · B2-tail enrollment-status on the
+> UoW · B6 import on the UoW (booking-write insertSession + attendance bulk +
+> user/class bulk upserts; counts pinned to Mongo bulkWrite semantics —
+> modified==matched because Mongoose timestamps bump every matched doc) ·
+> B1 user-lifecycle cascade + restore on the UoW — which cascaded into porting
+> **user-mutations (create/update, replicating the pre-save hash + the
+> status→Dropped auto-release hook) and the trash-list read** (reads-follow-
+> writes, same as the Wave-G GATED cluster). Parity +4 suites (12 cases);
+> 8 integration suites reverse-asserted. **Remaining: F3 lane counter
+> (slice 5) · D-CronRun · B5 bulk reads · H ETL · I FK · J cutover.**
+>
 > **Status refresh (2026-07-07 night, slice 3):** **A3–A6 + A8 CLOSED — the
 > ENTIRE section-A split-brain inventory is ported.** A3: `calendar-sync`
 > reads via the already-dual `findScheduleForCalendarSync` + writes via

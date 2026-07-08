@@ -187,6 +187,13 @@ const aggregateMyStats = (userId) =>
     },
   ]);
 
+// Bulk historical-import insert (Phase 5 slice 4, B6) — joins the caller's
+// unit-of-work so a failure rolls the schedule + its attendance back together.
+const insertAttendanceMany = async (records, tx) => {
+  const res = await Attendance.insertMany(records, tx && tx.session ? { session: tx.session } : {});
+  return res.length;
+};
+
 module.exports = {
   findScheduleForAuthz,
   findScheduleDocById,
@@ -197,6 +204,7 @@ module.exports = {
   findAttendanceByUser,
   findAttendanceForSchedules,
   bulkWriteAttendance,
+  insertAttendanceMany,
   bumpUsersLastActive,
   aggregateByEmployee,
   aggregateTeamsForAnalytics,

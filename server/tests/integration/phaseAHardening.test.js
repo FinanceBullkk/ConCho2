@@ -15,6 +15,8 @@
 const request = require('supertest');
 const mongoose = require('mongoose');
 const { getApp, getTokens, getSeedData, getCsrfHeaders } = require('../setup');
+// Slice-4 ports write through DB_BACKEND repos — assert on the ACTIVE backend.
+const { findActiveRowWhere } = require('../pg-test-utils');
 
 let app, tokens, seed, csrf;
 
@@ -113,7 +115,7 @@ describe('DATA-010 — importService.importUsers cannot elevate role on existing
       { empCode, name: 'Renamed Participant', role: 'Admin' },
     ]);
 
-    const after = await User.findOne({ empCode });
+    const after = await findActiveRowWhere('User', { empCode });
     expect(after.name).toBe('Renamed Participant'); // name allowed
     expect(after.role).toBe('Participant');         // role NOT promoted
   });
@@ -123,7 +125,7 @@ describe('DATA-010 — importService.importUsers cannot elevate role on existing
     await importService.importUsers([
       { empCode, name: 'Fresh Admin', role: 'Admin' },
     ]);
-    const fresh = await User.findOne({ empCode });
+    const fresh = await findActiveRowWhere('User', { empCode });
     expect(fresh.role).toBe('Admin');
   });
 
@@ -140,7 +142,7 @@ describe('DATA-010 — importService.importUsers cannot elevate role on existing
       { empCode, name: 'Try Demote', role: 'Participant' },
     ]);
 
-    const after = await User.findOne({ empCode });
+    const after = await findActiveRowWhere('User', { empCode });
     expect(after.role).toBe('Admin'); // not demoted either — same gate works both directions
     expect(after.name).toBe('Try Demote');
   });

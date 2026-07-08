@@ -61,6 +61,36 @@ const enrollmentExists = (userId, teamIds) =>
 const countBookedSessions = (classId) =>
   Schedule.countDocuments({ classId, status: 'scheduled' });
 
+// ── Import bulk upsert (Phase 5 slice 4, B6) ────────────────────────────────
+// Trash guard (DATA-013): explicit isDeleted skips the soft-delete hook.
+const findTrashedClassesByKeyPairs = async (keyPairs) => {
+  const rows = await Class.find({ isDeleted: true, $or: keyPairs }, { classCode: 1 }).lean();
+  return rows.map((c) => c.classCode);
+};
+
+// items: [{ classCode, courseName, set: {...}, setOnInsert: {...} }] —
+// upsert on the {classCode, courseName} compound unique.
+const bulkUpsertClassesByCodeCourse = async (items, tx) => {
+  const result = await Class.bulkWrite(
+    items.map(({ classCode, courseName, set, setOnInsert }) => ({
+      updateOne: {
+        filter: { classCode, courseName },
+        update: {
+          $set: set,
+          ...(Object.keys(setOnInsert || {}).length > 0 ? { $setOnInsert: setOnInsert } : {}),
+        },
+        upsert: true,
+      },
+    })),
+    tx && tx.session ? { session: tx.session } : {},
+  );
+  return {
+    upsertedCount: result.upsertedCount,
+    modifiedCount: result.modifiedCount,
+    matchedCount: result.matchedCount,
+  };
+};
+
 module.exports = {
   courseSessionsMap,
   findOngoingByClassCode,
@@ -73,4 +103,6 @@ module.exports = {
   findTeamIdsForClass,
   enrollmentExists,
   countBookedSessions,
+  findTrashedClassesByKeyPairs,
+  bulkUpsertClassesByCodeCourse,
 };

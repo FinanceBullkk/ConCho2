@@ -21,6 +21,8 @@
 
 const request = require('supertest');
 const { getApp, getTokens, getSeedData, getCsrfHeaders, teardown } = require('../setup');
+// Slice-4 ports write through DB_BACKEND repos — assert on the ACTIVE backend.
+const { readActiveRow } = require('../pg-test-utils');
 
 let app, tokens, seed, csrf;
 let User;
@@ -108,13 +110,11 @@ describe('Soft-delete frees empCode + email (PR Q / DATA-008)', () => {
 
     // Raw DB read — the deleted user's empCode now carries __DEL_<ts>.
     // _id from API is a string; raw collection needs an ObjectId instance.
-    const mongoose = require('mongoose');
-    const tombstone = await User.collection.findOne({
-      _id: new mongoose.Types.ObjectId(aId),
-    });
+    const tombstone = await readActiveRow('User', aId);
     expect(tombstone.empCode).toMatch(new RegExp(`^${empCode}__DEL_[A-Z0-9]+$`));
     expect(tombstone.email).toBeNull();
-    expect(tombstone._softDeletedEmail).toBe(email);
+    // Parking field: top-level on Mongo, users.meta jsonb on PG.
+    expect(tombstone._softDeletedEmail ?? tombstone.meta?._softDeletedEmail).toBe(email);
   });
 
   test('restore with no clash returns the original empCode + email', async () => {
@@ -133,7 +133,7 @@ describe('Soft-delete frees empCode + email (PR Q / DATA-008)', () => {
       .set(csrf);
     expect(restoreRes.status).toBe(200);
 
-    const restored = await User.findById(aId);
+    const restored = await readActiveRow('User', aId);
     expect(restored.empCode).toBe(empCode);
     expect(restored.email).toBe(email);
   });

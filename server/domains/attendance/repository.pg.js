@@ -29,6 +29,8 @@ const { ServiceError } = require('../../helpers/ServiceError');
 // ──────────────────────────────────────────────────────────
 
 const newId = () => crypto.randomBytes(12).toString('hex');
+// tx-aware exec (Phase 5 slice 4, B6): joins the caller's unit-of-work client.
+const exec = (tx, text, params) => (tx && tx.client ? tx.client.query(text, params) : query(text, params));
 // Mongo binary (byte) sort order — NOT PG locale collation.
 const cmp = (x, y) => ((x || '') < (y || '') ? -1 : (x || '') > (y || '') ? 1 : 0);
 
@@ -309,6 +311,22 @@ const aggregateMyStats = async (userId) => {
   }];
 };
 
+// Bulk historical-import insert (Phase 5 slice 4, B6) — one multi-row INSERT
+// inside the caller's unit-of-work (tx.client). Column defaults (sync_status
+// PENDING, remark '') mirror the Mongoose model defaults on insertMany.
+const insertAttendanceMany = async (records, tx) => {
+  if (!records || records.length === 0) return 0;
+  const vals = [];
+  const ph = records.map((r, i) => {
+    vals.push(newId(), String(r.scheduleId), String(r.userId), r.status);
+    const b = i * 4;
+    return `($${b + 1},$${b + 2},$${b + 3},$${b + 4})`;
+  }).join(',');
+  const { rowCount } = await exec(tx,
+    `INSERT INTO attendances(id, schedule_id, user_id, status) VALUES ${ph}`, vals);
+  return rowCount;
+};
+
 module.exports = {
   findScheduleForAuthz,
   findScheduleDocById,
@@ -319,6 +337,7 @@ module.exports = {
   findAttendanceByUser,
   findAttendanceForSchedules,
   bulkWriteAttendance,
+  insertAttendanceMany,
   bumpUsersLastActive,
   aggregateByEmployee,
   aggregateTeamsForAnalytics,
