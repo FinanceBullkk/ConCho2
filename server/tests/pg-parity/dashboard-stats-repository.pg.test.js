@@ -253,4 +253,66 @@ describePg('pg-parity: dashboard-stats repository (14-query bundle)', () => {
     expect(m.attendance).toEqual([]);   // the Mongo $group-over-empty pin
     expect(m.progression).toEqual([]);  // ditto
   });
+
+  // Wave K-1b: dashboard-alerts counts ported off direct Mongoose. Own fixtures
+  // (runs last — truncates teams/schedules/attendances only). Ids are arbitrary
+  // (getAlertCounts checks NULL-ness, it doesn't join to users/classes).
+  test('getAlertCounts: toMark + team-gaps + today, identical both backends', async () => {
+    const CID = hex(0xfb01); const LID = hex(0xfb02);
+    const TNL = hex(0xfb11); const TNC = hex(0xfb12); const TB = hex(0xfb13); const TD = hex(0xfb14);
+    const SU = hex(0xfb21); const SM = hex(0xfb22); const STD = hex(0xfb23); const SC = hex(0xfb24);
+    const AU = hex(0xfb31); const AM = hex(0xfb32);
+    const EU0 = hex(0xfb41); const EU1 = hex(0xfb42);
+    const now = new Date('2026-07-04T12:00:00.000Z');
+    const lookback = new Date('2026-06-04T12:00:00.000Z');
+    const today = new Date('2026-07-04T00:00:00.000Z');
+    const tomorrow = new Date('2026-07-05T00:00:00.000Z');
+    const past = new Date('2026-07-03T12:00:00.000Z');       // in [lookback, now)
+    const past2 = new Date('2026-07-03T11:00:00.000Z');      // distinct startTime (partial-unique {classId,startTime})
+    const todayStart = new Date('2026-07-04T09:00:00.000Z'); // in [today, tomorrow)
+
+    const db = mongoose.connection.db;
+    await Promise.all(['Team', 'Schedule', 'Attendance'].map((m) => db.collection(coll(m)).deleteMany({})));
+    await db.collection(coll('Team')).insertMany([
+      { _id: oid(TNL), name: 'NL', classId: oid(CID), isDeleted: false },                 // no leader → +teamsWithoutLeader
+      { _id: oid(TNC), name: 'NC', leaderId: oid(LID), isDeleted: false },                // no class  → +teamsUnassigned
+      { _id: oid(TB), name: 'B', leaderId: oid(LID), classId: oid(CID), isDeleted: false }, // neither
+      { _id: oid(TD), name: 'D', isDeleted: true },                                        // deleted → excluded
+    ]);
+    await db.collection(coll('Schedule')).insertMany([
+      { _id: oid(SU), classId: oid(CID), startTime: past, endTime: past, status: 'scheduled', enrolledUsers: [oid(EU0), oid(EU1)] }, // ec2, mc1 → +toMark
+      { _id: oid(SM), classId: oid(CID), startTime: past2, endTime: past, status: 'scheduled', enrolledUsers: [oid(EU0)] },          // ec1, mc1 → no
+      { _id: oid(STD), classId: oid(CID), startTime: todayStart, endTime: todayStart, status: 'scheduled', enrolledUsers: [] },      // +today
+      { _id: oid(SC), classId: oid(CID), startTime: past, endTime: past, status: 'cancelled', enrolledUsers: [oid(EU0), oid(EU1)] }, // cancelled → excluded
+    ]);
+    await db.collection(coll('Attendance')).insertMany([
+      { _id: oid(AU), userId: oid(EU0), scheduleId: oid(SU), status: 'P', createdAt: past },
+      { _id: oid(AM), userId: oid(EU0), scheduleId: oid(SM), status: 'P', createdAt: past },
+    ]);
+
+    await query('TRUNCATE teams, team_members, schedules, attendances');
+    await query(
+      `INSERT INTO teams(id,name,class_id,leader_id,is_deleted) VALUES
+        ($1,'NL',$2,NULL,false),($3,'NC',NULL,$4,false),($5,'B',$2,$4,false),($6,'D',NULL,NULL,true)`,
+      [TNL, CID, TNC, LID, TB, TD],
+    );
+    const pIso = past.toISOString(); const tIso = todayStart.toISOString();
+    const sched = (id, start, end, status, enrolled) => query(
+      `INSERT INTO schedules(id,class_id,start_time,end_time,status,enrolled_users) VALUES ($1,$2,$3,$4,$5,$6)`,
+      [id, CID, start, end, status, enrolled],
+    );
+    await sched(SU, pIso, pIso, 'scheduled', [EU0, EU1]);
+    await sched(SM, past2.toISOString(), pIso, 'scheduled', [EU0]);
+    await sched(STD, tIso, tIso, 'scheduled', []);
+    await sched(SC, pIso, pIso, 'cancelled', [EU0, EU1]);
+    await query(
+      `INSERT INTO attendances(id,user_id,schedule_id,status,created_at) VALUES ($1,$2,$3,'P',$4),($5,$2,$6,'P',$4)`,
+      [AU, EU0, SU, pIso, AM, SM],
+    );
+
+    const args = { now, lookback, today, tomorrow };
+    const [m, p] = await Promise.all([repo.impls.mongo.getAlertCounts(args), repo.impls.pg.getAlertCounts(args)]);
+    expect(p).toEqual(m);
+    expect(m).toEqual({ toMark: 1, teamsWithoutLeader: 1, teamsUnassigned: 1, todaySessionCount: 1 });
+  });
 });

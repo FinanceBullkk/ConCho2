@@ -245,4 +245,37 @@ const runStatsAggregations = ({ userFilter, filteredUserIds, now, thirtyDaysAgo 
   ]);
 };
 
-module.exports = { getFilterDistincts, findFilteredUserIds, runStatsAggregations };
+// AlertBand counts (dashboard-alerts) — SQL mirror of the Mongo bundle:
+//   toMark            = past-30d 'scheduled' sessions with enrolled>0 whose
+//                       attendance rows count < enrolled count (not fully marked)
+//   teamsWithoutLeader / teamsUnassigned = live teams missing a leader / a class
+//                       (is_deleted IS NOT TRUE mirrors Mongo {$ne:true})
+//   todaySessionCount = 'scheduled' sessions starting today [today,tomorrow)
+const getAlertCounts = async ({ now, lookback, today, tomorrow }) => {
+  const iso = (d) => new Date(d).toISOString();
+  const [toMark, twl, tu, todayCount] = await Promise.all([
+    query(
+      `SELECT count(*)::int AS n FROM schedules s
+       WHERE s.status = 'scheduled' AND s.end_time < $1 AND s.end_time >= $2
+         AND COALESCE(array_length(s.enrolled_users, 1), 0) > 0
+         AND (SELECT count(*) FROM attendances a WHERE a.schedule_id = s.id)
+             < COALESCE(array_length(s.enrolled_users, 1), 0)`,
+      [iso(now), iso(lookback)],
+    ),
+    query(`SELECT count(*)::int AS n FROM teams WHERE leader_id IS NULL AND is_deleted IS NOT TRUE`),
+    query(`SELECT count(*)::int AS n FROM teams WHERE class_id IS NULL AND is_deleted IS NOT TRUE`),
+    query(
+      `SELECT count(*)::int AS n FROM schedules
+       WHERE start_time >= $1 AND start_time < $2 AND status = 'scheduled'`,
+      [iso(today), iso(tomorrow)],
+    ),
+  ]);
+  return {
+    toMark: toMark.rows[0].n,
+    teamsWithoutLeader: twl.rows[0].n,
+    teamsUnassigned: tu.rows[0].n,
+    todaySessionCount: todayCount.rows[0].n,
+  };
+};
+
+module.exports = { getFilterDistincts, findFilteredUserIds, runStatsAggregations, getAlertCounts };

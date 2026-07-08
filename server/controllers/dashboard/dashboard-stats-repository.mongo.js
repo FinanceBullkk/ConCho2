@@ -108,4 +108,30 @@ const runStatsAggregations = ({ userFilter, filteredUserIds, now, thirtyDaysAgo 
     ]),
   ]);
 
-module.exports = { getFilterDistincts, findFilteredUserIds, runStatsAggregations };
+// AlertBand counts (dashboard-alerts): past-30d sessions not fully marked +
+// teams missing a leader / a class + today's session count. Bundled so the
+// controller makes ONE backend-agnostic call.
+const getAlertCounts = async ({ now, lookback, today, tomorrow }) => {
+  const [toMarkAgg, teamsWithoutLeader, teamsUnassigned, todaySessionCount] = await Promise.all([
+    Schedule.aggregate([
+      { $match: { endTime: { $lt: now, $gte: lookback }, status: 'scheduled' } },
+      { $addFields: { ec: { $size: { $ifNull: ['$enrolledUsers', []] } } } },
+      { $match: { ec: { $gt: 0 } } },
+      { $lookup: { from: 'attendances', localField: '_id', foreignField: 'scheduleId', as: 'atts' } },
+      { $addFields: { mc: { $size: '$atts' } } },
+      { $match: { $expr: { $lt: ['$mc', '$ec'] } } },
+      { $count: 'total' },
+    ]),
+    Team.countDocuments({ leaderId: null, isDeleted: { $ne: true } }),
+    Team.countDocuments({ classId: null, isDeleted: { $ne: true } }),
+    Schedule.countDocuments({ startTime: { $gte: today, $lt: tomorrow }, status: 'scheduled' }),
+  ]);
+  return {
+    toMark: toMarkAgg[0]?.total || 0,
+    teamsWithoutLeader,
+    teamsUnassigned,
+    todaySessionCount,
+  };
+};
+
+module.exports = { getFilterDistincts, findFilteredUserIds, runStatsAggregations, getAlertCounts };
