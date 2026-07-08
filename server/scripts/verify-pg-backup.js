@@ -126,8 +126,16 @@ async function main() {
       counted[table] = n;
       const label = table.padEnd(15);
       if (n === 0) {
-        fail(`${label}: 0 rows  (table is empty)`);
-        results.failed++;
+        // A legitimately-empty table (e.g. attendances/evaluations on a
+        // freshly-cut-over DB with no data yet) is only a problem in ad-hoc
+        // mode. In manifest mode the exact-match section below is the
+        // authority — 0 == manifest 0 is a valid restore — so don't hard-fail.
+        if (countsArg) {
+          info(`${label}: 0 rows  (empty — validated against manifest below)`);
+        } else {
+          fail(`${label}: 0 rows  (table is empty)`);
+          results.failed++;
+        }
       } else {
         pass(`${label}: ${n.toLocaleString()} rows`);
         results.passed++;
