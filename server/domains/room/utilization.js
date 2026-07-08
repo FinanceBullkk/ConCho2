@@ -1,7 +1,9 @@
-const mongoose = require('mongoose');
-const Room = require('../../models/Room');
-const Schedule = require('../../models/Schedule');
+const repository = require('./repository');
 const { getConfigDto } = require('../schedule/scheduling-window-policy');
+
+// 24-hex object-id shape (both backends use it) — replaces mongoose.isValidObjectId
+// so this report is backend-agnostic (Wave K-1: no direct Mongoose here).
+const isObjectIdShape = (v) => typeof v === 'string' && /^[0-9a-fA-F]{24}$/.test(v);
 
 // ──────────────────────────────────────────────────────────
 // room/utilization — booked vs available room-hours (Build Plan #5).
@@ -29,18 +31,12 @@ async function getRoomUtilization({ range = '30d', officeId = null } = {}) {
   const availableHours = (slotMinutesPerDay / 60) * days;
 
   // Rooms (optionally office-scoped). Ignore a malformed officeId rather than 500.
-  const roomFilter = { isDeleted: false };
-  if (officeId && mongoose.isValidObjectId(officeId)) roomFilter.officeId = officeId;
-  const rooms = await Room.find(roomFilter).populate('officeId', 'name code').lean();
+  const rooms = await repository.listRooms({ officeId: isObjectIdShape(officeId) ? officeId : undefined });
   const roomIds = rooms.map((r) => r._id);
 
   // Booked sessions in range, per room.
   const sessions = roomIds.length
-    ? await Schedule.find({
-        status: 'scheduled',
-        roomId: { $in: roomIds },
-        startTime: { $gte: from, $lte: to },
-      }).select('roomId startTime endTime').lean()
+    ? await repository.findRoomedSessionsInRange({ roomIds, from, to })
     : [];
 
   const booked = new Map(); // roomId → { hours, sessions }
