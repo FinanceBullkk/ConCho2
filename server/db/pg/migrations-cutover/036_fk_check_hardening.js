@@ -1,7 +1,16 @@
 // Migration 036 — FK REFERENCES + CHECK enum hardening (Phase 5 cutover, Wave J).
 //
-// ⚠ apply ONLY after the production ETL reconciliation shows zero dangling FK
-// refs (Wave J step 5) — see cutover-checklist.md. NOT applied to CI docker yet.
+// ⚠ LIVES IN migrations-cutover/ ON PURPOSE — knex `migrate:latest` must NOT
+// auto-apply it: the jest harness TRUNCATEs individual tables between suites,
+// which PG refuses once other tables hold FKs into them ("cannot truncate a
+// table referenced in a foreign key constraint" — this red-flagged CI the one
+// time the file sat in migrations/). It applies ONLY at Wave J step 5, AFTER
+// the production ETL reconciliation shows zero dangling refs:
+//   cp server/db/pg/migrations-cutover/036_fk_check_hardening.js \
+//      server/db/pg/migrations/ && npx knex migrate:latest ...
+// (knex records it by filename, so the copy-then-migrate is the whole apply;
+// rehearsed on the ETL dry-run DB 2026-07-08 incl. rollback → re-apply.)
+// See cutover-checklist.md step 5.
 //
 // Mongo never enforced referential integrity, so every earlier migration
 // deferred FK constraints ("FK-column indexes now, constraints after cleanup" —
