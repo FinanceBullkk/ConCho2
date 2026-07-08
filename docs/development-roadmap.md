@@ -148,6 +148,19 @@ Bug fixing and integration review rank above net-new feature rollout.
 > [`2026-q3.md`](changelog-archive/2026-q3.md); 06-20→06-27 rolled 2026-07-07;
 > 06-14→06-19 rolled 2026-07-04 → [`2026-q2.md`](changelog-archive/2026-q2.md)).
 
+- **2026-07-08** — **Wave H + I + backup — cutover tooling: ETL script (dry-run rehearsed), FK/CHECK hardening migration (written, gated), daily encrypted pg_dump pipeline. OWNER REVIEW requested on the PR (outside standing approval).**
+  Branch `fix/pg-etl-fk-backup`. **H** `scripts/etl-mongo-to-pg.js` + `-transforms.js`: raw-driver stream copy (soft-deleted
+  rows too — trash survives), reflective column mapping (fail-loud) + per-model flatteners (SessionType/CustomFieldDefinition
+  `order→display_order`, CostEntry/RequiredTraining/TrainingRequest nested→flat) + curated meta packing (users/schedules),
+  idempotent ON CONFLICT (id), team_members resync, `--collection=X`; end-of-run row-count reconciliation + dangling-FK report +
+  Neon-FREE 0.5GB size gate. **Dry-run rehearsed end-to-end** (seeded throwaway mongod → docker `tms_etl_dry`): 11 collections,
+  counts matched, 0 dangling, 10MB; then **mig 036 applied clean on the ETL'd data + rollback/re-apply verified** — the exact
+  Wave-J order. **I** mig 036 (30 FK + 35 CHECK from the model enums; `waitlist_entries.schedule_id` CASCADE for the
+  promoteAndSweep placeholder hard-delete; audit/notification refs deliberately un-FK'd) — NOT applied to CI docker; applies at
+  Wave-J step 5 post-ETL-verify. **Backup** `.github/workflows/pg-backup.yml`: daily `pg_dump -Fc` → AES-256 artifact (30d) +
+  counts manifest + same-run restore-verify via NEW `scripts/verify-pg-backup.js` (--counts exact-match); `docs/backup-dr.md`
+  rewritten dual-state (two-tier RPO ≤6h/≤24h, PG restore paths, Neon autosuspend + pinger-cadence caveats, passphrase custody).
+  Owner sign-offs pending on the PR: passphrase custody · backup destination · waitlist CASCADE · secrets setup.
 - **2026-07-08** — **Phase-05 B5-reads — syncController's 3 bulk pre-loads onto the dual seams; Sheets sync survives cutover; the DEAD capacity guard comes alive.**
   Branch `fix/pg-b5-sync-bulk-reads`. Teams via `groups/read-repository.findAllTeams` (PG twin rebuilds members from the
   `team_members` junction, drops soft-deleted users like the populate hook — order-insensitive, sync treats members as a set) ·
