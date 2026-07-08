@@ -38,18 +38,31 @@
 ## 4. Verify (🔒 on prod data)
 
 - [ ] Row-count reconciliation table printed by ETL: Mongo count == PG count per collection (soft-deleted rows INCLUDED both sides)
-- [ ] Dangling-FK warning list empty (or each entry explained + accepted)
+- [ ] **Dangling-FK warning list** (now covers all 30 mig-036 FKs — fixed 2026-07-08 after the dry-run's short list hid two of three orphans). Each entry is a child row pointing at a hard-deleted parent → **must be cleaned before step 5** (see 4b).
 - [ ] Spot checksums: users / schedules / enrollments / evaluations (script prints per-collection field-level samples)
 - [ ] Counters: `counters.seq` >= max issued certificate number (gapless invariant)
 
+### 4b. Pre-036 orphan cleanup (🔒 — run for EVERY dangling row the report lists)
+
+The 2026-07-08 real-data dry-run found **3 orphan rows** (parents hard-deleted, so they can never satisfy the FK): `assignments.program_id` ×2 + one `feedbacks` row (both `cohort_id` and `user_id` dangling). Prod may accrue more by the real window — clean whatever the step-4 report actually lists, not just these. These are child rows referencing ghosts; deleting them is legitimate (assignments/feedbacks are NOT in the soft-delete-protected set = user/attendance/evaluation). Generic cleanup, per reported `(table, col, ref)`:
+```sql
+-- one DELETE per dangling FK the report names, e.g.:
+DELETE FROM assignments a WHERE a.program_id IS NOT NULL
+  AND NOT EXISTS (SELECT 1 FROM learning_programs p WHERE p.id = a.program_id);
+DELETE FROM feedbacks f WHERE (f.user_id   IS NOT NULL AND NOT EXISTS (SELECT 1 FROM users   u WHERE u.id = f.user_id))
+                            OR (f.cohort_id IS NOT NULL AND NOT EXISTS (SELECT 1 FROM classes c WHERE c.id = f.cohort_id));
+```
+- [ ] Re-run the step-4 dangling scan → **must return zero** before proceeding.
+- [ ] (Optional, cleaner) fix the same orphans in Atlas BEFORE the final ETL so PG never receives them — either way, zero dangling at step 5.
+
 ## 5. Apply FK/CHECK hardening (🔒)
 
-- [ ] mig 036 lives in `server/db/pg/migrations-cutover/` (deliberately NOT auto-applied — the jest harness TRUNCATEs per-table, which FKs forbid; CI proved this). Apply by copy-then-migrate, only after step 4 shows zero dangling refs:
+- [ ] mig 036 lives in `server/db/pg/migrations-cutover/` (deliberately NOT auto-applied — the jest harness TRUNCATEs per-table, which FKs forbid; CI proved this). Apply by copy-then-migrate, only after step 4b shows zero dangling refs:
   ```bash
   cp server/db/pg/migrations-cutover/036_fk_check_hardening.js server/db/pg/migrations/
   npx knex migrate:latest --knexfile db/pg/knexfile.js   # against Neon
   ```
-  Do NOT commit the copy back into `migrations/` — CI must keep skipping it until Wave K retires the Mongo test harness.
+  Do NOT commit the copy back into `migrations/` — CI must keep skipping it until Wave K retires the Mongo test harness. (Dry-run 2026-07-08: after cleaning the 3 orphans, mig 036 applies clean + rollback verified.)
 
 ## 6. Smoke on staging config (🧪)
 
