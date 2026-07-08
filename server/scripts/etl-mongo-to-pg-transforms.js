@@ -149,8 +149,16 @@ const mapRow = (modelName, rawDoc, cols) => {
   return row;
 };
 
-// Dangling-reference checks (child.col → parent) — printed post-run, and the
-// exact set mig 036 will enforce as REFERENCES (see 036_fk_check_hardening).
+// Dangling-reference checks (child.col → parent) — printed post-run.
+// MUST stay in lock-step with the `FKS` array in
+// db/pg/migrations-cutover/036_fk_check_hardening.js: every FK mig 036 adds is
+// a REFERENCES that will REJECT the ETL'd data if the child points at a
+// missing parent. An INCOMPLETE list here gives false confidence — the
+// 2026-07-08 real-data dry-run reported "1 dangling" (feedbacks.user_id) while
+// mig 036 actually failed on assignments.program_id first, because the three
+// entries below were missing. Keep all 30; if you edit mig 036's FKS, edit
+// this too (both were hand-maintained on purpose — no runtime coupling between
+// a scripts/ file and a migrations-cutover/ file).
 const DANGLING_CHECKS = [
   ['schedules', 'class_id', 'classes'],
   ['schedules', 'booked_team_id', 'teams'],
@@ -158,6 +166,7 @@ const DANGLING_CHECKS = [
   ['enrollments', 'user_id', 'users'],
   ['enrollments', 'class_id', 'classes'],
   ['enrollments', 'team_id', 'teams'],
+  ['enrollments', 'transferred_to', 'teams'],
   ['attendances', 'schedule_id', 'schedules'],
   ['attendances', 'user_id', 'users'],
   ['teams', 'class_id', 'classes'],
@@ -167,11 +176,20 @@ const DANGLING_CHECKS = [
   ['evaluations', 'class_id', 'classes'],
   ['evaluations', 'user_id', 'users'],
   ['certificates', 'user_id', 'users'],
+  ['certificates', 'program_id', 'learning_programs'],
+  ['certificates', 'cohort_id', 'classes'],
+  ['assignments', 'program_id', 'learning_programs'],
+  ['assignments', 'path_id', 'learning_paths'],
+  ['feedbacks', 'cohort_id', 'classes'],
   ['feedbacks', 'user_id', 'users'],
   ['waitlist_entries', 'schedule_id', 'schedules'],
   ['waitlist_entries', 'user_id', 'users'],
   ['room_bookings', 'room_id', 'rooms'],
+  ['room_bookings', 'schedule_id', 'schedules'],
   ['classes', 'program_id', 'learning_programs'],
+  ['users', 'department_id', 'departments'],
+  ['users', 'office_id', 'offices'],
+  ['users', 'manager_id', 'users'],
 ];
 
 module.exports = { COLLECTIONS, SKIP_COLLECTIONS, tableCandidates, mapRow, DANGLING_CHECKS };
