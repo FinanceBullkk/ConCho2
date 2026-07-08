@@ -97,11 +97,11 @@ suite unchanged. One PR per domain (or per tight cluster).
 
 | Phase | Step | Detail |
 |---|---|---|
-| **G — Full-suite parity** | Run the WHOLE Jest suite with `DB_BACKEND=postgres` | add a CI lane (server-tests-pg) mirroring server-tests; fix every divergence; both lanes must stay green ([`phase-04`](phase-04-test-parity.md)) |
-| **H — ETL script** | One-time `scripts/etl-mongo-to-pg.js` | stream each collection → PG rows (ObjectId→text PK, subdocs→jsonb, dates→timestamptz); **fidelity check** = row counts + per-collection checksums Mongo vs PG; rehearse on a Neon branch |
-| **I — Add FK constraints** | post-ETL hardening migration | the FK *columns* are indexed already (001); add the actual `REFERENCES` after ETL cleans dangling refs; add CHECK/exclusion constraints (retire reconcile patrol checks) |
-| **J — Cutover weekend** | freeze → final ETL → flip `DB_BACKEND=postgres` → smoke | maintenance window; freeze writes; run ETL on prod snapshot; verify checksums; flip env on Render; `/ready` + smoke; **30-day bake** with Mongo retained read-only ([`phase-05`](phase-05-cutover-decommission.md)) |
-| **K — Decommission** | after 30d bake | drop Mongoose models + mongo-memory test harness; drop `DB_BACKEND` switch (PG-only); cancel Atlas; update all docs/specs |
+| **G — Full-suite parity** | Run the WHOLE Jest suite with `DB_BACKEND=postgres` | **✅ COMPLETE 2026-07-07** — `server-tests-pg` promoted to REQUIRED gate #8, zero exclusions; phase-05 slices #261–#265 then closed every raw-write and the **F3 write-gate machine-enforces "zero raw-Mongoose production writes" on the lane** |
+| **H — ETL script** | One-time `scripts/etl-mongo-to-pg.js` | **✅ MERGED + REHEARSED 2026-07-08 (#267)** — reflective fail-loud mapping + per-model flatteners + meta packing; dry-run: 11 collections, counts matched, 0 dangling refs, 10MB ≪ Neon-free 0.5GB gate |
+| **I — Add FK constraints** | post-ETL hardening migration | **✅ WRITTEN + REHEARSED 2026-07-08 (#267)** — mig 036 (30 FK + 35 CHECK) staged in `db/pg/migrations-cutover/` (NOT auto-applied — jest TRUNCATE vs FK); applies at Wave-J step 5 by copy-then-migrate; rollback verified |
+| **J — Cutover weekend** | freeze → final ETL → flip `DB_BACKEND=postgres` → smoke | **READY — awaiting owner scheduling.** Follow [`cutover-checklist.md`](cutover-checklist.md): create `ConCho2-backups` private repo + secrets + Neon FREE project → freeze (~100 users) → ETL → verify → mig 036 → flip on Render → pinger ≤4-min + pg_dump cron → **1-week bake** (decided 2026-07-08) with Atlas read-only |
+| **K — Decommission** | after the 1-week bake | drop Mongoose models + mongo-memory harness + reconcile + adminDb explorer (E1) + write-gate allowlist; drop `DB_BACKEND` switch (PG-only); cancel Atlas; update all docs/specs |
 
 ## 4. Estimate & sequencing
 
