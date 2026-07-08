@@ -139,6 +139,14 @@ const findScheduleByIdRaw = async (id) => {
 
 const findScheduleByIdLean = findScheduleByIdRaw;
 
+// Sheets-sync pre-load (Phase 5 B5-reads): ALL live schedules, minimal shape.
+// SELECT * + baseSchedule keeps the id/array/capacity coercions in one place;
+// the row count is bounded (live sessions only) and sync is admin-triggered.
+const findLiveSchedulesForSync = async () => {
+  const { rows } = await query(`SELECT * FROM schedules WHERE status = 'scheduled'`);
+  return rows.map(baseSchedule);
+};
+
 // ── Post-commit re-fetch reads (read-path completion) ─────
 // Twins of the scheduleService booking/cancel re-fetches. Same embed shape as
 // findScheduleById but projection-scoped to each call's legacy populate.
@@ -744,6 +752,7 @@ module.exports = {
   findScheduleByIdLean,
   findScheduledByClassIdsOrdered,
   findScheduleForCalendarSync,
+  findLiveSchedulesForSync,
   findScheduleClassLabel,
   findUsersForEmail,
   findAllowedTimeSlotsSetting,

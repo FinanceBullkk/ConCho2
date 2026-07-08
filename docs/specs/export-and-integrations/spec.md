@@ -2,7 +2,7 @@
 capability: export-and-integrations
 status: stable
 owners: [services/exportService, services/calendarService, controllers/syncController, lib/google, lib/mailer]
-last_updated: 2026-06-08
+last_updated: 2026-07-08
 related_code:
   - server/services/exportService.js
   - server/services/calendarService.js
@@ -89,7 +89,24 @@ linkage.
 ### Requirement: Google Sheets sync [BR-5, UC-3]
 
 The system SHALL let an Admin sync to Google Sheets via `/api/sync`, recording a
-`Sync` audit entry.
+`Sync` audit entry. A sheet row that would enroll more members than the target
+session's remaining capacity MUST be rejected into the report's `errors` list
+(the session is not over-enrolled).
+
+#### Scenario: over-capacity sheet row is rejected
+
+- **GIVEN** a live schedule with `capacity: 1` and an empty roster, and a sheet
+  row naming a team with 3 active members for that slot
+- **WHEN** the Admin runs the Sheets sync
+- **THEN** the row lands in `errors` ("Capacity exceeded"), `enrolled` is 0, and
+  the schedule's roster is unchanged
+
+> Behavior delta 2026-07-08 (B5-reads port): this guard existed in code but was
+> DEAD — `enrolledCount` is a Mongoose virtual that `.lean()` never
+> materialized, so the comparison was always false and over-capacity rows
+> enrolled silently. The dual-backend read port computes the count from
+> `enrolledUsers.length`, bringing the guard live (first `/api/sync`
+> integration coverage pins it).
 
 ### Requirement: Transactional email [BR-6, BR-4, UC-4]
 
