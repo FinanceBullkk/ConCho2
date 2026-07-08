@@ -55,8 +55,36 @@ describe('pg-write-gate classify', () => {
     expect(out).toContain('controllers/syncController.js');
   });
 
-  test('models/ middleware frame counts as production', () => {
+  test('models-ONLY stack (middleware-initiated write) counts as production', () => {
     const out = classify(stack(NODE, '/repo/server/models/User.js'));
     expect(out).toContain('models/User.js');
+  });
+
+  test('models/ frame is TRANSPARENT: a model static delegated from *.mongo.js is sanctioned', () => {
+    // The TenantConfig.getSingleton false positive (write-gate run 2): parity
+    // test → branding repository.mongo.js → model static. The caller wins.
+    expect(classify(stack(
+      NODE,
+      '/repo/server/models/TenantConfig.js',
+      '/repo/server/domains/branding/repository.mongo.js',
+      '/repo/server/tests/pg-parity/branding-repository.pg.test.js',
+    ))).toBeNull();
+  });
+
+  test('models/ frame is TRANSPARENT: a model static called from a controller violates AT the controller', () => {
+    const out = classify(stack(
+      NODE,
+      '/repo/server/models/TenantConfig.js',
+      '/repo/server/controllers/someController.js',
+    ));
+    expect(out).toContain('controllers/someController.js');
+  });
+
+  test('models/ frame is TRANSPARENT: a model static called from a test fixture is sanctioned', () => {
+    expect(classify(stack(
+      NODE,
+      '/repo/server/models/TenantConfig.js',
+      '/repo/server/tests/integration/branding.test.js',
+    ))).toBeNull();
   });
 });
