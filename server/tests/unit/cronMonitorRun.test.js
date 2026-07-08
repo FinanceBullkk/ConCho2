@@ -5,19 +5,23 @@
 // passes through untouched and its error is re-thrown after being recorded.
 // Session 09 required scenario: "Sentry failures do not break the job."
 //
-// Pure unit test — the DB (CronRun) and Sentry are mocked so we exercise only
-// the wrapper's error-isolation logic, with no mongodb-memory-server needed.
+// Pure unit test — the heartbeat repository (D-CronRun dual seam) and Sentry
+// are mocked so we exercise only the wrapper's error-isolation logic, with no
+// mongodb-memory-server needed.
 
 jest.mock('../../lib/sentry', () => ({
   Sentry: { captureCheckIn: jest.fn(), captureException: jest.fn() },
   isEnabled: jest.fn(() => true),
 }));
-jest.mock('../../models/CronRun', () => ({ updateOne: jest.fn().mockResolvedValue({}) }));
+jest.mock('../../lib/cron-run-repository', () => ({
+  upsertStart: jest.fn().mockResolvedValue(undefined),
+  upsertEnd: jest.fn().mockResolvedValue(undefined),
+}));
 jest.mock('../../lib/logger', () => ({ warn: jest.fn(), info: jest.fn(), error: jest.fn() }));
 
 const { runMonitored } = require('../../lib/cronMonitor');
 const { Sentry, isEnabled } = require('../../lib/sentry');
-const CronRun = require('../../models/CronRun');
+const cronRunRepo = require('../../lib/cron-run-repository');
 
 const JOB = 'reconcile';
 const OPTS = { monitorSlug: 'reconcile-nightly', expectedIntervalMs: 24 * 60 * 60 * 1000 };
@@ -25,7 +29,8 @@ const OPTS = { monitorSlug: 'reconcile-nightly', expectedIntervalMs: 24 * 60 * 6
 beforeEach(() => {
   jest.clearAllMocks();
   isEnabled.mockReturnValue(true);
-  CronRun.updateOne.mockResolvedValue({});
+  cronRunRepo.upsertStart.mockResolvedValue(undefined);
+  cronRunRepo.upsertEnd.mockResolvedValue(undefined);
 });
 
 describe('cronMonitor.runMonitored — happy path', () => {
@@ -36,8 +41,9 @@ describe('cronMonitor.runMonitored — happy path', () => {
 
     expect(result).toBe('RESULT');
     expect(fn).toHaveBeenCalledTimes(1);
-    // recordStart + recordEnd = two heartbeat writes
-    expect(CronRun.updateOne).toHaveBeenCalledTimes(2);
+    // recordStart + recordEnd = one heartbeat write each
+    expect(cronRunRepo.upsertStart).toHaveBeenCalledWith(JOB, expect.any(Date));
+    expect(cronRunRepo.upsertEnd).toHaveBeenCalledWith(JOB, expect.objectContaining({ status: 'ok' }));
     // in_progress check-in then ok check-in; no exception captured
     expect(Sentry.captureCheckIn).toHaveBeenCalledWith(
       expect.objectContaining({ monitorSlug: 'reconcile-nightly', status: 'in_progress' }),
@@ -60,8 +66,9 @@ describe('cronMonitor.runMonitored — fail-soft side channels', () => {
     expect(fn).toHaveBeenCalledTimes(1);
   });
 
-  test('heartbeat (CronRun) write failure does NOT break the job', async () => {
-    CronRun.updateOne.mockRejectedValue(new Error('mongo down'));
+  test('heartbeat (cron-run repo) write failure does NOT break the job', async () => {
+    cronRunRepo.upsertStart.mockRejectedValue(new Error('backend down'));
+    cronRunRepo.upsertEnd.mockRejectedValue(new Error('backend down'));
     const fn = jest.fn().mockResolvedValue('STILL-OK');
 
     await expect(runMonitored(JOB, OPTS, fn)).resolves.toBe('STILL-OK');
@@ -85,7 +92,11 @@ describe('cronMonitor.runMonitored — job error path', () => {
 
     await expect(runMonitored(JOB, OPTS, fn)).rejects.toBe(boom);
     // start + end(error) heartbeats both written
-    expect(CronRun.updateOne).toHaveBeenCalledTimes(2);
+    expect(cronRunRepo.upsertStart).toHaveBeenCalledTimes(1);
+    expect(cronRunRepo.upsertEnd).toHaveBeenCalledWith(
+      JOB,
+      expect.objectContaining({ status: 'error', error: 'job blew up' }),
+    );
     expect(Sentry.captureCheckIn).toHaveBeenCalledWith(
       expect.objectContaining({ status: 'error' }),
       undefined,

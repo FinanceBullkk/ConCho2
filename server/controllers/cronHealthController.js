@@ -1,4 +1,6 @@
-const CronRun = require('../models/CronRun');
+// Phase-5 D-CronRun: heartbeats are read from the dual-backend seam — the
+// writes (lib/cronMonitor) land on the DB_BACKEND-selected backend only.
+const cronRunRepo = require('../lib/cron-run-repository');
 const { CRON_JOBS, deriveHealth } = require('../lib/cronMonitor');
 const { handleError } = require('../helpers/handleError');
 
@@ -17,7 +19,7 @@ const { handleError } = require('../helpers/handleError');
  */
 const getCronHealth = async (req, res) => {
   try {
-    const runs = await CronRun.find().sort({ jobName: 1 }).lean();
+    const runs = await cronRunRepo.findAllRuns();
     const now = Date.now();
     const runsByName = new Map(runs.map((run) => [run.jobName, run]));
     const configuredJobs = Object.values(CRON_JOBS);

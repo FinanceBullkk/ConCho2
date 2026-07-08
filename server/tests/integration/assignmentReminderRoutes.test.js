@@ -5,14 +5,14 @@ jest.mock('../../lib/mailer', () => ({
 const request = require('supertest');
 const { getApp, getSeedData, teardown } = require('../setup');
 // The reminder service writes NotificationLog through the dual-backend repo
-// (Phase 5 slice 3) — on the pg lane rows land in PG only, so asserts read
-// the ACTIVE backend.
-const { findActiveRowWhere, findActiveRowsWhere, countActiveRowsWhere, distinctActiveValues } = require('../pg-test-utils');
+// (Phase 5 slice 3) and the cron heartbeat rides the cron-run seam (slice 5,
+// D-CronRun) — on the pg lane rows land in PG only, so asserts + cleanup for
+// both read/delete on the ACTIVE backend.
+const { findActiveRowWhere, findActiveRowsWhere, countActiveRowsWhere, distinctActiveValues, deleteActiveRowsWhere } = require('../pg-test-utils');
 const { sendMail } = require('../../lib/mailer');
 const Assignment = require('../../models/Assignment');
 const Certificate = require('../../models/Certificate');
 const Class = require('../../models/Class');
-const CronRun = require('../../models/CronRun');
 const Enrollment = require('../../models/Enrollment');
 const LearningPath = require('../../models/LearningPath');
 const LearningProgram = require('../../models/LearningProgram');
@@ -44,7 +44,7 @@ afterEach(async () => {
     NotificationLog.deleteMany({}),
     Assignment.deleteMany({}),
     Certificate.deleteMany({}),
-    CronRun.deleteMany({ jobName: 'assignment-reminders' }),
+    deleteActiveRowsWhere('CronRun', { jobName: 'assignment-reminders' }),
     Enrollment.deleteMany({}),
     LearningPath.deleteMany({}),
     LearningProgram.deleteMany({}),
@@ -274,8 +274,9 @@ describe('POST /api/cron/assignment-reminders', () => {
     expect(authorized.status).toBe(200);
     expect(authorized.body.success).toBe(true);
     expect(authorized.body.data).toHaveProperty('assignmentsScanned');
-    const run = await CronRun.findOne({ jobName: 'assignment-reminders' }).lean();
+    const run = await findActiveRowWhere('CronRun', { jobName: 'assignment-reminders' });
     expect(run).toMatchObject({ lastStatus: 'ok' });
-    expect(run.expectedIntervalMs).toBe(DAY_MS);
+    // Number(): expected_interval_ms is bigint on PG → node-pg returns a string
+    expect(Number(run.expectedIntervalMs)).toBe(DAY_MS);
   });
 });

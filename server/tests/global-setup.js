@@ -20,4 +20,18 @@ module.exports = async () => {
   // Visible to global-teardown.js (same jest parent process).
   global.__MONGO_REPLSET__ = replSet;
   process.env.MONGO_URI = replSet.getUri();
+
+  // F3 write-gate (Phase 5 slice 5, pg lane only): run-scoped JSONL sink for
+  // raw-Mongoose PRODUCTION write violations. An env-published file (not a
+  // process global) because each test file has a fresh module registry and
+  // workers are separate processes — env is the only channel both inherit.
+  // global-teardown.js reads it and FAILS the run when violations survive.
+  if (process.env.DB_BACKEND === 'postgres') {
+    const fs = require('fs');
+    const os = require('os');
+    const path = require('path');
+    const file = path.join(os.tmpdir(), `pg-write-gate-${process.pid}-${Date.now()}.jsonl`);
+    fs.writeFileSync(file, '');
+    process.env.PG_WRITE_GATE_FILE = file;
+  }
 };

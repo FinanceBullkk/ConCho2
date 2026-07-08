@@ -23,6 +23,11 @@ const pgTestUtils = require('./pg-test-utils');
 // BEFORE any model compiles — raw-Mongoose fixture seeding in legacy suites
 // then lands on BOTH backends without per-suite edits. No-op on Mongo lane.
 require('./pg-auto-mirror').registerAutoMirror(mongoose);
+// F3 (Phase 5 slice 5): the write-gate sits ON TOP of the mirror — it records
+// any raw-Mongoose write whose causal stack frame is PRODUCTION code, and
+// global-teardown fails the pg lane if one survives. The mirror keeps fixture
+// writes green; the gate keeps unported app writes from hiding behind it.
+require('./pg-write-gate').registerWriteGate(mongoose);
 
 // tests/global-setup.js starts ONE shared replica set per jest run and exposes
 // its URI on process.env.MONGO_URI. Each test file connects under its OWN
