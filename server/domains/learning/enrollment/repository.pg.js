@@ -136,6 +136,79 @@ const findCohortCapacityPolicy = async (cohortId) => {
   return rows[0] && rows[0].capacity_policy ? rows[0].capacity_policy : {};
 };
 
+// ── Legacy /api/enrollments admin overrides (Phase 5 slice 4, B2-tail) ──────
+// tx-aware exec: joins the caller's unit-of-work client, else pool autocommit.
+const texec = (tx, text, params) => (tx && tx.client ? tx.client.query(text, params) : query(text, params));
+
+const findEnrollmentByIdLean = async (id) => {
+  const { rows } = await query('SELECT * FROM enrollments WHERE id = $1', [String(id)]);
+  return rows[0] ? enrollmentRow(rows[0]) : null;
+};
+
+// Bounded $set twin — the admin-override patch keys only.
+const ENROLLMENT_PATCH_COLS = { status: 'status', leftAt: 'left_at', note: 'note' };
+const patchSets = (patch, args) => {
+  const sets = [];
+  for (const [k, col] of Object.entries(ENROLLMENT_PATCH_COLS)) {
+    if (patch[k] === undefined) continue;
+    args.push(k === 'leftAt' && patch[k] != null ? new Date(patch[k]).toISOString() : patch[k]);
+    sets.push(`${col} = $${args.length}`);
+  }
+  return sets;
+};
+
+const updateEnrollmentById = async (id, patch, tx) => {
+  const args = [String(id)];
+  const sets = patchSets(patch, args);
+  if (!sets.length) return findEnrollmentByIdLean(id);
+  sets.push('updated_at = now()');
+  const { rows } = await texec(tx,
+    `UPDATE enrollments SET ${sets.join(', ')} WHERE id = $1 RETURNING *`, args);
+  return rows[0] ? enrollmentRow(rows[0]) : null;
+};
+
+const findEnrollmentUserIdsByIds = async (ids) => {
+  const { rows } = await query(
+    'SELECT id, user_id FROM enrollments WHERE id = ANY($1::text[])', [ids.map(String)]);
+  return rows.map((r) => ({ _id: r.id, userId: r.user_id }));
+};
+
+const bulkUpdateEnrollmentsByIds = async (ids, patch, tx) => {
+  const args = [ids.map(String)];
+  const sets = patchSets(patch, args);
+  if (!sets.length) return { modifiedCount: 0 };
+  sets.push('updated_at = now()');
+  const { rowCount } = await texec(tx,
+    `UPDATE enrollments SET ${sets.join(', ')} WHERE id = ANY($1::text[])`, args);
+  return { modifiedCount: rowCount };
+};
+
+// Post-commit response re-fetch — populate ⇔ LEFT JOIN embeds with the same
+// soft-delete drop semantics (User/Team/Class hooks hide trashed refs;
+// transferredTo → teams).
+const findEnrollmentByIdPopulated = async (id) => {
+  const { rows } = await query(
+    `SELECT e.*,
+            u.id AS u_id, u.emp_code AS u_emp, u.name AS u_name, u.department AS u_dept, u.status AS u_status,
+            t.id AS t_id, t.name AS t_name,
+            c.id AS c_id, c.class_code AS c_code, c.course_name AS c_course, c.total_sessions AS c_total,
+            x.id AS x_id, x.name AS x_name
+       FROM enrollments e
+       LEFT JOIN users u   ON u.id = e.user_id AND u.is_deleted = false
+       LEFT JOIN teams t   ON t.id = e.team_id AND t.is_deleted = false
+       LEFT JOIN classes c ON c.id = e.class_id AND c.is_deleted = false
+       LEFT JOIN teams x   ON x.id = e.transferred_to AND x.is_deleted = false
+      WHERE e.id = $1`, [String(id)]);
+  if (!rows[0]) return null;
+  const r = rows[0];
+  const out = enrollmentRow(r);
+  out.userId = r.u_id ? { _id: r.u_id, empCode: r.u_emp, name: r.u_name, department: r.u_dept, status: r.u_status } : null;
+  out.teamId = r.t_id ? { _id: r.t_id, name: r.t_name } : null;
+  out.classId = r.c_id ? { _id: r.c_id, classCode: r.c_code, courseName: r.c_course, totalSessions: r.c_total == null ? null : Number(r.c_total) } : null;
+  out.transferredTo = r.x_id ? { _id: r.x_id, name: r.x_name } : null;
+  return out;
+};
+
 module.exports = {
   findActiveCohortEnrollment,
   insertActiveEnrollment,
@@ -143,6 +216,11 @@ module.exports = {
   listEnrollmentsForLearner,
   findCohortEnrollmentById,
   markDropped,
+  findEnrollmentByIdLean,
+  updateEnrollmentById,
+  findEnrollmentUserIdsByIds,
+  bulkUpdateEnrollmentsByIds,
+  findEnrollmentByIdPopulated,
   findCohort,
   findCohortSchedulingMode,
   countActiveCohortEnrollments,

@@ -12,6 +12,8 @@
 
 const request = require('supertest');
 const { getApp, getTokens, getSeedData, getCsrfHeaders, teardown } = require('../setup');
+// Slice-4 ports write through DB_BACKEND repos — assert on the ACTIVE backend.
+const { readActiveRow } = require('../pg-test-utils');
 const User = require('../../models/User');
 const Class = require('../../models/Class');
 
@@ -67,7 +69,8 @@ describe('DATA-013 — import refuses soft-deleted matches', () => {
     expect(res.status).toBe(400);
     expect(res.body.message).toMatch(/trash/i);
     // The trashed doc was NOT silently overwritten.
-    const after = await User.findOne({ _id: trashed._id, isDeleted: true }).lean();
+    const after = await readActiveRow('User', trashed._id);
+    expect(after.isDeleted).toBe(true);
     expect(after.name).toBe('Trashed Import');
   });
 

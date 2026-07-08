@@ -177,8 +177,9 @@ describe('P2-03R — single PUT Dropped removes user from future Schedule.enroll
       enrolledUsers: [seed.member1._id],
     });
 
-    // Confirm user is enrolled before the update
-    const before = await Schedule.findById(futureSchedule._id).lean();
+    // Confirm user is enrolled before the update (active backend — the
+    // fixture write above is auto-mirrored into PG on the pg lane)
+    const before = await readActiveRow('Schedule', futureSchedule._id);
     expect(before.enrolledUsers.map(String)).toContain(seed.member1._id.toString());
 
     // Single PUT → Dropped
@@ -191,8 +192,10 @@ describe('P2-03R — single PUT Dropped removes user from future Schedule.enroll
     expect(res.status).toBe(200);
     expect(res.body.data.status).toBe('Dropped');
 
-    // User must have been pulled from the future schedule
-    const after = await Schedule.findById(futureSchedule._id).lean();
+    // User must have been pulled from the future schedule — read the ACTIVE
+    // backend: the pull now rides the enrollment-status seam (B2-tail), so on
+    // the pg lane the write lands in PG only and a Mongo read would be stale.
+    const after = await readActiveRow('Schedule', futureSchedule._id);
     expect(after.enrolledUsers.map(String)).not.toContain(seed.member1._id.toString());
   });
 
@@ -235,8 +238,9 @@ describe('P2-03R — single PUT Dropped removes user from future Schedule.enroll
 
     expect(res.status).toBe(200);
 
-    // Past schedule's enrolledUsers must remain intact (attendance records still valid)
-    const pastAfter = await Schedule.findById(pastSchedule._id).lean();
+    // Past schedule's enrolledUsers must remain intact (attendance records
+    // still valid) — active-backend read, same reason as P2-03R above.
+    const pastAfter = await readActiveRow('Schedule', pastSchedule._id);
     expect(pastAfter.enrolledUsers.map(String)).toContain(seed.member2._id.toString());
   });
 });

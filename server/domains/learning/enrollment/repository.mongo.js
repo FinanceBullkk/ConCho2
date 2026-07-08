@@ -82,6 +82,32 @@ const findCohortCapacityPolicy = async (cohortId) => {
   return program?.capacityPolicy || {};
 };
 
+// ── Legacy /api/enrollments admin overrides (Phase 5 slice 4, B2-tail) ──────
+// By-id status/note writes for EITHER mode (team or cohort) + the reads the
+// status handlers need. tx-aware via sessionOf-style option passing.
+const sessionOpt = (tx) => (tx && tx.session ? { session: tx.session } : {});
+
+const findEnrollmentByIdLean = (id) => Enrollment.findById(id).lean();
+
+const updateEnrollmentById = (id, patch, tx) =>
+  Enrollment.findByIdAndUpdate(id, patch, { new: true, runValidators: true, ...sessionOpt(tx) });
+
+const findEnrollmentUserIdsByIds = (ids) =>
+  Enrollment.find({ _id: { $in: ids } }, { userId: 1 }).lean();
+
+const bulkUpdateEnrollmentsByIds = async (ids, patch, tx) => {
+  const res = await Enrollment.updateMany({ _id: { $in: ids } }, patch, sessionOpt(tx));
+  return { modifiedCount: res.modifiedCount };
+};
+
+// Post-commit response re-fetch (populate does not run inside transactions).
+const findEnrollmentByIdPopulated = (id) =>
+  Enrollment.findById(id)
+    .populate('userId', 'empCode name department status')
+    .populate('teamId', 'name')
+    .populate('classId', 'classCode courseName totalSessions')
+    .populate('transferredTo', 'name');
+
 module.exports = {
   findActiveCohortEnrollment,
   insertActiveEnrollment,
@@ -89,6 +115,11 @@ module.exports = {
   listEnrollmentsForLearner,
   findCohortEnrollmentById,
   markDropped,
+  findEnrollmentByIdLean,
+  updateEnrollmentById,
+  findEnrollmentUserIdsByIds,
+  bulkUpdateEnrollmentsByIds,
+  findEnrollmentByIdPopulated,
   findCohort,
   findCohortSchedulingMode,
   countActiveCohortEnrollments,

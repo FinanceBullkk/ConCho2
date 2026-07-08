@@ -89,10 +89,9 @@ const getUserById = async (req, res) => {
  */
 const getDeletedUsers = async (req, res) => {
   try {
-    const users = await User.find({ isDeleted: true })
-      .select('+isDeleted +deletedAt')
-      .sort({ deletedAt: -1 })
-      .lean();
+    // Dual-backend (Phase 5 slice 4): lifecycle writes follow DB_BACKEND, so
+    // the trash view reads the same backend.
+    const users = await listRepository.listTrashedUsers();
 
     res.json({ success: true, count: users.length, data: users });
   } catch (error) {

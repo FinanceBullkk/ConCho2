@@ -1,5 +1,7 @@
 const Schedule = require('../../models/Schedule');
 const Attendance = require('../../models/Attendance');
+// Dual-backend roster pull (Phase 5 slice 4, B2-tail); DB_BACKEND selects.
+const scheduleRepo = require('../../domains/schedule/repository');
 
 // ──────────────────────────────────────────────────────────
 // Enrollment Controller — shared helpers
@@ -49,18 +51,10 @@ const enrichWithAttendance = async (enrollments) => {
  * Remove userIds from all future Schedule.enrolledUsers when they are Dropped.
  * Shared by updateEnrollment (single) and bulkUpdateEnrollmentStatus (bulk).
  * On-hold is intentionally excluded — reversible status, keep in schedules.
- *
- * @param {Array<ObjectId|string>} userIds
+ * LIVE sessions only — durable-cancelled rosters are frozen history.
+ * `tx` = the caller's unit-of-work handle (dual-backend; was a raw session).
  */
-const pullDroppedUsersFromFutureSchedules = async (userIds, session = null) => {
-  if (!userIds || userIds.length === 0) return;
-  const now = new Date();
-  // LIVE sessions only — durable-cancelled rosters are frozen history.
-  await Schedule.updateMany(
-    { startTime: { $gt: now }, enrolledUsers: { $in: userIds }, status: 'scheduled' },
-    { $pull: { enrolledUsers: { $in: userIds } } },
-    session ? { session } : {},
-  );
-};
+const pullDroppedUsersFromFutureSchedules = (userIds, tx = null) =>
+  scheduleRepo.pullUsersFromFutureSchedules(userIds, tx);
 
 module.exports = { enrichWithAttendance, pullDroppedUsersFromFutureSchedules };

@@ -1,8 +1,10 @@
-const mongoose = require('mongoose');
 const crypto = require('crypto');
 const bcrypt = require('bcryptjs');
-const User = require('../models/User');
-const Class = require('../models/Class');
+// Dual-backend (Mongo ⇔ Postgres) — Phase 5 slice 4 (B6): the import reads +
+// bulk upserts ride the user/class repos on ONE unit-of-work transaction.
+const { runInTransaction } = require('../domains/_shared/unit-of-work');
+const userRepo = require('../controllers/user/user-repository');
+const classRepo = require('../controllers/class/class-repository');
 
 // ──────────────────────────────────────────────────────────
 // Import Service
@@ -26,7 +28,6 @@ const CHUNK_SIZE = 50;
 // runs OUTSIDE the transaction already (see comment below) but the
 // bulkWrite + audit-write at the tail can still drag past the
 // default 60 s ceiling under load — bump to 120 s for headroom.
-const IMPORT_TX_MAX_MS = Number(process.env.IMPORT_TX_MAX_MS) || 120_000;
 
 /**
  * Generate a cryptographically secure random password (DI-09).
@@ -99,22 +100,15 @@ const importUsers = async (users) => {
   // classify as "new" — and the hook-bypassing bulkWrite upsert would then
   // silently overwrite the trashed doc (isDeleted stays true, result counts
   // lie). Refuse those rows loudly instead.
-  const trashedUsers = await User.find(
-    { empCode: { $in: allEmpCodes }, isDeleted: true },
-    { empCode: 1 }
-  ).lean();
+  const trashedUsers = await userRepo.findTrashedUserEmpCodes(allEmpCodes);
   if (trashedUsers.length > 0) {
-    const examples = trashedUsers.slice(0, 5).map(u => u.empCode).join(', ');
+    const examples = trashedUsers.slice(0, 5).join(', ');
     throw new ServiceError(
       `${trashedUsers.length} empCode(s) belong to soft-deleted users (${examples}${trashedUsers.length > 5 ? ', …' : ''}). Restore them from the trash first, then re-import.`
     );
   }
 
-  const existingUsers = await User.find(
-    { empCode: { $in: allEmpCodes } },
-    { empCode: 1 }
-  ).lean();
-  const existingSet = new Set(existingUsers.map(u => u.empCode));
+  const existingSet = new Set(await userRepo.findLiveUserEmpCodes(allEmpCodes));
 
   // ── Chunked bcrypt hashing (only for NEW users) ─────────
   const operations = [];
@@ -155,13 +149,7 @@ const importUsers = async (users) => {
         }
         // For existing users, role is NEVER promoted via import.
 
-        return {
-          updateOne: {
-            filter: { empCode },
-            update: { $set: setFields, ...(Object.keys(setOnInsert).length > 0 ? { $setOnInsert: setOnInsert } : {}) },
-            upsert: true,
-          },
-        };
+        return { empCode, set: setFields, setOnInsert };
       })
     );
     operations.push(...chunkOps);
@@ -172,18 +160,10 @@ const importUsers = async (users) => {
   // built). The transaction below only carries the bulkWrite — no CPU
   // work — so it commits in milliseconds. maxCommitTimeMS guards
   // against pathological cases (e.g. Mongo paused for a step-down).
-  const session = await mongoose.startSession();
   let result;
-  try {
-    await session.withTransaction(
-      async () => {
-        result = await User.bulkWrite(operations, { session });
-      },
-      { maxCommitTimeMS: IMPORT_TX_MAX_MS },
-    );
-  } finally {
-    session.endSession();
-  }
+  await runInTransaction(async (tx) => {
+    result = await userRepo.bulkUpsertUsersByEmpCode(operations, tx);
+  });
 
   // Count how many new users received the default password (so admin knows
   // who needs to be notified to change their password).
@@ -238,12 +218,9 @@ const importClasses = async (classes) => {
     classCode: c.classCode.trim().toUpperCase(),
     courseName: String(c.courseName).trim(),
   }));
-  const trashedClasses = await Class.find(
-    { isDeleted: true, $or: keyPairs },
-    { classCode: 1 }
-  ).lean();
+  const trashedClasses = await classRepo.findTrashedClassesByKeyPairs(keyPairs);
   if (trashedClasses.length > 0) {
-    const examples = trashedClasses.slice(0, 5).map(c => c.classCode).join(', ');
+    const examples = trashedClasses.slice(0, 5).join(', ');
     throw new ServiceError(
       `${trashedClasses.length} class(es) match archived cohorts in the trash (${examples}${trashedClasses.length > 5 ? ', …' : ''}). Restore them first, then re-import.`
     );
@@ -259,25 +236,14 @@ const importClasses = async (classes) => {
     const setOnInsert = {};
     if (!c.status) setOnInsert.status = 'Ongoing';
 
-    return {
-      updateOne: {
-        // Use compound key matching the { classCode, courseName } unique index
-        filter: { classCode, courseName },
-        update: { $set: setFields, $setOnInsert: setOnInsert },
-        upsert: true,
-      },
-    };
+    // Upsert key = the { classCode, courseName } compound unique.
+    return { classCode, courseName, set: setFields, setOnInsert };
   });
 
-  const session = await mongoose.startSession();
   let result;
-  try {
-    await session.withTransaction(async () => {
-      result = await Class.bulkWrite(operations, { session });
-    });
-  } finally {
-    session.endSession();
-  }
+  await runInTransaction(async (tx) => {
+    result = await classRepo.bulkUpsertClassesByCodeCourse(operations, tx);
+  });
 
   return {
     total: classes.length,

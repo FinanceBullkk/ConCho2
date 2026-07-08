@@ -143,10 +143,29 @@ Bug fixing and integration review rank above net-new feature rollout.
 > **Rolling window:** ~last 2 weeks / ~15 entries kept inline (file ≤ ~400
 > lines); older entries roll verbatim, newest-first, to
 > [`changelog-archive/`](changelog-archive/) (per-quarter files). Currently
-> inline: **2026-07-04 → 2026-07-07** (07-02→07-03 rolled 2026-07-07 →
+> inline: **2026-07-04 (E4+) → 2026-07-08** (07-04 E1–E3 rolled 2026-07-08,
+> 07-02→07-03 rolled 2026-07-07 →
 > [`2026-q3.md`](changelog-archive/2026-q3.md); 06-20→06-27 rolled 2026-07-07;
 > 06-14→06-19 rolled 2026-07-04 → [`2026-q2.md`](changelog-archive/2026-q2.md)).
 
+- **2026-07-08** — **Phase-05 cutover-blocker slice 4 — B-tail (B1–B7) dual-backend: the ENTIRE section-B inventory is ported; only F3 + D-CronRun remain before the "zero raw-Mongoose write" gate closes.**
+  Branch `fix/pg-cutover-slice4-b-tail`. **B4** settings repo (`domains/settings/`, upsert-by-key) · **B3** evaluation repo
+  (`domains/evaluation/`: revive-in-place upsert ON CONFLICT (class_id,user_id), averageScore mapper ⇔ the Mongo virtual,
+  Mongo-shaped CastError on garbage filter ids (SEC-014 400 contract), policy class reads via `class-repository` — whose PG
+  `classRow` was MISSING `teacherIds`, silently unbinding every class on PG) · **B5** sheets-sync roster write via
+  `updateScheduleById`+`applyRosterDelta` (bulk READS stay Mongo — tracked follow-up) · **B7** mig 034 `schedules.
+  reminders_sent_at` + atomic claim/refetch/rollback seams (reminderService swap) · **B2-tail** enrollment-status re-homed on
+  `runInTransaction` (by-id/bulk status writes + populated re-fetch; the shared future-roster pull is a dual seam returning
+  modifiedCount) · **B6** import re-homed on the UoW (booking-write `insertSession` + `insertAttendanceMany` + user/class bulk
+  upserts — counts pinned to Mongo bulkWrite truth: modified==matched since Mongoose timestamps bump every matched doc) ·
+  **B1** user soft-delete cascade + restore on ONE UoW (team_members junction pull, empCode/email parking via users.meta) —
+  which cascaded reads-follow-writes into porting **user-mutations** (create/update: PG twin replicates the pre-save bcrypt hash
+  AND the status→Dropped auto-release hook incl. post-commit waiter notify) and the **trash-list read** (`listTrashedUsers`).
+  Also: parking/restore moved off raw `collection.updateOne` (driver-level string id matched NOTHING — caught by parity).
+  Parity +4 suites/12 cases (settings · evaluation · reminder-claim · user-import-lifecycle); 8 integration suites
+  reverse-asserted onto the active backend. Targeted: PG 16 suites 174/174 · Mongo same set (pre-merge). Owner decisions:
+  prod PG = **Neon FREE** (~100 users thực tế; đo size lúc ETL dry-run; pg_dump backup job vào checklist J) · bake sau cutover
+  rút ngắn còn 1–2 tuần. Next: slice 5 (F3 lane counter) → H ETL → I FK → J cutover.
 - **2026-07-07** — **Phase-05 cutover-blocker slice 3 — A3–A6 + A8 dual-backend: the ENTIRE section-A split-brain inventory is now ported.**
   Branch `fix/pg-cutover-slice3-calendar-notification-seed`. **A3 (calendar)**: `calendar-sync.js` rode raw populate + `Schedule.updateOne`
   for the event-id/Meet-link writeback → now `repository.findScheduleForCalendarSync` (the dual read already existed) +
@@ -349,40 +368,6 @@ Bug fixing and integration review rank above net-new feature rollout.
   consume, MFA transitions, no-extra-fields shapes) + 54/54 Mongo auth/MFA/passwordReset suites green.
   **Wave E done — the whole security surface (audit chain, retention, login, middleware, credential/MFA mutations)
   is dual-backend. Next: Wave F (legacy tail) → G (full-suite PG parity lane).**
-
-- **2026-07-04** — **Phase 3 Wave-E slice E3 — auth login + middleware reads ported to dual-backend (mig 030).**
-  The load-bearing security read path now runs through `services/auth/auth-repository.{mongo,pg}.js` (+ clean-swap
-  selector): login lookup, the ATOMIC failed-login roll (Mongo aggregation-pipeline update ⇄ one PG CASE UPDATE —
-  counter+1, at max → 0 + `lock_until = now()+LOCK_MINUTES`), success counter reset, MFA second-leg reads/writes
-  (TOTP replay counter, single-use backup codes), and the per-request middleware projection (10 fixed fields, cached
-  30s). Mig 030 adds the 13 `users` security columns (password / password_changed_at / must_change_password / reset
-  token pair / mfa_enabled / mfa_secret / mfa_pending pair / mfa_backup_codes text[] / mfa_last_used_counter /
-  failed_login_attempts / lock_until). `select:false` parity is enforced by projection: the security readers are the
-  ONLY methods surfacing password/mfa fields, and both backends now return the same EXPLICIT fixed field set (the
-  Mongo readers were tightened from additive `+select` to inclusion projections). `auth-login.js` compares passwords
-  via bcrypt directly (lean rows, no hydrated instance methods); `middleware/auth.js` keeps its NodeCache + iat
-  session-kill logic backend-agnostic. 6/6 pg-parity on real Neon (incl. the no-leak middleware-projection pin +
-  same lockout transition) + 37/37 existing Mongo auth/MFA suites green. Next: E4 auth mutations.
-
-- **2026-07-04** — **Phase 3 Wave-E slice E2 — PG retention purge job (no new mig).**
-  `jobs/retentionPurgeJob.js`: nightly 02:30 UTC DELETE for the PG tables whose Mongo twins rely on TTL indexes —
-  `audit_log` 730d (`AUDIT_RETENTION_DAYS`) · `notification_logs` 180d (fixed) · `metric_snapshots` 400d
-  (`METRIC_SNAPSHOT_RETENTION_DAYS`) — env + default in lockstep with the models; the debt migs 002/019 explicitly
-  deferred to Wave E. PG-only (`isPostgres` guard — on Mongo the TTL indexes do the work), cronMonitor heartbeat
-  (`retention-purge`, 02:30 UTC after reconcile), graceful-shutdown wired in `server.js`, purge deletions unaudited by
-  design (parity with Mongo TTL deletions). reconcile_report (30d) + token_blocklist windows join when those ports
-  land. 5/5 pg tests on real Neon (per-window deletes; strict-< boundary — edge row survives; call-time env override).
-
-- **2026-07-04** — **Phase 3 Wave-E slice E1 — audit write path ported to dual-backend (mig 029).**
-  The tamper-evident hash chain now writes through `services/audit-repository.{mongo,pg}.js` (+ clean-swap selector):
-  `findChainHead`/`insertChainedRow`/`findChainWindow` extracted from `auditService`/`audit-chain` — ordering +
-  hashing stay backend-agnostic in the service; `verifyChain` takes an optional `repo` so parity drives both backends.
-  Mig 029 `audit_log`: partial-unique `seq` (chain-fork guard ⇔ the Mongo partial index), entity/actor/action
-  +created_at indexes, plain created_at index for the Wave-E2 retention purge (PG has no TTL — Mongo keeps its 730d
-  TTL index). Enum parity: the pg impl validates entity/actorRole from the SAME Mongoose schema enumValues (no CHECK
-  constraint — the enum is a growing ratchet). 8/8 pg-parity green on real Neon (identical hashes across
-  ObjectId/Date vs text/ISO row shapes; tamper → hash-mismatch + deletion → missing-rows verdicts agree; dup-seq
-  23505⇄11000) + 48/48 existing Mongo audit tests. Wave-E plan: `plans/260704-0349-pg-port-wave-e-auth-audit/`.
 
 ## How to keep this current
 

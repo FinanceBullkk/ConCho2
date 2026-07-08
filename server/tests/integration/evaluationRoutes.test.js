@@ -13,6 +13,8 @@
 const request = require('supertest');
 const mongoose = require('mongoose');
 const { getApp, getTokens, getSeedData, getCsrfHeaders, teardown } = require('../setup');
+// Slice-4 ports write through DB_BACKEND repos — assert on the ACTIVE backend.
+const { readActiveRow, countActiveRowsWhere } = require('../pg-test-utils');
 
 let app, tokens, seed, csrf;
 let Evaluation, Class;
@@ -91,7 +93,7 @@ describe('POST /api/evaluations', () => {
     expect(res.body.data.teacherComment).toBe('Updated');
 
     // Verify only one record (unique index on classId+userId)
-    const count = await Evaluation.countDocuments({ classId: cls._id, userId: seed.member1._id });
+    const count = await countActiveRowsWhere('Evaluation', { classId: cls._id, userId: seed.member1._id });
     expect(count).toBe(1);
   });
 
@@ -218,7 +220,7 @@ describe('GET /api/evaluations', () => {
       });
 
     expect(res.status).toBe(200);
-    const created = await Evaluation.findById(res.body.data._id);
+    const created = await readActiveRow('Evaluation', res.body.data._id);
     expect(created.createdBy?.toString()).toBe(seed.teacher._id.toString());
   });
 
@@ -247,7 +249,7 @@ describe('GET /api/evaluations', () => {
       });
 
     expect(upd.status).toBe(200);
-    const after = await Evaluation.findById(upd.body.data._id);
+    const after = await readActiveRow('Evaluation', upd.body.data._id);
     // Original Teacher is preserved as createdBy — Admin update is captured by audit log instead.
     expect(after.createdBy?.toString()).toBe(seed.teacher._id.toString());
     expect(after.grammarScore).toBe(10);
@@ -351,8 +353,10 @@ describe('DELETE /api/evaluations/:id', () => {
     expect(res.status).toBe(200);
     expect(res.body.success).toBe(true);
 
-    const exists = await Evaluation.findById(ev._id);
-    expect(exists).toBeNull();
+    // readActiveRow bypasses the soft-delete hook — assert the trash flag
+    // (the row persists as recoverable trash; a hook-scoped read hides it).
+    const exists = await readActiveRow('Evaluation', ev._id);
+    expect(exists.isDeleted).toBe(true);
   });
 
   test('Teacher cannot delete (403 — Admin only)', async () => {
@@ -436,8 +440,8 @@ describe('DATA-014 — evaluation delete is soft + re-upsert revives', () => {
       .set('Authorization', `Bearer ${tokens.admin}`);
     expect(byId.status).toBe(404);
     // ...but still in the DB as a recoverable trash row (golden rule).
-    const trashed = await Evaluation.findOne({ _id: ev._id, isDeleted: true }).lean();
-    expect(trashed).not.toBeNull();
+    const trashed = await readActiveRow('Evaluation', ev._id);
+    expect(trashed.isDeleted).toBe(true);
 
     // Second delete → 404 (the soft-delete hook scopes the flip to live rows).
     const again = await request(app)
@@ -458,7 +462,7 @@ describe('DATA-014 — evaluation delete is soft + re-upsert revives', () => {
     expect(revive.status).toBe(200);
     expect(String(revive.body.data._id)).toBe(String(ev._id)); // same logical slot
 
-    const revived = await Evaluation.findById(ev._id).lean(); // hook-visible again
+    const revived = await readActiveRow('Evaluation', ev._id); // hook-visible again
     expect(revived).not.toBeNull();
     expect(revived.isDeleted).toBe(false);
     expect(revived.grammarScore).toBe(9);

@@ -1,6 +1,6 @@
-const Evaluation = require('../models/Evaluation');
-const Class = require('../models/Class');
-const Enrollment = require('../models/Enrollment');
+// Dual-backend (Mongo ⇔ Postgres) — Phase 5 slice 4 (B3); DB_BACKEND selects.
+const evaluationRepo = require('../domains/evaluation/repository');
+const classRepo = require('./class/class-repository');
 const auditService = require('../services/auditService');
 const evaluationPolicy = require('../policy/evaluation');
 const { handleError } = require('../helpers/handleError');
@@ -43,7 +43,7 @@ const upsertEvaluation = async (req, res) => {
     }
 
     // Audit PR 5: per-class teacher binding check.
-    const cls = await Class.findById(classId).lean();
+    const cls = await classRepo.findClassLeanById(classId);
     if (!cls) {
       return res.status(404).json({ success: false, message: 'Class not found' });
     }
@@ -57,27 +57,16 @@ const upsertEvaluation = async (req, res) => {
     // `null` in the $in matches legacy rows that PREDATE the isDeleted field
     // (missing field) — without it the upsert would try to insert and E11000
     // against the existing legacy row.
-    const before = await Evaluation.findOne({
-      classId, userId, isDeleted: { $in: [true, false, null] },
-    }).lean();
+    const before = await evaluationRepo.findForClassUserIncludingTrashed(classId, userId);
     const reviving = Boolean(before?.isDeleted);
 
-    const update = {
-      level, grammarScore, vocabularyScore, pronunciationScore,
-      fluencyScore, teacherComment,
-      ...(reviving ? { isDeleted: false, deletedAt: null } : {}),
-    };
-    // Only set createdBy on the initial insert — never overwrite the
-    // original author on subsequent updates.
-    const setOnInsert = { createdBy: req.user._id };
-
-    const evaluation = await Evaluation.findOneAndUpdate(
-      // Explicit isDeleted match lets the update reach a trashed row too
-      // (and `null` covers legacy rows missing the field — see above).
-      { classId, userId, isDeleted: { $in: [true, false, null] } },
-      { $set: update, $setOnInsert: setOnInsert },
-      { new: true, upsert: true, runValidators: true }
-    );
+    // createdBy only on the initial insert — never overwrite the original
+    // author on subsequent updates ($setOnInsert ⇔ ON CONFLICT no-touch).
+    const evaluation = await evaluationRepo.upsertEvaluation(classId, userId, {
+      fields: { level, grammarScore, vocabularyScore, pronunciationScore, fluencyScore, teacherComment },
+      reviving,
+      createdBy: req.user._id,
+    });
 
     auditService.record({
       req,
@@ -85,7 +74,7 @@ const upsertEvaluation = async (req, res) => {
       entity: 'Evaluation',
       entityId: evaluation._id,
       diff: before
-        ? auditService.diff(before, evaluation.toObject())
+        ? auditService.diff(before, evaluation.toObject ? evaluation.toObject() : evaluation)
         : { after: { classId, userId, level, grammarScore, vocabularyScore, pronunciationScore, fluencyScore } },
       ...(reviving ? { note: 'Revived a soft-deleted evaluation by re-upsert' } : {}),
     });
@@ -128,15 +117,13 @@ const getEvaluations = async (req, res) => {
     // Audit PR 5: if the request scopes to a single class AND the actor
     // is a Teacher, gate by teacherIds binding.
     if (req.user.role === 'Teacher' && filter.classId) {
-      const cls = await Class.findById(filter.classId).lean();
+      const cls = await classRepo.findClassLeanById(filter.classId);
       if (!cls) return res.status(404).json({ success: false, message: 'Class not found' });
       const decision = evaluationPolicy.canRead(req.user, cls);
       if (!decision.allowed) return policyDeny(res, decision);
     }
 
-    const evaluations = await Evaluation.find(filter)
-      .populate('classId', 'classCode courseName')
-      .populate('userId', 'empCode name department');
+    const evaluations = await evaluationRepo.findAllPopulated(filter);
 
     // Sort separately so we don't need to specify both indexes
     evaluations.sort((a, b) => b.createdAt - a.createdAt);
@@ -157,16 +144,14 @@ const getEvaluations = async (req, res) => {
  */
 const getEvaluationById = async (req, res) => {
   try {
-    const evaluation = await Evaluation.findById(req.params.id)
-      .populate('classId', 'classCode courseName')
-      .populate('userId', 'empCode name department');
+    const evaluation = await evaluationRepo.findByIdPopulated(req.params.id);
 
     if (!evaluation) return res.status(404).json({ success: false, message: 'Evaluation not found' });
 
     if (req.user.role === 'Teacher') {
       // The populated classId may be the doc or the id depending on whether
       // populate matched — fetch a lean doc explicitly for the policy check.
-      const cls = await Class.findById(evaluation.classId._id || evaluation.classId).lean();
+      const cls = await classRepo.findClassLeanById(evaluation.classId._id || evaluation.classId);
       const decision = evaluationPolicy.canRead(req.user, cls, evaluation.toObject ? evaluation.toObject() : evaluation);
       if (!decision.allowed) return policyDeny(res, decision);
 
@@ -200,7 +185,7 @@ const getEvaluationRoster = async (req, res) => {
   try {
     const { classId } = req.query;
 
-    const cls = await Class.findById(classId).lean();
+    const cls = await classRepo.findClassLeanById(classId);
     if (!cls) return res.status(404).json({ success: false, message: 'Class not found' });
 
     // Same per-class binding as getEvaluations: a bound Teacher may read the
@@ -213,9 +198,7 @@ const getEvaluationRoster = async (req, res) => {
     // Active enrollments for the class → the learners eligible to be graded.
     // populate('userId') is hook-filtered, so trashed users yield null and are
     // dropped. Dedupe by user (a user could in theory have >1 enrollment row).
-    const enrollments = await Enrollment.find({ classId, status: 'Active' })
-      .populate('userId', 'empCode name department')
-      .lean();
+    const enrollments = await evaluationRepo.findActiveEnrollmentsWithUsers(classId);
 
     const seen = new Set();
     const learners = [];
@@ -244,10 +227,7 @@ const deleteEvaluation = async (req, res) => {
     // SOFT delete (DATA-014, audit round 2) — golden rule: evaluation data is
     // never hard-deleted. The soft-delete hook scopes this to live rows, so a
     // second delete answers 404. Recoverable: re-upsert revives the row.
-    const evaluation = await Evaluation.findByIdAndUpdate(
-      req.params.id,
-      { $set: { isDeleted: true, deletedAt: new Date() } },
-    );
+    const evaluation = await evaluationRepo.softDeleteById(req.params.id);
     if (!evaluation) return res.status(404).json({ success: false, message: 'Evaluation not found' });
 
     auditService.record({
@@ -255,7 +235,7 @@ const deleteEvaluation = async (req, res) => {
       action: 'deleted',
       entity: 'Evaluation',
       entityId: evaluation._id,
-      diff: { before: evaluation.toObject() },
+      diff: { before: evaluation.toObject ? evaluation.toObject() : evaluation },
       note: 'Soft-deleted (recoverable — re-upsert revives)',
     });
 
