@@ -3,6 +3,7 @@ const { getNextSequence } = require('../../helpers/counter');
 const { escapeRegex } = require('../../helpers/escapeRegex');
 const { programDto, cohortDto } = require('./dto');
 const repository = require('./repository');
+const { runInTransaction } = require('../_shared/unit-of-work');
 const { recordInApp } = require('../notification/in-app-writer');
 
 const legacyEnglishCourses = new Set([
@@ -266,18 +267,17 @@ const deleteCohort = async (id) => {
     throw err;
   }
 
-  const session = await mongoose.startSession();
+  // Backend-agnostic atomic unit (Wave K-1): Mongo session OR PG BEGIN/COMMIT.
+  // Was a raw mongoose.startSession() — which needed a live Mongo connection
+  // even under DB_BACKEND=postgres; runInTransaction routes to the active
+  // backend (and now gives the PG path real cross-statement atomicity).
   let closedEnrollments = 0;
   const deletedAt = new Date();
-  try {
-    await session.withTransaction(async () => {
-      const enrollResult = await repository.closeEnrollmentsByCohort(id, deletedAt, session);
-      closedEnrollments = enrollResult.modifiedCount;
-      await repository.softDeleteCohort(id, deletedAt, session);
-    });
-  } finally {
-    session.endSession();
-  }
+  await runInTransaction(async (tx) => {
+    const enrollResult = await repository.closeEnrollmentsByCohort(id, deletedAt, tx);
+    closedEnrollments = enrollResult.modifiedCount;
+    await repository.softDeleteCohort(id, deletedAt, tx);
+  });
 
   return {
     cohortCode: cohort.classCode,
