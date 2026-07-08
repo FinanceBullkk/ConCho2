@@ -34,6 +34,12 @@ describe('pg-write-gate classify', () => {
     expect(classify(stack(NODE, '/repo/server/services/reconcileService.js'))).toBeNull();
   });
 
+  test('adminDbRoutes allowlist → sanctioned (null) — Mongo-coupled explorer, disposition tracked', () => {
+    expect(classify(stack(NODE, '/repo/server/routes/adminDbRoutes.js'))).toBeNull();
+    // …but OTHER routes/ files stay violations
+    expect(classify(stack(NODE, '/repo/server/routes/cronRoutes.js'))).toContain('cronRoutes');
+  });
+
   test('no repo frame (async-severed mongoose internals) → null', () => {
     expect(classify(stack(NODE, 'node:internal/process/task_queues'))).toBeNull();
   });
