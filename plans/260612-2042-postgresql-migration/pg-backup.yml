@@ -29,9 +29,9 @@ name: pg-backup
 
 on:
   workflow_dispatch: {}
-  # Enable at Wave-J step 8 (cutover-checklist.md) — after secrets are set:
-  # schedule:
-  #   - cron: '0 18 * * *'
+  # Enabled at Wave-J step 8 (cutover executed 2026-07-08). 18:00 UTC = 01:00 ICT.
+  schedule:
+    - cron: '0 18 * * *'
 
 jobs:
   dump:
@@ -43,6 +43,13 @@ jobs:
           curl -fsSL https://www.postgresql.org/media/keys/ACCC4CF8.asc | sudo gpg --dearmor -o /etc/apt/trusted.gpg.d/pgdg.gpg
           sudo apt-get update -qq
           sudo apt-get install -y -qq postgresql-client-17
+          # Ubuntu 24.04 runners ship postgresql-client-16; the /usr/bin pg_wrapper
+          # keeps selecting 16 → pg_dump aborts with "server version mismatch"
+          # against Neon 17. Force the versioned 17 binaries ahead on PATH for all
+          # later steps, and assert loudly here (explicit path — $GITHUB_PATH only
+          # affects subsequent steps, not this one).
+          echo "/usr/lib/postgresql/17/bin" >> "$GITHUB_PATH"
+          /usr/lib/postgresql/17/bin/pg_dump --version
 
       - name: pg_dump (custom format)
         env:
@@ -114,6 +121,13 @@ jobs:
           curl -fsSL https://www.postgresql.org/media/keys/ACCC4CF8.asc | sudo gpg --dearmor -o /etc/apt/trusted.gpg.d/pgdg.gpg
           sudo apt-get update -qq
           sudo apt-get install -y -qq postgresql-client-17
+          # Ubuntu 24.04 runners ship postgresql-client-16; the /usr/bin pg_wrapper
+          # keeps selecting 16 → pg_dump aborts with "server version mismatch"
+          # against Neon 17. Force the versioned 17 binaries ahead on PATH for all
+          # later steps, and assert loudly here (explicit path — $GITHUB_PATH only
+          # affects subsequent steps, not this one).
+          echo "/usr/lib/postgresql/17/bin" >> "$GITHUB_PATH"
+          /usr/lib/postgresql/17/bin/pg_dump --version
 
       - name: Download today's artifact
         uses: actions/download-artifact@v4
