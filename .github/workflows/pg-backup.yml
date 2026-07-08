@@ -1,0 +1,136 @@
+# pg-backup — daily pg_dump of the production Neon database → encrypted
+# GitHub-Actions artifact (30d retention) + automatic restore-verify.
+#
+# Why this exists (Wave H, owner decisions 2026-07-08): prod PG is Neon FREE,
+# which keeps only ~6h of point-in-time history — anything older must come
+# from our own dumps. Render free has no persistent disk and sleeps, so the
+# app host cannot run the job; GH Actions is the only always-on compute
+# already trusted with this repo. See docs/backup-dr.md.
+#
+# Required repo secrets (owner-managed):
+#   NEON_PG_URL        — full Neon connection string (pooled endpoint is fine)
+#   BACKUP_PASSPHRASE  — artifact encryption key. MUST also live in the
+#                        owner's password manager: a lost passphrase makes
+#                        every artifact useless.
+#
+# Ops notes:
+#   • schedule 18:00 UTC = 01:00 ICT (after VN work hours); RPO stays ≤24h.
+#   • GitHub disables cron workflows after 60 days of repo inactivity, and a
+#     failed scheduled run emails the repo owner by default (our free alert).
+#   • pg_dump client major version must be ≥ the Neon server major — the
+#     verify job restores into the same major (postgres:17) it dumps with.
+#   • monthly offline copy: download the 1st-of-month artifact to the owner's
+#     machine (Time-Machine covered) — see the drill checklist in backup-dr.md.
+
+name: pg-backup
+
+on:
+  schedule:
+    - cron: '0 18 * * *'
+  workflow_dispatch: {}
+
+jobs:
+  dump:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Install PostgreSQL 17 client
+        run: |
+          sudo sh -c 'echo "deb https://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" > /etc/apt/sources.list.d/pgdg.list'
+          curl -fsSL https://www.postgresql.org/media/keys/ACCC4CF8.asc | sudo gpg --dearmor -o /etc/apt/trusted.gpg.d/pgdg.gpg
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq postgresql-client-17
+
+      - name: pg_dump (custom format)
+        env:
+          NEON_PG_URL: ${{ secrets.NEON_PG_URL }}
+        run: |
+          STAMP="$(date -u +%Y%m%dT%H%MZ)"
+          echo "STAMP=$STAMP" >> "$GITHUB_ENV"
+          pg_dump "$NEON_PG_URL" --format=custom --no-owner --no-privileges -f "tms-$STAMP.dump"
+          ls -la "tms-$STAMP.dump"
+
+      - name: Write dump-time row-count manifest
+        env:
+          NEON_PG_URL: ${{ secrets.NEON_PG_URL }}
+        run: |
+          psql "$NEON_PG_URL" -At -c "
+            SELECT json_build_object('tables', json_build_object(
+              'users',       (SELECT count(*) FROM users),
+              'classes',     (SELECT count(*) FROM classes),
+              'schedules',   (SELECT count(*) FROM schedules),
+              'attendances', (SELECT count(*) FROM attendances),
+              'evaluations', (SELECT count(*) FROM evaluations),
+              'enrollments', (SELECT count(*) FROM enrollments)
+            ));" > counts.json
+          cat counts.json
+
+      - name: Encrypt (dump contains employee PII)
+        env:
+          BACKUP_PASSPHRASE: ${{ secrets.BACKUP_PASSPHRASE }}
+        run: |
+          openssl enc -aes-256-cbc -pbkdf2 -pass env:BACKUP_PASSPHRASE \
+            -in "tms-$STAMP.dump" -out "tms-$STAMP.dump.enc"
+          rm "tms-$STAMP.dump"
+
+      - name: Upload artifact (30d retention)
+        uses: actions/upload-artifact@v4
+        with:
+          name: pg-backup-${{ env.STAMP }}
+          path: |
+            tms-${{ env.STAMP }}.dump.enc
+            counts.json
+          retention-days: 30
+          if-no-files-found: error
+
+  verify:
+    needs: dump
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: verify
+          POSTGRES_PASSWORD: verify
+          POSTGRES_DB: tmsverify
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd pg_isready --health-interval 5s
+          --health-timeout 5s --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install PostgreSQL 17 client
+        run: |
+          sudo sh -c 'echo "deb https://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" > /etc/apt/sources.list.d/pgdg.list'
+          curl -fsSL https://www.postgresql.org/media/keys/ACCC4CF8.asc | sudo gpg --dearmor -o /etc/apt/trusted.gpg.d/pgdg.gpg
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq postgresql-client-17
+
+      - name: Download today's artifact
+        uses: actions/download-artifact@v4
+        with:
+          pattern: pg-backup-*
+          merge-multiple: true
+
+      - name: Decrypt + restore into throwaway PG
+        env:
+          BACKUP_PASSPHRASE: ${{ secrets.BACKUP_PASSPHRASE }}
+        run: |
+          openssl enc -d -aes-256-cbc -pbkdf2 -pass env:BACKUP_PASSPHRASE \
+            -in tms-*.dump.enc -out restored.dump
+          pg_restore --no-owner --no-privileges \
+            -d "postgresql://verify:verify@localhost:5432/tmsverify" restored.dump
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install server deps (verify script needs pg + dotenv)
+        working-directory: server
+        run: npm ci --omit=dev
+
+      - name: Verify restored database (counts must exactly match manifest)
+        env:
+          PG_URL: postgresql://verify:verify@localhost:5432/tmsverify
+        run: node server/scripts/verify-pg-backup.js --counts=counts.json
