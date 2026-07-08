@@ -145,12 +145,12 @@ These lose/desync live data the instant prod flips (write→Mongo, read→PG).
 
 | # | File | What | Disposition |
 |---|---|---|---|
-| E1 | `routes/adminDbRoutes.js` (whole router) | Admin DB explorer — raw-Mongoose reads AND writes (`findByIdAndUpdate` :236, create/delete handlers) on arbitrary collections, by design | **Owner call before Wave J** — recommend RETIRE at cutover (Neon console / psql covers the ops need); rebuilding a generic PG explorer is a real feature, not a port. Write-gate: sanctioned with a tracked comment until decided. The original inventory grep covered `domains/ services/ controllers/ jobs/` — **routes/ was missed**; the gate exists precisely to catch this. |
+| E1 | `routes/adminDbRoutes.js` (whole router) | Admin DB explorer — raw-Mongoose reads AND writes (`findByIdAndUpdate` :236, create/delete handlers) on arbitrary collections, by design | **DECIDED (2026-07-08, delegated): RETIRE at Wave K** with the rest of the Mongo tooling — Neon console / psql covers the ops need; rebuilding a generic PG explorer is a real feature with real authz surface, not a port. During the 1-week bake it still reads the read-only Atlas (writes 500 — acceptable for an admin debug tool). Write-gate keeps its sanctioned entry until the router is deleted at Wave K. The original inventory grep covered `domains/ services/ controllers/ jobs/` — **routes/ was missed**; the gate exists precisely to catch this. |
 
 ## Unresolved questions
 
-1. **C1/C reconcile:** port the consistency checker to PG, or retire it at cutover (its whole job is Mongo-integrity)? Owner call.
-1b. **E1 adminDbRoutes** (above): retire the Mongo DB explorer at cutover, or rebuild on PG? Owner call — retire recommended.
+1. **C1/C reconcile:** ~~port or retire?~~ **RETIRED at cutover** (owner 2026-07-08).
+1b. **E1 adminDbRoutes:** ~~retire or rebuild?~~ **RETIRED at Wave K** (delegated decision 2026-07-08, above).
 2. **Counter under PG:** PG SEQUENCE (fast, gapless-not-guaranteed) vs a `counters` row with `UPDATE … RETURNING` (matches Mongo `findOneAndUpdate $inc` semantics)? Certificate numbering may require gapless — confirm.
 3. **F3 attribution:** cheapest reliable way to separate test-fixture Mongoose writes from production ones on the lane (module flag around fixture setup is simplest; confirm no fixture writes leak outside setup hooks).
 4. **B6 import in a Mongo session:** the bulk import wraps writes in a Mongoose `session` — the PG twin must move onto the `unit-of-work` (`runInTransaction`), same as the schedule/groups/planning ports.
