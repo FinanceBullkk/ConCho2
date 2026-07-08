@@ -22,7 +22,10 @@
 // NEVER point MONGO_URI at prod while writes are unfrozen (Wave J freezes
 // first — see plans/260612-2042-postgresql-migration/cutover-checklist.md).
 
-const { MongoClient } = require('mongodb');
+// mongoose is the server's own Mongo driver dependency — we only use its raw
+// connection handle (no models, no middleware: select:false fields included,
+// soft-deleted rows copy too).
+const mongoose = require('mongoose');
 const { Pool } = require('pg');
 const {
   COLLECTIONS, SKIP_COLLECTIONS, tableCandidates, mapRow, DANGLING_CHECKS,
@@ -90,9 +93,10 @@ const syncTeamJunction = async (doc) => {
 
 // ── Main ────────────────────────────────────────────────────
 const main = async () => {
-  const mongo = new MongoClient(MONGO_URI);
-  await mongo.connect();
-  const db = mongo.db();
+  const conn = await mongoose.createConnection(MONGO_URI, {
+    serverSelectionTimeoutMS: 10000,
+  }).asPromise();
+  const db = conn.db;
   await loadSchema();
 
   const existing = new Set((await db.listCollections().toArray()).map((c) => c.name));
@@ -173,7 +177,7 @@ const main = async () => {
     console.log(`  ✔ within the Neon FREE 0.5GB gate`);
   }
 
-  await mongo.close();
+  await conn.close();
   await pool.end();
   process.exit(failed ? 1 : 0);
 };
