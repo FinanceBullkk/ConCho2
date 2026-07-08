@@ -363,6 +363,15 @@ const findScheduledByClassIdsOrdered = (classIds) => {
     .lean();
 };
 
+// Sheets-sync pre-load (Phase 5 B5-reads): ALL live schedules, the exact
+// fields the sync row-matcher consumes. NOTE: no enrolledCount — it is a
+// virtual that .lean() never materialized (the controller computes
+// enrolledUsers.length itself; see syncController capacity guard).
+const findLiveSchedulesForSync = () =>
+  Schedule.find({ status: 'scheduled' })
+    .select('_id classId bookedTeamId startTime endTime enrolledUsers capacity')
+    .lean();
+
 // use-cases: post-commit calendar-sync populate shape (lean).
 const findScheduleForCalendarSync = (id) =>
   Schedule.findById(id)
@@ -553,6 +562,7 @@ module.exports = {
   findScheduleByIdLean,
   findScheduledByClassIdsOrdered,
   findScheduleForCalendarSync,
+  findLiveSchedulesForSync,
   findScheduleClassLabel,
   findUsersForEmail,
   findWaitingEntries,

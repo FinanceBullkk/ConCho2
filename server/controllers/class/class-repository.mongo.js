@@ -52,6 +52,9 @@ const aggregateBookedSessionCounts = (classIds) =>
 
 const findClassLeanById = (id) => Class.findById(id).lean();
 
+/** Sheets-sync lookup (Phase 5 B5-reads): ALL live classes, code+id only. */
+const findAllClassCodesLean = () => Class.find({}, { classCode: 1 }).lean();
+
 const findTeamIdsForClass = (classId) =>
   Team.find({ classId, isDeleted: { $ne: true } }).distinct('_id');
 
@@ -100,6 +103,7 @@ module.exports = {
   findClasses,
   aggregateBookedSessionCounts,
   findClassLeanById,
+  findAllClassCodesLean,
   findTeamIdsForClass,
   enrollmentExists,
   countBookedSessions,

@@ -1,10 +1,11 @@
-const Schedule = require('../models/Schedule');
-const Team = require('../models/Team');
-const Class = require('../models/Class');
-// Dual-backend roster write (Phase 5 slice 4, B5) — the enroll writes follow
-// DB_BACKEND via the schedule repo; the bulk READS above stay Mongo-direct
-// (tracked as a phase-05 follow-up — sync is read-heavy but write-gated).
+// Dual-backend (Phase 5): the enroll WRITES follow DB_BACKEND via the schedule
+// repo (slice 4, B5), and the three pre-load bulk READS now ride the same
+// seams (B5-reads follow-up) — teams via the groups read repo (its PG twin
+// reconstructs members from the team_members junction), classes via the class
+// repo, live schedules via the schedule repo. No Mongoose left in this file.
 const scheduleRepo = require('../domains/schedule/repository');
+const groupsReadRepo = require('../domains/groups/read-repository');
+const classRepo = require('./class/class-repository');
 const auditService = require('../services/auditService');
 const { handleError } = require('../helpers/handleError');
 const logger = require('../lib/logger');
@@ -103,15 +104,18 @@ const syncFromGoogleSheets = async (req, res) => {
     // This replaces the N+1 queries inside the loop.
     // 3 DB queries total, regardless of row count.
 
-    // Team lookup: lowercase name → team document
-    const allTeams = await Team.find().populate('members', '_id status').lean();
+    // Team lookup: lowercase name → team document (members populated with
+    // status; the PG twin drops soft-deleted members exactly like the Mongo
+    // populate hook — member ORDER differs on PG, but sync treats members as
+    // a set: filter + map only).
+    const allTeams = await groupsReadRepo.findAllTeams({ slim: false });
     const teamMap = new Map();
     for (const t of allTeams) {
       teamMap.set(t.name.toLowerCase(), t);
     }
 
-    // Class lookup: uppercase classCode → class document
-    const allClasses = await Class.find().lean();
+    // Class lookup: uppercase classCode → { _id, classCode }
+    const allClasses = await classRepo.findAllClassCodesLean();
     const classMap = new Map();
     for (const c of allClasses) {
       classMap.set(c.classCode.toUpperCase(), c);
@@ -119,9 +123,7 @@ const syncFromGoogleSheets = async (req, res) => {
 
     // Schedule lookup: "classId|YYYY-MM-DD" → schedule documents for that day
     // We load ALL LIVE schedules (cancelled rows are history, not sync targets)
-    const allSchedules = await Schedule.find({ status: 'scheduled' })
-      .select('_id classId bookedTeamId startTime endTime enrolledUsers enrolledCount capacity')
-      .lean();
+    const allSchedules = await scheduleRepo.findLiveSchedulesForSync();
 
     // Group schedules by classId + VN date for fast lookup.
     // P3-02: Use VN timezone (Asia/Ho_Chi_Minh) so schedules starting before
@@ -236,10 +238,14 @@ const syncFromGoogleSheets = async (req, res) => {
       );
 
       // ── Check capacity ──────────────────────────────────
-      if (schedule.enrolledCount + activeNew.length > schedule.capacity) {
+      // BUG fix (B5-reads port): this guard was DEAD — `enrolledCount` is a
+      // virtual that .lean() never materialized (undefined + n > cap = false).
+      // Compute from enrolledUsers.length like domains/schedule/queries.js.
+      const enrolledCount = schedule.enrolledUsers.length;
+      if (schedule.capacity != null && enrolledCount + activeNew.length > schedule.capacity) {
         report.errors.push({
           row: rowNum,
-          error: `Capacity exceeded. Available: ${schedule.capacity - schedule.enrolledCount}, Needed: ${activeNew.length}`,
+          error: `Capacity exceeded. Available: ${schedule.capacity - enrolledCount}, Needed: ${activeNew.length}`,
         });
         report.skipped++;
         continue;
