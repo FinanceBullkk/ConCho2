@@ -79,15 +79,15 @@ describe('csrfProtection — safe methods pass through', () => {
 // (full path, never stripped). EXEMPT_PREFIXES = ['/api/cron/'].
 
 describe('csrfProtection — cron routes are exempt', () => {
-  test('POST /api/cron/reconcile passes without X-CSRF-Token', () => {
+  test('POST /api/cron/attendance-reminders passes without X-CSRF-Token', () => {
     const req = mockReq({
       method: 'POST',
-      path: '/cron/reconcile',         // Express-stripped path (kept for reference)
+      path: '/cron/attendance-reminders', // Express-stripped path (kept for reference)
       cookies: { [CSRF_COOKIE]: VALID_TOKEN },
       headers: {},
     });
     // Override originalUrl to the full path the middleware now checks
-    req.originalUrl = '/api/cron/reconcile';
+    req.originalUrl = '/api/cron/attendance-reminders';
     const res = mockRes();
     const next = jest.fn();
     csrfProtection(req, res, next);

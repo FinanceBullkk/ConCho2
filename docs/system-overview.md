@@ -36,13 +36,13 @@ sequenceDiagram
     actor Leader as Team Leader
     participant Grid as /book grid
     participant API as POST /api/learning/sessions/book-slot
-    participant DB as MongoDB (Schedule)
+    participant DB as PostgreSQL/Neon (schedules)
     participant GCal as Google Calendar
     participant Mail as Mailer
     Leader->>Grid: click empty slot
     Grid->>API: { groupId, startTime, endTime }
     API->>API: check leader + weekly limit (2/wk) + valid slot
-    API->>DB: create Schedule (tx) — unique {classId, startTime}
+    API->>DB: create schedule (tx) — unique {classId, startTime}
     DB-->>API: created (or "slot taken" on duplicate key)
     API->>DB: auto-enroll whole team into Schedule
     API-)GCal: create event + Meet link (fail-soft)
@@ -69,9 +69,10 @@ flowchart TD
         MW["Middleware chain:<br/>reqId → pino → helmet → CORS →<br/>mongo-sanitize → CSRF → rate-limit →<br/>auth → roleGuard → zod validate"]
         MW --> CTRL["controllers/ (legacy)<br/>+ domains/ (new)"]
         CTRL --> SVC[services / use-cases]
-        SVC --> ODM[Mongoose]
+        SVC --> REPO[DB_BACKEND-selected repositories]
     end
-    ODM --> DB[(MongoDB Atlas)]
+    REPO --> PG[(PostgreSQL / Neon primary)]
+    MONGO[(MongoDB Atlas retired from runtime)]
     SVC -.fail-soft.-> GOOG[Google Calendar / Sheets]
     SVC -.-> SMTP[SMTP email]
     Server -.5xx.-> SENTRY[Sentry]
@@ -79,8 +80,10 @@ flowchart TD
 ```
 
 **Request lifecycle:** browser → axios (`/api/*`, cookie + CSRF) → middleware
-chain → controller/domain → service → Mongoose → response; mutations write an
-**audit log** asynchronously; unexpected 5xx go to Sentry.
+chain → controller/domain → service/use-case → repository → PostgreSQL/Neon
+response; mutations write an **audit log** asynchronously; unexpected 5xx go to
+Sentry. Since Wave K activation on 2026-07-09, production boots without
+`MONGO_URI`; Atlas is no longer connected to the runtime.
 
 ---
 
@@ -100,9 +103,11 @@ flowchart LR
         S["schedule/ (FULL domain)<br/>own routes /api/schedules; delegates into scheduleService"]
     end
     LS -. extract toward .-> Domains
-    L --> M[(Mongoose models)]
-    S --> M
-    LS --> M
+    L --> R[(dual-backend repositories)]
+    S --> R
+    LS --> R
+    R --> PG[(PostgreSQL primary)]
+    R -.legacy fallback.-> M[(Mongoose models)]
 ```
 
 - **Full domain** (`learning/`): owns its routes at `/api/learning/*`. 21 domains now
@@ -180,7 +185,7 @@ Re-architecture into an L&D platform runs in phases (full detail:
 | 3 | Multi-program enrollment + session scheduling | ~85% 🟢 |
 | 4 | Frontend L&D workspace (CRUD UI) | ~82% 🟢 |
 | 5 | Reporting, completion, feedback | ~85% 🟢 |
-| 6 | PostgreSQL decision gate | 0% |
+| 6 | PostgreSQL migration / decommission | ~90% 🟡 |
 
 **Today:** Wave A (Foundation) is complete — all 4 `schedulingMode`s enforced,
 cohort-based enrollment + self-enroll live, the Learning page has CRUD, and a
@@ -206,12 +211,16 @@ A5 training-hours + evidence-pack/presets, A3 compliance matrix
 (`/api/compliance`), A1 budget & cost (`/api/finance`), and B2 skills-as-spine
 (skills taxonomy + gap-driven recommendations). The **only remaining Horizon 1
 item is A8 HRIS auto-assign — gated** on Google Directory sync. For 1000
-employees, the next platform gaps are Google OIDC + Directory sync (owner-gated)
-and the Phase 6 PostgreSQL decision. → see [`lms-roadmap.md`](lms-roadmap.md).
+employees, the next platform gaps are Google OIDC + Directory sync
+(owner-gated) and **Wave K cleanup**: Atlas cancellation plus removal of retired
+Mongo-only code/test harness. → see
+[`lms-roadmap.md`](lms-roadmap.md).
 
-**Stack:** React 19 + Vite 8 + Tailwind 4 / Express 5 + Mongoose 8 + MongoDB;
-server/client test suites, Playwright e2e, 8 CI gates (incl. the full Jest suite
-on the Postgres backend — Wave G, 2026-07-07), deployed on Render.
+**Stack:** React 19 + Vite 8 + Tailwind 4 / Express 5 + PostgreSQL/Neon primary
+via dual-backend repositories; Mongoose/MongoDB remains only for legacy model
+scaffolding and parity cleanup until Wave K code removal. Server/client test suites,
+Playwright e2e, and 8 CI gates include the full Jest suite on the Postgres
+backend (required since Wave G, 2026-07-07), deployed on Render.
 
 ## 8. Delivery discipline — no feature factory
 

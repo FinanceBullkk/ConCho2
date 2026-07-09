@@ -1,8 +1,5 @@
 const express = require('express');
 const { cronAuth } = require('../middleware/cronAuth');
-const { reconcileLimiter } = require('../middleware/rateLimiters');
-const { mongoOnlyGone } = require('../middleware/mongoOnlyGone');
-const { runReconciliation } = require('../services/reconcileService');
 const { sendUpcomingReminders } = require('../services/reminderService');
 const { sendAssignmentReminders } = require('../domains/learning/assignment/reminder-service');
 const { sendCertificateExpiryReminders } = require('../domains/learning/completion/expiry-reminder-service');
@@ -24,49 +21,6 @@ const { handleError } = require('../helpers/handleError');
 const router = express.Router();
 
 router.use(cronAuth);
-
-/**
- * @openapi
- * /cron/reconcile:
- *   post:
- *     tags: [Cron]
- *     summary: Trigger reconciliation suite (called by external cron service)
- *     security:
- *       - cronToken: []
- *     responses:
- *       200:
- *         description: Reconciliation report
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 success: { type: boolean }
- *                 data:    { $ref: '#/components/schemas/ReconcileReport' }
- *       401:
- *         description: Invalid cron token
- */
-// POST /api/cron/reconcile
-// Fires the reconciliation suite immediately and returns a compact summary.
-// Full report is logged server-side; we return only the summary so the
-// response stays under cron-job.org's ~4 KB output limit.
-// K1b: reconcileService is Mongo-only → 410 once the app runs Mongo-less (the
-// other cron routes below stay backend-agnostic).
-router.post('/reconcile', mongoOnlyGone, reconcileLimiter, async (req, res) => {
-  try {
-    // Monitored so an external-pinger-driven run also updates the heartbeat
-    // and Sentry cron check-in (same job/slug as the in-process scheduler).
-    const report = await runMonitored(
-      CRON_JOBS.reconcile.jobName,
-      CRON_JOBS.reconcile,
-      () => runReconciliation('scheduled')
-    );
-    const { summary, ranAt, triggeredBy } = report;
-    res.json({ success: true, data: { summary, ranAt, triggeredBy } });
-  } catch (err) {
-    handleError(res, err);
-  }
-});
 
 /**
  * @openapi

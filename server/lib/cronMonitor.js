@@ -26,23 +26,14 @@ const STALE_FACTOR = 2;
 const HOUR_MS = 60 * 60 * 1000;
 
 // Shared cron-job metadata — single source of truth so the in-process
-// scheduler (jobs/reconcileJob.js) and the external-pinger endpoints
-// (routes/cronRoutes.js) monitor the SAME job under the SAME slug/cadence.
+// scheduler and the external-pinger endpoints (routes/cronRoutes.js) monitor
+// the SAME job under the SAME slug/cadence.
 //
 // OPS-010: each entry carries its crontab `schedule` so a PINGER-driven run
 // also upserts the Sentry monitor config — without it the monitor auto-creates
-// schedule-less and can never fire "missed run" alerts (the in-process
-// reconcile scheduler may never run on the sleeping free tier, so the pinger
-// path must arm the schedule too). Cadences mirror docs/cron-pinger-setup.md;
-// the in-process reconcile job still overrides with its env-configured
-// RECONCILE_CRON.
+// schedule-less and can never fire "missed run" alerts. Cadences mirror
+// docs/cron-pinger-setup.md.
 const CRON_JOBS = {
-  reconcile: {
-    jobName: 'reconcile',
-    monitorSlug: 'reconcile-nightly',
-    expectedIntervalMs: 24 * HOUR_MS, // nightly
-    schedule: '0 2 * * *', // 02:00 UTC
-  },
   reminders: {
     jobName: 'attendance-reminders',
     monitorSlug: 'attendance-reminders',

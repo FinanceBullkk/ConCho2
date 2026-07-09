@@ -1,14 +1,14 @@
 # Backup & Disaster Recovery Runbook
 
-**System:** Training Management System (TMS)  
-**Database:** MongoDB Atlas M0 → **Neon PostgreSQL (Free)** at the Wave-J cutover (see `plans/260612-2042-postgresql-migration/cutover-checklist.md`)  
-**Hosting:** Render (API server), GitHub (source code + backup automation)  
-**Last reviewed:** 2026-07-08 (Wave H — pg_dump pipeline added)
+**System:** Training Management System (TMS)
+**Database:** **Neon PostgreSQL (Free)** primary since Wave J cutover; production runs Mongo-less since Wave K activation (see `plans/260612-2042-postgresql-migration/cutover-checklist.md`)
+**Hosting:** Render (API server), GitHub (source code + backup automation)
+**Last reviewed:** 2026-07-09 (Wave K activation verified — `MONGO_URI` removed from Render)
 
-> **Dual-state note:** until the Wave-J flip, Mongo/Atlas sections are the live
-> runbook and the PostgreSQL/Neon sections are staged. From the flip, PG is
-> primary; Atlas stays **read-only** through the 1–2-week bake and the Mongo
-> sections retire with Atlas at Wave K.
+> **Current-state note:** PostgreSQL/Neon is the live production database.
+> `MONGO_URI` has been removed from Render and prod readiness verifies
+> `backend=postgres`. Mongo/Atlas sections below are historical/legacy cleanup
+> references only until Atlas is cancelled and retired code is deleted.
 
 ---
 
@@ -23,7 +23,7 @@ This runbook covers the backup strategy and disaster recovery procedures for the
 | **PostgreSQL data (post-cutover)** | Neon point-in-time history | **~6 hours** (Free tier) |
 | **PostgreSQL data (post-cutover)** | Daily encrypted `pg_dump` → Actions artifact in the **private `ConCho2-backups` repo** (18:00 UTC, restore-verified on every run — see §3.A) | **30 days** |
 | **PostgreSQL data (post-cutover)** | Monthly offline copy: owner downloads the 1st-of-month artifact to their machine (Time-Machine covered) | Owner-managed |
-| MongoDB data (until Wave K) | Atlas daily snapshots | 2 days (M0 limit) |
+| MongoDB data (legacy only) | Atlas daily snapshots until owner cancels Atlas | 2 days (M0 limit) |
 | Application source code | GitHub repository | Full history |
 
 ### What is NOT backed up automatically
@@ -88,7 +88,7 @@ even encrypted, must not be published; decided 2026-07-08):
   the ping target must execute a PG query (`/ready` gains a PG check at
   cutover — the current `/api/cron/health` GET does zero DB queries).
 
-### 3.B MongoDB — Atlas M0 automatic snapshots (until Wave K)
+### 3.B MongoDB — Atlas M0 automatic snapshots (legacy until Atlas cancellation)
 
 - Atlas M0 clusters receive **daily snapshots** taken automatically.
 - Retention is **2 days** (the two most recent daily snapshots are kept).
@@ -120,9 +120,9 @@ Critical env vars to document:
 
 | Variable | Description |
 |---|---|
-| `MONGO_URI` | Atlas connection string — **retires at Wave K** (read-only during the bake) |
-| `PG_URL` | Neon connection string (primary database from the Wave-J flip) |
-| `DB_BACKEND` | `postgres` from the Wave-J flip (unset/`mongo` before it) |
+| `MONGO_URI` | Removed from Render at Wave K activation; only legacy scripts/parity lanes should use it |
+| `PG_URL` | Neon connection string (primary database) |
+| `DB_BACKEND` | `postgres` in production |
 | `JWT_SECRET` | JWT signing secret |
 | `JWT_EXPIRE` | Session TTL — `1d` in production (DOCS-003) |
 | `IMPORT_DEFAULT_PASSWORD` | **Boot-required in production** — server refuses to start without it (envValidator) |
@@ -211,7 +211,7 @@ PG_URL="postgresql://postgres:verify@localhost:5544/postgres" node server/script
 docker rm -f pg-verify
 ```
 
-### 5.B MongoDB restore (until Wave K)
+### 5.B MongoDB restore (legacy reference only)
 
 ### Prerequisites
 
@@ -296,13 +296,13 @@ Run this checklist on the **first Monday of each month**.
   ```
   Confirm exit code 0.
 
-**MongoDB items (until Wave K):**
+**MongoDB items (legacy only until Atlas cancellation):**
 
-- [ ] **Run verify-backup script**
+- [ ] **Optional historical snapshot check before cancelling Atlas**
   ```bash
   MONGO_URI="<atlas-connection-string>" node server/scripts/verify-backup.js
   ```
-  Confirm exit code 0 and review collection document counts for anomalies.
+  Confirm exit code 0 if you need one final archive confidence check.
 
 - [ ] **Check Atlas backup status**
   - Log in to Atlas → Clusters → Backup tab.
@@ -338,7 +338,8 @@ Run this checklist **once per quarter** to verify the full restore path end-to-e
 > run Section 5.A **Path 2** against a throwaway docker PG (or a Neon staging
 > branch + the staging Render service), using the latest workflow artifact.
 > Record the result in the quarterly drill log below. The Atlas steps that
-> follow retire at Wave K.
+> follow are legacy-only after Wave K activation and retire fully once Atlas is
+> cancelled.
 
 #### Prerequisites
 
@@ -454,7 +455,7 @@ Run this checklist **once per quarter** to verify the full restore path end-to-e
 | System Owner / Admin | <!-- name --> | <!-- email / phone --> | Primary decision-maker for P1 incidents |
 | Developer on call | <!-- name --> | <!-- email / phone --> | Handles technical restore steps |
 | Neon support | Neon support portal | [https://neon.tech/docs/introduction/support](https://neon.tech/docs/introduction/support) + [https://neonstatus.com](https://neonstatus.com) | Primary DB from Wave J (Free = community support) |
-| MongoDB Atlas support | Atlas support portal | [https://support.mongodb.com](https://support.mongodb.com) | Until Wave K (M0 = community support only) |
+| MongoDB Atlas support | Atlas support portal | [https://support.mongodb.com](https://support.mongodb.com) | Legacy only until owner cancels Atlas (M0 = community support only) |
 | Render support | Render support portal | [https://render.com/support](https://render.com/support) | For hosting/deployment issues |
 
 ---

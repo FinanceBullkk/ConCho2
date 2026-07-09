@@ -14,7 +14,7 @@ function mockReq(overrides = {}) {
     headers: {},
     query: {},
     ip: '127.0.0.1',
-    originalUrl: '/api/cron/reconcile',
+    originalUrl: '/api/cron/attendance-reminders',
     ...overrides,
   };
 }
@@ -122,7 +122,7 @@ describe('cronAuth middleware', () => {
     const req = mockReq({
       method: 'POST',
       query: { token: 'wrong-secret-value' },
-      originalUrl: '/api/cron/reconcile?token=wrong-secret-value&hours=24',
+      originalUrl: '/api/cron/attendance-reminders?token=wrong-secret-value&hours=24',
     });
     const res = mockRes();
     cronAuth(req, res, jest.fn());

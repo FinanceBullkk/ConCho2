@@ -2,7 +2,6 @@
  * ──────────────────────────────────────────────────────────
  * Integration Tests — Cron Routes
  * GET  /api/cron/health
- * POST /api/cron/reconcile
  * POST /api/cron/attendance-reminders
  * ──────────────────────────────────────────────────────────
  */
@@ -104,33 +103,10 @@ describe('GET /api/cron/health — CRON_TOKEN unset', () => {
   });
 });
 
-// ── POST /api/cron/reconcile ─────────────────────────────
+// ── POST /api/cron/attendance-reminders ──────────────────
 // POST /api/cron/* is exempt from CSRF (EXEMPT_PREFIXES in csrfProtection).
 // Note: the CSRF middleware uses req.path which is relative to the /api
 // mount point, so the actual exempt path checked is '/cron/'.
-
-describe('POST /api/cron/reconcile', () => {
-  test('returns 401 without a token', async () => {
-    const res = await request(app).post('/api/cron/reconcile');
-
-    // cronAuth kicks in before anything else; returns 401 when token missing
-    expect(res.status).toBe(401);
-    expect(res.body.success).toBe(false);
-  });
-
-  test('returns 200 with a report when authenticated', async () => {
-    const res = await request(app)
-      .post('/api/cron/reconcile')
-      .set('Authorization', `Bearer ${VALID_CRON_TOKEN}`);
-
-    expect(res.status).toBe(200);
-    expect(res.body.success).toBe(true);
-    // reconcileService returns a report object
-    expect(res.body.data).toBeDefined();
-  });
-});
-
-// ── POST /api/cron/attendance-reminders ──────────────────
 
 describe('POST /api/cron/attendance-reminders', () => {
   test('returns 401 without a token', async () => {
