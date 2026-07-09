@@ -300,6 +300,43 @@ describePg('PG-parity: groups read repository', () => {
     expect(me).toEqual([]); expect(pe).toEqual([]);
   });
 
+  // ── getUserProgress support (K1b slice 4) ───────────────
+  test('findMemberTeamsWithClass: member teams w/ class label; deleted team excluded; deleted class → null', async () => {
+    // UM1 is a member of T1 (live) and TD1 (deleted) → only T1.
+    const [m, p] = await both((r) => r.findMemberTeamsWithClass(UM1));
+    const mm = byId(norm(m));
+    expect(mm.map((t) => t._id)).toEqual([T1]);                // TD1 hidden by soft-delete
+    expect(mm[0].classId).toEqual({ _id: C1, classCode: 'CC-1', courseName: 'Course One' }); // no status select
+    expect(mm[0].members).toEqual([UL1, UM1, UDEL]);           // raw ids (members not populated here)
+    expect(mm[0].leaderId).toBe(UL1);                          // raw id (leader not populated here)
+    expect(byId(norm(p))).toEqual(mm);                         // whole team doc deep-equal
+    // UM2 → T2 whose class C2 is soft-deleted → classId null
+    const [m2, p2] = await both((r) => r.findMemberTeamsWithClass(UM2));
+    expect(norm(m2).map((t) => t._id)).toEqual([T2]);
+    expect(norm(m2)[0].classId).toBeNull();
+    expect(byId(norm(p2))).toEqual(byId(norm(m2)));
+    const [me, pe] = await both((r) => r.findMemberTeamsWithClass(MISSING));
+    expect(me).toEqual([]); expect(pe).toEqual([]);
+  });
+
+  test('findScheduledByBookedTeamIdsPopulated: scheduled-only, startTime asc, class+team populated', async () => {
+    const [m, p] = await both((r) => r.findScheduledByBookedTeamIdsPopulated([T1]));
+    const mm = norm(m);
+    expect(mm.map((s) => s._id)).toEqual([SA, SB]); // SC cancelled + SX foreign excluded; startTime asc
+    expect(mm[0].classId).toEqual({ _id: C1, classCode: 'CC-1', courseName: 'Course One' });
+    expect(mm[0].bookedTeamId).toEqual({ _id: T1, name: 'Alpha' });
+    expect(norm(p)).toEqual(mm); // whole populated docs deep-equal
+    // T2 → SX only; its class C2 is soft-deleted → classId null; bookedTeamId Bravo
+    const [m2, p2] = await both((r) => r.findScheduledByBookedTeamIdsPopulated([T2]));
+    const mm2 = norm(m2);
+    expect(mm2.map((s) => s._id)).toEqual([SX]);
+    expect(mm2[0].classId).toBeNull();
+    expect(mm2[0].bookedTeamId).toEqual({ _id: T2, name: 'Bravo' });
+    expect(norm(p2)).toEqual(mm2);
+    const [me, pe] = await both((r) => r.findScheduledByBookedTeamIdsPopulated([]));
+    expect(me).toEqual([]); expect(pe).toEqual([]);
+  });
+
   // ── Mutation pre-reads / guards ─────────────────────────
   test('findTeamByIdLean: raw lean doc (no populate); deleted team → null', async () => {
     const [m, p] = await both((r) => r.findTeamByIdLean(T1));

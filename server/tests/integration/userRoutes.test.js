@@ -150,6 +150,32 @@ describe('GET /api/users/:id', () => {
   });
 });
 
+// ── GET /api/users/:id/progress (K1b slice 4 — dual-backend) ──
+
+describe('GET /api/users/:id/progress', () => {
+  test('returns the progress bundle (user + enrollments/schedules/attendances arrays)', async () => {
+    const res = await request(app)
+      .get(`/api/users/${seed.member1._id}/progress`)
+      .set('Authorization', `Bearer ${tokens.admin}`);
+
+    expect(res.status).toBe(200);
+    expect(res.body.success).toBe(true);
+    expect(res.body.data.user).toBeTruthy();
+    expect(res.body.data.user.empCode).toBe(seed.member1.empCode);
+    expect(Array.isArray(res.body.data.enrollments)).toBe(true);
+    expect(Array.isArray(res.body.data.schedules)).toBe(true);
+    expect(Array.isArray(res.body.data.attendances)).toBe(true);
+  });
+
+  test('returns 404 for unknown user id', async () => {
+    const fakeId = new mongoose.Types.ObjectId().toString();
+    const res = await request(app)
+      .get(`/api/users/${fakeId}/progress`)
+      .set('Authorization', `Bearer ${tokens.admin}`);
+    expect(res.status).toBe(404);
+  });
+});
+
 // ── POST /api/users ──────────────────────────────────────
 
 describe('POST /api/users', () => {
