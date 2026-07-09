@@ -2,7 +2,7 @@
 capability: scheduling-and-booking
 status: stable
 owners: [services/scheduleService, domains/schedule, domains/room, domains/learning/session]
-last_updated: 2026-06-20
+last_updated: 2026-07-09
 related_plans:
   - plans/260602-2247-m1-self-enroll-nomination-session-modes
   - plans/260606-1356-wave-e-generic-scheduling
@@ -510,9 +510,11 @@ ledger row pointing at a cancelled session. Staff history access: legacy list
 `GET /api/schedules?status=cancelled|all` (Participants are force-scoped to
 live) and the Admin/Coordinator learning session list, which keeps cancelled
 rows and renders a **Cancelled** chip (read-only — trainer assignment hidden) in
-the cohort Sessions panel. Editing a cancelled session → **409**. Existing
-deployments run `scripts/migrate-schedule-partial-unique-index.js` (idempotent
-backfill + index swap) before deploying.
+the cohort Sessions panel. Editing a cancelled session → **409**. The
+double-booking guard (a partial unique index on `{classId, startTime}` where
+`status='scheduled'`) is enforced on PostgreSQL by the schedules-table schema
+migration (the Mongo-era `migrate-schedule-partial-unique-index.js` deploy
+helper was removed at the Wave K safe-cleanup).
 
 #### Scenario: Leader cancels own session
 - **GIVEN** a future session owned by the leader's team

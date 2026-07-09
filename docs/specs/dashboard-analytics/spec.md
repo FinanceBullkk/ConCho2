@@ -2,7 +2,7 @@
 capability: dashboard-analytics
 status: stable
 owners: [controllers/dashboardController, services/analyticsSeriesService, jobs/snapshotJob]
-last_updated: 2026-06-15
+last_updated: 2026-07-09
 related_code:
   - server/controllers/dashboardController.js
   - server/middleware/analyticsCache.js
@@ -11,7 +11,6 @@ related_code:
   - server/services/analyticsSeriesService.js
   - server/routes/analyticsRoutes.js
   - server/jobs/snapshotJob.js
-  - server/scripts/backfill-metric-snapshots.js
 related_plans: []
 ---
 
@@ -51,8 +50,9 @@ attendance), cached so frequent dashboard refreshes don't hammer the DB.
   `{scope (global|program|office), scopeId, key, date (UTC midnight)}` → `value`.
   Keys: `active_enrollments` (point-in-time), `enrollments` / `completions` /
   `certs_issued` (cumulative). Written nightly by `jobs/snapshotJob.js`; TTL
-  ~400 days. Backfilled (derivable cumulative history, global + per-program) by
-  `scripts/backfill-metric-snapshots.js`.
+  ~400 days. Historical series build forward from `jobs/snapshotJob.js` (the
+  Mongo-era one-time `backfill-metric-snapshots.js` helper was removed at the
+  Wave K safe-cleanup — the PostgreSQL fresh-start needs no derived backfill).
 
 ## Functional Requirements (FR)
 

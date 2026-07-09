@@ -4,7 +4,6 @@ const Enrollment = require('../../models/Enrollment');
 const Class = require('../../models/Class');
 const LearningProgram = require('../../models/LearningProgram');
 const NotificationLog = require('../../models/NotificationLog');
-const { runReconciliation } = require('../../services/reconcileService');
 // Enrollments are written through the ported PG repo (PG-only on the lane), so
 // Mongoose count/find assertions read the wrong backend — route to the active one.
 const { readActiveRow, findActiveRowWhere, countActiveRowsWhere } = require('../pg-test-utils');
@@ -184,20 +183,6 @@ describe('Learning Platform API — cohort enrollments', () => {
 
     const count = await countActiveRowsWhere('NotificationLog', { type: 'cohort_enrolled' });
     expect(count).toBe(0);
-  });
-
-  test('reconcile does not flag a cohort enrollment (teamId null) as orphaned', async () => {
-    await enroll(tokens.admin, {
-      cohortId: seed.class1._id.toString(), userId: seed.member1._id.toString(),
-    });
-    const enr = await Enrollment.findOne({ classId: seed.class1._id, teamId: null }).lean();
-
-    const report = await runReconciliation('manual');
-    const flaggedAsOrphan = (report.issues || []).some(
-      (i) => i.check === 'orphaned_enrollment'
-        && String(i.refs?.enrollmentId) === String(enr._id),
-    );
-    expect(flaggedAsOrphan).toBe(false);
   });
 });
 

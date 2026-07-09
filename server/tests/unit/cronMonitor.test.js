@@ -63,8 +63,6 @@ describe('cronMonitor.deriveHealth', () => {
   });
 
   test('CRON_JOBS exposes stable slugs + cadences for both jobs', () => {
-    expect(CRON_JOBS.reconcile).toMatchObject({ jobName: 'reconcile', monitorSlug: 'reconcile-nightly' });
-    expect(CRON_JOBS.reconcile.expectedIntervalMs).toBe(24 * HOUR);
     expect(CRON_JOBS.reminders).toMatchObject({ jobName: 'attendance-reminders' });
     expect(CRON_JOBS.reminders.expectedIntervalMs).toBe(HOUR);
     expect(CRON_JOBS.assignmentReminders).toMatchObject({ jobName: 'assignment-reminders' });
@@ -76,7 +74,6 @@ describe('cronMonitor.deriveHealth', () => {
   // fire "missed run" alerts. Cadences mirror docs/cron-pinger-setup.md.
   test('CRON_JOBS entries carry valid crontab schedules (OPS-010)', () => {
     const cron = require('node-cron');
-    expect(CRON_JOBS.reconcile.schedule).toBe('0 2 * * *');
     expect(CRON_JOBS.reminders.schedule).toBe('0 * * * *');
     expect(CRON_JOBS.assignmentReminders.schedule).toBe('0 1 * * *');
     for (const job of Object.values(CRON_JOBS)) {
