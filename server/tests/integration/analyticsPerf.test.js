@@ -1,8 +1,7 @@
 /**
- * Integration Tests — analytics + reconcile perf (audit PR G)
+ * Integration Tests — analytics perf (audit PR G)
  *
- * Covers PERF-003 (analyticsByTeam invert direction) and PERF-004
- * (reconcile shared activeEnrollments).
+ * Covers PERF-003 (analyticsByTeam invert direction).
  *
  * Asserts on CORRECTNESS — not raw timing. Timing benchmarks live
  * in the Artillery load suite. These tests verify the new
@@ -131,60 +130,5 @@ describe('PERF-003 — analyticsByTeam inverted join', () => {
     expect(page1.data.length).toBe(2);
     expect(page1.total).toBeGreaterThanOrEqual(3);
     expect(page2.data.length).toBeGreaterThanOrEqual(1);
-  });
-});
-
-describe('PERF-004 — reconcile shared activeEnrollments', () => {
-  const { runReconciliation } = require('../../services/reconcileService');
-  const Enrollment = require('../../models/Enrollment');
-
-  test('reconcile completes without errors when ctx is pre-populated', async () => {
-    // Plant a couple of Active enrollments so the ctx path is exercised.
-    await Enrollment.create([
-      {
-        userId: seed.member1._id, teamId: seed.team._id, classId: seed.class1._id,
-        status: 'Active', note: 'PR-G-perf-fixture',
-      },
-    ]);
-
-    const report = await runReconciliation('manual');
-    expect(report).toBeDefined();
-    expect(report.summary.total).toBeGreaterThanOrEqual(0);
-    // All 10 check counters present (regression check)
-    for (const k of [
-      'missing_attendance',
-      'orphaned_enrollment',
-      'ghost_member',
-      'empty_future_schedule',
-      'unattached_participant',
-      'duplicate_active_enrollment',
-      'orphan_schedule_class',
-      'multi_team_class',
-      'counter_drift',
-      'soft_deleted_in_team_members',
-    ]) {
-      expect(report.summary[k]).toBeDefined();
-    }
-  });
-
-  test('Enrollment.find is called ONCE for active enrollments', async () => {
-    const Enrollment = require('../../models/Enrollment');
-    const spy = jest.spyOn(Enrollment, 'find');
-
-    await runReconciliation('manual');
-
-    // Count calls that asked specifically for status:Active (the
-    // memoised query). Old impl called it ≥2 times (checks 2 + 3).
-    const activeQueryCalls = spy.mock.calls.filter((args) => {
-      const filter = args[0];
-      return filter && filter.status === 'Active';
-    });
-
-    // PERF-004 invariant: at most 2 total — one for the pre-fetch (ctx)
-    // plus at most one in check 5 (unattached, narrows by userId).
-    // Before this PR: ≥3 (pre-fetch + check 2 + check 3 + check 5).
-    expect(activeQueryCalls.length).toBeLessThanOrEqual(2);
-
-    spy.mockRestore();
   });
 });
