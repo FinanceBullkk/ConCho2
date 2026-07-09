@@ -5,6 +5,7 @@ import {
   ClipboardList, CalendarPlus, Clock, MapPin, Users2, ChevronRight, PlayCircle, MessageSquare, BookOpen, Route, GraduationCap, ScrollText,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
+import { isFeatureEnabled } from '../../config/features';
 import { useMyClassSchedules } from '../../hooks/useSchedules';
 import { useMyAttendanceStats, useAttendanceByUser } from '../../hooks/useAttendance';
 import { useEvaluations } from '../../features/evaluations/useEvaluations';
@@ -316,15 +317,17 @@ export default function ParticipantDashboard() {
             <ChevronRight className="size-4 text-muted-foreground" aria-hidden="true" />
           </Link>
         </Button>
-        <Button asChild variant="outline" className="justify-between">
-          <Link to="/me/paths">
-            <span className="inline-flex items-center gap-2">
-              <Route className="size-4" aria-hidden="true" />
-              Learning paths
-            </span>
-            <ChevronRight className="size-4 text-muted-foreground" aria-hidden="true" />
-          </Link>
-        </Button>
+        {isFeatureEnabled('paths') && (
+          <Button asChild variant="outline" className="justify-between">
+            <Link to="/me/paths">
+              <span className="inline-flex items-center gap-2">
+                <Route className="size-4" aria-hidden="true" />
+                Learning paths
+              </span>
+              <ChevronRight className="size-4 text-muted-foreground" aria-hidden="true" />
+            </Link>
+          </Button>
+        )}
         <Button asChild variant="outline" className="justify-between">
           <Link to="/me/assessments">
             <span className="inline-flex items-center gap-2">
