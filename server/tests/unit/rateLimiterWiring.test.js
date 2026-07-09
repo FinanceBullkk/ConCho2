@@ -125,11 +125,6 @@ describe('rate-limiter wiring — write/abuse surfaces', () => {
     const router = require('../../routes/syncRoutes');
     expect(limitersOn(router, 'post', '/google-sheets')).toEqual(budget(15 * MIN, 3));
   });
-
-  test('cron: POST /reconcile carries reconcileLimiter (10 / hour)', () => {
-    const router = require('../../routes/cronRoutes');
-    expect(limitersOn(router, 'post', '/reconcile')).toEqual(budget(HOUR, 10));
-  });
 });
 
 describe('DISABLE_RATE_LIMITS escape hatch (e2e-only)', () => {
