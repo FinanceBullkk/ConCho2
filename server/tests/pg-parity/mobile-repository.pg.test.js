@@ -117,4 +117,36 @@ describePg('PG-parity: mobile repository', () => {
     const [mHit, pHit] = await both((r) => r.removeSubscription(U2, ep));
     expect(norm(mHit).deletedCount).toBe(1); expect(norm(pHit).deletedCount).toBe(1);
   });
+
+  // K1b slice 5 — pushService delivery reads/prune (table is empty here: the
+  // removeSubscription test above deleted the only row).
+  test('findSubscriptionsByUser + pruneSubscriptionsByEndpoints — identical', async () => {
+    const e1 = 'https://push.example/u1-a';
+    const e2 = 'https://push.example/u1-b';
+    const e3 = 'https://push.example/u2-a';
+    await both((r) => r.upsertSubscription({ userId: U1, endpoint: e1, keys: { p256dh: 'x1', auth: 'y1' }, userAgent: 'A' }));
+    await both((r) => r.upsertSubscription({ userId: U1, endpoint: e2, keys: { p256dh: 'x2', auth: 'y2' }, userAgent: 'B' }));
+    await both((r) => r.upsertSubscription({ userId: U2, endpoint: e3, keys: { p256dh: 'x3', auth: 'y3' }, userAgent: 'C' }));
+
+    const byEp = (rows) => norm(rows).map(subProj).sort((a, b) => a.endpoint.localeCompare(b.endpoint));
+    const [m, p] = await both((r) => r.findSubscriptionsByUser(U1));
+    expect(byEp(m)).toEqual([
+      { userId: U1, endpoint: e1, keys: { p256dh: 'x1', auth: 'y1' }, userAgent: 'A' },
+      { userId: U1, endpoint: e2, keys: { p256dh: 'x2', auth: 'y2' }, userAgent: 'B' },
+    ]);
+    expect(byEp(p)).toEqual(byEp(m));
+    const [m2] = await both((r) => r.findSubscriptionsByUser(U2)); // isolation: U2 unaffected
+    expect(norm(m2).length).toBe(1);
+
+    // prune a dead endpoint → removed on both; deletedCount 1
+    const [md, pd] = await both((r) => r.pruneSubscriptionsByEndpoints([e1]));
+    expect(norm(md).deletedCount).toBe(1); expect(norm(pd).deletedCount).toBe(1);
+    const [mAfter, pAfter] = await both((r) => r.findSubscriptionsByUser(U1));
+    expect(byEp(mAfter)).toEqual([{ userId: U1, endpoint: e2, keys: { p256dh: 'x2', auth: 'y2' }, userAgent: 'B' }]);
+    expect(byEp(pAfter)).toEqual(byEp(mAfter));
+
+    // empty prune → no-op, deletedCount 0 on both
+    const [me, pe] = await both((r) => r.pruneSubscriptionsByEndpoints([]));
+    expect(norm(me).deletedCount).toBe(0); expect(norm(pe).deletedCount).toBe(0);
+  });
 });

@@ -1,6 +1,9 @@
 const webpush = require('web-push');
 const logger = require('../lib/logger');
-const PushSubscription = require('../models/PushSubscription');
+// Dual-backend subscription access (K1b slice 5): DB_BACKEND selects Mongo/PG so
+// delivery reads + the dead-endpoint prune hit the active backend once Mongo is
+// retired (the mobile domain owns the push_subscriptions table).
+const mobileRepo = require('../domains/mobile/repository');
 
 // ──────────────────────────────────────────────────────────
 // pushService — Web Push delivery for B5 (mobile learning surface, Horizon 2).
@@ -44,7 +47,7 @@ const sendToUser = async (userId, payload = {}) => {
   if (!configured || !userId) return { sent: 0, pruned: 0 };
   let subs = [];
   try {
-    subs = await PushSubscription.find({ userId }).lean();
+    subs = await mobileRepo.findSubscriptionsByUser(userId);
   } catch {
     return { sent: 0, pruned: 0 };
   }
@@ -70,7 +73,7 @@ const sendToUser = async (userId, payload = {}) => {
   }));
 
   if (dead.length) {
-    try { await PushSubscription.deleteMany({ endpoint: { $in: dead } }); } catch { /* best-effort */ }
+    try { await mobileRepo.pruneSubscriptionsByEndpoints(dead); } catch { /* best-effort */ }
   }
   return { sent, pruned: dead.length };
 };
