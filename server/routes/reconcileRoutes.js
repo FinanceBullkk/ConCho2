@@ -4,6 +4,7 @@ const { requireCapability } = require('../middleware/requireCapability');
 const { CAPABILITIES } = require('../policy/capabilities');
 const { validate } = require('../middleware/validate');
 const { reconcileLimiter } = require('../middleware/rateLimiters');
+const { mongoOnlyGone } = require('../middleware/mongoOnlyGone');
 const { healBody } = require('../schemas/reconcile');
 const {
   getLatestReport,
@@ -15,6 +16,9 @@ const {
 } = require('../controllers/reconcileController');
 
 const router = express.Router();
+
+// K1b: reconcileService is Mongo-only — retired once the app runs Mongo-less.
+router.use(mongoOnlyGone);
 
 // All reconcile endpoints are Admin-only (system.ops capability).
 router.use(protect, requireCapability(CAPABILITIES.SYSTEM_OPS));

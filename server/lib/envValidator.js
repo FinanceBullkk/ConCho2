@@ -18,13 +18,21 @@ const REQUIRED_ALWAYS = ['JWT_SECRET'];
 // app-wide outage). CLIENT_ORIGIN missing → password-reset emails link to
 // http://localhost:5173. Both are README-§6.4-required; fail fast at boot
 // instead (ALLOW_MISSING_PROD_ENV remains the emergency bypass).
-const REQUIRED_IN_PRODUCTION = [
-  'MONGO_URI',
+// Backend-agnostic production requirements (the ACTIVE backend's connection
+// string is added on top — see activeDbEnv). K1b: MONGO_URI is no longer
+// hard-required — under DB_BACKEND=postgres the app runs Mongo-less, so PG_URL
+// is what must be present. Read DB_BACKEND fresh (not the cached db-backend
+// helper) so the check tracks the current env in tests.
+const REQUIRED_IN_PRODUCTION_BASE = [
   'CRON_TOKEN',
   'IMPORT_DEFAULT_PASSWORD',
   'CORS_ORIGINS',
   'CLIENT_ORIGIN',
 ];
+const activeDbEnv = () =>
+  ((process.env.DB_BACKEND || 'mongo').toLowerCase() === 'postgres' ? 'PG_URL' : 'MONGO_URI');
+// Kept for back-compat / documentation of the default (mongo) production set.
+const REQUIRED_IN_PRODUCTION = ['MONGO_URI', ...REQUIRED_IN_PRODUCTION_BASE];
 
 const isMissing = (key) => {
   const v = process.env[key];
@@ -37,7 +45,7 @@ const validateEnv = () => {
     if (isMissing(k)) missing.push(k);
   }
   if (process.env.NODE_ENV === 'production') {
-    for (const k of REQUIRED_IN_PRODUCTION) {
+    for (const k of [activeDbEnv(), ...REQUIRED_IN_PRODUCTION_BASE]) {
       if (isMissing(k)) missing.push(k);
     }
   }
