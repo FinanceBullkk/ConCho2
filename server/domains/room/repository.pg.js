@@ -147,6 +147,19 @@ const countFutureSessionsForRoom = async (roomId) => {
   return rows[0].n;
 };
 
+// Scheduled sessions in [from,to] for the given rooms — booked-hours source for
+// the room-utilization report. Mirrors the Mongo lean {roomId,startTime,endTime}
+// shape so utilization.js is backend-agnostic. room_id ANY($1) = the {$in} form.
+const findRoomedSessionsInRange = async ({ roomIds, from, to }) => {
+  const { rows } = await query(
+    `SELECT room_id, start_time, end_time FROM schedules
+     WHERE status = 'scheduled' AND room_id = ANY($1)
+       AND start_time >= $2 AND start_time <= $3`,
+    [roomIds.map(String), new Date(from).toISOString(), new Date(to).toISOString()],
+  );
+  return rows.map((r) => ({ roomId: r.room_id, startTime: r.start_time, endTime: r.end_time }));
+};
+
 module.exports = {
   createRoom,
   findRoomByIdLean,
@@ -155,4 +168,5 @@ module.exports = {
   softDeleteRoom,
   findLiveOffice,
   countFutureSessionsForRoom,
+  findRoomedSessionsInRange,
 };
