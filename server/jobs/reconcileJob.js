@@ -2,6 +2,7 @@ const cron = require('node-cron');
 const { runReconciliation } = require('../services/reconcileService');
 const auditService = require('../services/auditService');
 const { runMonitored, CRON_JOBS } = require('../lib/cronMonitor');
+const { isPostgres } = require('../config/db-backend');
 const logger = require('../lib/logger');
 
 // ──────────────────────────────────────────────────────────
@@ -32,6 +33,13 @@ let task = null;
 
 function startReconcileJob() {
   if (process.env.NODE_ENV === 'test') return; // never run in test
+
+  // K1b: reconcileService is Mongo-only (no PG implementation) — retired at the
+  // PostgreSQL cutover. Don't schedule it under DB_BACKEND=postgres.
+  if (isPostgres) {
+    logger.info('Reconciliation cron job skipped — reconcileService is Mongo-only (retired under postgres)');
+    return;
+  }
 
   if (!cron.validate(CRON_SCHEDULE)) {
     logger.warn({ schedule: CRON_SCHEDULE }, 'Invalid RECONCILE_CRON expression — job not started');

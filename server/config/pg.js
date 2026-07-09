@@ -22,6 +22,10 @@ const getPool = () => {
 
 const query = (text, params) => getPool().query(text, params);
 
+// Liveness probe for /ready + boot verify (K1b): a cheap round-trip that opens
+// the pool on first use. Throws if PG is unreachable.
+const ping = async () => { await query('SELECT 1'); return true; };
+
 const closePool = async () => { if (pool) { await pool.end(); pool = null; } };
 
-module.exports = { getPool, query, closePool };
+module.exports = { getPool, query, ping, closePool };

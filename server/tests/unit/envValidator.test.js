@@ -106,6 +106,30 @@ describe('validateEnv()', () => {
     expect(r.missing).toEqual(expect.arrayContaining(['MONGO_URI', 'CRON_TOKEN']));
   });
 
+  // K1b: under DB_BACKEND=postgres the app runs Mongo-less — PG_URL is the
+  // required connection string, MONGO_URI is optional (the inactive backend).
+  test('production + postgres: PG_URL required, MONGO_URI not needed → ok', () => {
+    process.env = {
+      NODE_ENV: 'production', DB_BACKEND: 'postgres', JWT_SECRET: 'x',
+      PG_URL: 'postgres://x', CRON_TOKEN: 'y', IMPORT_DEFAULT_PASSWORD: 'z',
+      CORS_ORIGINS: 'https://app.example.com', CLIENT_ORIGIN: 'https://app.example.com',
+    };
+    // MONGO_URI intentionally absent
+    expect(validateEnv()).toEqual({ ok: true, missing: [] });
+  });
+
+  test('production + postgres: missing PG_URL reports failure (not MONGO_URI)', () => {
+    process.env = {
+      NODE_ENV: 'production', DB_BACKEND: 'postgres', JWT_SECRET: 'x',
+      CRON_TOKEN: 'y', IMPORT_DEFAULT_PASSWORD: 'z',
+      CORS_ORIGINS: 'https://app.example.com', CLIENT_ORIGIN: 'https://app.example.com',
+    };
+    const r = validateEnv();
+    expect(r.ok).toBe(false);
+    expect(r.missing).toEqual(['PG_URL']);
+    expect(r.missing).not.toContain('MONGO_URI');
+  });
+
   test('production: ALLOW_MISSING_PROD_ENV=true flags bypass', () => {
     process.env = {
       NODE_ENV: 'production',
