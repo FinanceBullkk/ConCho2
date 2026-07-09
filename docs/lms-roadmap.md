@@ -214,7 +214,7 @@ committed parallel track**.
 | Google identity | OIDC + Directory sync | Confirm exact Workspace domain/config during implementation |
 | Infrastructure | Paid minimal / always-on | Upgrade further only if load/ops data demands it |
 | Redis/shared store | Defer | Add when multi-instance, durable job locks, or rate-limit consistency require it |
-| PostgreSQL | Defer | Revisit when path/reporting queries become painful on MongoDB |
+| PostgreSQL | **Committed / live** | Wave J cutover executed 2026-07-08; production is live on PostgreSQL/Neon. Wave K activation verified 2026-07-09 after removing `MONGO_URI`; remaining gate is Atlas cancellation + retired Mongo code cleanup. |
 | SCORM/content layer | Defer | Revisit only with a concrete self-paced content requirement |
 | Generic scheduling | **Committed (Wave E)** | Promoted from deferred 2026-06-04; large — own phase plan, keep leader-booking as one mode |
 | Mandatory assignment + due dates | **Committed (Wave D4)** | Central compliance workflow; dept-targeting depends on Wave D3 org model |

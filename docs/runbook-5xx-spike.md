@@ -10,8 +10,9 @@
 
 - [ ] Open Sentry → group by issue title to identify the top error.
 - [ ] Open Render → check the deploy history: was a new build just promoted? If yes, candidate for rollback.
-- [ ] Open Atlas → cluster health panel. Connection saturation? CPU? Storage 100%?
-- [ ] Hit `https://<tms-host>/ready` from a fresh window. 200 = Mongo healthy. 503 = Mongo unreachable → jump to runbook **cron-failure → Mongo down** section.
+- [ ] Open Neon → project/branch monitoring. Connection saturation? CPU? Storage? Autosuspend/cold-start symptoms?
+- [ ] Do not treat Atlas as runtime fallback after Wave K activation; production should not have `MONGO_URI`.
+- [ ] Hit `https://<tms-host>/ready` from a fresh window. 200 = active database healthy. 503 = active database unreachable → continue with triage path B below.
 
 ## 2. Triage by symptom
 
@@ -23,9 +24,9 @@ Most likely a regression in the latest deploy.
   - **Hotfix**: open PR off `main`, get one reviewer, merge, monitor for 10 min.
 
 ### B. Errors are spread across all endpoints
-Likely an infra issue (Mongo, env var, JWT_SECRET rotation, OOM).
-- [ ] If `/ready` returns 503 → Mongo. Check Atlas → recent ops, replica-set health.
-- [ ] Check Render service logs for `JWT_SECRET is not set` or `MONGO_URI` errors → env var was wiped.
+Likely an infra issue (PostgreSQL/Neon, env var, JWT_SECRET rotation, OOM).
+- [ ] If `/ready` returns 503 → active DB. Check Neon under `DB_BACKEND=postgres`; Atlas is no longer in the runtime path.
+- [ ] Check Render service logs for `JWT_SECRET is not set`, missing `PG_URL`, or wrong `DB_BACKEND`.
 - [ ] Check Render memory chart — if peak hit 512 MB, it's the export-OOM scenario (PERF-001). Block export usage temporarily by adding a per-IP rate limit override.
 
 ### C. Errors mention `protobufjs` / Google API
