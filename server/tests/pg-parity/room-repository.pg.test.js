@@ -182,4 +182,35 @@ describePg('PG-parity: room repository CRUD (whole-repo write port)', () => {
     expect(mc).toBe(1);
     expect(pc).toBe(1);
   });
+
+  test('findRoomedSessionsInRange: only in-range SCHEDULED sessions, identical (both backends)', async () => {
+    const [mR, pR] = await both((r) => r.createRoom({ name: 'Util', code: 'util1', officeId: OFFICE_A }));
+    const to = new Date();
+    const from = new Date(to.getTime() - 5 * 86400000);
+    const inRange = new Date(to.getTime() - 1 * 86400000);   // counted
+    const beforeRange = new Date(to.getTime() - 10 * 86400000); // excluded (out of range)
+    const db = mongoose.connection.db;
+    await db.collection('schedules').insertMany([
+      { _id: new mongoose.Types.ObjectId(), classId: new mongoose.Types.ObjectId(), roomId: new mongoose.Types.ObjectId(mR._id), startTime: inRange, endTime: new Date(inRange.getTime() + 3600000), status: 'scheduled' },
+      { _id: new mongoose.Types.ObjectId(), classId: new mongoose.Types.ObjectId(), roomId: new mongoose.Types.ObjectId(mR._id), startTime: beforeRange, endTime: beforeRange, status: 'scheduled' },
+      { _id: new mongoose.Types.ObjectId(), classId: new mongoose.Types.ObjectId(), roomId: new mongoose.Types.ObjectId(mR._id), startTime: inRange, endTime: inRange, status: 'cancelled' },
+    ]);
+    await query(
+      `INSERT INTO schedules(id,class_id,room_id,start_time,end_time,status) VALUES
+        ($1,$2,$3,$4,$5,'scheduled'),($6,$7,$8,$9,$10,'scheduled'),($11,$12,$13,$14,$15,'cancelled')`,
+      [hex(911), hex(801), pR._id, inRange.toISOString(), new Date(inRange.getTime() + 3600000).toISOString(),
+        hex(912), hex(801), pR._id, beforeRange.toISOString(), beforeRange.toISOString(),
+        hex(913), hex(801), pR._id, inRange.toISOString(), inRange.toISOString()],
+    );
+    const [ms, ps] = await Promise.all([
+      roomRepo.impls.mongo.findRoomedSessionsInRange({ roomIds: [mR._id], from, to }),
+      roomRepo.impls.pg.findRoomedSessionsInRange({ roomIds: [pR._id], from, to }),
+    ]);
+    expect(ms).toHaveLength(1);
+    expect(ps).toHaveLength(1);
+    expect(String(ms[0].roomId)).toBe(String(mR._id));
+    expect(String(ps[0].roomId)).toBe(String(pR._id));
+    expect(ms[0].startTime).toBeInstanceOf(Date);
+    expect(ps[0].startTime).toBeInstanceOf(Date);
+  });
 });

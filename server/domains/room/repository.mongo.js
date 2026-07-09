@@ -46,6 +46,16 @@ const findLiveOffice = (officeId) => Office.findOne({ _id: officeId, isDeleted: 
 const countFutureSessionsForRoom = (roomId) =>
   Schedule.countDocuments({ roomId, startTime: { $gt: new Date() } });
 
+// Scheduled sessions in [from,to] for the given rooms — the booked-hours source
+// for the room-utilization report (domains/room/utilization). Lean {roomId,
+// startTime, endTime} rows; only LIVE (`scheduled`) sessions count.
+const findRoomedSessionsInRange = ({ roomIds, from, to }) =>
+  Schedule.find({
+    status: 'scheduled',
+    roomId: { $in: roomIds },
+    startTime: { $gte: from, $lte: to },
+  }).select('roomId startTime endTime').lean();
+
 module.exports = {
   createRoom,
   findRoomByIdLean,
@@ -54,4 +64,5 @@ module.exports = {
   softDeleteRoom,
   findLiveOffice,
   countFutureSessionsForRoom,
+  findRoomedSessionsInRange,
 };
