@@ -20,6 +20,15 @@ const upsertSubscription = ({ userId, endpoint, keys, userAgent }) =>
 const removeSubscription = (userId, endpoint) =>
   PushSubscription.deleteOne({ userId, endpoint });
 
+// pushService delivery (K1b slice 5): a user's registered devices (endpoint +
+// keys drive web-push) and the prune of endpoints a push rejected 404/410 (the
+// subscription is gone → the table self-heals).
+const findSubscriptionsByUser = (userId) =>
+  PushSubscription.find({ userId }).lean();
+
+const pruneSubscriptionsByEndpoints = (endpoints) =>
+  PushSubscription.deleteMany({ endpoint: { $in: endpoints } });
+
 // The learner's next LIVE enrolled sessions (the "upcoming" feed half).
 const upcomingSessionsForUser = (userId, from, limit = 10) =>
   Schedule.find({ enrolledUsers: userId, status: 'scheduled', startTime: { $gte: from } })
@@ -32,5 +41,7 @@ const upcomingSessionsForUser = (userId, from, limit = 10) =>
 module.exports = {
   upsertSubscription,
   removeSubscription,
+  findSubscriptionsByUser,
+  pruneSubscriptionsByEndpoints,
   upcomingSessionsForUser,
 };

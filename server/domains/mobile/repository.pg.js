@@ -42,6 +42,21 @@ const removeSubscription = async (userId, endpoint) => {
   return { acknowledged: true, deletedCount: rowCount };
 };
 
+// pushService delivery (K1b slice 5): a user's devices + prune-by-endpoint. subRow
+// carries endpoint + keys (web-push consumes them); prune of an empty list is a
+// no-op ({ deletedCount: 0 }), matching Mongo deleteMany with $in:[].
+const findSubscriptionsByUser = async (userId) => {
+  const { rows } = await query(`SELECT * FROM push_subscriptions WHERE user_id = $1`, [String(userId)]);
+  return rows.map(subRow);
+};
+
+const pruneSubscriptionsByEndpoints = async (endpoints) => {
+  if (!endpoints || !endpoints.length) return { acknowledged: true, deletedCount: 0 };
+  const { rowCount } = await query(
+    `DELETE FROM push_subscriptions WHERE endpoint = ANY($1)`, [endpoints]);
+  return { acknowledged: true, deletedCount: rowCount };
+};
+
 const upcomingSessionsForUser = async (userId, from, limit = 10) => {
   const { rows } = await query(
     `SELECT s.id, s.topic, s.start_time, s.end_time, s.class_id, s.room_link, s.meet_link,
@@ -61,5 +76,7 @@ const upcomingSessionsForUser = async (userId, from, limit = 10) => {
 module.exports = {
   upsertSubscription,
   removeSubscription,
+  findSubscriptionsByUser,
+  pruneSubscriptionsByEndpoints,
   upcomingSessionsForUser,
 };
