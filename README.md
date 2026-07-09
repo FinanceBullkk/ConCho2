@@ -1,8 +1,8 @@
 <p align="center">
-  <img src="https://img.shields.io/badge/Stack-MERN-00d8ff?style=for-the-badge&logo=mongodb&logoColor=white" alt="MERN Stack"/>
+  <img src="https://img.shields.io/badge/Stack-React%20%2B%20Express%20%2B%20Postgres-336791?style=for-the-badge&logo=postgresql&logoColor=white" alt="React Express Postgres Stack"/>
   <img src="https://img.shields.io/badge/Node.js-%3E%3D18-339933?style=for-the-badge&logo=node.js&logoColor=white" alt="Node.js"/>
   <img src="https://img.shields.io/badge/React-19-61dafb?style=for-the-badge&logo=react&logoColor=black" alt="React 19"/>
-  <img src="https://img.shields.io/badge/MongoDB-Atlas-47A248?style=for-the-badge&logo=mongodb&logoColor=white" alt="MongoDB"/>
+  <img src="https://img.shields.io/badge/PostgreSQL-Neon-336791?style=for-the-badge&logo=postgresql&logoColor=white" alt="PostgreSQL on Neon"/>
   <img src="https://img.shields.io/badge/Tests-241%2B-brightgreen?style=for-the-badge" alt="Tests"/>
   <img src="https://img.shields.io/badge/License-MIT-yellow?style=for-the-badge" alt="License"/>
 </p>
@@ -343,7 +343,8 @@ Every state-changing request (create, edit, delete) must carry a **random secret
 
 **Requirements:**
 - Node.js version 20 or higher (engines `>=20`; CI runs Node 22)
-- A MongoDB Atlas account (or MongoDB installed locally)
+- PostgreSQL connection string (`PG_URL`) for the active Postgres backend
+- Optional MongoDB only for legacy scripts/parity lanes; production runs Mongo-less on PostgreSQL
 - (Optional) Google Workspace with a service account for Google Calendar
 - (Optional) SMTP to send email
 
@@ -359,7 +360,7 @@ cd server && npm install && cd ..
 
 # 3. Create the server config server/.env (copy from the template)
 cp server/.env.example server/.env
-# Open server/.env and fill in JWT_SECRET, MONGO_URI, CRON_TOKEN, ... per the table below
+# Open server/.env and fill in JWT_SECRET, DB_BACKEND, PG_URL, CRON_TOKEN, ... per the table below
 # IMPORTANT: server/.env is in .gitignore — never commit this file.
 # If you accidentally commit it, ROTATE every leaked secret immediately.
 
@@ -396,7 +397,9 @@ docker run -d --name tms-v2 -p 5000:5000 --env-file .env tms-v2
 | Variable | Required? | Description |
 |----------|:---------:|-------------|
 | `NODE_ENV` | ✓ | `development` or `production` |
-| `MONGO_URI` | ✓ | MongoDB Atlas connection string |
+| `DB_BACKEND` | ✓ (production) | Active repository backend. Production is `postgres`; unset/default `mongo` is legacy/dev fallback. |
+| `PG_URL` | ✓ when `DB_BACKEND=postgres` | PostgreSQL/Neon connection string |
+| `MONGO_URI` | legacy only | MongoDB Atlas/local connection string for old scripts/parity lanes. Production runs without it under `DB_BACKEND=postgres`. |
 | `JWT_SECRET` | ✓ | Secret key for signing tokens (random 32-byte string) |
 | `CORS_ORIGINS` | ✓ | Frontend URLs allowed to call the API — the server REFUSES TO START in production without it (OPS-011) |
 | `CRON_TOKEN` | ✓ | Secret for the nightly automated job |
@@ -445,10 +448,11 @@ Both return JSON with status, version, and uptime.
 
 ### 7.2. Backup & Restore
 
-- **MongoDB Atlas auto-snapshots** daily — keeps the last 2 days (free tier)
-- **Restore**: Atlas Dashboard → Clusters → Backup → choose a snapshot → Restore
-- **Targets:** at most 24 hours of data loss (RPO) · restore within 4 hours (RTO)
-- **Monthly check:** run `node server/scripts/verify-backup.js` to confirm backups work
+- **Neon point-in-time history** covers recent PostgreSQL incidents on the Free tier.
+- **Daily encrypted `pg_dump`** runs in the private backup repo and is restore-verified.
+- **Atlas snapshots** are runtime-retired after Wave K activation; cancel Atlas after final comfort check.
+- **Targets:** <=6 hours RPO inside Neon's history window, otherwise <=24 hours via the latest dump; restore within 4 hours (RTO).
+- **Monthly check:** run `PG_URL="<neon-url>" node server/scripts/verify-pg-backup.js` or verify the latest `pg-backup` workflow run.
 
 See the detailed incident runbook in `docs/backup-dr.md`.
 
@@ -485,15 +489,14 @@ Every night at **02:00 UTC**, the system runs the data check (reconciliation). B
 ┌──────────────────────▼──────────────────────────────────┐
 │                    SERVER (Express)                     │
 │  Helmet · CORS · Pino Logger · Rate Limiters · CSRF    │
-│  Routes → Controllers → Services → Mongoose ORM        │
+│  Routes → Controllers → Services → DB repositories     │
 │  Cron Jobs · Audit Logger · Reconcile Engine           │
 └──────────────────────┬──────────────────────────────────┘
                        │
 ┌──────────────────────▼──────────────────────────────────┐
-│              MongoDB Atlas (Database)                   │
-│  12 collections: Users, Classes, Schedules,            │
-│  Attendance, Evaluations, Teams, Enrollments,          │
-│  AuditLog, Settings, Counter, TokenBlocklist...        │
+│              PostgreSQL / Neon (Primary DB)             │
+│  users, classes/cohorts, schedules, attendance,        │
+│  evaluations, teams, enrollments, audit_log, settings  │
 └──────────────────────┬──────────────────────────────────┘
                        │
           ┌────────────┴────────────┐
@@ -523,7 +526,7 @@ ConCho2/
 │   ├── routes/                  # legacy route files
 │   ├── controllers/             # legacy controllers
 │   ├── services/                # business logic services
-│   ├── models/                  # Mongoose schemas
+│   ├── models/                  # Legacy Mongoose schemas until cleanup
 │   ├── middleware/              # auth, csrf, rateLimiters, validate
 │   ├── jobs/                    # node-cron schedules
 │   └── tests/                   # integration + unit + load tests
@@ -552,7 +555,7 @@ Incoming request
   → Global rate limiter
   → CSRF token check
   → Route-specific middleware (auth, roleGuard, validate, per-route rate limit)
-  → Controller → Service → Mongoose
+  → Controller → Service / Use-case → DB repository
   → Response
   → Write the audit log asynchronously
   → Error handler → Sentry (on 5xx errors)

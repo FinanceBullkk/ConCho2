@@ -1,7 +1,7 @@
 # Runbook — Cron job failure
 
 **Trigger:**
-- No `ReconcileReport` document in MongoDB for the last 25 hours, OR
+- No successful cron heartbeat / reconciliation result for the last 25 hours, OR
 - Sentry cron monitor for `runReconciliation` missed-check, OR
 - Manual probe `POST /api/cron/health` returns non-200.
 
@@ -16,7 +16,7 @@
 | External pinger up? | Log into cron-job.org, verify the job hits `https://<tms-host>/api/cron/reconcile` on schedule. |
 | `CRON_TOKEN` correct? | Compare the bearer in cron-job.org's Authorization header to Render env. A typo silently 401s. |
 | Server awake? | Hit `https://<tms-host>/health`. If 404 or timeout, the Render free instance is asleep — pinger should wake it. |
-| Mongo up? | `https://<tms-host>/ready` should be 200. If 503, fix Mongo first (see §3). |
+| Active database up? | `https://<tms-host>/ready` should be 200. If 503, fix PostgreSQL/Neon under `DB_BACKEND=postgres`; Mongo is no longer in the production runtime path. |
 | Code path? | Tail Render logs for the period the cron should have fired. Look for `'Reconciliation cron fired'` or `'Reconciliation cron job failed'`. |
 
 ## 2. Force a manual run
@@ -28,13 +28,14 @@ curl -X POST -H "Authorization: Bearer $CRON_TOKEN" \
 
 Expected: 200 with the report summary in JSON. If 401, the token doesn't match Render env. If 503, `CRON_TOKEN` is unset or shorter than 16 chars (`middleware/cronAuth.js:31-37`).
 
-## 3. Mongo is down
+## 3. Active database is down
 
-This is the most common root cause of cron failure since the cron job reads + writes Mongo.
+This is the most common root cause of cron failure since cron jobs read and write the active database.
 
-- [ ] Atlas dashboard → cluster status. Common causes: out of free-tier connection cap, replica-set election in progress, billing block.
-- [ ] If billing — fix payment, then probe `/ready` until 200.
-- [ ] If connection cap — temporarily lower `maxPoolSize` env override (current default 100; see audit PERF-009).
+- [ ] Neon dashboard → project/branch status, connection count, storage, billing, and recent incidents.
+- [ ] Confirm Render has `DB_BACKEND=postgres` and a valid `PG_URL`.
+- [ ] If Neon Free autosuspend causes cold starts, verify the external pinger is running at the agreed cadence.
+- [ ] If logs mention Mongo after Wave K activation, treat that as config drift or retired-code usage; production should not have `MONGO_URI`.
 
 ## 4. Cron token rotation
 
