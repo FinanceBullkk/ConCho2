@@ -91,6 +91,23 @@ const findTeamsByMembers = (memberIds, excludeTeamId = null) => {
   return Team.find(query).populate('members', 'name empCode').lean();
 };
 
+// ── getUserProgress support (K1b slice 4) ─────────────────
+// The missing-enrollment fallback: live teams the user is a member of, with the
+// class label (no member/leader populate — the caller only reads _id/name/class).
+const findMemberTeamsWithClass = (userId) =>
+  Team.find({ members: userId })
+    .populate('classId', 'classCode courseName')
+    .lean();
+
+// The teams' live sessions, populated the way the progress response embeds them
+// (classId label + bookedTeamId name), ordered by startTime.
+const findScheduledByBookedTeamIdsPopulated = (teamIds) =>
+  Schedule.find({ bookedTeamId: { $in: teamIds }, status: 'scheduled' })
+    .sort({ startTime: 1 })
+    .populate('classId', 'classCode courseName')
+    .populate('bookedTeamId', 'name')
+    .lean();
+
 module.exports = {
   // list reads
   findTeamsPage,
@@ -108,4 +125,7 @@ module.exports = {
   findTeamByClass,
   findTeamByClassExcluding,
   findTeamsByMembers,
+  // getUserProgress support
+  findMemberTeamsWithClass,
+  findScheduledByBookedTeamIdsPopulated,
 };
