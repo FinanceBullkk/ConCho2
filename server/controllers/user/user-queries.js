@@ -1,9 +1,12 @@
-const User = require('../../models/User');
-const Team = require('../../models/Team');
-const Schedule = require('../../models/Schedule');
-const Attendance = require('../../models/Attendance');
-const Enrollment = require('../../models/Enrollment');
 const listRepository = require('./user-list-repository');
+// Dual-backend reads (K1b slice 4): getUserById + the getUserProgress bundle
+// (user + enrollments + member-team fallback + team sessions + attendance) route
+// through the DB_BACKEND-selected repos so they read the active backend.
+const userRepo = require('./user-repository');
+const userMutationsRepo = require('./user-mutations-repository');
+const enrollmentRepo = require('../../domains/learning/enrollment/repository');
+const groupsReadRepo = require('../../domains/groups/read-repository');
+const attendanceRepo = require('../../domains/attendance/repository');
 const { parsePagination, paginatedResponse } = require('../../helpers/pagination');
 const { handleError } = require('../../helpers/handleError');
 
@@ -73,7 +76,9 @@ const getUsers = async (req, res) => {
  */
 const getUserById = async (req, res) => {
   try {
-    const user = await User.findById(req.params.id);
+    // Dual-backend full-user read (same projection as create/update responses;
+    // sensitive select:false fields stay excluded). is_deleted filtered → 404.
+    const user = await userMutationsRepo.findByIdLean(req.params.id);
     if (!user) {
       return res.status(404).json({ success: false, message: 'User not found' });
     }
@@ -105,18 +110,13 @@ const getDeletedUsers = async (req, res) => {
 const getUserProgress = async (req, res) => {
   try {
     const userId = req.params.id;
-    const user = await User.findById(userId).select('-password').lean();
+    const user = await userRepo.findLiveUserById(userId);
     if (!user) return res.status(404).json({ success: false, message: 'User not found' });
 
-    const enrollments = await Enrollment.find({ userId })
-      .populate('teamId')
-      .populate('classId', 'classCode courseName')
-      .lean();
+    const enrollments = await enrollmentRepo.listUserEnrollments(userId);
 
     // Fallback: Check for teams where user is a member but missing an Enrollment record
-    const activeTeams = await Team.find({ members: userId })
-      .populate('classId', 'classCode courseName')
-      .lean();
+    const activeTeams = await groupsReadRepo.findMemberTeamsWithClass(userId);
 
     const enrolledTeamIds = enrollments.map(e => e.teamId?._id?.toString());
 
@@ -135,17 +135,10 @@ const getUserProgress = async (req, res) => {
 
     const teamIds = enrollments.map(e => e.teamId?._id).filter(Boolean);
 
-    const schedules = await Schedule.find({ bookedTeamId: { $in: teamIds }, status: 'scheduled' })
-      .sort({ startTime: 1 })
-      .populate('classId', 'classCode courseName')
-      .populate('bookedTeamId', 'name')
-      .lean();
+    const schedules = await groupsReadRepo.findScheduledByBookedTeamIdsPopulated(teamIds);
 
     const scheduleIds = schedules.map(s => s._id);
-    const attendances = await Attendance.find({
-      scheduleId: { $in: scheduleIds },
-      userId
-    }).lean();
+    const attendances = await attendanceRepo.findAttendanceStatusRows(scheduleIds, [userId]);
 
     res.json({
       success: true,
