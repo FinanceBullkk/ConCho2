@@ -189,26 +189,6 @@ describe('Audit log write-side coverage', () => {
     }
   });
 
-  test('POST /api/admin/reconcile/run writes Reconcile audit entry', async () => {
-    const jwt = require('jsonwebtoken');
-    const adminToken = jwt.sign(
-      { id: seed.admin._id.toString(), jti: 'audit-reconcile-test-' + Date.now() },
-      process.env.JWT_SECRET,
-      { algorithm: 'HS256', expiresIn: '5m' },
-    );
-
-    const r = await request(app)
-      .post('/api/admin/reconcile/run')
-      .set('Authorization', `Bearer ${adminToken}`)
-      .set(csrf)
-      .send({});
-    expect(r.status).toBe(200);
-
-    const row = await lastEventually({ entity: 'Reconcile', action: 'reconciled' });
-    expect(row).not.toBeNull();
-    expect(row.note).toMatch(/manual run/);
-  });
-
   test('CSRF token mismatch writes csrf-failed audit entry', async () => {
     // No csrf header → middleware rejects with 403 and audits.
     const r = await request(app)

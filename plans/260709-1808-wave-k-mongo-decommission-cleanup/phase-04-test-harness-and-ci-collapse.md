@@ -10,6 +10,14 @@ Once Mongo is gone there is no compare-target, so the harness and the two-backen
 CI structure both change. This is the riskiest phase because **CI gate #8
 (`server-tests-pg`) is REQUIRED** and gate #1 (`server-tests`, the Mongo lane) exists.
 
+> **Boot-path PG-only collapse lands HERE (deferred from Phase 1).** Only once the
+> **e2e gate boots the server on PostgreSQL** (needs the Phase-5 PG seed) and the
+> Mongo test lane is retired can `server.js` drop the backend-aware boot
+> (`if(isPostgres)…else connectDB()`), the Mongoose shutdown-close, the `connectDB`/
+> `isPostgres` requires, and `config/db.js`. Doing it earlier breaks the e2e boot
+> (`PG connection string missing`) — see the Phase-1 CI correction. Sequence:
+> migrate e2e → PG seed (Phase 5) → retire Mongo lane (this phase) → THEN collapse boot.
+
 ## What changes
 | Item | Now | Action |
 |---|---|---|
