@@ -280,9 +280,7 @@ app.use('/api/access', require('./domains/access/routes'));
 app.use('/api/custom-fields', require('./domains/custom-field/routes'));
 app.use('/api/dashboard', require('./routes/dashboardRoutes'));
 app.use('/api/analytics', require('./routes/analyticsRoutes'));
-app.use('/api/admin-db', require('./routes/adminDbRoutes'));
 app.use('/api/admin/audit', require('./routes/auditRoutes'));
-app.use('/api/admin/reconcile', require('./routes/reconcileRoutes'));
 app.use('/api/admin/cron', require('./routes/cronHealthRoutes'));
 app.use('/api/cron', require('./routes/cronRoutes'));
 app.use('/api/search', require('./routes/searchRoutes'));
@@ -437,8 +435,6 @@ if (process.env.NODE_ENV !== 'test') {
 
     // Start background jobs after DB is connected. We hold a handle so the
     // shutdown path can stop them cleanly (OPS-005).
-    const { startReconcileJob, stopReconcileJob } = require('./jobs/reconcileJob');
-    startReconcileJob();
     const { startSnapshotJob, stopSnapshotJob } = require('./jobs/snapshotJob');
     startSnapshotJob();
     // PG-only nightly retention DELETE (Wave-E2) — no-op under DB_BACKEND=mongo
@@ -457,9 +453,6 @@ if (process.env.NODE_ENV !== 'test') {
       logger.info({ signal }, 'Shutdown signal received — draining connections');
 
       // Stop scheduled jobs synchronously so no new DB work begins.
-      try { if (typeof stopReconcileJob === 'function') stopReconcileJob(); } catch (e) {
-        logger.warn({ err: e?.message }, 'stopReconcileJob threw');
-      }
       try { if (typeof stopSnapshotJob === 'function') stopSnapshotJob(); } catch (e) {
         logger.warn({ err: e?.message }, 'stopSnapshotJob threw');
       }

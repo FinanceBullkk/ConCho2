@@ -3,9 +3,9 @@
  * Integration Tests — Cron Health
  * GET /api/admin/cron/health  (Admin-only)
  *
- * Also verifies the heartbeat write-side: hitting the monitored
- * pinger endpoint (POST /api/cron/reconcile) records a CronRun that
- * the health endpoint then surfaces as a healthy 'reconcile' job.
+ * Also verifies the heartbeat write-side: hitting a monitored
+ * pinger endpoint (POST /api/cron/attendance-reminders) records a CronRun
+ * that the health endpoint then surfaces as a healthy job.
  * ──────────────────────────────────────────────────────────
  */
 
@@ -63,9 +63,8 @@ describe('GET /api/admin/cron/health — authz', () => {
 
     expect(res.status).toBe(200);
     expect(res.body.data.overall).toBe('degraded');
-    expect(res.body.count).toBe(6);
+    expect(res.body.count).toBe(5);
     const jobs = Object.fromEntries(res.body.data.jobs.map((job) => [job.jobName, job]));
-    expect(jobs).toHaveProperty('reconcile');
     expect(jobs).toHaveProperty('attendance-reminders');
     expect(jobs).toHaveProperty('assignment-reminders');
     expect(jobs).toHaveProperty('certificate-expiry-reminders');
@@ -77,10 +76,10 @@ describe('GET /api/admin/cron/health — authz', () => {
 });
 
 describe('GET /api/admin/cron/health — heartbeat after a monitored run', () => {
-  test('a pinger reconcile run shows up as a healthy "reconcile" job', async () => {
+  test('a pinger attendance-reminders run shows up as a healthy job', async () => {
     // Trigger a monitored run via the external-pinger endpoint.
     const run = await request(app)
-      .post('/api/cron/reconcile')
+      .post('/api/cron/attendance-reminders')
       .set('Authorization', `Bearer ${VALID_CRON_TOKEN}`);
     expect(run.status).toBe(200);
 
@@ -89,13 +88,13 @@ describe('GET /api/admin/cron/health — heartbeat after a monitored run', () =>
       .set('Authorization', `Bearer ${tokens.admin}`);
     expect(res.status).toBe(200);
 
-    const reconcile = res.body.data.jobs.find((j) => j.jobName === 'reconcile');
-    expect(reconcile).toBeDefined();
-    expect(reconcile.lastStatus).toBe('ok');
-    expect(reconcile.health).toBe('ok');
-    expect(reconcile.healthy).toBe(true);
-    expect(reconcile.lastSuccessAt).toBeTruthy();
-    expect(reconcile.runCount).toBeGreaterThanOrEqual(1);
-    expect(reconcile.expectedIntervalMs).toBe(24 * 60 * 60 * 1000);
+    const reminders = res.body.data.jobs.find((j) => j.jobName === 'attendance-reminders');
+    expect(reminders).toBeDefined();
+    expect(reminders.lastStatus).toBe('ok');
+    expect(reminders.health).toBe('ok');
+    expect(reminders.healthy).toBe(true);
+    expect(reminders.lastSuccessAt).toBeTruthy();
+    expect(reminders.runCount).toBeGreaterThanOrEqual(1);
+    expect(reminders.expectedIntervalMs).toBe(60 * 60 * 1000);
   });
 });

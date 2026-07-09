@@ -2,7 +2,7 @@
 capability: vendor-management
 status: stable
 owners: [domains/vendor, models/Vendor]
-last_updated: 2026-06-16
+last_updated: 2026-07-09
 related_code:
   - server/models/Vendor.js
   - server/domains/vendor/
@@ -11,7 +11,6 @@ related_code:
   - server/models/Schedule.js
   - server/domains/finance/use-cases.js
   - server/policy/capabilities.js
-  - server/scripts/backfill-vendors-from-external-trainers.js
   - client/src/features/vendor/VendorsPage.jsx
 related_plans: []
 ---

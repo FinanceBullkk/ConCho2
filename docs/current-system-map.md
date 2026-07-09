@@ -5,10 +5,10 @@
 This map describes the current system from code inspection, not from older docs.
 Use it as a working reference when planning implementation.
 
-TMS v2 is a MERN-style internal Training Management System:
+TMS v2 is a React + Express + PostgreSQL internal Training Management System:
 
 - Client: React 19 SPA on Vite, Tailwind CSS, Radix/shadcn-style primitives, React Query, React Router, i18next.
-- Server: Express API, Mongoose/MongoDB, cookie auth, CSRF, rate limiting, audit logging, background reconciliation.
+- Server: Express API, DB_BACKEND-selected repositories, PostgreSQL/Neon primary from the Wave-J cutover, cookie auth, CSRF, rate limiting, audit logging, background jobs.
 - Deploy target: single Node web service serving API and, in production, the built React app.
 
 ## Source Of Truth
@@ -22,7 +22,9 @@ Verified code paths:
 - Server entry: `server/server.js`
 - API routes: `server/routes/*` (legacy) + `server/domains/<domain>/routes.js`
 - Domain logic: `server/services/*` and `server/domains/<domain>/*` (20 domains — full inventory in `.claude/rules/domain-model-and-migration.md`; core: learning, schedule, attendance, groups, assessment, org, room)
-- Data models: `server/models/*`
+- Data access: dual-backend repositories in `server/domains/**/repository*.js`, `server/controllers/**/repository*.js`, and selected `server/services/**/repository*.js`
+- Legacy model scaffolding: `server/models/*` until Wave K cleanup removes the
+  retired Mongo runtime/test harness.
 - Validation schemas: `server/schemas/*`
 - Domain vocabulary (glossary): `CONTEXT-MAP.md` (root) → `server/CONTEXT.md`. This map = where code lives; `CONTEXT.md` = what the terms mean.
 
@@ -37,7 +39,7 @@ Request flow:
 3. Axios mirrors readable `csrf-token` cookie into `X-CSRF-Token` for writes.
 4. Express applies request ID, Pino HTTP logging, Helmet, CORS, body parsing, Mongo sanitize, CSRF, global rate limits.
 5. Route middleware applies auth, role guard, Zod validation, route-specific limiters.
-6. Controller calls service/model.
+6. Controller calls service/use-case, then the active backend repository.
 7. Errors go through global error handler; 5xx are sent to Sentry when configured.
 
 Production also serves `client/dist` from the Express process. Non-API routes fall back to `index.html`.
@@ -324,7 +326,7 @@ routes since 2026-06-10 — the legacy `scheduleController` is retired);
 
 - `queries.js` — pure read use-cases (`getAvailability`, `listSchedules`, `getById`,
   `getMyClassSchedules`, `getAttendanceCalendar`), extracted from the legacy service
-  (Phase 1). All Mongoose access goes through `repository.js`; derived
+  (Phase 1). Database access goes through DB_BACKEND-selected repositories; derived
   `attendanceStatus` (none/pending/partial/done) is computed here.
 - `session-order.js` — the single per-class session-order cache + `attachSessionNumbers`
   (1-based `sessionNumber` by `startTime`) + `invalidateSessionOrderCache` (called by
@@ -339,8 +341,9 @@ Main rules:
 
 - `startTime`/`endTime` valid ISO; end after start.
 - Slot must match `ALLOWED_TIME_SLOTS` from `Setting`, evaluated in Vietnam timezone.
-- Booking runs in a Mongo transaction; the Team doc is touched to serialize
-  concurrent same-team writes.
+- Booking runs through the dual-backend Unit-of-Work transaction abstraction; on
+  PostgreSQL this is backed by Neon transactions, while the Mongo implementation
+  remains only for test parity and cleanup until Wave K code removal.
 - Team must exist and have `classId`; non-admin caller must be the team leader.
 - Active team members are enrolled. **Reassigning** a session to another team
   rebuilds the roster from the new team's **Active** members only (Dropped excluded).
@@ -381,7 +384,11 @@ Checks include:
 
 ## External Integrations
 
-- MongoDB via `MONGO_URI`.
+- PostgreSQL/Neon via `PG_URL` when `DB_BACKEND=postgres` (production primary
+  since Wave J, 2026-07-08).
+- MongoDB is no longer connected in production after Wave K activation
+  (2026-07-09); `MONGO_URI` remains relevant only for legacy scripts and parity
+  lanes until cleanup.
 - SMTP via `SMTP_*` and `EMAIL_FROM`.
 - Google Calendar via service account config and impersonation.
 - Google Sheets sync endpoint exists.
