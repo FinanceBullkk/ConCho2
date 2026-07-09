@@ -1,9 +1,11 @@
-const Enrollment = require('../../models/Enrollment');
-const Team = require('../../models/Team');
 const { syncSchedulesForTeamUpdate } = require('../../models/Team');
 const { notifyPromotions } = require('../../domains/schedule/waitlist/promotion');
 const { syncEnrollments, flushPendingEmails, flushPendingEnrollmentEvents } = require('../../domains/groups/controller');
 const enrollmentSyncRepo = require('../../domains/groups/enrollment-sync-repository');
+// Dual-backend pre-validation reads (K1b slice 3): the transfer's source
+// enrollment + both team docs load through the DB_BACKEND-selected repos.
+const enrollmentRepo = require('../../domains/learning/enrollment/repository');
+const groupsRepo = require('../../domains/groups/repository');
 const teamWrite = require('../../domains/groups/team-write-repository');
 const { runInTransaction } = require('../../domains/_shared/unit-of-work');
 const { handleError } = require('../../helpers/handleError');
@@ -46,7 +48,7 @@ const transferEnrollment = async (req, res) => {
     }
 
     // ── Pre-validation (read-only) ──────────────────────────
-    const enrollment = await Enrollment.findById(req.params.id).lean();
+    const enrollment = await enrollmentRepo.findEnrollmentByIdLean(req.params.id);
     if (!enrollment) {
       return res.status(404).json({ success: false, message: 'Enrollment not found' });
     }
@@ -63,8 +65,8 @@ const transferEnrollment = async (req, res) => {
     }
 
     const [fromTeam, toTeam] = await Promise.all([
-      Team.findById(fromTeamId).lean(),
-      Team.findById(toTeamId).lean(),
+      groupsRepo.findTeamByIdLean(fromTeamId),
+      groupsRepo.findTeamByIdLean(toTeamId),
     ]);
     if (!toTeam) {
       return res.status(404).json({ success: false, message: 'Target team not found' });

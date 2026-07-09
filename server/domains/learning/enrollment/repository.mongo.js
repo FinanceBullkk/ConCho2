@@ -108,6 +108,61 @@ const findEnrollmentByIdPopulated = (id) =>
     .populate('classId', 'classCode courseName totalSessions')
     .populate('transferredTo', 'name');
 
+// ── Legacy /api/enrollments list reads (K1b slice 3) ────────────────────────
+// The read handlers behind /api/enrollments, /team/:id, /user/:id and
+// /check-conflicts. Each spans BOTH modes (team + cohort) with the same 4-way
+// populate; ported here (not the cohort-scoped listCohortEnrollments) so
+// DB_BACKEND selects Postgres once Mongo is retired. Behaviour-preserving:
+// same filters, populate select lists, sort, lean.
+
+// GET /api/enrollments — optional teamId/userId/status/classId filters.
+const listEnrollments = ({ teamId, userId, status, classId } = {}) => {
+  const filter = {};
+  if (teamId) filter.teamId = teamId;
+  if (userId) filter.userId = userId;
+  if (status) filter.status = status;
+  if (classId) filter.classId = classId;
+  return Enrollment.find(filter)
+    .populate('userId', 'empCode name department status')
+    .populate('teamId', 'name')
+    .populate('classId', 'classCode courseName totalSessions')
+    .populate('transferredTo', 'name')
+    .sort({ joinedAt: -1 })
+    .lean();
+};
+
+// GET /api/enrollments/team/:teamId — team populate carries classId (the ref).
+const listTeamEnrollments = ({ teamId, status }) => {
+  const filter = { teamId };
+  if (status && status !== 'All') filter.status = status;
+  return Enrollment.find(filter)
+    .populate('userId', 'empCode name department status')
+    .populate('teamId', 'name classId')
+    .populate('classId', 'classCode courseName totalSessions')
+    .populate('transferredTo', 'name')
+    .sort({ status: 1, joinedAt: -1 })
+    .lean();
+};
+
+// GET /api/enrollments/user/:userId — one learner's full timeline.
+const listUserEnrollments = (userId) =>
+  Enrollment.find({ userId })
+    .populate('userId', 'empCode name department status')
+    .populate('teamId', 'name')
+    .populate('classId', 'classCode courseName totalSessions')
+    .populate('transferredTo', 'name')
+    .sort({ joinedAt: -1 })
+    .lean();
+
+// POST /api/enrollments/check-conflicts — Active enrollments for these users in
+// a team OTHER than the target. $ne includes teamId:null rows (cohort mode) to
+// match Mongo semantics; the PG twin uses IS DISTINCT FROM.
+const findActiveConflicts = ({ memberIds, teamId }) =>
+  Enrollment.find({ userId: { $in: memberIds }, status: 'Active', teamId: { $ne: teamId } })
+    .populate('userId', 'empCode name department')
+    .populate('teamId', 'name')
+    .lean();
+
 module.exports = {
   findActiveCohortEnrollment,
   insertActiveEnrollment,
@@ -120,6 +175,10 @@ module.exports = {
   findEnrollmentUserIdsByIds,
   bulkUpdateEnrollmentsByIds,
   findEnrollmentByIdPopulated,
+  listEnrollments,
+  listTeamEnrollments,
+  listUserEnrollments,
+  findActiveConflicts,
   findCohort,
   findCohortSchedulingMode,
   countActiveCohortEnrollments,
