@@ -148,6 +148,25 @@ Bug fixing and integration review rank above net-new feature rollout.
 > [`2026-q3.md`](changelog-archive/2026-q3.md); 06-20→06-27 rolled 2026-07-07;
 > 06-14→06-19 rolled 2026-07-04 → [`2026-q2.md`](changelog-archive/2026-q2.md)).
 
+- **2026-07-09** — **Sidebar trimmed to the core LTMS loop (scope de-clutter).**
+  Owner call: the app was over-built (13 speculative "capability" domains from
+  Horizon 1/2 / TMS.update) and the Admin sidebar showed ~38 items → "nhìn vô
+  không biết xài sao". Hid every module NOT on the operating loop
+  (schedule→attendance→assessment→completion→certificate→report) behind the
+  existing feature-flag layer: **Configure group 12→1 item (only Compliance),
+  Admin nav ~38→~22.** Hide is **UX-only + reversible** — routes/APIs untouched;
+  flip a key back to `true` in `client/src/config/features.js` (now
+  self-documenting — every optional module listed on/off) to restore instantly.
+  Re-SHOWN core modules that were wrongly hidden: assessments, grading,
+  assignments, rooms. HIDDEN (14): paths, offices, skills, trainers, vendors,
+  planning, budget, cost-roi, automation, custom-fields, access, branding,
+  scheduling-studio, sync. Also gated the one dashboard quick-link
+  (`ParticipantDashboard` → `/me/paths`) on the same flag; the rest of the
+  dashboard/umbrella surfaces were already link-clean. **No code deleted** — a
+  "phase 2" real-delete of modules that stay dark/unrequested through real HR
+  usage is deferred by design (owner picked hide-first over delete-now). Files:
+  `config/features.js`, `nav-config.js`, `dashboard/ParticipantDashboard.jsx`.
+
 - **2026-07-09** — **K1b (run Mongo-less) — read-straggler ports + Mongo-off boot enablement, all merged.**
   Closes the gap found post-cutover: the F3 write-gate proved zero raw-Mongoose *writes*, but 7 read paths still hit Mongo
   directly (would read empty Atlas, not Neon). Ported all 7 to `DB_BACKEND`-selected repos across 5 PRs — **#272** room/utilization ·
