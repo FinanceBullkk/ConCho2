@@ -2,13 +2,12 @@
 capability: audit-log
 status: stable
 owners: [services/auditService, controllers/* (callers), models/AuditLog]
-last_updated: 2026-06-15
+last_updated: 2026-07-09
 related_code:
   - server/services/auditService.js
   - server/services/audit-chain.js
   - server/models/AuditLog.js
   - server/routes/auditRoutes.js
-  - server/scripts/backfill-audit-hash-chain.js
 related_plans: []
 ---
 
@@ -149,7 +148,7 @@ so verification of a window never false-positives on expired rows, and any gap
 | Audit DB write fails | logged, request unaffected; head re-syncs from DB next write | retry of primary op |
 | Unknown entity value | rejected (enum) | add to allowlist (ratchet) |
 | Non-admin reads/verifies audit | 403 | use Admin |
-| Pre-chain (legacy) rows | excluded from the chain until `backfill-audit-hash-chain.js` runs | run the backfill at deploy |
+| Pre-chain (legacy) rows | N/A on PostgreSQL — the fresh-start chain is hashed from the first write (the Mongo-era `backfill-audit-hash-chain.js` helper was removed at Wave K safe-cleanup) | none |
 
 ## Out of Scope / Deferred
 

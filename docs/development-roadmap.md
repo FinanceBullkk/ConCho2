@@ -153,6 +153,18 @@ Bug fixing and integration review rank above net-new feature rollout.
 > [`2026-q3.md`](changelog-archive/2026-q3.md); 06-20→06-27 rolled 2026-07-07;
 > 06-14→06-19 rolled 2026-07-04 → [`2026-q2.md`](changelog-archive/2026-q2.md)).
 
+- **2026-07-09** — **Wave K safe-subset cleanup — 34 dead Atlas-era scripts removed.**
+  Rollback-neutral pre-work during the bake (Mongo runtime, the 58 dual-backend
+  repos, and the fast `DB_BACKEND=mongo`→Atlas rollback path are all UNTOUCHED).
+  Deleted the migration-done one-offs: ETL (`etl-mongo-to-pg*`), all
+  `backfill-*`/`import_*`/`reimport_*`/`cleanup_*`/`migrate-*` + data-audit/fix/debug
+  scripts. Kept `verify-backup.js` (owner's Atlas pre-cancellation check) + the ops
+  tools (`create-admin`, `reset_admin_pw`, `seed`, `verify-pg-backup`). Live doc
+  refs to the deleted scripts folded (commands.md + audit-log/dashboard-analytics/
+  vendor-management/scheduling-and-booking specs + policy/README). The full Wave K
+  decommission (Mongo runtime/repos/models/test-harness) stays gated on Atlas
+  cancellation — plan: [`plans/260709-1808-wave-k-mongo-decommission-cleanup/`](../plans/260709-1808-wave-k-mongo-decommission-cleanup/plan.md).
+
 - **2026-07-09** — **Wave K activation verified — prod now runs Mongo-less.**
   Owner removed `MONGO_URI` from Render and redeployed. Verification from a fresh prod process:
   `/health`→200, `/ready`→200 with `backend=postgres`, and `/api/admin-db`→410
