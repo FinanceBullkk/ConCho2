@@ -1,6 +1,5 @@
 const NodeCache = require('node-cache');
-const Schedule = require('../../models/Schedule');
-const Team = require('../../models/Team');
+const repository = require('./dashboard-stats-repository');
 const { handleError } = require('../../helpers/handleError');
 const { todayVN } = require('../../helpers/dayjsConfig');
 
@@ -49,42 +48,17 @@ const getAlerts = async (req, res) => {
     // have either been marked or aged out of operational interest.
     const lookback = new Date(now.getTime() - ALERTS_LOOKBACK_DAYS * 24 * 3600_000);
 
-    const [toMarkAgg, teamsWithoutLeader, teamsUnassigned, todayCount] = await Promise.all([
-      // Past sessions in the last 30 days with incomplete attendance.
-      Schedule.aggregate([
-        // Cancelled sessions never need marking (durable cancel, phase-04 A).
-        { $match: { endTime: { $lt: now, $gte: lookback }, status: 'scheduled' } },
-        // Count enrolled members from the array (virtual enrolledCount not available in agg)
-        { $addFields: { ec: { $size: { $ifNull: ['$enrolledUsers', []] } } } },
-        { $match: { ec: { $gt: 0 } } },
-        {
-          $lookup: {
-            from: 'attendances',
-            localField: '_id',
-            foreignField: 'scheduleId',
-            as: 'atts',
-          },
-        },
-        { $addFields: { mc: { $size: '$atts' } } },
-        // Not fully marked = markedCount < enrolledCount
-        { $match: { $expr: { $lt: ['$mc', '$ec'] } } },
-        { $count: 'total' },
-      ]),
-      // Active teams without a designated leader (leaderId null/missing)
-      Team.countDocuments({ leaderId: null, isDeleted: { $ne: true } }),
-      // Active teams not yet assigned to a class
-      Team.countDocuments({ classId: null, isDeleted: { $ne: true } }),
-      // Sessions scheduled for today (for TodayHero companion info)
-      Schedule.countDocuments({ startTime: { $gte: today, $lt: tomorrow }, status: 'scheduled' }),
-    ]);
-
-    const toMark = toMarkAgg[0]?.total || 0;
+    // Reads follow DB_BACKEND (Wave K-1b): the counts (incomplete-attendance
+    // scan + team-gap counts + today's sessions) run against the active backend
+    // via the dual-backend dashboard-stats repository — no direct Mongoose here.
+    const { toMark, teamsWithoutLeader, teamsUnassigned, todaySessionCount } =
+      await repository.getAlertCounts({ now, lookback, today, tomorrow });
 
     const data = {
       toMark,
       teamsWithoutLeader,
       teamsUnassigned,
-      todaySessionCount: todayCount,
+      todaySessionCount,
       totalAlerts: toMark + teamsWithoutLeader + teamsUnassigned,
       lookbackDays: ALERTS_LOOKBACK_DAYS,
     };
