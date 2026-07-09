@@ -1,6 +1,7 @@
 const express = require('express');
 const { cronAuth } = require('../middleware/cronAuth');
 const { reconcileLimiter } = require('../middleware/rateLimiters');
+const { mongoOnlyGone } = require('../middleware/mongoOnlyGone');
 const { runReconciliation } = require('../services/reconcileService');
 const { sendUpcomingReminders } = require('../services/reminderService');
 const { sendAssignmentReminders } = require('../domains/learning/assignment/reminder-service');
@@ -49,7 +50,9 @@ router.use(cronAuth);
 // Fires the reconciliation suite immediately and returns a compact summary.
 // Full report is logged server-side; we return only the summary so the
 // response stays under cron-job.org's ~4 KB output limit.
-router.post('/reconcile', reconcileLimiter, async (req, res) => {
+// K1b: reconcileService is Mongo-only → 410 once the app runs Mongo-less (the
+// other cron routes below stay backend-agnostic).
+router.post('/reconcile', mongoOnlyGone, reconcileLimiter, async (req, res) => {
   try {
     // Monitored so an external-pinger-driven run also updates the heartbeat
     // and Sentry cron check-in (same job/slug as the in-process scheduler).

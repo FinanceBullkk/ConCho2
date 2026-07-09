@@ -4,9 +4,13 @@ const { protect } = require('../middleware/auth');
 const { requireCapability } = require('../middleware/requireCapability');
 const { CAPABILITIES } = require('../policy/capabilities');
 const { escapeRegex } = require('../helpers/escapeRegex');
+const { mongoOnlyGone } = require('../middleware/mongoOnlyGone');
 const auditService = require('../services/auditService');
 const { handleError } = require('../helpers/handleError');
 const router = require('express').Router();
+
+// K1b: the Mongoose admin explorer is retired once the app runs Mongo-less.
+router.use(mongoOnlyGone);
 
 // ──────────────────────────────────────────────────────────
 // Admin Database Explorer API (Hardened — SEC-INJ-01/02, SEC-ADD-02/03,
