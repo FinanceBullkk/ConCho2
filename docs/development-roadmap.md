@@ -6,7 +6,7 @@
 > - *Architecture / orientation* → [`system-overview.md`](system-overview.md)
 > - *Detailed task snapshot (archived)* → [`archive/handoff-2026-06-01.md`](archive/handoff-2026-06-01.md)
 >
-> **Last updated:** 2026-07-07
+> **Last updated:** 2026-07-09
 
 ---
 
@@ -143,10 +143,24 @@ Bug fixing and integration review rank above net-new feature rollout.
 > **Rolling window:** ~last 2 weeks / ~15 entries kept inline (file ≤ ~400
 > lines); older entries roll verbatim, newest-first, to
 > [`changelog-archive/`](changelog-archive/) (per-quarter files). Currently
-> inline: **2026-07-04 (E4+) → 2026-07-08** (07-04 E1–E3 rolled 2026-07-08,
+> inline: **2026-07-04 (E4+) → 2026-07-09** (07-04 E1–E3 rolled 2026-07-08,
 > 07-02→07-03 rolled 2026-07-07 →
 > [`2026-q3.md`](changelog-archive/2026-q3.md); 06-20→06-27 rolled 2026-07-07;
 > 06-14→06-19 rolled 2026-07-04 → [`2026-q2.md`](changelog-archive/2026-q2.md)).
+
+- **2026-07-09** — **K1b (run Mongo-less) — read-straggler ports + Mongo-off boot enablement, all merged.**
+  Closes the gap found post-cutover: the F3 write-gate proved zero raw-Mongoose *writes*, but 7 read paths still hit Mongo
+  directly (would read empty Atlas, not Neon). Ported all 7 to `DB_BACKEND`-selected repos across 5 PRs — **#272** room/utilization ·
+  **#273** dashboard-alerts · **#274** enrollment queries/transfer/shared (list*Enrollments/findActiveConflicts + attendance
+  findAttendanceStatusRows; Mongo `$ne` ⇔ PG `IS DISTINCT FROM`) · **#277** getUserProgress + getUserById (+2 groups reads;
+  getUserById→userMutationsRepo.findByIdLean) · **#276** pushService (mobile repo find/prune). Then **#278** Mongo-off **boot
+  enablement**: server.js verifies the PG pool fail-fast + connects Mongo only if `MONGO_URI` is set & non-fatally (unset → boots
+  Mongo-less); envValidator requires the *active* backend's conn string (`PG_URL` under pg, `MONGO_URI` optional); `/ready` probes
+  PG; reconcile job skipped under pg; new `mongoOnlyGone` middleware 410s the Mongo-only admin-db/reconcile routes **only when
+  Mongo is physically off** (readyState-gated → bake window + test lanes untouched). **Behaviour-neutral while `MONGO_URI` is
+  set**; every slice PG-parity + green on both lanes; the boot path proven by a real Mongo-less boot smoke (`/ready`→200
+  `backend=postgres`, admin-db→410). **Only Wave-K activation remains, owner-only:** remove `MONGO_URI` on Render → redeploy →
+  verify → **cancel Atlas** (irreversible). Files `services/reconcile*` + `adminDbRoutes` are guarded/skipped, not yet deleted.
 
 - **2026-07-08** — **Wave J CUTOVER EXECUTED — prod is live on PostgreSQL / Neon.**
   Owner confirmed **no real users / no real data yet** → took the **fresh-start** path (not the Atlas-ETL-with-freeze the
