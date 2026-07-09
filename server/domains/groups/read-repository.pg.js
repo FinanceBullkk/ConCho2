@@ -228,6 +228,50 @@ const findTeamScheduledSessions = async (teamId) => {
   return rows.map(scheduleRow);
 };
 
+// ── getUserProgress support (K1b slice 4) ─────────────────
+// Live teams the user is a member of, class label embedded (members/leader stay
+// raw — the caller only reads _id/name/classId). Mongo has no sort here; ORDER BY
+// id makes the PG read deterministic (the parity test sorts both sides anyway).
+const findMemberTeamsWithClass = async (userId) => {
+  const { rows } = await query(
+    `SELECT * FROM teams t
+      WHERE t.is_deleted = false
+        AND EXISTS (SELECT 1 FROM team_members tm WHERE tm.team_id = t.id AND tm.user_id = $1)
+      ORDER BY t.id ASC`,
+    [String(userId)],
+  );
+  return populateTeams(rows, { memberSelect: null, leaderSelect: null, classSelect: ['classCode', 'courseName'] });
+};
+
+// bookedTeamId → {_id,name}, soft-delete-aware (a trashed team populates null).
+const fetchTeamNames = async (idList) => {
+  const uniq = [...new Set(ids(idList).filter(Boolean))];
+  if (!uniq.length) return new Map();
+  const { rows } = await query(`SELECT id, name FROM teams WHERE id = ANY($1) AND is_deleted = false`, [uniq]);
+  return new Map(rows.map((r) => [r.id, { _id: r.id, name: r.name }]));
+};
+
+// The teams' live sessions, populated (classId label + bookedTeamId name) like
+// the progress response embeds them; start_time asc, id tiebreak for determinism.
+const findScheduledByBookedTeamIdsPopulated = async (teamIds) => {
+  const tids = ids(teamIds);
+  if (!tids.length) return []; // $in:[] matches nothing
+  const { rows } = await query(
+    `SELECT * FROM schedules WHERE booked_team_id = ANY($1) AND status = 'scheduled' ORDER BY start_time ASC, id ASC`,
+    [tids],
+  );
+  const [classMap, teamMap] = await Promise.all([
+    fetchClasses(rows.map((r) => r.class_id), ['classCode', 'courseName']),
+    fetchTeamNames(rows.map((r) => r.booked_team_id)),
+  ]);
+  return rows.map((r) => {
+    const s = scheduleRow(r);
+    s.classId = (r.class_id && classMap.get(r.class_id)) || null;
+    s.bookedTeamId = (r.booked_team_id && teamMap.get(r.booked_team_id)) || null;
+    return s;
+  });
+};
+
 // Attendance row → lean shape (no populate on this read; export stamps are
 // undefined-when-null so JSON drops them, like the absent Mongo paths).
 const attendanceRow = (a) => ({
@@ -319,4 +363,7 @@ module.exports = {
   findTeamByClass,
   findTeamByClassExcluding,
   findTeamsByMembers,
+  // getUserProgress support
+  findMemberTeamsWithClass,
+  findScheduledByBookedTeamIdsPopulated,
 };
