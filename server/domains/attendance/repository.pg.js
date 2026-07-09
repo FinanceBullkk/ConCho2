@@ -186,6 +186,19 @@ const findAttendanceForSchedules = async (scheduleIds) => {
   }));
 };
 
+// enrollment enrichment (K1b slice 3) — raw (scheduleId,userId,status) rows.
+// Minimal projection, no populate; empty scope short-circuits (mirrors the
+// caller's guard). String-id fields so the JS rollup key matches either backend.
+const findAttendanceStatusRows = async (scheduleIds, userIds) => {
+  const sids = (scheduleIds || []).map(String);
+  const uids = (userIds || []).map(String);
+  if (!sids.length || !uids.length) return [];
+  const { rows } = await query(
+    `SELECT id, schedule_id, user_id, status FROM attendances
+      WHERE schedule_id = ANY($1) AND user_id = ANY($2)`, [sids, uids]);
+  return rows.map((r) => ({ _id: r.id, scheduleId: r.schedule_id, userId: r.user_id, status: r.status }));
+};
+
 // Mongo bulkWrite of updateOne+upsert ops ({filter:{scheduleId,userId}, update:{$set},
 // upsert:true}). INSERT … ON CONFLICT DO UPDATE mirrors the upsert; `xmax = 0`
 // distinguishes a fresh insert (upserted) from a conflict (matched). Mongoose
@@ -336,6 +349,7 @@ module.exports = {
   findAttendanceBySchedule,
   findAttendanceByUser,
   findAttendanceForSchedules,
+  findAttendanceStatusRows,
   bulkWriteAttendance,
   insertAttendanceMany,
   bumpUsersLastActive,

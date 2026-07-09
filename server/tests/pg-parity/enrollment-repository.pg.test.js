@@ -60,7 +60,7 @@ describePg('PG-parity: learning/enrollment repository', () => {
       { _id: oid(C2), classCode: 'CC2', courseName: 'Course 2', programId: null, isDeleted: false },
       { _id: oid(CD), classCode: 'CCD', courseName: 'Course D', programId: oid(P1), isDeleted: true },
     ]);
-    await db.collection(coll('Team')).insertMany([{ _id: oid(T1), name: 'Group A', isDeleted: false }]);
+    await db.collection(coll('Team')).insertMany([{ _id: oid(T1), name: 'Group A', classId: oid(C2), isDeleted: false }]);
     const enr = [
       { id: E1, u: U1, c: C1, t: null, on: day(1) },
       { id: E2, u: U2, c: C1, t: null, on: day(2) },
@@ -76,7 +76,7 @@ describePg('PG-parity: learning/enrollment repository', () => {
     await query(`INSERT INTO users(id,emp_code,name,department,status,is_deleted) VALUES ($1,'U1','Uno','Eng','Active',false),($2,'U2','Dos','Eng','Active',false),($3,'U3','Gone','Eng','Active',true)`, [U1, U2, UD]);
     await query(`INSERT INTO learning_programs(id,name,code,scheduling_mode,capacity_policy) VALUES ($1,'Prog 1','PG-1','self_enroll','{"maxParticipants":30}')`, [P1]);
     await query(`INSERT INTO classes(id,class_code,course_name,program_id,is_deleted) VALUES ($1,'CC1','Course 1',$2,false),($3,'CC2','Course 2',null,false),($4,'CCD','Course D',$5,true)`, [C1, P1, C2, CD, P1]);
-    await query(`INSERT INTO teams(id,name,is_deleted) VALUES ($1,'Group A',false)`, [T1]);
+    await query(`INSERT INTO teams(id,name,class_id,is_deleted) VALUES ($1,'Group A',$2,false)`, [T1, C2]);
     await query(
       `INSERT INTO enrollments(id,user_id,class_id,team_id,status,joined_at,created_at) VALUES
         ($1,$2,$3,null,'Active',$4,$4),($5,$6,$7,null,'Active',$8,$8),($9,$10,$11,$12,'Active',$13,$13),($14,$15,$16,null,'Active',$17,$17)`,
@@ -155,5 +155,78 @@ describePg('PG-parity: learning/enrollment repository', () => {
 
     const [mN, pN] = await both((r) => r.countActiveCohortEnrollments(C1)); // E1(U1),E4(UD) Active (E2 dropped above)
     expect(mN).toBe(pN);
+  });
+
+  // ── Legacy /api/enrollments list reads (K1b slice 3) ──────
+  // The 4-way populate (userId/teamId/classId/transferredTo) with the same drop-
+  // to-null soft-delete semantics; team.classId ?? null normalises Mongo's
+  // omitted key ⇔ PG's explicit null. `lp` omits _id (the fresh insert above has
+  // backend-generated ids that differ Mongo⇔PG); id checks read norm()._id on the
+  // stably-seeded rows only.
+  const lp = (e) => {
+    const n = norm(e);
+    return {
+      user: n.userId ? n.userId.empCode : null,
+      team: n.teamId ? { name: n.teamId.name, classId: n.teamId.classId ?? null } : null,
+      cls: n.classId ? n.classId.classCode : null,
+      xfer: n.transferredTo ? n.transferredTo.name : null,
+      status: n.status,
+    };
+  };
+  const idsOf = (rows) => rows.map((e) => norm(e)._id);
+
+  test('listEnrollments: all rows, joinedAt desc, 4-populate; deleted user → null — identical', async () => {
+    const [m, p] = await both((r) => r.listEnrollments({}));
+    expect(p.map(lp)).toEqual(m.map(lp)); // same rows, same order (joinedAt desc)
+    expect(m.map(lp)).toContainEqual(expect.objectContaining({ user: null })); // E4 deleted user → null
+    // team-mode E3 embeds team {name:'Group A'} (classId not selected in this variant → null)
+    const e3 = m.find((e) => norm(e)._id === E3);
+    expect(lp(e3).team).toEqual({ name: 'Group A', classId: null });
+    expect(lp(e3).cls).toBe('CC2');
+  });
+
+  test('listEnrollments: teamId / status / classId filters — identical', async () => {
+    const [mt, pt] = await both((r) => r.listEnrollments({ teamId: T1 }));
+    expect(idsOf(mt)).toEqual([E3]);
+    expect(mt.map(lp)).toEqual([expect.objectContaining({ user: 'U1' })]);
+    expect(pt.map(lp)).toEqual(mt.map(lp));
+    const [ms, ps] = await both((r) => r.listEnrollments({ status: 'Dropped' })); // E2 dropped earlier
+    expect(ms.map(lp)).toEqual(ps.map(lp));
+    expect(ms.every((e) => norm(e).status === 'Dropped')).toBe(true);
+    const [mc, pc] = await both((r) => r.listEnrollments({ classId: C2 }));
+    expect(idsOf(mc)).toEqual([E3]);
+    expect(mc.map(lp)).toEqual(pc.map(lp));
+  });
+
+  test('listTeamEnrollments: team populate carries classId; status ASC, joinedAt desc — identical', async () => {
+    const [m, p] = await both((r) => r.listTeamEnrollments({ teamId: T1 }));
+    expect(idsOf(m)).toEqual([E3]);
+    expect(p.map(lp)).toEqual(m.map(lp));
+    expect(m.map(lp)).toEqual([{ user: 'U1', team: { name: 'Group A', classId: C2 }, cls: 'CC2', xfer: null, status: 'Active' }]);
+    // status filter passthrough (All → no filter)
+    const [ma, pa] = await both((r) => r.listTeamEnrollments({ teamId: T1, status: 'All' }));
+    expect(ma.map(lp)).toEqual(pa.map(lp));
+  });
+
+  test('listUserEnrollments: one learner across modes, joinedAt desc — identical', async () => {
+    const [m, p] = await both((r) => r.listUserEnrollments(U1));
+    expect(p.map(lp)).toEqual(m.map(lp));
+    // U1 owns E1 (cohort, day1) + E3 (team, day3); joinedAt desc → E3 before E1.
+    const ids = idsOf(m);
+    expect(ids).toContain(E1); expect(ids).toContain(E3);
+    expect(ids.indexOf(E3)).toBeLessThan(ids.indexOf(E1)); // day3 before day1
+  });
+
+  test('findActiveConflicts: Active in OTHER team incl cohort null-team (IS DISTINCT FROM) — identical', async () => {
+    const [m, p] = await both((r) => r.findActiveConflicts({ memberIds: [U1, U2], teamId: T1 }));
+    const proj = (rows) => norm(rows).map((c) => ({ user: c.userId ? c.userId.empCode : null, team: c.teamId ? c.teamId.name : null }))
+      .sort((a, b) => (String(a.user) + String(a.team)).localeCompare(String(b.user) + String(b.team)));
+    expect(proj(p)).toEqual(proj(m));
+    // every conflict is Active and NOT in T1; the cohort null-team rows (E1, fresh)
+    // ARE included — proving $ne ⇔ IS DISTINCT FROM (plain `<>` would drop NULLs).
+    expect(m.every((c) => norm(c).status === 'Active')).toBe(true);
+    expect(m.every((c) => { const t = norm(c).teamId; return t == null || t._id !== T1; })).toBe(true);
+    expect(m.some((c) => norm(c).teamId == null)).toBe(true); // ≥1 cohort null-team conflict
+    expect(m.every((c) => ['U1', 'U2'].includes(norm(c).userId.empCode) || norm(c).userId == null)).toBe(true);
   });
 });

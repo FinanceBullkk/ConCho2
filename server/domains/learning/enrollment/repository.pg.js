@@ -183,30 +183,76 @@ const bulkUpdateEnrollmentsByIds = async (ids, patch, tx) => {
   return { modifiedCount: rowCount };
 };
 
-// Post-commit response re-fetch — populate ⇔ LEFT JOIN embeds with the same
-// soft-delete drop semantics (User/Team/Class hooks hide trashed refs;
-// transferredTo → teams).
-const findEnrollmentByIdPopulated = async (id) => {
-  const { rows } = await query(
-    `SELECT e.*,
-            u.id AS u_id, u.emp_code AS u_emp, u.name AS u_name, u.department AS u_dept, u.status AS u_status,
-            t.id AS t_id, t.name AS t_name,
-            c.id AS c_id, c.class_code AS c_code, c.course_name AS c_course, c.total_sessions AS c_total,
-            x.id AS x_id, x.name AS x_name
-       FROM enrollments e
-       LEFT JOIN users u   ON u.id = e.user_id AND u.is_deleted = false
-       LEFT JOIN teams t   ON t.id = e.team_id AND t.is_deleted = false
-       LEFT JOIN classes c ON c.id = e.class_id AND c.is_deleted = false
-       LEFT JOIN teams x   ON x.id = e.transferred_to AND x.is_deleted = false
-      WHERE e.id = $1`, [String(id)]);
-  if (!rows[0]) return null;
-  const r = rows[0];
+// Shared 4-way populate SELECT — populate('userId'/'teamId'/'classId'/
+// 'transferredTo') ⇔ LEFT JOIN embeds with the same soft-delete drop semantics
+// (User/Team/Class hooks hide trashed refs; transferredTo → teams). Reused by
+// findEnrollmentByIdPopulated + the legacy /api/enrollments list reads.
+const POPULATED_SELECT = `
+  SELECT e.*,
+         u.id AS u_id, u.emp_code AS u_emp, u.name AS u_name, u.department AS u_dept, u.status AS u_status,
+         t.id AS t_id, t.name AS t_name, t.class_id AS t_class,
+         c.id AS c_id, c.class_code AS c_code, c.course_name AS c_course, c.total_sessions AS c_total,
+         x.id AS x_id, x.name AS x_name
+    FROM enrollments e
+    LEFT JOIN users u   ON u.id = e.user_id AND u.is_deleted = false
+    LEFT JOIN teams t   ON t.id = e.team_id AND t.is_deleted = false
+    LEFT JOIN classes c ON c.id = e.class_id AND c.is_deleted = false
+    LEFT JOIN teams x   ON x.id = e.transferred_to AND x.is_deleted = false`;
+
+// `teamClassId`: include the team's class_id ref on the populated teamId (the
+// getTeamEnrollments variant populates teamId with 'name classId').
+const mapPopulatedRow = (r, { teamClassId = false } = {}) => {
   const out = enrollmentRow(r);
   out.userId = r.u_id ? { _id: r.u_id, empCode: r.u_emp, name: r.u_name, department: r.u_dept, status: r.u_status } : null;
-  out.teamId = r.t_id ? { _id: r.t_id, name: r.t_name } : null;
+  out.teamId = r.t_id
+    ? (teamClassId ? { _id: r.t_id, name: r.t_name, classId: r.t_class || null } : { _id: r.t_id, name: r.t_name })
+    : null;
   out.classId = r.c_id ? { _id: r.c_id, classCode: r.c_code, courseName: r.c_course, totalSessions: r.c_total == null ? null : Number(r.c_total) } : null;
   out.transferredTo = r.x_id ? { _id: r.x_id, name: r.x_name } : null;
   return out;
+};
+
+const findEnrollmentByIdPopulated = async (id) => {
+  const { rows } = await query(`${POPULATED_SELECT} WHERE e.id = $1`, [String(id)]);
+  return rows[0] ? mapPopulatedRow(rows[0]) : null;
+};
+
+// ── Legacy /api/enrollments list reads (K1b slice 3) ────────────────────────
+const listEnrollments = async ({ teamId, userId, status, classId } = {}) => {
+  const conds = [];
+  const args = [];
+  if (teamId) { args.push(String(teamId)); conds.push(`e.team_id = $${args.length}`); }
+  if (userId) { args.push(String(userId)); conds.push(`e.user_id = $${args.length}`); }
+  if (status) { args.push(status); conds.push(`e.status = $${args.length}`); }
+  if (classId) { args.push(String(classId)); conds.push(`e.class_id = $${args.length}`); }
+  const where = conds.length ? `WHERE ${conds.join(' AND ')}` : '';
+  const { rows } = await query(`${POPULATED_SELECT} ${where} ORDER BY e.joined_at DESC`, args);
+  return rows.map((r) => mapPopulatedRow(r));
+};
+
+const listTeamEnrollments = async ({ teamId, status }) => {
+  const args = [String(teamId)];
+  let extra = '';
+  if (status && status !== 'All') { args.push(status); extra = `AND e.status = $${args.length}`; }
+  const { rows } = await query(
+    `${POPULATED_SELECT} WHERE e.team_id = $1 ${extra} ORDER BY e.status ASC, e.joined_at DESC`, args);
+  return rows.map((r) => mapPopulatedRow(r, { teamClassId: true }));
+};
+
+const listUserEnrollments = async (userId) => {
+  const { rows } = await query(`${POPULATED_SELECT} WHERE e.user_id = $1 ORDER BY e.joined_at DESC`, [String(userId)]);
+  return rows.map((r) => mapPopulatedRow(r));
+};
+
+// Mongo `teamId: { $ne: X }` matches teamId:null rows (cohort mode) too — the
+// faithful SQL analogue is IS DISTINCT FROM (plain `<>` would drop NULLs).
+const findActiveConflicts = async ({ memberIds, teamId }) => {
+  const { rows } = await query(
+    `${POPULATED_SELECT}
+      WHERE e.user_id = ANY($1::text[]) AND e.status = 'Active' AND e.team_id IS DISTINCT FROM $2
+      ORDER BY e.joined_at DESC`,
+    [memberIds.map(String), teamId == null ? null : String(teamId)]);
+  return rows.map((r) => mapPopulatedRow(r));
 };
 
 module.exports = {
@@ -221,6 +267,10 @@ module.exports = {
   findEnrollmentUserIdsByIds,
   bulkUpdateEnrollmentsByIds,
   findEnrollmentByIdPopulated,
+  listEnrollments,
+  listTeamEnrollments,
+  listUserEnrollments,
+  findActiveConflicts,
   findCohort,
   findCohortSchedulingMode,
   countActiveCohortEnrollments,

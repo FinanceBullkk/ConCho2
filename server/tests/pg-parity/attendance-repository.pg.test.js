@@ -242,6 +242,24 @@ describePg('PG-parity: domains/attendance repository', () => {
     expect(proj(p)).toEqual(mm);
   });
 
+  // K1b slice 3 — the enrollment enrichment read: raw (scheduleId,userId,status)
+  // rows filtered by BOTH scheduleIds and userIds; no user join (a deleted user's
+  // rows are NOT dropped — only excluded when absent from userIds).
+  test('findAttendanceStatusRows: scheduleId ∩ userId filter; empty scope → []', async () => {
+    const proj = (rows) => norm(rows).map((a) => ({ s: String(a.scheduleId), u: String(a.userId), st: a.status }))
+      .sort((x, y) => (x.s + x.u).localeCompare(y.s + y.u));
+    const [m, p] = await both((r) => r.findAttendanceStatusRows([S1, S2], [U1, U2]));
+    const mm = proj(m);
+    // AA1(S1,U1,P) AA2(S1,U2,A) AA5(S2,U1,EL); AA3(S1,U3) + AA4(S1,UDEL) excluded (users out of scope).
+    expect(mm).toEqual([
+      { s: S1, u: U1, st: 'P' }, { s: S1, u: U2, st: 'A' }, { s: S2, u: U1, st: 'EL' },
+    ].sort((x, y) => (x.s + x.u).localeCompare(y.s + y.u)));
+    expect(proj(p)).toEqual(mm);
+    // empty scope short-circuits identically on both backends.
+    const [me, pe] = await both((r) => r.findAttendanceStatusRows([], [U1]));
+    expect(me).toEqual([]); expect(pe).toEqual([]);
+  });
+
   // ── Aggregations ────────────────────────────────────────
   const empMap = (rows) => Object.fromEntries(norm(rows).map((r) => [r.empCode, {
     totalSessions: r.totalSessions, present: r.present, absent: r.absent, late: r.late, excused: r.excused, rate: r.attendanceRate,
