@@ -15,6 +15,12 @@ ship a **PG-native seed** (the one genuine functional gap), and de-Mongo the doc
   + zod validation). Regenerate lockfile in the same PR (CODE-014 rule).
 
 ## 5.2 Ops scripts (~40 in `scripts/`)
+> **Partially DONE (2026-07-09, safe-subset pass):** the 34 dead Atlas-era one-offs
+> (ETL, `backfill-*`, `import_*`/`reimport_*`, `cleanup_*`, `migrate-*`, data-audit/
+> fix/debug) were already deleted — rollback-neutral, live doc refs folded. Remaining
+> below: the KEEP-or-PG-port decisions + `verify-backup.js` (held as the Atlas
+> pre-cancellation check tool → delete at Atlas cancellation).
+
 Classify:
 - **Delete (Atlas-era one-offs):** `backfill_*`, `check_enrolled`, `cleanup_*`,
   `data*audit*`, `deep_cross_check`, `debug_schedule_slots`, `fix*`, `import_*`,

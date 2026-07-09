@@ -39,8 +39,7 @@ GET /api/docs # Swagger UI (server running; PARTIAL — full route truth: docs/r
 ## Maintenance scripts (`server/scripts/`, run with node)
 ```bash
 node server/scripts/seed.js
-node server/scripts/backfill-learning-programs.js   # backfill LearningProgram from legacy courses
-node server/scripts/verify-backup.js                # monthly backup check
+node server/scripts/verify-backup.js                # legacy Atlas backup check (kept until Atlas cancellation)
 ```
 
 ## Git

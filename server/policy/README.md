@@ -89,5 +89,5 @@ Once `teacherIds` is non-empty, only listed teachers can read/write.
 
 This trades a known transition window (existing teachers keep working) for a
 zero-downtime rollout. See `docs/audit/findings.md → AUTHZ-001` for the
-rationale and `server/scripts/migrate-teacherIds.js` for the recommended
-backfill heuristic.
+rationale and the recommended `teacherIds` backfill heuristic (the one-time
+`migrate-teacherIds.js` helper was removed at the Wave K safe-cleanup).
