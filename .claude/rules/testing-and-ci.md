@@ -10,15 +10,14 @@ cd server && npm run test:smoke  # Artillery load (also :load, :spike)
 ```
 Server tests need env `NODE_ENV=test` and a dummy `JWT_SECRET` (required at boot).
 
-## CI gates — ALL required to merge (`.github/workflows/ci.yml`)
-1. **server-tests** — Jest suite
-2. **client-tests** — Vitest unit + hook suite
-3. **client-build** — `vite build` must compile clean
-4. **client-lint** — eslint with ratchet cap
-5. **secrets-scan** — gitleaks (fails on any secret pattern)
-6. **audit** — `npm audit` high+ (prod deps on server, full on client)
-7. **e2e-tests** — Playwright against real seeded backend (slowest, ~5–10 min)
-8. **server-tests-pg** — the FULL Jest suite on the Postgres backend (`DB_BACKEND=postgres`), zero exclusions. Promoted from informational to REQUIRED (Wave G, 2026-07-07) after the GATED schedule roster-sync/waitlist cluster closed; Wave-F PR-2 (attendance-export dual-backend port) then closed `p2-regression` and the temporary exclusion was dropped the same day. Keeps Mongo==Postgres green through the Phase-5 cutover.
+## CI gates — ALL required to merge (`.github/workflows/ci.yml`) — 7 gates
+1. **client-tests** — Vitest unit + hook suite
+2. **client-build** — `vite build` must compile clean
+3. **client-lint** — eslint with ratchet cap
+4. **secrets-scan** — gitleaks (fails on any secret pattern)
+5. **audit** — `npm audit` high+ (prod deps on server, full on client)
+6. **e2e-tests** — Playwright against a real seeded backend on Postgres (slowest, ~5–10 min)
+7. **server-tests-pg** — the FULL Jest suite on the Postgres backend (`DB_BACKEND=postgres`), zero exclusions — the **sole server-test gate**. Promoted from informational to REQUIRED (Wave G, 2026-07-07) after the GATED schedule roster-sync/waitlist cluster closed; Wave-F PR-2 (attendance-export dual-backend port) then closed `p2-regression` and the temporary exclusion was dropped. The Mongo `server-tests` lane (Jest on `mongodb-memory-server`, `DB_BACKEND=mongo`) was **retired 2026-07-10** (Wave K Phase 2 Batch C) once prod cut over to PG and Atlas was cancelled — it only exercised now-dead Mongo repos. NOTE: the Jest harness still starts `mongodb-memory-server` to author fixtures (via `tests/pg-auto-mirror`); dropping `mongoose` needs the fixture-layer decouple (remaining Wave K work, Batch D).
 
 ### Merge discipline (QA-012 — gates are NOT machine-enforced)
 GitHub branch protection is unavailable on this repo (private repo, Free plan), so
