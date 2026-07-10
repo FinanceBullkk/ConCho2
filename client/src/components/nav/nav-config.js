@@ -2,7 +2,7 @@ import {
   Home, Users, BookOpen, Boxes, Route as RouteIcon, ClipboardList, GraduationCap, MessageSquare,
   CalendarCheck, ClipboardCheck, UsersRound, ClipboardEdit,
   LayoutDashboard, BarChart3, ChartLine, Download,
-  Building2, MapPin, DoorOpen, Settings, Database, RefreshCw, ShieldCheck, ScrollText,
+  Building2, MapPin, DoorOpen, Settings, RefreshCw, HeartPulse, ScrollText,
   Compass, Languages, FileText, Palette, Calculator, Smartphone, CalendarClock,
 } from 'lucide-react';
 import { isFeatureEnabled } from '../../config/features';
@@ -105,9 +105,8 @@ export const NAV_GROUPS = [
     id: 'system', labelKey: 'nav.groups.system',
     items: [
       tab('/system', 'settings', 'nav.sections.settings', Settings, { access: ADMIN_ONLY }),
-      tab('/system', 'database', 'nav.sections.database', Database, { access: ADMIN_ONLY }),
       tab('/system', 'sync', 'nav.sections.sync', RefreshCw, { access: ADMIN_ONLY, feature: 'sync' }),
-      tab('/system', 'reconcile', 'nav.sections.reconcile', ShieldCheck, { access: ADMIN_ONLY }),
+      tab('/system', 'cron', 'nav.sections.cronHealth', HeartPulse, { access: ADMIN_ONLY }),
       tab('/system', 'audit', 'nav.sections.audit', ScrollText, { access: ADMIN_ONLY }),
     ],
   },
