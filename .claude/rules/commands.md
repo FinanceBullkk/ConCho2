@@ -38,8 +38,8 @@ GET /api/docs # Swagger UI (server running; PARTIAL — full route truth: docs/r
 
 ## Maintenance scripts (`server/scripts/`, run with node)
 ```bash
-node server/scripts/seed.js
-node server/scripts/verify-backup.js                # legacy Atlas backup check (kept until Atlas cancellation)
+node server/scripts/seed-pg.js          # seed sample data (PG-native; same as `npm run seed`)
+node server/scripts/verify-pg-backup.js # verify the daily encrypted pg_dump backup
 ```
 
 ## Git

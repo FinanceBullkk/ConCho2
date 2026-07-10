@@ -16,8 +16,6 @@ const { mongoSanitizeInPlace } = require('./middleware/mongo-sanitize-in-place')
 const pinoHttp = require('pino-http');
 const compression = require('compression');
 
-const connectDB = require('./config/db');
-const { isPostgres } = require('./config/db-backend');
 const pg = require('./config/pg');
 const logger = require('./lib/logger');
 const { redactUrlToken } = require('./lib/redact-url-token');
@@ -366,32 +364,17 @@ const PORT = process.env.PORT || 5000;
 // Only auto-start when running normally (dev/production).
 if (process.env.NODE_ENV !== 'test') {
   const startServer = async () => {
-    // ── Backend connect (K1b) ────────────────────────────────
-    // Under Postgres, PG is the real backend: verify its pool fail-fast (a bad
-    // PG_URL should die at boot, not on the first request). Mongo becomes
-    // OPTIONAL — connect only if MONGO_URI is still set, and NON-FATALLY (a Mongo
-    // outage must not crash the app whose data lives in PG). Once the owner
-    // removes MONGO_URI (Atlas retired at Wave K), the app boots fully Mongo-less.
-    // Under Mongo (default), behaviour is unchanged: connectDB() fail-fast.
-    if (isPostgres) {
-      try {
-        await pg.ping();
-        logger.info('PostgreSQL pool verified at boot');
-      } catch (err) {
-        logger.fatal({ err: err?.message }, 'PostgreSQL unreachable at boot — refusing to start');
-        throw err;
-      }
-      if (process.env.MONGO_URI) {
-        try {
-          await connectDB();
-        } catch (err) {
-          logger.warn({ err: err?.message }, 'Mongo connect failed under postgres — continuing (PostgreSQL is the active backend)');
-        }
-      } else {
-        logger.info('DB_BACKEND=postgres and MONGO_URI unset — running Mongo-less');
-      }
-    } else {
-      await connectDB();
+    // ── Backend connect ──────────────────────────────────────
+    // PostgreSQL is the only runtime backend (Wave K Phase 2 Batch D1,
+    // 2026-07-10 — the Mongo runtime path was retired after prod cut over to PG
+    // and Atlas was cancelled). Verify the PG pool fail-fast: a bad PG_URL
+    // should die at boot, not on the first request.
+    try {
+      await pg.ping();
+      logger.info('PostgreSQL pool verified at boot');
+    } catch (err) {
+      logger.fatal({ err: err?.message }, 'PostgreSQL unreachable at boot — refusing to start');
+      throw err;
     }
 
     // Load tenant branding into the in-memory cache so the email + certificate
@@ -437,19 +420,9 @@ if (process.env.NODE_ENV !== 'test') {
         if (err) {
           logger.error({ err }, 'Error during server close');
         }
-        try {
-          // Close the Mongoose connection so the orchestrator's SIGKILL
-          // window doesn't truncate writes mid-flush. Mongoose 8 returns
-          // a promise; await it before exit. Guarded: under a Mongo-less
-          // Postgres boot the connection was never opened (readyState 0).
-          if (require('mongoose').connection.readyState !== 0) {
-            await require('mongoose').connection.close(false);
-            logger.info('Mongo connection closed cleanly');
-          }
-        } catch (e) {
-          logger.warn({ err: e?.message }, 'Mongo close threw during shutdown');
-        }
-        // Close the PG pool too (opened lazily under DB_BACKEND=postgres).
+        // Close the PG pool so the orchestrator's SIGKILL window doesn't
+        // truncate writes mid-flush (PostgreSQL is the only backend since
+        // Wave K Phase 2 Batch D1).
         try {
           await pg.closePool();
         } catch (e) {
