@@ -158,6 +158,7 @@ PROMOTION_IMPACT_REPORT.md
 
 # ── Design handoff reference materials (local HTML prototypes/specs, not code) ─
 design_handoff_*/
+portfolio-handoff/
 
 # ── Claude Code local settings (per-developer; auto-written permission grants) ─
 # settings.json is shared/committed; settings.local.json is personal and churns
