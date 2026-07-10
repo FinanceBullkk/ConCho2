@@ -7,7 +7,6 @@
     "start": "node server.js",
     "dev": "node --watch server.js",
     "seed": "node scripts/seed-pg.js",
-    "seed:mongo": "node scripts/seed.js",
     "test": "jest --runInBand --forceExit --detectOpenHandles",
     "test:smoke": "npx artillery run tests/load/smoke-test.yml",
     "test:load": "npx artillery run tests/load/load-test.yml",

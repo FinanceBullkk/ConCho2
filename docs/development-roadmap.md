@@ -153,6 +153,21 @@ Bug fixing and integration review rank above net-new feature rollout.
 > [`2026-q3.md`](changelog-archive/2026-q3.md); 06-20→06-27 rolled 2026-07-07;
 > 06-14→06-19 rolled 2026-07-04 → [`2026-q2.md`](changelog-archive/2026-q2.md)).
 
+- **2026-07-10** — **Wave K Phase 2 · Batch D1a — PG-only runtime boot + dead ops scripts removed.**
+  Now that Atlas is cancelled, retired the genuinely-dead Mongo *runtime* surface
+  (no test entanglement): `server.js` boot collapsed to PG-only (dropped the
+  `connectDB` import + the `if(isPostgres)…else connectDB()` branch + the Mongoose
+  shutdown-close — the `startServer` path never ran in tests, so the suite is
+  unaffected; the e2e gate boots the real server on PG); `config/db-backend.js`
+  default flipped `mongo`→`postgres` (CI sets `DB_BACKEND` explicitly so no test
+  changes; unset env now = PG, matching reality); deleted `scripts/seed.js` (Mongo
+  seed, superseded by `seed-pg.js` — `npm run seed:mongo` removed) + `verify-backup.js`
+  (Atlas backup check, dead). `config/db.js` KEPT (a Mongo dev-diagnostic script
+  still uses it). **Not done — gated on a decision:** deleting the 44 `.mongo.js`
+  repos + collapsing selectors (Batch D1b) requires first retiring the 56
+  `tests/pg-parity/*` comparison suites (they exercise `impls.mongo` vs `impls.pg`
+  — obsolete now Mongo is gone). Dropping `mongoose` entirely (D2) needs the
+  fixture-layer decouple (122 test files seed via Mongoose+auto-mirror).
 - **2026-07-10** — **Wave K Phase 2 · Batch B — e2e gate on Postgres.** The
   `e2e-tests` CI job now runs on PG, mirroring `server-tests-pg`: `postgres:16`
   service + job-level `PG_URL`, `supercharge/mongodb-github-action` removed, new
