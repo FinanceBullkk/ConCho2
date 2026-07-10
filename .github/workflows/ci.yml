@@ -1,8 +1,7 @@
 name: CI
 
 # ──────────────────────────────────────────────────────────
-# Gate jobs (REQUIRED — block merging / signal bad deploy):
-#   server-tests   — Jest suite with mongodb-memory-server
+# Gate jobs (REQUIRED — block merging / signal bad deploy) — 7 gates:
 #   client-tests   — Vitest unit + hook suite                  (added in audit PR 9)
 #   client-build   — vite production build must compile clean
 #   client-lint    — eslint with ratchet cap (promoted to REQUIRED in audit
@@ -16,17 +15,19 @@ name: CI
 #   audit          — npm audit at high+ level (production deps only on
 #                    the server; full deps on the client). Promoted from
 #                    informational to REQUIRED in audit PR 2 — SEC-002.
-#   e2e-tests      — Playwright spec suite against a real (seeded) backend +
-#                    Mongo replica set (audit PR V — P2-09). Catches
-#                    regressions that unit tests alone can't (full auth +
-#                    permission + UI flows). Slowest gate (~5-10 min).
+#   e2e-tests      — Playwright spec suite against a real (seeded) backend on a
+#                    Postgres service (audit PR V — P2-09; moved to PG in Wave K
+#                    Phase 2 Batch B). Catches regressions that unit tests alone
+#                    can't (full auth + permission + UI flows). Slowest gate.
 #   server-tests-pg — the FULL Jest suite on the Postgres backend
-#                    (DB_BACKEND=postgres). Promoted from informational to
-#                    REQUIRED gate #8 (Wave G, 2026-07-07) once the GATED
-#                    schedule roster-sync/waitlist cluster closed; Wave-F PR-2
-#                    (attendance-export port) then closed `p2-regression` and
-#                    the temporary exclusion was dropped — zero exclusions.
-#                    Keeps Mongo==Postgres green through the Phase-5 cutover.
+#                    (DB_BACKEND=postgres) — the SOLE server-test gate since the
+#                    Mongo `server-tests` lane was retired (Wave K Phase 2 Batch
+#                    C, 2026-07-10; prod runs PG, Atlas cancelled). Promoted to
+#                    REQUIRED (Wave G, 2026-07-07), zero exclusions. NOTE: the
+#                    Jest harness still spins up mongodb-memory-server to AUTHOR
+#                    fixtures (via tests/pg-auto-mirror); dropping mongoose
+#                    entirely needs the fixture-layer decouple — the remaining
+#                    Wave K work (Batch D).
 # ──────────────────────────────────────────────────────────
 
 on:
@@ -42,62 +43,13 @@ concurrency:
 
 jobs:
   # ──────────────────────────────────────────────────────────
-  # GATE: server tests
-  # ──────────────────────────────────────────────────────────
-  server-tests:
-    name: Server tests (Jest)
-    runs-on: ubuntu-latest
-    # 25 (was 15, was 10): the suite grew past 150 files during the Postgres
-    # dual-backend port marathon (each port adds an integration suite); with
-    # --runInBand + --detectOpenHandles the per-file setup pushed a green run
-    # past the 15-min wall (timed out at 15m21s on PR #202). Headroom, not slack
-    # — the suite itself is unchanged. Durable speedup (drop --detectOpenHandles
-    # / shard the job) is tracked as a follow-up, not blocking the marathon.
-    timeout-minutes: 25
-
-    steps:
-      - uses: actions/checkout@v5
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v5
-        with:
-          node-version: '22'
-          cache: 'npm'
-          cache-dependency-path: server/package-lock.json
-
-      - name: Install server dependencies
-        working-directory: server
-        # CODE-014 (audit round 7): back to `npm ci` — the old "lockfile
-        # drifts on googleapis transitive bumps" workaround no longer
-        # reproduces (npm ci installs the committed lockfile verbatim and
-        # only fails on a package.json↔lockfile desync). If a future dep
-        # bump desyncs them, regen the lockfile in the same PR.
-        run: npm ci --no-audit --no-fund --no-progress
-
-      - name: Run Jest test suite
-        working-directory: server
-        run: npm test
-        env:
-          NODE_ENV: test
-          # JWT_SECRET is required at boot — provide a dummy for tests
-          JWT_SECRET: ci-test-secret-not-used-for-anything-real
-          # Disable Sentry in CI so we don't pollute the dashboard
-          SENTRY_DSN: ''
-          # --runInBand keeps every suite's module registry in ONE node
-          # process; the heap grows with suite count. 2GB OOMed at 82 suites
-          # (2026-06-11), 4GB OOMed at ~156 suites during the Postgres port
-          # marathon ("Ineffective mark-compacts near heap limit", PR #202).
-          # 8GB fits the ubuntu-latest runner (16GB) with runway for the rest
-          # of the marathon and stops the GC thrash inflating runtimes.
-          NODE_OPTIONS: --max-old-space-size=8192
-
-  # ──────────────────────────────────────────────────────────
   # PG-migration parity (Postgres service)
   # Runs the dual-backend repository parity tests (tests/pg-parity/*) against a
-  # REAL Postgres so every ported repository is proven Mongo==PG. These tests
-  # SKIP in the mongo server-tests job (no PG_URL there). Part of the
-  # Mongo→Postgres migration (plans/260612-2042-postgresql-migration/); inert
-  # for the running app (DB_BACKEND stays mongo).
+  # REAL Postgres so every ported repository was proven Mongo==PG during the
+  # migration (plans/260612-2042-postgresql-migration/). The Mongo comparison
+  # side is retired with the rest of the Mongo test infra in Wave K Phase 2
+  # Batch D (fixture-layer decouple); until then these still exercise the PG
+  # repositories directly.
   # ──────────────────────────────────────────────────────────
   pg-parity:
     name: PG parity (Postgres)
@@ -429,7 +381,8 @@ jobs:
 
       - name: Install server dependencies
         working-directory: server
-        # CODE-014: npm ci — see the server-tests job comment.
+        # CODE-014: npm ci installs the committed lockfile verbatim; if a dep
+        # bump desyncs package.json↔lockfile, regen the lockfile in the same PR.
         run: npm ci --no-audit --no-fund --no-progress
 
       - name: Install client dependencies

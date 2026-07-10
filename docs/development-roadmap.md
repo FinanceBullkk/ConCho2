@@ -94,7 +94,7 @@ remainder is documented deferred-by-design scope (below), not active debt.
 | 3 | Multi-program enrollment + session scheduling | ~85% | 🟢 near done (genuine work shipped; only nomination workflow deferred-by-design) |
 | 4 | Frontend L&D workspace (CRUD UI) | ~82% | 🟢 near done (CRUD + policy editor complete) |
 | 5 | Reporting, completion, feedback | ~80% | 🟢 near done (cert lifecycle + recert closed; Evaluation→Assessment convergence deferred-by-design) |
-| 6 | PostgreSQL migration / Wave K decommission | ~90% | 🟡 prod cutover + Mongo-less activation complete (Wave J 2026-07-08: Render `DB_BACKEND=postgres`, writes verified in Neon PG 17.10, mig 036 FK/CHECK applied, daily encrypted `pg_dump` enabled; Wave K activation 2026-07-09: owner removed `MONGO_URI`, prod redeployed, `/ready` 200 `backend=postgres`, `/api/admin-db` 410). Remaining: cancel Atlas after final comfort check, then remove retired Mongo-only code/test harness. |
+| 6 | PostgreSQL migration / Wave K decommission | ~92% | 🟡 prod on PG + Atlas cancelled (Wave J 2026-07-08: Render `DB_BACKEND=postgres`, writes verified in Neon PG 17.10, mig 036 FK/CHECK applied, daily encrypted `pg_dump`; Wave K activation 2026-07-09: `MONGO_URI` removed, `/ready` 200 `backend=postgres`, `/api/admin-db` 410; **Atlas cancelled 2026-07-10**). Wave K Phase 2: Batch A PG seed + Batch B e2e-on-PG + **Batch C Mongo CI gate retired (8→7)** done. Remaining: fixture-layer decouple (122 test files seed via Mongoose+auto-mirror) → delete 44 `.mongo.js` + drop `mongoose` (Batch D). |
 
 ## LTMS waves (forward — see [`lms-roadmap.md`](lms-roadmap.md))
 
@@ -153,6 +153,19 @@ Bug fixing and integration review rank above net-new feature rollout.
 > [`2026-q3.md`](changelog-archive/2026-q3.md); 06-20→06-27 rolled 2026-07-07;
 > 06-14→06-19 rolled 2026-07-04 → [`2026-q2.md`](changelog-archive/2026-q2.md)).
 
+- **2026-07-10** — **Wave K Phase 2 · Batch C — retired the Mongo CI gate (8→7); Atlas cancelled.**
+  Owner confirmed **MongoDB Atlas is cancelled** → the `DB_BACKEND=mongo`→Atlas
+  rollback path is gone, so the Mongo `server-tests` Jest lane only exercised
+  now-dead code. Removed the `server-tests` job from `ci.yml`; **`server-tests-pg`
+  (full Jest suite on Postgres, zero exclusions) is now the SOLE server-test
+  gate — CI gates 8→7.** Synced the golden-rule count everywhere (CLAUDE.md,
+  `testing-and-ci.md`, `system-overview.md`, `ltms-gap-analysis.md`) + fixed the
+  stale e2e "+Mongo replica set" / pg-parity "DB_BACKEND stays mongo" comments.
+  **Not yet done (the real long pole):** the Jest harness still starts
+  `mongodb-memory-server` to AUTHOR fixtures — 122/196 test files seed via
+  Mongoose and the `pg-auto-mirror` mirrors those writes to PG. Dropping
+  `mongoose` + deleting the 44 `.mongo.js` (Batch D) needs that fixture layer
+  decoupled to seed PG natively first — its own scoped PR. Runtime untouched.
 - **2026-07-10** — **Wave K Phase 2 · Batch B — e2e gate on Postgres.** The
   `e2e-tests` CI job now runs on PG, mirroring `server-tests-pg`: `postgres:16`
   service + job-level `PG_URL`, `supercharge/mongodb-github-action` removed, new
