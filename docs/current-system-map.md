@@ -21,7 +21,7 @@ Verified code paths:
 - Auth state: `client/src/context/AuthContext.jsx`
 - Server entry: `server/server.js`
 - API routes: `server/routes/*` (legacy) + `server/domains/<domain>/routes.js`
-- Domain logic: `server/services/*` and `server/domains/<domain>/*` (20 domains — full inventory in `.claude/rules/domain-model-and-migration.md`; core: learning, schedule, attendance, groups, assessment, org, room)
+- Domain logic: `server/services/*` and `server/domains/<domain>/*` (13 domains after the 2026-07-09 scope trim — full inventory in `.claude/rules/domain-model-and-migration.md`; core: learning, schedule, attendance, groups, assessment, org, room)
 - Data access: dual-backend repositories in `server/domains/**/repository*.js`, `server/controllers/**/repository*.js`, and selected `server/services/**/repository*.js`
 - Legacy model scaffolding: `server/models/*` until Wave K cleanup removes the
   retired Mongo runtime/test harness.

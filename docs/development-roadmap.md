@@ -153,6 +153,21 @@ Bug fixing and integration review rank above net-new feature rollout.
 > [`2026-q3.md`](changelog-archive/2026-q3.md); 06-20→06-27 rolled 2026-07-07;
 > 06-14→06-19 rolled 2026-07-04 → [`2026-q2.md`](changelog-archive/2026-q2.md)).
 
+- **2026-07-10** — **Scope trim: deleted 9 speculative capability domains (hide → real-delete).**
+  Follow-up to the 2026-07-09 sidebar hide: a grill-with-docs session decided to
+  **really delete** (not just hide) the domains with no concrete near-term L&D need,
+  **before** Wave K Phase 2 (so the dual-backend collapse drops ~58→~30 seams).
+  **Deleted (9):** `access`, `automation`, `finance`, `mobile`, `planning`,
+  `session-type`, `skill`, `trainer`, `vendor` — server domains + 11 models +
+  their tests + route mounts + boot hooks (access grants-loader, automation
+  runner/seed); the **Web Push** feature (`services/pushService` + `web-push` dep +
+  the `notification/in-app-writer` call + `PushSubscription`); the client
+  `features/{…}` + the StudioScheduling page (session-type UI) + nav/flags/API
+  objects; and 7 obsolete specs. **Kept (4):** `notification`, `custom-field`,
+  `branding` (core-coupled) + `compliance` (on-mission). Domain count 20→13.
+  Git-recoverable if HR ever asks. ADR:
+  [`docs/decisions/trim-speculative-capability-domains.md`](decisions/trim-speculative-capability-domains.md).
+
 - **2026-07-09** — **Sidebar trimmed to the core LTMS loop (scope de-clutter).**
   Owner call: the app was over-built (13 speculative "capability" domains from
   Horizon 1/2 / TMS.update) and the Admin sidebar showed ~38 items → "nhìn vô

@@ -29,7 +29,7 @@ const P1 = hex(1511); const P2 = hex(1512); const P3 = hex(1513);
 const C1 = hex(1521); const C2 = hex(1522);
 const S1 = hex(1531); const S2 = hex(1532); const S3 = hex(1533); const S4 = hex(1534);
 const U1 = hex(1541); const U2 = hex(1542); const U3 = hex(1543); const U4 = hex(1544); const U5 = hex(1545); const UD = hex(1546); const UW = hex(1547);
-const D1 = hex(1551); const R1 = hex(1561); const AR1 = hex(1571);
+const D1 = hex(1551); const R1 = hex(1561);
 
 describePg('PG-parity: learning/dashboard/repository', () => {
   let mem;
@@ -79,9 +79,8 @@ describePg('PG-parity: learning/dashboard/repository', () => {
     await db.collection(coll('Enrollment')).insertMany([enr(hex(1631), U1, 'Active', 5), enr(hex(1632), U3, 'Completed', 6), enr(hex(1633), U2, 'Dropped', 7)]);
     await db.collection(coll('Department')).insertOne({ _id: oid(D1), name: 'Eng', code: 'ENG', isDeleted: false });
     await db.collection(coll('Role')).insertOne({ _id: oid(R1), key: 'auditor', name: 'Auditor', system: false, capabilities: [], isDeleted: false });
-    await db.collection(coll('AutomationRule')).insertOne({ _id: oid(AR1), name: 'Rule', trigger: 'X', conditions: [], actions: [], enabled: false, system: false, isDeleted: false });
 
-    await query('TRUNCATE learning_programs, classes, schedules, attendances, certificates, assessment_attempts, feedbacks, users, enrollments, departments, roles, automation_rules');
+    await query('TRUNCATE learning_programs, classes, schedules, attendances, certificates, assessment_attempts, feedbacks, users, enrollments, departments, roles');
     await query(`INSERT INTO learning_programs(id,name,status,completion_policy) VALUES
       ($1,'Prog 1','active','{"attendanceThresholdPercent":50,"requiresAssessment":false,"requiresFeedback":false}'),
       ($2,'Prog 2','active',null),($3,'Prog 3','archived',null)`, [P1, P2, P3]);
@@ -110,7 +109,6 @@ describePg('PG-parity: learning/dashboard/repository', () => {
       [hex(1631), U1, day(5).toISOString(), hex(1632), U3, day(6).toISOString(), hex(1633), U2, day(7).toISOString()]);
     await query(`INSERT INTO departments(id,name,code,is_deleted) VALUES ($1,'Eng','ENG',false)`, [D1]);
     await query(`INSERT INTO roles(id,key,name,system,capabilities,is_deleted) VALUES ($1,'auditor','Auditor',false,ARRAY[]::text[],false)`, [R1]);
-    await query(`INSERT INTO automation_rules(id,name,trigger,conditions,actions,enabled,system,is_deleted) VALUES ($1,'Rule','X','[]','[]',false,false,false)`, [AR1]);
   }, 60_000);
 
   afterAll(async () => {
@@ -172,7 +170,7 @@ describePg('PG-parity: learning/dashboard/repository', () => {
 
   test('getSetupSignals + headcountByDepartment + completedUsersByDepartment — identical', async () => {
     const [m, p] = await both((r) => r.getSetupSignals());
-    expect(m).toMatchObject({ departments: 1, programs: 2, customRoles: 1, automationRules: 1, policyPrograms: 1, coordinators: 1, activeLearners: 3, pendingEnrollment: 1 });
+    expect(m).toMatchObject({ departments: 1, programs: 2, customRoles: 1, policyPrograms: 1, coordinators: 1, activeLearners: 3, pendingEnrollment: 1 });
     expect(norm(p)).toEqual(norm(m));
 
     const [mH, pH] = await both((r) => r.headcountByDepartment());
