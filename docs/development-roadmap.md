@@ -6,7 +6,7 @@
 > - *Architecture / orientation* → [`system-overview.md`](system-overview.md)
 > - *Detailed task snapshot (archived)* → [`archive/handoff-2026-06-01.md`](archive/handoff-2026-06-01.md)
 >
-> **Last updated:** 2026-07-09
+> **Last updated:** 2026-07-10
 
 ---
 
@@ -153,6 +153,31 @@ Bug fixing and integration review rank above net-new feature rollout.
 > [`2026-q3.md`](changelog-archive/2026-q3.md); 06-20→06-27 rolled 2026-07-07;
 > 06-14→06-19 rolled 2026-07-04 → [`2026-q2.md`](changelog-archive/2026-q2.md)).
 
+- **2026-07-10** — **Wave K Phase 2 · Batch B — e2e gate on Postgres.** The
+  `e2e-tests` CI job now runs on PG, mirroring `server-tests-pg`: `postgres:16`
+  service + job-level `PG_URL`, `supercharge/mongodb-github-action` removed, new
+  `Apply PG migrations` (`knex migrate:latest`) + `Seed database (PG-native)`
+  (`npm run seed`) steps, `Start API server` env `MONGO_URI`→`DB_BACKEND=postgres`,
+  and the `Clear mustChangePassword` step rewritten Mongoose→`pg` `UPDATE`.
+  Playwright specs + port wiring untouched. Verified locally end-to-end on a fresh
+  DB (create → 35 migrations → seed → clear → boot `/ready backend=postgres` →
+  admin login `mustChangePassword:false`); the Playwright browser step runs in CI.
+  Next: Batch C (retire the Mongo test infra, gates 8→7).
+- **2026-07-10** — **Wave K Phase 2 · Batch A — PG-native seed.** `scripts/seed-pg.js`
+  (self-contained: talks to `config/pg.js` only — no Mongoose / no test-only
+  `pg-row-mappers` / no `DB_BACKEND` — so it survives the Mongo removal in
+  Batches C/D). Truncates all app tables (RESTART IDENTITY CASCADE, FK-safe) +
+  inserts the canonical sample set with the SAME logins (000001/admin12345 …
+  000010/coordinator123): 10 users (bcrypt-12), 2 offices, 3 programs, 3 classes,
+  2 teams (+`team_members` junction), 6 enrollments, 3 `scheduled` sessions, 2
+  settings (ALLOWED_TIME_SLOTS/COURSE_SESSIONS), pre-set `empCode`/`classCode`
+  counters. Ids are 24-hex (ObjectId-format-compatible, no bson dep).
+  `dangerousScriptGuard` generalized backend-agnostic (accepts `host`/`dbName`;
+  Mongo path unchanged). `npm run seed` → PG; `npm run seed:mongo` keeps the
+  legacy Mongo seed until the e2e gate moves to PG (Batch B). **Verified:** seed →
+  boot on PG (`/ready` `backend=postgres`) → HTTP login (teacher/admin/participant
+  all 200; wrong-pw 401; authed `/api/schedules` + `/api/learning/programs` read
+  back the seeded rows with joins). No CI change (e2e still `node scripts/seed.js`).
 - **2026-07-10** — **Scope trim: deleted 9 speculative capability domains (hide → real-delete).**
   Follow-up to the 2026-07-09 sidebar hide: a grill-with-docs session decided to
   **really delete** (not just hide) the domains with no concrete near-term L&D need,

@@ -371,10 +371,11 @@ jobs:
   # ──────────────────────────────────────────────────────────
   # GATE: Playwright E2E (audit PR V / P2-09 — REQUIRED since PR X)
   #
-  # Boots the real backend against a single-node MongoDB replica set,
-  # seeds the canonical test users (000001/000004), then runs the
-  # Playwright specs in client/e2e/. Catches regressions in the full
-  # auth → role guard → UI flow that Vitest unit tests can't see.
+  # Boots the real backend against a Postgres service (DB_BACKEND=postgres),
+  # applies the knex migrations, seeds the canonical test users
+  # (000001/000004) via the PG-native seed, then runs the Playwright specs in
+  # client/e2e/. Catches regressions in the full auth → role guard → UI flow
+  # that Vitest unit tests can't see.
   #
   # Audit PR X (P2-09 follow-up): specs rewritten for the IA-S2/S3
   # routes (/people, /programs, /calendar, /system) and the i18n'd
@@ -384,12 +385,11 @@ jobs:
   # With that in place, `continue-on-error` was removed and this gate
   # is back to REQUIRED status.
   #
-  # Why a replica set (not a standalone mongod):
-  #   server.js + scheduleService use `session.withTransaction(...)` on
-  #   the soft-delete + booking paths. Transactions require a replica
-  #   set; supercharge/mongodb-github-action initialises rs0 in one
-  #   line, sparing us the manual `mongod --replSet ... + rs.initiate()`
-  #   dance.
+  # Postgres, not Mongo (Wave K Phase 2, Batch B): prod runs on PG and the
+  # Mongo path is being retired. This gate mirrors the server-tests-pg job's
+  # postgres:16 service + `knex migrate:latest`, then seeds with the PG-native
+  # scripts/seed-pg.js (Batch A). No replica set needed — the booking/soft-delete
+  # transactions run natively on Postgres.
   #
   # Failure artifacts:
   #   playwright-report/   uploaded on failure for debugging.
@@ -401,6 +401,24 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
 
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: ci
+          POSTGRES_PASSWORD: ci
+          POSTGRES_DB: tmsci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U ci"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
+
+    env:
+      PG_URL: postgresql://ci:ci@localhost:5432/tmsci
+
     steps:
       - uses: actions/checkout@v5
 
@@ -408,12 +426,6 @@ jobs:
         uses: actions/setup-node@v5
         with:
           node-version: '22'
-
-      - name: Start MongoDB (single-node replica set rs0)
-        uses: supercharge/mongodb-github-action@1.11.0
-        with:
-          mongodb-version: '7.0'
-          mongodb-replica-set: rs0
 
       - name: Install server dependencies
         working-directory: server
@@ -428,13 +440,16 @@ jobs:
         working-directory: client
         run: npx playwright install --with-deps chromium
 
-      - name: Seed database
+      - name: Apply PG migrations
+        working-directory: server
+        run: npx knex migrate:latest --knexfile db/pg/knexfile.js
+
+      - name: Seed database (PG-native)
         working-directory: server
         env:
-          MONGO_URI: mongodb://localhost:27017/tms_e2e?replicaSet=rs0
-          JWT_SECRET: e2e-test-secret-not-used-anywhere-real
+          DB_BACKEND: postgres
           NODE_ENV: test
-        run: node scripts/seed.js
+        run: npm run seed
 
       - name: Clear mustChangePassword on seed users
         # Seed admin (000001) is normally created with mustChangePassword=true
@@ -442,32 +457,28 @@ jobs:
         # modal (z-9999, click-event eating overlay) blocks every test. Flip
         # it off for the seeded users before Playwright starts.
         working-directory: server
-        env:
-          MONGO_URI: mongodb://localhost:27017/tms_e2e?replicaSet=rs0
         run: |
           node -e "
           (async () => {
-            const m = require('mongoose');
-            await m.connect(process.env.MONGO_URI);
-            const r = await m.connection.db.collection('users').updateMany(
-              {}, { \$set: { mustChangePassword: false } }
-            );
-            console.log('Cleared mustChangePassword on', r.modifiedCount, 'users');
-            await m.disconnect();
+            const { Pool } = require('pg');
+            const pool = new Pool({ connectionString: process.env.PG_URL });
+            const r = await pool.query('UPDATE users SET must_change_password = false');
+            console.log('Cleared mustChangePassword on', r.rowCount, 'users');
+            await pool.end();
           })().catch((e) => { console.error(e); process.exit(1); });
           "
 
       - name: Start API server in background
         working-directory: server
         env:
-          MONGO_URI: mongodb://localhost:27017/tms_e2e?replicaSet=rs0
+          DB_BACKEND: postgres
           JWT_SECRET: e2e-test-secret-not-used-anywhere-real
           CRON_TOKEN: e2e-test-cron-token-not-used-anywhere-real-1234
           IMPORT_DEFAULT_PASSWORD: e2e-import-default-12345
           PORT: 5000
           NODE_ENV: development
           # pino defaults to silent when NODE_ENV=test; force info so we
-          # see Mongo connection + Express listen events in server.log.
+          # see the PG connection + Express listen events in server.log.
           LOG_LEVEL: info
           # SEC-006 server.js rejects no-origin in production; tests use
           # supertest-style requests via Playwright that DO send Origin,
@@ -488,9 +499,9 @@ jobs:
           touch server.log
           node server.js > server.log 2>&1 &
           echo $! > server.pid
-          # Server.js retries Mongo connection 5× with 2s/4s/8s/16s
-          # exponential backoff — up to ~30s in the worst case. Plus Express
-          # boot. 60s ceiling gives headroom.
+          # PG service is health-gated before the job starts and migrations +
+          # seed already ran, so boot is fast — but keep the 60s ceiling for
+          # Express-boot headroom.
           for i in $(seq 1 60); do
             if curl -fs http://localhost:5000/health > /dev/null; then
               echo "Server ready after ${i}s"
