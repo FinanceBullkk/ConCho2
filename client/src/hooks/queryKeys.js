@@ -3,10 +3,6 @@ export const qk = {
   auth: {
     me: ['auth', 'me'],
   },
-  access: {
-    capabilityMatrix: ['access', 'capability-matrix'],
-    roles: ['access', 'roles'],
-  },
   customFields: {
     all: ['custom-fields'],
     list: (params) => ['custom-fields', 'list', params],
@@ -130,47 +126,7 @@ export const qk = {
     mine: ['notifications', 'mine'],
     preferences: ['notifications', 'preferences'],
   },
-  automation: {
-    rules: ['automation', 'rules'],
-  },
-  skills: {
-    all: ['skills'],
-    list: ['skills', 'list'],
-    taxonomy: ['skills', 'taxonomy'],
-    roleProfiles: ['skills', 'role-profiles'],
-    learner: (userId) => ['skills', 'learner', userId],
-    recommendations: (userId) => ['skills', 'recommendations', userId],
-  },
   branding: {
     config: ['branding', 'config'],
-  },
-  finance: {
-    all: ['finance'],
-    currency: ['finance', 'currency'],
-    costs: (params) => ['finance', 'costs', params],
-    rollup: (params) => ['finance', 'rollup', params],
-    budgets: (params) => ['finance', 'budgets', params],
-    variance: (params) => ['finance', 'variance', params],
-  },
-  vendor: {
-    all: ['vendor'],
-    list: (params) => ['vendor', 'list', params],
-    detail: (id) => ['vendor', 'detail', id],
-    spend: (id, params) => ['vendor', 'spend', id, params],
-  },
-  trainer: {
-    all: ['trainer'],
-    list: (params) => ['trainer', 'list', params],
-    detail: (userId) => ['trainer', 'detail', userId],
-    load: (userId, params) => ['trainer', 'load', userId, params],
-  },
-  planning: {
-    all: ['planning'],
-    requests: (params) => ['planning', 'requests', params],
-    demand: (params) => ['planning', 'demand', params],
-    plan: (fy) => ['planning', 'plan', fy],
-  },
-  me: {
-    mobileFeed: ['me', 'mobile-feed'],
   },
 };

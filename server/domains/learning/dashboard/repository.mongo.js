@@ -8,7 +8,6 @@ const Enrollment = require('../../../models/Enrollment');
 const User = require('../../../models/User');
 const Department = require('../../../models/Department');
 const Role = require('../../../models/Role');
-const AutomationRule = require('../../../models/AutomationRule');
 const { ATTENDED_STATUSES } = require('../completion/repository');
 const { ACTIVE_ENROLLMENT_STATUSES } = require('../../../helpers/cohortMembership');
 
@@ -176,13 +175,12 @@ const getSetupSignals = async () => {
   };
 
   const [
-    departments, programs, customRoles, automationRules, policyPrograms, coordinators,
+    departments, programs, customRoles, policyPrograms, coordinators,
     totalEmployees, activeLearners, sessionsThisWeek, pendingEnrollment,
   ] = await Promise.all([
     Department.countDocuments({ isDeleted: { $ne: true } }),
     LearningProgram.countDocuments(livePrograms),
     Role.countDocuments({ system: { $ne: true }, isDeleted: { $ne: true } }),
-    AutomationRule.countDocuments({ isDeleted: { $ne: true } }),
     LearningProgram.countDocuments({ ...livePrograms, ...policyMatch }),
     User.countDocuments({ role: 'Coordinator', isDeleted: { $ne: true } }),
     User.countDocuments({ isDeleted: { $ne: true }, status: { $nin: ['Dropped', 'Transferred'] } }),
@@ -192,7 +190,7 @@ const getSetupSignals = async () => {
   ]);
 
   return {
-    departments, programs, customRoles, automationRules, policyPrograms, coordinators,
+    departments, programs, customRoles, policyPrograms, coordinators,
     totalEmployees, activeLearners, sessionsThisWeek, pendingEnrollment,
   };
 };

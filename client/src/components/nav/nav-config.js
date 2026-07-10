@@ -3,8 +3,7 @@ import {
   CalendarCheck, ClipboardCheck, UsersRound, ClipboardEdit,
   LayoutDashboard, BarChart3, ChartLine, Download,
   Building2, MapPin, DoorOpen, Settings, Database, RefreshCw, ShieldCheck, ScrollText,
-  Compass, Languages, FileText, Zap, Sparkles, Palette, Calculator, Smartphone, CalendarClock, Wallet,
-  Handshake, UserCog, Target, Sun,
+  Compass, Languages, FileText, Palette, Calculator, Smartphone, CalendarClock,
 } from 'lucide-react';
 import { isFeatureEnabled } from '../../config/features';
 
@@ -96,18 +95,10 @@ export const NAV_GROUPS = [
   {
     id: 'configure', labelKey: 'nav.groups.configure',
     items: [
-      { path: '/access', labelKey: 'nav.sections.rolesAccess', icon: ShieldCheck, access: ADMIN_ONLY, feature: 'access', parentRoutes: ['/access'] },
       { path: '/custom-fields', labelKey: 'nav.sections.customFields', icon: FileText, access: ADMIN_ONLY, feature: 'customFields', parentRoutes: ['/custom-fields'] },
-      { path: '/automation', labelKey: 'nav.sections.automation', icon: Zap, access: ADMIN_ONLY, feature: 'automation', parentRoutes: ['/automation'] },
-      { path: '/skills', labelKey: 'nav.sections.skills', icon: Sparkles, access: ADMIN_ONLY, feature: 'skills', parentRoutes: ['/skills'] },
       { path: '/branding', labelKey: 'nav.sections.branding', icon: Palette, access: ADMIN_ONLY, feature: 'branding', parentRoutes: ['/branding'] },
-      { path: '/scheduling', labelKey: 'nav.sections.scheduling', icon: CalendarClock, access: ADMIN_ONLY, feature: 'schedulingConfig', parentRoutes: ['/scheduling'] },
       { path: '/compliance', labelKey: 'nav.sections.compliance', icon: ClipboardCheck, access: { Admin: 'full', Coordinator: 'full' }, parentRoutes: ['/compliance'] },
       { path: '/cost-roi', labelKey: 'nav.sections.costRoi', icon: Calculator, access: ADMIN_ONLY, feature: 'costRoi', parentRoutes: ['/cost-roi'] },
-      { path: '/budget', labelKey: 'nav.sections.budget', icon: Wallet, access: { Admin: 'full', Coordinator: 'full' }, feature: 'budget', parentRoutes: ['/budget'] },
-      { path: '/vendors', labelKey: 'nav.sections.vendors', icon: Handshake, access: { Admin: 'full', Coordinator: 'full' }, feature: 'vendors', parentRoutes: ['/vendors'] },
-      { path: '/trainers', labelKey: 'nav.sections.trainers', icon: UserCog, access: { Admin: 'full', Coordinator: 'full' }, perm: 'assign:trainer', feature: 'trainers', parentRoutes: ['/trainers'] },
-      { path: '/planning', labelKey: 'nav.sections.planning', icon: Target, access: { Admin: 'full', Coordinator: 'full' }, perm: 'plan:training', feature: 'planning', parentRoutes: ['/planning'] },
     ],
   },
   {
@@ -136,7 +127,6 @@ export const LEARNER_GROUPS = [
   {
     id: 'learner-main', labelKey: 'nav.groups.myLearning',
     items: [
-      { path: '/me/today', labelKey: 'nav.learner.today', icon: Sun, access: ALL, parentRoutes: ['/me/today'] },
       { path: '/me/programs', labelKey: 'nav.learner.programs', icon: BookOpen, access: ALL, parentRoutes: ['/me/programs'] },
       { path: '/me/catalog', labelKey: 'nav.learner.catalog', icon: Compass, access: ALL, parentRoutes: ['/me/catalog'] },
       { path: '/me/sessions', labelKey: 'nav.learner.sessions', icon: CalendarCheck, access: ALL, parentRoutes: ['/me/sessions'] },

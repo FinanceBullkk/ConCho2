@@ -148,7 +148,6 @@ const buildSetup = async () => {
     { key: 'directory', done: s.departments > 0 },
     { key: 'program', done: s.programs > 0 },
     { key: 'roles', done: s.customRoles > 0 },
-    { key: 'automation', done: s.automationRules > 0 },
     { key: 'policy', done: s.policyPrograms > 0 },
     { key: 'coordinators', done: s.coordinators > 0 },
   ];

@@ -90,9 +90,6 @@ const PERMISSION_MAP = {
   // Cohort completion reports + xlsx export — server: report.read capability.
   'read:reports':    ['Admin', 'Coordinator', 'Teacher'], // GET /api/learning/reports/*
   'manage:compliance': ['Admin', 'Coordinator'],   // POST/PUT/DELETE /api/compliance/requirements (A3)
-  'manage:budget':     ['Admin', 'Coordinator'],   // /api/finance/* — read+write both need budget.manage (A1)
-  'manage:vendor':     ['Admin', 'Coordinator'],   // /api/vendors/* — read+write both need vendor.manage (A2)
-  'plan:training':     ['Admin', 'Coordinator'],   // /api/planning/* — training.plan (A4 TNA)
   'read:feedback':   ['Admin', 'Teacher'],         // GET /api/learning/feedback
   'read:assignments': ['Admin', 'Coordinator', 'Teacher'], // GET /api/learning/assignments (assignment.read)
   'manage:assignments': ['Admin', 'Coordinator'],   // POST/DELETE /api/learning/assignments (assignment.manage)
@@ -106,9 +103,9 @@ const PERMISSION_MAP = {
   'read:office':       ['Admin', 'Coordinator', 'Teacher'], // GET /api/org/offices (office.read)
   'manage:office':     ['Admin', 'Coordinator'],    // POST/PUT/DELETE /api/org/offices (office.manage)
   'assign:org':        ['Admin'],                   // PUT    /api/org/users/:id/assignment (org.manage)
-  // ── Rooms + Trainers (re-center Phase 3) ─ Admin + Coordinator only
-  // (scheduling tools, never learner-facing). Mirror server room.read /
-  // room.manage / session.assign-trainer.
+  // ── Rooms + session trainer assignment (re-center Phase 3) ─ Admin +
+  // Coordinator only (scheduling tools, never learner-facing). Mirror server
+  // room.read / room.manage / session.assign-trainer.
   'read:room':         ['Admin', 'Coordinator'],    // GET /api/rooms (room.read)
   'manage:room':       ['Admin', 'Coordinator'],    // POST/PUT/DELETE /api/rooms (room.manage)
   'assign:trainer':    ['Admin', 'Coordinator'],    // PUT /api/schedules/:id/trainers (session.assign-trainer)

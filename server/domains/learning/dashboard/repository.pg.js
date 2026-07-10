@@ -161,13 +161,12 @@ const getSetupSignals = async () => {
 
   const c = async (sql, args = []) => (await query(sql, args)).rows[0].n;
   const [
-    departments, programs, customRoles, automationRules, policyPrograms, coordinators,
+    departments, programs, customRoles, policyPrograms, coordinators,
     totalEmployees, activeLearners, sessionsThisWeek, pendingEnrollment,
   ] = await Promise.all([
     c(`SELECT count(*)::int AS n FROM departments WHERE is_deleted = false`),
     c(`SELECT count(*)::int AS n FROM learning_programs WHERE ${livePrograms}`),
     c(`SELECT count(*)::int AS n FROM roles WHERE system = false AND is_deleted = false`),
-    c(`SELECT count(*)::int AS n FROM automation_rules WHERE is_deleted = false`),
     c(`SELECT count(*)::int AS n FROM learning_programs WHERE ${livePrograms} AND ${policyMatch}`),
     c(`SELECT count(*)::int AS n FROM users WHERE role = 'Coordinator' AND is_deleted = false`),
     c(`SELECT count(*)::int AS n FROM users WHERE is_deleted = false AND status NOT IN ('Dropped','Transferred')`),
@@ -176,7 +175,7 @@ const getSetupSignals = async () => {
     c(`SELECT count(*)::int AS n FROM users WHERE status = 'Waiting for class' AND is_deleted = false`),
   ]);
   return {
-    departments, programs, customRoles, automationRules, policyPrograms, coordinators,
+    departments, programs, customRoles, policyPrograms, coordinators,
     totalEmployees, activeLearners, sessionsThisWeek, pendingEnrollment,
   };
 };

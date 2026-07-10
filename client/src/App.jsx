@@ -44,20 +44,11 @@ const MyAssessmentsPage = lazy(() => import('./features/learner/MyAssessmentsPag
 const MyFeedbackPage = lazy(() => import('./features/learner/MyFeedbackPage'));
 const MySessionsPage = lazy(() => import('./features/learner/MySessionsPage'));
 const MyTranscriptPage = lazy(() => import('./features/learner/MyTranscriptPage'));
-const TodayPage = lazy(() => import('./features/mobile/TodayPage'));
 const MyTeamPage = lazy(() => import('./features/groups/MyTeamPage'));
-const RolesAccessPage = lazy(() => import('./features/access/RolesAccessPage'));
 const CustomFieldsPage = lazy(() => import('./features/custom-fields/CustomFieldsPage'));
-const AutomationPage = lazy(() => import('./features/automation/AutomationPage'));
-const SkillsPage = lazy(() => import('./features/skills/SkillsPage'));
 const BrandingPage = lazy(() => import('./features/branding/BrandingPage'));
-const StudioSchedulingPage = lazy(() => import('./features/scheduling/StudioSchedulingPage'));
 const ComplianceMatrixPage = lazy(() => import('./features/compliance/ComplianceMatrixPage'));
 const CostRoiSettingsPage = lazy(() => import('./features/settings/CostRoiSettingsPage'));
-const BudgetDashboardPage = lazy(() => import('./features/finance/BudgetDashboardPage'));
-const VendorsPage = lazy(() => import('./features/vendor/VendorsPage'));
-const TrainersPage = lazy(() => import('./features/trainer/TrainersPage'));
-const PlanningPage = lazy(() => import('./features/planning/PlanningPage'));
 const MobileAttendancePage = lazy(() => import('./features/attendance/MobileAttendancePage'));
 
 function RouteFallback() {
@@ -323,41 +314,17 @@ export default function App() {
                 <Route path="/system" element={
                   <ProtectedRoute roles={['Admin']}><SystemPage /></ProtectedRoute>
                 } />
-                <Route path="/access" element={
-                  <ProtectedRoute roles={['Admin']}><RolesAccessPage /></ProtectedRoute>
-                } />
                 <Route path="/custom-fields" element={
                   <ProtectedRoute roles={['Admin']}><CustomFieldsPage /></ProtectedRoute>
                 } />
-                <Route path="/automation" element={
-                  <ProtectedRoute roles={['Admin']}><AutomationPage /></ProtectedRoute>
-                } />
-                <Route path="/skills" element={
-                  <ProtectedRoute roles={['Admin']}><SkillsPage /></ProtectedRoute>
-                } />
                 <Route path="/branding" element={
                   <ProtectedRoute roles={['Admin']}><BrandingPage /></ProtectedRoute>
-                } />
-                <Route path="/scheduling" element={
-                  <ProtectedRoute roles={['Admin']}><StudioSchedulingPage /></ProtectedRoute>
                 } />
                 <Route path="/compliance" element={
                   <ProtectedRoute roles={['Admin', 'Coordinator']}><ComplianceMatrixPage /></ProtectedRoute>
                 } />
                 <Route path="/cost-roi" element={
                   <ProtectedRoute roles={['Admin']}><CostRoiSettingsPage /></ProtectedRoute>
-                } />
-                <Route path="/budget" element={
-                  <ProtectedRoute roles={['Admin', 'Coordinator']}><BudgetDashboardPage /></ProtectedRoute>
-                } />
-                <Route path="/vendors" element={
-                  <ProtectedRoute roles={['Admin', 'Coordinator']}><VendorsPage /></ProtectedRoute>
-                } />
-                <Route path="/trainers" element={
-                  <ProtectedRoute roles={['Admin', 'Coordinator']}><TrainersPage /></ProtectedRoute>
-                } />
-                <Route path="/planning" element={
-                  <ProtectedRoute roles={['Admin', 'Coordinator']}><PlanningPage /></ProtectedRoute>
                 } />
 
                 {/* Detail pages keep their own routes for deep links */}
@@ -378,7 +345,6 @@ export default function App() {
                 <Route path="/me/feedback" element={<MyFeedbackPage />} />
                 <Route path="/me/sessions" element={<MySessionsPage />} />
                 <Route path="/me/transcript" element={<MyTranscriptPage />} />
-                <Route path="/me/today" element={<TodayPage />} />
 
                 {/* Legacy redirects */}
                 {LEGACY_REDIRECTS.map(({ from, to }) => (
