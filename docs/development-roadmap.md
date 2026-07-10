@@ -153,6 +153,16 @@ Bug fixing and integration review rank above net-new feature rollout.
 > [`2026-q3.md`](changelog-archive/2026-q3.md); 06-20→06-27 rolled 2026-07-07;
 > 06-14→06-19 rolled 2026-07-04 → [`2026-q2.md`](changelog-archive/2026-q2.md)).
 
+- **2026-07-10** — **Wave K Phase 2 · Batch B — e2e gate on Postgres.** The
+  `e2e-tests` CI job now runs on PG, mirroring `server-tests-pg`: `postgres:16`
+  service + job-level `PG_URL`, `supercharge/mongodb-github-action` removed, new
+  `Apply PG migrations` (`knex migrate:latest`) + `Seed database (PG-native)`
+  (`npm run seed`) steps, `Start API server` env `MONGO_URI`→`DB_BACKEND=postgres`,
+  and the `Clear mustChangePassword` step rewritten Mongoose→`pg` `UPDATE`.
+  Playwright specs + port wiring untouched. Verified locally end-to-end on a fresh
+  DB (create → 35 migrations → seed → clear → boot `/ready backend=postgres` →
+  admin login `mustChangePassword:false`); the Playwright browser step runs in CI.
+  Next: Batch C (retire the Mongo test infra, gates 8→7).
 - **2026-07-10** — **Wave K Phase 2 · Batch A — PG-native seed.** `scripts/seed-pg.js`
   (self-contained: talks to `config/pg.js` only — no Mongoose / no test-only
   `pg-row-mappers` / no `DB_BACKEND` — so it survives the Mongo removal in

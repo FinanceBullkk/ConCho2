@@ -36,11 +36,21 @@ while gate #1 / e2e still run on Mongo.
   `backend=postgres`) → login (teacher/admin/participant 200, wrong-pw 401) + authed
   `/api/schedules` & `/api/learning/programs` reads. `scripts:check` green; e2e untouched.
 
-**B — Migrate e2e → PG.**
+**B — Migrate e2e → PG.** **✅ DONE 2026-07-10.**
 - `ci.yml` e2e job: swap the Mongo replica-set service for a **Postgres service**;
   set `DB_BACKEND=postgres` + `PG_URL`; run PG migrations + the Batch-A seed; drop
   `MONGO_URI` + the `scripts/seed.js` (Mongo) step. Playwright specs unchanged.
 - Verify e2e green on PG.
+- **Shipped:** e2e-tests job now mirrors `server-tests-pg` — `postgres:16` service +
+  job-level `PG_URL`; the `supercharge/mongodb-github-action` step removed; new
+  `Apply PG migrations` (`knex migrate:latest`) + `Seed database (PG-native)`
+  (`npm run seed`) steps; `Start API server` env `MONGO_URI`→`DB_BACKEND=postgres`;
+  `Clear mustChangePassword` rewritten Mongoose→`pg` `UPDATE`. Playwright specs +
+  ports untouched (Vite :3000 proxies `/api`→:5000). **Verified locally** the full
+  fresh-DB sequence (create → 35 migrations → seed → clear → boot `/ready
+  backend=postgres` → admin login `mustChangePassword:false`). The Playwright
+  browser step runs in CI (local `:5000` held by macOS AirPlay); specs unchanged +
+  the whole PG HTTP surface already green (Jest gate #8).
 
 **C — Retire the Mongo test infra** (the gate change — decision #1).
 - Remove gate #1 `server-tests` (Mongo lane) from `ci.yml`; `server-tests-pg` becomes
