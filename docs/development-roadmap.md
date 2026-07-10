@@ -157,17 +157,20 @@ Bug fixing and integration review rank above net-new feature rollout.
   Now that Atlas is cancelled, retired the genuinely-dead Mongo *runtime* surface
   (no test entanglement): `server.js` boot collapsed to PG-only (dropped the
   `connectDB` import + the `if(isPostgres)…else connectDB()` branch + the Mongoose
-  shutdown-close — the `startServer` path never ran in tests, so the suite is
-  unaffected; the e2e gate boots the real server on PG); `config/db-backend.js`
-  default flipped `mongo`→`postgres` (CI sets `DB_BACKEND` explicitly so no test
-  changes; unset env now = PG, matching reality); deleted `scripts/seed.js` (Mongo
-  seed, superseded by `seed-pg.js` — `npm run seed:mongo` removed) + `verify-backup.js`
-  (Atlas backup check, dead). `config/db.js` KEPT (a Mongo dev-diagnostic script
-  still uses it). **Not done — gated on a decision:** deleting the 44 `.mongo.js`
-  repos + collapsing selectors (Batch D1b) requires first retiring the 56
-  `tests/pg-parity/*` comparison suites (they exercise `impls.mongo` vs `impls.pg`
-  — obsolete now Mongo is gone). Dropping `mongoose` entirely (D2) needs the
-  fixture-layer decouple (122 test files seed via Mongoose+auto-mirror).
+  shutdown-close — the `startServer` path never runs under Jest, so the suite is
+  unaffected; the e2e gate boots the real server on PG); deleted `scripts/seed.js`
+  (Mongo seed, superseded by `seed-pg.js` — `npm run seed:mongo` removed) +
+  `scripts/verify-backup.js` (Atlas backup check, dead) + its orphaned unit test
+  `verifyBackupEnvLoading.test.js`. `config/db.js` KEPT (a Mongo dev-diagnostic
+  script still uses it). The `config/db-backend.js` default stays `mongo` for now
+  (flipping it to `postgres` breaks the Mongo `server-tests` CI lane, which Batch
+  C #285 removes — the flip lands once that merges). **Not done — bigger than first
+  scoped:** deleting the 44 `.mongo.js` repos + collapsing selectors is entangled
+  with the Mongo test safety-net — **75 test files reference `.impls`** (56
+  `tests/pg-parity/*` + 22 in the main `server-tests-pg` gate suite, incl. 16
+  `*-dual-backend.test.js`) plus 3 prod consumers (`class-repository.pg`, 2
+  `metric-*/mongo.js`). That + dropping `mongoose` (122 fixture-authoring test
+  files) is the deliberate D2 effort, its own plan + full-suite verification.
 - **2026-07-10** — **Wave K Phase 2 · Batch B — e2e gate on Postgres.** The
   `e2e-tests` CI job now runs on PG, mirroring `server-tests-pg`: `postgres:16`
   service + job-level `PG_URL`, `supercharge/mongodb-github-action` removed, new
