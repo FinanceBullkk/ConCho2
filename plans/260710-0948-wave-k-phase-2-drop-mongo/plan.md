@@ -25,10 +25,16 @@ while gate #1 / e2e still run on Mongo.
    **Recommend KEEP** (no security regression). → confirm at Batch D.
 
 ## Batches (each an independently green PR)
-**A — PG-native seed** (foundational; `scripts/seed.js` is Mongo-only, e2e needs it).
+**A — PG-native seed** (foundational; `scripts/seed.js` is Mongo-only, e2e needs it). **✅ DONE 2026-07-10.**
 - Write a PG seed: truncate PG tables (FK order) + insert the sample set (same logins
   `000001`/`000004`/…) via the PG repos or knex/SQL. Wire `npm run seed` → PG.
 - Verify locally (seed → boot on PG → login). No CI change yet (Mongo seed still default). Green.
+- **Shipped:** `scripts/seed-pg.js` (self-contained — `config/pg.js` only, no Mongoose /
+  test-mappers / `DB_BACKEND`; direct parameterized INSERTs; 24-hex ids; bcrypt-12).
+  `dangerousScriptGuard` generalized (host/dbName). `npm run seed` → PG, `seed:mongo`
+  kept for the still-Mongo e2e (→ Batch B). Verified: seed → boot PG (`/ready`
+  `backend=postgres`) → login (teacher/admin/participant 200, wrong-pw 401) + authed
+  `/api/schedules` & `/api/learning/programs` reads. `scripts:check` green; e2e untouched.
 
 **B — Migrate e2e → PG.**
 - `ci.yml` e2e job: swap the Mongo replica-set service for a **Postgres service**;

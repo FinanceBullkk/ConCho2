@@ -3,20 +3,26 @@
 /**
  * dangerousScriptGuard — production safety gate for destructive scripts.
  *
- * Call this AFTER connectDB(), so the real host/dbName are available.
+ * Call this AFTER connecting, so the real host/dbName are available.
  *
  * Rules enforced:
  *   • NODE_ENV === 'production'  requires  ALLOW_PROD_DATA_MUTATION=YES_I_HAVE_BACKUP
  *   • Always prints DB host + name so the operator sees exactly what will be wiped.
  *
+ * Backend-agnostic: pass a connected `mongoose` instance (Mongo scripts) OR the
+ * resolved `host`/`dbName` strings directly (Postgres scripts). `host`/`dbName`
+ * win when both are supplied.
+ *
  * @param {object}  opts
  * @param {string}  opts.scriptName   Human-readable name shown in the warning banner.
- * @param {import('mongoose')} opts.mongoose  The connected mongoose instance.
+ * @param {import('mongoose')} [opts.mongoose]  A connected mongoose instance.
+ * @param {string}  [opts.host]       DB host (Postgres path).
+ * @param {string}  [opts.dbName]     DB name (Postgres path).
  */
-function dangerousScriptGuard({ scriptName, mongoose }) {
+function dangerousScriptGuard({ scriptName, mongoose, host, dbName }) {
   const env      = process.env.NODE_ENV || 'development';
-  const host     = mongoose.connection.host  || '(not connected)';
-  const dbName   = mongoose.connection.name  || '(unknown)';
+  host   = host   || mongoose?.connection?.host || '(not connected)';
+  dbName = dbName || mongoose?.connection?.name || '(unknown)';
 
   console.log('\n' + '!'.repeat(60));
   console.log(`  ⚠️   DESTRUCTIVE SCRIPT: ${scriptName}`);
