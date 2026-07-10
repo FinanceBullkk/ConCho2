@@ -29,14 +29,10 @@ describe('pg-write-gate classify', () => {
     ))).toBeNull();
   });
 
-  test('reconcile allowlist → sanctioned (null) — retired at cutover', () => {
-    expect(classify(stack(NODE, '/repo/server/services/reconcile/healers.js'))).toBeNull();
-    expect(classify(stack(NODE, '/repo/server/services/reconcileService.js'))).toBeNull();
-  });
-
-  test('adminDbRoutes allowlist → sanctioned (null) — Mongo-coupled explorer, disposition tracked', () => {
-    expect(classify(stack(NODE, '/repo/server/routes/adminDbRoutes.js'))).toBeNull();
-    // …but OTHER routes/ files stay violations
+  test('routes/ file → production violation (reconcile + adminDb allowlist retired in Wave K)', () => {
+    // The two former sanctioned exceptions (services/reconcile*, adminDbRoutes)
+    // were retired end-to-end in Wave K, so the ALLOW list is now empty — every
+    // routes/ frame classifies as a production violation.
     expect(classify(stack(NODE, '/repo/server/routes/cronRoutes.js'))).toContain('cronRoutes');
   });
 

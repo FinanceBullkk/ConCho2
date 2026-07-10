@@ -75,7 +75,6 @@ const CAPABILITIES = Object.freeze({
   DATA_TRANSFER: 'data.transfer',      // bulk import / export / Google-Sheets sync
   ANALYTICS_READ: 'analytics.read',    // admin dashboard stats/alerts/cache (dashboardRoutes)
   AUDIT_READ: 'audit.read',            // read the audit log (auditRoutes)
-  SYSTEM_OPS: 'system.ops',            // DB explorer + reconciliation (adminDb/reconcile)
   COMPLIANCE_MANAGE: 'compliance.manage', // define required-training rules (A3; admin/coordinator)
   // ── Budget & cost management (TMS.update Modernization H1 — A1) ───────────
   // Gates BOTH read and write of finance data: budget figures are

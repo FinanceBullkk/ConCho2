@@ -158,8 +158,7 @@ Persona is a UI mode only — not an authz boundary.
 - `enrollmentsAPI`
 - `learningAPI`
 - `dashboardAPI`
-- `adminDbAPI`
-- `reconcileAPI`
+- `cronAPI`
 
 ### i18n Current State
 
@@ -210,11 +209,9 @@ English literals directly.
 | `/api/settings` | `settingRoutes.js` | Admin settings |
 | `/api/dashboard` | `dashboardRoutes.js` | Admin dashboard stats/filter/alerts/cache |
 | `/api/analytics` | `analyticsRoutes.js` | Build Plan #1: daily `MetricSnapshot` time-series + enrollment→completion funnel + per-program analytics (nightly snapshot job + backfill script) |
-| `/api/admin-db` | `adminDbRoutes.js` | Admin database explorer |
 | `/api/admin/audit` | `auditRoutes.js` | audit log queries + **tamper-evident hash-chain verify** (`POST /verify`, Build Plan #3a) |
-| `/api/admin/reconcile` | `reconcileRoutes.js` | manual reconcile, trend, and report history + **safe auto-heal** of detected drift (Build Plan #4) |
 | `/api/admin/cron` | `cronHealthRoutes.js` | cron run health/history (CronRun) |
-| `/api/cron` | `cronRoutes.js` | cron-triggered reconcile, attendance reminders, assignment reminders |
+| `/api/cron` | `cronRoutes.js` | cron-triggered attendance reminders, assignment reminders |
 | `/api/search` | `searchRoutes.js` | global search |
 | `/health`, `/ready`, `/api/health`, `/api/ready` | `healthRoutes.js` | liveness/readiness |
 
@@ -250,7 +247,6 @@ Current protections:
 | `Attendance` | per-user attendance per schedule |
 | `Evaluation` | per-user per-class final evaluation |
 | `AuditLog` | actor/action/entity/diff/request metadata, TTL retention |
-| `ReconcileReport` | nightly/manual data-integrity reports, 30-day TTL |
 | `Setting` | whitelisted system settings such as allowed time slots |
 | `TokenBlocklist` | revoked JWT IDs with TTL |
 | `Counter` | sequence/counter support |
@@ -307,7 +303,6 @@ Important database constraints:
 - `Attendance` unique on `{ scheduleId, userId }`.
 - `Evaluation` unique on `{ classId, userId }`.
 - `AuditLog` TTL defaults to 2 years.
-- `ReconcileReport` TTL is 30 days.
 - `TokenBlocklist` TTL is `expiresAt`.
 - `NotificationLog` has a unique assignment/learner/recipient/cadence tuple and
   a 180-day TTL.
@@ -359,28 +354,6 @@ Main rules:
   program-less class still books.
 - Google Calendar event creation is fail-soft; booking/cancel emails via mailer/templates.
 - Session order cache is invalidated after schedule create/delete.
-
-### Reconciliation
-
-`server/services/reconcileService.js` is the read-only orchestrator: it pre-fetches
-active enrollments, runs the 10 checks in parallel (fail-soft per check), and persists
-a `ReconcileReport`. The check implementations live in `server/services/reconcile/*`
-grouped by concern: `schedule-checks.js` (1/4/7), `enrollment-checks.js` (2/3/5/6),
-`team-checks.js` (8/10), `counter-checks.js` (9).
-
-Checks include:
-
-- Past schedule with incomplete attendance.
-- Active enrollment where user is not in team members.
-- Team member without active enrollment.
-- Future schedule with zero enrolled users.
-- Active participant without active enrollment.
-- Duplicate active enrollments.
-- Orphan schedule/class references.
-- Multi-team class and counter drift checks.
-- Soft-deleted users still present in team membership.
-
-`server/jobs/reconcileJob.js` schedules reconciliation with `RECONCILE_CRON` or `0 2 * * *`, timezone UTC. Render free-tier sleep means external cron/manual trigger may be needed for guaranteed runs.
 
 ## External Integrations
 

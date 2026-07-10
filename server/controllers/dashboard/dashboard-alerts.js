@@ -14,8 +14,7 @@ const { todayVN } = require('../../helpers/dayjsConfig');
 // browser-tab focus (refetchOnWindowFocus:true on the client) and
 // scanned EVERY past schedule in the database via a $lookup-on-
 // attendances aggregation. Two-part fix:
-//   1. Bound the $match to a 30-day lookback — same window as the
-//      reconcile job (reconcileService.js:28).
+//   1. Bound the $match to a 30-day lookback (ALERTS_LOOKBACK_DAYS).
 //   2. Cache the result for 30 seconds per process; alerts don't need
 //      to be real-time, and 30s caps the worst-case load to 2 runs/min
 //      regardless of how many admins focus their browser tab.

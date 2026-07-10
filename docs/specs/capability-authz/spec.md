@@ -21,8 +21,8 @@ related_plans:
 > IS enforced on the new domain routes AND (Phase 0, 2026-06-14) on the
 > Admin-only platform routes (`/api/users` `user.manage`, `/api/settings`
 > `settings.manage`, `/api/import`+`/api/export`+`/api/sync` `data.transfer`,
-> `/api/dashboard` `analytics.read`, `/api/admin/audit` `audit.read`,
-> `/api/admin-db`+`/api/admin/reconcile` `system.ops`). Only `roleGuard` remains
+> `/api/dashboard` `analytics.read`, `/api/admin/audit` `audit.read`). Only
+> `roleGuard` remains
 > on `/api/auth` + `/api/admin/cron` (security/cron, by design) and the
 > converging-legacy trio `/api/classes`, `/api/enrollments`, `/api/evaluations`
 > (retired in their convergence phase). This spec states exactly what is enforced.
