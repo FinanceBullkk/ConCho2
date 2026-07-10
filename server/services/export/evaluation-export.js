@@ -1,4 +1,3 @@
-const mongoose = require('mongoose');
 const { ServiceError } = require('../../helpers/ServiceError');
 const { enforceRowCap } = require('./export-row-cap');
 const { generateEvaluationWorkbook } = require('./evaluation-workbook');
@@ -13,7 +12,9 @@ const evaluationExportRepository = require('./evaluation-export-repository');
 
 const buildEvaluationPipeline = ({ from, to, classId } = {}) => {
   const matchStage = {};
-  if (classId) matchStage.classId = new mongoose.Types.ObjectId(classId);
+  // PG-only runtime: classId stays a plain 24-hex string — the PG export repo
+  // recovers it via String(m.classId) (see evaluation-export-repository.pg.js).
+  if (classId) matchStage.classId = classId;
   if (from || to) {
     matchStage.updatedAt = {};
     if (from) matchStage.updatedAt.$gte = new Date(from);

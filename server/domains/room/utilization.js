@@ -1,9 +1,6 @@
 const repository = require('./repository');
 const { getConfigDto } = require('../schedule/scheduling-window-policy');
-
-// 24-hex object-id shape (both backends use it) — replaces mongoose.isValidObjectId
-// so this report is backend-agnostic (Wave K-1: no direct Mongoose here).
-const isObjectIdShape = (v) => typeof v === 'string' && /^[0-9a-fA-F]{24}$/.test(v);
+const { isValidObjectId: isObjectIdShape } = require('../../helpers/object-id');
 
 // ──────────────────────────────────────────────────────────
 // room/utilization — booked vs available room-hours (Build Plan #5).
