@@ -62,7 +62,7 @@ const CRON_JOBS = {
     jobName: 'retention-purge',
     monitorSlug: 'retention-purge',
     expectedIntervalMs: 24 * HOUR_MS, // nightly PG retention DELETE (Wave-E2)
-    schedule: '30 2 * * *', // 02:30 UTC — after the 02:00 reconcile
+    schedule: '30 2 * * *', // 02:30 UTC — nightly, after the analytics rollup
   },
 };
 
@@ -100,7 +100,7 @@ function sentryCheckIn(payload, monitorConfig) {
 /**
  * Run a job under heartbeat + Sentry monitoring.
  *
- * @param {string} jobName    stable id, e.g. 'reconcile'
+ * @param {string} jobName    stable id, e.g. 'attendance-reminders'
  * @param {object} options
  * @param {string} [options.monitorSlug]        Sentry monitor slug (default jobName)
  * @param {number} [options.expectedIntervalMs] cadence for staleness detection

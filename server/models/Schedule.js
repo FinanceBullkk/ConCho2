@@ -266,11 +266,9 @@ scheduleSchema.index({ officeId: 1, startTime: 1 });
 // `$or:[{classId:{$in:visible}},{sessionInstructorIds: me}]`).
 scheduleSchema.index({ sessionInstructorIds: 1, startTime: 1 });
 
-// PERF-010 (audit PR D): reconcileService.checkMissingAttendance
-// (services/reconcileService.js:42) filters
-// `endTime: { $lt: now, $gte: lookback }` across all schedules.
-// Without an endTime index this is a full-coll scan once history
-// grows past a few thousand schedules.
+// PERF-010 (audit PR D): history sweeps that filter
+// `endTime: { $lt: now, $gte: lookback }` across all schedules would be a
+// full-coll scan once history grows past a few thousand schedules.
 scheduleSchema.index({ endTime: 1 });
 
 // PERF-010: reminderService scans for schedules due in the next 24h

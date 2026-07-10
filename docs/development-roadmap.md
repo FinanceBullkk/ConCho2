@@ -94,7 +94,7 @@ remainder is documented deferred-by-design scope (below), not active debt.
 | 3 | Multi-program enrollment + session scheduling | ~85% | 🟢 near done (genuine work shipped; only nomination workflow deferred-by-design) |
 | 4 | Frontend L&D workspace (CRUD UI) | ~82% | 🟢 near done (CRUD + policy editor complete) |
 | 5 | Reporting, completion, feedback | ~80% | 🟢 near done (cert lifecycle + recert closed; Evaluation→Assessment convergence deferred-by-design) |
-| 6 | PostgreSQL migration / Wave K decommission | ~95% | 🟡 prod on PG + Atlas cancelled (Wave J 2026-07-08: Render `DB_BACKEND=postgres`, writes verified in Neon PG 17.10, mig 036 FK/CHECK applied, daily encrypted `pg_dump`; Wave K activation 2026-07-09: `MONGO_URI` removed, `/ready` 200 `backend=postgres`, `/api/admin-db` 410; **Atlas cancelled 2026-07-10**). Wave K Phase 2: A PG seed + B e2e-on-PG + **C Mongo CI gate retired (8→7)** + **D1a PG-only boot** + **D1b deleted 44 `.mongo.js` + 129 Mongo test/scaffolding files** done. Remaining: **D2** — drop `mongoose`/`mongodb-memory-server` (needs the 122 fixture-authoring test files decoupled from Mongoose+auto-mirror). |
+| 6 | PostgreSQL migration / Wave K decommission | ~95% | 🟡 prod on PG + Atlas cancelled (Wave J 2026-07-08: Render `DB_BACKEND=postgres`, writes verified in Neon PG 17.10, mig 036 FK/CHECK applied, daily encrypted `pg_dump`; Wave K activation 2026-07-09: `MONGO_URI` removed, `/ready` 200 `backend=postgres`, `/api/admin-db` 410; **Atlas cancelled 2026-07-10**). Wave K Phase 2: A PG seed + B e2e-on-PG + **C Mongo CI gate retired (8→7)** + **D1a PG-only boot** + **D1b deleted 44 `.mongo.js` + 129 Mongo test/scaffolding files** + **D2a reconcile/admin-db feature fully retired (client + remnants + docs)** done. Remaining: **D2** — drop `mongoose`/`mongodb-memory-server` (needs the 122 fixture-authoring test files decoupled from Mongoose+auto-mirror). |
 
 ## LTMS waves (forward — see [`lms-roadmap.md`](lms-roadmap.md))
 
@@ -153,6 +153,23 @@ Bug fixing and integration review rank above net-new feature rollout.
 > [`2026-q3.md`](changelog-archive/2026-q3.md); 06-20→06-27 rolled 2026-07-07;
 > 06-14→06-19 rolled 2026-07-04 → [`2026-q2.md`](changelog-archive/2026-q2.md)).
 
+- **2026-07-11** — **Wave K Phase 2 · Batch D2a — reconcile + admin-db feature fully retired (server left it half-done in #280).**
+  #280 removed the reconcile/adminDb *server* runtime but left the whole CLIENT surface + server
+  remnants + stale docs — all dead (routes 404). Finished the owner-decided retirement end-to-end.
+  **Server:** deleted `models/ReconcileReport.js`, the swagger `ReconcileReport` schema, the dead
+  `reconcileLimiter` (no route left), the `system.ops` capability (adminDb/reconcile gone), the
+  `RECONCILE_CRON` env knob, and the two now-unreachable write-gate `ALLOW` entries
+  (`services/reconcile*` + `adminDbRoutes` — the "remove at Wave K" disposition the comment tracked);
+  de-referenced deleted files in stale comments. **Client:** removed `adminDbAPI`/`reconcileAPI`,
+  deleted `features/reconcile/*` + `features/admin/DatabaseExplorer.jsx`, dropped the SystemPage
+  Database + Reconciliation tabs + their nav entries + `run:reconcile`/`read:database` perms + i18n.
+  **Re-homed the still-live cron-health panel** (heartbeats for reminders/snapshot/retention-purge —
+  `/api/admin/cron/health` untouched) into a slim SystemPage "Cron Health" tab so monitoring survives.
+  **Docs:** dropped the admin-db/reconcile rows from route-permission-matrix + current-system-map,
+  marked the `reconcile-job` spec **deprecated** (PG FK/CHECK mig 036 replaces the nightly sweep),
+  removed `system.ops` from the capability-authz spec. `cronMonitor`/`CronRun` + the cron-health
+  endpoint stay (general infra). Orthogonal to D1b's repo-layer deletion; the `mongoose` drop is
+  still D2 proper.
 - **2026-07-10** — **Wave K Phase 2 · Batch D1b — deleted the 44 `.mongo.js` repos + the Mongo test safety-net.**
   Runtime already PG-only (D1a) + Atlas cancelled, so removed the now-dead Mongo
   repository layer + the migration-era parity scaffolding. **130 files deleted:**

@@ -6,7 +6,7 @@ import { StatusBadge } from './StatusBadge';
 // CronHealthPanel — presentational view of scheduled-job heartbeats.
 //
 // Consumes GET /api/admin/cron/health (cronAPI.getHealth). Lets an admin
-// confirm that the nightly reconcile + reminder jobs actually fire — the
+// confirm that the scheduled reminder + maintenance jobs actually fire — the
 // "did cron run on the free tier?" production-readiness check. Pure props
 // in, no data fetching, so it's trivially testable.
 // ──────────────────────────────────────────────────────────
@@ -21,7 +21,6 @@ const HEALTH_META = {
 
 // Friendly labels for known job names; unknown jobs fall back to the raw id.
 const JOB_LABEL_KEYS = {
-  reconcile: 'cronHealth.jobs.reconcile',
   'attendance-reminders': 'cronHealth.jobs.attendanceReminders',
   'assignment-reminders': 'cronHealth.jobs.assignmentReminders',
   'certificate-expiry-reminders': 'cronHealth.jobs.certificateExpiryReminders',

@@ -82,15 +82,6 @@ The cookie is HttpOnly — pass \`credentials: 'include'\` in fetch or use \`wit
             capacity: { type: 'integer', example: 20 },
           },
         },
-        ReconcileReport: {
-          type: 'object',
-          properties: {
-            status:  { type: 'string', enum: ['ok', 'issues_found'] },
-            runAt:   { type: 'string', format: 'date-time' },
-            summary: { type: 'object' },
-            issues:  { type: 'array', items: { type: 'object' } },
-          },
-        },
       },
     },
     security: [{ cookieAuth: [] }],

@@ -1,23 +1,23 @@
 ---
 capability: reconcile-job
-status: stable
-owners: [services/reconcileService, controllers/reconcileController, jobs]
-last_updated: 2026-06-15
-related_code:
-  - server/services/reconcileService.js
-  - server/services/reconcile/healers.js
-  - server/controllers/reconcileController.js
-  - server/routes/reconcileRoutes.js
-  - server/models/ReconcileReport.js
-  - server/models/CronRun.js
-  - server/jobs
+status: deprecated
+owners: []
+last_updated: 2026-07-11
+related_code: []
 related_plans: []
 ---
 
 # Capability: Reconcile Job (Data-Integrity)
 
-> **Source of truth for BEHAVIOR.** Runs nightly via cron; shares the
-> `CRON_TOKEN` auth model with `assignments-and-reminders`.
+> **DEPRECATED — capability RETIRED in Wave K (2026-07).** The nightly/manual
+> data-integrity reconcile + auto-heal was Mongo-coupled and owner-decided to
+> retire at the PostgreSQL cutover. The server runtime (`reconcileService`,
+> `services/reconcile/*`, `reconcileController`, `reconcileRoutes`,
+> `jobs/reconcileJob`) was removed in #280; the `ReconcileReport` model, the
+> client Reconciliation page, and the `system.ops` capability were removed in
+> Wave K Phase 2 Batch D2a. Kept below for history only — no code implements it.
+> Data-integrity is now enforced by the PostgreSQL FK/CHECK constraints
+> (migration 036) rather than a nightly sweep.
 
 ## Purpose
 

@@ -1,7 +1,7 @@
 import { Fragment, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { useQueryClient } from '@tanstack/react-query';
-import { Settings, Database, RefreshCw, ShieldCheck, ScrollText, ChevronDown } from 'lucide-react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { Settings, RefreshCw, HeartPulse, ShieldCheck, ScrollText, ChevronDown } from 'lucide-react';
 import { Tabs, TabsContent } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { PageHeader } from '@/components/PageHeader';
@@ -9,26 +9,27 @@ import { StatusBadge } from '@/components/StatusBadge';
 import TableSkeleton from '@/components/TableSkeleton';
 import QueryError from '@/components/QueryError';
 import Pagination from '@/components/Pagination';
+import CronHealthPanel from '@/components/CronHealthPanel';
 import { useAuditLog, useVerifyAuditChain } from '@/hooks/useAuditLog';
+import { cronAPI } from '@/api/api';
 import { diffJson } from '@/lib/jsonDiff';
 import { cn } from '@/lib/utils';
 import SettingsPage from '../features/settings/SettingsPage';
-import DatabaseExplorer from '../features/admin/DatabaseExplorer';
 import SyncPage from '../features/sync/SyncPage';
-import ReconcilePage from '../features/reconcile/ReconcilePage';
 
 // ──────────────────────────────────────────────────────────
 // SystemPage — Phase 2 IA-S2
 // Route: /system  (Admin only)
-// Tabs: Settings · Database · Sync · Reconciliation · Audit Log
-// Replaces /admin (old AdminPage) and merges in SyncPage.
+// Tabs: Settings · Sync · Cron Health · Audit Log
+// Replaces /admin (old AdminPage) and merges in SyncPage. The Database explorer
+// and Reconciliation tabs were retired in Wave K (their Mongo-only server routes
+// were removed — the cron-health heartbeat view moved here off the reconcile page).
 // ──────────────────────────────────────────────────────────
 
 const TABS = [
   { id: 'settings',   label: 'Settings',        icon: Settings,   description: 'System configuration variables.' },
-  { id: 'database',   label: 'Database',         icon: Database,   description: 'Browse and edit raw collection data.' },
   { id: 'sync',       label: 'Sync',             icon: RefreshCw,  description: 'Import enrollment data from Google Sheets.' },
-  { id: 'reconcile',  label: 'Reconciliation',   icon: ShieldCheck, description: 'Detect data drift across Schedule, Attendance, Enrollment and Team.' },
+  { id: 'cron',       label: 'Cron Health',      icon: HeartPulse, description: 'Heartbeats for the scheduled jobs (reminders, analytics snapshot, retention purge).' },
   { id: 'audit',      label: 'Audit Log',        icon: ScrollText, description: 'Tamper-evident history of create, update and delete actions — hash-chained and verifiable.' },
 ];
 
@@ -385,6 +386,26 @@ function AuditDetail({ entry }) {
 }
 
 // ──────────────────────────────────────────────────────────
+// CronHealthTab — scheduled-job heartbeat view. Re-homed from the retired
+// Reconciliation page (Wave K). Reads GET /api/admin/cron/health.
+// ──────────────────────────────────────────────────────────
+
+function CronHealthTab() {
+  const cronHealthQuery = useQuery({
+    queryKey: ['cron', 'health'],
+    queryFn: () => cronAPI.getHealth().then((r) => r.data.data),
+    staleTime: 60_000,
+  });
+
+  return (
+    <CronHealthPanel
+      jobs={cronHealthQuery.data?.jobs}
+      isLoading={cronHealthQuery.isLoading}
+    />
+  );
+}
+
+// ──────────────────────────────────────────────────────────
 // SystemPage
 // ──────────────────────────────────────────────────────────
 
@@ -407,14 +428,11 @@ export default function SystemPage() {
         <TabsContent value="settings" hidden={activeTab !== 'settings'}>
           {activeTab === 'settings' && <SettingsPage />}
         </TabsContent>
-        <TabsContent value="database" hidden={activeTab !== 'database'}>
-          {activeTab === 'database' && <DatabaseExplorer />}
-        </TabsContent>
         <TabsContent value="sync" hidden={activeTab !== 'sync'}>
           {activeTab === 'sync' && <SyncPage />}
         </TabsContent>
-        <TabsContent value="reconcile" hidden={activeTab !== 'reconcile'}>
-          {activeTab === 'reconcile' && <ReconcilePage />}
+        <TabsContent value="cron" hidden={activeTab !== 'cron'}>
+          {activeTab === 'cron' && <CronHealthTab />}
         </TabsContent>
         <TabsContent value="audit" hidden={activeTab !== 'audit'}>
           {activeTab === 'audit' && <AuditLogTab />}
