@@ -43,64 +43,6 @@ concurrency:
 
 jobs:
   # ──────────────────────────────────────────────────────────
-  # PG-migration parity (Postgres service)
-  # Runs the dual-backend repository parity tests (tests/pg-parity/*) against a
-  # REAL Postgres so every ported repository was proven Mongo==PG during the
-  # migration (plans/260612-2042-postgresql-migration/). The Mongo comparison
-  # side is retired with the rest of the Mongo test infra in Wave K Phase 2
-  # Batch D (fixture-layer decouple); until then these still exercise the PG
-  # repositories directly.
-  # ──────────────────────────────────────────────────────────
-  pg-parity:
-    name: PG parity (Postgres)
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-
-    services:
-      postgres:
-        image: postgres:16
-        env:
-          POSTGRES_USER: ci
-          POSTGRES_PASSWORD: ci
-          POSTGRES_DB: tmsci
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd "pg_isready -U ci"
-          --health-interval 5s
-          --health-timeout 5s
-          --health-retries 12
-
-    env:
-      PG_URL: postgresql://ci:ci@localhost:5432/tmsci
-
-    steps:
-      - uses: actions/checkout@v5
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v5
-        with:
-          node-version: '22'
-          cache: 'npm'
-          cache-dependency-path: server/package-lock.json
-
-      - name: Install server dependencies
-        working-directory: server
-        run: npm ci --no-audit --no-fund --no-progress
-
-      - name: Apply PG migrations
-        working-directory: server
-        run: npx knex migrate:latest --knexfile db/pg/knexfile.js
-
-      - name: Run PG-parity tests
-        working-directory: server
-        run: npx jest tests/pg-parity --runInBand
-        env:
-          NODE_ENV: test
-          JWT_SECRET: ci-test-secret-not-used-for-anything-real
-          SENTRY_DSN: ''
-
-  # ──────────────────────────────────────────────────────────
   # GATE #8 (Wave G, 2026-07-07): the FULL server suite on Postgres
   # Runs the entire Jest suite with DB_BACKEND=postgres against the same
   # postgres:16 service — phase G of the Mongo→Postgres master plan. Was the

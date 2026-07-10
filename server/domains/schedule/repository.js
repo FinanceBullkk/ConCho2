@@ -1,18 +1,5 @@
-// schedule/repository — backend selector (Phase 3 Wave-D dual-backend port).
-// Consumers keep `require('./repository')` unchanged; this resolves by DB_BACKEND.
-//
-// PORT COMPLETE (S1 reads → S3a 12 txn methods → S3b-1 seams → S3b-2 the last 2:
-// updateScheduleById generic field-mapper + findTeamById opts-session → S5 read-
-// path: findScheduleForResponse/findScheduleForCancellation/findTeamLeaderId, the
-// scheduleService booking/cancel re-fetches). Every method now has a pg twin, so
-// this is a CLEAN SWAP — DB_BACKEND=postgres → pg, else mongo. `impls` is exported
-// so the parity tests drive both backends.
-// Default DB_BACKEND=mongo → app unchanged.
-const { isPostgres } = require('../../config/db-backend');
-const mongo = require('./repository.mongo');
-const pg = require('./repository.pg');
-
-module.exports = {
-  ...(isPostgres ? pg : mongo),
-  impls: { mongo, pg },
-};
+// Backend repository — PostgreSQL only.
+// The Mongo impl + the dual-backend selector were retired in Wave K Phase 2
+// Batch D1b (2026-07-10) after prod cut over to PostgreSQL and Atlas was
+// cancelled. Consumers keep `require('./...')` unchanged.
+module.exports = require('./repository.pg');
