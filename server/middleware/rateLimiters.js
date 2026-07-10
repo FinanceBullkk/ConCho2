@@ -55,7 +55,6 @@ const userOrIpKey = (req) =>
 //   1. They authenticate via CRON_TOKEN (cronAuth middleware) — not user sessions.
 //   2. cron-job.org fires from shared egress IPs; those IPs would otherwise
 //      exhaust the per-IP write budget and get 429 despite being legitimate.
-//   3. The reconcile route has its own reconcileLimiter (10/hour).
 // NOTE: these middlewares are mounted at app.use('/api', ...) so req.path
 // is relative to /api — use '/cron/' not '/api/cron/'.
 const skipCron = (req) => req.path.startsWith('/cron/');
@@ -268,21 +267,6 @@ const exportLimiter = rateLimit({
 });
 
 /**
- * reconcileLimiter — protect the cron/reconcile endpoint from abuse.
- * Reconciliation runs DB-wide aggregations; limit to 10 per hour per IP.
- */
-const reconcileLimiter = rateLimit({
-  windowMs: 60 * 60 * 1000,
-  max: 10,
-  keyGenerator: (req) => ipKeyGenerator(req),
-  standardHeaders: true,
-  legacyHeaders: false,
-  skip: skipInTest,
-  message: { success: false, message: 'Reconciliation rate limit reached.' },
-  validate: validateOpts,
-});
-
-/**
  * mfaVerifyLimiter — dedicated limiter for POST /auth/mfa/verify.
  *
  * Keys on the userId embedded inside the `mfaPendingToken` JWT body field,
@@ -335,5 +319,4 @@ module.exports = {
   mfaVerifyLimiter,
   forgotPasswordLimiter,
   exportLimiter,
-  reconcileLimiter,
 };

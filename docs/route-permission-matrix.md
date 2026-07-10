@@ -11,8 +11,7 @@ Source: current route middleware. Keep this matrix updated when routes move into
 > are added to no other role). New Admin-only capabilities: `user.manage`
 > (`/api/users`), `settings.manage` (`/api/settings`), `data.transfer`
 > (`/api/import`,`/api/export`,`/api/sync`), `analytics.read` (`/api/dashboard`),
-> `audit.read` (`/api/admin/audit`), `system.ops`
-> (`/api/admin-db`,`/api/admin/reconcile`). **Intentionally still on
+> `audit.read` (`/api/admin/audit`). **Intentionally still on
 > `roleGuard`** (by design / converging later): `/api/auth` + `/api/admin/cron`
 > (security/cron) and the converging-legacy trio `/api/classes`,
 > `/api/enrollments`, `/api/evaluations` (retired in their convergence phase).
@@ -56,11 +55,9 @@ Source: current route middleware. Keep this matrix updated when routes move into
 | `/api/notifications` | authenticated (self-scoped, `notification.read`) | authenticated (self-scoped) | in-app notification feed + mark-read + per-category delivery **preferences** (`GET/PUT /preferences`, `User.notificationPreferences`); endpoints scoped to `req.user`; preference writes audited |
 | `/api/dashboard` | Admin | Admin cache invalidation | admin analytics only |
 | `/api/analytics` | Admin (`analytics.read`) | none | **Build Plan #1 real analytics:** daily `MetricSnapshot` time-series + enrollment→completion funnel + per-program analytics; read-only (nightly snapshot job + backfill script) |
-| `/api/admin-db` | Admin | Admin | generic DB explorer whitelist |
 | `/api/admin/audit` | Admin (`audit.read`) | Admin: `POST /verify` | audit query + **tamper-evident hash-chain verify** (Build Plan #3a): `POST /verify` recomputes the chain and reports OK / first broken seq |
-| `/api/admin/reconcile` | Admin | Admin manual run + **auto-heal** | read reports, trend (`/trend`), trigger run; **safe auto-heal of detected drift** (Build Plan #4), audited |
 | `/api/admin/cron` | Admin | none | cron run health/history (CronRun) |
-| `/api/cron` | cron token | cron token | external scheduled calls: health, reconcile, attendance-reminders, assignment-reminders |
+| `/api/cron` | cron token | cron token | external scheduled calls: health, attendance-reminders, assignment-reminders |
 | `/api/search` | authenticated | none | result scoping in service; users/teams/classes for all, +programs/departments for Admin/Teacher |
 | `/api/sync` | Admin | Admin | Google Sheets sync |
 

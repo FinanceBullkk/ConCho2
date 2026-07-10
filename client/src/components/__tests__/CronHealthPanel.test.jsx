@@ -21,13 +21,13 @@ describe('CronHealthPanel', () => {
       <CronHealthPanel
         isLoading={false}
         jobs={[{
-          jobName: 'reconcile', health: 'ok', lastStatus: 'ok',
+          jobName: 'assignment-reminders', health: 'ok', lastStatus: 'ok',
           lastRunAt: ago(HOUR), lastSuccessAt: ago(HOUR),
           lastDurationMs: 120, runCount: 3, failCount: 0,
         }]}
       />
     );
-    expect(screen.getByText('Nightly reconcile')).toBeInTheDocument();
+    expect(screen.getByText('Assignment reminders')).toBeInTheDocument();
     expect(screen.getByText('Healthy')).toBeInTheDocument();
   });
 
@@ -52,7 +52,7 @@ describe('CronHealthPanel', () => {
       <CronHealthPanel
         isLoading={false}
         jobs={[{
-          jobName: 'reconcile', health: 'stale', lastStatus: 'ok',
+          jobName: 'assignment-reminders', health: 'stale', lastStatus: 'ok',
           lastRunAt: ago(72 * HOUR), lastSuccessAt: ago(72 * HOUR),
           runCount: 5, failCount: 0,
         }]}

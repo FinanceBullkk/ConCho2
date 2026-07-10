@@ -30,7 +30,7 @@ module.exports = async () => {
     .filter(Boolean);
 
   // Gate on MAPPED models only (phase-05 F3 definition): a model with no PG
-  // table (ReconcileReport — retired) is tracked by the phase doc, not here.
+  // table is tracked by the phase doc, not here.
   // tableFor() reuses the auto-mirror's explicit-mapper + reflective resolver.
   const { tableFor } = require('./pg-auto-mirror');
   const { closePool } = require('../config/pg');

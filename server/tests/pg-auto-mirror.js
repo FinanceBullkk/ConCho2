@@ -41,10 +41,9 @@ const warnOnce = (name) => {
 // reflecting the table's columns and coercing doc fields by column type. This
 // covers the ~20 low-frequency domain models (vendor/skill/trainer/automation/
 // learning-path/finance/room/waitlist/…) without a hand-written entry each.
-// Models with NO table (ReconcileReport — reconcile RETIRES at cutover, owner
-// 2026-07-08) fall through to warnOnce. Counter gained a PG table in mig 033
-// (Phase-5 slice 2) — its `id` PK is the counter NAME, so fixture
-// writes/deletes (reconcileDrift's beforeEach reset) reflect correctly.
+// A model with NO PG table falls through to warnOnce. Counter gained a PG
+// table in mig 033 (Phase-5 slice 2) — its `id` PK is the counter NAME, so
+// fixture writes/deletes reflect correctly.
 // CronRun gained cron_runs in mig 035 (Phase-5 slice 5, D-CronRun) — its
 // columns are exact snake_case of the schema fields, so reflection is clean.
 let PG_TABLES = null;                 // Set<tableName>
@@ -121,7 +120,7 @@ const mirrorDoc = async (modelName, doc) => {
   const mapper = MAPPERS[modelName];
   const d = typeof doc.toObject === 'function' ? doc.toObject({ virtuals: false }) : doc;
   // No explicit mapper → reflect the PG table (long tail). No table → warn+skip
-  // (Mongo-only ops models like CronRun / ReconcileReport).
+  // (a Mongo-only ops model with no migrated PG table).
   if (!mapper) {
     await loadTables();
     const table = resolveTable(modelName);

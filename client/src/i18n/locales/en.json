@@ -39,9 +39,8 @@
       "attendanceAnalytics": "Attendance",
       "hrExport": "HR Export",
       "settings": "Settings",
-      "database": "Database",
       "sync": "Sync",
-      "reconcile": "Reconciliation",
+      "cronHealth": "Cron health",
       "audit": "Audit log"
     },
     "learner": {
@@ -571,7 +570,6 @@
     "duration": "Duration",
     "failures": "Failures",
     "jobs": {
-      "reconcile": "Nightly reconcile",
       "attendanceReminders": "Attendance reminders",
       "assignmentReminders": "Assignment reminders",
       "certificateExpiryReminders": "Certificate expiry reminders"
@@ -588,62 +586,6 @@
       "minutesAgo": "{{count}}m ago",
       "hoursAgo": "{{count}}h ago",
       "daysAgo": "{{count}}d ago"
-    }
-  },
-  "reconcile": {
-    "checks": {
-      "orphanedEnrollment": {
-        "label": "Orphaned enrollment",
-        "description": "Active enrollment but the user is no longer in the team"
-      },
-      "emptyFutureSchedule": {
-        "label": "Empty future schedule",
-        "description": "Future session has no enrolled users"
-      },
-      "missingAttendance": {
-        "label": "Missing attendance",
-        "description": "Past session where not all enrolled users have attendance"
-      },
-      "ghostMember": {
-        "label": "Ghost member",
-        "description": "User is in team members but has no active enrollment"
-      },
-      "unattachedParticipant": {
-        "label": "Unattached participant",
-        "description": "Active participant has no team or active enrollment"
-      },
-      "duplicateActiveEnrollment": {
-        "label": "Duplicate active enrollment",
-        "description": "Learner has more than one active enrollment"
-      },
-      "orphanScheduleClass": {
-        "label": "Orphan schedule class",
-        "description": "Session references a class that no longer exists"
-      },
-      "multiTeamClass": {
-        "label": "Multiple teams for one class",
-        "description": "More than one active team is assigned to the same class"
-      },
-      "counterDrift": {
-        "label": "Counter drift",
-        "description": "Sequence counter is behind codes already stored in the database"
-      },
-      "softDeletedTeamMember": {
-        "label": "Deleted user in team",
-        "description": "Team membership still references a soft-deleted user"
-      },
-      "orphanRoomBooking": {
-        "label": "Orphan room booking",
-        "description": "A room lock references a deleted or cancelled session — the slot is bricked until the row is removed"
-      },
-      "staleWaitlistEntry": {
-        "label": "Stale waitlist entry",
-        "description": "A waiting queue row references a past, cancelled, or deleted session and can never be seated"
-      },
-      "unknown": {
-        "label": "Unknown reconciliation check",
-        "description": "This report contains a check type not recognized by this client"
-      }
     }
   },
   "people": {

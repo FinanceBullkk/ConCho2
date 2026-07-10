@@ -128,9 +128,7 @@ const PERMISSION_MAP = {
 
   // Admin panel ─ Admin-only
   'access:admin':      ['Admin'],
-  'run:reconcile':     ['Admin'],                  // POST /api/admin/reconcile/run
   'read:audit':        ['Admin'],                  // GET  /api/admin/audit/*
-  'read:database':     ['Admin'],                  // GET  /api/admin-db/*
   'manage:settings':   ['Admin'],                  // PUT  /api/settings
 
   // Export / import ─ Admin-only

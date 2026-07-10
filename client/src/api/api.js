@@ -359,24 +359,6 @@ export const dashboardAPI = {
   getAlerts: () => api.get('/dashboard/alerts'),
 };
 
-// ── Admin Database Explorer ───────────────────────────────
-export const adminDbAPI = {
-  getCollections: () => api.get('/admin-db/collections'),
-  query: (collection, params) => api.get(`/admin-db/${collection}`, { params }),
-  update: (collection, id, data) => api.put(`/admin-db/${collection}/${id}`, data),
-  remove: (collection, id) => api.delete(`/admin-db/${collection}/${id}`),
-};
-
-// ── Reconciliation ───────────────────────────────────────
-export const reconcileAPI = {
-  triggerRun:     () => api.post('/admin/reconcile/run'),
-  getLatest:      () => api.get('/admin/reconcile/latest'),
-  getHistory:     () => api.get('/admin/reconcile/history'),
-  getTrend:       (limit) => api.get('/admin/reconcile/trend', { params: limit ? { limit } : {} }),
-  getById:        (id) => api.get(`/admin/reconcile/${id}`),
-  heal:           (check, refs) => api.post('/admin/reconcile/heal', refs ? { check, refs } : { check }),
-};
-
 // ── Cron health (scheduled-job heartbeats) ───────────────
 export const cronAPI = {
   getHealth:      () => api.get('/admin/cron/health'),
