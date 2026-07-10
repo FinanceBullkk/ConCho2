@@ -1,13 +1,10 @@
-// DB backend selector.
-// PostgreSQL is the only runtime backend since Wave K Phase 2 Batch D1
-// (2026-07-10) — prod cut over to PG and Atlas was cancelled, so the default is
-// now 'postgres' (was 'mongo' through the migration). Kept as a stable shim so
-// the former dual-backend callers (repository selectors, unit-of-work, counter,
-// retention-purge, health) need no edits; `isMongo` is now effectively dead.
-// The `impls.mongo` side of the repository selectors + the pg-parity comparison
-// tests are retired separately (Batch D1b, gated on the pg-parity decision).
-const DB_BACKEND = (process.env.DB_BACKEND || 'postgres').toLowerCase();
-const isPostgres = DB_BACKEND !== 'mongo';
+// DB backend selector (PG-migration Phase 2 foundation).
+// `DB_BACKEND` decides which repository implementation the (dual-ported) repos
+// resolve to. Default 'mongo' → the running app is 100% unchanged until a repo
+// is ported and the flag is flipped (Phase 3). No dual-write: the code switches,
+// the data cuts over once (Phase 5).
+const DB_BACKEND = (process.env.DB_BACKEND || 'mongo').toLowerCase();
+const isPostgres = DB_BACKEND === 'postgres';
 const isMongo = !isPostgres;
 
 module.exports = { DB_BACKEND, isPostgres, isMongo };
