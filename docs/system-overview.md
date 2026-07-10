@@ -217,10 +217,12 @@ Mongo-only code/test harness. → see
 [`lms-roadmap.md`](lms-roadmap.md).
 
 **Stack:** React 19 + Vite 8 + Tailwind 4 / Express 5 + PostgreSQL/Neon primary
-via dual-backend repositories; Mongoose/MongoDB remains only for legacy model
-scaffolding and parity cleanup until Wave K code removal. Server/client test suites,
-Playwright e2e, and 8 CI gates include the full Jest suite on the Postgres
-backend (required since Wave G, 2026-07-07), deployed on Render.
+via dual-backend repositories; Mongoose/MongoDB remains only for test-fixture
+scaffolding (Jest authors fixtures via the pg-auto-mirror) until the Wave K
+fixture-layer decouple. Server/client test suites, Playwright e2e, and 7 CI
+gates — the sole server-test gate runs the full Jest suite on the Postgres
+backend (required since Wave G, 2026-07-07; the Mongo lane was retired
+2026-07-10 after Atlas was cancelled), deployed on Render.
 
 ## 8. Delivery discipline — no feature factory
 
