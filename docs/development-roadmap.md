@@ -94,7 +94,7 @@ remainder is documented deferred-by-design scope (below), not active debt.
 | 3 | Multi-program enrollment + session scheduling | ~85% | 🟢 near done (genuine work shipped; only nomination workflow deferred-by-design) |
 | 4 | Frontend L&D workspace (CRUD UI) | ~82% | 🟢 near done (CRUD + policy editor complete) |
 | 5 | Reporting, completion, feedback | ~80% | 🟢 near done (cert lifecycle + recert closed; Evaluation→Assessment convergence deferred-by-design) |
-| 6 | PostgreSQL migration / Wave K decommission | ~92% | 🟡 prod on PG + Atlas cancelled (Wave J 2026-07-08: Render `DB_BACKEND=postgres`, writes verified in Neon PG 17.10, mig 036 FK/CHECK applied, daily encrypted `pg_dump`; Wave K activation 2026-07-09: `MONGO_URI` removed, `/ready` 200 `backend=postgres`, `/api/admin-db` 410; **Atlas cancelled 2026-07-10**). Wave K Phase 2: Batch A PG seed + Batch B e2e-on-PG + **Batch C Mongo CI gate retired (8→7)** done. Remaining: fixture-layer decouple (122 test files seed via Mongoose+auto-mirror) → delete 44 `.mongo.js` + drop `mongoose` (Batch D). |
+| 6 | PostgreSQL migration / Wave K decommission | ~95% | 🟡 prod on PG + Atlas cancelled (Wave J 2026-07-08: Render `DB_BACKEND=postgres`, writes verified in Neon PG 17.10, mig 036 FK/CHECK applied, daily encrypted `pg_dump`; Wave K activation 2026-07-09: `MONGO_URI` removed, `/ready` 200 `backend=postgres`, `/api/admin-db` 410; **Atlas cancelled 2026-07-10**). Wave K Phase 2: A PG seed + B e2e-on-PG + **C Mongo CI gate retired (8→7)** + **D1a PG-only boot** + **D1b deleted 44 `.mongo.js` + 129 Mongo test/scaffolding files** done. Remaining: **D2** — drop `mongoose`/`mongodb-memory-server` (needs the 122 fixture-authoring test files decoupled from Mongoose+auto-mirror). |
 
 ## LTMS waves (forward — see [`lms-roadmap.md`](lms-roadmap.md))
 
@@ -153,6 +153,27 @@ Bug fixing and integration review rank above net-new feature rollout.
 > [`2026-q3.md`](changelog-archive/2026-q3.md); 06-20→06-27 rolled 2026-07-07;
 > 06-14→06-19 rolled 2026-07-04 → [`2026-q2.md`](changelog-archive/2026-q2.md)).
 
+- **2026-07-10** — **Wave K Phase 2 · Batch D1b — deleted the 44 `.mongo.js` repos + the Mongo test safety-net.**
+  Runtime already PG-only (D1a) + Atlas cancelled, so removed the now-dead Mongo
+  repository layer + the migration-era parity scaffolding. **130 files deleted:**
+  49 Mongo-side impls (44 `*.mongo.js` + 5 `dir/mongo.js`), 57 `tests/pg-parity/*`
+  comparison suites, 22 main-suite `*-dual-backend`/`.impls` tests, the obsolete
+  Mongo-`$lookup` soft-delete guard (`soft-delete-lookup-guard.test.js` — scanned
+  `.mongo.js` aggregations that no longer exist; PG soft-delete lives in each
+  `.pg` query's WHERE), 1 dev-tool
+  (`pg-attendance-rollup-parity.js`). Collapsed the 49 dual-backend selectors →
+  `module.exports = require('./…pg')` (**behaviour-preserving** — the PG lane
+  already resolved to these pg impls; only the `impls` export, consumed solely by
+  the deleted parity tests, is gone). `helpers/counter` + `domains/_shared/unit-of-work`
+  folded to their PG impl inline; `class-repository.pg` repointed off `.impls.pg`;
+  the `pg-parity` CI job removed from `ci.yml`. Load-check green (every
+  route/controller/repo resolves); gate #8 (full PG suite) is the authoritative
+  verify. **Coverage note:** the deleted dual-backend/parity suites asserted
+  repo-unit behaviour on both backends — PG behaviour stays exercised by the
+  domain HTTP integration suite, but a few repo-level traps lose their dedicated
+  assertion (accepted trade — owner chose delete over rewriting 78 suites).
+  **Remaining: D2** — dropping `mongoose`/`mongodb-memory-server` needs the 122
+  fixture-authoring test files decoupled from Mongoose+auto-mirror (own effort).
 - **2026-07-10** — **Wave K Phase 2 · Batch D1a — PG-only runtime boot + dead ops scripts removed.**
   Now that Atlas is cancelled, retired the genuinely-dead Mongo *runtime* surface
   (no test entanglement): `server.js` boot collapsed to PG-only (dropped the
