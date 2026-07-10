@@ -261,12 +261,7 @@ app.use('/api/classes', require('./routes/classRoutes'));
 app.use('/api/learning', require('./domains/learning/routes'));
 app.use('/api/org', require('./domains/org/routes'));
 app.use('/api/rooms', require('./domains/room/routes'));
-app.use('/api/session-types', require('./domains/session-type/routes'));
 app.use('/api/compliance', require('./domains/compliance/routes'));
-app.use('/api/finance', require('./domains/finance/routes'));
-app.use('/api/vendors', require('./domains/vendor/routes'));
-app.use('/api/trainers', require('./domains/trainer/routes'));
-app.use('/api/planning', require('./domains/planning/routes'));
 app.use('/api/assessment', require('./domains/assessment/routes'));
 app.use('/api/schedules', require('./domains/schedule/routes'));
 app.use('/api/attendance', require('./domains/attendance/routes'));
@@ -276,7 +271,6 @@ app.use('/api/sync', require('./routes/syncRoutes'));
 app.use('/api/import', require('./routes/importRoutes'));
 app.use('/api/export', require('./routes/exportRoutes'));
 app.use('/api/settings', require('./routes/settingRoutes'));
-app.use('/api/access', require('./domains/access/routes'));
 app.use('/api/custom-fields', require('./domains/custom-field/routes'));
 app.use('/api/dashboard', require('./routes/dashboardRoutes'));
 app.use('/api/analytics', require('./routes/analyticsRoutes'));
@@ -285,17 +279,12 @@ app.use('/api/admin/cron', require('./routes/cronHealthRoutes'));
 app.use('/api/cron', require('./routes/cronRoutes'));
 app.use('/api/search', require('./routes/searchRoutes'));
 app.use('/api/notifications', require('./domains/notification/routes'));
-app.use('/api/me', require('./domains/mobile/routes'));
-app.use('/api/automation', require('./domains/automation/routes'));
-app.use('/api/skills', require('./domains/skill/routes'));
 app.use('/api/branding', require('./domains/branding/routes'));
 
 // ── Domain-event subscribers (rearchitecture Phase 0) ────────
 // Wire cross-cutting concerns (in-app notifications, …) to the event bus once at
 // boot, so business use-cases publish events instead of calling them inline.
 require('./domains/notification/subscribers').register();
-// Automation runner (TMS.update gap #3) — runs enabled no-code rules on events.
-require('./domains/automation/runner').register();
 
 // ── Production: Serve React client build ─────────────────
 if (process.env.NODE_ENV === 'production') {
@@ -403,22 +392,6 @@ if (process.env.NODE_ENV !== 'test') {
       }
     } else {
       await connectDB();
-    }
-
-    // Seed system roles + load DB-backed capability grants into the in-memory
-    // store before serving traffic (TMS.update gap #2). Fail-soft: if it throws,
-    // the static scaffold in policy/capabilities.js still governs authz.
-    try {
-      await require('./domains/access/grants-loader').initRoleGrants();
-    } catch (err) {
-      logger.error({ err }, 'role-grants init failed — falling back to the static capability map');
-    }
-
-    // Seed the §9 automation rules (disabled; opt-in). Fail-soft.
-    try {
-      await require('./domains/automation/seed').seedSystemRules();
-    } catch (err) {
-      logger.error({ err }, 'automation seed failed (non-fatal)');
     }
 
     // Load tenant branding into the in-memory cache so the email + certificate

@@ -31,17 +31,9 @@ export const FEATURES = {
   // (flip any to `true` to bring it back into the sidebar instantly)
   paths: false,            // Multi-program learning paths / curriculum sequences
   offices: false,          // Offices / branches under the org tree
-  skills: false,           // Skills / competency framework
-  trainers: false,         // Trainer qualification / availability management
-  vendors: false,          // External training vendor catalog + contracts
-  planning: false,         // Training Needs Analysis → costed annual plan
-  budget: false,           // Training budgets
   costRoi: false,          // Cost & ROI tracking
-  automation: false,       // No-code when/if/then automation rules
   customFields: false,     // Custom field definitions (Studio)
-  access: false,           // Custom roles / RBAC grant editor
   branding: false,         // Branding & certificate/email templates
-  schedulingConfig: false, // Scheduling-mode / time-slot studio config
   sync: false,             // Google Sheets sync
 };
 

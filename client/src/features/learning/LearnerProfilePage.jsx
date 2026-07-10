@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link, useParams } from 'react-router-dom';
-import { ArrowLeft, CircleCheck, Loader, Award, Sparkles, TrendingUp, Clock, BookOpen } from 'lucide-react';
+import { ArrowLeft, CircleCheck, Loader, Award, TrendingUp, Clock, BookOpen } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
@@ -12,15 +12,14 @@ import { cn } from '@/lib/utils';
 import { useUser } from '../../hooks/useUsers';
 import { useLearningEnrollments, useCertificates } from '../../hooks/useLearning';
 import { StatTile } from './DashboardWidgets';
-import { useLearnerSkills } from '../skills/useSkills';
-import LearnerSkillsTab, { RoleReadinessList } from '../skills/LearnerSkillsTab';
 
 // ──────────────────────────────────────────────────────────
 // LearnerProfilePage — admin 360° view of one learner (TMS.update S6).
 // Composes useUser + the learner-scoped L&D enrollments + certificates reads
-// (no new backend). Skills / role-readiness / learning-hours are honestly
-// flagged as arriving with the skills framework (Phase 5). Admin-only:
-// usersAPI.getById is Admin-gated.
+// (no new backend). Admin-only: usersAPI.getById is Admin-gated.
+// Skills / role-readiness (Phase 5) were removed with the scope-trim of the
+// speculative skills domain (2026-07-09) — this page reverted to the
+// enrollments/certificates/activity slices that ship with the core loop.
 // ──────────────────────────────────────────────────────────
 const p = 'learning.learnerProfile';
 const pc = (v) => `${v ?? 0}%`;
@@ -36,8 +35,6 @@ export default function LearnerProfilePage() {
   const { data: user, isLoading, isError } = useUser(userId);
   const { data: enrollData } = useLearningEnrollments({ learnerId: userId });
   const { data: certs = [] } = useCertificates({ learnerId: userId });
-  const { data: learnerSkills } = useLearnerSkills(userId);
-  const skillsCount = learnerSkills?.kpis?.skills ?? '—';
 
   const enrollments = useMemo(() => enrollData?.data || [], [enrollData]);
   const completed = enrollments.filter((e) => isComplete(e.status)).length;
@@ -83,11 +80,10 @@ export default function LearnerProfilePage() {
         description={[user.department, user.email].filter(Boolean).join(' · ') || undefined}
       />
 
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-6">
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
         <StatTile icon={CircleCheck} tone="success" label={t(`${p}.kpi.completed`)} value={completed} />
         <StatTile icon={Loader} tone="info" label={t(`${p}.kpi.inProgress`)} value={inProgress} />
         <StatTile icon={Award} tone="success" label={t(`${p}.kpi.certificates`)} value={certs.length} />
-        <StatTile icon={Sparkles} tone="primary" label={t(`${p}.kpi.skills`)} value={skillsCount} />
         <StatTile icon={TrendingUp} tone="primary" label={t(`${p}.kpi.completion`)} value={pc(completionRate)} />
         <StatTile icon={Clock} tone="neutral" label={t(`${p}.kpi.hours`)} value="—" />
       </div>
@@ -96,33 +92,26 @@ export default function LearnerProfilePage() {
         <TabsList>
           <TabsTrigger value="overview">{t(`${p}.tabs.overview`)}</TabsTrigger>
           <TabsTrigger value="transcript">{t(`${p}.tabs.transcript`)}</TabsTrigger>
-          <TabsTrigger value="skills">{t(`${p}.tabs.skills`)}</TabsTrigger>
           <TabsTrigger value="certificates">{t(`${p}.tabs.certificates`)}</TabsTrigger>
           <TabsTrigger value="activity">{t(`${p}.tabs.activity`)}</TabsTrigger>
         </TabsList>
 
         <TabsContent value="overview">
-          <div className="grid gap-4 lg:grid-cols-2">
-            <Card>
-              <CardHeader className="pb-3"><CardTitle className="text-base">{t(`${p}.currentPrograms`)}</CardTitle></CardHeader>
-              <CardContent>
-                {enrollments.length ? (
-                  <ul className="divide-y divide-border">
-                    {enrollments.map((e) => (
-                      <li key={e.id} className="flex items-center justify-between gap-3 py-2 text-sm">
-                        <Link to={e.cohortId ? `/learning/cohorts/${e.cohortId}` : '#'} className="font-medium text-foreground hover:underline">{e.cohortCode || e.id}</Link>
-                        <Badge variant={isComplete(e.status) ? 'success' : 'info'}>{e.status}</Badge>
-                      </li>
-                    ))}
-                  </ul>
-                ) : <p className="text-sm text-muted-foreground">{t(`${p}.noPrograms`)}</p>}
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader className="pb-3"><CardTitle className="text-base">{t(`${p}.roleReadiness`)}</CardTitle></CardHeader>
-              <CardContent><RoleReadinessList userId={userId} /></CardContent>
-            </Card>
-          </div>
+          <Card>
+            <CardHeader className="pb-3"><CardTitle className="text-base">{t(`${p}.currentPrograms`)}</CardTitle></CardHeader>
+            <CardContent>
+              {enrollments.length ? (
+                <ul className="divide-y divide-border">
+                  {enrollments.map((e) => (
+                    <li key={e.id} className="flex items-center justify-between gap-3 py-2 text-sm">
+                      <Link to={e.cohortId ? `/learning/cohorts/${e.cohortId}` : '#'} className="font-medium text-foreground hover:underline">{e.cohortCode || e.id}</Link>
+                      <Badge variant={isComplete(e.status) ? 'success' : 'info'}>{e.status}</Badge>
+                    </li>
+                  ))}
+                </ul>
+              ) : <p className="text-sm text-muted-foreground">{t(`${p}.noPrograms`)}</p>}
+            </CardContent>
+          </Card>
         </TabsContent>
 
         <TabsContent value="transcript">
@@ -142,8 +131,6 @@ export default function LearnerProfilePage() {
             </CardContent>
           </Card>
         </TabsContent>
-
-        <TabsContent value="skills"><LearnerSkillsTab userId={userId} /></TabsContent>
 
         <TabsContent value="certificates">
           <Card>
