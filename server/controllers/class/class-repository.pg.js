@@ -1,5 +1,5 @@
 const { query } = require('../../config/pg');
-const learning = require('../../domains/learning/repository').impls.pg;
+const learning = require('../../domains/learning/repository');
 const Class = require('../../models/Class');
 
 // class-repository — POSTGRES impl (Phase 3 Wave-F). Same interface as
