@@ -155,9 +155,12 @@ Bug fixing and integration review rank above net-new feature rollout.
 
 - **2026-07-10** — **Wave K Phase 2 · Batch D1b — deleted the 44 `.mongo.js` repos + the Mongo test safety-net.**
   Runtime already PG-only (D1a) + Atlas cancelled, so removed the now-dead Mongo
-  repository layer + the migration-era parity scaffolding. **129 files deleted:**
+  repository layer + the migration-era parity scaffolding. **130 files deleted:**
   49 Mongo-side impls (44 `*.mongo.js` + 5 `dir/mongo.js`), 57 `tests/pg-parity/*`
-  comparison suites, 22 main-suite `*-dual-backend`/`.impls` tests, 1 dev-tool
+  comparison suites, 22 main-suite `*-dual-backend`/`.impls` tests, the obsolete
+  Mongo-`$lookup` soft-delete guard (`soft-delete-lookup-guard.test.js` — scanned
+  `.mongo.js` aggregations that no longer exist; PG soft-delete lives in each
+  `.pg` query's WHERE), 1 dev-tool
   (`pg-attendance-rollup-parity.js`). Collapsed the 49 dual-backend selectors →
   `module.exports = require('./…pg')` (**behaviour-preserving** — the PG lane
   already resolved to these pg impls; only the `impls` export, consumed solely by
