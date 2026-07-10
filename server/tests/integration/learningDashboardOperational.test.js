@@ -266,14 +266,14 @@ describe('GET /api/learning/dashboard/setup', () => {
   const getSetup = (token) =>
     request(app).get('/api/learning/dashboard/setup').set('Authorization', `Bearer ${token}`);
 
-  test('admin: returns 6 onboarding steps + at-a-glance counts', async () => {
+  test('admin: returns 5 onboarding steps + at-a-glance counts', async () => {
     const res = await getSetup(tokens.admin);
     expect(res.status).toBe(200);
     const { steps, completedSteps, totalSteps, atGlance } = res.body.data;
     expect(Array.isArray(steps)).toBe(true);
-    expect(steps).toHaveLength(6);
+    expect(steps).toHaveLength(5);
     expect(steps.every((s) => typeof s.key === 'string' && typeof s.done === 'boolean')).toBe(true);
-    expect(totalSteps).toBe(6);
+    expect(totalSteps).toBe(5);
     expect(completedSteps).toBeGreaterThanOrEqual(0);
     expect(atGlance).toHaveProperty('activeLearners');
     expect(atGlance).toHaveProperty('totalEmployees');

@@ -13,7 +13,7 @@ describe('qk query-key factory', () => {
     expect(qk.users.list({ page: 2 })).toEqual(['users', 'list', { page: 2 }]);
     expect(qk.users.detail('u1')).toEqual(['users', 'detail', 'u1']);
     expect(qk.learning.program('p1')).toEqual(['learning', 'program', 'p1']);
-    expect(qk.vendor.spend('v1', { fy: 2026 })).toEqual(['vendor', 'spend', 'v1', { fy: 2026 }]);
+    expect(qk.org.offices({ officeId: 'o1' })).toEqual(['org', 'offices', { officeId: 'o1' }]);
   });
 
   it('returns the base prefix when attendanceCalendar is called with no params (invalidation)', () => {

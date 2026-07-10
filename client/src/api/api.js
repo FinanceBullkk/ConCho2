@@ -126,16 +126,6 @@ export const usersAPI = {
   getProgress: (id) => api.get(`/users/${id}/progress`),
 };
 
-// ── Access (Roles & capabilities — read-only) ─────────────
-export const accessAPI = {
-  getCapabilityMatrix: () => api.get('/access/capability-matrix'),
-  // Editable roles + custom roles (TMS.update gap #2 — role.manage).
-  listRoles: () => api.get('/access/roles'),
-  createRole: (data) => api.post('/access/roles', data),
-  updateRole: (key, data) => api.put(`/access/roles/${key}`, data),
-  deleteRole: (key) => api.delete(`/access/roles/${key}`),
-};
-
 // ── Custom fields (Studio — admin-defined fields) ─────────
 export const customFieldsAPI = {
   getAll: (params) => api.get('/custom-fields', { params }),
@@ -356,26 +346,6 @@ export const assessmentAPI = {
   getGradingQueue: () => api.get('/assessment/grading-queue'),
 };
 
-// ── Automation rules (no-code engine, TMS.update gap #3) ──
-export const automationAPI = {
-  listRules: () => api.get('/automation/rules'),
-  createRule: (data) => api.post('/automation/rules', data),
-  updateRule: (id, data) => api.put(`/automation/rules/${id}`, data),
-  deleteRule: (id) => api.delete(`/automation/rules/${id}`),
-};
-
-// ── Skills / competency framework (TMS.update gap #4) ─────
-export const skillsAPI = {
-  list: () => api.get('/skills'),
-  taxonomy: () => api.get('/skills/taxonomy'),
-  roleProfiles: () => api.get('/skills/role-profiles'),
-  learner: (userId) => api.get(`/skills/learner/${userId}`),
-  recommendations: (userId) => api.get(`/skills/learner/${userId}/recommendations`),
-  create: (data) => api.post('/skills', data),
-  update: (id, data) => api.put(`/skills/${id}`, data),
-  delete: (id) => api.delete(`/skills/${id}`),
-};
-
 // ── Branding & templates designer (TMS.update gap #5) ─────
 export const brandingAPI = {
   get: () => api.get('/branding'),
@@ -429,62 +399,6 @@ export const complianceAPI = {
   getUserCompliance: (id) => api.get(`/compliance/user/${id}`),
 };
 
-// ── Finance: budget & cost management (A1, Horizon 1) ───
-export const financeAPI = {
-  getCurrency: () => api.get('/finance/currency'),
-  listCostEntries: (params) => api.get('/finance/costs', { params }),
-  createCostEntry: (data) => api.post('/finance/costs', data),
-  updateCostEntry: (id, data) => api.put(`/finance/costs/${id}`, data),
-  archiveCostEntry: (id) => api.delete(`/finance/costs/${id}`),
-  getCostRollup: (params) => api.get('/finance/costs/rollup', { params }),
-  listBudgets: (params) => api.get('/finance/budgets', { params }),
-  createBudget: (data) => api.post('/finance/budgets', data),
-  updateBudget: (id, data) => api.put(`/finance/budgets/${id}`, data),
-  archiveBudget: (id) => api.delete(`/finance/budgets/${id}`),
-  getBudgetVariance: (params) => api.get('/finance/budgets/variance', { params }),
-};
-
-// ── Vendors: external-provider management (A2, Horizon 2) ───
-export const vendorsAPI = {
-  list: (params) => api.get('/vendors', { params }),
-  get: (id) => api.get(`/vendors/${id}`),
-  create: (data) => api.post('/vendors', data),
-  update: (id, data) => api.put(`/vendors/${id}`, data),
-  archive: (id) => api.delete(`/vendors/${id}`),
-  getSpend: (id, params) => api.get(`/vendors/${id}/spend`, { params }),
-  addRating: (id, data) => api.post(`/vendors/${id}/ratings`, data),
-};
-
-// ── Trainers: trainer-management depth (A6, Horizon 2) ───
-export const trainersAPI = {
-  list: (params) => api.get('/trainers', { params }),
-  get: (userId) => api.get(`/trainers/${userId}`),
-  upsert: (userId, data) => api.put(`/trainers/${userId}`, data),
-  archive: (userId) => api.delete(`/trainers/${userId}`),
-  getLoad: (userId, params) => api.get(`/trainers/${userId}/load`, { params }),
-  addRating: (userId, data) => api.post(`/trainers/${userId}/ratings`, data),
-};
-
-// ── Planning: TNA → annual plan (A4, Horizon 2) ───
-export const planningAPI = {
-  listRequests: (params) => api.get('/planning/requests', { params }),
-  createRequest: (data) => api.post('/planning/requests', data),
-  setRequestStatus: (id, status) => api.patch(`/planning/requests/${id}/status`, { status }),
-  archiveRequest: (id) => api.delete(`/planning/requests/${id}`),
-  getDemand: (params) => api.get('/planning/demand', { params }),
-  getPlan: (fy) => api.get(`/planning/plan/${fy}`),
-  upsertPlan: (fy, data) => api.put(`/planning/plan/${fy}`, data),
-  scheduleItem: (fy, itemId, data) => api.post(`/planning/plan/${fy}/items/${itemId}/schedule`, data),
-};
-
-// ── Me: mobile learning surface (B5, Horizon 2) ───
-export const meAPI = {
-  getVapidKey: () => api.get('/me/push/vapid-key'),
-  subscribePush: (data) => api.post('/me/push/subscribe', data),
-  unsubscribePush: (endpoint) => api.delete('/me/push/subscribe', { data: { endpoint } }),
-  getMobileFeed: () => api.get('/me/mobile-feed'),
-};
-
 // ── Org model (departments, offices, manager hierarchy, my-team) ───
 export const orgAPI = {
   getDepartments:    (params) => api.get('/org/departments', { params }),
@@ -506,14 +420,6 @@ export const roomsAPI = {
   updateRoom:  (id, data) => api.put(`/rooms/${id}`, data),
   archiveRoom: (id) => api.delete(`/rooms/${id}`),
   getUtilization: (params) => api.get('/rooms/utilization', { params }),
-};
-
-// Session types (Studio ▸ Scheduling, Build Plan #5) — metadata taxonomy.
-export const sessionTypesAPI = {
-  list:    () => api.get('/session-types'),
-  create:  (data) => api.post('/session-types', data),
-  update:  (id, data) => api.put(`/session-types/${id}`, data),
-  archive: (id) => api.delete(`/session-types/${id}`),
 };
 
 // In-app notification bell (Cohesion P5) — self-scoped feed over NotificationLog.
