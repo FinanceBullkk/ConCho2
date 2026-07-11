@@ -1,10 +1,24 @@
 # Wave K · D2 — drop `mongoose` (fixture-layer decouple + model removal)
 
-> **Status: PLAN (not executing).** Drafted 2026-07-11. Prereq: D2a (#288) merged.
+> **Status: IN PROGRESS.** Drafted 2026-07-11. Prereq: D2a (#288) merged.
+> **D2b shipped** (587c3c0 — runtime non-model mongoose removed).
+> **D2c shipped** 2026-07-11 — PG-native fixture foundation (`tests/fixtures/pg-fixtures.js`)
+> + 2 pilot suites off Mongoose (`trainingHoursReport`, `classReadGate`).
 > The runtime + repos are already PG-only (D1b #287 deleted the 44 `.mongo.js`
 > + parity scaffolding + collapsed every selector to `require('./…pg')`). What
-> remains to make Mongo *fully gone* is this: the test fixture layer + the 35
+> remains to make Mongo *fully gone*: the rest of the test fixture layer + the 35
 > Mongoose models + the `mongoose`/`mongodb-memory-server` deps.
+>
+> **D2c scope call (executed):** the batch delivered the fixture *foundation* +
+> pilots but **left the shared `setup.js` CORE seed on Mongoose+mirror**. Reason:
+> the auto-mirror's UPDATE path (`pre(UPDATE_OPS)` → re-read the doc from Mongo →
+> upsert to PG) requires the doc to EXIST in Mongo. A PG-only core seed silently
+> breaks the ~25 suites that mutate it via `Class.findByIdAndUpdate(seed.class1._id,…)`
+> / `User.updateOne({_id: seed.member1._id},…)` / `Team.findByIdAndUpdate(seed.team._id,…)`
+> — those writes find nothing in Mongo, mirror nothing, and the app (reading PG)
+> never sees the change. So the core-seed swap is COUPLED to converting those
+> mutator sites (→ `updateActiveRow`/`deleteActiveRowsWhere` from pg-test-utils)
+> and is folded into the D2d grind, keeping every batch independently green.
 
 ## Current Mongo surface (measured post-D1b+D2a, 2026-07-11)
 - **Runtime, non-model (5 usages, small):**
@@ -44,8 +58,8 @@ Auto-mirror + models + mongod all stay until the **last** file migrates — the
 | # | Phase | Scope | Risk |
 |---|-------|-------|------|
 | **D2b** | Runtime non-model mongoose removal | `helpers/object-id.js` (regex validate + passthrough) replaces the 3 `Types.ObjectId` sites; `/ready` → PG-only probe (drop Mongo branch); `mongoose.model('Setting')` → settings repo | Low — 5 sites, own PR, doesn't drop mongoose yet |
-| **D2c** | Fixture foundation + pilot | Extract seed-pg helpers into `tests/fixtures/` builders (bcrypt/genId/defaults per model); migrate `setup.js` CORE seed (users/teams/classes/settings) mongoose→PG-native; pilot-migrate 2–3 test files; auto-mirror stays for the rest | Med — the pattern the whole grind depends on; prove it green first |
-| **D2d** | Fixture migration (grind) | Migrate the remaining ~66 test files in domain batches (auth · schedule · learning · attendance · org · assessment · …): `Model.create` → `fixtures.create*`, drop `require('mongoose')`, each batch green | Med — wide but mechanical; validation-error tests handled case-by-case (assert repo/zod error, not Mongoose `ValidationError`) |
+| **D2c** ✅ | Fixture foundation + pilot | **DONE 2026-07-11.** `tests/fixtures/pg-fixtures.js` builders (genId + create User/Class/Team/Enrollment/Schedule/Attendance) reusing `pg-row-mappers.toRow`; pilot-migrated `trainingHoursReport` + `classReadGate` fully off Mongoose; auto-mirror stays for the rest. **CORE seed swap DEFERRED to D2d** (coupled to the ~25 mutator sites — see scope call above). | Med — proved green first |
+| **D2d** | Fixture migration (grind) + core-seed swap | Migrate the remaining ~66 test files in domain batches (auth · schedule · learning · attendance · org · assessment · …): `Model.create` → `fixtures.create*`, drop `require('mongoose')`, each batch green. **Fold in the `setup.js` core-seed PG-native swap** + convert the ~25 core-seed mutator sites (`findByIdAndUpdate(seed.*…)` → `updateActiveRow`, etc.). Add builders per model as suites need them (unmapped models → add a `pg-row-mappers` entry). | Med — wide but mechanical; validation-error tests handled case-by-case (assert repo/zod error, not Mongoose `ValidationError`) |
 | **D2e** | Delete Mongo test layer + models + deps | Once ZERO test uses mongoose: delete `pg-auto-mirror` + `pg-write-gate` + global-setup mongod + setup.js mongoose seed + `global-teardown` write-gate verdict; extract the 8 runtime enum-consumers' constants → delete the 35 models; drop `mongoose` + `mongodb-memory-server` from `server/package.json`; delete `config/db.js` + the dead Mongo dev-tools scripts | Med-High — broad requires; the payoff (mongoose gone) |
 
 ## Definition of Done (whole D2)
