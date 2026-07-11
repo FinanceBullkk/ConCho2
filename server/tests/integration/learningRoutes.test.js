@@ -1,10 +1,10 @@
 const request = require('supertest');
-const mongoose = require('mongoose');
 const { getApp, getTokens, getCsrfHeaders, teardown } = require('../setup');
-const { readActiveRow, findActiveRowWhere, findActiveRowsWhere } = require('../pg-test-utils');
-const Class = require('../../models/Class');
-const LearningProgram = require('../../models/LearningProgram');
-const NotificationLog = require('../../models/NotificationLog');
+const {
+  readActiveRow, findActiveRowWhere, findActiveRowsWhere,
+  deleteActiveRowsWhere, deleteActiveRowsLike,
+} = require('../pg-test-utils');
+const fx = require('../fixtures/pg-fixtures');
 
 let app, tokens, csrf;
 
@@ -19,13 +19,13 @@ afterAll(async () => {
 });
 
 afterEach(async () => {
-  await LearningProgram.deleteMany({ code: /^TEST_/ });
-  await Class.deleteMany({ classCode: /^LD_TEST_/ });
+  await deleteActiveRowsLike('LearningProgram', 'code', 'TEST_');
+  await deleteActiveRowsLike('Class', 'classCode', 'LD_TEST_');
 });
 
 describe('Learning Platform API — programs', () => {
   test('authenticated users can list learning programs', async () => {
-    await LearningProgram.create({
+    await fx.createLearningProgram({
       code: 'TEST_ONBOARDING',
       name: 'Onboarding Basics',
       category: 'onboarding',
@@ -44,10 +44,8 @@ describe('Learning Platform API — programs', () => {
   });
 
   test('program list honours ?page/?limit window (PERF-015)', async () => {
-    await LearningProgram.create([
-      { code: 'TEST_PAGE_A', name: 'Page A', category: 'onboarding', defaultSessionCount: 1, schedulingMode: 'admin_scheduled' },
-      { code: 'TEST_PAGE_B', name: 'Page B', category: 'onboarding', defaultSessionCount: 1, schedulingMode: 'admin_scheduled' },
-    ]);
+    await fx.createLearningProgram({ code: 'TEST_PAGE_A', name: 'Page A', category: 'onboarding', defaultSessionCount: 1, schedulingMode: 'admin_scheduled' });
+    await fx.createLearningProgram({ code: 'TEST_PAGE_B', name: 'Page B', category: 'onboarding', defaultSessionCount: 1, schedulingMode: 'admin_scheduled' });
 
     const page1 = await request(app)
       .get('/api/learning/programs?limit=1&page=1&q=Page')
@@ -126,7 +124,7 @@ describe('Learning Platform API — programs', () => {
 
 describe('Learning Platform API — cohorts', () => {
   test('admin can create a cohort from a learning program', async () => {
-    const program = await LearningProgram.create({
+    const program = await fx.createLearningProgram({
       code: 'TEST_TECHNICAL',
       name: 'Technical Bootcamp',
       category: 'technical',
@@ -155,7 +153,7 @@ describe('Learning Platform API — cohorts', () => {
   });
 
   test('cohort custom field values round-trip on create + update', async () => {
-    const program = await LearningProgram.create({
+    const program = await fx.createLearningProgram({
       code: 'CF_COHORT', name: 'CF Cohort Prog', defaultSessionCount: 2,
     });
     const created = await request(app)
@@ -176,7 +174,7 @@ describe('Learning Platform API — cohorts', () => {
   });
 
   test('teacher cannot create a cohort (lacks cohort.manage capability)', async () => {
-    const program = await LearningProgram.create({
+    const program = await fx.createLearningProgram({
       code: 'TEST_CAP_BLOCK', name: 'Capability Block', defaultSessionCount: 1,
     });
 
@@ -191,7 +189,7 @@ describe('Learning Platform API — cohorts', () => {
   });
 
   test('legacy class course list is sourced from LearningProgram when catalog exists', async () => {
-    await LearningProgram.create({
+    await fx.createLearningProgram({
       code: 'TEST_WORKSHOP',
       name: 'Manager Workshop',
       category: 'workshop',
@@ -211,16 +209,14 @@ describe('Learning Platform API — cohorts', () => {
 });
 
 describe('Learning Platform API — cohort edit/delete', () => {
-  const mongoose = require('mongoose');
-  const Team = require('../../models/Team');
   let cedSeq = 0;
 
   const seedCohort = async (status = 'Ongoing') => {
     cedSeq += 1;
-    const program = await LearningProgram.create({
+    const program = await fx.createLearningProgram({
       code: `TEST_CED_${cedSeq}`, name: `CED Program ${cedSeq}`, defaultSessionCount: 5,
     });
-    const cohort = await Class.create({
+    const cohort = await fx.createClass({
       classCode: `LD_TEST_CED_${cedSeq}`, courseName: program.name,
       programId: program._id, totalSessions: 5, status,
     });
@@ -253,7 +249,7 @@ describe('Learning Platform API — cohort edit/delete', () => {
 
   test('updating a non-existent cohort returns 404', async () => {
     const res = await request(app)
-      .put(`/api/learning/cohorts/${new mongoose.Types.ObjectId().toString()}`)
+      .put(`/api/learning/cohorts/${fx.genId()}`)
       .set('Authorization', `Bearer ${tokens.admin}`).set(csrf)
       .send({ status: 'Completed' });
     expect(res.status).toBe(404);
@@ -300,16 +296,15 @@ describe('Learning Platform API — cohort edit/delete', () => {
       .post(`/api/learning/cohorts/${cohort._id}/restore`)
       .set('Authorization', `Bearer ${tokens.admin}`).set(csrf);
     expect(restore.status).toBe(200);
-    const back = await Class.findById(cohort._id).lean();
+    const back = await readActiveRow("Class", cohort._id);
     expect(back).not.toBeNull();
     expect(back.isDeleted).toBe(false);
   });
 
   test('closing a cohort drops its active enrollments but preserves the records', async () => {
-    const Enrollment = require('../../models/Enrollment');
     const { cohort } = await seedCohort();
-    const enrollment = await Enrollment.create({
-      userId: new mongoose.Types.ObjectId(), classId: cohort._id, status: 'Active',
+    const enrollment = await fx.createEnrollment({
+      userId: fx.genId(), classId: cohort._id, status: 'Active',
     });
 
     await request(app)
@@ -319,26 +314,26 @@ describe('Learning Platform API — cohort edit/delete', () => {
     const after = await readActiveRow('Enrollment', enrollment._id);
     expect(after).not.toBeNull();          // preserved (not hard-deleted)
     expect(after.status).toBe('Dropped');  // closed
-    await Enrollment.findByIdAndDelete(enrollment._id);
+    await deleteActiveRowsWhere('Enrollment', { _id: enrollment._id });
   });
 
   test('restoring a non-archived / unknown cohort returns 404', async () => {
     const res = await request(app)
-      .post(`/api/learning/cohorts/${new mongoose.Types.ObjectId().toString()}/restore`)
+      .post(`/api/learning/cohorts/${fx.genId()}/restore`)
       .set('Authorization', `Bearer ${tokens.admin}`).set(csrf);
     expect(res.status).toBe(404);
   });
 
   test('deleting a cohort with an assigned group is blocked (409)', async () => {
     const { cohort } = await seedCohort();
-    const team = await Team.create({ name: `CED Team ${cedSeq}`, classId: cohort._id, members: [] });
+    const team = await fx.createTeam({ name: `CED Team ${cedSeq}`, classId: cohort._id, members: [] });
     const res = await request(app)
       .delete(`/api/learning/cohorts/${cohort._id}`)
       .set('Authorization', `Bearer ${tokens.admin}`).set(csrf);
 
     expect(res.status).toBe(409);
-    expect(await Class.findById(cohort._id)).not.toBeNull();
-    await Team.findByIdAndDelete(team._id);
+    expect(await readActiveRow("Class", cohort._id)).not.toBeNull();
+    await deleteActiveRowsWhere('Team', { _id: team._id });
   });
 
   test('teacher cannot delete a cohort (403)', async () => {
@@ -354,22 +349,22 @@ describe('Learning Platform API — cohort nudge (S4)', () => {
   let cohortId;
 
   beforeEach(async () => {
-    const program = await LearningProgram.create({
+    const program = await fx.createLearningProgram({
       code: 'TEST_NUDGE', name: 'Nudge Program', defaultSessionCount: 1, schedulingMode: 'admin_scheduled',
     });
-    const cohort = await Class.create({
+    const cohort = await fx.createClass({
       classCode: 'LD_TEST_NUDGE', courseName: program.name, programId: program._id, totalSessions: 1, status: 'Ongoing',
     });
     cohortId = cohort._id.toString();
   });
 
   afterEach(async () => {
-    await NotificationLog.deleteMany({ type: 'coordinator_nudge' });
+    await deleteActiveRowsWhere('NotificationLog', { type: 'coordinator_nudge' });
   });
 
   test('admin nudges selected learners → 201 + in-app rows written', async () => {
-    const u1 = new mongoose.Types.ObjectId().toString();
-    const u2 = new mongoose.Types.ObjectId().toString();
+    const u1 = fx.genId();
+    const u2 = fx.genId();
     const res = await request(app)
       .post(`/api/learning/cohorts/${cohortId}/nudge`)
       .set('Authorization', `Bearer ${tokens.admin}`).set(csrf)
@@ -384,7 +379,7 @@ describe('Learning Platform API — cohort nudge (S4)', () => {
   });
 
   test('a same-day re-nudge is idempotent (no duplicate rows)', async () => {
-    const u1 = new mongoose.Types.ObjectId().toString();
+    const u1 = fx.genId();
     const body = { userIds: [u1] };
     await request(app).post(`/api/learning/cohorts/${cohortId}/nudge`).set('Authorization', `Bearer ${tokens.admin}`).set(csrf).send(body);
     await request(app).post(`/api/learning/cohorts/${cohortId}/nudge`).set('Authorization', `Bearer ${tokens.admin}`).set(csrf).send(body);
@@ -396,15 +391,15 @@ describe('Learning Platform API — cohort nudge (S4)', () => {
     const res = await request(app)
       .post(`/api/learning/cohorts/${cohortId}/nudge`)
       .set('Authorization', `Bearer ${tokens.teacher}`).set(csrf)
-      .send({ userIds: [new mongoose.Types.ObjectId().toString()] });
+      .send({ userIds: [fx.genId()] });
     expect(res.status).toBe(403);
   });
 
   test('nudging a missing cohort → 404', async () => {
     const res = await request(app)
-      .post(`/api/learning/cohorts/${new mongoose.Types.ObjectId().toString()}/nudge`)
+      .post(`/api/learning/cohorts/${fx.genId()}/nudge`)
       .set('Authorization', `Bearer ${tokens.admin}`).set(csrf)
-      .send({ userIds: [new mongoose.Types.ObjectId().toString()] });
+      .send({ userIds: [fx.genId()] });
     expect(res.status).toBe(404);
   });
 });
