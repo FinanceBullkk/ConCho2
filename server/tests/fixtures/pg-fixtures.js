@@ -186,6 +186,24 @@ const createCertificate = async (over = {}) => {
   return doc;
 };
 
+/** learning_programs row — defaults match models/LearningProgram (enum-valid). */
+const createLearningProgram = async (over = {}) => {
+  const doc = {
+    _id: genId(),
+    code: `FXP${genId().slice(0, 6).toUpperCase()}`,
+    name: 'Fixture Program',
+    category: 'other',
+    defaultSessionCount: 1,
+    deliveryMode: 'online',
+    schedulingMode: 'admin_scheduled',
+    status: 'active',
+    completionPolicy: { attendanceThresholdPercent: 0, requiresAssessment: false, requiresFeedback: false },
+    ...over,
+  };
+  await insertDoc('LearningProgram', doc);
+  return doc;
+};
+
 module.exports = {
   genId,
   insertDoc,
@@ -197,4 +215,5 @@ module.exports = {
   createAttendance,
   createEvaluation,
   createCertificate,
+  createLearningProgram,
 };
