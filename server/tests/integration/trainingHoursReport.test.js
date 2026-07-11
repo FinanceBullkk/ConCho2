@@ -7,13 +7,9 @@
  */
 
 const request = require('supertest');
-const mongoose = require('mongoose');
-const { getApp, getTokens, getSeedData } = require('../setup');
-
-const User = require('../../models/User');
-const Class = require('../../models/Class');
-const Schedule = require('../../models/Schedule');
-const Attendance = require('../../models/Attendance');
+const { getApp, getTokens, getSeedData, teardown } = require('../setup');
+// Wave K · D2c pilot — fixtures authored PG-native (no Mongoose / no mirror).
+const fx = require('../fixtures/pg-fixtures');
 
 let app, tokens;
 const uniq = () => Math.random().toString(16).slice(2, 8);
@@ -26,19 +22,19 @@ beforeAll(async () => {
   tokens = getTokens();
   getSeedData();
 
-  learner = await User.create({
+  learner = await fx.createUser({
     empCode: `TH${uniq()}`, name: 'Hours Learner', role: 'Participant',
     password: 'disposable-pwd-12345', department: 'Engineering',
   });
-  const cls = await Class.create({ classCode: `THC${uniq()}`, courseName: 'Hours Class', totalSessions: 4 });
+  const cls = await fx.createClass({ classCode: `THC${uniq()}`, courseName: 'Hours Class', totalSessions: 4 });
   const start = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000); // 3 days ago (within default 90d)
   const end = new Date(start.getTime() + 2 * 60 * 60 * 1000); // 2-hour session
-  const sch = await Schedule.create({ classId: cls._id, startTime: start, endTime: end, status: 'scheduled' });
-  await Attendance.create({ scheduleId: sch._id, userId: learner._id, status: 'P' });
+  const sch = await fx.createSchedule({ classId: cls._id, startTime: start, endTime: end, status: 'scheduled' });
+  await fx.createAttendance({ scheduleId: sch._id, userId: learner._id, status: 'P' });
 });
 
 afterAll(async () => {
-  await mongoose.disconnect();
+  await teardown();
 });
 
 describe('GET training-hours', () => {

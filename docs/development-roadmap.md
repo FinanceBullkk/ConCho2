@@ -153,6 +153,23 @@ Bug fixing and integration review rank above net-new feature rollout.
 > [`2026-q3.md`](changelog-archive/2026-q3.md); 06-20→06-27 rolled 2026-07-07;
 > 06-14→06-19 rolled 2026-07-04 → [`2026-q2.md`](changelog-archive/2026-q2.md)).
 
+- **2026-07-11** — **Wave K Phase 2 · Batch D2c — PG-native test-fixture foundation + first two suites off Mongoose.**
+  The keystone for dropping `mongoose`: new `tests/fixtures/pg-fixtures.js` — builders
+  (`createUser`/`createClass`/`createTeam`/`createEnrollment`/`createSchedule`/`createAttendance`
+  + `genId`) that INSERT straight into the migrated PG tables **reusing the auto-mirror's own
+  column map** (`pg-row-mappers.toRow`), so a fixture row is byte-identical to what
+  `Model.create(doc)` mirrors today. Model defaults the plain doc can't run are replicated
+  (User password → bcrypt 12 + `passwordChangedAt`; Attendance `syncStatus:'PENDING'`).
+  Pilot-migrated **2 self-contained suites** fully off Mongoose (`trainingHoursReport`,
+  `classReadGate`) — dropped `require('mongoose')`, `Model.create` → `fx.create*`,
+  `new ObjectId()` → `fx.genId()`. **Scope call (documented in the D2 plan):** the shared
+  `setup.js` CORE seed was **NOT** swapped to PG-native this batch — the auto-mirror's
+  update path re-reads the doc from Mongo, so a PG-only core seed breaks the ~25 suites that
+  `findByIdAndUpdate(seed.*…)`; that swap is coupled to converting those mutator sites and
+  moves into the D2d grind (keeps each batch independently green). Pure test-infra refactor
+  (no app/spec change). Verified on the PG lane: both pilots green (10/10) + 4 untouched
+  mirror/core-seed-heavy neighbors green (60/60) — shared infra intact. Next: D2d (convert
+  the remaining ~66 suites in domain batches + fold in the core-seed swap).
 - **2026-07-11** — **Wave K Phase 2 · Batch D2b — removed the runtime (non-model) `mongoose` usages.**
   Post-D1b the only backend is Postgres, so the 5 remaining runtime `mongoose`
   sites were dead-Mongo or pointless. New `helpers/object-id.js` (`isValidObjectId`
