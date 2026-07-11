@@ -17,19 +17,16 @@
 
 const request = require('supertest');
 const { getApp, getTokens, getSeedData, teardown } = require('../setup');
+// Wave K · D2c pilot — per-suite fixtures authored PG-native (no Mongoose).
+const fx = require('../fixtures/pg-fixtures');
 
 let app, tokens, seed;
-let Class, Team, Enrollment, User;
 let jwt;
 
 beforeAll(async () => {
   app = await getApp();
   tokens = getTokens();
   seed = getSeedData();
-  Class = require('../../models/Class');
-  Team = require('../../models/Team');
-  Enrollment = require('../../models/Enrollment');
-  User = require('../../models/User');
   jwt = require('jsonwebtoken');
 });
 
@@ -44,7 +41,7 @@ const sign = (userId) =>
 let classCounter = 0;
 const makeClass = async () => {
   classCounter += 1;
-  return Class.create({
+  return fx.createClass({
     classCode: `READ_GATE_${Date.now()}_${classCounter}`,
     courseName: 'Read-Gate Test',
     totalSessions: 8,
@@ -52,13 +49,13 @@ const makeClass = async () => {
 };
 
 const makeTeamWithMember = async (classId, userId, leaderId) => {
-  const team = await Team.create({
+  const team = await fx.createTeam({
     name: `Team-${Date.now()}-${classCounter}`,
     classId,
     leaderId: leaderId || userId,
     members: [userId],
   });
-  await Enrollment.create({
+  await fx.createEnrollment({
     userId,
     teamId: team._id,
     classId,
@@ -110,9 +107,8 @@ describe('GET /api/classes/:id — per-role read gate (AUTHZ-004)', () => {
   });
 
   test('Participant requesting a nonexistent class id also gets 404 (uniform response)', async () => {
-    // Use a random valid ObjectId that does not exist.
-    const mongoose = require('mongoose');
-    const fakeId = new mongoose.Types.ObjectId().toString();
+    // A random valid ObjectId-shaped id (24-hex) that does not exist.
+    const fakeId = fx.genId();
 
     const stranger = sign(seed.member2._id);
     const r = await request(app)
