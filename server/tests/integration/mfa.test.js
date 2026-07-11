@@ -13,8 +13,7 @@
 
 const request = require('supertest');
 const speakeasy = require('speakeasy');
-const mongoose = require('mongoose');
-const { getApp, getTokens, getSeedData, getCsrfHeaders } = require('../setup');
+const { getApp, getTokens, getSeedData, getCsrfHeaders, teardown } = require('../setup');
 // MFA secrets/backup-codes/counter are written to the ACTIVE backend by the
 // ported auth mutations (PG-only on the lane) AND are select:false on the User
 // model — so a Mongoose read sees null and, worse, any Mongoose read-modify-write
@@ -32,7 +31,7 @@ beforeAll(async () => {
 });
 
 afterAll(async () => {
-  await mongoose.disconnect();
+  await teardown();
 });
 
 const ADMIN_PASSWORD = 'admin12345'; // seed value, matches setup.js

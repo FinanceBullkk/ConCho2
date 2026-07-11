@@ -8,13 +8,12 @@
  */
 
 const request = require('supertest');
-const mongoose = require('mongoose');
-const { getApp, getTokens, getSeedData, getCsrfHeaders } = require('../setup');
-const AuditLog = require('../../models/AuditLog');
+const { getApp, getTokens, getSeedData, getCsrfHeaders, teardown } = require('../setup');
+const fx = require('../fixtures/pg-fixtures');
 const auditService = require('../../services/auditService');
 const { computeHash, verifyChain, GENESIS_PREV_HASH } = require('../../services/audit-chain');
 const {
-  findActiveAuditChain, updateActiveAuditRowBySeq, deleteActiveAuditRowBySeq,
+  findActiveAuditChain, updateActiveAuditRowBySeq, deleteActiveAuditRowBySeq, deleteActiveRowsWhere,
 } = require('../pg-test-utils');
 
 let app, tokens, csrf;
@@ -27,19 +26,19 @@ beforeAll(async () => {
 });
 
 afterAll(async () => {
-  await mongoose.disconnect();
+  await teardown();
 });
 
 // Build a clean chain of N entries from genesis and return the stored rows.
 const seedChain = async (n) => {
-  await AuditLog.deleteMany({});
+  await deleteActiveRowsWhere('AuditLog', {});
   auditService.__resetChainCache();
   for (let i = 0; i < n; i += 1) {
     auditService.record({
       req: null,
       action: 'updated',
       entity: 'User',
-      entityId: new mongoose.Types.ObjectId(),
+      entityId: fx.genId(),
       diff: { field: { before: i, after: i + 1 } },
       note: `entry ${i}`,
     });
@@ -115,7 +114,7 @@ describe('Audit hash chain — verifyChain', () => {
   });
 
   test('an empty chain verifies ok', async () => {
-    await AuditLog.deleteMany({});
+    await deleteActiveRowsWhere('AuditLog', {});
     auditService.__resetChainCache();
     const res = await verifyChain({});
     expect(res.ok).toBe(true);

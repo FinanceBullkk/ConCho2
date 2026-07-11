@@ -9,8 +9,8 @@
  */
 
 const request = require('supertest');
-const mongoose = require('mongoose');
-const { getApp, getTokens, getSeedData, getCsrfHeaders } = require('../setup');
+const { getApp, getTokens, getSeedData, getCsrfHeaders, teardown } = require('../setup');
+const fx = require('../fixtures/pg-fixtures');
 
 let app, tokens, seed, csrf;
 
@@ -22,7 +22,7 @@ beforeAll(async () => {
 });
 
 afterAll(async () => {
-  await mongoose.disconnect();
+  await teardown();
 });
 
 // ── SEC-006 ────────────────────────────────────────────────
@@ -102,7 +102,7 @@ describe('SEC-011 — enrollment Zod validation', () => {
 
   test('PATCH /bulk-status with oversize enrollmentIds returns 400', async () => {
     const huge = new Array(201).fill(0)
-      .map(() => new mongoose.Types.ObjectId().toString());
+      .map(() => fx.genId());
     const r = await request(app)
       .patch('/api/enrollments/bulk-status')
       .set('Authorization', `Bearer ${tokens.admin}`)
@@ -113,7 +113,7 @@ describe('SEC-011 — enrollment Zod validation', () => {
 
   test('PUT /:id with unknown field returns 400 (strict mode)', async () => {
     const r = await request(app)
-      .put(`/api/enrollments/${new mongoose.Types.ObjectId()}`)
+      .put(`/api/enrollments/${fx.genId()}`)
       .set('Authorization', `Bearer ${tokens.admin}`)
       .set(csrf)
       .send({ status: 'Active', mongoEvilOp: { $unset: { 'foo': 1 } } });
@@ -122,7 +122,7 @@ describe('SEC-011 — enrollment Zod validation', () => {
 
   test('PUT /:id with invalid status returns 400', async () => {
     const r = await request(app)
-      .put(`/api/enrollments/${new mongoose.Types.ObjectId()}`)
+      .put(`/api/enrollments/${fx.genId()}`)
       .set('Authorization', `Bearer ${tokens.admin}`)
       .set(csrf)
       .send({ status: 'NotARealStatus' });
