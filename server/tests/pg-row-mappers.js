@@ -155,6 +155,13 @@ const MAPPERS = {
     table: 'offices',
     cols: { name: 'name', code: 'code', address: 'address', timezone: 'timezone', ...base },
   },
+  Room: {
+    table: 'rooms',
+    cols: {
+      name: 'name', code: 'code', office_id: (d) => id(d.officeId),
+      seats: 'seats', is_active: (d) => d.isActive ?? true, ...base,
+    },
+  },
   NotificationLog: {
     table: 'notification_logs',
     cols: {
