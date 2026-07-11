@@ -8,8 +8,8 @@
  */
 
 const request = require('supertest');
-const mongoose = require('mongoose');
-const { getApp, getTokens, getSeedData } = require('../setup');
+const { getApp, getTokens, getSeedData, teardown } = require('../setup');
+const fx = require('../fixtures/pg-fixtures');
 // Snapshots are written through the ported metrics repo (PG-only on the lane),
 // so Mongoose MetricSnapshot reads see nothing — route them to the active backend.
 const { findActiveRowsWhere, findActiveRowWhere, countActiveRowsWhere } = require('../pg-test-utils');
@@ -18,11 +18,6 @@ const {
   backfillHistory,
 } = require('../../services/metricSnapshotService');
 const series = require('../../services/analyticsSeriesService');
-
-const LearningProgram = require('../../models/LearningProgram');
-const Class = require('../../models/Class');
-const Enrollment = require('../../models/Enrollment');
-const Certificate = require('../../models/Certificate');
 
 let app, tokens, seed, programId, cohortId;
 
@@ -35,22 +30,20 @@ beforeAll(async () => {
 
   // A program + cohort with a deterministic funnel: 3 enrolled, 1 completed,
   // 1 certified — all scoped to this program so assertions don't depend on seed.
-  const program = await LearningProgram.create({
+  const program = await fx.createLearningProgram({
     code: `AN-${uniq()}`, name: 'Analytics Test Program', category: 'compliance',
   });
   programId = program._id;
-  const cohort = await Class.create({
+  const cohort = await fx.createClass({
     classCode: `ANC-${uniq()}`, courseName: 'Analytics Test Cohort',
     totalSessions: 4, programId, status: 'Ongoing',
   });
   cohortId = cohort._id;
 
-  await Enrollment.create([
-    { userId: seed.member1._id, classId: cohortId, status: 'Active' },
-    { userId: seed.member2._id, classId: cohortId, status: 'Active' },
-    { userId: seed.leader._id, classId: cohortId, status: 'Completed', leftAt: new Date() },
-  ]);
-  await Certificate.create({
+  await fx.createEnrollment({ userId: seed.member1._id, classId: cohortId, status: 'Active' });
+  await fx.createEnrollment({ userId: seed.member2._id, classId: cohortId, status: 'Active' });
+  await fx.createEnrollment({ userId: seed.leader._id, classId: cohortId, status: 'Completed', leftAt: new Date() });
+  await fx.createCertificate({
     certificateNumber: `CERT-AN-${uniq()}`, verificationCode: `ver-an-${uniq()}`,
     userId: seed.leader._id, cohortId, programId, status: 'Issued', issuedAt: new Date(),
   });
@@ -59,7 +52,7 @@ beforeAll(async () => {
 });
 
 afterAll(async () => {
-  await mongoose.disconnect();
+  await teardown();
 });
 
 describe('metric snapshot rollup', () => {
