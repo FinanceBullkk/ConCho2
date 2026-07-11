@@ -9,18 +9,28 @@
  */
 
 const request = require('supertest');
-const mongoose = require('mongoose');
-const { getApp, getTokens, getSeedData, getCsrfHeaders } = require('../setup');
+const { getApp, getTokens, getSeedData, getCsrfHeaders, teardown } = require('../setup');
+const fx = require('../fixtures/pg-fixtures');
 // Cancel + book flow through the ported schedule chokepoint (PG-only on the
 // lane), so a Mongoose Schedule read sees the pre-cancel/stale state — read the
 // active backend.
-const { readActiveRow, findActiveRowsWhere } = require('../pg-test-utils');
-
-const Schedule = require('../../models/Schedule');
-const Attendance = require('../../models/Attendance');
-const Setting = require('../../models/Setting');
+const {
+  readActiveRow, findActiveRowsWhere, findActiveRowWhere, updateActiveRow,
+} = require('../pg-test-utils');
 
 let app, tokens, seed, csrf;
+
+// $addToSet-equivalent on the ALLOWED_TIME_SLOTS jsonb array (PG-native).
+const addAllowedSlots = async (slots) => {
+  const s = await findActiveRowWhere('Setting', { key: 'ALLOWED_TIME_SLOTS' });
+  const cur = Array.isArray(s.value) ? s.value : [];
+  for (const slot of slots) {
+    if (!cur.some((v) => v.sh === slot.sh && v.sm === slot.sm && v.eh === slot.eh && v.em === slot.em)) {
+      cur.push(slot);
+    }
+  }
+  await updateActiveRow('Setting', s._id, { value: JSON.stringify(cur) });
+};
 
 beforeAll(async () => {
   app = await getApp();
@@ -31,18 +41,14 @@ beforeAll(async () => {
   // The booking API enforces ALLOWED_TIME_SLOTS exactly — make sure the two
   // exact 1h slots this suite books (10–11 + 11–12 VN) exist (same pattern as
   // booking.test.js; setup.js's default slots are not exact-1h).
-  await Setting.findOneAndUpdate(
-    { key: 'ALLOWED_TIME_SLOTS' },
-    { $addToSet: { value: { $each: [
-      { sh: 10, sm: 0, eh: 11, em: 0 },
-      { sh: 11, sm: 0, eh: 12, em: 0 },
-    ] } } },
-    { upsert: false },
-  );
+  await addAllowedSlots([
+    { sh: 10, sm: 0, eh: 11, em: 0 },
+    { sh: 11, sm: 0, eh: 12, em: 0 },
+  ]);
 });
 
 afterAll(async () => {
-  await mongoose.disconnect();
+  await teardown();
 });
 
 // 10:00–11:00 VN == 03:00–04:00Z — a policy-valid booking window on day
@@ -65,12 +71,12 @@ const leaderCancel = (id, body) => {
 describe('Durable cancel — leader cancelSlot', () => {
   test('flips to cancelled (who/when/why), preserves roster + attendance, frees the room field', async () => {
     const { start, end } = slotRange(30);
-    const sch = await Schedule.create({
+    const sch = await fx.createSchedule({
       classId: seed.class1._id, bookedTeamId: seed.team._id,
       startTime: start, endTime: end,
       enrolledUsers: [seed.leader._id, seed.member1._id],
     });
-    await Attendance.create({ scheduleId: sch._id, userId: seed.member1._id, status: 'P' });
+    await fx.createAttendance({ scheduleId: sch._id, userId: seed.member1._id, status: 'P' });
 
     const res = await leaderCancel(sch._id, { cancelReason: 'Trainer is sick' });
     expect(res.status).toBe(200);
@@ -84,12 +90,12 @@ describe('Durable cancel — leader cancelSlot', () => {
     expect(after.cancelReason).toBe('Trainer is sick');
     // Roster snapshot + attendance survive as history (golden rule).
     expect(after.enrolledUsers.map(String)).toContain(seed.member1._id.toString());
-    expect(await Attendance.findOne({ scheduleId: sch._id })).not.toBeNull();
+    expect(await findActiveRowWhere('Attendance', { scheduleId: sch._id })).not.toBeNull();
   });
 
   test('double cancel → second gets 409', async () => {
     const { start, end } = slotRange(31);
-    const sch = await Schedule.create({
+    const sch = await fx.createSchedule({
       classId: seed.class1._id, bookedTeamId: seed.team._id,
       startTime: start, endTime: end, enrolledUsers: [seed.leader._id],
     });
@@ -102,7 +108,7 @@ describe('Durable cancel — leader cancelSlot', () => {
 
   test('cancelReason longer than 500 chars → 400 validation error', async () => {
     const { start, end } = slotRange(32);
-    const sch = await Schedule.create({
+    const sch = await fx.createSchedule({
       classId: seed.class1._id, bookedTeamId: seed.team._id,
       startTime: start, endTime: end, enrolledUsers: [seed.leader._id],
     });
@@ -183,11 +189,11 @@ describe('Durable cancel — operational queries exclude cancelled rows', () => 
   beforeAll(async () => {
     const l = slotRange(50, 0);
     const x = slotRange(50, 1);
-    live = await Schedule.create({
+    live = await fx.createSchedule({
       classId: seed.class1._id, bookedTeamId: seed.team._id,
       startTime: l.start, endTime: l.end, enrolledUsers: [seed.leader._id],
     });
-    cancelled = await Schedule.create({
+    cancelled = await fx.createSchedule({
       classId: seed.class1._id, bookedTeamId: seed.team._id,
       startTime: x.start, endTime: x.end, enrolledUsers: [seed.leader._id],
     });
@@ -242,11 +248,11 @@ describe('Durable cancel — operational queries exclude cancelled rows', () => 
     const soonLive = slotRange(0, 6);   // a few hours ahead — inside the 24h window
     const soonGone = slotRange(0, 7);
     // Direct create: reminder claim is filter-based, slot policy not involved.
-    const liveSoon = await Schedule.create({
+    const liveSoon = await fx.createSchedule({
       classId: seed.class1._id, bookedTeamId: seed.team._id,
       startTime: soonLive.start, endTime: soonLive.end, enrolledUsers: [seed.member1._id],
     });
-    const goneSoon = await Schedule.create({
+    const goneSoon = await fx.createSchedule({
       classId: seed.class1._id, bookedTeamId: seed.team._id,
       startTime: soonGone.start, endTime: soonGone.end, enrolledUsers: [seed.member1._id],
       status: 'cancelled', cancelledAt: new Date(),
