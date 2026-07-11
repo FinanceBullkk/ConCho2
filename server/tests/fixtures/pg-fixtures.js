@@ -172,6 +172,20 @@ const createAttendance = async (over = {}) => {
   return doc;
 };
 
+/** evaluations row (instructor rubric). classId/userId required by the model. */
+const createEvaluation = async (over = {}) => {
+  const doc = { _id: genId(), ...over };
+  await insertDoc('Evaluation', doc);
+  return doc;
+};
+
+/** certificates row. status defaults to 'Issued' (the common issued-cert case). */
+const createCertificate = async (over = {}) => {
+  const doc = { _id: genId(), status: 'Issued', ...over };
+  await insertDoc('Certificate', doc);
+  return doc;
+};
+
 module.exports = {
   genId,
   insertDoc,
@@ -181,4 +195,6 @@ module.exports = {
   createEnrollment,
   createSchedule,
   createAttendance,
+  createEvaluation,
+  createCertificate,
 };
