@@ -109,9 +109,8 @@ describe('GET /api/admin/audit/entity/:entity/:entityId', () => {
   });
 
   test('returns 200 with empty array for an entity that has no log entries', async () => {
-    // Use a freshly generated ObjectId that has no audit entries
-    const mongoose = require('mongoose');
-    const fakeId = new mongoose.Types.ObjectId().toString();
+    // A fresh ObjectId-shaped id (24-hex) that has no audit entries
+    const fakeId = require('../fixtures/pg-fixtures').genId();
 
     const res = await request(app)
       .get(`/api/admin/audit/entity/User/${fakeId}`)

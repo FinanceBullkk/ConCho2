@@ -54,6 +54,35 @@
 Auto-mirror + models + mongod all stay until the **last** file migrates — the
 "drop mongoose" payoff lands only at the end, so this is a multi-PR campaign.
 
+## ⚠️ D2d discovery (2026-07-11): unported RUNTIME Mongoose reads
+
+Converting fixtures to PG-native (fx builders → PG-only rows) UNMASKED that the
+runtime is **not** actually PG-only. **6 app files still run Mongoose model
+queries** (`Class.find`, `Certificate.find`, `LearningProgram.find`,
+`Enrollment.find`, `Schedule.exists`, `User.find`, …) → they read the now-empty
+Mongo on the PG lane. D2b's "runtime mongoose removal" only grepped the
+`mongoose.` object, not `Model.query()` calls, so it missed them; its "only
+`models/*` + `config/db.js` still touch mongoose" claim was wrong. The test
+auto-mirror hid these (Mongoose fixtures existed in BOTH stores); PG-only
+fixtures expose them as failures. Latent prod bugs (masked only because the org
+has no real users/data yet). See [[project_unported_runtime_mongoose_reads]].
+
+**Files:** `helpers/teacher-class-scope.js` (teacher visible-class scope — used by
+attendance analytics + assessment access + learning dashboard),
+`domains/learning/enrollment/prerequisites.js` (worst — 7 model queries),
+`domains/learning/completion/expiry-reminder-service.js`,
+`domains/learning/assignment/reminder-service.js`,
+`domains/learning/path/use-cases.js`, `helpers/cohortMembership.js`.
+
+**Sub-phase D2d-0 — DONE 2026-07-11 (commit bf371a9):** ported all 6 runtime
+reads to Postgres (`config/pg` — direct queries; the two `.populate()` reminder
+services rebuilt via SQL LEFT JOINs reconstructing the populated shape). Runtime
+is now genuinely mongoose-free (only `models/*` + dev `config/db.js` remain).
+Verified via consumer suites on PG (teacherBinding 18/18 now PG-native +
+prerequisite/path/feedback/assessment green); the reminder cron suites are
+infra-broken locally like cronRoutes → CI (dedicated PG) covers them. Grep
+confirms zero runtime `Model.query()` calls remain.
+
 ## Phases (each independently green on the PG lane — the only lane now)
 | # | Phase | Scope | Risk |
 |---|-------|-------|------|
