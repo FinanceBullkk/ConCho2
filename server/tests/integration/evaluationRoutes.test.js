@@ -11,30 +11,27 @@
  */
 
 const request = require('supertest');
-const mongoose = require('mongoose');
 const { getApp, getTokens, getSeedData, getCsrfHeaders, teardown } = require('../setup');
+const fx = require('../fixtures/pg-fixtures');
 // Slice-4 ports write through DB_BACKEND repos — assert on the ACTIVE backend.
 const { readActiveRow, countActiveRowsWhere } = require('../pg-test-utils');
 
 let app, tokens, seed, csrf;
-let Evaluation, Class;
 
 beforeAll(async () => {
   app = await getApp();
   tokens = getTokens();
   seed = getSeedData();
   csrf = await getCsrfHeaders(app);
-  Evaluation = require('../../models/Evaluation');
-  Class = require('../../models/Class');
 });
 
 afterAll(async () => {
   await teardown();
 });
 
-// Seed an evaluation directly via model — bypasses upsert quirks.
+// Seed an evaluation directly (PG-native) — bypasses upsert quirks.
 const seedEval = async ({ classId, userId, overrides = {} }) =>
-  Evaluation.create({
+  fx.createEvaluation({
     classId, userId,
     grammarScore: 7, vocabularyScore: 8, pronunciationScore: 6, fluencyScore: 7,
     teacherComment: 'Solid progress',
@@ -44,7 +41,7 @@ const seedEval = async ({ classId, userId, overrides = {} }) =>
 let evalCounter = 0;
 const seedFreshClass = async () => {
   evalCounter += 1;
-  return Class.create({
+  return fx.createClass({
     classCode: `EVAL_${Date.now()}_${evalCounter}`,
     courseName: 'Evaluation Test Class',
     totalSessions: 10,
@@ -330,7 +327,7 @@ describe('GET /api/evaluations/:id', () => {
   });
 
   test('returns 404 for unknown id', async () => {
-    const fakeId = new mongoose.Types.ObjectId().toString();
+    const fakeId = fx.genId();
     const res = await request(app)
       .get(`/api/evaluations/${fakeId}`)
       .set('Authorization', `Bearer ${tokens.admin}`);
@@ -384,7 +381,7 @@ describe('DELETE /api/evaluations/:id', () => {
   });
 
   test('returns 404 for unknown id', async () => {
-    const fakeId = new mongoose.Types.ObjectId().toString();
+    const fakeId = fx.genId();
     const res = await request(app)
       .delete(`/api/evaluations/${fakeId}`)
       .set('Authorization', `Bearer ${tokens.admin}`)

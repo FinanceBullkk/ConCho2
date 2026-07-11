@@ -8,8 +8,8 @@
  */
 
 const request = require('supertest');
-const mongoose = require('mongoose');
 const { getApp, getTokens, getSeedData, getCsrfHeaders, teardown } = require('../setup');
+const fx = require('../fixtures/pg-fixtures');
 
 let app, tokens, seed, csrf;
 
@@ -111,7 +111,7 @@ describe('User assignment guards', () => {
 
   test('unknown manager → 422', async () => {
     const res = await asAdmin('put', `/api/org/users/${seed.member1._id}/assignment`)
-      .send({ managerId: new mongoose.Types.ObjectId().toString() });
+      .send({ managerId: fx.genId() });
     expect(res.status).toBe(422);
   });
 
@@ -130,15 +130,13 @@ describe('GET /api/org/my-team — self-scoped + rollup', () => {
   test('manager sees only their direct reports with a training rollup', async () => {
     // member1 reports to leader (set in the assignment suite). Seed an active
     // enrollment + an Issued certificate for member1 so the rollup is non-zero.
-    const Enrollment = require('../../models/Enrollment');
-    const Certificate = require('../../models/Certificate');
-    await Enrollment.create({ userId: seed.member1._id, classId: seed.class1._id, status: 'Active' });
-    await Certificate.create({
+    await fx.createEnrollment({ userId: seed.member1._id, classId: seed.class1._id, status: 'Active' });
+    await fx.createCertificate({
       certificateNumber: `CERT-TEST-${Date.now()}`,
       verificationCode: `vc-${Date.now()}`,
       userId: seed.member1._id,
       cohortId: seed.class1._id,
-      programId: new mongoose.Types.ObjectId(),
+      programId: fx.genId(),
       status: 'Issued',
     });
 
