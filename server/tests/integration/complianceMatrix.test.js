@@ -8,14 +8,9 @@
  */
 
 const request = require('supertest');
-const mongoose = require('mongoose');
-const { getApp, getTokens, getSeedData, getCsrfHeaders } = require('../setup');
-
-const Department = require('../../models/Department');
-const User = require('../../models/User');
-const LearningProgram = require('../../models/LearningProgram');
-const Certificate = require('../../models/Certificate');
+const { getApp, getTokens, getSeedData, getCsrfHeaders, teardown } = require('../setup');
 const { findActiveRowWhere, updateActiveRow } = require('../pg-test-utils');
+const fx = require('../fixtures/pg-fixtures');
 
 let app, tokens, seed, csrf;
 const uniq = () => Math.random().toString(16).slice(2, 8);
@@ -29,20 +24,20 @@ beforeAll(async () => {
   seed = getSeedData();
   csrf = await getCsrfHeaders(app);
 
-  dept = await Department.create({ name: `Compliance Dept ${uniq()}`, code: `CD${uniq()}` });
-  program = await LearningProgram.create({ code: `CMP-${uniq()}`, name: 'Mandatory Safety', category: 'compliance' });
+  dept = await fx.insertDoc('Department', { _id: fx.genId(), name: `Compliance Dept ${uniq()}`, code: `CD${uniq()}` });
+  program = await fx.createLearningProgram({ code: `CMP-${uniq()}`, name: 'Mandatory Safety', category: 'compliance' });
 
-  compliantUser = await User.create({
+  compliantUser = await fx.createUser({
     empCode: `CC${uniq()}`, name: 'Compliant One', role: 'Participant',
     password: 'disposable-pwd-12345', status: 'Active', departmentId: dept._id,
   });
-  pendingUser = await User.create({
+  pendingUser = await fx.createUser({
     empCode: `CP${uniq()}`, name: 'Pending One', role: 'Participant',
     password: 'disposable-pwd-12345', status: 'Active', departmentId: dept._id,
   });
 
   // compliantUser holds an issued cert for the target program → compliant.
-  await Certificate.create({
+  await fx.createCertificate({
     certificateNumber: `CERT-CMP-${uniq()}`, verificationCode: `vc-cmp-${uniq()}`,
     userId: compliantUser._id, cohortId: seed.class1._id, programId: program._id,
     status: 'Issued', issuedAt: new Date(),
@@ -62,7 +57,7 @@ beforeAll(async () => {
 });
 
 afterAll(async () => {
-  await mongoose.disconnect();
+  await teardown();
 });
 
 const myRow = (body) => body.data.rows.find((x) => String(x.id) === String(reqId));
@@ -97,12 +92,10 @@ describe('compliance matrix', () => {
 
   test('overdue once the due window has passed', async () => {
     const past = new Date(Date.now() - 100 * 24 * 60 * 60 * 1000);
-    // The requirement is created through the ported compliance repo (PG-only on
-    // the lane), so a raw Mongo updateOne can't backdate it — write the active
-    // backend. The user exists on both (Mongoose-seeded → mirrored); its raw
-    // updateOne backdates Mongo and the mirror carries created_at to PG.
+    // Both the requirement (ported compliance repo) and the fixture user are
+    // PG-only, so backdate them on the active backend.
     await updateActiveRow('RequiredTraining', reqId, { createdAt: past });
-    await User.collection.updateOne({ _id: pendingUser._id }, { $set: { createdAt: past } });
+    await updateActiveRow('User', pendingUser._id, { createdAt: past });
 
     const r = await request(app).get('/api/compliance/matrix').set('Authorization', `Bearer ${tokens.admin}`);
     const row = myRow(r.body);

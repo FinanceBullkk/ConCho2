@@ -323,6 +323,24 @@ const readActiveTeamMemberIds = async (teamId) => {
 };
 
 /**
+ * Add a member to a team on the ACTIVE backend — the test-scaffolding
+ * equivalent of `Team.findByIdAndUpdate(id, { $addToSet: { members: userId } })`.
+ * Mongo pushes onto the embedded array; Postgres upserts the `team_members`
+ * junction row (idempotent, mirroring $addToSet's dedupe).
+ */
+const addActiveTeamMember = async (teamId, userId) => {
+  if (!isPostgres) {
+    return require('mongoose').model('Team').collection.updateOne(
+      { _id: oid(teamId) }, { $addToSet: { members: oid(userId) } },
+    );
+  }
+  return query(
+    `INSERT INTO team_members (team_id, user_id) VALUES ($1, $2) ON CONFLICT DO NOTHING`,
+    [String(teamId), String(userId)],
+  );
+};
+
+/**
  * Poll an async producer until it returns a truthy value (or time out) —
  * for fire-and-forget writes (audit rows) that a fixed sleep races under
  * full-suite/CI load. Returns the first truthy value, or the LAST value
@@ -353,6 +371,7 @@ module.exports = {
   deleteActiveRowsLike,
   updateActiveRow,
   readActiveTeamMemberIds,
+  addActiveTeamMember,
   findActiveAuditRow,
   findActiveAuditChain,
   updateActiveAuditRowBySeq,
