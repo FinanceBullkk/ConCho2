@@ -139,7 +139,7 @@ const createEnrollment = async (over = {}) => {
   return doc;
 };
 
-/** schedules row (a booked session). */
+/** schedules row (a booked session). `capacity` matches models/Schedule default (9). */
 const createSchedule = async (over = {}) => {
   const doc = {
     _id: genId(),
@@ -148,6 +148,7 @@ const createSchedule = async (over = {}) => {
     endTime: null,
     status: 'scheduled',
     enrolledUsers: [],
+    capacity: 9,
     ...over,
   };
   await insertDoc('Schedule', doc);

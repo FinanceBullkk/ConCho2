@@ -12,9 +12,9 @@
  */
 
 const request = require('supertest');
-const mongoose = require('mongoose');
-const { getApp, getTokens, getSeedData, getCsrfHeaders } = require('../setup');
-const { findActiveAuditRow } = require('../pg-test-utils');
+const { getApp, getTokens, getSeedData, getCsrfHeaders, teardown } = require('../setup');
+const fx = require('../fixtures/pg-fixtures');
+const { findActiveAuditRow, deleteActiveRowsWhere } = require('../pg-test-utils');
 
 let app, tokens, seed, csrf;
 
@@ -26,7 +26,7 @@ beforeAll(async () => {
 });
 
 afterAll(async () => {
-  await mongoose.disconnect();
+  await teardown();
 });
 
 // Read the latest matching audit row from the ACTIVE backend (Mongo or PG).
@@ -46,10 +46,8 @@ const lastEventually = async (filter, { timeout = 3000, interval = 25 } = {}) =>
 };
 
 describe('Audit log write-side coverage', () => {
-  const AuditLog = require('../../models/AuditLog');
-
   test('PUT /api/users/:id name change writes action=updated entity=User', async () => {
-    await AuditLog.deleteMany({ entity: 'User', entityId: seed.member1._id, action: 'updated' });
+    await deleteActiveRowsWhere('AuditLog', { entity: 'User', entityId: seed.member1._id, action: 'updated' });
 
     const r = await request(app)
       .put(`/api/users/${seed.member1._id}`)
@@ -65,9 +63,8 @@ describe('Audit log write-side coverage', () => {
   });
 
   test('DELETE /api/users/:id writes a soft-delete audit entry', async () => {
-    const User = require('../../models/User');
     // Create a disposable user to delete (don't trash the seed admin).
-    const disposable = await User.create({
+    const disposable = await fx.createUser({
       empCode: 'AUD-' + Math.random().toString(16).slice(2, 8).toUpperCase(),
       name: 'Disposable for audit',
       role: 'Participant',
@@ -86,9 +83,8 @@ describe('Audit log write-side coverage', () => {
   });
 
   test('POST /api/evaluations writes an evaluation audit entry on first save', async () => {
-    const Class = require('../../models/Class');
     // Fresh class with empty teacherIds so the policy allows Teacher write.
-    const cls = await Class.create({
+    const cls = await fx.createClass({
       classCode: 'AUD-EVAL-' + Math.random().toString(16).slice(2, 8).toUpperCase(),
       courseName: 'Test English Class',
       totalSessions: 10,

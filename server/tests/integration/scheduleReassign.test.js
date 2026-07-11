@@ -12,23 +12,17 @@
  */
 
 const request = require('supertest');
-const mongoose = require('mongoose');
 const { getApp, getTokens, getSeedData, getCsrfHeaders, teardown } = require('../setup');
-const { readActiveRow } = require('../pg-test-utils');
+const fx = require('../fixtures/pg-fixtures');
+const { readActiveRow, deleteActiveRowsWhere } = require('../pg-test-utils');
 
 let app, tokens, seed, csrf;
-let Schedule, Team, Class, User, Attendance;
 
 beforeAll(async () => {
   app = await getApp();
   tokens = getTokens();
   seed = getSeedData();
   csrf = await getCsrfHeaders(app);
-  Schedule = require('../../models/Schedule');
-  Team = require('../../models/Team');
-  Class = require('../../models/Class');
-  User = require('../../models/User');
-  Attendance = require('../../models/Attendance');
 });
 
 afterAll(async () => {
@@ -43,38 +37,38 @@ const uniq = () => String(++ctr).padStart(8, '0');
 const setupReassignFixture = async () => {
   const sfx = uniq();
 
-  const cls = await Class.create({
+  const cls = await fx.createClass({
     classCode: `REAS_${sfx}`, courseName: 'Reassign Test', totalSessions: 10,
   });
 
-  const leaderA = await User.create({
+  const leaderA = await fx.createUser({
     empCode: `LA${sfx}`.slice(0, 10), name: `LeaderA-${sfx}`,
     role: 'Participant', department: 'Sales', password: 'pass12345678',
   });
-  const memberA = await User.create({
+  const memberA = await fx.createUser({
     empCode: `MA${sfx}`.slice(0, 10), name: `MemberA-${sfx}`,
     role: 'Participant', department: 'Sales', password: 'pass12345678',
   });
-  const leaderB = await User.create({
+  const leaderB = await fx.createUser({
     empCode: `LB${sfx}`.slice(0, 10), name: `LeaderB-${sfx}`,
     role: 'Participant', department: 'Sales', password: 'pass12345678',
   });
-  const memberB = await User.create({
+  const memberB = await fx.createUser({
     empCode: `MB${sfx}`.slice(0, 10), name: `MemberB-${sfx}`,
     role: 'Participant', department: 'Sales', password: 'pass12345678',
   });
 
-  const teamA = await Team.create({
+  const teamA = await fx.createTeam({
     name: `TeamA-${sfx}`, classId: cls._id,
     leaderId: leaderA._id, members: [leaderA._id, memberA._id],
   });
-  const teamB = await Team.create({
+  const teamB = await fx.createTeam({
     name: `TeamB-${sfx}`, classId: cls._id,
     leaderId: leaderB._id, members: [leaderB._id, memberB._id],
   });
 
   const future = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
-  const sched = await Schedule.create({
+  const sched = await fx.createSchedule({
     classId: cls._id, bookedTeamId: teamA._id,
     startTime: future, endTime: new Date(future.getTime() + 90 * 60 * 1000),
     enrolledUsers: [leaderA._id, memberA._id],
@@ -123,30 +117,30 @@ describe('Schedule reassignment — roster rebuild', () => {
 
   test('a Dropped member of the target team is NOT enrolled after reassignment', async () => {
     const sfx = uniq();
-    const cls = await Class.create({
+    const cls = await fx.createClass({
       classCode: `REASD_${sfx}`, courseName: 'Reassign Active-only', totalSessions: 10,
     });
-    const leaderD = await User.create({
+    const leaderD = await fx.createUser({
       empCode: `RLD${sfx}`.slice(0, 10), name: `RLeaderD-${sfx}`,
       role: 'Participant', department: 'Sales', password: 'pass12345678',
     });
-    const activeD = await User.create({
+    const activeD = await fx.createUser({
       empCode: `RAD${sfx}`.slice(0, 10), name: `RActiveD-${sfx}`,
       role: 'Participant', department: 'Sales', password: 'pass12345678',
     });
-    const droppedD = await User.create({
+    const droppedD = await fx.createUser({
       empCode: `RDD${sfx}`.slice(0, 10), name: `RDroppedD-${sfx}`,
       role: 'Participant', department: 'Sales', password: 'pass12345678', status: 'Dropped',
     });
-    const teamSrc = await Team.create({
+    const teamSrc = await fx.createTeam({
       name: `SrcD-${sfx}`, classId: cls._id, leaderId: leaderD._id, members: [leaderD._id],
     });
-    const teamDst = await Team.create({
+    const teamDst = await fx.createTeam({
       name: `DstD-${sfx}`, classId: cls._id, leaderId: leaderD._id,
       members: [leaderD._id, activeD._id, droppedD._id],
     });
     const future = new Date(Date.now() + 21 * 24 * 60 * 60 * 1000);
-    const sched = await Schedule.create({
+    const sched = await fx.createSchedule({
       classId: cls._id, bookedTeamId: teamSrc._id,
       startTime: future, endTime: new Date(future.getTime() + 60 * 60 * 1000),
       enrolledUsers: [leaderD._id],
@@ -175,7 +169,7 @@ describe('Schedule reassignment — attendance block', () => {
   test('returns 409 when attendance records already exist for the schedule', async () => {
     const { leaderA, teamB, sched } = await setupReassignFixture();
 
-    await Attendance.create({
+    await fx.createAttendance({
       scheduleId: sched._id, userId: leaderA._id, status: 'P',
     });
 
@@ -188,7 +182,7 @@ describe('Schedule reassignment — attendance block', () => {
     expect(res.status).toBe(409);
     expect(res.body.message).toMatch(/attendance/i);
 
-    await Attendance.deleteMany({ scheduleId: sched._id });
+    await deleteActiveRowsWhere('Attendance', { scheduleId: sched._id });
   });
 });
 
@@ -196,14 +190,14 @@ describe('Schedule reassignment — cross-class guard', () => {
   test('returns 400 when target team belongs to a different class', async () => {
     const { sched } = await setupReassignFixture();
 
-    const otherCls = await Class.create({
+    const otherCls = await fx.createClass({
       classCode: `OTHER_${uniq()}`, courseName: 'Other Class', totalSessions: 5,
     });
-    const otherLeader = await User.create({
+    const otherLeader = await fx.createUser({
       empCode: `OL${uniq()}`.slice(0, 10), name: 'Other Leader',
       role: 'Participant', department: 'HR', password: 'pass12345678',
     });
-    const otherTeam = await Team.create({
+    const otherTeam = await fx.createTeam({
       name: `OtherTeam-${uniq()}`, classId: otherCls._id,
       leaderId: otherLeader._id, members: [otherLeader._id],
     });
@@ -217,9 +211,9 @@ describe('Schedule reassignment — cross-class guard', () => {
     expect(res.status).toBe(400);
     expect(res.body.message).toMatch(/class/i);
 
-    await Team.findByIdAndDelete(otherTeam._id);
-    await Class.findByIdAndDelete(otherCls._id);
-    await User.findByIdAndDelete(otherLeader._id);
+    await deleteActiveRowsWhere('Team', { id: otherTeam._id });
+    await deleteActiveRowsWhere('Class', { id: otherCls._id });
+    await deleteActiveRowsWhere('User', { id: otherLeader._id });
   });
 });
 
