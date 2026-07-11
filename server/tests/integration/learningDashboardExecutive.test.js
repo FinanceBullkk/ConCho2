@@ -1,21 +1,10 @@
 const request = require('supertest');
-const mongoose = require('mongoose');
 const { getApp, getTokens, getSeedData, teardown, getCsrfHeaders } = require('../setup');
-const AssessmentAttempt = require('../../models/AssessmentAttempt');
-const Attendance = require('../../models/Attendance');
-const AuditLog = require('../../models/AuditLog');
-const Certificate = require('../../models/Certificate');
-const Class = require('../../models/Class');
-const Enrollment = require('../../models/Enrollment');
-const Feedback = require('../../models/Feedback');
-const LearningPath = require('../../models/LearningPath');
-const LearningProgram = require('../../models/LearningProgram');
-const Schedule = require('../../models/Schedule');
-const Setting = require('../../models/Setting');
 // Audit rows + the cost-config Setting are written through ported repos (PG-only
 // on the lane) — read audit + clear the Setting on the ACTIVE backend, else a
 // Mongoose read/deleteMany misses them (the cost-config leaks across tests).
-const { findActiveAuditRow, deleteActiveRowsWhere } = require('../pg-test-utils');
+const { findActiveAuditRow, deleteActiveRowsWhere, deleteActiveRowsLike } = require('../pg-test-utils');
+const fx = require('../fixtures/pg-fixtures');
 
 let app, tokens, seed;
 let seq = 0;
@@ -35,16 +24,16 @@ afterAll(async () => {
 
 afterEach(async () => {
   await Promise.all([
-    AssessmentAttempt.deleteMany({}),
-    Attendance.deleteMany({}),
-    AuditLog.deleteMany({ entity: 'Setting' }),
-    Certificate.deleteMany({}),
-    Enrollment.deleteMany({}),
-    Feedback.deleteMany({}),
-    LearningPath.deleteMany({}),
-    LearningProgram.deleteMany({}),
-    Schedule.deleteMany({}),
-    Class.deleteMany({ classCode: /^EXD/ }),
+    deleteActiveRowsWhere('AssessmentAttempt', {}),
+    deleteActiveRowsWhere('Attendance', {}),
+    deleteActiveRowsWhere('AuditLog', { entity: 'Setting' }),
+    deleteActiveRowsWhere('Certificate', {}),
+    deleteActiveRowsWhere('Enrollment', {}),
+    deleteActiveRowsWhere('Feedback', {}),
+    deleteActiveRowsWhere('LearningPath', {}),
+    deleteActiveRowsWhere('LearningProgram', {}),
+    deleteActiveRowsWhere('Schedule', {}),
+    deleteActiveRowsLike('Class', 'classCode', 'EXD'),
     deleteActiveRowsWhere('Setting', { key: 'LND_COST_CONFIG' }), // never touch ALLOWED_TIME_SLOTS
   ]);
 });
@@ -53,18 +42,18 @@ afterEach(async () => {
 // certificate-based mobility proxy has something to count.
 const seedExecutiveData = async () => {
   const now = Date.now();
-  const programA = await LearningProgram.create({
+  const programA = await fx.createLearningProgram({
     code: `EXD_A_${uniq()}`,
     name: 'Executive Program A',
     schedulingMode: 'self_enroll',
   });
-  const cohortA = await Class.create({
+  const cohortA = await fx.createClass({
     classCode: `EXDA${seq++}`,
     courseName: 'Executive Course A',
     programId: programA._id,
     totalSessions: 2,
   });
-  const scheduleA = await Schedule.create({
+  const scheduleA = await fx.createSchedule({
     classId: cohortA._id,
     startTime: new Date(now - 2 * DAY_MS),
     endTime: new Date(now - 2 * DAY_MS + 3600000),
@@ -72,21 +61,21 @@ const seedExecutiveData = async () => {
   });
 
   await Promise.all([
-    Attendance.create({ scheduleId: scheduleA._id, userId: seed.member1._id, status: 'P' }),
-    Enrollment.create({ userId: seed.member1._id, classId: cohortA._id, status: 'Active' }),
-    Feedback.create({
+    fx.createAttendance({ scheduleId: scheduleA._id, userId: seed.member1._id, status: 'P' }),
+    fx.createEnrollment({ userId: seed.member1._id, classId: cohortA._id, status: 'Active' }),
+    fx.createFeedback({
       cohortId: cohortA._id,
       userId: seed.member1._id,
       programId: programA._id,
       rating: 4,
     }),
-    AssessmentAttempt.create({
-      assessmentId: new mongoose.Types.ObjectId(),
+    fx.createAssessmentAttempt({
+      assessmentId: fx.genId(),
       userId: seed.member1._id,
       cohortId: cohortA._id,
       passed: true,
     }),
-    Certificate.create({
+    fx.createCertificate({
       certificateNumber: `CERT-EXD-${uniq()}`,
       verificationCode: `exd-${uniq()}`,
       userId: seed.member1._id,
@@ -95,7 +84,7 @@ const seedExecutiveData = async () => {
       status: 'Issued',
       validUntil: new Date(now + 10 * DAY_MS), // expiring within 30 days
     }),
-    Certificate.create({
+    fx.createCertificate({
       certificateNumber: `CERT-EXD-${uniq()}`,
       verificationCode: `exd-${uniq()}`,
       userId: seed.member2._id,
@@ -104,7 +93,7 @@ const seedExecutiveData = async () => {
       status: 'Issued',
       validUntil: new Date(now - 1 * DAY_MS), // already expired
     }),
-    LearningPath.create({
+    fx.createLearningPath({
       code: `EXDP_${uniq()}`,
       title: 'Executive Path',
       programs: [programA._id],
