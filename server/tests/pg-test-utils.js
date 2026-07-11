@@ -134,12 +134,18 @@ const readActiveRow = async (modelName, id) => {
 // maps to a PG flat snake column (`target_id`); a null value → `IS NULL` (SQL
 // `col = NULL` is never true). The Mongo twin passes the raw filter to the driver.
 const buildScalarWhere = (where = {}) => {
-  const col = (k) => camelToSnake(k.replace(/\./g, '_'));
+  // Mongo `_id` maps to the PG primary-key column `id` (all tables use `id`).
+  const col = (k) => (k === '_id' ? 'id' : camelToSnake(k.replace(/\./g, '_')));
   const conds = [];
   const args = [];
   for (const k of Object.keys(where)) {
     const v = where[k];
     if (v == null) conds.push(`"${col(k)}" IS NULL`);
+    // { $in: [...] } → "col" = ANY($n); node-pg binds the JS array as a PG array.
+    else if (v && typeof v === 'object' && !(v instanceof Date) && Array.isArray(v.$in)) {
+      args.push(v.$in.map((x) => (x instanceof Date ? x : String(x))));
+      conds.push(`"${col(k)}" = ANY($${args.length})`);
+    }
     // Booleans + Dates bind natively — a stringified "false" trips PG's boolean =
     // text, and String(Date) is a locale string that won't match a timestamptz.
     // Everything else stringifies (ids/enums via text).
@@ -147,7 +153,10 @@ const buildScalarWhere = (where = {}) => {
   }
   return { clause: conds.length ? `WHERE ${conds.join(' AND ')}` : '', args };
 };
-const mongoFilter = (where) => Object.fromEntries(Object.entries(where).map(([k, v]) => [k, oid(v)]));
+const mongoFilter = (where) => Object.fromEntries(Object.entries(where).map(([k, v]) => {
+  if (v && typeof v === 'object' && !(v instanceof Date) && Array.isArray(v.$in)) return [k, { $in: v.$in.map(oid) }];
+  return [k, oid(v)];
+}));
 
 /** findOne by top-level equality fields on the active backend, middleware-free. */
 const findActiveRowWhere = async (modelName, where) => {

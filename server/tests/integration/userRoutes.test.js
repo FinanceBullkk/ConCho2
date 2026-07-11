@@ -14,22 +14,18 @@
  */
 
 const request = require('supertest');
-const mongoose = require('mongoose');
 const { getApp, getTokens, getSeedData, getCsrfHeaders, teardown } = require('../setup');
 // Slice-4 ports write through DB_BACKEND repos — assert on the ACTIVE backend.
-const { readActiveRow, findActiveRowWhere } = require('../pg-test-utils');
+const { readActiveRow, findActiveRowWhere, updateActiveRow } = require('../pg-test-utils');
+const fx = require('../fixtures/pg-fixtures');
 
 let app, tokens, seed, csrf;
-let User, Schedule, Attendance;
 
 beforeAll(async () => {
   app = await getApp();
   tokens = getTokens();
   seed = getSeedData();
   csrf = await getCsrfHeaders(app);
-  User = require('../../models/User');
-  Schedule = require('../../models/Schedule');
-  Attendance = require('../../models/Attendance');
 });
 
 afterAll(async () => {
@@ -88,8 +84,8 @@ describe('GET /api/users', () => {
     // so this ordering only holds when lastActiveAt actually drives the sort.
     const now = new Date();
     const older = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-    await User.updateOne({ _id: seed.member1._id }, { $set: { lastActiveAt: older } });
-    await User.updateOne({ _id: seed.member2._id }, { $set: { lastActiveAt: now } });
+    await updateActiveRow('User', seed.member1._id, { lastActiveAt: older });
+    await updateActiveRow('User', seed.member2._id, { lastActiveAt: now });
 
     const res = await request(app)
       .get('/api/users?sortBy=lastActive&sortOrder=desc&limit=100')
@@ -103,10 +99,8 @@ describe('GET /api/users', () => {
     expect(iOlder).toBeGreaterThanOrEqual(0);
     expect(iNewer).toBeLessThan(iOlder);
 
-    await User.updateMany(
-      { _id: { $in: [seed.member1._id, seed.member2._id] } },
-      { $set: { lastActiveAt: null } },
-    );
+    await updateActiveRow('User', seed.member1._id, { lastActiveAt: null });
+    await updateActiveRow('User', seed.member2._id, { lastActiveAt: null });
   });
 
   test('returns 403 for non-Admin', async () => {
@@ -135,7 +129,7 @@ describe('GET /api/users/:id', () => {
   });
 
   test('returns 404 for unknown id', async () => {
-    const fakeId = new mongoose.Types.ObjectId().toString();
+    const fakeId = fx.genId();
     const res = await request(app)
       .get(`/api/users/${fakeId}`)
       .set('Authorization', `Bearer ${tokens.admin}`);
@@ -168,7 +162,7 @@ describe('GET /api/users/:id/progress', () => {
   });
 
   test('returns 404 for unknown user id', async () => {
-    const fakeId = new mongoose.Types.ObjectId().toString();
+    const fakeId = fx.genId();
     const res = await request(app)
       .get(`/api/users/${fakeId}/progress`)
       .set('Authorization', `Bearer ${tokens.admin}`);
@@ -295,7 +289,7 @@ describe('POST /api/users', () => {
 
 describe('PUT /api/users/:id', () => {
   test('updates name and department', async () => {
-    const user = await User.create({
+    const user = await fx.createUser({
       empCode: nextCode(), name: 'Before', email: `${nextCode()}@x.com`,
       role: 'Participant', password: 'pass12345678',
     });
@@ -312,7 +306,7 @@ describe('PUT /api/users/:id', () => {
   });
 
   test('returns 404 for unknown id', async () => {
-    const fakeId = new mongoose.Types.ObjectId().toString();
+    const fakeId = fx.genId();
     const res = await request(app)
       .put(`/api/users/${fakeId}`)
       .set('Authorization', `Bearer ${tokens.admin}`)
@@ -333,7 +327,7 @@ describe('PUT /api/users/:id', () => {
   // ── BUG #9 fix: re-auth gate ──────────────────────────────
 
   test('BUG #9 fix: resetting another user\'s password WITHOUT currentPassword is 403', async () => {
-    const target = await User.create({
+    const target = await fx.createUser({
       empCode: nextCode(), name: 'Pwd Target', email: `${nextCode()}@x.com`,
       role: 'Participant', password: 'pass12345678',
     });
@@ -349,7 +343,7 @@ describe('PUT /api/users/:id', () => {
   });
 
   test('BUG #9 fix: resetting another user\'s password WITH wrong currentPassword is 403', async () => {
-    const target = await User.create({
+    const target = await fx.createUser({
       empCode: nextCode(), name: 'Pwd Target 2', email: `${nextCode()}@x.com`,
       role: 'Participant', password: 'pass12345678',
     });
@@ -365,7 +359,7 @@ describe('PUT /api/users/:id', () => {
   });
 
   test('BUG #9 fix: resetting another user\'s password WITH correct currentPassword succeeds', async () => {
-    const target = await User.create({
+    const target = await fx.createUser({
       empCode: nextCode(), name: 'Pwd Target 3', email: `${nextCode()}@x.com`,
       role: 'Participant', password: 'pass12345678',
     });
@@ -381,7 +375,7 @@ describe('PUT /api/users/:id', () => {
   });
 
   test('BUG #9 fix: changing another user\'s role WITHOUT currentPassword is 403', async () => {
-    const target = await User.create({
+    const target = await fx.createUser({
       empCode: nextCode(), name: 'Role Target', email: `${nextCode()}@x.com`,
       role: 'Participant', password: 'pass12345678',
     });
@@ -397,7 +391,7 @@ describe('PUT /api/users/:id', () => {
   });
 
   test('BUG #9 fix: non-sensitive update (name only) does NOT require currentPassword', async () => {
-    const target = await User.create({
+    const target = await fx.createUser({
       empCode: nextCode(), name: 'Trivial Target', email: `${nextCode()}@x.com`,
       role: 'Participant', password: 'pass12345678',
     });
@@ -446,7 +440,7 @@ describe('PUT /api/users/:id', () => {
 
 describe('DELETE /api/users/:id', () => {
   test('soft-deletes a user (and cascades through team membership)', async () => {
-    const target = await User.create({
+    const target = await fx.createUser({
       empCode: nextCode(), name: 'To Delete', email: `${nextCode()}@x.com`,
       role: 'Participant', password: 'pass12345678',
     });
@@ -474,7 +468,7 @@ describe('DELETE /api/users/:id', () => {
   });
 
   test('preserves past schedule roster and attendance while releasing future roster', async () => {
-    const target = await User.create({
+    const target = await fx.createUser({
       empCode: nextCode(), name: 'Roster History', email: `${nextCode()}@x.com`,
       role: 'Participant', password: 'pass12345678',
     });
@@ -482,23 +476,21 @@ describe('DELETE /api/users/:id', () => {
     const pastStart = new Date(Date.now() - (7 * 24 * 60 + offsetMinutes) * 60 * 1000);
     const futureStart = new Date(Date.now() + (7 * 24 * 60 + offsetMinutes) * 60 * 1000);
 
-    const [pastSchedule, futureSchedule] = await Schedule.create([
-      {
-        classId: seed.class1._id,
-        bookedTeamId: seed.team._id,
-        startTime: pastStart,
-        endTime: new Date(pastStart.getTime() + 60 * 60 * 1000),
-        enrolledUsers: [target._id],
-      },
-      {
-        classId: seed.class1._id,
-        bookedTeamId: seed.team._id,
-        startTime: futureStart,
-        endTime: new Date(futureStart.getTime() + 60 * 60 * 1000),
-        enrolledUsers: [target._id],
-      },
-    ]);
-    await Attendance.create({
+    const pastSchedule = await fx.createSchedule({
+      classId: seed.class1._id,
+      bookedTeamId: seed.team._id,
+      startTime: pastStart,
+      endTime: new Date(pastStart.getTime() + 60 * 60 * 1000),
+      enrolledUsers: [target._id],
+    });
+    const futureSchedule = await fx.createSchedule({
+      classId: seed.class1._id,
+      bookedTeamId: seed.team._id,
+      startTime: futureStart,
+      endTime: new Date(futureStart.getTime() + 60 * 60 * 1000),
+      enrolledUsers: [target._id],
+    });
+    await fx.createAttendance({
       scheduleId: pastSchedule._id,
       userId: target._id,
       status: 'P',
@@ -548,7 +540,7 @@ describe('DELETE /api/users/:id', () => {
 describe('POST /api/users/:id/restore', () => {
   test('restores a soft-deleted user', async () => {
     // Create + delete
-    const target = await User.create({
+    const target = await fx.createUser({
       empCode: nextCode(), name: 'Phoenix', email: `${nextCode()}@x.com`,
       role: 'Participant', password: 'pass12345678',
     });
