@@ -186,6 +186,34 @@ const createCertificate = async (over = {}) => {
   return doc;
 };
 
+/** offices row. name/code required by the model. */
+const createOffice = async (over = {}) => {
+  const doc = {
+    _id: genId(),
+    name: 'Fixture Office',
+    code: `FXO${genId().slice(0, 6).toUpperCase()}`,
+    address: '', timezone: '',
+    ...over,
+  };
+  await insertDoc('Office', doc);
+  return doc;
+};
+
+/** rooms row (office-scoped). officeId required by the model. */
+const createRoom = async (over = {}) => {
+  const doc = {
+    _id: genId(),
+    name: 'Fixture Room',
+    code: `FXR${genId().slice(0, 6).toUpperCase()}`,
+    officeId: null,
+    seats: 10,
+    isActive: true,
+    ...over,
+  };
+  await insertDoc('Room', doc);
+  return doc;
+};
+
 /** learning_programs row — defaults match models/LearningProgram (enum-valid). */
 const createLearningProgram = async (over = {}) => {
   const doc = {
@@ -216,4 +244,6 @@ module.exports = {
   createEvaluation,
   createCertificate,
   createLearningProgram,
+  createOffice,
+  createRoom,
 };
