@@ -8,10 +8,10 @@
  */
 
 const request = require('supertest');
-const mongoose = require('mongoose');
 const jwt = require('jsonwebtoken');
 const { getApp, getTokens, getSeedData, getCsrfHeaders, teardown } = require('../setup');
 const { findActiveRowWhere } = require('../pg-test-utils');
+const fx = require('../fixtures/pg-fixtures');
 
 let app, tokens, seed, csrf, coordinator, coordinatorToken;
 
@@ -23,8 +23,7 @@ beforeAll(async () => {
 
   // The shared setup seeds Admin/Teacher/Participants only — mint a
   // Coordinator here (re-center Phase 1 role).
-  const User = require('../../models/User');
-  coordinator = await User.create({
+  coordinator = await fx.createUser({
     empCode: '000020', name: 'Coordinator Test', role: 'Coordinator',
     department: 'HR', password: 'coord123456',
   });
@@ -131,7 +130,7 @@ describe('Offices CRUD + authz', () => {
 
   test('assignment with an unknown office → 422', async () => {
     const res = await as(tokens.admin)('put', `/api/org/users/${seed.member1._id}/assignment`)
-      .send({ officeId: new mongoose.Types.ObjectId().toString() });
+      .send({ officeId: fx.genId() });
     expect(res.status).toBe(422);
   });
 });

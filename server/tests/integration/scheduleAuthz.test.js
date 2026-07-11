@@ -15,17 +15,15 @@
  */
 
 const request = require('supertest');
-const mongoose = require('mongoose');
 const { getApp, getTokens, getSeedData, teardown } = require('../setup');
+const fx = require('../fixtures/pg-fixtures');
 
 let app, tokens, seed;
-let Schedule;
 
 beforeAll(async () => {
   app = await getApp();
   tokens = getTokens();
   seed = getSeedData();
-  Schedule = require('../../models/Schedule');
 });
 
 afterAll(async () => {
@@ -41,7 +39,7 @@ beforeAll(async () => {
   const future = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
   const end = new Date(future.getTime() + 90 * 60 * 1000);
 
-  sched1 = await Schedule.create({
+  sched1 = await fx.createSchedule({
     classId: seed.class1._id,
     bookedTeamId: seed.team._id,
     startTime: future,
@@ -51,7 +49,7 @@ beforeAll(async () => {
 
   const future2 = new Date(Date.now() + 8 * 24 * 60 * 60 * 1000);
   const end2 = new Date(future2.getTime() + 90 * 60 * 1000);
-  sched2 = await Schedule.create({
+  sched2 = await fx.createSchedule({
     classId: seed.class2._id,
     bookedTeamId: seed.team._id,
     startTime: future2,

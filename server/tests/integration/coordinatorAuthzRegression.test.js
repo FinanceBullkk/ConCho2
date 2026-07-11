@@ -16,9 +16,9 @@
  */
 
 const request = require('supertest');
-const mongoose = require('mongoose');
 const jwt = require('jsonwebtoken');
 const { getApp, getTokens, getSeedData, getCsrfHeaders, teardown } = require('../setup');
+const fx = require('../fixtures/pg-fixtures');
 
 let app, tokens, csrf, coordinatorToken;
 
@@ -30,8 +30,7 @@ beforeAll(async () => {
 
   // Shared setup seeds Admin/Teacher/Participants only — mint a Coordinator.
   // Unique empCode so the suite is order-independent against the shared DB.
-  const User = require('../../models/User');
-  const coordinator = await User.create({
+  const coordinator = await fx.createUser({
     empCode: String(Date.now()).slice(-6),
     name: 'Coordinator Authz Test',
     role: 'Coordinator',
@@ -52,7 +51,7 @@ afterAll(async () => {
 const asCoordinator = (method, path) =>
   request(app)[method](path).set('Authorization', `Bearer ${coordinatorToken}`).set(csrf);
 
-const fakeId = () => new mongoose.Types.ObjectId().toString();
+const fakeId = () => fx.genId();
 
 // roleGuard runs BEFORE validate/handlers, so a fake id + minimal body still
 // reaches the 403 (the denial is the role gate, not validation/not-found).
