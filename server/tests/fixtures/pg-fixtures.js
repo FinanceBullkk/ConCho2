@@ -186,6 +186,45 @@ const createCertificate = async (over = {}) => {
   return doc;
 };
 
+/** assessment_attempts row — defaults match models/AssessmentAttempt. */
+const createAssessmentAttempt = async (over = {}) => {
+  const doc = {
+    _id: genId(),
+    assessmentId: null, userId: null, cohortId: null,
+    answers: [], score: 0, maxScore: 0, scorePercent: 0,
+    passed: false, submittedAt: new Date(),
+    ...over,
+  };
+  await insertDoc('AssessmentAttempt', doc);
+  return doc;
+};
+
+/** assignments row (D4 required-training) — defaults match models/Assignment. */
+const createAssignment = async (over = {}) => {
+  const doc = {
+    _id: genId(),
+    title: 'Fixture Assignment', description: '', targetType: 'program',
+    programId: null, pathId: null, dueDate: new Date(),
+    userIds: [], departmentIds: [], status: 'active',
+    createdBy: null, sourceCertificateId: null,
+    ...over,
+  };
+  await insertDoc('Assignment', doc);
+  return doc;
+};
+
+/** feedbacks row — cohortId/userId/rating required by the model. */
+const createFeedback = async (over = {}) => {
+  const doc = {
+    _id: genId(),
+    cohortId: null, userId: null, programId: null, rating: 5,
+    contentRating: null, instructorRating: null, comment: '', submittedBy: null,
+    ...over,
+  };
+  await insertDoc('Feedback', doc);
+  return doc;
+};
+
 /** offices row. name/code required by the model. */
 const createOffice = async (over = {}) => {
   const doc = {
@@ -246,4 +285,7 @@ module.exports = {
   createLearningProgram,
   createOffice,
   createRoom,
+  createAssessmentAttempt,
+  createAssignment,
+  createFeedback,
 };
