@@ -1,20 +1,24 @@
 const request = require('supertest');
 const jwt = require('jsonwebtoken');
-const mongoose = require('mongoose');
 const { getApp, getTokens, getSeedData, getCsrfHeaders, teardown } = require('../setup');
-const Schedule = require('../../models/Schedule');
-const Setting = require('../../models/Setting');
-const Class = require('../../models/Class');
-const LearningProgram = require('../../models/LearningProgram');
-const Enrollment = require('../../models/Enrollment');
-const User = require('../../models/User');
-const Office = require('../../models/Office');
-const NotificationLog = require('../../models/NotificationLog');
 // Sessions are booked through the ported schedule repo (PG-only on the lane) —
 // read the Schedule from the active backend, not Mongoose.
-const { readActiveRow, findActiveRowsWhere } = require('../pg-test-utils');
+const {
+  readActiveRow, findActiveRowsWhere, findActiveRowWhere,
+  deleteActiveRowsWhere, updateActiveRow,
+} = require('../pg-test-utils');
+const fx = require('../fixtures/pg-fixtures');
 
 let app, tokens, seed, csrf, office, coordinatorToken;
+
+// $addToSet-equivalent on the ALLOWED_TIME_SLOTS jsonb array (PG-native).
+const addAllowedSlot = async (slot) => {
+  const s = await findActiveRowWhere('Setting', { key: 'ALLOWED_TIME_SLOTS' });
+  const slots = Array.isArray(s.value) ? s.value : [];
+  const has = slots.some((v) => v.sh === slot.sh && v.sm === slot.sm && v.eh === slot.eh && v.em === slot.em);
+  if (!has) slots.push(slot);
+  await updateActiveRow('Setting', s._id, { value: JSON.stringify(slots) });
+};
 
 beforeAll(async () => {
   app = await getApp();
@@ -22,15 +26,12 @@ beforeAll(async () => {
   seed = getSeedData();
   csrf = await getCsrfHeaders(app);
 
-  await Setting.findOneAndUpdate(
-    { key: 'ALLOWED_TIME_SLOTS' },
-    { $addToSet: { value: { sh: 10, sm: 0, eh: 11, em: 0 } } },
-  );
+  await addAllowedSlot({ sh: 10, sm: 0, eh: 11, em: 0 });
 
   // re-center Phase 2: coordinator-scheduled cohort sessions need an Office +
   // a Coordinator actor (the shared setup seeds neither).
-  office = await Office.create({ name: 'HCM Office', code: 'HCMS' });
-  const coordinator = await User.create({
+  office = await fx.createOffice({ name: 'HCM Office', code: 'HCMS' });
+  const coordinator = await fx.createUser({
     empCode: '000030', name: 'Coordinator Sess', role: 'Coordinator',
     department: 'HR', password: 'coord123456',
   });
@@ -44,14 +45,12 @@ afterAll(async () => {
 });
 
 afterEach(async () => {
-  await Schedule.deleteMany({});
-  await Enrollment.deleteMany({});
-  await NotificationLog.deleteMany({});
-  await Class.updateMany(
-    { _id: { $in: [seed.class1._id, seed.class2._id] } },
-    { $set: { teacherIds: [], programId: null } },
-  );
-  await LearningProgram.deleteMany({});
+  await deleteActiveRowsWhere('Schedule', {});
+  await deleteActiveRowsWhere('Enrollment', {});
+  await deleteActiveRowsWhere('NotificationLog', {});
+  await updateActiveRow('Class', seed.class1._id, { teacherIds: [], programId: null });
+  await updateActiveRow('Class', seed.class2._id, { teacherIds: [], programId: null });
+  await deleteActiveRowsWhere('LearningProgram', {});
   // PERF-014: reads no longer invalidate the session-order cache (only writes
   // do). This test mutates Schedules directly (bypassing the service writers),
   // so it must flush the cache itself — otherwise a stale entry from the prior
@@ -100,18 +99,16 @@ describe('Learning Platform API — sessions', () => {
   test('list sessions maps Schedule records to session DTOs', async () => {
     const { start, end } = vnSlot();
     const second = vnSlot(1);
-    await Schedule.create([
-      {
-        classId: seed.class1._id, bookedTeamId: seed.team._id,
-        startTime: start, endTime: end,
-        enrolledUsers: [seed.leader._id, seed.member1._id],
-      },
-      {
-        classId: seed.class1._id, bookedTeamId: seed.team._id,
-        startTime: second.start, endTime: second.end,
-        enrolledUsers: [seed.member2._id],
-      },
-    ]);
+    await fx.createSchedule({
+      classId: seed.class1._id, bookedTeamId: seed.team._id,
+      startTime: start, endTime: end,
+      enrolledUsers: [seed.leader._id, seed.member1._id],
+    });
+    await fx.createSchedule({
+      classId: seed.class1._id, bookedTeamId: seed.team._id,
+      startTime: second.start, endTime: second.end,
+      enrolledUsers: [seed.member2._id],
+    });
 
     const res = await request(app)
       .get(`/api/learning/sessions?cohortId=${seed.class1._id}`)
@@ -146,24 +143,22 @@ describe('Learning Platform API — sessions', () => {
     const { start, end } = vnSlot();
     const second = vnSlot(1);
     const third = vnSlot(2);
-    const [mine, teammates, foreign] = await Schedule.create([
-      {
-        classId: seed.class1._id, bookedTeamId: seed.team._id,
-        startTime: start, endTime: end,
-        enrolledUsers: [seed.leader._id],
-      },
-      {
-        classId: seed.class1._id, bookedTeamId: seed.team._id,
-        startTime: second.start, endTime: second.end,
-        enrolledUsers: [seed.member1._id],
-      },
-      // No relation to the leader: another cohort, no team, not enrolled.
-      {
-        classId: seed.class2._id, bookedTeamId: null,
-        startTime: third.start, endTime: third.end,
-        enrolledUsers: [seed.member2._id],
-      },
-    ]);
+    const mine = await fx.createSchedule({
+      classId: seed.class1._id, bookedTeamId: seed.team._id,
+      startTime: start, endTime: end,
+      enrolledUsers: [seed.leader._id],
+    });
+    const teammates = await fx.createSchedule({
+      classId: seed.class1._id, bookedTeamId: seed.team._id,
+      startTime: second.start, endTime: second.end,
+      enrolledUsers: [seed.member1._id],
+    });
+    // No relation to the leader: another cohort, no team, not enrolled.
+    const foreign = await fx.createSchedule({
+      classId: seed.class2._id, bookedTeamId: null,
+      startTime: third.start, endTime: third.end,
+      enrolledUsers: [seed.member2._id],
+    });
 
     const res = await request(app)
       .get('/api/learning/sessions')
@@ -184,21 +179,17 @@ describe('Learning Platform API — sessions', () => {
   test('teacher reads are scoped to assigned cohorts', async () => {
     const { start, end } = vnSlot();
     const second = vnSlot(1);
-    await Class.findByIdAndUpdate(seed.class1._id, {
-      $addToSet: { teacherIds: seed.teacher._id },
+    await updateActiveRow('Class', seed.class1._id, { teacherIds: [seed.teacher._id.toString()] });
+    const assigned = await fx.createSchedule({
+      classId: seed.class1._id, bookedTeamId: seed.team._id,
+      startTime: start, endTime: end,
+      enrolledUsers: [seed.member1._id],
     });
-    const [assigned, unassigned] = await Schedule.create([
-      {
-        classId: seed.class1._id, bookedTeamId: seed.team._id,
-        startTime: start, endTime: end,
-        enrolledUsers: [seed.member1._id],
-      },
-      {
-        classId: seed.class2._id, bookedTeamId: seed.team._id,
-        startTime: second.start, endTime: second.end,
-        enrolledUsers: [seed.member2._id],
-      },
-    ]);
+    const unassigned = await fx.createSchedule({
+      classId: seed.class2._id, bookedTeamId: seed.team._id,
+      startTime: second.start, endTime: second.end,
+      enrolledUsers: [seed.member2._id],
+    });
 
     const list = await request(app)
       .get('/api/learning/sessions')
@@ -219,26 +210,22 @@ describe('Learning Platform API — sessions', () => {
     const third = vnSlot(2);
     // teacher is bound to class1; class2 stays foreign (teacherIds reset by
     // afterEach, and the LIST scope is strict — no empty-teacherIds flip).
-    await Class.findByIdAndUpdate(seed.class1._id, {
-      $addToSet: { teacherIds: seed.teacher._id },
+    await updateActiveRow('Class', seed.class1._id, { teacherIds: [seed.teacher._id.toString()] });
+    const assigned = await fx.createSchedule({
+      classId: seed.class1._id, bookedTeamId: seed.team._id,
+      startTime: start, endTime: end, enrolledUsers: [seed.member1._id],
     });
-    const [assigned, instructorOnly, foreign] = await Schedule.create([
-      {
-        classId: seed.class1._id, bookedTeamId: seed.team._id,
-        startTime: start, endTime: end, enrolledUsers: [seed.member1._id],
-      },
-      {
-        classId: seed.class2._id, bookedTeamId: null,
-        startTime: second.start, endTime: second.end,
-        enrolledUsers: [seed.member2._id],
-        sessionInstructorIds: [seed.teacher._id],
-      },
-      {
-        classId: seed.class2._id, bookedTeamId: null,
-        startTime: third.start, endTime: third.end,
-        enrolledUsers: [seed.member2._id],
-      },
-    ]);
+    const instructorOnly = await fx.createSchedule({
+      classId: seed.class2._id, bookedTeamId: null,
+      startTime: second.start, endTime: second.end,
+      enrolledUsers: [seed.member2._id],
+      sessionInstructorIds: [seed.teacher._id],
+    });
+    const foreign = await fx.createSchedule({
+      classId: seed.class2._id, bookedTeamId: null,
+      startTime: third.start, endTime: third.end,
+      enrolledUsers: [seed.member2._id],
+    });
 
     // No cohort param: my cohorts' sessions ∪ sessions I'm named on.
     const res = await request(app)
@@ -261,7 +248,7 @@ describe('Learning Platform API — sessions', () => {
 
   test('participant cannot fetch a session they are not enrolled in', async () => {
     const { start, end } = vnSlot();
-    const schedule = await Schedule.create({
+    const schedule = await fx.createSchedule({
       classId: seed.class1._id, bookedTeamId: seed.team._id,
       startTime: start, endTime: end,
       enrolledUsers: [seed.member1._id],
@@ -277,7 +264,7 @@ describe('Learning Platform API — sessions', () => {
   test('teacher cannot book or cancel through session adapter', async () => {
     const { start, end } = vnSlot();
     const next = vnSlot(1);
-    const schedule = await Schedule.create({
+    const schedule = await fx.createSchedule({
       classId: seed.class1._id, bookedTeamId: seed.team._id,
       startTime: start, endTime: end,
       enrolledUsers: [seed.leader._id],
@@ -302,10 +289,10 @@ describe('Learning Platform API — sessions', () => {
   });
 
   test('leader_booking program is enforced and still books', async () => {
-    const program = await LearningProgram.create({
+    const program = await fx.createLearningProgram({
       code: 'LB001', name: 'Leader Booking Program', schedulingMode: 'leader_booking',
     });
-    await Class.findByIdAndUpdate(seed.class1._id, { programId: program._id });
+    await updateActiveRow("Class", seed.class1._id, { programId: program._id });
 
     const { start, end } = vnSlot();
     const res = await request(app)
@@ -323,10 +310,10 @@ describe('Learning Platform API — sessions', () => {
   });
 
   test('admin_scheduled program: Admin can create a session', async () => {
-    const program = await LearningProgram.create({
+    const program = await fx.createLearningProgram({
       code: 'AS001', name: 'Admin Scheduled Program', schedulingMode: 'admin_scheduled',
     });
-    await Class.findByIdAndUpdate(seed.class1._id, { programId: program._id });
+    await updateActiveRow("Class", seed.class1._id, { programId: program._id });
 
     const { start, end } = vnSlot();
     const res = await request(app)
@@ -345,10 +332,10 @@ describe('Learning Platform API — sessions', () => {
   });
 
   test('admin_scheduled program: a team leader is rejected with 403', async () => {
-    const program = await LearningProgram.create({
+    const program = await fx.createLearningProgram({
       code: 'AS002', name: 'Admin Scheduled Program 2', schedulingMode: 'admin_scheduled',
     });
-    await Class.findByIdAndUpdate(seed.class1._id, { programId: program._id });
+    await updateActiveRow("Class", seed.class1._id, { programId: program._id });
 
     const { start, end } = vnSlot();
     const res = await request(app)
@@ -367,10 +354,10 @@ describe('Learning Platform API — sessions', () => {
   });
 
   test('self_enroll program: booking against a GROUP is rejected (use the cohort)', async () => {
-    const program = await LearningProgram.create({
+    const program = await fx.createLearningProgram({
       code: 'SE001', name: 'Self Enroll Program', schedulingMode: 'self_enroll',
     });
-    await Class.findByIdAndUpdate(seed.class1._id, { programId: program._id });
+    await updateActiveRow("Class", seed.class1._id, { programId: program._id });
 
     const { start, end } = vnSlot();
     const res = await request(app)
@@ -389,16 +376,14 @@ describe('Learning Platform API — sessions', () => {
   });
 
   test('self_enroll program: Admin schedules a cohort session enrolling its active learners', async () => {
-    const program = await LearningProgram.create({
+    const program = await fx.createLearningProgram({
       code: 'SE002', name: 'Self Enroll Program 2', schedulingMode: 'self_enroll',
     });
-    await Class.findByIdAndUpdate(seed.class1._id, { programId: program._id });
-    await Enrollment.create([
-      { userId: seed.member1._id, classId: seed.class1._id, teamId: null, status: 'Active' },
-      { userId: seed.member2._id, classId: seed.class1._id, teamId: null, status: 'Active' },
-      // A dropped enrollment must NOT be carried onto the session.
-      { userId: seed.leader._id, classId: seed.class1._id, teamId: null, status: 'Dropped' },
-    ]);
+    await updateActiveRow("Class", seed.class1._id, { programId: program._id });
+    await fx.createEnrollment({ userId: seed.member1._id, classId: seed.class1._id, teamId: null, status: 'Active' });
+    await fx.createEnrollment({ userId: seed.member2._id, classId: seed.class1._id, teamId: null, status: 'Active' });
+    // A dropped enrollment must NOT be carried onto the session.
+    await fx.createEnrollment({ userId: seed.leader._id, classId: seed.class1._id, teamId: null, status: 'Dropped' });
 
     const { start, end } = vnSlot();
     const res = await request(app)
@@ -436,13 +421,11 @@ describe('Learning Platform API — sessions', () => {
   });
 
   test('nomination program: Admin schedules a cohort session', async () => {
-    const program = await LearningProgram.create({
+    const program = await fx.createLearningProgram({
       code: 'NM001', name: 'Nomination Program', schedulingMode: 'nomination',
     });
-    await Class.findByIdAndUpdate(seed.class1._id, { programId: program._id });
-    await Enrollment.create([
-      { userId: seed.member1._id, classId: seed.class1._id, teamId: null, status: 'Active' },
-    ]);
+    await updateActiveRow("Class", seed.class1._id, { programId: program._id });
+    await fx.createEnrollment({ userId: seed.member1._id, classId: seed.class1._id, teamId: null, status: 'Active' });
 
     const { start, end } = vnSlot();
     const res = await request(app)
@@ -462,10 +445,10 @@ describe('Learning Platform API — sessions', () => {
   });
 
   test('cohort booking by a non-admin (leader) is rejected with 403', async () => {
-    const program = await LearningProgram.create({
+    const program = await fx.createLearningProgram({
       code: 'SE003', name: 'Self Enroll Program 3', schedulingMode: 'self_enroll',
     });
-    await Class.findByIdAndUpdate(seed.class1._id, { programId: program._id });
+    await updateActiveRow("Class", seed.class1._id, { programId: program._id });
 
     const { start, end } = vnSlot();
     const res = await request(app)
@@ -483,10 +466,10 @@ describe('Learning Platform API — sessions', () => {
   });
 
   test('cohort booking against a team-based (leader_booking) cohort is rejected with 400', async () => {
-    const program = await LearningProgram.create({
+    const program = await fx.createLearningProgram({
       code: 'LB900', name: 'Leader Booking Program', schedulingMode: 'leader_booking',
     });
-    await Class.findByIdAndUpdate(seed.class1._id, { programId: program._id });
+    await updateActiveRow("Class", seed.class1._id, { programId: program._id });
 
     const { start, end } = vnSlot();
     const res = await request(app)
@@ -507,13 +490,11 @@ describe('Learning Platform API — sessions', () => {
 
   // ── re-center Phase 2: coordinator-scheduled offline sessions ──
   test('self_enroll program: a Coordinator can schedule a cohort session at an Office', async () => {
-    const program = await LearningProgram.create({
+    const program = await fx.createLearningProgram({
       code: 'SE100', name: 'Coordinator Self Enroll', schedulingMode: 'self_enroll',
     });
-    await Class.findByIdAndUpdate(seed.class1._id, { programId: program._id });
-    await Enrollment.create([
-      { userId: seed.member1._id, classId: seed.class1._id, teamId: null, status: 'Active' },
-    ]);
+    await updateActiveRow("Class", seed.class1._id, { programId: program._id });
+    await fx.createEnrollment({ userId: seed.member1._id, classId: seed.class1._id, teamId: null, status: 'Active' });
 
     const { start, end } = vnSlot();
     const res = await request(app)
@@ -535,10 +516,10 @@ describe('Learning Platform API — sessions', () => {
   });
 
   test('cohort session without officeId is rejected (400 — Office required)', async () => {
-    const program = await LearningProgram.create({
+    const program = await fx.createLearningProgram({
       code: 'SE101', name: 'Self Enroll No Office', schedulingMode: 'self_enroll',
     });
-    await Class.findByIdAndUpdate(seed.class1._id, { programId: program._id });
+    await updateActiveRow("Class", seed.class1._id, { programId: program._id });
 
     const { start, end } = vnSlot();
     const res = await request(app)
@@ -556,10 +537,10 @@ describe('Learning Platform API — sessions', () => {
   });
 
   test('cohort session with an unknown officeId is rejected (422)', async () => {
-    const program = await LearningProgram.create({
+    const program = await fx.createLearningProgram({
       code: 'SE102', name: 'Self Enroll Bad Office', schedulingMode: 'self_enroll',
     });
-    await Class.findByIdAndUpdate(seed.class1._id, { programId: program._id });
+    await updateActiveRow("Class", seed.class1._id, { programId: program._id });
 
     const { start, end } = vnSlot();
     const res = await request(app)
@@ -568,7 +549,7 @@ describe('Learning Platform API — sessions', () => {
       .set(csrf)
       .send({
         cohortId: seed.class1._id.toString(),
-        officeId: new mongoose.Types.ObjectId().toString(),
+        officeId: fx.genId(),
         startTime: start.toISOString(),
         endTime: end.toISOString(),
       });
