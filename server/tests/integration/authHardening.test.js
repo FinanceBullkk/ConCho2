@@ -11,9 +11,8 @@
 
 const request = require('supertest');
 const jwt = require('jsonwebtoken');
-const mongoose = require('mongoose');
-const { getApp, getTokens, getSeedData, getCsrfHeaders } = require('../setup');
-const { readActiveRow } = require('../pg-test-utils');
+const { getApp, getTokens, getSeedData, getCsrfHeaders, teardown } = require('../setup');
+const { readActiveRow, updateActiveRow } = require('../pg-test-utils');
 
 let app, tokens, seed, csrf;
 
@@ -25,7 +24,7 @@ beforeAll(async () => {
 });
 
 afterAll(async () => {
-  await mongoose.disconnect();
+  await teardown();
 });
 
 // ── SEC-007 ─────────────────────────────────────────────────
@@ -143,12 +142,10 @@ describe('SEC-009 — admin force-logout + mfa admin-disable require re-auth', (
   });
 
   test('mfa admin-disable with CORRECT currentPassword returns 200 + clears MFA', async () => {
-    const User = require('../../models/User');
-    // Plant MFA fields on the target so we can verify they're cleared.
-    await User.updateOne(
-      { _id: seed.member1._id },
-      { $set: { mfaEnabled: true, mfaSecret: 'KEEP-AS-TEST', mfaBackupCodes: ['x', 'y'] } },
-    );
+    // Plant MFA fields on the target (PG-native) so we can verify they're cleared.
+    await updateActiveRow('User', seed.member1._id, {
+      mfaEnabled: true, mfaSecret: 'KEEP-AS-TEST', mfaBackupCodes: ['x', 'y'],
+    });
 
     const res = await request(app)
       .post(`/api/auth/mfa/admin-disable/${seed.member1._id}`)

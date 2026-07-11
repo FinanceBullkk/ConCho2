@@ -14,9 +14,10 @@
  */
 
 const request = require('supertest');
-const mongoose = require('mongoose');
-const { getApp, getTokens, getSeedData, getCsrfHeaders } = require('../setup');
-const { countActiveRowsWhere } = require('../pg-test-utils');
+const { getApp, getTokens, getSeedData, getCsrfHeaders, teardown } = require('../setup');
+const {
+  countActiveRowsWhere, findActiveRowWhere, updateActiveRow, deleteActiveRowsWhere,
+} = require('../pg-test-utils');
 
 let app, tokens, seed, csrf;
 
@@ -28,22 +29,26 @@ beforeAll(async () => {
 
   // Same fixture as booking.test.js — add a 10:00-11:00 VN slot to
   // ALLOWED_TIME_SLOTS so vnSlotOnDay()'s 1-hour window matches exactly.
-  const Setting = require('../../models/Setting');
-  await Setting.findOneAndUpdate(
-    { key: 'ALLOWED_TIME_SLOTS' },
-    { $addToSet: { value: { sh: 10, sm: 0, eh: 11, em: 0 } } },
-    { upsert: false },
-  );
+  await addAllowedSlot({ sh: 10, sm: 0, eh: 11, em: 0 });
 });
 
 afterAll(async () => {
-  await mongoose.disconnect();
+  await teardown();
 });
 
 afterEach(async () => {
   // Wipe schedules between tests so the weekly cap counts from zero.
-  await require('../../models/Schedule').deleteMany({});
+  await deleteActiveRowsWhere('Schedule', {});
 });
+
+// $addToSet-equivalent on the ALLOWED_TIME_SLOTS jsonb array (PG-native).
+const addAllowedSlot = async (slot) => {
+  const s = await findActiveRowWhere('Setting', { key: 'ALLOWED_TIME_SLOTS' });
+  const slots = Array.isArray(s.value) ? s.value : [];
+  const has = slots.some((v) => v.sh === slot.sh && v.sm === slot.sm && v.eh === slot.eh && v.em === slot.em);
+  if (!has) slots.push(slot);
+  await updateActiveRow('Setting', s._id, { value: JSON.stringify(slots) });
+};
 
 // Helper from booking.test.js — produce a start/end in next Monday's 10–11 VN slot.
 const vnSlotOnDay = (offsetDays = 0) => {
