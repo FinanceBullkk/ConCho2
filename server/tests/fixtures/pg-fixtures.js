@@ -179,9 +179,11 @@ const createEvaluation = async (over = {}) => {
   return doc;
 };
 
-/** certificates row. status defaults to 'Issued' (the common issued-cert case). */
+/** certificates row. status/issuedAt default like models/Certificate (issuedAt
+ *  drives the trend + trailing-completion rollups, so it must not be null). */
 const createCertificate = async (over = {}) => {
-  const doc = { _id: genId(), status: 'Issued', ...over };
+  const issuedAt = over.issuedAt || new Date();
+  const doc = { _id: genId(), status: 'Issued', issuedAt, validFrom: over.validFrom || issuedAt, ...over };
   await insertDoc('Certificate', doc);
   return doc;
 };
@@ -222,6 +224,18 @@ const createFeedback = async (over = {}) => {
     ...over,
   };
   await insertDoc('Feedback', doc);
+  return doc;
+};
+
+/** learning_paths row — code/title required by the model. */
+const createLearningPath = async (over = {}) => {
+  const doc = {
+    _id: genId(),
+    code: `FXPATH${genId().slice(0, 6).toUpperCase()}`,
+    title: 'Fixture Path', description: '', programs: [], status: 'active',
+    ...over,
+  };
+  await insertDoc('LearningPath', doc);
   return doc;
 };
 
@@ -288,4 +302,5 @@ module.exports = {
   createAssessmentAttempt,
   createAssignment,
   createFeedback,
+  createLearningPath,
 };
