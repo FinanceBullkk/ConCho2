@@ -12,23 +12,20 @@
  */
 
 const request = require('supertest');
-const mongoose = require('mongoose');
 const { getApp, getTokens, getSeedData, getCsrfHeaders, teardown } = require('../setup');
-const { readActiveRow, readActiveTeamMemberIds, findActiveRowWhere, countActiveRowsWhere, deleteActiveRowsWhere } = require('../pg-test-utils');
+const {
+  readActiveRow, readActiveTeamMemberIds, findActiveRowWhere, countActiveRowsWhere,
+  deleteActiveRowsWhere, updateActiveRow, addActiveTeamMember,
+} = require('../pg-test-utils');
+const fx = require('../fixtures/pg-fixtures');
 
 let app, tokens, seed, csrf;
-let Enrollment, Team, Class, User, NotificationLog;
 
 beforeAll(async () => {
   app = await getApp();
   tokens = getTokens();
   seed = getSeedData();
   csrf = await getCsrfHeaders(app);
-  Enrollment = require('../../models/Enrollment');
-  Team = require('../../models/Team');
-  Class = require('../../models/Class');
-  User = require('../../models/User');
-  NotificationLog = require('../../models/NotificationLog');
 });
 
 afterAll(async () => {
@@ -42,28 +39,28 @@ const seedTransferScenario = async () => {
   counter += 1;
   const suffix = `${Date.now()}_${counter}`;
 
-  const cls1 = await Class.create({
+  const cls1 = await fx.createClass({
     classCode: `XFER_FROM_${counter}`, courseName: 'Source Class', totalSessions: 10,
   });
-  const cls2 = await Class.create({
+  const cls2 = await fx.createClass({
     classCode: `XFER_TO_${counter}`, courseName: 'Target Class', totalSessions: 10,
   });
 
-  const fromTeam = await Team.create({
+  const fromTeam = await fx.createTeam({
     name: `Source-${suffix}`,
     classId: cls1._id,
     leaderId: seed.leader._id,
     members: [seed.leader._id, seed.member1._id],
   });
 
-  const toTeam = await Team.create({
+  const toTeam = await fx.createTeam({
     name: `Target-${suffix}`,
     classId: cls2._id,
     leaderId: seed.member2._id,
     members: [seed.member2._id],
   });
 
-  const enrollment = await Enrollment.create({
+  const enrollment = await fx.createEnrollment({
     userId: seed.member1._id,
     teamId: fromTeam._id,
     classId: cls1._id,
@@ -134,7 +131,7 @@ describe('POST /api/enrollments/:id/transfer', () => {
     const { toTeam, enrollment } = await seedTransferScenario();
 
     // Manually mark Dropped
-    await Enrollment.findByIdAndUpdate(enrollment._id, { status: 'Dropped', leftAt: new Date() });
+    await updateActiveRow('Enrollment', enrollment._id, { status: 'Dropped', leftAt: new Date() });
 
     const res = await request(app)
       .post(`/api/enrollments/${enrollment._id}/transfer`)
@@ -147,7 +144,7 @@ describe('POST /api/enrollments/:id/transfer', () => {
   });
 
   test('returns 404 when enrollment does not exist', async () => {
-    const fakeId = new mongoose.Types.ObjectId().toString();
+    const fakeId = fx.genId();
     const res = await request(app)
       .post(`/api/enrollments/${fakeId}/transfer`)
       .set('Authorization', `Bearer ${tokens.admin}`)
@@ -159,7 +156,7 @@ describe('POST /api/enrollments/:id/transfer', () => {
 
   test('returns 404 when target team does not exist', async () => {
     const { enrollment } = await seedTransferScenario();
-    const fakeId = new mongoose.Types.ObjectId().toString();
+    const fakeId = fx.genId();
 
     const res = await request(app)
       .post(`/api/enrollments/${enrollment._id}/transfer`)
@@ -174,7 +171,7 @@ describe('POST /api/enrollments/:id/transfer', () => {
   test('returns 409 when user is already in target team', async () => {
     const { toTeam, enrollment } = await seedTransferScenario();
     // Pre-add member1 to toTeam (so the transfer would create a duplicate)
-    await Team.findByIdAndUpdate(toTeam._id, { $addToSet: { members: seed.member1._id } });
+    await addActiveTeamMember(toTeam._id, seed.member1._id);
 
     const res = await request(app)
       .post(`/api/enrollments/${enrollment._id}/transfer`)
@@ -239,22 +236,22 @@ describe('POST /api/enrollments/:id/transfer', () => {
     const suffix = `${Date.now()}_same_${counter}`;
     // Two teams sharing ONE class — Team.classId is intentionally NOT unique
     // ("multiple teams per class allowed"), so a same-cohort rebalance is real.
-    const cls = await Class.create({
+    const cls = await fx.createClass({
       classCode: `XFER_SAME_${counter}`, courseName: 'Same Cohort', totalSessions: 10,
     });
-    const mover = await User.create({
+    const mover = await fx.createUser({
       empCode: `0955${String(counter).padStart(2, '0')}`,
       name: 'Same Mover', role: 'Participant', department: 'Test', password: 'pass12345678',
     });
-    const fromTeam = await Team.create({
+    const fromTeam = await fx.createTeam({
       name: `SameFrom-${suffix}`, classId: cls._id, leaderId: seed.leader._id,
       members: [seed.leader._id, mover._id],
     });
-    const toTeam = await Team.create({
+    const toTeam = await fx.createTeam({
       name: `SameTo-${suffix}`, classId: cls._id, leaderId: seed.member2._id,
       members: [seed.member2._id],
     });
-    const enrollment = await Enrollment.create({
+    const enrollment = await fx.createEnrollment({
       userId: mover._id, teamId: fromTeam._id, classId: cls._id, status: 'Active',
     });
     await deleteActiveRowsWhere('NotificationLog', { recipientUserId: mover._id });
