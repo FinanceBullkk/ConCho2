@@ -8,6 +8,7 @@
 
 const request = require('supertest');
 const { getApp, getTokens, getSeedData, teardown } = require('../setup');
+const fx = require('../fixtures/pg-fixtures');
 
 const VALID_CRON_TOKEN = 'test-cron-token-32chars-minimum!!';
 
@@ -140,11 +141,9 @@ describe('POST /api/cron/attendance-reminders', () => {
 
   test('is idempotent — second call notifies 0 (everything already reminded)', async () => {
     // Seed: create a schedule starting in 2h with an enrolled user
-    const mongoose = require('mongoose');
-    const Schedule = require('../../models/Schedule');
     const startTime = new Date(Date.now() + 2 * 60 * 60 * 1000);
     const endTime = new Date(startTime.getTime() + 90 * 60 * 1000);
-    await Schedule.create({
+    await fx.createSchedule({
       classId: seed.class1._id,
       bookedTeamId: seed.team._id,
       startTime,

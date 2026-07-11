@@ -1,6 +1,8 @@
 // Dual-backend NotificationLog write seam (Phase 5 slice 3 — A6).
 const notificationRepo = require('../../notification/repository');
-const User = require('../../../models/User');
+// PG-only runtime (Wave K D2d-0) — the manager-digest learner lookup used to run
+// via Mongoose `User.find().populate('managerId')`, reading the empty Mongo.
+const { query } = require('../../../config/pg');
 const logger = require('../../../lib/logger');
 const {
   sendAssignmentDueSoon,
@@ -96,10 +98,18 @@ const notifyLearner = async ({ assignment, row, cadence, summary }) => {
 const loadManagerDigestRows = async (entries) => {
   if (!entries.length) return new Map();
   const learnerIds = [...new Set(entries.map((entry) => entry.row.learner._id.toString()))];
-  const users = await User.find({ _id: { $in: learnerIds } })
-    .select('name empCode email managerId')
-    .populate('managerId', 'name email')
-    .lean();
+  const { rows: userRows } = await query(
+    `SELECT u.id, u.name, u.emp_code, u.email,
+            m.id AS m_id, m.name AS m_name, m.email AS m_email
+       FROM users u
+       LEFT JOIN users m ON m.id = u.manager_id
+      WHERE u.id = ANY($1)`,
+    [learnerIds],
+  );
+  const users = userRows.map((r) => ({
+    _id: r.id, name: r.name, empCode: r.emp_code, email: r.email,
+    managerId: r.m_id ? { _id: r.m_id, name: r.m_name, email: r.m_email } : null,
+  }));
   const byId = new Map(users.map((user) => [user._id.toString(), user]));
   const byManager = new Map();
 

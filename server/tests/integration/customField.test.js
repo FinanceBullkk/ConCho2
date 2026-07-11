@@ -7,8 +7,8 @@
  */
 
 const request = require('supertest');
-const mongoose = require('mongoose');
-const { getApp, getTokens, getCsrfHeaders } = require('../setup');
+const { getApp, getTokens, getCsrfHeaders, teardown } = require('../setup');
+const fx = require('../fixtures/pg-fixtures');
 
 let app, tokens, csrf;
 
@@ -19,7 +19,7 @@ beforeAll(async () => {
 });
 
 afterAll(async () => {
-  await mongoose.disconnect();
+  await teardown();
 });
 
 const asAdmin = (method, path) =>
@@ -106,7 +106,7 @@ describe('Custom fields — drag-reorder', () => {
     const made = await asAdmin('post', '/api/custom-fields').send({ entity, key: 'rr_only', label: 'Only', type: 'text' });
     expect(made.status).toBe(201);
     const bad = await asAdmin('put', '/api/custom-fields/reorder')
-      .send({ entity, orderedIds: [new mongoose.Types.ObjectId().toString()] });
+      .send({ entity, orderedIds: [fx.genId()] });
     expect(bad.status).toBe(400);
   });
 
@@ -114,7 +114,7 @@ describe('Custom fields — drag-reorder', () => {
     const res = await request(app)
       .put('/api/custom-fields/reorder')
       .set('Authorization', `Bearer ${tokens.teacher}`).set(csrf)
-      .send({ entity: 'Program', orderedIds: [new mongoose.Types.ObjectId().toString()] });
+      .send({ entity: 'Program', orderedIds: [fx.genId()] });
     expect(res.status).toBe(403);
   });
 });

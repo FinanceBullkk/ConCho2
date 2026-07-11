@@ -14,8 +14,8 @@
 
 const request = require('supertest');
 const jwt = require('jsonwebtoken');
-const mongoose = require('mongoose');
-const { getApp, getTokens, getSeedData, getCsrfHeaders } = require('../setup');
+const { getApp, getTokens, getSeedData, getCsrfHeaders, teardown } = require('../setup');
+const fx = require('../fixtures/pg-fixtures');
 
 let app, tokens, seed, csrf;
 
@@ -27,7 +27,7 @@ beforeAll(async () => {
 });
 
 afterAll(async () => {
-  await mongoose.disconnect();
+  await teardown();
 });
 
 // Helper — mint a token for any User._id (mirrors setup.js).
@@ -35,33 +35,30 @@ const tokenFor = (userId) =>
   jwt.sign({ id: String(userId) }, process.env.JWT_SECRET, { expiresIn: '1h' });
 
 describe('Class.teacherIds binding — evaluation', () => {
-  const Class = require('../../models/Class');
-  const User = require('../../models/User');
-
   let boundClass, unboundClass, teacherA, teacherB;
 
   beforeAll(async () => {
     // Create a second teacher so we have a known "bound vs unbound" pair.
-    teacherA = await User.create({
+    teacherA = await fx.createUser({
       empCode: 'T-BIND-A',
       name: 'Teacher Bound A',
       role: 'Teacher',
       password: 'bound-a-pwd-12345',
     });
-    teacherB = await User.create({
+    teacherB = await fx.createUser({
       empCode: 'T-BIND-B',
       name: 'Teacher Bound B',
       role: 'Teacher',
       password: 'bound-b-pwd-12345',
     });
 
-    boundClass = await Class.create({
+    boundClass = await fx.createClass({
       classCode: 'BIND001',
       courseName: 'Bound Course Test',
       totalSessions: 5,
       teacherIds: [teacherA._id],
     });
-    unboundClass = await Class.create({
+    unboundClass = await fx.createClass({
       classCode: 'BIND002',
       courseName: 'Unbound Course Test',
       totalSessions: 5,
@@ -153,46 +150,40 @@ describe('Class.teacherIds binding — evaluation', () => {
 });
 
 describe('Class.teacherIds binding — attendance', () => {
-  const Attendance = require('../../models/Attendance');
-  const Class = require('../../models/Class');
-  const Schedule = require('../../models/Schedule');
-  const Team = require('../../models/Team');
-  const User = require('../../models/User');
-
   let boundClass, unboundClass, teacherA, teacherB, teamBound, teamUnbound, schedBound, schedUnbound;
 
   beforeAll(async () => {
-    teacherA = await User.create({
+    teacherA = await fx.createUser({
       empCode: 'T-BIND-ATT-A',
       name: 'Att Teacher A',
       role: 'Teacher',
       password: 'att-a-pwd-12345',
     });
-    teacherB = await User.create({
+    teacherB = await fx.createUser({
       empCode: 'T-BIND-ATT-B',
       name: 'Att Teacher B',
       role: 'Teacher',
       password: 'att-b-pwd-12345',
     });
 
-    boundClass = await Class.create({
+    boundClass = await fx.createClass({
       classCode: 'BIND-ATT-001',
       courseName: 'Bound Att Class',
       totalSessions: 5,
       teacherIds: [teacherA._id],
     });
-    unboundClass = await Class.create({
+    unboundClass = await fx.createClass({
       classCode: 'BIND-ATT-002',
       courseName: 'Unbound Att Class',
       totalSessions: 5,
     });
-    teamBound = await Team.create({
+    teamBound = await fx.createTeam({
       name: 'Bound Att Team',
       classId: boundClass._id,
       leaderId: seed.leader._id,
       members: [seed.member2._id],
     });
-    teamUnbound = await Team.create({
+    teamUnbound = await fx.createTeam({
       name: 'Unbound Att Team',
       classId: unboundClass._id,
       leaderId: seed.leader._id,
@@ -202,22 +193,20 @@ describe('Class.teacherIds binding — attendance', () => {
     // Past schedules so we can bulk-mark without hitting the future-guard.
     const past = new Date(Date.now() - 24 * 3600_000);
     const end  = new Date(past.getTime() + 90 * 60_000);
-    schedBound = await Schedule.create({
+    schedBound = await fx.createSchedule({
       classId: boundClass._id,
       bookedTeamId: teamBound._id,
       startTime: past, endTime: end,
       enrolledUsers: [seed.member1._id, seed.member2._id],
     });
-    schedUnbound = await Schedule.create({
+    schedUnbound = await fx.createSchedule({
       classId: unboundClass._id,
       bookedTeamId: teamUnbound._id,
       startTime: past, endTime: end,
       enrolledUsers: [seed.member1._id, seed.member2._id],
     });
-    await Attendance.create([
-      { scheduleId: schedBound._id, userId: seed.member2._id, status: 'P' },
-      { scheduleId: schedUnbound._id, userId: seed.member1._id, status: 'A' },
-    ]);
+    await fx.createAttendance({ scheduleId: schedBound._id, userId: seed.member2._id, status: 'P' });
+    await fx.createAttendance({ scheduleId: schedUnbound._id, userId: seed.member1._id, status: 'A' });
   });
 
   test('Teacher A (bound) CAN bulk-mark schedule of boundClass → 200', async () => {
