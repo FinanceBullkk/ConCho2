@@ -12,10 +12,10 @@
  * by existing cronRoutes.test.js.
  */
 
-const mongoose = require('mongoose');
-const { getApp, getSeedData } = require('../setup');
+const { getApp, getSeedData, teardown } = require('../setup');
 // Slice-4 ports write through DB_BACKEND repos — assert on the ACTIVE backend.
-const { findActiveRowsWhere, countActiveRowsWhere } = require('../pg-test-utils');
+const { findActiveRowsWhere, countActiveRowsWhere, deleteActiveRowsWhere } = require('../pg-test-utils');
+const fx = require('../fixtures/pg-fixtures');
 
 let seed;
 
@@ -25,21 +25,20 @@ beforeAll(async () => {
 });
 
 afterAll(async () => {
-  await mongoose.disconnect();
+  await teardown();
 });
 
 const cleanup = async () => {
-  const Schedule = require('../../models/Schedule');
-  await Schedule.deleteMany({ roomLink: 'PR-F-reminder-fixture' });
+  await deleteActiveRowsWhere('Schedule', { roomLink: 'PR-F-reminder-fixture' });
 };
 beforeEach(cleanup);
 
 const seedSchedules = async (count) => {
-  const Schedule = require('../../models/Schedule');
   const start = new Date(Date.now() + 3 * 3600_000); // 3 hours from now
-  const docs = [];
+  // Every doc has a unique startTime by construction, so the
+  // (classId, startTime) partial-unique index is never violated.
   for (let i = 0; i < count; i++) {
-    docs.push({
+    await fx.createSchedule({
       classId: seed.class1._id,
       bookedTeamId: seed.team._id,
       startTime: new Date(start.getTime() + i * 60_000),  // stagger
@@ -48,15 +47,10 @@ const seedSchedules = async (count) => {
       roomLink: 'PR-F-reminder-fixture',
     });
   }
-  // Use insertMany with validateBeforeSave to leverage the new
-  // (classId, startTime) unique index — fine because every doc has
-  // a unique startTime by construction.
-  await Schedule.insertMany(docs);
 };
 
 describe('PERF-005 — reminder bulk claim', () => {
   const { sendUpcomingReminders } = require('../../services/reminderService');
-  const Schedule = require('../../models/Schedule');
 
   test('first run notifies all candidates within the window', async () => {
     await seedSchedules(5);
@@ -109,13 +103,11 @@ describe('PERF-005 — reminder bulk claim', () => {
 
 describe('PERF-007 — search anchored prefix + cache', () => {
   const { search, invalidateSearchCache } = require('../../services/searchService');
-  const User = require('../../models/User');
 
   beforeEach(() => invalidateSearchCache());
 
   test('prefix match works for short queries (≤3 chars)', async () => {
-    await User.create({
-      empCode: 'PERF7-PREFIX-' + Math.random().toString(16).slice(2, 6).toUpperCase(),
+    await fx.createUser({
       name: 'Zulu Anchor Test',
       role: 'Participant',
       password: 'pwd-12345678',
@@ -127,8 +119,7 @@ describe('PERF-007 — search anchored prefix + cache', () => {
   });
 
   test('long query (≥4 chars) ALSO matches substring (not just prefix)', async () => {
-    await User.create({
-      empCode: 'PERF7-SUB-' + Math.random().toString(16).slice(2, 6).toUpperCase(),
+    await fx.createUser({
       name: 'Foo Substring Bar',
       role: 'Participant',
       password: 'pwd-12345678',
