@@ -139,7 +139,7 @@ const createEnrollment = async (over = {}) => {
   return doc;
 };
 
-/** schedules row (a booked session). */
+/** schedules row (a booked session). `capacity` matches models/Schedule default (9). */
 const createSchedule = async (over = {}) => {
   const doc = {
     _id: genId(),
@@ -148,6 +148,7 @@ const createSchedule = async (over = {}) => {
     endTime: null,
     status: 'scheduled',
     enrolledUsers: [],
+    capacity: 9,
     ...over,
   };
   await insertDoc('Schedule', doc);
@@ -171,6 +172,38 @@ const createAttendance = async (over = {}) => {
   return doc;
 };
 
+/** evaluations row (instructor rubric). classId/userId required by the model. */
+const createEvaluation = async (over = {}) => {
+  const doc = { _id: genId(), ...over };
+  await insertDoc('Evaluation', doc);
+  return doc;
+};
+
+/** certificates row. status defaults to 'Issued' (the common issued-cert case). */
+const createCertificate = async (over = {}) => {
+  const doc = { _id: genId(), status: 'Issued', ...over };
+  await insertDoc('Certificate', doc);
+  return doc;
+};
+
+/** learning_programs row — defaults match models/LearningProgram (enum-valid). */
+const createLearningProgram = async (over = {}) => {
+  const doc = {
+    _id: genId(),
+    code: `FXP${genId().slice(0, 6).toUpperCase()}`,
+    name: 'Fixture Program',
+    category: 'other',
+    defaultSessionCount: 1,
+    deliveryMode: 'online',
+    schedulingMode: 'admin_scheduled',
+    status: 'active',
+    completionPolicy: { attendanceThresholdPercent: 0, requiresAssessment: false, requiresFeedback: false },
+    ...over,
+  };
+  await insertDoc('LearningProgram', doc);
+  return doc;
+};
+
 module.exports = {
   genId,
   insertDoc,
@@ -180,4 +213,7 @@ module.exports = {
   createEnrollment,
   createSchedule,
   createAttendance,
+  createEvaluation,
+  createCertificate,
+  createLearningProgram,
 };
