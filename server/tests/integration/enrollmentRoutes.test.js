@@ -13,22 +13,17 @@
  */
 
 const request = require('supertest');
-const mongoose = require('mongoose');
 const { getApp, getTokens, getSeedData, getCsrfHeaders, teardown } = require('../setup');
+const fx = require('../fixtures/pg-fixtures');
 const { pollUntil, findActiveRowWhere, readActiveRow } = require('../pg-test-utils');
 
 let app, tokens, seed, csrf;
-let Enrollment, Team, Class, Schedule;
 
 beforeAll(async () => {
   app = await getApp();
   tokens = getTokens();
   seed = getSeedData();
   csrf = await getCsrfHeaders(app);
-  Enrollment = require('../../models/Enrollment');
-  Team = require('../../models/Team');
-  Class = require('../../models/Class');
-  Schedule = require('../../models/Schedule');
 });
 
 afterAll(async () => {
@@ -40,22 +35,22 @@ const seedTeamWithEnrollments = async () => {
   enrollCounter += 1;
   const suffix = `${Date.now()}_${enrollCounter}`;
 
-  const cls = await Class.create({
+  const cls = await fx.createClass({
     classCode: `ENR_${suffix}`, courseName: 'Enrollment Test', totalSessions: 10,
   });
-  const team = await Team.create({
+  const team = await fx.createTeam({
     name: `EnrollTeam-${suffix}`,
     classId: cls._id,
     leaderId: seed.leader._id,
     members: [seed.leader._id, seed.member1._id, seed.member2._id],
   });
-  const e1 = await Enrollment.create({
+  const e1 = await fx.createEnrollment({
     userId: seed.leader._id, teamId: team._id, classId: cls._id, status: 'Active',
   });
-  const e2 = await Enrollment.create({
+  const e2 = await fx.createEnrollment({
     userId: seed.member1._id, teamId: team._id, classId: cls._id, status: 'Active',
   });
-  const e3 = await Enrollment.create({
+  const e3 = await fx.createEnrollment({
     userId: seed.member2._id, teamId: team._id, classId: cls._id, status: 'Completed',
     leftAt: new Date(),
   });
@@ -146,7 +141,7 @@ describe('GET /api/enrollments/team/:teamId', () => {
   });
 
   test('returns empty array for unknown teamId', async () => {
-    const fakeId = new mongoose.Types.ObjectId().toString();
+    const fakeId = fx.genId();
     const res = await request(app)
       .get(`/api/enrollments/team/${fakeId}`)
       .set('Authorization', `Bearer ${tokens.admin}`);
@@ -261,7 +256,7 @@ describe('PUT /api/enrollments/:id', () => {
   });
 
   test('returns 404 for unknown id', async () => {
-    const fakeId = new mongoose.Types.ObjectId().toString();
+    const fakeId = fx.genId();
     const res = await request(app)
       .put(`/api/enrollments/${fakeId}`)
       .set('Authorization', `Bearer ${tokens.admin}`)
@@ -287,11 +282,11 @@ describe('POST /api/enrollments/check-conflicts', () => {
   test('returns conflicts for users already Active in another team', async () => {
     const { team } = await seedTeamWithEnrollments();
     // member1 is Active in `team` — checking against a DIFFERENT team should flag it
-    const otherCls = await Class.create({
+    const otherCls = await fx.createClass({
       classCode: `OTHER_${Date.now()}_${enrollCounter++}`,
       courseName: 'X', totalSessions: 5,
     });
-    const otherTeam = await Team.create({
+    const otherTeam = await fx.createTeam({
       name: `OtherTeam-${Date.now()}`,
       classId: otherCls._id,
       leaderId: seed.member2._id,
@@ -350,7 +345,7 @@ describe('POST /api/enrollments/check-conflicts', () => {
 describe('Enrollment close-path → future-schedule roster pull', () => {
   const futureSession = (cls, userIds) => {
     const start = new Date(Date.now() + 7 * 86400000); // +7d
-    return Schedule.create({
+    return fx.createSchedule({
       classId: cls._id,
       startTime: start,
       endTime: new Date(start.getTime() + 3600000),
@@ -436,7 +431,7 @@ describe('Enrollment close-path → future-schedule roster pull', () => {
     const { cls, enrollments } = await seedTeamWithEnrollments();
     const uid = seed.leader._id;
     const start = new Date(Date.now() - 7 * 86400000); // -7d (past)
-    const past = await Schedule.create({
+    const past = await fx.createSchedule({
       classId: cls._id, startTime: start, endTime: new Date(start.getTime() + 3600000),
       enrolledUsers: [uid], status: 'scheduled',
     });
