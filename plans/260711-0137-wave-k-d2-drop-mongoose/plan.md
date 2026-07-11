@@ -74,10 +74,14 @@ attendance analytics + assessment access + learning dashboard),
 `domains/learning/assignment/reminder-service.js`,
 `domains/learning/path/use-cases.js`, `helpers/cohortMembership.js`.
 
-**New sub-phase D2d-0 (must precede the fixture grind's blocked files):** port
-these 6 runtime reads to PG (active-backend / domain repositories). Also blocks
-D2e model deletion (a deleted model = these files crash). Their own PR
-(D2b-style runtime-read completion).
+**Sub-phase D2d-0 — DONE 2026-07-11 (commit bf371a9):** ported all 6 runtime
+reads to Postgres (`config/pg` — direct queries; the two `.populate()` reminder
+services rebuilt via SQL LEFT JOINs reconstructing the populated shape). Runtime
+is now genuinely mongoose-free (only `models/*` + dev `config/db.js` remain).
+Verified via consumer suites on PG (teacherBinding 18/18 now PG-native +
+prerequisite/path/feedback/assessment green); the reminder cron suites are
+infra-broken locally like cronRoutes → CI (dedicated PG) covers them. Grep
+confirms zero runtime `Model.query()` calls remain.
 
 ## Phases (each independently green on the PG lane — the only lane now)
 | # | Phase | Scope | Risk |

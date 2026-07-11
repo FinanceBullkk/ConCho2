@@ -168,11 +168,21 @@ Bug fixing and integration review rank above net-new feature rollout.
   services, `learning/path`, `helpers/cohortMembership`) → they read the empty
   Mongo on PG = **latent prod bugs** (teacher scoping / prerequisites / reminders),
   masked until now by the mirror + the fresh-start (no real data). D2b missed them
-  (it grepped `mongoose.` not `Model.find`). **New blocking sub-phase D2d-0:** port
-  these 6 runtime reads to PG (own PR) — also required before D2e can delete the
-  models. Deferred suites: teacherBinding (blocked by teacher-class-scope),
-  phaseAHardening (DATA-014 tests the Mongoose `pre('save')` hook directly →
-  re-home, not mechanically convert). Details: D2 plan + `[[project_unported_runtime_mongoose_reads]]`.
+  (it grepped `mongoose.` not `Model.find`). **Sub-phase D2d-0 — DONE (same day):**
+  ported all 6 runtime reads to Postgres (`config/pg` — direct queries + JOIN
+  reconstruction of the two `.populate()` reminder services). The server runtime
+  is now **genuinely mongoose-free** (only `models/*` + dev-only `config/db.js`
+  still touch it — D2b's claim is finally true). Also fixes the latent prod bugs
+  (teacher scoping / prerequisites / reminders returned empty on PG). Verified via
+  consumer suites on PG: teacherBinding 18/18 (now PG-native, exercises the ported
+  teacher-scope), learningPrerequisiteRoutes + compliance-completion-batch 7/7,
+  learningPathRoutes 9/9, learningFeedbackRoutes + assessmentRoutes 40/40,
+  certificateExpiryReminders 6/9 (3 = known shared-Neon local flake, green in CI);
+  the reminder cron suites are infra-broken locally like cronRoutes → CI (dedicated
+  PG) covers them. Still deferred: phaseAHardening (DATA-014 tests the Mongoose
+  `pre('save')` hook directly → re-home, not mechanically convert). Remaining D2d:
+  ~26 fixture suites left to convert, then D2e (delete models + deps). Details: D2
+  plan + `[[project_unported_runtime_mongoose_reads]]`.
 - **2026-07-11** — **Wave K Phase 2 · Batch D2c — PG-native test-fixture foundation + first two suites off Mongoose.**
   The keystone for dropping `mongoose`: new `tests/fixtures/pg-fixtures.js` — builders
   (`createUser`/`createClass`/`createTeam`/`createEnrollment`/`createSchedule`/`createAttendance`
