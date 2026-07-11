@@ -6,13 +6,8 @@
  */
 
 const request = require('supertest');
-const mongoose = require('mongoose');
-const { getApp, getTokens, getSeedData } = require('../setup');
-
-const Office = require('../../models/Office');
-const Room = require('../../models/Room');
-const Class = require('../../models/Class');
-const Schedule = require('../../models/Schedule');
+const { getApp, getTokens, getSeedData, teardown } = require('../setup');
+const fx = require('../fixtures/pg-fixtures');
 
 let app, tokens;
 const uniq = () => Math.random().toString(16).slice(2, 8).toUpperCase();
@@ -24,18 +19,18 @@ beforeAll(async () => {
 });
 
 afterAll(async () => {
-  await mongoose.disconnect();
+  await teardown();
 });
 
 describe('Room utilization', () => {
   test('computes booked vs available hours per room + per office', async () => {
-    const office = await Office.create({ name: 'Util Office', code: `UO${uniq()}` });
-    const room = await Room.create({ name: 'Util Room', code: `UR${uniq()}`, officeId: office._id });
-    const cls = await Class.create({ classCode: `UC${uniq()}`, courseName: 'Util Class', totalSessions: 4 });
+    const office = await fx.createOffice({ name: 'Util Office', code: `UO${uniq()}` });
+    const room = await fx.createRoom({ name: 'Util Room', code: `UR${uniq()}`, officeId: office._id });
+    const cls = await fx.createClass({ classCode: `UC${uniq()}`, courseName: 'Util Class', totalSessions: 4 });
 
     const start = new Date(Date.now() - 2 * 60 * 60 * 1000); // 2h ago (in range)
     const end = new Date(start.getTime() + 2 * 60 * 60 * 1000); // 2h session
-    await Schedule.create({ classId: cls._id, roomId: room._id, startTime: start, endTime: end, status: 'scheduled' });
+    await fx.createSchedule({ classId: cls._id, roomId: room._id, startTime: start, endTime: end, status: 'scheduled' });
 
     const r = await request(app)
       .get('/api/rooms/utilization?range=7d')

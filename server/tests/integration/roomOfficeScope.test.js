@@ -8,20 +8,25 @@
 
 const request = require('supertest');
 const jwt = require('jsonwebtoken');
-const mongoose = require('mongoose');
-const { getApp, getTokens, getSeedData, getCsrfHeaders, teardown } = require('../setup');
-const { findActiveRowWhere, readActiveRow, countActiveRowsWhere } = require('../pg-test-utils');
-const Schedule = require('../../models/Schedule');
-const Setting = require('../../models/Setting');
-const Class = require('../../models/Class');
-const LearningProgram = require('../../models/LearningProgram');
-const Enrollment = require('../../models/Enrollment');
-const RoomBooking = require('../../models/RoomBooking');
-const Room = require('../../models/Room');
-const Office = require('../../models/Office');
-const User = require('../../models/User');
+const {
+  getApp, getTokens, getSeedData, getCsrfHeaders, teardown,
+} = require('../setup');
+const {
+  findActiveRowWhere, readActiveRow, countActiveRowsWhere,
+  deleteActiveRowsWhere, updateActiveRow,
+} = require('../pg-test-utils');
+const fx = require('../fixtures/pg-fixtures');
 
 let app, tokens, seed, csrf, officeA, officeB, coordinatorToken;
+
+// $addToSet-equivalent on the ALLOWED_TIME_SLOTS jsonb array (PG-native).
+const addAllowedSlot = async (slot) => {
+  const s = await findActiveRowWhere('Setting', { key: 'ALLOWED_TIME_SLOTS' });
+  const slots = Array.isArray(s.value) ? s.value : [];
+  const has = slots.some((v) => v.sh === slot.sh && v.sm === slot.sm && v.eh === slot.eh && v.em === slot.em);
+  if (!has) slots.push(slot);
+  await updateActiveRow('Setting', s._id, { value: JSON.stringify(slots) });
+};
 
 beforeAll(async () => {
   app = await getApp();
@@ -29,14 +34,11 @@ beforeAll(async () => {
   seed = getSeedData();
   csrf = await getCsrfHeaders(app);
 
-  await Setting.findOneAndUpdate(
-    { key: 'ALLOWED_TIME_SLOTS' },
-    { $addToSet: { value: { sh: 10, sm: 0, eh: 11, em: 0 } } },
-  );
+  await addAllowedSlot({ sh: 10, sm: 0, eh: 11, em: 0 });
 
-  officeA = await Office.create({ name: 'HCM Office', code: 'RMHCM' });
-  officeB = await Office.create({ name: 'Hanoi Office', code: 'RMHN' });
-  const coordinator = await User.create({
+  officeA = await fx.createOffice({ name: 'HCM Office', code: 'RMHCM' });
+  officeB = await fx.createOffice({ name: 'Hanoi Office', code: 'RMHN' });
+  const coordinator = await fx.createUser({
     empCode: '000040', name: 'Coordinator Room', role: 'Coordinator',
     department: 'HR', password: 'coord123456',
   });
@@ -50,15 +52,13 @@ afterAll(async () => {
 });
 
 afterEach(async () => {
-  await Schedule.deleteMany({});
-  await RoomBooking.deleteMany({});
-  await Enrollment.deleteMany({});
-  await Room.deleteMany({});
-  await Class.updateMany(
-    { _id: { $in: [seed.class1._id, seed.class2._id] } },
-    { $set: { teacherIds: [], programId: null } },
-  );
-  await LearningProgram.deleteMany({});
+  await deleteActiveRowsWhere('Schedule', {});
+  await deleteActiveRowsWhere('RoomBooking', {});
+  await deleteActiveRowsWhere('Enrollment', {});
+  await deleteActiveRowsWhere('Room', {});
+  await updateActiveRow('Class', seed.class1._id, { teacherIds: [], programId: null });
+  await updateActiveRow('Class', seed.class2._id, { teacherIds: [], programId: null });
+  await deleteActiveRowsWhere('LearningProgram', {});
 });
 
 const as = (token) => (method, path) =>
@@ -76,9 +76,9 @@ const vnSlot = (offsetDays = 0) => {
 };
 
 const makeCohort = async (classId, mode = 'self_enroll', code = 'RM_PROG') => {
-  const program = await LearningProgram.create({ code, name: code, schedulingMode: mode });
-  await Class.findByIdAndUpdate(classId, { programId: program._id });
-  await Enrollment.create({ userId: seed.member1._id, classId, teamId: null, status: 'Active' });
+  const program = await fx.createLearningProgram({ code, name: code, schedulingMode: mode });
+  await updateActiveRow("Class", classId, { programId: program._id });
+  await fx.createEnrollment({ userId: seed.member1._id, classId, teamId: null, status: 'Active' });
 };
 
 // ── Room CRUD + authz ─────────────────────────────────────
@@ -100,7 +100,7 @@ describe('Rooms CRUD + authz (Office-scoped)', () => {
 
   test('create with an unknown office → 404', async () => {
     const res = await as(tokens.admin)('post', '/api/rooms')
-      .send({ name: 'Ghost', code: 'GH1', officeId: new mongoose.Types.ObjectId().toString() });
+      .send({ name: 'Ghost', code: 'GH1', officeId: fx.genId() });
     expect(res.status).toBe(404);
   });
 
@@ -151,7 +151,7 @@ describe('Rooms CRUD + authz (Office-scoped)', () => {
 describe('Room assignment on a cohort session', () => {
   test('same-Office room → 201, ledger row written, DTO exposes room', async () => {
     await makeCohort(seed.class1._id, 'self_enroll', 'RM_SE1');
-    const room = await Room.create({ name: 'Same Office', code: 'SO1', officeId: officeA._id });
+    const room = await fx.createRoom({ name: 'Same Office', code: 'SO1', officeId: officeA._id });
     const { start, end } = vnSlot();
 
     const res = await as(coordinatorToken)('post', '/api/learning/sessions/book-slot').send({
@@ -177,7 +177,7 @@ describe('Room assignment on a cohort session', () => {
 
   test('cross-Office room → 422 (no ledger row, no schedule persisted)', async () => {
     await makeCohort(seed.class1._id, 'self_enroll', 'RM_SE2');
-    const roomB = await Room.create({ name: 'Other Office', code: 'OO1', officeId: officeB._id });
+    const roomB = await fx.createRoom({ name: 'Other Office', code: 'OO1', officeId: officeB._id });
     const { start, end } = vnSlot();
 
     const res = await as(coordinatorToken)('post', '/api/learning/sessions/book-slot').send({
@@ -191,14 +191,14 @@ describe('Room assignment on a cohort session', () => {
     expect(res.status).toBe(422);
     expect(res.body.message).toMatch(/different Office/i);
     // The whole booking rolled back — neither the schedule nor a ledger row exist.
-    expect(await Schedule.countDocuments({})).toBe(0);
-    expect(await RoomBooking.countDocuments({})).toBe(0);
+    expect(await countActiveRowsWhere("Schedule", {})).toBe(0);
+    expect(await countActiveRowsWhere("RoomBooking", {})).toBe(0);
   });
 
   test('per-room lock: same room+slot for two cohorts → one 201, one 409', async () => {
     await makeCohort(seed.class1._id, 'self_enroll', 'RM_SE3');
     await makeCohort(seed.class2._id, 'self_enroll', 'RM_SE4');
-    const room = await Room.create({ name: 'Shared', code: 'SH1', officeId: officeA._id });
+    const room = await fx.createRoom({ name: 'Shared', code: 'SH1', officeId: officeA._id });
     const { start, end } = vnSlot();
     const body = (cohortId) => ({
       cohortId: cohortId.toString(),
@@ -222,7 +222,7 @@ describe('Room assignment on a cohort session', () => {
 
   test('cancelling a roomed session frees the slot (room re-bookable)', async () => {
     await makeCohort(seed.class1._id, 'self_enroll', 'RM_SE5');
-    const room = await Room.create({ name: 'Reuse', code: 'RU1', officeId: officeA._id });
+    const room = await fx.createRoom({ name: 'Reuse', code: 'RU1', officeId: officeA._id });
     const { start, end } = vnSlot();
     const payload = {
       cohortId: seed.class1._id.toString(),
@@ -237,7 +237,7 @@ describe('Room assignment on a cohort session', () => {
 
     const cancel = await as(coordinatorToken)('delete', `/api/learning/sessions/${first.body.data.scheduleId}/cancel`);
     expect(cancel.status).toBe(200);
-    expect(await RoomBooking.countDocuments({})).toBe(0);
+    expect(await countActiveRowsWhere("RoomBooking", {})).toBe(0);
 
     // Same room + slot is now bookable again.
     const second = await as(coordinatorToken)('post', '/api/learning/sessions/book-slot').send(payload);
@@ -246,7 +246,7 @@ describe('Room assignment on a cohort session', () => {
 
   test('archive blocked while an upcoming session uses the room (409), allowed after cancel', async () => {
     await makeCohort(seed.class1._id, 'self_enroll', 'RM_SE6');
-    const room = await Room.create({ name: 'Busy', code: 'BZ1', officeId: officeA._id });
+    const room = await fx.createRoom({ name: 'Busy', code: 'BZ1', officeId: officeA._id });
     const { start, end } = vnSlot();
     const booked = await as(coordinatorToken)('post', '/api/learning/sessions/book-slot').send({
       cohortId: seed.class1._id.toString(),
