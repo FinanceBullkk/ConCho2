@@ -1,8 +1,8 @@
-const LearningProgram = require('../../../models/LearningProgram');
-const Class = require('../../../models/Class');
-const Enrollment = require('../../../models/Enrollment');
-const Schedule = require('../../../models/Schedule');
-const Certificate = require('../../../models/Certificate');
+// PG-only runtime (Wave K D2d-0). These reads used to run via Mongoose models,
+// which — after the Postgres cutover — hit the now-empty Mongo and reported every
+// learner as having completed nothing (so prerequisites never gated). Now they
+// read Postgres directly.
+const { query } = require('../../../config/pg');
 const completionUseCases = require('../completion/use-cases');
 const { ServiceError } = require('../../../helpers/ServiceError');
 
@@ -39,22 +39,36 @@ const mapWithConcurrency = async (items, limit, fn) => {
 //   Otherwise: evaluate the completion engine across the cohorts of that
 //   program the learner actually participated in (enrollment or session roster).
 const hasCompletedProgram = async (userId, programId) => {
-  const cert = await Certificate.exists({
-    userId, programId, status: 'Issued', isDeleted: false,
-  });
-  if (cert) return true;
+  const cert = await query(
+    `SELECT 1 FROM certificates
+      WHERE user_id = $1 AND program_id = $2 AND status = 'Issued' AND is_deleted = false LIMIT 1`,
+    [String(userId), String(programId)],
+  );
+  if (cert.rows.length) return true;
 
-  const cohortIds = await Class.find({ programId, isDeleted: { $ne: true } }).distinct('_id');
+  const cohorts = await query(
+    `SELECT DISTINCT id FROM classes WHERE program_id = $1 AND is_deleted = false`,
+    [String(programId)],
+  );
+  const cohortIds = cohorts.rows.map((r) => r.id);
   if (!cohortIds.length) return false;
 
   const [enrolled, rostered] = await Promise.all([
-    Enrollment.find({
-      userId, classId: { $in: cohortIds }, status: { $in: PARTICIPATING_STATUSES },
-    }).distinct('classId'),
-    Schedule.find({ classId: { $in: cohortIds }, enrolledUsers: userId, status: 'scheduled' }).distinct('classId'),
+    query(
+      `SELECT DISTINCT class_id FROM enrollments
+        WHERE user_id = $1 AND class_id = ANY($2) AND status = ANY($3)`,
+      [String(userId), cohortIds, PARTICIPATING_STATUSES],
+    ),
+    query(
+      `SELECT DISTINCT class_id FROM schedules
+        WHERE class_id = ANY($1) AND $2 = ANY(enrolled_users) AND status = 'scheduled'`,
+      [cohortIds, String(userId)],
+    ),
   ]);
 
-  const participated = [...new Set([...enrolled, ...rostered].map(String))];
+  const participated = [...new Set(
+    [...enrolled.rows, ...rostered.rows].map((r) => String(r.class_id)),
+  )];
   for (const cohortId of participated) {
     // eslint-disable-next-line no-await-in-loop -- learners have few cohorts/program; enroll is a rare op
     const completion = await completionUseCases.evaluateCompletion(cohortId, userId);
@@ -78,39 +92,50 @@ const completedProgramUserIds = async (userIds, programId) => {
   if (!ids.length || !programId) return complete;
 
   // Fast path: an Issued program-level certificate (one query for all learners).
-  const certUserIds = await Certificate.find({
-    userId: { $in: ids }, programId, status: 'Issued', isDeleted: false,
-  }).distinct('userId');
-  certUserIds.forEach((id) => complete.add(String(id)));
+  const certRows = await query(
+    `SELECT DISTINCT user_id FROM certificates
+      WHERE user_id = ANY($1) AND program_id = $2 AND status = 'Issued' AND is_deleted = false`,
+    [ids.map(String), String(programId)],
+  );
+  certRows.rows.forEach((r) => complete.add(String(r.user_id)));
 
   const remaining = ids.filter((id) => !complete.has(String(id)));
   if (!remaining.length) return complete;
 
-  const cohortIds = await Class.find({ programId, isDeleted: { $ne: true } }).distinct('_id');
+  const cohorts = await query(
+    `SELECT DISTINCT id FROM classes WHERE program_id = $1 AND is_deleted = false`,
+    [String(programId)],
+  );
+  const cohortIds = cohorts.rows.map((r) => r.id);
   if (!cohortIds.length) return complete;
 
   // Participation discovery (batched): enrolled OR session-rostered — the same
   // two signals the per-user path uses, across all remaining learners at once.
+  const remainingIds = remaining.map(String);
   const [enrolledRows, rosteredRows] = await Promise.all([
-    Enrollment.find({
-      userId: { $in: remaining }, classId: { $in: cohortIds }, status: { $in: PARTICIPATING_STATUSES },
-    }).select('userId classId').lean(),
-    Schedule.find({
-      classId: { $in: cohortIds }, enrolledUsers: { $in: remaining }, status: 'scheduled',
-    }).select('classId enrolledUsers').lean(),
+    query(
+      `SELECT user_id, class_id FROM enrollments
+        WHERE user_id = ANY($1) AND class_id = ANY($2) AND status = ANY($3)`,
+      [remainingIds, cohortIds, PARTICIPATING_STATUSES],
+    ),
+    query(
+      `SELECT class_id, enrolled_users FROM schedules
+        WHERE class_id = ANY($1) AND enrolled_users && $2 AND status = 'scheduled'`,
+      [cohortIds, remainingIds],
+    ),
   ]);
 
-  const remainingSet = new Set(remaining.map(String));
+  const remainingSet = new Set(remainingIds);
   const cohortsByUser = new Map(); // String(userId) -> Set<String(cohortId)>
   const addParticipation = (userId, classId) => {
     const u = String(userId);
     if (!cohortsByUser.has(u)) cohortsByUser.set(u, new Set());
     cohortsByUser.get(u).add(String(classId));
   };
-  enrolledRows.forEach((row) => addParticipation(row.userId, row.classId));
-  rosteredRows.forEach((row) => {
-    (row.enrolledUsers || []).forEach((u) => {
-      if (remainingSet.has(String(u))) addParticipation(u, row.classId);
+  enrolledRows.rows.forEach((row) => addParticipation(row.user_id, row.class_id));
+  rosteredRows.rows.forEach((row) => {
+    (row.enrolled_users || []).forEach((u) => {
+      if (remainingSet.has(String(u))) addParticipation(u, row.class_id);
     });
   });
 
@@ -133,10 +158,11 @@ const completedProgramUserIds = async (userIds, programId) => {
 // Direct prerequisites only (one level).
 const assertPrerequisitesMet = async (cohort, userId) => {
   if (!cohort?.programId) return;
-  const program = await LearningProgram.findById(cohort.programId)
-    .select('prerequisitePrograms')
-    .lean();
-  const prereqIds = program?.prerequisitePrograms || [];
+  const program = await query(
+    `SELECT prerequisite_programs FROM learning_programs WHERE id = $1`,
+    [String(cohort.programId)],
+  );
+  const prereqIds = program.rows[0]?.prerequisite_programs || [];
   if (!prereqIds.length) return;
 
   const unmet = [];
@@ -147,8 +173,11 @@ const assertPrerequisitesMet = async (cohort, userId) => {
   }
   if (!unmet.length) return;
 
-  const names = await LearningProgram.find({ _id: { $in: unmet } }).select('name').lean();
-  const labels = names.map((p) => p.name).join(', ');
+  const names = await query(
+    `SELECT name FROM learning_programs WHERE id = ANY($1)`,
+    [unmet.map(String)],
+  );
+  const labels = names.rows.map((p) => p.name).join(', ');
   throw new ServiceError(`Prerequisite not met: complete ${labels} first`, 422);
 };
 

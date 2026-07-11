@@ -1,4 +1,6 @@
-const Certificate = require('../../../models/Certificate');
+// PG-only runtime (Wave K D2d-0) — the certificate scan used to run via Mongoose
+// `Certificate.find().populate()`, which read the empty Mongo post-cutover.
+const { query } = require('../../../config/pg');
 // Dual-backend NotificationLog write seam (Phase 5 slice 3 — A5).
 const notificationRepo = require('../../notification/repository');
 const logger = require('../../../lib/logger');
@@ -100,18 +102,32 @@ const sendCertificateExpiryReminders = async ({ now = new Date() } = {}) => {
   const summary = { scanned: 0, sent: 0, skipped: 0, failed: 0, duplicates: 0, managerDigests: 0 };
   const windowEnd = new Date(now.getTime() + WINDOW_DAYS * DAY_MS);
 
-  // Index-served: { status, validUntil, isDeleted }. Only future-but-soon certs.
-  const certs = await Certificate.find({
-    status: 'Issued',
-    isDeleted: false,
-    validUntil: { $ne: null, $gte: now, $lte: windowEnd },
-  })
-    .populate({
-      path: 'userId',
-      select: 'name email empCode managerId',
-      populate: { path: 'managerId', select: 'name email' },
-    })
-    .lean();
+  // Only future-but-soon Issued certs, with the learner + their manager joined in
+  // (reconstructs the old populate shape: cert.userId.{name,email,empCode} and
+  // cert.userId.managerId.{name,email}). LEFT JOIN on the learner so a cert whose
+  // user is gone still surfaces as userId:null → counted as skipped (parity).
+  const { rows: certRows } = await query(
+    `SELECT c.id, c.certificate_number, c.program_name, c.cohort_code, c.valid_until,
+            u.id AS u_id, u.name AS u_name, u.email AS u_email, u.emp_code AS u_emp_code,
+            m.id AS m_id, m.name AS m_name, m.email AS m_email
+       FROM certificates c
+       LEFT JOIN users u ON u.id = c.user_id
+       LEFT JOIN users m ON m.id = u.manager_id
+      WHERE c.status = 'Issued' AND c.is_deleted = false
+        AND c.valid_until IS NOT NULL AND c.valid_until >= $1 AND c.valid_until <= $2`,
+    [now, windowEnd],
+  );
+  const certs = certRows.map((r) => ({
+    _id: r.id,
+    certificateNumber: r.certificate_number,
+    programName: r.program_name,
+    cohortCode: r.cohort_code,
+    validUntil: r.valid_until,
+    userId: r.u_id ? {
+      _id: r.u_id, name: r.u_name, email: r.u_email, empCode: r.u_emp_code,
+      managerId: r.m_id ? { _id: r.m_id, name: r.m_name, email: r.m_email } : null,
+    } : null,
+  }));
   summary.scanned = certs.length;
 
   for (const cert of certs) {

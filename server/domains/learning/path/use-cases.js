@@ -1,5 +1,6 @@
 const repository = require('./repository');
-const LearningProgram = require('../../../models/LearningProgram');
+// PG-only runtime (Wave K D2d-0) — program-existence check read empty Mongo.
+const { query } = require('../../../config/pg');
 const { ServiceError } = require('../../../helpers/ServiceError');
 const { hasCompletedProgram } = require('../enrollment/prerequisites');
 const { pathDto, programSummary } = require('./dto');
@@ -22,8 +23,11 @@ const dedupePrograms = (ids = []) => {
 // reference an inactive program that is still part of the curriculum).
 const assertProgramsExist = async (ids) => {
   if (!ids.length) return;
-  const found = await LearningProgram.find({ _id: { $in: ids } }).distinct('_id');
-  if (found.length !== ids.length) {
+  const { rows } = await query(
+    `SELECT DISTINCT id FROM learning_programs WHERE id = ANY($1)`,
+    [ids.map(String)],
+  );
+  if (rows.length !== ids.length) {
     throw new ServiceError('One or more programs do not exist', 422);
   }
 };
