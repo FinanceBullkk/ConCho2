@@ -1,15 +1,7 @@
 const request = require('supertest');
-const mongoose = require('mongoose');
 const { getApp, getTokens, getSeedData, teardown } = require('../setup');
-const Assignment = require('../../models/Assignment');
-const AssessmentAttempt = require('../../models/AssessmentAttempt');
-const Attendance = require('../../models/Attendance');
-const Certificate = require('../../models/Certificate');
-const Class = require('../../models/Class');
-const Enrollment = require('../../models/Enrollment');
-const Feedback = require('../../models/Feedback');
-const LearningProgram = require('../../models/LearningProgram');
-const Schedule = require('../../models/Schedule');
+const { deleteActiveRowsWhere, deleteActiveRowsLike } = require('../pg-test-utils');
+const fx = require('../fixtures/pg-fixtures');
 const dashboardRepository = require('../../domains/learning/dashboard/repository');
 
 let app, tokens, seed;
@@ -30,15 +22,15 @@ afterAll(async () => {
 afterEach(async () => {
   jest.restoreAllMocks();
   await Promise.all([
-    Assignment.deleteMany({}),
-    AssessmentAttempt.deleteMany({}),
-    Attendance.deleteMany({}),
-    Certificate.deleteMany({}),
-    Enrollment.deleteMany({}),
-    Feedback.deleteMany({}),
-    LearningProgram.deleteMany({}),
-    Schedule.deleteMany({}),
-    Class.deleteMany({ classCode: /^DSH/ }),
+    deleteActiveRowsWhere('Assignment', {}),
+    deleteActiveRowsWhere('AssessmentAttempt', {}),
+    deleteActiveRowsWhere('Attendance', {}),
+    deleteActiveRowsWhere('Certificate', {}),
+    deleteActiveRowsWhere('Enrollment', {}),
+    deleteActiveRowsWhere('Feedback', {}),
+    deleteActiveRowsWhere('LearningProgram', {}),
+    deleteActiveRowsWhere('Schedule', {}),
+    deleteActiveRowsLike('Class', 'classCode', 'DSH'),
   ]);
 });
 
@@ -50,25 +42,25 @@ const uniq = () => `${Date.now()}_${seq++}`;
 const seedDashboardData = async () => {
   const now = Date.now();
   const [programA, programB] = await Promise.all([
-    LearningProgram.create({
+    fx.createLearningProgram({
       code: `DSH_A_${uniq()}`,
       name: 'Dashboard Program A',
       schedulingMode: 'self_enroll',
     }),
-    LearningProgram.create({
+    fx.createLearningProgram({
       code: `DSH_B_${uniq()}`,
       name: 'Dashboard Program B',
       schedulingMode: 'self_enroll',
     }),
   ]);
-  const cohortA = await Class.create({
+  const cohortA = await fx.createClass({
     classCode: `DSHA${seq++}`,
     courseName: 'Dashboard Course A',
     programId: programA._id,
     totalSessions: 2,
     teacherIds: [seed.teacher._id],
   });
-  const cohortB = await Class.create({
+  const cohortB = await fx.createClass({
     classCode: `DSHB${seq++}`,
     courseName: 'Dashboard Course B',
     programId: programB._id,
@@ -77,13 +69,13 @@ const seedDashboardData = async () => {
   });
 
   const [scheduleA, scheduleB] = await Promise.all([
-    Schedule.create({
+    fx.createSchedule({
       classId: cohortA._id,
       startTime: new Date(now - 2 * DAY_MS),
       endTime: new Date(now - 2 * DAY_MS + 3600000),
       enrolledUsers: [seed.member1._id],
     }),
-    Schedule.create({
+    fx.createSchedule({
       classId: cohortB._id,
       startTime: new Date(now - 3 * DAY_MS),
       endTime: new Date(now - 3 * DAY_MS + 3600000),
@@ -92,22 +84,22 @@ const seedDashboardData = async () => {
   ]);
 
   await Promise.all([
-    Attendance.create({ scheduleId: scheduleA._id, userId: seed.member1._id, status: 'P' }),
-    Attendance.create({ scheduleId: scheduleB._id, userId: seed.member2._id, status: 'A' }),
-    Enrollment.create({ userId: seed.member1._id, classId: cohortA._id, status: 'Active' }),
-    Feedback.create({
+    fx.createAttendance({ scheduleId: scheduleA._id, userId: seed.member1._id, status: 'P' }),
+    fx.createAttendance({ scheduleId: scheduleB._id, userId: seed.member2._id, status: 'A' }),
+    fx.createEnrollment({ userId: seed.member1._id, classId: cohortA._id, status: 'Active' }),
+    fx.createFeedback({
       cohortId: cohortA._id,
       userId: seed.member1._id,
       programId: programA._id,
       rating: 4,
     }),
-    AssessmentAttempt.create({
-      assessmentId: new mongoose.Types.ObjectId(),
+    fx.createAssessmentAttempt({
+      assessmentId: fx.genId(),
       userId: seed.member1._id,
       cohortId: cohortA._id,
       passed: true,
     }),
-    Certificate.create({
+    fx.createCertificate({
       certificateNumber: `CERT-DSH-${uniq()}`,
       verificationCode: `dsh-${uniq()}`,
       userId: seed.member1._id,
@@ -118,7 +110,7 @@ const seedDashboardData = async () => {
       programName: 'Dashboard Program A',
       validUntil: new Date(now + 10 * DAY_MS), // expiring within 30 days
     }),
-    Certificate.create({
+    fx.createCertificate({
       certificateNumber: `CERT-DSH-${uniq()}`,
       verificationCode: `dsh-${uniq()}`,
       userId: seed.member2._id,
@@ -129,7 +121,7 @@ const seedDashboardData = async () => {
       programName: 'Dashboard Program B',
       validUntil: new Date(now - 1 * DAY_MS), // already expired
     }),
-    Assignment.create({
+    fx.createAssignment({
       title: 'Dashboard overdue training',
       targetType: 'program',
       programId: programA._id,
