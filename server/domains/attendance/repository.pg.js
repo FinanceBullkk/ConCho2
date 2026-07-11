@@ -1,7 +1,7 @@
 const crypto = require('crypto');
-const mongoose = require('mongoose');
 const { query } = require('../../config/pg');
 const { ServiceError } = require('../../helpers/ServiceError');
+const { isValidObjectId } = require('../../helpers/object-id');
 
 // ──────────────────────────────────────────────────────────
 // attendance/repository — POSTGRES impl (Phase 3 Wave-B dual-backend port).
@@ -244,7 +244,7 @@ const bumpUsersLastActive = async (userIds, startTime) => {
 // ── Analytics aggregations (data-shaping; rollups stay in ./analytics) ──
 
 const aggregateByEmployee = async (baseMatch, filterUserId, { skip = 0, limit = 100 } = {}) => {
-  if (filterUserId && !mongoose.Types.ObjectId.isValid(filterUserId)) {
+  if (filterUserId && !isValidObjectId(filterUserId)) {
     throw new ServiceError('Invalid userId format');
   }
   const scheduleIds = scopeScheduleIds(baseMatch);

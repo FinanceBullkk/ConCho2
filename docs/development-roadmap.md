@@ -94,7 +94,7 @@ remainder is documented deferred-by-design scope (below), not active debt.
 | 3 | Multi-program enrollment + session scheduling | ~85% | 🟢 near done (genuine work shipped; only nomination workflow deferred-by-design) |
 | 4 | Frontend L&D workspace (CRUD UI) | ~82% | 🟢 near done (CRUD + policy editor complete) |
 | 5 | Reporting, completion, feedback | ~80% | 🟢 near done (cert lifecycle + recert closed; Evaluation→Assessment convergence deferred-by-design) |
-| 6 | PostgreSQL migration / Wave K decommission | ~95% | 🟡 prod on PG + Atlas cancelled (Wave J 2026-07-08: Render `DB_BACKEND=postgres`, writes verified in Neon PG 17.10, mig 036 FK/CHECK applied, daily encrypted `pg_dump`; Wave K activation 2026-07-09: `MONGO_URI` removed, `/ready` 200 `backend=postgres`, `/api/admin-db` 410; **Atlas cancelled 2026-07-10**). Wave K Phase 2: A PG seed + B e2e-on-PG + **C Mongo CI gate retired (8→7)** + **D1a PG-only boot** + **D1b deleted 44 `.mongo.js` + 129 Mongo test/scaffolding files** + **D2a reconcile/admin-db feature fully retired (client + remnants + docs)** done. Remaining: **D2** — drop `mongoose`/`mongodb-memory-server` (needs the 122 fixture-authoring test files decoupled from Mongoose+auto-mirror). |
+| 6 | PostgreSQL migration / Wave K decommission | ~95% | 🟡 prod on PG + Atlas cancelled (Wave J 2026-07-08: Render `DB_BACKEND=postgres`, writes verified in Neon PG 17.10, mig 036 FK/CHECK applied, daily encrypted `pg_dump`; Wave K activation 2026-07-09: `MONGO_URI` removed, `/ready` 200 `backend=postgres`, `/api/admin-db` 410; **Atlas cancelled 2026-07-10**). Wave K Phase 2: A PG seed + B e2e-on-PG + **C Mongo CI gate retired (8→7)** + **D1a PG-only boot** + **D1b deleted 44 `.mongo.js` + 129 Mongo test/scaffolding files** + **D2a reconcile/admin-db feature fully retired (client + remnants + docs)** + **D2b runtime (non-model) mongoose removed** done. Remaining: **D2c/D2e** — drop `mongoose`/`mongodb-memory-server` (needs the 122 fixture-authoring test files decoupled from Mongoose+auto-mirror, then delete the 35 models). |
 
 ## LTMS waves (forward — see [`lms-roadmap.md`](lms-roadmap.md))
 
@@ -153,6 +153,22 @@ Bug fixing and integration review rank above net-new feature rollout.
 > [`2026-q3.md`](changelog-archive/2026-q3.md); 06-20→06-27 rolled 2026-07-07;
 > 06-14→06-19 rolled 2026-07-04 → [`2026-q2.md`](changelog-archive/2026-q2.md)).
 
+- **2026-07-11** — **Wave K Phase 2 · Batch D2b — removed the runtime (non-model) `mongoose` usages.**
+  Post-D1b the only backend is Postgres, so the 5 remaining runtime `mongoose`
+  sites were dead-Mongo or pointless. New `helpers/object-id.js` (`isValidObjectId`
+  = 24-hex shape, the convention `domains/room/utilization.js` already used) →
+  replaces `mongoose.Types.ObjectId.isValid` in `domains/attendance/repository.pg.js`
+  (+ `room/utilization` repointed to it, DRY). Dropped the pointless
+  `new mongoose.Types.ObjectId(id)` wraps in `learning/use-cases.getCompletionTrend`
+  + `services/export/evaluation-export` (both downstream PG repos already do
+  `String(id)`). **Fixed a latent straggler:** `learning.backfillProgramsFromCourseSettings`
+  read `mongoose.model('Setting').findOne` → **empty Mongo** post-cutover → now
+  `settingsRepository.findByKeys(['COURSE_SESSIONS'])`. `routes/healthRoutes.js`
+  `/ready` collapsed to the PG probe only (dropped the dead Mongo `readyState`
+  branch + the `db-backend` import). Behaviour-neutral (pure refactor — no spec
+  change). Now only `models/*` + `config/db.js` (dev scripts) still touch
+  `mongoose` on the server → next: D2c (fixture foundation). Verified: changed-path
+  suites (export/learning-dashboard/attendance/evaluation) green on the PG lane.
 - **2026-07-11** — **Wave K Phase 2 · Batch D2a — reconcile + admin-db feature fully retired (server left it half-done in #280).**
   #280 removed the reconcile/adminDb *server* runtime but left the whole CLIENT surface + server
   remnants + stale docs — all dead (routes 404). Finished the owner-decided retirement end-to-end.

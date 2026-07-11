@@ -1,8 +1,8 @@
-const mongoose = require('mongoose');
 const { getNextSequence } = require('../../helpers/counter');
 const { escapeRegex } = require('../../helpers/escapeRegex');
 const { programDto, cohortDto } = require('./dto');
 const repository = require('./repository');
+const settingsRepository = require('../settings/repository');
 const { runInTransaction } = require('../_shared/unit-of-work');
 const { recordInApp } = require('../notification/in-app-writer');
 
@@ -70,7 +70,7 @@ const TREND_MONTHS = 8;
 const getCompletionTrend = async (id) => {
   const now = new Date();
   const since = new Date(now.getFullYear(), now.getMonth() - (TREND_MONTHS - 1), 1);
-  const rows = await repository.monthlyCompletions(new mongoose.Types.ObjectId(id), since);
+  const rows = await repository.monthlyCompletions(id, since);
   const counts = new Map(rows.map((r) => [`${r._id.y}-${String(r._id.m).padStart(2, '0')}`, r.count]));
   const series = [];
   for (let i = TREND_MONTHS - 1; i >= 0; i -= 1) {
@@ -132,8 +132,7 @@ const ensureProgramForLegacyCourse = async (courseName, defaultSessionCount = 1)
 };
 
 const backfillProgramsFromCourseSettings = async () => {
-  const Setting = mongoose.model('Setting');
-  const setting = await Setting.findOne({ key: 'COURSE_SESSIONS' }).lean();
+  const [setting] = await settingsRepository.findByKeys(['COURSE_SESSIONS']);
   const courseSessions = setting?.value || {};
   const programs = [];
 

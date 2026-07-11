@@ -258,9 +258,9 @@ If you restored to the **same cluster**, the connection string does not change �
    ```
    Expected `200 OK` body:
    ```json
-   { "status": "ready", "db": "connected", "dbName": "<db>", "uptime": <n>, "timestamp": "..." }
+   { "status": "ready", "db": "connected", "backend": "postgres", "uptime": <n>, "timestamp": "..." }
    ```
-   A `503` with `{ "status": "not_ready", "reason": "mongo_disconnected" }` means MongoDB has not yet reconnected — wait and retry before proceeding.
+   A `503` with `{ "status": "not_ready", "backend": "postgres", "reason": "<pg error>" }` means Postgres is unreachable — wait and retry before proceeding.
 3. Run the backup verification script to confirm data integrity:
    ```bash
    MONGO_URI="<atlas-connection-string>" node server/scripts/verify-backup.js
