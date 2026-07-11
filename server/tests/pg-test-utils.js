@@ -200,6 +200,21 @@ const deleteActiveRowsWhere = async (modelName, where = {}) => {
 };
 
 /**
+ * Delete rows whose `field` starts with `prefix` on the ACTIVE backend — the
+ * PG-native equivalent of `Model.deleteMany({ field: /^prefix/ })`, used by
+ * suites that tag fixtures with a per-file marker prefix (e.g. `PR-G-team-A`)
+ * and wipe them between tests. `field` is camelCase → snake column on PG.
+ */
+const deleteActiveRowsLike = async (modelName, field, prefix) => {
+  if (!isPostgres) {
+    return require('mongoose').model(modelName).collection.deleteMany({ [field]: { $regex: `^${prefix}` } });
+  }
+  const table = await tableFor(modelName);
+  const col = camelToSnake(field.replace(/\./g, '_'));
+  return query(`DELETE FROM "${table}" WHERE "${col}" LIKE $1`, [`${prefix}%`]);
+};
+
+/**
  * Update one row (by id) on the ACTIVE backend — for test scaffolding that
  * mutates a row the app wrote through a ported repository (PG-only), which a
  * Mongoose write would miss. `patch` keys are camelCase and map to snake columns
@@ -335,6 +350,7 @@ module.exports = {
   countActiveRowsWhere,
   distinctActiveValues,
   deleteActiveRowsWhere,
+  deleteActiveRowsLike,
   updateActiveRow,
   readActiveTeamMemberIds,
   findActiveAuditRow,

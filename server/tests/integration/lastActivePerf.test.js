@@ -7,11 +7,11 @@
  */
 
 const request = require('supertest');
-const mongoose = require('mongoose');
-const { getApp, getTokens, getSeedData, getCsrfHeaders } = require('../setup');
+const { getApp, getTokens, getSeedData, getCsrfHeaders, teardown } = require('../setup');
 // On the pg lane bulkMark write-throughs land in PG only (ported attendance
 // repo), so a Mongoose User.findById assertion reads the wrong backend.
-const { readActiveRow } = require('../pg-test-utils');
+const { readActiveRow, deleteActiveRowsWhere, updateActiveRow } = require('../pg-test-utils');
+const fx = require('../fixtures/pg-fixtures');
 
 let app, tokens, seed, csrf;
 
@@ -23,29 +23,21 @@ beforeAll(async () => {
 });
 
 afterAll(async () => {
-  await mongoose.disconnect();
+  await teardown();
 });
 
 const cleanup = async () => {
-  const Schedule = require('../../models/Schedule');
-  const Attendance = require('../../models/Attendance');
-  const User = require('../../models/User');
-  await Attendance.deleteMany({ remark: 'PR-H-lastActive-fixture' });
-  await Schedule.deleteMany({ roomLink: 'PR-H-lastActive-fixture' });
-  await User.updateMany(
-    { empCode: { $in: [seed.member1.empCode, seed.member2.empCode] } },
-    { $set: { lastActiveAt: null } },
-  );
+  await deleteActiveRowsWhere('Attendance', { remark: 'PR-H-lastActive-fixture' });
+  await deleteActiveRowsWhere('Schedule', { roomLink: 'PR-H-lastActive-fixture' });
+  await updateActiveRow('User', seed.member1._id, { lastActiveAt: null });
+  await updateActiveRow('User', seed.member2._id, { lastActiveAt: null });
 };
 beforeEach(cleanup);
 
 describe('PERF-008 — lastActiveAt write-through', () => {
-  const User = require('../../models/User');
-  const Schedule = require('../../models/Schedule');
-
   test('bulkMark with status:P updates lastActiveAt on the user', async () => {
     const past = new Date(Date.now() - 6 * 3600_000);
-    const sched = await Schedule.create({
+    const sched = await fx.createSchedule({
       classId: seed.class1._id,
       bookedTeamId: seed.team._id,
       startTime: past,
@@ -80,7 +72,7 @@ describe('PERF-008 — lastActiveAt write-through', () => {
   test('$max guard: re-marking an OLDER session does NOT move lastActiveAt backwards', async () => {
     // Establish a recent active timestamp first.
     const recent = new Date(Date.now() - 24 * 3600_000);
-    const schedRecent = await Schedule.create({
+    const schedRecent = await fx.createSchedule({
       classId: seed.class1._id,
       bookedTeamId: seed.team._id,
       startTime: recent,
@@ -99,7 +91,7 @@ describe('PERF-008 — lastActiveAt write-through', () => {
 
     // Now mark an OLDER session — lastActiveAt should NOT regress.
     const older = new Date(Date.now() - 7 * 24 * 3600_000);
-    const schedOlder = await Schedule.create({
+    const schedOlder = await fx.createSchedule({
       classId: seed.class1._id,
       bookedTeamId: seed.team._id,
       startTime: older,
@@ -119,7 +111,7 @@ describe('PERF-008 — lastActiveAt write-through', () => {
 
   test('Late (L) status also updates lastActiveAt', async () => {
     const past = new Date(Date.now() - 3 * 3600_000);
-    const sched = await Schedule.create({
+    const sched = await fx.createSchedule({
       classId: seed.class1._id,
       bookedTeamId: seed.team._id,
       startTime: past,
@@ -139,7 +131,7 @@ describe('PERF-008 — lastActiveAt write-through', () => {
 
   test('EL (excused) does NOT update lastActiveAt', async () => {
     const past = new Date(Date.now() - 3 * 3600_000);
-    const sched = await Schedule.create({
+    const sched = await fx.createSchedule({
       classId: seed.class1._id,
       bookedTeamId: seed.team._id,
       startTime: past,
@@ -159,7 +151,7 @@ describe('PERF-008 — lastActiveAt write-through', () => {
 
   test('GET /users surfaces lastActive + daysSince from the cached field', async () => {
     const past = new Date(Date.now() - 48 * 3600_000);
-    const sched = await Schedule.create({
+    const sched = await fx.createSchedule({
       classId: seed.class1._id,
       bookedTeamId: seed.team._id,
       startTime: past,
