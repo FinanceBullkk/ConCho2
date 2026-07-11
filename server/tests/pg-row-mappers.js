@@ -129,6 +129,14 @@ const MAPPERS = {
       ...base,
     },
   },
+  LearningPath: {
+    table: 'learning_paths',
+    cols: {
+      code: 'code', title: 'title', description: 'description',
+      programs: (d) => ids(d.programs), status: (d) => d.status ?? 'active',
+      ...base,
+    },
+  },
   Setting: {
     table: 'settings',
     cols: {
