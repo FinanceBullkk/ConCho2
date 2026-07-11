@@ -54,6 +54,31 @@
 Auto-mirror + models + mongod all stay until the **last** file migrates — the
 "drop mongoose" payoff lands only at the end, so this is a multi-PR campaign.
 
+## ⚠️ D2d discovery (2026-07-11): unported RUNTIME Mongoose reads
+
+Converting fixtures to PG-native (fx builders → PG-only rows) UNMASKED that the
+runtime is **not** actually PG-only. **6 app files still run Mongoose model
+queries** (`Class.find`, `Certificate.find`, `LearningProgram.find`,
+`Enrollment.find`, `Schedule.exists`, `User.find`, …) → they read the now-empty
+Mongo on the PG lane. D2b's "runtime mongoose removal" only grepped the
+`mongoose.` object, not `Model.query()` calls, so it missed them; its "only
+`models/*` + `config/db.js` still touch mongoose" claim was wrong. The test
+auto-mirror hid these (Mongoose fixtures existed in BOTH stores); PG-only
+fixtures expose them as failures. Latent prod bugs (masked only because the org
+has no real users/data yet). See [[project_unported_runtime_mongoose_reads]].
+
+**Files:** `helpers/teacher-class-scope.js` (teacher visible-class scope — used by
+attendance analytics + assessment access + learning dashboard),
+`domains/learning/enrollment/prerequisites.js` (worst — 7 model queries),
+`domains/learning/completion/expiry-reminder-service.js`,
+`domains/learning/assignment/reminder-service.js`,
+`domains/learning/path/use-cases.js`, `helpers/cohortMembership.js`.
+
+**New sub-phase D2d-0 (must precede the fixture grind's blocked files):** port
+these 6 runtime reads to PG (active-backend / domain repositories). Also blocks
+D2e model deletion (a deleted model = these files crash). Their own PR
+(D2b-style runtime-read completion).
+
 ## Phases (each independently green on the PG lane — the only lane now)
 | # | Phase | Scope | Risk |
 |---|-------|-------|------|

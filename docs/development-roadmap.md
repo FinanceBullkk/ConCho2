@@ -153,6 +153,26 @@ Bug fixing and integration review rank above net-new feature rollout.
 > [`2026-q3.md`](changelog-archive/2026-q3.md); 06-20→06-27 rolled 2026-07-07;
 > 06-14→06-19 rolled 2026-07-04 → [`2026-q2.md`](changelog-archive/2026-q2.md)).
 
+- **2026-07-11** — **Wave K Phase 2 · Batch D2d (IN PROGRESS) — 12 test suites off Mongoose + a MAJOR runtime finding.**
+  Grind to drop `mongoose` from the ~41 mongoose-using test files, in verified
+  batches on the PG lane. **Done so far (12 suites, all green):** batch 1 (7
+  no-fixture suites — auditRoutes, customField, mfa, misc-pr-e, auditHashChain,
+  authHardening, bookingRace: `disconnect`→`teardown`, `Types.ObjectId`→`fx.genId`,
+  `deleteMany({})`→`deleteActiveRowsWhere`, core-seed `updateOne`→`updateActiveRow`,
+  Setting `$addToSet`→read/append/update); batch 2 (5 fixture suites —
+  coordinatorAuthzRegression, officeRoutes, enrollmentRoutes, scheduleAuthz,
+  cronRoutes: `Model.create`→`fx.create*`, drop model requires). **⚠️ MAJOR
+  DISCOVERY:** PG-only fixtures unmasked that **6 RUNTIME app files still run
+  Mongoose model QUERIES** (`helpers/teacher-class-scope` `Class.find`,
+  `domains/learning/enrollment/prerequisites` ×7, completion/assignment reminder
+  services, `learning/path`, `helpers/cohortMembership`) → they read the empty
+  Mongo on PG = **latent prod bugs** (teacher scoping / prerequisites / reminders),
+  masked until now by the mirror + the fresh-start (no real data). D2b missed them
+  (it grepped `mongoose.` not `Model.find`). **New blocking sub-phase D2d-0:** port
+  these 6 runtime reads to PG (own PR) — also required before D2e can delete the
+  models. Deferred suites: teacherBinding (blocked by teacher-class-scope),
+  phaseAHardening (DATA-014 tests the Mongoose `pre('save')` hook directly →
+  re-home, not mechanically convert). Details: D2 plan + `[[project_unported_runtime_mongoose_reads]]`.
 - **2026-07-11** — **Wave K Phase 2 · Batch D2c — PG-native test-fixture foundation + first two suites off Mongoose.**
   The keystone for dropping `mongoose`: new `tests/fixtures/pg-fixtures.js` — builders
   (`createUser`/`createClass`/`createTeam`/`createEnrollment`/`createSchedule`/`createAttendance`
