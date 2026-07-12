@@ -7,6 +7,7 @@
 const request = require('supertest');
 const { getApp, getTokens, getSeedData, getCsrfHeaders, teardown } = require('../setup');
 const { readActiveRow } = require('../pg-test-utils');
+const fx = require('../fixtures/pg-fixtures');
 
 let app, tokens, seed, csrf;
 
@@ -139,10 +140,9 @@ describe('Role-based Access Control', () => {
 
 describe('Forced password change enforcement', () => {
   test('surfaces mustChangePassword and blocks non-auth routes until password is changed', async () => {
-    const User = require('../../models/User');
     const jwt = require('jsonwebtoken');
 
-    const forced = await User.create({
+    const forced = await fx.createUser({
       empCode: `9${Date.now().toString().slice(-5)}`,
       name: 'Forced Change Admin',
       role: 'Admin',
