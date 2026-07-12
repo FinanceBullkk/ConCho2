@@ -153,6 +153,20 @@ Bug fixing and integration review rank above net-new feature rollout.
 > [`2026-q3.md`](changelog-archive/2026-q3.md); 06-20→06-27 rolled 2026-07-07;
 > 06-14→06-19 rolled 2026-07-04 → [`2026-q2.md`](changelog-archive/2026-q2.md)).
 
+- **2026-07-12** — **Wave K Phase 2 · Batch D2d batch 20 — schedule-query/assessment/regression cluster off Mongoose (3 suites).**
+  `assessmentResultsMine` (unified results read) + `scheduleQueries`
+  (sessionNumber + attendance-calendar + deliveryType + trainer visibility) +
+  `p2-regression` (export-range/enrollment-drop/import-guard) now author fixtures
+  via `fx.create*` and mutate/clean scaffolding through active-backend helpers
+  (`deleteActiveRowsWhere`/`updateActiveRow`, `$in` filters supported) instead of
+  `Model.create`/`deleteMany`/`deleteOne`/`updateMany`. Array-id `teacherIds` set
+  as STRING ids. All three files drop every `../../models/*` require. **Deferred
+  as re-home-not-mechanical** (grouped with `dataIntegrity`/`phaseAHardening`/
+  `auditDataRound2`): `autoReleaseScope` — it drives the User `post('findOneAndUpdate')`
+  Mongoose hook cascade against Mongo-resident data, which PG-native fixtures
+  can't trigger; needs a rewrite against the ported drop path. Pure test-infra, no
+  app/spec change. Verified on the PG lane (23/23 across the 3 suites, write-gate
+  clean).
 - **2026-07-12** — **Wave K Phase 2 · Batch D2d batch 19 — auth/user + cohort-enrollment cluster off Mongoose (4 suites).**
   `auth` (forced password change) + `passwordReset` (forgot/reset flow, 11
   `findByIdAndUpdate`→`updateActiveRow`) + `softDeleteEmpCodeReuse` (dead `User`

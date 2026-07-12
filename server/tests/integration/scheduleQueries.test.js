@@ -15,9 +15,10 @@
 
 const request = require('supertest');
 const { getApp, getTokens, getSeedData, teardown } = require('../setup');
+const { deleteActiveRowsWhere, updateActiveRow } = require('../pg-test-utils');
+const fx = require('../fixtures/pg-fixtures');
 
 let app, tokens, seed;
-let Schedule, Attendance;
 
 // class1 (sessionNumber test) schedules
 let s1a, s1b;
@@ -28,8 +29,6 @@ beforeAll(async () => {
   app = await getApp();
   tokens = getTokens();
   seed = getSeedData();
-  Schedule = require('../../models/Schedule');
-  Attendance = require('../../models/Attendance');
 
   const dayMs = 24 * 60 * 60 * 1000;
   const at = (days) => {
@@ -39,36 +38,36 @@ beforeAll(async () => {
   };
 
   // ── class1: two ordered sessions for sessionNumber assertion ──
-  s1a = await Schedule.create({
+  s1a = await fx.createSchedule({
     classId: seed.class1._id, bookedTeamId: seed.team._id,
     ...at(3), enrolledUsers: [seed.member1._id],
   });
-  s1b = await Schedule.create({
+  s1b = await fx.createSchedule({
     classId: seed.class1._id, bookedTeamId: seed.team._id,
     ...at(5), enrolledUsers: [seed.member1._id],
   });
 
   // ── class2: four sessions covering every attendance status ──
-  cNone = await Schedule.create({
+  cNone = await fx.createSchedule({
     classId: seed.class2._id, bookedTeamId: seed.team._id,
     ...at(6), enrolledUsers: [],
   });
-  cPending = await Schedule.create({
+  cPending = await fx.createSchedule({
     classId: seed.class2._id, bookedTeamId: seed.team._id,
     ...at(7), enrolledUsers: [seed.member1._id, seed.member2._id],
   });
-  cPartial = await Schedule.create({
+  cPartial = await fx.createSchedule({
     classId: seed.class2._id, bookedTeamId: seed.team._id,
     ...at(8), enrolledUsers: [seed.member1._id, seed.member2._id],
   });
-  cDone = await Schedule.create({
+  cDone = await fx.createSchedule({
     classId: seed.class2._id, bookedTeamId: seed.team._id,
     ...at(9), enrolledUsers: [seed.member1._id],
   });
 
   // Mark attendance: cPartial → 1 of 2; cDone → 1 of 1.
-  await Attendance.create({ scheduleId: cPartial._id, userId: seed.member1._id, status: 'P' });
-  await Attendance.create({ scheduleId: cDone._id, userId: seed.member1._id, status: 'P' });
+  await fx.createAttendance({ scheduleId: cPartial._id, userId: seed.member1._id, status: 'P' });
+  await fx.createAttendance({ scheduleId: cDone._id, userId: seed.member1._id, status: 'P' });
 });
 
 afterAll(async () => {
@@ -154,14 +153,14 @@ describe('GET /api/schedules/availability — current-week lower bound', () => {
     const hour = 60 * 60 * 1000;
     // At the start of THIS ISO week (a slot the old `fromDate = today` window
     // would have hidden on any day after Monday).
-    earlyThisWeek = await Schedule.create({
+    earlyThisWeek = await fx.createSchedule({
       classId: seed.class2._id, bookedTeamId: seed.team._id,
       startTime: new Date(weekStart.getTime() + hour),
       endTime: new Date(weekStart.getTime() + 2 * hour),
       enrolledUsers: [],
     });
     // The day BEFORE this week's start — belongs to the previous week, must NOT appear.
-    lastWeek = await Schedule.create({
+    lastWeek = await fx.createSchedule({
       classId: seed.class2._id, bookedTeamId: seed.team._id,
       startTime: new Date(weekStart.getTime() - 23 * hour),
       endTime: new Date(weekStart.getTime() - 22 * hour),
@@ -170,7 +169,7 @@ describe('GET /api/schedules/availability — current-week lower bound', () => {
   });
 
   afterAll(async () => {
-    await Schedule.deleteMany({ _id: { $in: [earlyThisWeek._id, lastWeek._id] } });
+    await deleteActiveRowsWhere('Schedule', { _id: { $in: [earlyThisWeek._id, lastWeek._id] } });
   });
 
   test('includes a same-week session at/after week start, excludes a prior-week one', async () => {
@@ -193,27 +192,25 @@ describe('GET /api/schedules/availability — current-week lower bound', () => {
 // torn down so the trainer-only suite below still sees the seeded state.
 
 describe('GET /api/schedules — deliveryType world tag', () => {
-  const LearningProgram = require('../../models/LearningProgram');
-  const Class = require('../../models/Class');
   let cohortProgram, cohortClass, cohortSched, teamSched;
 
   beforeAll(async () => {
-    cohortProgram = await LearningProgram.create({
+    cohortProgram = await fx.createLearningProgram({
       code: 'PROG-COHORT-4B', name: 'Cohort Program 4b', schedulingMode: 'self_enroll',
     });
-    cohortClass = await Class.create({
+    cohortClass = await fx.createClass({
       classCode: 'COHORT4B', courseName: 'Cohort Delivery 4b',
       totalSessions: 5, programId: cohortProgram._id,
     });
     const dayMs = 24 * 60 * 60 * 1000;
     const start = new Date(Date.now() + 20 * dayMs);
-    cohortSched = await Schedule.create({
+    cohortSched = await fx.createSchedule({
       classId: cohortClass._id,
       startTime: start, endTime: new Date(start.getTime() + 60 * 60 * 1000),
       enrolledUsers: [seed.member1._id],
     });
     // Contrast row: a team-world session on a program-less seed class.
-    teamSched = await Schedule.create({
+    teamSched = await fx.createSchedule({
       classId: seed.class1._id, bookedTeamId: seed.team._id,
       startTime: new Date(start.getTime() + dayMs),
       endTime: new Date(start.getTime() + dayMs + 60 * 60 * 1000),
@@ -222,9 +219,9 @@ describe('GET /api/schedules — deliveryType world tag', () => {
   });
 
   afterAll(async () => {
-    await Schedule.deleteMany({ _id: { $in: [cohortSched._id, teamSched._id] } });
-    await Class.deleteOne({ _id: cohortClass._id });
-    await LearningProgram.deleteOne({ _id: cohortProgram._id });
+    await deleteActiveRowsWhere('Schedule', { _id: { $in: [cohortSched._id, teamSched._id] } });
+    await deleteActiveRowsWhere('Class', { _id: cohortClass._id });
+    await deleteActiveRowsWhere('LearningProgram', { _id: cohortProgram._id });
   });
 
   test('list tags cohort-mode class sessions "cohort" and program-less ones "team"', async () => {
@@ -270,16 +267,15 @@ describe('GET /api/schedules — deliveryType world tag', () => {
 
 describe('GET /api/schedules/attendance-calendar — trainer-only teacher', () => {
   test('a teacher NOT bound to any class sees exactly the sessions naming them as instructor', async () => {
-    const Class = require('../../models/Class');
     // Bind both classes to someone else so the legacy empty-teacherIds
-    // graceful arm cannot leak every session to seed.teacher.
-    await Class.updateMany(
-      { _id: { $in: [seed.class1._id, seed.class2._id] } },
-      { $set: { teacherIds: [seed.member1._id] } },
-    );
+    // graceful arm cannot leak every session to seed.teacher (array id → STRING).
+    await Promise.all([
+      updateActiveRow('Class', seed.class1._id, { teacherIds: [seed.member1._id.toString()] }),
+      updateActiveRow('Class', seed.class2._id, { teacherIds: [seed.member1._id.toString()] }),
+    ]);
     const dayMs = 24 * 60 * 60 * 1000;
     const start = new Date(Date.now() + 12 * dayMs);
-    const instructorSession = await Schedule.create({
+    const instructorSession = await fx.createSchedule({
       classId: seed.class2._id, bookedTeamId: seed.team._id,
       startTime: start, endTime: new Date(start.getTime() + 60 * 60 * 1000),
       enrolledUsers: [seed.member1._id],
@@ -296,10 +292,10 @@ describe('GET /api/schedules/attendance-calendar — trainer-only teacher', () =
     expect(ids).toHaveLength(1);
 
     // Restore the seeded empty teacherIds for any later reads in this file.
-    await Class.updateMany(
-      { _id: { $in: [seed.class1._id, seed.class2._id] } },
-      { $set: { teacherIds: [] } },
-    );
-    await Schedule.deleteOne({ _id: instructorSession._id });
+    await Promise.all([
+      updateActiveRow('Class', seed.class1._id, { teacherIds: [] }),
+      updateActiveRow('Class', seed.class2._id, { teacherIds: [] }),
+    ]);
+    await deleteActiveRowsWhere('Schedule', { _id: instructorSession._id });
   });
 });
