@@ -1,9 +1,7 @@
 const request = require('supertest');
 const { getApp, getTokens, getSeedData, getCsrfHeaders, teardown } = require('../setup');
-const LearningProgram = require('../../models/LearningProgram');
-const Class = require('../../models/Class');
-const Enrollment = require('../../models/Enrollment');
-const Certificate = require('../../models/Certificate');
+const { deleteActiveRowsWhere, deleteActiveRowsLike } = require('../pg-test-utils');
+const fx = require('../fixtures/pg-fixtures');
 
 let app, tokens, seed, csrf;
 
@@ -20,10 +18,10 @@ afterAll(async () => {
 
 afterEach(async () => {
   await Promise.all([
-    Enrollment.deleteMany({ teamId: null }),
-    Certificate.deleteMany({}),
-    LearningProgram.deleteMany({}),
-    Class.deleteMany({ classCode: /^PRQ/ }),
+    deleteActiveRowsWhere('Enrollment', { teamId: null }),
+    deleteActiveRowsWhere('Certificate', {}),
+    deleteActiveRowsWhere('LearningProgram', {}),
+    deleteActiveRowsLike('Class', 'classCode', 'PRQ'),
   ]);
 });
 
@@ -33,17 +31,17 @@ const uniq = () => `${Date.now()}_${seq++}`;
 // Create prereq program A, self-enroll program B (requires A), and a cohort for
 // each. Returns { progA, progB, cohortA, cohortB }.
 const setupPrograms = async () => {
-  const progA = await LearningProgram.create({
+  const progA = await fx.createLearningProgram({
     code: `PREQA_${uniq()}`, name: `Prereq A ${uniq()}`, schedulingMode: 'self_enroll',
   });
-  const progB = await LearningProgram.create({
+  const progB = await fx.createLearningProgram({
     code: `PREQB_${uniq()}`, name: `Program B ${uniq()}`, schedulingMode: 'self_enroll',
     prerequisitePrograms: [progA._id],
   });
-  const cohortA = await Class.create({
+  const cohortA = await fx.createClass({
     classCode: `PRQA${seq++}`, courseName: progA.name, programId: progA._id, totalSessions: 1,
   });
-  const cohortB = await Class.create({
+  const cohortB = await fx.createClass({
     classCode: `PRQB${seq++}`, courseName: progB.name, programId: progB._id, totalSessions: 1,
   });
   return { progA, progB, cohortA, cohortB };
@@ -57,7 +55,7 @@ const selfEnroll = (cohortId, token) =>
     .send({ cohortId: cohortId.toString() });
 
 const issueCertFor = (userId, programId, cohortId) =>
-  Certificate.create({
+  fx.createCertificate({
     certificateNumber: `CERT-TEST-${uniq()}`,
     verificationCode: `vc_${uniq()}`,
     userId, programId, cohortId, status: 'Issued',
@@ -92,10 +90,10 @@ describe('Learning Platform API — prerequisite gating', () => {
   });
 
   test('a program with no prerequisites self-enrolls freely', async () => {
-    const prog = await LearningProgram.create({
+    const prog = await fx.createLearningProgram({
       code: `NOPRQ_${uniq()}`, name: `No Prereq ${uniq()}`, schedulingMode: 'self_enroll',
     });
-    const cohort = await Class.create({
+    const cohort = await fx.createClass({
       classCode: `PRQN${seq++}`, courseName: prog.name, programId: prog._id, totalSessions: 1,
     });
     const res = await selfEnroll(cohort._id, tokens.leader);

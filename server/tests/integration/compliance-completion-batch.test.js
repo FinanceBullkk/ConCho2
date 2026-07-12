@@ -1,8 +1,5 @@
 const { getApp, getSeedData, teardown } = require('../setup');
-const LearningProgram = require('../../models/LearningProgram');
-const Class = require('../../models/Class');
-const Certificate = require('../../models/Certificate');
-const Enrollment = require('../../models/Enrollment');
+const fx = require('../fixtures/pg-fixtures');
 const {
   completedProgramUserIds,
   hasCompletedProgram,
@@ -27,7 +24,7 @@ afterAll(async () => {
 describe('completedProgramUserIds — batched == per-user hasCompletedProgram (audit P1)', () => {
   test('matches the per-user result across cert / enrolled-incomplete / unrelated learners', async () => {
     const stamp = Date.now();
-    const program = await LearningProgram.create({
+    const program = await fx.createLearningProgram({
       code: `TEST_CMP_${stamp}`,
       name: 'Compliance Batch Test',
       category: 'onboarding',
@@ -38,7 +35,7 @@ describe('completedProgramUserIds — batched == per-user hasCompletedProgram (a
       // as vacuously complete — 0% attendance meets the default 0% threshold).
       completionPolicy: { requiresAssessment: true },
     });
-    const cohort = await Class.create({
+    const cohort = await fx.createClass({
       classCode: `CMP_TEST_${stamp}`,
       courseName: program.name,
       programId: program._id,
@@ -47,7 +44,7 @@ describe('completedProgramUserIds — batched == per-user hasCompletedProgram (a
     });
 
     // leader: Issued program-level certificate → complete via the cert fast-path.
-    await Certificate.create({
+    await fx.createCertificate({
       certificateNumber: `CERT-CMP-${stamp}`,
       verificationCode: `cmp-${stamp}`,
       userId: seed.leader._id,
@@ -58,7 +55,7 @@ describe('completedProgramUserIds — batched == per-user hasCompletedProgram (a
     });
     // member1: enrolled in the cohort but NO completion evidence → not complete
     // (exercises participation discovery + the completion engine returning false).
-    await Enrollment.create({
+    await fx.createEnrollment({
       userId: seed.member1._id,
       classId: cohort._id,
       status: 'Active',

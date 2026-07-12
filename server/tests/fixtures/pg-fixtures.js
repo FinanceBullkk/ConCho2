@@ -188,6 +188,19 @@ const createCertificate = async (over = {}) => {
   return doc;
 };
 
+/** assessments row (quiz) — defaults match models/Assessment. cohortId required. */
+const createAssessment = async (over = {}) => {
+  const doc = {
+    _id: genId(),
+    title: 'Fixture Assessment', description: '', cohortId: null, programId: null,
+    items: [], passingScorePercent: 0, maxAttempts: 0, timeLimitMinutes: 0,
+    shuffleQuestions: false, showAnswersAfter: false, isPublished: false, createdBy: null,
+    ...over,
+  };
+  await insertDoc('Assessment', doc);
+  return doc;
+};
+
 /** assessment_attempts row — defaults match models/AssessmentAttempt. */
 const createAssessmentAttempt = async (over = {}) => {
   const doc = {
@@ -322,6 +335,7 @@ module.exports = {
   createLearningProgram,
   createOffice,
   createRoom,
+  createAssessment,
   createAssessmentAttempt,
   createAssignment,
   createFeedback,
