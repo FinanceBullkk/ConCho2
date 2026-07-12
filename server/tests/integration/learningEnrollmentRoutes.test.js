@@ -1,12 +1,12 @@
 const request = require('supertest');
 const { getApp, getTokens, getSeedData, getCsrfHeaders, teardown } = require('../setup');
-const Enrollment = require('../../models/Enrollment');
-const Class = require('../../models/Class');
-const LearningProgram = require('../../models/LearningProgram');
-const NotificationLog = require('../../models/NotificationLog');
 // Enrollments are written through the ported PG repo (PG-only on the lane), so
 // Mongoose count/find assertions read the wrong backend — route to the active one.
-const { readActiveRow, findActiveRowWhere, countActiveRowsWhere } = require('../pg-test-utils');
+// Fixtures INSERT straight into PG.
+const {
+  readActiveRow, findActiveRowWhere, countActiveRowsWhere, deleteActiveRowsWhere, updateActiveRow,
+} = require('../pg-test-utils');
+const fx = require('../fixtures/pg-fixtures');
 
 let app, tokens, seed, csrf;
 
@@ -15,7 +15,6 @@ beforeAll(async () => {
   tokens = getTokens();
   seed = getSeedData();
   csrf = await getCsrfHeaders(app);
-  await Enrollment.init(); // build partial unique indexes before the race test
 });
 
 afterAll(async () => {
@@ -23,13 +22,15 @@ afterAll(async () => {
 });
 
 afterEach(async () => {
-  await Enrollment.deleteMany({});
-  await NotificationLog.deleteMany({});
-  await Class.updateMany(
-    { _id: { $in: [seed.class1._id, seed.class2._id] } },
-    { $set: { programId: null } },
-  );
-  await LearningProgram.deleteMany({});
+  await Promise.all([
+    deleteActiveRowsWhere('Enrollment', {}),
+    deleteActiveRowsWhere('NotificationLog', {}),
+  ]);
+  await Promise.all([
+    updateActiveRow('Class', seed.class1._id, { programId: null }),
+    updateActiveRow('Class', seed.class2._id, { programId: null }),
+  ]);
+  await deleteActiveRowsWhere('LearningProgram', {});
 });
 
 const enroll = (token, body) =>
@@ -86,10 +87,10 @@ describe('Learning Platform API — cohort enrollments', () => {
     expect(blocked.status).toBe(403);
 
     // link a self_enroll program -> learner may enroll themselves
-    const program = await LearningProgram.create({
+    const program = await fx.createLearningProgram({
       code: 'SE100', name: 'Self Enroll Cohort Program', schedulingMode: 'self_enroll',
     });
-    await Class.findByIdAndUpdate(seed.class1._id, { programId: program._id });
+    await updateActiveRow('Class', seed.class1._id, { programId: program._id });
 
     const ok = await enroll(tokens.leader, { cohortId: seed.class1._id.toString() });
     expect(ok.status).toBe(201);
@@ -102,10 +103,10 @@ describe('Learning Platform API — cohort enrollments', () => {
   });
 
   test('a non-admin cannot enroll a different learner even in a self_enroll program', async () => {
-    const program = await LearningProgram.create({
+    const program = await fx.createLearningProgram({
       code: 'SE101', name: 'Self Enroll Program 2', schedulingMode: 'self_enroll',
     });
-    await Class.findByIdAndUpdate(seed.class1._id, { programId: program._id });
+    await updateActiveRow('Class', seed.class1._id, { programId: program._id });
 
     const res = await enroll(tokens.leader, {
       cohortId: seed.class1._id.toString(), userId: seed.member1._id.toString(),
@@ -114,11 +115,11 @@ describe('Learning Platform API — cohort enrollments', () => {
   });
 
   test('cohort enrollment is rejected (422) once program maxParticipants is reached', async () => {
-    const program = await LearningProgram.create({
+    const program = await fx.createLearningProgram({
       code: 'CAP200', name: 'Capped Cohort Program', schedulingMode: 'self_enroll',
       capacityPolicy: { maxParticipants: 1 },
     });
-    await Class.findByIdAndUpdate(seed.class1._id, { programId: program._id });
+    await updateActiveRow('Class', seed.class1._id, { programId: program._id });
 
     // First enrollment fills the cohort (cap 1).
     const first = await enroll(tokens.admin, {
@@ -173,10 +174,10 @@ describe('Learning Platform API — cohort enrollments', () => {
   });
 
   test('self-enroll does NOT write a cohort_enrolled notification (learner did it themselves)', async () => {
-    const program = await LearningProgram.create({
+    const program = await fx.createLearningProgram({
       code: 'SE-NB', name: 'Self Enroll No-Bell', schedulingMode: 'self_enroll',
     });
-    await Class.findByIdAndUpdate(seed.class1._id, { programId: program._id });
+    await updateActiveRow('Class', seed.class1._id, { programId: program._id });
 
     const ok = await enroll(tokens.leader, { cohortId: seed.class1._id.toString() });
     expect(ok.status).toBe(201);
@@ -228,11 +229,11 @@ describe('Learning Platform API — bulk cohort enrollment', () => {
   });
 
   test('bulk respects program maxParticipants → overflow learners skipped (cohort_full)', async () => {
-    const program = await LearningProgram.create({
+    const program = await fx.createLearningProgram({
       code: 'BCAP', name: 'Bulk Capped Program', schedulingMode: 'self_enroll',
       capacityPolicy: { maxParticipants: 1 },
     });
-    await Class.findByIdAndUpdate(seed.class1._id, { programId: program._id });
+    await updateActiveRow('Class', seed.class1._id, { programId: program._id });
 
     const res = await bulk(tokens.admin, {
       cohortId: seed.class1._id.toString(),
