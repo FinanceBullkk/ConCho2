@@ -10,11 +10,8 @@
 
 const request = require('supertest');
 const { getApp, getTokens, getSeedData, teardown } = require('../setup');
-const Assignment = require('../../models/Assignment');
-const Class = require('../../models/Class');
-const Department = require('../../models/Department');
-const LearningProgram = require('../../models/LearningProgram');
-const User = require('../../models/User');
+const { deleteActiveRowsWhere, updateActiveRow } = require('../pg-test-utils');
+const fx = require('../fixtures/pg-fixtures');
 
 let app, tokens, seed;
 let selfEnrollProgram, selfEnrollCohort, teamProgram, dept;
@@ -26,21 +23,21 @@ beforeAll(async () => {
   tokens = getTokens();
   seed = getSeedData();
 
-  selfEnrollProgram = await LearningProgram.create({
+  selfEnrollProgram = await fx.createLearningProgram({
     code: 'SE01', name: 'Self Enroll Course', category: 'compliance',
     defaultSessionCount: 2, schedulingMode: 'self_enroll',
   });
-  selfEnrollCohort = await Class.create({
+  selfEnrollCohort = await fx.createClass({
     classCode: 'SE001', courseName: 'Self Enroll Course',
     totalSessions: 2, programId: selfEnrollProgram._id, status: 'Ongoing',
   });
-  teamProgram = await LearningProgram.create({
+  teamProgram = await fx.createLearningProgram({
     code: 'TB01', name: 'Team Booking Course', category: 'english',
     defaultSessionCount: 2, schedulingMode: 'leader_booking',
   });
 
-  dept = await Department.create({ code: 'SALES', name: 'Sales' });
-  await User.updateOne({ _id: seed.leader._id }, { departmentId: dept._id });
+  dept = await fx.createDepartment({ code: 'SALES', name: 'Sales' });
+  await updateActiveRow("User", seed.leader._id, { departmentId: dept._id });
 });
 
 afterAll(async () => {
@@ -48,7 +45,7 @@ afterAll(async () => {
 });
 
 afterEach(async () => {
-  await Assignment.deleteMany({});
+  await deleteActiveRowsWhere("Assignment", {});
 });
 
 const mine = (token) =>
@@ -60,7 +57,7 @@ describe('GET /api/learning/assignments/mine', () => {
   });
 
   test('direct-targeted assignment returns own status + enrollable self_enroll cohort', async () => {
-    await Assignment.create({
+    await fx.createAssignment({
       title: 'Do the compliance course', targetType: 'program',
       programId: selfEnrollProgram._id, dueDate: inDays(10),
       userIds: [seed.leader._id], departmentIds: [],
@@ -77,7 +74,7 @@ describe('GET /api/learning/assignments/mine', () => {
   });
 
   test('department-targeted assignment is visible to a member of that department', async () => {
-    await Assignment.create({
+    await fx.createAssignment({
       title: 'Dept-wide training', targetType: 'program',
       programId: selfEnrollProgram._id, dueDate: inDays(5),
       userIds: [], departmentIds: [dept._id],
@@ -88,7 +85,7 @@ describe('GET /api/learning/assignments/mine', () => {
   });
 
   test('non-self_enroll program yields NO enroll suggestion', async () => {
-    await Assignment.create({
+    await fx.createAssignment({
       title: 'English class duty', targetType: 'program',
       programId: teamProgram._id, dueDate: inDays(10),
       userIds: [seed.leader._id], departmentIds: [],
@@ -99,7 +96,7 @@ describe('GET /api/learning/assignments/mine', () => {
   });
 
   test('past-due assignment derives overdue status', async () => {
-    await Assignment.create({
+    await fx.createAssignment({
       title: 'Late training', targetType: 'program',
       programId: selfEnrollProgram._id, dueDate: inDays(-3),
       userIds: [seed.leader._id], departmentIds: [],
@@ -110,7 +107,7 @@ describe('GET /api/learning/assignments/mine', () => {
   });
 
   test('assignments targeting OTHER users/departments are not visible', async () => {
-    await Assignment.create({
+    await fx.createAssignment({
       title: 'Someone else duty', targetType: 'program',
       programId: selfEnrollProgram._id, dueDate: inDays(10),
       userIds: [seed.member1._id], departmentIds: [],

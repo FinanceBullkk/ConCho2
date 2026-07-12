@@ -10,8 +10,7 @@
 
 const request = require('supertest');
 const { getApp, getTokens, getSeedData, teardown } = require('../setup');
-const LearningProgram = require('../../models/LearningProgram');
-const Department = require('../../models/Department');
+const fx = require('../fixtures/pg-fixtures');
 
 let app, tokens, seed, searchProgram, searchDept;
 
@@ -21,8 +20,8 @@ beforeAll(async () => {
   seed = getSeedData();
   // Programs + departments aren't in the shared seed — create distinctive
   // fixtures so the staff-only search branches have something to find.
-  searchProgram = await LearningProgram.create({ code: 'SRCHPROG', name: 'Searchable Leadership Program' });
-  searchDept = await Department.create({ name: 'Searchable Robotics Dept', code: 'SRCHDEPT' });
+  searchProgram = await fx.createLearningProgram({ code: 'SRCHPROG', name: 'Searchable Leadership Program' });
+  searchDept = await fx.createDepartment({ name: 'Searchable Robotics Dept', code: 'SRCHDEPT' });
 });
 
 afterAll(async () => {

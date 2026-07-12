@@ -10,14 +10,13 @@
 
 const request = require('supertest');
 const { getApp, getTokens, getSeedData, getCsrfHeaders, teardown } = require('../setup');
-const NotificationLog = require('../../models/NotificationLog');
-const { readActiveRow, countActiveRowsWhere } = require('../pg-test-utils');
-const User = require('../../models/User');
+const { readActiveRow, countActiveRowsWhere, deleteActiveRowsWhere, updateActiveRow } = require('../pg-test-utils');
+const fx = require('../fixtures/pg-fixtures');
 
 let app, tokens, seed, csrf;
 
 const makeLog = (userId, over = {}) =>
-  NotificationLog.create({
+  fx.createNotificationLog({
     type: 'assignment_due_soon',
     channel: 'email',
     recipientUserId: userId,
@@ -40,7 +39,7 @@ afterAll(async () => {
 });
 
 afterEach(async () => {
-  await NotificationLog.deleteMany({});
+  await deleteActiveRowsWhere("NotificationLog", {});
 });
 
 const mine = (token) =>
@@ -128,7 +127,7 @@ describe('POST /api/notifications/read-all', () => {
 
 describe('/api/notifications/preferences (TMS.update S7)', () => {
   afterEach(async () => {
-    await User.findByIdAndUpdate(seed.leader._id, { $unset: { notificationPreferences: 1 } });
+    await updateActiveRow("User", seed.leader._id, { notificationPreferences: null });
   });
 
   test('GET returns server defaults before any customisation', async () => {
