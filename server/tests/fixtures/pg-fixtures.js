@@ -239,6 +239,29 @@ const createLearningPath = async (over = {}) => {
   return doc;
 };
 
+/** departments row. name/code required by the model. */
+const createDepartment = async (over = {}) => {
+  const doc = {
+    _id: genId(),
+    name: 'Fixture Dept',
+    code: `FXD${genId().slice(0, 6).toUpperCase()}`,
+    ...over,
+  };
+  await insertDoc('Department', doc);
+  return doc;
+};
+
+/** notification_logs row — type/channel/status default to a benign in-app row. */
+const createNotificationLog = async (over = {}) => {
+  const doc = {
+    _id: genId(),
+    type: 'generic', channel: 'in_app', status: 'sent',
+    ...over,
+  };
+  await insertDoc('NotificationLog', doc);
+  return doc;
+};
+
 /** offices row. name/code required by the model. */
 const createOffice = async (over = {}) => {
   const doc = {
@@ -303,4 +326,6 @@ module.exports = {
   createAssignment,
   createFeedback,
   createLearningPath,
+  createDepartment,
+  createNotificationLog,
 };
