@@ -1,10 +1,7 @@
 const request = require('supertest');
 const { getApp, getTokens, getSeedData, getCsrfHeaders, teardown } = require('../setup');
-const { readActiveRow } = require('../pg-test-utils');
-const LearningProgram = require('../../models/LearningProgram');
-const LearningPath = require('../../models/LearningPath');
-const Class = require('../../models/Class');
-const Certificate = require('../../models/Certificate');
+const { readActiveRow, deleteActiveRowsWhere, deleteActiveRowsLike } = require('../pg-test-utils');
+const fx = require('../fixtures/pg-fixtures');
 
 let app, tokens, seed, csrf;
 
@@ -21,10 +18,10 @@ afterAll(async () => {
 
 afterEach(async () => {
   await Promise.all([
-    LearningPath.deleteMany({}),
-    Certificate.deleteMany({}),
-    LearningProgram.deleteMany({}),
-    Class.deleteMany({ classCode: /^PTH/ }),
+    deleteActiveRowsWhere('LearningPath', {}),
+    deleteActiveRowsWhere('Certificate', {}),
+    deleteActiveRowsWhere('LearningProgram', {}),
+    deleteActiveRowsLike('Class', 'classCode', 'PTH'),
   ]);
 });
 
@@ -32,17 +29,17 @@ let seq = 0;
 const uniq = () => `${Date.now()}_${seq++}`;
 
 const mkProgram = () =>
-  LearningProgram.create({
+  fx.createLearningProgram({
     code: `PATHP_${uniq()}`, name: `Path Prog ${uniq()}`, schedulingMode: 'self_enroll',
   });
 
 // Mark `userId` as having completed `programId` via an Issued certificate
 // (hasCompletedProgram's fast path). Certificate requires a cohort.
 const completeProgram = async (userId, programId) => {
-  const cohort = await Class.create({
+  const cohort = await fx.createClass({
     classCode: `PTH${seq++}`, courseName: 'x', programId, totalSessions: 1,
   });
-  return Certificate.create({
+  return fx.createCertificate({
     certificateNumber: `CERT-TEST-${uniq()}`, verificationCode: `vc_${uniq()}`,
     userId, programId, cohortId: cohort._id, status: 'Issued',
   });

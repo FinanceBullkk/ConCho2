@@ -6,10 +6,8 @@
 
 const request = require('supertest');
 const { getApp, getTokens, getSeedData, getCsrfHeaders, teardown } = require('../setup');
-const Schedule = require('../../models/Schedule');
-const Attendance = require('../../models/Attendance');
-const Class = require('../../models/Class');
-const LearningProgram = require('../../models/LearningProgram');
+const { deleteActiveRowsWhere, updateActiveRow } = require('../pg-test-utils');
+const fx = require('../fixtures/pg-fixtures');
 
 let app, tokens, seed, csrf;
 
@@ -37,7 +35,7 @@ describe('POST /api/attendance/:scheduleId (bulk mark)', () => {
     pastDate.setHours(10, 0, 0, 0);
     const pastEnd = new Date(pastDate.getTime() + 5400000); // +1.5h
 
-    pastSchedule = await Schedule.create({
+    pastSchedule = await fx.createSchedule({
       classId: seed.class1._id,
       bookedTeamId: seed.team._id,
       startTime: pastDate,
@@ -47,8 +45,8 @@ describe('POST /api/attendance/:scheduleId (bulk mark)', () => {
   });
 
   afterAll(async () => {
-    await Schedule.deleteMany({});
-    await Attendance.deleteMany({});
+    await deleteActiveRowsWhere('Schedule', {});
+    await deleteActiveRowsWhere('Attendance', {});
   });
 
   test('marks attendance for past schedule successfully', async () => {
@@ -72,7 +70,7 @@ describe('POST /api/attendance/:scheduleId (bulk mark)', () => {
     futureDate.setDate(futureDate.getDate() + 30);
     const futureEnd = new Date(futureDate.getTime() + 5400000);
 
-    const futureSchedule = await Schedule.create({
+    const futureSchedule = await fx.createSchedule({
       classId: seed.class1._id,
       bookedTeamId: seed.team._id,
       startTime: futureDate,
@@ -92,7 +90,7 @@ describe('POST /api/attendance/:scheduleId (bulk mark)', () => {
     expect(res.status).toBe(400);
     expect(res.body.message).toMatch(/future/i);
 
-    await Schedule.findByIdAndDelete(futureSchedule._id);
+    await deleteActiveRowsWhere('Schedule', { _id: futureSchedule._id });
   });
 
   test('rejects invalid attendance status', async () => {
@@ -204,27 +202,27 @@ describe('Attendance — facilitator assignment requirement', () => {
   };
 
   beforeEach(async () => {
-    program = await LearningProgram.create({
+    program = await fx.createLearningProgram({
       code: 'FACREQ', name: 'Facilitator Required Program',
       schedulingMode: 'admin_scheduled',
       facilitatorPolicy: { assignmentRequired: true },
     });
-    cls = await Class.create({
+    cls = await fx.createClass({
       classCode: 'FACREQCLS', courseName: 'Facilitator Class', totalSessions: 1,
       programId: program._id, teacherIds: [],
     });
     const { start, end } = pastSlot();
-    schedule = await Schedule.create({
+    schedule = await fx.createSchedule({
       classId: cls._id, startTime: start, endTime: end,
       enrolledUsers: [seed.member1._id],
     });
   });
 
   afterEach(async () => {
-    await Schedule.deleteMany({});
-    await Attendance.deleteMany({});
-    await Class.deleteMany({ classCode: 'FACREQCLS' });
-    await LearningProgram.deleteMany({ code: 'FACREQ' });
+    await deleteActiveRowsWhere('Schedule', {});
+    await deleteActiveRowsWhere('Attendance', {});
+    await deleteActiveRowsWhere('Class', { classCode: 'FACREQCLS' });
+    await deleteActiveRowsWhere('LearningProgram', { code: 'FACREQ' });
   });
 
   const mark = () =>
@@ -240,20 +238,20 @@ describe('Attendance — facilitator assignment requirement', () => {
   });
 
   test('allows marking once a session instructor is assigned', async () => {
-    await Schedule.findByIdAndUpdate(schedule._id, { sessionInstructorIds: [seed.teacher._id] });
+    await updateActiveRow('Schedule', schedule._id, { sessionInstructorIds: [seed.teacher._id.toString()] });
     const res = await mark();
     expect(res.status).toBe(200);
   });
 
   test('a cohort-bound teacher satisfies the requirement', async () => {
-    await Class.findByIdAndUpdate(cls._id, { teacherIds: [seed.teacher._id] });
+    await updateActiveRow('Class', cls._id, { teacherIds: [seed.teacher._id.toString()] });
     const res = await mark();
     expect(res.status).toBe(200);
   });
 
   test('no enforcement when the program does not require a facilitator', async () => {
-    await LearningProgram.findByIdAndUpdate(program._id, {
-      'facilitatorPolicy.assignmentRequired': false,
+    await updateActiveRow('LearningProgram', program._id, {
+      facilitatorPolicy: { assignmentRequired: false },
     });
     const res = await mark();
     expect(res.status).toBe(200);

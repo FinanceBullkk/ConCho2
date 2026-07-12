@@ -1,15 +1,12 @@
 const request = require('supertest');
 const { getApp, getTokens, getSeedData, getCsrfHeaders, teardown } = require('../setup');
-const Schedule = require('../../models/Schedule');
-const Attendance = require('../../models/Attendance');
-const Evaluation = require('../../models/Evaluation');
-const Certificate = require('../../models/Certificate');
-const NotificationLog = require('../../models/NotificationLog');
-const Class = require('../../models/Class');
-const LearningProgram = require('../../models/LearningProgram');
 // Certificates are written through the ported completion PG repo (PG-only on the
 // lane) — count/read on the active backend, not Mongoose.
-const { readActiveRow, findActiveRowWhere, countActiveRowsWhere } = require('../pg-test-utils');
+const {
+  readActiveRow, findActiveRowWhere, countActiveRowsWhere,
+  deleteActiveRowsWhere, updateActiveRow,
+} = require('../pg-test-utils');
+const fx = require('../fixtures/pg-fixtures');
 
 let app, tokens, seed, csrf;
 
@@ -26,47 +23,42 @@ afterAll(async () => {
 
 afterEach(async () => {
   await Promise.all([
-    Schedule.deleteMany({}),
-    Attendance.deleteMany({}),
-    Evaluation.deleteMany({}),
-    Certificate.deleteMany({}),
-    LearningProgram.deleteMany({}),
-    NotificationLog.deleteMany({}),
+    deleteActiveRowsWhere('Schedule', {}),
+    deleteActiveRowsWhere('Attendance', {}),
+    deleteActiveRowsWhere('Evaluation', {}),
+    deleteActiveRowsWhere('Certificate', {}),
+    deleteActiveRowsWhere('LearningProgram', {}),
+    deleteActiveRowsWhere('NotificationLog', {}),
   ]);
-  await Class.updateMany(
-    { _id: { $in: [seed.class1._id, seed.class2._id] } },
-    { $set: { programId: null } },
-  );
+  await updateActiveRow('Class', seed.class1._id, { programId: null });
+  await updateActiveRow('Class', seed.class2._id, { programId: null });
 });
 
 // Create `n` sessions for class1 and mark `attended` of them Present for member1.
 const seedAttendance = async (totalSessions, attended) => {
   const base = new Date('2026-01-05T03:00:00Z').getTime();
-  const schedules = [];
+  const created = [];
   for (let i = 0; i < totalSessions; i += 1) {
-    schedules.push({
+    created.push(await fx.createSchedule({
       classId: seed.class1._id,
       bookedTeamId: seed.team._id,
       startTime: new Date(base + i * 86400000),
       endTime: new Date(base + i * 86400000 + 3600000),
       enrolledUsers: [seed.member1._id],
-    });
+    }));
   }
-  const created = await Schedule.create(schedules);
-  await Attendance.create(
-    created.slice(0, attended).map((s) => ({
-      scheduleId: s._id, userId: seed.member1._id, status: 'P',
-    })),
-  );
+  for (const s of created.slice(0, attended)) {
+    await fx.createAttendance({ scheduleId: s._id, userId: seed.member1._id, status: 'P' });
+  }
 };
 
 const linkProgram = async (completionPolicy) => {
-  const program = await LearningProgram.create({
+  const program = await fx.createLearningProgram({
     code: `CMP_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
     name: 'Completion Program',
     completionPolicy,
   });
-  await Class.findByIdAndUpdate(seed.class1._id, { programId: program._id });
+  await updateActiveRow("Class", seed.class1._id, { programId: program._id });
   return program;
 };
 
@@ -114,7 +106,7 @@ describe('Learning Platform API — completion & certificates', () => {
     expect(before.body.data.assessment.met).toBe(false);
     expect(before.body.data.complete).toBe(false);
 
-    await Evaluation.create({
+    await fx.createEvaluation({
       classId: seed.class1._id, userId: seed.member1._id,
       grammarScore: 8, vocabularyScore: 7, pronunciationScore: 6, fluencyScore: 9,
     });
