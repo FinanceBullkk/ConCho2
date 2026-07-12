@@ -18,20 +18,15 @@
 const request = require('supertest');
 const { getApp, getTokens, getSeedData, getCsrfHeaders, teardown } = require('../setup');
 const { readActiveRow } = require('../pg-test-utils');
+const fx = require('../fixtures/pg-fixtures');
 
 let app, tokens, seed, csrf;
-let Attendance, Schedule, Enrollment, Class, Team;
 
 beforeAll(async () => {
   app = await getApp();
   tokens = getTokens();
   seed = getSeedData();
   csrf = await getCsrfHeaders(app);
-  Attendance  = require('../../models/Attendance');
-  Schedule    = require('../../models/Schedule');
-  Enrollment  = require('../../models/Enrollment');
-  Class       = require('../../models/Class');
-  Team        = require('../../models/Team');
 });
 
 afterAll(teardown);
@@ -58,14 +53,14 @@ const waitForSyncStatus = async (attendanceId, expected, tries = 20) => {
 /** Create a schedule + one PENDING attendance record for a given startTime. */
 const seedAttendanceAt = async (startTime, userId, classId, teamId) => {
   const endTime = new Date(startTime.getTime() + 90 * 60_000);
-  const schedule = await Schedule.create({
+  const schedule = await fx.createSchedule({
     classId,
     bookedTeamId: teamId,
     startTime,
     endTime,
     enrolledUsers: [userId],
   });
-  const attendance = await Attendance.create({
+  const attendance = await fx.createAttendance({
     scheduleId: schedule._id,
     userId,
     status: 'P',
@@ -149,18 +144,18 @@ describe('P2-03R — single PUT Dropped removes user from future Schedule.enroll
     const suffix = Date.now();
 
     // Fresh class + team + enrollment
-    const cls = await Class.create({
+    const cls = await fx.createClass({
       classCode: `R03_${suffix % 100000}`,   // max 20 chars: "R03_" (4) + 5 digits = 9 ✓
       courseName: 'P2-03R Regression',
       totalSessions: 5,
     });
-    const team = await Team.create({
+    const team = await fx.createTeam({
       name: `R03_Team_${suffix % 100000}`,
       classId: cls._id,
       leaderId: seed.leader._id,
       members: [seed.leader._id, seed.member1._id],
     });
-    const enrollment = await Enrollment.create({
+    const enrollment = await fx.createEnrollment({
       userId: seed.member1._id,
       teamId: team._id,
       classId: cls._id,
@@ -169,7 +164,7 @@ describe('P2-03R — single PUT Dropped removes user from future Schedule.enroll
 
     // Future schedule (7 days from now) with member1 enrolled
     const futureStart = new Date(Date.now() + 7 * 24 * 60 * 60_000);
-    const futureSchedule = await Schedule.create({
+    const futureSchedule = await fx.createSchedule({
       classId: cls._id,
       bookedTeamId: team._id,
       startTime: futureStart,
@@ -202,18 +197,18 @@ describe('P2-03R — single PUT Dropped removes user from future Schedule.enroll
   test('past schedules are NOT affected when enrollment is Dropped', async () => {
     const suffix = Date.now() + 1;
 
-    const cls = await Class.create({
+    const cls = await fx.createClass({
       classCode: `R03P_${suffix % 100000}`,  // max 20 chars: "R03P_" (5) + 5 digits = 10 ✓
       courseName: 'P2-03R Past Schedule',
       totalSessions: 5,
     });
-    const team = await Team.create({
+    const team = await fx.createTeam({
       name: `R03P_Team_${suffix % 100000}`,
       classId: cls._id,
       leaderId: seed.leader._id,
       members: [seed.leader._id, seed.member2._id],
     });
-    const enrollment = await Enrollment.create({
+    const enrollment = await fx.createEnrollment({
       userId: seed.member2._id,
       teamId: team._id,
       classId: cls._id,
@@ -222,7 +217,7 @@ describe('P2-03R — single PUT Dropped removes user from future Schedule.enroll
 
     // Past schedule (already ended — should be untouched)
     const pastStart = new Date(Date.now() - 7 * 24 * 60 * 60_000);
-    const pastSchedule = await Schedule.create({
+    const pastSchedule = await fx.createSchedule({
       classId: cls._id,
       bookedTeamId: team._id,
       startTime: pastStart,
