@@ -11,9 +11,8 @@
 
 const request = require('supertest');
 const { getApp, getTokens, getSeedData, teardown } = require('../setup');
-const Schedule = require('../../models/Schedule');
-const Class = require('../../models/Class');
-const LearningProgram = require('../../models/LearningProgram');
+const { deleteActiveRowsWhere, updateActiveRow } = require('../pg-test-utils');
+const fx = require('../fixtures/pg-fixtures');
 
 let app, tokens, seed, program, named, unnamed;
 
@@ -31,36 +30,34 @@ beforeAll(async () => {
 });
 
 afterAll(async () => {
-  await Class.updateMany(
-    { _id: seed.class1._id }, { $set: { teacherIds: [], programId: null } },
-  );
+  await updateActiveRow('Class', seed.class1._id, { teacherIds: [], programId: null });
   await teardown();
 });
 
 beforeEach(async () => {
-  program = await LearningProgram.create({
+  program = await fx.createLearningProgram({
     code: 'AO100', name: 'Assigned Only Program', schedulingMode: 'admin_scheduled',
     facilitatorPolicy: { visibility: 'assigned_only' },
   });
   // seed.teacher is BOUND to the cohort, and NAMED on `named` only.
-  await Class.findByIdAndUpdate(seed.class1._id, {
-    programId: program._id, teacherIds: [seed.teacher._id],
+  await updateActiveRow('Class', seed.class1._id, {
+    programId: program._id, teacherIds: [seed.teacher._id.toString()],
   });
   const a = future(0); const b = future(1);
-  named = await Schedule.create({
+  named = await fx.createSchedule({
     classId: seed.class1._id, startTime: a.start, endTime: a.end,
     enrolledUsers: [seed.member1._id], sessionInstructorIds: [seed.teacher._id],
   });
-  unnamed = await Schedule.create({
+  unnamed = await fx.createSchedule({
     classId: seed.class1._id, startTime: b.start, endTime: b.end,
     enrolledUsers: [seed.member1._id], sessionInstructorIds: [],
   });
 });
 
 afterEach(async () => {
-  await Schedule.deleteMany({});
-  await Class.updateMany({ _id: seed.class1._id }, { $set: { teacherIds: [], programId: null } });
-  await LearningProgram.deleteMany({});
+  await deleteActiveRowsWhere('Schedule', {});
+  await updateActiveRow('Class', seed.class1._id, { teacherIds: [], programId: null });
+  await deleteActiveRowsWhere('LearningProgram', {});
 });
 
 const asTeacher = (method, path) =>
@@ -103,9 +100,7 @@ describe('assigned_only — attendance read authz', () => {
 
 describe('default visibility (all_facilitators) is unchanged', () => {
   test('a bound teacher sees + reads an unnamed session when not assigned_only', async () => {
-    await LearningProgram.findByIdAndUpdate(program._id, {
-      'facilitatorPolicy.visibility': 'all_facilitators',
-    });
+    await updateActiveRow('LearningProgram', program._id, { facilitatorPolicy: { visibility: 'all_facilitators' } });
 
     const list = await asTeacher('get', `/api/learning/sessions?cohortId=${seed.class1._id}`);
     const ids = list.body.data.map((s) => String(s.scheduleId || s._id || s.id));
