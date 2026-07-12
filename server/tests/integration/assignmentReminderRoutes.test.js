@@ -8,16 +8,12 @@ const { getApp, getSeedData, teardown } = require('../setup');
 // (Phase 5 slice 3) and the cron heartbeat rides the cron-run seam (slice 5,
 // D-CronRun) — on the pg lane rows land in PG only, so asserts + cleanup for
 // both read/delete on the ACTIVE backend.
-const { findActiveRowWhere, findActiveRowsWhere, countActiveRowsWhere, distinctActiveValues, deleteActiveRowsWhere } = require('../pg-test-utils');
+const {
+  findActiveRowWhere, findActiveRowsWhere, countActiveRowsWhere, distinctActiveValues,
+  deleteActiveRowsWhere, deleteActiveRowsLike, updateActiveRow,
+} = require('../pg-test-utils');
+const fx = require('../fixtures/pg-fixtures');
 const { sendMail } = require('../../lib/mailer');
-const Assignment = require('../../models/Assignment');
-const Certificate = require('../../models/Certificate');
-const Class = require('../../models/Class');
-const Enrollment = require('../../models/Enrollment');
-const LearningPath = require('../../models/LearningPath');
-const LearningProgram = require('../../models/LearningProgram');
-const NotificationLog = require('../../models/NotificationLog');
-const User = require('../../models/User');
 const { sendAssignmentReminders } = require('../../domains/learning/assignment/reminder-service');
 
 const VALID_CRON_TOKEN = 'test-cron-token-32chars-minimum!!';
@@ -30,7 +26,6 @@ beforeAll(async () => {
   process.env['CRON_TOKEN'] = VALID_CRON_TOKEN;
   app = await getApp();
   seed = getSeedData();
-  await NotificationLog.init();
 });
 
 afterAll(async () => {
@@ -41,28 +36,21 @@ afterAll(async () => {
 afterEach(async () => {
   sendMail.mockReset();
   await Promise.all([
-    NotificationLog.deleteMany({}),
-    Assignment.deleteMany({}),
-    Certificate.deleteMany({}),
+    deleteActiveRowsWhere('NotificationLog', {}),
+    deleteActiveRowsWhere('Assignment', {}),
+    deleteActiveRowsWhere('Certificate', {}),
     deleteActiveRowsWhere('CronRun', { jobName: 'assignment-reminders' }),
-    Enrollment.deleteMany({}),
-    LearningPath.deleteMany({}),
-    LearningProgram.deleteMany({}),
-    Class.deleteMany({ classCode: /^ASGR/ }),
+    deleteActiveRowsWhere('Enrollment', {}),
+    deleteActiveRowsWhere('LearningPath', {}),
+    deleteActiveRowsWhere('LearningProgram', {}),
+    deleteActiveRowsLike('Class', 'classCode', 'ASGR'),
   ]);
-  await User.updateMany(
-    { _id: { $in: [seed.teacher._id, seed.member1._id, seed.member2._id] } },
-    {
-      $set: {
-        email: null,
-        managerId: null,
-        departmentId: null,
-        status: 'Active',
-        isDeleted: false,
-        deletedAt: null,
-      },
-    },
-  );
+  const reset = { email: null, managerId: null, departmentId: null, status: 'Active', isDeleted: false, deletedAt: null };
+  await Promise.all([
+    updateActiveRow('User', seed.teacher._id, reset),
+    updateActiveRow('User', seed.member1._id, reset),
+    updateActiveRow('User', seed.member2._id, reset),
+  ]);
 });
 
 beforeEach(() => {
@@ -82,10 +70,10 @@ const dateInUtcDays = (days) => {
   ));
 };
 
-const setUser = (id, patch) => User.updateOne({ _id: id }, { $set: patch });
+const setUser = (id, patch) => updateActiveRow('User', id, patch);
 
 const createProgram = (overrides = {}) =>
-  LearningProgram.create({
+  fx.createLearningProgram({
     code: `ASGRP_${uniq()}`,
     name: `Assignment Reminder Program ${uniq()}`,
     schedulingMode: 'self_enroll',
@@ -93,7 +81,7 @@ const createProgram = (overrides = {}) =>
   });
 
 const createCohort = (programId) =>
-  Class.create({
+  fx.createClass({
     classCode: `ASGR${seq++}`,
     courseName: 'Assignment Reminder Course',
     programId,
@@ -102,7 +90,7 @@ const createCohort = (programId) =>
 
 const completeProgram = async (userId, programId) => {
   const cohort = await createCohort(programId);
-  await Certificate.create({
+  await fx.createCertificate({
     certificateNumber: `CERT-ASGR-${uniq()}`,
     verificationCode: `asgr-${uniq()}`,
     userId,
@@ -113,7 +101,7 @@ const completeProgram = async (userId, programId) => {
 };
 
 const createAssignment = ({ title = 'Required safety training', programId, dueDate, userIds }) =>
-  Assignment.create({
+  fx.createAssignment({
     title,
     targetType: 'program',
     programId,
@@ -198,7 +186,7 @@ describe('assignment reminder service', () => {
   test('manager weekly digest includes overdue direct reports only', async () => {
     await Promise.all([
       setUser(seed.teacher._id, { email: 'manager@example.com' }),
-      setUser(seed.member1._id, { email: 'member1@example.com', managerId: seed.teacher._id }),
+      setUser(seed.member1._id, { email: 'member1@example.com', managerId: seed.teacher._id.toString() }),
       setUser(seed.member2._id, { email: 'member2@example.com', managerId: null }),
     ]);
     const program = await createProgram();
@@ -238,7 +226,7 @@ describe('assignment reminder service', () => {
   });
 
   test('managers without email are skipped with a persisted digest log', async () => {
-    await setUser(seed.member1._id, { email: 'member1@example.com', managerId: seed.teacher._id });
+    await setUser(seed.member1._id, { email: 'member1@example.com', managerId: seed.teacher._id.toString() });
     const program = await createProgram();
     await createAssignment({
       programId: program._id,

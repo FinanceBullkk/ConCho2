@@ -153,6 +153,25 @@ Bug fixing and integration review rank above net-new feature rollout.
 > [`2026-q3.md`](changelog-archive/2026-q3.md); 06-20→06-27 rolled 2026-07-07;
 > 06-14→06-19 rolled 2026-07-04 → [`2026-q2.md`](changelog-archive/2026-q2.md)).
 
+- **2026-07-12** — **Wave K Phase 2 · Batch D2d batch 22 — booking + assignment-reminder suites off Mongoose (2 suites).**
+  `booking` (leader book-slot: weekly cap, overlap, capacity gate, cancel,
+  enrolledCount virtual) + `assignmentReminderRoutes` (due-soon/overdue/manager-digest
+  reminder service + cron route) now author fixtures via `fx.create*` and
+  mutate/clean/count via active-backend helpers (`addAllowedTimeSlot`,
+  `deleteActiveRowsWhere`/`deleteActiveRowsLike`/`updateActiveRow`/`countActiveRowsWhere`).
+  `booking` drops its dead `if (!isPostgres)` Mongo-only virtual-shape block (the
+  Mongo lane is retired) and the `config/db-backend` import; a nested
+  `capacityPolicy.maxParticipantsPerSession` bump sets the whole jsonb object.
+  `assignmentReminderRoutes` drops the Mongo-only `NotificationLog.init()` and
+  routes `setUser`/factories through fx + `updateActiveRow` (manager id as STRING).
+  All model requires gone from both files. Pure test-infra, no app/spec change.
+  Verified on the PG lane (22/22 across the 2 suites, write-gate clean). **This
+  closes the Setting-dependent cluster.** Remaining D2d: the model-behaviour
+  "re-home" set (`dataIntegrity`, `phaseAHardening`, `auditDataRound2`,
+  `autoReleaseScope`), the unit `auditEntityEnumCoverage` (schema-enum read, waits
+  for D2e), and suites needing new mappers (`branding`/TenantConfig,
+  `reportsEvidencePackPresets`/ReportPreset, `assessmentRoutes`/AssessmentQuestion)
+  + `certificateExpiryReminders`.
 - **2026-07-12** — **Wave K Phase 2 · Batch D2d batch 21 — Setting/booking cluster off Mongoose (3 suites + shared helper).**
   New shared `addAllowedTimeSlot(slot)` helper in `pg-test-utils` — the PG-native
   `$addToSet` for the `ALLOWED_TIME_SLOTS` booking setting (reads the jsonb array,
