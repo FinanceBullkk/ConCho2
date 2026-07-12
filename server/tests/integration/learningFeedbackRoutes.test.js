@@ -1,13 +1,10 @@
 const request = require('supertest');
 const jwt = require('jsonwebtoken');
 const { getApp, getTokens, getSeedData, getCsrfHeaders, teardown } = require('../setup');
-const Schedule = require('../../models/Schedule');
-const Feedback = require('../../models/Feedback');
-const Class = require('../../models/Class');
-const LearningProgram = require('../../models/LearningProgram');
 // Feedback is written through the ported PG repo (PG-only on the lane) — count
 // on the active backend, not Mongoose.
-const { countActiveRowsWhere } = require('../pg-test-utils');
+const { countActiveRowsWhere, deleteActiveRowsWhere, updateActiveRow } = require('../pg-test-utils');
+const fx = require('../fixtures/pg-fixtures');
 
 let app, tokens, seed, csrf;
 
@@ -24,14 +21,12 @@ afterAll(async () => {
 
 afterEach(async () => {
   await Promise.all([
-    Schedule.deleteMany({}),
-    Feedback.deleteMany({}),
-    LearningProgram.deleteMany({}),
+    deleteActiveRowsWhere("Schedule", {}),
+    deleteActiveRowsWhere("Feedback", {}),
+    deleteActiveRowsWhere("LearningProgram", {}),
   ]);
-  await Class.updateMany(
-    { _id: { $in: [seed.class1._id, seed.class2._id] } },
-    { $set: { programId: null } },
-  );
+  await updateActiveRow("Class", seed.class1._id, { programId: null });
+  await updateActiveRow("Class", seed.class2._id, { programId: null });
 });
 
 // Put `user` on a session roster for class1 → makes them a cohort participant.
@@ -40,7 +35,7 @@ let rosterSlot = 0;
 const seedRoster = (userId) => {
   const base = new Date('2026-02-02T03:00:00Z').getTime();
   const startTime = new Date(base + rosterSlot++ * 86400000);
-  return Schedule.create({
+  return fx.createSchedule({
     classId: seed.class1._id,
     bookedTeamId: seed.team._id,
     startTime,
@@ -50,12 +45,12 @@ const seedRoster = (userId) => {
 };
 
 const linkProgram = async (completionPolicy) => {
-  const program = await LearningProgram.create({
+  const program = await fx.createLearningProgram({
     code: `FBK_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
     name: 'Feedback Program',
     completionPolicy,
   });
-  await Class.findByIdAndUpdate(seed.class1._id, { programId: program._id });
+  await updateActiveRow("Class", seed.class1._id, { programId: program._id });
   return program;
 };
 
