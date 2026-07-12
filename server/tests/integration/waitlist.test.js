@@ -10,17 +10,13 @@
  */
 
 const request = require('supertest');
-const mongoose = require('mongoose');
 const jwt = require('jsonwebtoken');
-const { getApp, getTokens, getSeedData, getCsrfHeaders } = require('../setup');
-
-const Schedule = require('../../models/Schedule');
-const Enrollment = require('../../models/Enrollment');
-const WaitlistEntry = require('../../models/WaitlistEntry');
-require('../../models/NotificationLog'); // registered for findActiveRowWhere's model lookup (reads moved to the active backend, #256)
-const User = require('../../models/User');
-const Team = require('../../models/Team');
-const { readActiveRow, findActiveRowWhere, countActiveRowsWhere } = require('../pg-test-utils');
+const { getApp, getTokens, getSeedData, getCsrfHeaders, teardown } = require('../setup');
+const {
+  readActiveRow, findActiveRowWhere, countActiveRowsWhere,
+  deleteActiveRowsWhere, updateActiveRow,
+} = require('../pg-test-utils');
+const fx = require('../fixtures/pg-fixtures');
 
 let app, tokens, seed, csrf;
 const sign = (id) => jwt.sign({ id: id.toString() }, process.env.JWT_SECRET, { expiresIn: '1h' });
@@ -35,7 +31,7 @@ beforeAll(async () => {
 });
 
 afterAll(async () => {
-  await mongoose.disconnect();
+  await teardown();
 });
 
 // Far-future direct creates (slot policy applies only to booking APIs).
@@ -51,14 +47,14 @@ const futureRange = (days = 60) => {
 // A team-less cohort session: roster `enrolled`, capacity `capacity`.
 const makeCohortSession = async ({ capacity = 1, enrolled = [] }) => {
   const { start, end } = futureRange();
-  return Schedule.create({
+  return fx.createSchedule({
     classId: seed.class2._id, bookedTeamId: null,
     startTime: start, endTime: end, capacity, enrolledUsers: enrolled,
   });
 };
 
 const enrollInCohort = (userId) =>
-  Enrollment.create({
+  fx.createEnrollment({
     userId, classId: seed.class2._id, teamId: null, status: 'Active',
   });
 
@@ -67,8 +63,8 @@ const joinAs = (token, scheduleId) =>
     .set('Authorization', `Bearer ${token}`).set(csrf);
 
 beforeEach(async () => {
-  await WaitlistEntry.deleteMany({});
-  await Enrollment.deleteMany({ classId: seed.class2._id });
+  await deleteActiveRowsWhere('WaitlistEntry', {});
+  await deleteActiveRowsWhere('Enrollment', { classId: seed.class2._id });
 });
 
 describe('Waitlist — join policy', () => {
@@ -108,7 +104,7 @@ describe('Waitlist — join policy', () => {
   test('started session → 409', async () => {
     await enrollInCohort(seed.member1._id);
     const past = new Date(Date.now() - 60 * 60_000);
-    const sch = await Schedule.create({
+    const sch = await fx.createSchedule({
       classId: seed.class2._id, bookedTeamId: null,
       startTime: past, endTime: new Date(past.getTime() + 60 * 60_000),
       capacity: 1, enrolledUsers: [seed.member2._id],
@@ -180,7 +176,7 @@ describe('Waitlist — leave / mine / staff list', () => {
   });
 
   test('staff list: Coordinator reads any session queue (Wave E polish)', async () => {
-    const coordinator = await User.create({
+    const coordinator = await fx.createUser({
       empCode: '000088', name: 'Coord Waitlist', role: 'Coordinator',
       department: 'HR', password: 'coord12345',
     });
@@ -248,7 +244,7 @@ describe('Waitlist — FIFO auto-promotion', () => {
 
   test('Dropped auto-release frees a seat and promotes the waiter', async () => {
     // Dedicated dropper so other tests keep member2 Active.
-    const dropper = await User.create({
+    const dropper = await fx.createUser({
       empCode: '000077', name: 'Dropper', role: 'Participant',
       department: 'Sales', password: 'dropper12345',
     });
@@ -256,9 +252,13 @@ describe('Waitlist — FIFO auto-promotion', () => {
     const sch = await makeCohortSession({ capacity: 1, enrolled: [dropper._id] });
     expect((await joinAs(tokens.member1, sch._id)).status).toBe(201);
 
-    // Status flip via findOneAndUpdate triggers the auto-release middleware
-    // ({new:true} so the post hook sees the NEW status — same as the app).
-    await User.findOneAndUpdate({ _id: dropper._id }, { status: 'Dropped' }, { new: true });
+    // Drive the status→Dropped auto-release through the production seam (the
+    // admin user-update API → the ported user-mutations repo's roster-sync),
+    // not the retired Mongoose post-findOneAndUpdate hook.
+    const dropped = await request(app).put(`/api/users/${dropper._id}`)
+      .set('Authorization', `Bearer ${tokens.admin}`).set(csrf)
+      .send({ status: 'Dropped' });
+    expect(dropped.status).toBe(200);
 
     const after = await readActiveRow('Schedule', sch._id);
     expect(after).not.toBeNull(); // not emptied — the promotion refilled it
@@ -270,7 +270,7 @@ describe('Waitlist — FIFO auto-promotion', () => {
   test('team member removal (team-sync) frees a seat and promotes a waiting teammate', async () => {
     // Team session: roster [leader, member1] at cap 2 (full); member2 (teammate) waits.
     const { start, end } = futureRange();
-    const sch = await Schedule.create({
+    const sch = await fx.createSchedule({
       classId: seed.class1._id, bookedTeamId: seed.team._id,
       startTime: start, endTime: end, capacity: 2,
       enrolledUsers: [seed.leader._id, seed.member1._id],
@@ -313,7 +313,7 @@ describe('Waitlist — learner session visibility (phase-04 widening)', () => {
 
   test('a team member NOT on the full team session roster still sees it (F4) and can join its waitlist', async () => {
     const { start, end } = futureRange();
-    const sch = await Schedule.create({
+    const sch = await fx.createSchedule({
       classId: seed.class1._id, bookedTeamId: seed.team._id,
       startTime: start, endTime: end, capacity: 1,
       enrolledUsers: [seed.member1._id], // member2's add was capacity-blocked
@@ -343,10 +343,7 @@ describe('Waitlist — review regressions (2026-06-11)', () => {
 
     // Drift: a legacy/manual path seats member1 WITHOUT resolving their queue
     // row — the head is now stale ('waiting' but already on the roster).
-    await Schedule.updateOne(
-      { _id: sch._id },
-      { $set: { enrolledUsers: [seed.member1._id] } },
-    );
+    await updateActiveRow('Schedule', sch._id, { enrolledUsers: [seed.member1._id.toString()] });
 
     // Raise capacity by 1 → exactly one real free seat.
     const res = await request(app).put(`/api/schedules/${sch._id}`)
@@ -375,12 +372,12 @@ describe('Waitlist — review regressions (2026-06-11)', () => {
   });
 
   test('team REASSIGN dissolves the old audience queue — no cross-team promotion later (F2)', async () => {
-    const team2 = await Team.create({
+    const team2 = await fx.createTeam({
       name: 'PIC Review B', classId: seed.class1._id,
       leaderId: seed.leader._id, members: [seed.leader._id],
     });
     const { start, end } = futureRange();
-    const sch = await Schedule.create({
+    const sch = await fx.createSchedule({
       classId: seed.class1._id, bookedTeamId: seed.team._id,
       startTime: start, endTime: end, capacity: 1,
       enrolledUsers: [seed.member1._id],
