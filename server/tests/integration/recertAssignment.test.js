@@ -9,13 +9,14 @@
  */
 
 const { getApp, getSeedData, teardown } = require('../setup');
-const Certificate = require('../../models/Certificate');
-const LearningProgram = require('../../models/LearningProgram');
-const Assignment = require('../../models/Assignment');
 const { createRecertificationAssignments } = require('../../domains/learning/completion/recert-assignment-service');
 // Active-backend readers (phase-05 A2): the recert service now writes/reads
 // through the dual repositories — a Mongoose read is stale on the PG lane.
-const { findActiveRowWhere, countActiveRowsWhere, updateActiveRow } = require('../pg-test-utils');
+// Fixtures INSERT straight into PG.
+const {
+  findActiveRowWhere, countActiveRowsWhere, updateActiveRow, deleteActiveRowsWhere,
+} = require('../pg-test-utils');
+const fx = require('../fixtures/pg-fixtures');
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const NOW = new Date('2026-07-01T00:00:00.000Z');
@@ -26,7 +27,6 @@ let seed, seq = 0;
 beforeAll(async () => {
   await getApp();
   seed = getSeedData();
-  await Assignment.init(); // build the sourceCertificateId partial unique index
 });
 
 afterAll(async () => {
@@ -34,13 +34,15 @@ afterAll(async () => {
 });
 
 afterEach(async () => {
-  await Certificate.deleteMany({});
-  await Assignment.deleteMany({});
-  await LearningProgram.deleteMany({});
+  await Promise.all([
+    deleteActiveRowsWhere('Certificate', {}),
+    deleteActiveRowsWhere('Assignment', {}),
+    deleteActiveRowsWhere('LearningProgram', {}),
+  ]);
 });
 
 const makeProgram = (autoAssign) =>
-  LearningProgram.create({
+  fx.createLearningProgram({
     code: `RC${seq += 1}`, name: `Recert Program ${seq}`,
     schedulingMode: 'admin_scheduled',
     recertifyPolicy: { autoAssign },
@@ -48,7 +50,7 @@ const makeProgram = (autoAssign) =>
 
 const makeCert = (programId, over = {}) => {
   seq += 1;
-  return Certificate.create({
+  return fx.createCertificate({
     certificateNumber: `CERT-RC-${seq}`,
     verificationCode: `vrc-${seq}-${Math.random().toString(36).slice(2)}`,
     userId: seed.member1._id,
