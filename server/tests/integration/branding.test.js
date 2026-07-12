@@ -1,7 +1,7 @@
 const request = require('supertest');
 const { getApp, getTokens, getSeedData, getCsrfHeaders, teardown } = require('../setup');
-const TenantConfig = require('../../models/TenantConfig');
-const Certificate = require('../../models/Certificate');
+const { deleteActiveRowsWhere } = require('../pg-test-utils');
+const fx = require('../fixtures/pg-fixtures');
 const branding = require('../../lib/branding');
 
 // TMS.update gap #5 — branding & templates designer: singleton TenantConfig over
@@ -11,8 +11,10 @@ const branding = require('../../lib/branding');
 let app, tokens, seed, csrf;
 beforeAll(async () => { app = await getApp(); tokens = getTokens(); seed = getSeedData(); csrf = await getCsrfHeaders(app); });
 afterEach(async () => {
-  await TenantConfig.deleteMany({});
-  await Certificate.deleteMany({});
+  await Promise.all([
+    deleteActiveRowsWhere('TenantConfig', {}),
+    deleteActiveRowsWhere('Certificate', {}),
+  ]);
   branding.setBrandingCache(branding.DEFAULTS); // reset the cache between tests
 });
 afterAll(async () => { await teardown(); });
@@ -55,7 +57,7 @@ describe('Branding — CRUD + cache', () => {
 describe('Branding — feeds the certificate verification surface', () => {
   it('exposes the configured branding on the public verification response', async () => {
     await asAdmin('put', '/api/branding').send({ orgName: 'Northwind Group', certificateTitle: 'Certificate of Achievement' });
-    const cert = await Certificate.create({
+    const cert = await fx.createCertificate({
       certificateNumber: 'CERT-B-1', verificationCode: 'verify-b-1',
       userId: seed.leader._id, cohortId: seed.class1._id, status: 'Issued', learnerName: 'Team Leader',
     });

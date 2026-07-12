@@ -16,11 +16,11 @@ const { getApp, getSeedData, teardown } = require('../setup');
 // repo (Phase 5 slice 3) and the cron heartbeat rides the cron-run seam
 // (slice 5, D-CronRun) — on the pg lane rows land in PG only, so asserts +
 // cleanup for both read/delete on the ACTIVE backend.
-const { findActiveRowWhere, countActiveRowsWhere, deleteActiveRowsWhere } = require('../pg-test-utils');
+const {
+  findActiveRowWhere, countActiveRowsWhere, deleteActiveRowsWhere, updateActiveRow,
+} = require('../pg-test-utils');
+const fx = require('../fixtures/pg-fixtures');
 const { sendMail } = require('../../lib/mailer');
-const Certificate = require('../../models/Certificate');
-const NotificationLog = require('../../models/NotificationLog');
-const User = require('../../models/User');
 const { sendCertificateExpiryReminders } = require('../../domains/learning/completion/expiry-reminder-service');
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -34,8 +34,8 @@ beforeAll(async () => {
   process.env['CRON_TOKEN'] = VALID_CRON_TOKEN;
   app = await getApp();
   seed = getSeedData();
-  await NotificationLog.init(); // build the unique cadence index for idempotency
-  await Certificate.init();
+  // (No Model.init() index builds needed — cadence idempotency is enforced by
+  // the notification_logs unique index in the PG migrations.)
 });
 
 afterAll(async () => {
@@ -46,14 +46,16 @@ afterAll(async () => {
 
 afterEach(async () => {
   sendMail.mockReset();
-  await NotificationLog.deleteMany({});
-  await Certificate.deleteMany({});
-  await User.updateMany({ _id: seed.member1._id }, { $set: { email: null } });
+  await Promise.all([
+    deleteActiveRowsWhere('NotificationLog', {}),
+    deleteActiveRowsWhere('Certificate', {}),
+  ]);
+  await updateActiveRow('User', seed.member1._id, { email: null });
 });
 
 const makeCert = (over = {}) => {
   seq += 1;
-  return Certificate.create({
+  return fx.createCertificate({
     certificateNumber: `CERT-TEST-${seq}`,
     verificationCode: `vcode-${seq}-${Math.random().toString(36).slice(2)}`,
     userId: seed.member1._id,
@@ -67,7 +69,7 @@ const makeCert = (over = {}) => {
 };
 
 const withEmail = () =>
-  User.updateOne({ _id: seed.member1._id }, { $set: { email: 'm1@example.com' } });
+  updateActiveRow('User', seed.member1._id, { email: 'm1@example.com' });
 
 describe('sendCertificateExpiryReminders', () => {
   test('certificate expiring in 5 days → emails the learner + logs an expiry_7 bell row', async () => {
@@ -164,15 +166,16 @@ describe('POST /api/cron/certificate-expiry-reminders', () => {
 describe('manager digest of expiring certificates', () => {
   beforeEach(async () => {
     sendMail.mockResolvedValue({ messageId: 'x' });
-    await User.updateOne({ _id: seed.teacher._id }, { $set: { email: 'mgr@example.com' } });
-    await User.updateOne({ _id: seed.member1._id }, { $set: { managerId: seed.teacher._id } });
+    await updateActiveRow('User', seed.teacher._id, { email: 'mgr@example.com' });
+    // manager id as STRING — PG id columns are text.
+    await updateActiveRow('User', seed.member1._id, { managerId: String(seed.teacher._id) });
   });
 
   afterEach(async () => {
-    await User.updateMany(
-      { _id: { $in: [seed.member1._id, seed.teacher._id] } },
-      { $set: { managerId: null, email: null } },
-    );
+    await Promise.all([
+      updateActiveRow('User', seed.member1._id, { managerId: null, email: null }),
+      updateActiveRow('User', seed.teacher._id, { managerId: null, email: null }),
+    ]);
   });
 
   test('a manager gets one weekly digest for a report whose certificate is expiring', async () => {
@@ -198,7 +201,7 @@ describe('manager digest of expiring certificates', () => {
   });
 
   test('a learner with no manager produces no digest', async () => {
-    await User.updateOne({ _id: seed.member1._id }, { $set: { managerId: null } });
+    await updateActiveRow('User', seed.member1._id, { managerId: null });
     await makeCert({ validUntil: inDays(10) });
 
     const summary = await sendCertificateExpiryReminders({ now: NOW });
