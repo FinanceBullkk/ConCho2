@@ -1,7 +1,8 @@
 const request = require('supertest');
 const jwt = require('jsonwebtoken');
 const { getApp, getSeedData, teardown } = require('../setup');
-const Enrollment = require('../../models/Enrollment');
+const { deleteActiveRowsWhere } = require('../pg-test-utils');
+const fx = require('../fixtures/pg-fixtures');
 
 // Rearchitecture Phase 2 — the unified enrollment read. ONE self-scoped surface
 // returns a learner's enrollments across BOTH modes: team-based (enrolled via a
@@ -18,7 +19,7 @@ beforeAll(async () => {
 
 afterAll(async () => { await teardown(); });
 
-afterEach(async () => { await Enrollment.deleteMany({}); });
+afterEach(async () => { await deleteActiveRowsWhere('Enrollment', {}); });
 
 const getMine = (token) =>
   request(app).get('/api/learning/enrollments/mine').set('Authorization', `Bearer ${token}`);
@@ -32,7 +33,7 @@ describe('GET /api/learning/enrollments/mine — unified enrollment read (Phase 
   });
 
   test('includes a team-based (group) enrollment tagged mode=group', async () => {
-    await Enrollment.create({
+    await fx.createEnrollment({
       userId: seed.member1._id, teamId: seed.team._id, classId: seed.class1._id, status: 'Active',
     });
     const res = await getMine(memberToken);
@@ -47,7 +48,7 @@ describe('GET /api/learning/enrollments/mine — unified enrollment read (Phase 
   });
 
   test('includes a cohort-based (direct) enrollment tagged mode=direct', async () => {
-    await Enrollment.create({
+    await fx.createEnrollment({
       userId: seed.member1._id, teamId: null, classId: seed.class2._id, status: 'Active',
     });
     const res = await getMine(memberToken);
@@ -60,9 +61,9 @@ describe('GET /api/learning/enrollments/mine — unified enrollment read (Phase 
   });
 
   test('merges BOTH modes into one list', async () => {
-    await Enrollment.create([
-      { userId: seed.member1._id, teamId: seed.team._id, classId: seed.class1._id, status: 'Active' },
-      { userId: seed.member1._id, teamId: null, classId: seed.class2._id, status: 'Active' },
+    await Promise.all([
+      fx.createEnrollment({ userId: seed.member1._id, teamId: seed.team._id, classId: seed.class1._id, status: 'Active' }),
+      fx.createEnrollment({ userId: seed.member1._id, teamId: null, classId: seed.class2._id, status: 'Active' }),
     ]);
     const res = await getMine(memberToken);
     expect(res.body.data).toHaveLength(2);
@@ -71,9 +72,9 @@ describe('GET /api/learning/enrollments/mine — unified enrollment read (Phase 
   });
 
   test('is self-scoped — another learner\'s enrollments never leak', async () => {
-    await Enrollment.create([
-      { userId: seed.member2._id, teamId: seed.team._id, classId: seed.class1._id, status: 'Active' },
-      { userId: seed.member2._id, teamId: null, classId: seed.class2._id, status: 'Active' },
+    await Promise.all([
+      fx.createEnrollment({ userId: seed.member2._id, teamId: seed.team._id, classId: seed.class1._id, status: 'Active' }),
+      fx.createEnrollment({ userId: seed.member2._id, teamId: null, classId: seed.class2._id, status: 'Active' }),
     ]);
     const res = await getMine(memberToken);
     expect(res.status).toBe(200);

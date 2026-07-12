@@ -11,14 +11,14 @@
  */
 
 const { getApp, getSeedData, teardown } = require('../setup');
+const { findActiveRowWhere } = require('../pg-test-utils');
+const fx = require('../fixtures/pg-fixtures');
 
-let seed, Class, Schedule, repository, sessionOrderCache;
+let seed, repository, sessionOrderCache;
 
 beforeAll(async () => {
   await getApp();
   seed = getSeedData();
-  Class = require('../../models/Class');
-  Schedule = require('../../models/Schedule');
   repository = require('../../domains/learning/session/repository');
   ({ sessionOrderCache } = require('../../domains/schedule/session-order'));
 });
@@ -31,13 +31,13 @@ describe('PERF-014 — session read paths read-through the cache (no invalidatio
   let cohort;
 
   beforeAll(async () => {
-    cohort = await Class.create({
+    cohort = await fx.createClass({
       classCode: `PERF014_${Date.now()}`, courseName: 'Perf 014', totalSessions: 10,
     });
     const base = Date.now() + 3 * 24 * 60 * 60 * 1000;
-    await Schedule.create([
-      { classId: cohort._id, bookedTeamId: seed.team._id, startTime: new Date(base), endTime: new Date(base + 3600e3), enrolledUsers: [seed.member1._id], status: 'scheduled' },
-      { classId: cohort._id, bookedTeamId: seed.team._id, startTime: new Date(base + 24 * 3600e3), endTime: new Date(base + 25 * 3600e3), enrolledUsers: [seed.member1._id], status: 'scheduled' },
+    await Promise.all([
+      fx.createSchedule({ classId: cohort._id, bookedTeamId: seed.team._id, startTime: new Date(base), endTime: new Date(base + 3600e3), enrolledUsers: [seed.member1._id], status: 'scheduled' }),
+      fx.createSchedule({ classId: cohort._id, bookedTeamId: seed.team._id, startTime: new Date(base + 24 * 3600e3), endTime: new Date(base + 25 * 3600e3), enrolledUsers: [seed.member1._id], status: 'scheduled' }),
     ]);
   });
 
@@ -59,7 +59,7 @@ describe('PERF-014 — session read paths read-through the cache (no invalidatio
   test('findSessionById also leaves the cache populated (read-through)', async () => {
     const key = cohort._id.toString();
     sessionOrderCache.del(key);
-    const one = await Schedule.findOne({ classId: cohort._id }).lean();
+    const one = await findActiveRowWhere('Schedule', { classId: cohort._id });
 
     await repository.findSessionById(one._id);
 
