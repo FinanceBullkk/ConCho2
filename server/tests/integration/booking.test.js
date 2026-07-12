@@ -7,13 +7,11 @@
 
 const request = require('supertest');
 const { getApp, getTokens, getSeedData, getCsrfHeaders, teardown } = require('../setup');
-const { readActiveRow, findActiveRowWhere, findActiveRowsWhere, countActiveRowsWhere } = require('../pg-test-utils');
-const { isPostgres } = require('../../config/db-backend');
-const Schedule = require('../../models/Schedule');
-const Setting = require('../../models/Setting');
-const Class = require('../../models/Class');
-const LearningProgram = require('../../models/LearningProgram');
-const NotificationLog = require('../../models/NotificationLog');
+const {
+  readActiveRow, findActiveRowWhere, findActiveRowsWhere, countActiveRowsWhere,
+  deleteActiveRowsWhere, updateActiveRow, addAllowedTimeSlot,
+} = require('../pg-test-utils');
+const fx = require('../fixtures/pg-fixtures');
 
 let app, tokens, seed, csrf;
 
@@ -26,13 +24,8 @@ beforeAll(async () => {
   csrf = await getCsrfHeaders(app);
 
   // Ensure ALLOWED_TIME_SLOTS includes a 10:00–11:00 VN slot (= 03:00–04:00 UTC)
-  // setup.js may already have 10:00–11:30, which covers this range.
-  // We add a separate exact slot for test predictability.
-  await Setting.findOneAndUpdate(
-    { key: 'ALLOWED_TIME_SLOTS' },
-    { $addToSet: { value: { sh: 10, sm: 0, eh: 11, em: 0 } } },
-    { upsert: false }
-  );
+  // for test predictability (idempotent — the seed already carries this slot).
+  await addAllowedTimeSlot({ sh: 10, sm: 0, eh: 11, em: 0 });
 });
 
 afterAll(async () => {
@@ -40,8 +33,10 @@ afterAll(async () => {
 });
 
 afterEach(async () => {
-  await Schedule.deleteMany({});
-  await NotificationLog.deleteMany({});
+  await Promise.all([
+    deleteActiveRowsWhere('Schedule', {}),
+    deleteActiveRowsWhere('NotificationLog', {}),
+  ]);
 });
 
 // Helper: produce a start/end pair in next week, at 10:00–11:00 VN (03:00–04:00 UTC)
@@ -244,17 +239,17 @@ describe('POST /api/schedules/book-slot · capacity', () => {
   let program;
 
   beforeEach(async () => {
-    program = await LearningProgram.create({
+    program = await fx.createLearningProgram({
       code: 'CAPTEST', name: 'Capacity Test Program',
       schedulingMode: 'leader_booking',
       capacityPolicy: { maxParticipantsPerSession: 2 },
     });
-    await Class.findByIdAndUpdate(seed.class1._id, { programId: program._id });
+    await updateActiveRow('Class', seed.class1._id, { programId: program._id });
   });
 
   afterEach(async () => {
-    await Class.findByIdAndUpdate(seed.class1._id, { programId: null });
-    await LearningProgram.deleteMany({ code: 'CAPTEST' });
+    await updateActiveRow('Class', seed.class1._id, { programId: null });
+    await deleteActiveRowsWhere('LearningProgram', { code: 'CAPTEST' });
   });
 
   test('roster exceeding the cap is rejected (422) and no Schedule is persisted', async () => {
@@ -266,12 +261,13 @@ describe('POST /api/schedules/book-slot · capacity', () => {
 
     expect(res.status).toBe(422);
     expect(res.body.message).toMatch(/capacity/);
-    expect(await Schedule.countDocuments({})).toBe(0); // gate runs before create — nothing written
+    expect(await countActiveRowsWhere('Schedule', {})).toBe(0); // gate runs before create — nothing written
   });
 
   test('program maxParticipantsPerSession raises the cap; roster within it books (201)', async () => {
-    await LearningProgram.findByIdAndUpdate(program._id, {
-      'capacityPolicy.maxParticipantsPerSession': 5,
+    // Nested jsonb field → set the whole capacityPolicy object on the active backend.
+    await updateActiveRow('LearningProgram', program._id, {
+      capacityPolicy: { maxParticipantsPerSession: 5 },
     });
     const { start, end } = vnSlot();
     const res = await request(app)
@@ -337,14 +333,9 @@ describe('Schedule.enrolledCount virtual (ARCH-02)', () => {
       .expect(201);
 
     // The contract: enrolledCount is DERIVED from enrolledUsers, never stored.
-    // The API response carries the derived value on both lanes.
+    // The API response carries the derived value; the PG row stores no such field.
     const row = await readActiveRow('Schedule', res.body.data._id);
     expect(res.body.data.enrolledCount).toBe(row.enrolledUsers.length);
-    if (!isPostgres) {
-      // Mongo-only shape checks: the mongoose virtual + no stored field.
-      const doc = await Schedule.findById(res.body.data._id);
-      expect(doc.enrolledCount).toBe(doc.enrolledUsers.length);
-      expect(doc.toObject({ virtuals: false }).enrolledCount).toBeUndefined();
-    }
+    expect(row.enrolledCount).toBeUndefined(); // derived, never persisted
   });
 });
