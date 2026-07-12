@@ -153,6 +153,19 @@ Bug fixing and integration review rank above net-new feature rollout.
 > [`2026-q3.md`](changelog-archive/2026-q3.md); 06-20→06-27 rolled 2026-07-07;
 > 06-14→06-19 rolled 2026-07-04 → [`2026-q2.md`](changelog-archive/2026-q2.md)).
 
+- **2026-07-12** — **Wave K Phase 2 · Batch D2d batch 18 — audit-round/enrollment/recert cluster off Mongoose (4 suites).**
+  `auditFlowsRound3` (FLOW-001/BUG-003) + `auditPerfRound4` (PERF-014 session
+  cache) + `myEnrollments` (unified enrollment read) + `recertAssignment` (D6
+  recert auto-assign) now author fixtures via `fx.create*` and read/clean via
+  active-backend helpers (`findActiveRowWhere`/`deleteActiveRowsWhere`) instead of
+  `Model.create`/`deleteMany` + `Schedule.findOne().lean()`. Dropped the Mongo-only
+  `Assignment.init()` index build (PG enforces its own partial unique). All four
+  files drop every `../../models/*` require. **Skipped as re-home-not-mechanical**
+  (grouped with `dataIntegrity`/`phaseAHardening`): `auditDataRound2` (DATA-012
+  tests the Mongoose `distinct` soft-delete hook directly) + the unit
+  `auditEntityEnumCoverage` (reads `AuditLog.schema` enum metadata, not a DB op —
+  stays until D2e deletes the models). Pure test-infra, no app/spec change.
+  Verified on the PG lane (22/22 across the 4 suites, write-gate clean).
 - **2026-07-12** — **Wave K Phase 2 · Batch D2d batch 17 — export/sync cluster off Mongoose (4 suites).**
   `exportRoutes` (DATA-009 leak guard) + `exportRowCap` (PERF-001) +
   `exportFormulaInjection` (SEC-004) + `syncGoogleSheets` now author fixtures via
