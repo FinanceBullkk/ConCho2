@@ -12,11 +12,10 @@
 
 const request = require('supertest');
 const { getApp, getTokens, getSeedData, getCsrfHeaders, teardown } = require('../setup');
-const Schedule = require('../../models/Schedule');
-const Setting = require('../../models/Setting');
-const Class = require('../../models/Class');
-const Team = require('../../models/Team');
-const LearningProgram = require('../../models/LearningProgram');
+const {
+  readActiveRow, deleteActiveRowsWhere, updateActiveRow, addAllowedTimeSlot,
+} = require('../pg-test-utils');
+const fx = require('../fixtures/pg-fixtures');
 
 let app, tokens, seed, csrf, classId;
 
@@ -26,13 +25,9 @@ beforeAll(async () => {
   seed = getSeedData();
   csrf = await getCsrfHeaders(app);
 
-  await Setting.findOneAndUpdate(
-    { key: 'ALLOWED_TIME_SLOTS' },
-    { $addToSet: { value: { sh: 10, sm: 0, eh: 11, em: 0 } } },
-    { upsert: false },
-  );
+  await addAllowedTimeSlot({ sh: 10, sm: 0, eh: 11, em: 0 });
 
-  const team = await Team.findById(seed.team._id).lean();
+  const team = await readActiveRow('Team', seed.team._id);
   classId = team.classId;
 });
 
@@ -42,9 +37,9 @@ afterAll(async () => {
 
 afterEach(async () => {
   // Reset shared fixtures so other suites see the seed's program-less state.
-  await Schedule.deleteMany({});
-  await Class.findByIdAndUpdate(classId, { programId: null });
-  await LearningProgram.deleteMany({});
+  await deleteActiveRowsWhere('Schedule', {});
+  await updateActiveRow('Class', classId, { programId: null });
+  await deleteActiveRowsWhere('LearningProgram', {});
 });
 
 const vnSlot = (offsetDays = 0) => {
@@ -57,8 +52,8 @@ const vnSlot = (offsetDays = 0) => {
 };
 
 const linkProgram = async (schedulingMode, code) => {
-  const program = await LearningProgram.create({ code, name: `${code} Program`, schedulingMode });
-  await Class.findByIdAndUpdate(classId, { programId: program._id });
+  const program = await fx.createLearningProgram({ code, name: `${code} Program`, schedulingMode });
+  await updateActiveRow('Class', classId, { programId: program._id });
   return program;
 };
 
