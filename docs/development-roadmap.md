@@ -153,6 +153,16 @@ Bug fixing and integration review rank above net-new feature rollout.
 > [`2026-q3.md`](changelog-archive/2026-q3.md); 06-20→06-27 rolled 2026-07-07;
 > 06-14→06-19 rolled 2026-07-04 → [`2026-q2.md`](changelog-archive/2026-q2.md)).
 
+- **2026-07-12** — **Wave K Phase 2 · Batch D2d batch 19 — auth/user + cohort-enrollment cluster off Mongoose (4 suites).**
+  `auth` (forced password change) + `passwordReset` (forgot/reset flow, 11
+  `findByIdAndUpdate`→`updateActiveRow`) + `softDeleteEmpCodeReuse` (dead `User`
+  require dropped) + `learningEnrollmentRoutes` (cohort enroll + bulk) now author
+  fixtures via `fx.create*` and mutate/clean scaffolding through active-backend
+  helpers instead of `Model.create`/`deleteMany`/`updateMany`/`findByIdAndUpdate`.
+  Dropped the Mongo-only `Enrollment.init()` index build (PG enforces its own
+  partial unique for the concurrent-enroll race test). All four files drop every
+  `../../models/*` require. Pure test-infra, no app/spec change. Verified on the
+  PG lane (49/49 across the 4 suites, write-gate clean).
 - **2026-07-12** — **Wave K Phase 2 · Batch D2d batch 18 — audit-round/enrollment/recert cluster off Mongoose (4 suites).**
   `auditFlowsRound3` (FLOW-001/BUG-003) + `auditPerfRound4` (PERF-014 session
   cache) + `myEnrollments` (unified enrollment read) + `recertAssignment` (D6
