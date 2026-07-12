@@ -185,22 +185,20 @@ describe('GET /api/export/evaluations', () => {
   // or a deleted cohort's label leaks into the HR evaluation export. ($lookup
   // sub-pipelines don't fire Mongoose's pre('aggregate') soft-delete hook.)
   test('does NOT leak a soft-deleted class label into the export', async () => {
-    const Evaluation = require('../../models/Evaluation');
-    const Class = require('../../models/Class');
+    const fx = require('../fixtures/pg-fixtures');
+    const { updateActiveRow } = require('../pg-test-utils');
     const code = `DEL_${Date.now()}`;
-    const { insertedId: classId } = await Class.collection.insertOne({
+    const cls = await fx.createClass({
       classCode: code, courseName: 'Foundation', totalSessions: 5,
       status: 'Ongoing', isDeleted: false, teacherIds: [],
-      createdAt: new Date(), updatedAt: new Date(),
     });
-    await Evaluation.collection.insertOne({
-      classId, userId: seed.member1._id, level: 'B1',
+    await fx.createEvaluation({
+      classId: cls._id, userId: seed.member1._id, level: 'B1',
       grammarScore: 8, vocabularyScore: 7, pronunciationScore: 7, fluencyScore: 8,
       teacherComment: 'ok', isDeleted: false,
-      createdAt: new Date(), updatedAt: new Date(),
     });
     // Soft-delete the class — its evaluations must survive but lose the label.
-    await Class.collection.updateOne({ _id: classId }, { $set: { isDeleted: true } });
+    await updateActiveRow('Class', cls._id, { isDeleted: true });
 
     const res = await request(app)
       .get('/api/export/evaluations?format=json')

@@ -153,6 +153,18 @@ Bug fixing and integration review rank above net-new feature rollout.
 > [`2026-q3.md`](changelog-archive/2026-q3.md); 06-20→06-27 rolled 2026-07-07;
 > 06-14→06-19 rolled 2026-07-04 → [`2026-q2.md`](changelog-archive/2026-q2.md)).
 
+- **2026-07-12** — **Wave K Phase 2 · Batch D2d batch 17 — export/sync cluster off Mongoose (4 suites).**
+  `exportRoutes` (DATA-009 leak guard) + `exportRowCap` (PERF-001) +
+  `exportFormulaInjection` (SEC-004) + `syncGoogleSheets` now author fixtures via
+  `fx.create*` and mutate/count/clean scaffolding through active-backend helpers
+  (`deleteActiveRowsWhere`/`countActiveRowsWhere`/`updateActiveRow`) instead of
+  `Model.create`/`insertMany`/`deleteMany`/`updateMany`/`findByIdAndUpdate` and the
+  raw `Class.collection.insertOne`/`updateOne` + `Evaluation.collection.insertOne`
+  paths. `seedAttendance` now returns the created rows so the re-export test flips
+  `syncStatus` by id via `updateActiveRow`; row-cap PENDING/EXPORTING asserts use
+  `countActiveRowsWhere`. All four files drop every `../../models/*` require. Pure
+  test-infra, no app/spec change. Verified on the PG lane (37/37 across the 4
+  suites, write-gate clean).
 - **2026-07-12** — **Wave K Phase 2 · Batch D2d batch 16 — learning-reports cluster off Mongoose (4 suites).**
   `learningReportsRoutes` + `learningComplianceReportsRoutes` +
   `learningCertificateExpiryRoutes` + `learningAssignmentRoutes` now author
