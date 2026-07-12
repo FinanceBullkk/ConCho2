@@ -21,19 +21,15 @@
 
 const request = require('supertest');
 const { getApp, getTokens, getSeedData, getCsrfHeaders, teardown } = require('../setup');
+const fx = require('../fixtures/pg-fixtures');
 
 let app, tokens, seed, csrf;
-let Class, Enrollment, Schedule, Evaluation;
 
 beforeAll(async () => {
   app = await getApp();
   tokens = getTokens();
   seed = getSeedData();
   csrf = await getCsrfHeaders(app);
-  Class = require('../../models/Class');
-  Enrollment = require('../../models/Enrollment');
-  Schedule = require('../../models/Schedule');
-  Evaluation = require('../../models/Evaluation');
 });
 
 afterAll(async () => {
@@ -43,7 +39,7 @@ afterAll(async () => {
 let counter = 0;
 const freshClass = async (over = {}) => {
   counter += 1;
-  return Class.create({
+  return fx.createClass({
     classCode: `R3_${Date.now()}_${counter}`,
     courseName: 'Round 3 Test Class',
     totalSessions: 10,
@@ -59,10 +55,10 @@ describe('FLOW-001 — GET /api/evaluations/roster (class-scoped learner picker)
   beforeAll(async () => {
     cls = await freshClass();
     // Two Active enrolments + one Dropped (must be excluded from the roster).
-    await Enrollment.create([
-      { classId: cls._id, teamId: seed.team._id, userId: seed.member1._id, status: 'Active' },
-      { classId: cls._id, teamId: seed.team._id, userId: seed.member2._id, status: 'Active' },
-      { classId: cls._id, teamId: seed.team._id, userId: seed.leader._id, status: 'Dropped' },
+    await Promise.all([
+      fx.createEnrollment({ classId: cls._id, teamId: seed.team._id, userId: seed.member1._id, status: 'Active' }),
+      fx.createEnrollment({ classId: cls._id, teamId: seed.team._id, userId: seed.member2._id, status: 'Active' }),
+      fx.createEnrollment({ classId: cls._id, teamId: seed.team._id, userId: seed.leader._id, status: 'Dropped' }),
     ]);
   });
 
@@ -148,7 +144,7 @@ describe('BUG-003a — GET /api/schedules returns enrolledCount', () => {
   beforeAll(async () => {
     cls = await freshClass();
     const start = new Date(Date.now() + 3 * 24 * 60 * 60 * 1000);
-    schedule = await Schedule.create({
+    schedule = await fx.createSchedule({
       classId: cls._id,
       bookedTeamId: seed.team._id,
       startTime: start,
@@ -177,7 +173,7 @@ describe('BUG-003b — GET /api/learning/completion averageScore', () => {
 
   beforeAll(async () => {
     cls = await freshClass();
-    await Evaluation.create({
+    await fx.createEvaluation({
       classId: cls._id,
       userId: seed.member1._id,
       grammarScore: 8, vocabularyScore: 7, pronunciationScore: 9, fluencyScore: 6,
