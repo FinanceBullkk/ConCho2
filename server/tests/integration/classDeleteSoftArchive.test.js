@@ -1,10 +1,7 @@
 const request = require('supertest');
 const { getApp, getTokens, getSeedData, getCsrfHeaders, teardown } = require('../setup');
-const { isPostgres } = require('../../config/db-backend');
 const { readActiveRow } = require('../pg-test-utils');
-const Class = require('../../models/Class');
-const Evaluation = require('../../models/Evaluation');
-const Enrollment = require('../../models/Enrollment');
+const fx = require('../fixtures/pg-fixtures');
 
 // Industry-audit P1 regression: the legacy DELETE /api/classes/:id used to
 // HARD-delete Evaluations + Enrollments (deleteMany), violating the golden rule
@@ -29,13 +26,13 @@ afterAll(async () => {
 describe('Legacy DELETE /api/classes/:id — soft-archive (audit P1)', () => {
   test('soft-archives the class, preserves evaluations, closes enrollments (no hard-delete)', async () => {
     // Fresh class with NO teams/schedules so the referential guards pass.
-    const cls = await Class.create({
+    const cls = await fx.createClass({
       classCode: `DEL_TEST_${Date.now()}`,
       courseName: 'Audit Delete Test',
       totalSessions: 1,
       status: 'Ongoing',
     });
-    const evalDoc = await Evaluation.create({
+    const evalDoc = await fx.createEvaluation({
       classId: cls._id,
       userId: seed.member1._id,
       grammarScore: 7,
@@ -44,7 +41,7 @@ describe('Legacy DELETE /api/classes/:id — soft-archive (audit P1)', () => {
       fluencyScore: 7,
       createdBy: seed.teacher._id,
     });
-    const enrollDoc = await Enrollment.create({
+    const enrollDoc = await fx.createEnrollment({
       userId: seed.member1._id,
       classId: cls._id,
       status: 'Active',
@@ -59,18 +56,14 @@ describe('Legacy DELETE /api/classes/:id — soft-archive (audit P1)', () => {
     expect(res.status).toBe(200);
     expect(res.body.cascade.evaluationsPreserved).toBe(true);
 
-    // Class soft-archived (recoverable, not hard-deleted). "Hidden from normal
-    // find" is the Mongo soft-delete query hook — assert it only on that backend;
-    // the ported delete writes the flag to PG, so read the active row there.
-    if (!isPostgres) {
-      expect(await Class.findById(cls._id)).toBeNull();
-    }
+    // Class soft-archived (recoverable, not hard-deleted): the ported delete
+    // writes the is_deleted flag to PG — read the active row.
     const archived = await readActiveRow('Class', cls._id);
     expect(archived).not.toBeNull();
     expect(archived.isDeleted).toBe(true);
 
     // Evaluation PRESERVED — NOT hard-deleted (the golden-rule fix).
-    const evalStill = await Evaluation.findById(evalDoc._id).lean();
+    const evalStill = await readActiveRow('Evaluation', evalDoc._id);
     expect(evalStill).not.toBeNull();
 
     // Enrollment closed to 'Dropped' — preserved as history, not hard-deleted.
