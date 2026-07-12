@@ -1,12 +1,10 @@
 const request = require('supertest');
 const { getApp, getTokens, teardown, getCsrfHeaders } = require('../setup');
-const { pollUntil, findActiveAuditRow } = require('../pg-test-utils');
+const { pollUntil, findActiveAuditRow, deleteActiveRowsWhere } = require('../pg-test-utils');
 
 // Audit writes are fire-and-forget — a fixed sleep flakes under full-suite
 // load (seen on the pg lane). Poll briefly instead; assertions stay strict.
 const waitForAuditRow = (filter) => pollUntil(() => findActiveAuditRow(filter));
-const AuditLog = require('../../models/AuditLog');
-const ReportPreset = require('../../models/ReportPreset');
 
 // A5 part 2 (Modernization H1) — downloadable evidence pack (xlsx) + saved
 // report presets CRUD. All gated behind report.read; mutations audited.
@@ -24,8 +22,8 @@ afterAll(async () => {
 
 afterEach(async () => {
   await Promise.all([
-    ReportPreset.deleteMany({}),
-    AuditLog.deleteMany({ entity: { $in: ['Report', 'ReportPreset'] } }),
+    deleteActiveRowsWhere('ReportPreset', {}),
+    deleteActiveRowsWhere('AuditLog', { entity: { $in: ['Report', 'ReportPreset'] } }),
   ]);
 });
 
