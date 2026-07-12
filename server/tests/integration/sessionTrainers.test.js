@@ -9,19 +9,15 @@
 const request = require('supertest');
 const jwt = require('jsonwebtoken');
 const { getApp, getTokens, getSeedData, getCsrfHeaders, teardown } = require('../setup');
-const Schedule = require('../../models/Schedule');
 // Trainer edits write through the ported schedule chokepoint (PG-only on the
 // lane) — read the stored session from the active backend. externalTrainer is a
 // top-level field on Mongo but lives in the schedules.meta jsonb on PG, so
 // normalise across both.
-const { readActiveRow } = require('../pg-test-utils');
+const {
+  readActiveRow, deleteActiveRowsWhere, updateActiveRow, countActiveRowsWhere, addAllowedTimeSlot,
+} = require('../pg-test-utils');
+const fx = require('../fixtures/pg-fixtures');
 const storedExternalTrainer = (row) => row.externalTrainer ?? row.meta?.externalTrainer ?? null;
-const Setting = require('../../models/Setting');
-const Class = require('../../models/Class');
-const LearningProgram = require('../../models/LearningProgram');
-const Enrollment = require('../../models/Enrollment');
-const Office = require('../../models/Office');
-const User = require('../../models/User');
 
 let app, tokens, seed, csrf, office, coordinatorToken, teacher2, teacher2Token;
 
@@ -31,20 +27,17 @@ beforeAll(async () => {
   seed = getSeedData();
   csrf = await getCsrfHeaders(app);
 
-  await Setting.findOneAndUpdate(
-    { key: 'ALLOWED_TIME_SLOTS' },
-    { $addToSet: { value: { sh: 10, sm: 0, eh: 11, em: 0 } } },
-  );
+  await addAllowedTimeSlot({ sh: 10, sm: 0, eh: 11, em: 0 });
 
-  office = await Office.create({ name: 'Trainer Office', code: 'TRNOF' });
-  const coordinator = await User.create({
+  office = await fx.createOffice({ name: 'Trainer Office', code: 'TRNOF' });
+  const coordinator = await fx.createUser({
     empCode: '000050', name: 'Coordinator Trainer', role: 'Coordinator',
     department: 'HR', password: 'coord123456',
   });
   coordinatorToken = jwt.sign({ id: coordinator._id.toString() }, process.env.JWT_SECRET, { expiresIn: '1h' });
 
   // A second Teacher — NOT bound to the cohort's class — used to prove the UNION.
-  teacher2 = await User.create({
+  teacher2 = await fx.createUser({
     empCode: '000051', name: 'Guest Trainer', role: 'Teacher',
     department: 'English', password: 'teacher12345', email: 'guest.trainer@example.com',
   });
@@ -56,13 +49,15 @@ afterAll(async () => {
 });
 
 afterEach(async () => {
-  await Schedule.deleteMany({});
-  await Enrollment.deleteMany({});
-  await Class.updateMany(
-    { _id: { $in: [seed.class1._id, seed.class2._id] } },
-    { $set: { teacherIds: [], programId: null } },
-  );
-  await LearningProgram.deleteMany({});
+  await Promise.all([
+    deleteActiveRowsWhere('Schedule', {}),
+    deleteActiveRowsWhere('Enrollment', {}),
+  ]);
+  await Promise.all([
+    updateActiveRow('Class', seed.class1._id, { teacherIds: [], programId: null }),
+    updateActiveRow('Class', seed.class2._id, { teacherIds: [], programId: null }),
+  ]);
+  await deleteActiveRowsWhere('LearningProgram', {});
 });
 
 const as = (token) => (method, path) =>
@@ -80,13 +75,13 @@ const vnSlot = () => {
 // Build a self_enroll cohort on class1 (teacher = seed.teacher bound) with the
 // LEADER enrolled (so tokens.leader can view), then schedule a cohort session.
 const scheduleCohortSession = async () => {
-  const program = await LearningProgram.create({
+  const program = await fx.createLearningProgram({
     code: 'TRN_SE', name: 'Trainer Self Enroll', schedulingMode: 'self_enroll',
   });
-  await Class.findByIdAndUpdate(seed.class1._id, {
-    programId: program._id, teacherIds: [seed.teacher._id],
+  await updateActiveRow('Class', seed.class1._id, {
+    programId: program._id, teacherIds: [seed.teacher._id.toString()],
   });
-  await Enrollment.create({ userId: seed.leader._id, classId: seed.class1._id, teamId: null, status: 'Active' });
+  await fx.createEnrollment({ userId: seed.leader._id, classId: seed.class1._id, teamId: null, status: 'Active' });
 
   const { start, end } = vnSlot();
   const res = await as(coordinatorToken)('post', '/api/learning/sessions/book-slot').send({
@@ -134,9 +129,9 @@ describe('Internal trainer joins the attendance UNION', () => {
   // (booking validation requires a future slot). class1 is bound to seed.teacher
   // so the cohort binding is effective (not the permissive empty-list case).
   const makePastSession = async () => {
-    await Class.findByIdAndUpdate(seed.class1._id, { teacherIds: [seed.teacher._id] });
+    await updateActiveRow('Class', seed.class1._id, { teacherIds: [seed.teacher._id.toString()] });
     const past = new Date(Date.now() - 2 * 60 * 60 * 1000);
-    const sched = await Schedule.create({
+    const sched = await fx.createSchedule({
       classId: seed.class1._id, bookedTeamId: null, officeId: office._id,
       startTime: past, endTime: new Date(past.getTime() + 60 * 60 * 1000),
       enrolledUsers: [seed.leader._id],
@@ -181,7 +176,7 @@ describe('External trainer — invite/display only, no access, no leak', () => {
     expect(res.status).toBe(200);
 
     // No User account was created for the external trainer.
-    expect(await User.countDocuments({ email: 'vendor@external.com' })).toBe(0);
+    expect(await countActiveRowsWhere('User', { email: 'vendor@external.com' })).toBe(0);
 
     // Learner (enrolled leader) sees name + org only — no email/phone.
     const learnerView = await request(app)

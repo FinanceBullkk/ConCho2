@@ -350,6 +350,28 @@ const addActiveTeamMember = async (teamId, userId) => {
 };
 
 /**
+ * PG-native `$addToSet` for the ALLOWED_TIME_SLOTS booking setting — appends a
+ * `{sh,sm,eh,em}` slot to the jsonb `value` array if absent. The fixture
+ * equivalent of the Mongoose
+ * `Setting.findOneAndUpdate({key:'ALLOWED_TIME_SLOTS'}, {$addToSet:{value: slot}})`
+ * booking suites use to guarantee their slot exists before booking it. The
+ * setting is seeded (seed-pg.js), so the row is present on the pg lane.
+ */
+const addAllowedTimeSlot = async (slot) => {
+  if (!isPostgres) {
+    return require('../models/Setting').findOneAndUpdate(
+      { key: 'ALLOWED_TIME_SLOTS' }, { $addToSet: { value: slot } }, { upsert: true },
+    );
+  }
+  const s = await findActiveRowWhere('Setting', { key: 'ALLOWED_TIME_SLOTS' });
+  const slots = Array.isArray(s && s.value) ? s.value : [];
+  const has = slots.some((v) => v.sh === slot.sh && v.sm === slot.sm && v.eh === slot.eh && v.em === slot.em);
+  if (has) return undefined;
+  slots.push(slot);
+  return updateActiveRow('Setting', s._id, { value: JSON.stringify(slots) });
+};
+
+/**
  * Poll an async producer until it returns a truthy value (or time out) —
  * for fire-and-forget writes (audit rows) that a fixed sleep races under
  * full-suite/CI load. Returns the first truthy value, or the LAST value
@@ -379,6 +401,7 @@ module.exports = {
   deleteActiveRowsWhere,
   deleteActiveRowsLike,
   updateActiveRow,
+  addAllowedTimeSlot,
   readActiveTeamMemberIds,
   addActiveTeamMember,
   findActiveAuditRow,
