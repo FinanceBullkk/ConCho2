@@ -1,15 +1,10 @@
 const request = require('supertest');
 const { getApp, getTokens, getSeedData, getCsrfHeaders, teardown } = require('../setup');
-const Assignment = require('../../models/Assignment');
-const Attendance = require('../../models/Attendance');
-const Certificate = require('../../models/Certificate');
-const Class = require('../../models/Class');
-const LearningProgram = require('../../models/LearningProgram');
-const Schedule = require('../../models/Schedule');
 // The certificate is issued through the ported completion PG repo (PG-only on
-// the lane), so a Mongoose findByIdAndUpdate to backdate validUntil is a no-op —
-// shift it on the active backend so the report sees the expired state.
-const { updateActiveRow } = require('../pg-test-utils');
+// the lane), so mutate/clean the active backend, not Mongoose. Fixtures INSERT
+// straight into PG.
+const { updateActiveRow, deleteActiveRowsWhere } = require('../pg-test-utils');
+const fx = require('../fixtures/pg-fixtures');
 
 let app, tokens, seed, csrf;
 let seq = 0;
@@ -27,20 +22,20 @@ afterAll(async () => {
 
 afterEach(async () => {
   await Promise.all([
-    Assignment.deleteMany({}),
-    Attendance.deleteMany({}),
-    Certificate.deleteMany({}),
-    LearningProgram.deleteMany({}),
-    Schedule.deleteMany({}),
+    deleteActiveRowsWhere('Assignment', {}),
+    deleteActiveRowsWhere('Attendance', {}),
+    deleteActiveRowsWhere('Certificate', {}),
+    deleteActiveRowsWhere('LearningProgram', {}),
+    deleteActiveRowsWhere('Schedule', {}),
   ]);
-  await Class.updateMany(
-    { _id: { $in: [seed.class1._id, seed.class2._id] } },
-    { $set: { programId: null, teacherIds: [] } },
-  );
+  await Promise.all([
+    updateActiveRow('Class', seed.class1._id, { programId: null, teacherIds: [] }),
+    updateActiveRow('Class', seed.class2._id, { programId: null, teacherIds: [] }),
+  ]);
 });
 
 const createProgram = (overrides = {}) =>
-  LearningProgram.create({
+  fx.createLearningProgram({
     code: `EXP_${Date.now()}_${seq++}`,
     name: 'Expiry Program',
     completionPolicy: { attendanceThresholdPercent: 0 },
@@ -48,16 +43,16 @@ const createProgram = (overrides = {}) =>
   });
 
 const seedCompleteCohort = async (program) => {
-  await Class.findByIdAndUpdate(seed.class1._id, { programId: program._id });
+  await updateActiveRow('Class', seed.class1._id, { programId: program._id });
   const start = new Date('2026-06-01T03:00:00.000Z');
-  const schedule = await Schedule.create({
+  const schedule = await fx.createSchedule({
     classId: seed.class1._id,
     bookedTeamId: seed.team._id,
     startTime: start,
     endTime: new Date(start.getTime() + 3600000),
     enrolledUsers: [seed.member1._id],
   });
-  await Attendance.create({ scheduleId: schedule._id, userId: seed.member1._id, status: 'P' });
+  await fx.createAttendance({ scheduleId: schedule._id, userId: seed.member1._id, status: 'P' });
 };
 
 const issueCertificate = () =>
@@ -91,7 +86,7 @@ describe('Learning Platform API — certificate expiry state', () => {
     await updateActiveRow('Certificate', issued.body.data.id, {
       validUntil: new Date('2026-01-01T00:00:00.000Z'),
     });
-    await Assignment.create({
+    await fx.createAssignment({
       title: 'Expiry compliance',
       targetType: 'program',
       programId: program._id,

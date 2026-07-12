@@ -1,16 +1,11 @@
 const request = require('supertest');
 const { getApp, getTokens, getSeedData, teardown } = require('../setup');
-const Assignment = require('../../models/Assignment');
-const AuditLog = require('../../models/AuditLog');
-const Certificate = require('../../models/Certificate');
-const Class = require('../../models/Class');
-const Department = require('../../models/Department');
-const Enrollment = require('../../models/Enrollment');
-const LearningProgram = require('../../models/LearningProgram');
-const User = require('../../models/User');
-// Audit rows are written through the ported repo (PG-only on the lane) — read
-// the active backend, not Mongoose.
-const { findActiveAuditRow } = require('../pg-test-utils');
+// Audit rows are written through the ported repo (PG-only on the lane) — read/
+// clean the active backend, not Mongoose. Fixtures INSERT straight into PG.
+const {
+  findActiveAuditRow, deleteActiveRowsWhere, deleteActiveRowsLike, updateActiveRow,
+} = require('../pg-test-utils');
+const fx = require('../fixtures/pg-fixtures');
 
 let app, tokens, seed;
 let seq = 0;
@@ -27,25 +22,25 @@ afterAll(async () => {
 
 afterEach(async () => {
   await Promise.all([
-    Assignment.deleteMany({}),
-    AuditLog.deleteMany({ entity: 'Report' }),
-    Certificate.deleteMany({}),
-    Enrollment.deleteMany({}),
-    LearningProgram.deleteMany({}),
-    Department.deleteMany({}),
-    Class.deleteMany({ classCode: /^CMP/ }),
+    deleteActiveRowsWhere('Assignment', {}),
+    deleteActiveRowsWhere('AuditLog', { entity: 'Report' }),
+    deleteActiveRowsWhere('Certificate', {}),
+    deleteActiveRowsWhere('Enrollment', {}),
+    deleteActiveRowsWhere('LearningProgram', {}),
+    deleteActiveRowsWhere('Department', {}),
+    deleteActiveRowsLike('Class', 'classCode', 'CMP'),
   ]);
-  await User.updateMany(
-    { _id: { $in: [seed.member1._id, seed.member2._id] } },
-    { $set: { departmentId: null, managerId: null, status: 'Active', isDeleted: false, deletedAt: null } },
-  );
+  await Promise.all([
+    updateActiveRow('User', seed.member1._id, { departmentId: null, managerId: null, status: 'Active', isDeleted: false, deletedAt: null }),
+    updateActiveRow('User', seed.member2._id, { departmentId: null, managerId: null, status: 'Active', isDeleted: false, deletedAt: null }),
+  ]);
   delete process.env['COMPLIANCE_EXPORT_MAX_ROWS'];
 });
 
 const uniq = () => `${Date.now()}_${seq++}`;
 
 const createProgram = () =>
-  LearningProgram.create({
+  fx.createLearningProgram({
     code: `CMP_${uniq()}`,
     name: `Compliance Program ${seq}`,
     schedulingMode: 'self_enroll',
@@ -53,7 +48,7 @@ const createProgram = () =>
   });
 
 const createCohort = (programId) =>
-  Class.create({
+  fx.createClass({
     classCode: `CMP${seq++}`,
     courseName: 'Compliance Course',
     programId,
@@ -61,7 +56,7 @@ const createCohort = (programId) =>
   });
 
 const issueCertificate = (userId, programId, cohortId, status = 'Issued') =>
-  Certificate.create({
+  fx.createCertificate({
     certificateNumber: `CERT-CMP-${uniq()}`,
     verificationCode: `cmp-${uniq()}`,
     userId,
@@ -73,16 +68,17 @@ const issueCertificate = (userId, programId, cohortId, status = 'Issued') =>
 const seedCompliance = async () => {
   const [program, dept] = await Promise.all([
     createProgram(),
-    Department.create({ name: 'Safety Ops', code: `CMPD${seq++}` }),
+    fx.createDepartment({ name: 'Safety Ops', code: `CMPD${seq++}` }),
   ]);
-  await User.updateMany(
-    { _id: { $in: [seed.member1._id, seed.member2._id] } },
-    { $set: { departmentId: dept._id, managerId: seed.teacher._id } },
-  );
+  const managerId = seed.teacher._id.toString();
+  await Promise.all([
+    updateActiveRow('User', seed.member1._id, { departmentId: dept._id, managerId }),
+    updateActiveRow('User', seed.member2._id, { departmentId: dept._id, managerId }),
+  ]);
   const cohort = await createCohort(program._id);
   const cert = await issueCertificate(seed.member1._id, program._id, cohort._id);
-  await Enrollment.create({ userId: seed.member2._id, classId: cohort._id, status: 'Active' });
-  const assignment = await Assignment.create({
+  await fx.createEnrollment({ userId: seed.member2._id, classId: cohort._id, status: 'Active' });
+  const assignment = await fx.createAssignment({
     title: 'Annual safety training',
     targetType: 'program',
     programId: program._id,
