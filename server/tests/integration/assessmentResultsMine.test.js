@@ -1,9 +1,8 @@
 const request = require('supertest');
 const jwt = require('jsonwebtoken');
 const { getApp, getSeedData, teardown } = require('../setup');
-const Assessment = require('../../models/Assessment');
-const AssessmentAttempt = require('../../models/AssessmentAttempt');
-const Evaluation = require('../../models/Evaluation');
+const { deleteActiveRowsWhere } = require('../pg-test-utils');
+const fx = require('../fixtures/pg-fixtures');
 
 // Rearchitecture Phase 1 — the unified assessment-results read. ONE self-scoped
 // surface returns BOTH assessment modes: learner-attempted quiz results and
@@ -21,9 +20,9 @@ afterAll(async () => { await teardown(); });
 
 afterEach(async () => {
   await Promise.all([
-    Assessment.deleteMany({}),
-    AssessmentAttempt.deleteMany({}),
-    Evaluation.deleteMany({}),
+    deleteActiveRowsWhere('Assessment', {}),
+    deleteActiveRowsWhere('AssessmentAttempt', {}),
+    deleteActiveRowsWhere('Evaluation', {}),
   ]);
 });
 
@@ -39,7 +38,7 @@ describe('GET /api/assessment/results/mine — unified assessment results (Phase
   });
 
   test('includes an instructor-scored English evaluation as one result', async () => {
-    await Evaluation.create({
+    await fx.createEvaluation({
       classId: seed.class1._id, userId: seed.member1._id,
       grammarScore: 8, vocabularyScore: 7, pronunciationScore: 9, fluencyScore: 6,
       level: 'B2', createdBy: seed.teacher._id,
@@ -56,8 +55,8 @@ describe('GET /api/assessment/results/mine — unified assessment results (Phase
   });
 
   test('includes a learner-attempted quiz result', async () => {
-    const quiz = await Assessment.create({ title: 'Unit 1 Quiz', cohortId: seed.class1._id, items: [{ type: 'single_choice', prompt: 'Q', options: ['a', 'b'], correctOptionIndexes: [0], points: 1 }] });
-    await AssessmentAttempt.create({
+    const quiz = await fx.createAssessment({ title: 'Unit 1 Quiz', cohortId: seed.class1._id, items: [{ type: 'single_choice', prompt: 'Q', options: ['a', 'b'], correctOptionIndexes: [0], points: 1 }] });
+    await fx.createAssessmentAttempt({
       assessmentId: quiz._id, userId: seed.member1._id, cohortId: seed.class1._id,
       score: 9, maxScore: 10, scorePercent: 90, passed: true,
     });
@@ -72,12 +71,12 @@ describe('GET /api/assessment/results/mine — unified assessment results (Phase
   });
 
   test('merges BOTH modes into one list', async () => {
-    const quiz = await Assessment.create({ title: 'Quiz', cohortId: seed.class1._id, items: [{ type: 'single_choice', prompt: 'Q', options: ['a', 'b'], correctOptionIndexes: [0], points: 1 }] });
-    await AssessmentAttempt.create({
+    const quiz = await fx.createAssessment({ title: 'Quiz', cohortId: seed.class1._id, items: [{ type: 'single_choice', prompt: 'Q', options: ['a', 'b'], correctOptionIndexes: [0], points: 1 }] });
+    await fx.createAssessmentAttempt({
       assessmentId: quiz._id, userId: seed.member1._id, cohortId: seed.class1._id,
       scorePercent: 80, passed: true,
     });
-    await Evaluation.create({
+    await fx.createEvaluation({
       classId: seed.class1._id, userId: seed.member1._id,
       grammarScore: 5, vocabularyScore: 5, pronunciationScore: 5, fluencyScore: 5,
     });
@@ -88,12 +87,12 @@ describe('GET /api/assessment/results/mine — unified assessment results (Phase
   });
 
   test('is self-scoped — another learner\'s results never leak', async () => {
-    const quiz = await Assessment.create({ title: 'Other Quiz', cohortId: seed.class1._id, items: [{ type: 'single_choice', prompt: 'Q', options: ['a', 'b'], correctOptionIndexes: [0], points: 1 }] });
-    await AssessmentAttempt.create({
+    const quiz = await fx.createAssessment({ title: 'Other Quiz', cohortId: seed.class1._id, items: [{ type: 'single_choice', prompt: 'Q', options: ['a', 'b'], correctOptionIndexes: [0], points: 1 }] });
+    await fx.createAssessmentAttempt({
       assessmentId: quiz._id, userId: seed.member2._id, cohortId: seed.class1._id,
       scorePercent: 100, passed: true,
     });
-    await Evaluation.create({
+    await fx.createEvaluation({
       classId: seed.class1._id, userId: seed.member2._id,
       grammarScore: 9, vocabularyScore: 9, pronunciationScore: 9, fluencyScore: 9,
     });
