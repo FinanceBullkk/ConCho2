@@ -153,6 +153,20 @@ Bug fixing and integration review rank above net-new feature rollout.
 > [`2026-q3.md`](changelog-archive/2026-q3.md); 06-20→06-27 rolled 2026-07-07;
 > 06-14→06-19 rolled 2026-07-04 → [`2026-q2.md`](changelog-archive/2026-q2.md)).
 
+- **2026-07-12** — **Wave K Phase 2 · Batch D2d batch 21 — Setting/booking cluster off Mongoose (3 suites + shared helper).**
+  New shared `addAllowedTimeSlot(slot)` helper in `pg-test-utils` — the PG-native
+  `$addToSet` for the `ALLOWED_TIME_SLOTS` booking setting (reads the jsonb array,
+  appends the `{sh,sm,eh,em}` slot if absent, `updateActiveRow`) — replacing the
+  per-suite `Setting.findOneAndUpdate` fixture and unblocking the whole
+  booking-slot cluster. `schedulingModeLegacy` (legacy schedulingMode gate) +
+  `goldenPathFlow` (core L&D loop smoke) + `sessionTrainers` (trainer assign +
+  attendance UNION) now author fixtures via `fx.create*` (incl. `createOffice`/
+  `createUser`) and mutate/clean/count via active-backend helpers
+  (`deleteActiveRowsWhere`/`updateActiveRow`/`countActiveRowsWhere`, `Team` read via
+  `readActiveRow`). Array-id `teacherIds` set as STRING ids. All three files drop
+  every `../../models/*` require. Pure test-infra, no app/spec change. Verified on
+  the PG lane (15/15 across the 3 suites, write-gate clean). Remaining Setting
+  suite: `booking` (batch 22).
 - **2026-07-12** — **Wave K Phase 2 · Batch D2d batch 20 — schedule-query/assessment/regression cluster off Mongoose (3 suites).**
   `assessmentResultsMine` (unified results read) + `scheduleQueries`
   (sessionNumber + attendance-calendar + deliveryType + trainer visibility) +
