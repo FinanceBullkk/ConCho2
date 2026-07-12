@@ -25,14 +25,12 @@ const { getApp, getTokens, getSeedData, getCsrfHeaders, teardown } = require('..
 const { readActiveRow } = require('../pg-test-utils');
 
 let app, tokens, seed, csrf;
-let User;
 
 beforeAll(async () => {
   app = await getApp();
   tokens = getTokens();
   seed = getSeedData();
   csrf = await getCsrfHeaders(app);
-  User = require('../../models/User');
 });
 
 afterAll(async () => {

@@ -15,7 +15,7 @@ const request = require('supertest');
 const crypto = require('crypto');
 const { getApp, getTokens, getSeedData, teardown, getCsrfHeaders } = require('../setup');
 const { sendMail } = require('../../lib/mailer');
-const { readActiveRow } = require('../pg-test-utils');
+const { readActiveRow, updateActiveRow } = require('../pg-test-utils');
 
 let app, tokens, seed;
 
@@ -61,8 +61,7 @@ const waitFor = async (predicate, { timeout = 3000, interval = 10 } = {}) => {
 describe('POST /api/auth/forgot-password', () => {
   test('returns 200 with valid empCode that has an email on file', async () => {
     // Give the admin user an email so the reset path is triggered
-    const User = require('../../models/User');
-    await User.findByIdAndUpdate(seed.admin._id, { email: 'admin@test.com' });
+    await updateActiveRow('User', seed.admin._id, { email: 'admin@test.com' });
 
     const csrf = await getCsrfHeaders(app);
     const res = await request(app)
@@ -110,8 +109,7 @@ describe('POST /api/auth/forgot-password', () => {
 
   test('returns 200 (anti-enumeration) for empCode with no email', async () => {
     // teacher user has no email set by default in seed
-    const User = require('../../models/User');
-    await User.findByIdAndUpdate(seed.teacher._id, { email: null });
+    await updateActiveRow('User', seed.teacher._id, { email: null });
 
     const csrf = await getCsrfHeaders(app);
     const res = await request(app)
@@ -172,14 +170,13 @@ describe('POST /api/auth/forgot-password', () => {
 describe('POST /api/auth/reset-password', () => {
   // Helper: plant a known token directly on a user (bypasses crypto.randomBytes)
   const plantResetToken = async (userId, { expiredIn } = {}) => {
-    const User = require('../../models/User');
     const rawToken = 'test-reset-token-abcdef1234567890abcdef1234567890';
     const hashedToken = crypto.createHash('sha256').update(rawToken).digest('hex');
     const expires = expiredIn
       ? new Date(Date.now() - Math.abs(expiredIn)) // expired in the past
       : new Date(Date.now() + 60 * 60 * 1000);     // valid for 1 hour
 
-    await User.findByIdAndUpdate(userId, {
+    await updateActiveRow('User', userId, {
       passwordResetToken: hashedToken,
       passwordResetExpires: expires,
     });
@@ -261,12 +258,11 @@ describe('POST /api/auth/reset-password', () => {
     // Use a fresh active user so the save() in resetPassword succeeds cleanly.
     // Re-use member1 (Active, Participant) — no special validators that could
     // interfere with the password save.
-    const User = require('../../models/User');
 
     // Plant a unique token for this sub-test to avoid collisions with other tests
     const rawToken2 = 'second-use-token-abcdef1234567890abcdef1234';
     const hashedToken2 = crypto.createHash('sha256').update(rawToken2).digest('hex');
-    await User.findByIdAndUpdate(seed.member1._id, {
+    await updateActiveRow('User', seed.member1._id, {
       passwordResetToken: hashedToken2,
       passwordResetExpires: new Date(Date.now() + 60 * 60 * 1000),
     });
@@ -297,11 +293,10 @@ describe('POST /api/auth/reset-password', () => {
 // ──────────────────────────────────────────────────────────
 
 describe('POST /api/auth/reset-password/:token (SEC-005 path-style)', () => {
-  const User = require('../../models/User');
 
   const plantToken = async (userId, raw) => {
     const hashed = crypto.createHash('sha256').update(raw).digest('hex');
-    await User.findByIdAndUpdate(userId, {
+    await updateActiveRow('User', userId, {
       passwordResetToken: hashed,
       passwordResetExpires: new Date(Date.now() + 3600_000),
     });
@@ -342,7 +337,7 @@ describe('POST /api/auth/reset-password/:token (SEC-005 path-style)', () => {
   test('forgot-password email URL uses /reset-password/<token> path-style', async () => {
     // Give admin an email + clear any cooldown state left by earlier tests
     // (the 5-min cooldown skips overwrite if a token is already valid).
-    await User.findByIdAndUpdate(seed.admin._id, {
+    await updateActiveRow('User', seed.admin._id, {
       email: 'admin-sec005@test.com',
       passwordResetToken: null,
       passwordResetExpires: null,
@@ -374,7 +369,6 @@ describe('POST /api/auth/reset-password/:token (SEC-005 path-style)', () => {
 
 describe('forgot-password logger scrub (SEC-008)', () => {
   const logger = require('../../lib/logger');
-  const User = require('../../models/User');
 
   let infoSpy;
   let warnSpy;
@@ -394,7 +388,7 @@ describe('forgot-password logger scrub (SEC-008)', () => {
   test('no logger call records the raw empCode', async () => {
     // Make a known empCode "stand out" so we'd notice if it appears anywhere.
     const distinctive = 'SEC008-XYZ-' + crypto.randomBytes(2).toString('hex').toUpperCase();
-    await User.findByIdAndUpdate(seed.member1._id, { empCode: distinctive, email: 'm1@test.com' });
+    await updateActiveRow('User', seed.member1._id, { empCode: distinctive, email: 'm1@test.com' });
 
     const csrf = await getCsrfHeaders(app);
     await request(app).post('/api/auth/forgot-password').set(csrf).send({ empCode: distinctive });
@@ -414,7 +408,7 @@ describe('forgot-password logger scrub (SEC-008)', () => {
 
   test('found and not-found branches emit IDENTICAL message text', async () => {
     // Found branch
-    await User.findByIdAndUpdate(seed.member2._id, { email: 'm2@test.com' });
+    await updateActiveRow('User', seed.member2._id, { email: 'm2@test.com' });
     const csrf1 = await getCsrfHeaders(app);
     await request(app).post('/api/auth/forgot-password').set(csrf1).send({ empCode: seed.member2.empCode });
     await flushBackground();
