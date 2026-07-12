@@ -1,16 +1,11 @@
 const request = require('supertest');
 const { getApp, getTokens, getSeedData, getCsrfHeaders, teardown } = require('../setup');
-const Assignment = require('../../models/Assignment');
-const Certificate = require('../../models/Certificate');
-const Class = require('../../models/Class');
-const Department = require('../../models/Department');
-const Enrollment = require('../../models/Enrollment');
-const LearningPath = require('../../models/LearningPath');
-const LearningProgram = require('../../models/LearningProgram');
-const User = require('../../models/User');
-// Assignments are written through the ported PG repo (PG-only on the lane) —
-// read the archived row from the active backend, not Mongoose.
-const { readActiveRow } = require('../pg-test-utils');
+// Assignments are written through the ported PG repo (PG-only on the lane) — read/
+// mutate/clean the active backend, not Mongoose. Fixtures INSERT straight into PG.
+const {
+  readActiveRow, deleteActiveRowsWhere, deleteActiveRowsLike, updateActiveRow,
+} = require('../pg-test-utils');
+const fx = require('../fixtures/pg-fixtures');
 const { statusFromSignals } = require('../../domains/learning/assignment/status-resolver');
 
 let app, tokens, seed, csrf;
@@ -29,24 +24,24 @@ afterAll(async () => {
 
 afterEach(async () => {
   await Promise.all([
-    Assignment.deleteMany({}),
-    Certificate.deleteMany({}),
-    Enrollment.deleteMany({}),
-    LearningPath.deleteMany({}),
-    LearningProgram.deleteMany({}),
-    Department.deleteMany({}),
-    Class.deleteMany({ classCode: /^ASG/ }),
+    deleteActiveRowsWhere('Assignment', {}),
+    deleteActiveRowsWhere('Certificate', {}),
+    deleteActiveRowsWhere('Enrollment', {}),
+    deleteActiveRowsWhere('LearningPath', {}),
+    deleteActiveRowsWhere('LearningProgram', {}),
+    deleteActiveRowsWhere('Department', {}),
+    deleteActiveRowsLike('Class', 'classCode', 'ASG'),
   ]);
-  await User.updateMany(
-    { _id: { $in: [seed.member1._id, seed.member2._id] } },
-    { $set: { departmentId: null, status: 'Active', isDeleted: false, deletedAt: null } },
-  );
+  await Promise.all([
+    updateActiveRow('User', seed.member1._id, { departmentId: null, status: 'Active', isDeleted: false, deletedAt: null }),
+    updateActiveRow('User', seed.member2._id, { departmentId: null, status: 'Active', isDeleted: false, deletedAt: null }),
+  ]);
 });
 
 const uniq = () => `${Date.now()}_${seq++}`;
 
 const createProgram = (overrides = {}) =>
-  LearningProgram.create({
+  fx.createLearningProgram({
     code: `ASGP_${uniq()}`,
     name: `Assignment Program ${uniq()}`,
     schedulingMode: 'self_enroll',
@@ -54,7 +49,7 @@ const createProgram = (overrides = {}) =>
   });
 
 const createCohort = (programId) =>
-  Class.create({
+  fx.createClass({
     classCode: `ASG${seq++}`,
     courseName: 'Assignment Course',
     programId,
@@ -63,7 +58,7 @@ const createCohort = (programId) =>
 
 const completeProgram = async (userId, programId) => {
   const cohort = await createCohort(programId);
-  await Certificate.create({
+  await fx.createCertificate({
     certificateNumber: `CERT-ASG-${uniq()}`,
     verificationCode: `asg-${uniq()}`,
     userId,
@@ -103,7 +98,7 @@ describe('Learning Platform API — assignments + due dates (Wave D4 v1)', () =>
       completionPolicy: { attendanceThresholdPercent: 0, requiresFeedback: true },
     });
     const cohort = await completeProgram(seed.member1._id, program._id);
-    await Enrollment.create({ userId: seed.member2._id, classId: cohort._id, status: 'Active' });
+    await fx.createEnrollment({ userId: seed.member2._id, classId: cohort._id, status: 'Active' });
 
     const res = await createAssignment({
       title: 'Mandatory safety training',
@@ -139,12 +134,12 @@ describe('Learning Platform API — assignments + due dates (Wave D4 v1)', () =>
   test('department targets expand to live department users; soft-deleted users are excluded', async () => {
     const [program, dept] = await Promise.all([
       createProgram(),
-      Department.create({ name: 'Compliance Dept', code: `ASGD${seq++}` }),
+      fx.createDepartment({ name: 'Compliance Dept', code: `ASGD${seq++}` }),
     ]);
-    await User.updateMany(
-      { _id: { $in: [seed.member1._id, seed.member2._id] } },
-      { $set: { departmentId: dept._id } },
-    );
+    await Promise.all([
+      updateActiveRow('User', seed.member1._id, { departmentId: dept._id }),
+      updateActiveRow('User', seed.member2._id, { departmentId: dept._id }),
+    ]);
 
     const created = await createAssignment({
       title: 'Department training',
@@ -156,10 +151,7 @@ describe('Learning Platform API — assignments + due dates (Wave D4 v1)', () =>
     expect(created.status).toBe(201);
     expect(created.body.data.summary.total).toBe(2);
 
-    await User.collection.updateOne(
-      { _id: seed.member2._id },
-      { $set: { isDeleted: true, deletedAt: new Date() } },
-    );
+    await updateActiveRow('User', seed.member2._id, { isDeleted: true, deletedAt: new Date() });
 
     const listed = await request(app)
       .get('/api/learning/assignments')
@@ -171,7 +163,7 @@ describe('Learning Platform API — assignments + due dates (Wave D4 v1)', () =>
 
   test('path assignment is complete only when every path program is completed', async () => {
     const [a, b] = await Promise.all([createProgram(), createProgram()]);
-    const path = await LearningPath.create({
+    const path = await fx.createLearningPath({
       code: `ASGPATH_${uniq()}`,
       title: 'Mandatory path',
       programs: [a._id, b._id],
