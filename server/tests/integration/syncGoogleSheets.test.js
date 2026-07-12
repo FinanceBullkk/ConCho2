@@ -28,7 +28,7 @@ jest.mock('googleapis', () => ({
 const request = require('supertest');
 const { getApp, getTokens, getSeedData, teardown, getCsrfHeaders } = require('../setup');
 const { readActiveRow } = require('../pg-test-utils');
-const Schedule = require('../../models/Schedule');
+const fx = require('../fixtures/pg-fixtures');
 
 let app, tokens, seed, csrf;
 
@@ -77,7 +77,7 @@ describe('POST /api/sync/google-sheets — authz + validation', () => {
 
 describe('POST /api/sync/google-sheets — happy path (reads on the active backend)', () => {
   test('enrolls the team into the matching schedule and writes through the seam', async () => {
-    const schedule = await Schedule.create({
+    const schedule = await fx.createSchedule({
       classId: seed.class1._id,
       startTime: at('03:00'),
       endTime: at('04:00'),
@@ -135,7 +135,7 @@ describe('POST /api/sync/google-sheets — happy path (reads on the active backe
 
   test('capacity guard is LIVE (revived by the B5-reads port): full session errors', async () => {
     // 3 active team members vs capacity 1 → 0 available < 3 needed.
-    await Schedule.create({
+    await fx.createSchedule({
       classId: seed.class1._id,
       startTime: at('04:00'), // 11:00 VN — distinct slot (partial-unique classId+startTime)
       endTime: at('05:00'),
