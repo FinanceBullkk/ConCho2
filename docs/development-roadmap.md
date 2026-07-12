@@ -153,6 +153,20 @@ Bug fixing and integration review rank above net-new feature rollout.
 > [`2026-q3.md`](changelog-archive/2026-q3.md); 06-20→06-27 rolled 2026-07-07;
 > 06-14→06-19 rolled 2026-07-04 → [`2026-q2.md`](changelog-archive/2026-q2.md)).
 
+- **2026-07-12** — **Wave K Phase 2 · Batch D2d batch 16 — learning-reports cluster off Mongoose (4 suites).**
+  `learningReportsRoutes` + `learningComplianceReportsRoutes` +
+  `learningCertificateExpiryRoutes` + `learningAssignmentRoutes` now author
+  fixtures via `fx.create*` and mutate/clean scaffolding through active-backend
+  helpers (`deleteActiveRowsWhere`/`deleteActiveRowsLike`/`updateActiveRow`)
+  instead of `Model.create`/`deleteMany`/`updateMany`/`findByIdAndUpdate` and the
+  raw `mongoose.connection.db.collection('users')` ghost-user path (QB-009). The
+  4 files drop `require('mongoose')` + all model requires. Core-seed User/Class
+  resets go through `updateActiveRow` (array-id fields as STRING ids; seed
+  ObjectId patch values stringified). Pure test-infra, no app/spec change.
+  Verified on the PG lane (25/25 across the 4 suites, write-gate clean). Remaining
+  D2d: ~29 model-using suites; only `dataIntegrity` + `phaseAHardening` still
+  literally `require('mongoose')` (both test Mongoose model behavior directly →
+  re-home, not mechanically convert).
 - **2026-07-11** — **Wave K Phase 2 · Batch D2d (IN PROGRESS) — 12 test suites off Mongoose + a MAJOR runtime finding.**
   Grind to drop `mongoose` from the ~41 mongoose-using test files, in verified
   batches on the PG lane. **Done so far (12 suites, all green):** batch 1 (7
