@@ -1,48 +1,32 @@
 /**
  * ──────────────────────────────────────────────────────────
- * Shared Test Setup — MongoMemoryServer + Seed Data
+ * Shared Test Setup — PG-native seed (Wave K · Phase 2 · D2e-2a)
  * ──────────────────────────────────────────────────────────
- * 
+ * The Mongo test harness (MongoMemoryReplSet + mongoose.connect + the
+ * Mongoose→PG auto-mirror) is retired: every suite now authors fixtures
+ * PG-natively (D2c → D2e-1), so the shared core seed is the last Mongoose
+ * fixture path. It seeds admin/teacher/cohorts/team/settings straight into
+ * Postgres via `fixtures/pg-fixtures` (`fx.*`).
+ *
+ * Postgres has ONE shared database for the whole run, so `resetPgDatabase()`
+ * truncates every table at file setup — the per-file isolation Mongo's private
+ * database used to provide.
+ *
  * Usage in test files:
  *   const { getApp, getTokens, getSeedData } = require('../setup');
- *   
- *   let app, tokens, seed;
  *   beforeAll(async () => {
- *     app = await getApp();
- *     tokens = getTokens();
- *     seed = getSeedData();
+ *     app = await getApp(); tokens = getTokens(); seed = getSeedData();
  *   });
  */
 
-const mongoose = require('mongoose');
-const crypto = require('crypto');
-const { MongoMemoryReplSet } = require('mongodb-memory-server');
 const { isPostgres } = require('../config/db-backend');
 const pgTestUtils = require('./pg-test-utils');
-// Wave G batch 2: register the Mongoose→PG auto-mirror as a GLOBAL plugin
-// BEFORE any model compiles — raw-Mongoose fixture seeding in legacy suites
-// then lands on BOTH backends without per-suite edits. No-op on Mongo lane.
-require('./pg-auto-mirror').registerAutoMirror(mongoose);
-// F3 (Phase 5 slice 5): the write-gate sits ON TOP of the mirror — it records
-// any raw-Mongoose write whose causal stack frame is PRODUCTION code, and
-// global-teardown fails the pg lane if one survives. The mirror keeps fixture
-// writes green; the gate keeps unported app writes from hiding behind it.
-require('./pg-write-gate').registerWriteGate(mongoose);
+const fx = require('./fixtures/pg-fixtures');
 
-// tests/global-setup.js starts ONE shared replica set per jest run and exposes
-// its URI on process.env.MONGO_URI. Each test file connects under its OWN
-// database (TEST_DB_NAME) so files stay isolated while the heavy mongod is
-// spawned only once. If MONGO_URI is absent (a file required outside jest),
-// we fall back to a per-file server — preserving the original behaviour.
-let mongoServer;        // set only in the fallback path → this file owns it
 let app;
 let tokens = {};
 let seedData = {};
 let initialized = false;
-
-// Unique DB name per test file. Jest gives each test file a fresh module
-// registry, so this evaluates exactly once per file → no cross-file collision.
-const TEST_DB_NAME = `jest_${crypto.randomBytes(8).toString('hex')}`;
 
 const setup = async () => {
   if (initialized) return app;
@@ -59,33 +43,22 @@ const setup = async () => {
   // to add an Origin header to every request.
   process.env.CORS_BYPASS_NO_ORIGIN = 'true';
 
-  // Reuse the shared replica set from global-setup; otherwise spin a dedicated
-  // one for this file (fallback — required when setup.js runs without jest's
-  // globalSetup). Either way transactions work (single-node replica set).
-  if (!process.env.MONGO_URI) {
-    mongoServer = await MongoMemoryReplSet.create({ replSet: { count: 1 } });
-    process.env.MONGO_URI = mongoServer.getUri();
+  // Server tests are Postgres-only since Wave K retired Mongo. Fail fast with a
+  // clear message rather than silently no-op the PG helpers (empty fixtures).
+  if (!isPostgres) {
+    throw new Error('Server tests are Postgres-only (Wave K) — run with DB_BACKEND=postgres.');
   }
 
-  // Connect mongoose to this file's private database on the (shared) server.
-  await mongoose.connect(process.env.MONGO_URI, { dbName: TEST_DB_NAME });
-
-  // Wave G (DB_BACKEND=postgres lane): PG has ONE shared database for the whole
-  // run — truncate it at file setup so each file starts as clean as its private
-  // Mongo database. No-op on the default Mongo lane.
+  // PG has ONE shared database for the whole run — truncate it at file setup so
+  // each file starts as clean as Mongo's old private database.
   await pgTestUtils.resetPgDatabase();
 
   // Import app AFTER env vars are set
   app = require('../server');
 
-  // Seed test data
-  const User = require('../models/User');
-  const Team = require('../models/Team');
-  const Class = require('../models/Class');
-  const Setting = require('../models/Setting');
-
-  // Create ALLOWED_TIME_SLOTS setting (required for booking validation)
-  await Setting.create({
+  // ── Seed core fixtures straight into Postgres (fx.* — no Mongoose) ──
+  // FK-safe order: settings, cohorts, users, then the team (refs cohort + users).
+  await fx.createSetting({
     key: 'ALLOWED_TIME_SLOTS',
     value: [
       { sh: 8, sm: 0, eh: 9, em: 30, label: '08:00-09:30' },
@@ -94,63 +67,23 @@ const setup = async () => {
     ],
   });
 
-  const admin = await User.create({
-    empCode: '000001', name: 'Admin User', role: 'Admin',
-    department: 'Management', password: 'admin12345',
-  });
+  const cls = await fx.createClass({ classCode: 'TEST001', courseName: 'Test English Class', totalSessions: 20 });
+  const cls2 = await fx.createClass({ classCode: 'TEST002', courseName: 'Test Business English', totalSessions: 10 });
 
-  const teacher = await User.create({
-    empCode: '000002', name: 'Teacher User', role: 'Teacher',
-    department: 'English', password: 'teacher12345',
-  });
+  const admin = await fx.createUser({ empCode: '000001', name: 'Admin User', role: 'Admin', department: 'Management', password: 'admin12345' });
+  const teacher = await fx.createUser({ empCode: '000002', name: 'Teacher User', role: 'Teacher', department: 'English', password: 'teacher12345' });
+  const leader = await fx.createUser({ empCode: '000010', name: 'Team Leader', role: 'Participant', department: 'Sales', password: 'leader12345' });
+  const member1 = await fx.createUser({ empCode: '000011', name: 'Member One', role: 'Participant', department: 'Sales', password: 'member12345' });
+  const member2 = await fx.createUser({ empCode: '000012', name: 'Member Two', role: 'Participant', department: 'Sales', password: 'member12345' });
+  const inactiveUser = await fx.createUser({ empCode: '000099', name: 'Inactive Guy', role: 'Participant', department: 'HR', password: 'inactive12345', status: 'Inactive' });
 
-  const leader = await User.create({
-    empCode: '000010', name: 'Team Leader', role: 'Participant',
-    department: 'Sales', password: 'leader12345',
-  });
-
-  const member1 = await User.create({
-    empCode: '000011', name: 'Member One', role: 'Participant',
-    department: 'Sales', password: 'member12345',
-  });
-
-  const member2 = await User.create({
-    empCode: '000012', name: 'Member Two', role: 'Participant',
-    department: 'Sales', password: 'member12345',
-  });
-
-  const inactiveUser = await User.create({
-    empCode: '000099', name: 'Inactive Guy', role: 'Participant',
-    department: 'HR', password: 'inactive12345', status: 'Inactive',
-  });
-
-  const cls = await Class.create({
-    classCode: 'TEST001', courseName: 'Test English Class',
-    totalSessions: 20,
-  });
-
-  const cls2 = await Class.create({
-    classCode: 'TEST002', courseName: 'Test Business English',
-    totalSessions: 10,
-  });
-
-  const team = await Team.create({
+  const team = await fx.createTeam({
     name: 'Alpha Team', classId: cls._id,
     leaderId: leader._id, members: [leader._id, member1._id, member2._id],
   });
 
-  // Wave G: mirror the core fixtures into PG (same ids, same bcrypt hashes) so
-  // the ported read-paths — auth middleware above all — see the same world the
-  // Mongoose seeds created. The Setting stays Mongo-only (settings reads are
-  // not ported). No-op on the default Mongo lane.
-  await pgTestUtils.mirrorCoreSeedToPg({
-    users: [admin, teacher, leader, member1, member2, inactiveUser],
-    classes: [cls, cls2],
-    teams: [team],
-  });
-
   // Generate tokens directly — avoids coupling to login response shape.
-  // Bearer token auth is still accepted by the protect middleware.
+  // Bearer token auth is accepted by the protect middleware.
   const jwt = require('jsonwebtoken');
   const sign = (userId) =>
     jwt.sign({ id: userId.toString() }, process.env.JWT_SECRET, { expiresIn: '1h' });
@@ -171,23 +104,9 @@ const setup = async () => {
 };
 
 const teardown = async () => {
-  // Drop this file's private database so the shared server doesn't accumulate
-  // state across files, then disconnect. Only stop the server if THIS file
-  // created it (fallback path) — the shared one is stopped by global-teardown.
-  try {
-    if (mongoose.connection.readyState === 1) {
-      await mongoose.connection.dropDatabase();
-    }
-  } catch {
-    // best-effort cleanup — never let teardown throw and mask a test result
-  }
-  await mongoose.disconnect();
-  if (mongoServer) await mongoServer.stop();
-  // Release the PG pool's sockets so jest can exit cleanly on the PG lane.
-  if (isPostgres) {
-    const { closePool } = require('../config/pg');
-    await closePool();
-  }
+  // Release the PG pool's sockets so jest can exit cleanly.
+  const { closePool } = require('../config/pg');
+  await closePool();
   initialized = false;
 };
 
