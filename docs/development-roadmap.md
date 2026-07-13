@@ -94,7 +94,7 @@ remainder is documented deferred-by-design scope (below), not active debt.
 | 3 | Multi-program enrollment + session scheduling | ~85% | 🟢 near done (genuine work shipped; only nomination workflow deferred-by-design) |
 | 4 | Frontend L&D workspace (CRUD UI) | ~82% | 🟢 near done (CRUD + policy editor complete) |
 | 5 | Reporting, completion, feedback | ~80% | 🟢 near done (cert lifecycle + recert closed; Evaluation→Assessment convergence deferred-by-design) |
-| 6 | PostgreSQL migration / Wave K decommission | ~95% | 🟡 prod on PG + Atlas cancelled (Wave J 2026-07-08: Render `DB_BACKEND=postgres`, writes verified in Neon PG 17.10, mig 036 FK/CHECK applied, daily encrypted `pg_dump`; Wave K activation 2026-07-09: `MONGO_URI` removed, `/ready` 200 `backend=postgres`, `/api/admin-db` 410; **Atlas cancelled 2026-07-10**). Wave K Phase 2: A PG seed + B e2e-on-PG + **C Mongo CI gate retired (8→7)** + **D1a PG-only boot** + **D1b deleted 44 `.mongo.js` + 129 Mongo test/scaffolding files** + **D2a reconcile/admin-db feature fully retired (client + remnants + docs)** + **D2b runtime (non-model) mongoose removed** + **D2c fixture foundation** + **D2d suite decouple batches 1–24 (ALL mechanical suites — `assessmentRoutes` closed the tail 2026-07-13)** done. Remaining: **D2d re-home tail** (3 model-behaviour suites left — `autoReleaseScope` re-homed to the PG user-drop path 2026-07-13; still `dataIntegrity`/`phaseAHardening`/`auditDataRound2`) → **D2e** — drop `mongoose`/`mongodb-memory-server`, delete the 35 models (re-homes the AuditLog entity-enum + its coverage unit test with them). |
+| 6 | PostgreSQL migration / Wave K decommission | ~95% | 🟡 prod on PG + Atlas cancelled (Wave J 2026-07-08: Render `DB_BACKEND=postgres`, writes verified in Neon PG 17.10, mig 036 FK/CHECK applied, daily encrypted `pg_dump`; Wave K activation 2026-07-09: `MONGO_URI` removed, `/ready` 200 `backend=postgres`, `/api/admin-db` 410; **Atlas cancelled 2026-07-10**). Wave K Phase 2: A PG seed + B e2e-on-PG + **C Mongo CI gate retired (8→7)** + **D1a PG-only boot** + **D1b deleted 44 `.mongo.js` + 129 Mongo test/scaffolding files** + **D2a reconcile/admin-db feature fully retired (client + remnants + docs)** + **D2b runtime (non-model) mongoose removed** + **D2c fixture foundation** + **D2d suite decouple batches 1–24 (ALL mechanical suites — `assessmentRoutes` closed the tail 2026-07-13)** done. Remaining: **D2d re-home tail** (2 model-behaviour suites left — `autoReleaseScope` + `auditDataRound2` re-homed 2026-07-13; still `dataIntegrity`/`phaseAHardening`) → **D2e** — drop `mongoose`/`mongodb-memory-server`, delete the 35 models (re-homes the AuditLog entity-enum + its coverage unit test with them). |
 
 ## LTMS waves (forward — see [`lms-roadmap.md`](lms-roadmap.md))
 
@@ -148,12 +148,29 @@ Bug fixing and integration review rank above net-new feature rollout.
 > **Rolling window:** ~last 2 weeks / ~15 entries kept inline (file ≤ ~400
 > lines); older entries roll verbatim, newest-first, to
 > [`changelog-archive/`](changelog-archive/) (per-quarter files). Currently
-> inline: **2026-07-11 → 2026-07-13** (07-10 rolled 2026-07-13,
+> inline: **2026-07-12 → 2026-07-13** (07-11 rolled 2026-07-13, 07-10 rolled 2026-07-13,
 > 07-04 E4 → 07-09 rolled 2026-07-12,
 > 07-04 E1–E3 rolled 2026-07-08, 07-02→07-03 rolled 2026-07-07 →
 > [`2026-q3.md`](changelog-archive/2026-q3.md); 06-20→06-27 rolled 2026-07-07;
 > 06-14→06-19 rolled 2026-07-04 → [`2026-q2.md`](changelog-archive/2026-q2.md)).
 
+- **2026-07-13** — **Wave K Phase 2 · Batch D2d batch 26 — `auditDataRound2` re-homed off Mongoose (2nd re-home suite).**
+  DATA-012 stopped probing the raw `User.distinct(...)` query middleware (that
+  abstraction dies with the model at D2e) and now asserts the REAL app contract:
+  `GET /api/dashboard/filter-options` → `dashboard-stats-repository.pg.getFilterDistincts`
+  (its `WHERE is_deleted = false` is the PG twin of the Mongo distinct hook). The
+  cached route is flushed (`invalidateAnalyticsCache`) between the before/after
+  reads so the soft-delete is observed; the Mongo-only "explicit `{isDeleted:true}`
+  escape hatch" is re-expressed as a direct PG trash read (`distinctActiveValues`,
+  `is_deleted = true`) — no data-loss, no middleware needed. DATA-013 already drove
+  the HTTP import routes (`/api/import/users|classes`, trash-guard via
+  `userRepo.findTrashedUserEmpCodes` / `classRepo.findTrashedClassesByKeyPairs`,
+  both PG); only its fixtures move to `fx.createUser`/`fx.createClass` (with
+  `isDeleted:true`). No `mongoose`/model require left. Also rolled the four
+  **2026-07-11** entries verbatim to [`2026-q3.md`](changelog-archive/2026-q3.md)
+  (roadmap 398→319 lines). Verified on the PG lane: 3/3, write-gate clean. Pure
+  test-infra, no app/spec change. Remaining re-home tail: `dataIntegrity` +
+  `phaseAHardening` → then **D2e**.
 - **2026-07-13** — **Wave K Phase 2 · Batch D2d batch 25 — `autoReleaseScope` re-homed to the PG user-drop path (1st of 4 re-home suites).**
   The BUG #1 regression (dropping a user must NOT sweep OTHER teams' empty
   placeholder schedules) stopped firing the drop via the Mongoose
@@ -305,86 +322,6 @@ Bug fixing and integration review rank above net-new feature rollout.
   D2d: ~29 model-using suites; only `dataIntegrity` + `phaseAHardening` still
   literally `require('mongoose')` (both test Mongoose model behavior directly →
   re-home, not mechanically convert).
-- **2026-07-11** — **Wave K Phase 2 · Batch D2d (IN PROGRESS) — 12 test suites off Mongoose + a MAJOR runtime finding.**
-  Grind to drop `mongoose` from the ~41 mongoose-using test files, in verified
-  batches on the PG lane. **Done so far (12 suites, all green):** batch 1 (7
-  no-fixture suites — auditRoutes, customField, mfa, misc-pr-e, auditHashChain,
-  authHardening, bookingRace: `disconnect`→`teardown`, `Types.ObjectId`→`fx.genId`,
-  `deleteMany({})`→`deleteActiveRowsWhere`, core-seed `updateOne`→`updateActiveRow`,
-  Setting `$addToSet`→read/append/update); batch 2 (5 fixture suites —
-  coordinatorAuthzRegression, officeRoutes, enrollmentRoutes, scheduleAuthz,
-  cronRoutes: `Model.create`→`fx.create*`, drop model requires). **⚠️ MAJOR
-  DISCOVERY:** PG-only fixtures unmasked that **6 RUNTIME app files still run
-  Mongoose model QUERIES** (`helpers/teacher-class-scope` `Class.find`,
-  `domains/learning/enrollment/prerequisites` ×7, completion/assignment reminder
-  services, `learning/path`, `helpers/cohortMembership`) → they read the empty
-  Mongo on PG = **latent prod bugs** (teacher scoping / prerequisites / reminders),
-  masked until now by the mirror + the fresh-start (no real data). D2b missed them
-  (it grepped `mongoose.` not `Model.find`). **Sub-phase D2d-0 — DONE (same day):**
-  ported all 6 runtime reads to Postgres (`config/pg` — direct queries + JOIN
-  reconstruction of the two `.populate()` reminder services). The server runtime
-  is now **genuinely mongoose-free** (only `models/*` + dev-only `config/db.js`
-  still touch it — D2b's claim is finally true). Also fixes the latent prod bugs
-  (teacher scoping / prerequisites / reminders returned empty on PG). Verified via
-  consumer suites on PG: teacherBinding 18/18 (now PG-native, exercises the ported
-  teacher-scope), learningPrerequisiteRoutes + compliance-completion-batch 7/7,
-  learningPathRoutes 9/9, learningFeedbackRoutes + assessmentRoutes 40/40,
-  certificateExpiryReminders 6/9 (3 = known shared-Neon local flake, green in CI);
-  the reminder cron suites are infra-broken locally like cronRoutes → CI (dedicated
-  PG) covers them. Still deferred: phaseAHardening (DATA-014 tests the Mongoose
-  `pre('save')` hook directly → re-home, not mechanically convert). Remaining D2d:
-  ~26 fixture suites left to convert, then D2e (delete models + deps). Details: D2
-  plan + `[[project_unported_runtime_mongoose_reads]]`.
-- **2026-07-11** — **Wave K Phase 2 · Batch D2c — PG-native test-fixture foundation + first two suites off Mongoose.**
-  The keystone for dropping `mongoose`: new `tests/fixtures/pg-fixtures.js` — builders
-  (`createUser`/`createClass`/`createTeam`/`createEnrollment`/`createSchedule`/`createAttendance`
-  + `genId`) that INSERT straight into the migrated PG tables **reusing the auto-mirror's own
-  column map** (`pg-row-mappers.toRow`), so a fixture row is byte-identical to what
-  `Model.create(doc)` mirrors today. Model defaults the plain doc can't run are replicated
-  (User password → bcrypt 12 + `passwordChangedAt`; Attendance `syncStatus:'PENDING'`).
-  Pilot-migrated **2 self-contained suites** fully off Mongoose (`trainingHoursReport`,
-  `classReadGate`) — dropped `require('mongoose')`, `Model.create` → `fx.create*`,
-  `new ObjectId()` → `fx.genId()`. **Scope call (documented in the D2 plan):** the shared
-  `setup.js` CORE seed was **NOT** swapped to PG-native this batch — the auto-mirror's
-  update path re-reads the doc from Mongo, so a PG-only core seed breaks the ~25 suites that
-  `findByIdAndUpdate(seed.*…)`; that swap is coupled to converting those mutator sites and
-  moves into the D2d grind (keeps each batch independently green). Pure test-infra refactor
-  (no app/spec change). Verified on the PG lane: both pilots green (10/10) + 4 untouched
-  mirror/core-seed-heavy neighbors green (60/60) — shared infra intact. Next: D2d (convert
-  the remaining ~66 suites in domain batches + fold in the core-seed swap).
-- **2026-07-11** — **Wave K Phase 2 · Batch D2b — removed the runtime (non-model) `mongoose` usages.**
-  Post-D1b the only backend is Postgres, so the 5 remaining runtime `mongoose`
-  sites were dead-Mongo or pointless. New `helpers/object-id.js` (`isValidObjectId`
-  = 24-hex shape, the convention `domains/room/utilization.js` already used) →
-  replaces `mongoose.Types.ObjectId.isValid` in `domains/attendance/repository.pg.js`
-  (+ `room/utilization` repointed to it, DRY). Dropped the pointless
-  `new mongoose.Types.ObjectId(id)` wraps in `learning/use-cases.getCompletionTrend`
-  + `services/export/evaluation-export` (both downstream PG repos already do
-  `String(id)`). **Fixed a latent straggler:** `learning.backfillProgramsFromCourseSettings`
-  read `mongoose.model('Setting').findOne` → **empty Mongo** post-cutover → now
-  `settingsRepository.findByKeys(['COURSE_SESSIONS'])`. `routes/healthRoutes.js`
-  `/ready` collapsed to the PG probe only (dropped the dead Mongo `readyState`
-  branch + the `db-backend` import). Behaviour-neutral (pure refactor — no spec
-  change). Now only `models/*` + `config/db.js` (dev scripts) still touch
-  `mongoose` on the server → next: D2c (fixture foundation). Verified: changed-path
-  suites (export/learning-dashboard/attendance/evaluation) green on the PG lane.
-- **2026-07-11** — **Wave K Phase 2 · Batch D2a — reconcile + admin-db feature fully retired (server left it half-done in #280).**
-  #280 removed the reconcile/adminDb *server* runtime but left the whole CLIENT surface + server
-  remnants + stale docs — all dead (routes 404). Finished the owner-decided retirement end-to-end.
-  **Server:** deleted `models/ReconcileReport.js`, the swagger `ReconcileReport` schema, the dead
-  `reconcileLimiter` (no route left), the `system.ops` capability (adminDb/reconcile gone), the
-  `RECONCILE_CRON` env knob, and the two now-unreachable write-gate `ALLOW` entries
-  (`services/reconcile*` + `adminDbRoutes` — the "remove at Wave K" disposition the comment tracked);
-  de-referenced deleted files in stale comments. **Client:** removed `adminDbAPI`/`reconcileAPI`,
-  deleted `features/reconcile/*` + `features/admin/DatabaseExplorer.jsx`, dropped the SystemPage
-  Database + Reconciliation tabs + their nav entries + `run:reconcile`/`read:database` perms + i18n.
-  **Re-homed the still-live cron-health panel** (heartbeats for reminders/snapshot/retention-purge —
-  `/api/admin/cron/health` untouched) into a slim SystemPage "Cron Health" tab so monitoring survives.
-  **Docs:** dropped the admin-db/reconcile rows from route-permission-matrix + current-system-map,
-  marked the `reconcile-job` spec **deprecated** (PG FK/CHECK mig 036 replaces the nightly sweep),
-  removed `system.ops` from the capability-authz spec. `cronMonitor`/`CronRun` + the cron-health
-  endpoint stay (general infra). Orthogonal to D1b's repo-layer deletion; the `mongoose` drop is
-  still D2 proper.
 
 ## How to keep this current
 
