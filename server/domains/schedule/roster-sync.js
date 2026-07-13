@@ -138,4 +138,15 @@ const releaseUserFromFutureSchedules = async (userId) => {
   });
 };
 
-module.exports = { syncTeamRoster, releaseUserFromFutureSchedules };
+/**
+ * Team member-edit side effect (was models/Team.js `syncSchedulesForTeamUpdate`,
+ * re-homed here in Wave K D2e-1 so its consumers no longer require the model).
+ * A thin adapter over `syncTeamRoster`: accepts either a UoW handle (`tx`) or a
+ * raw mongoose `session` — both resolve to a handle the schedule repo understands.
+ */
+const syncSchedulesForTeamUpdate = ({ teamId, oldMembers, newMembers, session, tx }) => {
+  const handle = tx || (session ? { session } : undefined);
+  return syncTeamRoster({ teamId, oldMembers, newMembers }, handle);
+};
+
+module.exports = { syncTeamRoster, releaseUserFromFutureSchedules, syncSchedulesForTeamUpdate };
