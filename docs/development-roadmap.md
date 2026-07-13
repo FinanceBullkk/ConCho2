@@ -94,7 +94,7 @@ remainder is documented deferred-by-design scope (below), not active debt.
 | 3 | Multi-program enrollment + session scheduling | ~85% | 🟢 near done (genuine work shipped; only nomination workflow deferred-by-design) |
 | 4 | Frontend L&D workspace (CRUD UI) | ~82% | 🟢 near done (CRUD + policy editor complete) |
 | 5 | Reporting, completion, feedback | ~80% | 🟢 near done (cert lifecycle + recert closed; Evaluation→Assessment convergence deferred-by-design) |
-| 6 | PostgreSQL migration / Wave K decommission | ~95% | 🟡 prod on PG + Atlas cancelled (Wave J 2026-07-08: Render `DB_BACKEND=postgres`, writes verified in Neon PG 17.10, mig 036 FK/CHECK applied, daily encrypted `pg_dump`; Wave K activation 2026-07-09: `MONGO_URI` removed, `/ready` 200 `backend=postgres`, `/api/admin-db` 410; **Atlas cancelled 2026-07-10**). Wave K Phase 2: A PG seed + B e2e-on-PG + **C Mongo CI gate retired (8→7)** + **D1a PG-only boot** + **D1b deleted 44 `.mongo.js` + 129 Mongo test/scaffolding files** + **D2a reconcile/admin-db feature fully retired (client + remnants + docs)** + **D2b runtime (non-model) mongoose removed** + **D2c fixture foundation** + **D2d suite decouple batches 1–23 (all mechanical suites except `assessmentRoutes`)** done. Remaining: **D2d tail** (`assessmentRoutes` batch 24 + the 4 model-behaviour re-home suites `dataIntegrity`/`phaseAHardening`/`auditDataRound2`/`autoReleaseScope`) → **D2e** — drop `mongoose`/`mongodb-memory-server`, delete the 35 models (re-homes the AuditLog entity-enum + its coverage unit test with them). |
+| 6 | PostgreSQL migration / Wave K decommission | ~95% | 🟡 prod on PG + Atlas cancelled (Wave J 2026-07-08: Render `DB_BACKEND=postgres`, writes verified in Neon PG 17.10, mig 036 FK/CHECK applied, daily encrypted `pg_dump`; Wave K activation 2026-07-09: `MONGO_URI` removed, `/ready` 200 `backend=postgres`, `/api/admin-db` 410; **Atlas cancelled 2026-07-10**). Wave K Phase 2: A PG seed + B e2e-on-PG + **C Mongo CI gate retired (8→7)** + **D1a PG-only boot** + **D1b deleted 44 `.mongo.js` + 129 Mongo test/scaffolding files** + **D2a reconcile/admin-db feature fully retired (client + remnants + docs)** + **D2b runtime (non-model) mongoose removed** + **D2c fixture foundation** + **D2d suite decouple batches 1–24 (ALL mechanical suites — `assessmentRoutes` closed the tail 2026-07-13)** done. Remaining: **D2d re-home tail** (the 4 model-behaviour suites `dataIntegrity`/`phaseAHardening`/`auditDataRound2`/`autoReleaseScope`) → **D2e** — drop `mongoose`/`mongodb-memory-server`, delete the 35 models (re-homes the AuditLog entity-enum + its coverage unit test with them). |
 
 ## LTMS waves (forward — see [`lms-roadmap.md`](lms-roadmap.md))
 
@@ -148,11 +148,30 @@ Bug fixing and integration review rank above net-new feature rollout.
 > **Rolling window:** ~last 2 weeks / ~15 entries kept inline (file ≤ ~400
 > lines); older entries roll verbatim, newest-first, to
 > [`changelog-archive/`](changelog-archive/) (per-quarter files). Currently
-> inline: **2026-07-10 → 2026-07-12** (07-04 E4 → 07-09 rolled 2026-07-12,
+> inline: **2026-07-11 → 2026-07-13** (07-10 rolled 2026-07-13,
+> 07-04 E4 → 07-09 rolled 2026-07-12,
 > 07-04 E1–E3 rolled 2026-07-08, 07-02→07-03 rolled 2026-07-07 →
 > [`2026-q3.md`](changelog-archive/2026-q3.md); 06-20→06-27 rolled 2026-07-07;
 > 06-14→06-19 rolled 2026-07-04 → [`2026-q2.md`](changelog-archive/2026-q2.md)).
 
+- **2026-07-13** — **Wave K Phase 2 · Batch D2d batch 24 — `assessmentRoutes` off Mongoose (the LAST mechanical suite).**
+  The assessment API integration suite (authoring / attempts / grading / question-bank /
+  completion-policy — 23 tests) drops all 6 `../../models/*` requires
+  (`Assessment`/`AssessmentAttempt`/`AssessmentQuestion`/`Schedule`/`Class`/`LearningProgram`).
+  `afterEach` cleanup → `deleteActiveRowsWhere` (incl. `AssessmentQuestion`, resolved
+  reflectively to `assessment_questions` — no explicit mapper needed) + the `Class`
+  reset (`updateMany $in` → two `updateActiveRow('Class', …, { programId: null, teacherIds: [] })`).
+  `seedRoster` `Schedule.create` → `fx.createSchedule`; the two completion-policy
+  program fixtures `LearningProgram.create` → `fx.createLearningProgram`; the
+  teacher-scope + program binds (`Class.findByIdAndUpdate`) → `updateActiveRow('Class', …)`.
+  **This closes the D2d MECHANICAL tail** — every remaining D2d suite is now a
+  model-behaviour re-home. Also rolled the six **2026-07-10** entries
+  (D1a/D1b/C/B/A + scope-trim) verbatim to [`2026-q3.md`](changelog-archive/2026-q3.md)
+  (roadmap 453→362 lines). Pure test-infra, no app/spec change. Verified on the PG
+  lane: 23/23, write-gate clean. Remaining D2d: the 4 model-behaviour re-home suites
+  `dataIntegrity`/`phaseAHardening`/`auditDataRound2`/`autoReleaseScope` → then **D2e**
+  (drop `mongoose`/`mongodb-memory-server`, delete the 35 models + re-home the
+  AuditLog entity-enum + `auditEntityEnumCoverage` unit test with them).
 - **2026-07-12** — **Wave K Phase 2 · Batch D2d batch 23 — branding/reports-presets/cert-expiry cluster off Mongoose (3 suites).**
   `branding` (TenantConfig singleton + cert-verify branding surface: `Certificate.create`
   → `fx.createCertificate`, cleanup → `deleteActiveRowsWhere`, incl. the reflective
@@ -349,97 +368,6 @@ Bug fixing and integration review rank above net-new feature rollout.
   removed `system.ops` from the capability-authz spec. `cronMonitor`/`CronRun` + the cron-health
   endpoint stay (general infra). Orthogonal to D1b's repo-layer deletion; the `mongoose` drop is
   still D2 proper.
-- **2026-07-10** — **Wave K Phase 2 · Batch D1b — deleted the 44 `.mongo.js` repos + the Mongo test safety-net.**
-  Runtime already PG-only (D1a) + Atlas cancelled, so removed the now-dead Mongo
-  repository layer + the migration-era parity scaffolding. **130 files deleted:**
-  49 Mongo-side impls (44 `*.mongo.js` + 5 `dir/mongo.js`), 57 `tests/pg-parity/*`
-  comparison suites, 22 main-suite `*-dual-backend`/`.impls` tests, the obsolete
-  Mongo-`$lookup` soft-delete guard (`soft-delete-lookup-guard.test.js` — scanned
-  `.mongo.js` aggregations that no longer exist; PG soft-delete lives in each
-  `.pg` query's WHERE), 1 dev-tool
-  (`pg-attendance-rollup-parity.js`). Collapsed the 49 dual-backend selectors →
-  `module.exports = require('./…pg')` (**behaviour-preserving** — the PG lane
-  already resolved to these pg impls; only the `impls` export, consumed solely by
-  the deleted parity tests, is gone). `helpers/counter` + `domains/_shared/unit-of-work`
-  folded to their PG impl inline; `class-repository.pg` repointed off `.impls.pg`;
-  the `pg-parity` CI job removed from `ci.yml`. Load-check green (every
-  route/controller/repo resolves); gate #8 (full PG suite) is the authoritative
-  verify. **Coverage note:** the deleted dual-backend/parity suites asserted
-  repo-unit behaviour on both backends — PG behaviour stays exercised by the
-  domain HTTP integration suite, but a few repo-level traps lose their dedicated
-  assertion (accepted trade — owner chose delete over rewriting 78 suites).
-  **Remaining: D2** — dropping `mongoose`/`mongodb-memory-server` needs the 122
-  fixture-authoring test files decoupled from Mongoose+auto-mirror (own effort).
-- **2026-07-10** — **Wave K Phase 2 · Batch D1a — PG-only runtime boot + dead ops scripts removed.**
-  Now that Atlas is cancelled, retired the genuinely-dead Mongo *runtime* surface
-  (no test entanglement): `server.js` boot collapsed to PG-only (dropped the
-  `connectDB` import + the `if(isPostgres)…else connectDB()` branch + the Mongoose
-  shutdown-close — the `startServer` path never runs under Jest, so the suite is
-  unaffected; the e2e gate boots the real server on PG); deleted `scripts/seed.js`
-  (Mongo seed, superseded by `seed-pg.js` — `npm run seed:mongo` removed) +
-  `scripts/verify-backup.js` (Atlas backup check, dead) + its orphaned unit test
-  `verifyBackupEnvLoading.test.js`. `config/db.js` KEPT (a Mongo dev-diagnostic
-  script still uses it). The `config/db-backend.js` default stays `mongo` for now
-  (flipping it to `postgres` breaks the Mongo `server-tests` CI lane, which Batch
-  C #285 removes — the flip lands once that merges). **Not done — bigger than first
-  scoped:** deleting the 44 `.mongo.js` repos + collapsing selectors is entangled
-  with the Mongo test safety-net — **75 test files reference `.impls`** (56
-  `tests/pg-parity/*` + 22 in the main `server-tests-pg` gate suite, incl. 16
-  `*-dual-backend.test.js`) plus 3 prod consumers (`class-repository.pg`, 2
-  `metric-*/mongo.js`). That + dropping `mongoose` (122 fixture-authoring test
-  files) is the deliberate D2 effort, its own plan + full-suite verification.
-- **2026-07-10** — **Wave K Phase 2 · Batch C — retired the Mongo CI gate (8→7); Atlas cancelled.**
-  Owner confirmed **MongoDB Atlas is cancelled** → the `DB_BACKEND=mongo`→Atlas
-  rollback path is gone, so the Mongo `server-tests` Jest lane only exercised
-  now-dead code. Removed the `server-tests` job from `ci.yml`; **`server-tests-pg`
-  (full Jest suite on Postgres, zero exclusions) is now the SOLE server-test
-  gate — CI gates 8→7.** Synced the golden-rule count everywhere (CLAUDE.md,
-  `testing-and-ci.md`, `system-overview.md`, `ltms-gap-analysis.md`) + fixed the
-  stale e2e "+Mongo replica set" / pg-parity "DB_BACKEND stays mongo" comments.
-  **Not yet done (the real long pole):** the Jest harness still starts
-  `mongodb-memory-server` to AUTHOR fixtures — 122/196 test files seed via
-  Mongoose and the `pg-auto-mirror` mirrors those writes to PG. Dropping
-  `mongoose` + deleting the 44 `.mongo.js` (Batch D) needs that fixture layer
-  decoupled to seed PG natively first — its own scoped PR. Runtime untouched.
-- **2026-07-10** — **Wave K Phase 2 · Batch B — e2e gate on Postgres.** The
-  `e2e-tests` CI job now runs on PG, mirroring `server-tests-pg`: `postgres:16`
-  service + job-level `PG_URL`, `supercharge/mongodb-github-action` removed, new
-  `Apply PG migrations` (`knex migrate:latest`) + `Seed database (PG-native)`
-  (`npm run seed`) steps, `Start API server` env `MONGO_URI`→`DB_BACKEND=postgres`,
-  and the `Clear mustChangePassword` step rewritten Mongoose→`pg` `UPDATE`.
-  Playwright specs + port wiring untouched. Verified locally end-to-end on a fresh
-  DB (create → 35 migrations → seed → clear → boot `/ready backend=postgres` →
-  admin login `mustChangePassword:false`); the Playwright browser step runs in CI.
-  Next: Batch C (retire the Mongo test infra, gates 8→7).
-- **2026-07-10** — **Wave K Phase 2 · Batch A — PG-native seed.** `scripts/seed-pg.js`
-  (self-contained: talks to `config/pg.js` only — no Mongoose / no test-only
-  `pg-row-mappers` / no `DB_BACKEND` — so it survives the Mongo removal in
-  Batches C/D). Truncates all app tables (RESTART IDENTITY CASCADE, FK-safe) +
-  inserts the canonical sample set with the SAME logins (000001/admin12345 …
-  000010/coordinator123): 10 users (bcrypt-12), 2 offices, 3 programs, 3 classes,
-  2 teams (+`team_members` junction), 6 enrollments, 3 `scheduled` sessions, 2
-  settings (ALLOWED_TIME_SLOTS/COURSE_SESSIONS), pre-set `empCode`/`classCode`
-  counters. Ids are 24-hex (ObjectId-format-compatible, no bson dep).
-  `dangerousScriptGuard` generalized backend-agnostic (accepts `host`/`dbName`;
-  Mongo path unchanged). `npm run seed` → PG; `npm run seed:mongo` keeps the
-  legacy Mongo seed until the e2e gate moves to PG (Batch B). **Verified:** seed →
-  boot on PG (`/ready` `backend=postgres`) → HTTP login (teacher/admin/participant
-  all 200; wrong-pw 401; authed `/api/schedules` + `/api/learning/programs` read
-  back the seeded rows with joins). No CI change (e2e still `node scripts/seed.js`).
-- **2026-07-10** — **Scope trim: deleted 9 speculative capability domains (hide → real-delete).**
-  Follow-up to the 2026-07-09 sidebar hide: a grill-with-docs session decided to
-  **really delete** (not just hide) the domains with no concrete near-term L&D need,
-  **before** Wave K Phase 2 (so the dual-backend collapse drops ~58→~30 seams).
-  **Deleted (9):** `access`, `automation`, `finance`, `mobile`, `planning`,
-  `session-type`, `skill`, `trainer`, `vendor` — server domains + 11 models +
-  their tests + route mounts + boot hooks (access grants-loader, automation
-  runner/seed); the **Web Push** feature (`services/pushService` + `web-push` dep +
-  the `notification/in-app-writer` call + `PushSubscription`); the client
-  `features/{…}` + the StudioScheduling page (session-type UI) + nav/flags/API
-  objects; and 7 obsolete specs. **Kept (4):** `notification`, `custom-field`,
-  `branding` (core-coupled) + `compliance` (on-mission). Domain count 20→13.
-  Git-recoverable if HR ever asks. ADR:
-  [`docs/decisions/trim-speculative-capability-domains.md`](decisions/trim-speculative-capability-domains.md).
 
 ## How to keep this current
 
