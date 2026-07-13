@@ -303,6 +303,13 @@ const createRoom = async (over = {}) => {
   return doc;
 };
 
+/** settings row. `value` is Mixed → the mapper jsonb-stringifies it. */
+const createSetting = async (over = {}) => {
+  const doc = { _id: genId(), key: null, value: null, description: '', ...over };
+  await insertDoc('Setting', doc);
+  return doc;
+};
+
 /** learning_programs row — defaults match models/LearningProgram (enum-valid). */
 const createLearningProgram = async (over = {}) => {
   const doc = {
@@ -335,6 +342,7 @@ module.exports = {
   createLearningProgram,
   createOffice,
   createRoom,
+  createSetting,
   createAssessment,
   createAssessmentAttempt,
   createAssignment,
