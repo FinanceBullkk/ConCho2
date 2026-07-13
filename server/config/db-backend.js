@@ -1,9 +1,9 @@
 // DB backend selector (PG-migration Phase 2 foundation).
-// `DB_BACKEND` decides which repository implementation the (dual-ported) repos
-// resolve to. Default 'mongo' → the running app is 100% unchanged until a repo
-// is ported and the flag is flipped (Phase 3). No dual-write: the code switches,
-// the data cuts over once (Phase 5).
-const DB_BACKEND = (process.env.DB_BACKEND || 'mongo').toLowerCase();
+// Default 'postgres' since Wave K decommissioned Mongo (D2e-2b: mongoose + the
+// 32 models deleted). The flag now only distinguishes the live PG backend from
+// a legacy 'mongo' value that no longer resolves to anything runnable — kept as
+// a selector shape so the isPostgres/isMongo consumers don't need touching.
+const DB_BACKEND = (process.env.DB_BACKEND || 'postgres').toLowerCase();
 const isPostgres = DB_BACKEND === 'postgres';
 const isMongo = !isPostgres;
 
