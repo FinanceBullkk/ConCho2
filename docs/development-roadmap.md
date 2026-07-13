@@ -94,7 +94,7 @@ remainder is documented deferred-by-design scope (below), not active debt.
 | 3 | Multi-program enrollment + session scheduling | ~85% | 🟢 near done (genuine work shipped; only nomination workflow deferred-by-design) |
 | 4 | Frontend L&D workspace (CRUD UI) | ~82% | 🟢 near done (CRUD + policy editor complete) |
 | 5 | Reporting, completion, feedback | ~80% | 🟢 near done (cert lifecycle + recert closed; Evaluation→Assessment convergence deferred-by-design) |
-| 6 | PostgreSQL migration / Wave K decommission | ~95% | 🟡 prod on PG + Atlas cancelled (Wave J 2026-07-08: Render `DB_BACKEND=postgres`, writes verified in Neon PG 17.10, mig 036 FK/CHECK applied, daily encrypted `pg_dump`; Wave K activation 2026-07-09: `MONGO_URI` removed, `/ready` 200 `backend=postgres`, `/api/admin-db` 410; **Atlas cancelled 2026-07-10**). Wave K Phase 2: A PG seed + B e2e-on-PG + **C Mongo CI gate retired (8→7)** + **D1a PG-only boot** + **D1b deleted 44 `.mongo.js` + 129 Mongo test/scaffolding files** + **D2a reconcile/admin-db feature fully retired (client + remnants + docs)** + **D2b runtime (non-model) mongoose removed** + **D2c fixture foundation** + **D2d suite decouple batches 1–24 (ALL mechanical suites — `assessmentRoutes` closed the tail 2026-07-13)** done. Remaining: **D2d re-home tail** (2 model-behaviour suites left — `autoReleaseScope` + `auditDataRound2` re-homed 2026-07-13; still `dataIntegrity`/`phaseAHardening`) → **D2e** — drop `mongoose`/`mongodb-memory-server`, delete the 35 models (re-homes the AuditLog entity-enum + its coverage unit test with them). |
+| 6 | PostgreSQL migration / Wave K decommission | ~95% | 🟡 prod on PG + Atlas cancelled (Wave J 2026-07-08: Render `DB_BACKEND=postgres`, writes verified in Neon PG 17.10, mig 036 FK/CHECK applied, daily encrypted `pg_dump`; Wave K activation 2026-07-09: `MONGO_URI` removed, `/ready` 200 `backend=postgres`, `/api/admin-db` 410; **Atlas cancelled 2026-07-10**). Wave K Phase 2: A PG seed + B e2e-on-PG + **C Mongo CI gate retired (8→7)** + **D1a PG-only boot** + **D1b deleted 44 `.mongo.js` + 129 Mongo test/scaffolding files** + **D2a reconcile/admin-db feature fully retired (client + remnants + docs)** + **D2b runtime (non-model) mongoose removed** + **D2c fixture foundation** + **D2d suite decouple batches 1–24 (ALL mechanical suites — `assessmentRoutes` closed the tail 2026-07-13)** done. Remaining: **D2d re-home tail** (1 model-behaviour suite left — `autoReleaseScope` + `auditDataRound2` + `phaseAHardening` re-homed 2026-07-13; still `dataIntegrity`) → **D2e** — drop `mongoose`/`mongodb-memory-server`, delete the 35 models (re-homes the AuditLog entity-enum + its coverage unit test with them). |
 
 ## LTMS waves (forward — see [`lms-roadmap.md`](lms-roadmap.md))
 
@@ -154,6 +154,23 @@ Bug fixing and integration review rank above net-new feature rollout.
 > [`2026-q3.md`](changelog-archive/2026-q3.md); 06-20→06-27 rolled 2026-07-07;
 > 06-14→06-19 rolled 2026-07-04 → [`2026-q2.md`](changelog-archive/2026-q2.md)).
 
+- **2026-07-13** — **Wave K Phase 2 · Batch D2d batch 27 — `phaseAHardening` re-homed off Mongoose (3rd re-home suite; only `dataIntegrity` left).**
+  DATA-014 stopped unit-testing the `User.pre('save')` hook (dies with the model at
+  D2e) and now drives the REAL runtime twin: `PUT /api/auth/change-password`
+  (`auth-session.js` stamps `passwordChangedAt = now()-1s` via the ported PG auth
+  repo `updatePassword`) — asserting the bump, the clock-skew guard (≥900 ms in the
+  past), AND the resulting **old-token rejection** (`GET /api/auth/me` → 401 after
+  the auth-cache invalidation) — a stronger check than the old timestamp-only unit
+  test. The "no bump without a password change" case runs through the admin
+  `PUT /api/users/:id` name update (only sets `passwordChangedAt` when a password is
+  present). DATA-010 (importService no-role-escalation) + DATA-009 (soft-deleted
+  users excluded from `attendanceService.analyticsByEmployee` + `exportService.
+  queryExportData` — both PG-ported) keep their service/route drivers; only fixtures
+  move to `fx.createUser`/`createSchedule`/`createAttendance` + soft-delete via
+  `updateActiveRow`. No `mongoose`/model require left. Verified on the PG lane: 7/7,
+  write-gate clean. Pure test-infra, no app/spec change. **Remaining re-home tail:
+  just `dataIntegrity`** (Mongo E11000 partial-unique / `pre('validate')` endTime
+  guard / `aggregate` soft-delete hook) → then **D2e**.
 - **2026-07-13** — **Wave K Phase 2 · Batch D2d batch 26 — `auditDataRound2` re-homed off Mongoose (2nd re-home suite).**
   DATA-012 stopped probing the raw `User.distinct(...)` query middleware (that
   abstraction dies with the model at D2e) and now asserts the REAL app contract:
