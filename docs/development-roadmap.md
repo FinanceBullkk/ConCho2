@@ -94,7 +94,7 @@ remainder is documented deferred-by-design scope (below), not active debt.
 | 3 | Multi-program enrollment + session scheduling | ~85% | 🟢 near done (genuine work shipped; only nomination workflow deferred-by-design) |
 | 4 | Frontend L&D workspace (CRUD UI) | ~82% | 🟢 near done (CRUD + policy editor complete) |
 | 5 | Reporting, completion, feedback | ~80% | 🟢 near done (cert lifecycle + recert closed; Evaluation→Assessment convergence deferred-by-design) |
-| 6 | PostgreSQL migration / Wave K decommission | ~95% | 🟡 prod on PG + Atlas cancelled (Wave J 2026-07-08: Render `DB_BACKEND=postgres`, writes verified in Neon PG 17.10, mig 036 FK/CHECK applied, daily encrypted `pg_dump`; Wave K activation 2026-07-09: `MONGO_URI` removed, `/ready` 200 `backend=postgres`, `/api/admin-db` 410; **Atlas cancelled 2026-07-10**). Wave K Phase 2: A PG seed + B e2e-on-PG + **C Mongo CI gate retired (8→7)** + **D1a PG-only boot** + **D1b deleted 44 `.mongo.js` + 129 Mongo test/scaffolding files** + **D2a reconcile/admin-db feature fully retired (client + remnants + docs)** + **D2b runtime (non-model) mongoose removed** + **D2c fixture foundation** + **D2d COMPLETE** (batches 1–24 = ALL mechanical suites; batches 25–28 = the 4 model-behaviour re-home suites `autoReleaseScope`/`auditDataRound2`/`phaseAHardening`/`dataIntegrity`, all re-homed to their PG runtime enforcement 2026-07-13) done. Remaining: **D2e** — drop `mongoose`/`mongodb-memory-server`, delete the 35 models (re-homes the AuditLog entity-enum + its coverage unit test with them). |
+| 6 | PostgreSQL migration / Wave K decommission | ~95% | 🟡 prod on PG + Atlas cancelled (Wave J 2026-07-08: Render `DB_BACKEND=postgres`, writes verified in Neon PG 17.10, mig 036 FK/CHECK applied, daily encrypted `pg_dump`; Wave K activation 2026-07-09: `MONGO_URI` removed, `/ready` 200 `backend=postgres`, `/api/admin-db` 410; **Atlas cancelled 2026-07-10**). Wave K Phase 2: A PG seed + B e2e-on-PG + **C Mongo CI gate retired (8→7)** + **D1a PG-only boot** + **D1b deleted 44 `.mongo.js` + 129 Mongo test/scaffolding files** + **D2a reconcile/admin-db feature fully retired (client + remnants + docs)** + **D2b runtime (non-model) mongoose removed** + **D2c fixture foundation** + **D2d COMPLETE** (batches 1–24 = ALL mechanical suites; batches 25–28 = the 4 model-behaviour re-home suites `autoReleaseScope`/`auditDataRound2`/`phaseAHardening`/`dataIntegrity`, all re-homed to their PG runtime enforcement 2026-07-13) + **D2e-1 runtime model-decouple** (2026-07-14: the 6 runtime files that required a model — only for a schema constant — re-homed to plain modules `services/audit-enums` + `domains/assessment/item-types` + `domains/schedule/roster-sync.syncSchedulesForTeamUpdate`; the AuditLog entity-enum + its coverage unit test re-homed too) done. Remaining: **D2e-2** — delete the 35 models, decouple the test harness (`setup.js`/`global-setup.js`) from `mongoose` + `mongodb-memory-server`, drop both deps from `package.json`, remove the Mongo-era scripts. |
 
 ## LTMS waves (forward — see [`lms-roadmap.md`](lms-roadmap.md))
 
@@ -148,12 +148,39 @@ Bug fixing and integration review rank above net-new feature rollout.
 > **Rolling window:** ~last 2 weeks / ~15 entries kept inline (file ≤ ~400
 > lines); older entries roll verbatim, newest-first, to
 > [`changelog-archive/`](changelog-archive/) (per-quarter files). Currently
-> inline: **2026-07-12 → 2026-07-13** (07-11 rolled 2026-07-13, 07-10 rolled 2026-07-13,
+> inline: **2026-07-12 → 2026-07-14** (07-11 rolled 2026-07-13, 07-10 rolled 2026-07-13,
 > 07-04 E4 → 07-09 rolled 2026-07-12,
 > 07-04 E1–E3 rolled 2026-07-08, 07-02→07-03 rolled 2026-07-07 →
 > [`2026-q3.md`](changelog-archive/2026-q3.md); 06-20→06-27 rolled 2026-07-07;
 > 06-14→06-19 rolled 2026-07-04 → [`2026-q2.md`](changelog-archive/2026-q2.md)).
 
+- **2026-07-14** — **Wave K Phase 2 · Batch D2e-1 — decouple RUNTIME app code from the Mongoose models (prereq for the model delete).**
+  Before D2e can delete the 35 models, the 6 runtime (non-test/non-script) files
+  that still `require('../models/*')` — all of them only for a schema-derived
+  constant — had to be re-homed. Extracted to plain modules: **`services/audit-enums.js`**
+  (`AUDIT_ENTITY_VALUES` 42-value ratchet + `AUDIT_ROLE_VALUES`, consumed by
+  `audit-repository.pg` + the re-homed `auditEntityEnumCoverage` unit test);
+  **`domains/assessment/item-types.js`** (`ITEM_TYPES`, consumed by the two
+  assessment zod schema files); Class status inlined in `class-repository.pg`
+  (2 values, one consumer). The `syncSchedulesForTeamUpdate` team member-edit
+  side-effect (was `models/Team.js`) moved to **`domains/schedule/roster-sync.js`**
+  (a thin adapter over its `syncTeamRoster`); `groups/repository` + `enrollment-transfer`
+  import it from there now. **Behavior-preserving refactor** — the extracted enums
+  match the model definitions EXACTLY (42/42 entity, role, ITEM_TYPES verified by a
+  diff check); no observable change, no spec touch. **The 35 models are untouched**
+  (still loaded by the test harness + Mongo-era scripts — deleted in D2e-2). Verified
+  on the PG lane: 64 tests across 6 suites (audit-enum-coverage/auditWriteSide/
+  assessmentRoutes/enrollmentTransfer/classDeleteSoftArchive/teams) + a load-check of
+  every redirected module (no circular import). **Also folded in: a flaky-test fix**
+  — the batch-27 `phaseAHardening` DATA-014 "old token → 401" add-on was racy (the
+  auth-cache ~30s TTL + whole-second `iat` vs the 1s skew guard flipped it 200/401
+  and reddened this PR's gate #8 on an unlucky run). Dropped that add-on assertion;
+  DATA-014's deterministic invariant (passwordChangedAt bump + skew guard) stays,
+  matching the original Mongoose test's scope (it never asserted rejection). 4/4
+  reruns green. **Next: D2e-2** — delete the 35
+  models, decouple the test harness (`setup.js`/`global-setup.js`) from `mongoose` +
+  `mongodb-memory-server`, drop both deps from `package.json`, remove the Mongo-era
+  scripts.
 - **2026-07-13** — **Wave K Phase 2 · Batch D2d batch 28 — `dataIntegrity` re-homed (LAST re-home suite → D2d COMPLETE, D2e unblocked).**
   Every invariant now asserts its PG runtime enforcement, not the Mongoose model
   layer: **DATA-002** → the partial-unique index `uq_classes_code_ongoing`

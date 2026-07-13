@@ -1,6 +1,6 @@
 const { z } = require('zod');
 const { objectId, idParam } = require('../../schemas/common');
-const { ITEM_TYPES } = require('../../models/Assessment');
+const { ITEM_TYPES } = require('./item-types');
 const { itemSchema } = require('./schemas');
 
 const questionMeta = z.object({
