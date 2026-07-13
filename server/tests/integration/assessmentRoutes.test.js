@@ -1,13 +1,8 @@
 const request = require('supertest');
 const jwt = require('jsonwebtoken');
 const { getApp, getTokens, getSeedData, getCsrfHeaders, teardown } = require('../setup');
-const { readActiveRow } = require('../pg-test-utils');
-const Assessment = require('../../models/Assessment');
-const AssessmentAttempt = require('../../models/AssessmentAttempt');
-const AssessmentQuestion = require('../../models/AssessmentQuestion');
-const Schedule = require('../../models/Schedule');
-const Class = require('../../models/Class');
-const LearningProgram = require('../../models/LearningProgram');
+const { readActiveRow, deleteActiveRowsWhere, updateActiveRow } = require('../pg-test-utils');
+const fx = require('../fixtures/pg-fixtures');
 
 let app, tokens, seed, csrf;
 
@@ -24,23 +19,23 @@ afterAll(async () => {
 
 afterEach(async () => {
   await Promise.all([
-    Assessment.deleteMany({}),
-    AssessmentAttempt.deleteMany({}),
-    AssessmentQuestion.deleteMany({}),
-    Schedule.deleteMany({}),
-    LearningProgram.deleteMany({}),
+    deleteActiveRowsWhere('Assessment', {}),
+    deleteActiveRowsWhere('AssessmentAttempt', {}),
+    deleteActiveRowsWhere('AssessmentQuestion', {}),
+    deleteActiveRowsWhere('Schedule', {}),
+    deleteActiveRowsWhere('LearningProgram', {}),
   ]);
-  await Class.updateMany(
-    { _id: { $in: [seed.class1._id, seed.class2._id] } },
-    { $set: { programId: null, teacherIds: [] } },
-  );
+  await Promise.all([
+    updateActiveRow('Class', seed.class1._id, { programId: null, teacherIds: [] }),
+    updateActiveRow('Class', seed.class2._id, { programId: null, teacherIds: [] }),
+  ]);
 });
 
 let rosterSlot = 0;
 const seedRoster = (userId) => {
   const base = new Date('2026-03-02T03:00:00Z').getTime();
   const startTime = new Date(base + rosterSlot++ * 86400000);
-  return Schedule.create({
+  return fx.createSchedule({
     classId: seed.class1._id,
     bookedTeamId: seed.team._id,
     startTime,
@@ -218,7 +213,7 @@ describe('Assessment API — authoring, attempts, grading', () => {
   });
 
   test('QB-007: teacher assessment read/manage is scoped to bound cohorts', async () => {
-    await Class.findByIdAndUpdate(seed.class1._id, { teacherIds: [seed.admin._id] });
+    await updateActiveRow('Class', seed.class1._id, { teacherIds: [seed.admin._id.toString()] });
     await seedRoster(seed.leader._id);
 
     const createDenied = await createQuiz(tokens.teacher);
@@ -473,12 +468,12 @@ describe('Assessment API — authoring, attempts, grading', () => {
   });
 
   test('a passing attempt satisfies completionPolicy.requiresAssessment', async () => {
-    const program = await LearningProgram.create({
+    const program = await fx.createLearningProgram({
       code: `ASMT_${Date.now()}`,
       name: 'Assessment Program',
       completionPolicy: { attendanceThresholdPercent: 0, requiresAssessment: true },
     });
-    await Class.findByIdAndUpdate(seed.class1._id, { programId: program._id });
+    await updateActiveRow('Class', seed.class1._id, { programId: program._id });
     await seedRoster(seed.leader._id);
 
     const before = await request(app)
@@ -500,12 +495,12 @@ describe('Assessment API — authoring, attempts, grading', () => {
   });
 
   test('manual grading can make a short_text attempt satisfy completion', async () => {
-    const program = await LearningProgram.create({
+    const program = await fx.createLearningProgram({
       code: `MGR_${Date.now()}`,
       name: 'Manual Grade Program',
       completionPolicy: { attendanceThresholdPercent: 0, requiresAssessment: true },
     });
-    await Class.findByIdAndUpdate(seed.class1._id, { programId: program._id });
+    await updateActiveRow('Class', seed.class1._id, { programId: program._id });
     await seedRoster(seed.leader._id);
 
     const created = await createShortTextQuiz(tokens.admin);
