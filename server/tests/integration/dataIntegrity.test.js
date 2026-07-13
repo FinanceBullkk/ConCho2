@@ -3,16 +3,33 @@
  * Integration Tests — data integrity hardening (audit PR 6)
  * ──────────────────────────────────────────────────────────
  * Covers:
- *   DATA-002 — Partial unique index on Class { classCode, status:Ongoing }
+ *   DATA-002 — one live (Ongoing) run per classCode
  *   DATA-005 — cancelSlot guard for past schedules
- *   DATA-007 — Team.pre('aggregate') soft-delete filter
- *   DATA-013 — Schedule pre('validate') endTime > startTime guard
+ *   DATA-007 — soft-deleted teams filtered from the live list
+ *   DATA-013 — endTime > startTime guard on schedule create
+ *
+ * Wave K D2d (re-home, no Mongoose): every invariant is asserted through its
+ * PG runtime enforcement instead of the Mongoose model layer that dies at D2e:
+ *   • DATA-002 → the PG partial-unique index `uq_classes_code_ongoing`
+ *     (migration 009, IN the CI chain) → a duplicate raises PG 23505, the twin
+ *     of Mongo's E11000.
+ *   • DATA-005 → the ported DELETE /api/schedules/:id cancel path (unchanged).
+ *   • DATA-007 → the Mongo `Team.aggregate` soft-delete hook is replaced by the
+ *     ported team-list repo: GET /api/teams filters `is_deleted = false`, and
+ *     the "explicit override" is re-expressed as the trash route /api/teams/deleted.
+ *   • DATA-013 → the endTime<=startTime rejection lives in the app layer
+ *     (`scheduling-window-policy.assertValidBookingWindow`, ordering checked
+ *     BEFORE the slot-window), reached via POST /api/schedules.
+ * Fixtures are PG-native (`fx.*`); no `mongoose`/model require remains.
+ * ──────────────────────────────────────────────────────────
  */
 
 const request = require('supertest');
-const mongoose = require('mongoose');
-const { getApp, getTokens, getSeedData, getCsrfHeaders } = require('../setup');
-const { readActiveRow } = require('../pg-test-utils');
+const { getApp, getTokens, getSeedData, getCsrfHeaders, teardown } = require('../setup');
+const {
+  readActiveRow, findActiveRowWhere, updateActiveRow, deleteActiveRowsWhere,
+} = require('../pg-test-utils');
+const fx = require('../fixtures/pg-fixtures');
 
 let app, tokens, seed, csrf;
 
@@ -24,51 +41,40 @@ beforeAll(async () => {
 });
 
 afterAll(async () => {
-  await mongoose.disconnect();
+  await teardown();
 });
+
+const rand = () => Math.random().toString(16).slice(2, 8).toUpperCase();
 
 // ── DATA-002 ────────────────────────────────────────────────
 
 describe('DATA-002 — Class Ongoing partial unique', () => {
-  const Class = require('../../models/Class');
-
-  // The dup-insert below needs the partial unique index BUILT, not just
-  // declared — autoIndex builds in the background and loses the race on a
-  // slow/loaded machine (ledger lesson: force Model.init()).
-  beforeAll(async () => {
-    await Class.init();
-  });
-
-  test('two Ongoing classes with same classCode fail with E11000', async () => {
-    const code = 'DI002-' + Math.random().toString(16).slice(2, 8).toUpperCase();
-    await Class.create({
-      classCode: code,
-      courseName: 'Foundation',
-      totalSessions: 10,
-      status: 'Ongoing',
-    });
+  test('two Ongoing classes with same classCode fail with a unique violation', async () => {
+    const code = `DI002-${rand()}`;
+    await fx.createClass({ classCode: code, courseName: 'Foundation', totalSessions: 10, status: 'Ongoing' });
 
     let err = null;
     try {
-      await Class.create({
+      await fx.createClass({
         classCode: code,
-        courseName: 'Communication 1',     // different courseName so the
-        totalSessions: 10,                  // existing {classCode,courseName}
-        status: 'Ongoing',                  // unique does NOT fire
+        courseName: 'Communication 1',    // different courseName so the
+        totalSessions: 10,                // {classCode,courseName} unique does
+        status: 'Ongoing',               // NOT fire — only the Ongoing one does
       });
     } catch (e) {
       err = e;
     }
     expect(err).not.toBeNull();
-    expect(err.code || err.cause?.code).toBe(11000);
+    // PG unique_violation (uq_classes_code_ongoing, mig 009) — the Mongo E11000 twin.
+    expect(err.code).toBe('23505');
   });
 
   test('one Ongoing + one Completed for same classCode is allowed', async () => {
-    const code = 'DI002OK-' + Math.random().toString(16).slice(2, 8).toUpperCase();
-    await Class.create({ classCode: code, courseName: 'Foundation', totalSessions: 10, status: 'Ongoing' });
+    const code = `DI002OK-${rand()}`;
+    const first = await fx.createClass({ classCode: code, courseName: 'Foundation', totalSessions: 10, status: 'Ongoing' });
     // Promote to completed, then a new Ongoing slot opens up
-    await Class.updateOne({ classCode: code, courseName: 'Foundation' }, { $set: { status: 'Completed' } });
-    const second = await Class.create({
+    await updateActiveRow('Class', first._id, { status: 'Completed' });
+    const second = await fx.createClass({
       classCode: code, courseName: 'Communication 1', totalSessions: 10, status: 'Ongoing',
     });
     expect(second._id).toBeTruthy();
@@ -78,23 +84,14 @@ describe('DATA-002 — Class Ongoing partial unique', () => {
 // ── DATA-005 ────────────────────────────────────────────────
 
 describe('DATA-005 — cancelSlot refuses past schedules', () => {
-  const Schedule = require('../../models/Schedule');
-  const Attendance = require('../../models/Attendance');
-
   test('cancelling a schedule whose startTime is in the past returns 409 and preserves attendance', async () => {
     const past = new Date(Date.now() - 24 * 3600_000);
-    const sch = await Schedule.create({
-      classId: seed.class1._id,
-      bookedTeamId: seed.team._id,
-      startTime: past,
-      endTime: new Date(past.getTime() + 60 * 60_000),
+    const sch = await fx.createSchedule({
+      classId: seed.class1._id, bookedTeamId: seed.team._id,
+      startTime: past, endTime: new Date(past.getTime() + 60 * 60_000),
       enrolledUsers: [seed.member1._id],
     });
-    await Attendance.create({
-      scheduleId: sch._id,
-      userId: seed.member1._id,
-      status: 'P',
-    });
+    await fx.createAttendance({ scheduleId: sch._id, userId: seed.member1._id, status: 'P' });
 
     const res = await request(app)
       .delete(`/api/schedules/${sch._id}`)
@@ -105,23 +102,19 @@ describe('DATA-005 — cancelSlot refuses past schedules', () => {
     expect(res.body.message).toMatch(/already started|preserved/i);
 
     // Schedule and attendance both still exist
-    const stillSch = await Schedule.findById(sch._id);
-    expect(stillSch).not.toBeNull();
-    const stillAtt = await Attendance.findOne({ scheduleId: sch._id });
-    expect(stillAtt).not.toBeNull();
+    expect(await readActiveRow('Schedule', sch._id)).not.toBeNull();
+    expect(await findActiveRowWhere('Attendance', { scheduleId: sch._id })).not.toBeNull();
 
     // Cleanup
-    await Attendance.deleteMany({ scheduleId: sch._id });
-    await Schedule.findByIdAndDelete(sch._id);
+    await deleteActiveRowsWhere('Attendance', { scheduleId: sch._id });
+    await deleteActiveRowsWhere('Schedule', { _id: sch._id });
   });
 
   test('cancelling a future schedule succeeds — durable flip, doc preserved', async () => {
     const future = new Date(Date.now() + 7 * 24 * 3600_000);
-    const sch = await Schedule.create({
-      classId: seed.class1._id,
-      bookedTeamId: seed.team._id,
-      startTime: future,
-      endTime: new Date(future.getTime() + 60 * 60_000),
+    const sch = await fx.createSchedule({
+      classId: seed.class1._id, bookedTeamId: seed.team._id,
+      startTime: future, endTime: new Date(future.getTime() + 60 * 60_000),
       enrolledUsers: [seed.member1._id],
     });
 
@@ -132,97 +125,70 @@ describe('DATA-005 — cancelSlot refuses past schedules', () => {
 
     expect(res.status).toBe(200);
     // Phase-04 slice A: the doc persists as cancelled history (never deleted).
-    // The ported cancel flips status in PG (booking-write-repository.pg.cancelSlot);
-    // read the active backend so the durable flip is visible on either lane.
     const after = await readActiveRow('Schedule', sch._id);
     expect(after).not.toBeNull();
     expect(after.status).toBe('cancelled');
 
     // Cleanup so later suites in this file see a clean slate.
-    await Schedule.findByIdAndDelete(sch._id);
+    await deleteActiveRowsWhere('Schedule', { _id: sch._id });
   });
 });
 
 // ── DATA-007 ────────────────────────────────────────────────
 
-describe('DATA-007 — Team.aggregate filters soft-deleted', () => {
-  const Team = require('../../models/Team');
+describe('DATA-007 — team list filters soft-deleted', () => {
+  const teamNames = async (path) => {
+    const res = await request(app).get(path).set('Authorization', `Bearer ${tokens.admin}`);
+    expect(res.status).toBe(200);
+    return res.body.data.map((t) => t.name);
+  };
 
-  test('soft-deleted team does NOT appear in plain aggregate', async () => {
-    const t = await Team.create({
-      name: 'SD-Aggregate Team',
-      classId: seed.class1._id,
-      leaderId: seed.leader._id,
-      members: [seed.leader._id],
+  test('a soft-deleted team is hidden from GET /api/teams but stays in /deleted (override)', async () => {
+    const name = `SD-List-${rand()}`;
+    const t = await fx.createTeam({
+      name, classId: seed.class1._id, leaderId: seed.leader._id, members: [seed.leader._id],
     });
-    await Team.updateOne({ _id: t._id }, { $set: { isDeleted: true, deletedAt: new Date() } });
 
-    const rows = await Team.aggregate([{ $match: { name: 'SD-Aggregate Team' } }]);
-    expect(rows.length).toBe(0);
-  });
+    expect(await teamNames('/api/teams')).toContain(name);
 
-  test('caller-supplied $match: { isDeleted: true } still works (override)', async () => {
-    const t = await Team.create({
-      name: 'SD-Aggregate Override',
-      classId: seed.class1._id,
-      leaderId: seed.leader._id,
-      members: [seed.leader._id],
-    });
-    await Team.updateOne({ _id: t._id }, { $set: { isDeleted: true, deletedAt: new Date() } });
+    await updateActiveRow('Team', t._id, { isDeleted: true, deletedAt: new Date() });
 
-    const rows = await Team.aggregate([
-      { $match: { isDeleted: true, name: 'SD-Aggregate Override' } },
-    ]);
-    expect(rows.length).toBe(1);
+    // The live list now hides it (ported repo filters is_deleted = false)...
+    expect(await teamNames('/api/teams')).not.toContain(name);
+    // ...and the trash view still reaches it (the PG twin of the aggregate override).
+    expect(await teamNames('/api/teams/deleted')).toContain(name);
   });
 });
 
 // ── DATA-013 ────────────────────────────────────────────────
 
-describe('DATA-013 — Schedule cross-field validator', () => {
-  const Schedule = require('../../models/Schedule');
-
-  test('endTime <= startTime is rejected on save', async () => {
-    const start = new Date(Date.now() + 24 * 3600_000);
-    let err = null;
-    try {
-      await Schedule.create({
-        classId: seed.class1._id,
-        bookedTeamId: seed.team._id,
-        startTime: start,
-        endTime: new Date(start.getTime() - 60_000), // BEFORE start
-        enrolledUsers: [],
+describe('DATA-013 — schedule create rejects endTime <= startTime', () => {
+  // POST /api/schedules → adminCreate → assertValidBookingSlot →
+  // assertValidBookingWindow, which checks ordering BEFORE the slot-window match,
+  // so a reversed/equal window fails on the ordering guard (400), not the slot check.
+  const createAt = (startTime, endTime) =>
+    request(app)
+      .post('/api/schedules')
+      .set('Authorization', `Bearer ${tokens.admin}`)
+      .set(csrf)
+      .send({
+        classId: String(seed.class1._id),
+        bookedTeamId: String(seed.team._id),
+        startTime,
+        endTime,
       });
-    } catch (e) { err = e; }
-    expect(err).not.toBeNull();
-    expect(String(err.message)).toMatch(/endTime must be strictly greater/);
+
+  test('endTime < startTime is rejected on create', async () => {
+    const start = new Date(Date.now() + 24 * 3600_000);
+    const res = await createAt(start.toISOString(), new Date(start.getTime() - 60_000).toISOString());
+    expect(res.status).toBe(400);
+    expect(res.body.message).toMatch(/endTime must be after startTime/i);
   });
 
   test('endTime === startTime is rejected (strict inequality)', async () => {
-    const start = new Date(Date.now() + 24 * 3600_000);
-    let err = null;
-    try {
-      await Schedule.create({
-        classId: seed.class1._id,
-        bookedTeamId: seed.team._id,
-        startTime: start,
-        endTime: start,
-        enrolledUsers: [],
-      });
-    } catch (e) { err = e; }
-    expect(err).not.toBeNull();
-  });
-
-  test('endTime > startTime is accepted', async () => {
-    const start = new Date(Date.now() + 24 * 3600_000);
-    const sch = await Schedule.create({
-      classId: seed.class1._id,
-      bookedTeamId: seed.team._id,
-      startTime: start,
-      endTime: new Date(start.getTime() + 60 * 60_000),
-      enrolledUsers: [],
-    });
-    expect(sch._id).toBeTruthy();
-    await Schedule.findByIdAndDelete(sch._id);
+    const start = new Date(Date.now() + 24 * 3600_000).toISOString();
+    const res = await createAt(start, start);
+    expect(res.status).toBe(400);
+    expect(res.body.message).toMatch(/endTime must be after startTime/i);
   });
 });
