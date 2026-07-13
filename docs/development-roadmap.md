@@ -171,7 +171,13 @@ Bug fixing and integration review rank above net-new feature rollout.
   (still loaded by the test harness + Mongo-era scripts — deleted in D2e-2). Verified
   on the PG lane: 64 tests across 6 suites (audit-enum-coverage/auditWriteSide/
   assessmentRoutes/enrollmentTransfer/classDeleteSoftArchive/teams) + a load-check of
-  every redirected module (no circular import). **Next: D2e-2** — delete the 35
+  every redirected module (no circular import). **Also folded in: a flaky-test fix**
+  — the batch-27 `phaseAHardening` DATA-014 "old token → 401" add-on was racy (the
+  auth-cache ~30s TTL + whole-second `iat` vs the 1s skew guard flipped it 200/401
+  and reddened this PR's gate #8 on an unlucky run). Dropped that add-on assertion;
+  DATA-014's deterministic invariant (passwordChangedAt bump + skew guard) stays,
+  matching the original Mongoose test's scope (it never asserted rejection). 4/4
+  reruns green. **Next: D2e-2** — delete the 35
   models, decouple the test harness (`setup.js`/`global-setup.js`) from `mongoose` +
   `mongodb-memory-server`, drop both deps from `package.json`, remove the Mongo-era
   scripts.
