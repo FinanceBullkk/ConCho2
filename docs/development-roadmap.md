@@ -34,7 +34,7 @@ remainder is documented deferred-by-design scope (below), not active debt.
   rule: converge-when-touched, no big-bang); compliance report presets (no
   confirmed HR need); recert for already-expired certs + path-based recert.
   `deliveryMode` is metadata-only by design (no enforcement contract).
-- **Now:** **Phase 6 PostgreSQL migration — prod cutover + Wave K activation COMPLETE.**
+- **Now:** **Phase 6 PostgreSQL migration COMPLETE — prod on PG, Atlas cancelled, and Mongoose fully removed from the server (Wave K decommission done 2026-07-14).**
   Owner opened the gate 2026-06-21; production cut over to PostgreSQL/Neon on
   2026-07-08 and K1b Mongo-less boot/read-straggler enablement merged
   2026-07-09. Owner removed `MONGO_URI` on Render and redeployed 2026-07-09;
@@ -94,7 +94,7 @@ remainder is documented deferred-by-design scope (below), not active debt.
 | 3 | Multi-program enrollment + session scheduling | ~85% | 🟢 near done (genuine work shipped; only nomination workflow deferred-by-design) |
 | 4 | Frontend L&D workspace (CRUD UI) | ~82% | 🟢 near done (CRUD + policy editor complete) |
 | 5 | Reporting, completion, feedback | ~80% | 🟢 near done (cert lifecycle + recert closed; Evaluation→Assessment convergence deferred-by-design) |
-| 6 | PostgreSQL migration / Wave K decommission | ~95% | 🟡 prod on PG + Atlas cancelled (Wave J 2026-07-08: Render `DB_BACKEND=postgres`, writes verified in Neon PG 17.10, mig 036 FK/CHECK applied, daily encrypted `pg_dump`; Wave K activation 2026-07-09: `MONGO_URI` removed, `/ready` 200 `backend=postgres`, `/api/admin-db` 410; **Atlas cancelled 2026-07-10**). Wave K Phase 2: A PG seed + B e2e-on-PG + **C Mongo CI gate retired (8→7)** + **D1a PG-only boot** + **D1b deleted 44 `.mongo.js` + 129 Mongo test/scaffolding files** + **D2a reconcile/admin-db feature fully retired (client + remnants + docs)** + **D2b runtime (non-model) mongoose removed** + **D2c fixture foundation** + **D2d COMPLETE** (batches 1–24 = ALL mechanical suites; batches 25–28 = the 4 model-behaviour re-home suites `autoReleaseScope`/`auditDataRound2`/`phaseAHardening`/`dataIntegrity`, all re-homed to their PG runtime enforcement 2026-07-13) + **D2e-1 runtime model-decouple** (2026-07-14: the 6 runtime files that required a model — only for a schema constant — re-homed to plain modules `services/audit-enums` + `domains/assessment/item-types` + `domains/schedule/roster-sync.syncSchedulesForTeamUpdate`; the AuditLog entity-enum + its coverage unit test re-homed too) + **D2e-2a harness→PG-native** (2026-07-14: `setup.js` seeds the shared core fixtures via `fx.*` straight into PG; `mongoose.connect`/`MongoMemoryReplSet`/auto-mirror/write-gate + `global-setup`/`global-teardown` all removed) done. Remaining: **D2e-2b** — delete the 35 models, strip the Mongo branches from `pg-test-utils`/`pg-auto-mirror` (keep `tableFor`) + delete `pg-write-gate`, flip the `db-backend` default to `postgres`, drop `mongoose` + `mongodb-memory-server` from `package.json` (+ lockfile), remove the Mongo-era scripts. |
+| 6 | PostgreSQL migration / Wave K decommission | ~100% | 🟢 **DONE** — prod on PG + Atlas cancelled + **Mongoose fully removed (D2e-2b, 2026-07-14)** (Wave J 2026-07-08: Render `DB_BACKEND=postgres`, writes verified in Neon PG 17.10, mig 036 FK/CHECK applied, daily encrypted `pg_dump`; Wave K activation 2026-07-09: `MONGO_URI` removed, `/ready` 200 `backend=postgres`, `/api/admin-db` 410; **Atlas cancelled 2026-07-10**). Wave K Phase 2: A PG seed + B e2e-on-PG + **C Mongo CI gate retired (8→7)** + **D1a PG-only boot** + **D1b deleted 44 `.mongo.js` + 129 Mongo test/scaffolding files** + **D2a reconcile/admin-db feature fully retired (client + remnants + docs)** + **D2b runtime (non-model) mongoose removed** + **D2c fixture foundation** + **D2d COMPLETE** (batches 1–24 = ALL mechanical suites; batches 25–28 = the 4 model-behaviour re-home suites `autoReleaseScope`/`auditDataRound2`/`phaseAHardening`/`dataIntegrity`, all re-homed to their PG runtime enforcement 2026-07-13) + **D2e-1 runtime model-decouple** (2026-07-14: the 6 runtime files that required a model — only for a schema constant — re-homed to plain modules `services/audit-enums` + `domains/assessment/item-types` + `domains/schedule/roster-sync.syncSchedulesForTeamUpdate`; the AuditLog entity-enum + its coverage unit test re-homed too) + **D2e-2a harness→PG-native** (2026-07-14: `setup.js` seeds the shared core fixtures via `fx.*` straight into PG; `mongoose.connect`/`MongoMemoryReplSet`/auto-mirror/write-gate + `global-setup`/`global-teardown` all removed) + **D2e-2b DONE** (2026-07-14: deleted the 32 models + `config/db.js` + 9 Mongo-era scripts + `pg-write-gate` + `pg-auto-mirror` (→ `tableFor` extracted to `pg-table-resolver`); stripped the Mongo branches from `pg-test-utils`; flipped `db-backend` default to `postgres`; **dropped `mongoose` + `mongodb-memory-server` from `package.json` + lockfile**) done. **→ Wave K decommission COMPLETE; the server is Mongoose-free.** Follow-up (docs-only): sweep the stack docs (`CLAUDE.md`/`tech-stack.md`/`domain-model-and-migration.md`) that still describe Mongoose. |
 
 ## LTMS waves (forward — see [`lms-roadmap.md`](lms-roadmap.md))
 
@@ -155,6 +155,26 @@ Bug fixing and integration review rank above net-new feature rollout.
 > [`2026-q3.md`](changelog-archive/2026-q3.md); 06-20→06-27 rolled 2026-07-07;
 > 06-14→06-19 rolled 2026-07-04 → [`2026-q2.md`](changelog-archive/2026-q2.md)).
 
+- **2026-07-14** — **Wave K Phase 2 · Batch D2e-2b — DROP `mongoose` + `mongodb-memory-server` → Wave K decommission COMPLETE.**
+  The final cut: the server is now **Mongoose-free**. Deleted the **32 Mongoose model
+  files**, `config/db.js`, **9 Mongo-era scripts** (`create-admin`/`reset_admin_pw` +
+  7 `dev-tools/*` diagnostics/parity), `pg-write-gate.js` + its unit test, and
+  `pg-auto-mirror.js` — whose sole survivor, the reflective table resolver `tableFor`,
+  was extracted to **`tests/pg-table-resolver.js`** (no `mongoose`). Stripped the
+  `if (!isPostgres)` Mongoose branches + the dead `mirror*ToPg` helpers from
+  `pg-test-utils` (Postgres-only now). Flipped the `config/db-backend` default
+  `mongo`→`postgres` (the only thing the flag still distinguishes is a legacy value
+  that no longer resolves to anything runnable). Removed both deps from
+  `package.json` and regenerated the lockfile with **npm 10** (67 packages pruned).
+  `express-mongo-sanitize` KEPT (a runtime input-sanitizer, not a model dep).
+  **Verified:** server boots Mongoose-free (`require.resolve('mongoose')` → not
+  found); prod high+ `npm audit` clean; **~57 suites / 700+ tests** on the PG lane
+  across every rewritten `pg-test-utils` helper (audit chain, `distinct`, `$in`,
+  team junction, `addAllowedTimeSlot`) + the core seed + all unit; a mongoose-free
+  server+harness load-check. The required full PG gate #8 is the complete check.
+  **Wave K (Postgres migration + Mongo decommission) is DONE — Phase 6 closed.**
+  Follow-up (docs-only): sweep `CLAUDE.md` / `.claude/rules/tech-stack.md` /
+  `domain-model-and-migration.md`, which still describe the retired Mongoose stack.
 - **2026-07-14** — **Wave K Phase 2 · Batch D2e-2a — retire the Mongo test harness (the last Mongoose fixture path).**
   `tests/setup.js` seeded the shared core fixtures (admin/teacher/two cohorts/team +
   `ALLOWED_TIME_SLOTS`) with `Model.create` and mirrored them to PG. Now it seeds
