@@ -1,6 +1,7 @@
-// Schedule-roster sync helper lives on the Team model module; re-exported here
-// so callers reach it through the repository rather than importing the model.
-const { syncSchedulesForTeamUpdate } = require('../../models/Team');
+// Schedule-roster sync helper — re-homed to domains/schedule/roster-sync
+// (D2e-1 model decouple); re-exported here so callers reach it through the
+// repository rather than importing the schedule domain directly.
+const { syncSchedulesForTeamUpdate } = require('../schedule/roster-sync');
 
 // ──────────────────────────────────────────────────────────
 // groups/repository — the domain façade (audit round 9 consolidated model
