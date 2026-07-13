@@ -1,4 +1,4 @@
-const { syncSchedulesForTeamUpdate } = require('../../models/Team');
+const { syncSchedulesForTeamUpdate } = require('../../domains/schedule/roster-sync');
 const { notifyPromotions } = require('../../domains/schedule/waitlist/promotion');
 const { syncEnrollments, flushPendingEmails, flushPendingEnrollmentEvents } = require('../../domains/groups/controller');
 const enrollmentSyncRepo = require('../../domains/groups/enrollment-sync-repository');

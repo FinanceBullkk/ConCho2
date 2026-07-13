@@ -1,15 +1,14 @@
 const crypto = require('crypto');
 const { query } = require('../config/pg');
-const AuditLog = require('../models/AuditLog');
+const { AUDIT_ENTITY_VALUES, AUDIT_ROLE_VALUES } = require('./audit-enums');
 
 // audit-repository — POSTGRES impl (Phase 3 Wave-E slice E1, mig 029).
 // Same interface as ./audit-repository.mongo.
 //
 // Fidelity notes the parity test pins:
-//   • entity/actorRole are validated app-side against the SAME Mongoose schema
-//     enumValues (no CHECK constraint — the enum is a growing ratchet; one-file
-//     extension must keep covering both backends). Invalid → ValidationError,
-//     exactly what Mongoose create throws.
+//   • entity/actorRole are validated app-side against the shared audit-enums
+//     module (no CHECK constraint — the enum is a growing ratchet). Invalid →
+//     ValidationError, exactly what Mongoose create threw.
 //   • seq is bigint → node-pg returns it as a string; normalized to Number so
 //     the queue's seq+1 arithmetic and verifyChain's gap check are identical.
 //   • duplicate seq (chain fork) → 23505 re-thrown Mongo-style {code:11000}
@@ -32,9 +31,10 @@ const asDup = (err) => {
 const validationError = (msg) =>
   Object.assign(new Error(`AuditLog validation failed: ${msg}`), { name: 'ValidationError' });
 
-// Single source of truth for the enums — read from the Mongoose schema.
-const ENTITY_ENUM = new Set(AuditLog.schema.path('entity').enumValues);
-const ROLE_ENUM = new Set(AuditLog.schema.path('actorRole').enumValues);
+// Single source of truth for the enums — the plain audit-enums module (D2e-1;
+// was the Mongoose schema enumValues before the model decouple).
+const ENTITY_ENUM = new Set(AUDIT_ENTITY_VALUES);
+const ROLE_ENUM = new Set(AUDIT_ROLE_VALUES);
 
 const findChainHead = async () => {
   const { rows } = await query(

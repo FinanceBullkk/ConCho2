@@ -15,7 +15,7 @@
 
 const fs = require('fs');
 const path = require('path');
-const AuditLog = require('../../models/AuditLog');
+const { AUDIT_ENTITY_VALUES } = require('../../services/audit-enums');
 
 // Directories that contain audit-emitting code (not tests, not node_modules).
 const SCAN_DIRS = ['domains', 'controllers', 'services', 'jobs', 'middleware'].map((d) =>
@@ -45,7 +45,7 @@ const collectJsFiles = (dir, acc = []) => {
 };
 
 describe('AuditLog entity-enum coverage', () => {
-  const enumValues = new Set(AuditLog.schema.path('entity').enumValues);
+  const enumValues = new Set(AUDIT_ENTITY_VALUES);
 
   test('every entity audited by a controller/service exists in the AuditLog enum', () => {
     const offenders = []; // { entity, file }

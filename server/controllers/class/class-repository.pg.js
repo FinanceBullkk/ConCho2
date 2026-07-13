@@ -1,6 +1,5 @@
 const { query } = require('../../config/pg');
 const learning = require('../../domains/learning/repository');
-const Class = require('../../models/Class');
 
 // class-repository — POSTGRES impl (Phase 3 Wave-F). Same interface as
 // ./class-repository.mongo.
@@ -51,9 +50,11 @@ const createClassDoc = async (data) => withToObject(await learning.createCohort(
 const findClassDocById = async (id) => withToObject(await fetchClassRow(id));
 
 // Mirrors the Mongo path's runValidators: an invalid status enum rejects with
-// a ValidationError instead of silently landing (same single-source-of-truth
-// enumValues trick as the audit port).
-const STATUS_ENUM = new Set(Class.schema.path('status').enumValues);
+// a ValidationError instead of silently landing. Inlined here (D2e-1 model
+// decouple) — Class has exactly two lifecycle states; the cohort-create path
+// carries its own default. Keep in sync with the Class schema until the model
+// is deleted (D2e-2).
+const STATUS_ENUM = new Set(['Ongoing', 'Completed']);
 const updateClassById = async (id, body) => {
   if (body.status !== undefined && !STATUS_ENUM.has(body.status)) {
     throw Object.assign(

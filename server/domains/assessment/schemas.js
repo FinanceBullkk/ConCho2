@@ -1,6 +1,6 @@
 const { z } = require('zod');
 const { objectId } = require('../../schemas/common');
-const { ITEM_TYPES } = require('../../models/Assessment');
+const { ITEM_TYPES } = require('./item-types');
 
 const optionIndexes = z.array(z.number().int().min(0)).min(1);
 
