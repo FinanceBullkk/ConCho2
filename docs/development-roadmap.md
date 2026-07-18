@@ -6,7 +6,7 @@
 > - *Architecture / orientation* → [`system-overview.md`](system-overview.md)
 > - *Detailed task snapshot (archived)* → [`archive/handoff-2026-06-01.md`](archive/handoff-2026-06-01.md)
 >
-> **Last updated:** 2026-07-10
+> **Last updated:** 2026-07-18
 
 ---
 
@@ -155,6 +155,21 @@ Bug fixing and integration review rank above net-new feature rollout.
 > [`2026-q3.md`](changelog-archive/2026-q3.md); 06-20→06-27 rolled 2026-07-07;
 > 06-14→06-19 rolled 2026-07-04 → [`2026-q2.md`](changelog-archive/2026-q2.md)).
 
+- **2026-07-18** — **English Training integration · Phase 1 (identity + structure) — foundation shipped (dark).**
+  New deep domain `domains/english-training` mounted at `/api/english-training`
+  behind `ENGLISH_TRAINING_ENABLED` (ships dark). Migration `036` adds 7 canonical
+  `eng_*` tables + raw staging + a data-quality issue log, with inline FK/CHECK/UNIQUE
+  (runs in CI + prod via the chain). A lossless import pipeline
+  (stage → transform → load → reconcile, `scripts/eng-import.js`) loaded the real
+  workbook on the prototype DB: **308 employees, 52 cohorts, 6 courses, 91 course
+  runs, 552 enrollments** — `source = loaded` on every sheet, 36 anomalies recorded
+  (not dropped). Owner decisions: `Resign`→inactive (16); one-active-enrollment is a
+  soft/reporting rule (real concurrent data); `course_code` auto-slug; eligibility =
+  `max_absences_allowed` (count, not ratio). Read-only Admin/Coordinator API (7
+  endpoints) + 12 pure transform unit tests. Spec: `docs/specs/english-training/`
+  (evolving). Out of scope (later phases): attendance, make-up, evaluation, placement,
+  completion, login-account creation. Plan: `plans/english-integration-phase-1.md`;
+  DQ review: `plans/reports/eng-import-data-quality-review-260718.md`.
 - **2026-07-14** — **Wave K Phase 2 · Batch D2e-2b — DROP `mongoose` + `mongodb-memory-server` → Wave K decommission COMPLETE.**
   The final cut: the server is now **Mongoose-free**. Deleted the **32 Mongoose model
   files**, `config/db.js`, **9 Mongo-era scripts** (`create-admin`/`reset_admin_pw` +
