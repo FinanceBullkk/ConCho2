@@ -24,6 +24,9 @@ router.get('/cohorts', controller.listCohorts);
 router.get('/cohorts/:id', validate({ params: idParams }), controller.getCohort);
 router.get('/courses', controller.listCourses);
 router.get('/course-runs/:id', validate({ params: idParams }), controller.getCourseRun);
+router.get('/sessions', validate({ query: listEmployeesQuery }), controller.listSessions);
+router.get('/sessions/:id/attendance', validate({ params: idParams }), controller.getSessionAttendance);
+router.get('/eligibility', validate({ query: listEmployeesQuery }), controller.listEligibility);
 router.get('/employees', validate({ query: listEmployeesQuery }), controller.listEmployees);
 router.get('/employees/:empCode', validate({ params: empCodeParams }), controller.getEmployee);
 router.patch(

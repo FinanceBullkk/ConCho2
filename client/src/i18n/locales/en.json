@@ -96,8 +96,13 @@
     "cohorts": "Cohorts",
     "courses": "Courses",
     "employees": "Employees",
+    "sessions": "Sessions",
+    "eligibility": "Eligibility",
     "issues": "Data-quality issues",
     "search": "Search by employee code or name",
+    "employeesSearch": "Search by employee code or name",
+    "sessionsSearch": "Search by class code or course name",
+    "eligibilitySearch": "Search by employee, class, or course",
     "loading": "Loading English training data",
     "loadError": "Could not load English training data. Check that the server feature flag is enabled.",
     "empty": "No imported records found.",
@@ -116,6 +121,8 @@
     "cancelCorrection": "Cancel",
     "correctionSaved": "Employee correction saved",
     "correctionSaveError": "Could not save employee correction",
+    "viewAttendance": "View attendance",
+    "sessionAttendance": "Session attendance",
     "columns": {
       "classCode": "Class code",
       "status": "Status",
@@ -136,7 +143,16 @@
       "cohort": "Cohort",
       "source": "Source",
       "detail": "Detail",
-      "actions": "Actions"
+      "actions": "Actions",
+      "sessionNumber": "Session no.",
+      "heldAt": "Date and time",
+      "present": "Present",
+      "absent": "Absent",
+      "absences": "Absences",
+      "allowedAbsences": "Allowed absences",
+      "eligibilityStatus": "Eligibility status",
+      "enrollmentStatus": "Enrollment status",
+      "attendanceStatus": "Attendance status"
     }
   },
   "access": {

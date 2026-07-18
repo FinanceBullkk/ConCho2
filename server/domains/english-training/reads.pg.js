@@ -85,6 +85,91 @@ async function getEmployeeByCode(empCode) {
   return { employee, memberships, enrollments };
 }
 
+async function listSessions({ q, limit = 100, offset = 0 } = {}) {
+  const params = [];
+  let where = '';
+  if (q) {
+    params.push(`%${q}%`);
+    where = `WHERE co.class_code ILIKE $1 OR c.course_name ILIKE $1`;
+  }
+  params.push(limit, offset);
+  const { rows } = await query(`
+    SELECT su.id, su.session_number, su.held_at, su.status,
+      r.id AS course_run_id, co.class_code, c.course_name,
+      count(ar.id)::int AS attendance_count,
+      count(ar.id) FILTER (WHERE ar.status = 'present')::int AS present_count,
+      count(ar.id) FILTER (WHERE ar.status = 'absent')::int AS absent_count
+    FROM eng_session_units su
+    JOIN eng_course_runs r ON r.id = su.course_run_id
+    JOIN eng_cohorts co ON co.id = r.cohort_id
+    JOIN eng_courses c ON c.id = r.course_id
+    LEFT JOIN eng_attendance_records ar ON ar.session_unit_id = su.id
+    ${where}
+    GROUP BY su.id, r.id, co.class_code, c.course_name
+    ORDER BY su.held_at DESC, co.class_code, su.session_number
+    LIMIT $${params.length - 1} OFFSET $${params.length}`, params);
+  return rows;
+}
+
+async function getSessionAttendance(id) {
+  const session = one((await query(`
+    SELECT su.id, su.session_number, su.held_at, su.status,
+      r.id AS course_run_id, co.class_code, c.course_name
+    FROM eng_session_units su
+    JOIN eng_course_runs r ON r.id = su.course_run_id
+    JOIN eng_cohorts co ON co.id = r.cohort_id
+    JOIN eng_courses c ON c.id = r.course_id
+    WHERE su.id = $1`, [id])).rows);
+  if (!session) return null;
+  const roster = (await query(`
+    SELECT en.id AS enrollment_id, en.status AS enrollment_status,
+      e.emp_code, e.full_name, ar.id AS attendance_id,
+      ar.status AS attendance_status, ar.source_enrollment_dropped
+    FROM eng_run_enrollments en
+    JOIN eng_employees e ON e.id = en.employee_id
+    LEFT JOIN eng_attendance_records ar
+      ON ar.run_enrollment_id = en.id AND ar.session_unit_id = $1
+    WHERE en.course_run_id = $2 AND en.start_session_number <= $3
+    ORDER BY e.full_name`, [id, session.course_run_id, session.session_number])).rows;
+  return { session, roster };
+}
+
+async function listEligibility({ q, limit = 100, offset = 0 } = {}) {
+  const params = [];
+  let where = '';
+  if (q) {
+    params.push(`%${q}%`);
+    where = `WHERE e.emp_code ILIKE $1 OR e.full_name ILIKE $1
+      OR co.class_code ILIKE $1 OR c.course_name ILIKE $1`;
+  }
+  params.push(limit, offset);
+  const { rows } = await query(`
+    SELECT en.id AS enrollment_id, en.status AS enrollment_status,
+      e.emp_code, e.full_name, r.id AS course_run_id, r.status AS run_status,
+      co.class_code, c.course_name, r.max_absences_allowed_snapshot AS allowed_absences,
+      count(ar.id)::int AS marked_sessions,
+      count(ar.id) FILTER (WHERE ar.status = 'present')::int AS present_count,
+      count(ar.id) FILTER (WHERE ar.status = 'absent')::int AS absence_count,
+      CASE
+        WHEN en.status IN ('waiting','dropped','transferred','cancelled') THEN 'not_applicable'
+        WHEN count(ar.id) = 0 THEN 'unknown'
+        WHEN count(ar.id) FILTER (WHERE ar.status = 'absent') > r.max_absences_allowed_snapshot THEN 'not_eligible'
+        WHEN r.status = 'completed' AND en.status = 'completed' THEN 'eligible'
+        ELSE 'within_limit'
+      END AS eligibility_status
+    FROM eng_run_enrollments en
+    JOIN eng_employees e ON e.id = en.employee_id
+    JOIN eng_course_runs r ON r.id = en.course_run_id
+    JOIN eng_cohorts co ON co.id = r.cohort_id
+    JOIN eng_courses c ON c.id = r.course_id
+    LEFT JOIN eng_attendance_records ar ON ar.run_enrollment_id = en.id
+    ${where}
+    GROUP BY en.id, e.id, r.id, co.class_code, c.course_name
+    ORDER BY co.class_code, c.course_name, e.full_name
+    LIMIT $${params.length - 1} OFFSET $${params.length}`, params);
+  return rows;
+}
+
 async function listDataQualityIssues() {
   const { rows } = await query(`
     SELECT issue_code, count(*)::int AS count FROM eng_data_quality_issues
@@ -96,9 +181,9 @@ async function listDataQualityIssueDetails(code) {
   const { rows } = await query(`
     SELECT i.id, i.issue_code, i.entity_type, i.entity_key,
       i.source_sheet, i.source_row, i.detail,
-      COALESCE(e.emp_code, me.emp_code) AS emp_code,
-      COALESCE(e.full_name, me.full_name) AS full_name,
-      COALESCE(co.class_code, mc.class_code) AS class_code,
+      COALESCE(e.emp_code, me.emp_code, iae.emp_code) AS emp_code,
+      COALESCE(e.full_name, me.full_name, iae.full_name) AS full_name,
+      COALESCE(co.class_code, mc.class_code, ico.class_code) AS class_code,
       ec.business_unit, ec.job_role
     FROM eng_data_quality_issues i
     LEFT JOIN eng_employees e
@@ -109,8 +194,17 @@ async function listDataQualityIssueDetails(code) {
     LEFT JOIN eng_cohorts mc ON mc.id = m.cohort_id
     LEFT JOIN eng_cohorts co
       ON i.entity_type = 'cohort' AND lower(co.class_code) = lower(i.entity_key)
+    LEFT JOIN eng_session_units isu
+      ON i.entity_type = 'session_unit' AND isu.id = i.entity_key
+    LEFT JOIN eng_attendance_records iar
+      ON i.entity_type = 'attendance' AND iar.id = i.entity_key
+    LEFT JOIN eng_run_enrollments iare ON iare.id = iar.run_enrollment_id
+    LEFT JOIN eng_employees iae ON iae.id = iare.employee_id
+    LEFT JOIN eng_session_units iasu ON iasu.id = iar.session_unit_id
+    LEFT JOIN eng_course_runs ir ON ir.id = COALESCE(isu.course_run_id, iasu.course_run_id)
+    LEFT JOIN eng_cohorts ico ON ico.id = ir.cohort_id
     LEFT JOIN eng_employee_corrections ec
-      ON lower(ec.emp_code) = lower(COALESCE(e.emp_code, me.emp_code, i.entity_key))
+      ON lower(ec.emp_code) = lower(COALESCE(e.emp_code, me.emp_code, iae.emp_code, i.entity_key))
     WHERE i.issue_code = $1 AND i.status = 'open'
     ORDER BY i.source_sheet NULLS LAST, i.source_row NULLS LAST, i.entity_key
   `, [code]);
@@ -119,5 +213,6 @@ async function listDataQualityIssueDetails(code) {
 
 module.exports = {
   listCohorts, getCohort, listCourses, getCourseRun,
-  listEmployees, getEmployeeByCode, listDataQualityIssues, listDataQualityIssueDetails,
+  listEmployees, getEmployeeByCode, listSessions, getSessionAttendance, listEligibility,
+  listDataQualityIssues, listDataQualityIssueDetails,
 };

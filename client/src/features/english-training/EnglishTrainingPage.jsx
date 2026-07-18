@@ -5,14 +5,16 @@ import { Spinner } from '../../components/Spinner';
 import { EmptyState } from '../../components/EmptyState';
 import {
   useEnglishCohorts, useEnglishCourses, useEnglishEmployees,
+  useEnglishSessions, useEnglishSessionAttendance, useEnglishEligibility,
   useEnglishIssues, useEnglishIssueDetails, useCorrectEnglishEmployee,
 } from './useEnglishTraining';
 
-const tabs = ['cohorts', 'courses', 'employees', 'issues'];
+const tabs = ['cohorts', 'courses', 'employees', 'sessions', 'eligibility', 'issues'];
 const definitions = {
   cohorts: [['classCode', 'classCode'], ['status', 'status'], ['activeMembers', 'activeMembers'], ['runs', 'runs']],
   courses: [['courseCode', 'courseCode'], ['courseName', 'courseName'], ['expectedUnits', 'expectedUnits'], ['maxAbsencesAllowed', 'maxAbsences'], ['runs', 'runs']],
   employees: [['empCode', 'employeeCode'], ['fullName', 'fullName'], ['email', 'email'], ['employmentStatus', 'status']],
+  eligibility: [['employee', 'employee'], ['classCode', 'classCode'], ['courseName', 'courseName'], ['absenceCount', 'absences'], ['allowedAbsences', 'allowedAbsences'], ['eligibilityStatus', 'eligibilityStatus']],
 };
 
 function DataTable({ rows, columns, t, renderCell }) {
@@ -90,6 +92,45 @@ function CorrectionForm({ row, issueCode, onSaved, onCancel, t }) {
   );
 }
 
+function SessionsView({ rows, selected, onSelect, detail, t }) {
+  const sessionRows = (rows || []).map((row) => ({
+    ...row,
+    heldAtText: row.heldAt ? new Date(row.heldAt).toLocaleString() : null,
+  }));
+  const columns = [
+    ['classCode', 'classCode'], ['courseName', 'courseName'], ['sessionNumber', 'sessionNumber'],
+    ['heldAtText', 'heldAt'], ['presentCount', 'present'], ['absentCount', 'absent'], ['actions', 'actions'],
+  ];
+  const roster = (detail.data?.roster || []).map((row) => ({
+    ...row,
+    employee: [row.employeeCode, row.employeeName].filter(Boolean).join(' · '),
+  }));
+  return (
+    <div className="space-y-5">
+      <DataTable rows={sessionRows} columns={columns} t={t} renderCell={(row, key) => {
+        if (key === 'actions') return (
+          <button type="button" onClick={() => onSelect(row.id)} className="font-medium text-primary hover:underline underline-offset-2">
+            {t('englishTraining.viewAttendance')}
+          </button>
+        );
+        return row[key] ?? '—';
+      }} />
+      {selected && detail.isLoading && <div className="flex justify-center py-8"><Spinner size={24} label={t('englishTraining.loading')} /></div>}
+      {selected && detail.isError && <EmptyState title={t('englishTraining.loadError')} />}
+      {selected && detail.data && (
+        <section className="space-y-3" aria-label={t('englishTraining.sessionAttendance')}>
+          <h2 className="text-h3 text-foreground">
+            {t('englishTraining.sessionAttendance')} · {detail.data.classCode} · {detail.data.courseName} · #{detail.data.sessionNumber}
+          </h2>
+          <DataTable rows={roster} columns={[
+            ['employee', 'employee'], ['enrollmentStatus', 'enrollmentStatus'], ['attendanceStatus', 'attendanceStatus'],
+          ]} t={t} />
+        </section>
+      )}
+    </div>
+  );
+}
+
 function IssuesView({ rows, selected, onSelect, details, t }) {
   const [editing, setEditing] = useState(null);
   if (!rows?.length) return <EmptyState title={t('englishTraining.empty')} />;
@@ -159,11 +200,15 @@ export default function EnglishTrainingPage() {
   const [active, setActive] = useState('cohorts');
   const [search, setSearch] = useState('');
   const [selectedIssue, setSelectedIssue] = useState(null);
+  const [selectedSession, setSelectedSession] = useState(null);
+  const listParams = { q: search || undefined, limit: 100 };
   const queries = {
     cohorts: useEnglishCohorts(), courses: useEnglishCourses(),
-    employees: useEnglishEmployees({ q: search || undefined, limit: 100 }), issues: useEnglishIssues(),
+    employees: useEnglishEmployees(listParams), sessions: useEnglishSessions(listParams),
+    eligibility: useEnglishEligibility(listParams), issues: useEnglishIssues(),
   };
   const issueDetails = useEnglishIssueDetails(selectedIssue);
+  const sessionAttendance = useEnglishSessionAttendance(selectedSession);
   const current = queries[active];
   return (
     <div className="space-y-6">
@@ -174,14 +219,20 @@ export default function EnglishTrainingPage() {
           {t(`englishTraining.${tab}`)}
         </button>
       ))}</div>
-      {active === 'employees' && <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder={t('englishTraining.search')}
-        aria-label={t('englishTraining.search')} className="w-full max-w-md rounded-md border border-input bg-background px-3 py-2 text-sm" />}
+      {['employees', 'sessions', 'eligibility'].includes(active) && <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder={t(`englishTraining.${active}Search`)}
+        aria-label={t(`englishTraining.${active}Search`)} className="w-full max-w-md rounded-md border border-input bg-background px-3 py-2 text-sm" />}
       {current.isLoading && <div className="flex justify-center py-12"><Spinner size={32} label={t('englishTraining.loading')} /></div>}
       {current.isError && <EmptyState title={t('englishTraining.loadError')} />}
       {!current.isLoading && !current.isError && active === 'issues' && (
         <IssuesView rows={current.data} selected={selectedIssue} onSelect={setSelectedIssue} details={issueDetails} t={t} />
       )}
-      {!current.isLoading && !current.isError && active !== 'issues' && (
+      {!current.isLoading && !current.isError && active === 'sessions' && (
+        <SessionsView rows={current.data} selected={selectedSession} onSelect={setSelectedSession} detail={sessionAttendance} t={t} />
+      )}
+      {!current.isLoading && !current.isError && active === 'eligibility' && (
+        <DataTable rows={current.data.map((row) => ({ ...row, employee: `${row.employeeCode} · ${row.employeeName}` }))} columns={definitions.eligibility} t={t} />
+      )}
+      {!current.isLoading && !current.isError && !['issues', 'sessions', 'eligibility'].includes(active) && (
         <DataTable rows={current.data} columns={definitions[active]} t={t} />
       )}
     </div>

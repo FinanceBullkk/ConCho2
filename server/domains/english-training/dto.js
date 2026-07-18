@@ -33,6 +33,26 @@ const enrollmentRow = (r) => ({
   id: r.id, status: r.status, dq: r.dq, classCode: r.class_code,
   courseName: r.course_name, runNumber: r.run_number,
 });
+const sessionRow = (r) => ({
+  id: r.id, sessionNumber: r.session_number, heldAt: r.held_at, status: r.status,
+  courseRunId: r.course_run_id, classCode: r.class_code, courseName: r.course_name,
+  attendanceCount: r.attendance_count, presentCount: r.present_count, absentCount: r.absent_count,
+});
+const attendanceRow = (r) => ({
+  attendanceId: r.attendance_id, enrollmentId: r.enrollment_id,
+  employeeCode: r.emp_code, employeeName: r.full_name,
+  enrollmentStatus: r.enrollment_status,
+  attendanceStatus: r.attendance_status || 'unmarked',
+  sourceEnrollmentDropped: r.source_enrollment_dropped || false,
+});
+const eligibilityRow = (r) => ({
+  enrollmentId: r.enrollment_id, employeeCode: r.emp_code, employeeName: r.full_name,
+  enrollmentStatus: r.enrollment_status, courseRunId: r.course_run_id,
+  runStatus: r.run_status, classCode: r.class_code, courseName: r.course_name,
+  allowedAbsences: r.allowed_absences, markedSessions: r.marked_sessions,
+  presentCount: r.present_count, absenceCount: r.absence_count,
+  eligibilityStatus: r.eligibility_status,
+});
 
 module.exports = {
   cohortList: (rows) => rows.map(cohortRow),
@@ -54,6 +74,11 @@ module.exports = {
     memberships: memberships.map((m) => ({ id: m.id, status: m.status, startDate: m.start_date, classCode: m.class_code })),
     enrollments: enrollments.map(enrollmentRow),
   }),
+  sessionList: (rows) => rows.map(sessionRow),
+  sessionAttendance: ({ session, roster }) => ({
+    ...sessionRow(session), roster: roster.map(attendanceRow),
+  }),
+  eligibilityList: (rows) => rows.map(eligibilityRow),
   issues: (rows) => rows.map((r) => ({ code: r.issue_code, count: r.count })),
   issueDetails: (rows) => rows.map((r) => ({
     id: r.id,

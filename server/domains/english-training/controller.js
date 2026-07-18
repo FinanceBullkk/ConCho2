@@ -53,6 +53,28 @@ const getEmployee = async (req, res) => {
   } catch (e) { handleError(res, e); }
 };
 
+const listSessions = async (req, res) => {
+  try {
+    const rows = await reads.listSessions({ q: req.query.q, limit: req.query.limit, offset: req.query.offset });
+    res.json({ success: true, data: dto.sessionList(rows), count: rows.length });
+  } catch (e) { handleError(res, e); }
+};
+
+const getSessionAttendance = async (req, res) => {
+  try {
+    const data = await reads.getSessionAttendance(req.params.id);
+    if (!data) return notFound(res, 'English-training session not found');
+    res.json({ success: true, data: dto.sessionAttendance(data) });
+  } catch (e) { handleError(res, e); }
+};
+
+const listEligibility = async (req, res) => {
+  try {
+    const rows = await reads.listEligibility({ q: req.query.q, limit: req.query.limit, offset: req.query.offset });
+    res.json({ success: true, data: dto.eligibilityList(rows), count: rows.length });
+  } catch (e) { handleError(res, e); }
+};
+
 const listIssues = async (req, res) => {
   try { res.json({ success: true, data: dto.issues(await reads.listDataQualityIssues()) }); }
   catch (e) { handleError(res, e); }
@@ -86,6 +108,7 @@ const correctEmployee = async (req, res) => {
 
 module.exports = {
   listCohorts, getCohort, listCourses, getCourseRun, listEmployees, getEmployee,
+  listSessions, getSessionAttendance, listEligibility,
   listIssues, listIssueDetails,
   correctEmployee,
 };
