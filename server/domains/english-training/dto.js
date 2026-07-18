@@ -20,10 +20,21 @@ const courseRow = (r) => ({
   expectedUnits: r.expected_units, maxAbsencesAllowed: r.max_absences_allowed,
   isActive: r.is_active, runs: r.runs,
 });
+// Exam-sit gate (owner rule): a participating learner with ≤2 absences may sit.
+const EXAM_MAX_ABSENCES = 2;
+const SITTABLE_STATUSES = ['active', 'completed'];
+const sitEligible = (status, absenceCount) =>
+  SITTABLE_STATUSES.includes(status) && (absenceCount || 0) <= EXAM_MAX_ABSENCES;
+
 const rosterRow = (r) => ({
   id: r.id, status: r.status, startSessionNumber: r.start_session_number, dq: r.dq,
   empCode: r.emp_code, fullName: r.full_name,
   businessUnit: r.business_unit_id_snapshot, jobRole: r.job_role_id_snapshot,
+  absenceCount: r.absence_count,
+  sitEligible: sitEligible(r.status, r.absence_count),
+  examLevelCode: r.exam_level_code || null,
+  examLevelName: r.exam_level_name || null,
+  examDate: r.exam_date || null,
 });
 const employeeRow = (r) => ({
   id: r.id, empCode: r.emp_code, fullName: r.full_name, englishName: r.english_name,
@@ -52,6 +63,18 @@ const eligibilityRow = (r) => ({
   allowedAbsences: r.allowed_absences, markedSessions: r.marked_sessions,
   presentCount: r.present_count, absenceCount: r.absence_count,
   eligibilityStatus: r.eligibility_status,
+  examLevelCode: r.exam_level_code || null,
+  examLevelName: r.exam_level_name || null,
+  examDate: r.exam_date || null,
+});
+const levelRow = (r) => ({ code: r.code, displayName: r.display_name, rank: r.rank });
+const examResultRow = (r) => ({
+  id: r.id, runEnrollmentId: r.run_enrollment_id, levelCode: r.level_code,
+  examDate: r.exam_date, note: r.note, enteredBy: r.entered_by,
+});
+const pendingExamEntryRow = (r) => ({
+  courseRunId: r.course_run_id, classCode: r.class_code, courseName: r.course_name,
+  runStatus: r.run_status, endDate: r.end_date, pendingCount: r.pending_count,
 });
 
 module.exports = {
@@ -79,6 +102,9 @@ module.exports = {
     ...sessionRow(session), roster: roster.map(attendanceRow),
   }),
   eligibilityList: (rows) => rows.map(eligibilityRow),
+  levelList: (rows) => rows.map(levelRow),
+  examResult: examResultRow,
+  pendingExamEntries: (rows) => rows.map(pendingExamEntryRow),
   issues: (rows) => rows.map((r) => ({ code: r.issue_code, count: r.count })),
   issueDetails: (rows) => rows.map((r) => ({
     id: r.id,

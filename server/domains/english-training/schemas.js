@@ -21,6 +21,15 @@ const employeeCorrectionBody = z.object({
   message: 'businessUnit or jobRole is required',
 });
 
+// Exam result: levelCode is validated for shape only (slug); existence is checked
+// against eng_levels in the use-case so the 13 codes have one source of truth (DB).
+const examResultBody = z.object({
+  levelCode: z.string().trim().min(1).max(100).regex(/^[a-z0-9_]+$/),
+  examDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'examDate must be YYYY-MM-DD'),
+  note: z.string().trim().max(500).optional(),
+});
+
 module.exports = {
-  idParams, empCodeParams, issueCodeParams, listEmployeesQuery, employeeCorrectionBody,
+  idParams, empCodeParams, issueCodeParams, listEmployeesQuery,
+  employeeCorrectionBody, examResultBody,
 };

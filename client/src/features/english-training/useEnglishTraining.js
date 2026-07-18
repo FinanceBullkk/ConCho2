@@ -23,6 +23,42 @@ export const useEnglishIssueDetails = (code) => useQuery({
   enabled: Boolean(code),
 });
 
+// ── Phase 3: evaluation (exam result & level) ───────────────────────────────
+
+export const useEnglishLevels = () => useQuery({ queryKey: qk.englishTraining.levels, queryFn: () => data(englishTrainingAPI.getLevels()) });
+export const useEnglishPendingExamEntries = () => useQuery({ queryKey: qk.englishTraining.pendingExamEntries, queryFn: () => data(englishTrainingAPI.getPendingExamEntries()) });
+export const useEnglishCourseRun = (id) => useQuery({
+  queryKey: qk.englishTraining.courseRun(id),
+  queryFn: () => data(englishTrainingAPI.getCourseRun(id)),
+  enabled: Boolean(id),
+});
+
+export const useRecordExamResult = () => {
+  const queryClient = useQueryClient();
+  const { t } = useTranslation();
+  return useMutation({
+    mutationFn: ({ enrollmentId, ...payload }) => data(englishTrainingAPI.recordExamResult(enrollmentId, payload)),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: qk.englishTraining.all });
+      toast.success(t('englishTraining.exam.saved'));
+    },
+    onError: (error) => toast.error(error?.response?.data?.message || t('englishTraining.exam.saveError')),
+  });
+};
+
+export const useDeleteExamResult = () => {
+  const queryClient = useQueryClient();
+  const { t } = useTranslation();
+  return useMutation({
+    mutationFn: (enrollmentId) => data(englishTrainingAPI.deleteExamResult(enrollmentId)),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: qk.englishTraining.all });
+      toast.success(t('englishTraining.exam.cleared'));
+    },
+    onError: (error) => toast.error(error?.response?.data?.message || t('englishTraining.exam.saveError')),
+  });
+};
+
 export const useCorrectEnglishEmployee = () => {
   const queryClient = useQueryClient();
   const { t } = useTranslation();

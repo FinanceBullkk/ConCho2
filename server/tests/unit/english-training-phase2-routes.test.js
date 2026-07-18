@@ -15,6 +15,8 @@ jest.mock('../../domains/english-training/controller', () => ({
   listCohorts: jest.fn(), getCohort: jest.fn(), listCourses: jest.fn(), getCourseRun: jest.fn(),
   listEmployees: jest.fn(), getEmployee: jest.fn(), correctEmployee: jest.fn(),
   listIssues: jest.fn(), listIssueDetails: jest.fn(),
+  listLevels: jest.fn(), listPendingExamEntries: jest.fn(),
+  recordExamResult: jest.fn(), deleteExamResult: jest.fn(),
 }));
 
 const routes = require('../../domains/english-training/routes');

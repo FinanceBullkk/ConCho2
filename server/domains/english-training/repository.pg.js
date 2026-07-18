@@ -201,9 +201,69 @@ async function applyEmployeeCorrections(client) {
   `);
 }
 
+// ── Phase 3: exam result & level (evaluation) ───────────────────────────────
+
+async function getLevelByCode(code, client) {
+  const { rows } = await runner(client)(
+    'SELECT code, display_name, rank FROM eng_levels WHERE code = $1 AND is_active = true',
+    [code],
+  );
+  return rows[0] || null;
+}
+
+// Load the enrollment for the exam gate. Locks the enrollment row and returns the
+// run status + absence count so the use-case can enforce the ≤2-absence rule
+// atomically. Returns null when the enrollment does not exist.
+async function getEnrollmentForExam(enrollmentId, client) {
+  const { rows } = await runner(client)(`
+    SELECT en.id, en.status AS enrollment_status, r.status AS run_status,
+      (SELECT count(*) FROM eng_attendance_records ar
+        WHERE ar.run_enrollment_id = en.id AND ar.status = 'absent')::int AS absence_count
+    FROM eng_run_enrollments en
+    JOIN eng_course_runs r ON r.id = en.course_run_id
+    WHERE en.id = $1
+    FOR UPDATE OF en`, [enrollmentId]);
+  return rows[0] || null;
+}
+
+async function getActiveExamResult(enrollmentId, client) {
+  const { rows } = await runner(client)(
+    `SELECT * FROM eng_exam_results WHERE run_enrollment_id = $1 AND is_deleted = false`,
+    [enrollmentId],
+  );
+  return rows[0] || null;
+}
+
+// Upsert the single active result: update the existing active row in place, else
+// insert a new one. The partial unique index guarantees at most one active row.
+async function upsertExamResult({ enrollmentId, levelCode, examDate, note, enteredBy }, client) {
+  const existing = await getActiveExamResult(enrollmentId, client);
+  if (existing) {
+    const { rows } = await runner(client)(`
+      UPDATE eng_exam_results SET
+        level_code = $2, exam_date = $3, note = $4, entered_by = $5, updated_at = NOW()
+      WHERE id = $1 RETURNING *`, [existing.id, levelCode, examDate, note, enteredBy]);
+    return { result: rows[0], created: false };
+  }
+  const { rows } = await runner(client)(`
+    INSERT INTO eng_exam_results (id, run_enrollment_id, level_code, exam_date, note, entered_by)
+    VALUES ($1,$2,$3,$4,$5,$6) RETURNING *`,
+    [newId(), enrollmentId, levelCode, examDate, note, enteredBy]);
+  return { result: rows[0], created: true };
+}
+
+async function softDeleteActiveExamResult(enrollmentId, client) {
+  const { rows } = await runner(client)(`
+    UPDATE eng_exam_results SET is_deleted = true, deleted_at = NOW(), updated_at = NOW()
+    WHERE run_enrollment_id = $1 AND is_deleted = false RETURNING *`, [enrollmentId]);
+  return rows[0] || null;
+}
+
 module.exports = {
   newId, insert, insertMany, stageRaw, recordIssue, count, withTransaction, resetCanonical, query,
   findEmployeeForCorrection, getEmployeeCorrection, saveEmployeeCorrection,
   backfillUnknownEnrollmentSnapshots, resolveEmployeeIssues,
   recordEmployeeCorrectionHistory, applyEmployeeCorrections,
+  getLevelByCode, getEnrollmentForExam, getActiveExamResult,
+  upsertExamResult, softDeleteActiveExamResult,
 };

@@ -1,17 +1,20 @@
 ---
 capability: english-training
-status: evolving                        # Phase 2: historical sessions + attendance; no live entry/eval yet
+status: evolving                        # Phase 3: exam result & level (evaluation); placement/certs still out of scope
 owners: [domains/english-training]
-last_updated: 2026-07-18
+last_updated: 2026-07-19
 related_plans:
   - plans/english-integration-phase-1.md
   - plans/english-integration-phase-2-attendance.md
+  - plans/english-integration-phase-3-evaluation.md
 related_code:
   - server/db/pg/migrations/036_english_training.js
   - server/db/pg/migrations/037_english_training_corrections.js
   - server/db/pg/migrations/038_english_training_attendance.js
+  - server/db/pg/migrations/039_english_training_evaluation.js
   - server/domains/english-training/routes.js
   - server/domains/english-training/reads.pg.js
+  - server/domains/english-training/evaluation.js
   - server/domains/english-training/import/pipeline.js
   - server/scripts/eng-import.js
 ---
@@ -43,6 +46,10 @@ tables whose row-meanings match the English model.
   status (finished/stopped a course).
 - **BR-5:** Historical attendance uses the Course Run and Run Enrollment spine;
   missing marks remain visible and eligibility is derived from the run's policy snapshot.
+- **BR-6:** Completing a course means sitting a final exam whose result **is a
+  level** (one of 13 ordered levels; no numeric score, no fail state). A learner
+  with **more than 2 absences cannot sit** the exam. Certificates are issued by
+  HR outside ConCho2 (out of scope).
 
 ## Actors & Use Cases (UC)
 
@@ -56,6 +63,10 @@ tables whose row-meanings match the English model.
   through a controlled correction overlay; raw workbook rows remain immutable.
 - **UC-4 (Admin/Coordinator — attendance review):** search sessions, inspect a
   session roster, and review absence eligibility without editing source history.
+- **UC-5 (HR/Admin — record exam level):** from a completed Course Run's roster,
+  record (or clear) each eligible learner's exam level + date. A "needs level"
+  worklist surfaces completed runs still missing levels. The ≤2-absence gate is
+  enforced server-side; ineligible learners cannot be recorded.
 
 ## Entities
 
@@ -84,6 +95,11 @@ Canonical `eng_*` tables (migration 036). One row means:
   occurrence per Course Run; unique run + session number) and
   **eng_attendance_records** (one `present|absent` mark per Session Unit + Run
   Enrollment). Source sheet/row and anomaly metadata remain attached.
+- Evaluation support (migration 039): **eng_levels** (13 ordered levels, seeded
+  reference data; `code` PK, `rank` unique) and **eng_exam_results** (one ACTIVE
+  result per run enrollment — `run_enrollment_id` partial-unique WHERE
+  `is_deleted=false`; soft-delete keeps history; `level_code` FK, `exam_date`,
+  `entered_by`).
 
 ## Functional Requirements (FR)
 
@@ -188,6 +204,34 @@ Eligibility MUST count canonical absences against
 `max_absences_allowed_snapshot`; zero marks are `unknown`, an exceeded threshold
 is `not_eligible`, and incomplete active runs within the limit are `within_limit`.
 
+### Requirement: Exam result records a level, gated by attendance [BR-6, UC-5]
+
+Recording an exam result MUST store a single active level per run enrollment and
+MUST reject a learner who is not eligible to sit: a participating enrollment
+(`active`/`completed`) with **at most 2 absences**. The gate is enforced
+server-side. Re-recording updates the active result in place; clearing
+soft-deletes it (history retained). Every write is audited.
+
+#### Scenario: eligible learner receives a level
+- **GIVEN** a participating enrollment with ≤2 absences and a valid level code
+- **WHEN** HR/Admin `POST`s the exam result
+- **THEN** one active `eng_exam_results` row is stored and the mutation is audited.
+
+#### Scenario: too many absences blocks the exam
+- **GIVEN** an enrollment with 3 absences
+- **WHEN** HR/Admin tries to record a level
+- **THEN** the request is rejected with **422** and no result is written.
+
+#### Scenario: unknown level is rejected
+- **GIVEN** a `levelCode` not present in `eng_levels`
+- **WHEN** HR/Admin tries to record it
+- **THEN** the request is rejected with **400**.
+
+#### Scenario: completed runs surface a "needs level" worklist
+- **GIVEN** a completed course run with eligible learners lacking a level
+- **WHEN** HR/Admin opens the evaluation view
+- **THEN** the run appears in the pending worklist with a count of missing levels.
+
 ## Non-Functional Requirements (NFR)
 
 - **NFR-1:** DB constraints enforce the grain (unique emp_code, class_code,
@@ -208,12 +252,19 @@ is `not_eligible`, and incomplete active runs within the limit are `within_limit
 - **AC-6:** Migration 038 constrains session and attendance grain; Phase-2 reads
   are Admin/Coordinator + `report.read`, the UI exposes Sessions and Eligibility,
   and the real workbook reconciles without silent loss.
+- **AC-7:** Migration 039 seeds 13 levels + one-active-result-per-enrollment
+  (partial-unique, soft-delete); exam-result write is `enrollment.manage` +
+  Admin/Coordinator, enforces the ≤2-absence + participating-status gate
+  server-side (422), rejects unknown levels (400), and is audited. The UI exposes
+  an Evaluation tab with the "needs level" worklist and per-learner entry.
 
-## Out of Scope (Phase 1 — why "evolving")
+## Out of Scope (still "evolving")
 
-Live Teacher attendance entry, separate meetings, make-up credit, evaluations/versions,
-placement, completion, transfer command, full org-history model,
-login-account creation, and generic HTTP write commands beyond the targeted
-missing-BU/job-role correction overlay. The **one-active-enrollment**
-rule is intentionally a **soft/reporting rule** (not a DB guard): real data has
-legitimate concurrent enrollment, flagged via `multi_active_enrollment` for review.
+Placement test at entry, level promotion/prerequisites across runs, numeric
+scoring / pass-fail / re-sit versioning, certificate issuance (HR external),
+live Teacher attendance entry, separate meetings, make-up credit, transfer
+command, full org-history model, login-account creation, and generic HTTP write
+commands beyond the targeted correction overlay + exam-result entry. The
+**one-active-enrollment** rule is intentionally a **soft/reporting rule** (not a
+DB guard): real data has legitimate concurrent enrollment, flagged via
+`multi_active_enrollment` for review.

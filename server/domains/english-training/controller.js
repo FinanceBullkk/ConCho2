@@ -6,6 +6,7 @@ const { handleError } = require('../../helpers/handleError');
 const reads = require('./reads.pg');
 const dto = require('./dto');
 const corrections = require('./corrections');
+const evaluation = require('./evaluation');
 const auditService = require('../../services/auditService');
 
 const notFound = (res, msg) => res.status(404).json({ success: false, message: msg });
@@ -106,9 +107,55 @@ const correctEmployee = async (req, res) => {
   } catch (e) { handleError(res, e); }
 };
 
+const listLevels = async (req, res) => {
+  try { res.json({ success: true, data: dto.levelList(await reads.listLevels()) }); }
+  catch (e) { handleError(res, e); }
+};
+
+const listPendingExamEntries = async (req, res) => {
+  try {
+    const rows = await reads.listPendingExamEntries();
+    res.json({ success: true, data: dto.pendingExamEntries(rows), count: rows.length });
+  } catch (e) { handleError(res, e); }
+};
+
+const recordExamResult = async (req, res) => {
+  try {
+    const result = await evaluation.recordExamResult({
+      runEnrollmentId: req.params.id,
+      ...req.body,
+      actor: req.user,
+    });
+    await auditService.record({
+      req,
+      action: result.created ? 'created' : 'updated',
+      entity: 'EnglishTrainingExamResult',
+      entityId: req.params.id,
+      diff: auditService.diff(result.before, result.after),
+      note: req.body.note,
+    });
+    res.status(result.created ? 201 : 200).json({ success: true, data: dto.examResult(result.result) });
+  } catch (e) { handleError(res, e); }
+};
+
+const deleteExamResult = async (req, res) => {
+  try {
+    const result = await evaluation.deleteExamResult({ runEnrollmentId: req.params.id });
+    await auditService.record({
+      req,
+      action: 'deleted',
+      entity: 'EnglishTrainingExamResult',
+      entityId: req.params.id,
+      diff: auditService.diff(result.before, result.after),
+    });
+    res.json({ success: true, data: { deleted: true } });
+  } catch (e) { handleError(res, e); }
+};
+
 module.exports = {
   listCohorts, getCohort, listCourses, getCourseRun, listEmployees, getEmployee,
   listSessions, getSessionAttendance, listEligibility,
   listIssues, listIssueDetails,
   correctEmployee,
+  listLevels, listPendingExamEntries, recordExamResult, deleteExamResult,
 };

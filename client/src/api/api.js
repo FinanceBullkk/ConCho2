@@ -392,6 +392,12 @@ export const englishTrainingAPI = {
   getIssues: () => api.get('/english-training/issues'),
   getIssueDetails: (code) => api.get(`/english-training/issues/${code}`),
   correctEmployee: (empCode, data) => api.patch(`/english-training/employees/${empCode}/correction`, data),
+  // Phase 3 — exam result & level (evaluation).
+  getCourseRun: (id) => api.get(`/english-training/course-runs/${id}`),
+  getLevels: () => api.get('/english-training/levels'),
+  getPendingExamEntries: () => api.get('/english-training/pending-exam-entries'),
+  recordExamResult: (enrollmentId, data) => api.post(`/english-training/enrollments/${enrollmentId}/exam-result`, data),
+  deleteExamResult: (enrollmentId) => api.delete(`/english-training/enrollments/${enrollmentId}/exam-result`),
 };
 
 // ── Org model (departments, offices, manager hierarchy, my-team) ───

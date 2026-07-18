@@ -5,7 +5,8 @@ const { requireCapability } = require('../../middleware/requireCapability');
 const { validate } = require('../../middleware/validate');
 const controller = require('./controller');
 const {
-  idParams, empCodeParams, issueCodeParams, listEmployeesQuery, employeeCorrectionBody,
+  idParams, empCodeParams, issueCodeParams, listEmployeesQuery,
+  employeeCorrectionBody, examResultBody,
 } = require('./schemas');
 
 // ──────────────────────────────────────────────────────────
@@ -37,5 +38,21 @@ router.patch(
 );
 router.get('/issues', controller.listIssues);
 router.get('/issues/:code', validate({ params: issueCodeParams }), controller.listIssueDetails);
+
+// Phase 3 — exam result & level (evaluation).
+router.get('/levels', controller.listLevels);
+router.get('/pending-exam-entries', controller.listPendingExamEntries);
+router.post(
+  '/enrollments/:id/exam-result',
+  requireCapability('enrollment.manage'),
+  validate({ params: idParams, body: examResultBody }),
+  controller.recordExamResult,
+);
+router.delete(
+  '/enrollments/:id/exam-result',
+  requireCapability('enrollment.manage'),
+  validate({ params: idParams }),
+  controller.deleteExamResult,
+);
 
 module.exports = router;

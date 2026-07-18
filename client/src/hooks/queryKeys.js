@@ -136,6 +136,9 @@ export const qk = {
     eligibility: (params) => ['english-training', 'eligibility', params],
     issues: ['english-training', 'issues'],
     issueDetails: (code) => ['english-training', 'issues', code],
+    courseRun: (id) => ['english-training', 'course-runs', id],
+    levels: ['english-training', 'levels'],
+    pendingExamEntries: ['english-training', 'pending-exam-entries'],
   },
   branding: {
     config: ['branding', 'config'],

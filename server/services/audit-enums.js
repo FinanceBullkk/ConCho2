@@ -55,6 +55,8 @@ const AUDIT_ENTITY_VALUES = [
   'Role', 'AutomationRule', 'Skill', 'TenantConfig', 'Notification',
   // English workbook correction overlay (raw import evidence stays immutable).
   'EnglishTrainingEmployee',
+  // English Training Phase 3 — exam result & level (evaluation).
+  'EnglishTrainingExamResult',
 ];
 
 module.exports = { AUDIT_ENTITY_VALUES, AUDIT_ROLE_VALUES };

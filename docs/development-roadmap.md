@@ -6,7 +6,7 @@
 > - *Architecture / orientation* → [`system-overview.md`](system-overview.md)
 > - *Detailed task snapshot (archived)* → [`archive/handoff-2026-06-01.md`](archive/handoff-2026-06-01.md)
 >
-> **Last updated:** 2026-07-18
+> **Last updated:** 2026-07-19
 
 ---
 
@@ -22,14 +22,17 @@ remainder is documented deferred-by-design scope (below), not active debt.
   scheduling** — closed 2026-06-12. Full-system audit (8/8 rounds) complete;
   Express 4→5 + light dependency majors done. **Cohesion Wave** (6/6) + in-app
   notification bell (full event coverage) shipped 2026-06-13.
-- **Now / Next — English Training:** Phases 1–2 are complete on dev: identity,
+- **Now / Next — English Training:** Phases 1–3 are complete on dev: identity,
   structure, correction overlay, 984 historical sessions, 5,962 attendance
-  records, searchable attendance rosters, and derived absence eligibility. The
-  real workbook reconciles losslessly (5,996 attendance rows = 5,962 canonical +
-  34 duplicate evidence rows); 182 DQ issues remain visible for later HR review.
-  Next phase is deliberately not started until evaluation/completion rules are
-  confirmed with HR. Plan and verification:
-  [`plans/english-integration-phase-2-attendance.md`](../plans/english-integration-phase-2-attendance.md).
+  records, searchable attendance rosters, derived absence eligibility, and (Phase 3,
+  2026-07-19) **exam result & level entry** — HR/Admin records one of 13 ordered
+  levels per finished learner, gated server-side by the ≤2-absence rule, with a
+  "needs level" worklist over completed runs. The real workbook reconciles
+  losslessly; 182 DQ issues remain visible for later HR review. Evaluation rules
+  are now HR-confirmed; **placement test, level promotion, and certificates stay
+  out of scope** (certs are HR-external). Plans:
+  [`phase-3`](../plans/english-integration-phase-3-evaluation.md) ·
+  [`phase-2`](../plans/english-integration-phase-2-attendance.md).
 - **Now: Phase 3/4/5 push COMPLETE** (2026-06-13, 7 PRs #80–#86, re-baselined).
   Shipped: bulk cohort enrollment (BE+UI); program-policy enforcement
   (`facilitatorPolicy.assignmentRequired` + `visibility`) + a program-policies
@@ -163,6 +166,21 @@ Bug fixing and integration review rank above net-new feature rollout.
 > [`2026-q3.md`](changelog-archive/2026-q3.md); 06-20→06-27 rolled 2026-07-07;
 > 06-14→06-19 rolled 2026-07-04 → [`2026-q2.md`](changelog-archive/2026-q2.md)).
 
+- **2026-07-19** — **English Training integration · Phase 3 (exam result & level / evaluation) — shipped on dev.**
+  Owner confirmed the rules: completion = sitting a final exam whose result **is a
+  level** (13 ordered levels, no score/fail); **>2 absences ⇒ cannot sit**; HR/Admin
+  enters levels via an in-app screen; certificates stay HR-external. Migration `039`
+  seeds `eng_levels` (13) + `eng_exam_results` (one active per enrollment via
+  partial-unique + soft-delete). New use-case `evaluation.js` enforces the
+  ≤2-absence + participating-status gate **server-side** (422), rejects unknown
+  levels (400), audits every write. Routes: `GET /levels`, `GET /pending-exam-entries`
+  (completed-run "needs level" worklist), `POST`/`DELETE /enrollments/:id/exam-result`
+  (`enrollment.manage`). Client gains an **Evaluation** tab (worklist + per-learner
+  level/date entry, ineligible learners disabled). Verified: 8 server unit suites
+  (38 tests) + real-Neon read/write smoke (13 levels, 349 pending across 71 runs,
+  insert→update→soft-delete) + client tests + lint (0 errors). Plan:
+  [`plans/english-integration-phase-3-evaluation.md`](../plans/english-integration-phase-3-evaluation.md);
+  decisions: [`plans/reports/eng-phase3-hr-decisions-260719.md`](../plans/reports/eng-phase3-hr-decisions-260719.md).
 - **2026-07-18** — **English Training integration · Phase 2 (historical sessions + attendance) — shipped on dev.**
   Read-only profiling locked `CLASS_SESSIONS` + normalized `ATTENDANCE` as the
   canonical sources and proved one occurrence per numbered unit, avoiding a

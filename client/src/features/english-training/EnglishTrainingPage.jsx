@@ -8,8 +8,9 @@ import {
   useEnglishSessions, useEnglishSessionAttendance, useEnglishEligibility,
   useEnglishIssues, useEnglishIssueDetails, useCorrectEnglishEmployee,
 } from './useEnglishTraining';
+import EvaluationView from './EvaluationView';
 
-const tabs = ['cohorts', 'courses', 'employees', 'sessions', 'eligibility', 'issues'];
+const tabs = ['cohorts', 'courses', 'employees', 'sessions', 'eligibility', 'evaluation', 'issues'];
 const definitions = {
   cohorts: [['classCode', 'classCode'], ['status', 'status'], ['activeMembers', 'activeMembers'], ['runs', 'runs']],
   courses: [['courseCode', 'courseCode'], ['courseName', 'courseName'], ['expectedUnits', 'expectedUnits'], ['maxAbsencesAllowed', 'maxAbsences'], ['runs', 'runs']],
@@ -219,21 +220,27 @@ export default function EnglishTrainingPage() {
           {t(`englishTraining.${tab}`)}
         </button>
       ))}</div>
-      {['employees', 'sessions', 'eligibility'].includes(active) && <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder={t(`englishTraining.${active}Search`)}
-        aria-label={t(`englishTraining.${active}Search`)} className="w-full max-w-md rounded-md border border-input bg-background px-3 py-2 text-sm" />}
-      {current.isLoading && <div className="flex justify-center py-12"><Spinner size={32} label={t('englishTraining.loading')} /></div>}
-      {current.isError && <EmptyState title={t('englishTraining.loadError')} />}
-      {!current.isLoading && !current.isError && active === 'issues' && (
-        <IssuesView rows={current.data} selected={selectedIssue} onSelect={setSelectedIssue} details={issueDetails} t={t} />
-      )}
-      {!current.isLoading && !current.isError && active === 'sessions' && (
-        <SessionsView rows={current.data} selected={selectedSession} onSelect={setSelectedSession} detail={sessionAttendance} t={t} />
-      )}
-      {!current.isLoading && !current.isError && active === 'eligibility' && (
-        <DataTable rows={current.data.map((row) => ({ ...row, employee: `${row.employeeCode} · ${row.employeeName}` }))} columns={definitions.eligibility} t={t} />
-      )}
-      {!current.isLoading && !current.isError && !['issues', 'sessions', 'eligibility'].includes(active) && (
-        <DataTable rows={current.data} columns={definitions[active]} t={t} />
+      {active === 'evaluation' ? (
+        <EvaluationView t={t} />
+      ) : (
+        <>
+          {['employees', 'sessions', 'eligibility'].includes(active) && <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder={t(`englishTraining.${active}Search`)}
+            aria-label={t(`englishTraining.${active}Search`)} className="w-full max-w-md rounded-md border border-input bg-background px-3 py-2 text-sm" />}
+          {current.isLoading && <div className="flex justify-center py-12"><Spinner size={32} label={t('englishTraining.loading')} /></div>}
+          {current.isError && <EmptyState title={t('englishTraining.loadError')} />}
+          {!current.isLoading && !current.isError && active === 'issues' && (
+            <IssuesView rows={current.data} selected={selectedIssue} onSelect={setSelectedIssue} details={issueDetails} t={t} />
+          )}
+          {!current.isLoading && !current.isError && active === 'sessions' && (
+            <SessionsView rows={current.data} selected={selectedSession} onSelect={setSelectedSession} detail={sessionAttendance} t={t} />
+          )}
+          {!current.isLoading && !current.isError && active === 'eligibility' && (
+            <DataTable rows={current.data.map((row) => ({ ...row, employee: `${row.employeeCode} · ${row.employeeName}` }))} columns={definitions.eligibility} t={t} />
+          )}
+          {!current.isLoading && !current.isError && !['issues', 'sessions', 'eligibility'].includes(active) && (
+            <DataTable rows={current.data} columns={definitions[active]} t={t} />
+          )}
+        </>
       )}
     </div>
   );

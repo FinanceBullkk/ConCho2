@@ -50,9 +50,17 @@ async function getCourseRun(id) {
   if (!run) return null;
   const roster = (await query(`
     SELECT en.id, en.status, en.start_session_number, (en.meta->>'dq') AS dq,
-      e.emp_code, e.full_name, en.business_unit_id_snapshot, en.job_role_id_snapshot
-    FROM eng_run_enrollments en JOIN eng_employees e ON e.id = en.employee_id
-    WHERE en.course_run_id = $1 ORDER BY e.full_name`, [id])).rows;
+      e.emp_code, e.full_name, en.business_unit_id_snapshot, en.job_role_id_snapshot,
+      count(ar.id) FILTER (WHERE ar.status = 'absent')::int AS absence_count,
+      xr.level_code AS exam_level_code, lv.display_name AS exam_level_name, xr.exam_date
+    FROM eng_run_enrollments en
+    JOIN eng_employees e ON e.id = en.employee_id
+    LEFT JOIN eng_attendance_records ar ON ar.run_enrollment_id = en.id
+    LEFT JOIN eng_exam_results xr ON xr.run_enrollment_id = en.id AND xr.is_deleted = false
+    LEFT JOIN eng_levels lv ON lv.code = xr.level_code
+    WHERE en.course_run_id = $1
+    GROUP BY en.id, e.id, xr.id, lv.code
+    ORDER BY e.full_name`, [id])).rows;
   return { run, roster };
 }
 
@@ -150,6 +158,7 @@ async function listEligibility({ q, limit = 100, offset = 0 } = {}) {
       count(ar.id)::int AS marked_sessions,
       count(ar.id) FILTER (WHERE ar.status = 'present')::int AS present_count,
       count(ar.id) FILTER (WHERE ar.status = 'absent')::int AS absence_count,
+      xr.level_code AS exam_level_code, lv.display_name AS exam_level_name, xr.exam_date,
       CASE
         WHEN en.status IN ('waiting','dropped','transferred','cancelled') THEN 'not_applicable'
         WHEN count(ar.id) = 0 THEN 'unknown'
@@ -163,8 +172,10 @@ async function listEligibility({ q, limit = 100, offset = 0 } = {}) {
     JOIN eng_cohorts co ON co.id = r.cohort_id
     JOIN eng_courses c ON c.id = r.course_id
     LEFT JOIN eng_attendance_records ar ON ar.run_enrollment_id = en.id
+    LEFT JOIN eng_exam_results xr ON xr.run_enrollment_id = en.id AND xr.is_deleted = false
+    LEFT JOIN eng_levels lv ON lv.code = xr.level_code
     ${where}
-    GROUP BY en.id, e.id, r.id, co.class_code, c.course_name
+    GROUP BY en.id, e.id, r.id, co.class_code, c.course_name, xr.id, lv.code
     ORDER BY co.class_code, c.course_name, e.full_name
     LIMIT $${params.length - 1} OFFSET $${params.length}`, params);
   return rows;
@@ -211,8 +222,40 @@ async function listDataQualityIssueDetails(code) {
   return rows;
 }
 
+// ── Phase 3: evaluation reads ───────────────────────────────────────────────
+
+async function listLevels() {
+  const { rows } = await query(
+    'SELECT code, display_name, rank FROM eng_levels WHERE is_active = true ORDER BY rank',
+  );
+  return rows;
+}
+
+// Completed-run nudge: for each COMPLETED course run, count learners who are
+// eligible to sit (participating + ≤2 absences) but have no active exam result.
+// Drives the "needs level" worklist so HR does not miss anyone.
+async function listPendingExamEntries() {
+  const { rows } = await query(`
+    SELECT r.id AS course_run_id, co.class_code, c.course_name,
+      r.status AS run_status, r.end_date, count(*)::int AS pending_count
+    FROM eng_run_enrollments en
+    JOIN eng_course_runs r ON r.id = en.course_run_id
+    JOIN eng_cohorts co ON co.id = r.cohort_id
+    JOIN eng_courses c ON c.id = r.course_id
+    LEFT JOIN eng_exam_results xr ON xr.run_enrollment_id = en.id AND xr.is_deleted = false
+    WHERE r.status = 'completed'
+      AND en.status IN ('active','completed')
+      AND xr.id IS NULL
+      AND (SELECT count(*) FROM eng_attendance_records ar
+             WHERE ar.run_enrollment_id = en.id AND ar.status = 'absent') <= 2
+    GROUP BY r.id, co.class_code, c.course_name, r.status, r.end_date
+    ORDER BY r.end_date DESC NULLS LAST, co.class_code`);
+  return rows;
+}
+
 module.exports = {
   listCohorts, getCohort, listCourses, getCourseRun,
   listEmployees, getEmployeeByCode, listSessions, getSessionAttendance, listEligibility,
   listDataQualityIssues, listDataQualityIssueDetails,
+  listLevels, listPendingExamEntries,
 };
