@@ -88,11 +88,36 @@ async function getEmployeeByCode(empCode) {
 async function listDataQualityIssues() {
   const { rows } = await query(`
     SELECT issue_code, count(*)::int AS count FROM eng_data_quality_issues
-    GROUP BY issue_code ORDER BY count DESC`);
+    WHERE status = 'open' GROUP BY issue_code ORDER BY count DESC`);
+  return rows;
+}
+
+async function listDataQualityIssueDetails(code) {
+  const { rows } = await query(`
+    SELECT i.id, i.issue_code, i.entity_type, i.entity_key,
+      i.source_sheet, i.source_row, i.detail,
+      COALESCE(e.emp_code, me.emp_code) AS emp_code,
+      COALESCE(e.full_name, me.full_name) AS full_name,
+      COALESCE(co.class_code, mc.class_code) AS class_code,
+      ec.business_unit, ec.job_role
+    FROM eng_data_quality_issues i
+    LEFT JOIN eng_employees e
+      ON i.entity_type = 'employee' AND lower(e.emp_code) = lower(i.entity_key)
+    LEFT JOIN eng_cohort_memberships m
+      ON i.entity_type = 'membership' AND m.id = i.entity_key
+    LEFT JOIN eng_employees me ON me.id = m.employee_id
+    LEFT JOIN eng_cohorts mc ON mc.id = m.cohort_id
+    LEFT JOIN eng_cohorts co
+      ON i.entity_type = 'cohort' AND lower(co.class_code) = lower(i.entity_key)
+    LEFT JOIN eng_employee_corrections ec
+      ON lower(ec.emp_code) = lower(COALESCE(e.emp_code, me.emp_code, i.entity_key))
+    WHERE i.issue_code = $1 AND i.status = 'open'
+    ORDER BY i.source_sheet NULLS LAST, i.source_row NULLS LAST, i.entity_key
+  `, [code]);
   return rows;
 }
 
 module.exports = {
   listCohorts, getCohort, listCourses, getCourseRun,
-  listEmployees, getEmployeeByCode, listDataQualityIssues,
+  listEmployees, getEmployeeByCode, listDataQualityIssues, listDataQualityIssueDetails,
 };

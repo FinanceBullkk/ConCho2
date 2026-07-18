@@ -381,6 +381,16 @@ export const complianceAPI = {
   getUserCompliance: (id) => api.get(`/compliance/user/${id}`),
 };
 
+// English-training canonical workbook data (Phase 1 operations view + targeted corrections).
+export const englishTrainingAPI = {
+  getCohorts: () => api.get('/english-training/cohorts'),
+  getCourses: () => api.get('/english-training/courses'),
+  getEmployees: (params) => api.get('/english-training/employees', { params }),
+  getIssues: () => api.get('/english-training/issues'),
+  getIssueDetails: (code) => api.get(`/english-training/issues/${code}`),
+  correctEmployee: (empCode, data) => api.patch(`/english-training/employees/${empCode}/correction`, data),
+};
+
 // ── Org model (departments, offices, manager hierarchy, my-team) ───
 export const orgAPI = {
   getDepartments:    (params) => api.get('/org/departments', { params }),

@@ -56,6 +56,7 @@ async function runImport(path, { reset = false } = {}) {
     for (const e of data.enrollments) await repo.insert('eng_run_enrollments', asEnrollment(e), client); // eslint-disable-line no-await-in-loop
     for (const p of data.pics) await repo.insert('eng_cohort_pic', asPic(p), client);    // eslint-disable-line no-await-in-loop
     for (const iss of data.issues) await repo.recordIssue(iss, client);                  // eslint-disable-line no-await-in-loop
+    await repo.applyEmployeeCorrections(client);
   });
 
   // Reconcile: source rows = loaded canonical + issue-skipped (per sheet).

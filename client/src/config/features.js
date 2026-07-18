@@ -26,6 +26,7 @@ export const FEATURES = {
   grading: true,       // Grading workspace (quiz manual grading + rubric)
   assignments: true,   // Assign mandatory courses to people/groups + due date
   rooms: true,         // Physical rooms (needed to book a session into a room)
+  englishTraining: import.meta.env.DEV || import.meta.env.VITE_ENGLISH_TRAINING_ENABLED === 'true',
 
   // ── Hidden — speculative, no confirmed HR/L&D need yet ─────
   // (flip any to `true` to bring it back into the sidebar instantly)

@@ -5,6 +5,8 @@
 const { handleError } = require('../../helpers/handleError');
 const reads = require('./reads.pg');
 const dto = require('./dto');
+const corrections = require('./corrections');
+const auditService = require('../../services/auditService');
 
 const notFound = (res, msg) => res.status(404).json({ success: false, message: msg });
 
@@ -56,6 +58,34 @@ const listIssues = async (req, res) => {
   catch (e) { handleError(res, e); }
 };
 
+const listIssueDetails = async (req, res) => {
+  try {
+    const rows = await reads.listDataQualityIssueDetails(req.params.code);
+    res.json({ success: true, data: dto.issueDetails(rows), count: rows.length });
+  } catch (e) { handleError(res, e); }
+};
+
+const correctEmployee = async (req, res) => {
+  try {
+    const result = await corrections.correctEmployeeOrg({
+      empCode: req.params.empCode,
+      ...req.body,
+      actor: req.user,
+    });
+    await auditService.record({
+      req,
+      action: 'updated',
+      entity: 'EnglishTrainingEmployee',
+      entityId: result.employee.empCode,
+      diff: auditService.diff(result.before, result.after),
+      note: req.body.reason,
+    });
+    res.json({ success: true, data: result });
+  } catch (e) { handleError(res, e); }
+};
+
 module.exports = {
-  listCohorts, getCohort, listCourses, getCourseRun, listEmployees, getEmployee, listIssues,
+  listCohorts, getCohort, listCourses, getCourseRun, listEmployees, getEmployee,
+  listIssues, listIssueDetails,
+  correctEmployee,
 };

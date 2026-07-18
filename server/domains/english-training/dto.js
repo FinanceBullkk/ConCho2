@@ -55,4 +55,18 @@ module.exports = {
     enrollments: enrollments.map(enrollmentRow),
   }),
   issues: (rows) => rows.map((r) => ({ code: r.issue_code, count: r.count })),
+  issueDetails: (rows) => rows.map((r) => ({
+    id: r.id,
+    code: r.issue_code,
+    entityType: r.entity_type,
+    entityKey: r.entity_key,
+    employeeCode: r.emp_code,
+    employeeName: r.full_name,
+    classCode: r.class_code,
+    businessUnit: r.business_unit,
+    jobRole: r.job_role,
+    sourceSheet: r.source_sheet,
+    sourceRow: r.source_row,
+    detail: r.detail,
+  })),
 };

@@ -82,6 +82,109 @@ async function resetCanonical(client) {
   }
 }
 
+async function findEmployeeForCorrection(empCode, client) {
+  const { rows } = await runner(client)(
+    `SELECT id, emp_code, full_name FROM eng_employees WHERE lower(emp_code) = lower($1) FOR UPDATE`,
+    [empCode],
+  );
+  return rows[0] || null;
+}
+
+async function getEmployeeCorrection(empCode, client) {
+  const { rows } = await runner(client)(
+    `SELECT * FROM eng_employee_corrections WHERE lower(emp_code) = lower($1)`,
+    [empCode],
+  );
+  return rows[0] || null;
+}
+
+async function saveEmployeeCorrection({ empCode, businessUnit, jobRole, reason, correctedBy }, client) {
+  const { rows } = await runner(client)(`
+    INSERT INTO eng_employee_corrections
+      (emp_code, business_unit, job_role, reason, corrected_by)
+    VALUES ($1,$2,$3,$4,$5)
+    ON CONFLICT (emp_code) DO UPDATE SET
+      business_unit = EXCLUDED.business_unit,
+      job_role = EXCLUDED.job_role,
+      reason = EXCLUDED.reason,
+      corrected_by = EXCLUDED.corrected_by,
+      updated_at = NOW()
+    RETURNING *
+  `, [empCode, businessUnit, jobRole, reason, correctedBy]);
+  return rows[0];
+}
+
+async function backfillUnknownEnrollmentSnapshots(empCode, { businessUnit, jobRole }, client) {
+  const { rowCount } = await runner(client)(`
+    UPDATE eng_run_enrollments en SET
+      business_unit_id_snapshot = CASE
+        WHEN $2::text IS NOT NULL AND (en.business_unit_id_snapshot IS NULL OR lower(en.business_unit_id_snapshot) = 'unknown')
+          THEN $2 ELSE en.business_unit_id_snapshot END,
+      job_role_id_snapshot = CASE
+        WHEN $3::text IS NOT NULL AND (en.job_role_id_snapshot IS NULL OR lower(en.job_role_id_snapshot) = 'unknown')
+          THEN $3 ELSE en.job_role_id_snapshot END,
+      updated_at = NOW()
+    FROM eng_employees e
+    WHERE en.employee_id = e.id AND lower(e.emp_code) = lower($1)
+  `, [empCode, businessUnit, jobRole]);
+  return rowCount;
+}
+
+async function resolveEmployeeIssues(empCode, fields, { reason, correctedBy }, client) {
+  const codes = [];
+  if (fields.businessUnit) codes.push('missing_bu');
+  if (fields.jobRole) codes.push('missing_role');
+  if (!codes.length) return 0;
+  const { rowCount } = await runner(client)(`
+    UPDATE eng_data_quality_issues SET
+      status = 'resolved', resolution_note = $3, resolved_by = $4, resolved_at = NOW()
+    WHERE status = 'open' AND entity_type = 'employee'
+      AND lower(entity_key) = lower($1) AND issue_code = ANY($2::text[])
+  `, [empCode, codes, reason, correctedBy]);
+  return rowCount;
+}
+
+async function recordEmployeeCorrectionHistory({ empCode, before, after, reason, correctedBy }, client) {
+  await runner(client)(`
+    INSERT INTO eng_employee_correction_history
+      (id, emp_code, before, after, reason, corrected_by)
+    VALUES ($1,$2,$3,$4,$5,$6)
+  `, [newId(), empCode, JSON.stringify(before), JSON.stringify(after), reason, correctedBy]);
+}
+
+// Re-apply persistent overlays after a canonical reset/import. Only source
+// placeholders are backfilled; legitimate historical snapshots are untouched.
+async function applyEmployeeCorrections(client) {
+  await runner(client)(`
+    UPDATE eng_run_enrollments en SET
+      business_unit_id_snapshot = CASE
+        WHEN c.business_unit IS NOT NULL AND (en.business_unit_id_snapshot IS NULL OR lower(en.business_unit_id_snapshot) = 'unknown')
+          THEN c.business_unit ELSE en.business_unit_id_snapshot END,
+      job_role_id_snapshot = CASE
+        WHEN c.job_role IS NOT NULL AND (en.job_role_id_snapshot IS NULL OR lower(en.job_role_id_snapshot) = 'unknown')
+          THEN c.job_role ELSE en.job_role_id_snapshot END,
+      updated_at = NOW()
+    FROM eng_employees e
+    JOIN eng_employee_corrections c ON lower(c.emp_code) = lower(e.emp_code)
+    WHERE en.employee_id = e.id
+  `);
+  await runner(client)(`
+    UPDATE eng_data_quality_issues i SET
+      status = 'resolved',
+      resolution_note = 'Persisted employee correction re-applied during import',
+      resolved_by = c.corrected_by,
+      resolved_at = NOW()
+    FROM eng_employee_corrections c
+    WHERE i.status = 'open' AND i.entity_type = 'employee'
+      AND lower(i.entity_key) = lower(c.emp_code)
+      AND ((i.issue_code = 'missing_bu' AND c.business_unit IS NOT NULL)
+        OR (i.issue_code = 'missing_role' AND c.job_role IS NOT NULL))
+  `);
+}
+
 module.exports = {
   newId, insert, stageRaw, recordIssue, count, withTransaction, resetCanonical, query,
+  findEmployeeForCorrection, getEmployeeCorrection, saveEmployeeCorrection,
+  backfillUnknownEnrollmentSnapshots, resolveEmployeeIssues,
+  recordEmployeeCorrectionHistory, applyEmployeeCorrections,
 };

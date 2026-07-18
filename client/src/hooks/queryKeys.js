@@ -126,6 +126,14 @@ export const qk = {
     mine: ['notifications', 'mine'],
     preferences: ['notifications', 'preferences'],
   },
+  englishTraining: {
+    all: ['english-training'],
+    cohorts: ['english-training', 'cohorts'],
+    courses: ['english-training', 'courses'],
+    employees: (params) => ['english-training', 'employees', params],
+    issues: ['english-training', 'issues'],
+    issueDetails: (code) => ['english-training', 'issues', code],
+  },
   branding: {
     config: ['branding', 'config'],
   },

@@ -156,6 +156,13 @@ Bug fixing and integration review rank above net-new feature rollout.
 > 06-14→06-19 rolled 2026-07-04 → [`2026-q2.md`](changelog-archive/2026-q2.md)).
 
 - **2026-07-18** — **English Training integration · Phase 1 (identity + structure) — foundation shipped (dark).**
+  Follow-up correction slice now closes the first operational DQ loop: migration
+  `037` adds a persistent employee correction overlay, append-only correction
+  history, and `open/resolved/accepted` issue state. Admin/Coordinator can correct
+  missing BU/job role from the DQ drill-down; the mutation validates input,
+  backfills only `unknown` enrollment snapshots, records global + transactional
+  correction audit, resolves matching issues, and re-applies corrections after a
+  canonical reset/import without changing raw workbook evidence.
   New deep domain `domains/english-training` mounted at `/api/english-training`
   behind `ENGLISH_TRAINING_ENABLED` (ships dark). Migration `036` adds 7 canonical
   `eng_*` tables + raw staging + a data-quality issue log, with inline FK/CHECK/UNIQUE

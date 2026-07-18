@@ -24,6 +24,7 @@ const DashboardPage    = lazy(() => import('./features/dashboard/DashboardPage')
 const PeoplePage       = lazy(() => import('./pages/PeoplePage'));
 const LearningPage     = lazy(() => import('./features/learning/LearningPage'));
 const EnglishPage      = lazy(() => import('./features/english/EnglishPage'));
+const EnglishTrainingPage = lazy(() => import('./features/english-training/EnglishTrainingPage'));
 const ReportsPage      = lazy(() => import('./pages/ReportsPage'));
 const DrillListPage    = lazy(() => import('./features/learning/DrillListPage'));
 const ProgramDetailPage = lazy(() => import('./features/learning/ProgramDetailPage'));
@@ -296,6 +297,9 @@ export default function App() {
                 {/* English-class section — the whole team-booking world
                     (classes/teams/schedules/attendance/evaluations/booking). */}
                 <Route path="/english" element={<EnglishPage />} />
+                <Route path="/english-training" element={
+                  <ProtectedRoute roles={['Admin', 'Coordinator']}><EnglishTrainingPage /></ProtectedRoute>
+                } />
                 <Route path="/calendar" element={<CalendarPage />} />
                 <Route path="/mobile-attendance" element={
                   <ProtectedRoute roles={['Admin', 'Teacher']}><MobileAttendancePage /></ProtectedRoute>

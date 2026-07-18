@@ -53,6 +53,8 @@ const AUDIT_ENTITY_VALUES = [
   // the writes failed schema validation SILENTLY. Backfilled:
   //   Role, AutomationRule, Skill, TenantConfig, Notification.
   'Role', 'AutomationRule', 'Skill', 'TenantConfig', 'Notification',
+  // English workbook correction overlay (raw import evidence stays immutable).
+  'EnglishTrainingEmployee',
 ];
 
 module.exports = { AUDIT_ENTITY_VALUES, AUDIT_ROLE_VALUES };

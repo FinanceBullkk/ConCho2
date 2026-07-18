@@ -318,10 +318,13 @@ client against `audit_log`, else a module-local audit write).
 ## 8. Frontend — minimal read-only admin view
 
 `client/src/features/english-training/` — `EnglishTrainingPage.jsx` (tabs:
-Cohorts | Courses | Employees, read-only) + `useEnglishTraining.js` (React Query,
-reads only) + `__tests__/`. Uses central `api/api.js` (new `englishTrainingAPI`) +
+Cohorts | Courses | Employees | Data-quality issues) + `useEnglishTraining.js`
+(React Query) + `__tests__/`. Uses central `api/api.js` (`englishTrainingAPI`) +
 `queryKeys.js`. **English-only UI strings** via `t()` + `en.json`. Flag + role
-gated. No write forms in Phase 1 (data comes from the import script).
+gated. The canonical views remain read-only; a post-import correction overlay is
+the one targeted write seam for missing BU/job role. It preserves raw staging,
+writes correction history/audit, resolves matching DQ issues, and survives
+reset/re-import. Generic entity editing remains out of scope.
 
 ---
 
