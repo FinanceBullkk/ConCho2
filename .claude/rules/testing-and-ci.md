@@ -38,3 +38,4 @@ Therefore, for humans AND agents:
 - No fake data / mocks-as-shortcuts to fake a pass — exercise real code paths.
 - Fix failing tests for real; re-run until genuinely passing before pushing.
 - New backend domains/use-cases should ship with integration tests (`server/tests/integration/`).
+- **Time-dependent tests must freeze the clock.** Any test whose subject compares a date to "now" (min-date gates, expiry/overdue, upcoming filters) must pin the clock (`vi.setSystemTime(...)` / Jest fake timers) instead of relying on the real wall clock — otherwise a hardcoded near-future date rots into a past date and the test fails by calendar (see `CreateSessionModal.test.jsx`). Fake only `Date` (`vi.useFakeTimers({ toFake: ['Date'] })`) so `userEvent` timers keep working; restore with `vi.useRealTimers()`.
