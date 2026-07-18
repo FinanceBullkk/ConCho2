@@ -3,7 +3,9 @@ capability: english-training
 status: evolving                        # Phase 1: identity + structure only (no attendance/eval yet)
 owners: [domains/english-training]
 last_updated: 2026-07-18
-related_plans: [plans/english-integration-phase-1.md]
+related_plans:
+  - plans/english-integration-phase-1.md
+  - plans/english-integration-phase-2-attendance.md
 related_code:
   - server/db/pg/migrations/036_english_training.js
   - server/db/pg/migrations/037_english_training_corrections.js

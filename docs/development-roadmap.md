@@ -22,6 +22,12 @@ remainder is documented deferred-by-design scope (below), not active debt.
   scheduling** — closed 2026-06-12. Full-system audit (8/8 rounds) complete;
   Express 4→5 + light dependency majors done. **Cohesion Wave** (6/6) + in-app
   notification bell (full event coverage) shipped 2026-06-13.
+- **Now / Next — English Training:** Phase 1 identity + structure, real-workbook
+  import, Admin/Coordinator operations UI, DQ drill-down, and audited BU/job-role
+  correction overlay are complete (`3976355`). Phase 2 is planned as a narrow
+  historical Sessions + Attendance slice; implementation starts with a mandatory
+  workbook profiling gate before any schema is locked. Plan:
+  [`plans/english-integration-phase-2-attendance.md`](../plans/english-integration-phase-2-attendance.md).
 - **Now: Phase 3/4/5 push COMPLETE** (2026-06-13, 7 PRs #80–#86, re-baselined).
   Shipped: bulk cohort enrollment (BE+UI); program-policy enforcement
   (`facilitatorPolicy.assignmentRequired` + `visibility`) + a program-policies

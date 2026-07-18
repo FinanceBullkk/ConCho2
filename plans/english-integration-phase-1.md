@@ -1,6 +1,6 @@
 # English Training Integration — Phase 1 Plan (Identity + Structure, real-data import)
 
-- **Status:** 🔴 Spec ready / not implemented (design locked, no app code yet)
+- **Status:** 🟢 Complete — identity/structure import, operations UI, and targeted DQ correction shipped
 - **Created:** 2026-07-18 · **Last updated:** 2026-07-18 (after real-data analysis + owner grilling)
 - **Owner:** (to assign) · **Host platform:** ConCho2 (TMS v2 → LTMS)
 - **English business authority:** `kyphucclv/ConMeoGauGau` (ADR 0001)
