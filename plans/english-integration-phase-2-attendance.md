@@ -1,10 +1,11 @@
 # English Training Integration — Phase 2 Plan (Sessions + Attendance)
 
-- **Status:** 🟡 Discovery plan ready; implementation not started
+- **Status:** 🟢 Implemented and verified on dev DB (2026-07-18)
 - **Created:** 2026-07-18
 - **Depends on:** Phase 1 commits `3ef3695`, `3247a77`, `6d79f96`, `3976355`
 - **Source workbook:** `.tmp/Copy of ENGCLASS_MANA.xlsx` (known checksum prefix
-  `9e514aea2350fa33`; profile again before implementation)
+  `9e514aea2350fa33`; discovery report:
+  [`reports/eng-phase2-discovery-260718.md`](reports/eng-phase2-discovery-260718.md))
 - **Known scale:** `CLASS_SESSIONS` 984 rows · `ATTENDANCE` 5,996 rows ·
   `Attendance_Dropped` 48 rows
 
@@ -58,7 +59,7 @@ No schema or importer is implemented until these facts are measured:
 The profiler must not edit the workbook. Its reconciliation equations and sample
 anomalies become fixtures for import tests.
 
-## 4. Proposed domain grain (confirm at discovery gate)
+## 4. Implemented domain grain (locked by discovery)
 
 Do not reuse `schedules` or `attendances`. Those tables are keyed to ConCho2 login
 users and booking schedules; imported English employees do not require accounts,
@@ -68,20 +69,16 @@ and the workbook's Course Run grain is independent.
 
 | Table | One row means | Required constraints |
 |---|---|---|
-| `eng_session_units` | One numbered curriculum unit expected in one Course Run | FK run; unique `(course_run_id, unit_number)`; `unit_number >= 1` |
-| `eng_meetings` | One actual held/planned/cancelled occurrence for a session unit | FK run; nullable FK unit until source mapping is proven; stable source key; valid time range |
-| `eng_attendance_records` | One Run Enrollment's attendance result at one meeting | FK enrollment + meeting; unique `(meeting_id, run_enrollment_id)`; controlled status |
+| `eng_session_units` | One numbered occurrence in one Course Run | FK run; unique `(course_run_id, session_number)`; `session_number >= 1` |
+| `eng_attendance_records` | One Run Enrollment's attendance result at one session | FK enrollment + session; unique `(session_unit_id, run_enrollment_id)`; controlled status |
 
-The Unit/Meeting split is deliberate: a planned unit and an actual occurrence are
-not assumed to be identical. If profiling proves a strict one-to-one relationship,
-the two-table model may be simplified in the design review; it must not be collapsed
-by assumption.
+Profiling proved a strict one-row-per-number relationship and no separate meeting
+identity. A speculative `eng_meetings` table was therefore not added.
 
 ### 4.2 Candidate attendance statuses
 
-Canonical status must be a small CHECK-constrained set. Start with
-`present | absent | late | excused | unknown`; lock the source mapping only after
-profiling distinct workbook values. Preserve the original source value in `meta`.
+Canonical status is CHECK-constrained to `present | absent`, the only two values
+present in the normalized source. Unsupported future values become DQ issues.
 
 ### 4.3 Eligibility projection
 
@@ -136,14 +133,11 @@ through the existing DQ summary/drill-down.
 Keep the module mounted behind `ENGLISH_TRAINING_ENABLED` and reuse the Phase-1
 Admin/Coordinator + `report.read` gate.
 
-- `GET /api/english-training/course-runs/:id/sessions`
-  — units/meetings, held count, unresolved count.
-- `GET /api/english-training/meetings/:id/attendance`
-  — roster projection with canonical status and source evidence.
-- `GET /api/english-training/employees/:empCode/attendance`
-  — attendance history grouped by Course Run.
-- `GET /api/english-training/course-runs/:id/eligibility`
-  — absence counts, allowed threshold, eligible/unknown state.
+- `GET /api/english-training/sessions` — searchable session list and counts.
+- `GET /api/english-training/sessions/:id/attendance` — roster projection with
+  canonical status plus explicit `unmarked` rows.
+- `GET /api/english-training/eligibility` — searchable per-enrollment absence
+  count, allowed threshold, and eligibility state.
 
 No generic table CRUD. Any later correction write must use a targeted overlay,
 reason, actor attribution, resolution state, and audit, matching migration 037.
@@ -153,12 +147,11 @@ reason, actor attribution, resolution state, and audit, matching migration 037.
 Extend the existing `/english-training` operations view rather than creating a
 second English admin area:
 
-1. Course Run drill-down shows session units and actual meetings.
-2. Selecting a meeting shows the attendance roster.
-3. Employee detail shows attendance history.
-4. Eligibility view shows absence count versus allowed count and clearly marks
+1. Sessions tab shows session units and present/absent counts.
+2. Selecting a session shows the enrollment roster and marks missing evidence as `unmarked`.
+3. Eligibility view shows absence count versus allowed count and clearly marks
    unresolved data as `Unknown`.
-5. New DQ issue codes use the existing issue drill-down.
+4. New DQ issue codes use the existing issue drill-down.
 
 All new strings go through `t()` and `client/src/i18n/locales/en.json`.
 
@@ -221,5 +214,12 @@ states, loading/error/empty states, and hidden access for unauthorized roles.
 4. Extend staging/import/reconciliation and run on disposable PG.
 5. Add task-oriented reads and authz tests.
 6. Wire Course Run/session/attendance/eligibility UI.
-7. Import the real workbook to dev, verify counts, and inspect DQ issues with owner.
-8. Update specs/maps/tracker, then commit Phase 2 as independently reviewable slices.
+7. Import the real workbook to dev, verify counts, and inspect DQ issues with owner. ✅
+8. Update specs/maps/tracker, then commit Phase 2 as independently reviewable slices. ✅
+
+## 13. Verification record
+
+Migration `038` is applied to the same dev PostgreSQL database used by the app.
+The real import reconciled in 5.3 seconds after batching database writes:
+984 sessions, 5,962 attendance records, 182 total open DQ issues, and 7,989 raw
+source rows. Authenticated API smoke verified session and eligibility projections.

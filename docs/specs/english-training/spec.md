@@ -1,6 +1,6 @@
 ---
 capability: english-training
-status: evolving                        # Phase 1: identity + structure only (no attendance/eval yet)
+status: evolving                        # Phase 2: historical sessions + attendance; no live entry/eval yet
 owners: [domains/english-training]
 last_updated: 2026-07-18
 related_plans:
@@ -9,13 +9,14 @@ related_plans:
 related_code:
   - server/db/pg/migrations/036_english_training.js
   - server/db/pg/migrations/037_english_training_corrections.js
+  - server/db/pg/migrations/038_english_training_attendance.js
   - server/domains/english-training/routes.js
   - server/domains/english-training/reads.pg.js
   - server/domains/english-training/import/pipeline.js
   - server/scripts/eng-import.js
 ---
 
-# Capability: English Training (Phase 1 — Identity & Structure)
+# Capability: English Training (Phase 2 — Historical Sessions & Attendance)
 
 > **Source of truth for BEHAVIOR.** Describes what the English-training domain
 > does *today*. Business authority for the model is `kyphucclv/ConMeoGauGau`
@@ -24,9 +25,9 @@ related_code:
 ## Purpose
 
 Bring the English-class business into ConCho2 as a canonical domain with correct
-entity grain, so later phases (attendance, make-up, evaluation, completion) attach
-to a trustworthy spine. Phase 1 covers **identity + learning structure** and a
-**lossless import** of the real workbook. It does NOT collapse ConCho2's existing
+entity grain. Phase 1 established identity + learning structure; Phase 2 adds
+lossless historical sessions, attendance, and derived absence eligibility. It
+does NOT collapse ConCho2's existing
 `classes/enrollments/attendances` into English concepts — it adds new `eng_*`
 tables whose row-meanings match the English model.
 
@@ -40,6 +41,8 @@ tables whose row-meanings match the English model.
   row ends loaded, staged, or recorded as a data-quality issue.
 - **BR-4:** Employment status (left the company) is separate from course-lifecycle
   status (finished/stopped a course).
+- **BR-5:** Historical attendance uses the Course Run and Run Enrollment spine;
+  missing marks remain visible and eligibility is derived from the run's policy snapshot.
 
 ## Actors & Use Cases (UC)
 
@@ -51,6 +54,8 @@ tables whose row-meanings match the English model.
   summary through the ConCho2 shell (login + roles reused).
 - **UC-3 (Admin/Coordinator — correct):** resolve missing employee BU/job role
   through a controlled correction overlay; raw workbook rows remain immutable.
+- **UC-4 (Admin/Coordinator — attendance review):** search sessions, inspect a
+  session roster, and review absence eligibility without editing source history.
 
 ## Entities
 
@@ -75,6 +80,10 @@ Canonical `eng_*` tables (migration 036). One row means:
   overlay keyed by stable `emp_code`) and **eng_employee_correction_history**
   (append-only before/after/reason/actor history). DQ issues carry
   `open/resolved/accepted` status.
+- Attendance support (migration 038): **eng_session_units** (one numbered
+  occurrence per Course Run; unique run + session number) and
+  **eng_attendance_records** (one `present|absent` mark per Session Unit + Run
+  Enrollment). Source sheet/row and anomaly metadata remain attached.
 
 ## Functional Requirements (FR)
 
@@ -157,6 +166,28 @@ issues, and retain correction history plus the global audit entry.
 - **THEN** the overlay is re-applied and the regenerated matching issues are
   immediately resolved without modifying `raw_eng_workbook_rows`.
 
+### Requirement: Historical attendance is lossless and reviewable [BR-3, BR-5]
+
+The importer MUST stage all meaningful `CLASS_SESSIONS` and `ATTENDANCE` rows,
+use the canonical session date, retain duplicate/date-mismatch evidence as DQ,
+and MUST NOT fabricate a mark for an enrolled learner without source evidence.
+
+#### Scenario: reference workbook reconciles
+- **WHEN** the reference workbook imports
+- **THEN** 984 session rows load as 984 Session Units and 5,996 attendance rows
+  reconcile as 5,962 canonical records plus 34 explicitly ignored duplicates.
+
+#### Scenario: roster has no source mark
+- **GIVEN** an eligible enrollment whose session has no matching attendance row
+- **WHEN** Admin opens the session roster
+- **THEN** the row is returned with `attendanceStatus = unmarked`.
+
+### Requirement: Eligibility is a projection [BR-5]
+
+Eligibility MUST count canonical absences against
+`max_absences_allowed_snapshot`; zero marks are `unknown`, an exceeded threshold
+is `not_eligible`, and incomplete active runs within the limit are `within_limit`.
+
 ## Non-Functional Requirements (NFR)
 
 - **NFR-1:** DB constraints enforce the grain (unique emp_code, class_code,
@@ -174,11 +205,14 @@ issues, and retain correction history plus the global audit entry.
 - **AC-4:** Read endpoints return the documented shapes and enforce Admin/Coordinator.
 - **AC-5:** Migration 037 adds correction overlay/history and DQ resolution state;
   correction writes are validated, capability-gated, audited, and re-import-safe.
+- **AC-6:** Migration 038 constrains session and attendance grain; Phase-2 reads
+  are Admin/Coordinator + `report.read`, the UI exposes Sessions and Eligibility,
+  and the real workbook reconciles without silent loss.
 
 ## Out of Scope (Phase 1 — why "evolving")
 
-Attendance, session units, meetings, make-up credit, evaluations/versions,
-placement, exam eligibility, completion, transfer command, full org-history model,
+Live Teacher attendance entry, separate meetings, make-up credit, evaluations/versions,
+placement, completion, transfer command, full org-history model,
 login-account creation, and generic HTTP write commands beyond the targeted
 missing-BU/job-role correction overlay. The **one-active-enrollment**
 rule is intentionally a **soft/reporting rule** (not a DB guard): real data has

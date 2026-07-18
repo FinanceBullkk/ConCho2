@@ -22,11 +22,13 @@ remainder is documented deferred-by-design scope (below), not active debt.
   scheduling** — closed 2026-06-12. Full-system audit (8/8 rounds) complete;
   Express 4→5 + light dependency majors done. **Cohesion Wave** (6/6) + in-app
   notification bell (full event coverage) shipped 2026-06-13.
-- **Now / Next — English Training:** Phase 1 identity + structure, real-workbook
-  import, Admin/Coordinator operations UI, DQ drill-down, and audited BU/job-role
-  correction overlay are complete (`3976355`). Phase 2 is planned as a narrow
-  historical Sessions + Attendance slice; implementation starts with a mandatory
-  workbook profiling gate before any schema is locked. Plan:
+- **Now / Next — English Training:** Phases 1–2 are complete on dev: identity,
+  structure, correction overlay, 984 historical sessions, 5,962 attendance
+  records, searchable attendance rosters, and derived absence eligibility. The
+  real workbook reconciles losslessly (5,996 attendance rows = 5,962 canonical +
+  34 duplicate evidence rows); 182 DQ issues remain visible for later HR review.
+  Next phase is deliberately not started until evaluation/completion rules are
+  confirmed with HR. Plan and verification:
   [`plans/english-integration-phase-2-attendance.md`](../plans/english-integration-phase-2-attendance.md).
 - **Now: Phase 3/4/5 push COMPLETE** (2026-06-13, 7 PRs #80–#86, re-baselined).
   Shipped: bulk cohort enrollment (BE+UI); program-policy enforcement
@@ -161,6 +163,15 @@ Bug fixing and integration review rank above net-new feature rollout.
 > [`2026-q3.md`](changelog-archive/2026-q3.md); 06-20→06-27 rolled 2026-07-07;
 > 06-14→06-19 rolled 2026-07-04 → [`2026-q2.md`](changelog-archive/2026-q2.md)).
 
+- **2026-07-18** — **English Training integration · Phase 2 (historical sessions + attendance) — shipped on dev.**
+  Read-only profiling locked `CLASS_SESSIONS` + normalized `ATTENDANCE` as the
+  canonical sources and proved one occurrence per numbered unit, avoiding a
+  speculative meetings table. Migration `038` adds constrained Session Units and
+  Attendance Records. The batched import loaded **984 sessions + 5,962 attendance
+  records** in 5.3s; all 5,996 attendance rows reconcile (34 duplicate evidence
+  rows), raw staging totals 7,989, and 182 DQ issues remain inspectable. New
+  Admin/Coordinator Sessions, roster, and Eligibility reads are wired into the
+  existing English Training UI and guarded by `report.read`.
 - **2026-07-18** — **English Training integration · Phase 1 (identity + structure) — foundation shipped (dark).**
   Follow-up correction slice now closes the first operational DQ loop: migration
   `037` adds a persistent employee correction overlay, append-only correction
