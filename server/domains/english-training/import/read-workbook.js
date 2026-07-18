@@ -8,6 +8,8 @@ const ExcelJS = require('exceljs');
 
 // Phase-1 canonical source sheets (others — attendance/placement/dashboards — ignored).
 const PHASE1_SHEETS = ['STUDENTS', 'COURSE_PLAN', 'CLASSES', 'ENROLLMENTS', 'PIC'];
+const PHASE2_SHEETS = ['CLASS_SESSIONS', 'ATTENDANCE'];
+const IMPORT_SHEETS = [...PHASE1_SHEETS, ...PHASE2_SHEETS];
 
 // exceljs cell value → primitive: unwrap formula {result}, hyperlink {text}, richText.
 function cellValue(v) {
@@ -34,7 +36,7 @@ async function readWorkbook(path) {
   await wb.xlsx.readFile(path);
 
   const sheets = {};
-  for (const name of PHASE1_SHEETS) {
+  for (const name of IMPORT_SHEETS) {
     const ws = wb.getWorksheet(name);
     if (!ws) { sheets[name] = []; continue; }
 
@@ -71,4 +73,4 @@ function rowHash(obj) {
   return sha256(JSON.stringify(copy, Object.keys(copy).sort()));
 }
 
-module.exports = { readWorkbook, rowHash, PHASE1_SHEETS };
+module.exports = { readWorkbook, rowHash, PHASE1_SHEETS, PHASE2_SHEETS, IMPORT_SHEETS };

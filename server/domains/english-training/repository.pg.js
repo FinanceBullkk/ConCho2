@@ -24,6 +24,24 @@ async function insert(table, obj, client) {
   return rows[0];
 }
 
+// Batch inserts keep workbook imports bounded to a handful of database round
+// trips. Callers must pass a trusted internal table name and uniform row shape.
+async function insertMany(table, objects, client, { onConflict = '' } = {}) {
+  if (!objects.length) return;
+  const keys = Object.keys(objects[0]);
+  const cols = keys.map((k) => `"${k}"`).join(', ');
+  const values = [];
+  const tuples = objects.map((obj, rowIndex) => {
+    const offset = rowIndex * keys.length;
+    values.push(...keys.map((k) => obj[k]));
+    return `(${keys.map((_, columnIndex) => `$${offset + columnIndex + 1}`).join(', ')})`;
+  });
+  await runner(client)(
+    `INSERT INTO ${table} (${cols}) VALUES ${tuples.join(', ')} ${onConflict}`,
+    values,
+  );
+}
+
 // Append-only raw staging; idempotent per (checksum, sheet, source_row).
 async function stageRaw(row, client) {
   await runner(client)(
@@ -72,7 +90,8 @@ async function withTransaction(fn) {
 // against the prototype DB. Dependency order matters (FKs).
 async function resetCanonical(client) {
   const order = [
-    'eng_data_quality_issues', 'eng_cohort_pic', 'eng_run_enrollments',
+    'eng_data_quality_issues', 'eng_attendance_records', 'eng_session_units',
+    'eng_cohort_pic', 'eng_run_enrollments',
     'eng_course_runs', 'eng_cohort_memberships', 'eng_employees',
     'eng_cohorts', 'eng_courses',
   ];
@@ -183,7 +202,7 @@ async function applyEmployeeCorrections(client) {
 }
 
 module.exports = {
-  newId, insert, stageRaw, recordIssue, count, withTransaction, resetCanonical, query,
+  newId, insert, insertMany, stageRaw, recordIssue, count, withTransaction, resetCanonical, query,
   findEmployeeForCorrection, getEmployeeCorrection, saveEmployeeCorrection,
   backfillUnknownEnrollmentSnapshots, resolveEmployeeIssues,
   recordEmployeeCorrectionHistory, applyEmployeeCorrections,

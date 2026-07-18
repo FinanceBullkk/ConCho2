@@ -5,6 +5,7 @@
 
 const crypto = require('crypto');
 const n = require('./normalize');
+const { transformPhase2 } = require('./phase2-transform');
 
 const newId = () => crypto.randomBytes(12).toString('hex');
 const normClass = (v) => { const s = n.normText(v); return s ? s.toUpperCase() : null; };
@@ -171,15 +172,27 @@ function transform(sheets, now = new Date()) {
     });
   }
 
+  const phase2 = transformPhase2(sheets, {
+    courses, cohorts: [...cohortByCode.values()], employees, courseRuns, enrollments,
+  }, now);
+  issues.push(...phase2.issues);
+
   return {
     courses, cohorts: [...cohortByCode.values()], employees, memberships, courseRuns,
-    enrollments, pics, issues,
+    enrollments, pics, sessions: phase2.sessions, attendance: phase2.attendance, issues,
     reconcile: {
       COURSE_PLAN: { source: sheets.COURSE_PLAN.length, loaded: courses.length },
       STUDENTS: { source: sheets.STUDENTS.length, loaded: employees.length },
       CLASSES: { source: sheets.CLASSES.length, loaded: courseRuns.length },
       ENROLLMENTS: { source: sheets.ENROLLMENTS.length, loaded: enrollments.length },
       PIC: { source: sheets.PIC.length, loaded: pics.length },
+      CLASS_SESSIONS: {
+        source: (sheets.CLASS_SESSIONS || []).length, loaded: phase2.sessions.length, ignored: 0,
+      },
+      ATTENDANCE: {
+        source: (sheets.ATTENDANCE || []).length, loaded: phase2.attendance.length,
+        ignored: phase2.ignoredExactDuplicates + phase2.ignoredConflictingDuplicates,
+      },
       cohorts: cohortByCode.size, memberships: memberships.length,
     },
   };

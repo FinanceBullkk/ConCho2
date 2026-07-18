@@ -2,7 +2,7 @@
 // reconcile in one transaction. Column-explicit inserts (drop temp `_` fields,
 // stringify jsonb). Returns a reconciliation + issue summary; asserts row counts.
 
-const { readWorkbook, rowHash, PHASE1_SHEETS } = require('./read-workbook');
+const { readWorkbook, rowHash, IMPORT_SHEETS } = require('./read-workbook');
 const { transform } = require('./transform');
 const repo = require('../repository.pg');
 
@@ -27,6 +27,16 @@ const asPic = (p) => ({
   id: p.id, cohort_id: p.cohort_id, pic_employee_id: p.pic_employee_id,
   pic_label: p.pic_label, start_date: p.start_date, end_date: p.end_date, meta: jsonb(p.meta),
 });
+const asSession = (session) => ({ ...session, meta: jsonb(session.meta) });
+const asAttendance = (record) => ({ ...record, meta: jsonb(record.meta) });
+const BATCH_SIZE = 400;
+
+async function insertBatches(table, rows, client, options) {
+  for (let offset = 0; offset < rows.length; offset += BATCH_SIZE) {
+    // eslint-disable-next-line no-await-in-loop
+    await repo.insertMany(table, rows.slice(offset, offset + BATCH_SIZE), client, options);
+  }
+}
 
 function summarizeIssues(issues) {
   const by = {};
@@ -41,21 +51,32 @@ async function runImport(path, { reset = false } = {}) {
   await repo.withTransaction(async (client) => {
     if (reset) await repo.resetCanonical(client);
 
-    for (const sheet of PHASE1_SHEETS) {
-      for (const r of sheets[sheet]) {
-        // eslint-disable-next-line no-await-in-loop
-        await repo.stageRaw({ checksum, sheet, sourceRow: r.__row, rowHash: rowHash(r), payload: r }, client);
-      }
+    for (const sheet of IMPORT_SHEETS) {
+      const staged = sheets[sheet].map((r) => ({
+        id: repo.newId(), workbook_checksum: checksum, sheet,
+        source_row: r.__row, row_hash: rowHash(r), payload: JSON.stringify(r),
+      }));
+      // eslint-disable-next-line no-await-in-loop
+      await insertBatches('raw_eng_workbook_rows', staged, client, {
+        onConflict: 'ON CONFLICT (workbook_checksum, sheet, source_row) DO NOTHING',
+      });
     }
 
-    for (const c of data.courses) await repo.insert('eng_courses', c, client);          // eslint-disable-line no-await-in-loop
-    for (const c of data.cohorts) await repo.insert('eng_cohorts', c, client);           // eslint-disable-line no-await-in-loop
-    for (const e of data.employees) await repo.insert('eng_employees', asEmployee(e), client); // eslint-disable-line no-await-in-loop
-    for (const m of data.memberships) await repo.insert('eng_cohort_memberships', asMembership(m), client); // eslint-disable-line no-await-in-loop
-    for (const r of data.courseRuns) await repo.insert('eng_course_runs', r, client);    // eslint-disable-line no-await-in-loop
-    for (const e of data.enrollments) await repo.insert('eng_run_enrollments', asEnrollment(e), client); // eslint-disable-line no-await-in-loop
-    for (const p of data.pics) await repo.insert('eng_cohort_pic', asPic(p), client);    // eslint-disable-line no-await-in-loop
-    for (const iss of data.issues) await repo.recordIssue(iss, client);                  // eslint-disable-line no-await-in-loop
+    await insertBatches('eng_courses', data.courses, client);
+    await insertBatches('eng_cohorts', data.cohorts, client);
+    await insertBatches('eng_employees', data.employees.map(asEmployee), client);
+    await insertBatches('eng_cohort_memberships', data.memberships.map(asMembership), client);
+    await insertBatches('eng_course_runs', data.courseRuns, client);
+    await insertBatches('eng_run_enrollments', data.enrollments.map(asEnrollment), client);
+    await insertBatches('eng_cohort_pic', data.pics.map(asPic), client);
+    await insertBatches('eng_session_units', data.sessions.map(asSession), client);
+    await insertBatches('eng_attendance_records', data.attendance.map(asAttendance), client);
+    await insertBatches('eng_data_quality_issues', data.issues.map((issue) => ({
+      id: repo.newId(), issue_code: issue.code, entity_type: issue.entityType || null,
+      entity_key: issue.entityKey || null, source_sheet: issue.sheet || null,
+      source_row: issue.sourceRow || null,
+      detail: issue.detail ? JSON.stringify(issue.detail) : null,
+    })), client);
     await repo.applyEmployeeCorrections(client);
   });
 
@@ -65,4 +86,4 @@ async function runImport(path, { reset = false } = {}) {
   return { checksum, reconcile, issues, issueCount: data.issues.length };
 }
 
-module.exports = { runImport };
+module.exports = { runImport, insertBatches, BATCH_SIZE };
