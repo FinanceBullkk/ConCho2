@@ -6,14 +6,13 @@ import {
   useRecordExamResult, useDeleteExamResult,
 } from './useEnglishTraining';
 
-// One roster row: HR picks a level + exam date for an eligible learner, or clears
-// an existing result. Learners who cannot sit (>2 absences / non-participating)
-// show a disabled state — the server enforces the same gate.
-function LevelEntryRow({ learner, levels, t }) {
+// One roster row: HR picks a level for an eligible learner (the exam date is shared
+// per class, chosen once above). Learners who cannot sit (>2 absences /
+// non-participating) show a disabled state — the server enforces the same gate.
+function LevelEntryRow({ learner, levels, examDate, t }) {
   const record = useRecordExamResult();
   const remove = useDeleteExamResult();
   const [levelCode, setLevelCode] = useState(learner.examLevelCode || '');
-  const [examDate, setExamDate] = useState(learner.examDate ? String(learner.examDate).slice(0, 10) : '');
   const canSave = learner.sitEligible && levelCode && examDate && !record.isPending;
 
   return (
@@ -34,11 +33,6 @@ function LevelEntryRow({ learner, levels, t }) {
         </select>
       </td>
       <td className="px-4 py-3">
-        <input type="date" value={examDate} onChange={(e) => setExamDate(e.target.value)} disabled={!learner.sitEligible}
-          aria-label={t('englishTraining.exam.date')}
-          className="rounded-md border border-input bg-background px-2 py-1.5 text-sm disabled:opacity-50" />
-      </td>
-      <td className="px-4 py-3">
         <div className="flex gap-2">
           <button type="button" onClick={() => record.mutate({ enrollmentId: learner.id, levelCode, examDate })} disabled={!canSave}
             className="rounded-md bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground disabled:opacity-50">
@@ -56,30 +50,51 @@ function LevelEntryRow({ learner, levels, t }) {
   );
 }
 
-function RunRoster({ runId, levels, t }) {
+// Master-detail: selecting a run swaps the (long) worklist for this roster so HR
+// does not have to scroll past it. One shared exam date applies to the whole class.
+function RunRoster({ runId, levels, onBack, t }) {
   const run = useEnglishCourseRun(runId);
-  if (run.isLoading) return <div className="flex justify-center py-8"><Spinner size={24} label={t('englishTraining.loading')} /></div>;
-  if (run.isError) return <EmptyState title={t('englishTraining.loadError')} />;
-  const roster = run.data?.roster || [];
+  const [examDate, setExamDate] = useState('');
+
   return (
     <section className="space-y-3" aria-label={t('englishTraining.exam.roster')}>
-      <h2 className="text-h3 text-foreground">
-        {run.data.classCode} · {run.data.courseName}{run.data.runNumber ? ` · #${run.data.runNumber}` : ''}
-      </h2>
-      {roster.length
-        ? (
-          <div className="overflow-x-auto rounded-lg border border-border bg-card">
-            <table className="w-full text-sm">
-              <thead className="border-b border-border bg-muted/50 text-left"><tr>
-                {['employee', 'absences', 'eligibility', 'level', 'date', 'actions'].map((c) => (
-                  <th key={c} className="px-4 py-3 font-medium">{t(`englishTraining.exam.col.${c}`)}</th>
-                ))}
-              </tr></thead>
-              <tbody>{roster.map((learner) => <LevelEntryRow key={learner.id} learner={learner} levels={levels} t={t} />)}</tbody>
-            </table>
-          </div>
-        )
-        : <EmptyState title={t('englishTraining.empty')} />}
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h2 className="text-h3 text-foreground">
+          {run.data ? `${run.data.classCode} · ${run.data.courseName}${run.data.runNumber ? ` · #${run.data.runNumber}` : ''}` : '…'}
+        </h2>
+        <button type="button" onClick={onBack} className="rounded-md bg-muted px-3 py-2 text-sm font-medium">
+          {t('englishTraining.exam.back')}
+        </button>
+      </div>
+
+      {run.isLoading && <div className="flex justify-center py-8"><Spinner size={24} label={t('englishTraining.loading')} /></div>}
+      {run.isError && <EmptyState title={t('englishTraining.loadError')} />}
+      {run.data && (
+        <>
+          <label className="flex flex-col gap-1 text-sm font-medium sm:max-w-xs">
+            <span>{t('englishTraining.exam.dateForClass')}</span>
+            <input type="date" value={examDate} onChange={(e) => setExamDate(e.target.value)}
+              aria-label={t('englishTraining.exam.dateForClass')}
+              className="rounded-md border border-input bg-background px-3 py-2 font-normal" />
+          </label>
+          {(run.data.roster || []).length
+            ? (
+              <div className="overflow-x-auto rounded-lg border border-border bg-card">
+                <table className="w-full text-sm">
+                  <thead className="border-b border-border bg-muted/50 text-left"><tr>
+                    {['employee', 'absences', 'eligibility', 'level', 'actions'].map((c) => (
+                      <th key={c} className="px-4 py-3 font-medium">{t(`englishTraining.exam.col.${c}`)}</th>
+                    ))}
+                  </tr></thead>
+                  <tbody>{run.data.roster.map((learner) => (
+                    <LevelEntryRow key={learner.id} learner={learner} levels={levels} examDate={examDate} t={t} />
+                  ))}</tbody>
+                </table>
+              </div>
+            )
+            : <EmptyState title={t('englishTraining.empty')} />}
+        </>
+      )}
     </section>
   );
 }
@@ -90,6 +105,11 @@ export default function EvaluationView({ t }) {
   const levelsQuery = useEnglishLevels();
   const levels = levelsQuery.data || [];
 
+  // Detail view: selecting a run replaces the worklist so the roster is at the top.
+  if (selectedRun) {
+    return <RunRoster runId={selectedRun} levels={levels} onBack={() => setSelectedRun(null)} t={t} />;
+  }
+
   if (pending.isLoading || levelsQuery.isLoading) {
     return <div className="flex justify-center py-12"><Spinner size={32} label={t('englishTraining.loading')} /></div>;
   }
@@ -97,39 +117,35 @@ export default function EvaluationView({ t }) {
 
   const rows = pending.data || [];
   return (
-    <div className="space-y-5">
-      <section className="space-y-3" aria-label={t('englishTraining.exam.needsLevel')}>
-        <h2 className="text-h3 text-foreground">{t('englishTraining.exam.needsLevel')}</h2>
-        {rows.length
-          ? (
-            <div className="overflow-x-auto rounded-lg border border-border bg-card">
-              <table className="w-full text-sm">
-                <thead className="border-b border-border bg-muted/50 text-left"><tr>
-                  {['classCode', 'courseName', 'endDate', 'pending', 'actions'].map((c) => (
-                    <th key={c} className="px-4 py-3 font-medium">{t(`englishTraining.exam.col.${c}`)}</th>
-                  ))}
-                </tr></thead>
-                <tbody>{rows.map((row) => (
-                  <tr key={row.courseRunId} className={`border-b border-border last:border-0 ${selectedRun === row.courseRunId ? 'bg-primary/5' : ''}`}>
-                    <td className="px-4 py-3 text-foreground">{row.classCode}</td>
-                    <td className="px-4 py-3 text-foreground">{row.courseName}</td>
-                    <td className="px-4 py-3 text-foreground">{row.endDate ? String(row.endDate).slice(0, 10) : '—'}</td>
-                    <td className="px-4 py-3 text-foreground">{row.pendingCount}</td>
-                    <td className="px-4 py-3">
-                      <button type="button" onClick={() => setSelectedRun(row.courseRunId)}
-                        className="font-medium text-primary hover:underline underline-offset-2">
-                        {t('englishTraining.exam.enterLevels')}
-                      </button>
-                    </td>
-                  </tr>
-                ))}</tbody>
-              </table>
-            </div>
-          )
-          : <EmptyState title={t('englishTraining.exam.allDone')} />}
-      </section>
-
-      {selectedRun && <RunRoster runId={selectedRun} levels={levels} t={t} />}
-    </div>
+    <section className="space-y-3" aria-label={t('englishTraining.exam.needsLevel')}>
+      <h2 className="text-h3 text-foreground">{t('englishTraining.exam.needsLevel')}</h2>
+      {rows.length
+        ? (
+          <div className="overflow-x-auto rounded-lg border border-border bg-card">
+            <table className="w-full text-sm">
+              <thead className="border-b border-border bg-muted/50 text-left"><tr>
+                {['classCode', 'courseName', 'endDate', 'pending', 'actions'].map((c) => (
+                  <th key={c} className="px-4 py-3 font-medium">{t(`englishTraining.exam.col.${c}`)}</th>
+                ))}
+              </tr></thead>
+              <tbody>{rows.map((row) => (
+                <tr key={row.courseRunId} className="border-b border-border last:border-0">
+                  <td className="px-4 py-3 text-foreground">{row.classCode}</td>
+                  <td className="px-4 py-3 text-foreground">{row.courseName}</td>
+                  <td className="px-4 py-3 text-foreground">{row.endDate ? String(row.endDate).slice(0, 10) : '—'}</td>
+                  <td className="px-4 py-3 text-foreground">{row.pendingCount}</td>
+                  <td className="px-4 py-3">
+                    <button type="button" onClick={() => setSelectedRun(row.courseRunId)}
+                      className="font-medium text-primary hover:underline underline-offset-2">
+                      {t('englishTraining.exam.enterLevels')}
+                    </button>
+                  </td>
+                </tr>
+              ))}</tbody>
+            </table>
+          </div>
+        )
+        : <EmptyState title={t('englishTraining.exam.allDone')} />}
+    </section>
   );
 }

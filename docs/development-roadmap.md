@@ -175,8 +175,9 @@ Bug fixing and integration review rank above net-new feature rollout.
   ≤2-absence + participating-status gate **server-side** (422), rejects unknown
   levels (400), audits every write. Routes: `GET /levels`, `GET /pending-exam-entries`
   (completed-run "needs level" worklist), `POST`/`DELETE /enrollments/:id/exam-result`
-  (`enrollment.manage`). Client gains an **Evaluation** tab (worklist + per-learner
-  level/date entry, ineligible learners disabled). Verified: 8 server unit suites
+  (`enrollment.manage`). Client gains an **Evaluation** tab: a "needs level" worklist
+  that opens a run's roster in place (master-detail, no long scroll) with per-learner
+  level entry under one shared class exam date; ineligible learners disabled. Verified: 8 server unit suites
   (38 tests) + real-Neon read/write smoke (13 levels, 349 pending across 71 runs,
   insert→update→soft-delete) + client tests + lint (0 errors). Plan:
   [`plans/english-integration-phase-3-evaluation.md`](../plans/english-integration-phase-3-evaluation.md);

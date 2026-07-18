@@ -46,7 +46,7 @@ describe('EvaluationView (exam result & level)', () => {
     expect(screen.getByText('A1')).toBeInTheDocument();
     expect(screen.getByText('2')).toBeInTheDocument();
 
-    // Open the roster for that run.
+    // Open the roster for that run (replaces the worklist — no long scroll).
     fireEvent.click(screen.getByRole('button', { name: 'Enter levels' }));
     expect(screen.getByText('Alex Nguyen', { exact: false })).toBeInTheDocument();
     expect(screen.getByText('Not eligible (>2 absences)')).toBeInTheDocument();
@@ -57,9 +57,9 @@ describe('EvaluationView (exam result & level)', () => {
     expect(levelSelects[0]).toBeEnabled();   // Alex (eligible)
     expect(levelSelects[1]).toBeDisabled();  // Sam (not eligible)
 
-    // Record a level for the eligible learner.
+    // One shared exam date for the whole class, then a level per learner.
+    fireEvent.change(screen.getByLabelText('Exam date (whole class)'), { target: { value: '2026-07-05' } });
     fireEvent.change(levelSelects[0], { target: { value: 'advanced' } });
-    fireEvent.change(screen.getAllByLabelText('Exam date')[0], { target: { value: '2026-07-05' } });
     fireEvent.click(screen.getAllByRole('button', { name: 'Save' })[0]);
 
     expect(recordMock).toHaveBeenCalledWith({ enrollmentId: 'en1', levelCode: 'advanced', examDate: '2026-07-05' });

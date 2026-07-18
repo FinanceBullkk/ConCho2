@@ -64,7 +64,9 @@ tables whose row-meanings match the English model.
 - **UC-4 (Admin/Coordinator — attendance review):** search sessions, inspect a
   session roster, and review absence eligibility without editing source history.
 - **UC-5 (HR/Admin — record exam level):** from a completed Course Run's roster,
-  record (or clear) each eligible learner's exam level + date. A "needs level"
+  record (or clear) each eligible learner's exam level, using one **shared exam
+  date for the whole class**. Selecting a run opens its roster in place (the long
+  "needs level" worklist is swapped out, not appended, so no scrolling). The
   worklist surfaces completed runs still missing levels. The ≤2-absence gate is
   enforced server-side; ineligible learners cannot be recorded.
 
