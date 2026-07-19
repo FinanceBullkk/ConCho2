@@ -279,6 +279,14 @@ app.use('/api/search', require('./routes/searchRoutes'));
 app.use('/api/notifications', require('./domains/notification/routes'));
 app.use('/api/branding', require('./domains/branding/routes'));
 
+// English Training domain (Phase 1) — ships DARK behind a flag until cutover.
+// Read-only projections over the canonical eng_* tables loaded by scripts/eng-import.js.
+// Available by default in local development so an imported dev DB is visible
+// immediately. Production remains dark unless explicitly enabled.
+if (process.env.ENGLISH_TRAINING_ENABLED === 'true' || process.env.NODE_ENV !== 'production') {
+  app.use('/api/english-training', require('./domains/english-training/routes'));
+}
+
 // ── Domain-event subscribers (rearchitecture Phase 0) ────────
 // Wire cross-cutting concerns (in-app notifications, …) to the event bus once at
 // boot, so business use-cases publish events instead of calling them inline.

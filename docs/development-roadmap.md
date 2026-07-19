@@ -6,7 +6,7 @@
 > - *Architecture / orientation* → [`system-overview.md`](system-overview.md)
 > - *Detailed task snapshot (archived)* → [`archive/handoff-2026-06-01.md`](archive/handoff-2026-06-01.md)
 >
-> **Last updated:** 2026-07-10
+> **Last updated:** 2026-07-19
 
 ---
 
@@ -22,6 +22,17 @@ remainder is documented deferred-by-design scope (below), not active debt.
   scheduling** — closed 2026-06-12. Full-system audit (8/8 rounds) complete;
   Express 4→5 + light dependency majors done. **Cohesion Wave** (6/6) + in-app
   notification bell (full event coverage) shipped 2026-06-13.
+- **Now / Next — English Training:** Phases 1–3 are complete on dev: identity,
+  structure, correction overlay, 984 historical sessions, 5,962 attendance
+  records, searchable attendance rosters, derived absence eligibility, and (Phase 3,
+  2026-07-19) **exam result & level entry** — HR/Admin records one of 13 ordered
+  levels per finished learner, gated server-side by the ≤2-absence rule, with a
+  "needs level" worklist over completed runs. The real workbook reconciles
+  losslessly; 182 DQ issues remain visible for later HR review. Evaluation rules
+  are now HR-confirmed; **placement test, level promotion, and certificates stay
+  out of scope** (certs are HR-external). Plans:
+  [`phase-3`](../plans/english-integration-phase-3-evaluation.md) ·
+  [`phase-2`](../plans/english-integration-phase-2-attendance.md).
 - **Now: Phase 3/4/5 push COMPLETE** (2026-06-13, 7 PRs #80–#86, re-baselined).
   Shipped: bulk cohort enrollment (BE+UI); program-policy enforcement
   (`facilitatorPolicy.assignmentRequired` + `visibility`) + a program-policies
@@ -155,6 +166,53 @@ Bug fixing and integration review rank above net-new feature rollout.
 > [`2026-q3.md`](changelog-archive/2026-q3.md); 06-20→06-27 rolled 2026-07-07;
 > 06-14→06-19 rolled 2026-07-04 → [`2026-q2.md`](changelog-archive/2026-q2.md)).
 
+- **2026-07-19** — **English Training integration · Phase 3 (exam result & level / evaluation) — shipped on dev.**
+  Owner confirmed the rules: completion = sitting a final exam whose result **is a
+  level** (13 ordered levels, no score/fail); **>2 absences ⇒ cannot sit**; HR/Admin
+  enters levels via an in-app screen; certificates stay HR-external. Migration `039`
+  seeds `eng_levels` (13) + `eng_exam_results` (one active per enrollment via
+  partial-unique + soft-delete). New use-case `evaluation.js` enforces the
+  ≤2-absence + participating-status gate **server-side** (422), rejects unknown
+  levels (400), audits every write. Routes: `GET /levels`, `GET /pending-exam-entries`
+  (completed-run "needs level" worklist), `POST`/`DELETE /enrollments/:id/exam-result`
+  (`enrollment.manage`). Client gains an **Evaluation** tab: a "needs level" worklist
+  that opens a run's roster in place (master-detail, no long scroll) with per-learner
+  level entry under one shared class exam date; ineligible learners disabled. Verified: 8 server unit suites
+  (38 tests) + real-Neon read/write smoke (13 levels, 349 pending across 71 runs,
+  insert→update→soft-delete) + client tests + lint (0 errors). Plan:
+  [`plans/english-integration-phase-3-evaluation.md`](../plans/english-integration-phase-3-evaluation.md);
+  decisions: [`plans/reports/eng-phase3-hr-decisions-260719.md`](../plans/reports/eng-phase3-hr-decisions-260719.md).
+- **2026-07-18** — **English Training integration · Phase 2 (historical sessions + attendance) — shipped on dev.**
+  Read-only profiling locked `CLASS_SESSIONS` + normalized `ATTENDANCE` as the
+  canonical sources and proved one occurrence per numbered unit, avoiding a
+  speculative meetings table. Migration `038` adds constrained Session Units and
+  Attendance Records. The batched import loaded **984 sessions + 5,962 attendance
+  records** in 5.3s; all 5,996 attendance rows reconcile (34 duplicate evidence
+  rows), raw staging totals 7,989, and 182 DQ issues remain inspectable. New
+  Admin/Coordinator Sessions, roster, and Eligibility reads are wired into the
+  existing English Training UI and guarded by `report.read`.
+- **2026-07-18** — **English Training integration · Phase 1 (identity + structure) — foundation shipped (dark).**
+  Follow-up correction slice now closes the first operational DQ loop: migration
+  `037` adds a persistent employee correction overlay, append-only correction
+  history, and `open/resolved/accepted` issue state. Admin/Coordinator can correct
+  missing BU/job role from the DQ drill-down; the mutation validates input,
+  backfills only `unknown` enrollment snapshots, records global + transactional
+  correction audit, resolves matching issues, and re-applies corrections after a
+  canonical reset/import without changing raw workbook evidence.
+  New deep domain `domains/english-training` mounted at `/api/english-training`
+  behind `ENGLISH_TRAINING_ENABLED` (ships dark). Migration `036` adds 7 canonical
+  `eng_*` tables + raw staging + a data-quality issue log, with inline FK/CHECK/UNIQUE
+  (runs in CI + prod via the chain). A lossless import pipeline
+  (stage → transform → load → reconcile, `scripts/eng-import.js`) loaded the real
+  workbook on the prototype DB: **308 employees, 52 cohorts, 6 courses, 91 course
+  runs, 552 enrollments** — `source = loaded` on every sheet, 36 anomalies recorded
+  (not dropped). Owner decisions: `Resign`→inactive (16); one-active-enrollment is a
+  soft/reporting rule (real concurrent data); `course_code` auto-slug; eligibility =
+  `max_absences_allowed` (count, not ratio). Read-only Admin/Coordinator API (7
+  endpoints) + 12 pure transform unit tests. Spec: `docs/specs/english-training/`
+  (evolving). Out of scope (later phases): attendance, make-up, evaluation, placement,
+  completion, login-account creation. Plan: `plans/english-integration-phase-1.md`;
+  DQ review: `plans/reports/eng-import-data-quality-review-260718.md`.
 - **2026-07-14** — **Wave K Phase 2 · Batch D2e-2b — DROP `mongoose` + `mongodb-memory-server` → Wave K decommission COMPLETE.**
   The final cut: the server is now **Mongoose-free**. Deleted the **32 Mongoose model
   files**, `config/db.js`, **9 Mongo-era scripts** (`create-admin`/`reset_admin_pw` +

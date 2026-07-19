@@ -43,6 +43,9 @@ export const NAV_GROUPS = [
     items: [
       tab('/learning', 'programs', 'learning.tabs.programs', BookOpen, { access: LEARNING_ACCESS }),
       tab('/learning', 'cohorts', 'learning.tabs.cohorts', Boxes, { access: LEARNING_ACCESS }),
+      { path: '/english-training', labelKey: 'englishTraining.nav', icon: Languages,
+        access: { Admin: 'full', Coordinator: 'full' }, perm: 'read:reports',
+        feature: 'englishTraining', parentRoutes: ['/english-training'] },
       tab('/learning', 'paths', 'learning.tabs.paths', RouteIcon, { access: LEARNING_ACCESS, perm: 'manage:path', feature: 'paths' }),
       tab('/learning', 'assignments', 'learning.tabs.assignments', ClipboardList, { access: LEARNING_ACCESS, perm: 'read:assignments', feature: 'assignments' }),
       tab('/learning', 'assessments', 'learning.tabs.assessments', GraduationCap, { access: LEARNING_ACCESS, feature: 'assessments' }),
