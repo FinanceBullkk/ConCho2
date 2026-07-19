@@ -136,8 +136,11 @@
       "dateForClass": "Exam date (whole class)",
       "back": "← Back to list",
       "save": "Save",
+      "saveAll": "Save all ({{count}})",
       "clear": "Clear",
       "saved": "Exam level saved",
+      "savedAll": "Saved {{count}} exam level(s)",
+      "savedSome": "Saved {{saved}}, {{failed}} failed",
       "cleared": "Exam level cleared",
       "saveError": "Could not save the exam level",
       "col": {

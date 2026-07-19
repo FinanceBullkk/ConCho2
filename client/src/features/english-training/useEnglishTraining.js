@@ -46,6 +46,29 @@ export const useRecordExamResult = () => {
   });
 };
 
+// Save one shared class exam date + a level for every eligible learner in one
+// click. Fires the writes concurrently and reports a single summary toast so HR
+// is not spammed with one toast per learner.
+export const useRecordExamResultsBatch = () => {
+  const queryClient = useQueryClient();
+  const { t } = useTranslation();
+  return useMutation({
+    mutationFn: async (entries) => {
+      const settled = await Promise.allSettled(
+        entries.map((e) => englishTrainingAPI.recordExamResult(e.enrollmentId, { levelCode: e.levelCode, examDate: e.examDate })),
+      );
+      const saved = settled.filter((r) => r.status === 'fulfilled').length;
+      return { saved, failed: settled.length - saved };
+    },
+    onSuccess: ({ saved, failed }) => {
+      queryClient.invalidateQueries({ queryKey: qk.englishTraining.all });
+      if (failed) toast.error(t('englishTraining.exam.savedSome', { saved, failed }));
+      else toast.success(t('englishTraining.exam.savedAll', { count: saved }));
+    },
+    onError: (error) => toast.error(error?.response?.data?.message || t('englishTraining.exam.saveError')),
+  });
+};
+
 export const useDeleteExamResult = () => {
   const queryClient = useQueryClient();
   const { t } = useTranslation();

@@ -2,7 +2,7 @@ import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import EnglishTrainingPage from '../EnglishTrainingPage';
 
-const recordMock = vi.fn();
+const batchMock = vi.fn();
 const deleteMock = vi.fn();
 
 vi.mock('../useEnglishTraining', () => ({
@@ -24,7 +24,7 @@ vi.mock('../useEnglishTraining', () => ({
   }),
   useEnglishCourseRun: () => ({
     data: {
-      classCode: 'A1', courseName: 'Foundation', runNumber: 1,
+      classCode: 'A1', courseName: 'Foundation', runNumber: 1, endDate: '2026-07-01',
       roster: [
         { id: 'en1', empCode: '000123', fullName: 'Alex Nguyen', absenceCount: 1, sitEligible: true, examLevelCode: null, examDate: null },
         { id: 'en2', empCode: '000999', fullName: 'Sam Tran', absenceCount: 3, sitEligible: false, examLevelCode: null, examDate: null },
@@ -32,12 +32,12 @@ vi.mock('../useEnglishTraining', () => ({
     },
     isLoading: false, isError: false,
   }),
-  useRecordExamResult: () => ({ mutate: recordMock, isPending: false }),
+  useRecordExamResultsBatch: () => ({ mutate: batchMock, isPending: false }),
   useDeleteExamResult: () => ({ mutate: deleteMock, isPending: false }),
 }));
 
 describe('EvaluationView (exam result & level)', () => {
-  it('lists completed runs needing levels and records a level for an eligible learner', () => {
+  it('defaults the class exam date to the run end date and saves all eligible levels at once', () => {
     render(<EnglishTrainingPage />);
     fireEvent.click(screen.getByRole('tab', { name: 'Evaluation' }));
 
@@ -52,16 +52,18 @@ describe('EvaluationView (exam result & level)', () => {
     expect(screen.getByText('Not eligible (>2 absences)')).toBeInTheDocument();
     expect(screen.getByText('Eligible')).toBeInTheDocument();
 
+    // The shared date defaults to the run's end date.
+    expect(screen.getByLabelText('Exam date (whole class)')).toHaveValue('2026-07-01');
+
     // The not-eligible learner's level control is disabled.
     const levelSelects = screen.getAllByLabelText('Level');
     expect(levelSelects[0]).toBeEnabled();   // Alex (eligible)
     expect(levelSelects[1]).toBeDisabled();  // Sam (not eligible)
 
-    // One shared exam date for the whole class, then a level per learner.
-    fireEvent.change(screen.getByLabelText('Exam date (whole class)'), { target: { value: '2026-07-05' } });
+    // Pick Alex's level, then Save all (only the eligible, changed learner is sent).
     fireEvent.change(levelSelects[0], { target: { value: 'advanced' } });
-    fireEvent.click(screen.getAllByRole('button', { name: 'Save' })[0]);
+    fireEvent.click(screen.getByRole('button', { name: 'Save all (1)' }));
 
-    expect(recordMock).toHaveBeenCalledWith({ enrollmentId: 'en1', levelCode: 'advanced', examDate: '2026-07-05' });
+    expect(batchMock).toHaveBeenCalledWith([{ enrollmentId: 'en1', levelCode: 'advanced', examDate: '2026-07-01' }]);
   });
 });

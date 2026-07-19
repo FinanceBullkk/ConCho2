@@ -3,18 +3,17 @@ import { Spinner } from '../../components/Spinner';
 import { EmptyState } from '../../components/EmptyState';
 import {
   useEnglishLevels, useEnglishPendingExamEntries, useEnglishCourseRun,
-  useRecordExamResult, useDeleteExamResult,
+  useRecordExamResultsBatch, useDeleteExamResult,
 } from './useEnglishTraining';
 
-// One roster row: HR picks a level for an eligible learner (the exam date is shared
-// per class, chosen once above). Learners who cannot sit (>2 absences /
-// non-participating) show a disabled state — the server enforces the same gate.
-function LevelEntryRow({ learner, levels, examDate, t }) {
-  const record = useRecordExamResult();
-  const remove = useDeleteExamResult();
-  const [levelCode, setLevelCode] = useState(learner.examLevelCode || '');
-  const canSave = learner.sitEligible && levelCode && examDate && !record.isPending;
+const dateOnly = (v) => (v ? String(v).slice(0, 10) : '');
 
+// One roster row (controlled by the parent): HR picks a level for an eligible
+// learner. The exam date is shared per class (chosen once above). Learners who
+// cannot sit (>2 absences / non-participating) show a disabled state — the server
+// enforces the same gate.
+function LevelRow({ learner, levels, value, onChange, t }) {
+  const remove = useDeleteExamResult();
   return (
     <tr className="border-b border-border last:border-0">
       <td className="px-4 py-3 text-foreground">{[learner.empCode, learner.fullName].filter(Boolean).join(' · ')}</td>
@@ -25,7 +24,7 @@ function LevelEntryRow({ learner, levels, examDate, t }) {
           : <span className="text-muted-foreground">{t('englishTraining.exam.notEligible')}</span>}
       </td>
       <td className="px-4 py-3">
-        <select value={levelCode} onChange={(e) => setLevelCode(e.target.value)} disabled={!learner.sitEligible}
+        <select value={value} onChange={(e) => onChange(e.target.value)} disabled={!learner.sitEligible}
           aria-label={t('englishTraining.exam.level')}
           className="w-full rounded-md border border-input bg-background px-2 py-1.5 text-sm disabled:opacity-50">
           <option value="">{t('englishTraining.exam.pickLevel')}</option>
@@ -33,29 +32,76 @@ function LevelEntryRow({ learner, levels, examDate, t }) {
         </select>
       </td>
       <td className="px-4 py-3">
-        <div className="flex gap-2">
-          <button type="button" onClick={() => record.mutate({ enrollmentId: learner.id, levelCode, examDate })} disabled={!canSave}
-            className="rounded-md bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground disabled:opacity-50">
-            {t('englishTraining.exam.save')}
+        {learner.examLevelCode && (
+          <button type="button" onClick={() => remove.mutate(learner.id)} disabled={remove.isPending}
+            className="rounded-md bg-muted px-3 py-1.5 text-sm font-medium disabled:opacity-50">
+            {t('englishTraining.exam.clear')}
           </button>
-          {learner.examLevelCode && (
-            <button type="button" onClick={() => remove.mutate(learner.id)} disabled={remove.isPending}
-              className="rounded-md bg-muted px-3 py-1.5 text-sm font-medium disabled:opacity-50">
-              {t('englishTraining.exam.clear')}
-            </button>
-          )}
-        </div>
+        )}
       </td>
     </tr>
   );
 }
 
+// Loaded roster with state seeded from the run (keyed by runId so switching runs
+// resets cleanly). One shared exam date (defaults to the run's end date) + one
+// "Save all" that writes a level for every eligible learner in a single click.
+function RunRosterLoaded({ data, levels, t }) {
+  const batch = useRecordExamResultsBatch();
+  const [examDate, setExamDate] = useState(() => dateOnly(data.endDate));
+  const [selections, setSelections] = useState(() => {
+    const init = {};
+    (data.roster || []).forEach((r) => { if (r.examLevelCode) init[r.id] = r.examLevelCode; });
+    return init;
+  });
+
+  const roster = data.roster || [];
+  // Only eligible learners whose picked level differs from what's already stored.
+  const toSave = roster.filter((r) => r.sitEligible && selections[r.id] && selections[r.id] !== r.examLevelCode);
+  const canSaveAll = Boolean(examDate) && toSave.length > 0 && !batch.isPending;
+
+  return (
+    <>
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <label className="flex flex-col gap-1 text-sm font-medium sm:w-64">
+          <span>{t('englishTraining.exam.dateForClass')}</span>
+          <input type="date" value={examDate} onChange={(e) => setExamDate(e.target.value)}
+            aria-label={t('englishTraining.exam.dateForClass')}
+            className="rounded-md border border-input bg-background px-3 py-2 font-normal" />
+        </label>
+        <button type="button" onClick={() => batch.mutate(toSave.map((r) => ({ enrollmentId: r.id, levelCode: selections[r.id], examDate })))}
+          disabled={!canSaveAll}
+          className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground disabled:opacity-50">
+          {t('englishTraining.exam.saveAll', { count: toSave.length })}
+        </button>
+      </div>
+
+      {roster.length
+        ? (
+          <div className="overflow-x-auto rounded-lg border border-border bg-card">
+            <table className="w-full text-sm">
+              <thead className="border-b border-border bg-muted/50 text-left"><tr>
+                {['employee', 'absences', 'eligibility', 'level', 'actions'].map((c) => (
+                  <th key={c} className="px-4 py-3 font-medium">{t(`englishTraining.exam.col.${c}`)}</th>
+                ))}
+              </tr></thead>
+              <tbody>{roster.map((learner) => (
+                <LevelRow key={learner.id} learner={learner} levels={levels}
+                  value={selections[learner.id] || ''}
+                  onChange={(code) => setSelections((s) => ({ ...s, [learner.id]: code }))} t={t} />
+              ))}</tbody>
+            </table>
+          </div>
+        )
+        : <EmptyState title={t('englishTraining.empty')} />}
+    </>
+  );
+}
+
 // Master-detail: selecting a run swaps the (long) worklist for this roster so HR
-// does not have to scroll past it. One shared exam date applies to the whole class.
+// does not have to scroll past it.
 function RunRoster({ runId, levels, onBack, t }) {
   const run = useEnglishCourseRun(runId);
-  const [examDate, setExamDate] = useState('');
-
   return (
     <section className="space-y-3" aria-label={t('englishTraining.exam.roster')}>
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -66,35 +112,9 @@ function RunRoster({ runId, levels, onBack, t }) {
           {t('englishTraining.exam.back')}
         </button>
       </div>
-
       {run.isLoading && <div className="flex justify-center py-8"><Spinner size={24} label={t('englishTraining.loading')} /></div>}
       {run.isError && <EmptyState title={t('englishTraining.loadError')} />}
-      {run.data && (
-        <>
-          <label className="flex flex-col gap-1 text-sm font-medium sm:max-w-xs">
-            <span>{t('englishTraining.exam.dateForClass')}</span>
-            <input type="date" value={examDate} onChange={(e) => setExamDate(e.target.value)}
-              aria-label={t('englishTraining.exam.dateForClass')}
-              className="rounded-md border border-input bg-background px-3 py-2 font-normal" />
-          </label>
-          {(run.data.roster || []).length
-            ? (
-              <div className="overflow-x-auto rounded-lg border border-border bg-card">
-                <table className="w-full text-sm">
-                  <thead className="border-b border-border bg-muted/50 text-left"><tr>
-                    {['employee', 'absences', 'eligibility', 'level', 'actions'].map((c) => (
-                      <th key={c} className="px-4 py-3 font-medium">{t(`englishTraining.exam.col.${c}`)}</th>
-                    ))}
-                  </tr></thead>
-                  <tbody>{run.data.roster.map((learner) => (
-                    <LevelEntryRow key={learner.id} learner={learner} levels={levels} examDate={examDate} t={t} />
-                  ))}</tbody>
-                </table>
-              </div>
-            )
-            : <EmptyState title={t('englishTraining.empty')} />}
-        </>
-      )}
+      {run.data && <RunRosterLoaded key={runId} data={run.data} levels={levels} t={t} />}
     </section>
   );
 }
@@ -132,7 +152,7 @@ export default function EvaluationView({ t }) {
                 <tr key={row.courseRunId} className="border-b border-border last:border-0">
                   <td className="px-4 py-3 text-foreground">{row.classCode}</td>
                   <td className="px-4 py-3 text-foreground">{row.courseName}</td>
-                  <td className="px-4 py-3 text-foreground">{row.endDate ? String(row.endDate).slice(0, 10) : '—'}</td>
+                  <td className="px-4 py-3 text-foreground">{dateOnly(row.endDate) || '—'}</td>
                   <td className="px-4 py-3 text-foreground">{row.pendingCount}</td>
                   <td className="px-4 py-3">
                     <button type="button" onClick={() => setSelectedRun(row.courseRunId)}
