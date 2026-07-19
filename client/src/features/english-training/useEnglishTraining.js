@@ -6,6 +6,7 @@ import { qk } from '../../hooks/queryKeys';
 
 const data = (request) => request.then((response) => response.data.data);
 
+export const useEnglishOverview = () => useQuery({ queryKey: qk.englishTraining.overview, queryFn: () => data(englishTrainingAPI.getOverview()) });
 export const useEnglishCohorts = () => useQuery({ queryKey: qk.englishTraining.cohorts, queryFn: () => data(englishTrainingAPI.getCohorts()) });
 export const useEnglishCourses = () => useQuery({ queryKey: qk.englishTraining.courses, queryFn: () => data(englishTrainingAPI.getCourses()) });
 export const useEnglishEmployees = (params) => useQuery({ queryKey: qk.englishTraining.employees(params), queryFn: () => data(englishTrainingAPI.getEmployees(params)) });

@@ -63,6 +63,12 @@ tables whose row-meanings match the English model.
   through a controlled correction overlay; raw workbook rows remain immutable.
 - **UC-4 (Admin/Coordinator — attendance review):** search sessions, inspect a
   session roster, and review absence eligibility without editing source history.
+- **UC-6 (HR/Admin — overview landing):** the section opens on a task-oriented
+  **Overview** (not a raw table): headline counts (cohorts, employees, courses,
+  runs) plus two actionable **"needs attention"** cards — learners awaiting an
+  exam level (→ Evaluation) and open data-quality issues (→ Issues) — served by a
+  single `GET /overview` count query. Status columns across the tables render as
+  colored badges.
 - **UC-5 (HR/Admin — record exam level):** from a completed Course Run's roster,
   record (or clear) each eligible learner's exam level, using one **shared exam
   date for the whole class** (defaulted to the run's end date). Selecting a run
@@ -256,6 +262,9 @@ soft-deletes it (history retained). Every write is audited.
 - **AC-6:** Migration 038 constrains session and attendance grain; Phase-2 reads
   are Admin/Coordinator + `report.read`, the UI exposes Sessions and Eligibility,
   and the real workbook reconciles without silent loss.
+- **AC-8:** `GET /overview` returns headline counts in one round-trip; the UI
+  opens on the Overview with actionable needs-attention cards that navigate to
+  Evaluation / Issues, and table status columns render as colored badges.
 - **AC-7:** Migration 039 seeds 13 levels + one-active-result-per-enrollment
   (partial-unique, soft-delete); exam-result write is `enrollment.manage` +
   Admin/Coordinator, enforces the ≤2-absence + participating-status gate

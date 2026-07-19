@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from 'vitest';
 import EnglishTrainingPage from '../EnglishTrainingPage';
 
 vi.mock('../useEnglishTraining', () => ({
+  useEnglishOverview: () => ({ data: { cohortsTotal: 52, cohortsActive: 52, employeesTotal: 308, employeesActive: 292, coursesTotal: 6, runsTotal: 91, runsCompleted: 80, openDqIssues: 182, pendingExamRuns: 71, pendingExamLearners: 349 } }),
   useEnglishCohorts: () => ({ data: [{ id: 'co1', classCode: 'A1', status: 'active', activeMembers: 12, runs: 2 }] }),
   useEnglishCourses: () => ({ data: [{ id: 'c1', courseCode: 'FOUNDATION', courseName: 'Foundation', expectedUnits: 20, maxAbsencesAllowed: 2, runs: 4 }] }),
   useEnglishEmployees: () => ({ data: [{ id: 'e1', empCode: '000123', fullName: 'Alex Nguyen', email: 'alex@example.com', employmentStatus: 'active' }] }),
@@ -22,8 +23,14 @@ vi.mock('../useEnglishTraining', () => ({
 }));
 
 describe('EnglishTrainingPage', () => {
-  it('shows imported cohorts and switches to the searchable employee view', () => {
+  it('opens on an overview and switches to the cohort/course/employee views', () => {
     render(<EnglishTrainingPage />);
+    // Default landing is the task-oriented overview, not a raw table.
+    expect(screen.getByText('Needs attention')).toBeInTheDocument();
+    expect(screen.getByText('349')).toBeInTheDocument();  // learners awaiting a level
+    expect(screen.getByText('182')).toBeInTheDocument();  // open DQ issues
+
+    fireEvent.click(screen.getByRole('tab', { name: 'Cohorts' }));
     expect(screen.getByText('A1')).toBeInTheDocument();
     expect(screen.getByText('12')).toBeInTheDocument();
 
@@ -34,7 +41,7 @@ describe('EnglishTrainingPage', () => {
     fireEvent.click(screen.getByRole('tab', { name: 'Employees' }));
     expect(screen.getByText('000123')).toBeInTheDocument();
     expect(screen.getByText('Alex Nguyen')).toBeInTheDocument();
-    expect(screen.getByText('active')).toBeInTheDocument();
+    expect(screen.getByText('Active')).toBeInTheDocument();  // employmentStatus rendered as a badge
     expect(screen.getByRole('textbox', { name: 'Search by employee code or name' })).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('tab', { name: 'Data-quality issues' }));
@@ -54,6 +61,14 @@ describe('EnglishTrainingPage', () => {
     expect(screen.getByRole('button', { name: 'Save correction' })).toBeDisabled();
   });
 
+  it('overview "needs attention" cards jump to the relevant tab', () => {
+    render(<EnglishTrainingPage />);
+    // The open-issues card is an actionable button that navigates to Issues.
+    fireEvent.click(screen.getByRole('button', { name: /Review issues/ }));
+    expect(screen.getByText('missing_bu')).toBeInTheDocument();
+    expect(screen.getByText('Select an issue to inspect affected records.')).toBeInTheDocument();
+  });
+
   it('shows imported sessions, attendance roster, and eligibility', () => {
     render(<EnglishTrainingPage />);
     fireEvent.click(screen.getByRole('tab', { name: 'Sessions' }));
@@ -63,7 +78,7 @@ describe('EnglishTrainingPage', () => {
     expect(screen.getByText('present')).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('tab', { name: 'Eligibility' }));
-    expect(screen.getByText('within_limit')).toBeInTheDocument();
+    expect(screen.getByText('Within limit')).toBeInTheDocument();  // eligibilityStatus badge
     expect(screen.getByRole('textbox', { name: 'Search by employee, class, or course' })).toBeInTheDocument();
   });
 });

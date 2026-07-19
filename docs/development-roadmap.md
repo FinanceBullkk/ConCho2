@@ -166,6 +166,16 @@ Bug fixing and integration review rank above net-new feature rollout.
 > [`2026-q3.md`](changelog-archive/2026-q3.md); 06-20→06-27 rolled 2026-07-07;
 > 06-14→06-19 rolled 2026-07-04 → [`2026-q2.md`](changelog-archive/2026-q2.md)).
 
+- **2026-07-19** — **English Training · UX redesign round 1 — task-oriented overview (owner feedback).**
+  Owner: the section "felt like a raw database, not usable." First redesign slice
+  for the HR/ops user: the section now opens on a **task-oriented Overview** —
+  headline counts + two actionable **"needs attention"** cards (349 learners
+  awaiting a level → Evaluation · 182 open DQ issues → Issues) backed by a single
+  `GET /overview` count query — instead of dropping into a raw cohorts table.
+  Status columns across the tables render as **colored badges** (`eng-status-badge`).
+  Client 535/535 + server 44 + lint 0 errors + real-PG overview smoke
+  (52 cohorts, 308 employees, 91 runs/80 completed, 349 pending, 182 DQ). Next
+  slice (proposed): cohort-centric detail page. Client-only + one read endpoint.
 - **2026-07-19** — **English Training · Phase 3 evaluation UX polish (owner feedback).**
   Two entry-friction fixes on the just-shipped Evaluation tab: the shared class
   exam date now **defaults to the course run's end date**, and a single **"Save

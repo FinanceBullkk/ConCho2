@@ -6,7 +6,8 @@ const batchMock = vi.fn();
 const deleteMock = vi.fn();
 
 vi.mock('../useEnglishTraining', () => ({
-  // page hooks (unused on the evaluation tab, kept minimal)
+  // page hooks (overview renders first as the default tab, then we switch)
+  useEnglishOverview: () => ({ data: { cohortsTotal: 0, cohortsActive: 0, employeesTotal: 0, employeesActive: 0, coursesTotal: 0, runsTotal: 0, runsCompleted: 0, openDqIssues: 0, pendingExamRuns: 71, pendingExamLearners: 349 } }),
   useEnglishCohorts: () => ({ data: [] }),
   useEnglishCourses: () => ({ data: [] }),
   useEnglishEmployees: () => ({ data: [] }),

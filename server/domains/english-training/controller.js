@@ -11,6 +11,11 @@ const auditService = require('../../services/auditService');
 
 const notFound = (res, msg) => res.status(404).json({ success: false, message: msg });
 
+const getOverview = async (req, res) => {
+  try { res.json({ success: true, data: dto.overview(await reads.getOverview()) }); }
+  catch (e) { handleError(res, e); }
+};
+
 const listCohorts = async (req, res) => {
   try { res.json({ success: true, data: dto.cohortList(await reads.listCohorts()) }); }
   catch (e) { handleError(res, e); }
@@ -153,6 +158,7 @@ const deleteExamResult = async (req, res) => {
 };
 
 module.exports = {
+  getOverview,
   listCohorts, getCohort, listCourses, getCourseRun, listEmployees, getEmployee,
   listSessions, getSessionAttendance, listEligibility,
   listIssues, listIssueDetails,

@@ -21,6 +21,7 @@ router.use(protect);
 router.use(roleGuard('Admin', 'Coordinator'));
 router.use(requireCapability('report.read'));
 
+router.get('/overview', controller.getOverview);
 router.get('/cohorts', controller.listCohorts);
 router.get('/cohorts/:id', validate({ params: idParams }), controller.getCohort);
 router.get('/courses', controller.listCourses);

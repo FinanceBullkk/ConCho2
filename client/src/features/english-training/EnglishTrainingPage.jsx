@@ -9,8 +9,14 @@ import {
   useEnglishIssues, useEnglishIssueDetails, useCorrectEnglishEmployee,
 } from './useEnglishTraining';
 import EvaluationView from './EvaluationView';
+import OverviewPanel from './OverviewPanel';
+import { EngBadge } from './eng-status-badge';
 
-const tabs = ['cohorts', 'courses', 'employees', 'sessions', 'eligibility', 'evaluation', 'issues'];
+const tabs = ['overview', 'cohorts', 'courses', 'employees', 'sessions', 'eligibility', 'evaluation', 'issues'];
+
+// Status columns get a colored pill instead of raw text so the tables read at a glance.
+const BADGE_KEYS = new Set(['status', 'employmentStatus', 'eligibilityStatus', 'enrollmentStatus']);
+const badgeCell = (row, key) => (BADGE_KEYS.has(key) ? <EngBadge status={row[key]} /> : (row[key] ?? '—'));
 const definitions = {
   cohorts: [['classCode', 'classCode'], ['status', 'status'], ['activeMembers', 'activeMembers'], ['runs', 'runs']],
   courses: [['courseCode', 'courseCode'], ['courseName', 'courseName'], ['expectedUnits', 'expectedUnits'], ['maxAbsencesAllowed', 'maxAbsences'], ['runs', 'runs']],
@@ -198,7 +204,7 @@ function IssuesView({ rows, selected, onSelect, details, t }) {
 
 export default function EnglishTrainingPage() {
   const { t } = useTranslation();
-  const [active, setActive] = useState('cohorts');
+  const [active, setActive] = useState('overview');
   const [search, setSearch] = useState('');
   const [selectedIssue, setSelectedIssue] = useState(null);
   const [selectedSession, setSelectedSession] = useState(null);
@@ -220,7 +226,9 @@ export default function EnglishTrainingPage() {
           {t(`englishTraining.${tab}`)}
         </button>
       ))}</div>
-      {active === 'evaluation' ? (
+      {active === 'overview' ? (
+        <OverviewPanel t={t} onNavigate={setActive} />
+      ) : active === 'evaluation' ? (
         <EvaluationView t={t} />
       ) : (
         <>
@@ -235,10 +243,10 @@ export default function EnglishTrainingPage() {
             <SessionsView rows={current.data} selected={selectedSession} onSelect={setSelectedSession} detail={sessionAttendance} t={t} />
           )}
           {!current.isLoading && !current.isError && active === 'eligibility' && (
-            <DataTable rows={current.data.map((row) => ({ ...row, employee: `${row.employeeCode} · ${row.employeeName}` }))} columns={definitions.eligibility} t={t} />
+            <DataTable rows={current.data.map((row) => ({ ...row, employee: `${row.employeeCode} · ${row.employeeName}` }))} columns={definitions.eligibility} t={t} renderCell={badgeCell} />
           )}
           {!current.isLoading && !current.isError && !['issues', 'sessions', 'eligibility'].includes(active) && (
-            <DataTable rows={current.data} columns={definitions[active]} t={t} />
+            <DataTable rows={current.data} columns={definitions[active]} t={t} renderCell={badgeCell} />
           )}
         </>
       )}

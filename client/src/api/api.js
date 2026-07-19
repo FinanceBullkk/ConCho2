@@ -383,6 +383,7 @@ export const complianceAPI = {
 
 // English-training canonical workbook data (Phase 1 operations view + targeted corrections).
 export const englishTrainingAPI = {
+  getOverview: () => api.get('/english-training/overview'),
   getCohorts: () => api.get('/english-training/cohorts'),
   getCourses: () => api.get('/english-training/courses'),
   getEmployees: (params) => api.get('/english-training/employees', { params }),

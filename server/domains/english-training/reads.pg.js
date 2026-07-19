@@ -222,6 +222,37 @@ async function listDataQualityIssueDetails(code) {
   return rows;
 }
 
+// ── Overview (HR ops landing) ───────────────────────────────────────────────
+
+// One round-trip of headline counts for the overview dashboard. `pending`
+// mirrors listPendingExamEntries (completed runs, eligible-to-sit, no level yet)
+// so the "needs level" card and the Evaluation tab always agree.
+async function getOverview() {
+  const { rows } = await query(`
+    WITH pending AS (
+      SELECT r.id AS run_id, count(*)::int AS c
+      FROM eng_run_enrollments en
+      JOIN eng_course_runs r ON r.id = en.course_run_id
+      LEFT JOIN eng_exam_results xr ON xr.run_enrollment_id = en.id AND xr.is_deleted = false
+      WHERE r.status = 'completed' AND en.status IN ('active','completed') AND xr.id IS NULL
+        AND (SELECT count(*) FROM eng_attendance_records ar
+               WHERE ar.run_enrollment_id = en.id AND ar.status = 'absent') <= 2
+      GROUP BY r.id
+    )
+    SELECT
+      (SELECT count(*)::int FROM eng_cohorts) AS cohorts_total,
+      (SELECT count(*)::int FROM eng_cohorts WHERE status = 'active') AS cohorts_active,
+      (SELECT count(*)::int FROM eng_employees) AS employees_total,
+      (SELECT count(*)::int FROM eng_employees WHERE employment_status = 'active') AS employees_active,
+      (SELECT count(*)::int FROM eng_courses) AS courses_total,
+      (SELECT count(*)::int FROM eng_course_runs) AS runs_total,
+      (SELECT count(*)::int FROM eng_course_runs WHERE status = 'completed') AS runs_completed,
+      (SELECT count(*)::int FROM eng_data_quality_issues WHERE status = 'open') AS open_dq_issues,
+      (SELECT count(*)::int FROM pending) AS pending_exam_runs,
+      (SELECT COALESCE(sum(c),0)::int FROM pending) AS pending_exam_learners`);
+  return rows[0];
+}
+
 // ── Phase 3: evaluation reads ───────────────────────────────────────────────
 
 async function listLevels() {
@@ -254,6 +285,7 @@ async function listPendingExamEntries() {
 }
 
 module.exports = {
+  getOverview,
   listCohorts, getCohort, listCourses, getCourseRun,
   listEmployees, getEmployeeByCode, listSessions, getSessionAttendance, listEligibility,
   listDataQualityIssues, listDataQualityIssueDetails,
