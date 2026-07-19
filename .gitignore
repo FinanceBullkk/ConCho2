@@ -164,3 +164,6 @@ portfolio-handoff/
 # settings.json is shared/committed; settings.local.json is personal and churns
 # every time a new tool permission is approved — keep it out of version control.
 .claude/settings.local.json
+
+# Scratch/working dir for local backups, spreadsheets, ad-hoc scripts — never commit.
+.tmp/

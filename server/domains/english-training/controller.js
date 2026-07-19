@@ -11,6 +11,11 @@ const auditService = require('../../services/auditService');
 
 const notFound = (res, msg) => res.status(404).json({ success: false, message: msg });
 
+const getOverview = async (req, res) => {
+  try { res.json({ success: true, data: dto.overview(await reads.getOverview()) }); }
+  catch (e) { handleError(res, e); }
+};
+
 const listCohorts = async (req, res) => {
   try { res.json({ success: true, data: dto.cohortList(await reads.listCohorts()) }); }
   catch (e) { handleError(res, e); }
@@ -21,6 +26,14 @@ const getCohort = async (req, res) => {
     const data = await reads.getCohort(req.params.id);
     if (!data) return notFound(res, 'Cohort not found');
     res.json({ success: true, data: dto.cohortDetail(data) });
+  } catch (e) { handleError(res, e); }
+};
+
+const getClassDetail = async (req, res) => {
+  try {
+    const data = await reads.getClassDetail(req.params.id);
+    if (!data) return notFound(res, 'Cohort not found');
+    res.json({ success: true, data: dto.classDetail(data) });
   } catch (e) { handleError(res, e); }
 };
 
@@ -153,7 +166,8 @@ const deleteExamResult = async (req, res) => {
 };
 
 module.exports = {
-  listCohorts, getCohort, listCourses, getCourseRun, listEmployees, getEmployee,
+  getOverview,
+  listCohorts, getCohort, getClassDetail, listCourses, getCourseRun, listEmployees, getEmployee,
   listSessions, getSessionAttendance, listEligibility,
   listIssues, listIssueDetails,
   correctEmployee,

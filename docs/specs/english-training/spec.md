@@ -63,6 +63,12 @@ tables whose row-meanings match the English model.
   through a controlled correction overlay; raw workbook rows remain immutable.
 - **UC-4 (Admin/Coordinator — attendance review):** search sessions, inspect a
   session roster, and review absence eligibility without editing source history.
+- **UC-6 (HR/Admin — overview landing):** the section opens on a task-oriented
+  **Overview** (not a raw table): headline counts (cohorts, employees, courses,
+  runs) plus two actionable **"needs attention"** cards — learners awaiting an
+  exam level (→ Evaluation) and open data-quality issues (→ Issues) — served by a
+  single `GET /overview` count query. Status columns across the tables render as
+  colored badges.
 - **UC-5 (HR/Admin — record exam level):** from a completed Course Run's roster,
   record (or clear) each eligible learner's exam level, using one **shared exam
   date for the whole class** (defaulted to the run's end date). Selecting a run
@@ -207,6 +213,29 @@ and MUST NOT fabricate a mark for an enrolled learner without source evidence.
 Eligibility MUST count canonical absences against
 `max_absences_allowed_snapshot`; zero marks are `unknown`, an exceeded threshold
 is `not_eligible`, and incomplete active runs within the limit are `within_limit`.
+The eligibility CASE is a single shared SQL fragment (`ELIGIBILITY_STATUS_SQL`),
+reused by both the Eligibility list and the class-detail read so they cannot
+disagree.
+
+### Requirement: A class opens as a read-only 360° [UC-2, BR-5]
+
+Opening one class MUST surface, in a single read
+(`GET /api/english-training/cohorts/:id/detail`), the class header plus each of
+its course runs, and for every learner in a run the attendance summary (absences
+used / allowed), the exam-eligibility projection, and the recorded level — so the
+operator sees a class without hopping tabs. The view is read-only; entry paths
+(exam level, employee correction) stay on their existing tabs.
+
+#### Scenario: class detail groups learners under their runs
+- **GIVEN** a cohort with course runs and enrolled learners
+- **WHEN** Admin/Coordinator opens the class from the Classes list
+- **THEN** each course run lists its learners with absences/allowed, an
+  eligibility badge (same projection as the Eligibility tab), and level; a run
+  with no enrollments renders an empty roster.
+
+#### Scenario: unknown class id
+- **WHEN** the detail is requested for a non-existent cohort id
+- **THEN** the request is rejected with **404**.
 
 ### Requirement: Exam result records a level, gated by attendance [BR-6, UC-5]
 
@@ -256,6 +285,9 @@ soft-deletes it (history retained). Every write is audited.
 - **AC-6:** Migration 038 constrains session and attendance grain; Phase-2 reads
   are Admin/Coordinator + `report.read`, the UI exposes Sessions and Eligibility,
   and the real workbook reconciles without silent loss.
+- **AC-8:** `GET /overview` returns headline counts in one round-trip; the UI
+  opens on the Overview with actionable needs-attention cards that navigate to
+  Evaluation / Issues, and table status columns render as colored badges.
 - **AC-7:** Migration 039 seeds 13 levels + one-active-result-per-enrollment
   (partial-unique, soft-delete); exam-result write is `enrollment.manage` +
   Admin/Coordinator, enforces the ≤2-absence + participating-status gate

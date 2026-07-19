@@ -5,6 +5,17 @@
 const { query } = require('../../config/pg');
 const one = (rows) => rows[0] || null;
 
+// Exam-eligibility projection — shared by the Eligibility tab and the class
+// detail 360° so both always agree. Aliases used: en (run enrollment), ar
+// (attendance record), r (course run). Requires a GROUP BY on the enrollment.
+const ELIGIBILITY_STATUS_SQL = `CASE
+        WHEN en.status IN ('waiting','dropped','transferred','cancelled') THEN 'not_applicable'
+        WHEN count(ar.id) = 0 THEN 'unknown'
+        WHEN count(ar.id) FILTER (WHERE ar.status = 'absent') > r.max_absences_allowed_snapshot THEN 'not_eligible'
+        WHEN r.status = 'completed' AND en.status = 'completed' THEN 'eligible'
+        ELSE 'within_limit'
+      END`;
+
 async function listCohorts() {
   const { rows } = await query(`
     SELECT co.id, co.class_code, co.display_name, co.status,
@@ -32,6 +43,41 @@ async function getCohort(id) {
     FROM eng_cohort_pic p LEFT JOIN eng_employees e ON e.id = p.pic_employee_id
     WHERE p.cohort_id = $1`, [id])).rows;
   return { cohort, members, runs, pics };
+}
+
+// Class 360° — one round-trip so a class opens with everything HR needs in one
+// place: header, its course runs, and per learner the attendance summary
+// (absences / allowed), exam eligibility (same projection as the Eligibility
+// tab), and level. Read-only. Rosters are grouped onto their run in the DTO.
+async function getClassDetail(id) {
+  const cohort = one((await query(
+    'SELECT id, class_code, display_name, status FROM eng_cohorts WHERE id = $1', [id],
+  )).rows);
+  if (!cohort) return null;
+  const runs = (await query(`
+    SELECT r.id, r.run_number, r.status, r.start_date, r.end_date,
+      r.max_absences_allowed_snapshot AS max_absences_allowed,
+      c.course_code, c.course_name
+    FROM eng_course_runs r JOIN eng_courses c ON c.id = r.course_id
+    WHERE r.cohort_id = $1 ORDER BY c.course_name, r.run_number`, [id])).rows;
+  const roster = (await query(`
+    SELECT en.id AS enrollment_id, en.course_run_id, en.status AS enrollment_status,
+      e.emp_code, e.full_name,
+      r.max_absences_allowed_snapshot AS allowed_absences,
+      count(ar.id) FILTER (WHERE ar.status = 'present')::int AS present_count,
+      count(ar.id) FILTER (WHERE ar.status = 'absent')::int AS absence_count,
+      xr.level_code AS exam_level_code, lv.display_name AS exam_level_name, xr.exam_date,
+      ${ELIGIBILITY_STATUS_SQL} AS eligibility_status
+    FROM eng_run_enrollments en
+    JOIN eng_course_runs r ON r.id = en.course_run_id
+    JOIN eng_employees e ON e.id = en.employee_id
+    LEFT JOIN eng_attendance_records ar ON ar.run_enrollment_id = en.id
+    LEFT JOIN eng_exam_results xr ON xr.run_enrollment_id = en.id AND xr.is_deleted = false
+    LEFT JOIN eng_levels lv ON lv.code = xr.level_code
+    WHERE r.cohort_id = $1
+    GROUP BY en.id, e.id, r.id, xr.id, lv.code
+    ORDER BY e.full_name`, [id])).rows;
+  return { cohort, runs, roster };
 }
 
 async function listCourses() {
@@ -159,13 +205,7 @@ async function listEligibility({ q, limit = 100, offset = 0 } = {}) {
       count(ar.id) FILTER (WHERE ar.status = 'present')::int AS present_count,
       count(ar.id) FILTER (WHERE ar.status = 'absent')::int AS absence_count,
       xr.level_code AS exam_level_code, lv.display_name AS exam_level_name, xr.exam_date,
-      CASE
-        WHEN en.status IN ('waiting','dropped','transferred','cancelled') THEN 'not_applicable'
-        WHEN count(ar.id) = 0 THEN 'unknown'
-        WHEN count(ar.id) FILTER (WHERE ar.status = 'absent') > r.max_absences_allowed_snapshot THEN 'not_eligible'
-        WHEN r.status = 'completed' AND en.status = 'completed' THEN 'eligible'
-        ELSE 'within_limit'
-      END AS eligibility_status
+      ${ELIGIBILITY_STATUS_SQL} AS eligibility_status
     FROM eng_run_enrollments en
     JOIN eng_employees e ON e.id = en.employee_id
     JOIN eng_course_runs r ON r.id = en.course_run_id
@@ -222,6 +262,37 @@ async function listDataQualityIssueDetails(code) {
   return rows;
 }
 
+// ── Overview (HR ops landing) ───────────────────────────────────────────────
+
+// One round-trip of headline counts for the overview dashboard. `pending`
+// mirrors listPendingExamEntries (completed runs, eligible-to-sit, no level yet)
+// so the "needs level" card and the Evaluation tab always agree.
+async function getOverview() {
+  const { rows } = await query(`
+    WITH pending AS (
+      SELECT r.id AS run_id, count(*)::int AS c
+      FROM eng_run_enrollments en
+      JOIN eng_course_runs r ON r.id = en.course_run_id
+      LEFT JOIN eng_exam_results xr ON xr.run_enrollment_id = en.id AND xr.is_deleted = false
+      WHERE r.status = 'completed' AND en.status IN ('active','completed') AND xr.id IS NULL
+        AND (SELECT count(*) FROM eng_attendance_records ar
+               WHERE ar.run_enrollment_id = en.id AND ar.status = 'absent') <= 2
+      GROUP BY r.id
+    )
+    SELECT
+      (SELECT count(*)::int FROM eng_cohorts) AS cohorts_total,
+      (SELECT count(*)::int FROM eng_cohorts WHERE status = 'active') AS cohorts_active,
+      (SELECT count(*)::int FROM eng_employees) AS employees_total,
+      (SELECT count(*)::int FROM eng_employees WHERE employment_status = 'active') AS employees_active,
+      (SELECT count(*)::int FROM eng_courses) AS courses_total,
+      (SELECT count(*)::int FROM eng_course_runs) AS runs_total,
+      (SELECT count(*)::int FROM eng_course_runs WHERE status = 'completed') AS runs_completed,
+      (SELECT count(*)::int FROM eng_data_quality_issues WHERE status = 'open') AS open_dq_issues,
+      (SELECT count(*)::int FROM pending) AS pending_exam_runs,
+      (SELECT COALESCE(sum(c),0)::int FROM pending) AS pending_exam_learners`);
+  return rows[0];
+}
+
 // ── Phase 3: evaluation reads ───────────────────────────────────────────────
 
 async function listLevels() {
@@ -254,7 +325,8 @@ async function listPendingExamEntries() {
 }
 
 module.exports = {
-  listCohorts, getCohort, listCourses, getCourseRun,
+  getOverview,
+  listCohorts, getCohort, getClassDetail, listCourses, getCourseRun,
   listEmployees, getEmployeeByCode, listSessions, getSessionAttendance, listEligibility,
   listDataQualityIssues, listDataQualityIssueDetails,
   listLevels, listPendingExamEntries,
