@@ -34,7 +34,7 @@ and add a row below.
 
 ## Registry
 
-36 capabilities, all written (✅). Behavior lives in each linked `spec.md`; this
+37 capabilities, all written (✅). Behavior lives in each linked `spec.md`; this
 table is just the index. Covers every mounted `/api/*` route surface.
 
 | Capability | Status | Owners (source) | Last updated |
@@ -69,6 +69,7 @@ table is just the index. Covers every mounted `/api/*` route surface.
 | [search](search/spec.md) | stable | controllers/searchController, services/searchService | 2026-06-15 |
 | [admin-db-explorer](admin-db-explorer/spec.md) | stable | routes/adminDbRoutes | 2026-06-08 |
 | [org-and-departments](org-and-departments/spec.md) | stable | domains/org, models/Department, models/Office | 2026-06-10 |
+| [english-training](english-training/spec.md) | evolving | domains/english-training (Phase 3: exam result & level entry, ≤2-absence gate; placement/certs still out of scope) | 2026-07-19 |
 
 > Status: **stable** = shipped + enforced · **evolving** = partial / persisted-
 > not-enforced (the spec's "Out of Scope" says which).

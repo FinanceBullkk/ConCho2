@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import CreateSessionModal from '../CreateSessionModal';
@@ -34,9 +34,20 @@ const cohort = { _id: 'c1', cohortCode: 'SE-2026', programName: 'Safety', progra
 
 describe('CreateSessionModal', () => {
   beforeEach(() => {
+    // Freeze the clock so the hardcoded booking date (2026-07-15) stays a valid
+    // future date against the input's min={today}; otherwise this test rots once
+    // real "today" passes that date. Fake only Date (not timers) so userEvent's
+    // internal setTimeout delays keep working. Midday-UTC anchor keeps the local
+    // calendar day = 2026-07-10 in any timezone the suite runs in.
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date('2026-07-10T12:00:00.000Z'));
     book.mockReset();
     book.mockResolvedValue({});
     onClose.mockReset();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
   });
 
   it('submits cohortId + officeId + an exact UTC range built from the picked day/slot', async () => {

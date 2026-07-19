@@ -47,9 +47,10 @@ describe('Sidebar — section-group navigation (Phase 03)', () => {
       '/reports?tab=overview', '/reports?tab=hr-export',
       '/system?tab=settings',
     ].forEach((p) => expect(links).toContain(p));
-    // The English admin group is retired (converge Phase 4): every English admin
-    // surface folded into a unified one — no '/english?tab=*' admin links remain.
-    expect(hrefs(renderSidebar().container).some((h) => h.startsWith('/english'))).toBe(false);
+    // Legacy English admin tabs remain retired. Phase 1 exposes the newly
+    // imported canonical workbook data through one read-only operations page.
+    expect(hrefs(renderSidebar().container)).toContain('/english-training');
+    expect(hrefs(renderSidebar().container).some((h) => h === '/english' || h.startsWith('/english?'))).toBe(false);
   });
 
   it('Teacher: learning (read, no Paths), reports (no Overview), unified calendar attendance + Grading; no People/System', () => {
