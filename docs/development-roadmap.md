@@ -32,7 +32,10 @@ remainder is documented deferred-by-design scope (below), not active debt.
   are now HR-confirmed; **placement test, level promotion, and certificates stay
   out of scope** (certs are HR-external). Plans:
   [`phase-3`](../plans/english-integration-phase-3-evaluation.md) ·
-  [`phase-2`](../plans/english-integration-phase-2-attendance.md).
+  [`phase-2`](../plans/english-integration-phase-2-attendance.md). **UX redesign in
+  progress (owner feedback):** round 1 shipped a task-oriented Overview landing;
+  round 2 (2026-07-19) added a **class 360° detail** — the Classes tab drills into
+  one class showing every learner's attendance/eligibility/level in one place.
 - **Now: Phase 3/4/5 push COMPLETE** (2026-06-13, 7 PRs #80–#86, re-baselined).
   Shipped: bulk cohort enrollment (BE+UI); program-policy enforcement
   (`facilitatorPolicy.assignmentRequired` + `visibility`) + a program-policies
@@ -166,6 +169,27 @@ Bug fixing and integration review rank above net-new feature rollout.
 > [`2026-q3.md`](changelog-archive/2026-q3.md); 06-20→06-27 rolled 2026-07-07;
 > 06-14→06-19 rolled 2026-07-04 → [`2026-q2.md`](changelog-archive/2026-q2.md)).
 
+- **2026-07-19** — **English Training · UX redesign round 2 — class detail 360° (owner proposal #2).**
+  The prior slice's named "next": open one class and see everything in one place
+  instead of hopping tabs. The **Cohorts tab is now "Classes"** — a clickable list
+  that drills into a read-only **class 360°** (in-page master-detail with a Back
+  link): per course run, each learner's **attendance summary** (absences used /
+  allowed), **exam eligibility**, and **level** in one table. One round-trip read
+  `GET /english-training/cohorts/:id/detail` (dto `classDetail`) aggregates the
+  cohort header + runs + rosters; the eligibility projection is **extracted to a
+  shared `ELIGIBILITY_STATUS_SQL`** so the class view and the Eligibility tab
+  can never disagree. Read-only (entry stays on Evaluation/Issues). Client
+  536/536 + server english-training unit/route suites green + lint 0 errors.
+- **2026-07-19** — **English Training · UX redesign round 1 — task-oriented overview (owner feedback).**
+  Owner: the section "felt like a raw database, not usable." First redesign slice
+  for the HR/ops user: the section now opens on a **task-oriented Overview** —
+  headline counts + two actionable **"needs attention"** cards (349 learners
+  awaiting a level → Evaluation · 182 open DQ issues → Issues) backed by a single
+  `GET /overview` count query — instead of dropping into a raw cohorts table.
+  Status columns across the tables render as **colored badges** (`eng-status-badge`).
+  Client 535/535 + server 44 + lint 0 errors + real-PG overview smoke
+  (52 cohorts, 308 employees, 91 runs/80 completed, 349 pending, 182 DQ). Next
+  slice (proposed): cohort-centric detail page. Client-only + one read endpoint.
 - **2026-07-19** — **English Training · Phase 3 evaluation UX polish (owner feedback).**
   Two entry-friction fixes on the just-shipped Evaluation tab: the shared class
   exam date now **defaults to the course run's end date**, and a single **"Save

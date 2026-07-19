@@ -6,7 +6,13 @@ import { qk } from '../../hooks/queryKeys';
 
 const data = (request) => request.then((response) => response.data.data);
 
+export const useEnglishOverview = () => useQuery({ queryKey: qk.englishTraining.overview, queryFn: () => data(englishTrainingAPI.getOverview()) });
 export const useEnglishCohorts = () => useQuery({ queryKey: qk.englishTraining.cohorts, queryFn: () => data(englishTrainingAPI.getCohorts()) });
+export const useEnglishClassDetail = (id) => useQuery({
+  queryKey: qk.englishTraining.classDetail(id),
+  queryFn: () => data(englishTrainingAPI.getClassDetail(id)),
+  enabled: Boolean(id),
+});
 export const useEnglishCourses = () => useQuery({ queryKey: qk.englishTraining.courses, queryFn: () => data(englishTrainingAPI.getCourses()) });
 export const useEnglishEmployees = (params) => useQuery({ queryKey: qk.englishTraining.employees(params), queryFn: () => data(englishTrainingAPI.getEmployees(params)) });
 export const useEnglishSessions = (params) => useQuery({ queryKey: qk.englishTraining.sessions(params), queryFn: () => data(englishTrainingAPI.getSessions(params)) });
