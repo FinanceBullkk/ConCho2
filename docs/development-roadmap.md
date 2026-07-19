@@ -166,6 +166,14 @@ Bug fixing and integration review rank above net-new feature rollout.
 > [`2026-q3.md`](changelog-archive/2026-q3.md); 06-20→06-27 rolled 2026-07-07;
 > 06-14→06-19 rolled 2026-07-04 → [`2026-q2.md`](changelog-archive/2026-q2.md)).
 
+- **2026-07-19** — **English Training · Phase 3 evaluation UX polish (owner feedback).**
+  Two entry-friction fixes on the just-shipped Evaluation tab: the shared class
+  exam date now **defaults to the course run's end date**, and a single **"Save
+  all"** button writes the picked level for every eligible learner in one click
+  (concurrent writes → one summary toast), instead of saving row by row — matters
+  with 349 learners pending across 71 completed runs. Server contract unchanged;
+  client-only (`EvaluationView` + `useRecordExamResultsBatch`). Verified: client
+  534/534 + lint 0 errors + build clean.
 - **2026-07-19** — **English Training integration · Phase 3 (exam result & level / evaluation) — shipped on dev.**
   Owner confirmed the rules: completion = sitting a final exam whose result **is a
   level** (13 ordered levels, no score/fail); **>2 absences ⇒ cannot sit**; HR/Admin
