@@ -1,42 +1,75 @@
-# P4 — Levels & exam on evaluation/assessment
+# P4 — Final English level on instructor-scored Evaluation
 
-**Priority:** Medium (parallel to P2/P3) · **Status:** 🔴 proposed
-**Context:** [plan.md](plan.md) · [fit-gap §8](fit-gap-analysis.md)
+**Priority:** Medium; starts after live attendance · **Status:** 🟢 implemented
+
+**Context:** [plan.md](plan.md) · [fit-gap §10](fit-gap-analysis.md)
 
 ## Objective
 
-Record English exam levels live on the `evaluation`/`assessment` path (already
-partly converged) — 13 ordered levels, one active result per learner, gated by
-the ≤2-absence sit rule — instead of the `eng_exam_results` write path.
+Record one final English level per learner per live course run using the generic
+instructor-scored Evaluation concept. Enforce the snapshotted absence gate before
+write and expose a level-award result through the unified assessment read without
+inventing numeric scores or pass/fail semantics.
 
-## Key changes
+## Result grain and profile
 
-- Levels = a program-scoped ordered scale on the evaluation/assessment path;
-  exam result = one active instructor-scored result per enrollment (soft-delete on
-  clear, audited) — the semantics the archive already has, on the generic model.
-- Sit-gate (≤2 absences over live attendance) enforced server-side before write
-  (mirror the archive rule).
-- Feeds the unified learner read (`GET /api/assessment/results/mine`) so live
-  English levels appear in the same shape as other assessments.
+- Because one generic Cohort is one English course run, the existing Evaluation
+  uniqueness `(classId,userId)` is the required one-result-per-run-and-learner
+  grain. Do not add a competing `enrollmentId`-unique result table.
+- Add an explicit English level-award profile/kind to the Evaluation contract.
+  It stores the selected level code/display value and optional note/date/actor;
+  clear remains soft-delete and re-record revives/updates the same row.
+- Four-skill rubric fields are not required for this profile and must not be
+  defaulted into a misleading 0% score.
+- Unified result DTO returns a typed level result, e.g.
+  `source=evaluation`, `resultKind=english_level`, `level`,
+  `outcome=level_awarded`, `scorePercent=null`, `passed=null`.
 
-## Open question (resolve here)
+## Write policy
 
-Keep the 13-level scale as **program config** (fidelity, less churn — leaning) vs.
-**normalise** onto the generic assessment rubric. Plan open question 1.
+- Resolve Cohort → Program and require `category=english` plus a valid snapshotted
+  English policy.
+- Validate the level code against the Cohort snapshot, not the current Program
+  policy and not the historical `eng_levels` table.
+- Count live generic attendance with the P3 eligibility adapter. A participating
+  enrollment over the allowance receives 422; unknown level receives 400.
+- Admin and authorized English Coordinator may operate the class; an assigned
+  Teacher may enter results for their Cohort. Resource policy blocks unrelated
+  Teachers/Coordinators without granting broad quiz-authoring rights.
 
-## Files
+## Workspace entrypoint
 
-- `domains/assessment` / `evaluation` (level scale + gated result write), reuse the
-  existing Evaluation UI folded into the live English cohort view.
-- Tests: eligible learner gets a level; 3-absence learner blocked (422); unknown
-  level rejected (400); re-record updates in place; clear soft-deletes; audited.
+- Add **Evaluation** to English Operations with a course-run worklist and a
+  roster-first entry flow.
+- Eligible learners can receive a level; ineligible/unmarked learners show the
+  reason and cannot be submitted.
+- Batch “Save all” may reuse the current interaction pattern, but each server
+  result keeps atomic validation/audit semantics and reports partial failures
+  explicitly.
 
-## Dependencies
+## Dependency
 
-P1 (program), P3 (attendance drives the gate).
+P3 is mandatory: the live write gate reads generic attendance. The Program policy
+and Cohort snapshot schema may be prepared in P1, but the mutation and UI do not
+ship before P3.
+
+## Tests
+
+- Eligible learner receives a valid level; re-record updates/revives the same
+  `(class,user)` row; clear soft-deletes and audits.
+- Allowance + 1 absences returns 422; unknown or policy-stale level returns 400;
+  unmarked/incomplete eligibility follows the locked policy.
+- Unified DTO exposes no fabricated numeric score/pass state.
+- Assigned Teacher/Admin/authorized Coordinator succeed; unrelated actor and
+  Participant are denied.
+- A later Program level-scale edit does not invalidate a result allowed by the
+  Cohort snapshot.
 
 ## Success / DoD
 
-- Live English level entry gated + audited; appears in the unified assessment
-  read. Tests + lint green. Spec: `english-training` + `assessment`/`evaluation`
-  MODIFIED.
+- English level entry is live, attendance-gated, audited, soft-deletable, and
+  visible in the unified assessment result shape.
+- `eng_exam_results` receives no live write.
+- Permission denial, policy edge cases, lint, and manual smoke pass.
+- Update `english-training`, `evaluations`, `assessments`, `grading`, and
+  `capability-authz` specs when this phase ships.

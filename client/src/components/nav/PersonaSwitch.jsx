@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { ChevronsUpDown, Check, Settings, GraduationCap } from 'lucide-react';
+import { ChevronsUpDown, Check, Settings, GraduationCap, Languages } from 'lucide-react';
 import { usePersona } from '../../context/PersonaContext';
 import { cn } from '@/lib/utils';
 
@@ -10,11 +10,12 @@ import { cn } from '@/lib/utils';
 // locked to 'learner' (canSwitch=false) → the card renders, but not interactive.
 const PERSONAS = {
   admin: { icon: Settings, hue: 250, labelKey: 'nav.workspace.admin', subKey: 'nav.persona.adminSub', home: '/home' },
+  english: { icon: Languages, hue: 205, labelKey: 'nav.workspace.english', subKey: 'nav.persona.englishSub', home: '/english-operations?tab=overview' },
   learner: { icon: GraduationCap, hue: 155, labelKey: 'nav.workspace.learner', subKey: 'nav.persona.learnerSub', home: '/me/programs' },
 };
 
 export default function PersonaSwitch({ onNavigate }) {
-  const { persona, setPersona, canSwitch } = usePersona();
+  const { persona, setPersona, canSwitch, availablePersonas = Object.keys(PERSONAS) } = usePersona();
   const { t } = useTranslation();
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
@@ -71,7 +72,7 @@ export default function PersonaSwitch({ onNavigate }) {
           <div className="px-2 pb-1 pt-1.5 text-[10px] font-bold uppercase tracking-wider text-subtle-foreground">
             {t('nav.switchWorkspace')}
           </div>
-          {Object.entries(PERSONAS).map(([key, v]) => {
+          {Object.entries(PERSONAS).filter(([key]) => availablePersonas.includes(key)).map(([key, v]) => {
             const VIcon = v.icon;
             return (
               <button

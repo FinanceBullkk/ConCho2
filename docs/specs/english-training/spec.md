@@ -1,6 +1,6 @@
 ---
 capability: english-training
-status: evolving                        # Phase 3: exam result & level (evaluation); placement/certs still out of scope
+status: evolving                        # Live convergence implemented; one-way production archive cutover pending
 owners: [domains/english-training]
 last_updated: 2026-07-19
 related_plans:
@@ -12,14 +12,20 @@ related_code:
   - server/db/pg/migrations/037_english_training_corrections.js
   - server/db/pg/migrations/038_english_training_attendance.js
   - server/db/pg/migrations/039_english_training_evaluation.js
+  - server/db/pg/migrations/040_users_can_login.js
+  - server/db/pg/migrations/041_english_live_learning_fields.js
+  - server/db/pg/migrations/042_english_level_evaluations.js
+  - server/db/pg/migrations/043_english_archive_freeze.js
   - server/domains/english-training/routes.js
   - server/domains/english-training/reads.pg.js
   - server/domains/english-training/evaluation.js
+  - server/domains/english-training/live-operations.js
+  - server/domains/english-training/combined-history.js
   - server/domains/english-training/import/pipeline.js
   - server/scripts/eng-import.js
 ---
 
-# Capability: English Training (Phase 2 — Historical Sessions & Attendance)
+# Capability: English Training — Live Operations + Historical Archive
 
 > **Source of truth for BEHAVIOR.** Describes what the English-training domain
 > does *today*. Business authority for the model is `kyphucclv/ConMeoGauGau`
@@ -27,12 +33,10 @@ related_code:
 
 ## Purpose
 
-Bring the English-class business into ConCho2 as a canonical domain with correct
-entity grain. Phase 1 established identity + learning structure; Phase 2 adds
-lossless historical sessions, attendance, and derived absence eligibility. It
-does NOT collapse ConCho2's existing
-`classes/enrollments/attendances` into English concepts — it adds new `eng_*`
-tables whose row-meanings match the English model.
+Operate English classes through a dedicated **English Operations** workspace on
+the shared User, Program/Cohort, Enrollment, Session, Attendance, and Evaluation
+domains. Imported `eng_*` rows remain historical evidence and become an
+enforceably read-only Archive at the audited cutover boundary.
 
 ## Business Requirements (BR)
 
@@ -50,6 +54,13 @@ tables whose row-meanings match the English model.
   level** (one of 13 ordered levels; no numeric score, no fail state). A learner
   with **more than 2 absences cannot sit** the exam. Certificates are issued by
   HR outside ConCho2 (out of scope).
+- **BR-7:** Workspace separation is presentational; live English data uses the
+  generic training spine and its authorization/audit controls.
+- **BR-8:** Learners may be login-disabled managed Users, keyed by `empCode`.
+- **BR-9:** Live eligibility uses the course-run Cohort's immutable English
+  policy snapshot and treats pre-join sessions as not applicable.
+- **BR-10:** Archive and live reporting meet at one immutable cutover timestamp
+  without double-counting a natural event.
 
 ## Actors & Use Cases (UC)
 
@@ -77,6 +88,12 @@ tables whose row-meanings match the English model.
   every eligible learner at once. The worklist surfaces completed runs still
   missing levels. The ≤2-absence gate is enforced server-side; ineligible
   learners cannot be recorded.
+- **UC-7 (Admin/Coordinator — live operations):** manage learners, English
+  Programs/course-run Cohorts, direct enrollments, and Office/Room sessions.
+- **UC-8 (Assigned Teacher):** read assigned runs/sessions, mark shared-domain
+  attendance, and record eligible learners' categorical final levels.
+- **UC-9 (Admin/Coordinator — archive):** inspect historical imported records
+  without mutation affordances; Admin performs the explicit audited cutover.
 
 ## Entities
 
@@ -110,6 +127,14 @@ Canonical `eng_*` tables (migration 036). One row means:
   result per run enrollment — `run_enrollment_id` partial-unique WHERE
   `is_deleted=false`; soft-delete keeps history; `level_code` FK, `exam_date`,
   `entered_by`).
+- Live support (migrations 040–042): `users.can_login`; Program
+  `english_policy`; Cohort `english_group_code` + immutable policy snapshot/run
+  context; Enrollment `start_session_number`; typed `Evaluation` result kind
+  `english_level` with nullable rubric scores.
+- Cutover support (migration 043): singleton `english_archive_control` and
+  conditional database triggers on every `eng_*` and `raw_eng_workbook_rows`
+  table; a control-row trigger also prevents unfreezing or rewriting the
+  recorded cutover evidence.
 
 ## Functional Requirements (FR)
 
@@ -265,6 +290,43 @@ soft-deletes it (history retained). Every write is audited.
 - **WHEN** HR/Admin opens the evaluation view
 - **THEN** the run appears in the pending worklist with a count of missing levels.
 
+### Requirement: English Operations composes shared live domains [BR-7, UC-7, UC-8]
+
+The third client workspace SHALL expose Overview, Learners, Classes, Schedule,
+Attendance, Evaluation, and Archive. Admin/Coordinator manage structure;
+assigned Teachers see only their live runs and may mark/evaluate; Participants
+cannot enter. Live writes SHALL go to generic domain routes/tables, never
+`eng_*`.
+
+### Requirement: Managed users cannot authenticate [BR-8]
+
+Provisioning SHALL link an existing active User by `empCode` unchanged or create
+a Participant User with `canLogin=false`, no password, and optional email. Login,
+MFA, reset, and existing-token middleware SHALL fail closed for that record.
+
+### Requirement: Live final level follows attendance policy [BR-9, UC-8]
+
+The course-run Cohort SHALL snapshot an English policy with allowance, counted
+statuses, and 13 levels. A Completed run is `eligible` only when every applicable
+session is marked and absences are within allowance. Final level is a categorical
+Evaluation with no fabricated numeric score or pass result.
+
+### Requirement: Archive cutover is explicit and enforceable [BR-10, UC-9]
+
+Admin SHALL submit explicit confirmation and a reason to freeze the archive.
+The mutation records an immutable `cutoverAt` and audit event. Application guards
+reject corrections, legacy exam writes, provisioning, and imports before opening
+a transaction; PostgreSQL triggers reject all archive writes as the race/backdoor
+guard. There is no normal unfreeze endpoint. Reads remain available in a visibly
+read-only workspace panel; the importer remains usable only while the target
+archive is unfrozen (for staging/disposable reconstruction).
+
+### Requirement: Combined history has one temporal boundary [BR-10]
+
+Archive events are eligible strictly before `cutoverAt`; live events are eligible
+at/after it. Rows carry source/cutover metadata and deduplicate on their natural
+key, preferring live authority for a cross-source duplicate.
+
 ## Non-Functional Requirements (NFR)
 
 - **NFR-1:** DB constraints enforce the grain (unique emp_code, class_code,
@@ -273,6 +335,8 @@ soft-deletes it (history retained). Every write is audited.
   development enables the module so an imported dev DB is inspectable.
 - **NFR-3:** Import runs against a disposable/prototype DB during development; it is
   never pointed at an unknown database.
+- **NFR-4:** The production cutover is one-way in normal application operation;
+  unlocking requires the documented database DR procedure and a new audit record.
 
 ## Acceptance Criteria (AC)
 
@@ -293,14 +357,19 @@ soft-deletes it (history retained). Every write is audited.
   Admin/Coordinator, enforces the ≤2-absence + participating-status gate
   server-side (422), rejects unknown levels (400), and is audited. The UI exposes
   an Evaluation tab with the "needs level" worklist and per-learner entry.
+- **AC-9:** Migrations 040–042 and English Operations P0–P4 implement managed
+  identity, typed/snapshotted English policy, generic live scheduling/attendance,
+  and categorical level evaluation with strict Teacher binding.
+- **AC-10:** Migration 043, status/cutover APIs, read-only Archive UI, importer
+  guard, and combined-history boundary are implemented. The runtime archive is
+  frozen only after deployment reconciliation and smoke verification.
 
 ## Out of Scope (still "evolving")
 
 Placement test at entry, level promotion/prerequisites across runs, numeric
 scoring / pass-fail / re-sit versioning, certificate issuance (HR external),
-live Teacher attendance entry, separate meetings, make-up credit, transfer
-command, full org-history model, login-account creation, and generic HTTP write
-commands beyond the targeted correction overlay + exam-result entry. The
+separate meetings, make-up credit, transfer command, learner self-service for
+English Operations, and full org-history modeling. The
 **one-active-enrollment** rule is intentionally a **soft/reporting rule** (not a
 DB guard): real data has legitimate concurrent enrollment, flagged via
 `multi_active_enrollment` for review.

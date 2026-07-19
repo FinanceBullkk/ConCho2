@@ -40,6 +40,17 @@ const resetPgDatabase = async () => {
   if (rows.length === 0) return;
   const tables = rows.map((r) => `"${r.tablename}"`).join(', ');
   await query(`TRUNCATE ${tables} RESTART IDENTITY CASCADE`);
+
+  // Migration 043 establishes this singleton as part of the schema invariant.
+  // TRUNCATE removes it, unlike normal application operation, so recreate the
+  // open state after every test reset. Without this, archive status reads look
+  // open but the cutover UPDATE matches no row and cannot actually freeze it.
+  if (rows.some((row) => row.tablename === 'english_archive_control')) {
+    await query(`
+      INSERT INTO english_archive_control(singleton, is_frozen)
+      VALUES (true, false)
+      ON CONFLICT (singleton) DO NOTHING`);
+  }
 };
 
 // ── Active-backend assertion reads ──────────────────────────

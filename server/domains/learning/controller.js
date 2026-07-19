@@ -84,7 +84,7 @@ const archiveProgram = async (req, res) => {
 
 const listCohorts = async (req, res) => {
   try {
-    const data = await useCases.listCohorts(req.query);
+    const data = await useCases.listCohorts(req.query, req.user);
     res.json({ success: true, count: data.length, data });
   } catch (error) {
     handleError(res, error);
@@ -93,7 +93,7 @@ const listCohorts = async (req, res) => {
 
 const getCohort = async (req, res) => {
   try {
-    const data = await useCases.getCohort(req.params.id);
+    const data = await useCases.getCohort(req.params.id, req.user);
     if (!data) return res.status(404).json({ success: false, message: 'Cohort not found' });
     res.json({ success: true, data });
   } catch (error) {

@@ -29,7 +29,39 @@ const examResultBody = z.object({
   note: z.string().trim().max(500).optional(),
 });
 
+const MANAGED_STATUSES = ['Active', 'Inactive', 'Dropped', 'Transferred', 'On-hold', 'Waiting for class'];
+const managedPersonFields = {
+  name: z.string().trim().min(1).max(120),
+  email: z.union([z.string().trim().toLowerCase().email().max(254), z.literal('')]).optional(),
+  department: z.string().trim().max(120).optional(),
+  position: z.string().trim().max(120).optional(),
+  status: z.enum(MANAGED_STATUSES).optional(),
+};
+const managedPersonCreateBody = z.object({
+  empCode: z.string().trim().min(1).max(32).regex(/^[A-Za-z0-9][A-Za-z0-9_-]*$/),
+  ...managedPersonFields,
+});
+const managedPersonUpdateBody = z.object(managedPersonFields).refine(
+  (value) => Object.keys(value).length > 0,
+  { message: 'At least one field is required' },
+);
+
+const liveLevelBody = z.object({
+  userId: z.string().min(1),
+  levelCode: z.string().trim().min(1).max(100).regex(/^[a-z0-9_]+$/),
+  evaluatedAt: z.string().datetime({ offset: true }).optional(),
+  note: z.string().trim().max(500).optional(),
+});
+
+const archiveCutoverBody = z.object({
+  confirm: z.literal(true),
+  reason: z.string().trim().min(10).max(500),
+});
+
 module.exports = {
   idParams, empCodeParams, issueCodeParams, listEmployeesQuery,
   employeeCorrectionBody, examResultBody,
+  managedPersonCreateBody, managedPersonUpdateBody,
+  liveLevelBody,
+  archiveCutoverBody,
 };

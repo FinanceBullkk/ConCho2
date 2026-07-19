@@ -24,13 +24,19 @@ const round2 = (n) => Math.round(n * 100) / 100;
 const evalRow = (r) => (r == null ? null : {
   _id: r.id, classId: r.class_id, userId: r.user_id,
   level: r.level == null ? '' : r.level,
-  grammarScore: Number(r.grammar_score), vocabularyScore: Number(r.vocabulary_score),
-  pronunciationScore: Number(r.pronunciation_score), fluencyScore: Number(r.fluency_score),
+  resultKind: r.result_kind || 'rubric',
+  levelCode: r.level_code || null,
+  grammarScore: r.grammar_score == null ? null : Number(r.grammar_score),
+  vocabularyScore: r.vocabulary_score == null ? null : Number(r.vocabulary_score),
+  pronunciationScore: r.pronunciation_score == null ? null : Number(r.pronunciation_score),
+  fluencyScore: r.fluency_score == null ? null : Number(r.fluency_score),
   teacherComment: r.teacher_comment == null ? '' : r.teacher_comment,
   createdBy: r.created_by || null,
+  evaluatedAt: r.evaluated_at || null,
+  evaluatedBy: r.evaluated_by || null,
   isDeleted: r.is_deleted, deletedAt: r.deleted_at,
   createdAt: r.created_at, updatedAt: r.updated_at,
-  averageScore: round2(
+  averageScore: r.result_kind === 'english_level' ? null : round2(
     (Number(r.grammar_score) + Number(r.vocabulary_score)
       + Number(r.pronunciation_score) + Number(r.fluency_score)) / 4
   ),
@@ -51,6 +57,7 @@ const upsertEvaluation = async (classId, userId, { fields, createdBy }) => {
                              pronunciation_score, fluency_score, teacher_comment, created_by)
      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
      ON CONFLICT (class_id, user_id) DO UPDATE SET
+       result_kind = 'rubric', level_code = NULL, evaluated_at = NULL, evaluated_by = NULL,
        level = EXCLUDED.level,
        grammar_score = EXCLUDED.grammar_score,
        vocabulary_score = EXCLUDED.vocabulary_score,
@@ -69,6 +76,48 @@ const upsertEvaluation = async (classId, userId, { fields, createdBy }) => {
       fields.teacherComment == null ? '' : fields.teacherComment,
       createdBy == null ? null : String(createdBy),
     ]);
+  return evalRow(rows[0]);
+};
+
+const upsertEnglishLevel = async (classId, userId, {
+  levelCode, displayName, note = '', evaluatedAt = new Date(), evaluatedBy,
+}) => {
+  const { rows } = await query(
+    `INSERT INTO evaluations(
+       id, class_id, user_id, result_kind, level, level_code,
+       grammar_score, vocabulary_score, pronunciation_score, fluency_score,
+       teacher_comment, created_by, evaluated_at, evaluated_by
+     ) VALUES ($1,$2,$3,'english_level',$4,$5,NULL,NULL,NULL,NULL,$6,$7,$8,$7)
+     ON CONFLICT (class_id, user_id) DO UPDATE SET
+       result_kind = 'english_level', level = EXCLUDED.level, level_code = EXCLUDED.level_code,
+       grammar_score = NULL, vocabulary_score = NULL, pronunciation_score = NULL, fluency_score = NULL,
+       teacher_comment = EXCLUDED.teacher_comment, evaluated_at = EXCLUDED.evaluated_at,
+       evaluated_by = EXCLUDED.evaluated_by, is_deleted = false, deleted_at = NULL, updated_at = now()
+     RETURNING *`,
+    [
+      newId(), String(classId), String(userId), displayName, levelCode, note,
+      evaluatedBy == null ? null : String(evaluatedBy), evaluatedAt,
+    ],
+  );
+  return evalRow(rows[0]);
+};
+
+const listEnglishLevelsForCohort = async (classId) => {
+  const { rows } = await query(
+    `SELECT * FROM evaluations
+      WHERE class_id = $1 AND result_kind = 'english_level' AND is_deleted = false
+      ORDER BY updated_at DESC`,
+    [String(classId)],
+  );
+  return rows.map(evalRow);
+};
+
+const findEnglishLevelById = async (id) => {
+  const { rows } = await query(
+    `SELECT * FROM evaluations
+      WHERE id = $1 AND result_kind = 'english_level' AND is_deleted = false`,
+    [String(id)],
+  );
   return evalRow(rows[0]);
 };
 
@@ -161,6 +210,9 @@ const findActiveEnrollmentsWithUsers = async (classId) => {
 module.exports = {
   findForClassUserIncludingTrashed,
   upsertEvaluation,
+  upsertEnglishLevel,
+  listEnglishLevelsForCohort,
+  findEnglishLevelById,
   softDeleteById,
   findAllPopulated,
   findByIdPopulated,

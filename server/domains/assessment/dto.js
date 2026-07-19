@@ -107,6 +107,7 @@ const attemptResultDto = (a) => ({
 });
 
 const evaluationResultDto = (e) => {
+  const isEnglishLevel = e.resultKind === 'english_level';
   const avg = round2(
     ((e.grammarScore || 0) + (e.vocabularyScore || 0)
       + (e.pronunciationScore || 0) + (e.fluencyScore || 0)) / 4,
@@ -117,11 +118,13 @@ const evaluationResultDto = (e) => {
     id: String(e._id),
     cohortId: cohort ? String(cohort._id) : (e.classId ? String(e.classId) : null),
     title: cohort && cohort.courseName ? `${cohort.courseName} — evaluation` : 'English evaluation',
-    scorePercent: round2(avg * 10), // 4-skill average (0–10) → percent
-    averageScore: avg,
+    resultKind: isEnglishLevel ? 'english_level' : 'rubric',
+    scorePercent: isEnglishLevel ? null : round2(avg * 10), // level results are categorical, never synthetic scores
+    averageScore: isEnglishLevel ? null : avg,
     level: e.level || '',
-    passed: true, // an instructor-recorded evaluation is a completed result
-    date: e.updatedAt || e.createdAt || null,
+    levelCode: e.levelCode || null,
+    passed: isEnglishLevel ? null : true,
+    date: e.evaluatedAt || e.updatedAt || e.createdAt || null,
   };
 };
 

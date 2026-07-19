@@ -5,6 +5,7 @@ const repo = require('./repository.pg');
 const { ServiceError } = require('../../helpers/ServiceError');
 
 async function correctEmployeeOrg({ empCode, businessUnit, jobRole, reason, actor }) {
+  await repo.assertArchiveWritable();
   return repo.withTransaction(async (client) => {
     const employee = await repo.findEmployeeForCorrection(empCode, client);
     if (!employee) throw new ServiceError('English-training employee not found', 404);

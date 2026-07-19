@@ -6,6 +6,7 @@ const {
 } = require('./controller');
 const { protect } = require('../../middleware/auth');
 const { roleGuard } = require('../../middleware/roleGuard');
+const { requireCapability } = require('../../middleware/requireCapability');
 const { cacheMiddleware } = require('../../middleware/analyticsCache');
 const { attendanceLimiter } = require('../../middleware/rateLimiters');
 const { validate } = require('../../middleware/validate');
@@ -28,12 +29,12 @@ router.get('/analytics/by-class',    protect, roleGuard('Admin', 'Teacher'), cac
 router.get('/my-stats', protect, getMyStats);
 
 // Bulk mark: Teacher or Admin (rate limited + validated + invalidates analytics cache)
-router.post('/:scheduleId', protect, roleGuard('Admin', 'Teacher'), attendanceLimiter,
+router.post('/:scheduleId', protect, roleGuard('Admin', 'Coordinator', 'Teacher'), requireCapability('attendance.mark'), attendanceLimiter,
   validate({ params: z.object({ scheduleId: idParam.shape.id }), body: bulkMarkBody }), bulkMarkAttendance);
 
 // Query by schedule: Teacher or Admin.
 // SEC-014: params validated so a malformed ObjectId is a 400, never a 500.
-router.get('/schedule/:scheduleId', protect, roleGuard('Admin', 'Teacher'),
+router.get('/schedule/:scheduleId', protect, roleGuard('Admin', 'Coordinator', 'Teacher'), requireCapability('attendance.read'),
   validate({ params: z.object({ scheduleId: idParam.shape.id }) }), getAttendanceBySchedule);
 
 // Query by user: Participants restricted to own records; Teachers only receive

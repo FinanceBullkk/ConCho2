@@ -49,6 +49,13 @@ const authenticate = async (empCode, password, req = null) => {
     throw new ServiceError('Invalid credentials', 401);
   }
 
+  // Managed training-only people deliberately have no credentials. Check this
+  // before lockout/password work so a null password never reaches bcrypt and
+  // login attempts cannot mutate lock counters for a non-login identity.
+  if (user.canLogin === false) {
+    throw new ServiceError('Account access is disabled. Contact admin.', 403);
+  }
+
   // Honor active lockout. Generic 401 (not 423) so attackers can't
   // distinguish "locked" from "wrong password" via status code.
   if (user.lockUntil && user.lockUntil > new Date()) {
@@ -174,7 +181,7 @@ const verifyMfaLogin = async (mfaPendingToken, code, req = null) => {
   const user = await authRepository.findForMfaVerify(decoded.id);
   // P2 fix: also check account is Active — a suspended account must not be
   // able to complete the MFA second-leg and obtain a full session token.
-  if (!user || !user.mfaEnabled || !user.mfaSecret || user.status !== 'Active') {
+  if (!user || user.canLogin === false || !user.mfaEnabled || !user.mfaSecret || user.status !== 'Active') {
     // Generic message — don't reveal why (account existence / MFA state / suspension).
     throw new ServiceError('Invalid MFA challenge', 401);
   }

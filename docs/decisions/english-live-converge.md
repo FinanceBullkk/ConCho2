@@ -1,91 +1,141 @@
-# ADR: English Training goes live in-app — converge onto the generic model
+# ADR: English Training goes live in-app — one model, dedicated workspace
 
 ## Status
 
-Proposed (2026-07-19). Owner decision (interview this session). Extends
-[`converge-to-one-training-model.md`](converge-to-one-training-model.md) —
-re-applies its "one training spine" principle to the English Training subsystem.
-Phased — see `plans/260719-2126-english-live-in-app-convergence/`.
+Accepted (2026-07-19). Owner approved the dedicated-workspace direction and
+authorized implementation. Extends
+[`converge-to-one-training-model.md`](converge-to-one-training-model.md) by
+applying its "one training spine" principle to the imported English Training
+subsystem. Phased plan:
+`plans/260719-2126-english-live-in-app-convergence/`.
 
 ## Context
 
-English Training (the `eng_*` tables + `domains/english-training/`) shipped
-2026-07 (Phases 1–3) as a **deliberately separate silo**: an Excel-workbook
-**import** for HR reporting/compliance. Migration `038` states it plainly —
-*"These tables remain separate from legacy schedules/attendances: English
-employees are business records and do not require ConCho2 login accounts."* That
-was the right call **for an import**: read-mostly, zero risk to the live booking
-paths, `eng_employees.user_id` intentionally left null (0/308 linked).
+English Training (`eng_*` + `domains/english-training/`) shipped in 2026-07 as a
+deliberately separate **Excel import and historical reporting** subsystem.
+Migration `038` records the original premise: English employees were business
+records and did not need ConCho2 login accounts. That separation was correct for
+a read-mostly import: it protected the live booking paths and left
+`eng_employees.user_id` intentionally null (0/308 linked).
 
-The owner has now changed the premise: English classes will be **operated live
-in-app** (staff create classes, book sessions, mark attendance in ConCho2)
-instead of maintained in Excel and imported. Once English is a **live training
-subsystem**, keeping a second parallel world for the same domain
-(sessions/attendance/enrollment/assessment) is exactly the duplication the
-`converge-to-one-training-model` ADR ruled against. Running two live training
-systems is a DRY violation across the model, the security layers, and reporting.
+The operating premise has changed. English classes will be run live in ConCho2:
+staff maintain learners and course runs, schedule sessions, mark attendance, and
+record final levels. Keeping `eng_*` as a second writable system for sessions,
+attendance, enrollment, and assessment would duplicate the generic training
+spine, its authorization, audit behavior, reporting, and UI.
 
-Owner choices that scope this (interview 2026-07-19):
+Owner choices that scope the change (2026-07-19):
 
-1. **Who operates:** HR/Teacher act live in-app; **learners do NOT log in**
-   (no self-service, no ~1000 accounts to provision).
-2. **Historical data:** the imported 984 sessions / 5,962 attendance rows are
-   **frozen as a read-only archive** — new live data starts fresh on the generic
-   model, not migrated into it.
-3. **Scheduling depth:** English sessions use the **full booking grid** (rooms,
-   calendar invites, conflict guard) — reuse `domains/schedule`, not a bespoke
-   form.
+1. **Operating split:** Admin/Coordinator manage English learners, programs,
+   course runs, enrollments, and schedules. Assigned Teachers see their schedule,
+   mark attendance, and record evaluations. Teachers do not create programs,
+   cohorts, or sessions. Learners do not log in for the English workflow.
+2. **Historical data:** the imported 984 sessions and 5,962 canonical attendance
+   records remain a frozen, read-only archive. New live data starts fresh and is
+   not backfilled from that history.
+3. **Scheduling depth:** live English sessions use the full generic scheduling
+   grid, including Office/Room, calendar integration, and conflict guards.
+4. **Information architecture:** English work is presented in a dedicated
+   **English Operations** workspace beside **Admin Console** and **My Learning**.
+   This is a UI/workflow boundary, not a new backend or authorization boundary.
 
 ## Decision
 
-**Converge English Training onto the generic training domains** (`learning`,
-`schedule`, `attendance`, `assessment`/`evaluation`) rather than build a second
-live system on `eng_*`. English becomes a **delivery profile** of the one spine,
-not its own world — consistent with the 2026-06-14 ADR.
+**Run live English Training on the generic training domains** (`learning`,
+`schedule`, `attendance`, and instructor-scored `evaluation`/`assessment`) while
+presenting it through a dedicated **English Operations** workspace.
 
-Target mapping (detail: the plan's `fit-gap-analysis.md`):
+The workspace is a filtered composition over shared services. It does not own a
+second live data model. Server-side capability and resource policies remain the
+authorization boundary; switching workspace only changes navigation and views.
 
-| English concept | Generic home |
+### Target grain and mapping
+
+| English concept | Generic live home |
 |---|---|
-| English course | `LearningProgram` (+ English policy: ≤2-absence exam gate, 13 levels) |
-| English class | `Class`/cohort, `schedulingMode = admin_scheduled` |
-| English session | `Schedule` via `domains/schedule` (rooms + calendar + conflict) |
-| Attendance | `domains/attendance` (live marking) |
-| Enrollment | generic `Enrollment` |
-| Level / exam result | `Evaluation`/`assessment` (already partly converged) |
-| Learner | `users` record with **login disabled** (managed directory record) |
-| `eng_*` history | frozen **read-only archive** (today's "English Training data" section) |
+| English course | `LearningProgram`, `category=english`, with typed English policy |
+| Stable English class/group | `englishGroupCode` delivery context used to group runs in the workspace; not a generic Cohort and not a reusable legacy Team |
+| English course run | `Class` exposed as a Cohort — one delivery of one Program |
+| Run enrollment | generic direct `Enrollment` into that Cohort |
+| Live session | `Schedule`/Session under the course-run Cohort |
+| Attendance | `domains/attendance` |
+| Final level | instructor-scored `Evaluation` for `(cohort, learner)`, surfaced by the unified assessment read |
+| Learner | existing `users` row when one exists; otherwise a login-disabled managed `users` row |
+| Historical `eng_*` | frozen read-only archive in English Operations ▸ Archive |
 
-Load-bearing consequence of choice #1: to reuse the generic domains (whose
-attendance/enrollment/schedule all reference `users`), **English learners must
-exist as `users` rows with authentication disabled** — present in rosters and
-reports, but unable to log in. This reconciles "no learner login" with model
-reuse and is the central design decision of Phase 0.
+The grain distinction is load-bearing: an imported `eng_cohort` is a stable
+group that may study several courses, whereas a generic Cohort is one delivery
+of exactly one Program. Therefore `eng_course_run`, not `eng_cohort`, is the
+concept that maps to a generic Cohort. The stable English group code remains
+delivery context so the workspace can present the familiar class-centric view.
 
-Guardrails (unchanged): modular monolith; converge via DTO/abstraction, **no
-destructive `eng_*` renames**; every mutation keeps the full security stack
-(CSRF, rate limits, two-layer authz, soft delete, audit); English-only UI; tests
-are gates; **each phase independently shippable** — no big-bang.
+### Scheduling mode
+
+Live English uses direct cohort enrollment operated by staff, with no learner
+self-service. Under the current scheduling policy, that is the `nomination`
+cohort mode. Admin/Coordinator create sessions through the existing cohort
+booking path (`/api/learning/sessions/book-slot` with `cohortId`), which already
+provides Office/Room locking, roster snapshots, calendar integration, and
+conflict protection. It does not use the team-only `admin_scheduled` path.
+
+### Managed people
+
+Authentication eligibility is orthogonal to employment/training status. Add an
+explicit `can_login` state, defaulting to `true` for normal users. A newly
+provisioned English-only directory record has `can_login=false`, no password,
+and may have no email. Every credential/session path fails closed for such a
+record. Linking an English employee to an **existing** user never disables that
+user's existing login; the link reuses the account as-is.
+
+### English policy and evaluation
+
+English-specific behavior is typed configuration, not a fork or an arbitrary
+custom field. A Program owns the English policy (absence allowance and ordered
+level scale), and the Cohort snapshots the policy when a course run is created so
+later Program edits cannot rewrite historical eligibility.
+
+A live final level uses the existing instructor-scored Evaluation grain of one
+row per `(classId, userId)`. The English result profile records a level without
+fabricating four-skill scores or a numeric pass/fail result. The unified
+assessment DTO must distinguish this level-award profile from a scored rubric.
+
+### Archive boundary
+
+At cutover, application mutations and production imports into `eng_*` stop. The
+workbook importer remains source-controlled for reproducibility and may run only
+against disposable/staging databases; it is not a production backfill path after
+the archive is frozen. A recorded cutover timestamp separates archive history
+from live rows for combined reports.
 
 ## Consequences
 
-- **Positive:** one training model, one attendance/enrollment/schedule/reporting
-  path; English inherits rooms/calendar/conflict + audit + soft-delete for free;
-  no second live subsystem to maintain; aligns with the locked convergence ADR.
-- **Cost / risk:** multi-milestone; introduces **login-disabled user records** (a
-  new account state — auth middleware must refuse them cleanly); the generic model
-  must absorb English-specific rules (exam gate, levels, PIC) as config, not forks;
-  a coexistence window where the `eng_*` archive and the live model both exist.
-- **Explicitly out of scope (owner):** learner self-service/login; migrating
-  historical `eng_*` data into the live model (it stays a frozen archive);
-  decommissioning the import pipeline before live paths replace it.
+- **Positive:** operators get a focused English workspace while the product keeps
+  one scheduling, attendance, enrollment, evaluation, audit, and reporting spine.
+- **Positive:** the correct course-run grain makes generic Evaluation's
+  `(cohort, learner)` uniqueness match one English final result per delivery.
+- **Positive:** managed learners appear in rosters without receiving credentials,
+  while existing login-enabled employees retain their normal account access.
+- **Cost:** the work spans managed-user lifecycle, typed English policy snapshots,
+  workspace IA, live projections, and a controlled archive cutover.
+- **Risk:** workspace filtering must never be mistaken for authorization;
+  server-side capability and assignment policies remain mandatory.
+- **Out of scope:** learner self-service for English, migration of historical
+  `eng_*` rows into the live spine, a second English schedule/attendance backend,
+  and production re-import after archive freeze.
+
+## Guardrails
+
+Modular monolith; reuse domain chokepoints; no destructive `eng_*` renames; CSRF,
+rate limits, capability + resource authorization, audit, validation, soft-delete,
+and i18n on every applicable path; each phase ships with UI wiring, permission
+denial coverage, a core edge case, and a documented smoke flow.
 
 ## Related
 
-- Extends: [`converge-to-one-training-model.md`](converge-to-one-training-model.md),
-  [`coordinator-scheduled-offline-model.md`](coordinator-scheduled-offline-model.md)
+- Extends: [`converge-to-one-training-model.md`](converge-to-one-training-model.md)
+- Aligns with: [`coordinator-scheduled-offline-model.md`](coordinator-scheduled-offline-model.md)
 - Bounded by: [`ld-platform-modular-monolith.md`](ld-platform-modular-monolith.md),
   [`ld-domain-vocabulary.md`](ld-domain-vocabulary.md)
 - Plan: `plans/260719-2126-english-live-in-app-convergence/`
-- Supersedes the "separate by design" rationale in migration `038` **only once the
-  live paths land** — the archive itself is retained.
+- Supersedes the "separate by design" rationale in migration `038` only when the
+  live paths and archive cutover have shipped.

@@ -1,44 +1,83 @@
-# P5 — Cutover & freeze the archive
+# P5 — Cutover, archive freeze, and complete English workspace
 
-**Priority:** Closing · **Status:** 🔴 proposed
-**Context:** [plan.md](plan.md) · [fit-gap §9](fit-gap-analysis.md)
+**Priority:** Closing · **Status:** 🟡 implemented; operational cutover pending
+
+**Context:** [plan.md](plan.md) · [fit-gap §11](fit-gap-analysis.md)
+
+**Operations:** [English live cutover and Archive DR runbook](../../docs/runbook-english-archive-cutover.md)
 
 ## Objective
 
-Flip the English section from "import + read view" to "live-managed". Freeze
-`eng_*` as a read-only historical archive; make the live model the primary path;
-unify the UX so operators work in one place.
+Make the generic spine the sole production write model for English operations,
+freeze imported `eng_*` history as enforceably read-only, and complete a clear
+English Operations journey across live work and historical evidence.
 
-## Key changes
+## Cutover contract
 
-- **Freeze `eng_*`:** the current "English Training data" section becomes an
-  explicit **Archive** (read-only): historical sessions/attendance/levels + DQ
-  issues + corrections, retained for reporting/audit. No new writes.
-- **Live section:** the English cohort/class detail (the 360° from PR #324) reads
-  from the generic model going forward; operators create/mark/level live.
-- Import pipeline retained but demoted — **not** the primary path; do not
-  decommission (owner) — kept for any one-off backfill only.
-- Reporting reads across **both** (live + archive) where a full history is needed,
-  tagged by source.
+- Record an immutable `englishLiveCutoverAt` setting and an auditable cutover
+  event after P2–P4 smoke flows pass.
+- Before the flip, verify every live operator loop: managed learner → Program/run
+  → Enrollment → Session/Room → Attendance → eligibility → level → report.
+- At/after the flip, remove or disable production HTTP mutations for employee
+  corrections and `eng_exam_results`, and fail production import attempts before
+  opening a transaction.
+- Add a database/application archive guard that rejects INSERT/UPDATE/DELETE on
+  `eng_*` and `raw_eng_workbook_rows` in the live environment. Reads remain
+  available. The guard must be reversible only through an explicit audited
+  disaster-recovery procedure.
+- Keep `server/scripts/eng-import.js` and its pipeline for reproducible
+  staging/disposable reconstruction. It is not permitted to target the frozen
+  production archive and is not advertised as a one-off backfill mechanism.
 
-## Files
+## Workspace completion
 
-- Client English section (archive vs live split), `domains/english-training`
-  (mark reads read-only / archive-scoped), reporting reads.
-- Tests: archive is read-only (writes blocked); live section drives the generic
-  model; combined report spans both.
+- English Operations contains Overview, Learners, Classes, Schedule, Attendance,
+  Evaluation, and **Archive**.
+- Overview counts/tasks use live generic data after cutover and link into the
+  corresponding live workspace section.
+- Archive is visibly labelled **Historical · Read-only** and contains imported
+  classes/runs, sessions, attendance, levels, DQ issues, and correction history.
+  It has no edit affordance and direct write calls are rejected.
+- Live pages never mix archived rows into editable tables or booking grids.
 
-## Dependencies
+## Reporting across both sources
 
-P2–P4 (live create/attendance/level must exist before demoting import).
+- Reports define the temporal boundary: Archive rows are eligible before
+  `englishLiveCutoverAt`; generic rows are eligible at/after it.
+- Every row carries `source=archive|live`, source identity, stable employee code,
+  Program/course identity, and event date.
+- Deduplication is based on the cutover boundary plus a documented natural key;
+  a source tag alone is not sufficient.
+- Full-history exports expose source/cutover metadata so HR can reconcile totals.
 
-## Risks
+## Authorization and operations
 
-- Cutover confusion — must be unambiguous in the UI which data is live vs archive.
-- Double-counting in reports — source-tag every row; test the combined read.
+- Workspace switching remains UI-only. All Archive reads retain authenticated
+  report scope; live sections retain their domain capabilities/resource policy.
+- Participant/managed users cannot enter English Operations. Assigned Teachers
+  receive only live schedule/attendance/evaluation views relevant to them and no
+  Archive/DQ administration unless separately authorized.
+- Document a smoke checklist, rollback boundary, archive-unlock DR procedure, and
+  monitoring for rejected archive writes.
+
+## Tests
+
+- Production-mode Archive insert/update/delete/import attempts fail; reads pass.
+- Live English mutations continue through generic tables after the flip.
+- Combined report covers rows on both sides of the cutover exactly once,
+  including a boundary-time and same-natural-key fixture.
+- English workspace navigation/role matrices match desktop and mobile; direct
+  route/API access is denied consistently.
+- No data-loss regression: canonical archive counts and hashes remain unchanged
+  across cutover.
 
 ## Success / DoD
 
-- English operated entirely in-app; `eng_*` read-only archive intact; no data
-  loss. Tests + lint green. Spec: `english-training` MODIFIED (live model of
-  record; import demoted; archive defined). Roadmap + registry updated.
+- English is operated entirely through generic live domains from the dedicated
+  workspace; `eng_*` is an immutable historical archive.
+- Combined reporting is reconciled and anti-double-count proven.
+- Cutover/rollback/DR smoke procedures are documented and exercised.
+- Tests, lint, build, and manual smoke pass.
+- Update `english-training`, reporting/export, and affected generic specs;
+  update the registry, current-system map, route-permission matrix, and
+  development roadmap when this phase ships.

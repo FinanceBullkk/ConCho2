@@ -7,6 +7,9 @@ const controller = require('./controller');
 const {
   idParams, empCodeParams, issueCodeParams, listEmployeesQuery,
   employeeCorrectionBody, examResultBody,
+  managedPersonCreateBody, managedPersonUpdateBody,
+  liveLevelBody,
+  archiveCutoverBody,
 } = require('./schemas');
 
 // ──────────────────────────────────────────────────────────
@@ -18,6 +21,104 @@ const {
 // ──────────────────────────────────────────────────────────
 
 router.use(protect);
+
+// Live English Operations composition. Workspace visibility is never the
+// authorization boundary: every route declares role + capability explicitly.
+router.get(
+  '/workspace/overview',
+  roleGuard('Admin', 'Coordinator', 'Teacher'),
+  requireCapability('report.read'),
+  controller.getWorkspaceOverview,
+);
+router.get(
+  '/managed-learners',
+  roleGuard('Admin', 'Coordinator'),
+  requireCapability('enrollment.manage'),
+  validate({ query: listEmployeesQuery }),
+  controller.listManagedPeople,
+);
+router.get(
+  '/workspace/teachers',
+  roleGuard('Admin', 'Coordinator'),
+  requireCapability('cohort.manage'),
+  controller.listEnglishTeachers,
+);
+router.get(
+  '/live/cohorts/:id/eligibility',
+  roleGuard('Admin', 'Coordinator', 'Teacher'),
+  requireCapability('attendance.read'),
+  validate({ params: idParams }),
+  controller.getLiveEligibility,
+);
+router.get(
+  '/live/history',
+  roleGuard('Admin', 'Coordinator'),
+  requireCapability('report.read'),
+  controller.getCombinedHistory,
+);
+router.get(
+  '/archive/status',
+  roleGuard('Admin', 'Coordinator'),
+  requireCapability('report.read'),
+  controller.getArchiveStatus,
+);
+router.post(
+  '/archive/cutover',
+  roleGuard('Admin'),
+  requireCapability('settings.manage'),
+  validate({ body: archiveCutoverBody }),
+  controller.cutoverArchive,
+);
+router.get(
+  '/live/cohorts/:id/evaluations',
+  roleGuard('Admin', 'Coordinator', 'Teacher'),
+  requireCapability('english.evaluate'),
+  validate({ params: idParams }),
+  controller.getLiveEvaluationWorklist,
+);
+router.post(
+  '/live/cohorts/:id/evaluations',
+  roleGuard('Admin', 'Coordinator', 'Teacher'),
+  requireCapability('english.evaluate'),
+  validate({ params: idParams, body: liveLevelBody }),
+  controller.recordLiveEnglishLevel,
+);
+router.delete(
+  '/live/evaluations/:id',
+  roleGuard('Admin', 'Coordinator', 'Teacher'),
+  requireCapability('english.evaluate'),
+  validate({ params: idParams }),
+  controller.deleteLiveEnglishLevel,
+);
+router.post(
+  '/managed-learners',
+  roleGuard('Admin', 'Coordinator'),
+  requireCapability('enrollment.manage'),
+  validate({ body: managedPersonCreateBody }),
+  controller.createManagedPerson,
+);
+router.patch(
+  '/managed-learners/:id',
+  roleGuard('Admin', 'Coordinator'),
+  requireCapability('enrollment.manage'),
+  validate({ params: idParams, body: managedPersonUpdateBody }),
+  controller.updateManagedPerson,
+);
+router.delete(
+  '/managed-learners/:id',
+  roleGuard('Admin', 'Coordinator'),
+  requireCapability('enrollment.manage'),
+  validate({ params: idParams }),
+  controller.deleteManagedPerson,
+);
+router.post(
+  '/managed-learners/provision-archive',
+  roleGuard('Admin', 'Coordinator'),
+  requireCapability('enrollment.manage'),
+  controller.provisionManagedPeople,
+);
+
+// Historical archive endpoints retain their narrower operations policy.
 router.use(roleGuard('Admin', 'Coordinator'));
 router.use(requireCapability('report.read'));
 

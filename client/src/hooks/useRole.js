@@ -54,8 +54,8 @@ const PERMISSION_MAP = {
   'read:schedules':    ['Admin', 'Teacher', 'Participant'], // GET /api/schedules (Teacher scoped server-side)
 
   // Attendance ─ server: server/routes/attendanceRoutes.js
-  'record:attendance': ['Admin', 'Teacher'],       // POST /api/attendance/:scheduleId
-  'read:attendance':   ['Admin', 'Teacher'],       // GET  /api/attendance/schedule/:id, analytics/*
+  'record:attendance': ['Admin', 'Coordinator', 'Teacher'], // POST /api/attendance/:scheduleId
+  'read:attendance':   ['Admin', 'Coordinator', 'Teacher'], // GET /api/attendance/schedule/:id
 
   // Team management ─ server: server/routes/teamRoutes.js
   // Teacher does NOT have team read at the API — only Admin (+ Participant /my-teams).

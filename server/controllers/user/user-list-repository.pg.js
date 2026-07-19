@@ -17,7 +17,7 @@ const { query } = require('../../config/pg');
 
 const SELECT_COLS = `id, emp_code, name, email, role, department, department_id,
   manager_id, office_id, position, status, drop_reason, entrance_level,
-  current_level, must_change_password, mfa_enabled, notification_preferences,
+  current_level, can_login, must_change_password, mfa_enabled, notification_preferences,
   last_active_at, created_at, updated_at`;
 
 // Sortable field (Mongoose name) → column. Mirrors the controller whitelist;
@@ -61,6 +61,7 @@ const rowToUser = (r) => ({
   dropReason: r.drop_reason,
   entranceLevel: r.entrance_level,
   currentLevel: r.current_level,
+  canLogin: r.can_login,
   mustChangePassword: r.must_change_password,
   mfaEnabled: r.mfa_enabled,
   notificationPreferences: r.notification_preferences == null ? undefined : r.notification_preferences,

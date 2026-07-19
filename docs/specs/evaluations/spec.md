@@ -2,7 +2,7 @@
 capability: evaluations
 status: stable
 owners: [controllers/evaluationController, models/Evaluation]
-last_updated: 2026-06-19
+last_updated: 2026-07-19
 related_code:
   - server/controllers/evaluationController.js
   - server/models/Evaluation.js
@@ -127,6 +127,15 @@ failing E11000. Legacy rows that predate `isDeleted` stay visible and revivable.
 - **GIVEN** a participant
 - **WHEN** they request another learner's evaluation
 - **THEN** it is not returned (self-scoped)
+
+### Requirement: English final level is a typed categorical Evaluation
+
+An English course-run result SHALL reuse the one `(classId,userId)` Evaluation
+grain with `resultKind=english_level`, `levelCode`, evaluator, and evaluation
+date. Its rubric scores, average, score percent, and pass value are null. Entry
+requires an enrolled learner with live eligibility `eligible` and a level from
+the Cohort snapshot. Re-entry revives/updates the slot; clearing soft-deletes it.
+Admin/Coordinator or an assigned Teacher with `english.evaluate` may write.
 
 ## Non-Functional Requirements (NFR)
 

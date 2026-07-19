@@ -81,13 +81,16 @@ const findScheduleDocById = async (scheduleId) => {
 const findClassById = async (classId) => {
   // Class.findById = findOne → soft-delete hook → is_deleted = false.
   const { rows } = await query(
-    `SELECT id, class_code, course_name, program_id, total_sessions, status, custom_fields, teacher_ids,
-            created_at, updated_at
-       FROM classes WHERE id = $1 AND is_deleted = false`, [String(classId)]);
+    `SELECT c.id, c.class_code, c.course_name, c.program_id, c.total_sessions, c.status,
+            c.custom_fields, c.teacher_ids, c.created_at, c.updated_at,
+            p.category AS program_category
+       FROM classes c LEFT JOIN learning_programs p ON p.id = c.program_id
+      WHERE c.id = $1 AND c.is_deleted = false`, [String(classId)]);
   const c = rows[0];
   return c ? {
     _id: c.id, classCode: c.class_code, courseName: c.course_name,
     programId: c.program_id || null,
+    programCategory: c.program_category || null,
     totalSessions: c.total_sessions == null ? null : Number(c.total_sessions),
     status: c.status, customFields: c.custom_fields || {},
     teacherIds: (c.teacher_ids || []).map(String),

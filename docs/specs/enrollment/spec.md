@@ -2,7 +2,7 @@
 capability: enrollment
 status: evolving
 owners: [domains/learning/enrollment, controllers/enrollmentController]
-last_updated: 2026-06-18
+last_updated: 2026-07-19
 related_code:
   - server/domains/learning/enrollment/use-cases.js
   - server/domains/learning/enrollment/writes.js
@@ -235,6 +235,13 @@ publishes nothing.
 - **WHEN** an Admin transfers a learner between them
 - **THEN** no `ENROLLMENT_CREATED` event fires (no redundant bell); the learner
   receives the transfer email only
+
+### Requirement: Staff nomination enrollment supports late joiners [BR-1]
+
+Admin and Coordinator (`enrollment.manage`) SHALL create or bulk-create direct
+Enrollments for a nomination Cohort. An English Enrollment may carry
+`startSessionNumber >= 1`; values beyond the Cohort's total session count are
+rejected. Attendance/eligibility treats earlier sessions as not applicable.
 
 ## Non-Functional Requirements (NFR)
 

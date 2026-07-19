@@ -19,6 +19,7 @@ a commercial LMS clone or SCORM-first content platform.
 | Role | Who | Can do |
 |------|-----|--------|
 | **Admin** | HR / L&D | Everything: users, classes, teams, schedules, reports, system config |
+| **Coordinator** | Training operations | Programs/cohorts, enrollment, scheduling, attendance, English operations, reports; no security administration |
 | **Teacher** | Facilitator | See assigned schedules, mark attendance, grade evaluations |
 | **Participant** | Learner | See own group's schedule, **book slots if team leader**, view own scores |
 
@@ -26,10 +27,15 @@ a commercial LMS clone or SCORM-first content platform.
 
 ## 2. Core workflow — the booking model (counter-intuitive, get this right)
 
-Admins do **not** pre-create sessions. The **team leader** self-creates them by
+For `leader_booking` Programs, Admins do **not** pre-create sessions. The **team leader** self-creates them by
 clicking an empty cell on the `/book` grid. Constraints: exactly **1 hour**,
 only **5 fixed slots**, max **2 / week / team**. The DB unique index
 `{classId, startTime}` is the final guard against double-booking.
+
+English live delivery uses the other shared path: a dedicated **English
+Operations** workspace lets Admin/Coordinator schedule nomination Cohort
+sessions with Office/Room; assigned Teachers mark attendance and final levels.
+The workspace is UI composition, not a separate authorization or storage model.
 
 ```mermaid
 sequenceDiagram
@@ -144,7 +150,7 @@ erDiagram
 | `courseName` (enum) | **Program** (`LearningProgram`) | ✅ done (`Class.programId`) |
 | `Schedule` | **Session** | adapter `/api/learning/sessions` ✅ |
 | `Team` | **LearningGroup** | ❌ not migrated |
-| `Evaluation` | legacy English rubric | kept for compatibility; `Assessment` v1 is live ✅ |
+| `Evaluation` | instructor result | legacy rubric plus typed categorical `english_level`; `Assessment` v1 is live ✅ |
 | `Enrollment` | cohort-based enrollment | ✅ live; legacy team enrollment still supported |
 | `Assessment`, `AssessmentAttempt`, `AssessmentQuestion` | quiz engine + question bank | ✅ v1 live |
 | `Certificate`, `Feedback`, `LearningPath`, `Assignment`, `NotificationLog` | compliance, learner paths, assignment due dates, email idempotency logs | ✅ v1 live |

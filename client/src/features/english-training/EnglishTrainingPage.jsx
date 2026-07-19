@@ -13,7 +13,8 @@ import OverviewPanel from './OverviewPanel';
 import ClassDetailView from './ClassDetailView';
 import { EngBadge } from './eng-status-badge';
 
-const tabs = ['overview', 'classes', 'courses', 'employees', 'sessions', 'eligibility', 'evaluation', 'issues'];
+const editableTabs = ['overview', 'classes', 'courses', 'employees', 'sessions', 'eligibility', 'evaluation', 'issues'];
+const archiveTabs = ['classes', 'courses', 'employees', 'sessions', 'eligibility', 'issues'];
 
 // Status columns get a colored pill instead of raw text so the tables read at a glance.
 const BADGE_KEYS = new Set(['status', 'employmentStatus', 'eligibilityStatus', 'enrollmentStatus']);
@@ -145,10 +146,10 @@ function SessionsView({ rows, selected, onSelect, detail, t }) {
   );
 }
 
-function IssuesView({ rows, selected, onSelect, details, t }) {
+function IssuesView({ rows, selected, onSelect, details, t, readOnly = false }) {
   const [editing, setEditing] = useState(null);
   if (!rows?.length) return <EmptyState title={t('englishTraining.empty')} />;
-  const canCorrect = selected === 'missing_bu' || selected === 'missing_role';
+  const canCorrect = !readOnly && (selected === 'missing_bu' || selected === 'missing_role');
   const detailColumns = [
     ['entityType', 'entity'], ['entityKey', 'entityKey'], ['employee', 'employee'],
     ['classCode', 'cohort'], ['source', 'source'], ['detailText', 'detail'],
@@ -209,9 +210,10 @@ function IssuesView({ rows, selected, onSelect, details, t }) {
   );
 }
 
-export default function EnglishTrainingPage() {
+export default function EnglishTrainingPage({ readOnly = false, embedded = false }) {
   const { t } = useTranslation();
-  const [active, setActive] = useState('overview');
+  const tabs = readOnly ? archiveTabs : editableTabs;
+  const [active, setActive] = useState(() => readOnly ? 'classes' : 'overview');
   const [search, setSearch] = useState('');
   const [selectedIssue, setSelectedIssue] = useState(null);
   const [selectedSession, setSelectedSession] = useState(null);
@@ -227,7 +229,7 @@ export default function EnglishTrainingPage() {
   const current = queries[active];
   return (
     <div className="space-y-6">
-      <PageHeader title={t('englishTraining.title')} description={t('englishTraining.description')} />
+      {!embedded && <PageHeader title={t('englishTraining.title')} description={t('englishTraining.description')} />}
       <div className="flex flex-wrap gap-2" role="tablist">{tabs.map((tab) => (
         <button key={tab} type="button" role="tab" aria-selected={active === tab} onClick={() => { setActive(tab); setSelectedClass(null); }}
           className={`rounded-md px-3 py-2 text-sm font-medium ${active === tab ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground hover:text-foreground'}`}>
@@ -251,7 +253,7 @@ export default function EnglishTrainingPage() {
           {current.isLoading && <div className="flex justify-center py-12"><Spinner size={32} label={t('englishTraining.loading')} /></div>}
           {current.isError && <EmptyState title={t('englishTraining.loadError')} />}
           {!current.isLoading && !current.isError && active === 'issues' && (
-            <IssuesView rows={current.data} selected={selectedIssue} onSelect={setSelectedIssue} details={issueDetails} t={t} />
+            <IssuesView rows={current.data} selected={selectedIssue} onSelect={setSelectedIssue} details={issueDetails} t={t} readOnly={readOnly} />
           )}
           {!current.isLoading && !current.isError && active === 'sessions' && (
             <SessionsView rows={current.data} selected={selectedSession} onSelect={setSelectedSession} detail={sessionAttendance} t={t} />

@@ -57,6 +57,8 @@ const AUDIT_ENTITY_VALUES = [
   'EnglishTrainingEmployee',
   // English Training Phase 3 — exam result & level (evaluation).
   'EnglishTrainingExamResult',
+  // English live convergence — managed identity, categorical level, one-way cutover.
+  'ManagedLearner', 'EnglishManagedLearnerBatch', 'EnglishLevelEvaluation', 'EnglishArchive',
 ];
 
 module.exports = { AUDIT_ENTITY_VALUES, AUDIT_ROLE_VALUES };
