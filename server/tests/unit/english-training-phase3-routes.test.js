@@ -9,6 +9,13 @@ jest.mock('../../middleware/auth', () => ({
 }));
 
 jest.mock('../../domains/english-training/controller', () => ({
+  getWorkspaceOverview: jest.fn(),
+  listEnglishTeachers: jest.fn(),
+  getLiveEligibility: jest.fn(),
+  getLiveEvaluationWorklist: jest.fn(), recordLiveEnglishLevel: jest.fn(), deleteLiveEnglishLevel: jest.fn(),
+  getArchiveStatus: jest.fn(), cutoverArchive: jest.fn(), getCombinedHistory: jest.fn(),
+  listManagedPeople: jest.fn(), createManagedPerson: jest.fn(), updateManagedPerson: jest.fn(),
+  deleteManagedPerson: jest.fn(), provisionManagedPeople: jest.fn(),
   listLevels: (_req, res) => res.json({ success: true, data: [{ code: 'advanced', rank: 13 }] }),
   listPendingExamEntries: (_req, res) => res.json({ success: true, data: [], count: 0 }),
   recordExamResult: (_req, res) => res.status(201).json({ success: true, data: { id: 'x1' } }),

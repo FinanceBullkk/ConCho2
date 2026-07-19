@@ -38,6 +38,7 @@ const findLiveUserEmpCodes = async (empCodes) => {
 const USER_COLS = {
   empCode: 'emp_code', name: 'name', email: 'email', department: 'department',
   status: 'status', role: 'role', password: 'password', mustChangePassword: 'must_change_password',
+  canLogin: 'can_login',
 };
 
 const bulkUpsertUsersByEmpCode = async (items, tx) => {
@@ -95,6 +96,7 @@ const userRow = (r) => {
   return {
     _id: r.id, empCode: r.emp_code, name: r.name, email: r.email,
     department: r.department, role: r.role, status: r.status,
+    canLogin: r.can_login,
     isDeleted: r.is_deleted, deletedAt: r.deleted_at,
     _softDeletedEmail: meta._softDeletedEmail == null ? null : meta._softDeletedEmail,
     createdAt: r.created_at, updatedAt: r.updated_at,

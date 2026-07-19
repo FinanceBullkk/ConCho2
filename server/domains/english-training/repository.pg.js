@@ -6,6 +6,7 @@
 
 const crypto = require('crypto');
 const { getPool, query } = require('../../config/pg');
+const { ServiceError } = require('../../helpers/ServiceError');
 
 const newId = () => crypto.randomBytes(12).toString('hex');
 
@@ -259,6 +260,122 @@ async function softDeleteActiveExamResult(enrollmentId, client) {
   return rows[0] || null;
 }
 
+const archiveState = (row) => ({
+  isFrozen: Boolean(row?.is_frozen),
+  cutoverAt: row?.cutover_at || null,
+  frozenBy: row?.frozen_by || null,
+  reason: row?.reason || null,
+});
+
+async function getArchiveState(client) {
+  const { rows } = await runner(client)(
+    'SELECT * FROM english_archive_control WHERE singleton = true',
+  );
+  return archiveState(rows[0]);
+}
+
+async function assertArchiveWritable(client) {
+  const state = await getArchiveState(client);
+  if (state.isFrozen) {
+    throw new ServiceError('English archive is read-only after live cutover', 409);
+  }
+  return state;
+}
+
+async function freezeArchive({ actorId, reason }) {
+  return withTransaction(async (client) => {
+    const { rows: locked } = await client.query(
+      'SELECT * FROM english_archive_control WHERE singleton = true FOR UPDATE',
+    );
+    if (locked[0]?.is_frozen) return { changed: false, state: archiveState(locked[0]) };
+    const { rows } = await client.query(`
+      UPDATE english_archive_control SET
+        is_frozen = true, cutover_at = now(), frozen_by = $1, reason = $2, updated_at = now()
+      WHERE singleton = true AND is_frozen = false
+      RETURNING *`, [actorId == null ? null : String(actorId), reason]);
+    return { changed: true, state: archiveState(rows[0]) };
+  });
+}
+
+async function listArchiveAttendanceHistory() {
+  const { rows } = await query(`
+    SELECT 'archive' AS source, ar.id AS source_identity, e.emp_code,
+      c.course_code AS program_code, co.class_code AS english_group_code,
+      concat(co.class_code, ':', c.course_code, ':', r.run_number) AS cohort_run_code,
+      su.session_number, su.held_at AS event_date,
+      CASE ar.status WHEN 'present' THEN 'P' WHEN 'absent' THEN 'A' ELSE ar.status END AS attendance_status,
+      lower(concat_ws('|', e.emp_code, c.course_code, co.class_code, r.run_number, su.session_number)) AS natural_key
+    FROM eng_attendance_records ar
+    JOIN eng_session_units su ON su.id = ar.session_unit_id
+    JOIN eng_run_enrollments en ON en.id = ar.run_enrollment_id
+    JOIN eng_employees e ON e.id = en.employee_id
+    JOIN eng_course_runs r ON r.id = en.course_run_id
+    JOIN eng_courses c ON c.id = r.course_id
+    JOIN eng_cohorts co ON co.id = r.cohort_id
+    ORDER BY su.held_at, e.emp_code COLLATE "C"
+    LIMIT 20000`);
+  return rows;
+}
+
+async function listLiveAttendanceHistory() {
+  const { rows } = await query(`
+    SELECT 'live' AS source, a.id AS source_identity, u.emp_code,
+      p.code AS program_code, coalesce(cl.english_group_code, cl.class_code) AS english_group_code,
+      cl.class_code AS cohort_run_code, ordered.session_number, s.start_time AS event_date,
+      a.status AS attendance_status,
+      lower(concat_ws('|', u.emp_code, p.code, coalesce(cl.english_group_code, cl.class_code), cl.class_code, ordered.session_number)) AS natural_key
+    FROM attendances a
+    JOIN schedules s ON s.id = a.schedule_id
+    JOIN classes cl ON cl.id = s.class_id AND cl.is_deleted = false
+    JOIN learning_programs p ON p.id = cl.program_id AND p.category = 'english'
+    JOIN users u ON u.id = a.user_id AND u.is_deleted = false
+    JOIN LATERAL (
+      SELECT numbered.session_number FROM (
+        SELECT sx.id, row_number() OVER (ORDER BY sx.start_time, sx.id)::int AS session_number
+        FROM schedules sx WHERE sx.class_id = cl.id AND sx.status <> 'cancelled'
+      ) numbered WHERE numbered.id = s.id
+    ) ordered ON true
+    ORDER BY s.start_time, u.emp_code COLLATE "C"
+    LIMIT 20000`);
+  return rows;
+}
+
+async function listArchiveEvaluationHistory() {
+  const { rows } = await query(`
+    SELECT 'archive' AS source, xr.id AS source_identity, e.emp_code,
+      c.course_code AS program_code, co.class_code AS english_group_code,
+      concat(co.class_code, ':', c.course_code, ':', r.run_number) AS cohort_run_code,
+      xr.exam_date::timestamptz AS event_date, xr.level_code,
+      lower(concat_ws('|', e.emp_code, c.course_code, co.class_code, r.run_number, 'level')) AS natural_key
+    FROM eng_exam_results xr
+    JOIN eng_run_enrollments en ON en.id = xr.run_enrollment_id
+    JOIN eng_employees e ON e.id = en.employee_id
+    JOIN eng_course_runs r ON r.id = en.course_run_id
+    JOIN eng_courses c ON c.id = r.course_id
+    JOIN eng_cohorts co ON co.id = r.cohort_id
+    WHERE xr.is_deleted = false
+    ORDER BY xr.exam_date, e.emp_code COLLATE "C"
+    LIMIT 20000`);
+  return rows;
+}
+
+async function listLiveEvaluationHistory() {
+  const { rows } = await query(`
+    SELECT 'live' AS source, ev.id AS source_identity, u.emp_code,
+      p.code AS program_code, coalesce(cl.english_group_code, cl.class_code) AS english_group_code,
+      cl.class_code AS cohort_run_code, coalesce(ev.evaluated_at, ev.updated_at) AS event_date,
+      ev.level_code,
+      lower(concat_ws('|', u.emp_code, p.code, coalesce(cl.english_group_code, cl.class_code), cl.class_code, 'level')) AS natural_key
+    FROM evaluations ev
+    JOIN classes cl ON cl.id = ev.class_id AND cl.is_deleted = false
+    JOIN learning_programs p ON p.id = cl.program_id AND p.category = 'english'
+    JOIN users u ON u.id = ev.user_id AND u.is_deleted = false
+    WHERE ev.is_deleted = false AND ev.result_kind = 'english_level'
+    ORDER BY coalesce(ev.evaluated_at, ev.updated_at), u.emp_code COLLATE "C"
+    LIMIT 20000`);
+  return rows;
+}
+
 module.exports = {
   newId, insert, insertMany, stageRaw, recordIssue, count, withTransaction, resetCanonical, query,
   findEmployeeForCorrection, getEmployeeCorrection, saveEmployeeCorrection,
@@ -266,4 +383,7 @@ module.exports = {
   recordEmployeeCorrectionHistory, applyEmployeeCorrections,
   getLevelByCode, getEnrollmentForExam, getActiveExamResult,
   upsertExamResult, softDeleteActiveExamResult,
+  getArchiveState, assertArchiveWritable, freezeArchive,
+  listArchiveAttendanceHistory, listLiveAttendanceHistory,
+  listArchiveEvaluationHistory, listLiveEvaluationHistory,
 };

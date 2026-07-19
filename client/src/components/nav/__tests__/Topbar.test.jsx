@@ -50,6 +50,12 @@ describe('Topbar', () => {
     expect(screen.getByText('nav.workspace.admin')).toBeInTheDocument();
   });
 
+  it('renders the English Operations workspace breadcrumb', () => {
+    h.persona = 'english';
+    renderTopbar();
+    expect(screen.getByText('nav.workspace.english')).toBeInTheDocument();
+  });
+
   it('opens the search palette on Ctrl+K', () => {
     renderTopbar();
     expect(screen.queryByTestId('search-open')).toBeNull();

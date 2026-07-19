@@ -2,7 +2,7 @@
 capability: users-and-roles
 status: stable
 owners: [controllers/userController, models/User]
-last_updated: 2026-06-12
+last_updated: 2026-07-19
 related_code:
   - server/controllers/userController.js
   - server/controllers/user
@@ -31,6 +31,8 @@ feeds manager-scoped dashboards. Identity is an admin-entered `empCode`.
 - **BR-4:** User data is audit-relevant — never hard-delete; deletes are
   recoverable and free the empCode/email slot for a replacement.
 - **BR-5:** An org tree (manager/department) must be queryable for reporting.
+- **BR-6:** A learner may exist as a training directory record without email,
+  password, or application login while still participating in shared training data.
 
 ## Actors & Use Cases (UC)
 
@@ -41,6 +43,9 @@ feeds manager-scoped dashboards. Identity is an admin-entered `empCode`.
 - **UC-3 (Admin):** sets a user `Dropped` → user is auto-removed from all future
   schedules.
 - **UC-4 (Admin):** soft-deletes a user → goes to "trash"; can restore later.
+- **UC-5 (Admin/Coordinator, English Operations):** creates or links an
+  English learner as a Participant User with `canLogin=false`; matching uses the
+  stable `empCode` and never disables a pre-existing login-enabled User.
 
 ## Entities
 
@@ -83,6 +88,22 @@ deactivation takes effect within seconds (not after TTL).
 - **GIVEN** an Admin with an active session
 - **WHEN** their role is changed to Participant
 - **THEN** subsequent requests are authorized as Participant within seconds
+
+### Requirement: Managed learners reuse the User identity [BR-6, UC-5]
+
+English Operations SHALL create missing learners in `users` with role
+Participant, `canLogin=false`, nullable email/password, and the HR employee
+code. Archive provisioning SHALL link an existing active User by `empCode`
+without changing that User's login state; collisions are reported per row.
+
+#### Scenario: Provision an unmatched archive learner
+- **WHEN** Admin/Coordinator provisions a valid archive employee with no User
+- **THEN** one login-disabled User is created and linked atomically.
+
+#### Scenario: Existing employee already has an account
+- **GIVEN** a login-enabled User with the same `empCode`
+- **WHEN** archive provisioning runs
+- **THEN** the archive row links to it and `canLogin` remains true.
 
 ### Requirement: Auto-release on Dropped [BR-3, UC-3]
 

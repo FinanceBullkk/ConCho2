@@ -1,11 +1,13 @@
 import { createContext, useContext, useState, useCallback, useMemo } from 'react';
 import { useAuth } from './AuthContext';
+import { isFeatureEnabled } from '../config/features';
 
 // ──────────────────────────────────────────────────────────
 // PersonaContext — IA rework Phase 02 (2026-06-13).
 //
 // A lightweight CLIENT UI mode that swaps which sidebar group-set renders:
 //   • 'admin'   → Admin Console (Training/Insights/Manage groups)
+//   • 'english' → English Operations (shared-domain English composition)
 //   • 'learner' → My Learning (the /me/* learner surfaces)
 //
 // It is NOT an authz boundary — the server still enforces everything; routes are
@@ -17,7 +19,7 @@ import { useAuth } from './AuthContext';
 
 const PersonaContext = createContext(null);
 const STORAGE_KEY = 'tms.persona';
-const VALID = ['admin', 'learner'];
+const VALID = ['admin', 'english', 'learner'];
 
 const defaultPersona = (role) => (role === 'Participant' ? 'learner' : 'admin');
 
@@ -25,6 +27,12 @@ export function PersonaProvider({ children }) {
   const { user } = useAuth();
   const role = user?.role;
   const canSwitch = Boolean(role) && role !== 'Participant';
+  const availablePersonas = useMemo(
+    () => (role === 'Participant'
+      ? ['learner']
+      : ['admin', ...(isFeatureEnabled('englishTraining') ? ['english'] : []), 'learner']),
+    [role],
+  );
 
   const [stored, setStored] = useState(() => {
     try { return localStorage.getItem(STORAGE_KEY); } catch { return null; }
@@ -35,18 +43,18 @@ export function PersonaProvider({ children }) {
   const persona = useMemo(() => {
     if (!role) return 'admin';
     if (role === 'Participant') return 'learner';
-    return VALID.includes(stored) ? stored : defaultPersona(role);
-  }, [role, stored]);
+    return availablePersonas.includes(stored) ? stored : defaultPersona(role);
+  }, [availablePersonas, role, stored]);
 
   const setPersona = useCallback((next) => {
-    if (!VALID.includes(next)) return;
+    if (!VALID.includes(next) || !availablePersonas.includes(next)) return;
     setStored(next);
     try { localStorage.setItem(STORAGE_KEY, next); } catch { /* localStorage unavailable — non-fatal */ }
-  }, []);
+  }, [availablePersonas]);
 
   const value = useMemo(
-    () => ({ persona, setPersona, canSwitch }),
-    [persona, setPersona, canSwitch],
+    () => ({ persona, setPersona, canSwitch, availablePersonas }),
+    [persona, setPersona, canSwitch, availablePersonas],
   );
 
   return <PersonaContext.Provider value={value}>{children}</PersonaContext.Provider>;

@@ -1,130 +1,197 @@
-# Fit / Gap — English Training vs the generic training model
+# Fit / Gap — English Operations vs the generic training model
 
-How each English concept maps onto the generic domains, what fits, what is
-missing, and the decision. Feeds the phase files. Grounded in the code as of
-2026-07-19 (`domains/english-training/*`, `domains/learning`, `domains/schedule`,
-`domains/attendance`, `domains/assessment`, `evaluation`).
+This analysis maps the **live** English workflow onto current generic domains and
+keeps the imported `eng_*` subsystem as historical evidence. Grounded in code and
+specs as of 2026-07-19.
 
-Legend — **Fit:** generic model already supports it · **Gap:** needs new work ·
-**Decision:** the chosen resolution.
+Legend — **Fit:** already supported · **Gap:** work required · **Decision:**
+resolution locked by this plan.
 
-## 1. Learner (person)
+## 1. Learner identity
 
-- **English today:** `eng_employees` (308) — business records; `user_id` column
-  exists but 0/308 populated; import sets it null. Not `users`, cannot log in.
-- **Generic home:** `users`. Attendance/enrollment/schedule rosters all FK to it.
-- **Fit:** users model already carries emp_code, org (department/office), status.
-- **Gap:** English learners are not users; owner wants them to **not log in**.
-- **Decision:** create/link a `users` row per English learner, **authentication
-  disabled** (present in rosters/reports, cannot sign in). Link by `emp_code`.
-  Provision the missing ones as managed directory records. This is Phase 0 and
-  gates everything. Keep `eng_employees` as the archive's identity table.
+- **English today:** `eng_employees` (308), keyed by normalized `emp_code`;
+  `user_id` exists but 0/308 rows are linked.
+- **Generic home:** `users`; generic enrollment, roster, attendance, and
+  evaluation all reference a user.
+- **Fit:** users already carry employee code, org/profile fields, status,
+  soft-delete, and audit behavior. PostgreSQL already permits nullable password
+  and email even though the current Admin create-user contract requires both.
+- **Gap:** missing English people need roster identity but no credentials. The
+  current user UI/API cannot create that record type. Some English people may
+  already have valid ConCho2 accounts which must not be disabled.
+- **Decision:** link by normalized `emp_code`. Preserve an existing user's auth
+  state. Create only missing people as managed Participant-directory records with
+  `can_login=false`, no password, and optional email. Add first-class managed-user
+  create/update/soft-delete UI and API; the import-link job is not the only
+  onboarding path.
 
-## 2. Login-disabled account state
+## 2. Login-disabled state
 
-- **Gap:** ConCho2 has no "exists but cannot authenticate" account state today.
-- **Decision (P0):** add a minimal, explicit flag (e.g. `canLogin=false` /
-  `accountType='managed'`) that `middleware/auth.js` and the login path refuse
-  **before** password logic — never a silent weakening. Audited. Exact field vs.
-  reusing an inactive/status column decided in P0 (see plan open question 2).
+- **Fit:** login and middleware already reject non-Active/deleted users and auth
+  repositories have narrow projections.
+- **Gap:** training `status` cannot represent authentication eligibility: managed
+  learners must remain Active to appear in rosters. Login is not the only
+  credential path; forgot/reset password, MFA enrollment, password change, and an
+  already-issued token must all fail closed.
+- **Decision:** add orthogonal `users.can_login BOOLEAN NOT NULL DEFAULT true`.
+  Every auth projection reads it. Login checks it before password comparison;
+  middleware checks it on every token; credential reset/change/MFA endpoints
+  refuse it. Changing it invalidates auth cache and existing sessions. Do not
+  overload `status` or create placeholder passwords.
 
-## 3. English course → Program
+## 3. English Operations workspace
 
-- **English today:** `eng_courses` — code, name, `expected_units`,
-  `max_absences_allowed`; a course repeats as a `eng_course_runs` row per class.
-- **Generic home:** `LearningProgram` (+ the cohort is one run of it).
-- **Fit:** program→cohort→session spine already models "a course delivered N times".
-- **Gap:** `expected_units`, `max_absences_allowed`, the ≤2-absence exam-sit gate,
-  13 ordered levels are English-specific.
-- **Decision:** English course = `LearningProgram` with an **English policy block**
-  (absence allowance + exam gate + level scale) as program config — not a schema
-  fork. `schedulingMode = admin_scheduled` (HR/Teacher create, not leader-booked).
+- **Fit:** `PersonaContext`, `PersonaSwitch`, sidebar group sets, workspace
+  breadcrumbs, persistence, and mobile switcher already support Admin Console ↔
+  My Learning. Persona/workspace is explicitly UI-only.
+- **Gap:** current context and navigation assume only `admin|learner`; English
+  pages are scattered across generic surfaces or the imported-data section.
+- **Decision:** add staff workspace `english` with Overview, Learners, Classes,
+  Schedule, Attendance, Evaluation, and Archive. Participant remains locked to My
+  Learning. Workspace filters never grant access; routes and use-cases enforce
+  capabilities and resource scope.
 
-## 4. English class → Cohort
+## 4. English course → LearningProgram
 
-- **English today:** `eng_cohorts` (class_code, status) + `eng_cohort_memberships`
-  (learner in class) + `eng_cohort_pic` (Person-In-Charge).
-- **Generic home:** `Class`/cohort + its enrollment + teacher/facilitator binding.
-- **Fit:** cohort + membership is a direct match.
-- **Gap:** **PIC** has no generic equivalent; PICs are Person-In-Charge, not
-  teachers (see memory `feedback_pic_not_teacher`).
-- **Decision:** map PIC to a cohort **facilitator/owner binding** or a custom field
-  (custom-field domain exists) — decide in P1; do **not** mislabel PIC as teacher.
+- **English today:** `eng_courses` carries code/name, expected units, and maximum
+  absences; each delivery is a separate `eng_course_runs` row.
+- **Generic home:** `LearningProgram`.
+- **Fit:** Program already models a reusable catalog item with category,
+  scheduling mode, session count, and policy objects.
+- **Gap:** current policy schemas do not express an absence-count exam gate or an
+  ordered English level scale. Free-form Custom Fields are unsuitable for
+  load-bearing policy.
+- **Decision:** `category=english`, `schedulingMode=nomination`, plus a validated
+  typed English policy containing `maxAbsencesAllowed` and an ordered level scale.
+  A course-run Cohort snapshots this policy at creation so later Program edits do
+  not change past eligibility or valid levels.
 
-## 5. English session → Schedule
+## 5. Stable English group is not a generic Cohort
 
-- **English today:** `eng_session_units` (session_number, held_at, status) under a
-  course run; import-only.
-- **Generic home:** `Schedule` via `domains/schedule` — owner chose the **full
-  booking grid** (rooms, calendar invites, conflict guard, capacity).
-- **Fit:** schedule domain already does admin-created sessions with rooms/calendar/
-  conflict; `schedulingMode=admin_scheduled` is enforced at the `bookSlot`
-  chokepoint.
-- **Gap:** English sessions are numbered within a run (`session_number`) — a
-  sequence concept the generic session may not carry.
-- **Decision:** live English sessions = `Schedule` rows created by HR/Teacher via
-  the booking grid; carry the run/sequence as session metadata. Historical
-  `eng_session_units` stay in the archive (not migrated).
+- **English today:** `eng_cohorts` is a stable class/group. Its members may study
+  several courses over time; `eng_cohort_pic` belongs to that operating context.
+- **Generic truth:** a Cohort (`Class`) is one delivery of one Program. The
+  learning-catalog spec calls it “one delivery of a Program.”
+- **Gap:** mapping `eng_cohort → generic Cohort` would attach several Programs to
+  an entity that can hold only one, and would give sessions/evaluations the wrong
+  grain. Legacy Team cannot solve this: it is tied to one Class and is not a
+  reusable cross-run roster template.
+- **Decision:** no new stable-group aggregate in the generic spine. Store a typed
+  `englishGroupCode` delivery-context field on each English course-run Cohort and
+  let the English workspace group runs by it. When a new run is created, staff
+  select/copy managed learners into direct Enrollments. This preserves the
+  familiar class-centric UI without reviving Team as a second enrollment model.
 
-## 6. Attendance
+## 6. English course run → generic Cohort
 
-- **English today:** `eng_attendance_records` (5,962) — import-only; per
-  session_unit × run_enrollment; `present`/`absent`/`unmarked`.
-- **Generic home:** `domains/attendance` — live marking, facilitator-assignment
-  gate, audit.
-- **Fit:** same shape (roster × session, present/absent). Live marking + audit +
-  soft-delete already built.
-- **Gap:** the ≤2-absence **eligibility projection** is an English rule.
-- **Decision:** live attendance = `domains/attendance`. Eligibility stays a
-  **read projection** over generic attendance (reuse the shared
-  `ELIGIBILITY_STATUS_SQL` idea). Historical attendance stays archived.
+- **English today:** `eng_course_runs` is one delivery of one course to one stable
+  group; it snapshots policy and owns run enrollments, sessions, and final result.
+- **Generic home:** Cohort (`Class`) under one LearningProgram.
+- **Fit:** exact semantic grain. Generic Evaluation is unique per
+  `(classId,userId)`, which becomes one final result per course run and learner.
+- **Gap:** the live Cohort needs `englishGroupCode`, a policy snapshot, and
+  optional PIC presentation metadata.
+- **Decision:** create one generic Cohort per live English course run. Its code is
+  unique per run; `englishGroupCode` supplies the stable class label used by the
+  workspace. PIC is informational metadata and never a teacher or authz binding.
+  If PIC later gains permissions, introduce a generic owner binding explicitly.
 
 ## 7. Enrollment
 
-- **English today:** `eng_run_enrollments` (learner in a course run;
-  status/start_session/dq meta).
-- **Generic home:** generic `Enrollment` (already converged read+create per the
-  domain-model doc).
-- **Fit:** strong — one enrollment concept, group/direct modes exist.
-- **Gap:** English "start_session_number" (join mid-run) is English-specific.
-- **Decision:** generic `Enrollment`; carry start-session as enrollment metadata.
+- **English today:** `eng_run_enrollments` records a learner in a course run,
+  including status and optional `start_session_number`.
+- **Generic home:** direct cohort `Enrollment` (`teamId=null`).
+- **Fit:** direct enrollment and bulk staff assignment already exist; the active
+  cohort uniqueness guard prevents duplicates.
+- **Gap:** current generic enrollment writes/DTOs do not expose metadata such as
+  a mid-run starting session.
+- **Decision:** direct Enrollment into the course-run Cohort. Add validated
+  `startSessionNumber` metadata only when a learner joins after the run begins;
+  preserve it in DTO/reporting and use it when interpreting missing attendance.
 
-## 8. Level / exam result
+## 8. Live session → generic Schedule
 
-- **English today:** `eng_levels` (13 ordered), `eng_exam_results` (one active
-  level per enrollment, ≤2-absence gate, audited, soft-delete). UI: Evaluation tab.
-- **Generic home:** `Evaluation`/`assessment` — **already partly converged**
-  (unified `GET /api/assessment/results/mine`, ADR Phase 1).
-- **Fit:** evaluation already models an instructor-scored result; unified read
-  exists.
-- **Gap:** the ordered **13-level scale** + the ≤2-absence sit-gate are English
-  rules; generic assessment is rubric/quiz-shaped.
-- **Decision (P4):** represent levels as a program-scoped ordered scale on the
-  evaluation/assessment path; keep the ≤2-absence gate as program policy. Open
-  question: config vs. normalise onto the generic rubric (plan open question 1).
+- **English today:** `eng_session_units` is a numbered occurrence under a course
+  run and is import-only.
+- **Generic home:** Schedule/Session under the course-run Cohort.
+- **Fit:** cohort booking already supports Office, Room lock, class/room conflict,
+  roster snapshot, calendar integration, cancellation, and audit side effects.
+  Session number is already derived by `domains/schedule/session-order` from
+  chronological position within a Class.
+- **Gap:** current code accepts cohort booking only for `self_enroll|nomination`;
+  `admin_scheduled` is a Team mode. Teachers are not schedulers.
+- **Decision:** English Programs use `nomination`. Admin/Coordinator create the
+  session through the cohort path with `cohortId`; assigned Teachers receive
+  read-only schedule access. Reuse derived `sessionNumber`; do not add duplicate
+  session-sequence metadata.
 
-## 9. Data-quality issues + import pipeline
+## 9. Attendance and eligibility
 
-- **English today:** `eng_data_quality_issues` (182 open), `raw_eng_workbook_rows`,
-  `import/*` pipeline, corrections overlay.
-- **Decision:** import + DQ + corrections belong to the **archive** — retained
-  read-only for history/audit. Live data is created in-app and never re-imported,
-  so DQ issues do not propagate into the live model. Import is **not** the primary
-  path after P5; do not decommission it before the live paths replace it.
+- **English today:** `eng_attendance_records` contains canonical historical
+  present/absent marks; archive eligibility is a shared SQL fragment over
+  `eng_*`.
+- **Generic home:** `domains/attendance` with its roster, marking, audit,
+  soft-delete, and assignment policy.
+- **Fit:** same session × learner grain. Generic statuses can retain P/A/L/EL;
+  the English absence rule counts only the configured absence statuses.
+- **Gap:** archive SQL is table-specific and cannot be shared literally with the
+  generic attendance repositories.
+- **Decision:** define one domain-level eligibility contract/pure policy
+  (`unknown|within_limit|eligible|not_eligible`, counts, allowance). Archive SQL
+  and live generic queries are separate adapters tested against the same contract
+  fixtures. Assigned Teacher/Admin/Coordinator marking follows capability plus
+  session/cohort assignment policy.
 
-## Summary — convergence is highly feasible
+## 10. Final level → instructor-scored Evaluation
 
-The generic model already provides program/admin_scheduled + booking grid +
-attendance + enrollment + evaluation. English needs mostly **configuration + a few
-policy bits** (absence allowance, exam gate, level scale, PIC binding) and one
-genuinely new primitive: the **login-disabled user**. No second live subsystem is
-warranted.
+- **English today:** one active `eng_exam_results` level per run enrollment,
+  soft-deleted on clear and blocked when absences exceed the policy.
+- **Generic home:** instructor-scored Evaluation, surfaced through
+  `GET /api/assessment/results/mine` and the grading workspace.
+- **Fit:** Evaluation already has `(classId,userId)` uniqueness, `level`,
+  soft-delete/revival, audit, teacher scoping, and unified read integration.
+- **Gap:** its current DTO treats every Evaluation as a four-score rubric and
+  fabricates a numeric percentage/pass outcome. English final levels have no
+  numeric score or fail state. Coordinator English evaluation access also needs
+  a scoped policy rather than broad quiz-management permission.
+- **Decision:** add an English level-award result profile on Evaluation. Validate
+  the level against the Cohort policy snapshot, enforce the live attendance gate
+  before write, and return `level`/`outcome=level_awarded` without a fabricated
+  score. Admin, assigned Teacher, and authorized English Coordinator may write;
+  resource policy prevents cross-cohort access.
+
+## 11. Archive, import, and combined reporting
+
+- **English today:** import, raw staging, DQ issues, corrections, historical
+  sessions/attendance, and exam results all write `eng_*`.
+- **Gap:** a production archive cannot be read-only while the same importer is
+  retained as a production backfill path. Merely tagging report rows by source
+  does not define an overlap boundary.
+- **Decision:** record `englishLiveCutoverAt`; after P5, block production
+  INSERT/UPDATE/DELETE for archive tables and remove/archive all HTTP mutations.
+  Keep the CLI importer only for disposable/staging reconstruction. Combined
+  reports union archive rows before the cutover with live rows at/after it and
+  carry source + natural identity, with explicit anti-double-count tests.
+
+## Summary
+
+Convergence remains the correct direction, but it is not merely a flag plus a few
+policy bits. The load-bearing work is: managed-user lifecycle, correct
+course-run grain, typed/snapshotted English policy, cohort-mode scheduling,
+level-award Evaluation semantics, dedicated workspace IA, and an enforceable
+archive boundary. None requires a second live English backend.
 
 ## Rejected alternatives
 
-- **Build the live layer on `eng_*`:** a second live training world — rejected
-  (DRY + contradicts the convergence ADR + doubles security/reporting).
-- **Big-bang migrate history into the live model:** owner chose freeze-and-archive;
-  avoids back-filling 182 DQ issues and messy historical rows into live tables.
-- **Give every learner a real login:** owner scoped out self-service; ~1000
-  accounts + self-enroll flows are unnecessary for an HR/Teacher-operated system.
+- **Live writes on `eng_*`:** duplicates the generic training spine and security
+  controls.
+- **Map stable `eng_cohort` directly to generic Cohort:** wrong grain; one stable
+  group can study several Programs.
+- **Use Team + `admin_scheduled`:** Team is Class-bound and would reintroduce the
+  enrollment world being retired.
+- **Big-bang history migration:** owner chose a frozen archive and fresh live
+  start; avoids carrying historical DQ ambiguity into operations.
+- **Give every imported learner credentials:** unnecessary and expands the auth
+  surface; existing real accounts remain enabled, missing people become managed.
+- **Separate English schedule backend:** the workspace can be specialized while
+  Schedule remains shared.

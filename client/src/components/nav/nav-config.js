@@ -43,9 +43,6 @@ export const NAV_GROUPS = [
     items: [
       tab('/learning', 'programs', 'learning.tabs.programs', BookOpen, { access: LEARNING_ACCESS }),
       tab('/learning', 'cohorts', 'learning.tabs.cohorts', Boxes, { access: LEARNING_ACCESS }),
-      { path: '/english-training', labelKey: 'englishTraining.nav', icon: Languages,
-        access: { Admin: 'full', Coordinator: 'full' }, perm: 'read:reports',
-        feature: 'englishTraining', parentRoutes: ['/english-training'] },
       tab('/learning', 'paths', 'learning.tabs.paths', RouteIcon, { access: LEARNING_ACCESS, perm: 'manage:path', feature: 'paths' }),
       tab('/learning', 'assignments', 'learning.tabs.assignments', ClipboardList, { access: LEARNING_ACCESS, perm: 'read:assignments', feature: 'assignments' }),
       tab('/learning', 'assessments', 'learning.tabs.assessments', GraduationCap, { access: LEARNING_ACCESS, feature: 'assessments' }),
@@ -148,6 +145,50 @@ export const LEARNER_GROUPS = [
   },
 ];
 
+// English Operations is a focused composition over the same learning,
+// scheduling, attendance and evaluation domains. Persona is presentation only;
+// each item still carries role/capability visibility and every API enforces it.
+export const ENGLISH_GROUPS = [
+  {
+    id: 'english-overview',
+    items: [
+      tab('/english-operations', 'overview', 'englishOperations.tabs.overview', LayoutDashboard, {
+        access: { Admin: 'full', Coordinator: 'full', Teacher: 'read' },
+        feature: 'englishTraining',
+      }),
+    ],
+  },
+  {
+    id: 'english-setup', labelKey: 'englishOperations.groups.setup',
+    items: [
+      tab('/english-operations', 'learners', 'englishOperations.tabs.learners', Users, {
+        access: { Admin: 'full', Coordinator: 'full' },
+        feature: 'englishTraining',
+      }),
+      tab('/english-operations', 'classes', 'englishOperations.tabs.classes', Boxes, {
+        access: { Admin: 'full', Coordinator: 'full', Teacher: 'read' },
+        feature: 'englishTraining',
+      }),
+      tab('/english-operations', 'schedule', 'englishOperations.tabs.schedule', CalendarCheck, {
+        access: { Admin: 'full', Coordinator: 'full', Teacher: 'read' },
+        feature: 'englishTraining',
+      }),
+      tab('/english-operations', 'attendance', 'englishOperations.tabs.attendance', ClipboardCheck, {
+        access: { Admin: 'full', Coordinator: 'full', Teacher: 'full' },
+        feature: 'englishTraining',
+      }),
+      tab('/english-operations', 'evaluation', 'englishOperations.tabs.evaluation', GraduationCap, {
+        access: { Admin: 'full', Coordinator: 'full', Teacher: 'full' },
+        feature: 'englishTraining',
+      }),
+      tab('/english-operations', 'archive', 'englishOperations.tabs.archive', ScrollText, {
+        access: { Admin: 'full', Coordinator: 'read' },
+        feature: 'englishTraining',
+      }),
+    ],
+  },
+];
+
 // Injected at runtime only when the user has direct reports.
 export const MY_TEAM_ITEM = {
   path: '/my-team', labelKey: 'nav.myTeam', icon: Users, access: ALL, parentRoutes: ['/my-team'],
@@ -166,7 +207,9 @@ export function isItemVisible(item, role, can) {
 // the crumb always matches the highlighted sidebar item. Falls back to Home.
 export function activeItemLabelKey({ role, can, pathname, tab, persona }) {
   if (pathname.startsWith('/my-team')) return MY_TEAM_ITEM.labelKey;
-  const groups = persona === 'learner' ? LEARNER_GROUPS : NAV_GROUPS;
+  const groups = persona === 'learner'
+    ? LEARNER_GROUPS
+    : persona === 'english' ? ENGLISH_GROUPS : NAV_GROUPS;
   for (const group of groups) {
     const items = group.items.filter((it) => isItemVisible(it, role, can));
     const activePath = groupActivePath(items, pathname, tab);

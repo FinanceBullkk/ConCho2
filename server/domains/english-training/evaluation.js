@@ -14,6 +14,7 @@ const EXAM_MAX_ABSENCES = 2;
 const SITTABLE_ENROLLMENT_STATUSES = ['active', 'completed'];
 
 async function recordExamResult({ runEnrollmentId, levelCode, examDate, note, actor }) {
+  await repo.assertArchiveWritable();
   return repo.withTransaction(async (client) => {
     const enrollment = await repo.getEnrollmentForExam(runEnrollmentId, client);
     if (!enrollment) throw new ServiceError('English-training enrollment not found', 404);
@@ -48,6 +49,7 @@ async function recordExamResult({ runEnrollmentId, levelCode, examDate, note, ac
 }
 
 async function deleteExamResult({ runEnrollmentId }) {
+  await repo.assertArchiveWritable();
   return repo.withTransaction(async (client) => {
     const removed = await repo.softDeleteActiveExamResult(runEnrollmentId, client);
     if (!removed) throw new ServiceError('No exam result to delete', 404);

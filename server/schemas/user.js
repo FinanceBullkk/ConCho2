@@ -61,6 +61,7 @@ const updateUserBody = z.object({
   dropReason: fields.dropReason.optional(),
   entranceLevel: fields.entranceLevel.optional(),
   currentLevel: fields.currentLevel.optional(),
+  canLogin: z.boolean().optional(),
   password: fields.password.optional(),
   // BUG #9 fix: acting admin's password — required when mutating
   // `password` or `role` of another user. Length cap matches `password`.

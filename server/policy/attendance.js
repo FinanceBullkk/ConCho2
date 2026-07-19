@@ -20,7 +20,18 @@ const { isTeacherOfClass } = require('./classBinding');
 const canMark = (actor, classDoc) => {
   if (!actor) return { allowed: false, reason: 'no-actor' };
   if (actor.role === 'Admin') return { allowed: true, reason: 'admin' };
-  if (actor.role === 'Teacher') return isTeacherOfClass(actor, classDoc);
+  if (actor.role === 'Coordinator') return { allowed: true, reason: 'coordinator' };
+  if (actor.role === 'Teacher') {
+    // Live English runs never use the legacy empty-binding grace rule: a
+    // Teacher must be explicitly assigned to the Cohort or the Session.
+    if (classDoc?.programCategory === 'english') {
+      const assigned = (classDoc.teacherIds || []).some((id) => String(id) === String(actor._id));
+      return assigned
+        ? { allowed: true, reason: 'english-cohort-teacher' }
+        : { allowed: false, reason: 'teacher-not-bound-to-english-class' };
+    }
+    return isTeacherOfClass(actor, classDoc);
+  }
   return { allowed: false, reason: 'role-not-permitted' };
 };
 

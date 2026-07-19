@@ -134,6 +134,16 @@ const protect = async (req, res, next) => {
       });
     }
 
+    // can_login is re-read through the same short-lived auth cache as role and
+    // status. Managed learner mutations invalidate this cache, so disabling
+    // access also rejects already-issued sessions immediately.
+    if (user.canLogin === false) {
+      return res.status(403).json({
+        success: false,
+        message: 'Account access is disabled. Contact admin.',
+      });
+    }
+
     if (user.status !== 'Active') {
       return res.status(403).json({
         success: false,

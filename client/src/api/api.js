@@ -261,6 +261,7 @@ export const learningAPI = {
   // Safe scheduling config (allowed slots + tz) — readable by all roles.
   getSchedulingConfig: () => api.get('/learning/sessions/config'),
   getSessions: (params) => api.get('/learning/sessions', { params }),
+  getSession: (id) => api.get(`/learning/sessions/${id}`),
   // Coordinator-scheduled session create (cohort + office + time) — re-center
   // Phase 2. Books against a cohort (self_enroll/nomination), team-less.
   bookSession: (data) => api.post('/learning/sessions/book-slot', data),
@@ -400,6 +401,24 @@ export const englishTrainingAPI = {
   getPendingExamEntries: () => api.get('/english-training/pending-exam-entries'),
   recordExamResult: (enrollmentId, data) => api.post(`/english-training/enrollments/${enrollmentId}/exam-result`, data),
   deleteExamResult: (enrollmentId) => api.delete(`/english-training/enrollments/${enrollmentId}/exam-result`),
+};
+
+// English Operations workspace — live composition over shared domains.
+export const englishOperationsAPI = {
+  getOverview: () => api.get('/english-training/workspace/overview'),
+  getManagedLearners: (params) => api.get('/english-training/managed-learners', { params }),
+  createManagedLearner: (data) => api.post('/english-training/managed-learners', data),
+  updateManagedLearner: (id, data) => api.patch(`/english-training/managed-learners/${id}`, data),
+  deleteManagedLearner: (id) => api.delete(`/english-training/managed-learners/${id}`),
+  provisionArchiveLearners: () => api.post('/english-training/managed-learners/provision-archive'),
+  getTeachers: () => api.get('/english-training/workspace/teachers'),
+  getLiveEligibility: (cohortId) => api.get(`/english-training/live/cohorts/${cohortId}/eligibility`),
+  getLiveEvaluations: (cohortId) => api.get(`/english-training/live/cohorts/${cohortId}/evaluations`),
+  recordLiveEvaluation: (cohortId, data) => api.post(`/english-training/live/cohorts/${cohortId}/evaluations`, data),
+  deleteLiveEvaluation: (evaluationId) => api.delete(`/english-training/live/evaluations/${evaluationId}`),
+  getArchiveStatus: () => api.get('/english-training/archive/status'),
+  cutoverArchive: (data) => api.post('/english-training/archive/cutover', data),
+  getCombinedHistory: () => api.get('/english-training/live/history'),
 };
 
 // ── Org model (departments, offices, manager hierarchy, my-team) ───

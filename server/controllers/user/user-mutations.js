@@ -83,6 +83,7 @@ const updateUser = async (req, res) => {
     const {
       empCode, name, email, role, department, position, status, dropReason,
       entranceLevel, currentLevel, customFields,
+      canLogin,
     } = req.body;
     const updateData = {};
 
@@ -96,6 +97,7 @@ const updateUser = async (req, res) => {
     if (dropReason !== undefined) updateData.dropReason = dropReason;
     if (entranceLevel !== undefined) updateData.entranceLevel = entranceLevel;
     if (currentLevel !== undefined) updateData.currentLevel = currentLevel;
+    if (canLogin !== undefined) updateData.canLogin = canLogin;
     // Admin-defined custom fields (entity='User') — stored as a value map.
     if (customFields !== undefined && typeof customFields === 'object') updateData.customFields = customFields;
 
@@ -115,7 +117,8 @@ const updateUser = async (req, res) => {
     const isSelf = before._id.toString() === req.user._id.toString();
     const sensitiveChange =
       !!req.body.password ||
-      (role !== undefined && role !== before.role);
+      (role !== undefined && role !== before.role) ||
+      (canLogin !== undefined && canLogin !== before.canLogin);
 
     if (!isSelf && sensitiveChange) {
       if (!req.body.currentPassword) {

@@ -140,7 +140,9 @@ export default function Topbar({ onOpenMobileNav }) {
   if (!user) return null;
 
   const tab = new URLSearchParams(location.search).get('tab');
-  const workspaceKey = persona === 'learner' ? 'nav.workspace.learner' : 'nav.workspace.admin';
+  const workspaceKey = persona === 'learner'
+    ? 'nav.workspace.learner'
+    : persona === 'english' ? 'nav.workspace.english' : 'nav.workspace.admin';
   const pageKey = activeItemLabelKey({ role: user.role, can, pathname: location.pathname, tab, persona });
 
   return (

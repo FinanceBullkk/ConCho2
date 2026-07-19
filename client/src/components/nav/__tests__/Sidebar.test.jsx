@@ -47,9 +47,8 @@ describe('Sidebar — section-group navigation (Phase 03)', () => {
       '/reports?tab=overview', '/reports?tab=hr-export',
       '/system?tab=settings',
     ].forEach((p) => expect(links).toContain(p));
-    // Legacy English admin tabs remain retired. Phase 1 exposes the newly
-    // imported canonical workbook data through one read-only operations page.
-    expect(hrefs(renderSidebar().container)).toContain('/english-training');
+    // English operations now lives in its own workspace, not Admin Console.
+    expect(hrefs(renderSidebar().container)).not.toContain('/english-training');
     expect(hrefs(renderSidebar().container).some((h) => h === '/english' || h.startsWith('/english?'))).toBe(false);
   });
 
@@ -98,6 +97,20 @@ describe('Sidebar — section-group navigation (Phase 03)', () => {
     expect(hrefs(renderSidebar().container)).not.toContain('/english');
     h.user = { role: 'Participant' };
     expect(hrefs(renderSidebar().container)).toContain('/english');
+  });
+
+  it('English Operations workspace exposes role-correct navigation', () => {
+    h.persona = 'english';
+    h.user = { role: 'Admin' };
+    let links = hrefs(renderSidebar('/english-operations?tab=overview').container);
+    expect(links).toContain('/english-operations?tab=overview');
+    expect(links).toContain('/english-operations?tab=learners');
+    expect(links).not.toContain('/learning?tab=programs');
+
+    h.user = { role: 'Teacher' };
+    links = hrefs(renderSidebar('/english-operations?tab=overview').container);
+    expect(links).toContain('/english-operations?tab=overview');
+    expect(links).not.toContain('/english-operations?tab=learners');
   });
 
   it('injects My Team only when the user has direct reports', () => {

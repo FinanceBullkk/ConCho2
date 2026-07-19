@@ -121,21 +121,21 @@ sidebar sub-item, a deep link into the page's `?tab=`). Items are filtered by
 | (top) | Home |
 | Learning | Programs · Cohorts · Paths · Assignments · Assessments · Feedback (`/learning`) |
 | Operations | Schedules · Attendance (`/calendar`) |
-| English Class | Classes · Teams · Schedules · Attendance · Evaluations (`/english`) |
 | Reports | Overview · L&D Dashboard · Completion · Attendance · HR Export (`/reports`) |
 | People | Users · Departments · Offices · Rooms (`/people`) |
 | System | Settings · Database · Sync · Reconciliation · Audit (`/system`) |
 | (manager) | My Team (when the user has direct reports) |
 
 Each sub-item gates on the same perm/role the page's tab used, so a role sees only
-its tabs (e.g. Teacher: Learning minus Paths, Reports minus Overview/HR Export,
-Operations/English Attendance only; Coordinator: no System, no English).
+its tabs (e.g. Teacher: Learning minus Paths, Reports minus Overview/HR Export;
+Coordinator: no System).
 
-**Persona modes (Phase 02):** `context/PersonaContext.jsx` swaps the sidebar
-group-set between **Admin Console** (the table above) and **My Learning** (the
+**Workspace/persona modes:** `context/PersonaContext.jsx` swaps the sidebar
+group-set between **Admin Console** (the table above), **English Operations**
+(Overview, Learners, Classes, Schedule, Attendance, Evaluation, Archive), and **My Learning** (the
 `/me/*` surfaces: My programs · Catalog · My sessions · Paths · Assessments ·
 Feedback · Transcript + English). Participants are locked to learner; staff default
-to admin and switch via the avatar menu (choice persisted in `localStorage`). The
+to admin and switch via the workspace menu (choice persisted in `localStorage`). The
 `/me/*` routes are open to ALL authenticated users (self-scoped server-side).
 Persona is a UI mode only — not an authz boundary.
 
@@ -152,6 +152,7 @@ Persona is a UI mode only — not an authz boundary.
 - `schedulesAPI`
 - `attendanceAPI`
 - `evaluationsAPI`
+- `englishOperationsAPI`
 - `syncAPI`
 - `searchAPI`
 - `exportAPI`
@@ -190,7 +191,7 @@ English literals directly.
 | `/api/learning` | `domains/learning/routes.js` | Learning programs, cohorts, sessions, paths, assignments, dashboards, and reports — incl. **H1 A5** training-hours + evidence-pack (multi-sheet xlsx) + saved presets (`ReportPreset`) under `/reports/*` |
 | `/api/schedules` | `domains/schedule/routes.js` | availability, booking, cancel, calendars (Phase 1 domain extraction; `controller` → `use-cases`/`queries`/`repository` + policy modules; booking mutations still in `services/scheduleService` by design; `Schedule` model + `/api/schedules` URL unchanged). Reads return BOTH scheduling worlds tagged `deliveryType`, faceted client-side (the `/api/english` read surface + server-side `mode=team\|cohort` split were retired in convergence Phase 3 slice 5, 2026-06-20) |
 | `/api/attendance` | `domains/attendance/routes.js` | attendance marking, analytics, personal stats (Phase 1 domain extraction; `controller` → `use-cases` → `marking`/`analytics`/`scope`; `services/attendanceService.js` kept as a compat facade) |
-| `/api/english-training` | `domains/english-training/routes.js` | feature-flagged Admin/Coordinator operations view: a task-oriented **overview** landing (`GET /overview` counts + needs-attention cards) over imported English cohorts, runs, employees, historical sessions/attendance, derived eligibility, DQ correction overlays, and exam-result/level entry (`evaluation.js`, gated ≤2 absences); canonical `eng_*` history remains separate from live scheduling/attendance |
+| `/api/english-training` | `domains/english-training/routes.js` | dedicated English Operations composition. `/workspace/*`, managed learners, live eligibility/evaluation, archive status/cutover, and combined history wrap shared generic domains; historical reads remain over `eng_*`. P5 records a one-way cutover and DB triggers enforce Archive immutability; legacy archive writes/import reject after freeze |
 | `/api/rooms` | `domains/room/routes.js` | Office-scoped physical Rooms CRUD (re-center Phase 3) |
 | `/api/org` | `domains/org/routes.js` | departments, offices, manager hierarchy + manager dashboard |
 | `/api/assessment` | `domains/assessment/routes.js` | assessment engine, question bank, attempts, manual grading |

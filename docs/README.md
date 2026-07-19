@@ -15,7 +15,7 @@ healthy and distinct — this index is pure **routing**.
 | **AI agent / Claude Code** | [`../CLAUDE.md`](../CLAUDE.md) → [`development-roadmap.md`](development-roadmap.md) (status board) → [`specs/README.md`](specs/README.md) → the `.claude/rules/*` for the area you touch |
 | **New developer** | [`../README.md`](../README.md) → [`system-overview.md`](system-overview.md) → [`current-system-map.md`](current-system-map.md) → conventions in [`../.claude/rules/`](../.claude/rules/) |
 | **Checking progress** | [`development-roadmap.md`](development-roadmap.md) — Status board (Now / Next) is the first screen; full history in [`changelog-archive/`](changelog-archive/) |
-| **Ops / on-call** | [`runbook-5xx-spike.md`](runbook-5xx-spike.md) · [`runbook-cron-failure.md`](runbook-cron-failure.md) · [`backup-dr.md`](backup-dr.md) · [`cron-pinger-setup.md`](cron-pinger-setup.md) · [`google-calendar-setup.md`](google-calendar-setup.md) |
+| **Ops / on-call** | [`runbook-5xx-spike.md`](runbook-5xx-spike.md) · [`runbook-cron-failure.md`](runbook-cron-failure.md) · [`runbook-english-archive-cutover.md`](runbook-english-archive-cutover.md) · [`backup-dr.md`](backup-dr.md) · [`cron-pinger-setup.md`](cron-pinger-setup.md) · [`google-calendar-setup.md`](google-calendar-setup.md) |
 
 ## Living docs (root)
 
@@ -32,6 +32,7 @@ healthy and distinct — this index is pure **routing**.
 | [`google-calendar-setup.md`](google-calendar-setup.md) | Google Workspace / Calendar service-account integration |
 | [`runbook-5xx-spike.md`](runbook-5xx-spike.md) | Incident runbook — 5xx error spike |
 | [`runbook-cron-failure.md`](runbook-cron-failure.md) | Incident runbook — cron job failed / stale |
+| [`runbook-english-archive-cutover.md`](runbook-english-archive-cutover.md) | English live cutover, smoke, monitoring, rollback boundary, and Archive DR |
 
 ## Living docs (subdirs)
 

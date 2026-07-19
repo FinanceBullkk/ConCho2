@@ -7,9 +7,173 @@ const reads = require('./reads.pg');
 const dto = require('./dto');
 const corrections = require('./corrections');
 const evaluation = require('./evaluation');
+const managedPeople = require('./managed-people');
+const managedPeopleRepository = require('./managed-people-repository.pg');
+const userLifecycle = require('../../controllers/user/user-lifecycle');
+const { invalidateUserCache } = require('../../middleware/auth');
+const liveOperations = require('./live-operations');
+const archiveRepository = require('./repository.pg');
+const combinedHistory = require('./combined-history');
 const auditService = require('../../services/auditService');
 
 const notFound = (res, msg) => res.status(404).json({ success: false, message: msg });
+
+const getWorkspaceOverview = async (req, res) => {
+  try { res.json({ success: true, data: await managedPeopleRepository.getOverview() }); }
+  catch (e) { handleError(res, e); }
+};
+
+const listEnglishTeachers = async (req, res) => {
+  try { res.json({ success: true, data: await managedPeopleRepository.listTeachers() }); }
+  catch (e) { handleError(res, e); }
+};
+
+const getLiveEligibility = async (req, res) => {
+  try { res.json({ success: true, data: await liveOperations.getCohortEligibility(req.params.id, req.user) }); }
+  catch (e) { handleError(res, e); }
+};
+
+const getArchiveStatus = async (req, res) => {
+  try { res.json({ success: true, data: await archiveRepository.getArchiveState() }); }
+  catch (e) { handleError(res, e); }
+};
+
+const cutoverArchive = async (req, res) => {
+  try {
+    const result = await archiveRepository.freezeArchive({
+      actorId: req.user._id,
+      reason: req.body.reason,
+    });
+    if (result.changed) {
+      await auditService.record({
+        req,
+        action: 'cutover',
+        entity: 'EnglishArchive',
+        entityId: 'singleton',
+        diff: { before: { isFrozen: false, cutoverAt: null }, after: result.state },
+        note: req.body.reason,
+      });
+    }
+    res.status(result.changed ? 201 : 200).json({ success: true, data: result.state, changed: result.changed });
+  } catch (e) { handleError(res, e); }
+};
+
+const getCombinedHistory = async (req, res) => {
+  try { res.json({ success: true, data: await combinedHistory.getCombinedHistory() }); }
+  catch (e) { handleError(res, e); }
+};
+
+const getLiveEvaluationWorklist = async (req, res) => {
+  try { res.json({ success: true, data: await liveOperations.getEvaluationWorklist(req.params.id, req.user) }); }
+  catch (e) { handleError(res, e); }
+};
+
+const recordLiveEnglishLevel = async (req, res) => {
+  try {
+    const { before, result } = await liveOperations.recordEnglishLevel({
+      cohortId: req.params.id,
+      ...req.body,
+    }, req.user);
+    await auditService.record({
+      req,
+      action: before ? 'updated' : 'created',
+      entity: 'EnglishLevelEvaluation',
+      entityId: result._id,
+      diff: before ? auditService.diff(before, result) : { after: result },
+    });
+    res.status(before ? 200 : 201).json({ success: true, data: result });
+  } catch (e) { handleError(res, e); }
+};
+
+const deleteLiveEnglishLevel = async (req, res) => {
+  try {
+    const before = await liveOperations.deleteEnglishLevel(req.params.id, req.user);
+    await auditService.record({
+      req,
+      action: 'deleted',
+      entity: 'EnglishLevelEvaluation',
+      entityId: req.params.id,
+      diff: { before },
+      note: 'Soft-deleted; a later level entry revives the learner/course-run slot',
+    });
+    res.json({ success: true, data: { deleted: true } });
+  } catch (e) { handleError(res, e); }
+};
+
+const listManagedPeople = async (req, res) => {
+  try {
+    const result = await managedPeople.listManagedPeople(req.query);
+    res.json({ success: true, data: result.rows, total: result.total });
+  } catch (e) { handleError(res, e); }
+};
+
+const createManagedPerson = async (req, res) => {
+  try {
+    const person = await managedPeople.createManagedPerson(req.body);
+    const data = person.toObject ? person.toObject() : person;
+    delete data.password;
+    auditService.record({
+      req,
+      action: 'created',
+      entity: 'ManagedLearner',
+      entityId: data._id,
+      diff: { after: auditService.stripSensitive(data) },
+    });
+    res.status(201).json({ success: true, data });
+  } catch (e) { handleError(res, e); }
+};
+
+const updateManagedPerson = async (req, res) => {
+  try {
+    const result = await managedPeople.updateManagedPerson(req.params.id, req.body);
+    invalidateUserCache(req.params.id);
+    auditService.record({
+      req,
+      action: 'updated',
+      entity: 'ManagedLearner',
+      entityId: req.params.id,
+      diff: auditService.diff(result.before, result.after),
+    });
+    res.json({ success: true, data: result.after });
+  } catch (e) { handleError(res, e); }
+};
+
+const deleteManagedPerson = async (req, res) => {
+  try {
+    const person = await managedPeopleRepository.findById(req.params.id);
+    if (!person) return notFound(res, 'Managed learner not found');
+    if (person.canLogin !== false) {
+      return res.status(409).json({
+        success: false,
+        message: 'Login-enabled users must be maintained in Admin Console',
+      });
+    }
+    return userLifecycle.deleteUser(req, res);
+  } catch (e) { handleError(res, e); }
+};
+
+const provisionManagedPeople = async (req, res) => {
+  try {
+    const report = await managedPeople.provisionArchivePeople();
+    const summary = Object.fromEntries(Object.entries(report).map(([key, rows]) => [key, rows.length]));
+    auditService.record({
+      req,
+      action: 'provisioned',
+      entity: 'EnglishManagedLearnerBatch',
+      note: JSON.stringify(summary),
+    });
+    for (const failure of [...report.collisions, ...report.rejected]) {
+      auditService.record({
+        req,
+        action: 'provision-failed',
+        entity: 'ManagedLearner',
+        entityId: failure.empCode || null,
+        note: failure.reason,
+      });
+    }
+    res.json({ success: true, data: report, summary });
+  } catch (e) { handleError(res, e); }
+};
 
 const getOverview = async (req, res) => {
   try { res.json({ success: true, data: dto.overview(await reads.getOverview()) }); }
@@ -166,6 +330,12 @@ const deleteExamResult = async (req, res) => {
 };
 
 module.exports = {
+  getWorkspaceOverview,
+  listEnglishTeachers,
+  getLiveEligibility,
+  getArchiveStatus, cutoverArchive, getCombinedHistory,
+  getLiveEvaluationWorklist, recordLiveEnglishLevel, deleteLiveEnglishLevel,
+  listManagedPeople, createManagedPerson, updateManagedPerson, deleteManagedPerson, provisionManagedPeople,
   getOverview,
   listCohorts, getCohort, getClassDetail, listCourses, getCourseRun, listEmployees, getEmployee,
   listSessions, getSessionAttendance, listEligibility,

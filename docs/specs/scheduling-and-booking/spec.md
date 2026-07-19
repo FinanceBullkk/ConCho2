@@ -2,7 +2,7 @@
 capability: scheduling-and-booking
 status: stable
 owners: [services/scheduleService, domains/schedule, domains/room, domains/learning/session]
-last_updated: 2026-07-09
+last_updated: 2026-07-19
 related_plans:
   - plans/260602-2247-m1-self-enroll-nomination-session-modes
   - plans/260606-1356-wave-e-generic-scheduling
@@ -676,6 +676,15 @@ programs **plus program-less legacy classes** (fallback parity); **cohort** =
 - **WHEN** an Admin calls `GET /api/schedules?mode=cohort`
 - **THEN** the server ignores the `mode` param and returns BOTH worlds (each
   tagged `deliveryType`) — the split is client-side, not server-side
+
+### Requirement: English nomination sessions use the shared booking grid
+
+Admin/Coordinator SHALL schedule an English course-run Cohort through
+`POST /api/learning/sessions/book-slot` with `cohortId`, Office, optional Room,
+and start/end time. The same room locks, conflict checks, roster snapshot,
+calendar integration, cancellation behavior, and facilitator scoping apply.
+Assigned Teachers receive read-only session lists; managed learners without
+email are omitted from external invitations without failing booking.
 
 ## Non-Functional Requirements (NFR)
 

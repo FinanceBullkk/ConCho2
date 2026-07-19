@@ -26,6 +26,7 @@ const loginRow = (r) => (r == null ? null : {
   role: r.role,
   department: r.department,
   status: r.status,
+  canLogin: r.can_login,
   mustChangePassword: r.must_change_password,
   mfaEnabled: r.mfa_enabled,
   password: r.password,
@@ -41,6 +42,7 @@ const mfaVerifyRow = (r) => (r == null ? null : {
   role: r.role,
   department: r.department,
   status: r.status,
+  canLogin: r.can_login,
   mustChangePassword: r.must_change_password,
   mfaEnabled: r.mfa_enabled,
   mfaSecret: r.mfa_secret,
@@ -56,6 +58,7 @@ const authUserRow = (r) => (r == null ? null : {
   department: r.department,
   departmentId: r.department_id,
   status: r.status,
+  canLogin: r.can_login,
   passwordChangedAt: r.password_changed_at,
   mfaEnabled: r.mfa_enabled,
   mustChangePassword: r.must_change_password,
@@ -64,7 +67,7 @@ const authUserRow = (r) => (r == null ? null : {
 // ── Login path ───────────────────────────────────────────────────────────────
 const findForLogin = async (empCode) => {
   const { rows } = await query(
-    `SELECT id, emp_code, name, role, department, status, must_change_password,
+    `SELECT id, emp_code, name, role, department, status, can_login, must_change_password,
             mfa_enabled, password, failed_login_attempts, lock_until, mfa_secret
        FROM users WHERE emp_code = $1 AND is_deleted = false`,
     [empCode]
@@ -100,7 +103,7 @@ const resetLoginCounters = (userId) =>
 // ── MFA second leg ───────────────────────────────────────────────────────────
 const findForMfaVerify = async (userId) => {
   const { rows } = await query(
-    `SELECT id, emp_code, name, role, department, status, must_change_password,
+    `SELECT id, emp_code, name, role, department, status, can_login, must_change_password,
             mfa_enabled, mfa_secret, mfa_backup_codes, mfa_last_used_counter
        FROM users WHERE id = $1 AND is_deleted = false`,
     [String(userId)]
@@ -125,7 +128,7 @@ const saveMfaBackupCodes = (userId, codes) =>
 // ── Middleware projection (NEVER add password/mfa_secret here) ───────────────
 const findAuthUserById = async (userId) => {
   const { rows } = await query(
-    `SELECT id, emp_code, name, role, department, department_id, status,
+    `SELECT id, emp_code, name, role, department, department_id, status, can_login,
             password_changed_at, mfa_enabled, must_change_password
        FROM users WHERE id = $1 AND is_deleted = false`,
     [String(userId)]
@@ -137,11 +140,11 @@ const findAuthUserById = async (userId) => {
 
 const findByIdWithPassword = async (userId) => {
   const { rows } = await query(
-    `SELECT id, emp_code, password FROM users WHERE id = $1 AND is_deleted = false`,
+    `SELECT id, emp_code, password, can_login FROM users WHERE id = $1 AND is_deleted = false`,
     [String(userId)]
   );
   return rows[0]
-    ? { _id: rows[0].id, empCode: rows[0].emp_code, password: rows[0].password }
+    ? { _id: rows[0].id, empCode: rows[0].emp_code, password: rows[0].password, canLogin: rows[0].can_login }
     : null;
 };
 
@@ -235,7 +238,7 @@ const bumpPasswordChangedAt = (userId) =>
 const findForPasswordReset = async (empCode) => {
   const { rows } = await query(
     `SELECT id, email, name, password_reset_token, password_reset_expires
-       FROM users WHERE emp_code = upper($1) AND is_deleted = false`,
+       FROM users WHERE emp_code = upper($1) AND is_deleted = false AND can_login = true`,
     [empCode]
   );
   return rows[0]
@@ -268,7 +271,8 @@ const consumePasswordResetToken = async (tokenHash, passwordHash) => {
   const { rows } = await query(
     `UPDATE users SET password = $2, password_reset_token = NULL,
             password_reset_expires = NULL, password_changed_at = now(), updated_at = now()
-     WHERE password_reset_token = $1 AND password_reset_expires > now() AND is_deleted = false
+     WHERE password_reset_token = $1 AND password_reset_expires > now()
+       AND is_deleted = false AND can_login = true
      RETURNING id, emp_code`,
     [tokenHash, passwordHash]
   );

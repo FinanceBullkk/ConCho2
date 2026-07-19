@@ -2,7 +2,7 @@
 capability: attendance
 status: stable
 owners: [domains/attendance, models/Attendance]
-last_updated: 2026-06-15
+last_updated: 2026-07-19
 related_code:
   - server/domains/attendance
   - server/services/attendanceService.js
@@ -164,6 +164,14 @@ invalidated.
 
 The system SHALL let an authenticated participant read their own attendance
 statistics.
+
+### Requirement: Live English attendance and count-based eligibility
+
+Admin/Coordinator and an explicitly assigned English Teacher SHALL read/mark
+the shared Session roster. The English projection counts only snapshot-configured
+absence statuses, excludes pre-join sessions, and returns `in_progress`,
+`incomplete`, `eligible`, or `not_eligible`. On a Completed run every applicable
+session must be marked; absence count equal to the allowance remains eligible.
 
 ## Non-Functional Requirements (NFR)
 

@@ -45,6 +45,9 @@ function summarizeIssues(issues) {
 }
 
 async function runImport(path, { reset = false } = {}) {
+  // Fail before workbook IO and before opening a transaction once production
+  // archive cutover has made eng_* immutable. DB triggers remain the race guard.
+  await repo.assertArchiveWritable();
   const { checksum, sheets } = await readWorkbook(path);
   const data = transform(sheets);
 

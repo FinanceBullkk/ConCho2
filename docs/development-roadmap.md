@@ -6,7 +6,7 @@
 > - *Architecture / orientation* → [`system-overview.md`](system-overview.md)
 > - *Detailed task snapshot (archived)* → [`archive/handoff-2026-06-01.md`](archive/handoff-2026-06-01.md)
 >
-> **Last updated:** 2026-07-19
+> **Last updated:** 2026-07-20
 
 ---
 
@@ -22,7 +22,20 @@ remainder is documented deferred-by-design scope (below), not active debt.
   scheduling** — closed 2026-06-12. Full-system audit (8/8 rounds) complete;
   Express 4→5 + light dependency majors done. **Cohesion Wave** (6/6) + in-app
   notification bell (full event coverage) shipped 2026-06-13.
-- **Now / Next — English Training:** Phases 1–3 are complete on dev: identity,
+- **Now / Next — English live convergence:** ADR
+  [`english-live-converge`](decisions/english-live-converge.md) is **Accepted** and
+  P0–P5 implementation is complete on the working branch: third **English
+  Operations** workspace; login-disabled managed Users; English Program policy
+  + course-run Cohort snapshot; shared booking/Room grid; shared Attendance;
+  count-based eligibility; categorical final-level Evaluation; and a read-only
+  historical Archive with an audited one-way cutover, PostgreSQL write guards,
+  and cutover-aware combined history. The disposable PostgreSQL prototype has
+  now rehearsed migrations 040–043, the complete live vertical smoke, and the
+  database write guards (84/84 integration suites, 790/790 tests). **Next
+  operational gate:** deploy migrations 040–043 to production, reconcile archive
+  hashes/counts, repeat the live smoke there, then invoke Admin cutover. The
+  runtime archive is not claimed frozen until that production gate passes.
+- **Historical archive baseline:** Phases 1–3 are complete on dev: identity,
   structure, correction overlay, 984 historical sessions, 5,962 attendance
   records, searchable attendance rosters, derived absence eligibility, and (Phase 3,
   2026-07-19) **exam result & level entry** — HR/Admin records one of 13 ordered
@@ -168,6 +181,30 @@ Bug fixing and integration review rank above net-new feature rollout.
 > 07-04 E1–E3 rolled 2026-07-08, 07-02→07-03 rolled 2026-07-07 →
 > [`2026-q3.md`](changelog-archive/2026-q3.md); 06-20→06-27 rolled 2026-07-07;
 > 06-14→06-19 rolled 2026-07-04 → [`2026-q2.md`](changelog-archive/2026-q2.md)).
+
+- **2026-07-20** — **English Operations prototype migration + full PG rehearsal passed.**
+  Applied migrations 040–043 only to the disposable `PG_PROTOTYPE_URL` after a
+  no-secret equality guard confirmed it differs from production `PG_URL`. Added
+  a real-HTTP vertical integration smoke covering managed learner → disabled
+  login → English Program/Cohort snapshot → direct enrollment → generic
+  attendance → eligibility → categorical final level. The full PostgreSQL lane
+  passes **84/84 suites, 790/790 tests**. The reusable prototype verifier confirms
+  all 4 migrations, 12 new columns, 15 Archive triggers, the immutable control
+  trigger, and SQLSTATE `55000` for both prohibited write probes (transactions
+  rolled back). Test reset now restores the migration-owned Archive control
+  singleton. Production was not migrated or cut over; no Archive freeze occurred.
+
+- **2026-07-19** — **English Operations live convergence P0–P5 implemented.**
+  Accepted the dedicated-workspace ADR while preserving one backend training
+  spine. Added migrations 040–043, managed learners (`can_login=false`), typed
+  English Program/Cohort policy snapshots, direct enrollment late-join context,
+  generic booking + attendance, strict assigned-Teacher resource access,
+  eligibility-gated categorical final levels, and Archive cutover enforcement.
+  The client now exposes Overview/Learners/Classes/Schedule/Attendance/Evaluation/
+  Archive as a third workspace. Verification: full server unit suite 334/334,
+  full client suite 540/540, client lint (0 errors), production build, and all
+  18 operational script syntax checks pass. Production cutover remains an
+  explicit post-deploy smoke/reconciliation action.
 
 - **2026-07-19** — **English Training · UX redesign round 2 — class detail 360° (owner proposal #2).**
   The prior slice's named "next": open one class and see everything in one place
