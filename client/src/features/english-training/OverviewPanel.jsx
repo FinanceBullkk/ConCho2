@@ -57,7 +57,7 @@ export default function OverviewPanel({ t, onNavigate }) {
       <section className="space-y-3" aria-label={t('englishTraining.overviewPanel.atAGlance')}>
         <h2 className="text-h3 text-foreground">{t('englishTraining.overviewPanel.atAGlance')}</h2>
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          <Stat label={t('englishTraining.cohorts')} value={o.cohortsTotal}
+          <Stat label={t('englishTraining.classes')} value={o.cohortsTotal}
             sub={t('englishTraining.overviewPanel.activeCount', { count: o.cohortsActive })} />
           <Stat label={t('englishTraining.employees')} value={o.employeesTotal}
             sub={t('englishTraining.overviewPanel.activeCount', { count: o.employeesActive })} />

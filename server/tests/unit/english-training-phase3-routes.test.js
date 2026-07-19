@@ -14,7 +14,7 @@ jest.mock('../../domains/english-training/controller', () => ({
   recordExamResult: (_req, res) => res.status(201).json({ success: true, data: { id: 'x1' } }),
   deleteExamResult: (_req, res) => res.json({ success: true, data: { deleted: true } }),
   getOverview: jest.fn(),
-  listCohorts: jest.fn(), getCohort: jest.fn(), listCourses: jest.fn(), getCourseRun: jest.fn(),
+  listCohorts: jest.fn(), getCohort: jest.fn(), getClassDetail: jest.fn(), listCourses: jest.fn(), getCourseRun: jest.fn(),
   listEmployees: jest.fn(), getEmployee: jest.fn(), correctEmployee: jest.fn(),
   listSessions: jest.fn(), getSessionAttendance: jest.fn(), listEligibility: jest.fn(),
   listIssues: jest.fn(), listIssueDetails: jest.fn(),

@@ -5,6 +5,13 @@ import EnglishTrainingPage from '../EnglishTrainingPage';
 vi.mock('../useEnglishTraining', () => ({
   useEnglishOverview: () => ({ data: { cohortsTotal: 52, cohortsActive: 52, employeesTotal: 308, employeesActive: 292, coursesTotal: 6, runsTotal: 91, runsCompleted: 80, openDqIssues: 182, pendingExamRuns: 71, pendingExamLearners: 349 } }),
   useEnglishCohorts: () => ({ data: [{ id: 'co1', classCode: 'A1', status: 'active', activeMembers: 12, runs: 2 }] }),
+  useEnglishClassDetail: () => ({ data: {
+    id: 'co1', classCode: 'A1', status: 'active', displayName: 'Alpha cohort',
+    runs: [{
+      id: 'r1', runNumber: 1, status: 'active', courseName: 'Foundation', maxAbsencesAllowed: 2,
+      roster: [{ enrollmentId: 'en1', empCode: '000123', fullName: 'Alex Nguyen', enrollmentStatus: 'active', absenceCount: 1, allowedAbsences: 2, eligibilityStatus: 'within_limit', examLevelName: 'A1', examDate: '2026-07-10T00:00:00.000Z' }],
+    }],
+  } }),
   useEnglishCourses: () => ({ data: [{ id: 'c1', courseCode: 'FOUNDATION', courseName: 'Foundation', expectedUnits: 20, maxAbsencesAllowed: 2, runs: 4 }] }),
   useEnglishEmployees: () => ({ data: [{ id: 'e1', empCode: '000123', fullName: 'Alex Nguyen', email: 'alex@example.com', employmentStatus: 'active' }] }),
   useEnglishSessions: () => ({ data: [{ id: 's1', classCode: 'A1', courseName: 'Foundation', sessionNumber: 1, heldAt: '2026-07-01T10:00:00.000Z', presentCount: 1, absentCount: 0 }] }),
@@ -30,7 +37,7 @@ describe('EnglishTrainingPage', () => {
     expect(screen.getByText('349')).toBeInTheDocument();  // learners awaiting a level
     expect(screen.getByText('182')).toBeInTheDocument();  // open DQ issues
 
-    fireEvent.click(screen.getByRole('tab', { name: 'Cohorts' }));
+    fireEvent.click(screen.getByRole('tab', { name: 'Classes' }));
     expect(screen.getByText('A1')).toBeInTheDocument();
     expect(screen.getByText('12')).toBeInTheDocument();
 
@@ -67,6 +74,19 @@ describe('EnglishTrainingPage', () => {
     fireEvent.click(screen.getByRole('button', { name: /Review issues/ }));
     expect(screen.getByText('missing_bu')).toBeInTheDocument();
     expect(screen.getByText('Select an issue to inspect affected records.')).toBeInTheDocument();
+  });
+
+  it('opens a class 360° detail from the Classes tab and returns via back', () => {
+    render(<EnglishTrainingPage />);
+    fireEvent.click(screen.getByRole('tab', { name: 'Classes' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Open class A1' }));
+    // One place: course run + learner attendance summary + eligibility + level.
+    expect(screen.getByText('Foundation')).toBeInTheDocument();
+    expect(screen.getByText('000123 · Alex Nguyen')).toBeInTheDocument();
+    expect(screen.getByText('1 / 2')).toBeInTheDocument();       // absences used / allowed
+    expect(screen.getByText('Within limit')).toBeInTheDocument();  // eligibility badge
+    fireEvent.click(screen.getByRole('button', { name: '← Back to classes' }));
+    expect(screen.getByRole('button', { name: 'Open class A1' })).toBeInTheDocument();
   });
 
   it('shows imported sessions, attendance roster, and eligibility', () => {

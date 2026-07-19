@@ -385,6 +385,7 @@ export const complianceAPI = {
 export const englishTrainingAPI = {
   getOverview: () => api.get('/english-training/overview'),
   getCohorts: () => api.get('/english-training/cohorts'),
+  getClassDetail: (id) => api.get(`/english-training/cohorts/${id}/detail`),
   getCourses: () => api.get('/english-training/courses'),
   getEmployees: (params) => api.get('/english-training/employees', { params }),
   getSessions: (params) => api.get('/english-training/sessions', { params }),

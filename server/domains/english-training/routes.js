@@ -24,6 +24,7 @@ router.use(requireCapability('report.read'));
 router.get('/overview', controller.getOverview);
 router.get('/cohorts', controller.listCohorts);
 router.get('/cohorts/:id', validate({ params: idParams }), controller.getCohort);
+router.get('/cohorts/:id/detail', validate({ params: idParams }), controller.getClassDetail);
 router.get('/courses', controller.listCourses);
 router.get('/course-runs/:id', validate({ params: idParams }), controller.getCourseRun);
 router.get('/sessions', validate({ query: listEmployeesQuery }), controller.listSessions);

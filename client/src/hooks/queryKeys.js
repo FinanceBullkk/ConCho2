@@ -130,6 +130,7 @@ export const qk = {
     all: ['english-training'],
     overview: ['english-training', 'overview'],
     cohorts: ['english-training', 'cohorts'],
+    classDetail: (id) => ['english-training', 'cohorts', id, 'detail'],
     courses: ['english-training', 'courses'],
     employees: (params) => ['english-training', 'employees', params],
     sessions: (params) => ['english-training', 'sessions', params],

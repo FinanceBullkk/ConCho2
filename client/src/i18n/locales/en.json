@@ -107,13 +107,21 @@
       "activeCount": "{{count}} active",
       "completedCount": "{{count}} completed"
     },
-    "cohorts": "Cohorts",
+    "classes": "Classes",
     "courses": "Courses",
     "employees": "Employees",
     "sessions": "Sessions",
     "eligibility": "Eligibility",
     "evaluation": "Evaluation",
     "issues": "Data-quality issues",
+    "classDetail": {
+      "open": "Open class {{code}}",
+      "back": "← Back to classes",
+      "absences": "Absences (used / allowed)",
+      "examDate": "Exam date",
+      "noRuns": "This class has no course runs yet.",
+      "noRoster": "No learners enrolled in this course run."
+    },
     "search": "Search by employee code or name",
     "employeesSearch": "Search by employee code or name",
     "sessionsSearch": "Search by class code or course name",

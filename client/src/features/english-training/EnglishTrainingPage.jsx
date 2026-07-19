@@ -10,15 +10,22 @@ import {
 } from './useEnglishTraining';
 import EvaluationView from './EvaluationView';
 import OverviewPanel from './OverviewPanel';
+import ClassDetailView from './ClassDetailView';
 import { EngBadge } from './eng-status-badge';
 
-const tabs = ['overview', 'cohorts', 'courses', 'employees', 'sessions', 'eligibility', 'evaluation', 'issues'];
+const tabs = ['overview', 'classes', 'courses', 'employees', 'sessions', 'eligibility', 'evaluation', 'issues'];
 
 // Status columns get a colored pill instead of raw text so the tables read at a glance.
 const BADGE_KEYS = new Set(['status', 'employmentStatus', 'eligibilityStatus', 'enrollmentStatus']);
 const badgeCell = (row, key) => (BADGE_KEYS.has(key) ? <EngBadge status={row[key]} /> : (row[key] ?? '—'));
+// Classes list: the class code opens the class 360° detail; everything else is a badge/plain cell.
+const classCell = (onOpen, t) => (row, key) => (key === 'classCode'
+  ? <button type="button" onClick={() => onOpen(row.id)}
+      aria-label={t('englishTraining.classDetail.open', { code: row.classCode })}
+      className="font-medium text-primary hover:underline underline-offset-2">{row.classCode}</button>
+  : badgeCell(row, key));
 const definitions = {
-  cohorts: [['classCode', 'classCode'], ['status', 'status'], ['activeMembers', 'activeMembers'], ['runs', 'runs']],
+  classes: [['classCode', 'classCode'], ['status', 'status'], ['activeMembers', 'activeMembers'], ['runs', 'runs']],
   courses: [['courseCode', 'courseCode'], ['courseName', 'courseName'], ['expectedUnits', 'expectedUnits'], ['maxAbsencesAllowed', 'maxAbsences'], ['runs', 'runs']],
   employees: [['empCode', 'employeeCode'], ['fullName', 'fullName'], ['email', 'email'], ['employmentStatus', 'status']],
   eligibility: [['employee', 'employee'], ['classCode', 'classCode'], ['courseName', 'courseName'], ['absenceCount', 'absences'], ['allowedAbsences', 'allowedAbsences'], ['eligibilityStatus', 'eligibilityStatus']],
@@ -208,9 +215,10 @@ export default function EnglishTrainingPage() {
   const [search, setSearch] = useState('');
   const [selectedIssue, setSelectedIssue] = useState(null);
   const [selectedSession, setSelectedSession] = useState(null);
+  const [selectedClass, setSelectedClass] = useState(null);
   const listParams = { q: search || undefined, limit: 100 };
   const queries = {
-    cohorts: useEnglishCohorts(), courses: useEnglishCourses(),
+    classes: useEnglishCohorts(), courses: useEnglishCourses(),
     employees: useEnglishEmployees(listParams), sessions: useEnglishSessions(listParams),
     eligibility: useEnglishEligibility(listParams), issues: useEnglishIssues(),
   };
@@ -221,7 +229,7 @@ export default function EnglishTrainingPage() {
     <div className="space-y-6">
       <PageHeader title={t('englishTraining.title')} description={t('englishTraining.description')} />
       <div className="flex flex-wrap gap-2" role="tablist">{tabs.map((tab) => (
-        <button key={tab} type="button" role="tab" aria-selected={active === tab} onClick={() => setActive(tab)}
+        <button key={tab} type="button" role="tab" aria-selected={active === tab} onClick={() => { setActive(tab); setSelectedClass(null); }}
           className={`rounded-md px-3 py-2 text-sm font-medium ${active === tab ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground hover:text-foreground'}`}>
           {t(`englishTraining.${tab}`)}
         </button>
@@ -230,6 +238,12 @@ export default function EnglishTrainingPage() {
         <OverviewPanel t={t} onNavigate={setActive} />
       ) : active === 'evaluation' ? (
         <EvaluationView t={t} />
+      ) : active === 'classes' && selectedClass ? (
+        <ClassDetailView classId={selectedClass} onBack={() => setSelectedClass(null)} t={t} />
+      ) : active === 'classes' ? (
+        current.isLoading ? <div className="flex justify-center py-12"><Spinner size={32} label={t('englishTraining.loading')} /></div>
+          : current.isError ? <EmptyState title={t('englishTraining.loadError')} />
+            : <DataTable rows={current.data} columns={definitions.classes} t={t} renderCell={classCell(setSelectedClass, t)} />
       ) : (
         <>
           {['employees', 'sessions', 'eligibility'].includes(active) && <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder={t(`englishTraining.${active}Search`)}

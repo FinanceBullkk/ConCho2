@@ -213,6 +213,29 @@ and MUST NOT fabricate a mark for an enrolled learner without source evidence.
 Eligibility MUST count canonical absences against
 `max_absences_allowed_snapshot`; zero marks are `unknown`, an exceeded threshold
 is `not_eligible`, and incomplete active runs within the limit are `within_limit`.
+The eligibility CASE is a single shared SQL fragment (`ELIGIBILITY_STATUS_SQL`),
+reused by both the Eligibility list and the class-detail read so they cannot
+disagree.
+
+### Requirement: A class opens as a read-only 360° [UC-2, BR-5]
+
+Opening one class MUST surface, in a single read
+(`GET /api/english-training/cohorts/:id/detail`), the class header plus each of
+its course runs, and for every learner in a run the attendance summary (absences
+used / allowed), the exam-eligibility projection, and the recorded level — so the
+operator sees a class without hopping tabs. The view is read-only; entry paths
+(exam level, employee correction) stay on their existing tabs.
+
+#### Scenario: class detail groups learners under their runs
+- **GIVEN** a cohort with course runs and enrolled learners
+- **WHEN** Admin/Coordinator opens the class from the Classes list
+- **THEN** each course run lists its learners with absences/allowed, an
+  eligibility badge (same projection as the Eligibility tab), and level; a run
+  with no enrollments renders an empty roster.
+
+#### Scenario: unknown class id
+- **WHEN** the detail is requested for a non-existent cohort id
+- **THEN** the request is rejected with **404**.
 
 ### Requirement: Exam result records a level, gated by attendance [BR-6, UC-5]
 

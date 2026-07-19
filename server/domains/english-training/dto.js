@@ -36,6 +36,17 @@ const rosterRow = (r) => ({
   examLevelName: r.exam_level_name || null,
   examDate: r.exam_date || null,
 });
+// One learner row inside a class-detail course run: attendance summary,
+// exam eligibility, and level — read-only 360°.
+const classRosterRow = (r) => ({
+  enrollmentId: r.enrollment_id, empCode: r.emp_code, fullName: r.full_name,
+  enrollmentStatus: r.enrollment_status,
+  allowedAbsences: r.allowed_absences, absenceCount: r.absence_count,
+  eligibilityStatus: r.eligibility_status,
+  examLevelCode: r.exam_level_code || null,
+  examLevelName: r.exam_level_name || null,
+  examDate: r.exam_date || null,
+});
 const employeeRow = (r) => ({
   id: r.id, empCode: r.emp_code, fullName: r.full_name, englishName: r.english_name,
   email: r.email, employmentStatus: r.employment_status,
@@ -83,6 +94,25 @@ module.exports = {
     ...cohortRow(cohort), members: members.map(memberRow),
     runs: runs.map(runRow), pics: pics.map(picRow),
   }),
+  classDetail: ({ cohort, runs, roster }) => {
+    const byRun = new Map();
+    roster.forEach((r) => {
+      const list = byRun.get(r.course_run_id) || [];
+      list.push(classRosterRow(r));
+      byRun.set(r.course_run_id, list);
+    });
+    return {
+      id: cohort.id, classCode: cohort.class_code,
+      displayName: cohort.display_name, status: cohort.status,
+      runs: runs.map((r) => ({
+        id: r.id, runNumber: r.run_number, status: r.status,
+        courseCode: r.course_code, courseName: r.course_name,
+        startDate: r.start_date, endDate: r.end_date,
+        maxAbsencesAllowed: r.max_absences_allowed,
+        roster: byRun.get(r.id) || [],
+      })),
+    };
+  },
   courseList: (rows) => rows.map(courseRow),
   courseRunDetail: ({ run, roster }) => ({
     id: run.id, runNumber: run.run_number, status: run.status,

@@ -29,6 +29,14 @@ const getCohort = async (req, res) => {
   } catch (e) { handleError(res, e); }
 };
 
+const getClassDetail = async (req, res) => {
+  try {
+    const data = await reads.getClassDetail(req.params.id);
+    if (!data) return notFound(res, 'Cohort not found');
+    res.json({ success: true, data: dto.classDetail(data) });
+  } catch (e) { handleError(res, e); }
+};
+
 const listCourses = async (req, res) => {
   try { res.json({ success: true, data: dto.courseList(await reads.listCourses()) }); }
   catch (e) { handleError(res, e); }
@@ -159,7 +167,7 @@ const deleteExamResult = async (req, res) => {
 
 module.exports = {
   getOverview,
-  listCohorts, getCohort, listCourses, getCourseRun, listEmployees, getEmployee,
+  listCohorts, getCohort, getClassDetail, listCourses, getCourseRun, listEmployees, getEmployee,
   listSessions, getSessionAttendance, listEligibility,
   listIssues, listIssueDetails,
   correctEmployee,
