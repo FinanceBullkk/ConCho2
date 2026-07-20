@@ -23,6 +23,7 @@ require('dotenv').config();
 const crypto = require('crypto');
 const bcrypt = require('bcryptjs');
 const { query, closePool } = require('../config/pg');
+const DEFAULT_TIME_SLOTS = require('../config/default-time-slots');
 const dangerousScriptGuard = require('./lib/dangerousScriptGuard');
 
 // ── Small helpers ─────────────────────────────────────────
@@ -94,13 +95,7 @@ const seed = async () => {
     id: genId(),
     key: 'ALLOWED_TIME_SLOTS',
     description: 'Bookable time-slot windows (VN wall-clock, 24h)',
-    value: JSON.stringify([
-      { sh: 10, sm: 0, eh: 11, em: 0 },
-      { sh: 11, sm: 0, eh: 12, em: 0 },
-      { sh: 13, sm: 0, eh: 14, em: 0 },
-      { sh: 14, sm: 0, eh: 15, em: 0 },
-      { sh: 15, sm: 0, eh: 16, em: 0 },
-    ]),
+    value: JSON.stringify(DEFAULT_TIME_SLOTS),
   });
   await insertRow('settings', {
     id: genId(),

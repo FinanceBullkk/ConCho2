@@ -13,15 +13,14 @@ import { useDashboardAlerts } from '@/hooks/useDashboard';
 // Each count renders as a quick-link pill to the relevant page.
 // ──────────────────────────────────────────────────────────
 
-// Targets use the modern canonical routes. The legacy '/operations' and
-// '/academy' paths redirect but DROP their query string, so the old links
-// landed on the wrong tab — point straight at the real destinations.
+// Targets use canonical workspace routes so alerts also activate the correct
+// sidebar/workspace instead of relying on legacy compatibility redirects.
 const ALERT_DEFS = [
   {
     key: 'toMark',
     icon: ClipboardCheck,
     label: (n) => `${n} session${n !== 1 ? 's' : ''} to mark`,
-    to: '/calendar?tab=attendance',
+    to: '/english-operations?tab=attendance',
   },
   {
     key: 'teamsWithoutLeader',

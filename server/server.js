@@ -279,7 +279,7 @@ app.use('/api/search', require('./routes/searchRoutes'));
 app.use('/api/notifications', require('./domains/notification/routes'));
 app.use('/api/branding', require('./domains/branding/routes'));
 
-// English Training domain (Phase 1) — ships DARK behind a flag until cutover.
+// Canonical English Training domain — feature-flagged operational workspace.
 // Read-only projections over the canonical eng_* tables loaded by scripts/eng-import.js.
 // Available by default in local development so an imported dev DB is visible
 // immediately. Production remains dark unless explicitly enabled.

@@ -24,6 +24,14 @@ describe('English-training data-quality issue DTO', () => {
 
 describe('English-training Phase-2 DTOs', () => {
   test('maps session attendance and eligibility projections', () => {
+    expect(dto.sessionList([{
+      id: 's1', session_number: 2, held_at: '2026-07-01', status: 'held',
+      course_run_id: 'r1', class_code: 'EL001', course_name: 'Foundation',
+      attendance_count: 3, expected_roster_count: 5, present_count: 2, absent_count: 1,
+    }])[0]).toEqual(expect.objectContaining({
+      attendanceCount: 3, expectedRosterCount: 5, presentCount: 2, absentCount: 1,
+    }));
+
     expect(dto.sessionAttendance({
       session: { id: 's1', session_number: 2, held_at: '2026-07-01', status: 'held', course_run_id: 'r1', class_code: 'EL001', course_name: 'Foundation' },
       roster: [{ enrollment_id: 'en1', emp_code: '1001', full_name: 'Alice', enrollment_status: 'active', attendance_status: null, source_enrollment_dropped: false }],
@@ -46,12 +54,12 @@ describe('English-training class-detail 360° DTO', () => {
     const result = dto.classDetail({
       cohort: { id: 'co1', class_code: 'EL001', display_name: 'Alpha', status: 'active' },
       runs: [
-        { id: 'r1', run_number: 1, status: 'completed', course_code: 'FND', course_name: 'Foundation', start_date: '2026-01-01', end_date: '2026-03-01', max_absences_allowed: 2 },
-        { id: 'r2', run_number: 1, status: 'active', course_code: 'INT', course_name: 'Intermediate', start_date: null, end_date: null, max_absences_allowed: 3 },
+        { id: 'r1', run_number: 1, status: 'completed', course_code: 'FND', course_name: 'Foundation', start_date: '2026-01-01', end_date: '2026-03-01', max_absences_allowed: 2, attendance_threshold_ratio: '0.800' },
+        { id: 'r2', run_number: 1, status: 'active', course_code: 'INT', course_name: 'Intermediate', start_date: null, end_date: null, max_absences_allowed: 3, attendance_threshold_ratio: '0.800' },
       ],
       roster: [
-        { enrollment_id: 'en1', course_run_id: 'r1', enrollment_status: 'completed', emp_code: '1001', full_name: 'Alice', allowed_absences: 2, present_count: 8, absence_count: 1, exam_level_code: 'A2', exam_level_name: 'A2 Elementary', exam_date: '2026-03-05', eligibility_status: 'eligible' },
-        { enrollment_id: 'en2', course_run_id: 'r1', enrollment_status: 'active', emp_code: '1002', full_name: 'Bob', allowed_absences: 2, present_count: 4, absence_count: 3, exam_level_code: null, exam_level_name: null, exam_date: null, eligibility_status: 'not_eligible' },
+        { enrollment_id: 'en1', course_run_id: 'r1', enrollment_status: 'completed', start_session_number: 1, emp_code: '1001', full_name: 'Alice', allowed_absences: 2, marked_count: 9, present_count: 8, absence_count: 1, attendance_ratio: '0.888', attendance_threshold_ratio: '0.800', exam_level_code: 'A2', exam_level_name: 'A2 Elementary', exam_date: '2026-03-05', eligibility_status: 'eligible' },
+        { enrollment_id: 'en2', course_run_id: 'r1', enrollment_status: 'active', start_session_number: 2, emp_code: '1002', full_name: 'Bob', allowed_absences: 2, marked_count: 7, present_count: 4, absence_count: 3, attendance_ratio: '0.571', attendance_threshold_ratio: '0.800', exam_level_code: null, exam_level_name: null, exam_date: null, eligibility_status: 'not_eligible' },
       ],
     });
 
@@ -61,11 +69,13 @@ describe('English-training class-detail 360° DTO', () => {
     // r1 got both learners; r2 has none.
     expect(result.runs[0].roster).toHaveLength(2);
     expect(result.runs[1].roster).toEqual([]);
-    expect(result.runs[0].roster[0]).toEqual({
+    expect(result.runs[0].roster[0]).toEqual(expect.objectContaining({
       enrollmentId: 'en1', empCode: '1001', fullName: 'Alice', enrollmentStatus: 'completed',
       allowedAbsences: 2, absenceCount: 1, eligibilityStatus: 'eligible',
+      startSessionNumber: 1, markedCount: 9, presentCount: 8,
+      attendanceRatio: 0.888, attendanceThresholdRatio: 0.8,
       examLevelCode: 'A2', examLevelName: 'A2 Elementary', examDate: '2026-03-05',
-    });
+    }));
     expect(result.runs[0].roster[1]).toEqual(expect.objectContaining({ eligibilityStatus: 'not_eligible', examLevelCode: null, examDate: null }));
   });
 });

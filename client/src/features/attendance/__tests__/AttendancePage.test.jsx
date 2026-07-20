@@ -39,7 +39,7 @@ const inWeek = (dayOffset) => {
 
 const session = (id, classCode, deliveryType, dayOffset) => ({
   _id: id,
-  classId: { classCode, courseName: `Course ${classCode}` },
+  classId: { _id: `class-${classCode}`, classCode, courseName: `Course ${classCode}` },
   ...inWeek(dayOffset),
   attendanceStatus: 'pending', enrolledCount: 1, markedCount: 0, deliveryType,
 });
@@ -51,6 +51,7 @@ describe('AttendancePage — exact-slot grid + world facet', () => {
     render(<AttendancePage />);
     expect(screen.getByText('Attendance')).toBeInTheDocument();
     expect(screen.getAllByText('10:00-11:00').length).toBeGreaterThanOrEqual(1);
+    expect(screen.queryByTestId('attendance-drawer-column')).toBeNull();
     // Plain mode (no `mode` prop) shows no Team/Cohort facet.
     expect(screen.queryByRole('button', { name: 'Cohort' })).toBeNull();
   });
@@ -75,5 +76,56 @@ describe('AttendancePage — exact-slot grid + world facet', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Cohort' }));
     expect(screen.queryByText('TEAM-A')).toBeNull();
     expect(screen.getByText('COH-B')).toBeInTheDocument();
+  });
+
+  it('English ownership scopes the attendance grid by Cohort id', () => {
+    h.calendar = {
+      isLoading: false,
+      data: [session('s-team', 'TEAM-A', 'team', 2), session('s-english', 'ENG-B', 'cohort', 3)],
+    };
+    render(<AttendancePage allowedClassIds={['class-ENG-B']} statusOptions={['P', 'L', 'A', 'EL']} />);
+
+    expect(screen.queryByText('TEAM-A')).toBeNull();
+    expect(screen.getByText('ENG-B')).toBeInTheDocument();
+  });
+
+  it('renders Archive attendance cells and delegates read-only roster selection', () => {
+    const onHistoricalSelect = vi.fn();
+    const historical = {
+      ...session('archive:1', 'HIST-A', 'cohort', -3),
+      isHistorical: true,
+      archiveSessionId: 'archive-1',
+      historicalLabel: 'Historical',
+      historicalReadOnlyLabel: 'Historical attendance · Read-only',
+      attendanceStatus: 'partial',
+      enrolledCount: 5,
+      markedCount: 3,
+      archiveCounts: { present: 2, absent: 1 },
+    };
+    render(
+      <AttendancePage
+        historicalOnly
+        historicalSchedules={[historical]}
+        defaultWeek={historical.startTime}
+        onHistoricalSelect={onHistoricalSelect}
+      />,
+    );
+
+    expect(screen.getByText('HIST-A')).toBeInTheDocument();
+    expect(screen.getByText('Historical')).toBeInTheDocument();
+    expect(screen.getByText('P 2 · A 1 · 3/5')).toBeInTheDocument();
+    fireEvent.click(screen.getByText('HIST-A').closest('[role="button"]'));
+    expect(onHistoricalSelect).toHaveBeenCalledWith(expect.objectContaining({ archiveSessionId: 'archive-1' }));
+  });
+
+  it('only reserves desktop width when a historical attendance drawer exists', () => {
+    render(
+      <AttendancePage
+        historicalOnly
+        historicalDrawer={<div>Archive roster</div>}
+      />,
+    );
+
+    expect(screen.getByTestId('attendance-drawer-column')).toHaveTextContent('Archive roster');
   });
 });

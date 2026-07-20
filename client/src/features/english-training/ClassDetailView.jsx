@@ -3,14 +3,21 @@ import { EmptyState } from '../../components/EmptyState';
 import { EngBadge } from './eng-status-badge';
 import { useEnglishClassDetail } from './useEnglishTraining';
 
+const attendanceSummary = (learner, run) => {
+  const target = Math.round(Number(run.attendanceThresholdRatio || learner.attendanceThresholdRatio || 0) * 100);
+  if (!learner.markedCount) return `— / ${target}%`;
+  const ratio = Math.round(Number(learner.attendanceRatio || 0) * 100);
+  return `${learner.presentCount}/${learner.markedCount} · ${ratio}% / ${target}%`;
+};
+
 // Class 360° (read-only): open one class and see everything HR needs in one
-// place — its course runs, and per learner the attendance summary
-// (absences / allowed), exam eligibility, and level — instead of jumping tabs.
+// place — its course runs, per-learner attendance against the run threshold,
+// exam eligibility, and level — instead of jumping tabs.
 
 function RunRoster({ run, t }) {
   const cols = [
     t('englishTraining.columns.employee'),
-    t('englishTraining.classDetail.absences'),
+    t('englishTraining.classDetail.attendance'),
     t('englishTraining.columns.eligibilityStatus'),
     t('englishTraining.exam.col.level'),
     t('englishTraining.classDetail.examDate'),
@@ -32,7 +39,7 @@ function RunRoster({ run, t }) {
               <tr key={r.enrollmentId} className="border-b border-border last:border-0">
                 <td className="px-4 py-3 text-foreground">{r.empCode} · {r.fullName}</td>
                 <td className="px-4 py-3 text-foreground">
-                  {r.absenceCount} / {run.maxAbsencesAllowed ?? r.allowedAbsences ?? '—'}
+                  {attendanceSummary(r, run)}
                 </td>
                 <td className="px-4 py-3"><EngBadge status={r.eligibilityStatus} /></td>
                 <td className="px-4 py-3 text-foreground">{r.examLevelName || r.examLevelCode || '—'}</td>

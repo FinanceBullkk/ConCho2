@@ -18,6 +18,15 @@ English Operations journey across live work and historical evidence.
   event after P2–P4 smoke flows pass.
 - Before the flip, verify every live operator loop: managed learner → Program/run
   → Enrollment → Session/Room → Attendance → eligibility → level → report.
+- Before the flip, preview and execute the audited active-boundary handoff. It
+  carries `status=active` course runs plus linked rosters into generic
+  Programs/Cohorts/PIC Teams/Enrollments. Missing current rosters are reconstructed in a
+  deterministic order: current active Enrollment, current-run Attendance
+  evidence, then the latest prior non-dropped Attendance-evidenced roster for
+  the same stable class. The preview exposes inferred counts and each inferred
+  Enrollment keeps source provenance. Each run gets exactly one Team; a linked
+  PIC becomes leader and a name-only PIC remains explicitly unresolved. The
+  handoff is retry-safe and copies no historical events.
 - At/after the flip, remove or disable production HTTP mutations for employee
   corrections and `eng_exam_results`, and fail production import attempts before
   opening a transaction.
@@ -70,6 +79,9 @@ English Operations journey across live work and historical evidence.
   route/API access is denied consistently.
 - No data-loss regression: canonical archive counts and hashes remain unchanged
   across cutover.
+- Active handoff creates every active course-run Cohort, PIC Team, and linked roster once;
+  deterministic roster inference excludes dropped learners, a retry creates zero
+  duplicates, and unlinked learners remain explicit skips.
 
 ## Success / DoD
 

@@ -156,6 +156,8 @@ export const qk = {
     eligibility: (cohortId) => ['english-operations', 'eligibility', cohortId],
     evaluations: (cohortId) => ['english-operations', 'evaluations', cohortId],
     archiveStatus: ['english-operations', 'archive', 'status'],
+    archiveSessions: ['english-operations', 'archive', 'sessions'],
+    archiveSessionAttendance: (id) => ['english-operations', 'archive', 'sessions', id, 'attendance'],
     combinedHistory: ['english-operations', 'archive', 'combined-history'],
   },
   branding: {

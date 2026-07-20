@@ -17,6 +17,8 @@ describe('English-training exam result (evaluation)', () => {
     jest.clearAllMocks();
     repo.getEnrollmentForExam.mockResolvedValue({
       id: 'en1', enrollment_status: 'completed', run_status: 'completed', absence_count: 1,
+      marked_count: 10, present_count: 9, attendance_ratio: '0.900',
+      attendance_threshold_ratio_snapshot: '0.800',
     });
     repo.getLevelByCode.mockResolvedValue({ code: 'advanced', display_name: 'Advanced', rank: 13 });
     repo.getActiveExamResult.mockResolvedValue(null);
@@ -41,6 +43,8 @@ describe('English-training exam result (evaluation)', () => {
   test('blocks with 422 when the learner has more than 2 absences', async () => {
     repo.getEnrollmentForExam.mockResolvedValue({
       id: 'en1', enrollment_status: 'completed', run_status: 'completed', absence_count: 3,
+      marked_count: 10, present_count: 7, attendance_ratio: '0.700',
+      attendance_threshold_ratio_snapshot: '0.800',
     });
     await expect(recordExamResult({ runEnrollmentId: 'en1', levelCode: 'advanced', examDate: '2026-07-01' }))
       .rejects.toMatchObject({ statusCode: 422 });
@@ -50,6 +54,8 @@ describe('English-training exam result (evaluation)', () => {
   test('blocks with 422 when the enrollment status cannot sit (e.g. dropped)', async () => {
     repo.getEnrollmentForExam.mockResolvedValue({
       id: 'en1', enrollment_status: 'dropped', run_status: 'completed', absence_count: 0,
+      marked_count: 10, present_count: 10, attendance_ratio: '1.000',
+      attendance_threshold_ratio_snapshot: '0.800',
     });
     await expect(recordExamResult({ runEnrollmentId: 'en1', levelCode: 'advanced', examDate: '2026-07-01' }))
       .rejects.toMatchObject({ statusCode: 422 });

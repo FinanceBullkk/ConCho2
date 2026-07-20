@@ -1,6 +1,6 @@
 ---
 change: english-live-in-app-convergence
-status: implemented
+status: superseded
 target_specs: [english-training, capability-authz, users-and-roles, learning-catalog, enrollment, scheduling-and-booking, attendance, evaluations, reporting-and-rollups]
 milestone: English Training — live convergence
 created: 2026-07-19
@@ -9,13 +9,22 @@ revised: 2026-07-20
 
 # Proposal: English Operations on the generic training spine
 
+> **Superseded 2026-07-20.** Keep this plan as decision history only. The
+> authoritative model and active work are in
+> [`docs/decisions/english-domain-authority.md`](../../docs/decisions/english-domain-authority.md)
+> and [`docs/specs/english-training/spec.md`](../../docs/specs/english-training/spec.md).
+> Do not implement or rerun the generic Program/Class/PIC-Team handoff below.
+
 > **Implementation status (2026-07-19):** P0–P4 are implemented. P5's archive
 > guard, read-only UI, combined-history boundary, and audited cutover command are
 > implemented; the one-way operational flip remains pending deployment,
 > migration, data reconciliation, and the documented production smoke check.
 > The disposable PostgreSQL prototype rehearsal passed on 2026-07-20 (migrations
-> 040–043, vertical English smoke, Archive guards, and 84/84 integration suites);
-> this does not mark the production Archive as cut over.
+> 040–046, vertical English smoke, Archive guards, and 84/84 integration suites).
+> The active-boundary handoff was also exercised there: 5 Programs, 11 active
+> course-run Cohorts, 11 PIC-owned Teams, and 56 linked Enrollments were verified with no copied
+> historical Sessions or Attendance. This does not mark the production Archive
+> as cut over.
 
 > ADR: [`docs/decisions/english-live-converge.md`](../../docs/decisions/english-live-converge.md)
 >
@@ -35,10 +44,11 @@ missing people are created as managed users with `can_login=false`.
 ## Locked design decisions
 
 1. **Correct grain:** English course → Program; English course run → generic
-   Cohort; run enrollment → generic Enrollment. A stable English group/class is
+   Cohort plus one run-scoped Team; run enrollment → generic Team Enrollment. A stable English group/class is
    delivery context (`englishGroupCode`), not the generic Cohort itself.
 2. **Scheduling:** live English uses `schedulingMode=nomination`, because current
-   code defines direct cohort enrollment/scheduling under the cohort modes.
+   code defines the cross-run context. PIC leads the run Team; Admin/Coordinator
+   still schedule the Cohort through the Office/Room-aware nomination path.
    Admin/Coordinator schedule through the generic cohort booking path.
 3. **Roles:** Admin/Coordinator manage people, structure, enrollment, and
    scheduling. Assigned Teachers read their sessions, mark attendance, and enter
@@ -49,6 +59,9 @@ missing people are created as managed users with `can_login=false`.
    policy, snapshotted onto each course-run Cohort.
 6. **Archive:** production `eng_*` writes stop at cutover. The importer remains an
    offline/staging reproducibility tool, not a production backfill mechanism.
+7. **Operating boundary:** immediately before cutover, carry only active source
+   course runs and linked active rosters into generic live storage. Completed
+   runs and all historical events remain Archive-only.
 
 ## Workspace navigation
 
@@ -71,7 +84,7 @@ server-backed role/capabilities.
 | # | Phase | Independently shippable outcome | Depends |
 |---|---|---|---|
 | P0 | [Managed people + workspace shell](phase-00-people-as-managed-users.md) | Managed learner lifecycle plus the English Operations shell and Learners entrypoint | — |
-| P1 | [Program and course-run Cohort](phase-01-program-and-cohort.md) | English policy + snapshot, correct run grain, direct enrollments, Classes entrypoint | P0 |
+| P1 | [Program and course-run Cohort](phase-01-program-and-cohort.md) | English policy + snapshot, correct run grain, PIC Team rosters, Classes entrypoint | P0 |
 | P2 | [English Schedule](phase-02-sessions-booking-grid.md) | Cohort sessions through the full generic grid, rooms/calendar/conflicts | P1 |
 | P3 | [Live attendance](phase-03-live-attendance.md) | Generic attendance plus live English eligibility projection | P2 |
 | P4 | [Levels and final evaluation](phase-04-levels-and-exam.md) | Level-award Evaluation gated by live attendance | P3 |
@@ -95,6 +108,6 @@ result mutation does not ship before the attendance source of truth.
 
 ## Explicitly deferred
 
-Learner English self-service/login, historical migration into the generic spine,
+Learner English self-service/login, historical event migration into the generic spine,
 placement tests, certificates issued inside ConCho2, re-sit/version history, and
 changing the platform-wide scheduling-mode taxonomy beyond what this flow needs.

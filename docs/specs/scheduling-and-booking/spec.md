@@ -64,15 +64,13 @@ room/calendar never double-books.
 - **UC-1 (Team Leader):** opens the booking grid → clicks an empty allowed
   slot → system creates a `Schedule` for the leader's team's class and
   auto-enrolls the team's active members.
-  - *UI note (English-class separation, 2026-06-12 — supersedes the Cohesion
-    P4 note):* the ENTIRE team-booking world lives in the dedicated
-    `/english` nav section (tabs by role — Admin: Classes·Teams·Schedules·
-    Attendance·Evaluations; Teacher: Attendance·Evaluations;
-    Participant/Leader: Team booking). The booking grid is membership-gated —
-    a Participant with no Team gets pointed to `/me/sessions` + `/me/catalog`.
-    `/book` redirects to `/english?tab=book`; `/calendar` is the cohort-world
-    staff calendar (Participants are redirected to `/english`). Server-side
-    booking behavior unchanged.
+  - *UI note (English Operations ownership, 2026-07-20):* the learner/leader
+    booking journey remains under `/english`. Staff create and inspect English
+    Sessions under `/english-operations?tab=schedule`; attendance is adjacent in
+    the same workspace. Admin Console exposes no duplicate Schedule/Attendance
+    section. `/calendar`, `/schedules`, and `/operations` are compatibility
+    redirects into English Operations; Participants still land on `/english`.
+    Server-side booking behavior is unchanged.
 - **UC-2 (Team Leader):** cancels a session their team owns → the `Schedule`
   flips to `cancelled` (durable history) and the slot frees up.
 - **UC-3 (Admin):** creates, edits the time of, or deletes **any** session,
@@ -94,7 +92,7 @@ room/calendar never double-books.
     are virtuals derived from `enrolledUsers`.
 - **Setting `ALLOWED_TIME_SLOTS`**: the authoritative slot windows, stored as
   exact VN wall-clock windows `[{sh,sm,eh,em}, ...]` (any start/end minute and
-  duration — not just whole hours). Default = five one-hour slots (10–11, 11–12,
+  duration — not just whole hours). Default = five one-hour slots (09–10, 10–11,
   13–14, 14–15, 15–16) in `Asia/Ho_Chi_Minh`. Parsing/validation/exposure is
   centralized in `server/domains/schedule/scheduling-window-policy.js` (Wave E1);
   empty/malformed config is fail-closed (no new/moved bookings).
@@ -327,8 +325,11 @@ The coordinator-scheduled offline flow (re-center Phase 2): a **scheduler**
 (`self_enroll`/`nomination`) via `POST /api/learning/sessions/book-slot` with a
 `cohortId`. The session MUST carry an `officeId` (the physical site) — required
 for this flow even though `Schedule.officeId` is nullable for legacy/online
-rows. The roster is NOT a team: the cohort's active cohort-based enrollments
-(self-enrol + coordinator-assign) are snapshotted at create. The session DTO
+rows. The session is not booked *against* a Team: all active Enrollments for the
+Cohort are snapshotted at create. Most cohort-mode programs use direct
+Enrollments; English `nomination` Cohorts may organize those Enrollments under a
+PIC-owned Team without changing the session target or granting leader booking.
+The session DTO
 exposes `officeId` + a populated `office { _id, name, code }`.
 
 #### Scenario: Coordinator opens a cohort session
@@ -657,8 +658,9 @@ programs **plus program-less legacy classes** (fallback parity); **cohort** =
 > Convergence Phase 3 slice 5 (2026-06-20) RETIRED the prior two-world split: the
 > `mode=team|cohort` query filter and the bounded `GET /api/english/*` read
 > delegation (`domains/english-class/`) were removed. The unified reads serve
-> every world; the unified catalog/calendar/attendance UI filters by
-> `deliveryType`. The `/english` learner **booking grid** stays, served by
+> every world; consuming UIs may filter by `deliveryType`. English Operations
+> filters its Schedule/Attendance views to English course-run Cohorts. The
+> `/english` learner **booking grid** stays, served by
 > `/api/schedules`. Booking-time `schedulingMode` authz is UNCHANGED (still
 > enforced at create — leader-booking an `admin_scheduled` program → 403, etc.).
 
@@ -685,6 +687,14 @@ and start/end time. The same room locks, conflict checks, roster snapshot,
 calendar integration, cancellation behavior, and facilitator scoping apply.
 Assigned Teachers receive read-only session lists; managed learners without
 email are omitted from external invitations without failing booking.
+
+English Operations Schedule SHALL also project Archive sessions into the same
+weekly grid behind a distinct **Historical** source. These rows are display-only:
+they do not become `Schedule` rows and expose no create, edit, cancel, conflict,
+Room-booking, or calendar actions. If the English live scope is empty, the grid
+opens on the latest archived week rather than the current empty week. The legacy
+Excel clock is interpreted as Vietnam wall time before conversion to the grid's
+UTC instant, preventing a duplicate seven-hour offset.
 
 ## Non-Functional Requirements (NFR)
 

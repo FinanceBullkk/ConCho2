@@ -46,22 +46,22 @@ const managedPersonUpdateBody = z.object(managedPersonFields).refine(
   { message: 'At least one field is required' },
 );
 
-const liveLevelBody = z.object({
-  userId: z.string().min(1),
-  levelCode: z.string().trim().min(1).max(100).regex(/^[a-z0-9_]+$/),
-  evaluatedAt: z.string().datetime({ offset: true }).optional(),
-  note: z.string().trim().max(500).optional(),
-});
-
-const archiveCutoverBody = z.object({
-  confirm: z.literal(true),
-  reason: z.string().trim().min(10).max(500),
+const canonicalClassBody = z.object({
+  classCode: z.string().trim().min(2).max(32).regex(/^[A-Za-z0-9_-]+$/),
+  displayName: z.string().trim().min(1).max(120),
+  courseId: z.string().min(1),
+  startDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'startDate must be YYYY-MM-DD'),
+  capacity: z.coerce.number().int().min(1).max(500),
+  status: z.enum(['planned', 'active']).default('active'),
+  picEmployeeId: z.string().min(1).nullable().optional(),
+  picLabel: z.string().trim().max(120).nullable().optional(),
+}).refine((value) => Boolean(value.picEmployeeId || value.picLabel), {
+  message: 'PIC employee or PIC team label is required',
 });
 
 module.exports = {
   idParams, empCodeParams, issueCodeParams, listEmployeesQuery,
   employeeCorrectionBody, examResultBody,
   managedPersonCreateBody, managedPersonUpdateBody,
-  liveLevelBody,
-  archiveCutoverBody,
+  canonicalClassBody,
 };

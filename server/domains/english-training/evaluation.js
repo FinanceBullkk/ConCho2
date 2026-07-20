@@ -1,14 +1,10 @@
 // English-training evaluation use-cases (Phase 3). A finished learner sits a
-// final exam whose result IS a level. Sitting is gated by attendance: more than
-// EXAM_MAX_ABSENCES absences ⇒ cannot sit. HR/Admin records the level; the gate
+// final exam whose result IS a level. Sitting is gated by the Course Run's
+// snapshotted attendance ratio. HR/Admin records the level; the gate
 // is enforced here (server-side), not just in the UI. Soft-delete keeps history.
 
 const repo = require('./repository.pg');
 const { ServiceError } = require('../../helpers/ServiceError');
-
-// Blanket rule confirmed with owner (2026-07-19): >2 absences ⇒ cannot sit.
-// Matches the COUNT-based policy pinned in migration 036.
-const EXAM_MAX_ABSENCES = 2;
 
 // Only participating learners can receive an exam level (not waiting/dropped/etc).
 const SITTABLE_ENROLLMENT_STATUSES = ['active', 'completed'];
@@ -24,9 +20,12 @@ async function recordExamResult({ runEnrollmentId, levelCode, examDate, note, ac
         `Enrollment status "${enrollment.enrollment_status}" cannot sit the exam`, 422,
       );
     }
-    if (enrollment.absence_count > EXAM_MAX_ABSENCES) {
+    if (enrollment.marked_count === 0) {
+      throw new ServiceError('Not eligible to sit the exam (attendance is not recorded)', 422);
+    }
+    if (Number(enrollment.attendance_ratio) < Number(enrollment.attendance_threshold_ratio_snapshot)) {
       throw new ServiceError(
-        `Not eligible to sit the exam (more than ${EXAM_MAX_ABSENCES} absences)`, 422,
+        `Not eligible to sit the exam (attendance is below ${Math.round(Number(enrollment.attendance_threshold_ratio_snapshot) * 100)}%)`, 422,
       );
     }
 
@@ -60,4 +59,4 @@ async function deleteExamResult({ runEnrollmentId }) {
   });
 }
 
-module.exports = { recordExamResult, deleteExamResult, EXAM_MAX_ABSENCES };
+module.exports = { recordExamResult, deleteExamResult };

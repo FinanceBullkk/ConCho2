@@ -2,8 +2,13 @@
 
 ## Status
 
-Accepted (2026-07-19). Owner approved the dedicated-workspace direction and
-authorized implementation. Extends
+Superseded (2026-07-20) by
+[`english-domain-authority.md`](english-domain-authority.md). The dedicated
+English Operations workspace remains, but the generic Program/Class/PIC-Team
+mapping and Archive cutover described below are no longer authoritative.
+
+Originally accepted (2026-07-19). Owner approved the dedicated-workspace direction and
+authorized implementation. Extended
 [`converge-to-one-training-model.md`](converge-to-one-training-model.md) by
 applying its "one training spine" principle to the imported English Training
 subsystem. Phased plan:
@@ -31,13 +36,22 @@ Owner choices that scope the change (2026-07-19):
    mark attendance, and record evaluations. Teachers do not create programs,
    cohorts, or sessions. Learners do not log in for the English workflow.
 2. **Historical data:** the imported 984 sessions and 5,962 canonical attendance
-   records remain a frozen, read-only archive. New live data starts fresh and is
-   not backfilled from that history.
+   records remain a frozen, read-only archive. At the operating boundary, only
+   active Program/course-run structure and linked active rosters are carried
+   forward; historical sessions, attendance, and results are not backfilled.
+   The Schedule and Attendance tabs may project those archive rows into their
+   canonical weekly grids through an explicit Historical source, but this is a
+   read-only view over `eng_*`, not a copy into live tables.
 3. **Scheduling depth:** live English sessions use the full generic scheduling
    grid, including Office/Room, calendar integration, and conflict guards.
 4. **Information architecture:** English work is presented in a dedicated
    **English Operations** workspace beside **Admin Console** and **My Learning**.
    This is a UI/workflow boundary, not a new backend or authorization boundary.
+   Schedule, Attendance, and field Mobile Attendance are owned by this workspace;
+   Admin Console does not expose duplicate operational entries. Legacy calendar,
+   schedule, and attendance URLs redirect to the corresponding English tab. The
+   workspace embeds the canonical weekly Schedule and Attendance grids, scoped
+   to English course-run Cohorts; it does not replace them with parallel list UIs.
 
 ## Decision
 
@@ -54,14 +68,15 @@ authorization boundary; switching workspace only changes navigation and views.
 | English concept | Generic live home |
 |---|---|
 | English course | `LearningProgram`, `category=english`, with typed English policy |
-| Stable English class/group | `englishGroupCode` delivery context used to group runs in the workspace; not a generic Cohort and not a reusable legacy Team |
-| English course run | `Class` exposed as a Cohort — one delivery of one Program |
-| Run enrollment | generic direct `Enrollment` into that Cohort |
+| Stable English class/group | `englishGroupCode` delivery context used to group runs in the workspace; not a generic Cohort or a reusable cross-run Team |
+| English course run | `Class` exposed as a Cohort — one delivery of one Program — plus one run-scoped `Team` |
+| PIC | `Team.leaderId` when linked to a live User; otherwise explicit unresolved Team metadata |
+| Run enrollment | generic team-linked `Enrollment` into that course-run Cohort |
 | Live session | `Schedule`/Session under the course-run Cohort |
 | Attendance | `domains/attendance` |
 | Final level | instructor-scored `Evaluation` for `(cohort, learner)`, surfaced by the unified assessment read |
 | Learner | existing `users` row when one exists; otherwise a login-disabled managed `users` row |
-| Historical `eng_*` | frozen read-only archive in English Operations ▸ Archive |
+| Historical `eng_*` | frozen read-only source shown in Archive and the Schedule/Attendance Historical views |
 
 The grain distinction is load-bearing: an imported `eng_cohort` is a stable
 group that may study several courses, whereas a generic Cohort is one delivery
@@ -69,11 +84,22 @@ of exactly one Program. Therefore `eng_course_run`, not `eng_cohort`, is the
 concept that maps to a generic Cohort. The stable English group code remains
 delivery context so the workspace can present the familiar class-centric view.
 
+### Historical presentation
+
+Schedule and Attendance each expose **Live** and **Historical** sources. Live
+rows come only from the shared domains and retain their normal create/edit/mark
+controls. Historical rows are adapted from Archive session/attendance reads,
+carry a visible read-only label, and never expose booking, roster mutation, or
+attendance-save controls. When an English course-run Cohort has no live Session,
+the view opens on the latest Historical week so existing evidence is visible
+instead of showing a misleading empty state.
+
 ### Scheduling mode
 
-Live English uses direct cohort enrollment operated by staff, with no learner
-self-service. Under the current scheduling policy, that is the `nomination`
-cohort mode. Admin/Coordinator create sessions through the existing cohort
+Live English uses a PIC-owned roster Team operated by staff, with no learner
+self-service. Session creation remains the `nomination` cohort mode because the
+Office/Room workflow is cohort-scheduled: the Team defines ownership and roster,
+but is not the booking target. Admin/Coordinator create sessions through the existing cohort
 booking path (`/api/learning/sessions/book-slot` with `cohortId`), which already
 provides Office/Room locking, roster snapshots, calendar integration, and
 conflict protection. It does not use the team-only `admin_scheduled` path.
@@ -107,6 +133,21 @@ against disposable/staging databases; it is not a production backfill path after
 the archive is frozen. A recorded cutover timestamp separates archive history
 from live rows for combined reports.
 
+### Active operating-boundary handoff
+
+Before Archive freeze, Admin runs one explicit, audited handoff for source
+`eng_course_runs.status=active`. It creates or reuses generic English Programs,
+course-run Cohorts, one PIC-owned Team per run, and team-linked active Enrollments for archive learners already
+linked to live Users. Active runs with an empty roster are still carried forward.
+Unlinked learners are reported and skipped rather than silently dropped.
+
+The command is retry-safe through stable natural source keys stored in internal
+`meta` and protected by unique indexes. A retry may fill a newly linked roster,
+but it never recreates an existing Program/Cohort or reverses later live status
+changes. A linked PIC becomes Team leader but never a Teacher assignment; a
+name-only PIC remains explicitly unresolved rather than being guessed. No source Session, Attendance, or Evaluation row crosses
+this boundary.
+
 ## Consequences
 
 - **Positive:** operators get a focused English workspace while the product keeps
@@ -120,8 +161,8 @@ from live rows for combined reports.
 - **Risk:** workspace filtering must never be mistaken for authorization;
   server-side capability and assignment policies remain mandatory.
 - **Out of scope:** learner self-service for English, migration of historical
-  `eng_*` rows into the live spine, a second English schedule/attendance backend,
-  and production re-import after archive freeze.
+  Sessions/Attendance/Evaluations into the live spine, a second English
+  schedule/attendance backend, and production re-import after archive freeze.
 
 ## Guardrails
 

@@ -38,9 +38,8 @@ beforeAll(async () => {
   seed = getSeedData();
   csrf = await getCsrfHeaders(app);
 
-  // The booking API enforces ALLOWED_TIME_SLOTS exactly — make sure the two
-  // exact 1h slots this suite books (10–11 + 11–12 VN) exist (same pattern as
-  // booking.test.js; setup.js's default slots are not exact-1h).
+  // The booking API enforces ALLOWED_TIME_SLOTS exactly. The approved baseline
+  // already carries 10–11; add the suite-specific 11–12 window as well.
   await addAllowedSlots([
     { sh: 10, sm: 0, eh: 11, em: 0 },
     { sh: 11, sm: 0, eh: 12, em: 0 },

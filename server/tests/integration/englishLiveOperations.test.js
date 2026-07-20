@@ -96,6 +96,7 @@ describe('English Operations — shared-domain vertical flow', () => {
       status: 'Completed',
       totalSessions: 1,
       teacherIds: [seed.teacher._id.toString()],
+      englishPicDisplay: 'English Managed Learner',
     });
 
     expect(cohort.status).toBe(201);
@@ -103,17 +104,28 @@ describe('English Operations — shared-domain vertical flow', () => {
     expect(cohort.body.data.englishPolicySnapshot.maxAbsencesAllowed).toBe(2);
     const cohortId = cohort.body.data._id;
 
-    const enrollment = await authorized(
-      request(app).post('/api/learning/enrollments'),
+    const team = await authorized(
+      request(app).post('/api/teams'),
       tokens.admin,
     ).send({
-      cohortId,
-      userId: learnerId,
-      startSessionNumber: 1,
+      name: `${cohort.body.data.englishGroupCode} · English Managed Learner`,
+      classId: cohortId,
+      leaderId: learnerId,
+      members: [learnerId],
     });
 
-    expect(enrollment.status).toBe(201);
-    expect(enrollment.body.data.startSessionNumber).toBe(1);
+    expect(team.status).toBe(201);
+    expect(team.body.data.leaderId._id).toBe(learnerId);
+
+    const roster = await request(app)
+      .get(`/api/learning/enrollments?cohortId=${cohortId}`)
+      .set('Authorization', `Bearer ${tokens.admin}`);
+    expect(roster.status).toBe(200);
+    expect(roster.body.data).toHaveLength(1);
+    expect(roster.body.data[0].group).toEqual({
+      id: team.body.data._id,
+      name: `${cohort.body.data.englishGroupCode} · English Managed Learner`,
+    });
 
     // P2/P3: the English session and mark live in the generic Schedule and
     // Attendance tables; the assigned cohort Teacher can perform the mark.

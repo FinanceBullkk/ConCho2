@@ -74,13 +74,13 @@ resolution locked by this plan.
   learning-catalog spec calls it “one delivery of a Program.”
 - **Gap:** mapping `eng_cohort → generic Cohort` would attach several Programs to
   an entity that can hold only one, and would give sessions/evaluations the wrong
-  grain. Legacy Team cannot solve this: it is tied to one Class and is not a
-  reusable cross-run roster template.
-- **Decision:** no new stable-group aggregate in the generic spine. Store a typed
-  `englishGroupCode` delivery-context field on each English course-run Cohort and
-  let the English workspace group runs by it. When a new run is created, staff
-  select/copy managed learners into direct Enrollments. This preserves the
-  familiar class-centric UI without reviving Team as a second enrollment model.
+  grain. A Team is tied to one Class, so it cannot be the reusable cross-run
+  stable aggregate.
+- **Decision:** keep `englishGroupCode` as the cross-run delivery context, then
+  create one run-scoped Team inside each English course-run Cohort. PIC is the
+  Team leader when its employee is linked to a live User; the run roster becomes
+  Team membership and team-linked Enrollments. A later run receives a new Team
+  snapshot rather than reusing the old Team row.
 
 ## 6. English course run → generic Cohort
 
@@ -90,22 +90,22 @@ resolution locked by this plan.
 - **Fit:** exact semantic grain. Generic Evaluation is unique per
   `(classId,userId)`, which becomes one final result per course run and learner.
 - **Gap:** the live Cohort needs `englishGroupCode`, a policy snapshot, and
-  optional PIC presentation metadata.
-- **Decision:** create one generic Cohort per live English course run. Its code is
+  PIC presentation metadata plus the Team ownership binding.
+- **Decision:** create one generic Cohort and one roster Team per live English course run. Its code is
   unique per run; `englishGroupCode` supplies the stable class label used by the
-  workspace. PIC is informational metadata and never a teacher or authz binding.
-  If PIC later gains permissions, introduce a generic owner binding explicitly.
+  workspace. PIC is Team leader when linked, never a Teacher assignment. A
+  name-only PIC stays visible and unresolved until an operator links the User.
 
 ## 7. Enrollment
 
 - **English today:** `eng_run_enrollments` records a learner in a course run,
   including status and optional `start_session_number`.
-- **Generic home:** direct cohort `Enrollment` (`teamId=null`).
-- **Fit:** direct enrollment and bulk staff assignment already exist; the active
+- **Generic home:** team-linked `Enrollment` under the course-run Cohort.
+- **Fit:** team enrollment and roster membership already exist; the active
   cohort uniqueness guard prevents duplicates.
 - **Gap:** current generic enrollment writes/DTOs do not expose metadata such as
   a mid-run starting session.
-- **Decision:** direct Enrollment into the course-run Cohort. Add validated
+- **Decision:** Team Enrollment into the course-run Cohort. Add validated
   `startSessionNumber` metadata only when a learner joins after the run begins;
   preserve it in DTO/reporting and use it when interpreting missing attendance.
 

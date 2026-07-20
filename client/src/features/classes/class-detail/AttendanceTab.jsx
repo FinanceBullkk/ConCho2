@@ -25,7 +25,7 @@ export default function AttendanceTab({ classId }) {
         icon={BarChart3}
         title="No attendance recorded yet"
         description="Mark attendance from Calendar to see analytics here."
-        action={<Button asChild variant="outline" size="sm"><Link to="/operations?tab=attendance">Open calendar</Link></Button>}
+        action={<Button asChild variant="outline" size="sm"><Link to="/english-operations?tab=attendance">Open calendar</Link></Button>}
       />
     );
   }

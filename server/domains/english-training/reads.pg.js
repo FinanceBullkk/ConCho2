@@ -11,17 +11,26 @@ const one = (rows) => rows[0] || null;
 const ELIGIBILITY_STATUS_SQL = `CASE
         WHEN en.status IN ('waiting','dropped','transferred','cancelled') THEN 'not_applicable'
         WHEN count(ar.id) = 0 THEN 'unknown'
-        WHEN count(ar.id) FILTER (WHERE ar.status = 'absent') > r.max_absences_allowed_snapshot THEN 'not_eligible'
+        WHEN count(ar.id) FILTER (WHERE ar.status = 'present')::numeric / count(ar.id)
+          < r.attendance_threshold_ratio_snapshot THEN 'not_eligible'
         WHEN r.status = 'completed' AND en.status = 'completed' THEN 'eligible'
         ELSE 'within_limit'
       END`;
 
 async function listCohorts() {
   const { rows } = await query(`
-    SELECT co.id, co.class_code, co.display_name, co.status,
+    SELECT co.id, co.class_code, co.display_name, co.status, co.capacity,
       (SELECT count(*)::int FROM eng_cohort_memberships m WHERE m.cohort_id = co.id AND m.status = 'active') AS active_members,
-      (SELECT count(*)::int FROM eng_course_runs r WHERE r.cohort_id = co.id) AS runs
-    FROM eng_cohorts co ORDER BY co.class_code`);
+      (SELECT count(*)::int FROM eng_course_runs r WHERE r.cohort_id = co.id) AS runs,
+      pic.id AS current_pic_assignment_id,
+      pic.pic_employee_id AS current_pic_employee_id,
+      coalesce(pe.full_name, pic.pic_label) AS current_pic,
+      pe.emp_code AS current_pic_emp_code,
+      pic.pic_label AS current_pic_label
+    FROM eng_cohorts co
+    LEFT JOIN eng_cohort_pic pic ON pic.cohort_id = co.id AND pic.end_date IS NULL
+    LEFT JOIN eng_employees pe ON pe.id = pic.pic_employee_id
+    ORDER BY co.class_code`);
   return rows;
 }
 
@@ -51,21 +60,37 @@ async function getCohort(id) {
 // tab), and level. Read-only. Rosters are grouped onto their run in the DTO.
 async function getClassDetail(id) {
   const cohort = one((await query(
-    'SELECT id, class_code, display_name, status FROM eng_cohorts WHERE id = $1', [id],
+    `SELECT co.id, co.class_code, co.display_name, co.status, co.capacity,
+      pic.id AS current_pic_assignment_id,
+      pic.pic_employee_id AS current_pic_employee_id,
+      coalesce(pe.full_name, pic.pic_label) AS current_pic,
+      pe.emp_code AS current_pic_emp_code,
+      pic.pic_label AS current_pic_label
+    FROM eng_cohorts co
+    LEFT JOIN eng_cohort_pic pic ON pic.cohort_id = co.id AND pic.end_date IS NULL
+    LEFT JOIN eng_employees pe ON pe.id = pic.pic_employee_id
+    WHERE co.id = $1`, [id],
   )).rows);
   if (!cohort) return null;
   const runs = (await query(`
     SELECT r.id, r.run_number, r.status, r.start_date, r.end_date,
       r.max_absences_allowed_snapshot AS max_absences_allowed,
+      r.attendance_threshold_ratio_snapshot AS attendance_threshold_ratio,
       c.course_code, c.course_name
     FROM eng_course_runs r JOIN eng_courses c ON c.id = r.course_id
     WHERE r.cohort_id = $1 ORDER BY c.course_name, r.run_number`, [id])).rows;
   const roster = (await query(`
     SELECT en.id AS enrollment_id, en.course_run_id, en.status AS enrollment_status,
+      en.start_session_number,
       e.emp_code, e.full_name,
       r.max_absences_allowed_snapshot AS allowed_absences,
+      r.attendance_threshold_ratio_snapshot AS attendance_threshold_ratio,
+      count(ar.id)::int AS marked_count,
       count(ar.id) FILTER (WHERE ar.status = 'present')::int AS present_count,
       count(ar.id) FILTER (WHERE ar.status = 'absent')::int AS absence_count,
+      CASE WHEN count(ar.id) = 0 THEN NULL
+        ELSE count(ar.id) FILTER (WHERE ar.status = 'present')::numeric / count(ar.id)
+      END AS attendance_ratio,
       xr.level_code AS exam_level_code, lv.display_name AS exam_level_name, xr.exam_date,
       ${ELIGIBILITY_STATUS_SQL} AS eligibility_status
     FROM eng_run_enrollments en
@@ -82,7 +107,8 @@ async function getClassDetail(id) {
 
 async function listCourses() {
   const { rows } = await query(`
-    SELECT c.id, c.course_code, c.course_name, c.expected_units, c.max_absences_allowed, c.is_active,
+    SELECT c.id, c.course_code, c.course_name, c.expected_units, c.max_absences_allowed,
+      c.attendance_threshold_ratio, c.is_active,
       (SELECT count(*)::int FROM eng_course_runs r WHERE r.course_id = c.id) AS runs
     FROM eng_courses c ORDER BY c.course_name`);
   return rows;
@@ -97,15 +123,22 @@ async function getCourseRun(id) {
   const roster = (await query(`
     SELECT en.id, en.status, en.start_session_number, (en.meta->>'dq') AS dq,
       e.emp_code, e.full_name, en.business_unit_id_snapshot, en.job_role_id_snapshot,
+      r.attendance_threshold_ratio_snapshot AS attendance_threshold_ratio,
+      count(ar.id)::int AS marked_count,
+      count(ar.id) FILTER (WHERE ar.status = 'present')::int AS present_count,
       count(ar.id) FILTER (WHERE ar.status = 'absent')::int AS absence_count,
+      CASE WHEN count(ar.id) = 0 THEN NULL
+        ELSE count(ar.id) FILTER (WHERE ar.status = 'present')::numeric / count(ar.id)
+      END AS attendance_ratio,
       xr.level_code AS exam_level_code, lv.display_name AS exam_level_name, xr.exam_date
     FROM eng_run_enrollments en
+    JOIN eng_course_runs r ON r.id = en.course_run_id
     JOIN eng_employees e ON e.id = en.employee_id
     LEFT JOIN eng_attendance_records ar ON ar.run_enrollment_id = en.id
     LEFT JOIN eng_exam_results xr ON xr.run_enrollment_id = en.id AND xr.is_deleted = false
     LEFT JOIN eng_levels lv ON lv.code = xr.level_code
     WHERE en.course_run_id = $1
-    GROUP BY en.id, e.id, xr.id, lv.code
+    GROUP BY en.id, e.id, r.id, xr.id, lv.code
     ORDER BY e.full_name`, [id])).rows;
   return { run, roster };
 }
@@ -151,6 +184,9 @@ async function listSessions({ q, limit = 100, offset = 0 } = {}) {
     SELECT su.id, su.session_number, su.held_at, su.status,
       r.id AS course_run_id, co.class_code, c.course_name,
       count(ar.id)::int AS attendance_count,
+      (SELECT count(*)::int FROM eng_run_enrollments en
+        WHERE en.course_run_id = r.id
+          AND en.start_session_number <= su.session_number) AS expected_roster_count,
       count(ar.id) FILTER (WHERE ar.status = 'present')::int AS present_count,
       count(ar.id) FILTER (WHERE ar.status = 'absent')::int AS absent_count
     FROM eng_session_units su
@@ -318,7 +354,10 @@ async function listPendingExamEntries() {
       AND en.status IN ('active','completed')
       AND xr.id IS NULL
       AND (SELECT count(*) FROM eng_attendance_records ar
-             WHERE ar.run_enrollment_id = en.id AND ar.status = 'absent') <= 2
+             WHERE ar.run_enrollment_id = en.id) > 0
+      AND (SELECT count(*) FILTER (WHERE ar.status = 'present')::numeric / count(*)
+             FROM eng_attendance_records ar WHERE ar.run_enrollment_id = en.id)
+          >= r.attendance_threshold_ratio_snapshot
     GROUP BY r.id, co.class_code, c.course_name, r.status, r.end_date
     ORDER BY r.end_date DESC NULLS LAST, co.class_code`);
   return rows;

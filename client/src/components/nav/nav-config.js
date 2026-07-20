@@ -50,24 +50,10 @@ export const NAV_GROUPS = [
       // Grading workspace (converge Phase 4 C2/C3) — a standalone page (not a
       // /learning tab) that lists gradable units across BOTH modes (quiz manual
       // grading + English rubric); replaces the retired English Evaluations tab.
-      // Leaf in the Learning group, mirroring Operations' mobile-attendance leaf.
+      // Leaf in the Learning group.
       { path: '/grading', labelKey: 'nav.sections.grading', icon: ClipboardEdit, access: { Admin: 'full', Coordinator: 'full', Teacher: 'full' }, feature: 'grading', parentRoutes: ['/grading'] },
     ],
   },
-  {
-    id: 'operations', labelKey: 'nav.groups.operations',
-    items: [
-      tab('/calendar', 'schedules', 'nav.sections.schedules', CalendarCheck, { access: ADMIN_ONLY }),
-      tab('/calendar', 'attendance', 'nav.sections.attendance', ClipboardCheck, { access: { Admin: 'full', Teacher: 'full' } }),
-      { path: '/mobile-attendance', labelKey: 'nav.sections.mobileAttendance', icon: Smartphone, access: { Admin: 'full', Teacher: 'full' }, parentRoutes: ['/mobile-attendance'] },
-    ],
-  },
-  // English admin group RETIRED (converge Phase 4): every English admin surface
-  // folded into a unified one — 'classes' → Learning → Cohorts; 'attendance' +
-  // 'schedules' → the unified Operations calendar; 'evaluations' → the Grading
-  // workspace; 'teams' → People (below). The leader booking grid stays in the
-  // learner nav (LEARNER_GROUPS.learner-english), so /english lives on for
-  // Participants/Leaders only.
   {
     id: 'reports', labelKey: 'nav.groups.reports',
     items: [
@@ -185,6 +171,14 @@ export const ENGLISH_GROUPS = [
         access: { Admin: 'full', Coordinator: 'read' },
         feature: 'englishTraining',
       }),
+    ],
+  },
+  {
+    id: 'english-field',
+    items: [
+      { path: '/mobile-attendance', labelKey: 'nav.sections.mobileAttendance', icon: Smartphone,
+        access: { Admin: 'full', Teacher: 'full' }, feature: 'englishTraining',
+        parentRoutes: ['/mobile-attendance'] },
     ],
   },
 ];

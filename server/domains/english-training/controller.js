@@ -11,9 +11,7 @@ const managedPeople = require('./managed-people');
 const managedPeopleRepository = require('./managed-people-repository.pg');
 const userLifecycle = require('../../controllers/user/user-lifecycle');
 const { invalidateUserCache } = require('../../middleware/auth');
-const liveOperations = require('./live-operations');
-const archiveRepository = require('./repository.pg');
-const combinedHistory = require('./combined-history');
+const canonicalOperations = require('./canonical-operations');
 const auditService = require('../../services/auditService');
 
 const notFound = (res, msg) => res.status(404).json({ success: false, message: msg });
@@ -28,75 +26,18 @@ const listEnglishTeachers = async (req, res) => {
   catch (e) { handleError(res, e); }
 };
 
-const getLiveEligibility = async (req, res) => {
-  try { res.json({ success: true, data: await liveOperations.getCohortEligibility(req.params.id, req.user) }); }
-  catch (e) { handleError(res, e); }
-};
-
-const getArchiveStatus = async (req, res) => {
-  try { res.json({ success: true, data: await archiveRepository.getArchiveState() }); }
-  catch (e) { handleError(res, e); }
-};
-
-const cutoverArchive = async (req, res) => {
+const createCanonicalClass = async (req, res) => {
   try {
-    const result = await archiveRepository.freezeArchive({
-      actorId: req.user._id,
-      reason: req.body.reason,
-    });
-    if (result.changed) {
-      await auditService.record({
-        req,
-        action: 'cutover',
-        entity: 'EnglishArchive',
-        entityId: 'singleton',
-        diff: { before: { isFrozen: false, cutoverAt: null }, after: result.state },
-        note: req.body.reason,
-      });
-    }
-    res.status(result.changed ? 201 : 200).json({ success: true, data: result.state, changed: result.changed });
-  } catch (e) { handleError(res, e); }
-};
-
-const getCombinedHistory = async (req, res) => {
-  try { res.json({ success: true, data: await combinedHistory.getCombinedHistory() }); }
-  catch (e) { handleError(res, e); }
-};
-
-const getLiveEvaluationWorklist = async (req, res) => {
-  try { res.json({ success: true, data: await liveOperations.getEvaluationWorklist(req.params.id, req.user) }); }
-  catch (e) { handleError(res, e); }
-};
-
-const recordLiveEnglishLevel = async (req, res) => {
-  try {
-    const { before, result } = await liveOperations.recordEnglishLevel({
-      cohortId: req.params.id,
-      ...req.body,
-    }, req.user);
+    const result = await canonicalOperations.createClassCourseRun(req.body, req.user);
     await auditService.record({
       req,
-      action: before ? 'updated' : 'created',
-      entity: 'EnglishLevelEvaluation',
-      entityId: result._id,
-      diff: before ? auditService.diff(before, result) : { after: result },
+      action: 'created',
+      entity: 'EnglishCohort',
+      entityId: result.cohortId,
+      diff: { after: result },
+      note: 'Created stable English class, current PIC assignment, and first Course Run atomically',
     });
-    res.status(before ? 200 : 201).json({ success: true, data: result });
-  } catch (e) { handleError(res, e); }
-};
-
-const deleteLiveEnglishLevel = async (req, res) => {
-  try {
-    const before = await liveOperations.deleteEnglishLevel(req.params.id, req.user);
-    await auditService.record({
-      req,
-      action: 'deleted',
-      entity: 'EnglishLevelEvaluation',
-      entityId: req.params.id,
-      diff: { before },
-      note: 'Soft-deleted; a later level entry revives the learner/course-run slot',
-    });
-    res.json({ success: true, data: { deleted: true } });
+    res.status(201).json({ success: true, data: result });
   } catch (e) { handleError(res, e); }
 };
 
@@ -332,9 +273,7 @@ const deleteExamResult = async (req, res) => {
 module.exports = {
   getWorkspaceOverview,
   listEnglishTeachers,
-  getLiveEligibility,
-  getArchiveStatus, cutoverArchive, getCombinedHistory,
-  getLiveEvaluationWorklist, recordLiveEnglishLevel, deleteLiveEnglishLevel,
+  createCanonicalClass,
   listManagedPeople, createManagedPerson, updateManagedPerson, deleteManagedPerson, provisionManagedPeople,
   getOverview,
   listCohorts, getCohort, getClassDetail, listCourses, getCourseRun, listEmployees, getEmployee,

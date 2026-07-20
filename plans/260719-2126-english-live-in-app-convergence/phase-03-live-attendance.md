@@ -37,6 +37,9 @@ English policy. Historical attendance remains untouched in `eng_*`.
 ## Workspace entrypoint
 
 - Add **Attendance** to English Operations.
+- Treat English Operations as the sole staff navigation owner: remove duplicate
+  Admin Console Attendance/Mobile Attendance entries and redirect legacy
+  attendance URLs to this workspace.
 - Admin/Coordinator can find any live English Session; assigned Teacher sees only
   their permitted sessions. The roster shows P/A/L/EL, unmarked/not-applicable,
   absence allowance, and live eligibility.

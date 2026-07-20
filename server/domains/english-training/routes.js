@@ -8,16 +8,14 @@ const {
   idParams, empCodeParams, issueCodeParams, listEmployeesQuery,
   employeeCorrectionBody, examResultBody,
   managedPersonCreateBody, managedPersonUpdateBody,
-  liveLevelBody,
-  archiveCutoverBody,
+  canonicalClassBody,
 } = require('./schemas');
 
 // ──────────────────────────────────────────────────────────
 // English Training routes — mounted at /api/english-training (feature-flagged in
-// server.js via ENGLISH_TRAINING_ENABLED). Canonical workbook evidence remains
-// read-only; the HTTP mutation writes to a separate audited correction overlay.
-// The HTTP reads expose task-oriented projections for the admin view. This is
-// an Admin + Coordinator operations tool, never learner-facing.
+// server.js via ENGLISH_TRAINING_ENABLED). ConMeoGauGau owns business semantics;
+// canonical English commands/read models live here while raw workbook evidence
+// stays immutable. This is an Admin + Coordinator tool, never learner-facing.
 // ──────────────────────────────────────────────────────────
 
 router.use(protect);
@@ -44,51 +42,37 @@ router.get(
   controller.listEnglishTeachers,
 );
 router.get(
-  '/live/cohorts/:id/eligibility',
-  roleGuard('Admin', 'Coordinator', 'Teacher'),
-  requireCapability('attendance.read'),
-  validate({ params: idParams }),
-  controller.getLiveEligibility,
-);
-router.get(
-  '/live/history',
+  '/workspace/classes',
   roleGuard('Admin', 'Coordinator'),
   requireCapability('report.read'),
-  controller.getCombinedHistory,
+  controller.listCohorts,
 );
 router.get(
-  '/archive/status',
+  '/workspace/classes/:id',
   roleGuard('Admin', 'Coordinator'),
   requireCapability('report.read'),
-  controller.getArchiveStatus,
-);
-router.post(
-  '/archive/cutover',
-  roleGuard('Admin'),
-  requireCapability('settings.manage'),
-  validate({ body: archiveCutoverBody }),
-  controller.cutoverArchive,
+  validate({ params: idParams }),
+  controller.getClassDetail,
 );
 router.get(
-  '/live/cohorts/:id/evaluations',
-  roleGuard('Admin', 'Coordinator', 'Teacher'),
-  requireCapability('english.evaluate'),
-  validate({ params: idParams }),
-  controller.getLiveEvaluationWorklist,
+  '/workspace/courses',
+  roleGuard('Admin', 'Coordinator'),
+  requireCapability('report.read'),
+  controller.listCourses,
+);
+router.get(
+  '/workspace/employees',
+  roleGuard('Admin', 'Coordinator'),
+  requireCapability('cohort.manage'),
+  validate({ query: listEmployeesQuery }),
+  controller.listEmployees,
 );
 router.post(
-  '/live/cohorts/:id/evaluations',
-  roleGuard('Admin', 'Coordinator', 'Teacher'),
-  requireCapability('english.evaluate'),
-  validate({ params: idParams, body: liveLevelBody }),
-  controller.recordLiveEnglishLevel,
-);
-router.delete(
-  '/live/evaluations/:id',
-  roleGuard('Admin', 'Coordinator', 'Teacher'),
-  requireCapability('english.evaluate'),
-  validate({ params: idParams }),
-  controller.deleteLiveEnglishLevel,
+  '/workspace/classes',
+  roleGuard('Admin', 'Coordinator'),
+  requireCapability('cohort.manage'),
+  validate({ body: canonicalClassBody }),
+  controller.createCanonicalClass,
 );
 router.post(
   '/managed-learners',
@@ -118,7 +102,8 @@ router.post(
   controller.provisionManagedPeople,
 );
 
-// Historical archive endpoints retain their narrower operations policy.
+// Imported evidence and established English read/evaluation endpoints retain
+// the narrower Admin/Coordinator operations policy.
 router.use(roleGuard('Admin', 'Coordinator'));
 router.use(requireCapability('report.read'));
 
