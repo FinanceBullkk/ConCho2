@@ -29,18 +29,23 @@ import { Button } from '@/components/ui/button';
 
 const STATE_CELL_STYLE = {
   upcoming:   { icon: CalendarDays,  cellBg: 'bg-muted/30',       leftColor: 'var(--neutral)',     progressBar: 'bg-neutral',     opacity: 'opacity-70' },
+  unrecorded: { icon: CircleDashed,  cellBg: 'bg-muted/30',       leftColor: 'var(--neutral)',     progressBar: 'bg-neutral',     opacity: 'opacity-80' },
   toMark:     { icon: AlertCircle,   cellBg: 'bg-warning/[0.10]', leftColor: 'var(--warning)',     progressBar: 'bg-warning',     opacity: '' },
   inProgress: { icon: CircleDashed,  cellBg: 'bg-info/[0.08]',    leftColor: 'var(--info)',        progressBar: 'bg-info',        opacity: '' },
   done:       { icon: CheckCircle2,  cellBg: 'bg-success/[0.06]', leftColor: 'var(--success)',     progressBar: 'bg-success',     opacity: 'opacity-80' },
+  noRoster:   { icon: UserX,         cellBg: 'bg-destructive/[0.06]', leftColor: 'var(--destructive)', progressBar: 'bg-destructive', opacity: 'opacity-80' },
 };
 
 function deriveSessionState(schedule) {
   const isFuture = new Date(schedule.startTime) > new Date();
-  const isNoRoster = schedule.attendanceStatus === 'none';
+  const isNoRoster = schedule.attendanceStatus === 'none'
+    && Number(schedule.enrolledCount || 0) === 0;
   if (isFuture) return { state: 'upcoming', noRoster: isNoRoster };
+  if (isNoRoster) return { state: 'noRoster', noRoster: true };
   switch (schedule.attendanceStatus) {
     case 'done':    return { state: 'done',       noRoster: false };
     case 'partial': return { state: 'inProgress', noRoster: false };
+    case 'unrecorded': return { state: 'unrecorded', noRoster: false };
     case 'pending': return { state: 'toMark',     noRoster: false };
     case 'none':    return { state: 'toMark',     noRoster: true  };
     default:        return { state: 'toMark',     noRoster: false };
@@ -72,6 +77,9 @@ export default function AttendancePage({
   onHistoricalSelect,
   selectedHistoricalId,
   historicalDrawer,
+  unrecordedLabel,
+  hideHeader = false,
+  stackedDetail = false,
 }) {
   const { isAdmin } = useAuth();
   // Unified mode reads BOTH worlds (no server mode) and facets client-side by
@@ -303,12 +311,14 @@ export default function AttendancePage({
   return (
     <div className="space-y-4">
       {/* ── Header ─────────────────────────────────────────── */}
-      <div>
-        <h1 className="text-h1 text-foreground">Attendance</h1>
-        <p className="text-muted-foreground mt-1 text-body">
-          Click a session to open the attendance roster
-        </p>
-      </div>
+      {!hideHeader && (
+        <div>
+          <h1 className="text-h1 text-foreground">Attendance</h1>
+          <p className="text-muted-foreground mt-1 text-body">
+            Click a session to open the attendance roster
+          </p>
+        </div>
+      )}
 
       {/* ── World facet (unified mode only) ────────────────── */}
       {unified && (
@@ -351,7 +361,7 @@ export default function AttendancePage({
       </div>
 
       {/* ── Main: calendar + drawer ─────────────────────────── */}
-      <div className="lg:flex lg:gap-5 lg:items-start">
+      <div className={stackedDetail ? 'space-y-4' : 'lg:flex lg:gap-5 lg:items-start'}>
 
         {/* Left: calendar grid */}
         <div className="flex-1 min-w-0 space-y-4">
@@ -395,8 +405,10 @@ export default function AttendancePage({
                         aria-label={`${schedule.classId?.classCode} — ${state}`}
                       >
                         <div className="flex flex-wrap items-center gap-1">
-                          <StatusBadge status={state} icon={cell.icon} size="sm" />
-                          {noRoster && <StatusBadge status="noRoster" icon={UserX} size="sm" />}
+                          <StatusBadge status={state} icon={cell.icon} size="sm">
+                            {state === 'unrecorded' ? (schedule.attendanceStateLabel || unrecordedLabel) : undefined}
+                          </StatusBadge>
+                          {noRoster && state !== 'noRoster' && <StatusBadge status="noRoster" icon={UserX} size="sm" />}
                           {schedule.isHistorical && (
                             <span className="rounded bg-muted px-1.5 py-0.5 text-[9px] font-semibold text-muted-foreground">
                               {schedule.historicalLabel}
@@ -439,9 +451,12 @@ export default function AttendancePage({
           {/* Legend */}
           <div className="flex flex-wrap gap-2">
             {Object.entries(STATE_CELL_STYLE).map(([key, cell]) => (
-              <StatusBadge key={key} status={key} icon={cell.icon} size="sm" />
+              key !== 'unrecorded' || unrecordedLabel ? (
+                <StatusBadge key={key} status={key} icon={cell.icon} size="sm">
+                  {key === 'unrecorded' ? unrecordedLabel : undefined}
+                </StatusBadge>
+              ) : null
             ))}
-            <StatusBadge status="noRoster" icon={UserX} size="sm" />
           </div>
         </div>
 
@@ -449,7 +464,7 @@ export default function AttendancePage({
         {showDrawerColumn && (
           <div
             data-testid="attendance-drawer-column"
-            className="lg:w-[300px] lg:flex-none lg:sticky lg:top-6"
+            className={stackedDetail ? 'w-full' : 'lg:w-[300px] lg:flex-none lg:sticky lg:top-6'}
           >
             {historicalOnly ? historicalDrawer : <AttendanceDrawer
               isOpen={drawerOpen}

@@ -11,17 +11,23 @@ export function adaptHistoricalSessions(rows, labels) {
     const markedCount = Number(row.attendanceCount || 0);
     const enrolledCount = Math.max(Number(row.expectedRosterCount || 0), markedCount);
     const attendanceStatus = markedCount === 0
-      ? 'none'
+      ? (enrolledCount === 0 ? 'none' : imported ? 'unrecorded' : 'pending')
       : markedCount < enrolledCount ? 'partial' : 'done';
     return [{
       _id: `archive:${row.id}`,
       archiveSessionId: row.id,
       courseRunId: row.courseRunId,
       meetingId: row.meetingId || null,
+      cancellationReason: row.cancellationReason || null,
+      meetLink: row.meetLink || null,
       sourceKind: imported ? 'imported' : 'live',
       isHistorical: true,
-      historicalLabel: imported ? labels.historical : (labels.live || labels.historical),
-      historicalReadOnlyLabel: imported ? labels.readOnly : (labels.live || labels.historical),
+      historicalLabel: row.meetingStatus === 'cancelled'
+        ? (labels.cancelled || labels.live || labels.historical)
+        : imported ? labels.historical : (labels.live || labels.historical),
+      historicalReadOnlyLabel: row.meetingStatus === 'cancelled'
+        ? (labels.cancelled || labels.readOnly)
+        : imported ? labels.readOnly : (labels.live || labels.historical),
       startTime: start.toISOString(),
       endTime: new Date(start.getTime() + durationMs).toISOString(),
       status: row.meetingStatus || row.status,
@@ -35,6 +41,7 @@ export function adaptHistoricalSessions(rows, labels) {
       markedCount,
       capacity: enrolledCount,
       attendanceStatus,
+      attendanceStateLabel: attendanceStatus === 'unrecorded' ? labels.unrecorded : null,
       archiveCounts: {
         present: Number(row.presentCount || 0),
         absent: Number(row.absentCount || 0),

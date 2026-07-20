@@ -2,7 +2,7 @@
 capability: english-training
 status: evolving
 owners: [domains/english-training]
-last_updated: 2026-07-20
+last_updated: 2026-07-21
 authority:
   repository: kyphucclv/ConMeoGauGau
   commit: 4107cd52ee905e87254e099da23cb58dcbdd82a9
@@ -14,7 +14,9 @@ related_code:
   - server/db/pg/migrations/039_english_training_evaluation.js
   - server/db/pg/migrations/047_english_canonical_authority.js
   - server/db/pg/migrations/048_english_live_meetings_attendance.js
+  - server/db/pg/migrations/049_english_meeting_calendar.js
   - server/domains/english-training/canonical-operations.js
+  - server/domains/english-training/meeting-delivery.js
   - server/domains/english-training/reads.pg.js
   - server/domains/english-training/evaluation.js
   - client/src/features/english-operations/ClassesPanel.jsx
@@ -124,12 +126,41 @@ explicitly read-only. There is no generic live/archive source toggle.
 creates one planned Meeting and its first normal Session Unit after exact-slot,
 Course Run state, conflict, and confirmed-sequence validation.
 
+Admin and Coordinator can click an empty configured grid cell to prefill that
+command. A live planned Meeting can be opened from its card and moved with
+`PATCH .../meetings/:meetingId`; the Course Run, Session Unit identity, logical
+session number, and event-time roster remain unchanged. `DELETE` on the same
+resource is a durable cancellation with a required reason: Meeting and Session
+Unit statuses change to cancelled while the row and audit history remain.
+Imported, started, completed, cancelled, or attendance-bearing Meetings are
+read-only. Create and move both reject past time and occupied active slots.
+
+After commit, Meeting delivery is fail-soft like the shared ConCho2 schedule:
+linked learners and the current PIC receive bell notifications; roster emails
+are sent when SMTP is configured; and Google Calendar is created, updated, or
+deleted when the Calendar integration is configured. Provider failures never
+roll back the canonical Meeting mutation. Migration 049 stores the optional
+Google event id and Meet link on the Meeting.
+
 `GET .../session-units/:sessionUnitId/attendance` returns the event-time roster
 and an opaque stale-write token. `PUT` to the same path accepts only Present or
 Absent and must contain the exact full roster once each. A successful save
 upserts the facts, completes the Meeting and Session Unit, and records the
 domain audit in one transaction. Teacher access remains closed until assigned-
 resource scope is ported.
+
+The English workspace presents these commands as HR-facing tasks:
+
+- Overview starts with direct actions for attendance review, session planning,
+  and PIC-owned class management.
+- Schedule keeps the delivery grid full-width. Empty configured cells open a
+  prefilled create form; live cards open move/cancel controls; the top action
+  still supports manual creation without reserving an empty side panel.
+- Attendance separates all sessions, sessions needing evidence, recorded
+  sessions, and upcoming sessions. Opening a roster keeps the calendar width
+  stable and renders the roster as an inline full-width work area.
+- Imported gaps are labelled `No evidence` and remain unknown. The UI never
+  derives Present, Absent, or Dropped from a missing historical source row.
 
 ### Evaluation
 
@@ -145,7 +176,7 @@ Canonical operational English tables are writable through controlled commands;
 raw rows, DQ records, and time-correction evidence retain database freeze
 protection from the older archive mechanism.
 
-## Migrations 047-048 reconciliation
+## Migrations 047-049 reconciliation
 
 Migration 047:
 
@@ -165,6 +196,9 @@ source columns required for controlled live commands. It also preserves each
 attendance row's original status and records the live actor separately. No raw
 workbook row is edited.
 
+Migration 049 adds nullable Google Calendar identity and Meet-link fields to
+`eng_meetings`. It does not rewrite imported Meetings or attendance evidence.
+
 The reproducible importer is schema-aware: it stages imported Meetings as
 cancelled inside the import transaction, loads their linked Session Units and
 original attendance status, reapplies the correction overlay, then opens final
@@ -174,11 +208,13 @@ corrected clocks; any remaining collision rolls back the complete import.
 ## Verification
 
 - Unit: atomic class/PIC/run command, learner-start sequence and capacity
-  guards, Meeting creation, full-roster save, stale token, route permission
-  denial, and DTO ratio mapping.
+  guards, Meeting create/reschedule/durable-cancel, delivery notifications,
+  full-roster save, stale token, route permission denial, and DTO ratio mapping.
 - Client: PIC grouping, class detail roster, canonical Schedule/Attendance grid,
-  imported wall-clock conversion, and live Meeting instant/duration mapping.
-- Prototype: migrations 040–048 present; 20 canonical columns; 2 canonical
+  imported wall-clock conversion, live Meeting instant/duration mapping,
+  evidence filters, inline roster layout, query-tab breadcrumbs, empty-cell
+  creation, and live Meeting move/cancel controls.
+- Prototype: migrations 040–049 present; 22 canonical columns; 2 canonical
   unique indexes; `eng_audit_events`; no multi-active enrollment/current-PIC or
   Meeting-link violations; canonical writes allowed while imported raw evidence
   remains guarded.

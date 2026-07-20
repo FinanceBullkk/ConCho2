@@ -176,6 +176,116 @@ const createSessionUnit = async (row, client) => {
   return rows[0];
 };
 
+const findMeetingForUpdate = async (courseRunId, meetingId, client) => {
+  const { rows } = await client.query(`
+    SELECT m.*, su.id AS session_unit_id, su.session_number,
+      su.status AS session_unit_status, su.source_sheet,
+      co.class_code, c.course_name,
+      (SELECT count(*)::int FROM eng_attendance_records ar
+        WHERE ar.session_unit_id = su.id) AS attendance_count
+    FROM eng_meetings m
+    JOIN eng_session_units su
+      ON su.meeting_id = m.id AND su.unit_type = 'normal'
+    JOIN eng_course_runs r ON r.id = m.course_run_id
+    JOIN eng_cohorts co ON co.id = r.cohort_id
+    JOIN eng_courses c ON c.id = r.course_id
+    WHERE m.id = $1 AND m.course_run_id = $2
+    ORDER BY su.unit_number_in_meeting
+    LIMIT 1
+    FOR UPDATE OF m, su
+  `, [meetingId, courseRunId]);
+  return rows[0] || null;
+};
+
+const rescheduleMeeting = async (meetingId, row, client) => {
+  const { rows } = await client.query(`
+    UPDATE eng_meetings SET
+      starts_at = $2,
+      duration_minutes = $3,
+      meta = COALESCE(meta, '{}'::jsonb) || $4::jsonb,
+      updated_at = NOW()
+    WHERE id = $1 AND status = 'planned'
+    RETURNING *
+  `, [
+    meetingId, row.startsAt, row.durationMinutes,
+    JSON.stringify({ endsAt: row.endsAt, rescheduleReason: row.reason || null }),
+  ]);
+  if (!rows[0]) return null;
+  await client.query(`
+    UPDATE eng_session_units SET
+      held_at = $2,
+      meta = COALESCE(meta, '{}'::jsonb) || $3::jsonb,
+      updated_at = NOW()
+    WHERE meeting_id = $1
+  `, [meetingId, row.startsAt, JSON.stringify({ endsAt: row.endsAt })]);
+  return rows[0];
+};
+
+const cancelMeeting = async (meetingId, cancellationReason, client) => {
+  const { rows } = await client.query(`
+    UPDATE eng_meetings SET
+      status = 'cancelled', cancellation_reason = $2, updated_at = NOW()
+    WHERE id = $1 AND status = 'planned'
+    RETURNING *
+  `, [meetingId, cancellationReason]);
+  if (!rows[0]) return null;
+  await client.query(`
+    UPDATE eng_session_units SET status = 'cancelled', updated_at = NOW()
+    WHERE meeting_id = $1 AND status = 'scheduled'
+  `, [meetingId]);
+  return rows[0];
+};
+
+const getMeetingDeliveryContext = async (meetingId) => {
+  const { rows: meetings } = await repository.query(`
+    SELECT m.*, su.id AS session_unit_id, su.session_number,
+      co.class_code, c.course_name
+    FROM eng_meetings m
+    JOIN eng_session_units su
+      ON su.meeting_id = m.id AND su.unit_type = 'normal'
+    JOIN eng_course_runs r ON r.id = m.course_run_id
+    JOIN eng_cohorts co ON co.id = r.cohort_id
+    JOIN eng_courses c ON c.id = r.course_id
+    WHERE m.id = $1
+    ORDER BY su.unit_number_in_meeting
+    LIMIT 1
+  `, [meetingId]);
+  const meeting = meetings[0];
+  if (!meeting) return null;
+
+  const { rows: audience } = await repository.query(`
+    WITH recipients AS (
+      SELECT e.id AS employee_id, e.user_id, e.email, e.full_name, 'learner'::text AS audience_role
+      FROM eng_run_enrollments en
+      JOIN eng_employees e ON e.id = en.employee_id
+      WHERE en.course_run_id = $1
+        AND en.start_session_number <= $2
+        AND en.status IN ('active','completed')
+      UNION ALL
+      SELECT e.id, e.user_id, e.email, e.full_name, 'pic'::text
+      FROM eng_course_runs r
+      JOIN eng_cohort_pic pic
+        ON pic.cohort_id = r.cohort_id
+        AND pic.end_date IS NULL
+      JOIN eng_employees e ON e.id = pic.pic_employee_id
+      WHERE r.id = $1
+    )
+    SELECT DISTINCT ON (COALESCE(user_id, employee_id))
+      employee_id, user_id, email, full_name, audience_role
+    FROM recipients
+    ORDER BY COALESCE(user_id, employee_id),
+      CASE audience_role WHEN 'learner' THEN 0 ELSE 1 END
+  `, [meeting.course_run_id, meeting.session_number]);
+  return { meeting, audience };
+};
+
+const setMeetingCalendarDetails = async (meetingId, { googleEventId, meetLink }) => {
+  await repository.query(`
+    UPDATE eng_meetings SET google_event_id = $2, meet_link = $3, updated_at = NOW()
+    WHERE id = $1
+  `, [meetingId, googleEventId || null, meetLink || null]);
+};
+
 const getAttendanceRosterData = async (courseRunId, sessionUnitId, client, { lock = false } = {}) => {
   const { rows: units } = await client.query(`
     SELECT su.id, su.course_run_id, su.session_number, su.unit_type,
@@ -263,6 +373,11 @@ module.exports = {
   createRunEnrollment,
   createMeeting,
   createSessionUnit,
+  findMeetingForUpdate,
+  rescheduleMeeting,
+  cancelMeeting,
+  getMeetingDeliveryContext,
+  setMeetingCalendarDetails,
   getAttendanceRosterData,
   upsertAttendance,
   completeMeeting,

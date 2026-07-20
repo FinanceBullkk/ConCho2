@@ -121,6 +121,22 @@ export const useCreateCanonicalEnglishSession = () => useLearnerMutation(
   'englishOperations.schedule.saveError',
 );
 
+export const useRescheduleCanonicalEnglishMeeting = () => useLearnerMutation(
+  ({ courseRunId, meetingId, data }) => payload(
+    englishOperationsAPI.rescheduleCanonicalMeeting(courseRunId, meetingId, data),
+  ),
+  'englishOperations.schedule.updated',
+  'englishOperations.schedule.saveError',
+);
+
+export const useCancelCanonicalEnglishMeeting = () => useLearnerMutation(
+  ({ courseRunId, meetingId, data }) => payload(
+    englishOperationsAPI.cancelCanonicalMeeting(courseRunId, meetingId, data),
+  ),
+  'englishOperations.schedule.cancelled',
+  'englishOperations.schedule.cancelError',
+);
+
 export const useSaveCanonicalEnglishAttendance = () => useLearnerMutation(
   ({ courseRunId, sessionUnitId, data }) => payload(
     englishOperationsAPI.saveCanonicalAttendanceRoster(courseRunId, sessionUnitId, data),

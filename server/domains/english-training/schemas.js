@@ -60,6 +60,10 @@ const canonicalClassBody = z.object({
 });
 
 const courseRunParams = z.object({ courseRunId: z.string().min(1) });
+const courseRunMeetingParams = z.object({
+  courseRunId: z.string().min(1),
+  meetingId: z.string().min(1),
+});
 const attendanceRosterParams = z.object({
   courseRunId: z.string().min(1),
   sessionUnitId: z.string().min(1),
@@ -74,6 +78,14 @@ const attendanceSessionBody = z.object({
   endsAt: z.string().datetime({ offset: true }),
   confirmedSessionNumber: z.coerce.number().int().min(1),
 });
+const meetingRescheduleBody = z.object({
+  startsAt: z.string().datetime({ offset: true }),
+  endsAt: z.string().datetime({ offset: true }),
+  reason: z.string().trim().max(500).optional(),
+});
+const meetingCancellationBody = z.object({
+  cancellationReason: z.string().trim().min(3).max(500),
+});
 const attendanceRosterBody = z.object({
   rosterToken: z.string().length(64),
   records: z.array(z.object({
@@ -87,6 +99,7 @@ module.exports = {
   employeeCorrectionBody, examResultBody,
   managedPersonCreateBody, managedPersonUpdateBody,
   canonicalClassBody,
-  courseRunParams, attendanceRosterParams,
-  runEnrollmentBody, attendanceSessionBody, attendanceRosterBody,
+  courseRunParams, courseRunMeetingParams, attendanceRosterParams,
+  runEnrollmentBody, attendanceSessionBody, meetingRescheduleBody,
+  meetingCancellationBody, attendanceRosterBody,
 };

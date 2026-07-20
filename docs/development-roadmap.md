@@ -6,7 +6,7 @@
 > - *Architecture / orientation* → [`system-overview.md`](system-overview.md)
 > - *Detailed task snapshot (archived)* → [`archive/handoff-2026-06-01.md`](archive/handoff-2026-06-01.md)
 >
-> **Last updated:** 2026-07-20
+> **Last updated:** 2026-07-21
 
 ---
 
@@ -184,6 +184,37 @@ Bug fixing and integration review rank above net-new feature rollout.
 > 07-04 E1–E3 rolled 2026-07-08, 07-02→07-03 rolled 2026-07-07 →
 > [`2026-q3.md`](changelog-archive/2026-q3.md); 06-20→06-27 rolled 2026-07-07;
 > 06-14→06-19 rolled 2026-07-04 → [`2026-q2.md`](changelog-archive/2026-q2.md)).
+
+- **2026-07-21** — **English Schedule direct manipulation and delivery notifications.**
+  English Operations now creates a Meeting by clicking an empty approved grid
+  cell and opens live Meeting cards for reschedule or durable cancellation.
+  Imported, started, completed, cancelled, and attendance-bearing Meetings stay
+  read-only; move/create share the exact-slot, future-time, and active-slot
+  conflict guards; cancellation requires a reason and preserves the Session
+  Unit plus both domain/global audit trails. Post-commit delivery mirrors the
+  ConCho2 schedule without importing Team semantics: linked learners and the
+  current PIC get bell notifications, SMTP recipients get create/move/cancel
+  email when configured, and Google Calendar events are created/updated/deleted
+  fail-soft. Migration 049 stores optional Calendar/Meet identity and is applied
+  to both active and prototype databases. Verified: English schedule backend
+  unit suites **48/48**, client interaction suites **12/12**, full client suite
+  **563/563**, prototype **10 migrations / 22 columns / 984 Meetings / 5,962
+  attendance facts**, lint 0 errors (5 pre-existing warnings), and production
+  client build green. Browser smoke is pending only because the updated
+  Playwright Chromium binary is unavailable in this sandbox.
+
+- **2026-07-20** — **English Operations authority recheck and ready-to-use UX.**
+  Rechecked Schedule/Attendance against pinned ConMeoGauGau commit `4107cd5`.
+  A local 231-row attendance inference batch was compensated and removed
+  because historical gaps must remain unknown; the compensating action is
+  retained in `eng_audit_events`, and canonical source attendance returned to
+  **5,962** facts. Historical roster detail now uses Meeting time plus
+  event-time Cohort Membership applicability. Overview starts from common HR
+  tasks; Schedule uses a full-width calendar with on-demand creation; Attendance
+  adds evidence/recorded/upcoming filters and a full-width inline roster; and
+  the top breadcrumb follows the active English query tab. English backend unit
+  tests pass **73/73**, the full client suite **562/562**, both Playwright smoke
+  flows pass, lint has no errors, and the production client build succeeds.
 
 - **2026-07-20** — **Canonical English roster, Meeting, and live P/A attendance slice.**
   Ported the pinned ConMeoGauGau authority semantics into English Operations:

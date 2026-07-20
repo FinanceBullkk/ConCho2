@@ -39,7 +39,7 @@ describe('adaptHistoricalSessions', () => {
         heldAt: '2026-07-12T09:00:00.000Z', classCode: 'EL003', courseName: 'Foundation',
         attendanceCount: 0, expectedRosterCount: 5, presentCount: 0, absentCount: 0,
       },
-    ], { historical: 'Historical', readOnly: 'Read-only' });
+    ], { historical: 'Historical', readOnly: 'Read-only', unrecorded: 'No evidence' });
 
     expect(schedules.map((row) => ({
       id: row.archiveSessionId,
@@ -49,8 +49,9 @@ describe('adaptHistoricalSessions', () => {
     }))).toEqual([
       { id: 'complete', status: 'done', marked: 5, enrolled: 5 },
       { id: 'partial', status: 'partial', marked: 3, enrolled: 5 },
-      { id: 'missing', status: 'none', marked: 0, enrolled: 5 },
+      { id: 'missing', status: 'unrecorded', marked: 0, enrolled: 5 },
     ]);
+    expect(schedules[2].attendanceStateLabel).toBe('No evidence');
     expect(latestMarkedHistoricalStart([...schedules].reverse())).toBe(schedules[1].startTime);
   });
 

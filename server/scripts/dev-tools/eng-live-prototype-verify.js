@@ -41,6 +41,7 @@ const EXPECTED_MIGRATIONS = [
   '046_english_pic_teams.js',
   '047_english_canonical_authority.js',
   '048_english_live_meetings_attendance.js',
+  '049_english_meeting_calendar.js',
 ];
 
 async function inspectSchema() {
@@ -66,6 +67,9 @@ async function inspectSchema() {
           OR (table_name = 'eng_course_runs' AND column_name = 'attendance_threshold_ratio_snapshot')
           OR (table_name = 'eng_session_units' AND column_name IN (
             'meeting_id', 'unit_number_in_meeting', 'unit_type', 'title'
+          ))
+          OR (table_name = 'eng_meetings' AND column_name IN (
+            'google_event_id', 'meet_link'
           ))
           OR (table_name = 'eng_attendance_records' AND column_name IN (
             'original_status', 'entered_by'
@@ -116,8 +120,8 @@ async function inspectSchema() {
   if (migrations.rowCount !== EXPECTED_MIGRATIONS.length) {
     throw new Error(`Expected ${EXPECTED_MIGRATIONS.length} English live migrations, found ${migrations.rowCount}`);
   }
-  if (columns.rowCount !== 20) {
-    throw new Error(`Expected 20 English live/canonical columns, found ${columns.rowCount}`);
+  if (columns.rowCount !== 22) {
+    throw new Error(`Expected 22 English live/canonical columns, found ${columns.rowCount}`);
   }
   const archiveTriggers = triggers.rows.filter((row) => row.tgname.endsWith('_archive_freeze'));
   const controlTriggers = triggers.rows.filter((row) => row.tgname === 'trg_english_archive_control_immutable');

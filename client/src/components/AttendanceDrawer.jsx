@@ -58,6 +58,7 @@ export function AttendanceDrawer({
   statusOptions = ['P', 'A'],
   isReadOnly = false,
   readOnlyLabel,
+  inline = false,
 }) {
   if (!isOpen) return null;
 
@@ -252,22 +253,28 @@ export function AttendanceDrawer({
   return (
     <>
       {/* Mobile backdrop */}
-      <div
-        className="fixed inset-0 z-40 bg-black/40 lg:hidden"
-        onClick={onCloseRequest}
-        aria-hidden="true"
-      />
+      {!inline && (
+        <div
+          className="fixed inset-0 z-40 bg-black/40 lg:hidden"
+          onClick={onCloseRequest}
+          aria-hidden="true"
+        />
+      )}
 
       {/* Panel — fixed bottom sheet on mobile, static in grid on desktop */}
       <div className={cn(
         'bg-card border-border flex flex-col overflow-hidden',
-        // Mobile: fixed bottom sheet
-        'fixed inset-x-0 bottom-0 z-50 max-h-[85vh] border-t rounded-t-xl shadow-xl',
-        // Desktop: static (positioned by parent grid + sticky container)
-        'lg:static lg:inset-auto lg:z-auto lg:max-h-[calc(100vh-180px)] lg:rounded-lg lg:border lg:shadow-none',
+        inline
+          ? 'static max-h-[560px] rounded-lg border shadow-none'
+          : [
+            // Mobile: fixed bottom sheet
+            'fixed inset-x-0 bottom-0 z-50 max-h-[85vh] border-t rounded-t-xl shadow-xl',
+            // Desktop: static (positioned by parent grid + sticky container)
+            'lg:static lg:inset-auto lg:z-auto lg:max-h-[calc(100vh-180px)] lg:rounded-lg lg:border lg:shadow-none',
+          ],
       )}>
         {/* Drag handle (mobile only) */}
-        <div className="flex justify-center pt-2.5 pb-1 shrink-0 lg:hidden">
+        <div className={cn('justify-center pt-2.5 pb-1 shrink-0 lg:hidden', inline ? 'hidden' : 'flex')}>
           <div className="w-10 h-1 rounded-full bg-border" />
         </div>
         {inner}

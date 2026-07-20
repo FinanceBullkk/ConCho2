@@ -76,4 +76,37 @@ describe('AttendanceDrawer workflow status options', () => {
     expect(screen.queryByRole('button', { name: /save/i })).toBeNull();
     expect(screen.queryByRole('button', { name: /mark all/i })).toBeNull();
   });
+
+  it('can render inline without the mobile backdrop', () => {
+    const { container } = render(
+      <AttendanceDrawer
+        isOpen
+        inline
+        isLoading={false}
+        schedule={{
+          _id: 'archive:session-2',
+          startTime: '2025-01-01T03:00:00.000Z',
+          classId: { classCode: 'HIST-B' },
+        }}
+        records={[]}
+        isPending={false}
+        result={null}
+        isStale={false}
+        isAdmin
+        isDirty={false}
+        confirmingClose={false}
+        onCloseRequest={vi.fn()}
+        onCancelClose={vi.fn()}
+        onDiscardAndClose={vi.fn()}
+        onMarkAll={vi.fn()}
+        onRecordUpdate={vi.fn()}
+        onSubmit={vi.fn()}
+        makeRowKeyHandler={() => vi.fn()}
+        isReadOnly
+      />,
+    );
+
+    expect(container.querySelector('.fixed.inset-0')).toBeNull();
+    expect(screen.getByText('HIST-B')).toBeInTheDocument();
+  });
 });

@@ -71,6 +71,40 @@ const createCanonicalAttendanceSession = async (req, res) => {
   } catch (e) { handleError(res, e); }
 };
 
+const rescheduleCanonicalMeeting = async (req, res) => {
+  try {
+    const result = await canonicalOperations.rescheduleMeeting({
+      courseRunId: req.params.courseRunId,
+      meetingId: req.params.meetingId,
+      ...req.body,
+    }, req.user);
+    await auditService.record({
+      req, action: 'updated', entity: 'EnglishMeeting',
+      entityId: result.meetingId,
+      diff: auditService.diff(result.before, result.after),
+      note: req.body.reason || 'English Meeting rescheduled',
+    });
+    res.json({ success: true, data: result });
+  } catch (e) { handleError(res, e); }
+};
+
+const cancelCanonicalMeeting = async (req, res) => {
+  try {
+    const result = await canonicalOperations.cancelMeeting({
+      courseRunId: req.params.courseRunId,
+      meetingId: req.params.meetingId,
+      cancellationReason: req.body.cancellationReason,
+    }, req.user);
+    await auditService.record({
+      req, action: 'cancelled', entity: 'EnglishMeeting',
+      entityId: result.meetingId,
+      diff: { before: result.before, after: result.after },
+      note: req.body.cancellationReason,
+    });
+    res.json({ success: true, data: result });
+  } catch (e) { handleError(res, e); }
+};
+
 const getCanonicalAttendanceRoster = async (req, res) => {
   try {
     const data = await canonicalOperations.getAttendanceRoster(req.params);
@@ -334,6 +368,8 @@ module.exports = {
   createCanonicalClass,
   addCanonicalRunEnrollment,
   createCanonicalAttendanceSession,
+  rescheduleCanonicalMeeting,
+  cancelCanonicalMeeting,
   getCanonicalAttendanceRoster,
   saveCanonicalAttendanceRoster,
   listManagedPeople, createManagedPerson, updateManagedPerson, deleteManagedPerson, provisionManagedPeople,

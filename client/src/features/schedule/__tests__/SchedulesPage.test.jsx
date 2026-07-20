@@ -107,5 +107,35 @@ describe('SchedulesPage — exact-slot grid + world facet', () => {
     expect(screen.getByText('Historical · Read-only')).toBeInTheDocument();
     expect(screen.queryByText('+ Create')).toBeNull();
     expect(screen.queryByRole('button', { name: '+ New Schedule' })).toBeNull();
+    expect(screen.queryByTestId('schedule-drawer-column')).toBeNull();
+  });
+
+  it('lets the English workspace create from an empty cell and open live Meetings only', () => {
+    const live = {
+      ...session('archive:live-1', 'EL-LIVE', 'cohort', 2),
+      isHistorical: true,
+      sourceKind: 'live',
+      archiveSessionId: 'unit-live-1',
+      historicalLabel: 'Live',
+      historicalReadOnlyLabel: 'Live',
+      sessionNumber: 2,
+      archiveCounts: { present: 0, absent: 0 },
+    };
+    const onCell = vi.fn();
+    const onMeeting = vi.fn();
+    renderPage({
+      historicalOnly: true,
+      historicalSchedules: [live],
+      defaultWeek: live.startTime,
+      onHistoricalCellClick: onCell,
+      onHistoricalScheduleClick: onMeeting,
+    });
+
+    fireEvent.click(screen.getByText('EL-LIVE'));
+    expect(onMeeting).toHaveBeenCalledWith(expect.objectContaining({ sourceKind: 'live' }));
+    fireEvent.click(screen.getAllByText('+ Create')[0]);
+    expect(onCell).toHaveBeenCalledWith(expect.objectContaining({
+      slot: expect.objectContaining({ id: '10:00-11:00' }),
+    }));
   });
 });

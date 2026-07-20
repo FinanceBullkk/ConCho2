@@ -9,8 +9,9 @@ const {
   employeeCorrectionBody, examResultBody,
   managedPersonCreateBody, managedPersonUpdateBody,
   canonicalClassBody,
-  courseRunParams, attendanceRosterParams,
-  runEnrollmentBody, attendanceSessionBody, attendanceRosterBody,
+  courseRunParams, courseRunMeetingParams, attendanceRosterParams,
+  runEnrollmentBody, attendanceSessionBody, meetingRescheduleBody,
+  meetingCancellationBody, attendanceRosterBody,
 } = require('./schemas');
 
 // ──────────────────────────────────────────────────────────
@@ -95,6 +96,20 @@ router.post(
   requireCapability('session.book'),
   validate({ params: courseRunParams, body: attendanceSessionBody }),
   controller.createCanonicalAttendanceSession,
+);
+router.patch(
+  '/workspace/course-runs/:courseRunId/meetings/:meetingId',
+  roleGuard('Admin', 'Coordinator'),
+  requireCapability('session.book'),
+  validate({ params: courseRunMeetingParams, body: meetingRescheduleBody }),
+  controller.rescheduleCanonicalMeeting,
+);
+router.delete(
+  '/workspace/course-runs/:courseRunId/meetings/:meetingId',
+  roleGuard('Admin', 'Coordinator'),
+  requireCapability('session.book'),
+  validate({ params: courseRunMeetingParams, body: meetingCancellationBody }),
+  controller.cancelCanonicalMeeting,
 );
 router.get(
   '/workspace/course-runs/:courseRunId/session-units/:sessionUnitId/attendance',

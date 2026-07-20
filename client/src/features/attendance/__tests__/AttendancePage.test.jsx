@@ -1,4 +1,4 @@
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, within } from '@testing-library/react';
 import { describe, expect, it, beforeEach, vi } from 'vitest';
 import AttendancePage from '../AttendancePage';
 import { getMonday } from '../../../components/CalendarGrid';
@@ -127,5 +127,55 @@ describe('AttendancePage — exact-slot grid + world facet', () => {
     );
 
     expect(screen.getByTestId('attendance-drawer-column')).toHaveTextContent('Archive roster');
+  });
+
+  it('shows missing imported evidence without claiming the roster is missing', () => {
+    const historical = {
+      ...session('archive:missing', 'HIST-MISSING', 'cohort', -3),
+      isHistorical: true,
+      archiveSessionId: 'archive-missing',
+      historicalLabel: 'English',
+      attendanceStatus: 'unrecorded',
+      attendanceStateLabel: 'No evidence',
+      enrolledCount: 3,
+      markedCount: 0,
+      archiveCounts: { present: 0, absent: 0 },
+    };
+    render(
+      <AttendancePage
+        historicalOnly
+        historicalSchedules={[historical]}
+        defaultWeek={historical.startTime}
+        unrecordedLabel="No evidence"
+      />,
+    );
+
+    const cell = screen.getByText('HIST-MISSING').closest('[role="button"]');
+    expect(within(cell).getByText('No evidence')).toBeInTheDocument();
+    expect(within(cell).queryByText('No roster')).toBeNull();
+  });
+
+  it('does not offer To mark when a past session genuinely has no roster', () => {
+    const historical = {
+      ...session('archive:no-roster', 'HIST-EMPTY', 'cohort', -3),
+      isHistorical: true,
+      archiveSessionId: 'archive-no-roster',
+      historicalLabel: 'English',
+      attendanceStatus: 'none',
+      enrolledCount: 0,
+      markedCount: 0,
+      archiveCounts: { present: 0, absent: 0 },
+    };
+    render(
+      <AttendancePage
+        historicalOnly
+        historicalSchedules={[historical]}
+        defaultWeek={historical.startTime}
+      />,
+    );
+
+    const cell = screen.getByText('HIST-EMPTY').closest('[role="button"]');
+    expect(within(cell).getByText('No roster')).toBeInTheDocument();
+    expect(within(cell).queryByText('To mark')).toBeNull();
   });
 });
