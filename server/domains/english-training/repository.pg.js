@@ -92,6 +92,7 @@ async function withTransaction(fn) {
 async function resetCanonical(client) {
   const order = [
     'eng_data_quality_issues', 'eng_attendance_records', 'eng_session_units',
+    'eng_meetings',
     'eng_cohort_pic', 'eng_run_enrollments',
     'eng_course_runs', 'eng_cohort_memberships', 'eng_employees',
     'eng_cohorts', 'eng_courses',
@@ -381,6 +382,31 @@ async function applySessionTimeCorrections(client) {
   return rowCount;
 }
 
+// Imported Meetings are inserted as cancelled staging rows so the active-slot
+// uniqueness guard cannot observe pre-correction workbook clocks. After every
+// correction overlay is applied, open their final lifecycle state in one SQL
+// statement. Any remaining slot collision aborts the whole import transaction.
+async function finalizeImportedMeetings(client) {
+  const { rowCount } = await runner(client)(`
+    UPDATE eng_meetings m SET
+      starts_at = su.held_at,
+      status = CASE su.status
+        WHEN 'cancelled' THEN 'cancelled'
+        WHEN 'held' THEN 'completed'
+        ELSE 'planned'
+      END,
+      cancellation_reason = CASE
+        WHEN su.status = 'cancelled' THEN 'Imported cancellation'
+        ELSE NULL
+      END,
+      updated_at = NOW()
+    FROM eng_session_units su
+    WHERE su.meeting_id = m.id
+      AND m.meta->>'source' = 'imported'
+  `);
+  return rowCount;
+}
+
 // ── Phase 3: exam result & level (evaluation) ───────────────────────────────
 
 async function getLevelByCode(code, client) {
@@ -569,7 +595,7 @@ module.exports = {
   backfillUnknownEnrollmentSnapshots, resolveEmployeeIssues,
   recordEmployeeCorrectionHistory, applyEmployeeCorrections,
   listSessionsForTimeAllocation, saveSessionTimeAllocation,
-  verifySessionTimeAllocation, applySessionTimeCorrections,
+  verifySessionTimeAllocation, applySessionTimeCorrections, finalizeImportedMeetings,
   getLevelByCode, getEnrollmentForExam, getActiveExamResult,
   upsertExamResult, softDeleteActiveExamResult,
   getArchiveState, assertArchiveWritable, freezeArchive,

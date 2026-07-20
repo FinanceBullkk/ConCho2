@@ -13,10 +13,13 @@ related_code:
   - server/db/pg/migrations/038_english_training_attendance.js
   - server/db/pg/migrations/039_english_training_evaluation.js
   - server/db/pg/migrations/047_english_canonical_authority.js
+  - server/db/pg/migrations/048_english_live_meetings_attendance.js
   - server/domains/english-training/canonical-operations.js
   - server/domains/english-training/reads.pg.js
   - server/domains/english-training/evaluation.js
   - client/src/features/english-operations/ClassesPanel.jsx
+  - client/src/features/english-operations/SchedulePanel.jsx
+  - client/src/features/english-operations/AttendancePanel.jsx
 ---
 
 # Capability: Canonical English Operations
@@ -39,6 +42,7 @@ authorization, UI shell, and infrastructure remain reused.
 | `eng_courses` | one reusable English course definition |
 | `eng_course_runs` | one numbered occurrence of one course for one class |
 | `eng_run_enrollments` | one employee's participation in one Course Run |
+| `eng_meetings` | one real calendar occurrence with start, duration, and lifecycle status |
 | `eng_session_units` | one credited logical session in a Course Run |
 | `eng_attendance_records` | one Present/Absent result for Enrollment × Session Unit |
 | `eng_exam_results` | one active categorical final level per Run Enrollment |
@@ -57,6 +61,17 @@ not a teacher assignment, login identity, generic Team, or roster container.
 - Course Run snapshots expected units and `attendance_threshold_ratio`.
 - The default attendance threshold is `0.800`; eligibility uses the Run
   snapshot and requires recorded attendance.
+- A Meeting is the calendar occurrence; a Session Unit is logical credit. One
+  Meeting may contain at most two normal Session Units.
+- New Meetings use an exact configured booking slot. One active English
+  Meeting may occupy a company-wide start time.
+- A learner starts at the next non-cancelled logical session and may hold at
+  most one active English Run Enrollment across all Course Runs.
+- Attendance applicability is calculated at event time. Planned rosters propose
+  Present; completed historical gaps remain unknown rather than becoming Absent.
+- One attendance save contains every applicable Run Enrollment exactly once.
+  The opaque roster token rejects stale writes, and Meeting completion,
+  attendance facts, and domain audit commit in one transaction.
 - Only `present` and `absent` are canonical attendance states.
 - Source rows are never silently discarded. A row is loaded, staged, or
   represented by a data-quality issue.
@@ -87,15 +102,34 @@ One transaction creates the Cohort, current PIC assignment, Course Run 1, and
 three `eng_audit_events`. Any validation, FK, or uniqueness failure rolls back
 the full command. Admin and Coordinator require `cohort.manage`.
 
-### Schedule and attendance evidence
+### Add a learner to a Course Run
+
+Creating a brand-new managed learner creates the login-disabled shared User and
+the canonical English Employee crosswalk with the same normalized `emp_code` in
+one transaction. Existing imported Employees are provisioned/linked by the same
+key; roster selectors page through the full Employee directory.
+
+`POST /api/english-training/workspace/course-runs/:courseRunId/enrollments`
+starts one active Run Enrollment at the operator-confirmed next Session Unit.
+It reuses or creates the stable Cohort Membership, checks capacity and the
+one-active-enrollment invariant, and writes the domain audit atomically.
+
+### Schedule and attendance
 
 Schedule and Attendance render the canonical `eng_session_units` and
 `eng_attendance_records` projections on the weekly grids. Imported rows are
 explicitly read-only. There is no generic live/archive source toggle.
 
-The next write slice must port the authority model's separate Meeting entity,
-one-or-two credited Session Units per Meeting, event-time roster applicability,
-and one atomic full-roster attendance save with a stale-write token.
+`POST /api/english-training/workspace/course-runs/:courseRunId/sessions`
+creates one planned Meeting and its first normal Session Unit after exact-slot,
+Course Run state, conflict, and confirmed-sequence validation.
+
+`GET .../session-units/:sessionUnitId/attendance` returns the event-time roster
+and an opaque stale-write token. `PUT` to the same path accepts only Present or
+Absent and must contain the exact full roster once each. A successful save
+upserts the facts, completes the Meeting and Session Unit, and records the
+domain audit in one transaction. Teacher access remains closed until assigned-
+resource scope is ported.
 
 ### Evaluation
 
@@ -111,7 +145,7 @@ Canonical operational English tables are writable through controlled commands;
 raw rows, DQ records, and time-correction evidence retain database freeze
 protection from the older archive mechanism.
 
-## Migration 047 reconciliation
+## Migrations 047-048 reconciliation
 
 Migration 047:
 
@@ -125,21 +159,37 @@ The operator cleanup soft-retires the superseded handoff projection: 5 generic
 Programs, 11 Classes, 11 PIC Teams and 56 Team Enrollments. The source and
 canonical English rows are preserved.
 
+Migration 048 creates `eng_meetings`, backfills one Meeting for every imported
+Session Unit, adds Meeting/Session-Unit integrity guards, and opens only the
+source columns required for controlled live commands. It also preserves each
+attendance row's original status and records the live actor separately. No raw
+workbook row is edited.
+
+The reproducible importer is schema-aware: it stages imported Meetings as
+cancelled inside the import transaction, loads their linked Session Units and
+original attendance status, reapplies the correction overlay, then opens final
+planned/completed states. The active-slot uniqueness guard therefore sees only
+corrected clocks; any remaining collision rolls back the complete import.
+
 ## Verification
 
-- Unit: atomic class/PIC/run command, missing-PIC rejection, route permission
-  denial, DTO ratio mapping.
-- Client: PIC grouping, class detail roster, canonical Schedule/Attendance grid.
-- Prototype: migrations 040–047 present; 2 canonical unique indexes;
-  `eng_audit_events`; no multi-active enrollment/current-PIC violations;
-  canonical writes allowed while imported raw evidence remains guarded.
+- Unit: atomic class/PIC/run command, learner-start sequence and capacity
+  guards, Meeting creation, full-roster save, stale token, route permission
+  denial, and DTO ratio mapping.
+- Client: PIC grouping, class detail roster, canonical Schedule/Attendance grid,
+  imported wall-clock conversion, and live Meeting instant/duration mapping.
+- Prototype: migrations 040–048 present; 20 canonical columns; 2 canonical
+  unique indexes; `eng_audit_events`; no multi-active enrollment/current-PIC or
+  Meeting-link violations; canonical writes allowed while imported raw evidence
+  remains guarded.
 - Reconciliation: 52 classes, 52 current PIC assignments, 6 courses, 91 Course
-  Runs, 552 Run Enrollments, 984 Session Units and 5,962 attendance facts.
+  Runs, 552 Run Enrollments, 984 Meetings, 984 Session Units and 5,962
+  attendance facts.
 
 ## Known next work
 
-- Add canonical Meeting and full-roster attendance commands.
-- Port learner start/transfer/leave intent commands, including capacity override
-  and event-time start-session calculation.
+- Port learner transfer/leave intent commands and explicit capacity override.
+- Add the authority model's optional second normal Session Unit and linked
+  make-up replacement-credit workflow.
 - Add assigned-Teacher resource scope before exposing canonical rosters or
   attendance mutations to Teacher role.

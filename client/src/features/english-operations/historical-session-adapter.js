@@ -1,11 +1,13 @@
 import { englishArchiveWallClockToInstant } from '../english-training/archive-time';
 
-const ONE_HOUR_MS = 60 * 60 * 1000;
-
 export function adaptHistoricalSessions(rows, labels) {
   return (rows || []).flatMap((row) => {
-    const start = englishArchiveWallClockToInstant(row.heldAt);
-    if (!start) return [];
+    const imported = row.sourceKind !== 'live';
+    const start = imported
+      ? englishArchiveWallClockToInstant(row.heldAt)
+      : new Date(row.heldAt);
+    if (!start || Number.isNaN(start.getTime())) return [];
+    const durationMs = Number(row.durationMinutes || 60) * 60 * 1000;
     const markedCount = Number(row.attendanceCount || 0);
     const enrolledCount = Math.max(Number(row.expectedRosterCount || 0), markedCount);
     const attendanceStatus = markedCount === 0
@@ -14,12 +16,15 @@ export function adaptHistoricalSessions(rows, labels) {
     return [{
       _id: `archive:${row.id}`,
       archiveSessionId: row.id,
+      courseRunId: row.courseRunId,
+      meetingId: row.meetingId || null,
+      sourceKind: imported ? 'imported' : 'live',
       isHistorical: true,
-      historicalLabel: labels.historical,
-      historicalReadOnlyLabel: labels.readOnly,
+      historicalLabel: imported ? labels.historical : (labels.live || labels.historical),
+      historicalReadOnlyLabel: imported ? labels.readOnly : (labels.live || labels.historical),
       startTime: start.toISOString(),
-      endTime: new Date(start.getTime() + ONE_HOUR_MS).toISOString(),
-      status: row.status,
+      endTime: new Date(start.getTime() + durationMs).toISOString(),
+      status: row.meetingStatus || row.status,
       sessionNumber: row.sessionNumber,
       classId: {
         _id: `archive-run:${row.courseRunId}`,

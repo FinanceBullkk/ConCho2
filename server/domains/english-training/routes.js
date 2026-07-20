@@ -9,6 +9,8 @@ const {
   employeeCorrectionBody, examResultBody,
   managedPersonCreateBody, managedPersonUpdateBody,
   canonicalClassBody,
+  courseRunParams, attendanceRosterParams,
+  runEnrollmentBody, attendanceSessionBody, attendanceRosterBody,
 } = require('./schemas');
 
 // ──────────────────────────────────────────────────────────
@@ -61,6 +63,12 @@ router.get(
   controller.listCourses,
 );
 router.get(
+  '/workspace/course-runs',
+  roleGuard('Admin', 'Coordinator'),
+  requireCapability('report.read'),
+  controller.listCanonicalCourseRuns,
+);
+router.get(
   '/workspace/employees',
   roleGuard('Admin', 'Coordinator'),
   requireCapability('cohort.manage'),
@@ -73,6 +81,34 @@ router.post(
   requireCapability('cohort.manage'),
   validate({ body: canonicalClassBody }),
   controller.createCanonicalClass,
+);
+router.post(
+  '/workspace/course-runs/:courseRunId/enrollments',
+  roleGuard('Admin', 'Coordinator'),
+  requireCapability('enrollment.manage'),
+  validate({ params: courseRunParams, body: runEnrollmentBody }),
+  controller.addCanonicalRunEnrollment,
+);
+router.post(
+  '/workspace/course-runs/:courseRunId/sessions',
+  roleGuard('Admin', 'Coordinator'),
+  requireCapability('session.book'),
+  validate({ params: courseRunParams, body: attendanceSessionBody }),
+  controller.createCanonicalAttendanceSession,
+);
+router.get(
+  '/workspace/course-runs/:courseRunId/session-units/:sessionUnitId/attendance',
+  roleGuard('Admin', 'Coordinator'),
+  requireCapability('attendance.read'),
+  validate({ params: attendanceRosterParams }),
+  controller.getCanonicalAttendanceRoster,
+);
+router.put(
+  '/workspace/course-runs/:courseRunId/session-units/:sessionUnitId/attendance',
+  roleGuard('Admin', 'Coordinator'),
+  requireCapability('attendance.mark'),
+  validate({ params: attendanceRosterParams, body: attendanceRosterBody }),
+  controller.saveCanonicalAttendanceRoster,
 );
 router.post(
   '/managed-learners',

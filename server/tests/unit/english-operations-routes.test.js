@@ -16,11 +16,15 @@ jest.mock('../../domains/english-training/controller', () => ({
   recordLiveEnglishLevel: (req, res) => res.status(201).json({ success: true, data: req.body }),
   deleteLiveEnglishLevel: jest.fn(),
   createCanonicalClass: (req, res) => res.status(201).json({ success: true, data: req.body }),
+  addCanonicalRunEnrollment: (req, res) => res.status(201).json({ success: true, data: req.body }),
+  createCanonicalAttendanceSession: (req, res) => res.status(201).json({ success: true, data: req.body }),
+  getCanonicalAttendanceRoster: (_req, res) => res.json({ success: true, data: { rows: [] } }),
+  saveCanonicalAttendanceRoster: (req, res) => res.json({ success: true, data: req.body }),
   listManagedPeople: (_req, res) => res.json({ success: true, data: [] }),
   createManagedPerson: (req, res) => res.status(201).json({ success: true, data: req.body }),
   updateManagedPerson: jest.fn(), deleteManagedPerson: jest.fn(), provisionManagedPeople: jest.fn(),
   getOverview: jest.fn(), listCohorts: (_req, res) => res.json({ success: true, data: [] }), getCohort: jest.fn(), getClassDetail: jest.fn(),
-  listCourses: (_req, res) => res.json({ success: true, data: [] }), getCourseRun: jest.fn(), listEmployees: (_req, res) => res.json({ success: true, data: [] }), getEmployee: jest.fn(),
+  listCourses: (_req, res) => res.json({ success: true, data: [] }), listCanonicalCourseRuns: (_req, res) => res.json({ success: true, data: [] }), getCourseRun: jest.fn(), listEmployees: (_req, res) => res.json({ success: true, data: [] }), getEmployee: jest.fn(),
   correctEmployee: jest.fn(), listSessions: jest.fn(), getSessionAttendance: jest.fn(),
   listEligibility: jest.fn(), listIssues: jest.fn(), listIssueDetails: jest.fn(),
   listLevels: jest.fn(), listPendingExamEntries: jest.fn(), recordExamResult: jest.fn(), deleteExamResult: jest.fn(),
@@ -90,6 +94,44 @@ describe('English Operations canonical class authorization', () => {
   test('Teacher cannot administer canonical classes', async () => {
     const res = await request(app).post('/api/english-training/workspace/classes')
       .set('x-test-role', 'Teacher').send(validClass);
+    expect(res.status).toBe(403);
+  });
+});
+
+describe('English Operations canonical live roster authorization', () => {
+  test('Coordinator can start a learner and create a timezone-aware session', async () => {
+    const enrollment = await request(app)
+      .post('/api/english-training/workspace/course-runs/run-1/enrollments')
+      .set('x-test-role', 'Coordinator')
+      .send({ employeeId: 'employee-1', startDate: '2026-07-20', confirmedStartSessionNumber: 3 });
+    expect(enrollment.status).toBe(201);
+
+    const session = await request(app)
+      .post('/api/english-training/workspace/course-runs/run-1/sessions')
+      .set('x-test-role', 'Coordinator')
+      .send({
+        startsAt: '2026-07-20T02:00:00.000Z',
+        endsAt: '2026-07-20T03:00:00.000Z',
+        confirmedSessionNumber: 3,
+      });
+    expect(session.status).toBe(201);
+  });
+
+  test('Coordinator can read and save one complete attendance roster', async () => {
+    const path = '/api/english-training/workspace/course-runs/run-1/session-units/unit-1/attendance';
+    expect((await request(app).get(path).set('x-test-role', 'Coordinator')).status).toBe(200);
+    const save = await request(app).put(path).set('x-test-role', 'Coordinator').send({
+      rosterToken: 'a'.repeat(64),
+      records: [{ runEnrollmentId: 'enrollment-1', status: 'present' }],
+    });
+    expect(save.status).toBe(200);
+  });
+
+  test('Teacher stays closed out until assigned-resource scope is ported', async () => {
+    const res = await request(app)
+      .put('/api/english-training/workspace/course-runs/run-1/session-units/unit-1/attendance')
+      .set('x-test-role', 'Teacher')
+      .send({ rosterToken: 'a'.repeat(64), records: [] });
     expect(res.status).toBe(403);
   });
 });

@@ -115,9 +115,9 @@ describe('Sidebar — section-group navigation (Phase 03)', () => {
     h.user = { role: 'Teacher' };
     links = hrefs(renderSidebar('/english-operations?tab=overview').container);
     expect(links).toContain('/english-operations?tab=overview');
-    expect(links).toContain('/english-operations?tab=schedule');
-    expect(links).toContain('/english-operations?tab=attendance');
-    expect(links).toContain('/mobile-attendance');
+    expect(links).not.toContain('/english-operations?tab=schedule');
+    expect(links).not.toContain('/english-operations?tab=attendance');
+    expect(links).not.toContain('/mobile-attendance');
     expect(links).not.toContain('/english-operations?tab=learners');
   });
 

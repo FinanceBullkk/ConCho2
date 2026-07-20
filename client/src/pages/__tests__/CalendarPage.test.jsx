@@ -29,10 +29,10 @@ describe('CalendarPage compatibility redirect', () => {
     expect(screen.getByTestId('english-operations')).toHaveTextContent('?tab=schedule');
   });
 
-  it('redirects the old attendance tab to English Attendance', () => {
+  it('keeps Teacher on overview until canonical assigned-resource scope ships', () => {
     h.auth = { user: { _id: 't1', role: 'Teacher' } };
     renderPage('/calendar?tab=attendance');
-    expect(screen.getByTestId('english-operations')).toHaveTextContent('?tab=attendance');
+    expect(screen.getByTestId('english-operations')).toHaveTextContent('?tab=overview');
   });
 
   it('maps the old plural schedules tab to English Schedule', () => {

@@ -158,6 +158,9 @@ export const qk = {
     archiveStatus: ['english-operations', 'archive', 'status'],
     archiveSessions: ['english-operations', 'archive', 'sessions'],
     archiveSessionAttendance: (id) => ['english-operations', 'archive', 'sessions', id, 'attendance'],
+    canonicalSessions: ['english-operations', 'canonical-sessions'],
+    canonicalCourseRuns: ['english-operations', 'canonical-course-runs'],
+    canonicalAttendance: (courseRunId, sessionUnitId) => ['english-operations', 'canonical-attendance', courseRunId, sessionUnitId],
     combinedHistory: ['english-operations', 'archive', 'combined-history'],
   },
   branding: {

@@ -33,33 +33,67 @@ export const useCanonicalEnglishCourses = () => useQuery({
   queryFn: () => payload(englishOperationsAPI.getCanonicalCourses()).then((body) => body.data),
 });
 
+export const useCanonicalEnglishCourseRuns = () => useQuery({
+  queryKey: qk.englishOperations.canonicalCourseRuns,
+  queryFn: () => payload(englishOperationsAPI.getCanonicalCourseRuns()).then((body) => body.data),
+});
+
+const loadAllCanonicalEmployees = async () => {
+  const rows = [];
+  for (let offset = 0; offset < 2000; offset += 200) {
+    const body = await payload(englishOperationsAPI.getCanonicalEmployees({ limit: 200, offset }));
+    const batch = body.data || [];
+    rows.push(...batch);
+    if (batch.length < 200) return rows;
+  }
+  throw new Error('English employee page limit exceeded');
+};
+
 export const useCanonicalEnglishEmployees = (enabled = true) => useQuery({
   queryKey: [...qk.englishOperations.all, 'canonical-employees'],
-  queryFn: () => payload(englishOperationsAPI.getCanonicalEmployees({ limit: 200 })).then((body) => body.data),
+  queryFn: loadAllCanonicalEmployees,
   enabled,
 });
 
 const ARCHIVE_PAGE_SIZE = 200;
 const ARCHIVE_MAX_PAGES = 20;
 
+const loadAllCanonicalSessions = async () => {
+  const rows = [];
+  for (let page = 0; page < ARCHIVE_MAX_PAGES; page += 1) {
+    // Bounded pagination keeps the existing read endpoint safe for both imported
+    // evidence and new live Meeting-backed Session Units.
+    const body = await payload(englishTrainingAPI.getSessions({
+      limit: ARCHIVE_PAGE_SIZE,
+      offset: page * ARCHIVE_PAGE_SIZE,
+    }));
+    const batch = body.data || [];
+    rows.push(...batch);
+    if (batch.length < ARCHIVE_PAGE_SIZE) return rows;
+  }
+  throw new Error('English session page limit exceeded');
+};
+
+export const useCanonicalEnglishSessions = (enabled = true) => useQuery({
+  queryKey: qk.englishOperations.canonicalSessions,
+  queryFn: loadAllCanonicalSessions,
+  enabled,
+  staleTime: 60 * 1000,
+});
+
 export const useEnglishArchiveSessions = (enabled = true) => useQuery({
   queryKey: qk.englishOperations.archiveSessions,
-  queryFn: async () => {
-    const rows = [];
-    for (let page = 0; page < ARCHIVE_MAX_PAGES; page += 1) {
-      // Archive reads are paged to stay within the endpoint's bounded limit.
-      const body = await payload(englishTrainingAPI.getSessions({
-        limit: ARCHIVE_PAGE_SIZE,
-        offset: page * ARCHIVE_PAGE_SIZE,
-      }));
-      const batch = body.data || [];
-      rows.push(...batch);
-      if (batch.length < ARCHIVE_PAGE_SIZE) return rows;
-    }
-    throw new Error('English Archive session page limit exceeded');
-  },
+  queryFn: loadAllCanonicalSessions,
   enabled,
   staleTime: 5 * 60 * 1000,
+});
+
+export const useCanonicalEnglishAttendanceRoster = (courseRunId, sessionUnitId, enabled = true) => useQuery({
+  queryKey: qk.englishOperations.canonicalAttendance(courseRunId, sessionUnitId),
+  queryFn: () => payload(
+    englishOperationsAPI.getCanonicalAttendanceRoster(courseRunId, sessionUnitId),
+  ).then((body) => body.data),
+  enabled: enabled && Boolean(courseRunId && sessionUnitId),
 });
 
 export const useEnglishArchiveSessionAttendance = (sessionId, enabled = true) => useQuery({
@@ -73,6 +107,26 @@ export const useCreateCanonicalEnglishClass = () => useLearnerMutation(
   (data) => payload(englishOperationsAPI.createCanonicalClass(data)),
   'englishOperations.classes.classCreated',
   'englishOperations.classes.saveError',
+);
+
+export const useAddCanonicalRunEnrollment = () => useLearnerMutation(
+  ({ courseRunId, data }) => payload(englishOperationsAPI.addCanonicalRunEnrollment(courseRunId, data)),
+  'englishOperations.classes.learnerAdded',
+  'englishOperations.classes.learnerAddError',
+);
+
+export const useCreateCanonicalEnglishSession = () => useLearnerMutation(
+  ({ courseRunId, data }) => payload(englishOperationsAPI.createCanonicalSession(courseRunId, data)),
+  'englishOperations.schedule.created',
+  'englishOperations.schedule.saveError',
+);
+
+export const useSaveCanonicalEnglishAttendance = () => useLearnerMutation(
+  ({ courseRunId, sessionUnitId, data }) => payload(
+    englishOperationsAPI.saveCanonicalAttendanceRoster(courseRunId, sessionUnitId, data),
+  ),
+  'englishOperations.attendance.saved',
+  'englishOperations.attendance.saveError',
 );
 
 const useLearnerMutation = (mutationFn, successKey, errorKey) => {

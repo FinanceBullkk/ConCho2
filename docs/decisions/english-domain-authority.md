@@ -38,6 +38,7 @@ monolith, but its operational aggregate is the canonical English model:
 | Continuous class membership | `eng_cohort_memberships` |
 | Course delivery | `eng_course_runs`; one course occurrence for one stable class |
 | Delivery roster | `eng_run_enrollments` |
+| Calendar occurrence | `eng_meetings`; start, duration, and lifecycle status |
 | Credited session | `eng_session_units` |
 | Attendance fact | `eng_attendance_records`; Present or Absent |
 | Final result | `eng_exam_results`; categorical level |
@@ -62,6 +63,9 @@ named generic rows.
   not the superseded blanket “at most two absences” rule.
 - Imported raw rows remain evidence. Operational canonical rows may evolve only
   through authorized, validated, audited commands.
+- Meeting is a calendar occurrence while Session Unit is logical credit. The
+  live roster is calculated at event time, and a complete Present/Absent roster
+  is saved atomically with an opaque stale-write token.
 
 ### Correction of the superseded handoff
 
@@ -83,9 +87,10 @@ row is deleted.
   generic live/archive switch and active-handoff/cutover commands are removed.
 - Raw workbook evidence remains read-only in Archive; `eng_*` is no longer
   frozen wholesale because it is the operational English module.
-- Meeting-versus-Session-Unit separation and transactional full-roster
-  attendance write remain the next canonical ports. Until those commands ship,
-  imported schedule/attendance evidence is explicitly read-only in the UI.
+- Meeting-versus-Session-Unit separation, learner start, and transactional
+  full-roster attendance are implemented in migration 048 and the canonical
+  English command layer. Imported schedule/attendance evidence remains
+  explicitly read-only; controlled live rows are operational.
 
 ## Guardrails
 
