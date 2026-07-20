@@ -152,19 +152,19 @@ export const ENGLISH_GROUPS = [
         feature: 'englishTraining',
       }),
       tab('/english-operations', 'classes', 'englishOperations.tabs.classes', Boxes, {
-        access: { Admin: 'full', Coordinator: 'full', Teacher: 'read' },
+        access: { Admin: 'full', Coordinator: 'full' },
         feature: 'englishTraining',
       }),
       tab('/english-operations', 'schedule', 'englishOperations.tabs.schedule', CalendarCheck, {
-        access: { Admin: 'full', Coordinator: 'full', Teacher: 'read' },
+        access: { Admin: 'full', Coordinator: 'full' },
         feature: 'englishTraining',
       }),
       tab('/english-operations', 'attendance', 'englishOperations.tabs.attendance', ClipboardCheck, {
-        access: { Admin: 'full', Coordinator: 'full', Teacher: 'full' },
+        access: { Admin: 'full', Coordinator: 'full' },
         feature: 'englishTraining',
       }),
       tab('/english-operations', 'evaluation', 'englishOperations.tabs.evaluation', GraduationCap, {
-        access: { Admin: 'full', Coordinator: 'full', Teacher: 'full' },
+        access: { Admin: 'full', Coordinator: 'full' },
         feature: 'englishTraining',
       }),
       tab('/english-operations', 'archive', 'englishOperations.tabs.archive', ScrollText, {
@@ -177,7 +177,7 @@ export const ENGLISH_GROUPS = [
     id: 'english-field',
     items: [
       { path: '/mobile-attendance', labelKey: 'nav.sections.mobileAttendance', icon: Smartphone,
-        access: { Admin: 'full', Teacher: 'full' }, feature: 'englishTraining',
+        access: { Admin: 'full' }, feature: 'englishTraining',
         parentRoutes: ['/mobile-attendance'] },
     ],
   },

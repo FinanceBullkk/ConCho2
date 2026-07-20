@@ -1,6 +1,7 @@
 const crypto = require('crypto');
 const { query } = require('../../config/pg');
 const { runInTransaction } = require('../_shared/unit-of-work');
+const { ServiceError } = require('../../helpers/ServiceError');
 const userMutations = require('../../controllers/user/user-mutations-repository');
 
 const newId = () => crypto.randomBytes(12).toString('hex');
@@ -74,11 +75,45 @@ const findById = async (id) => {
   return userRow(rows[0]);
 };
 
-const createManaged = (data) => userMutations.create({
-  ...data,
-  role: 'Participant',
-  canLogin: false,
-});
+const createManaged = async (data) => {
+  try {
+    return await runInTransaction(async (tx) => {
+      const userId = newId();
+      const employeeId = newId();
+      const { rows } = await exec(tx, `
+        INSERT INTO users (
+          id, emp_code, name, email, department, position, status,
+          role, can_login, password, must_change_password
+        ) VALUES ($1,$2,$3,$4,$5,$6,$7,'Participant',false,NULL,false)
+        RETURNING *
+      `, [
+        userId, data.empCode, data.name, data.email,
+        data.department, data.position, data.status,
+      ]);
+      const employmentStatus = data.status === 'Active'
+        ? 'active'
+        : ['Inactive', 'Dropped', 'Transferred'].includes(data.status) ? 'inactive' : 'unknown';
+      await exec(tx, `
+        INSERT INTO eng_employees (
+          id, emp_code, full_name, email, employment_status, user_id, meta
+        ) VALUES ($1,$2,$3,$4,$5,$6,$7)
+      `, [
+        employeeId, data.empCode, data.name, data.email, employmentStatus, userId,
+        JSON.stringify({
+          businessUnit: data.department || null,
+          jobRole: data.position || null,
+          createdIn: 'English Operations',
+        }),
+      ]);
+      return userRow({ ...rows[0], archive_employee_id: employeeId });
+    });
+  } catch (error) {
+    if (error?.code === '23505') {
+      throw new ServiceError('Employee code or email is already in use', 409);
+    }
+    throw error;
+  }
+};
 
 const updateManaged = (id, data) => userMutations.updateById(id, data);
 

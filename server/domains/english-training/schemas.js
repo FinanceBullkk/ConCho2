@@ -59,9 +59,34 @@ const canonicalClassBody = z.object({
   message: 'PIC employee or PIC team label is required',
 });
 
+const courseRunParams = z.object({ courseRunId: z.string().min(1) });
+const attendanceRosterParams = z.object({
+  courseRunId: z.string().min(1),
+  sessionUnitId: z.string().min(1),
+});
+const runEnrollmentBody = z.object({
+  employeeId: z.string().min(1),
+  startDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'startDate must be YYYY-MM-DD'),
+  confirmedStartSessionNumber: z.coerce.number().int().min(1),
+});
+const attendanceSessionBody = z.object({
+  startsAt: z.string().datetime({ offset: true }),
+  endsAt: z.string().datetime({ offset: true }),
+  confirmedSessionNumber: z.coerce.number().int().min(1),
+});
+const attendanceRosterBody = z.object({
+  rosterToken: z.string().length(64),
+  records: z.array(z.object({
+    runEnrollmentId: z.string().min(1),
+    status: z.enum(['present', 'absent']),
+  })).max(500),
+});
+
 module.exports = {
   idParams, empCodeParams, issueCodeParams, listEmployeesQuery,
   employeeCorrectionBody, examResultBody,
   managedPersonCreateBody, managedPersonUpdateBody,
   canonicalClassBody,
+  courseRunParams, attendanceRosterParams,
+  runEnrollmentBody, attendanceSessionBody, attendanceRosterBody,
 };

@@ -40,10 +40,11 @@ const EXPECTED_MIGRATIONS = [
   '045_english_session_time_corrections.js',
   '046_english_pic_teams.js',
   '047_english_canonical_authority.js',
+  '048_english_live_meetings_attendance.js',
 ];
 
 async function inspectSchema() {
-  const [migrations, columns, triggers, canonicalIndexes, auditTable, state, invariants] = await Promise.all([
+  const [migrations, columns, triggers, canonicalIndexes, canonicalTables, state, invariants, counts] = await Promise.all([
     pool.query(
       'SELECT name FROM knex_migrations WHERE name = ANY($1) ORDER BY name',
       [EXPECTED_MIGRATIONS],
@@ -62,7 +63,13 @@ async function inspectSchema() {
             'result_kind', 'level_code', 'evaluated_at', 'evaluated_by'
           ))
           OR (table_name = 'eng_courses' AND column_name = 'attendance_threshold_ratio')
-          OR (table_name = 'eng_course_runs' AND column_name = 'attendance_threshold_ratio_snapshot')`),
+          OR (table_name = 'eng_course_runs' AND column_name = 'attendance_threshold_ratio_snapshot')
+          OR (table_name = 'eng_session_units' AND column_name IN (
+            'meeting_id', 'unit_number_in_meeting', 'unit_type', 'title'
+          ))
+          OR (table_name = 'eng_attendance_records' AND column_name IN (
+            'original_status', 'entered_by'
+          ))`),
     pool.query(`
       SELECT tgname
         FROM pg_trigger
@@ -72,7 +79,9 @@ async function inspectSchema() {
     pool.query(`SELECT indexname FROM pg_indexes WHERE indexname IN (
       'uq_eng_enrollment_one_active_employee', 'uq_eng_cohort_current_pic'
     )`),
-    pool.query(`SELECT to_regclass('eng_audit_events') AS table_name`),
+    pool.query(`SELECT
+      to_regclass('eng_audit_events') AS audit_table,
+      to_regclass('eng_meetings') AS meeting_table`),
     pool.query('SELECT is_frozen FROM english_archive_control WHERE singleton = true'),
     pool.query(`SELECT
       (SELECT count(*)::int FROM (
@@ -82,14 +91,33 @@ async function inspectSchema() {
       (SELECT count(*)::int FROM (
         SELECT cohort_id FROM eng_cohort_pic WHERE end_date IS NULL
         GROUP BY cohort_id HAVING count(*) > 1
-      ) x) AS multiple_current_pics`),
+      ) x) AS multiple_current_pics,
+      (SELECT count(*)::int
+         FROM eng_session_units su
+         LEFT JOIN eng_meetings m ON m.id = su.meeting_id
+        WHERE m.id IS NULL OR m.course_run_id <> su.course_run_id) AS invalid_meeting_links,
+      (SELECT count(*)::int FROM (
+        SELECT meeting_id FROM eng_session_units WHERE unit_type = 'normal'
+        GROUP BY meeting_id HAVING count(*) > 2
+      ) x) AS meetings_over_two_normal_units,
+      (SELECT count(*)::int FROM eng_employees WHERE user_id IS NULL) AS unlinked_employees,
+      (SELECT count(*)::int
+         FROM eng_employees e JOIN users u ON u.id = e.user_id
+        WHERE upper(e.emp_code) <> upper(u.emp_code)) AS invalid_employee_user_crosswalks`),
+    pool.query(`SELECT
+      (SELECT count(*)::int FROM eng_employees) AS employees,
+      (SELECT count(*)::int FROM eng_employees WHERE user_id IS NOT NULL) AS linked_employees,
+      (SELECT count(*)::int FROM eng_levels WHERE is_active = true) AS active_levels,
+      (SELECT count(*)::int FROM eng_meetings) AS meetings,
+      (SELECT count(*)::int FROM eng_session_units) AS session_units,
+      (SELECT count(*)::int FROM eng_attendance_records) AS attendance_records`),
   ]);
 
   if (migrations.rowCount !== EXPECTED_MIGRATIONS.length) {
     throw new Error(`Expected ${EXPECTED_MIGRATIONS.length} English live migrations, found ${migrations.rowCount}`);
   }
-  if (columns.rowCount !== 14) {
-    throw new Error(`Expected 14 English live/canonical columns, found ${columns.rowCount}`);
+  if (columns.rowCount !== 20) {
+    throw new Error(`Expected 20 English live/canonical columns, found ${columns.rowCount}`);
   }
   const archiveTriggers = triggers.rows.filter((row) => row.tgname.endsWith('_archive_freeze'));
   const controlTriggers = triggers.rows.filter((row) => row.tgname === 'trg_english_archive_control_immutable');
@@ -99,11 +127,14 @@ async function inspectSchema() {
   if (canonicalIndexes.rowCount !== 2) {
     throw new Error(`Expected 2 canonical English invariant indexes, found ${canonicalIndexes.rowCount}`);
   }
-  if (!auditTable.rows[0]?.table_name) {
-    throw new Error('Expected eng_audit_events to exist');
+  if (!canonicalTables.rows[0]?.audit_table || !canonicalTables.rows[0]?.meeting_table) {
+    throw new Error('Expected eng_audit_events and eng_meetings to exist');
   }
-  if (invariants.rows[0]?.multi_active_enrollments || invariants.rows[0]?.multiple_current_pics) {
+  if (Object.values(invariants.rows[0] || {}).some(Number)) {
     throw new Error(`Canonical English invariants failed: ${JSON.stringify(invariants.rows[0])}`);
+  }
+  if (counts.rows[0]?.active_levels !== 13) {
+    throw new Error(`Expected 13 active English levels, found ${counts.rows[0]?.active_levels}`);
   }
   if (state.rows[0]?.is_frozen) {
     throw new Error('Prototype Archive is already frozen; refusing mutation probes');
@@ -112,10 +143,11 @@ async function inspectSchema() {
   return {
     migrations: migrations.rowCount,
     columns: columns.rowCount,
+    ...counts.rows[0],
     archiveTriggers: archiveTriggers.length,
     controlTriggers: controlTriggers.length,
     canonicalIndexes: canonicalIndexes.rowCount,
-    domainAudit: auditTable.rows[0].table_name,
+    domainAudit: canonicalTables.rows[0].audit_table,
   };
 }
 

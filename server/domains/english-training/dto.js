@@ -48,7 +48,8 @@ const rosterRow = (r) => ({
 // One learner row inside a class-detail course run: attendance summary,
 // exam eligibility, and level — read-only 360°.
 const classRosterRow = (r) => ({
-  enrollmentId: r.enrollment_id, empCode: r.emp_code, fullName: r.full_name,
+  enrollmentId: r.enrollment_id, employeeId: r.employee_id,
+  empCode: r.emp_code, fullName: r.full_name,
   enrollmentStatus: r.enrollment_status,
   startSessionNumber: r.start_session_number,
   allowedAbsences: r.allowed_absences, absenceCount: r.absence_count,
@@ -63,6 +64,7 @@ const classRosterRow = (r) => ({
 const employeeRow = (r) => ({
   id: r.id, empCode: r.emp_code, fullName: r.full_name, englishName: r.english_name,
   email: r.email, employmentStatus: r.employment_status,
+  activeCourseRunId: r.active_course_run_id || null,
 });
 const enrollmentRow = (r) => ({
   id: r.id, status: r.status, dq: r.dq, classCode: r.class_code,
@@ -70,6 +72,9 @@ const enrollmentRow = (r) => ({
 });
 const sessionRow = (r) => ({
   id: r.id, sessionNumber: r.session_number, heldAt: r.held_at, status: r.status,
+  meetingId: r.meeting_id || null, meetingStatus: r.meeting_status || null,
+  durationMinutes: r.duration_minutes == null ? 60 : Number(r.duration_minutes),
+  sourceKind: r.source_kind || 'imported',
   courseRunId: r.course_run_id, classCode: r.class_code, courseName: r.course_name,
   attendanceCount: r.attendance_count, expectedRosterCount: r.expected_roster_count,
   presentCount: r.present_count, absentCount: r.absent_count,
@@ -87,6 +92,8 @@ const eligibilityRow = (r) => ({
   runStatus: r.run_status, classCode: r.class_code, courseName: r.course_name,
   allowedAbsences: r.allowed_absences, markedSessions: r.marked_sessions,
   presentCount: r.present_count, absenceCount: r.absence_count,
+  attendanceRatio: r.attendance_ratio == null ? null : Number(r.attendance_ratio),
+  attendanceThresholdRatio: r.attendance_threshold_ratio == null ? null : Number(r.attendance_threshold_ratio),
   eligibilityStatus: r.eligibility_status,
   examLevelCode: r.exam_level_code || null,
   examLevelName: r.exam_level_name || null,
@@ -100,6 +107,13 @@ const examResultRow = (r) => ({
 const pendingExamEntryRow = (r) => ({
   courseRunId: r.course_run_id, classCode: r.class_code, courseName: r.course_name,
   runStatus: r.run_status, endDate: r.end_date, pendingCount: r.pending_count,
+});
+const activeCourseRunRow = (r) => ({
+  id: r.id, runNumber: r.run_number, status: r.status,
+  cohortId: r.cohort_id, classCode: r.class_code, displayName: r.display_name,
+  courseCode: r.course_code, courseName: r.course_name,
+  startDate: r.start_date, endDate: r.end_date,
+  nextSessionNumber: r.next_session_number,
 });
 
 module.exports = {
@@ -130,16 +144,19 @@ module.exports = {
         startDate: r.start_date, endDate: r.end_date,
         maxAbsencesAllowed: r.max_absences_allowed,
         attendanceThresholdRatio: Number(r.attendance_threshold_ratio),
+        nextSessionNumber: r.next_session_number,
         roster: byRun.get(r.id) || [],
       })),
     };
   },
   courseList: (rows) => rows.map(courseRow),
+  activeCourseRunList: (rows) => rows.map(activeCourseRunRow),
   courseRunDetail: ({ run, roster }) => ({
     id: run.id, runNumber: run.run_number, status: run.status,
     classCode: run.class_code, courseCode: run.course_code, courseName: run.course_name,
     startDate: run.start_date, endDate: run.end_date,
     expectedUnits: run.expected_units_snapshot, maxAbsencesAllowed: run.max_absences_allowed_snapshot,
+    attendanceThresholdRatio: Number(run.attendance_threshold_ratio_snapshot),
     roster: roster.map(rosterRow),
   }),
   employeeList: (rows) => rows.map(employeeRow),

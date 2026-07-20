@@ -53,4 +53,17 @@ describe('adaptHistoricalSessions', () => {
     ]);
     expect(latestMarkedHistoricalStart([...schedules].reverse())).toBe(schedules[1].startTime);
   });
+
+  it('keeps live Meeting instants unchanged and uses their real duration', () => {
+    const [session] = adaptHistoricalSessions([{
+      id: 'live-1', courseRunId: 'run-1', sessionNumber: 15,
+      heldAt: '2026-07-27T03:00:00.000Z', durationMinutes: 90,
+      sourceKind: 'live', classCode: 'EL037', courseName: 'Communication 2',
+    }], { historical: 'Historical', readOnly: 'Read-only', live: 'Live' });
+
+    expect(session.sourceKind).toBe('live');
+    expect(session.startTime).toBe('2026-07-27T03:00:00.000Z');
+    expect(session.endTime).toBe('2026-07-27T04:30:00.000Z');
+    expect(session.historicalLabel).toBe('Live');
+  });
 });

@@ -10,6 +10,7 @@ import {
   useCanonicalEnglishClasses,
   useCanonicalEnglishCourses,
   useCanonicalEnglishEmployees,
+  useAddCanonicalRunEnrollment,
   useCreateCanonicalEnglishClass,
 } from './useEnglishOperations';
 
@@ -74,9 +75,59 @@ function ClassForm({ classes, courses, employees, onClose }) {
 
 const percentage = (value) => value == null ? '—' : `${Math.round(value * 100)}%`;
 
-function ClassDetail({ classId, summary }) {
+const today = () => {
+  const date = new Date();
+  const offset = date.getTimezoneOffset() * 60000;
+  return new Date(date.getTime() - offset).toISOString().slice(0, 10);
+};
+
+function RosterAddForm({ run, employees, onClose }) {
+  const { t } = useTranslation();
+  const mutation = useAddCanonicalRunEnrollment();
+  const enrolled = new Set(run.roster.map((row) => row.employeeId));
+  const available = employees.filter((employee) => (
+    employee.employmentStatus === 'active'
+    && !employee.activeCourseRunId
+    && !enrolled.has(employee.id)
+  ));
+  const [employeeId, setEmployeeId] = useState(available[0]?.id || '');
+  const [startDate, setStartDate] = useState(today());
+  const submit = async (event) => {
+    event.preventDefault();
+    await mutation.mutateAsync({
+      courseRunId: run.id,
+      data: {
+        employeeId,
+        startDate,
+        confirmedStartSessionNumber: run.nextSessionNumber,
+      },
+    });
+    onClose();
+  };
+  return (
+    <form onSubmit={submit} className="grid gap-3 rounded-md border border-border bg-muted/20 p-3 md:grid-cols-[1fr_180px_auto] md:items-end">
+      <label className="space-y-1 text-sm text-muted-foreground">
+        <span>{t('englishOperations.classes.learner')}</span>
+        <select className="flex h-9 w-full rounded-md border border-input bg-background px-3 text-sm text-foreground" value={employeeId} onChange={(event) => setEmployeeId(event.target.value)} required>
+          {available.map((employee) => <option key={employee.id} value={employee.id}>{employee.empCode} · {employee.fullName}</option>)}
+        </select>
+      </label>
+      <label className="space-y-1 text-sm text-muted-foreground">
+        <span>{t('englishOperations.classes.membershipStart')}</span>
+        <Input type="date" value={startDate} onChange={(event) => setStartDate(event.target.value)} required />
+      </label>
+      <div className="flex gap-2">
+        <Button type="button" variant="ghost" onClick={onClose}>{t('englishOperations.classes.cancel')}</Button>
+        <Button type="submit" disabled={!employeeId || mutation.isPending}>{t('englishOperations.classes.addLearnerAtSession', { session: run.nextSessionNumber })}</Button>
+      </div>
+    </form>
+  );
+}
+
+function ClassDetail({ classId, summary, employees, canManage }) {
   const { t } = useTranslation();
   const detail = useCanonicalEnglishClass(classId);
+  const [addingToRun, setAddingToRun] = useState(null);
   if (detail.isLoading) return <div className="flex justify-center rounded-lg border border-border bg-card py-16"><Spinner size={28} /></div>;
   if (!detail.data) return null;
   const value = detail.data;
@@ -96,8 +147,12 @@ function ClassDetail({ classId, summary }) {
         <section key={run.id} className="space-y-3">
           <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border pb-2">
             <div><h4 className="font-semibold text-foreground">{run.courseCode} · {run.courseName}</h4><p className="text-xs text-muted-foreground">{t('englishOperations.classes.runMeta', { run: run.runNumber, status: run.status })}</p></div>
-            <span className="text-xs text-muted-foreground">{t('englishOperations.classes.attendanceRule', { percent: Math.round(run.attendanceThresholdRatio * 100) })}</span>
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-muted-foreground">{t('englishOperations.classes.attendanceRule', { percent: Math.round(run.attendanceThresholdRatio * 100) })}</span>
+              {canManage && ['planned', 'active'].includes(run.status) && <Button size="sm" variant="outline" onClick={() => setAddingToRun(addingToRun === run.id ? null : run.id)}>{t('englishOperations.classes.addLearner')}</Button>}
+            </div>
           </div>
+          {addingToRun === run.id && <RosterAddForm run={run} employees={employees} onClose={() => setAddingToRun(null)} />}
           <div className="overflow-x-auto rounded-md border border-border">
             <table className="w-full min-w-[640px] text-left text-sm">
               <thead className="border-b border-border bg-muted/40 text-xs uppercase text-muted-foreground"><tr><th className="px-3 py-2">{t('englishOperations.classes.learner')}</th><th className="px-3 py-2">{t('englishOperations.classes.enrollmentStatus')}</th><th className="px-3 py-2">{t('englishOperations.classes.startsAtSession')}</th><th className="px-3 py-2">{t('englishOperations.classes.attendance')}</th><th className="px-3 py-2">{t('englishOperations.classes.eligibility')}</th></tr></thead>
@@ -142,7 +197,7 @@ export default function ClassesPanel() {
           {groups.map(([pic, rows]) => <section key={pic} className="rounded-lg border border-border bg-card p-3"><h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">{t('englishOperations.classes.picGroup', { pic })}</h3><div className="space-y-1">{rows.map((row) => <button type="button" key={row.id} onClick={() => setSelectedId(row.id)} className={`w-full rounded-md px-3 py-2 text-left text-sm ${selected?.id === row.id ? 'bg-primary/15 text-foreground' : 'text-muted-foreground hover:bg-muted/50'}`}><span className="block font-medium">{row.classCode} · {row.displayName}</span><span className="block text-xs">{t('englishOperations.classes.classSummary', { members: row.activeMembers, runs: row.runs })}</span></button>)}</div></section>)}
           {!classes.isLoading && groups.length === 0 && <p className="rounded-lg border border-dashed border-border p-8 text-center text-sm text-muted-foreground">{t('englishOperations.classes.empty')}</p>}
         </div>
-        <ClassDetail classId={selected?.id} summary={selected} />
+        <ClassDetail classId={selected?.id} summary={selected} employees={employees.data || []} canManage={canManage} />
       </div>
     </div>
   );

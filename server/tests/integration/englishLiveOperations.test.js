@@ -1,17 +1,16 @@
 /**
- * Integration smoke — live English Operations on the shared domain model.
+ * Canonical English Operations vertical smoke.
  *
- * Every business transition goes through the production HTTP stack. The only
- * direct fixture is a past Schedule: booking-grid behavior already has its own
- * integration coverage, while this test focuses on the English convergence
- * seam from a managed learner through attendance eligibility and final level.
+ * The HTTP flow follows the pinned ConMeoGauGau authority: stable class + PIC,
+ * Run Enrollment, Meeting + logical Session Unit, then one atomic full P/A
+ * roster. Imported evidence and the superseded generic English projection are
+ * deliberately outside this live-write test.
  */
 const request = require('supertest');
+const { query } = require('../../config/pg');
 const {
   getApp, getTokens, getSeedData, getCsrfHeaders, teardown,
 } = require('../setup');
-const fx = require('../fixtures/pg-fixtures');
-const { defaultEnglishPolicy } = require('../../domains/learning/english-policy');
 
 let app;
 let tokens;
@@ -33,167 +32,118 @@ const authorized = (req, token) => req
   .set('Authorization', `Bearer ${token}`)
   .set(csrf);
 
-describe('English Operations — shared-domain vertical flow', () => {
-  test('managed learner → English run → attendance → eligibility → final level', async () => {
+describe('English Operations — canonical live vertical flow', () => {
+  test('PIC-owned class → learner start → Meeting → exact P/A roster', async () => {
     const suffix = Date.now().toString().slice(-8);
+    const courseId = `eng-course-${suffix}`;
+    const employeeId = `eng-employee-${suffix}`;
 
-    // P0: the learner is a real shared User, deliberately without login access.
-    const person = await authorized(
-      request(app).post('/api/english-training/managed-learners'),
+    // Course definitions and the employee crosswalk are fixture/reference data;
+    // every business transition below goes through the production HTTP stack.
+    await query(`INSERT INTO eng_courses (
+      id, course_code, course_name, expected_units, max_absences_allowed, is_active, meta
+    ) VALUES ($1,$2,$3,16,2,true,'{}'::jsonb)`, [
+      courseId, `ENG_${suffix}`, 'Canonical English Integration',
+    ]);
+    await query(`INSERT INTO eng_employees (
+      id, emp_code, full_name, employment_status, user_id, meta
+    ) VALUES ($1,$2,$3,'active',$4,'{}'::jsonb)`, [
+      employeeId, seed.member1.empCode, seed.member1.name, seed.member1._id,
+    ]);
+
+    const classResult = await authorized(
+      request(app).post('/api/english-training/workspace/classes'),
       tokens.admin,
     ).send({
-      empCode: `ENG${suffix}`,
-      name: 'English Managed Learner',
-      department: 'English Training',
+      classCode: `EL${suffix.slice(-3)}`,
+      displayName: 'Canonical English Integration',
+      courseId,
+      startDate: '2026-07-20',
+      capacity: 12,
+      status: 'active',
+      picLabel: 'People Team',
     });
+    expect(classResult.status).toBe(201);
+    const { cohortId, courseRunId } = classResult.body.data;
 
-    expect(person.status).toBe(201);
-    expect(person.body.data.canLogin).toBe(false);
-    expect(person.body.data.password).toBeUndefined();
-    const learnerId = person.body.data._id;
-
-    const login = await request(app)
-      .post('/api/auth/login')
-      .set(csrf)
-      .send({ empCode: person.body.data.empCode, password: 'not-a-credential' });
-    expect(login.status).toBe(403);
-    expect(login.body.message).toMatch(/disabled/i);
-
-    // P1: English is a typed shared Program + Cohort with a policy snapshot.
-    const program = await authorized(
-      request(app).post('/api/learning/programs'),
+    const enrollment = await authorized(
+      request(app).post(`/api/english-training/workspace/course-runs/${courseRunId}/enrollments`),
       tokens.admin,
     ).send({
-      code: `ENG_IT_${suffix}`,
-      name: 'English Live Integration',
-      category: 'english',
-      defaultSessionCount: 1,
-      deliveryMode: 'offline',
-      schedulingMode: 'nomination',
-      completionPolicy: {
-        attendanceThresholdPercent: 0,
-        requiresAssessment: true,
-        requiresFeedback: false,
-      },
-      facilitatorPolicy: {
-        assignmentRequired: true,
-        visibility: 'all_facilitators',
-      },
-      englishPolicy: defaultEnglishPolicy(),
+      employeeId,
+      startDate: '2026-07-20',
+      confirmedStartSessionNumber: 1,
     });
+    expect(enrollment.status).toBe(201);
+    expect(enrollment.body.data).toMatchObject({ startSessionNumber: 1 });
 
-    expect(program.status).toBe(201);
-    expect(program.body.data.category).toBe('english');
-    const programId = program.body.data._id;
-
-    const cohort = await authorized(
-      request(app).post('/api/learning/cohorts'),
+    // 09:00-10:00 Vietnam on an otherwise empty far-future date.
+    const session = await authorized(
+      request(app).post(`/api/english-training/workspace/course-runs/${courseRunId}/sessions`),
       tokens.admin,
     ).send({
-      cohortCode: `ENG-IT-${suffix}`,
-      englishGroupCode: `ENGIT${suffix}`,
-      programId,
-      status: 'Completed',
-      totalSessions: 1,
-      teacherIds: [seed.teacher._id.toString()],
-      englishPicDisplay: 'English Managed Learner',
+      startsAt: '2099-01-05T02:00:00.000Z',
+      endsAt: '2099-01-05T03:00:00.000Z',
+      confirmedSessionNumber: 1,
     });
+    expect(session.status).toBe(201);
+    expect(session.body.data).toMatchObject({ sessionNumber: 1 });
+    const { meetingId, sessionUnitId } = session.body.data;
 
-    expect(cohort.status).toBe(201);
-    expect(cohort.body.data.program.category).toBe('english');
-    expect(cohort.body.data.englishPolicySnapshot.maxAbsencesAllowed).toBe(2);
-    const cohortId = cohort.body.data._id;
-
-    const team = await authorized(
-      request(app).post('/api/teams'),
-      tokens.admin,
-    ).send({
-      name: `${cohort.body.data.englishGroupCode} · English Managed Learner`,
-      classId: cohortId,
-      leaderId: learnerId,
-      members: [learnerId],
-    });
-
-    expect(team.status).toBe(201);
-    expect(team.body.data.leaderId._id).toBe(learnerId);
-
-    const roster = await request(app)
-      .get(`/api/learning/enrollments?cohortId=${cohortId}`)
-      .set('Authorization', `Bearer ${tokens.admin}`);
+    const rosterPath = `/api/english-training/workspace/course-runs/${courseRunId}`
+      + `/session-units/${sessionUnitId}/attendance`;
+    const roster = await authorized(request(app).get(rosterPath), tokens.admin);
     expect(roster.status).toBe(200);
-    expect(roster.body.data).toHaveLength(1);
-    expect(roster.body.data[0].group).toEqual({
-      id: team.body.data._id,
-      name: `${cohort.body.data.englishGroupCode} · English Managed Learner`,
+    expect(roster.body.data.rosterToken).toHaveLength(64);
+    expect(roster.body.data.rows).toEqual([
+      expect.objectContaining({
+        runEnrollmentId: enrollment.body.data.enrollmentId,
+        empCode: seed.member1.empCode,
+        status: 'present',
+        attendanceId: null,
+      }),
+    ]);
+
+    const save = await authorized(request(app).put(rosterPath), tokens.admin).send({
+      rosterToken: roster.body.data.rosterToken,
+      records: [{
+        runEnrollmentId: enrollment.body.data.enrollmentId,
+        status: 'present',
+      }],
     });
+    expect(save.status).toBe(200);
+    expect(save.body.data).toMatchObject({ count: 1, createdCount: 1, updatedCount: 0 });
 
-    // P2/P3: the English session and mark live in the generic Schedule and
-    // Attendance tables; the assigned cohort Teacher can perform the mark.
-    const startTime = new Date(Date.now() - 7 * 86400000);
-    const schedule = await fx.createSchedule({
-      classId: cohortId,
-      startTime,
-      endTime: new Date(startTime.getTime() + 90 * 60000),
-      enrolledUsers: [learnerId],
-      status: 'scheduled',
+    const [meeting, unit, attendance, domainAudit] = await Promise.all([
+      query('SELECT status FROM eng_meetings WHERE id = $1', [meetingId]),
+      query('SELECT status FROM eng_session_units WHERE id = $1', [sessionUnitId]),
+      query('SELECT status, original_status FROM eng_attendance_records WHERE session_unit_id = $1', [sessionUnitId]),
+      query(`SELECT action FROM eng_audit_events
+        WHERE entity_key = $1 AND action = 'attendance.roster.save'`, [sessionUnitId]),
+    ]);
+    expect(meeting.rows[0].status).toBe('completed');
+    expect(unit.rows[0].status).toBe('held');
+    expect(attendance.rows[0]).toMatchObject({ status: 'present', original_status: 'present' });
+    expect(domainAudit.rowCount).toBe(1);
+
+    // The first token captured the planned roster. Completion changes its
+    // state, so retrying with that stale token must not overwrite anything.
+    const stale = await authorized(request(app).put(rosterPath), tokens.admin).send({
+      rosterToken: roster.body.data.rosterToken,
+      records: [{ runEnrollmentId: enrollment.body.data.enrollmentId, status: 'absent' }],
     });
+    expect(stale.status).toBe(409);
+    expect(stale.body.message).toMatch(/roster changed/i);
 
-    const attendance = await authorized(
-      request(app).post(`/api/attendance/${schedule._id}`),
-      tokens.teacher,
-    ).send({ records: [{ userId: learnerId, status: 'P' }] });
-
-    expect(attendance.status).toBe(200);
-    expect(attendance.body.data.total).toBe(1);
-
-    // P4: eligibility derives from shared attendance, and evaluation stores a
-    // categorical English level instead of forcing rubric scores.
-    const eligibility = await request(app)
-      .get(`/api/english-training/live/cohorts/${cohortId}/eligibility`)
-      .set('Authorization', `Bearer ${tokens.teacher}`);
-
-    expect(eligibility.status).toBe(200);
-    expect(eligibility.body.data.learners).toHaveLength(1);
-    expect(eligibility.body.data.learners[0].eligibility).toMatchObject({
-      status: 'eligible',
-      expectedCount: 1,
+    const detail = await authorized(
+      request(app).get(`/api/english-training/workspace/classes/${cohortId}`),
+      tokens.admin,
+    );
+    expect(detail.status).toBe(200);
+    expect(detail.body.data.runs[0].roster[0]).toMatchObject({
+      employeeId,
+      presentCount: 1,
       markedCount: 1,
-      absenceCount: 0,
     });
-
-    const level = await authorized(
-      request(app).post(`/api/english-training/live/cohorts/${cohortId}/evaluations`),
-      tokens.teacher,
-    ).send({
-      userId: learnerId,
-      levelCode: 'foundation',
-      note: 'Integration smoke result',
-    });
-
-    expect(level.status).toBe(201);
-    expect(level.body.data).toMatchObject({
-      resultKind: 'english_level',
-      levelCode: 'foundation',
-      level: 'Foundation',
-      grammarScore: null,
-      averageScore: null,
-    });
-
-    const worklist = await request(app)
-      .get(`/api/english-training/live/cohorts/${cohortId}/evaluations`)
-      .set('Authorization', `Bearer ${tokens.teacher}`);
-
-    expect(worklist.status).toBe(200);
-    expect(worklist.body.data.learners[0].evaluation).toMatchObject({
-      levelCode: 'foundation',
-      resultKind: 'english_level',
-    });
-
-    // P5: test reset preserves the migration-owned archive-control singleton.
-    const archive = await request(app)
-      .get('/api/english-training/archive/status')
-      .set('Authorization', `Bearer ${tokens.admin}`);
-    expect(archive.status).toBe(200);
-    expect(archive.body.data.isFrozen).toBe(false);
   });
 });

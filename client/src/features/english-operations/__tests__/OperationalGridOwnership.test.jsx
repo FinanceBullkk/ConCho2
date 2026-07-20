@@ -35,12 +35,22 @@ vi.mock('../../../hooks/useOrg', () => ({
   useOffices: () => ({ data: [] }),
 }));
 
+vi.mock('../../../hooks/useSchedulingConfig', () => ({
+  DEFAULT_UTC_OFFSET_MINUTES: 420,
+  useSchedulingConfig: () => ({
+    data: { utcOffsetMinutes: 420, slots: [] },
+    isLoading: false,
+  }),
+}));
+
 vi.mock('../../rooms/useRooms', () => ({
   useRooms: () => ({ data: [] }),
 }));
 
 vi.mock('../useEnglishOperations', () => ({
-  useEnglishArchiveSessions: () => ({ data: h.archiveSessions, isLoading: false }),
+  useCanonicalEnglishSessions: () => ({ data: h.archiveSessions, isLoading: false }),
+  useCanonicalEnglishCourseRuns: () => ({ data: [], isLoading: false }),
+  useCreateCanonicalEnglishSession: () => ({ mutateAsync: vi.fn(), isPending: false }),
   useEnglishArchiveSessionAttendance: () => ({
     data: {
       id: 'archive-session-1', classCode: 'EL001', courseName: 'English Level 1',
@@ -49,6 +59,8 @@ vi.mock('../useEnglishOperations', () => ({
     },
     isLoading: false,
   }),
+  useCanonicalEnglishAttendanceRoster: () => ({ data: undefined, isLoading: false }),
+  useSaveCanonicalEnglishAttendance: () => ({ mutateAsync: vi.fn(), isPending: false }),
 }));
 
 beforeEach(() => {

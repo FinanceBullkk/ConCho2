@@ -209,12 +209,14 @@ export default function EnglishOperationsPage() {
   const [params, setParams] = useSearchParams();
   const canManageLearners = ['Admin', 'Coordinator'].includes(user?.role);
   const canReadArchive = ['Admin', 'Coordinator'].includes(user?.role);
+  const canOperateCanonicalEnglish = ['Admin', 'Coordinator'].includes(user?.role);
   const requested = params.get('tab') || 'overview';
   const active = requested === 'learners' && canManageLearners
     ? 'learners'
     : requested === 'archive' && canReadArchive
       ? 'archive'
-      : ['classes', 'schedule', 'attendance', 'evaluation'].includes(requested) ? requested : 'overview';
+      : canOperateCanonicalEnglish && ['classes', 'schedule', 'attendance', 'evaluation'].includes(requested)
+        ? requested : 'overview';
   const descriptionKey = {
     learners: 'englishOperations.learners.description',
     classes: 'englishOperations.classes.description',

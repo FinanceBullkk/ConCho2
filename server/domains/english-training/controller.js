@@ -41,6 +41,59 @@ const createCanonicalClass = async (req, res) => {
   } catch (e) { handleError(res, e); }
 };
 
+const addCanonicalRunEnrollment = async (req, res) => {
+  try {
+    const result = await canonicalOperations.addRunEnrollment({
+      courseRunId: req.params.courseRunId,
+      ...req.body,
+    }, req.user);
+    await auditService.record({
+      req, action: 'created', entity: 'EnglishRunEnrollment',
+      entityId: result.enrollmentId, diff: { after: result },
+      note: 'Started learner in canonical English Course Run',
+    });
+    res.status(201).json({ success: true, data: result });
+  } catch (e) { handleError(res, e); }
+};
+
+const createCanonicalAttendanceSession = async (req, res) => {
+  try {
+    const result = await canonicalOperations.createAttendanceSession({
+      courseRunId: req.params.courseRunId,
+      ...req.body,
+    }, req.user);
+    await auditService.record({
+      req, action: 'created', entity: 'EnglishSessionUnit',
+      entityId: result.sessionUnitId, diff: { after: result },
+      note: 'Created canonical English Meeting and credited Session Unit',
+    });
+    res.status(201).json({ success: true, data: result });
+  } catch (e) { handleError(res, e); }
+};
+
+const getCanonicalAttendanceRoster = async (req, res) => {
+  try {
+    const data = await canonicalOperations.getAttendanceRoster(req.params);
+    res.json({ success: true, data });
+  } catch (e) { handleError(res, e); }
+};
+
+const saveCanonicalAttendanceRoster = async (req, res) => {
+  try {
+    const result = await canonicalOperations.saveAttendanceRoster({
+      courseRunId: req.params.courseRunId,
+      sessionUnitId: req.params.sessionUnitId,
+      ...req.body,
+    }, req.user);
+    await auditService.record({
+      req, action: 'updated', entity: 'EnglishAttendanceRoster',
+      entityId: req.params.sessionUnitId, diff: { after: result },
+      note: 'Saved complete canonical English attendance roster',
+    });
+    res.json({ success: true, data: result });
+  } catch (e) { handleError(res, e); }
+};
+
 const listManagedPeople = async (req, res) => {
   try {
     const result = await managedPeople.listManagedPeople(req.query);
@@ -144,6 +197,11 @@ const getClassDetail = async (req, res) => {
 
 const listCourses = async (req, res) => {
   try { res.json({ success: true, data: dto.courseList(await reads.listCourses()) }); }
+  catch (e) { handleError(res, e); }
+};
+
+const listCanonicalCourseRuns = async (req, res) => {
+  try { res.json({ success: true, data: dto.activeCourseRunList(await reads.listActiveCourseRuns()) }); }
   catch (e) { handleError(res, e); }
 };
 
@@ -274,9 +332,14 @@ module.exports = {
   getWorkspaceOverview,
   listEnglishTeachers,
   createCanonicalClass,
+  addCanonicalRunEnrollment,
+  createCanonicalAttendanceSession,
+  getCanonicalAttendanceRoster,
+  saveCanonicalAttendanceRoster,
   listManagedPeople, createManagedPerson, updateManagedPerson, deleteManagedPerson, provisionManagedPeople,
   getOverview,
   listCohorts, getCohort, getClassDetail, listCourses, getCourseRun, listEmployees, getEmployee,
+  listCanonicalCourseRuns,
   listSessions, getSessionAttendance, listEligibility,
   listIssues, listIssueDetails,
   correctEmployee,

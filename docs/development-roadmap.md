@@ -24,16 +24,20 @@ remainder is documented deferred-by-design scope (below), not active debt.
   notification bell (full event coverage) shipped 2026-06-13.
 - **Now / Next — canonical English Operations:** ADR
   [`english-domain-authority`](decisions/english-domain-authority.md) is
-  **Accepted** and supersedes the generic English handoff. Migration 047 is
-  applied: 52 stable classes retain 52 current PIC assignments; Course Run
-  rosters read directly from `eng_run_enrollments`; one-current-PIC and
-  one-active-enrollment invariants are database guarded; eligibility uses the
-  Course Run's 80% attendance-ratio snapshot. The reversible 5 Program / 11
-  Class / 11 PIC Team / 56 Team Enrollment projection was soft-retired with an
-  audit trail. Classes now group by current PIC and show each Course Run roster.
-  Schedule/Attendance render imported canonical evidence without a generic
-  live/archive toggle. **Next:** port separate Meeting + one/two Session Unit
-  commands and atomic full-roster attendance save from the authority model.
+  **Accepted** and supersedes the generic English handoff. Migrations 047–048
+  are applied on the prototype: 52 stable classes retain 52 current PIC
+  assignments; Course Run rosters read directly from `eng_run_enrollments`;
+  one-current-PIC and one-active-enrollment invariants are database guarded;
+  eligibility uses the Course Run's 80% attendance-ratio snapshot. Operators
+  can now start a learner at the confirmed next logical session, create a real
+  Meeting + Session Unit on an approved slot, and atomically save one exact P/A
+  roster with stale-write protection. The 984 imported sessions were backfilled
+  to 984 Meetings without changing their 5,962 attendance facts and remain
+  read-only evidence. Managed-person create now writes the disabled User +
+  canonical Employee crosswalk atomically; the current-schema importer stages
+  Meetings until correction overlays make active-slot validation safe.
+  **Next:** learner transfer/leave and capacity override;
+  optional second Session Unit / make-up credit; assigned-Teacher scope.
 - **Canonical English baseline:** Phases 1–3 are complete on dev: identity,
   structure, correction overlay, 984 historical sessions, 5,962 attendance
   records, searchable attendance rosters, derived ratio eligibility, and (Phase 3,
@@ -180,6 +184,21 @@ Bug fixing and integration review rank above net-new feature rollout.
 > 07-04 E1–E3 rolled 2026-07-08, 07-02→07-03 rolled 2026-07-07 →
 > [`2026-q3.md`](changelog-archive/2026-q3.md); 06-20→06-27 rolled 2026-07-07;
 > 06-14→06-19 rolled 2026-07-04 → [`2026-q2.md`](changelog-archive/2026-q2.md)).
+
+- **2026-07-20** — **Canonical English roster, Meeting, and live P/A attendance slice.**
+  Ported the pinned ConMeoGauGau authority semantics into English Operations:
+  Classes can start a learner in a PIC-owned class at the confirmed next
+  logical session; Schedule creates one real Meeting plus its first normal
+  Session Unit on an approved slot; Attendance calculates the event-time
+  roster and saves exactly one Present/Absent result per applicable learner in
+  one transaction. An opaque token rejects stale rosters; the same transaction
+  completes the Meeting and writes domain audit. Migration 048 was applied to
+  the disposable PostgreSQL prototype and backfilled **984 Meetings for 984
+  imported Session Units**, retaining **5,962 attendance facts**. Verification
+  found no bad Meeting links or canonical invariant violations; raw workbook
+  evidence remains guarded. English backend unit tests pass **71/71**, the full
+  client suite **558/558**, and the production client build succeeds. **Next:** transfer/
+  leave, optional second Session Unit + make-up credit, assigned-Teacher scope.
 
 - **2026-07-20** — **English Archive historical sessions reallocated without overlap.**
   Migration 045 adds a stable session-time correction overlay plus append-only
