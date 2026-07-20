@@ -107,6 +107,23 @@
       "archive": "Archive"
     },
     "overview": {
+      "startHere": "Start here",
+      "startHereHint": "Choose the operation you need to complete now.",
+      "dataStatus": "Learner data status",
+      "actions": {
+        "attendance": {
+          "title": "Review attendance",
+          "description": "Find sessions with missing evidence and open the event-time roster."
+        },
+        "schedule": {
+          "title": "Plan a session",
+          "description": "Review the delivery calendar or schedule the next credited session."
+        },
+        "classes": {
+          "title": "Manage classes",
+          "description": "Open PIC-owned classes, course runs, and learner rosters."
+        }
+      },
       "managedPeople": "Managed learners",
       "linkedPeople": "Archive learners linked",
       "unlinkedPeople": "Archive learners to link",
@@ -200,18 +217,37 @@
       "saveError": "Could not create the English class"
     },
     "schedule": {
-      "description": "Inspect English class meetings and credited sessions on the schedule grid.",
+      "description": "Plan English meetings in approved time slots and review the complete delivery calendar.",
       "canonical": "English",
       "importedReadOnly": "Imported schedule evidence · Read-only",
       "live": "Live",
+      "cancelledStatus": "Cancelled",
       "historical": "Historical",
       "historicalReadOnly": "Historical · Read-only",
       "sourceLabel": "Schedule source",
       "add": "Schedule session",
+      "calendarTitle": "English delivery calendar",
+      "calendarSummary": "{{live}} live sessions · {{imported}} imported sessions · {{runs}} active course runs",
+      "createTitle": "Schedule the next credited session",
+      "createHint": "Choose the course run, date, and one approved one-hour slot. The next session number is confirmed when you save.",
+      "editorTitle": "English session editor",
+      "editTitle": "Edit session {{session}}",
+      "closeCreate": "Close session form",
       "run": "Course run",
       "date": "Date",
       "timeSlot": "Time slot",
       "createSession": "Create session {{session}}",
+      "saveChanges": "Save changes",
+      "changeReason": "Reason for the change (optional)",
+      "changeReasonPlaceholder": "For example: PIC requested another time",
+      "notificationHint": "Learners and the current PIC are notified after a session is created, moved, or cancelled. Email and Google Calendar are sent when those integrations are configured.",
+      "cancelSession": "Cancel session",
+      "cancellationReason": "Cancellation reason",
+      "cancellationReasonPlaceholder": "Tell learners why this session is cancelled",
+      "keepSession": "Keep session",
+      "confirmCancel": "Confirm cancellation",
+      "cancelledReadOnly": "This session was cancelled and is kept as history. Reason: {{reason}}",
+      "pastReadOnly": "This session has already started and is kept read-only to protect attendance evidence.",
       "office": "Office",
       "room": "Room (optional)",
       "start": "Start time",
@@ -220,10 +256,13 @@
       "cancel": "Cancel",
       "empty": "No live English sessions scheduled.",
       "created": "English session scheduled",
-      "saveError": "Could not schedule English session"
+      "updated": "English session rescheduled",
+      "cancelled": "English session cancelled",
+      "saveError": "Could not save the English session",
+      "cancelError": "Could not cancel the English session"
     },
     "attendance": {
-      "description": "Inspect canonical English rosters and imported Present/Absent attendance evidence.",
+      "description": "Review attendance evidence, find incomplete sessions, and record complete Present/Absent rosters.",
       "canonical": "English",
       "importedReadOnly": "Imported attendance evidence · Read-only",
       "live": "Live",
@@ -231,6 +270,21 @@
       "historicalReadOnly": "Historical attendance · Read-only",
       "sourceLabel": "Attendance source",
       "unmarked": "Unmarked",
+      "noEvidence": "No attendance evidence",
+      "noEvidenceShort": "No evidence",
+      "noEvidenceReadOnly": "No imported attendance evidence for this session · Read-only",
+      "noSourceRecord": "No source record",
+      "reviewTitle": "Attendance review",
+      "reviewHint": "Historical gaps stay unknown until evidence is confirmed. New live rosters must be saved in full.",
+      "loadError": "Attendance could not be loaded. Refresh the page and try again.",
+      "filterEmpty": "No sessions match this attendance view.",
+      "showAll": "Show all sessions",
+      "filters": {
+        "all": "All sessions",
+        "needsEvidence": "Needs evidence",
+        "recorded": "Recorded",
+        "upcoming": "Upcoming"
+      },
       "empty": "No live English sessions available.",
       "session": "Session {{number}}",
       "roster": "Session attendance",

@@ -18,6 +18,8 @@ jest.mock('../../domains/english-training/controller', () => ({
   createCanonicalClass: (req, res) => res.status(201).json({ success: true, data: req.body }),
   addCanonicalRunEnrollment: (req, res) => res.status(201).json({ success: true, data: req.body }),
   createCanonicalAttendanceSession: (req, res) => res.status(201).json({ success: true, data: req.body }),
+  rescheduleCanonicalMeeting: (req, res) => res.json({ success: true, data: req.body }),
+  cancelCanonicalMeeting: (req, res) => res.json({ success: true, data: req.body }),
   getCanonicalAttendanceRoster: (_req, res) => res.json({ success: true, data: { rows: [] } }),
   saveCanonicalAttendanceRoster: (req, res) => res.json({ success: true, data: req.body }),
   listManagedPeople: (_req, res) => res.json({ success: true, data: [] }),
@@ -127,11 +129,44 @@ describe('English Operations canonical live roster authorization', () => {
     expect(save.status).toBe(200);
   });
 
+  test('Coordinator can reschedule and durably cancel a canonical Meeting', async () => {
+    const path = '/api/english-training/workspace/course-runs/run-1/meetings/meeting-1';
+    const moved = await request(app).patch(path).set('x-test-role', 'Coordinator').send({
+      startsAt: '2026-07-22T02:00:00.000Z',
+      endsAt: '2026-07-22T03:00:00.000Z',
+      reason: 'PIC request',
+    });
+    expect(moved.status).toBe(200);
+    const cancelled = await request(app).delete(path).set('x-test-role', 'Coordinator').send({
+      cancellationReason: 'Company event',
+    });
+    expect(cancelled.status).toBe(200);
+  });
+
+  test('Meeting cancellation requires an operator reason', async () => {
+    const res = await request(app)
+      .delete('/api/english-training/workspace/course-runs/run-1/meetings/meeting-1')
+      .set('x-test-role', 'Admin')
+      .send({ cancellationReason: '' });
+    expect(res.status).toBe(400);
+  });
+
   test('Teacher stays closed out until assigned-resource scope is ported', async () => {
     const res = await request(app)
       .put('/api/english-training/workspace/course-runs/run-1/session-units/unit-1/attendance')
       .set('x-test-role', 'Teacher')
       .send({ rosterToken: 'a'.repeat(64), records: [] });
+    expect(res.status).toBe(403);
+  });
+
+  test('Teacher cannot move an English Meeting without scheduler scope', async () => {
+    const res = await request(app)
+      .patch('/api/english-training/workspace/course-runs/run-1/meetings/meeting-1')
+      .set('x-test-role', 'Teacher')
+      .send({
+        startsAt: '2026-07-22T02:00:00.000Z',
+        endsAt: '2026-07-22T03:00:00.000Z',
+      });
     expect(res.status).toBe(403);
   });
 });

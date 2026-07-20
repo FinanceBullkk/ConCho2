@@ -2,6 +2,7 @@ const crypto = require('crypto');
 const { ServiceError } = require('../../helpers/ServiceError');
 const { assertValidBookingWindow } = require('../schedule/scheduling-window-policy');
 const repository = require('./canonical-operations-repository.pg');
+const meetingDelivery = require('./meeting-delivery');
 
 const AUTHORITY = 'ConMeoGauGau@4107cd52ee905e87254e099da23cb58dcbdd82a9';
 
@@ -16,6 +17,23 @@ const auditActor = (actor = {}) => ({
 });
 
 const iso = (value) => value instanceof Date ? value.toISOString() : new Date(value).toISOString();
+
+const meetingWindow = async (startsAtValue, endsAtValue) => {
+  const startsAt = new Date(startsAtValue);
+  const endsAt = new Date(endsAtValue);
+  if (Number.isNaN(startsAt.getTime()) || Number.isNaN(endsAt.getTime())) {
+    throw new ServiceError('Session start and end must be valid timezone-aware dates', 400);
+  }
+  if (startsAt <= new Date()) {
+    throw new ServiceError('English sessions must be scheduled in the future', 409);
+  }
+  await assertValidBookingWindow(startsAt, endsAt);
+  return {
+    startsAt,
+    endsAt,
+    durationMinutes: Math.round((endsAt.getTime() - startsAt.getTime()) / 60000),
+  };
+};
 
 const rosterToken = (unit, rows) => crypto.createHash('sha256').update(JSON.stringify({
   meetingId: unit.meeting_id,
@@ -170,16 +188,10 @@ const addRunEnrollment = async (input, actor = {}) => {
 };
 
 const createAttendanceSession = async (input, actor = {}) => {
-  const startsAt = new Date(input.startsAt);
-  const endsAt = new Date(input.endsAt);
-  if (Number.isNaN(startsAt.getTime()) || Number.isNaN(endsAt.getTime())) {
-    throw new ServiceError('Session start and end must be valid timezone-aware dates', 400);
-  }
-  await assertValidBookingWindow(startsAt, endsAt);
-  const durationMinutes = Math.round((endsAt.getTime() - startsAt.getTime()) / 60000);
+  const { startsAt, endsAt, durationMinutes } = await meetingWindow(input.startsAt, input.endsAt);
 
   try {
-    return await repository.withTransaction(async (client) => {
+    const result = await repository.withTransaction(async (client) => {
       const run = await repository.findCourseRunForUpdate(input.courseRunId, client);
       if (!run) throw new ServiceError('English Course Run not found', 404);
       if (!['planned', 'active'].includes(run.status)) {
@@ -210,10 +222,132 @@ const createAttendanceSession = async (input, actor = {}) => {
       }, client);
       return { meetingId: meeting.id, sessionUnitId: unit.id, sessionNumber: nextSessionNumber };
     });
+    await meetingDelivery.notifyMeetingCreated(result.meetingId);
+    return result;
   } catch (error) {
     if (error.code === '23505') throw new ServiceError('That English teaching slot is already occupied', 409);
     throw error;
   }
+};
+
+const rescheduleMeeting = async (input, actor = {}) => {
+  const { startsAt, endsAt, durationMinutes } = await meetingWindow(input.startsAt, input.endsAt);
+  try {
+    const result = await repository.withTransaction(async (client) => {
+      const meeting = await repository.findMeetingForUpdate(
+        input.courseRunId, input.meetingId, client,
+      );
+      if (!meeting) throw new ServiceError('English Meeting not found in the selected Course Run', 404);
+      if (meeting.source_sheet !== null) {
+        throw new ServiceError('Imported English schedule evidence is read-only', 409);
+      }
+      if (meeting.status !== 'planned') {
+        throw new ServiceError('Only a planned English Meeting can be rescheduled', 409);
+      }
+      if (new Date(meeting.starts_at) <= new Date()) {
+        throw new ServiceError('A Meeting that has already started cannot be rescheduled', 409);
+      }
+      if (Number(meeting.attendance_count) > 0) {
+        throw new ServiceError('A Meeting with attendance evidence cannot be rescheduled', 409);
+      }
+
+      const updated = await repository.rescheduleMeeting(input.meetingId, {
+        startsAt: startsAt.toISOString(),
+        endsAt: endsAt.toISOString(),
+        durationMinutes,
+        reason: input.reason,
+      }, client);
+      if (!updated) throw new ServiceError('English Meeting changed; reload before saving', 409);
+      await repository.recordAudit({
+        ...auditActor(actor), action: 'meeting.reschedule',
+        entityType: 'meeting', entityKey: input.meetingId,
+        details: {
+          courseRunId: input.courseRunId,
+          sessionUnitId: meeting.session_unit_id,
+          sessionNumber: meeting.session_number,
+          before: { startsAt: iso(meeting.starts_at), durationMinutes: meeting.duration_minutes },
+          after: { startsAt: startsAt.toISOString(), durationMinutes },
+          reason: input.reason || null,
+          authority: AUTHORITY,
+        },
+      }, client);
+      return {
+        meetingId: input.meetingId,
+        sessionUnitId: meeting.session_unit_id,
+        sessionNumber: meeting.session_number,
+        before: {
+          startsAt: iso(meeting.starts_at),
+          endsAt: new Date(
+            new Date(meeting.starts_at).getTime() + Number(meeting.duration_minutes) * 60000,
+          ).toISOString(),
+          status: meeting.status,
+        },
+        after: {
+          startsAt: startsAt.toISOString(), endsAt: endsAt.toISOString(), status: updated.status,
+        },
+      };
+    });
+    await meetingDelivery.notifyMeetingRescheduled(
+      result.meetingId, result.before.startsAt, input.reason,
+    );
+    return result;
+  } catch (error) {
+    if (error.code === '23505') throw new ServiceError('That English teaching slot is already occupied', 409);
+    throw error;
+  }
+};
+
+const cancelMeeting = async (input, actor = {}) => {
+  const result = await repository.withTransaction(async (client) => {
+    const meeting = await repository.findMeetingForUpdate(
+      input.courseRunId, input.meetingId, client,
+    );
+    if (!meeting) throw new ServiceError('English Meeting not found in the selected Course Run', 404);
+    if (meeting.source_sheet !== null) {
+      throw new ServiceError('Imported English schedule evidence is read-only', 409);
+    }
+    if (meeting.status === 'cancelled') {
+      throw new ServiceError('This English Meeting is already cancelled', 409);
+    }
+    if (meeting.status !== 'planned' || new Date(meeting.starts_at) <= new Date()) {
+      throw new ServiceError('A Meeting that has started or completed cannot be cancelled', 409);
+    }
+    if (Number(meeting.attendance_count) > 0) {
+      throw new ServiceError('A Meeting with attendance evidence cannot be cancelled', 409);
+    }
+    const cancelled = await repository.cancelMeeting(
+      input.meetingId, input.cancellationReason, client,
+    );
+    if (!cancelled) throw new ServiceError('English Meeting changed; reload before cancelling', 409);
+    await repository.recordAudit({
+      ...auditActor(actor), action: 'meeting.cancel',
+      entityType: 'meeting', entityKey: input.meetingId,
+      details: {
+        courseRunId: input.courseRunId,
+        sessionUnitId: meeting.session_unit_id,
+        sessionNumber: meeting.session_number,
+        beforeStatus: meeting.status,
+        afterStatus: cancelled.status,
+        cancellationReason: input.cancellationReason,
+        authority: AUTHORITY,
+      },
+    }, client);
+    return {
+      meetingId: input.meetingId,
+      sessionUnitId: meeting.session_unit_id,
+      sessionNumber: meeting.session_number,
+      before: { status: meeting.status, startsAt: iso(meeting.starts_at) },
+      after: {
+        status: cancelled.status,
+        startsAt: iso(cancelled.starts_at),
+        cancellationReason: cancelled.cancellation_reason,
+      },
+    };
+  });
+  await meetingDelivery.notifyMeetingCancelled(
+    result.meetingId, actor.name || actor.empCode || 'English Operations',
+  );
+  return result;
 };
 
 const getAttendanceRoster = async ({ courseRunId, sessionUnitId }) => repository.withTransaction(async (client) => {
@@ -315,6 +449,8 @@ module.exports = {
   createClassCourseRun,
   addRunEnrollment,
   createAttendanceSession,
+  rescheduleMeeting,
+  cancelMeeting,
   getAttendanceRoster,
   saveAttendanceRoster,
   normalizeLabel,

@@ -1,7 +1,7 @@
-import { useEffect, useState } from 'react';
+import { createElement, useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { Plus, RefreshCw } from 'lucide-react';
+import { Boxes, CalendarCheck2, ClipboardCheck, Plus, RefreshCw } from 'lucide-react';
 import { PageHeader } from '../../components/PageHeader';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -33,15 +33,45 @@ function StatCard({ label, value }) {
   );
 }
 
-function Overview({ data, isTeacher, t }) {
+function Overview({ data, isTeacher, onNavigate, t }) {
+  const actions = [
+    { id: 'attendance', icon: ClipboardCheck },
+    { id: 'schedule', icon: CalendarCheck2 },
+    { id: 'classes', icon: Boxes },
+  ];
   return (
     <div className="space-y-5">
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        <StatCard label={t('englishOperations.overview.managedPeople')} value={data?.managedPeople} />
-        <StatCard label={t('englishOperations.overview.linkedPeople')} value={data?.linkedPeople} />
-        <StatCard label={t('englishOperations.overview.unlinkedPeople')} value={data?.unlinkedPeople} />
-        <StatCard label={t('englishOperations.overview.archivePeople')} value={data?.archivePeople} />
-      </div>
+      {!isTeacher && (
+        <section>
+          <h2 className="font-semibold text-foreground">{t('englishOperations.overview.startHere')}</h2>
+          <p className="mt-1 text-sm text-muted-foreground">{t('englishOperations.overview.startHereHint')}</p>
+          <div className="mt-3 grid gap-3 md:grid-cols-3">
+            {actions.map(({ id, icon }) => (
+              <button
+                key={id}
+                type="button"
+                onClick={() => onNavigate(id)}
+                className="group rounded-lg border border-border bg-card p-4 text-left transition-colors hover:border-primary/35 hover:bg-primary/[0.04]"
+              >
+                <span className="flex size-10 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                  {createElement(icon, { className: 'size-5' })}
+                </span>
+                <span className="mt-3 block font-semibold text-foreground">{t(`englishOperations.overview.actions.${id}.title`)}</span>
+                <span className="mt-1 block text-sm text-muted-foreground">{t(`englishOperations.overview.actions.${id}.description`)}</span>
+              </button>
+            ))}
+          </div>
+        </section>
+      )}
+      <section>
+        <h2 className="mb-3 font-semibold text-foreground">{t('englishOperations.overview.dataStatus')}</h2>
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          <StatCard label={t('englishOperations.overview.managedPeople')} value={data?.managedPeople} />
+          <StatCard label={t('englishOperations.overview.linkedPeople')} value={data?.linkedPeople} />
+          <StatCard label={t('englishOperations.overview.unlinkedPeople')} value={data?.unlinkedPeople} />
+          <StatCard label={t('englishOperations.overview.archivePeople')} value={data?.archivePeople} />
+        </div>
+      </section>
       {isTeacher && (
         <p className="rounded-lg border border-border bg-card p-4 text-sm text-muted-foreground">
           {t('englishOperations.overview.teacherPlaceholder')}
@@ -243,7 +273,14 @@ export default function EnglishOperationsPage() {
       {active === 'attendance' && <AttendancePanel />}
       {active === 'evaluation' && <EvaluationPanel />}
       {active === 'archive' && <ArchivePanel />}
-      {active === 'overview' && <Overview data={overview.data} isTeacher={user?.role === 'Teacher'} t={t} />}
+      {active === 'overview' && (
+        <Overview
+          data={overview.data}
+          isTeacher={user?.role === 'Teacher'}
+          onNavigate={(tab) => setParams({ tab })}
+          t={t}
+        />
+      )}
     </div>
   );
 }

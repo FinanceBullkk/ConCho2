@@ -45,6 +45,9 @@ export default function SchedulesPage({
   historicalOnly = false,
   historicalSchedules = [],
   defaultWeek,
+  onHistoricalCellClick,
+  onHistoricalScheduleClick,
+  selectedHistoricalCellKey,
 }) {
   const [searchParams, setSearchParams] = useSearchParams();
   const unified = mode === 'all';
@@ -124,6 +127,7 @@ export default function SchedulesPage({
     ? historicalSchedules.length
     : (allowedClassSet ? scopedSchedules.length : (schedData?.total || allSchedules.length));
   const createEnabled = !historicalOnly && canCreate && allowCreate;
+  const historicalCreateEnabled = historicalOnly && Boolean(onHistoricalCellClick);
   const { data: classes = [] } = useClasses();
   const { data: teams  = [] } = useTeams();
 
@@ -170,14 +174,19 @@ export default function SchedulesPage({
   }, [schedules]);
 
   const selectedCellKey = useMemo(() => {
+    if (selectedHistoricalCellKey) return selectedHistoricalCellKey;
     if (drawerMode === 'edit'   && selectedSchedule) return scheduleToKey(selectedSchedule, offset);
     if (drawerMode === 'create' && selectedCell)     return `${toDateKey(selectedCell.day)}|${selectedCell.slot.id}`;
     return null;
-  }, [drawerMode, selectedSchedule, selectedCell, offset]);
+  }, [drawerMode, selectedSchedule, selectedCell, offset, selectedHistoricalCellKey]);
 
   const closeDrawer = () => { setDrawerMode(null); setSelectedSchedule(null); setSelectedCell(null); };
 
   const handleScheduleClick = (s) => {
+    if (historicalOnly) {
+      if (s.sourceKind === 'live') onHistoricalScheduleClick?.(s);
+      return;
+    }
     if (s.isHistorical || !canUpdate) return;
     if (drawerMode === 'edit' && selectedSchedule?._id === s._id) { closeDrawer(); return; }
     setSelectedSchedule(s);
@@ -186,6 +195,14 @@ export default function SchedulesPage({
   };
 
   const handleCellClick = (day, slot) => {
+    if (historicalOnly) {
+      if (!onHistoricalCellClick || slot.offPolicy) return;
+      const { startISO, endISO } = slotToUtcRange(day, slot, offset);
+      onHistoricalCellClick({
+        day, slot, startTime: new Date(startISO), endTime: new Date(endISO),
+      });
+      return;
+    }
     if (!createEnabled) return;
     const clickedKey = `${toDateKey(day)}|${slot.id}`;
     if (drawerMode === 'create' && selectedCellKey === clickedKey) { closeDrawer(); return; }
@@ -259,7 +276,9 @@ export default function SchedulesPage({
                 return (
                   <div className="space-y-1">
                     {cellSchedules.map(s => {
-                      const canOpen = !s.isHistorical && canUpdate;
+                      const canOpen = historicalOnly
+                        ? s.sourceKind === 'live' && Boolean(onHistoricalScheduleClick)
+                        : !s.isHistorical && canUpdate;
                       const isConflict  = conflictIds.has(s._id);
                       const isSelected  = selectedSchedule?._id === s._id;
                       const pct         = s.capacity > 0 ? Math.round((s.enrolledCount / s.capacity) * 100) : 0;
@@ -311,7 +330,10 @@ export default function SchedulesPage({
                 );
               }
 
-              if (createEnabled) {
+              const historicalCellIsFuture = !historicalOnly || new Date(
+                slotToUtcRange(day, slot, offset).startISO,
+              ) > new Date();
+              if (createEnabled || (historicalCreateEnabled && !slot.offPolicy && historicalCellIsFuture)) {
                 return (
                   <button
                     type="button"
@@ -334,7 +356,7 @@ export default function SchedulesPage({
                 ? historicalSchedules[0]?.historicalReadOnlyLabel
                 : 'Session — click to edit'}</span>
             </div>
-            {createEnabled && (
+            {(createEnabled || historicalCreateEnabled) && (
               <div className="flex items-center gap-2">
                 <div className="w-3.5 h-3.5 rounded border border-dashed border-success/30" />
                 <span>Empty — click to create</span>
@@ -347,9 +369,10 @@ export default function SchedulesPage({
           </div>
         </div>
 
-        {/* Right: drawer */}
-        <div className="lg:w-[300px] lg:flex-none lg:sticky lg:top-6">
-          {!historicalOnly && <ScheduleDrawer
+        {/* Right: drawer. Historical grids do not reserve an empty column. */}
+        {!historicalOnly && (
+          <div data-testid="schedule-drawer-column" className="lg:w-[300px] lg:flex-none lg:sticky lg:top-6">
+            <ScheduleDrawer
             isOpen={!!drawerMode}
             mode={drawerMode || 'create'}
             schedule={selectedSchedule}
@@ -361,8 +384,9 @@ export default function SchedulesPage({
             onClose={closeDrawer}
             onSaved={closeDrawer}
             onDeleted={closeDrawer}
-          />}
-        </div>
+            />
+          </div>
+        )}
       </div>
     </div>
   );

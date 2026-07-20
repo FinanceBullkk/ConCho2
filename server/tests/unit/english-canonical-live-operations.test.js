@@ -16,17 +16,27 @@ jest.mock('../../domains/english-training/canonical-operations-repository.pg', (
   createRunEnrollment: jest.fn(),
   createMeeting: jest.fn(),
   createSessionUnit: jest.fn(),
+  findMeetingForUpdate: jest.fn(),
+  rescheduleMeeting: jest.fn(),
+  cancelMeeting: jest.fn(),
   getAttendanceRosterData: jest.fn(),
   upsertAttendance: jest.fn(),
   completeMeeting: jest.fn(),
   recordAudit: jest.fn(),
 }));
 
+jest.mock('../../domains/english-training/meeting-delivery', () => ({
+  notifyMeetingCreated: jest.fn().mockResolvedValue(undefined),
+  notifyMeetingRescheduled: jest.fn().mockResolvedValue(undefined),
+  notifyMeetingCancelled: jest.fn().mockResolvedValue(undefined),
+}));
+
 const policy = require('../../domains/schedule/scheduling-window-policy');
 const repository = require('../../domains/english-training/canonical-operations-repository.pg');
+const delivery = require('../../domains/english-training/meeting-delivery');
 const {
   addRunEnrollment, createAttendanceSession, getAttendanceRoster,
-  saveAttendanceRoster, rosterToken,
+  rescheduleMeeting, cancelMeeting, saveAttendanceRoster, rosterToken,
 } = require('../../domains/english-training/canonical-operations');
 
 const actor = { _id: 'actor-1', empCode: 'A001' };
@@ -36,7 +46,7 @@ const run = {
 };
 const unit = {
   id: 'unit-1', meeting_id: 'meeting-1', meeting_status: 'planned',
-  starts_at: new Date('2026-07-20T02:00:00.000Z'), duration_minutes: 60,
+  starts_at: new Date('2099-07-20T02:00:00.000Z'), duration_minutes: 60,
   session_number: 3, unit_type: 'normal',
 };
 const rosterRows = [{
@@ -90,14 +100,67 @@ describe('canonical English live operations', () => {
     repository.createMeeting.mockResolvedValue({ id: 'meeting-1' });
     repository.createSessionUnit.mockResolvedValue({ id: 'unit-1' });
     const result = await createAttendanceSession({
-      courseRunId: 'run-1', startsAt: '2026-07-20T02:00:00.000Z',
-      endsAt: '2026-07-20T03:00:00.000Z', confirmedSessionNumber: 3,
+      courseRunId: 'run-1', startsAt: '2099-07-20T02:00:00.000Z',
+      endsAt: '2099-07-20T03:00:00.000Z', confirmedSessionNumber: 3,
     }, actor);
     expect(policy.assertValidBookingWindow).toHaveBeenCalled();
     expect(result).toEqual({ meetingId: 'meeting-1', sessionUnitId: 'unit-1', sessionNumber: 3 });
     expect(repository.recordAudit).toHaveBeenCalledWith(expect.objectContaining({
       action: 'attendance.session.create',
     }), expect.anything());
+    expect(delivery.notifyMeetingCreated).toHaveBeenCalledWith('meeting-1');
+  });
+
+  test('reschedules a future live Meeting without changing its Session Unit identity', async () => {
+    repository.findMeetingForUpdate.mockResolvedValue({
+      ...unit, course_run_id: 'run-1', source_sheet: null, status: 'planned',
+      session_unit_id: 'unit-1', attendance_count: 0,
+    });
+    repository.rescheduleMeeting.mockResolvedValue({
+      id: 'meeting-1', status: 'planned', starts_at: new Date('2099-07-21T02:00:00.000Z'),
+    });
+    const result = await rescheduleMeeting({
+      courseRunId: 'run-1', meetingId: 'meeting-1',
+      startsAt: '2099-07-21T02:00:00.000Z', endsAt: '2099-07-21T03:00:00.000Z',
+      reason: 'PIC requested another day',
+    }, actor);
+    expect(result).toMatchObject({ meetingId: 'meeting-1', sessionUnitId: 'unit-1', sessionNumber: 3 });
+    expect(repository.rescheduleMeeting).toHaveBeenCalledWith('meeting-1', expect.objectContaining({
+      startsAt: '2099-07-21T02:00:00.000Z',
+    }), expect.anything());
+    expect(delivery.notifyMeetingRescheduled).toHaveBeenCalledWith(
+      'meeting-1', expect.any(String), 'PIC requested another day',
+    );
+  });
+
+  test('durably cancels a future live Meeting and preserves its history', async () => {
+    repository.findMeetingForUpdate.mockResolvedValue({
+      ...unit, course_run_id: 'run-1', source_sheet: null, status: 'planned',
+      session_unit_id: 'unit-1', attendance_count: 0,
+    });
+    repository.cancelMeeting.mockResolvedValue({
+      id: 'meeting-1', status: 'cancelled', starts_at: unit.starts_at,
+      cancellation_reason: 'Company event',
+    });
+    const result = await cancelMeeting({
+      courseRunId: 'run-1', meetingId: 'meeting-1', cancellationReason: 'Company event',
+    }, actor);
+    expect(result.after).toMatchObject({ status: 'cancelled', cancellationReason: 'Company event' });
+    expect(repository.recordAudit).toHaveBeenCalledWith(expect.objectContaining({
+      action: 'meeting.cancel',
+    }), expect.anything());
+    expect(delivery.notifyMeetingCancelled).toHaveBeenCalledWith('meeting-1', 'A001');
+  });
+
+  test('keeps imported or attendance-bearing Meetings read-only', async () => {
+    repository.findMeetingForUpdate.mockResolvedValue({
+      ...unit, source_sheet: 'Historical', status: 'planned',
+      session_unit_id: 'unit-1', attendance_count: 1,
+    });
+    await expect(cancelMeeting({
+      courseRunId: 'run-1', meetingId: 'meeting-1', cancellationReason: 'Invalid source',
+    }, actor)).rejects.toMatchObject({ statusCode: 409, message: expect.stringMatching(/read-only/) });
+    expect(repository.cancelMeeting).not.toHaveBeenCalled();
   });
 
   test('returns an opaque token and rejects stale or incomplete full-roster saves', async () => {

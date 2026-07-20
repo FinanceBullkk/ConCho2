@@ -212,6 +212,12 @@ export function activeItemLabelKey({ role, can, pathname, tab, persona }) {
       if (item) return item.labelKey;
     }
   }
+  const fallback = groups
+    .flatMap((group) => group.items)
+    .filter((item) => isItemVisible(item, role, can))
+    .find((item) => item.tab !== undefined
+      && (pathname === item.base || pathname.startsWith(item.base + '/')));
+  if (fallback) return fallback.labelKey;
   return 'nav.home';
 }
 
@@ -226,7 +232,9 @@ export function groupActivePath(visibleItems, pathname, currentTab) {
     if (!onBase) return null;
     if (currentTab) {
       const match = visibleItems.find((it) => it.tab === currentTab);
-      return match ? match.path : first.path;
+      // Several sidebar groups may share one tabbed route. A group that does
+      // not own the requested tab must not claim the active breadcrumb.
+      return match ? match.path : null;
     }
     return first.path;
   }

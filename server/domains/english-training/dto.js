@@ -74,6 +74,8 @@ const sessionRow = (r) => ({
   id: r.id, sessionNumber: r.session_number, heldAt: r.held_at, status: r.status,
   meetingId: r.meeting_id || null, meetingStatus: r.meeting_status || null,
   durationMinutes: r.duration_minutes == null ? 60 : Number(r.duration_minutes),
+  cancellationReason: r.cancellation_reason || null,
+  meetLink: r.meet_link || null,
   sourceKind: r.source_kind || 'imported',
   courseRunId: r.course_run_id, classCode: r.class_code, courseName: r.course_name,
   attendanceCount: r.attendance_count, expectedRosterCount: r.expected_roster_count,

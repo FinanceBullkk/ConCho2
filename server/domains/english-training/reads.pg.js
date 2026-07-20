@@ -208,6 +208,7 @@ async function listSessions({ q, limit = 100, offset = 0 } = {}) {
   const { rows } = await query(`
     SELECT su.id, su.session_number, m.starts_at AS held_at, su.status,
       m.id AS meeting_id, m.status AS meeting_status, m.duration_minutes,
+      m.cancellation_reason, m.meet_link,
       CASE WHEN su.source_sheet IS NULL THEN 'live' ELSE 'imported' END AS source_kind,
       r.id AS course_run_id, co.class_code, c.course_name,
       count(ar.id)::int AS attendance_count,
@@ -228,7 +229,7 @@ async function listSessions({ q, limit = 100, offset = 0 } = {}) {
     JOIN eng_courses c ON c.id = r.course_id
     LEFT JOIN eng_attendance_records ar ON ar.session_unit_id = su.id
     ${where}
-    GROUP BY su.id, r.id, co.class_code, c.course_name
+    GROUP BY su.id, m.id, r.id, co.class_code, c.course_name
     ORDER BY m.starts_at DESC, co.class_code, su.session_number
     LIMIT $${params.length - 1} OFFSET $${params.length}`, params);
   return rows;
@@ -236,9 +237,13 @@ async function listSessions({ q, limit = 100, offset = 0 } = {}) {
 
 async function getSessionAttendance(id) {
   const session = one((await query(`
-    SELECT su.id, su.session_number, su.held_at, su.status,
+    SELECT su.id, su.session_number, m.starts_at AS held_at, su.status,
+      m.id AS meeting_id, m.status AS meeting_status, m.duration_minutes,
+      m.cancellation_reason, m.meet_link,
+      CASE WHEN su.source_sheet IS NULL THEN 'live' ELSE 'imported' END AS source_kind,
       r.id AS course_run_id, co.class_code, c.course_name
     FROM eng_session_units su
+    JOIN eng_meetings m ON m.id = su.meeting_id
     JOIN eng_course_runs r ON r.id = su.course_run_id
     JOIN eng_cohorts co ON co.id = r.cohort_id
     JOIN eng_courses c ON c.id = r.course_id
@@ -250,10 +255,21 @@ async function getSessionAttendance(id) {
       ar.status AS attendance_status, ar.source_enrollment_dropped
     FROM eng_run_enrollments en
     JOIN eng_employees e ON e.id = en.employee_id
+    LEFT JOIN eng_cohort_memberships cm ON cm.id = en.cohort_membership_id
     LEFT JOIN eng_attendance_records ar
       ON ar.run_enrollment_id = en.id AND ar.session_unit_id = $1
     WHERE en.course_run_id = $2 AND en.start_session_number <= $3
-    ORDER BY e.full_name`, [id, session.course_run_id, session.session_number])).rows;
+      AND (
+        ar.id IS NOT NULL
+        OR ($4 = 'planned' AND en.status = 'active')
+        OR ($4 = 'completed'
+          AND cm.start_date <= $5::date
+          AND (cm.end_date IS NULL OR $5::date <= cm.end_date))
+      )
+    ORDER BY e.full_name, e.emp_code`, [
+    id, session.course_run_id, session.session_number,
+    session.meeting_status, session.held_at,
+  ])).rows;
   return { session, roster };
 }
 
