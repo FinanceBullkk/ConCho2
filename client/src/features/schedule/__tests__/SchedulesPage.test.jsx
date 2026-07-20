@@ -36,7 +36,7 @@ const inWeek = (dayOffset) => {
 
 const session = (id, classCode, deliveryType, dayOffset) => ({
   _id: id,
-  classId: { classCode, courseName: `Course ${classCode}` },
+  classId: { _id: `class-${classCode}`, classCode, courseName: `Course ${classCode}` },
   ...inWeek(dayOffset),
   enrolledCount: 1, capacity: 9, deliveryType,
 });
@@ -71,5 +71,41 @@ describe('SchedulesPage — exact-slot grid + world facet', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Cohort' }));
     expect(screen.queryByText('TEAM-A')).toBeNull();
     expect(screen.getByText('COH-B')).toBeInTheDocument();
+  });
+
+  it('English ownership scopes the grid by Cohort id and disables team-style creation', () => {
+    h.sched = {
+      isLoading: false,
+      data: { total: 2, data: [session('s-team', 'TEAM-A', 'team', 2), session('s-english', 'ENG-B', 'cohort', 3)] },
+    };
+    renderPage({ allowedClassIds: ['class-ENG-B'], allowCreate: false });
+
+    expect(screen.queryByText('TEAM-A')).toBeNull();
+    expect(screen.getByText('ENG-B')).toBeInTheDocument();
+    expect(screen.queryByText('+ Create')).toBeNull();
+    expect(screen.queryByRole('button', { name: '+ New Schedule' })).toBeNull();
+  });
+
+  it('renders Archive sessions on the weekly grid without edit/create affordances', () => {
+    const historical = {
+      ...session('archive:1', 'HIST-A', 'cohort', 2),
+      isHistorical: true,
+      archiveSessionId: 'archive-1',
+      historicalLabel: 'Historical',
+      historicalReadOnlyLabel: 'Historical · Read-only',
+      sessionNumber: 3,
+      archiveCounts: { present: 4, absent: 1 },
+    };
+    renderPage({
+      historicalOnly: true,
+      historicalSchedules: [historical],
+      defaultWeek: historical.startTime,
+    });
+
+    expect(screen.getByText('HIST-A')).toBeInTheDocument();
+    expect(screen.getByText('Historical')).toBeInTheDocument();
+    expect(screen.getByText('Historical · Read-only')).toBeInTheDocument();
+    expect(screen.queryByText('+ Create')).toBeNull();
+    expect(screen.queryByRole('button', { name: '+ New Schedule' })).toBeNull();
   });
 });

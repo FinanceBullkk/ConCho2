@@ -13,7 +13,7 @@ jest.mock('../../domains/english-training/controller', () => ({
   listEnglishTeachers: jest.fn(),
   getLiveEligibility: jest.fn(),
   getLiveEvaluationWorklist: jest.fn(), recordLiveEnglishLevel: jest.fn(), deleteLiveEnglishLevel: jest.fn(),
-  getArchiveStatus: jest.fn(), cutoverArchive: jest.fn(), getCombinedHistory: jest.fn(),
+  createCanonicalClass: jest.fn(),
   listManagedPeople: jest.fn(), createManagedPerson: jest.fn(), updateManagedPerson: jest.fn(),
   deleteManagedPerson: jest.fn(), provisionManagedPeople: jest.fn(),
   listSessions: (_req, res) => res.json({ success: true, data: [{ id: 's1' }] }),

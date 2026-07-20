@@ -111,7 +111,7 @@ This is the system's central feature.
 
 **Scheduling rules:**
 - Each session is exactly **1 hour**
-- Sessions are only allowed in **5 fixed slots**: 10:00–11:00 · 11:00–12:00 · 13:00–14:00 · 14:00–15:00 · 15:00–16:00
+- Sessions are only allowed in **5 fixed slots**: 09:00–10:00 · 10:00–11:00 · 13:00–14:00 · 14:00–15:00 · 15:00–16:00
 
   > **Why limit the slots?** To avoid cases like booking at 10:30 or a non-standard 1.5-hour session. Fixed slots keep schedules consistent and make conflicts easy to control.
 
@@ -211,7 +211,7 @@ Results are kept for 30 days to compare trends.
 
 #### First-time setup (done once)
 
-1. Go to **Admin → System settings**: check the 5 default time slots (10–11, 11–12, 13–14, 14–15, 15–16). Change them if the organization uses different hours.
+1. Go to **Admin → System settings**: check the 5 default time slots (09–10, 10–11, 13–14, 14–15, 15–16). Change them if the organization uses different hours.
 2. Review the course list and the corresponding session counts
 3. **Import the employee list** from Excel (Academy → Users → Import)
 

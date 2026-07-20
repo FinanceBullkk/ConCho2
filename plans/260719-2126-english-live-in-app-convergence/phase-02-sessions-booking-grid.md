@@ -16,7 +16,8 @@ integration, cancellation, and conflict protection.
 - English Program uses `schedulingMode=nomination`.
 - English Schedule posts to `/api/learning/sessions/book-slot` with `cohortId`,
   `officeId`, optional `roomId`, start/end time, and the authenticated actor.
-- The generic service snapshots active direct Enrollments onto the Session.
+- The generic service snapshots all active Cohort Enrollments, including the
+  run's PIC Team Enrollments, onto the Session.
 - Reuse `domains/schedule/session-order`: `sessionNumber` is derived from
   chronological position inside the course-run Cohort. Do not store a duplicate
   sequence field.
@@ -27,6 +28,9 @@ integration, cancellation, and conflict protection.
 
 - Add **Schedule** to English Operations as an English-filtered view of the
   generic calendar/grid.
+- Treat English Operations as the sole staff navigation owner: remove the
+  duplicate Admin Console Schedule entry and redirect legacy calendar/schedule
+  URLs to this tab.
 - It may reuse generic grid/drawer components, but its Program/Cohort pickers and
   query filters show only `category=english` course runs.
 - Archive sessions never appear as editable grid cells; they remain under

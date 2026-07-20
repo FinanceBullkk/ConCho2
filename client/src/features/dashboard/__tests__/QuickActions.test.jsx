@@ -74,7 +74,7 @@ describe('QuickActions — contextual operational tiles', () => {
     expect(certs).toHaveTextContent('5');
     expect(certs).toHaveTextContent(/2 expired/i);
 
-    expect(screen.getByRole('link', { name: /sessions next 7 days/i })).toHaveAttribute('href', '/calendar');
+    expect(screen.getByRole('link', { name: /sessions next 7 days/i })).toHaveAttribute('href', '/english-operations?tab=schedule');
     expect(screen.getByRole('link', { name: /completion rate/i })).toHaveTextContent('78%');
   });
 

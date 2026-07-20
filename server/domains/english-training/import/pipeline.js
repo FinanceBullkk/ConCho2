@@ -81,6 +81,7 @@ async function runImport(path, { reset = false } = {}) {
       detail: issue.detail ? JSON.stringify(issue.detail) : null,
     })), client);
     await repo.applyEmployeeCorrections(client);
+    await repo.applySessionTimeCorrections(client);
   });
 
   // Reconcile: source rows = loaded canonical + issue-skipped (per sheet).

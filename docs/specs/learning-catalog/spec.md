@@ -148,21 +148,14 @@ The system SHALL allow any authenticated user to read `/api/learning/programs`
 and `/api/learning/cohorts`; cohort writes (create/edit/delete) require the
 `cohort.manage` capability (Admin/Coordinator).
 
-### Requirement: Typed English Program policy and course-run context [BR-1, BR-2, BR-3]
+### English boundary
 
-An English Program SHALL use `category=english`, `schedulingMode=nomination`,
-and a typed `englishPolicy` containing an absence allowance, counted statuses,
-and exactly 13 uniquely ordered levels. Creating its course-run Cohort SHALL
-require `englishGroupCode`, snapshot the policy immutably, and may store run
-dates, PIC display, and explicit `teacherIds`. Non-English Programs reject these
-English-only policy fields. Teacher reads are restricted to assigned runs.
-The English Operations composition requests `liveEnglish=true`, which excludes
-legacy `category=english` Programs/Cohorts that have no typed policy snapshot.
-
-#### Scenario: Later policy edit does not rewrite a run
-- **GIVEN** an English Cohort created with allowance 2
-- **WHEN** the Program policy changes
-- **THEN** that Cohort continues eligibility/evaluation with its original snapshot.
+Generic Learning Programs/Cohorts/Teams do not own English classes. English
+uses the canonical module specified in
+[`../english-training/spec.md`](../english-training/spec.md): stable Cohort,
+dated PIC assignment, Course Run, Cohort Membership, and Run Enrollment. Shared
+catalog concepts may be consumed through intent-level adapters, but no PIC Team
+or generic English Program/Class projection may be created.
 
 ## Non-Functional Requirements (NFR)
 

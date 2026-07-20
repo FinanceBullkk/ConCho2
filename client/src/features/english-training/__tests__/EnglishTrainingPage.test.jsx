@@ -8,15 +8,15 @@ vi.mock('../useEnglishTraining', () => ({
   useEnglishClassDetail: () => ({ data: {
     id: 'co1', classCode: 'A1', status: 'active', displayName: 'Alpha cohort',
     runs: [{
-      id: 'r1', runNumber: 1, status: 'active', courseName: 'Foundation', maxAbsencesAllowed: 2,
-      roster: [{ enrollmentId: 'en1', empCode: '000123', fullName: 'Alex Nguyen', enrollmentStatus: 'active', absenceCount: 1, allowedAbsences: 2, eligibilityStatus: 'within_limit', examLevelName: 'A1', examDate: '2026-07-10T00:00:00.000Z' }],
+      id: 'r1', runNumber: 1, status: 'active', courseName: 'Foundation', attendanceThresholdRatio: 0.8,
+      roster: [{ enrollmentId: 'en1', empCode: '000123', fullName: 'Alex Nguyen', enrollmentStatus: 'active', markedCount: 10, presentCount: 9, attendanceRatio: 0.9, attendanceThresholdRatio: 0.8, eligibilityStatus: 'within_limit', examLevelName: 'A1', examDate: '2026-07-10T00:00:00.000Z' }],
     }],
   } }),
-  useEnglishCourses: () => ({ data: [{ id: 'c1', courseCode: 'FOUNDATION', courseName: 'Foundation', expectedUnits: 20, maxAbsencesAllowed: 2, runs: 4 }] }),
+  useEnglishCourses: () => ({ data: [{ id: 'c1', courseCode: 'FOUNDATION', courseName: 'Foundation', expectedUnits: 20, attendanceThresholdRatio: 0.8, runs: 4 }] }),
   useEnglishEmployees: () => ({ data: [{ id: 'e1', empCode: '000123', fullName: 'Alex Nguyen', email: 'alex@example.com', employmentStatus: 'active' }] }),
   useEnglishSessions: () => ({ data: [{ id: 's1', classCode: 'A1', courseName: 'Foundation', sessionNumber: 1, heldAt: '2026-07-01T10:00:00.000Z', presentCount: 1, absentCount: 0 }] }),
   useEnglishSessionAttendance: () => ({ data: { id: 's1', classCode: 'A1', courseName: 'Foundation', sessionNumber: 1, roster: [{ enrollmentId: 'en1', employeeCode: '000123', employeeName: 'Alex Nguyen', enrollmentStatus: 'active', attendanceStatus: 'present' }] } }),
-  useEnglishEligibility: () => ({ data: [{ enrollmentId: 'en1', employeeCode: '000123', employeeName: 'Alex Nguyen', classCode: 'A1', courseName: 'Foundation', absenceCount: 0, allowedAbsences: 2, eligibilityStatus: 'within_limit' }] }),
+  useEnglishEligibility: () => ({ data: [{ enrollmentId: 'en1', employeeCode: '000123', employeeName: 'Alex Nguyen', classCode: 'A1', courseName: 'Foundation', attendanceRatio: 0.9, attendanceThresholdRatio: 0.8, eligibilityStatus: 'within_limit' }] }),
   useEnglishIssues: () => ({ data: [{ code: 'missing_bu', count: 3 }] }),
   useEnglishIssueDetails: () => ({
     data: [{
@@ -83,7 +83,7 @@ describe('EnglishTrainingPage', () => {
     // One place: course run + learner attendance summary + eligibility + level.
     expect(screen.getByText('Foundation')).toBeInTheDocument();
     expect(screen.getByText('000123 · Alex Nguyen')).toBeInTheDocument();
-    expect(screen.getByText('1 / 2')).toBeInTheDocument();       // absences used / allowed
+    expect(screen.getByText('9/10 · 90% / 80%')).toBeInTheDocument();
     expect(screen.getByText('Within limit')).toBeInTheDocument();  // eligibility badge
     fireEvent.click(screen.getByRole('button', { name: '← Back to classes' }));
     expect(screen.getByRole('button', { name: 'Open class A1' })).toBeInTheDocument();

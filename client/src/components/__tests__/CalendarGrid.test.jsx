@@ -59,4 +59,19 @@ describe('CalendarGrid (descriptor contract)', () => {
     );
     expect(screen.getByText('No sessions this week')).toBeInTheDocument();
   });
+
+  it('keeps all seven day columns equal instead of sizing them from card content', () => {
+    render(
+      <CalendarGrid weekDays={mkWeek()} rows={[slot(10, 0, 11, 0)]} renderCell={() => <span>content</span>}
+        onPrev={noop} onNext={noop} onToday={noop} weekLabel="week" />,
+    );
+
+    const table = screen.getByRole('table');
+    expect(table).toHaveClass('table-fixed', 'min-w-[960px]');
+
+    const columns = table.querySelectorAll('col');
+    expect(columns).toHaveLength(8);
+    expect(columns[0]).toHaveClass('w-24');
+    expect(Array.from(columns).slice(1).every((column) => column.classList.contains('w-[123px]'))).toBe(true);
+  });
 });

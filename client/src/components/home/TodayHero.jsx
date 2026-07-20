@@ -51,7 +51,7 @@ export function TodayHero() {
           </p>
         </div>
         <Link
-          to="/calendar"
+          to="/english-operations?tab=schedule"
           className="inline-flex shrink-0 items-center gap-1 rounded-lg border border-border bg-card px-2.5 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
         >
           Open calendar <ArrowRight className="size-3.5" aria-hidden="true" />

@@ -28,8 +28,9 @@ a commercial LMS clone or SCORM-first content platform.
 ## 2. Core workflow — the booking model (counter-intuitive, get this right)
 
 For `leader_booking` Programs, Admins do **not** pre-create sessions. The **team leader** self-creates them by
-clicking an empty cell on the `/book` grid. Constraints: exactly **1 hour**,
-only **5 fixed slots**, max **2 / week / team**. The DB unique index
+clicking an empty cell on the `/book` grid. The approved baseline is five
+one-hour slots (`09–10`, `10–11`, `13–14`, `14–15`, `15–16`), runtime-configured
+through `ALLOWED_TIME_SLOTS`, with max **2 / week / team**. The DB unique index
 `{classId, startTime}` is the final guard against double-booking.
 
 English live delivery uses the other shared path: a dedicated **English

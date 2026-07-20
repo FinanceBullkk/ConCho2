@@ -1,34 +1,64 @@
 # English live cutover and Archive DR runbook
 
+> **Retired 2026-07-20. Do not execute.** The generic handoff and whole-domain
+> Archive cutover were superseded by
+> [`english-domain-authority.md`](decisions/english-domain-authority.md).
+> Migration 047 keeps canonical English operational and protects only imported
+> evidence; the generated generic rows were soft-retired.
+
 This runbook activates the one-way transition from imported `eng_*` writes to
-the generic live training spine. The implementation is migration 043 plus
-`POST /api/english-training/archive/cutover`. Do not flip production merely
+the generic live training spine. The implementation is migrations 043–045 plus
+the active handoff and Archive cutover commands. Do not flip production merely
 because the code is deployed.
 
-> **Prototype rehearsal (2026-07-20):** migrations 040–043, the safe write-guard
+> **Prototype rehearsal (2026-07-20):** migrations 040–046, the safe write-guard
 > probe, and the full 84-suite/790-test PostgreSQL integration lane passed against
-> `PG_PROTOTYPE_URL`. This is preflight evidence only: production is not migrated,
-> frozen, or cut over.
+> `PG_PROTOTYPE_URL`. The active handoff created 5 Programs, 11 active Cohorts,
+> 11 PIC Teams and 56 Team Enrollments; 984 historical Sessions and 5,962 Attendance rows
+> remained Archive-only. This is preflight evidence only: production is not
+> migrated, frozen, or cut over.
+>
+> The imported-session time repair was also applied on the prototype: all 984
+> Session Units were allocated to the approved five one-hour slots, 421 source
+> times changed, and the unavoidable 24 overflow sessions moved date. Verification
+> returned zero missing rows, overlaps, or duplicate class/dates. Allocation hash:
+> `c0936b57d0e2589fb805d7238741083f65e08586071659e21c039d7a08733a85`.
 
 ## Preflight
 
 1. Deploy with server `ENGLISH_TRAINING_ENABLED=true` and a client build using
-   `VITE_ENGLISH_TRAINING_ENABLED=true`; apply migrations 040–043 and take a
+   `VITE_ENGLISH_TRAINING_ENABLED=true`; apply migrations 040–046 and take a
    verified PostgreSQL backup.
    Before production, apply them to the disposable prototype and run
    `cd server && npm run verify:english-prototype`; the probe refuses a URL that
    matches `server/.env` and rolls back both write-guard checks.
 2. Record counts and hashes for every `eng_*` table and
    `raw_eng_workbook_rows`; keep the reconciliation artifact with the change.
-3. Resolve or explicitly accept provisioning collisions. Confirm all expected
+3. Preview imported-session allocation with
+   `node scripts/eng-reallocate-session-times.js`. After reviewing the 24 date
+   moves, apply it as Admin with `--apply`,
+   `--confirm=REALLOCATE_ENGLISH_ARCHIVE`, `--actor-emp-code`, and a change-record
+   `--reason`. Require 984 updated Sessions, zero mismatches, zero overlaps, zero
+   duplicate class/dates, the expected allocation hash, and an `EnglishArchive`
+   audit row. The raw workbook is not changed; migration 045 preserves and
+   reapplies the correction overlay.
+4. Resolve or explicitly accept provisioning collisions. Confirm all expected
    archive employees have `user_id`, or have a documented reason not to.
-4. Run the live smoke loop as Admin/Coordinator: managed learner → English
-   Program → course-run Cohort → direct Enrollment → Office/Room Session →
+5. Run the live smoke loop as Admin/Coordinator: managed learner → English
+   Program → course-run Cohort → PIC Team Enrollment → Office/Room Session →
    Attendance → completed run eligibility → final Level.
-5. Repeat read/mark/evaluate as the assigned Teacher; verify an unassigned
+6. Repeat read/mark/evaluate as the assigned Teacher; verify an unassigned
    Teacher and Participant receive 403. Verify a managed learner cannot log in.
-6. Confirm reports/transcript show the categorical level without a fabricated
+7. Confirm reports/transcript show the categorical level without a fabricated
    score or pass result.
+8. In English Operations → Archive, review **Carry active classes into live
+   operations**. Confirm every expected active run is listed, every expected
+   active learner is linked, and investigate any skipped learner before moving
+   on. As Admin, choose **Transfer active classes**. Verify the after-summary has
+   `transferredRuns=activeRuns` and `transferredLearners=linkedLearners`.
+9. Open Classes and verify course, stable group code, run dates, PIC display,
+   total sessions, and roster. Confirm no historical Session or Attendance row
+   was copied. Running the handoff again must create zero new rows.
 
 ## Cut over
 
@@ -46,6 +76,7 @@ Immediately verify:
 - The importer and legacy correction/exam-result endpoints return 409.
 - Live generic learner/class/session/attendance/evaluation mutations still work.
 - Audit contains the `EnglishArchive` cutover event and reason.
+- Audit contains the earlier `EnglishArchive` `active-handoff` event.
 
 Monitor application 409 responses and PostgreSQL SQLSTATE `55000`; either means
 something still attempted an Archive write and should be moved to the live

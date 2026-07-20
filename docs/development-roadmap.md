@@ -22,24 +22,23 @@ remainder is documented deferred-by-design scope (below), not active debt.
   scheduling** — closed 2026-06-12. Full-system audit (8/8 rounds) complete;
   Express 4→5 + light dependency majors done. **Cohesion Wave** (6/6) + in-app
   notification bell (full event coverage) shipped 2026-06-13.
-- **Now / Next — English live convergence:** ADR
-  [`english-live-converge`](decisions/english-live-converge.md) is **Accepted** and
-  P0–P5 implementation is complete on the working branch: third **English
-  Operations** workspace; login-disabled managed Users; English Program policy
-  + course-run Cohort snapshot; shared booking/Room grid; shared Attendance;
-  count-based eligibility; categorical final-level Evaluation; and a read-only
-  historical Archive with an audited one-way cutover, PostgreSQL write guards,
-  and cutover-aware combined history. The disposable PostgreSQL prototype has
-  now rehearsed migrations 040–043, the complete live vertical smoke, and the
-  database write guards (84/84 integration suites, 790/790 tests). **Next
-  operational gate:** deploy migrations 040–043 to production, reconcile archive
-  hashes/counts, repeat the live smoke there, then invoke Admin cutover. The
-  runtime archive is not claimed frozen until that production gate passes.
-- **Historical archive baseline:** Phases 1–3 are complete on dev: identity,
+- **Now / Next — canonical English Operations:** ADR
+  [`english-domain-authority`](decisions/english-domain-authority.md) is
+  **Accepted** and supersedes the generic English handoff. Migration 047 is
+  applied: 52 stable classes retain 52 current PIC assignments; Course Run
+  rosters read directly from `eng_run_enrollments`; one-current-PIC and
+  one-active-enrollment invariants are database guarded; eligibility uses the
+  Course Run's 80% attendance-ratio snapshot. The reversible 5 Program / 11
+  Class / 11 PIC Team / 56 Team Enrollment projection was soft-retired with an
+  audit trail. Classes now group by current PIC and show each Course Run roster.
+  Schedule/Attendance render imported canonical evidence without a generic
+  live/archive toggle. **Next:** port separate Meeting + one/two Session Unit
+  commands and atomic full-roster attendance save from the authority model.
+- **Canonical English baseline:** Phases 1–3 are complete on dev: identity,
   structure, correction overlay, 984 historical sessions, 5,962 attendance
-  records, searchable attendance rosters, derived absence eligibility, and (Phase 3,
+  records, searchable attendance rosters, derived ratio eligibility, and (Phase 3,
   2026-07-19) **exam result & level entry** — HR/Admin records one of 13 ordered
-  levels per finished learner, gated server-side by the ≤2-absence rule, with a
+  levels per finished learner, gated server-side by the Course Run attendance threshold, with a
   "needs level" worklist over completed runs. The real workbook reconciles
   losslessly; 182 DQ issues remain visible for later HR review. Evaluation rules
   are now HR-confirmed; **placement test, level promotion, and certificates stay
@@ -182,11 +181,62 @@ Bug fixing and integration review rank above net-new feature rollout.
 > [`2026-q3.md`](changelog-archive/2026-q3.md); 06-20→06-27 rolled 2026-07-07;
 > 06-14→06-19 rolled 2026-07-04 → [`2026-q2.md`](changelog-archive/2026-q2.md)).
 
-- **2026-07-20** — **English Operations prototype migration + full PG rehearsal passed.**
+- **2026-07-20** — **English Archive historical sessions reallocated without overlap.**
+  Migration 045 adds a stable session-time correction overlay plus append-only
+  batch evidence; raw Excel staging remains immutable and re-import reapplies the
+  correction. A deterministic guarded CLI previewed then updated all **984**
+  Session Units onto the approved five one-hour windows. **421** timestamps
+  changed; only the unavoidable **24** sessions on 16 over-capacity dates moved
+  to a nearby weekday. Transactional verification returned **0 mismatches, 0
+  date/slot overlaps, and 0 duplicate class/dates**; course-run session order was
+  preserved and an Admin `EnglishArchive` audit event was recorded. Allocation
+  hash: `c0936b57d0e2589fb805d7238741083f65e08586071659e21c039d7a08733a85`.
+
+- **2026-07-20** — **Approved English time-slot baseline corrected.**
+  `ALLOWED_TIME_SLOTS` now uses five one-hour Vietnam windows: `09–10`,
+  `10–11`, `13–14`, `14–15`, and `15–16`. The canonical seed and PG test
+  baseline share one constant, and the local prototype setting was updated
+  through the authenticated Settings API with its normal audit entry. This
+  replaces the stale three-slot 90-minute test fixture visible in the grid.
+
+- **2026-07-20** — **Schedule and Attendance UI ownership moved to English Operations.**
+  Removed the duplicate Admin Console Operations navigation; Schedule,
+  Attendance, and Mobile Attendance now enter through the English workspace.
+  The English tabs reuse the canonical weekly grids and roster drawer, filtered
+  by English course-run Cohort; English attendance exposes P/L/A/EL. Schedule
+  and Attendance now separate **Live** from **Historical**: all 984 Archive
+  Sessions and 5,962 Archive Attendance records are inspectable in those same
+  grids with mutation controls locked, while zero historical events are copied
+  into live storage. With no live English Sessions, each tab opens on the latest
+  useful historical week instead of an empty current week: Schedule uses the
+  latest Archive schedule, while Attendance uses the latest week containing P/A
+  evidence. Cards distinguish complete, partial, and missing source marks; no
+  missing learner is fabricated as absent. Archive Excel clocks are
+  normalized as Vietnam wall time at the presentation boundary, fixing the
+  prior duplicate `+07:00` shift (for example, 10:00 no longer renders 17:00).
+  Legacy `/calendar`, `/schedules`, `/attendance`, and `/operations` links route
+  to the matching English tab. Storage, conflict checks, authz, audit, and
+  reporting remain on the shared generic domains.
+
+- **2026-07-20** — **Superseded: active English rosters reconstructed and handed off.**
+  The handoff now fills missing active-run rosters from verified evidence in a
+  strict order: current active Enrollment, current-run Attendance evidence, then
+  the latest prior non-dropped Attendance-evidenced roster for the same stable
+  class. The preview exposes inferred counts and live Enrollments retain their
+  source strategy/run for audit. Applied to the live app DB: **20 missing
+  Enrollments created**, bringing **11 Ongoing English classes to 56/56 linked
+  enrollment edges with 0 missing Users** (EL023 +5, EL027 +7, EL040 +3, EL042
+  +5). Migration 046 and the corrected handoff then created **11 PIC-owned
+  Teams**, attached all 56 Enrollments and 56 Team membership edges, resolved 8
+  PIC leaders, and retained 3 name-only PICs as explicit unresolved leaders.
+  The operation was transactional, audited, and verified idempotent; no
+  historical Session or Attendance event moved.
+
+- **2026-07-20** — **Superseded: English Operations generic prototype rehearsal.**
   Applied migrations 040–043 only to the disposable `PG_PROTOTYPE_URL` after a
   no-secret equality guard confirmed it differs from production `PG_URL`. Added
   a real-HTTP vertical integration smoke covering managed learner → disabled
-  login → English Program/Cohort snapshot → direct enrollment → generic
+  login → English Program/Cohort snapshot → PIC Team enrollment → generic
   attendance → eligibility → categorical final level. The full PostgreSQL lane
   passes **84/84 suites, 790/790 tests**. The reusable prototype verifier confirms
   all 4 migrations, 12 new columns, 15 Archive triggers, the immutable control
@@ -194,10 +244,19 @@ Bug fixing and integration review rank above net-new feature rollout.
   rolled back). Test reset now restores the migration-owned Archive control
   singleton. Production was not migrated or cut over; no Archive freeze occurred.
 
-- **2026-07-19** — **English Operations live convergence P0–P5 implemented.**
+- **2026-07-20** — **Superseded: active English state projected to generic storage.**
+  Added migration 044 and an Admin-only, audited, transactional handoff with an
+  Admin/Coordinator preview in English Operations → Archive. It carries only
+  active course-run structure and linked active rosters to shared live storage,
+  using stable natural keys for retry safety. Prototype result: **5 Programs,
+  11 Ongoing Cohorts, 11 PIC Teams, 56/56 Team Enrollments, 0 skipped**. Historical evidence
+  stayed put (**984 Archive Sessions, 5,962 Archive Attendance; 0 copied live
+  Sessions**), the Archive remains unfrozen, and one audit event was recorded.
+
+- **2026-07-19** — **Superseded: English Operations generic convergence P0–P5.**
   Accepted the dedicated-workspace ADR while preserving one backend training
   spine. Added migrations 040–043, managed learners (`can_login=false`), typed
-  English Program/Cohort policy snapshots, direct enrollment late-join context,
+  English Program/Cohort policy snapshots, PIC Team enrollment late-join context,
   generic booking + attendance, strict assigned-Teacher resource access,
   eligibility-gated categorical final levels, and Archive cutover enforcement.
   The client now exposes Overview/Learners/Classes/Schedule/Attendance/Evaluation/
@@ -235,7 +294,7 @@ Bug fixing and integration review rank above net-new feature rollout.
   with 349 learners pending across 71 completed runs. Server contract unchanged;
   client-only (`EvaluationView` + `useRecordExamResultsBatch`). Verified: client
   534/534 + lint 0 errors + build clean.
-- **2026-07-19** — **English Training integration · Phase 3 (exam result & level / evaluation) — shipped on dev.**
+- **2026-07-19** — **Superseded policy: English Training evaluation phase 3.**
   Owner confirmed the rules: completion = sitting a final exam whose result **is a
   level** (13 ordered levels, no score/fail); **>2 absences ⇒ cannot sit**; HR/Admin
   enters levels via an in-app screen; certificates stay HR-external. Migration `039`

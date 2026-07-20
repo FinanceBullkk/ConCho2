@@ -8,6 +8,7 @@
     "dev": "node --watch server.js",
     "seed": "node scripts/seed-pg.js",
     "verify:english-prototype": "node scripts/dev-tools/eng-live-prototype-verify.js",
+    "retire:english-pic-teams": "node scripts/eng-retire-incorrect-pic-teams.js",
     "test": "jest --runInBand --forceExit --detectOpenHandles",
     "test:smoke": "npx artillery run tests/load/smoke-test.yml",
     "test:load": "npx artillery run tests/load/load-test.yml",

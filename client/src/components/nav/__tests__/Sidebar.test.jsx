@@ -42,17 +42,19 @@ describe('Sidebar — section-group navigation (Phase 03)', () => {
       '/home',
       '/learning?tab=programs', '/learning?tab=paths',
       '/grading',                                          // unified Grading workspace (Learning group)
-      '/calendar?tab=schedules', '/calendar?tab=attendance',
       '/people?tab=users', '/people?tab=teams',            // Teams moved to People (converge Phase 4)
       '/reports?tab=overview', '/reports?tab=hr-export',
       '/system?tab=settings',
     ].forEach((p) => expect(links).toContain(p));
     // English operations now lives in its own workspace, not Admin Console.
+    expect(links).not.toContain('/calendar?tab=schedules');
+    expect(links).not.toContain('/calendar?tab=attendance');
+    expect(links).not.toContain('/mobile-attendance');
     expect(hrefs(renderSidebar().container)).not.toContain('/english-training');
     expect(hrefs(renderSidebar().container).some((h) => h === '/english' || h.startsWith('/english?'))).toBe(false);
   });
 
-  it('Teacher: learning (read, no Paths), reports (no Overview), unified calendar attendance + Grading; no People/System', () => {
+  it('Teacher: learning (read, no Paths), reports (no Overview) and Grading; no Admin Operations/People/System', () => {
     h.user = { role: 'Teacher' };
     const links = hrefs(renderSidebar().container);
     expect(links).toContain('/learning?tab=programs');
@@ -60,7 +62,7 @@ describe('Sidebar — section-group navigation (Phase 03)', () => {
     expect(links).not.toContain('/learning?tab=paths');         // manage:path = Admin/Coord
     expect(links).toContain('/reports?tab=learning');
     expect(links).not.toContain('/reports?tab=overview');        // read:dashboard = Admin
-    expect(links).toContain('/calendar?tab=attendance');         // unified attendance (both worlds)
+    expect(links).not.toContain('/calendar?tab=attendance');     // owned by English Operations
     expect(links).not.toContain('/calendar?tab=schedules');      // admin-only
     expect(links).toContain('/grading');                         // rubric grading folded into the unified Grading workspace
     expect(links.some((h) => h.startsWith('/english'))).toBe(false); // English admin group retired (converge Phase 4)
@@ -105,11 +107,17 @@ describe('Sidebar — section-group navigation (Phase 03)', () => {
     let links = hrefs(renderSidebar('/english-operations?tab=overview').container);
     expect(links).toContain('/english-operations?tab=overview');
     expect(links).toContain('/english-operations?tab=learners');
+    expect(links).toContain('/english-operations?tab=schedule');
+    expect(links).toContain('/english-operations?tab=attendance');
+    expect(links).toContain('/mobile-attendance');
     expect(links).not.toContain('/learning?tab=programs');
 
     h.user = { role: 'Teacher' };
     links = hrefs(renderSidebar('/english-operations?tab=overview').container);
     expect(links).toContain('/english-operations?tab=overview');
+    expect(links).toContain('/english-operations?tab=schedule');
+    expect(links).toContain('/english-operations?tab=attendance');
+    expect(links).toContain('/mobile-attendance');
     expect(links).not.toContain('/english-operations?tab=learners');
   });
 

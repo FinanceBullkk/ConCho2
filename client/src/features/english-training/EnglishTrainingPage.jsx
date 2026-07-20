@@ -12,13 +12,19 @@ import EvaluationView from './EvaluationView';
 import OverviewPanel from './OverviewPanel';
 import ClassDetailView from './ClassDetailView';
 import { EngBadge } from './eng-status-badge';
+import { formatEnglishArchiveDateTime } from './archive-time';
 
 const editableTabs = ['overview', 'classes', 'courses', 'employees', 'sessions', 'eligibility', 'evaluation', 'issues'];
 const archiveTabs = ['classes', 'courses', 'employees', 'sessions', 'eligibility', 'issues'];
 
 // Status columns get a colored pill instead of raw text so the tables read at a glance.
 const BADGE_KEYS = new Set(['status', 'employmentStatus', 'eligibilityStatus', 'enrollmentStatus']);
-const badgeCell = (row, key) => (BADGE_KEYS.has(key) ? <EngBadge status={row[key]} /> : (row[key] ?? '—'));
+const PERCENT_KEYS = new Set(['attendanceRatio', 'attendanceThresholdRatio']);
+const badgeCell = (row, key) => {
+  if (BADGE_KEYS.has(key)) return <EngBadge status={row[key]} />;
+  if (PERCENT_KEYS.has(key)) return row[key] == null ? '—' : `${Math.round(Number(row[key]) * 100)}%`;
+  return row[key] ?? '—';
+};
 // Classes list: the class code opens the class 360° detail; everything else is a badge/plain cell.
 const classCell = (onOpen, t) => (row, key) => (key === 'classCode'
   ? <button type="button" onClick={() => onOpen(row.id)}
@@ -27,9 +33,9 @@ const classCell = (onOpen, t) => (row, key) => (key === 'classCode'
   : badgeCell(row, key));
 const definitions = {
   classes: [['classCode', 'classCode'], ['status', 'status'], ['activeMembers', 'activeMembers'], ['runs', 'runs']],
-  courses: [['courseCode', 'courseCode'], ['courseName', 'courseName'], ['expectedUnits', 'expectedUnits'], ['maxAbsencesAllowed', 'maxAbsences'], ['runs', 'runs']],
+  courses: [['courseCode', 'courseCode'], ['courseName', 'courseName'], ['expectedUnits', 'expectedUnits'], ['attendanceThresholdRatio', 'attendanceTarget'], ['runs', 'runs']],
   employees: [['empCode', 'employeeCode'], ['fullName', 'fullName'], ['email', 'email'], ['employmentStatus', 'status']],
-  eligibility: [['employee', 'employee'], ['classCode', 'classCode'], ['courseName', 'courseName'], ['absenceCount', 'absences'], ['allowedAbsences', 'allowedAbsences'], ['eligibilityStatus', 'eligibilityStatus']],
+  eligibility: [['employee', 'employee'], ['classCode', 'classCode'], ['courseName', 'courseName'], ['attendanceRatio', 'attendanceRate'], ['attendanceThresholdRatio', 'attendanceTarget'], ['eligibilityStatus', 'eligibilityStatus']],
 };
 
 function DataTable({ rows, columns, t, renderCell }) {
@@ -110,7 +116,7 @@ function CorrectionForm({ row, issueCode, onSaved, onCancel, t }) {
 function SessionsView({ rows, selected, onSelect, detail, t }) {
   const sessionRows = (rows || []).map((row) => ({
     ...row,
-    heldAtText: row.heldAt ? new Date(row.heldAt).toLocaleString() : null,
+    heldAtText: formatEnglishArchiveDateTime(row.heldAt),
   }));
   const columns = [
     ['classCode', 'classCode'], ['courseName', 'courseName'], ['sessionNumber', 'sessionNumber'],

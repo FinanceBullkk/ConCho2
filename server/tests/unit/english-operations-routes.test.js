@@ -15,14 +15,12 @@ jest.mock('../../domains/english-training/controller', () => ({
   getLiveEvaluationWorklist: (_req, res) => res.json({ success: true, data: { learners: [] } }),
   recordLiveEnglishLevel: (req, res) => res.status(201).json({ success: true, data: req.body }),
   deleteLiveEnglishLevel: jest.fn(),
-  getArchiveStatus: (_req, res) => res.json({ success: true, data: { isFrozen: true } }),
-  cutoverArchive: (_req, res) => res.status(201).json({ success: true }),
-  getCombinedHistory: (_req, res) => res.json({ success: true, data: { attendance: [], evaluations: [] } }),
+  createCanonicalClass: (req, res) => res.status(201).json({ success: true, data: req.body }),
   listManagedPeople: (_req, res) => res.json({ success: true, data: [] }),
   createManagedPerson: (req, res) => res.status(201).json({ success: true, data: req.body }),
   updateManagedPerson: jest.fn(), deleteManagedPerson: jest.fn(), provisionManagedPeople: jest.fn(),
-  getOverview: jest.fn(), listCohorts: jest.fn(), getCohort: jest.fn(), getClassDetail: jest.fn(),
-  listCourses: jest.fn(), getCourseRun: jest.fn(), listEmployees: jest.fn(), getEmployee: jest.fn(),
+  getOverview: jest.fn(), listCohorts: (_req, res) => res.json({ success: true, data: [] }), getCohort: jest.fn(), getClassDetail: jest.fn(),
+  listCourses: (_req, res) => res.json({ success: true, data: [] }), getCourseRun: jest.fn(), listEmployees: (_req, res) => res.json({ success: true, data: [] }), getEmployee: jest.fn(),
   correctEmployee: jest.fn(), listSessions: jest.fn(), getSessionAttendance: jest.fn(),
   listEligibility: jest.fn(), listIssues: jest.fn(), listIssueDetails: jest.fn(),
   listLevels: jest.fn(), listPendingExamEntries: jest.fn(), recordExamResult: jest.fn(), deleteExamResult: jest.fn(),
@@ -59,49 +57,39 @@ describe('English Operations P0 authorization', () => {
   });
 });
 
-describe('English Operations P4 level authorization', () => {
-  test.each(['Admin', 'Coordinator', 'Teacher'])('%s can enter the live evaluation worklist', async (role) => {
+describe('English Operations canonical evaluation authorization', () => {
+  test('Participant cannot record a canonical English level', async () => {
     const res = await request(app)
-      .get('/api/english-training/live/cohorts/cohort-1/evaluations')
-      .set('x-test-role', role);
-    expect(res.status).toBe(200);
-  });
-
-  test('Participant cannot record a live English level', async () => {
-    const res = await request(app)
-      .post('/api/english-training/live/cohorts/cohort-1/evaluations')
+      .post('/api/english-training/enrollments/enrollment-1/exam-result')
       .set('x-test-role', 'Participant')
-      .send({ userId: 'learner-1', levelCode: 'advanced' });
+      .send({ levelCode: 'advanced', examDate: '2026-07-20' });
     expect(res.status).toBe(403);
   });
 });
 
-describe('English Operations P5 archive authorization', () => {
-  test('Coordinator can read archive status but cannot perform cutover', async () => {
-    const read = await request(app).get('/api/english-training/archive/status').set('x-test-role', 'Coordinator');
+describe('English Operations canonical class authorization', () => {
+  const validClass = {
+    classCode: 'EL900', displayName: 'English Class 900', courseId: 'course-1',
+    startDate: '2026-07-20', capacity: 12, status: 'active', picLabel: 'People Team',
+  };
+
+  test('Coordinator can read and atomically create a PIC-owned class', async () => {
+    const read = await request(app).get('/api/english-training/workspace/classes').set('x-test-role', 'Coordinator');
     expect(read.status).toBe(200);
-    const write = await request(app)
-      .post('/api/english-training/archive/cutover')
-      .set('x-test-role', 'Coordinator')
-      .send({ confirm: true, reason: 'Verified all live English operations' });
-    expect(write.status).toBe(403);
+    const write = await request(app).post('/api/english-training/workspace/classes')
+      .set('x-test-role', 'Coordinator').send(validClass);
+    expect(write.status).toBe(201);
   });
 
-  test('Admin cutover requires explicit confirmation and reason', async () => {
-    const rejected = await request(app)
-      .post('/api/english-training/archive/cutover')
-      .set('x-test-role', 'Admin')
-      .send({ confirm: false, reason: 'Verified all live English operations' });
-    expect(rejected.status).toBe(400);
-    const accepted = await request(app)
-      .post('/api/english-training/archive/cutover')
-      .set('x-test-role', 'Admin')
-      .send({ confirm: true, reason: 'Verified all live English operations' });
-    expect(accepted.status).toBe(201);
+  test('class creation requires a PIC employee or label', async () => {
+    const res = await request(app).post('/api/english-training/workspace/classes')
+      .set('x-test-role', 'Admin').send({ ...validClass, picLabel: '' });
+    expect(res.status).toBe(400);
   });
 
-  test('Teacher cannot read the historical archive status', async () => {
-    const res = await request(app).get('/api/english-training/archive/status').set('x-test-role', 'Teacher');
+  test('Teacher cannot administer canonical classes', async () => {
+    const res = await request(app).post('/api/english-training/workspace/classes')
+      .set('x-test-role', 'Teacher').send(validClass);
     expect(res.status).toBe(403);
   });
 });

@@ -382,7 +382,7 @@ export const complianceAPI = {
   getUserCompliance: (id) => api.get(`/compliance/user/${id}`),
 };
 
-// English-training canonical workbook data (Phase 1 operations view + targeted corrections).
+// Canonical English domain plus imported workbook evidence/corrections.
 export const englishTrainingAPI = {
   getOverview: () => api.get('/english-training/overview'),
   getCohorts: () => api.get('/english-training/cohorts'),
@@ -406,19 +406,17 @@ export const englishTrainingAPI = {
 // English Operations workspace — live composition over shared domains.
 export const englishOperationsAPI = {
   getOverview: () => api.get('/english-training/workspace/overview'),
+  getCanonicalClasses: () => api.get('/english-training/workspace/classes'),
+  getCanonicalClass: (id) => api.get(`/english-training/workspace/classes/${id}`),
+  getCanonicalCourses: () => api.get('/english-training/workspace/courses'),
+  getCanonicalEmployees: (params) => api.get('/english-training/workspace/employees', { params }),
+  createCanonicalClass: (data) => api.post('/english-training/workspace/classes', data),
   getManagedLearners: (params) => api.get('/english-training/managed-learners', { params }),
   createManagedLearner: (data) => api.post('/english-training/managed-learners', data),
   updateManagedLearner: (id, data) => api.patch(`/english-training/managed-learners/${id}`, data),
   deleteManagedLearner: (id) => api.delete(`/english-training/managed-learners/${id}`),
   provisionArchiveLearners: () => api.post('/english-training/managed-learners/provision-archive'),
   getTeachers: () => api.get('/english-training/workspace/teachers'),
-  getLiveEligibility: (cohortId) => api.get(`/english-training/live/cohorts/${cohortId}/eligibility`),
-  getLiveEvaluations: (cohortId) => api.get(`/english-training/live/cohorts/${cohortId}/evaluations`),
-  recordLiveEvaluation: (cohortId, data) => api.post(`/english-training/live/cohorts/${cohortId}/evaluations`, data),
-  deleteLiveEvaluation: (evaluationId) => api.delete(`/english-training/live/evaluations/${evaluationId}`),
-  getArchiveStatus: () => api.get('/english-training/archive/status'),
-  cutoverArchive: (data) => api.post('/english-training/archive/cutover', data),
-  getCombinedHistory: () => api.get('/english-training/live/history'),
 };
 
 // ── Org model (departments, offices, manager hierarchy, my-team) ───

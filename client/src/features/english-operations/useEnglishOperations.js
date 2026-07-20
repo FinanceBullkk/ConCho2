@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { useTranslation } from 'react-i18next';
-import { attendanceAPI, englishOperationsAPI, learningAPI } from '../../api/api';
+import { englishOperationsAPI, englishTrainingAPI } from '../../api/api';
 import { qk } from '../../hooks/queryKeys';
 
 const payload = (request) => request.then((response) => response.data);
@@ -17,120 +17,61 @@ export const useManagedEnglishLearners = (params, enabled = true) => useQuery({
   enabled,
 });
 
-export const useEnglishPrograms = () => useQuery({
-  queryKey: qk.englishOperations.programs,
-  queryFn: () => payload(learningAPI.getPrograms({ category: 'english', status: 'active', liveEnglish: true })).then((body) => body.data),
+export const useCanonicalEnglishClasses = () => useQuery({
+  queryKey: [...qk.englishOperations.all, 'canonical-classes'],
+  queryFn: () => payload(englishOperationsAPI.getCanonicalClasses()).then((body) => body.data),
 });
 
-export const useEnglishClasses = () => useQuery({
-  queryKey: qk.englishOperations.classes,
-  queryFn: () => payload(learningAPI.getCohorts({ category: 'english', liveEnglish: true, limit: 500 })).then((body) => body.data),
+export const useCanonicalEnglishClass = (classId) => useQuery({
+  queryKey: [...qk.englishOperations.all, 'canonical-classes', classId],
+  queryFn: () => payload(englishOperationsAPI.getCanonicalClass(classId)).then((body) => body.data),
+  enabled: Boolean(classId),
 });
 
-export const useEnglishClassRoster = (cohortId) => useQuery({
-  queryKey: qk.englishOperations.roster(cohortId),
-  queryFn: () => payload(learningAPI.getEnrollments({ cohortId })).then((body) => body.data),
-  enabled: Boolean(cohortId),
+export const useCanonicalEnglishCourses = () => useQuery({
+  queryKey: [...qk.englishOperations.all, 'canonical-courses'],
+  queryFn: () => payload(englishOperationsAPI.getCanonicalCourses()).then((body) => body.data),
 });
 
-export const useEnglishTeachers = (enabled = true) => useQuery({
-  queryKey: qk.englishOperations.teachers,
-  queryFn: () => payload(englishOperationsAPI.getTeachers()).then((body) => body.data),
+export const useCanonicalEnglishEmployees = (enabled = true) => useQuery({
+  queryKey: [...qk.englishOperations.all, 'canonical-employees'],
+  queryFn: () => payload(englishOperationsAPI.getCanonicalEmployees({ limit: 200 })).then((body) => body.data),
   enabled,
 });
 
-export const useEnglishSessions = (cohorts = []) => {
-  const ids = cohorts.map((cohort) => cohort._id).sort();
-  return useQuery({
-    queryKey: qk.englishOperations.sessions(ids),
-    queryFn: async () => {
-      const pages = await Promise.all(ids.map((cohortId) => payload(learningAPI.getSessions({ cohortId, limit: 500 }))));
-      return pages.flatMap((page) => page.data || []).sort((a, b) => new Date(a.startTime) - new Date(b.startTime));
-    },
-    enabled: ids.length > 0,
-  });
-};
+const ARCHIVE_PAGE_SIZE = 200;
+const ARCHIVE_MAX_PAGES = 20;
 
-export const useEnglishSession = (sessionId) => useQuery({
-  queryKey: qk.englishOperations.session(sessionId),
-  queryFn: () => payload(learningAPI.getSession(sessionId)).then((body) => body.data),
-  enabled: Boolean(sessionId),
-});
-
-export const useEnglishSessionAttendance = (sessionId) => useQuery({
-  queryKey: qk.englishOperations.attendance(sessionId),
-  queryFn: () => payload(attendanceAPI.getBySchedule(sessionId)).then((body) => body.data),
-  enabled: Boolean(sessionId),
-});
-
-export const useEnglishEligibility = (cohortId) => useQuery({
-  queryKey: qk.englishOperations.eligibility(cohortId),
-  queryFn: () => payload(englishOperationsAPI.getLiveEligibility(cohortId)).then((body) => body.data),
-  enabled: Boolean(cohortId),
-});
-
-export const useEnglishEvaluations = (cohortId) => useQuery({
-  queryKey: qk.englishOperations.evaluations(cohortId),
-  queryFn: () => payload(englishOperationsAPI.getLiveEvaluations(cohortId)).then((body) => body.data),
-  enabled: Boolean(cohortId),
-});
-
-export const useRecordEnglishEvaluation = () => useLearnerMutation(
-  ({ cohortId, data }) => payload(englishOperationsAPI.recordLiveEvaluation(cohortId, data)),
-  'englishOperations.evaluation.saved',
-  'englishOperations.evaluation.saveError',
-);
-
-export const useDeleteEnglishEvaluation = () => useLearnerMutation(
-  (evaluationId) => payload(englishOperationsAPI.deleteLiveEvaluation(evaluationId)),
-  'englishOperations.evaluation.cleared',
-  'englishOperations.evaluation.clearError',
-);
-
-export const useEnglishArchiveStatus = () => useQuery({
-  queryKey: qk.englishOperations.archiveStatus,
-  queryFn: () => payload(englishOperationsAPI.getArchiveStatus()).then((body) => body.data),
-});
-
-export const useEnglishCombinedHistory = (enabled) => useQuery({
-  queryKey: qk.englishOperations.combinedHistory,
-  queryFn: () => payload(englishOperationsAPI.getCombinedHistory()).then((body) => body.data),
-  enabled,
-});
-
-export const useCutoverEnglishArchive = () => useLearnerMutation(
-  (data) => payload(englishOperationsAPI.cutoverArchive(data)),
-  'englishOperations.archive.cutoverComplete',
-  'englishOperations.archive.cutoverError',
-);
-
-export const useMarkEnglishAttendance = () => useLearnerMutation(
-  ({ sessionId, records }) => payload(attendanceAPI.bulkMark(sessionId, records)),
-  'englishOperations.attendance.saved',
-  'englishOperations.attendance.saveError',
-);
-
-export const useBookEnglishSession = () => useLearnerMutation(
-  (data) => payload(learningAPI.bookSession(data)),
-  'englishOperations.schedule.created',
-  'englishOperations.schedule.saveError',
-);
-
-export const useCreateEnglishProgram = () => useLearnerMutation(
-  (data) => payload(learningAPI.createProgram(data)),
-  'englishOperations.classes.programCreated',
-  'englishOperations.classes.saveError',
-);
-
-export const useCreateEnglishClass = () => useLearnerMutation(
-  async ({ cohort, learnerIds }) => {
-    const created = await payload(learningAPI.createCohort(cohort));
-    if (learnerIds.length > 0) {
-      await payload(learningAPI.bulkEnroll({ cohortId: created.data._id, userIds: learnerIds }));
+export const useEnglishArchiveSessions = (enabled = true) => useQuery({
+  queryKey: qk.englishOperations.archiveSessions,
+  queryFn: async () => {
+    const rows = [];
+    for (let page = 0; page < ARCHIVE_MAX_PAGES; page += 1) {
+      // Archive reads are paged to stay within the endpoint's bounded limit.
+      const body = await payload(englishTrainingAPI.getSessions({
+        limit: ARCHIVE_PAGE_SIZE,
+        offset: page * ARCHIVE_PAGE_SIZE,
+      }));
+      const batch = body.data || [];
+      rows.push(...batch);
+      if (batch.length < ARCHIVE_PAGE_SIZE) return rows;
     }
-    return created;
+    throw new Error('English Archive session page limit exceeded');
   },
-  'englishOperations.classes.runCreated',
+  enabled,
+  staleTime: 5 * 60 * 1000,
+});
+
+export const useEnglishArchiveSessionAttendance = (sessionId, enabled = true) => useQuery({
+  queryKey: qk.englishOperations.archiveSessionAttendance(sessionId),
+  queryFn: () => payload(englishTrainingAPI.getSessionAttendance(sessionId)).then((body) => body.data),
+  enabled: enabled && Boolean(sessionId),
+  staleTime: 5 * 60 * 1000,
+});
+
+export const useCreateCanonicalEnglishClass = () => useLearnerMutation(
+  (data) => payload(englishOperationsAPI.createCanonicalClass(data)),
+  'englishOperations.classes.classCreated',
   'englishOperations.classes.saveError',
 );
 
