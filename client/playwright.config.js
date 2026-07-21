@@ -63,8 +63,32 @@ export default defineConfig({
 
   projects: [
     {
-      name: 'chromium',
-      use: { ...devices['Desktop Chrome'] },
+      // The primary project runs every E2E spec at the required wide desktop
+      // viewport. Responsive English Operations coverage is repeated by the
+      // two focused projects below instead of tripling every mutation suite.
+      name: 'desktop-wide',
+      use: {
+        ...devices['Desktop Chrome'],
+        viewport: { width: 1440, height: 900 },
+      },
+    },
+    {
+      name: 'desktop-compact',
+      testMatch: /english-operations\.spec\.js/,
+      use: {
+        ...devices['Desktop Chrome'],
+        viewport: { width: 1280, height: 800 },
+      },
+    },
+    {
+      name: 'mobile-390',
+      testMatch: /english-operations\.spec\.js/,
+      use: {
+        ...devices['Desktop Chrome'],
+        viewport: { width: 390, height: 844 },
+        hasTouch: true,
+        isMobile: true,
+      },
     },
   ],
 

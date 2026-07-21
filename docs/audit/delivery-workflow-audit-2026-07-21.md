@@ -108,7 +108,13 @@ coverage for the exact create/edit/reschedule/cancel workflows under review.
 - **Exit test:** each slice has its own delivery contract, regression signal,
   focused diff, evidence report, and intentional commit.
 
-### DWF-004 — High — Proposal template does not capture the required delivery contract
+### DWF-004 — High — Proposal template does not capture the required delivery contract — RESOLVED 2026-07-21
+
+- **Resolution:** `plans/_TEMPLATE-proposal.md` now requires the Phase 0 user
+  outcome, scope/non-goals, domain authority, data/rollback impact, named
+  feedback loop, UI states, and happy/denial/edge acceptance examples. It also
+  includes the canonical stop/re-plan triggers and instructions to re-baseline
+  before implementation continues.
 
 - **Evidence:** `plans/_TEMPLATE-proposal.md` contains Why, delta, approach,
   tasks, and a generic verification section, but has no explicit fields for user
@@ -122,7 +128,14 @@ coverage for the exact create/edit/reschedule/cancel workflows under review.
 - **Exit test:** a new plan created from the template cannot omit the fields
   required by `.claude/rules/implementation-workflow.md` Phase 0.
 
-### DWF-005 — High — Viewport standard is documented but not executable in Playwright
+### DWF-005 — High — Viewport standard is documented but not executable in Playwright — RESOLVED 2026-07-21
+
+- **Resolution:** `client/playwright.config.js` now defines exact
+  `desktop-wide` (1440x900), `desktop-compact` (1280x800), and `mobile-390`
+  (390x844) projects. The full suite runs at desktop-wide; the two narrower
+  projects repeat `english-operations.spec.js`, making the required responsive
+  matrix executable in local runs and the existing CI E2E job. Failure
+  screenshots/video/traces and the uploaded Playwright report remain enabled.
 
 - **Evidence:** `client/playwright.config.js:59-64` defines only one Chromium
   project using the default `Desktop Chrome` device. No suite or helper asserts
@@ -243,7 +256,7 @@ This focused audit can be closed when:
 
 - [ ] DWF-001 and DWF-002 are closed with a runnable, persistent English E2E flow.
 - [ ] DWF-003 is resolved by splitting the current worktree or documenting why a remaining slice is atomic.
-- [ ] DWF-004 and DWF-005 are wired into the plan template and Playwright configuration.
+- [x] DWF-004 and DWF-005 are wired into the plan template and Playwright configuration.
 - [ ] DWF-006 passes on real PostgreSQL through the production HTTP stack.
 - [ ] DWF-007 is corrected.
 - [ ] Migration 050 before/after and rollback evidence is recorded.
@@ -268,8 +281,44 @@ Gate 0 complete. Remaining findings (DWF-002 shallow assertions, DWF-003 slice
 size, DWF-004 template, DWF-005 viewport matrix, DWF-006 integration coverage,
 DWF-008 preflight) are unaffected and still open.
 
+## Gate 1 execution (2026-07-21)
+
+Delivery contract for this process-only slice:
+
+- **User outcome:** a delivery proposal cannot silently omit the canonical
+  Phase 0 questions, and the required responsive viewport matrix is directly
+  runnable by developers and CI.
+- **In scope:** proposal template, Playwright project wiring, E2E operator docs,
+  and this audit record. **Non-goals:** English product behavior, persistent
+  workflow assertions, worktree re-slicing, PostgreSQL command integration, and
+  automated preflight.
+- **Domain authority:** `.claude/rules/implementation-workflow.md` Phase 0 and
+  `.claude/rules/testing-and-ci.md` Browser verification standard.
+- **Acceptance:** a copied proposal exposes every required contract field; the
+  Playwright project list includes the full suite at 1440x900 and the English
+  responsive spec at 1280x800 and 390x844; unrelated E2E mutations are not
+  multiplied across the narrow projects.
+- **Data impact / rollback:** none; configuration and Markdown only. Revert the
+  standalone Gate 1 commit if the matrix causes runner incompatibility.
+- **Feedback loop:** inspect the Playwright `--list` project/spec expansion,
+  then run the English Operations spec through all three projects against the
+  seeded PostgreSQL-backed app when the local API is available.
+
+Verification recorded for this configuration slice:
+
+- `cd client && npx.cmd playwright test --list` — 36 tests discovered: 32 in
+  `desktop-wide`, two English Operations tests in `desktop-compact`, and the
+  same two in `mobile-390`.
+- `cd client && npx.cmd eslint playwright.config.js` — passed.
+- `git diff --check` — passed. A real browser interaction run was not repeated
+  because the local API health probe timed out; persistent workflow and layout
+  behavior remain explicitly assigned to Gate 3 rather than claimed here.
+
+Gate 1 closes DWF-004 and DWF-005. DWF-002, DWF-003, DWF-006, and DWF-008 remain
+open for the later gates defined above.
+
 ## Audit status
 
-**OPEN — Gate 0 closed; DWF-002/003/004/005/006/008 remain.** The only product
-change to date is the `client/playwright.config.js` comment rewrite (DWF-007).
-No English feature code was changed.
+**OPEN — Gates 0 and 1 closed; DWF-002/003/006/008 remain.** Gate 1 changes only
+the delivery template, Playwright viewport wiring/operator docs, and this audit
+record. No English feature code was changed.
