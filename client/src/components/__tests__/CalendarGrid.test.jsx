@@ -74,4 +74,19 @@ describe('CalendarGrid (descriptor contract)', () => {
     expect(columns[0]).toHaveClass('w-24');
     expect(Array.from(columns).slice(1).every((column) => column.classList.contains('w-[123px]'))).toBe(true);
   });
+
+  it('uses compact equal-width columns when a side panel shares the page', () => {
+    render(
+      <CalendarGrid dense weekDays={mkWeek()} rows={[slot(10, 0, 11, 0)]} renderCell={() => <span>content</span>}
+        onPrev={noop} onNext={noop} onToday={noop} weekLabel="week" />,
+    );
+
+    const table = screen.getByRole('table');
+    expect(table).toHaveClass('table-fixed', 'min-w-[780px]');
+    expect(table).not.toHaveClass('min-w-[960px]');
+
+    const columns = table.querySelectorAll('col');
+    expect(columns[0]).toHaveClass('w-[92px]');
+    expect(Array.from(columns).slice(1).every((column) => column.classList.contains('w-[98px]'))).toBe(true);
+  });
 });

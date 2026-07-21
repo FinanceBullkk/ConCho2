@@ -21,7 +21,7 @@ const h = vi.hoisted(() => ({
 vi.mock('../../schedule/SchedulesPage', () => ({
   default: (props) => {
     h.scheduleProps = props;
-    return <div data-testid="weekly-schedule-grid" />;
+    return <div data-testid="weekly-schedule-grid">{props.historicalDrawer}</div>;
   },
 }));
 
@@ -148,6 +148,8 @@ describe('English Operations owns the operational grids', () => {
     expect(screen.getByLabelText('Date')).toHaveValue('2099-07-22');
     expect(screen.getByLabelText('Time slot')).toHaveValue('09:00-10:00');
     expect(screen.getByRole('button', { name: 'Create session 2' })).toBeEnabled();
+    expect(h.scheduleProps.hideHeader).toBe(true);
+    expect(h.scheduleProps.historicalDrawer).toBeTruthy();
   });
 
   it('opens a live Meeting for durable cancellation with a required reason', async () => {

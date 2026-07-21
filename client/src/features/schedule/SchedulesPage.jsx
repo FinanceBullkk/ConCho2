@@ -48,6 +48,8 @@ export default function SchedulesPage({
   onHistoricalCellClick,
   onHistoricalScheduleClick,
   selectedHistoricalCellKey,
+  hideHeader = false,
+  historicalDrawer = null,
 }) {
   const [searchParams, setSearchParams] = useSearchParams();
   const unified = mode === 'all';
@@ -217,19 +219,21 @@ export default function SchedulesPage({
   return (
     <div className="space-y-5">
       {/* ── Header ─────────────────────────────────────── */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-h1 text-foreground">Schedule Management</h1>
-          <p className="text-muted-foreground mt-1 text-body">
-            {totalCount} total sessions · {weekScheduleCount} this week
-          </p>
+      {!hideHeader && (
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div>
+            <h1 className="text-h1 text-foreground">Schedule Management</h1>
+            <p className="text-muted-foreground mt-1 text-body">
+              {totalCount} total sessions · {weekScheduleCount} this week
+            </p>
+          </div>
+          {createEnabled && (
+            <Button onClick={() => { setSelectedSchedule(null); setSelectedCell(null); setDrawerMode('create'); }}>
+              + New Schedule
+            </Button>
+          )}
         </div>
-        {createEnabled && (
-          <Button onClick={() => { setSelectedSchedule(null); setSelectedCell(null); setDrawerMode('create'); }}>
-            + New Schedule
-          </Button>
-        )}
-      </div>
+      )}
 
       {/* ── World facet (unified mode only) ─────────────── */}
       {unified && (
@@ -256,6 +260,7 @@ export default function SchedulesPage({
             weekDays={weekDays}
             rows={rows}
             isLoading={!historicalOnly && isLoading}
+            dense={Boolean(historicalDrawer)}
             selectedCellKey={selectedCellKey}
             onPrev={() => setWeek(new Date(weekStart.getTime() - 7 * 86400000))}
             onNext={() => setWeek(new Date(weekStart.getTime() + 7 * 86400000))}
@@ -337,7 +342,7 @@ export default function SchedulesPage({
                 return (
                   <button
                     type="button"
-                    className="h-full min-h-[80px] flex items-center justify-center rounded-md border border-transparent hover:bg-success/10 hover:border-success/20 cursor-pointer transition-colors duration-(--dur) group/cell"
+                    className="h-full min-h-[80px] w-full flex items-center justify-center rounded-md border border-transparent hover:bg-success/10 hover:border-success/20 cursor-pointer transition-colors duration-(--dur) group/cell"
                     onClick={() => handleCellClick(day, slot)}
                   >
                     <span className="text-[10px] text-subtle-foreground opacity-0 group-hover/cell:opacity-100 transition-opacity font-medium">+ Create</span>
@@ -370,7 +375,11 @@ export default function SchedulesPage({
         </div>
 
         {/* Right: drawer. Historical grids do not reserve an empty column. */}
-        {!historicalOnly && (
+        {historicalDrawer ? (
+          <div data-testid="schedule-drawer-column" className="lg:w-[320px] lg:flex-none lg:sticky lg:top-6">
+            {historicalDrawer}
+          </div>
+        ) : !historicalOnly && (
           <div data-testid="schedule-drawer-column" className="lg:w-[300px] lg:flex-none lg:sticky lg:top-6">
             <ScheduleDrawer
             isOpen={!!drawerMode}

@@ -137,5 +137,20 @@ describe('SchedulesPage — exact-slot grid + world facet', () => {
     expect(onCell).toHaveBeenCalledWith(expect.objectContaining({
       slot: expect.objectContaining({ id: '10:00-11:00' }),
     }));
+    expect(screen.getAllByText('+ Create')[0].closest('button')).toHaveClass('w-full');
+  });
+
+  it('supports an embedded English calendar header and custom drawer', () => {
+    renderPage({
+      historicalOnly: true,
+      historicalSchedules: [],
+      hideHeader: true,
+      historicalDrawer: <aside data-testid="english-meeting-drawer">Drawer</aside>,
+    });
+
+    expect(screen.queryByRole('heading', { name: 'Schedule Management' })).toBeNull();
+    expect(screen.getByTestId('english-meeting-drawer')).toBeInTheDocument();
+    expect(screen.getByTestId('schedule-drawer-column')).toBeInTheDocument();
+    expect(screen.getByRole('table')).toHaveClass('min-w-[780px]');
   });
 });
