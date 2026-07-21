@@ -16,6 +16,10 @@ clone.
 - **English-only UI.** User-facing strings are English (single `en` locale via `t()` + `en.json`; `vi.json` removed). Never add Vietnamese strings.
 - **Don't fight the migration** — when a `domains/<domain>/` module exists, extend it; don't pile new logic into the legacy controller.
 - **Tests are gates, not suggestions** — never skip/weaken tests or fake a pass. 7 CI gates must stay green (the server-test gate, `server-tests-pg`, runs the FULL Jest suite on Postgres with zero exclusions; the Mongo `server-tests` lane was retired 2026-07-10 in Wave K Phase 2 Batch C after Atlas was cancelled — prod is PG-only); the eslint ratchet cap only goes down.
+- **Ready means verified in the real workflow.** For user-facing work, unit tests,
+  lint, and build are necessary but not sufficient: run the changed interaction
+  in a real browser at the required viewports. If that check is blocked, say so
+  and do not hand the user an unverified UI as ready.
 - **Never commit secrets.** `server/.env` is gitignored; rotate immediately if leaked.
 - **Implementing? Follow `.claude/rules/implementation-workflow.md`** — work from `docs/development-roadmap.md`; updating the tracker is part of Definition of Done (don't wait to be asked). Run `/next` to execute the next milestone.
 - **No feature factory.** Build to a milestone, then review wiring, UX flow,

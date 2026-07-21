@@ -7,13 +7,14 @@ healthy and distinct — this index is pure **routing**.
 - **Location** (which file/route implements it) → [`current-system-map.md`](current-system-map.md) · [`route-permission-matrix.md`](route-permission-matrix.md)
 - **Progress** (status now / next) → [`development-roadmap.md`](development-roadmap.md)
 - **Why** (locked decisions) → [`decisions/`](decisions/)
+- **Delivery process** (how work becomes verified) → [`../.claude/rules/implementation-workflow.md`](../.claude/rules/implementation-workflow.md) · [`../.claude/rules/testing-and-ci.md`](../.claude/rules/testing-and-ci.md)
 
 ## Start here by role
 
 | You are… | Read, in order |
 |---|---|
-| **AI agent / Claude Code** | [`../CLAUDE.md`](../CLAUDE.md) → [`development-roadmap.md`](development-roadmap.md) (status board) → [`specs/README.md`](specs/README.md) → the `.claude/rules/*` for the area you touch |
-| **New developer** | [`../README.md`](../README.md) → [`system-overview.md`](system-overview.md) → [`current-system-map.md`](current-system-map.md) → conventions in [`../.claude/rules/`](../.claude/rules/) |
+| **AI agent / Claude Code** | [`../CLAUDE.md`](../CLAUDE.md) → [`../.claude/rules/implementation-workflow.md`](../.claude/rules/implementation-workflow.md) → [`development-roadmap.md`](development-roadmap.md) → [`specs/README.md`](specs/README.md) → the `.claude/rules/*` for the area you touch |
+| **New developer** | [`../README.md`](../README.md) → [`system-overview.md`](system-overview.md) → [`../.claude/rules/implementation-workflow.md`](../.claude/rules/implementation-workflow.md) → [`current-system-map.md`](current-system-map.md) → conventions in [`../.claude/rules/`](../.claude/rules/) |
 | **Checking progress** | [`development-roadmap.md`](development-roadmap.md) — Status board (Now / Next) is the first screen; full history in [`changelog-archive/`](changelog-archive/) |
 | **Ops / on-call** | [`runbook-5xx-spike.md`](runbook-5xx-spike.md) · [`runbook-cron-failure.md`](runbook-cron-failure.md) · [`runbook-english-archive-cutover.md`](runbook-english-archive-cutover.md) · [`backup-dr.md`](backup-dr.md) · [`cron-pinger-setup.md`](cron-pinger-setup.md) · [`google-calendar-setup.md`](google-calendar-setup.md) |
 
