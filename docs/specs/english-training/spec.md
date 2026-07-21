@@ -157,9 +157,10 @@ The English workspace presents these commands as HR-facing tasks:
 
 - Overview starts with direct actions for attendance review, session planning,
   and PIC-owned class management.
-- Schedule keeps the delivery grid full-width. Empty configured cells open a
-  prefilled create form; live cards open move/cancel controls; the top action
-  still supports manual creation without reserving an empty side panel.
+- Schedule follows the shared ConCho2 calendar + drawer pattern. Empty
+  configured cells open a prefilled drawer; operational cards open the same
+  compact move/cancel drawer; the duplicated embedded page header is hidden and
+  an unopened drawer does not reserve calendar width.
 - Attendance separates all sessions, sessions needing evidence, recorded
   sessions, and upcoming sessions. Opening a roster keeps the calendar width
   stable and renders the roster as an inline full-width work area.
