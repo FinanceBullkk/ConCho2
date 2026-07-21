@@ -33,6 +33,14 @@ const KNEX_TABLES = ["'knex_migrations'", "'knex_migrations_lock'"];
  * test file from tests/setup.js — the per-file isolation Mongo's private db gave.
  */
 const resetPgDatabase = async () => {
+  // SAFETY (incident 2026-07-21): this TRUNCATEs every application table. It is
+  // a test-only operation. In test mode config/pg refuses any non-localhost
+  // connection, so NODE_ENV==='test' guarantees the target is a local/disposable
+  // Postgres — a stray call outside the suite (which would use the real PG_URL)
+  // is blocked here before it can wipe production.
+  if (process.env.NODE_ENV !== 'test') {
+    throw new Error('resetPgDatabase is test-only (NODE_ENV must be "test") — refusing to TRUNCATE.');
+  }
   const { rows } = await query(
     `SELECT tablename FROM pg_tables
       WHERE schemaname = 'public' AND tablename NOT IN (${KNEX_TABLES.join(',')})`,
