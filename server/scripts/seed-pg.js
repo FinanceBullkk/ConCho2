@@ -211,6 +211,106 @@ const seed = async () => {
   }
   console.log('   ✅ Created 6 enrollment records');
 
+  // ── Canonical English Operations fixture ────────────────────────────────
+  // The E2E gate exercises the dedicated eng_* aggregate, not the superseded
+  // generic English projection above. Keep one active Course Run for live
+  // scheduling and one past imported Meeting without attendance evidence for
+  // the review workspace.
+  console.log('🗓️  Creating canonical English Operations fixture...');
+  const canonicalCourseId = genId();
+  const canonicalCohortId = genId();
+  const canonicalEmployeeId = genId();
+  const canonicalMembershipId = genId();
+  const canonicalRunId = genId();
+  const canonicalEnrollmentId = genId();
+  const canonicalMeetingId = genId();
+  const canonicalSessionUnitId = genId();
+  const canonicalStartDate = new Date(Date.now() - 30 * 86400000).toISOString().slice(0, 10);
+  const importedMeetingTime = futureDateTime(-2, 10, 0);
+
+  await insertRow('eng_courses', {
+    id: canonicalCourseId,
+    course_code: 'E2E_CANONICAL_ENGLISH',
+    course_name: 'E2E Canonical English',
+    expected_units: 16,
+    max_absences_allowed: 2,
+    is_active: true,
+    meta: JSON.stringify({ fixture: 'seed-pg' }),
+  });
+  await insertRow('eng_cohorts', {
+    id: canonicalCohortId,
+    class_code: 'E2E001',
+    display_name: 'E2E Canonical English',
+    status: 'active',
+    capacity: 12,
+    meta: JSON.stringify({ fixture: 'seed-pg' }),
+  });
+  await insertRow('eng_employees', {
+    id: canonicalEmployeeId,
+    emp_code: '000004',
+    full_name: 'Participant Le (Team Lead A)',
+    employment_status: 'active',
+    user_id: u['000004'],
+    meta: JSON.stringify({ fixture: 'seed-pg' }),
+  });
+  await insertRow('eng_cohort_memberships', {
+    id: canonicalMembershipId,
+    cohort_id: canonicalCohortId,
+    employee_id: canonicalEmployeeId,
+    start_date: canonicalStartDate,
+    status: 'active',
+  });
+  await insertRow('eng_cohort_pic', {
+    id: genId(),
+    cohort_id: canonicalCohortId,
+    pic_label: 'People Team',
+    start_date: canonicalStartDate,
+    meta: JSON.stringify({ fixture: 'seed-pg' }),
+  });
+  await insertRow('eng_course_runs', {
+    id: canonicalRunId,
+    cohort_id: canonicalCohortId,
+    course_id: canonicalCourseId,
+    run_number: 1,
+    status: 'active',
+    expected_units_snapshot: 16,
+    max_absences_allowed_snapshot: 2,
+    start_date: canonicalStartDate,
+  });
+  await insertRow('eng_run_enrollments', {
+    id: canonicalEnrollmentId,
+    course_run_id: canonicalRunId,
+    employee_id: canonicalEmployeeId,
+    cohort_membership_id: canonicalMembershipId,
+    status: 'active',
+    start_session_number: 1,
+    meta: JSON.stringify({ fixture: 'seed-pg' }),
+  });
+  await insertRow('eng_meetings', {
+    id: canonicalMeetingId,
+    course_run_id: canonicalRunId,
+    starts_at: importedMeetingTime,
+    duration_minutes: 60,
+    status: 'completed',
+    source_starts_at: importedMeetingTime,
+    source_duration_minutes: 60,
+    meta: JSON.stringify({ source: 'imported', fixture: 'seed-pg' }),
+  });
+  await insertRow('eng_session_units', {
+    id: canonicalSessionUnitId,
+    course_run_id: canonicalRunId,
+    meeting_id: canonicalMeetingId,
+    session_number: 1,
+    held_at: importedMeetingTime,
+    status: 'held',
+    source_sheet: 'E2E seed evidence',
+    source_row: 1,
+    unit_number_in_meeting: 1,
+    unit_type: 'normal',
+    meta: JSON.stringify({ fixture: 'seed-pg' }),
+  });
+  console.log('   ✅ Created E2E001 active run + one imported evidence gap');
+
   // ── Schedules (leader-created sessions; status 'scheduled') ─
   console.log('📅 Creating schedules...');
   const teamAUsers = [u['000004'], u['000005'], u['000006']];
