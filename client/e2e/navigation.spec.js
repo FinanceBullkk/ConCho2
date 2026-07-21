@@ -38,9 +38,11 @@ const ADMIN_PAGES = [
   // reason /learning?tab=cohorts has innerHeading: null.
   { path: '/english?tab=classes',      headerHeading: /^English Class$/,     innerHeading: null },
   { path: '/learning?tab=cohorts',     headerHeading: /^Learning$/,          innerHeading: null },
-  { path: '/calendar?tab=schedules',   headerHeading: /^Calendar$/,          innerHeading: /^Schedule Management$/ },
+  // /calendar was retired to a redirect (English live-operations convergence,
+  // 2026-07-21): Schedule + Attendance are owned by English Operations. Its
+  // redirect is asserted in its own test below, not here.
   // English 'schedules' tab retired (converge Phase 4 A2b): team-world schedules
-  // live in the unified /calendar above. An old deep link falls back to the
+  // live in English Operations now. An old deep link falls back to the
   // English section's first tab (Teams) — assert only that it still loads.
   { path: '/english?tab=schedules',    headerHeading: /^English Class$/,     innerHeading: null },
   { path: '/system',                   headerHeading: /^(System|Settings)$/, innerHeading: null },
@@ -112,5 +114,15 @@ test.describe('Authenticated navigation', () => {
     // This redirect IS configured (App.jsx LEGACY_REDIRECTS) — verify it.
     await adminPage.goto('/classes');
     await expect(adminPage).toHaveURL(/\/learning\?tab=cohorts$/);
+  });
+
+  test('Legacy /calendar redirects into English Operations', async ({ adminPage }) => {
+    // /calendar is now a compatibility redirect (English live-operations
+    // convergence): Schedule and Attendance are owned by English Operations.
+    // The tab is preserved so old bookmarks land on the matching English tab.
+    await adminPage.goto('/calendar?tab=schedules');
+    await expect(adminPage).toHaveURL(/\/english-operations\?tab=schedule$/);
+    await expect(adminPage.getByRole('heading', { name: 'English delivery calendar' }))
+      .toBeVisible({ timeout: 15_000 });
   });
 });
