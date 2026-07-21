@@ -238,7 +238,7 @@ const rescheduleMeeting = async (input, actor = {}) => {
         input.courseRunId, input.meetingId, client,
       );
       if (!meeting) throw new ServiceError('English Meeting not found in the selected Course Run', 404);
-      if (meeting.source_sheet !== null) {
+      if (meeting.source_sheet !== null && !meeting.operational_at) {
         throw new ServiceError('Imported English schedule evidence is read-only', 409);
       }
       if (meeting.status !== 'planned') {
@@ -303,7 +303,7 @@ const cancelMeeting = async (input, actor = {}) => {
       input.courseRunId, input.meetingId, client,
     );
     if (!meeting) throw new ServiceError('English Meeting not found in the selected Course Run', 404);
-    if (meeting.source_sheet !== null) {
+    if (meeting.source_sheet !== null && !meeting.operational_at) {
       throw new ServiceError('Imported English schedule evidence is read-only', 409);
     }
     if (meeting.status === 'cancelled') {
