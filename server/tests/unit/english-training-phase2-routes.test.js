@@ -15,6 +15,7 @@ jest.mock('../../domains/english-training/controller', () => ({
   getLiveEvaluationWorklist: jest.fn(), recordLiveEnglishLevel: jest.fn(), deleteLiveEnglishLevel: jest.fn(),
   createCanonicalClass: jest.fn(),
   addCanonicalRunEnrollment: jest.fn(), createCanonicalAttendanceSession: jest.fn(),
+  rescheduleCanonicalMeeting: jest.fn(), cancelCanonicalMeeting: jest.fn(),
   getCanonicalAttendanceRoster: jest.fn(), saveCanonicalAttendanceRoster: jest.fn(),
   listManagedPeople: jest.fn(), createManagedPerson: jest.fn(), updateManagedPerson: jest.fn(),
   deleteManagedPerson: jest.fn(), provisionManagedPeople: jest.fn(),
