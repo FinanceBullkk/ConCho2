@@ -211,7 +211,8 @@ async function listSessions({ q, limit = 100, offset = 0 } = {}) {
       m.cancellation_reason, m.meet_link,
       m.source_starts_at, m.source_duration_minutes, m.operational_at,
       (su.source_sheet IS NOT NULL) AS source_was_imported,
-      CASE WHEN su.source_sheet IS NULL THEN 'live' ELSE 'imported' END AS source_kind,
+      CASE WHEN su.source_sheet IS NULL OR m.operational_at IS NOT NULL
+        THEN 'live' ELSE 'imported' END AS source_kind,
       r.id AS course_run_id, co.class_code, c.course_name,
       count(ar.id)::int AS attendance_count,
       (SELECT count(*)::int FROM eng_run_enrollments en
@@ -244,7 +245,8 @@ async function getSessionAttendance(id) {
       m.cancellation_reason, m.meet_link,
       m.source_starts_at, m.source_duration_minutes, m.operational_at,
       (su.source_sheet IS NOT NULL) AS source_was_imported,
-      CASE WHEN su.source_sheet IS NULL THEN 'live' ELSE 'imported' END AS source_kind,
+      CASE WHEN su.source_sheet IS NULL OR m.operational_at IS NOT NULL
+        THEN 'live' ELSE 'imported' END AS source_kind,
       r.id AS course_run_id, co.class_code, c.course_name
     FROM eng_session_units su
     JOIN eng_meetings m ON m.id = su.meeting_id

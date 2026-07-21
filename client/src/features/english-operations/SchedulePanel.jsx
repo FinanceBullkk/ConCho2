@@ -139,6 +139,12 @@ function MeetingForm({ editor, runs, config, onClose }) {
         </Button>
       </div>
 
+      {schedule?.sourceWasImported && (
+        <div className="mt-4 rounded-md border border-primary/20 bg-primary/5 px-3 py-2 text-[11px] text-muted-foreground">
+          {t('englishOperations.schedule.importedBaseline')}
+        </div>
+      )}
+
       {isCancelled && (
         <div className="mt-4 rounded-md border border-destructive/25 bg-destructive/5 p-3 text-sm text-destructive">
           {t('englishOperations.schedule.cancelledReadOnly', { reason: schedule.cancellationReason || '—' })}

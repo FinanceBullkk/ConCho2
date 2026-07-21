@@ -241,6 +241,7 @@
       "changeReason": "Reason for the change (optional)",
       "changeReasonPlaceholder": "For example: PIC requested another time",
       "notificationHint": "Learners and the current PIC are notified after a session is created, moved, or cancelled. Email and Google Calendar are sent when those integrations are configured.",
+      "importedBaseline": "This upcoming session was adopted from the imported schedule. Its original date and time are retained as source evidence.",
       "cancelSession": "Cancel session",
       "cancellationReason": "Cancellation reason",
       "cancellationReasonPlaceholder": "Tell learners why this session is cancelled",

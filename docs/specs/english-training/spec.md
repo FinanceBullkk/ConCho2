@@ -135,8 +135,9 @@ command. A live planned Meeting can be opened from its card and moved with
 session number, and event-time roster remain unchanged. `DELETE` on the same
 resource is a durable cancellation with a required reason: Meeting and Session
 Unit statuses change to cancelled while the row and audit history remain.
-Imported, started, completed, cancelled, or attendance-bearing Meetings are
-read-only. Create and move both reject past time and occupied active slots.
+Unadopted imported history, started, completed, cancelled, or attendance-bearing
+Meetings are read-only. Create and move both reject past time and occupied active
+slots.
 
 After commit, Meeting delivery is fail-soft like the shared ConCho2 schedule:
 linked learners and the current PIC receive bell notifications; roster emails

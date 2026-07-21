@@ -133,6 +133,30 @@ describe('canonical English live operations', () => {
     );
   });
 
+  test('reschedules an adopted future imported Meeting while preserving its source identity', async () => {
+    repository.findMeetingForUpdate.mockResolvedValue({
+      ...unit,
+      course_run_id: 'run-1',
+      source_sheet: 'English schedule',
+      operational_at: new Date('2099-07-01T00:00:00.000Z'),
+      source_starts_at: new Date('2099-07-20T02:00:00.000Z'),
+      status: 'planned',
+      session_unit_id: 'unit-1',
+      attendance_count: 0,
+    });
+    repository.rescheduleMeeting.mockResolvedValue({
+      id: 'meeting-1', status: 'planned', starts_at: new Date('2099-07-21T02:00:00.000Z'),
+    });
+
+    await expect(rescheduleMeeting({
+      courseRunId: 'run-1', meetingId: 'meeting-1',
+      startsAt: '2099-07-21T02:00:00.000Z', endsAt: '2099-07-21T03:00:00.000Z',
+      reason: 'PIC requested another day',
+    }, actor)).resolves.toMatchObject({ meetingId: 'meeting-1', sessionUnitId: 'unit-1' });
+
+    expect(repository.rescheduleMeeting).toHaveBeenCalled();
+  });
+
   test('durably cancels a future live Meeting and preserves its history', async () => {
     repository.findMeetingForUpdate.mockResolvedValue({
       ...unit, course_run_id: 'run-1', source_sheet: null, status: 'planned',
@@ -154,7 +178,7 @@ describe('canonical English live operations', () => {
 
   test('keeps imported or attendance-bearing Meetings read-only', async () => {
     repository.findMeetingForUpdate.mockResolvedValue({
-      ...unit, source_sheet: 'Historical', status: 'planned',
+      ...unit, source_sheet: 'Historical', operational_at: null, status: 'planned',
       session_unit_id: 'unit-1', attendance_count: 1,
     });
     await expect(cancelMeeting({
