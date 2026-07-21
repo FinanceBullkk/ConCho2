@@ -1,55 +1,178 @@
-# Implementation Workflow
+# Delivery and Implementation Workflow
 
-How to execute roadmap work and keep the tracker current **without being reminded**.
-Applies whenever the user asks to implement a milestone/feature, or runs `/next`.
+How humans and agents turn a request into a small, verified, usable product
+slice. Applies to features, behavior changes, migrations, and bug fixes.
 
-## The map (source of truth)
-1. `docs/development-roadmap.md` — milestones (M1–M4), phase/wave status & %. **Start here.**
-2. `docs/lms-roadmap.md` — strategy, gap analysis, why each wave exists.
-3. `plans/` — a phase plan for the milestone, if one exists.
+The goal is not to maximize code shipped. The goal is to close one real user
+loop with trustworthy evidence before starting the next one.
 
-   (`docs/archive/handoff-2026-06-01.md` is a retired dated snapshot — history, not a live source.)
+## Sources of truth
 
-## Steps
-1. **Pick target.** Use the milestone the user named; if none, take the next
-   `🟡`/`🔴` milestone in `development-roadmap.md` by order (M1 → M4).
-2. **Plan if needed.** Large/ambiguous → draft a short plan in `plans/` (or
-   `/ck:plan` → `/ck:cook`). Small & clear → implement directly.
-3. **Implement** per conventions — extend `domains/` (don't grow legacy),
-   English-only UI strings (`en.json`), audit mutations, soft-delete. See `backend-conventions.md`,
-   `frontend-conventions.md`, `domain-model-and-migration.md`.
-4. **Verify** (`testing-and-ci.md`): `cd server && npm test`,
-   `cd client && npm run test:run`, `cd client && npm run lint` (≤ cap).
-   Fix failures for real — never skip/weaken.
-5. **Update the tracker — part of Definition of Done, do it automatically:**
-   - `docs/development-roadmap.md`: move the status emoji, update %, refresh the
-     **Status board** (Now / Next), add a dated changelog line at the TOP of
-     *Recent progress*, update the milestone row.
-   - **Rolling archive (keep the tracker lean):** keep ~the last 2 weeks (~15
-     entries, file ≤ ~400 lines) inline; in the SAME commit, cut older entries
-     verbatim (newest-first — audit trail, do not reword) into
-     `docs/changelog-archive/<year>-q<quarter>.md` and update its coverage header.
-   - Update the scorecard in `docs/system-overview.md` if a phase % changed materially.
-6. **Update the affected capability spec(s)** — if behavior changed, fold the
-   delta into `docs/specs/<capability>/spec.md` (bump `last_updated`), or add a
-   new spec + registry row for a new capability. Pure refactors (no behavior
-   change) skip this. See `spec-driven-development.md`.
-7. **Commit** — conventional message, no AI refs, explicit paths, exclude
-   `.claude/settings.local.json` and lock files. Auto-commit is allowed.
-8. **Report** — what changed · test results · tracker updates · next milestone.
+Read these before changing behavior:
 
-## Definition of Done (a task is NOT done until all are true)
-- ☑ Code implemented per conventions
-- ☑ Tests + lint green (real pass)
-- ☑ **Tracker updated** (`development-roadmap.md`; roll old changelog to archive)
-- ☑ **Capability spec updated** if behavior changed (`docs/specs/` + registry)
-- ☑ Committed
+1. `docs/development-roadmap.md` — current status and next work.
+2. The affected `docs/specs/<capability>/spec.md` — observable behavior.
+3. Applicable ADRs in `docs/decisions/` — locked domain and architecture
+   decisions.
+4. A plan in `plans/`, when the change is large or ambiguous.
 
-> This DoD is mirrored as a checklist in `.github/PULL_REQUEST_TEMPLATE.md` —
-> when the DoD changes here, update the template in the same PR (single source
-> of truth: this rule).
+If these sources disagree, stop implementation and resolve the disagreement.
+Do not silently choose whichever model is easiest to code.
+
+## Status language
+
+Use these terms precisely in progress reports and handoffs:
+
+| Status | Meaning |
+|---|---|
+| **Planned** | Outcome, non-goals, and acceptance examples are written; no implementation claim. |
+| **Implemented** | Code exists, but one or more verification gates are still pending. |
+| **Verified** | The original scenario and applicable automated/browser/data checks pass locally. |
+| **Ready for review** | Verified, docs are current, the diff was reviewed, and the slice is intentionally committed. |
+| **Done** | Ready for review and all applicable remote CI/merge gates are green. |
+
+Never use **ready**, **fixed**, or **done** for a user-facing change that has not
+been exercised through its real UI. If browser verification is unavailable,
+say **implemented, UI verification blocked** and explain the blocker. A user
+screenshot is useful feedback, but it is not a substitute for our own QA loop.
+
+## Phase 0 — Re-baseline before coding
+
+Write a short delivery contract in the plan, issue, or working notes:
+
+- **User outcome:** one observable result for one actor.
+- **In scope / out of scope:** especially adjacent workflows that will not move.
+- **Domain authority:** the spec/ADR/reference implementation that defines the
+  business meaning.
+- **Acceptance examples:** Given/When/Then for the happy path, permission denial,
+  and one core edge case.
+- **Data impact:** tables/records affected, source evidence, migration and
+  rollback boundary.
+- **Feedback loop:** the exact test, HTTP probe, or browser flow that can prove
+  the result.
+
+For UI work, also name the reference screen and the required states: empty,
+loading, populated, error, drawer/modal open, and mutation success/failure as
+applicable.
+
+### Stop-and-replan triggers
+
+Stop adding code and re-baseline when any of these happens:
+
+- the governing ADR, domain model, or reference product changes;
+- a second independent user outcome enters the slice;
+- a migration changes meaning rather than only supporting the agreed outcome;
+- the original feedback loop no longer proves the requested behavior;
+- the diff crosses roughly 15 files or 500 handwritten changed lines (excluding
+  generated files) without an explicit reason it must remain atomic.
+
+The size threshold is a review alarm, not a quota. Split by independently
+verifiable user outcome, never by arbitrary frontend/backend layers.
+
+## Phase 1 — Build the feedback loop first
+
+Choose the closest seam that reproduces the real failure or desired workflow:
+
+1. Backend integration test for mutation, authorization, audit, and transaction
+   behavior.
+2. Client component test for isolated rendering or state logic.
+3. Playwright flow for a user-visible journey across routing, API, data, and UI.
+4. Deterministic data verifier for imports, migrations, and reconciliation.
+
+For bug fixes, make the signal fail before changing production code, then watch
+it pass. A shallow test that cannot reproduce the reported symptom does not
+count. For example, “the form opens” does not verify create, edit, reschedule,
+cancel, notification feedback, or responsive layout.
+
+If the required runner, database, credentials, or browser is unavailable, fix
+the feedback loop first or report the work as blocked/unverified. Do not continue
+shipping based only on code inspection.
+
+## Phase 2 — Implement one vertical slice
+
+Implement the smallest end-to-end path that delivers the Phase 0 outcome:
+
+- real route/use-case with capability and resource authorization;
+- validation, transaction, audit, and soft-delete/cancellation behavior;
+- real frontend entrypoint and mutation feedback;
+- report, completion, certificate, or notification consumer when relevant;
+- tests at the seams identified in Phase 1.
+
+Finish that path before starting an adjacent capability. Keep unrelated user
+changes intact and do not combine opportunistic cleanup with the slice.
+
+Database or imported-data work must be rehearsed on a disposable/prototype
+database first. Record before/after counts and invariants. Preserve source
+evidence and provide a tested rollback or compensating path before touching an
+active environment. Production data changes always need explicit authorization.
+
+## Phase 3 — Verify the product, not only the code
+
+Use the verification ladder in `.claude/rules/testing-and-ci.md`.
+
+For every user-facing UI change, browser verification is mandatory:
+
+- run the real route against a real seeded/local backend;
+- exercise the full changed interaction, not only page load;
+- check desktop at 1440×900 and 1280×800;
+- check 390×844 when the surface is responsive or mobile-accessible;
+- check drawer/modal open and closed, overflow, clipping, scrolling, and focus;
+- confirm no unexpected console errors or failed network requests;
+- compare with the named reference screen when one exists.
+
+The original reported scenario must be rerun after the fix. Unit tests, lint,
+and a production build cannot replace this browser check.
+
+## Phase 4 — Review the whole diff
+
+Before calling the slice ready:
+
+- inspect `git diff` and `git diff --check`;
+- confirm every changed file belongs to the delivery contract;
+- search for temporary logs, debug flags, bypasses, and stale TODOs;
+- verify migration `up`/rollback semantics and data counts where applicable;
+- update the affected spec, roadmap, ADR/status, system map, and permission
+  matrix only when their truth changed;
+- state known limitations instead of hiding them behind a green test count.
+
+## Phase 5 — Commit and report evidence
+
+Commit one verified slice with a conventional message. Do not wait for several
+independent workflows to accumulate into one large commit. Never push directly
+to `main`; ask before `git push`.
+
+The delivery report must contain:
+
+- the user outcome now working;
+- exact automated checks run and their results;
+- routes/interactions and viewports checked in the browser;
+- data counts/invariants checked for migrations or imports;
+- known limitations or blocked gates;
+- commit/push/CI status.
+
+## Definition of Done
+
+A task is not done until every applicable item is true:
+
+- [ ] One user outcome, non-goals, domain authority, and acceptance examples are stable.
+- [ ] The implementation closes that outcome end to end.
+- [ ] Auth, authorization, CSRF, validation, rate limits, audit, and soft-delete/cancellation controls remain intact.
+- [ ] Tests cover the real happy path, permission denial, and one core edge case.
+- [ ] The original bug/scenario is reproduced before the fix and passes after it.
+- [ ] User-facing changes pass real-browser interaction and viewport checks.
+- [ ] Data migrations/imports have recorded before/after invariants and a rollback boundary.
+- [ ] Applicable targeted and full tests, lint, build, and `git diff --check` pass.
+- [ ] Tracker, capability specs, ADRs, system map, and permission matrix reflect current truth.
+- [ ] The final diff contains only the agreed slice and no debug residue.
+- [ ] The verified slice is intentionally committed; remote CI is green before **Done**.
+
+This checklist is mirrored in `.github/PULL_REQUEST_TEMPLATE.md`. Update both in
+the same change whenever the Definition of Done changes.
 
 ## Autonomy bounds
-- **Auto-run + auto-commit** through step 6 without asking.
-- **Pause and ask only when:** (a) blocked, or facing a decision that is the
-  user's to make; (b) **before `git push`** — always confirm before pushing.
+
+- Run read-only discovery, local tests, and reversible implementation steps
+  without asking when they stay inside the agreed slice.
+- Pause for a decision when domain meaning, scope, destructive data impact, or
+  external side effects are not already authorized.
+- Always ask before `git push` or production data mutation.
