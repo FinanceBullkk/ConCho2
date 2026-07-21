@@ -27,9 +27,14 @@ describe('English-training Phase-2 DTOs', () => {
     expect(dto.sessionList([{
       id: 's1', session_number: 2, held_at: '2026-07-01', status: 'held',
       course_run_id: 'r1', class_code: 'EL001', course_name: 'Foundation',
+      source_kind: 'live', source_was_imported: true,
+      source_starts_at: '2026-07-01T09:00:00.000Z',
+      source_duration_minutes: 60, operational_at: '2026-06-30T00:00:00.000Z',
       attendance_count: 3, expected_roster_count: 5, present_count: 2, absent_count: 1,
     }])[0]).toEqual(expect.objectContaining({
       attendanceCount: 3, expectedRosterCount: 5, presentCount: 2, absentCount: 1,
+      sourceKind: 'live', sourceWasImported: true,
+      sourceStartsAt: '2026-07-01T09:00:00.000Z', sourceDurationMinutes: 60,
     }));
 
     expect(dto.sessionAttendance({

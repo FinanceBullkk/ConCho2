@@ -20,6 +20,9 @@ export function adaptHistoricalSessions(rows, labels) {
       meetingId: row.meetingId || null,
       cancellationReason: row.cancellationReason || null,
       meetLink: row.meetLink || null,
+      sourceWasImported: Boolean(row.sourceWasImported),
+      sourceStartsAt: row.sourceStartsAt || null,
+      operationalAt: row.operationalAt || null,
       sourceKind: imported ? 'imported' : 'live',
       isHistorical: true,
       historicalLabel: row.meetingStatus === 'cancelled'

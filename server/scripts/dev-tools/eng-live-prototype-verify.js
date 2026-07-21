@@ -42,6 +42,7 @@ const EXPECTED_MIGRATIONS = [
   '047_english_canonical_authority.js',
   '048_english_live_meetings_attendance.js',
   '049_english_meeting_calendar.js',
+  '050_english_future_meeting_handoff.js',
 ];
 
 async function inspectSchema() {
@@ -69,7 +70,9 @@ async function inspectSchema() {
             'meeting_id', 'unit_number_in_meeting', 'unit_type', 'title'
           ))
           OR (table_name = 'eng_meetings' AND column_name IN (
-            'google_event_id', 'meet_link'
+            'google_event_id', 'meet_link', 'source_starts_at',
+            'source_duration_minutes', 'operational_at', 'operational_by',
+            'operational_reason'
           ))
           OR (table_name = 'eng_attendance_records' AND column_name IN (
             'original_status', 'entered_by'
@@ -104,6 +107,14 @@ async function inspectSchema() {
         SELECT meeting_id FROM eng_session_units WHERE unit_type = 'normal'
         GROUP BY meeting_id HAVING count(*) > 2
       ) x) AS meetings_over_two_normal_units,
+      (SELECT count(*)::int FROM eng_meetings
+        WHERE operational_at IS NOT NULL
+          AND (source_starts_at IS NULL OR source_duration_minutes IS NULL))
+        AS operational_meetings_without_baseline,
+      (SELECT count(*)::int
+        FROM eng_session_units su JOIN eng_meetings m ON m.id = su.meeting_id
+        WHERE m.operational_at IS NOT NULL AND su.held_at <> m.starts_at)
+        AS operational_session_time_mismatches,
       (SELECT count(*)::int FROM eng_employees WHERE user_id IS NULL) AS unlinked_employees,
       (SELECT count(*)::int
          FROM eng_employees e JOIN users u ON u.id = e.user_id
@@ -113,6 +124,8 @@ async function inspectSchema() {
       (SELECT count(*)::int FROM eng_employees WHERE user_id IS NOT NULL) AS linked_employees,
       (SELECT count(*)::int FROM eng_levels WHERE is_active = true) AS active_levels,
       (SELECT count(*)::int FROM eng_meetings) AS meetings,
+      (SELECT count(*)::int FROM eng_meetings WHERE operational_at IS NOT NULL)
+        AS operational_meetings,
       (SELECT count(*)::int FROM eng_session_units) AS session_units,
       (SELECT count(*)::int FROM eng_attendance_records) AS attendance_records`),
   ]);
@@ -120,8 +133,8 @@ async function inspectSchema() {
   if (migrations.rowCount !== EXPECTED_MIGRATIONS.length) {
     throw new Error(`Expected ${EXPECTED_MIGRATIONS.length} English live migrations, found ${migrations.rowCount}`);
   }
-  if (columns.rowCount !== 22) {
-    throw new Error(`Expected 22 English live/canonical columns, found ${columns.rowCount}`);
+  if (columns.rowCount !== 27) {
+    throw new Error(`Expected 27 English live/canonical columns, found ${columns.rowCount}`);
   }
   const archiveTriggers = triggers.rows.filter((row) => row.tgname.endsWith('_archive_freeze'));
   const controlTriggers = triggers.rows.filter((row) => row.tgname === 'trg_english_archive_control_immutable');

@@ -59,12 +59,17 @@ describe('adaptHistoricalSessions', () => {
     const [session] = adaptHistoricalSessions([{
       id: 'live-1', courseRunId: 'run-1', sessionNumber: 15,
       heldAt: '2026-07-27T03:00:00.000Z', durationMinutes: 90,
-      sourceKind: 'live', classCode: 'EL037', courseName: 'Communication 2',
+      sourceKind: 'live', sourceWasImported: true,
+      sourceStartsAt: '2026-07-27T10:00:00.000Z',
+      operationalAt: '2026-07-21T00:00:00.000Z',
+      classCode: 'EL037', courseName: 'Communication 2',
     }], { historical: 'Historical', readOnly: 'Read-only', live: 'Live' });
 
     expect(session.sourceKind).toBe('live');
     expect(session.startTime).toBe('2026-07-27T03:00:00.000Z');
     expect(session.endTime).toBe('2026-07-27T04:30:00.000Z');
     expect(session.historicalLabel).toBe('Live');
+    expect(session.sourceWasImported).toBe(true);
+    expect(session.sourceStartsAt).toBe('2026-07-27T10:00:00.000Z');
   });
 });
