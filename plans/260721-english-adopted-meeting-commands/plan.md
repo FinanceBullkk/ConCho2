@@ -49,14 +49,18 @@ handoff without weakening protection for imported history.
 - [x] Permit command handling only when `operational_at` proves handoff.
 - [x] Preserve source provenance in the editor message.
 - [x] Add focused unit coverage.
-- [ ] Add real PostgreSQL HTTP integration and persisted UI flows (Gate 3).
+- [x] Add real PostgreSQL HTTP integration for denial, reschedule, durable
+  cancel, both audit trails, and immutable source baseline.
+- [ ] Add persisted UI flows (Gate 3).
 
 ## Verification
 
 - `server/tests/unit/english-canonical-live-operations.test.js`
 - `server/tests/unit/english-training-reads-sql.test.js`
-- PostgreSQL integration and Playwright persistence remain required before
-  Verified.
+- `server/tests/integration/englishLiveOperations.test.js` — real auth/CSRF/
+  capability/controller/transaction/repository/PostgreSQL path; two suites
+  including the audit-enum ratchet pass 8/8.
+- Playwright persistence remains required before Verified.
 
 ## Stop / Re-plan Checkpoint
 

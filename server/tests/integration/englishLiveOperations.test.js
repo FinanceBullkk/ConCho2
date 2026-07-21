@@ -146,4 +146,145 @@ describe('English Operations — canonical live vertical flow', () => {
       markedCount: 1,
     });
   });
+
+  test('adopted imported Meeting reschedules and cancels through the real PostgreSQL stack', async () => {
+    const suffix = `${Date.now()}`.slice(-8);
+    const courseId = `eng-adopt-course-${suffix}`;
+    const meetingId = `eng-adopt-meeting-${suffix}`;
+    const sessionUnitId = `eng-adopt-unit-${suffix}`;
+    const sourceStartsAt = '2099-02-01T09:00:00.000Z';
+    const operationalStartsAt = '2099-02-01T02:00:00.000Z';
+    const movedStartsAt = '2099-02-02T02:00:00.000Z';
+    const movedEndsAt = '2099-02-02T03:00:00.000Z';
+
+    await query(`INSERT INTO eng_courses (
+      id, course_code, course_name, expected_units, max_absences_allowed, is_active, meta
+    ) VALUES ($1,$2,$3,16,2,true,'{}'::jsonb)`, [
+      courseId, `ADOPT_${suffix}`, 'Adopted Meeting Integration',
+    ]);
+
+    const classResult = await authorized(
+      request(app).post('/api/english-training/workspace/classes'),
+      tokens.admin,
+    ).send({
+      classCode: `EA${suffix.slice(-4)}`,
+      displayName: 'Adopted Meeting Integration',
+      courseId,
+      startDate: '2099-01-01',
+      capacity: 12,
+      status: 'active',
+      picLabel: 'People Team',
+    });
+    expect(classResult.status).toBe(201);
+    const { courseRunId } = classResult.body.data;
+
+    // Imported evidence is fixture data. Every business mutation below goes
+    // through the production HTTP stack.
+    await query(`INSERT INTO eng_meetings (
+      id, course_run_id, starts_at, duration_minutes, status, meta,
+      source_starts_at, source_duration_minutes, operational_at,
+      operational_by, operational_reason
+    ) VALUES ($1,$2,$3,60,'planned',$4,$5,60,NOW(),'migration:050',$6)`, [
+      meetingId,
+      courseRunId,
+      operationalStartsAt,
+      JSON.stringify({ source: 'imported', sourceBaselinePreserved: true }),
+      sourceStartsAt,
+      'Owner-approved future imported schedule handoff',
+    ]);
+    await query(`INSERT INTO eng_session_units (
+      id, course_run_id, meeting_id, session_number, held_at, status,
+      source_sheet, source_row, unit_number_in_meeting, unit_type, meta
+    ) VALUES ($1,$2,$3,1,$4,'scheduled','English schedule',42,1,'normal','{}'::jsonb)`, [
+      sessionUnitId, courseRunId, meetingId, operationalStartsAt,
+    ]);
+    await query(`INSERT INTO eng_audit_events (
+      actor_user_id, actor_emp_code, action, entity_type, entity_key, details
+    ) VALUES (NULL,'SYSTEM','meeting.future_import.adopt','meeting',$1,$2)`, [
+      meetingId,
+      JSON.stringify({ sourceStartsAt, operationalStartsAt }),
+    ]);
+
+    const path = `/api/english-training/workspace/course-runs/${courseRunId}`
+      + `/meetings/${meetingId}`;
+
+    const denied = await authorized(request(app).patch(path), tokens.teacher).send({
+      startsAt: movedStartsAt,
+      endsAt: movedEndsAt,
+      reason: 'Teacher must not control the schedule',
+    });
+    expect(denied.status).toBe(403);
+
+    const beforeDenied = await query(
+      'SELECT starts_at FROM eng_meetings WHERE id = $1', [meetingId],
+    );
+    expect(beforeDenied.rows[0].starts_at.toISOString()).toBe(operationalStartsAt);
+
+    const moved = await authorized(request(app).patch(path), tokens.admin).send({
+      startsAt: movedStartsAt,
+      endsAt: movedEndsAt,
+      reason: 'PIC requested another day',
+    });
+    expect(moved.status).toBe(200);
+    expect(moved.body.data).toMatchObject({
+      meetingId,
+      sessionUnitId,
+      before: { startsAt: operationalStartsAt, status: 'planned' },
+      after: { startsAt: movedStartsAt, status: 'planned' },
+    });
+
+    const afterMove = await query(`SELECT
+      m.starts_at, m.duration_minutes, m.source_starts_at,
+      m.source_duration_minutes, m.operational_by, su.held_at
+    FROM eng_meetings m
+    JOIN eng_session_units su ON su.meeting_id = m.id
+    WHERE m.id = $1`, [meetingId]);
+    expect(afterMove.rows[0]).toMatchObject({
+      duration_minutes: 60,
+      source_duration_minutes: 60,
+      operational_by: 'migration:050',
+    });
+    expect(afterMove.rows[0].starts_at.toISOString()).toBe(movedStartsAt);
+    expect(afterMove.rows[0].held_at.toISOString()).toBe(movedStartsAt);
+    expect(afterMove.rows[0].source_starts_at.toISOString()).toBe(sourceStartsAt);
+
+    const cancelled = await authorized(request(app).delete(path), tokens.admin).send({
+      cancellationReason: 'Course calendar changed',
+    });
+    expect(cancelled.status).toBe(200);
+    expect(cancelled.body.data).toMatchObject({
+      meetingId,
+      sessionUnitId,
+      before: { status: 'planned', startsAt: movedStartsAt },
+      after: {
+        status: 'cancelled',
+        startsAt: movedStartsAt,
+        cancellationReason: 'Course calendar changed',
+      },
+    });
+
+    const [preserved, domainAudit, globalAudit] = await Promise.all([
+      query(`SELECT m.status, m.starts_at, m.source_starts_at,
+          m.source_duration_minutes, su.status AS session_unit_status
+        FROM eng_meetings m
+        JOIN eng_session_units su ON su.meeting_id = m.id
+        WHERE m.id = $1`, [meetingId]),
+      query(`SELECT action FROM eng_audit_events
+        WHERE entity_key = $1 ORDER BY created_at, id`, [meetingId]),
+      query(`SELECT action FROM audit_log
+        WHERE entity = 'EnglishMeeting' AND entity_id = $1
+        ORDER BY created_at, seq`, [meetingId]),
+    ]);
+    expect(preserved.rows[0].status).toBe('cancelled');
+    expect(preserved.rows[0].session_unit_status).toBe('cancelled');
+    expect(preserved.rows[0].starts_at.toISOString()).toBe(movedStartsAt);
+    expect(preserved.rows[0].source_starts_at.toISOString()).toBe(sourceStartsAt);
+    expect(preserved.rows[0].source_duration_minutes).toBe(60);
+    expect(domainAudit.rows.map((row) => row.action)).toEqual([
+      'meeting.future_import.adopt',
+      'meeting.reschedule',
+      'meeting.cancel',
+    ]);
+    expect(globalAudit.rows.map((row) => row.action)).toEqual(['updated', 'cancelled']);
+  });
 });

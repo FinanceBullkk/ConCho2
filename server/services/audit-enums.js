@@ -59,6 +59,9 @@ const AUDIT_ENTITY_VALUES = [
   'EnglishTrainingExamResult',
   // English live convergence — managed identity, categorical level, one-way cutover.
   'ManagedLearner', 'EnglishManagedLearnerBatch', 'EnglishLevelEvaluation', 'EnglishArchive',
+  // Canonical English Operations — transactional class/run/Meeting/attendance commands.
+  'EnglishCohort', 'EnglishRunEnrollment', 'EnglishSessionUnit', 'EnglishMeeting',
+  'EnglishAttendanceRoster',
 ];
 
 module.exports = { AUDIT_ENTITY_VALUES, AUDIT_ROLE_VALUES };
