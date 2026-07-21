@@ -56,11 +56,17 @@ coverage for the exact create/edit/reschedule/cancel workflows under review.
 
 ## Findings
 
-### DWF-001 — Blocker — Required local browser feedback loop cannot run
+### DWF-001 — Blocker — Required local browser feedback loop cannot run — RESOLVED 2026-07-21
 
-- **Evidence:**
+- **Resolution:** Chromium runtime installed (`npx playwright install chromium`,
+  chromium-1228). The English spec `e2e/english-operations.spec.js` now launches
+  and passes 2/2 against the local PostgreSQL-backed app (`DB_BACKEND=postgres`).
+  First cold run failed at login (server/Neon warm-up race on the boot CSRF
+  cookie); the warm re-run is green. Baseline established — see Gate 0 execution
+  below.
+- **Original evidence:**
   `client/test-results/english-operations-English-03e0a-nd-opens-creation-on-demand-chromium/error-context.md:10`
-  records `browserType.launch: Executable doesn't exist` for the Playwright
+  recorded `browserType.launch: Executable doesn't exist` for the Playwright
   Chromium headless shell.
 - **Impact:** user-facing changes cannot reach **Verified** under the canonical
   workflow. Unit tests, lint, and build cannot prove clipping, overflow, drawer
@@ -148,10 +154,13 @@ coverage for the exact create/edit/reschedule/cancel workflows under review.
 - **Exit test:** the full HTTP → command → repository → PostgreSQL path passes
   for success, denial, and immutable-source edge cases.
 
-### DWF-007 — Medium — Playwright setup comments describe a retired MongoDB backend
+### DWF-007 — Medium — Playwright setup comments describe a retired MongoDB backend — RESOLVED 2026-07-21
 
-- **Evidence:** `client/playwright.config.js:10-18` says the API server requires
-  MongoDB even though production, tests, and CI are PostgreSQL-only.
+- **Resolution:** `client/playwright.config.js` header rewritten to describe the
+  PostgreSQL-only flow (`DB_BACKEND=postgres`, `knex migrate:latest`,
+  `seed-pg.js`), mirroring the `e2e-tests` job in `.github/workflows/ci.yml`.
+- **Original evidence:** `client/playwright.config.js:10-18` said the API server
+  requires MongoDB even though production, tests, and CI are PostgreSQL-only.
 - **Impact:** a developer following the local instructions can prepare the wrong
   environment or assume the E2E lane is obsolete.
 - **Required action:** update the comments and link to the PostgreSQL seed/E2E
@@ -240,8 +249,27 @@ This focused audit can be closed when:
 - [ ] Migration 050 before/after and rollback evidence is recorded.
 - [ ] Each resulting slice meets the canonical Definition of Done and all seven CI gates are green.
 
+## Gate 0 execution (2026-07-21)
+
+Ran the Gate 0 remediation steps and recorded a real baseline:
+
+1. **Chromium installed** — `cd client && npx playwright install chromium`
+   (chromium-1228). Browser now launches; DWF-001 closed.
+2. **PG-only setup documented** — `client/playwright.config.js` header rewritten
+   to the PostgreSQL flow; DWF-007 closed.
+3. **Baseline run** — API server booted on PostgreSQL
+   (`DB_BACKEND=postgres`, Neon prototype, 314 seeded users, seed admin
+   `mustChangePassword=false`), Vite auto-started by Playwright. Result:
+   `e2e/english-operations.spec.js` → **2 passed (5.1s)**. One prior cold-start
+   run failed at login on a server/Neon warm-up race (boot CSRF cookie not yet
+   set); the warm re-run is green. No product code changed.
+
+Gate 0 complete. Remaining findings (DWF-002 shallow assertions, DWF-003 slice
+size, DWF-004 template, DWF-005 viewport matrix, DWF-006 integration coverage,
+DWF-008 preflight) are unaffected and still open.
+
 ## Audit status
 
-**OPEN — remediation required.** No product or process files were changed during
-evidence collection. This report and its audit-index entry are the only changes
-made while publishing the audit.
+**OPEN — Gate 0 closed; DWF-002/003/004/005/006/008 remain.** The only product
+change to date is the `client/playwright.config.js` comment rewrite (DWF-007).
+No English feature code was changed.
