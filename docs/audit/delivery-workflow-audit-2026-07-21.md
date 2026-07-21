@@ -1,0 +1,247 @@
+# Delivery Workflow and English Operations Audit
+
+**Date:** 2026-07-21  
+**Branch / head:** `docs/english-live-convergence-plan` @ `96b87b7`  
+**Audit type:** focused delivery-process and in-flight change audit  
+**Scope:** delivery workflow documents, PR/plan entrypoints, Playwright/CI
+enforcement, and the uncommitted English Schedule/Attendance handoff slice  
+**Method:** read-only repository inspection; no files were changed while the
+audit evidence was collected
+
+## Executive verdict
+
+> **Process documentation: IMPLEMENTED, NOT YET VERIFIED AS AN OPERATING SYSTEM.**
+>
+> **English Operations worktree: IMPLEMENTED, UI VERIFICATION BLOCKED — NOT
+> READY FOR REVIEW.**
+
+The rewritten workflow correctly addresses the failure pattern that triggered
+this audit: oversized changes, changing domain authority without re-baselining,
+shallow tests, and the owner becoming the first real UI tester. The terminology,
+Definition of Done, agent contract, testing standard, docs routing, and PR
+checklist are internally aligned.
+
+The workflow is not yet fully operational because its required browser feedback
+loop cannot run locally, the proposal template does not capture the new delivery
+contract, and CI does not exercise the documented viewport matrix. The current
+English slice also crosses both stop-and-replan thresholds and lacks end-to-end
+coverage for the exact create/edit/reschedule/cancel workflows under review.
+
+## Audit questions
+
+1. Is there one discoverable source of truth for delivery work?
+2. Do all agent and PR entrypoints use the same readiness language and gates?
+3. Can the required feedback loops run on the current machine and in CI?
+4. Do tests prove the real changed English workflows rather than adjacent
+   component behavior?
+5. Does the current worktree fit the new slice-size, data-safety, and evidence
+   rules?
+
+## Snapshot and evidence
+
+| Item | Observed state |
+|---|---|
+| Canonical workflow | `.claude/rules/implementation-workflow.md` |
+| Testing standard | `.claude/rules/testing-and-ci.md` |
+| Mirrored entrypoints | `AGENTS.md`, `CLAUDE.md`, `docs/README.md`, `.github/PULL_REQUEST_TEMPLATE.md` |
+| Process-doc delta | 6 files; 334 additions / 104 deletions |
+| English worktree delta | 19 tracked files + migration 050; 321 additions / 144 deletions + 110 migration lines |
+| English handwritten churn | approximately 571 changed lines |
+| Workflow stop signal | roughly 15 files or 500 handwritten changed lines |
+| Playwright project matrix | one `Desktop Chrome` project; no explicit required viewport projects |
+| English Playwright coverage | attendance evidence panel opens; schedule creation form opens |
+| English API integration coverage | class → enrollment → new Meeting → attendance save; no adopted imported Meeting reschedule/cancel flow |
+| Local browser result | Chromium executable missing; Playwright cannot launch |
+| Diff integrity | `git diff --check` completed without whitespace errors |
+
+## Findings
+
+### DWF-001 — Blocker — Required local browser feedback loop cannot run
+
+- **Evidence:**
+  `client/test-results/english-operations-English-03e0a-nd-opens-creation-on-demand-chromium/error-context.md:10`
+  records `browserType.launch: Executable doesn't exist` for the Playwright
+  Chromium headless shell.
+- **Impact:** user-facing changes cannot reach **Verified** under the canonical
+  workflow. Unit tests, lint, and build cannot prove clipping, overflow, drawer
+  composition, real network behavior, or persisted mutations.
+- **Required action:** install the pinned Playwright Chromium runtime and run a
+  minimal authenticated English smoke before any more UI implementation.
+- **Exit test:** `cd client && npx playwright test e2e/english-operations.spec.js`
+  launches and completes against the local PostgreSQL-backed app.
+
+### DWF-002 — Blocker — English E2E asserts form opening, not the requested workflow
+
+- **Evidence:** `client/e2e/english-operations.spec.js:24-37` checks that
+  `Schedule session` opens a form and that three fields are visible. It does not
+  submit, reload, edit, reschedule, cancel, verify notifications, or assert the
+  persisted result.
+- **Impact:** the test can remain green while the exact user workflows are
+  broken. This is the same false-confidence pattern that caused repeated owner
+  QA/fix loops.
+- **Required action:** replace the shallow schedule smoke with end-to-end slices
+  for create, edit/reschedule, durable cancel, and visible success/failure
+  feedback. Assert the result after reload or through an API/DB-visible read.
+- **Exit test:** each changed command is exercised through the real UI and its
+  persisted result is asserted.
+
+### DWF-003 — High — Current English slice crosses both stop-and-replan signals
+
+- **Evidence:** 19 tracked English files plus untracked migration 050;
+  approximately 571 handwritten changed lines. The new workflow flags roughly
+  15 files or 500 lines for re-baselining.
+- **Impact:** data handoff, backend read semantics, schedule mutation UI,
+  responsive layout, tests, verifier changes, ADR/spec, and roadmap updates are
+  accumulating as one delivery unit. A regression cannot be isolated or
+  reverted cleanly.
+- **Required action:** split by independently verifiable outcome, not by
+  frontend/backend layer:
+  1. imported-future Meeting handoff and data invariants;
+  2. adopted Meeting edit/reschedule/cancel behavior;
+  3. calendar/drawer responsive composition.
+- **Exit test:** each slice has its own delivery contract, regression signal,
+  focused diff, evidence report, and intentional commit.
+
+### DWF-004 — High — Proposal template does not capture the required delivery contract
+
+- **Evidence:** `plans/_TEMPLATE-proposal.md` contains Why, delta, approach,
+  tasks, and a generic verification section, but has no explicit fields for user
+  outcome, non-goals, domain authority, data impact/rollback, or named feedback
+  loop.
+- **Impact:** the canonical workflow can be skipped accidentally at the first
+  planning entrypoint; future plans may repeat ambiguous scope and authority
+  drift.
+- **Required action:** add the Phase 0 delivery-contract fields and stop/replan
+  checkpoint to the plan template.
+- **Exit test:** a new plan created from the template cannot omit the fields
+  required by `.claude/rules/implementation-workflow.md` Phase 0.
+
+### DWF-005 — High — Viewport standard is documented but not executable in Playwright
+
+- **Evidence:** `client/playwright.config.js:59-64` defines only one Chromium
+  project using the default `Desktop Chrome` device. No suite or helper asserts
+  `1440×900`, `1280×800`, or `390×844`; repository search found no
+  `setViewportSize` or `toHaveScreenshot` usage for English Operations.
+- **Impact:** PRs can claim the documented browser gate while CI checks only one
+  unspecified desktop viewport. Responsive regressions remain procedural and
+  easy to miss.
+- **Required action:** add explicit desktop-wide, desktop-compact, and mobile
+  projects or a shared viewport matrix for responsive specs. Add overflow,
+  clipping, drawer open/closed, and screenshot assertions where reference parity
+  matters.
+- **Exit test:** CI executes the applicable English responsive spec at all
+  required sizes and retains failure artifacts.
+
+### DWF-006 — High — Adopted imported Meeting commands lack real API integration coverage
+
+- **Evidence:** `server/tests/integration/englishLiveOperations.test.js:26-142`
+  proves class creation, enrollment, a newly created Meeting, and attendance
+  persistence. Current adopted-import tests in
+  `server/tests/unit/english-canonical-live-operations.test.js` mock the
+  repository; route tests mock controllers.
+- **Impact:** migration 050 eligibility, authorization, repository update,
+  source-baseline preservation, audit, and cancellation can disagree at runtime
+  while unit tests pass.
+- **Required action:** add PostgreSQL integration cases that adopt a future
+  imported Meeting, reschedule it, cancel it, reject unauthorized access, and
+  verify its original source timestamp/duration and audit rows remain intact.
+- **Exit test:** the full HTTP → command → repository → PostgreSQL path passes
+  for success, denial, and immutable-source edge cases.
+
+### DWF-007 — Medium — Playwright setup comments describe a retired MongoDB backend
+
+- **Evidence:** `client/playwright.config.js:10-18` says the API server requires
+  MongoDB even though production, tests, and CI are PostgreSQL-only.
+- **Impact:** a developer following the local instructions can prepare the wrong
+  environment or assume the E2E lane is obsolete.
+- **Required action:** update the comments and link to the PostgreSQL seed/E2E
+  setup used by `.github/workflows/ci.yml`.
+- **Exit test:** local instructions and CI describe the same backend, seed, and
+  credentials flow.
+
+### DWF-008 — Medium — Scope and evidence gates remain procedural
+
+- **Evidence:** diff thresholds and evidence requirements exist in Markdown and
+  the PR checklist, but no local command or CI check reports oversized slices,
+  missing delivery-contract fields, or absent browser evidence.
+- **Impact:** the improved process still relies on reviewer discipline, which is
+  weakest during rapid iterative work.
+- **Required action:** after the blocker/high findings are closed, add a small
+  non-destructive preflight command that reports diff size, lists applicable
+  gates, and links to required evidence. Keep judgment with the reviewer; do not
+  turn line count into a blind hard failure.
+- **Exit test:** every handoff can include one generated preflight summary.
+
+## Controls that passed audit
+
+- One canonical workflow is linked from the docs index and both agent
+  entrypoints.
+- `Planned`, `Implemented`, `Verified`, `Ready for review`, and `Done` have
+  distinct meanings.
+- The workflow explicitly prevents calling an untested UI ready and states that
+  owner screenshots are not the primary QA loop.
+- PR checklist and Definition of Done cover security controls, browser
+  interaction, data invariants, documentation, diff review, and CI status.
+- Migration/import guidance requires disposable rehearsal, source-evidence
+  preservation, before/after invariants, and rollback boundaries.
+- Current governing English ADR is explicit:
+  `docs/decisions/english-domain-authority.md` supersedes the earlier generic
+  convergence model.
+
+## Remediation order
+
+### Gate 0 — Restore the feedback loop
+
+1. Install the pinned Chromium runtime.
+2. Correct PostgreSQL-only Playwright setup documentation.
+3. Run the existing English spec unchanged to establish a real baseline.
+
+No additional English UI changes should start until Gate 0 passes.
+
+### Gate 1 — Finish wiring the process
+
+1. Update `plans/_TEMPLATE-proposal.md` with the delivery contract.
+2. Add explicit Playwright viewport projects/helpers.
+3. Keep the process-document changes as a standalone commit.
+
+### Gate 2 — Re-slice the English worktree
+
+Create separate, independently verifiable slices for data handoff, adopted
+Meeting commands, and responsive calendar/drawer layout. Record why any slice
+that crosses the review threshold must remain atomic.
+
+### Gate 3 — Add missing regression coverage
+
+1. PostgreSQL integration: adopted imported Meeting reschedule/cancel,
+   authorization denial, audit, and source-baseline preservation.
+2. Playwright: create, edit/reschedule, durable cancel, notification feedback,
+   and persisted result.
+3. Playwright responsive: drawer closed/open at required desktop widths and
+   mobile behavior where supported.
+4. Migration rehearsal: before/after counts plus rollback/compensating-path
+   verification.
+
+### Gate 4 — Verify and ship one slice at a time
+
+Run the targeted regression loop, affected suites, browser matrix, applicable
+full tests, lint, build, verifier, and `git diff --check`. Commit only the slice
+whose evidence is complete. Push only after explicit authorization, then wait
+for all seven CI gates before calling it **Done**.
+
+## Exit criteria for this audit
+
+This focused audit can be closed when:
+
+- [ ] DWF-001 and DWF-002 are closed with a runnable, persistent English E2E flow.
+- [ ] DWF-003 is resolved by splitting the current worktree or documenting why a remaining slice is atomic.
+- [ ] DWF-004 and DWF-005 are wired into the plan template and Playwright configuration.
+- [ ] DWF-006 passes on real PostgreSQL through the production HTTP stack.
+- [ ] DWF-007 is corrected.
+- [ ] Migration 050 before/after and rollback evidence is recorded.
+- [ ] Each resulting slice meets the canonical Definition of Done and all seven CI gates are green.
+
+## Audit status
+
+**OPEN — remediation required.** No product or process files were changed during
+evidence collection. This report and its audit-index entry are the only changes
+made while publishing the audit.
