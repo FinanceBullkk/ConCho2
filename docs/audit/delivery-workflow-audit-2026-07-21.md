@@ -91,7 +91,15 @@ coverage for the exact create/edit/reschedule/cancel workflows under review.
 - **Exit test:** each changed command is exercised through the real UI and its
   persisted result is asserted.
 
-### DWF-003 — High — Current English slice crosses both stop-and-replan signals
+### DWF-003 — High — Current English slice crosses both stop-and-replan signals — RESOLVED 2026-07-21
+
+- **Resolution:** the mixed 19-file worktree was re-baselined into three
+  independently reviewable outcomes, each with its own delivery contract,
+  focused diff, regression signal, and intentional commit: future imported
+  Meeting data handoff (`8660df7`, 11 files / 241 additions), adopted Meeting
+  commands (`a9136ef`, 8 files / 106 additions), and responsive calendar/drawer
+  composition (`8924eaf`, 8 files / 287 additions). No slice crosses 15 files or
+  500 handwritten changed lines.
 
 - **Evidence:** 19 tracked English files plus untracked migration 050;
   approximately 571 handwritten changed lines. The new workflow flags roughly
@@ -255,10 +263,10 @@ for all seven CI gates before calling it **Done**.
 This focused audit can be closed when:
 
 - [ ] DWF-001 and DWF-002 are closed with a runnable, persistent English E2E flow.
-- [ ] DWF-003 is resolved by splitting the current worktree or documenting why a remaining slice is atomic.
+- [x] DWF-003 is resolved by splitting the current worktree or documenting why a remaining slice is atomic.
 - [x] DWF-004 and DWF-005 are wired into the plan template and Playwright configuration.
 - [ ] DWF-006 passes on real PostgreSQL through the production HTTP stack.
-- [ ] DWF-007 is corrected.
+- [x] DWF-007 is corrected.
 - [ ] Migration 050 before/after and rollback evidence is recorded.
 - [ ] Each resulting slice meets the canonical Definition of Done and all seven CI gates are green.
 
@@ -317,8 +325,41 @@ Verification recorded for this configuration slice:
 Gate 1 closes DWF-004 and DWF-005. DWF-002, DWF-003, DWF-006, and DWF-008 remain
 open for the later gates defined above.
 
+## Gate 2 execution (2026-07-21)
+
+Re-baselined and committed the English worktree by observable outcome:
+
+1. `8660df7 feat(english): preserve future meeting handoff baseline`
+   - Contract: `plans/260721-english-future-meeting-handoff/plan.md`.
+   - Migration 050, rollback boundary, source-baseline projection, verifier,
+     authority/spec truth, and focused provenance tests.
+   - 11 files; 241 additions / 11 deletions.
+2. `a9136ef feat(english): operate adopted imported meetings`
+   - Contract: `plans/260721-english-adopted-meeting-commands/plan.md`.
+   - Operational read classification, guarded reschedule/cancel eligibility,
+     source-provenance notice, and focused command/read tests.
+   - 8 files; 106 additions / 7 deletions.
+3. `8924eaf refactor(english): compose responsive schedule drawer`
+   - Contract:
+     `plans/260721-english-schedule-responsive-composition/plan.md`.
+   - Shared calendar density, embedded header/drawer composition, English
+     desktop/mobile editor, component tests, and spec truth.
+   - 8 files; 287 additions / 129 deletions (416 handwritten changed lines).
+
+Post-split regression evidence:
+
+- Server targeted Jest: 3 suites, 15 tests passed.
+- Client targeted Vitest: 4 files, 20 tests passed.
+- Each commit passed `git diff --cached --check` and contained only its named
+  contract. Migration rehearsal, real PostgreSQL HTTP integration, and
+  persistent/responsive Playwright flows remain assigned to Gate 3, so these
+  slices are **Implemented**, not yet **Verified**.
+
+Gate 2 closes DWF-003. DWF-002, DWF-006, and DWF-008 remain open.
+
 ## Audit status
 
-**OPEN — Gates 0 and 1 closed; DWF-002/003/006/008 remain.** Gate 1 changes only
-the delivery template, Playwright viewport wiring/operator docs, and this audit
-record. No English feature code was changed.
+**OPEN — Gates 0, 1, and 2 closed; DWF-002/006/008 remain.** The English
+worktree is now split into three explicit, reviewable commits. Gate 3 regression
+coverage and data rehearsal are still required before any product slice is
+called Verified.

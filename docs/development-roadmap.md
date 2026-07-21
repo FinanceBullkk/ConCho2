@@ -24,7 +24,7 @@ remainder is documented deferred-by-design scope (below), not active debt.
   notification bell (full event coverage) shipped 2026-06-13.
 - **Now / Next — canonical English Operations:** ADR
   [`english-domain-authority`](decisions/english-domain-authority.md) is
-  **Accepted** and supersedes the generic English handoff. Migrations 047–048
+  **Accepted** and supersedes the generic English handoff. Migrations 047–050
   are applied on the prototype: 52 stable classes retain 52 current PIC
   assignments; Course Run rosters read directly from `eng_run_enrollments`;
   one-current-PIC and one-active-enrollment invariants are database guarded;
@@ -32,8 +32,11 @@ remainder is documented deferred-by-design scope (below), not active debt.
   can now start a learner at the confirmed next logical session, create a real
   Meeting + Session Unit on an approved slot, and atomically save one exact P/A
   roster with stale-write protection. The 984 imported sessions were backfilled
-  to 984 Meetings without changing their 5,962 attendance facts and remain
-  read-only evidence. Managed-person create now writes the disabled User +
+  to 984 Meetings without changing their 5,962 attendance facts. Migration 050
+  keeps past evidence read-only while handing 14 planned future Meetings to live
+  operations with source timestamps retained, audit rows, correct Vietnam
+  instants, and the shared calendar + drawer edit/cancel UX. Managed-person
+  create now writes the disabled User +
   canonical Employee crosswalk atomically; the current-schema importer stages
   Meetings until correction overlays make active-slot validation safe.
   **Next:** learner transfer/leave and capacity override;
@@ -184,6 +187,14 @@ Bug fixing and integration review rank above net-new feature rollout.
 > 07-04 E1–E3 rolled 2026-07-08, 07-02→07-03 rolled 2026-07-07 →
 > [`2026-q3.md`](changelog-archive/2026-q3.md); 06-20→06-27 rolled 2026-07-07;
 > 06-14→06-19 rolled 2026-07-04 → [`2026-q2.md`](changelog-archive/2026-q2.md)).
+
+- **2026-07-21** — **English future Meeting handoff re-sliced — Implemented,
+  Gate 3 verification pending.** The oversized mixed worktree is now three
+  delivery contracts and commits: migration/source baseline (`8660df7`),
+  adopted Meeting commands (`a9136ef`), and responsive calendar/drawer
+  composition (`8924eaf`). Targeted regression is green (server 15/15; client
+  20/20). Real PostgreSQL HTTP coverage, migration up/down rehearsal, and the
+  persistent/responsive Playwright matrix remain required before Verified.
 
 - **2026-07-21** — **English Schedule direct manipulation and delivery notifications.**
   English Operations now creates a Meeting by clicking an empty approved grid
