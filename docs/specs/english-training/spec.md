@@ -15,6 +15,7 @@ related_code:
   - server/db/pg/migrations/047_english_canonical_authority.js
   - server/db/pg/migrations/048_english_live_meetings_attendance.js
   - server/db/pg/migrations/049_english_meeting_calendar.js
+  - server/db/pg/migrations/050_english_future_meeting_handoff.js
   - server/domains/english-training/canonical-operations.js
   - server/domains/english-training/meeting-delivery.js
   - server/domains/english-training/reads.pg.js
@@ -119,8 +120,10 @@ one-active-enrollment invariant, and writes the domain audit atomically.
 ### Schedule and attendance
 
 Schedule and Attendance render the canonical `eng_session_units` and
-`eng_attendance_records` projections on the weekly grids. Imported rows are
-explicitly read-only. There is no generic live/archive source toggle.
+`eng_attendance_records` projections on the weekly grids. Past imported rows
+remain explicitly read-only. Planned, attendance-free imported Meetings still
+in the future are handed to live operations with their source timestamp and
+duration retained as a baseline. There is no generic live/archive source toggle.
 
 `POST /api/english-training/workspace/course-runs/:courseRunId/sessions`
 creates one planned Meeting and its first normal Session Unit after exact-slot,
@@ -176,7 +179,7 @@ Canonical operational English tables are writable through controlled commands;
 raw rows, DQ records, and time-correction evidence retain database freeze
 protection from the older archive mechanism.
 
-## Migrations 047-049 reconciliation
+## Migrations 047-050 reconciliation
 
 Migration 047:
 
@@ -199,6 +202,12 @@ workbook row is edited.
 Migration 049 adds nullable Google Calendar identity and Meet-link fields to
 `eng_meetings`. It does not rewrite imported Meetings or attendance evidence.
 
+Migration 050 preserves source start/duration on every imported Meeting, then
+hands only future planned attendance-free occurrences to live operations. The
+imported wall-clock value is reinterpreted as a real Asia/Ho_Chi_Minh instant,
+the linked Session Unit is moved with it, and one domain-audit event is recorded
+per handoff. Past Meetings and all imported attendance facts are untouched.
+
 The reproducible importer is schema-aware: it stages imported Meetings as
 cancelled inside the import transaction, loads their linked Session Units and
 original attendance status, reapplies the correction overlay, then opens final
@@ -214,9 +223,10 @@ corrected clocks; any remaining collision rolls back the complete import.
   imported wall-clock conversion, live Meeting instant/duration mapping,
   evidence filters, inline roster layout, query-tab breadcrumbs, empty-cell
   creation, and live Meeting move/cancel controls.
-- Prototype: migrations 040–049 present; 22 canonical columns; 2 canonical
+- Prototype: migrations 040–050 present; 27 canonical columns; 2 canonical
   unique indexes; `eng_audit_events`; no multi-active enrollment/current-PIC or
-  Meeting-link violations; canonical writes allowed while imported raw evidence
+  Meeting-link/operational-baseline violations; 14 future imported Meetings are
+  under live control; canonical writes are allowed while imported raw evidence
   remains guarded.
 - Reconciliation: 52 classes, 52 current PIC assignments, 6 courses, 91 Course
   Runs, 552 Run Enrollments, 984 Meetings, 984 Session Units and 5,962

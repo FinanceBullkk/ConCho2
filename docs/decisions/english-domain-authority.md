@@ -66,6 +66,10 @@ named generic rows.
 - Meeting is a calendar occurrence while Session Unit is logical credit. The
   live roster is calculated at event time, and a complete Present/Absent roster
   is saved atomically with an opaque stale-write token.
+- Imported history remains read-only. A planned, attendance-free imported
+  Meeting whose date is still in the future may be handed to live operations;
+  its original wall-clock start and duration remain a source baseline, while
+  every later move/cancellation is authorized, validated, and audited.
 
 ### Correction of the superseded handoff
 
@@ -89,8 +93,9 @@ row is deleted.
   frozen wholesale because it is the operational English module.
 - Meeting-versus-Session-Unit separation, learner start, and transactional
   full-roster attendance are implemented in migration 048 and the canonical
-  English command layer. Imported schedule/attendance evidence remains
-  explicitly read-only; controlled live rows are operational.
+  English command layer. Migration 050 hands future planned imported Meetings
+  to live control without deleting their imported baseline. Past schedule and
+  imported attendance evidence remain explicitly read-only.
 
 ## Guardrails
 

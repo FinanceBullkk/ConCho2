@@ -15,6 +15,7 @@ describe('English training read SQL', () => {
 
     const [sql] = query.mock.calls[0];
     expect(sql).toMatch(/GROUP BY\s+su\.id,\s*m\.id,\s*r\.id,/i);
+    expect(sql).toMatch(/m\.source_starts_at/i);
   });
 
   test('historical roster uses Meeting time and event-time membership applicability', async () => {
