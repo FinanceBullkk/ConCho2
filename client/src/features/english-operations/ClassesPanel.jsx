@@ -11,6 +11,7 @@ import {
   useCanonicalEnglishCourses,
   useCanonicalEnglishEmployees,
   useAddCanonicalRunEnrollment,
+  useLeaveCanonicalRunEnrollment,
   useCreateCanonicalEnglishClass,
 } from './useEnglishOperations';
 
@@ -124,15 +125,55 @@ function RosterAddForm({ run, employees, onClose }) {
   );
 }
 
+function RosterLeaveForm({ run, learner, onClose }) {
+  const { t } = useTranslation();
+  const mutation = useLeaveCanonicalRunEnrollment();
+  const [lastActiveDate, setLastActiveDate] = useState(today());
+  const [reason, setReason] = useState('');
+  const submit = async (event) => {
+    event.preventDefault();
+    await mutation.mutateAsync({
+      courseRunId: run.id,
+      enrollmentId: learner.enrollmentId,
+      data: { lastActiveDate, reason },
+    });
+    onClose();
+  };
+
+  return (
+    <form onSubmit={submit} className="space-y-3 rounded-md border border-border bg-muted/20 p-3">
+      <div>
+        <h5 className="text-sm font-semibold text-foreground">{t('englishOperations.classes.leaveTitle', { learner: learner.fullName })}</h5>
+        <p className="mt-1 text-xs text-muted-foreground">{t('englishOperations.classes.leaveHint')}</p>
+      </div>
+      <div className="grid gap-3 md:grid-cols-[180px_1fr_auto] md:items-end">
+        <label className="space-y-1 text-sm text-muted-foreground">
+          <span>{t('englishOperations.classes.lastActiveDate')}</span>
+          <Input type="date" max={today()} value={lastActiveDate} onChange={(event) => setLastActiveDate(event.target.value)} required />
+        </label>
+        <label className="space-y-1 text-sm text-muted-foreground">
+          <span>{t('englishOperations.classes.leaveReason')}</span>
+          <Input value={reason} onChange={(event) => setReason(event.target.value)} minLength={3} maxLength={500} required />
+        </label>
+        <div className="flex gap-2">
+          <Button type="button" variant="ghost" onClick={onClose}>{t('englishOperations.classes.cancel')}</Button>
+          <Button type="submit" variant="destructive" disabled={mutation.isPending}>{t('englishOperations.classes.confirmLeave')}</Button>
+        </div>
+      </div>
+    </form>
+  );
+}
+
 function ClassDetail({ classId, summary, employees, canManage }) {
   const { t } = useTranslation();
   const detail = useCanonicalEnglishClass(classId);
   const [addingToRun, setAddingToRun] = useState(null);
+  const [leavingEnrollment, setLeavingEnrollment] = useState(null);
   if (detail.isLoading) return <div className="flex justify-center rounded-lg border border-border bg-card py-16"><Spinner size={28} /></div>;
   if (!detail.data) return null;
   const value = detail.data;
   return (
-    <div className="space-y-6 rounded-lg border border-border bg-card p-4">
+    <div className="min-w-0 space-y-6 rounded-lg border border-border bg-card p-4">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h3 className="text-lg font-semibold text-foreground">{value.classCode} · {value.displayName}</h3>
@@ -153,10 +194,17 @@ function ClassDetail({ classId, summary, employees, canManage }) {
             </div>
           </div>
           {addingToRun === run.id && <RosterAddForm run={run} employees={employees} onClose={() => setAddingToRun(null)} />}
+          {leavingEnrollment?.runId === run.id && (
+            <RosterLeaveForm
+              run={run}
+              learner={run.roster.find((row) => row.enrollmentId === leavingEnrollment.enrollmentId)}
+              onClose={() => setLeavingEnrollment(null)}
+            />
+          )}
           <div className="overflow-x-auto rounded-md border border-border">
-            <table className="w-full min-w-[640px] text-left text-sm">
-              <thead className="border-b border-border bg-muted/40 text-xs uppercase text-muted-foreground"><tr><th className="px-3 py-2">{t('englishOperations.classes.learner')}</th><th className="px-3 py-2">{t('englishOperations.classes.enrollmentStatus')}</th><th className="px-3 py-2">{t('englishOperations.classes.startsAtSession')}</th><th className="px-3 py-2">{t('englishOperations.classes.attendance')}</th><th className="px-3 py-2">{t('englishOperations.classes.eligibility')}</th></tr></thead>
-              <tbody className="divide-y divide-border">{run.roster.map((row) => <tr key={row.enrollmentId}><td className="px-3 py-2"><div className="font-medium text-foreground">{row.fullName}</div><div className="text-xs text-muted-foreground">{row.empCode}</div></td><td className="px-3 py-2 text-muted-foreground">{row.enrollmentStatus}</td><td className="px-3 py-2 text-muted-foreground">{row.startSessionNumber}</td><td className="px-3 py-2 text-muted-foreground">{percentage(row.attendanceRatio)} <span className="text-xs">({row.presentCount}/{row.markedCount})</span></td><td className="px-3 py-2 text-muted-foreground">{row.eligibilityStatus}</td></tr>)}</tbody>
+            <table className="w-full min-w-[720px] text-left text-sm">
+              <thead className="border-b border-border bg-muted/40 text-xs uppercase text-muted-foreground"><tr><th className="px-3 py-2">{t('englishOperations.classes.learner')}</th><th className="px-3 py-2">{t('englishOperations.classes.enrollmentStatus')}</th><th className="px-3 py-2">{t('englishOperations.classes.startsAtSession')}</th><th className="px-3 py-2">{t('englishOperations.classes.attendance')}</th><th className="px-3 py-2">{t('englishOperations.classes.eligibility')}</th>{canManage && <th className="px-3 py-2 text-right">{t('englishOperations.classes.actions')}</th>}</tr></thead>
+              <tbody className="divide-y divide-border">{run.roster.map((row) => <tr key={row.enrollmentId}><td className="px-3 py-2"><div className="font-medium text-foreground">{row.fullName}</div><div className="text-xs text-muted-foreground">{row.empCode}</div></td><td className="px-3 py-2 text-muted-foreground">{row.enrollmentStatus}</td><td className="px-3 py-2 text-muted-foreground">{row.startSessionNumber}</td><td className="px-3 py-2 text-muted-foreground">{percentage(row.attendanceRatio)} <span className="text-xs">({row.presentCount}/{row.markedCount})</span></td><td className="px-3 py-2 text-muted-foreground">{row.eligibilityStatus}</td>{canManage && <td className="px-3 py-2 text-right">{row.enrollmentStatus === 'active' && <Button size="sm" variant="ghost" onClick={() => setLeavingEnrollment({ runId: run.id, enrollmentId: row.enrollmentId })}>{t('englishOperations.classes.markLeft')}</Button>}</td>}</tr>)}</tbody>
             </table>
             {run.roster.length === 0 && <p className="px-3 py-8 text-center text-sm text-muted-foreground">{t('englishOperations.classes.noRoster')}</p>}
           </div>

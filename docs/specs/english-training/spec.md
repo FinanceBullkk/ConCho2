@@ -71,6 +71,9 @@ not a teacher assignment, login identity, generic Team, or roster container.
   Meeting may occupy a company-wide start time.
 - A learner starts at the next non-cancelled logical session and may hold at
   most one active English Run Enrollment across all Course Runs.
+- Leaving ends the active Run Enrollment and, when no other active enrollment
+  uses it, the stable Cohort Membership on an inclusive Last active date. It
+  never deletes attendance, evaluation, Meeting, or Session Unit history.
 - Attendance applicability is calculated at event time. Planned rosters propose
   Present; completed historical gaps remain unknown rather than becoming Absent.
 - One attendance save contains every applicable Run Enrollment exactly once.
@@ -117,6 +120,45 @@ key; roster selectors page through the full Employee directory.
 starts one active Run Enrollment at the operator-confirmed next Session Unit.
 It reuses or creates the stable Cohort Membership, checks capacity and the
 one-active-enrollment invariant, and writes the domain audit atomically.
+
+### Mark a learner as left
+
+`POST /api/english-training/workspace/course-runs/:courseRunId/enrollments/:enrollmentId/leave`
+ends an active learner's current participation. Admin and Coordinator require
+`enrollment.manage`; Teacher and Participant remain denied.
+
+The request requires an inclusive `lastActiveDate` and a 3–500 character
+`reason`. The date must be on or after the Cohort Membership start and cannot
+be later than today in `Asia/Ho_Chi_Minh`. In one transaction the command locks
+the Course Run, Run Enrollment, and Cohort Membership; changes the Enrollment
+from `active` to `dropped`; records the leave intent in Enrollment metadata;
+ends the otherwise-unused Membership as `cancelled`; and writes
+`run_enrollment.leave` to `eng_audit_events`. Existing attendance and evaluation
+facts stay attached to the historical Enrollment, while active class count and
+capacity are released immediately.
+
+The Classes roster exposes **Mark left** only for active enrollments and only to
+managers. Its compact confirmation form makes the date, reason, preserved
+history, and destructive effect explicit. A stale/non-active Enrollment, an
+Enrollment from another Course Run, or an invalid date fails without changing
+any row.
+
+#### Acceptance examples
+
+- `[BR-ENG-LEAVE-1]` Given an active Enrollment whose Membership started on or
+  before the requested date, when an authorized operator confirms leave, then
+  the Enrollment becomes `dropped`, the otherwise-unused Membership becomes
+  `cancelled` through that date, active capacity is released, history remains,
+  and one atomic domain-audit event exists.
+- `[UC-ENG-LEAVE-1-PERMISSION]` Given the same Enrollment, when a Teacher or
+  Participant submits the command, then access is denied and no row changes.
+- `[UC-ENG-LEAVE-1-STALE]` Given a non-active or wrong-Run Enrollment, or a date
+  before Membership start or after today in Vietnam, when the command is
+  submitted, then it is rejected and no partial Enrollment, Membership, or
+  audit change commits.
+
+Transfer, capacity override, restoration, and departure notification are
+explicitly outside this delivery slice.
 
 ### Schedule and attendance
 
@@ -224,9 +266,11 @@ and domain audit. Any remaining collision rolls back the complete reset/import.
 ## Verification
 
 - Unit: atomic class/PIC/run command, learner-start sequence and capacity
-  guards, Meeting create/reschedule/durable-cancel, delivery notifications,
-  full-roster save, stale token, route permission denial, and DTO ratio mapping.
-- Client: PIC grouping, class detail roster, canonical Schedule/Attendance grid,
+  guards, learner-leave happy/permission/date/stale guards, Meeting create/
+  reschedule/durable-cancel, delivery notifications, full-roster save, stale
+  token, route permission denial, and DTO ratio mapping.
+- Client: PIC grouping, class detail roster and learner-leave confirmation,
+  canonical Schedule/Attendance grid,
   imported wall-clock conversion, live Meeting instant/duration mapping,
   evidence filters, inline roster layout, query-tab breadcrumbs, empty-cell
   creation, and live Meeting move/cancel controls.
@@ -246,7 +290,7 @@ and domain audit. Any remaining collision rolls back the complete reset/import.
 
 ## Known next work
 
-- Port learner transfer/leave intent commands and explicit capacity override.
+- Port learner transfer and explicit capacity override commands.
 - Add the authority model's optional second normal Session Unit and linked
   make-up replacement-credit workflow.
 - Add assigned-Teacher resource scope before exposing canonical rosters or

@@ -60,6 +60,10 @@ const canonicalClassBody = z.object({
 });
 
 const courseRunParams = z.object({ courseRunId: z.string().min(1) });
+const courseRunEnrollmentParams = z.object({
+  courseRunId: z.string().min(1),
+  enrollmentId: z.string().min(1),
+});
 const courseRunMeetingParams = z.object({
   courseRunId: z.string().min(1),
   meetingId: z.string().min(1),
@@ -72,6 +76,18 @@ const runEnrollmentBody = z.object({
   employeeId: z.string().min(1),
   startDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'startDate must be YYYY-MM-DD'),
   confirmedStartSessionNumber: z.coerce.number().int().min(1),
+});
+const validDateOnly = (value) => {
+  const parsed = new Date(`${value}T00:00:00.000Z`);
+  return value.slice(0, 4) !== '0000'
+    && !Number.isNaN(parsed.getTime())
+    && parsed.toISOString().slice(0, 10) === value;
+};
+const runEnrollmentLeaveBody = z.object({
+  lastActiveDate: z.string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/, 'lastActiveDate must be YYYY-MM-DD')
+    .refine(validDateOnly, 'lastActiveDate must be a real calendar date'),
+  reason: z.string().trim().min(3).max(500),
 });
 const attendanceSessionBody = z.object({
   startsAt: z.string().datetime({ offset: true }),
@@ -99,7 +115,7 @@ module.exports = {
   employeeCorrectionBody, examResultBody,
   managedPersonCreateBody, managedPersonUpdateBody,
   canonicalClassBody,
-  courseRunParams, courseRunMeetingParams, attendanceRosterParams,
-  runEnrollmentBody, attendanceSessionBody, meetingRescheduleBody,
+  courseRunParams, courseRunEnrollmentParams, courseRunMeetingParams, attendanceRosterParams,
+  runEnrollmentBody, runEnrollmentLeaveBody, attendanceSessionBody, meetingRescheduleBody,
   meetingCancellationBody, attendanceRosterBody,
 };

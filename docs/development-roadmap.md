@@ -29,7 +29,8 @@ remainder is documented deferred-by-design scope (below), not active debt.
   assignments; Course Run rosters read directly from `eng_run_enrollments`;
   one-current-PIC and one-active-enrollment invariants are database guarded;
   eligibility uses the Course Run's 80% attendance-ratio snapshot. Operators
-  can now start a learner at the confirmed next logical session, create a real
+  can now start a learner at the confirmed next logical session, mark an active
+  learner as left while retaining history and releasing capacity, create a real
   Meeting + Session Unit on an approved slot, and atomically save one exact P/A
   roster with stale-write protection. The 984 imported sessions were backfilled
   to 984 Meetings without changing their 5,962 attendance facts. Migration 050
@@ -41,7 +42,7 @@ remainder is documented deferred-by-design scope (below), not active debt.
   Meetings until correction overlays make active-slot validation safe, mirrors
   migration 047's evidence-only multi-active reconciliation, fails before load
   on ambiguous/unbalanced input, and blocks remote targets by default.
-  **Next:** learner transfer/leave and capacity override;
+  **Next:** learner transfer and capacity override;
   optional second Session Unit / make-up credit; assigned-Teacher scope.
 - **Canonical English baseline:** Phases 1–3 are complete on dev: identity,
   structure, correction overlay, 984 historical sessions, 5,962 attendance
@@ -189,6 +190,25 @@ Bug fixing and integration review rank above net-new feature rollout.
 > 07-04 E1–E3 rolled 2026-07-08, 07-02→07-03 rolled 2026-07-07 →
 > [`2026-q3.md`](changelog-archive/2026-q3.md); 06-20→06-27 rolled 2026-07-07;
 > 06-14→06-19 rolled 2026-07-04 → [`2026-q2.md`](changelog-archive/2026-q2.md)).
+
+- **2026-07-22** — **Canonical English learner-leave workflow verified.**
+  Admin and Coordinator can now mark an active Course Run Enrollment as left
+  from the Classes roster with a required Last active date and reason. The
+  transactional command locks the Run, Enrollment, and Membership; changes the
+  Enrollment to `dropped`; ends the otherwise-unused Membership as `cancelled`;
+  releases active class capacity; preserves roster, session, attendance, and
+  evaluation history; and writes `run_enrollment.leave` to the domain audit.
+  Teacher/Participant denial, stale/non-active state, wrong-Run identity, dates
+  before Membership start, future dates, and impossible calendar dates fail
+  without partial writes. A disposable local PostgreSQL 17 rehearsal proved
+  active/active became dropped/cancelled with the inclusive end date, one
+  retained Session Unit, and exactly one leave audit. The complete UI action was
+  exercised at 1440×900, 1280×800, and 390×844; that pass also found and fixed
+  a mobile grid min-width leak, leaving no page-level horizontal overflow or
+  browser warnings/errors. Verification: English server 97/97, all server unit
+  tests 385/385, full client 568/568, client production build, lint (zero errors;
+  five pre-existing warnings), and syntax 21/21. **Next:** learner transfer and
+  explicit capacity override.
 
 - **2026-07-22** — **Current-schema English workbook rebuild hardened and verified.**
   The importer now applies migration

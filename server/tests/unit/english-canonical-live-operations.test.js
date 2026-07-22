@@ -11,9 +11,12 @@ jest.mock('../../domains/english-training/canonical-operations-repository.pg', (
   countActiveRunEnrollments: jest.fn(),
   findActiveEnrollmentForEmployee: jest.fn(),
   findEnrollmentInRun: jest.fn(),
+  findRunEnrollmentForUpdate: jest.fn(),
   findCurrentMembership: jest.fn(),
   createMembership: jest.fn(),
   createRunEnrollment: jest.fn(),
+  dropRunEnrollment: jest.fn(),
+  endMembershipIfUnused: jest.fn(),
   createMeeting: jest.fn(),
   createSessionUnit: jest.fn(),
   findMeetingForUpdate: jest.fn(),
@@ -35,7 +38,7 @@ const policy = require('../../domains/schedule/scheduling-window-policy');
 const repository = require('../../domains/english-training/canonical-operations-repository.pg');
 const delivery = require('../../domains/english-training/meeting-delivery');
 const {
-  addRunEnrollment, createAttendanceSession, getAttendanceRoster,
+  addRunEnrollment, leaveRunEnrollment, createAttendanceSession, getAttendanceRoster,
   rescheduleMeeting, cancelMeeting, saveAttendanceRoster, rosterToken,
 } = require('../../domains/english-training/canonical-operations');
 
@@ -69,6 +72,15 @@ describe('canonical English live operations', () => {
     repository.findCurrentMembership.mockResolvedValue(null);
     repository.createMembership.mockResolvedValue({ id: 'membership-1' });
     repository.createRunEnrollment.mockResolvedValue({ id: 'enrollment-1' });
+    repository.findRunEnrollmentForUpdate.mockResolvedValue({
+      id: 'enrollment-1', course_run_id: 'run-1', employee_id: 'employee-1',
+      cohort_membership_id: 'membership-1', status: 'active',
+      membership_status: 'active', membership_start_date: '2026-07-01',
+    });
+    repository.dropRunEnrollment.mockResolvedValue({ id: 'enrollment-1', status: 'dropped' });
+    repository.endMembershipIfUnused.mockResolvedValue({
+      id: 'membership-1', status: 'cancelled', end_date: '2026-07-20',
+    });
   });
 
   test('starts a learner at the confirmed next logical session in one transaction', async () => {
@@ -93,6 +105,49 @@ describe('canonical English live operations', () => {
     }, actor)).rejects.toMatchObject({ statusCode: 409 });
     expect(repository.createMembership).not.toHaveBeenCalled();
     expect(repository.createRunEnrollment).not.toHaveBeenCalled();
+  });
+
+  test('marks an active learner as left and ends the unused membership atomically', async () => {
+    const result = await leaveRunEnrollment({
+      courseRunId: 'run-1', enrollmentId: 'enrollment-1',
+      lastActiveDate: '2026-07-20', reason: 'Work schedule changed',
+    }, actor);
+
+    expect(result).toEqual({
+      enrollmentId: 'enrollment-1', membershipId: 'membership-1',
+      before: { status: 'active' },
+      after: { status: 'dropped', lastActiveDate: '2026-07-20' },
+      membershipEnded: true,
+    });
+    expect(repository.dropRunEnrollment).toHaveBeenCalledWith(
+      'enrollment-1', expect.objectContaining({
+        lastActiveDate: '2026-07-20', reason: 'Work schedule changed',
+      }), expect.anything(),
+    );
+    expect(repository.endMembershipIfUnused).toHaveBeenCalledWith(
+      'membership-1', '2026-07-20', expect.anything(),
+    );
+    expect(repository.recordAudit).toHaveBeenCalledWith(expect.objectContaining({
+      action: 'run_enrollment.leave',
+      details: expect.objectContaining({ reason: 'Work schedule changed' }),
+    }), expect.anything());
+  });
+
+  test('rejects a learner leave date before membership started without changing history', async () => {
+    repository.findRunEnrollmentForUpdate.mockResolvedValue({
+      id: 'enrollment-1', course_run_id: 'run-1', employee_id: 'employee-1',
+      cohort_membership_id: 'membership-1', status: 'active',
+      membership_status: 'active',
+      // PostgreSQL DATE values are parsed as Vietnam midnight in this app.
+      membership_start_date: new Date('2026-07-19T17:00:00.000Z'),
+    });
+    await expect(leaveRunEnrollment({
+      courseRunId: 'run-1', enrollmentId: 'enrollment-1',
+      lastActiveDate: '2026-07-19', reason: 'Incorrect class assignment',
+    }, actor)).rejects.toMatchObject({ statusCode: 409 });
+
+    expect(repository.dropRunEnrollment).not.toHaveBeenCalled();
+    expect(repository.endMembershipIfUnused).not.toHaveBeenCalled();
   });
 
   test('creates a Meeting and Session Unit only after slot and sequence validation', async () => {

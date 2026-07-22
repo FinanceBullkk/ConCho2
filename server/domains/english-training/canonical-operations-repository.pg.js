@@ -123,6 +123,18 @@ const findEnrollmentInRun = async (courseRunId, employeeId, client) => {
   return rows[0] || null;
 };
 
+const findRunEnrollmentForUpdate = async (courseRunId, enrollmentId, client) => {
+  const { rows } = await client.query(`
+    SELECT en.*, cm.status AS membership_status,
+      cm.start_date AS membership_start_date, cm.end_date AS membership_end_date
+    FROM eng_run_enrollments en
+    JOIN eng_cohort_memberships cm ON cm.id = en.cohort_membership_id
+    WHERE en.id = $1 AND en.course_run_id = $2
+    FOR UPDATE OF en, cm
+  `, [enrollmentId, courseRunId]);
+  return rows[0] || null;
+};
+
 const findCurrentMembership = async (cohortId, employeeId, client) => {
   const { rows } = await client.query(`
     SELECT * FROM eng_cohort_memberships
@@ -151,6 +163,38 @@ const createRunEnrollment = async (row, client) => {
     row.startSessionNumber, row.businessUnit, row.jobRole, JSON.stringify(row.meta || {}),
   ]);
   return rows[0];
+};
+
+const dropRunEnrollment = async (enrollmentId, row, client) => {
+  const { rows } = await client.query(`
+    UPDATE eng_run_enrollments SET
+      status = 'dropped',
+      meta = COALESCE(meta, '{}'::jsonb) || jsonb_build_object(
+        'leave', jsonb_build_object(
+          'lastActiveDate', $2::text,
+          'reason', $3::text,
+          'authority', $4::text
+        )
+      ),
+      updated_at = NOW()
+    WHERE id = $1 AND status = 'active'
+    RETURNING *
+  `, [enrollmentId, row.lastActiveDate, row.reason, row.authority]);
+  return rows[0] || null;
+};
+
+const endMembershipIfUnused = async (membershipId, lastActiveDate, client) => {
+  const { rows } = await client.query(`
+    UPDATE eng_cohort_memberships m SET
+      status = 'cancelled', end_date = $2::date
+    WHERE m.id = $1 AND m.status = 'active'
+      AND NOT EXISTS (
+        SELECT 1 FROM eng_run_enrollments en
+        WHERE en.cohort_membership_id = m.id AND en.status = 'active'
+      )
+    RETURNING *
+  `, [membershipId, lastActiveDate]);
+  return rows[0] || null;
 };
 
 const createMeeting = async (row, client) => {
@@ -368,9 +412,12 @@ module.exports = {
   countActiveRunEnrollments,
   findActiveEnrollmentForEmployee,
   findEnrollmentInRun,
+  findRunEnrollmentForUpdate,
   findCurrentMembership,
   createMembership,
   createRunEnrollment,
+  dropRunEnrollment,
+  endMembershipIfUnused,
   createMeeting,
   createSessionUnit,
   findMeetingForUpdate,

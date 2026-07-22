@@ -1,6 +1,7 @@
 const crypto = require('crypto');
 const { ServiceError } = require('../../helpers/ServiceError');
 const { assertValidBookingWindow } = require('../schedule/scheduling-window-policy');
+const { nowVN, toVN } = require('../../helpers/dayjsConfig');
 const repository = require('./canonical-operations-repository.pg');
 const meetingDelivery = require('./meeting-delivery');
 
@@ -17,6 +18,12 @@ const auditActor = (actor = {}) => ({
 });
 
 const iso = (value) => value instanceof Date ? value.toISOString() : new Date(value).toISOString();
+
+const dateOnly = (value) => {
+  if (!value) return null;
+  if (typeof value === 'string') return value.slice(0, 10);
+  return toVN(value).format('YYYY-MM-DD');
+};
 
 const meetingWindow = async (startsAtValue, endsAtValue) => {
   const startsAt = new Date(startsAtValue);
@@ -186,6 +193,62 @@ const addRunEnrollment = async (input, actor = {}) => {
     throw error;
   }
 };
+
+const leaveRunEnrollment = async (input, actor = {}) => repository.withTransaction(async (client) => {
+  const run = await repository.findCourseRunForUpdate(input.courseRunId, client);
+  if (!run) throw new ServiceError('English Course Run not found', 404);
+
+  const enrollment = await repository.findRunEnrollmentForUpdate(
+    input.courseRunId, input.enrollmentId, client,
+  );
+  if (!enrollment) throw new ServiceError('English Run Enrollment not found', 404);
+  if (enrollment.status !== 'active') {
+    throw new ServiceError('Only an active English Run Enrollment can be marked as left', 409);
+  }
+  if (enrollment.membership_status !== 'active') {
+    throw new ServiceError('Active enrollment has no active English class membership', 409);
+  }
+
+  const membershipStartDate = dateOnly(enrollment.membership_start_date);
+  if (membershipStartDate && input.lastActiveDate < membershipStartDate) {
+    throw new ServiceError('Last active date cannot be before the English class membership started', 409);
+  }
+  if (input.lastActiveDate > nowVN().format('YYYY-MM-DD')) {
+    throw new ServiceError('Last active date cannot be in the future', 409);
+  }
+
+  const dropped = await repository.dropRunEnrollment(input.enrollmentId, {
+    lastActiveDate: input.lastActiveDate,
+    reason: input.reason,
+    authority: AUTHORITY,
+  }, client);
+  if (!dropped) throw new ServiceError('English Run Enrollment changed; reload before saving', 409);
+
+  const endedMembership = await repository.endMembershipIfUnused(
+    enrollment.cohort_membership_id, input.lastActiveDate, client,
+  );
+  const membershipEnded = Boolean(endedMembership);
+  await repository.recordAudit({
+    ...auditActor(actor), action: 'run_enrollment.leave',
+    entityType: 'run_enrollment', entityKey: enrollment.id,
+    details: {
+      courseRunId: run.id, cohortId: run.cohort_id,
+      employeeId: enrollment.employee_id,
+      membershipId: enrollment.cohort_membership_id,
+      beforeStatus: enrollment.status, afterStatus: dropped.status,
+      lastActiveDate: input.lastActiveDate, reason: input.reason,
+      membershipEnded, authority: AUTHORITY,
+    },
+  }, client);
+
+  return {
+    enrollmentId: enrollment.id,
+    membershipId: enrollment.cohort_membership_id,
+    before: { status: enrollment.status },
+    after: { status: dropped.status, lastActiveDate: input.lastActiveDate },
+    membershipEnded,
+  };
+});
 
 const createAttendanceSession = async (input, actor = {}) => {
   const { startsAt, endsAt, durationMinutes } = await meetingWindow(input.startsAt, input.endsAt);
@@ -448,6 +511,7 @@ const saveAttendanceRoster = async (input, actor = {}) => repository.withTransac
 module.exports = {
   createClassCourseRun,
   addRunEnrollment,
+  leaveRunEnrollment,
   createAttendanceSession,
   rescheduleMeeting,
   cancelMeeting,

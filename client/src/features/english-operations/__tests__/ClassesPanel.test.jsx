@@ -1,6 +1,9 @@
 import { render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 import ClassesPanel from '../ClassesPanel';
+
+const leaveMutation = vi.hoisted(() => ({ mutateAsync: vi.fn(), isPending: false }));
 
 vi.mock('../../../context/AuthContext', () => ({
   useAuth: () => ({ user: { _id: 'admin-1', role: 'Admin' } }),
@@ -17,6 +20,7 @@ vi.mock('../useEnglishOperations', () => ({
   useCanonicalEnglishCourses: () => ({ isLoading: false, data: [] }),
   useCanonicalEnglishEmployees: () => ({ data: [] }),
   useCreateCanonicalEnglishClass: () => ({ mutateAsync: vi.fn(), isPending: false }),
+  useLeaveCanonicalRunEnrollment: () => leaveMutation,
   useCanonicalEnglishClass: () => ({
     isLoading: false,
     data: {
@@ -46,5 +50,22 @@ describe('canonical English Classes panel', () => {
     expect(screen.getByText('Alice')).toBeInTheDocument();
     expect(screen.getByText('80%')).toBeInTheDocument();
     expect(screen.queryByText('Add course')).not.toBeInTheDocument();
+  });
+
+  it('submits the learner leave intent from an active roster row', async () => {
+    const user = userEvent.setup();
+    leaveMutation.mutateAsync.mockResolvedValueOnce({});
+    render(<ClassesPanel />);
+
+    await user.click(screen.getByRole('button', { name: 'Mark left' }));
+    await user.clear(screen.getByLabelText('Last active date'));
+    await user.type(screen.getByLabelText('Last active date'), '2026-07-20');
+    await user.type(screen.getByLabelText('Reason'), 'Work schedule changed');
+    await user.click(screen.getByRole('button', { name: 'Confirm leave' }));
+
+    expect(leaveMutation.mutateAsync).toHaveBeenCalledWith({
+      courseRunId: 'run-1', enrollmentId: 'enrollment-1',
+      data: { lastActiveDate: '2026-07-20', reason: 'Work schedule changed' },
+    });
   });
 });

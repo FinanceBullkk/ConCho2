@@ -8,6 +8,7 @@
  */
 const request = require('supertest');
 const { query } = require('../../config/pg');
+const { toVN } = require('../../helpers/dayjsConfig');
 const {
   getApp, getTokens, getSeedData, getCsrfHeaders, teardown,
 } = require('../setup');
@@ -135,6 +136,44 @@ describe('English Operations — canonical live vertical flow', () => {
     expect(stale.status).toBe(409);
     expect(stale.body.message).toMatch(/roster changed/i);
 
+    const leavePath = `/api/english-training/workspace/course-runs/${courseRunId}`
+      + `/enrollments/${enrollment.body.data.enrollmentId}/leave`;
+    const deniedLeave = await authorized(request(app).post(leavePath), tokens.teacher).send({
+      lastActiveDate: '2026-07-20',
+      reason: 'Teacher must not change enrollment state',
+    });
+    expect(deniedLeave.status).toBe(403);
+    expect((await query(
+      'SELECT status FROM eng_run_enrollments WHERE id = $1',
+      [enrollment.body.data.enrollmentId],
+    )).rows[0].status).toBe('active');
+
+    const left = await authorized(request(app).post(leavePath), tokens.admin).send({
+      lastActiveDate: '2026-07-20',
+      reason: 'Work schedule changed',
+    });
+    expect(left.status).toBe(200);
+    expect(left.body.data).toMatchObject({
+      enrollmentId: enrollment.body.data.enrollmentId,
+      membershipId: enrollment.body.data.membershipId,
+      before: { status: 'active' },
+      after: { status: 'dropped', lastActiveDate: '2026-07-20' },
+      membershipEnded: true,
+    });
+
+    const [leftEnrollment, endedMembership, preservedAttendance, leaveAudit] = await Promise.all([
+      query('SELECT status FROM eng_run_enrollments WHERE id = $1', [enrollment.body.data.enrollmentId]),
+      query('SELECT status, end_date FROM eng_cohort_memberships WHERE id = $1', [enrollment.body.data.membershipId]),
+      query('SELECT status FROM eng_attendance_records WHERE session_unit_id = $1', [sessionUnitId]),
+      query(`SELECT action FROM eng_audit_events
+        WHERE entity_key = $1 AND action = 'run_enrollment.leave'`, [enrollment.body.data.enrollmentId]),
+    ]);
+    expect(leftEnrollment.rows[0].status).toBe('dropped');
+    expect(endedMembership.rows[0].status).toBe('cancelled');
+    expect(toVN(endedMembership.rows[0].end_date).format('YYYY-MM-DD')).toBe('2026-07-20');
+    expect(preservedAttendance.rows[0].status).toBe('present');
+    expect(leaveAudit.rowCount).toBe(1);
+
     const detail = await authorized(
       request(app).get(`/api/english-training/workspace/classes/${cohortId}`),
       tokens.admin,
@@ -142,6 +181,7 @@ describe('English Operations — canonical live vertical flow', () => {
     expect(detail.status).toBe(200);
     expect(detail.body.data.runs[0].roster[0]).toMatchObject({
       employeeId,
+      enrollmentStatus: 'dropped',
       presentCount: 1,
       markedCount: 1,
     });
