@@ -77,7 +77,9 @@ Protected shell:
 - `/home` -> landing (greeting + AlertBand + TodayHero + role-aware QuickActions; the Admin training analytics moved to `/reports?tab=overview` — IA cleanup 2026-06-13)
 - `/people` -> Admin only
 - `/learning` -> Admin and Teacher (6 tabs grouped Catalog/Delivery; Dashboard + Reports tabs moved to `/reports`)
-- `/calendar` -> all roles
+- `/english-operations` -> Admin, Coordinator, Teacher; dedicated English staff workspace
+- `/mobile-attendance` -> Admin, Teacher; field entry under English Operations
+- `/calendar` -> compatibility redirect to English Schedule/Attendance (Participant -> `/english`)
 - `/reports` -> Admin, Coordinator, Teacher (consolidated reporting home: Overview · L&D Dashboard · Completion · Attendance · HR Export)
 - `/system` -> Admin only (Sync lives here — removed the duplicate Reports▸Sheets Sync tab)
 - `/classes/:id` -> Admin only
@@ -92,11 +94,11 @@ Legacy redirects:
 - `/classes` -> `/learning?tab=cohorts`
 - `/data` -> `/reports?tab=hr-export`
 - `/settings` -> `/system?tab=settings`
-- `/schedules` -> `/calendar?tab=schedules`
-- `/attendance` -> `/calendar?tab=attendance`
-- `/operations` -> `/calendar`
+- `/schedules` -> `/english-operations?tab=schedule`
+- `/attendance` -> `/english-operations?tab=attendance`
+- `/operations` -> `/english-operations?tab=schedule`
 - `/operations/analytics` -> `/reports?tab=analytics`
-- `/book` -> `/calendar?tab=book`
+- `/book` -> `/english?tab=book`
 
 ### Navigation And Access
 
@@ -120,24 +122,27 @@ sidebar sub-item, a deep link into the page's `?tab=`). Items are filtered by
 |---|---|
 | (top) | Home |
 | Learning | Programs · Cohorts · Paths · Assignments · Assessments · Feedback (`/learning`) |
-| Operations | Schedules · Attendance (`/calendar`) |
-| English Class | Classes · Teams · Schedules · Attendance · Evaluations (`/english`) |
 | Reports | Overview · L&D Dashboard · Completion · Attendance · HR Export (`/reports`) |
 | People | Users · Departments · Offices · Rooms (`/people`) |
 | System | Settings · Database · Sync · Reconciliation · Audit (`/system`) |
 | (manager) | My Team (when the user has direct reports) |
 
 Each sub-item gates on the same perm/role the page's tab used, so a role sees only
-its tabs (e.g. Teacher: Learning minus Paths, Reports minus Overview/HR Export,
-Operations/English Attendance only; Coordinator: no System, no English).
+its tabs (e.g. Teacher: Learning minus Paths, Reports minus Overview/HR Export;
+Coordinator: no System).
 
-**Persona modes (Phase 02):** `context/PersonaContext.jsx` swaps the sidebar
-group-set between **Admin Console** (the table above) and **My Learning** (the
+**Workspace/persona modes:** `context/PersonaContext.jsx` swaps the sidebar
+group-set between **Admin Console** (the table above), **English Operations**
+(Overview, Learners, Classes, Schedule, Attendance, Mobile Attendance, Evaluation,
+Archive), and **My Learning** (the
 `/me/*` surfaces: My programs · Catalog · My sessions · Paths · Assessments ·
 Feedback · Transcript + English). Participants are locked to learner; staff default
-to admin and switch via the avatar menu (choice persisted in `localStorage`). The
+to admin and switch via the workspace menu (choice persisted in `localStorage`). The
 `/me/*` routes are open to ALL authenticated users (self-scoped server-side).
 Persona is a UI mode only — not an authz boundary.
+Schedule and Attendance operational navigation exists only in English Operations;
+the services and PostgreSQL records behind those views remain the shared generic
+schedule and attendance domains.
 
 `ProtectedRoute` enforces page-level roles and redirects MFA-enrollment-required sessions to `/me/settings?force=mfa`. The sidebar only shows/hides — the server is the real authz boundary.
 
@@ -152,6 +157,7 @@ Persona is a UI mode only — not an authz boundary.
 - `schedulesAPI`
 - `attendanceAPI`
 - `evaluationsAPI`
+- `englishOperationsAPI`
 - `syncAPI`
 - `searchAPI`
 - `exportAPI`
@@ -190,7 +196,7 @@ English literals directly.
 | `/api/learning` | `domains/learning/routes.js` | Learning programs, cohorts, sessions, paths, assignments, dashboards, and reports — incl. **H1 A5** training-hours + evidence-pack (multi-sheet xlsx) + saved presets (`ReportPreset`) under `/reports/*` |
 | `/api/schedules` | `domains/schedule/routes.js` | availability, booking, cancel, calendars (Phase 1 domain extraction; `controller` → `use-cases`/`queries`/`repository` + policy modules; booking mutations still in `services/scheduleService` by design; `Schedule` model + `/api/schedules` URL unchanged). Reads return BOTH scheduling worlds tagged `deliveryType`, faceted client-side (the `/api/english` read surface + server-side `mode=team\|cohort` split were retired in convergence Phase 3 slice 5, 2026-06-20) |
 | `/api/attendance` | `domains/attendance/routes.js` | attendance marking, analytics, personal stats (Phase 1 domain extraction; `controller` → `use-cases` → `marking`/`analytics`/`scope`; `services/attendanceService.js` kept as a compat facade) |
-| `/api/english-training` | `domains/english-training/routes.js` | feature-flagged Admin/Coordinator operations view: a task-oriented **overview** landing (`GET /overview` counts + needs-attention cards) over imported English cohorts, runs, employees, historical sessions/attendance, derived eligibility, DQ correction overlays, and exam-result/level entry (`evaluation.js`, gated ≤2 absences); canonical `eng_*` history remains separate from live scheduling/attendance |
+| `/api/english-training` | `domains/english-training/routes.js` | dedicated canonical English module. `/workspace/classes` reads stable classes grouped by current PIC and creates Cohort + PIC assignment + Course Run 1 atomically. Learner-start, Meeting + Session Unit creation, and exact full-roster P/A attendance use validated transactional commands with domain audit and stale-write protection; imported schedule/attendance remains read-only evidence. Managed employee identity may crosswalk to login-disabled/shared Users by `emp_code`. No generic Program/Class/PIC-Team handoff or whole-domain Archive cutover route remains. Raw workbook/import evidence retains read-only guards. |
 | `/api/rooms` | `domains/room/routes.js` | Office-scoped physical Rooms CRUD (re-center Phase 3) |
 | `/api/org` | `domains/org/routes.js` | departments, offices, manager hierarchy + manager dashboard |
 | `/api/assessment` | `domains/assessment/routes.js` | assessment engine, question bank, attempts, manual grading |
@@ -392,7 +398,7 @@ No tests were run while creating this map.
   The unused `i18next-browser-languagedetector` dependency can be dropped.
 - Some protected routes/messages still contain English literals outside locale files.
 - Some API routes appear intentionally unauthenticated or route-level protected by controller/middleware assumptions; verify before changing security-sensitive endpoints.
-- `BookClassPage` is lazy-loaded but no direct active route points to it; `/book` redirects to `/calendar?tab=book`.
+- `BookClassPage` is lazy-loaded but no direct active route points to it; `/book` redirects to `/english?tab=book`.
 
 ## Unresolved Questions
 

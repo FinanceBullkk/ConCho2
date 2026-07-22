@@ -464,4 +464,4 @@ Run this checklist **once per quarter** to verify the full restore path end-to-e
 
 | Date | Severity | Description | Resolution | Downtime |
 |---|---|---|---|---|
-| <!-- fill in --> | <!-- P1/P2/P3 --> | <!-- what happened --> | <!-- how resolved --> | <!-- duration --> |
+| 2026-07-21 | P2 | Local Jest suite TRUNCATEd production Neon (test lane shared the live `PG_URL`; ad-hoc URL string-guard fooled by Neon pooler vs direct hostname). Lost data was seed/demo only — no real user data. | Fail-closed guard: test mode connects to loopback-only; re-seed instead of Time Travel. See [incidents/2026-07-21-production-truncate.md](incidents/2026-07-21-production-truncate.md). Commit `a91e048`. | None (pre-launch) |

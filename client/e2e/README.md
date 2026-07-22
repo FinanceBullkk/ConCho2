@@ -46,9 +46,25 @@ npm run test:e2e:report      # open the last HTML report
 # Run a single file:
 npx playwright test auth.spec.js
 
+# Run one required viewport project:
+npx playwright test english-operations.spec.js --project desktop-compact
+
 # Filter by test name:
 npx playwright test -g "wrong password"
 ```
+
+## Viewport projects
+
+The primary `desktop-wide` project runs the full suite. The two narrower
+projects run the responsive English Operations spec so CI exercises all
+viewports required by `.claude/rules/testing-and-ci.md` without repeating every
+state-changing E2E test.
+
+| Project | Viewport | Scope |
+|---------|----------|-------|
+| `desktop-wide` | 1440 x 900 | Full E2E suite |
+| `desktop-compact` | 1280 x 800 | `english-operations.spec.js` |
+| `mobile-390` | 390 x 844 | `english-operations.spec.js` |
 
 ## Suites
 

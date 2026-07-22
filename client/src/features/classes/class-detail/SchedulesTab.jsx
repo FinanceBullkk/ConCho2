@@ -35,14 +35,8 @@ export default function SchedulesTab({ classId, classes, canEdit }) {
     return sorted;
   }, [schedules, filter, nowMs]);
 
-  const handleRowClick = (s) => {
-    // Navigate to /calendar with the week of the session preselected
-    const d = new Date(s.startTime);
-    const monday = new Date(d);
-    monday.setDate(d.getDate() - ((d.getDay() + 6) % 7));
-    monday.setHours(0, 0, 0, 0);
-    const week = monday.toISOString().slice(0, 10);
-    navigate(`/operations?tab=attendance&week=${week}`);
+  const handleRowClick = () => {
+    navigate('/english-operations?tab=attendance');
   };
 
   return (

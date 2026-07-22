@@ -26,8 +26,12 @@ The normalized `ATTENDANCE` sheet already preserves dropped-enrollment evidence.
 
 ## Mapping and anomalies
 
-- `CLASS_SESSIONS.Date` is authoritative. Attendance source dates are retained
-  in metadata when they differ.
+- `CLASS_SESSIONS.Date` is authoritative. Its Excel values are timezone-free
+  Vietnam wall clocks: the ISO-looking value emitted by ExcelJS preserves the
+  clock components but is not a UTC instant. Archive UIs must reinterpret that
+  value as `Asia/Ho_Chi_Minh` before using the shared UTC scheduling grid, or a
+  second `+07:00` conversion will turn 10:00 into 17:00. Attendance source dates
+  are retained in metadata when they differ.
 - 54 attendance rows have a date different from the canonical session date;
   all are retained and flagged `attendance_date_mismatch`.
 - 573 attendance rows carry `Dropped Enrollment = Yes`; this is evidence, not a

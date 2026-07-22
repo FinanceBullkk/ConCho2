@@ -100,6 +100,7 @@ export function CalendarGrid({
   actions,
   className,
   selectedCellKey,
+  dense = false,
 }) {
   const todayStr = useMemo(() => todayKey(), []);
 
@@ -139,12 +140,21 @@ export function CalendarGrid({
       ) : (
         <div className="bg-card border border-border rounded-lg overflow-hidden">
           <div className="overflow-x-auto">
-            <table className="w-full border-collapse min-w-[720px]">
+            <table className={cn(
+              'w-full table-fixed border-collapse',
+              dense ? 'min-w-[780px]' : 'min-w-[960px]',
+            )}>
+              <colgroup>
+                <col className={dense ? 'w-[92px]' : 'w-24'} />
+                {weekDays.map((_, index) => (
+                  <col key={index} className={dense ? 'w-[98px]' : 'w-[123px]'} />
+                ))}
+              </colgroup>
               <thead>
                 <tr>
                   {/* Time column header */}
                   <th className={cn(
-                    'sticky left-0 z-20 w-20 px-3 py-3',
+                    'sticky left-0 z-20 px-3 py-3',
                     'bg-card border-b border-r border-border',
                     'text-overline text-subtle-foreground text-left',
                   )}>

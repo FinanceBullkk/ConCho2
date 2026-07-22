@@ -17,6 +17,12 @@ Docebo, SAP SuccessFactors, or other million-dollar enterprise LMS suites.
 - Prefer finishing incomplete loops over starting new capability.
 - No feature factory. Build to a milestone, then review wiring, UX flow,
   permissions, data consistency, tests, and bugs before the next milestone.
+- Follow `.claude/rules/implementation-workflow.md` for every behavior change.
+  Re-baseline when domain authority or scope changes; do not keep patching an
+  implementation whose acceptance contract is no longer current.
+- Keep each delivery slice to one observable user outcome. Crossing roughly 15
+  files or 500 handwritten changed lines is a stop-and-review signal unless the
+  change is demonstrably atomic.
 - Do not add SCORM/xAPI, video hosting, native mobile, gamification,
   multi-tenant, billing, or commercial LMS breadth unless explicitly requested.
 - Preserve load-bearing controls: auth, CSRF, rate limits, capability/role
@@ -32,12 +38,19 @@ Docebo, SAP SuccessFactors, or other million-dollar enterprise LMS suites.
 
 Every milestone must satisfy this before moving to the next:
 
+- The user outcome, non-goals, domain authority, and acceptance examples are explicit.
 - Backend route/use-case works with real authz/capability rules.
 - Frontend entrypoint exists when user value depends on UI.
 - Reports, completion, certificates, or notifications consume the new data when
   relevant.
 - Tests cover happy path, permission denial, and one core edge case.
-- Manual smoke flow is documented or run.
+- User-facing changes are exercised in a real browser through the changed
+  interaction at required desktop/mobile viewports. Page-load or form-open tests
+  alone are insufficient.
+- Migrations/imports are rehearsed on disposable data with before/after
+  invariants and a rollback boundary.
+- If a required browser, database, or test runner is unavailable, report the
+  work as implemented but unverified; never call it ready or done.
 - Roadmap/docs are updated if status or direction changed.
 
 ## Key References

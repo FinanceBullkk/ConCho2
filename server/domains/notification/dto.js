@@ -93,6 +93,33 @@ const PRESENTERS = {
       return `You've been added to ${name}${when}`;
     },
   },
+  english_session_scheduled: {
+    title: 'English session scheduled',
+    link: '/home',
+    body: (m) => {
+      const name = m.className || 'Your English class';
+      const when = m.sessionDate ? ` on ${fmtDate(m.sessionDate)}` : '';
+      return `${name} session ${m.sessionNumber || ''} is scheduled${when}`.replace('  ', ' ');
+    },
+  },
+  english_session_rescheduled: {
+    title: 'English session rescheduled',
+    link: '/home',
+    body: (m) => {
+      const name = m.className || 'Your English class';
+      const when = m.sessionDate ? ` to ${fmtDate(m.sessionDate)}` : '';
+      return `${name} was moved${when}`;
+    },
+  },
+  english_session_cancelled: {
+    title: 'English session cancelled',
+    link: '/home',
+    body: (m) => {
+      const name = m.className || 'Your English class';
+      const when = m.sessionDate ? ` on ${fmtDate(m.sessionDate)}` : '';
+      return `${name}${when} was cancelled`;
+    },
+  },
   automation_notice: {
     title: 'Automation',
     link: '/home',

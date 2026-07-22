@@ -25,9 +25,9 @@ vi.mock('../../SearchPalette', () => ({
   default: ({ open }) => (open ? <div data-testid="search-open" /> : null),
 }));
 
-function renderTopbar() {
+function renderTopbar(initialEntries = ['/home']) {
   return render(
-    <MemoryRouter>
+    <MemoryRouter initialEntries={initialEntries}>
       <Topbar onOpenMobileNav={vi.fn()} />
     </MemoryRouter>,
   );
@@ -48,6 +48,19 @@ describe('Topbar', () => {
     // Brand/logo moved to the sidebar (north-star shell); the topbar now leads
     // with the workspace breadcrumb instead.
     expect(screen.getByText('nav.workspace.admin')).toBeInTheDocument();
+  });
+
+  it('renders the English Operations workspace breadcrumb', () => {
+    h.persona = 'english';
+    renderTopbar();
+    expect(screen.getByText('nav.workspace.english')).toBeInTheDocument();
+  });
+
+  it('uses the active English query tab in the page breadcrumb', () => {
+    h.persona = 'english';
+    renderTopbar(['/english-operations?tab=attendance']);
+    expect(screen.getByText('englishOperations.tabs.attendance')).toBeInTheDocument();
+    expect(screen.queryByText('englishOperations.tabs.overview')).toBeNull();
   });
 
   it('opens the search palette on Ctrl+K', () => {

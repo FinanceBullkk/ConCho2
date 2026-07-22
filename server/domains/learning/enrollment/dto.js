@@ -19,6 +19,7 @@ const enrollmentDto = (enrollment) => {
     status: enrollment.status,
     joinedAt: enrollment.joinedAt,
     leftAt: enrollment.leftAt,
+    startSessionNumber: enrollment.startSessionNumber ?? null,
   };
 };
 
@@ -43,6 +44,7 @@ const myEnrollmentDto = (enrollment) => {
     status: enrollment.status,
     joinedAt: enrollment.joinedAt,
     leftAt: enrollment.leftAt,
+    startSessionNumber: enrollment.startSessionNumber ?? null,
   };
 };
 

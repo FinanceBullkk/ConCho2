@@ -9,25 +9,26 @@ import { cn } from '@/lib/utils';
 // Desktop: static right-column panel (parent uses CSS grid).
 // Mobile:  fixed bottom sheet (z-50) with backdrop (z-40).
 //
-// Status button layout (per §1C default):
-//   Primary row: [P] [A] [EL]
-//   Hidden:      [⋯] → reveals [L] [↑]
-// Notes: only when status === 'EL' (§1D).
+// The generic workflow defaults to P/A. English Operations supplies P/L/A/EL
+// while retaining the same weekly grid and roster drawer.
 // ──────────────────────────────────────────────────────────
 
 const STATUS_STYLES = {
   P: { active: 'bg-success/20 text-success border-success/40',             idle: 'border-border text-muted-foreground hover:text-success hover:border-success/40' },
+  L: { active: 'bg-info/20 text-info border-info/40',                      idle: 'border-border text-muted-foreground hover:text-info hover:border-info/40' },
   A: { active: 'bg-destructive/20 text-destructive border-destructive/40', idle: 'border-border text-muted-foreground hover:text-destructive hover:border-destructive/40' },
+  EL: { active: 'bg-warning/20 text-warning border-warning/40',            idle: 'border-border text-muted-foreground hover:text-warning hover:border-warning/40' },
 };
 
-function StatusBtn({ value, active, onClick }) {
+function StatusBtn({ value, active, onClick, disabled = false }) {
   return (
     <button
       type="button"
       onClick={onClick}
+      disabled={disabled}
       aria-pressed={active}
       className={cn(
-        'size-8 rounded-md text-[11px] font-semibold border transition-colors duration-(--dur-fast) shrink-0',
+        'size-8 rounded-md text-[11px] font-semibold border transition-colors duration-(--dur-fast) shrink-0 disabled:cursor-default',
         active ? STATUS_STYLES[value].active : STATUS_STYLES[value].idle,
       )}
     >
@@ -54,6 +55,10 @@ export function AttendanceDrawer({
   onRecordUpdate,
   onSubmit,
   makeRowKeyHandler,
+  statusOptions = ['P', 'A'],
+  isReadOnly = false,
+  readOnlyLabel,
+  inline = false,
 }) {
   if (!isOpen) return null;
 
@@ -89,7 +94,7 @@ export function AttendanceDrawer({
       </div>
 
       {/* ── Bulk action ────────────────────────────── */}
-      {hasRoster && (
+      {hasRoster && !isReadOnly && (
         <div className="px-4 py-2 border-b border-border bg-muted/30 shrink-0 flex items-center gap-2">
           <Button
             size="sm"
@@ -104,6 +109,12 @@ export function AttendanceDrawer({
 
       {/* ── Body ───────────────────────────────────── */}
       <div className="flex-1 overflow-y-auto min-h-0">
+
+        {isReadOnly && readOnlyLabel && (
+          <div className="mx-4 mt-3 rounded-md border border-border bg-muted px-3 py-2 text-center text-xs font-medium text-muted-foreground">
+            {readOnlyLabel}
+          </div>
+        )}
 
         {/* Loading */}
         {isLoading && (
@@ -153,11 +164,13 @@ export function AttendanceDrawer({
               return (
                 <div
                   key={record.userId}
-                  role="button"
-                  tabIndex={0}
-                  onKeyDown={makeRowKeyHandler(idx)}
+                  role={isReadOnly ? undefined : 'button'}
+                  tabIndex={isReadOnly ? undefined : 0}
+                  onKeyDown={isReadOnly ? undefined : makeRowKeyHandler(idx)}
                   className="px-4 py-2.5 focus:outline-none focus:bg-primary/5 transition-colors"
-                  aria-label={`${record.name} — press P or A to set status`}
+                  aria-label={isReadOnly
+                    ? `${record.name} — ${record.statusLabel || record.status || readOnlyLabel}`
+                    : `${record.name} — press P or A to set status`}
                 >
                   <div className="flex items-center gap-2">
                     {/* Avatar */}
@@ -178,10 +191,19 @@ export function AttendanceDrawer({
                       <div className="text-[10px] text-muted-foreground truncate">{record.department}</div>
                     </div>
 
-                    {/* Status buttons: P / A */}
+                    {/* Status buttons are configured by the owning workflow. */}
                     <div className="flex items-center gap-1 shrink-0">
-                      <StatusBtn value="P" active={record.status === 'P'} onClick={() => onRecordUpdate(idx, 'status', 'P')} />
-                      <StatusBtn value="A" active={record.status === 'A'} onClick={() => onRecordUpdate(idx, 'status', 'A')} />
+                      {isReadOnly && !record.status && record.statusLabel ? (
+                        <span className="text-xs text-muted-foreground">{record.statusLabel}</span>
+                      ) : statusOptions.map((status) => (
+                        <StatusBtn
+                          key={status}
+                          value={status}
+                          active={record.status === status}
+                          onClick={() => onRecordUpdate(idx, 'status', status)}
+                          disabled={isReadOnly}
+                        />
+                      ))}
                     </div>
                   </div>
                 </div>
@@ -192,7 +214,7 @@ export function AttendanceDrawer({
       </div>
 
       {/* ── Footer ─────────────────────────────────── */}
-      {hasRoster && (
+      {hasRoster && !isReadOnly && (
         <div className="px-4 py-2.5 border-t border-border shrink-0 flex items-center gap-2.5">
           {confirmingClose ? (
             <>
@@ -216,7 +238,7 @@ export function AttendanceDrawer({
               ) : null}
               <span className="flex-1" />
               <span className="hidden lg:block text-[10px] text-subtle-foreground tabular-nums">
-                P A · ESC
+                {statusOptions.join(' ')} · ESC
               </span>
               <Button size="sm" className="h-8 text-xs gap-1.5" onClick={onSubmit} disabled={isPending}>
                 {isPending ? <><Spinner size={12} />Saving…</> : `Save (${records.length})`}
@@ -231,22 +253,28 @@ export function AttendanceDrawer({
   return (
     <>
       {/* Mobile backdrop */}
-      <div
-        className="fixed inset-0 z-40 bg-black/40 lg:hidden"
-        onClick={onCloseRequest}
-        aria-hidden="true"
-      />
+      {!inline && (
+        <div
+          className="fixed inset-0 z-40 bg-black/40 lg:hidden"
+          onClick={onCloseRequest}
+          aria-hidden="true"
+        />
+      )}
 
       {/* Panel — fixed bottom sheet on mobile, static in grid on desktop */}
       <div className={cn(
         'bg-card border-border flex flex-col overflow-hidden',
-        // Mobile: fixed bottom sheet
-        'fixed inset-x-0 bottom-0 z-50 max-h-[85vh] border-t rounded-t-xl shadow-xl',
-        // Desktop: static (positioned by parent grid + sticky container)
-        'lg:static lg:inset-auto lg:z-auto lg:max-h-[calc(100vh-180px)] lg:rounded-lg lg:border lg:shadow-none',
+        inline
+          ? 'static max-h-[560px] rounded-lg border shadow-none'
+          : [
+            // Mobile: fixed bottom sheet
+            'fixed inset-x-0 bottom-0 z-50 max-h-[85vh] border-t rounded-t-xl shadow-xl',
+            // Desktop: static (positioned by parent grid + sticky container)
+            'lg:static lg:inset-auto lg:z-auto lg:max-h-[calc(100vh-180px)] lg:rounded-lg lg:border lg:shadow-none',
+          ],
       )}>
         {/* Drag handle (mobile only) */}
-        <div className="flex justify-center pt-2.5 pb-1 shrink-0 lg:hidden">
+        <div className={cn('justify-center pt-2.5 pb-1 shrink-0 lg:hidden', inline ? 'hidden' : 'flex')}>
           <div className="w-10 h-1 rounded-full bg-border" />
         </div>
         {inner}

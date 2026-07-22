@@ -1,4 +1,5 @@
 jest.mock('../../domains/english-training/repository.pg', () => ({
+  assertArchiveWritable: jest.fn(),
   withTransaction: jest.fn((fn) => fn({ tx: true })),
   findEmployeeForCorrection: jest.fn(),
   getEmployeeCorrection: jest.fn(),

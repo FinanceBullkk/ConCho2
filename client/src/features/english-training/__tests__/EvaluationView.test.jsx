@@ -27,8 +27,8 @@ vi.mock('../useEnglishTraining', () => ({
     data: {
       classCode: 'A1', courseName: 'Foundation', runNumber: 1, endDate: '2026-07-01',
       roster: [
-        { id: 'en1', empCode: '000123', fullName: 'Alex Nguyen', absenceCount: 1, sitEligible: true, examLevelCode: null, examDate: null },
-        { id: 'en2', empCode: '000999', fullName: 'Sam Tran', absenceCount: 3, sitEligible: false, examLevelCode: null, examDate: null },
+        { id: 'en1', empCode: '000123', fullName: 'Alex Nguyen', attendanceRatio: 0.9, attendanceThresholdRatio: 0.8, sitEligible: true, examLevelCode: null, examDate: null },
+        { id: 'en2', empCode: '000999', fullName: 'Sam Tran', attendanceRatio: 0.7, attendanceThresholdRatio: 0.8, sitEligible: false, examLevelCode: null, examDate: null },
       ],
     },
     isLoading: false, isError: false,
@@ -50,7 +50,7 @@ describe('EvaluationView (exam result & level)', () => {
     // Open the roster for that run (replaces the worklist — no long scroll).
     fireEvent.click(screen.getByRole('button', { name: 'Enter levels' }));
     expect(screen.getByText('Alex Nguyen', { exact: false })).toBeInTheDocument();
-    expect(screen.getByText('Not eligible (>2 absences)')).toBeInTheDocument();
+    expect(screen.getByText('Not eligible (attendance below target)')).toBeInTheDocument();
     expect(screen.getByText('Eligible')).toBeInTheDocument();
 
     // The shared date defaults to the run's end date.

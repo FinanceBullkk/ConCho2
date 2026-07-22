@@ -36,7 +36,7 @@ const inWeek = (dayOffset) => {
 
 const session = (id, classCode, deliveryType, dayOffset) => ({
   _id: id,
-  classId: { classCode, courseName: `Course ${classCode}` },
+  classId: { _id: `class-${classCode}`, classCode, courseName: `Course ${classCode}` },
   ...inWeek(dayOffset),
   enrolledCount: 1, capacity: 9, deliveryType,
 });
@@ -71,5 +71,86 @@ describe('SchedulesPage — exact-slot grid + world facet', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Cohort' }));
     expect(screen.queryByText('TEAM-A')).toBeNull();
     expect(screen.getByText('COH-B')).toBeInTheDocument();
+  });
+
+  it('English ownership scopes the grid by Cohort id and disables team-style creation', () => {
+    h.sched = {
+      isLoading: false,
+      data: { total: 2, data: [session('s-team', 'TEAM-A', 'team', 2), session('s-english', 'ENG-B', 'cohort', 3)] },
+    };
+    renderPage({ allowedClassIds: ['class-ENG-B'], allowCreate: false });
+
+    expect(screen.queryByText('TEAM-A')).toBeNull();
+    expect(screen.getByText('ENG-B')).toBeInTheDocument();
+    expect(screen.queryByText('+ Create')).toBeNull();
+    expect(screen.queryByRole('button', { name: '+ New Schedule' })).toBeNull();
+  });
+
+  it('renders Archive sessions on the weekly grid without edit/create affordances', () => {
+    const historical = {
+      ...session('archive:1', 'HIST-A', 'cohort', 2),
+      isHistorical: true,
+      archiveSessionId: 'archive-1',
+      historicalLabel: 'Historical',
+      historicalReadOnlyLabel: 'Historical · Read-only',
+      sessionNumber: 3,
+      archiveCounts: { present: 4, absent: 1 },
+    };
+    renderPage({
+      historicalOnly: true,
+      historicalSchedules: [historical],
+      defaultWeek: historical.startTime,
+    });
+
+    expect(screen.getByText('HIST-A')).toBeInTheDocument();
+    expect(screen.getByText('Historical')).toBeInTheDocument();
+    expect(screen.getByText('Historical · Read-only')).toBeInTheDocument();
+    expect(screen.queryByText('+ Create')).toBeNull();
+    expect(screen.queryByRole('button', { name: '+ New Schedule' })).toBeNull();
+    expect(screen.queryByTestId('schedule-drawer-column')).toBeNull();
+  });
+
+  it('lets the English workspace create from an empty cell and open live Meetings only', () => {
+    const live = {
+      ...session('archive:live-1', 'EL-LIVE', 'cohort', 2),
+      isHistorical: true,
+      sourceKind: 'live',
+      archiveSessionId: 'unit-live-1',
+      historicalLabel: 'Live',
+      historicalReadOnlyLabel: 'Live',
+      sessionNumber: 2,
+      archiveCounts: { present: 0, absent: 0 },
+    };
+    const onCell = vi.fn();
+    const onMeeting = vi.fn();
+    renderPage({
+      historicalOnly: true,
+      historicalSchedules: [live],
+      defaultWeek: live.startTime,
+      onHistoricalCellClick: onCell,
+      onHistoricalScheduleClick: onMeeting,
+    });
+
+    fireEvent.click(screen.getByText('EL-LIVE'));
+    expect(onMeeting).toHaveBeenCalledWith(expect.objectContaining({ sourceKind: 'live' }));
+    fireEvent.click(screen.getAllByText('+ Create')[0]);
+    expect(onCell).toHaveBeenCalledWith(expect.objectContaining({
+      slot: expect.objectContaining({ id: '10:00-11:00' }),
+    }));
+    expect(screen.getAllByText('+ Create')[0].closest('button')).toHaveClass('w-full');
+  });
+
+  it('supports an embedded English calendar header and custom drawer', () => {
+    renderPage({
+      historicalOnly: true,
+      historicalSchedules: [],
+      hideHeader: true,
+      historicalDrawer: <aside data-testid="english-meeting-drawer">Drawer</aside>,
+    });
+
+    expect(screen.queryByRole('heading', { name: 'Schedule Management' })).toBeNull();
+    expect(screen.getByTestId('english-meeting-drawer')).toBeInTheDocument();
+    expect(screen.getByTestId('schedule-drawer-column')).toBeInTheDocument();
+    expect(screen.getByRole('table')).toHaveClass('min-w-[780px]');
   });
 });

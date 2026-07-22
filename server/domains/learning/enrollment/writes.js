@@ -20,8 +20,8 @@ const EVENTS = require('../../_shared/events');
 // Transaction-aware (#255): pass the whole UoW handle via `tx` ({session} on
 // Mongo, {client} on PG) so the insert joins the caller's transaction on EITHER
 // backend — or a raw mongoose `session` (legacy callers). Each impl normalises.
-const createActiveEnrollment = ({ userId, classId = null, teamId = null, joinedAt }, { session = null, tx = null } = {}) =>
-  repository.insertActiveEnrollment({ userId, classId, teamId, joinedAt }, tx || session);
+const createActiveEnrollment = ({ userId, classId = null, teamId = null, joinedAt, startSessionNumber }, { session = null, tx = null } = {}) =>
+  repository.insertActiveEnrollment({ userId, classId, teamId, joinedAt, startSessionNumber }, tx || session);
 
 // Announce a freshly-persisted enrollment on the domain-event bus. No-op when
 // there is no cohort (program-less team) — the bell + automation are

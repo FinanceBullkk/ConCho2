@@ -31,6 +31,8 @@ const CAPABILITIES = Object.freeze({
   ENROLLMENT_READ: 'enrollment.read',   // list cohort enrollments
   ENROLLMENT_MANAGE: 'enrollment.manage', // enroll / withdraw any learner (admin)
   ENROLLMENT_SELF: 'enrollment.self',   // self-enroll / self-withdraw (learner)
+  ATTENDANCE_READ: 'attendance.read',   // read operational attendance rosters
+  ATTENDANCE_MARK: 'attendance.mark',   // create/update attendance marks
   COMPLETION_READ: 'completion.read',   // view completion status for a cohort
   CERTIFICATE_READ: 'certificate.read', // list issued certificates
   CERTIFICATE_MANAGE: 'certificate.manage', // issue / revoke certificates (admin)
@@ -39,6 +41,7 @@ const CAPABILITIES = Object.freeze({
   ASSESSMENT_MANAGE: 'assessment.manage', // author / archive assessments (admin/teacher)
   ASSESSMENT_READ: 'assessment.read',   // list/get assessments + attempts
   ASSESSMENT_ATTEMPT: 'assessment.attempt', // take an assessment (learner)
+  ENGLISH_EVALUATE: 'english.evaluate', // record final English levels for an assigned live run
   REPORT_READ: 'report.read',           // cohort-wide completion reports + export (admin/teacher)
   ASSIGNMENT_READ: 'assignment.read',   // read mandatory assignments + due status
   ASSIGNMENT_SELF: 'assignment.self',   // read OWN assignments + own status (any role — Cohesion P3)
@@ -109,6 +112,9 @@ const ROLE_CAPABILITIES = Object.freeze({
     CAPABILITIES.SESSION_BOOK,
     CAPABILITIES.ENROLLMENT_READ,
     CAPABILITIES.ENROLLMENT_MANAGE,
+    CAPABILITIES.ATTENDANCE_READ,
+    CAPABILITIES.ATTENDANCE_MARK,
+    CAPABILITIES.ENGLISH_EVALUATE,
     CAPABILITIES.COMPLETION_READ,
     CAPABILITIES.CERTIFICATE_READ,
     CAPABILITIES.CERTIFICATE_MANAGE,
@@ -133,6 +139,9 @@ const ROLE_CAPABILITIES = Object.freeze({
   ]),
   Teacher: Object.freeze([
     CAPABILITIES.ENROLLMENT_READ,
+    CAPABILITIES.ATTENDANCE_READ,
+    CAPABILITIES.ATTENDANCE_MARK,
+    CAPABILITIES.ENGLISH_EVALUATE,
     CAPABILITIES.COMPLETION_READ,
     CAPABILITIES.CERTIFICATE_READ,
     CAPABILITIES.FEEDBACK_READ,

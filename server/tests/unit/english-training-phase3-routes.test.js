@@ -9,12 +9,22 @@ jest.mock('../../middleware/auth', () => ({
 }));
 
 jest.mock('../../domains/english-training/controller', () => ({
+  getWorkspaceOverview: jest.fn(),
+  listEnglishTeachers: jest.fn(),
+  getLiveEligibility: jest.fn(),
+  getLiveEvaluationWorklist: jest.fn(), recordLiveEnglishLevel: jest.fn(), deleteLiveEnglishLevel: jest.fn(),
+  createCanonicalClass: jest.fn(),
+  addCanonicalRunEnrollment: jest.fn(), createCanonicalAttendanceSession: jest.fn(),
+  rescheduleCanonicalMeeting: jest.fn(), cancelCanonicalMeeting: jest.fn(),
+  getCanonicalAttendanceRoster: jest.fn(), saveCanonicalAttendanceRoster: jest.fn(),
+  listManagedPeople: jest.fn(), createManagedPerson: jest.fn(), updateManagedPerson: jest.fn(),
+  deleteManagedPerson: jest.fn(), provisionManagedPeople: jest.fn(),
   listLevels: (_req, res) => res.json({ success: true, data: [{ code: 'advanced', rank: 13 }] }),
   listPendingExamEntries: (_req, res) => res.json({ success: true, data: [], count: 0 }),
   recordExamResult: (_req, res) => res.status(201).json({ success: true, data: { id: 'x1' } }),
   deleteExamResult: (_req, res) => res.json({ success: true, data: { deleted: true } }),
   getOverview: jest.fn(),
-  listCohorts: jest.fn(), getCohort: jest.fn(), getClassDetail: jest.fn(), listCourses: jest.fn(), getCourseRun: jest.fn(),
+  listCohorts: jest.fn(), getCohort: jest.fn(), getClassDetail: jest.fn(), listCourses: jest.fn(), listCanonicalCourseRuns: jest.fn(), getCourseRun: jest.fn(),
   listEmployees: jest.fn(), getEmployee: jest.fn(), correctEmployee: jest.fn(),
   listSessions: jest.fn(), getSessionAttendance: jest.fn(), listEligibility: jest.fn(),
   listIssues: jest.fn(), listIssueDetails: jest.fn(),

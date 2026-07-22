@@ -43,9 +43,6 @@ export const NAV_GROUPS = [
     items: [
       tab('/learning', 'programs', 'learning.tabs.programs', BookOpen, { access: LEARNING_ACCESS }),
       tab('/learning', 'cohorts', 'learning.tabs.cohorts', Boxes, { access: LEARNING_ACCESS }),
-      { path: '/english-training', labelKey: 'englishTraining.nav', icon: Languages,
-        access: { Admin: 'full', Coordinator: 'full' }, perm: 'read:reports',
-        feature: 'englishTraining', parentRoutes: ['/english-training'] },
       tab('/learning', 'paths', 'learning.tabs.paths', RouteIcon, { access: LEARNING_ACCESS, perm: 'manage:path', feature: 'paths' }),
       tab('/learning', 'assignments', 'learning.tabs.assignments', ClipboardList, { access: LEARNING_ACCESS, perm: 'read:assignments', feature: 'assignments' }),
       tab('/learning', 'assessments', 'learning.tabs.assessments', GraduationCap, { access: LEARNING_ACCESS, feature: 'assessments' }),
@@ -53,24 +50,10 @@ export const NAV_GROUPS = [
       // Grading workspace (converge Phase 4 C2/C3) — a standalone page (not a
       // /learning tab) that lists gradable units across BOTH modes (quiz manual
       // grading + English rubric); replaces the retired English Evaluations tab.
-      // Leaf in the Learning group, mirroring Operations' mobile-attendance leaf.
+      // Leaf in the Learning group.
       { path: '/grading', labelKey: 'nav.sections.grading', icon: ClipboardEdit, access: { Admin: 'full', Coordinator: 'full', Teacher: 'full' }, feature: 'grading', parentRoutes: ['/grading'] },
     ],
   },
-  {
-    id: 'operations', labelKey: 'nav.groups.operations',
-    items: [
-      tab('/calendar', 'schedules', 'nav.sections.schedules', CalendarCheck, { access: ADMIN_ONLY }),
-      tab('/calendar', 'attendance', 'nav.sections.attendance', ClipboardCheck, { access: { Admin: 'full', Teacher: 'full' } }),
-      { path: '/mobile-attendance', labelKey: 'nav.sections.mobileAttendance', icon: Smartphone, access: { Admin: 'full', Teacher: 'full' }, parentRoutes: ['/mobile-attendance'] },
-    ],
-  },
-  // English admin group RETIRED (converge Phase 4): every English admin surface
-  // folded into a unified one — 'classes' → Learning → Cohorts; 'attendance' +
-  // 'schedules' → the unified Operations calendar; 'evaluations' → the Grading
-  // workspace; 'teams' → People (below). The leader booking grid stays in the
-  // learner nav (LEARNER_GROUPS.learner-english), so /english lives on for
-  // Participants/Leaders only.
   {
     id: 'reports', labelKey: 'nav.groups.reports',
     items: [
@@ -148,6 +131,58 @@ export const LEARNER_GROUPS = [
   },
 ];
 
+// English Operations is a focused composition over the same learning,
+// scheduling, attendance and evaluation domains. Persona is presentation only;
+// each item still carries role/capability visibility and every API enforces it.
+export const ENGLISH_GROUPS = [
+  {
+    id: 'english-overview',
+    items: [
+      tab('/english-operations', 'overview', 'englishOperations.tabs.overview', LayoutDashboard, {
+        access: { Admin: 'full', Coordinator: 'full', Teacher: 'read' },
+        feature: 'englishTraining',
+      }),
+    ],
+  },
+  {
+    id: 'english-setup', labelKey: 'englishOperations.groups.setup',
+    items: [
+      tab('/english-operations', 'learners', 'englishOperations.tabs.learners', Users, {
+        access: { Admin: 'full', Coordinator: 'full' },
+        feature: 'englishTraining',
+      }),
+      tab('/english-operations', 'classes', 'englishOperations.tabs.classes', Boxes, {
+        access: { Admin: 'full', Coordinator: 'full' },
+        feature: 'englishTraining',
+      }),
+      tab('/english-operations', 'schedule', 'englishOperations.tabs.schedule', CalendarCheck, {
+        access: { Admin: 'full', Coordinator: 'full' },
+        feature: 'englishTraining',
+      }),
+      tab('/english-operations', 'attendance', 'englishOperations.tabs.attendance', ClipboardCheck, {
+        access: { Admin: 'full', Coordinator: 'full' },
+        feature: 'englishTraining',
+      }),
+      tab('/english-operations', 'evaluation', 'englishOperations.tabs.evaluation', GraduationCap, {
+        access: { Admin: 'full', Coordinator: 'full' },
+        feature: 'englishTraining',
+      }),
+      tab('/english-operations', 'archive', 'englishOperations.tabs.archive', ScrollText, {
+        access: { Admin: 'full', Coordinator: 'read' },
+        feature: 'englishTraining',
+      }),
+    ],
+  },
+  {
+    id: 'english-field',
+    items: [
+      { path: '/mobile-attendance', labelKey: 'nav.sections.mobileAttendance', icon: Smartphone,
+        access: { Admin: 'full' }, feature: 'englishTraining',
+        parentRoutes: ['/mobile-attendance'] },
+    ],
+  },
+];
+
 // Injected at runtime only when the user has direct reports.
 export const MY_TEAM_ITEM = {
   path: '/my-team', labelKey: 'nav.myTeam', icon: Users, access: ALL, parentRoutes: ['/my-team'],
@@ -166,7 +201,9 @@ export function isItemVisible(item, role, can) {
 // the crumb always matches the highlighted sidebar item. Falls back to Home.
 export function activeItemLabelKey({ role, can, pathname, tab, persona }) {
   if (pathname.startsWith('/my-team')) return MY_TEAM_ITEM.labelKey;
-  const groups = persona === 'learner' ? LEARNER_GROUPS : NAV_GROUPS;
+  const groups = persona === 'learner'
+    ? LEARNER_GROUPS
+    : persona === 'english' ? ENGLISH_GROUPS : NAV_GROUPS;
   for (const group of groups) {
     const items = group.items.filter((it) => isItemVisible(it, role, can));
     const activePath = groupActivePath(items, pathname, tab);
@@ -175,6 +212,12 @@ export function activeItemLabelKey({ role, can, pathname, tab, persona }) {
       if (item) return item.labelKey;
     }
   }
+  const fallback = groups
+    .flatMap((group) => group.items)
+    .filter((item) => isItemVisible(item, role, can))
+    .find((item) => item.tab !== undefined
+      && (pathname === item.base || pathname.startsWith(item.base + '/')));
+  if (fallback) return fallback.labelKey;
   return 'nav.home';
 }
 
@@ -189,7 +232,9 @@ export function groupActivePath(visibleItems, pathname, currentTab) {
     if (!onBase) return null;
     if (currentTab) {
       const match = visibleItems.find((it) => it.tab === currentTab);
-      return match ? match.path : first.path;
+      // Several sidebar groups may share one tabbed route. A group that does
+      // not own the requested tab must not claim the active breadcrumb.
+      return match ? match.path : null;
     }
     return first.path;
   }

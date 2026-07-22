@@ -53,6 +53,7 @@ describe('policy/capabilities — role → capability map', () => {
       CAPABILITIES.SESSION_BOOK,
       CAPABILITIES.ENROLLMENT_READ,
       CAPABILITIES.ENROLLMENT_MANAGE,
+      CAPABILITIES.ENGLISH_EVALUATE,
       CAPABILITIES.COMPLETION_READ,
       CAPABILITIES.CERTIFICATE_READ,
       CAPABILITIES.CERTIFICATE_MANAGE,
@@ -80,6 +81,12 @@ describe('policy/capabilities — role → capability map', () => {
     expect(roleHasCapability('Coordinator', CAPABILITIES.FEEDBACK_READ)).toBe(false);
     expect(roleHasCapability('Coordinator', CAPABILITIES.ASSESSMENT_MANAGE)).toBe(false);
     expect(roleHasCapability('Coordinator', CAPABILITIES.ASSESSMENT_ATTEMPT)).toBe(false);
+  });
+
+  test('English final-level entry is granted only to operations and teachers', () => {
+    expect(roleHasCapability('Coordinator', CAPABILITIES.ENGLISH_EVALUATE)).toBe(true);
+    expect(roleHasCapability('Teacher', CAPABILITIES.ENGLISH_EVALUATE)).toBe(true);
+    expect(roleHasCapability('Participant', CAPABILITIES.ENGLISH_EVALUATE)).toBe(false);
   });
 
   test('Coordinator is an explicit allow-list, never the full Admin set', () => {

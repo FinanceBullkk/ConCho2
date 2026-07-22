@@ -7,7 +7,7 @@ import { usePersona } from '../../context/PersonaContext';
 import { useRole } from '../../hooks/useRole';
 import { useMyTeam } from '../../hooks/useOrg';
 import { cn } from '@/lib/utils';
-import { NAV_GROUPS, LEARNER_GROUPS, MY_TEAM_ITEM, isItemVisible, groupActivePath } from './nav-config';
+import { NAV_GROUPS, LEARNER_GROUPS, ENGLISH_GROUPS, MY_TEAM_ITEM, isItemVisible, groupActivePath } from './nav-config';
 
 // ──────────────────────────────────────────────────────────
 // Sidebar — left vertical primary navigation (IA rework 2026-06-13).
@@ -30,7 +30,9 @@ export default function Sidebar({ onNavigate }) {
   const role = user.role;
   const currentTab = new URLSearchParams(location.search).get('tab');
 
-  const groups = [...(persona === 'learner' ? LEARNER_GROUPS : NAV_GROUPS)];
+  const groups = [...(persona === 'learner'
+    ? LEARNER_GROUPS
+    : persona === 'english' ? ENGLISH_GROUPS : NAV_GROUPS)];
   if (myTeam?.count > 0) groups.push({ id: 'team', items: [MY_TEAM_ITEM] });
 
   return (

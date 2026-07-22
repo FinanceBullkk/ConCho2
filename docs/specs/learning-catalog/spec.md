@@ -2,7 +2,7 @@
 capability: learning-catalog
 status: stable
 owners: [domains/learning, controllers/classController]
-last_updated: 2026-06-13
+last_updated: 2026-07-19
 related_code:
   - server/domains/learning/controller.js
   - server/domains/learning/use-cases.js
@@ -147,6 +147,15 @@ requires-feedback), `certificateValidityDays` (blank = never expires),
 The system SHALL allow any authenticated user to read `/api/learning/programs`
 and `/api/learning/cohorts`; cohort writes (create/edit/delete) require the
 `cohort.manage` capability (Admin/Coordinator).
+
+### English boundary
+
+Generic Learning Programs/Cohorts/Teams do not own English classes. English
+uses the canonical module specified in
+[`../english-training/spec.md`](../english-training/spec.md): stable Cohort,
+dated PIC assignment, Course Run, Cohort Membership, and Run Enrollment. Shared
+catalog concepts may be consumed through intent-level adapters, but no PIC Team
+or generic English Program/Class projection may be created.
 
 ## Non-Functional Requirements (NFR)
 

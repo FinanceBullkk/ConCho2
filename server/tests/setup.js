@@ -20,6 +20,7 @@
  */
 
 const { isPostgres } = require('../config/db-backend');
+const DEFAULT_TIME_SLOTS = require('../config/default-time-slots');
 const pgTestUtils = require('./pg-test-utils');
 const fx = require('./fixtures/pg-fixtures');
 
@@ -60,11 +61,7 @@ const setup = async () => {
   // FK-safe order: settings, cohorts, users, then the team (refs cohort + users).
   await fx.createSetting({
     key: 'ALLOWED_TIME_SLOTS',
-    value: [
-      { sh: 8, sm: 0, eh: 9, em: 30, label: '08:00-09:30' },
-      { sh: 10, sm: 0, eh: 11, em: 30, label: '10:00-11:30' },
-      { sh: 14, sm: 0, eh: 15, em: 30, label: '14:00-15:30' },
-    ],
+    value: DEFAULT_TIME_SLOTS,
   });
 
   const cls = await fx.createClass({ classCode: 'TEST001', courseName: 'Test English Class', totalSessions: 20 });

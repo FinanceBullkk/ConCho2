@@ -36,6 +36,9 @@ audited per key.
 
 - **Setting** (`server/models/Setting.js`): `{key, value}` documents. Whitelist =
   `ALLOWED_SETTING_KEYS` (currently `ALLOWED_TIME_SLOTS`).
+- Fresh environments seed `ALLOWED_TIME_SLOTS` with five approved one-hour
+  Vietnam windows: `09:00–10:00`, `10:00–11:00`, `13:00–14:00`,
+  `14:00–15:00`, and `15:00–16:00`.
 
 ## Functional Requirements (FR)
 

@@ -66,7 +66,7 @@ function buildTiles(data, t, isAdmin) {
     tiles.push({
       key: 'upcoming',
       icon: CalendarDays,
-      to: '/calendar',
+      to: '/english-operations?tab=schedule',
       label: t('dashboard.quickActions.upcoming.label'),
       value: sessions.next7Days ?? 0,
       tone: 'info',
