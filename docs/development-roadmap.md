@@ -30,7 +30,8 @@ remainder is documented deferred-by-design scope (below), not active debt.
   one-current-PIC and one-active-enrollment invariants are database guarded;
   eligibility uses the Course Run's 80% attendance-ratio snapshot. Operators
   can now start a learner at the confirmed next logical session, mark an active
-  learner as left while retaining history and releasing capacity, create a real
+  learner as left while retaining history and releasing capacity, transfer an
+  active learner across classes through a linked historical chain, create a real
   Meeting + Session Unit on an approved slot, and atomically save one exact P/A
   roster with stale-write protection. The 984 imported sessions were backfilled
   to 984 Meetings without changing their 5,962 attendance facts. Migration 050
@@ -42,7 +43,7 @@ remainder is documented deferred-by-design scope (below), not active debt.
   Meetings until correction overlays make active-slot validation safe, mirrors
   migration 047's evidence-only multi-active reconciliation, fails before load
   on ambiguous/unbalanced input, and blocks remote targets by default.
-  **Next:** learner transfer and capacity override;
+  **Next:** reasoned capacity override;
   optional second Session Unit / make-up credit; assigned-Teacher scope.
 - **Canonical English baseline:** Phases 1–3 are complete on dev: identity,
   structure, correction overlay, 984 historical sessions, 5,962 attendance
@@ -191,6 +192,23 @@ Bug fixing and integration review rank above net-new feature rollout.
 > [`2026-q3.md`](changelog-archive/2026-q3.md); 06-20→06-27 rolled 2026-07-07;
 > 06-14→06-19 rolled 2026-07-04 → [`2026-q2.md`](changelog-archive/2026-q2.md)).
 
+- **2026-07-22** — **Canonical English learner-transfer workflow verified.**
+  Admin and Coordinator can transfer an active learner from the Classes roster
+  to a planned/active Course Run in another stable class. One transaction
+  retains the source Enrollment and Membership as linked `transferred` history,
+  creates exactly one active target Membership and Enrollment at the confirmed
+  first applicable session, copies current org snapshots, enforces ordinary
+  target capacity, and writes `learner.transfer`. Same-class, stale, full,
+  prior-history, missing-org, permission, and concurrent conflicts roll back.
+  The real UI path was exercised at 1440×900, 1280×800, and 390×844 against a
+  disposable local PostgreSQL database with no page-level horizontal overflow.
+  Verification: disposable PostgreSQL integration 3/3, transfer-focused server
+  42/42, all server unit tests 391/391, transfer client 3/3, full client 569/569,
+  production build, lint (zero errors; five pre-existing warnings), and syntax
+  21/21.
+  **Next:** reasoned, audited capacity override; notifications, restoration, and
+  same-class continuation remain separate outcomes.
+
 - **2026-07-22** — **Canonical English learner-leave workflow verified.**
   Admin and Coordinator can now mark an active Course Run Enrollment as left
   from the Classes roster with a required Last active date and reason. The
@@ -207,8 +225,8 @@ Bug fixing and integration review rank above net-new feature rollout.
   a mobile grid min-width leak, leaving no page-level horizontal overflow or
   browser warnings/errors. Verification: English server 97/97, all server unit
   tests 385/385, full client 568/568, client production build, lint (zero errors;
-  five pre-existing warnings), and syntax 21/21. **Next:** learner transfer and
-  explicit capacity override.
+  five pre-existing warnings), and syntax 21/21. **Next at that checkpoint:**
+  learner transfer and explicit capacity override.
 
 - **2026-07-22** — **Current-schema English workbook rebuild hardened and verified.**
   The importer now applies migration

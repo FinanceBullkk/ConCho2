@@ -8,13 +8,17 @@ jest.mock('../../domains/english-training/canonical-operations-repository.pg', (
   findCourseRunForUpdate: jest.fn(),
   findActiveEmployee: jest.fn(),
   getNextSessionNumber: jest.fn(),
+  getTransferStartSessionNumber: jest.fn(),
   countActiveRunEnrollments: jest.fn(),
+  countActiveMemberships: jest.fn(),
   findActiveEnrollmentForEmployee: jest.fn(),
   findEnrollmentInRun: jest.fn(),
   findRunEnrollmentForUpdate: jest.fn(),
   findCurrentMembership: jest.fn(),
   createMembership: jest.fn(),
   createRunEnrollment: jest.fn(),
+  markRunEnrollmentTransferred: jest.fn(),
+  markMembershipTransferred: jest.fn(),
   dropRunEnrollment: jest.fn(),
   endMembershipIfUnused: jest.fn(),
   createMeeting: jest.fn(),
@@ -38,7 +42,8 @@ const policy = require('../../domains/schedule/scheduling-window-policy');
 const repository = require('../../domains/english-training/canonical-operations-repository.pg');
 const delivery = require('../../domains/english-training/meeting-delivery');
 const {
-  addRunEnrollment, leaveRunEnrollment, createAttendanceSession, getAttendanceRoster,
+  addRunEnrollment, leaveRunEnrollment, transferLearner,
+  createAttendanceSession, getAttendanceRoster,
   rescheduleMeeting, cancelMeeting, saveAttendanceRoster, rosterToken,
 } = require('../../domains/english-training/canonical-operations');
 
@@ -65,21 +70,30 @@ describe('canonical English live operations', () => {
     repository.withTransaction.mockImplementation((work) => work({ query: jest.fn() }));
     repository.findCourseRunForUpdate.mockResolvedValue(run);
     repository.getNextSessionNumber.mockResolvedValue(3);
+    repository.getTransferStartSessionNumber.mockResolvedValue(3);
     repository.findActiveEmployee.mockResolvedValue({ id: 'employee-1', full_name: 'Learner One', meta: {} });
     repository.findActiveEnrollmentForEmployee.mockResolvedValue(null);
     repository.findEnrollmentInRun.mockResolvedValue(null);
     repository.countActiveRunEnrollments.mockResolvedValue(4);
+    repository.countActiveMemberships.mockResolvedValue(4);
     repository.findCurrentMembership.mockResolvedValue(null);
     repository.createMembership.mockResolvedValue({ id: 'membership-1' });
     repository.createRunEnrollment.mockResolvedValue({ id: 'enrollment-1' });
     repository.findRunEnrollmentForUpdate.mockResolvedValue({
       id: 'enrollment-1', course_run_id: 'run-1', employee_id: 'employee-1',
       cohort_membership_id: 'membership-1', status: 'active',
-      membership_status: 'active', membership_start_date: '2026-07-01',
+      membership_status: 'active', membership_cohort_id: 'cohort-1',
+      membership_start_date: '2026-07-01',
     });
     repository.dropRunEnrollment.mockResolvedValue({ id: 'enrollment-1', status: 'dropped' });
     repository.endMembershipIfUnused.mockResolvedValue({
       id: 'membership-1', status: 'cancelled', end_date: '2026-07-20',
+    });
+    repository.markRunEnrollmentTransferred.mockResolvedValue({
+      id: 'enrollment-1', status: 'transferred',
+    });
+    repository.markMembershipTransferred.mockResolvedValue({
+      id: 'membership-1', status: 'transferred',
     });
   });
 
@@ -148,6 +162,78 @@ describe('canonical English live operations', () => {
 
     expect(repository.dropRunEnrollment).not.toHaveBeenCalled();
     expect(repository.endMembershipIfUnused).not.toHaveBeenCalled();
+  });
+
+  test('transfers one active learner to a different class and links both histories', async () => {
+    const target = { ...run, id: 'run-2', cohort_id: 'cohort-2', class_code: 'EL002' };
+    repository.findCourseRunForUpdate.mockImplementation(async (id) => (
+      id === 'run-2' ? target : run
+    ));
+    repository.findRunEnrollmentForUpdate.mockResolvedValue({
+      id: 'enrollment-1', course_run_id: 'run-1', employee_id: 'employee-1',
+      cohort_membership_id: 'membership-1', status: 'active',
+      membership_status: 'active', membership_cohort_id: 'cohort-1',
+      membership_start_date: '2026-07-01',
+      current_business_unit: 'Finance', current_job_role: 'Analyst',
+    });
+    repository.newId.mockReturnValueOnce('membership-2').mockReturnValueOnce('enrollment-2');
+    repository.createMembership.mockResolvedValue({ id: 'membership-2' });
+    repository.createRunEnrollment.mockResolvedValue({ id: 'enrollment-2', status: 'active' });
+
+    await expect(transferLearner({
+      sourceCourseRunId: 'run-1', enrollmentId: 'enrollment-1',
+      targetCourseRunId: 'run-2', transferDate: '2026-07-20',
+      confirmedStartSessionNumber: 3,
+    }, actor)).resolves.toMatchObject({
+      fromEnrollmentId: 'enrollment-1', enrollmentId: 'enrollment-2',
+      membershipId: 'membership-2', startSessionNumber: 3,
+    });
+    expect(repository.markMembershipTransferred).toHaveBeenCalledWith(
+      'membership-1', 'membership-2', '2026-07-20', expect.anything(),
+    );
+    expect(repository.createRunEnrollment).toHaveBeenCalledWith(expect.objectContaining({
+      id: 'enrollment-2', transferFromEnrollmentId: 'enrollment-1',
+      businessUnit: 'Finance', jobRole: 'Analyst',
+    }), expect.anything());
+    expect(repository.recordAudit).toHaveBeenCalledWith(expect.objectContaining({
+      action: 'learner.transfer', entityKey: 'enrollment-2',
+    }), expect.anything());
+  });
+
+  test('rejects a stale transfer proposal before closing source history', async () => {
+    repository.findCourseRunForUpdate.mockImplementation(async (id) => (
+      id === 'run-2' ? { ...run, id: 'run-2', cohort_id: 'cohort-2' } : run
+    ));
+    await expect(transferLearner({
+      sourceCourseRunId: 'run-1', enrollmentId: 'enrollment-1',
+      targetCourseRunId: 'run-2', transferDate: '2026-07-20',
+      confirmedStartSessionNumber: 2,
+    }, actor)).rejects.toMatchObject({ statusCode: 409 });
+    expect(repository.markRunEnrollmentTransferred).not.toHaveBeenCalled();
+    expect(repository.markMembershipTransferred).not.toHaveBeenCalled();
+    expect(repository.createRunEnrollment).not.toHaveBeenCalled();
+  });
+
+  test('rejects a transfer into a full class without a partial source close', async () => {
+    repository.findCourseRunForUpdate.mockImplementation(async (id) => (
+      id === 'run-2' ? { ...run, id: 'run-2', cohort_id: 'cohort-2', capacity: 4 } : run
+    ));
+    repository.findRunEnrollmentForUpdate.mockResolvedValue({
+      id: 'enrollment-1', employee_id: 'employee-1',
+      cohort_membership_id: 'membership-1', status: 'active',
+      membership_status: 'active', membership_cohort_id: 'cohort-1',
+      membership_start_date: '2026-07-01',
+      current_business_unit: 'Finance', current_job_role: 'Analyst',
+    });
+    repository.countActiveMemberships.mockResolvedValue(4);
+
+    await expect(transferLearner({
+      sourceCourseRunId: 'run-1', enrollmentId: 'enrollment-1',
+      targetCourseRunId: 'run-2', transferDate: '2026-07-20',
+      confirmedStartSessionNumber: 3,
+    }, actor)).rejects.toMatchObject({ statusCode: 409 });
+    expect(repository.markRunEnrollmentTransferred).not.toHaveBeenCalled();
+    expect(repository.markMembershipTransferred).not.toHaveBeenCalled();
   });
 
   test('creates a Meeting and Session Unit only after slot and sequence validation', async () => {

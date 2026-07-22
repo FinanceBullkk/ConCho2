@@ -89,6 +89,13 @@ const runEnrollmentLeaveBody = z.object({
     .refine(validDateOnly, 'lastActiveDate must be a real calendar date'),
   reason: z.string().trim().min(3).max(500),
 });
+const runEnrollmentTransferBody = z.object({
+  targetCourseRunId: z.string().min(1),
+  transferDate: z.string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/, 'transferDate must be YYYY-MM-DD')
+    .refine(validDateOnly, 'transferDate must be a real calendar date'),
+  confirmedStartSessionNumber: z.coerce.number().int().min(1),
+}).strict();
 const attendanceSessionBody = z.object({
   startsAt: z.string().datetime({ offset: true }),
   endsAt: z.string().datetime({ offset: true }),
@@ -116,6 +123,7 @@ module.exports = {
   managedPersonCreateBody, managedPersonUpdateBody,
   canonicalClassBody,
   courseRunParams, courseRunEnrollmentParams, courseRunMeetingParams, attendanceRosterParams,
-  runEnrollmentBody, runEnrollmentLeaveBody, attendanceSessionBody, meetingRescheduleBody,
+  runEnrollmentBody, runEnrollmentLeaveBody, runEnrollmentTransferBody,
+  attendanceSessionBody, meetingRescheduleBody,
   meetingCancellationBody, attendanceRosterBody,
 };

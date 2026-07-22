@@ -123,6 +123,14 @@ export const useLeaveCanonicalRunEnrollment = () => useLearnerMutation(
   'englishOperations.classes.learnerLeaveError',
 );
 
+export const useTransferCanonicalRunEnrollment = () => useLearnerMutation(
+  ({ sourceCourseRunId, enrollmentId, data }) => payload(
+    englishOperationsAPI.transferCanonicalRunEnrollment(sourceCourseRunId, enrollmentId, data),
+  ),
+  'englishOperations.classes.learnerTransferred',
+  'englishOperations.classes.learnerTransferError',
+);
+
 export const useCreateCanonicalEnglishSession = () => useLearnerMutation(
   ({ courseRunId, data }) => payload(englishOperationsAPI.createCanonicalSession(courseRunId, data)),
   'englishOperations.schedule.created',

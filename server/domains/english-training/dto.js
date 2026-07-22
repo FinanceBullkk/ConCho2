@@ -121,6 +121,7 @@ const activeCourseRunRow = (r) => ({
   courseCode: r.course_code, courseName: r.course_name,
   startDate: r.start_date, endDate: r.end_date,
   nextSessionNumber: r.next_session_number,
+  transferStartSessionNumber: r.transfer_start_session_number,
 });
 
 module.exports = {

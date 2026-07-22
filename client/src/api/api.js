@@ -414,6 +414,7 @@ export const englishOperationsAPI = {
   createCanonicalClass: (data) => api.post('/english-training/workspace/classes', data),
   addCanonicalRunEnrollment: (courseRunId, data) => api.post(`/english-training/workspace/course-runs/${courseRunId}/enrollments`, data),
   leaveCanonicalRunEnrollment: (courseRunId, enrollmentId, data) => api.post(`/english-training/workspace/course-runs/${courseRunId}/enrollments/${enrollmentId}/leave`, data),
+  transferCanonicalRunEnrollment: (courseRunId, enrollmentId, data) => api.post(`/english-training/workspace/course-runs/${courseRunId}/enrollments/${enrollmentId}/transfer`, data),
   createCanonicalSession: (courseRunId, data) => api.post(`/english-training/workspace/course-runs/${courseRunId}/sessions`, data),
   rescheduleCanonicalMeeting: (courseRunId, meetingId, data) => api.patch(`/english-training/workspace/course-runs/${courseRunId}/meetings/${meetingId}`, data),
   cancelCanonicalMeeting: (courseRunId, meetingId, data) => api.delete(`/english-training/workspace/course-runs/${courseRunId}/meetings/${meetingId}`, { data }),

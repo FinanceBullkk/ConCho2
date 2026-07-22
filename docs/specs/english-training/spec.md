@@ -74,6 +74,9 @@ not a teacher assignment, login identity, generic Team, or roster container.
 - Leaving ends the active Run Enrollment and, when no other active enrollment
   uses it, the stable Cohort Membership on an inclusive Last active date. It
   never deletes attendance, evaluation, Meeting, or Session Unit history.
+- A cross-class transfer closes the source Enrollment and Membership as
+  `transferred`, links that history to one new active target Enrollment and
+  Membership, and snapshots the employee's current business unit and job role.
 - Attendance applicability is calculated at event time. Planned rosters propose
   Present; completed historical gaps remain unknown rather than becoming Absent.
 - One attendance save contains every applicable Run Enrollment exactly once.
@@ -157,8 +160,49 @@ any row.
   submitted, then it is rejected and no partial Enrollment, Membership, or
   audit change commits.
 
-Transfer, capacity override, restoration, and departure notification are
-explicitly outside this delivery slice.
+Transfer, capacity override, restoration, and departure notification were
+explicitly outside the learner-leave delivery slice; transfer is defined below.
+
+### Transfer a learner to another class
+
+`POST /api/english-training/workspace/course-runs/:courseRunId/enrollments/:enrollmentId/transfer`
+moves one active learner to a different stable English class. Admin and
+Coordinator require `enrollment.manage`; Teacher and Participant remain denied.
+The request carries the target Course Run, inclusive transfer date, and the
+operator-confirmed first applicable target Session Unit.
+
+The target Course Run must be `planned` or `active`, must belong to another
+class, and must have ordinary capacity available. The server recomputes the
+target start session and rejects a stale proposal. In one transaction it locks
+the target and source state; closes the source Enrollment and Membership as
+`transferred`; links the source Membership to the new target Membership; creates
+the target Enrollment with `transfer_from_enrollment_id`; copies current
+business-unit and job-role snapshots; and writes `learner.transfer` to
+`eng_audit_events`. Source attendance, evaluation, Meeting, and Session Unit
+history remain attached to the historical source Enrollment.
+
+The Classes roster exposes **Transfer learner** only for active enrollments and
+only to managers. The compact form offers cross-class planned/active Course Runs,
+shows the server-derived start-session proposal and target occupancy, disables
+full destinations, and states that source history will remain. Same-class,
+missing-current-org, prior-target-history, full-capacity, stale, and concurrent
+conflicts fail without a partial source close or duplicate target chain.
+
+#### Acceptance examples
+
+- `[BR-ENG-TRANSFER-1]` Given an active Enrollment and an available cross-class
+  target, when an authorized operator confirms the current target start session,
+  then source history becomes `transferred`, exactly one linked target Enrollment
+  and Membership become active with current org snapshots, and exactly one
+  atomic domain-audit event exists.
+- `[UC-ENG-TRANSFER-1-PERMISSION]` Given the same Enrollment, when a Teacher or
+  Participant submits the command, then access is denied and no row changes.
+- `[UC-ENG-TRANSFER-1-CONFLICT]` Given a same-class, stale, full, already-used,
+  or concurrent target, when the command is submitted, then it is rejected and
+  no partial source close, duplicate target history, or extra audit commits.
+
+Reasoned capacity override, same-class Course Run continuation, restoration,
+and transfer notifications are explicitly outside this delivery slice.
 
 ### Schedule and attendance
 
@@ -266,10 +310,12 @@ and domain audit. Any remaining collision rolls back the complete reset/import.
 ## Verification
 
 - Unit: atomic class/PIC/run command, learner-start sequence and capacity
-  guards, learner-leave happy/permission/date/stale guards, Meeting create/
+  guards, learner-leave happy/permission/date/stale guards, learner-transfer
+  happy/permission/stale/full/concurrent guards, Meeting create/
   reschedule/durable-cancel, delivery notifications, full-roster save, stale
   token, route permission denial, and DTO ratio mapping.
-- Client: PIC grouping, class detail roster and learner-leave confirmation,
+- Client: PIC grouping, class detail roster, learner-leave confirmation and
+  cross-class learner-transfer proposal,
   canonical Schedule/Attendance grid,
   imported wall-clock conversion, live Meeting instant/duration mapping,
   evidence filters, inline roster layout, query-tab breadcrumbs, empty-cell
@@ -290,7 +336,7 @@ and domain audit. Any remaining collision rolls back the complete reset/import.
 
 ## Known next work
 
-- Port learner transfer and explicit capacity override commands.
+- Add the authority model's reasoned, audited capacity override command.
 - Add the authority model's optional second normal Session Unit and linked
   make-up replacement-credit workflow.
 - Add assigned-Teacher resource scope before exposing canonical rosters or

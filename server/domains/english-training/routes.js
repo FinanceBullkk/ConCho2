@@ -10,7 +10,8 @@ const {
   managedPersonCreateBody, managedPersonUpdateBody,
   canonicalClassBody,
   courseRunParams, courseRunEnrollmentParams, courseRunMeetingParams, attendanceRosterParams,
-  runEnrollmentBody, runEnrollmentLeaveBody, attendanceSessionBody, meetingRescheduleBody,
+  runEnrollmentBody, runEnrollmentLeaveBody, runEnrollmentTransferBody,
+  attendanceSessionBody, meetingRescheduleBody,
   meetingCancellationBody, attendanceRosterBody,
 } = require('./schemas');
 
@@ -96,6 +97,13 @@ router.post(
   requireCapability('enrollment.manage'),
   validate({ params: courseRunEnrollmentParams, body: runEnrollmentLeaveBody }),
   controller.leaveCanonicalRunEnrollment,
+);
+router.post(
+  '/workspace/course-runs/:courseRunId/enrollments/:enrollmentId/transfer',
+  roleGuard('Admin', 'Coordinator'),
+  requireCapability('enrollment.manage'),
+  validate({ params: courseRunEnrollmentParams, body: runEnrollmentTransferBody }),
+  controller.transferCanonicalRunEnrollment,
 );
 router.post(
   '/workspace/course-runs/:courseRunId/sessions',

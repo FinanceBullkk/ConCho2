@@ -93,11 +93,33 @@ const getNextSessionNumber = async (courseRunId, client) => {
   return rows[0].next_number;
 };
 
+const getTransferStartSessionNumber = async (courseRunId, client) => {
+  const { rows } = await client.query(`
+    SELECT COALESCE(
+      MIN(su.session_number) FILTER (WHERE m.status = 'planned'),
+      MAX(su.session_number) FILTER (WHERE m.status = 'completed') + 1,
+      1
+    )::int AS start_number
+    FROM eng_session_units su
+    JOIN eng_meetings m ON m.id = su.meeting_id
+    WHERE su.course_run_id = $1
+  `, [courseRunId]);
+  return rows[0].start_number;
+};
+
 const countActiveRunEnrollments = async (courseRunId, client) => {
   const { rows } = await client.query(`
     SELECT count(*)::int AS count FROM eng_run_enrollments
     WHERE course_run_id = $1 AND status = 'active'
   `, [courseRunId]);
+  return rows[0].count;
+};
+
+const countActiveMemberships = async (cohortId, client) => {
+  const { rows } = await client.query(`
+    SELECT count(*)::int AS count FROM eng_cohort_memberships
+    WHERE cohort_id = $1 AND status = 'active'
+  `, [cohortId]);
   return rows[0].count;
 };
 
@@ -126,9 +148,19 @@ const findEnrollmentInRun = async (courseRunId, employeeId, client) => {
 const findRunEnrollmentForUpdate = async (courseRunId, enrollmentId, client) => {
   const { rows } = await client.query(`
     SELECT en.*, cm.status AS membership_status,
-      cm.start_date AS membership_start_date, cm.end_date AS membership_end_date
+      cm.cohort_id AS membership_cohort_id,
+      cm.start_date AS membership_start_date, cm.end_date AS membership_end_date,
+      COALESCE(NULLIF(BTRIM(ec.business_unit), ''), NULLIF(BTRIM(u.department), ''),
+        NULLIF(BTRIM(en.business_unit_id_snapshot), ''),
+        NULLIF(BTRIM(e.meta->>'businessUnit'), '')) AS current_business_unit,
+      COALESCE(NULLIF(BTRIM(ec.job_role), ''), NULLIF(BTRIM(u.position), ''),
+        NULLIF(BTRIM(en.job_role_id_snapshot), ''),
+        NULLIF(BTRIM(e.meta->>'jobRole'), '')) AS current_job_role
     FROM eng_run_enrollments en
     JOIN eng_cohort_memberships cm ON cm.id = en.cohort_membership_id
+    JOIN eng_employees e ON e.id = en.employee_id
+    LEFT JOIN users u ON u.id = e.user_id
+    LEFT JOIN eng_employee_corrections ec ON lower(ec.emp_code) = lower(e.emp_code)
     WHERE en.id = $1 AND en.course_run_id = $2
     FOR UPDATE OF en, cm
   `, [enrollmentId, courseRunId]);
@@ -156,13 +188,50 @@ const createRunEnrollment = async (row, client) => {
   const { rows } = await client.query(`
     INSERT INTO eng_run_enrollments (
       id, course_run_id, employee_id, cohort_membership_id, status,
-      start_session_number, business_unit_id_snapshot, job_role_id_snapshot, meta
-    ) VALUES ($1,$2,$3,$4,'active',$5,$6,$7,$8) RETURNING *
+      start_session_number, business_unit_id_snapshot, job_role_id_snapshot,
+      transfer_from_enrollment_id, meta
+    ) VALUES ($1,$2,$3,$4,'active',$5,$6,$7,$8,$9) RETURNING *
   `, [
     row.id, row.courseRunId, row.employeeId, row.membershipId,
-    row.startSessionNumber, row.businessUnit, row.jobRole, JSON.stringify(row.meta || {}),
+    row.startSessionNumber, row.businessUnit, row.jobRole,
+    row.transferFromEnrollmentId || null, JSON.stringify(row.meta || {}),
   ]);
   return rows[0];
+};
+
+const markRunEnrollmentTransferred = async (enrollmentId, row, client) => {
+  const { rows } = await client.query(`
+    UPDATE eng_run_enrollments SET
+      status = 'transferred',
+      meta = COALESCE(meta, '{}'::jsonb) || jsonb_build_object(
+        'transfer', jsonb_build_object(
+          'transferDate', $2::text,
+          'targetCourseRunId', $3::text,
+          'targetEnrollmentId', $4::text,
+          'authority', $5::text
+        )
+      ),
+      updated_at = NOW()
+    WHERE id = $1 AND status = 'active'
+    RETURNING *
+  `, [
+    enrollmentId, row.transferDate, row.targetCourseRunId,
+    row.targetEnrollmentId, row.authority,
+  ]);
+  return rows[0] || null;
+};
+
+const markMembershipTransferred = async (
+  membershipId, targetMembershipId, transferDate, client,
+) => {
+  const { rows } = await client.query(`
+    UPDATE eng_cohort_memberships SET
+      status = 'transferred', end_date = $3::date,
+      transfer_to_membership_id = $2
+    WHERE id = $1 AND status = 'active'
+    RETURNING *
+  `, [membershipId, targetMembershipId, transferDate]);
+  return rows[0] || null;
 };
 
 const dropRunEnrollment = async (enrollmentId, row, client) => {
@@ -409,13 +478,17 @@ module.exports = {
   findCourseRunForUpdate,
   findActiveEmployee,
   getNextSessionNumber,
+  getTransferStartSessionNumber,
   countActiveRunEnrollments,
+  countActiveMemberships,
   findActiveEnrollmentForEmployee,
   findEnrollmentInRun,
   findRunEnrollmentForUpdate,
   findCurrentMembership,
   createMembership,
   createRunEnrollment,
+  markRunEnrollmentTransferred,
+  markMembershipTransferred,
   dropRunEnrollment,
   endMembershipIfUnused,
   createMeeting,
