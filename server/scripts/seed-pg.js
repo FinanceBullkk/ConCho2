@@ -12,6 +12,11 @@
  *
  * Usage: npm run seed            (DB_BACKEND-independent — always seeds PG_URL)
  *
+ * Remote targets fail closed. To seed a verified remote target, set the
+ * one-shot environment confirmation SEED_ALLOW_REMOTE=YES_I_HAVE_BACKUP.
+ * A production target additionally requires
+ * ALLOW_PROD_DATA_MUTATION=YES_I_HAVE_BACKUP. Do not persist either override.
+ *
  * Default credentials (identical to the Mongo seed):
  *   Admin:        000001 / admin12345   (mustChangePassword)
  *   Teachers:     000002 / teacher123, 000003 / teacher123
@@ -77,7 +82,15 @@ const hostAndDb = () => {
 
 const seed = async () => {
   const { host, dbName } = hostAndDb();
-  dangerousScriptGuard({ scriptName: 'seed-pg.js — TRUNCATEs ALL tables', host, dbName });
+  dangerousScriptGuard({
+    scriptName: 'seed-pg.js — TRUNCATEs ALL tables',
+    host,
+    dbName,
+    remoteOverride: {
+      envName: 'SEED_ALLOW_REMOTE',
+      expectedValue: 'YES_I_HAVE_BACKUP',
+    },
+  });
   console.log('\n🌱 Seeding TMS v2 (PostgreSQL)...\n');
 
   console.log('🗑️  Truncating all tables...');

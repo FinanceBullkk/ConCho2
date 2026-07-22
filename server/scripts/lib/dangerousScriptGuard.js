@@ -1,27 +1,37 @@
 'use strict';
 
 /**
- * dangerousScriptGuard — production safety gate for destructive scripts.
+ * Target + production safety gate for destructive scripts.
  *
- * Call this AFTER connecting, so the real host/dbName are available.
- *
- * Rules enforced:
- *   • NODE_ENV === 'production'  requires  ALLOW_PROD_DATA_MUTATION=YES_I_HAVE_BACKUP
- *   • Always prints DB host + name so the operator sees exactly what will be wiped.
- *
- * Backend-agnostic: pass a connected `mongoose` instance (Mongo scripts) OR the
- * resolved `host`/`dbName` strings directly (Postgres scripts). `host`/`dbName`
- * win when both are supplied.
- *
- * @param {object}  opts
- * @param {string}  opts.scriptName   Human-readable name shown in the warning banner.
- * @param {import('mongoose')} [opts.mongoose]  A connected mongoose instance.
- * @param {string}  [opts.host]       DB host (Postgres path).
- * @param {string}  [opts.dbName]     DB name (Postgres path).
+ * Call this before the first mutation, after resolving the real host/dbName.
+ * A caller can opt into a fail-closed remote target gate by providing
+ * `remoteOverride`. Production remains protected by the separate global gate.
  */
-function dangerousScriptGuard({ scriptName, mongoose, host, dbName }) {
-  const env      = process.env.NODE_ENV || 'development';
-  host   = host   || mongoose?.connection?.host || '(not connected)';
+
+const DEFAULT_CONFIRMATION = 'YES_I_HAVE_BACKUP';
+const LOOPBACK_HOSTS = new Set(['localhost', '127.0.0.1', '::1']);
+
+const isLoopbackHost = (host) => {
+  const normalized = String(host || '')
+    .trim()
+    .toLowerCase()
+    .replace(/^\[|\]$/g, '')
+    .replace(/\.$/, '');
+  return LOOPBACK_HOSTS.has(normalized);
+};
+
+/**
+ * @param {object} opts
+ * @param {string} opts.scriptName Human-readable warning name.
+ * @param {import('mongoose')} [opts.mongoose] Connected mongoose instance.
+ * @param {string} [opts.host] Database host; wins over mongoose metadata.
+ * @param {string} [opts.dbName] Database name; wins over mongoose metadata.
+ * @param {{envName: string, expectedValue?: string}} [opts.remoteOverride]
+ *   One-shot environment confirmation required for non-loopback targets.
+ */
+function dangerousScriptGuard({ scriptName, mongoose, host, dbName, remoteOverride }) {
+  const env = process.env.NODE_ENV || 'development';
+  host = host || mongoose?.connection?.host || '(not connected)';
   dbName = dbName || mongoose?.connection?.name || '(unknown)';
 
   console.log('\n' + '!'.repeat(60));
@@ -31,12 +41,26 @@ function dangerousScriptGuard({ scriptName, mongoose, host, dbName }) {
   console.log(`  DB name  : ${dbName}`);
   console.log('!'.repeat(60) + '\n');
 
+  if (remoteOverride) {
+    const { envName, expectedValue = DEFAULT_CONFIRMATION } = remoteOverride;
+    if (!envName) throw new Error('Remote mutation guard is missing its envName configuration.');
+    const isRemoteTarget = !isLoopbackHost(host);
+    if (isRemoteTarget && process.env[envName] !== expectedValue) {
+      throw new Error(
+        `BLOCKED: ${scriptName} cannot mutate remote database ${host}/${dbName}. `
+        + `Re-run with ${envName}=${expectedValue} after verifying the target and backup.`,
+      );
+    }
+    if (isRemoteTarget) console.log(`Remote target override accepted (${envName} set).\n`);
+  }
+
   if (env === 'production') {
-    if (process.env.ALLOW_PROD_DATA_MUTATION !== 'YES_I_HAVE_BACKUP') {
-      console.error('❌  BLOCKED: this script cannot mutate a production database.');
-      console.error('    Take a verified backup first, then re-run with:');
-      console.error('    ALLOW_PROD_DATA_MUTATION=YES_I_HAVE_BACKUP node <script>');
-      process.exit(1);
+    if (process.env.ALLOW_PROD_DATA_MUTATION !== DEFAULT_CONFIRMATION) {
+      throw new Error(
+        'BLOCKED: this script cannot mutate a production database. '
+        + 'Take a verified backup, then re-run with '
+        + `ALLOW_PROD_DATA_MUTATION=${DEFAULT_CONFIRMATION}.`,
+      );
     }
     console.log('🟠  Production override accepted (ALLOW_PROD_DATA_MUTATION set).\n');
   }
