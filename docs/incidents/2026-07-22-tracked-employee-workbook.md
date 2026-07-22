@@ -2,7 +2,7 @@
 
 **Date discovered:** 2026-07-22  
 **Classification:** Privacy / source-data exposure  
-**Status:** Repository private; branch/tag rewrite complete; GitHub Support purge and stakeholder review pending
+**Status:** Repository private; branch/tag rewrite and local containment complete; GitHub-hosted residual risk accepted by repository owner
 
 ## Summary
 
@@ -11,15 +11,14 @@ employee identity and training-attendance fields. The file was reachable from
 published Git history, including an older nested `ConCho2/Data/` path. Deleting
 only the current file would not remove either historical blob.
 
-Repository documentation described the application repository as public. Its
-current GitHub visibility could not be independently verified during response,
-so this incident assumes the higher-risk exposure model until the owner proves
-otherwise.
+GitHub confirmed that the application repository was public at discovery. It
+was changed to private during response, so the historical exposure is assessed
+under the higher-risk public-repository model.
 
 ## Local containment performed
 
 - Inventoried every branch, remote-tracking branch, tag, and internal tree ref.
-- Rebuilt all 81 publishable refs while excluding both historical workbook
+- Rebuilt all 77 branches and two tags while excluding both historical workbook
   paths; the resulting `main` tree is unchanged except for the removed file.
 - Removed internal Codex snapshot refs that also retained the workbook tree.
 - Added `.gitignore` rules for `Data/` and Excel source files.
@@ -41,10 +40,12 @@ location. Automated tests must generate synthetic data.
   artifact was identified.
 - [x] Atomically force-update all 79 remote branches/tags from the sanitized
   refs, guarded by leases against the pre-response remote snapshot.
-- [ ] Ask GitHub Support to purge cached views/objects and pull-request refs. A
-  fresh mirror still finds 317 read-only `refs/pull/*/head` refs that retain the
-  old history, and both removed blobs remain retrievable by object ID. Repository
-  owners cannot update or delete these hidden refs themselves.
+- [x] Record the repository owner's 2026-07-22 decision not to ask GitHub
+  Support for a server-side purge. A fresh mirror still finds 317 read-only
+  `refs/pull/*/head` refs that retain the old history, and both removed blobs
+  remain retrievable by object ID. Repository owners cannot update or delete
+  these hidden refs themselves; this is accepted residual risk, not a completed
+  technical purge.
 - [ ] Inventory external caches, mirrors, and local clones. Owners of old clones
   must delete them and clone the sanitized history.
 - [ ] Notify the responsible HR/privacy/security owner and record the exposure
@@ -52,9 +53,14 @@ location. Automated tests must generate synthetic data.
 - [ ] Rotate repository credentials only if the access review finds an
   unauthorized collaborator, compromised token, or exposed credential.
 
-## Verification contract
+## Residual-risk decision
 
-Containment is complete only when all of the following are true:
+The repository must remain private. Reopening it to public access requires first
+reopening this incident and completing the GitHub Support purge. Existing
+external clones cannot be recalled by either the owner or GitHub and remain part
+of the exposure assessment.
+
+The full technical-purge contract below is intentionally not satisfied:
 
 1. `npm run data-safety:check` passes on a full mirror clone of the remote,
    including GitHub-managed pull-request refs.
@@ -63,6 +69,7 @@ Containment is complete only when all of the following are true:
 4. Branch protection is restored after the force update.
 5. HR/privacy/security has recorded its exposure and notification decision.
 
-Do not delete the last controlled pre-rewrite backup until the remote update and
-fresh-clone verification succeed. Store that temporary backup as sensitive data
-and destroy it immediately after verification.
+The last controlled pre-rewrite backup remains sensitive and must not be shared
+or copied. Its eventual destruction is a separate irreversible decision; retain
+it only in an access-controlled location until the owner explicitly approves
+deletion or reopens the Support-purge path.
