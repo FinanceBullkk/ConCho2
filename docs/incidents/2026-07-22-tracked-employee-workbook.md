@@ -2,7 +2,7 @@
 
 **Date discovered:** 2026-07-22  
 **Classification:** Privacy / source-data exposure  
-**Status:** Repository private and local containment complete; remote history rewrite and stakeholder review pending
+**Status:** Repository private; branch/tag rewrite complete; GitHub Support purge and stakeholder review pending
 
 ## Summary
 
@@ -39,10 +39,12 @@ location. Automated tests must generate synthetic data.
 - [x] Review all 766 Actions artifacts. Their names are limited to gitleaks
   SARIF, Playwright reports, and E2E server logs; no workbook or database-dump
   artifact was identified.
-- [ ] Force-update every remote branch and tag from the sanitized refs. A normal
-  deletion commit is insufficient because the old objects remain reachable.
-- [ ] Ask GitHub Support to purge cached views/objects if the repository was
-  public, or if a sensitive blob remains retrievable after the force update.
+- [x] Atomically force-update all 79 remote branches/tags from the sanitized
+  refs, guarded by leases against the pre-response remote snapshot.
+- [ ] Ask GitHub Support to purge cached views/objects and pull-request refs. A
+  fresh mirror still finds 317 read-only `refs/pull/*/head` refs that retain the
+  old history, and both removed blobs remain retrievable by object ID. Repository
+  owners cannot update or delete these hidden refs themselves.
 - [ ] Inventory external caches, mirrors, and local clones. Owners of old clones
   must delete them and clone the sanitized history.
 - [ ] Notify the responsible HR/privacy/security owner and record the exposure
@@ -54,7 +56,8 @@ location. Automated tests must generate synthetic data.
 
 Containment is complete only when all of the following are true:
 
-1. `npm run data-safety:check` passes on a full-history clone of the remote.
+1. `npm run data-safety:check` passes on a full mirror clone of the remote,
+   including GitHub-managed pull-request refs.
 2. `git log --all -- '*okok_FIXED_v2.xlsx'` returns no commit.
 3. A fresh clone cannot resolve either removed blob.
 4. Branch protection is restored after the force update.
