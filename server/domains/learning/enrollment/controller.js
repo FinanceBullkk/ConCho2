@@ -43,15 +43,15 @@ const enroll = async (req, res) => {
 
 const bulkEnroll = async (req, res) => {
   try {
-    const { cohortId, userIds } = req.body;
-    const { enrolled, skipped } = await useCases.bulkEnroll({ cohortId, userIds }, req.user);
+    const { cohortId, userIds, startSessionNumber } = req.body;
+    const { enrolled, skipped } = await useCases.bulkEnroll({ cohortId, userIds, startSessionNumber }, req.user);
     // One batch audit entry — the per-learner ids + skip reasons are the record.
     auditService.record({
       req,
       action: 'bulk-enrolled',
       entity: 'Enrollment',
       entityId: cohortId,
-      diff: { after: { cohortId, enrolled: enrolled.map((e) => String(e.userId)), skipped } },
+      diff: { after: { cohortId, startSessionNumber: startSessionNumber || null, enrolled: enrolled.map((e) => String(e.userId)), skipped } },
       note: `Bulk cohort enrollment via learning API (${enrolled.length} enrolled, ${skipped.length} skipped)`,
     });
     res.status(201).json({

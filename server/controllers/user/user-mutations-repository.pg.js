@@ -40,6 +40,7 @@ const userRow = (r, { includePassword = false } = {}) => {
     department: r.department, role: r.role, position: r.position, status: r.status,
     dropReason: r.drop_reason, entranceLevel: r.entrance_level, currentLevel: r.current_level,
     mustChangePassword: r.must_change_password,
+    canLogin: r.can_login,
     isDeleted: r.is_deleted, deletedAt: r.deleted_at,
     createdAt: r.created_at, updatedAt: r.updated_at,
   };
@@ -51,6 +52,8 @@ const userRow = (r, { includePassword = false } = {}) => {
 const USER_COLS = {
   empCode: 'emp_code', name: 'name', email: 'email', department: 'department',
   role: 'role', position: 'position', status: 'status', password: 'password',
+  canLogin: 'can_login',
+  passwordChangedAt: 'password_changed_at',
   dropReason: 'drop_reason', entranceLevel: 'entrance_level', currentLevel: 'current_level',
 };
 const splitColsMeta = (data) => {
@@ -67,9 +70,15 @@ const splitColsMeta = (data) => {
 const create = async (data) => {
   // pre('save') twin: hash the raw password before it touches the row.
   const { password, ...rest } = data;
-  const salt = await bcrypt.genSalt(12);
-  const hashed = await bcrypt.hash(password, salt);
-  const { cols, meta } = splitColsMeta({ ...rest, password: hashed });
+  let hashed;
+  if (password !== undefined && password !== null) {
+    const salt = await bcrypt.genSalt(12);
+    hashed = await bcrypt.hash(password, salt);
+  }
+  const { cols, meta } = splitColsMeta({
+    ...rest,
+    ...(hashed !== undefined ? { password: hashed } : {}),
+  });
   const names = Object.keys(cols);
   const vals = names.map((c) => cols[c]);
   let rows;

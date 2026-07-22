@@ -5,7 +5,7 @@ import { AlarmClock, KeyRound } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { Spinner } from './components/Spinner';
 import { AuthProvider, useAuth } from './context/AuthContext';
-import { PersonaProvider } from './context/PersonaContext';
+import { PersonaProvider, usePersona } from './context/PersonaContext';
 import { authAPI } from './api/api';
 import ProtectedRoute from './components/ProtectedRoute';
 import ErrorBoundary from './components/ErrorBoundary';
@@ -24,7 +24,7 @@ const DashboardPage    = lazy(() => import('./features/dashboard/DashboardPage')
 const PeoplePage       = lazy(() => import('./pages/PeoplePage'));
 const LearningPage     = lazy(() => import('./features/learning/LearningPage'));
 const EnglishPage      = lazy(() => import('./features/english/EnglishPage'));
-const EnglishTrainingPage = lazy(() => import('./features/english-training/EnglishTrainingPage'));
+const EnglishOperationsPage = lazy(() => import('./features/english-operations/EnglishOperationsPage'));
 const ReportsPage      = lazy(() => import('./pages/ReportsPage'));
 const DrillListPage    = lazy(() => import('./features/learning/DrillListPage'));
 const ProgramDetailPage = lazy(() => import('./features/learning/ProgramDetailPage'));
@@ -58,6 +58,13 @@ function RouteFallback() {
       <Spinner size={28} />
     </div>
   );
+}
+
+function EnglishWorkspaceBoundary({ children }) {
+  const { setPersona } = usePersona();
+
+  useEffect(() => { setPersona('english'); }, [setPersona]);
+  return children;
 }
 
 function AuthExpiredModal() {
@@ -232,10 +239,10 @@ const LEGACY_REDIRECTS = [
   { from: '/classes',    to: '/learning?tab=cohorts' },
   { from: '/data',       to: '/reports?tab=hr-export' },
   { from: '/settings',   to: '/system?tab=settings' },
-  // IA-S3: Schedules + Attendance + Book → unified /calendar
-  { from: '/schedules',  to: '/calendar?tab=schedules' },
-  { from: '/attendance', to: '/calendar?tab=attendance' },
-  { from: '/operations', to: '/calendar' },
+  // Schedule and Attendance are owned by the English Operations workspace.
+  { from: '/schedules',  to: '/english-operations?tab=schedule' },
+  { from: '/attendance', to: '/english-operations?tab=attendance' },
+  { from: '/operations', to: '/english-operations?tab=schedule' },
   { from: '/operations/analytics', to: '/reports?tab=analytics' },
   // English-class separation: the leader booking grid lives in /english now.
   { from: '/book',       to: '/english?tab=book' },
@@ -294,15 +301,22 @@ export default function App() {
                 <Route path="/grading" element={
                   <ProtectedRoute roles={['Admin', 'Coordinator', 'Teacher']}><GradingPage /></ProtectedRoute>
                 } />
-                {/* English-class section — the whole team-booking world
-                    (classes/teams/schedules/attendance/evaluations/booking). */}
+                {/* English learner/leader experience. Staff operations live in
+                    the separate English Operations workspace below. */}
                 <Route path="/english" element={<EnglishPage />} />
                 <Route path="/english-training" element={
-                  <ProtectedRoute roles={['Admin', 'Coordinator']}><EnglishTrainingPage /></ProtectedRoute>
+                  <ProtectedRoute roles={['Admin', 'Coordinator']}><Navigate replace to="/english-operations?tab=archive" /></ProtectedRoute>
+                } />
+                <Route path="/english-operations" element={
+                  <ProtectedRoute roles={['Admin', 'Coordinator', 'Teacher']}>
+                    <EnglishWorkspaceBoundary><EnglishOperationsPage /></EnglishWorkspaceBoundary>
+                  </ProtectedRoute>
                 } />
                 <Route path="/calendar" element={<CalendarPage />} />
                 <Route path="/mobile-attendance" element={
-                  <ProtectedRoute roles={['Admin', 'Teacher']}><MobileAttendancePage /></ProtectedRoute>
+                  <ProtectedRoute roles={['Admin', 'Teacher']}>
+                    <EnglishWorkspaceBoundary><MobileAttendancePage /></EnglishWorkspaceBoundary>
+                  </ProtectedRoute>
                 } />
                 {/* Coordinator holds read:reports (training-ops role) and sees the
                     Reports nav, so they must reach the page; ReportsPage filters

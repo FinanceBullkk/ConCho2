@@ -7,17 +7,154 @@ const controller = require('./controller');
 const {
   idParams, empCodeParams, issueCodeParams, listEmployeesQuery,
   employeeCorrectionBody, examResultBody,
+  managedPersonCreateBody, managedPersonUpdateBody,
+  canonicalClassBody,
+  courseRunParams, courseRunMeetingParams, attendanceRosterParams,
+  runEnrollmentBody, attendanceSessionBody, meetingRescheduleBody,
+  meetingCancellationBody, attendanceRosterBody,
 } = require('./schemas');
 
 // ──────────────────────────────────────────────────────────
 // English Training routes — mounted at /api/english-training (feature-flagged in
-// server.js via ENGLISH_TRAINING_ENABLED). Canonical workbook evidence remains
-// read-only; the HTTP mutation writes to a separate audited correction overlay.
-// The HTTP reads expose task-oriented projections for the admin view. This is
-// an Admin + Coordinator operations tool, never learner-facing.
+// server.js via ENGLISH_TRAINING_ENABLED). ConMeoGauGau owns business semantics;
+// canonical English commands/read models live here while raw workbook evidence
+// stays immutable. This is an Admin + Coordinator tool, never learner-facing.
 // ──────────────────────────────────────────────────────────
 
 router.use(protect);
+
+// Live English Operations composition. Workspace visibility is never the
+// authorization boundary: every route declares role + capability explicitly.
+router.get(
+  '/workspace/overview',
+  roleGuard('Admin', 'Coordinator', 'Teacher'),
+  requireCapability('report.read'),
+  controller.getWorkspaceOverview,
+);
+router.get(
+  '/managed-learners',
+  roleGuard('Admin', 'Coordinator'),
+  requireCapability('enrollment.manage'),
+  validate({ query: listEmployeesQuery }),
+  controller.listManagedPeople,
+);
+router.get(
+  '/workspace/teachers',
+  roleGuard('Admin', 'Coordinator'),
+  requireCapability('cohort.manage'),
+  controller.listEnglishTeachers,
+);
+router.get(
+  '/workspace/classes',
+  roleGuard('Admin', 'Coordinator'),
+  requireCapability('report.read'),
+  controller.listCohorts,
+);
+router.get(
+  '/workspace/classes/:id',
+  roleGuard('Admin', 'Coordinator'),
+  requireCapability('report.read'),
+  validate({ params: idParams }),
+  controller.getClassDetail,
+);
+router.get(
+  '/workspace/courses',
+  roleGuard('Admin', 'Coordinator'),
+  requireCapability('report.read'),
+  controller.listCourses,
+);
+router.get(
+  '/workspace/course-runs',
+  roleGuard('Admin', 'Coordinator'),
+  requireCapability('report.read'),
+  controller.listCanonicalCourseRuns,
+);
+router.get(
+  '/workspace/employees',
+  roleGuard('Admin', 'Coordinator'),
+  requireCapability('cohort.manage'),
+  validate({ query: listEmployeesQuery }),
+  controller.listEmployees,
+);
+router.post(
+  '/workspace/classes',
+  roleGuard('Admin', 'Coordinator'),
+  requireCapability('cohort.manage'),
+  validate({ body: canonicalClassBody }),
+  controller.createCanonicalClass,
+);
+router.post(
+  '/workspace/course-runs/:courseRunId/enrollments',
+  roleGuard('Admin', 'Coordinator'),
+  requireCapability('enrollment.manage'),
+  validate({ params: courseRunParams, body: runEnrollmentBody }),
+  controller.addCanonicalRunEnrollment,
+);
+router.post(
+  '/workspace/course-runs/:courseRunId/sessions',
+  roleGuard('Admin', 'Coordinator'),
+  requireCapability('session.book'),
+  validate({ params: courseRunParams, body: attendanceSessionBody }),
+  controller.createCanonicalAttendanceSession,
+);
+router.patch(
+  '/workspace/course-runs/:courseRunId/meetings/:meetingId',
+  roleGuard('Admin', 'Coordinator'),
+  requireCapability('session.book'),
+  validate({ params: courseRunMeetingParams, body: meetingRescheduleBody }),
+  controller.rescheduleCanonicalMeeting,
+);
+router.delete(
+  '/workspace/course-runs/:courseRunId/meetings/:meetingId',
+  roleGuard('Admin', 'Coordinator'),
+  requireCapability('session.book'),
+  validate({ params: courseRunMeetingParams, body: meetingCancellationBody }),
+  controller.cancelCanonicalMeeting,
+);
+router.get(
+  '/workspace/course-runs/:courseRunId/session-units/:sessionUnitId/attendance',
+  roleGuard('Admin', 'Coordinator'),
+  requireCapability('attendance.read'),
+  validate({ params: attendanceRosterParams }),
+  controller.getCanonicalAttendanceRoster,
+);
+router.put(
+  '/workspace/course-runs/:courseRunId/session-units/:sessionUnitId/attendance',
+  roleGuard('Admin', 'Coordinator'),
+  requireCapability('attendance.mark'),
+  validate({ params: attendanceRosterParams, body: attendanceRosterBody }),
+  controller.saveCanonicalAttendanceRoster,
+);
+router.post(
+  '/managed-learners',
+  roleGuard('Admin', 'Coordinator'),
+  requireCapability('enrollment.manage'),
+  validate({ body: managedPersonCreateBody }),
+  controller.createManagedPerson,
+);
+router.patch(
+  '/managed-learners/:id',
+  roleGuard('Admin', 'Coordinator'),
+  requireCapability('enrollment.manage'),
+  validate({ params: idParams, body: managedPersonUpdateBody }),
+  controller.updateManagedPerson,
+);
+router.delete(
+  '/managed-learners/:id',
+  roleGuard('Admin', 'Coordinator'),
+  requireCapability('enrollment.manage'),
+  validate({ params: idParams }),
+  controller.deleteManagedPerson,
+);
+router.post(
+  '/managed-learners/provision-archive',
+  roleGuard('Admin', 'Coordinator'),
+  requireCapability('enrollment.manage'),
+  controller.provisionManagedPeople,
+);
+
+// Imported evidence and established English read/evaluation endpoints retain
+// the narrower Admin/Coordinator operations policy.
 router.use(roleGuard('Admin', 'Coordinator'));
 router.use(requireCapability('report.read'));
 

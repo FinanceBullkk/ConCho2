@@ -46,7 +46,7 @@ describe('EnglishPage — bounded English-class section', () => {
     renderPage();
 
     // Every English admin surface folded into a unified one (classes→Cohorts,
-    // attendance/schedules→/calendar, evaluations→/grading) and Teams moved to
+    // attendance/schedules→English Operations, evaluations→/grading) and Teams moved to
     // People — so /english is learner-only now. Admin sees the not-available header.
     expect(screen.getByText(/not available for your role/i)).toBeInTheDocument();
     expect(screen.queryByTestId('teams-page')).toBeNull();

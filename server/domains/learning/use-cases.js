@@ -5,6 +5,11 @@ const repository = require('./repository');
 const settingsRepository = require('../settings/repository');
 const { runInTransaction } = require('../_shared/unit-of-work');
 const { recordInApp } = require('../notification/in-app-writer');
+const {
+  normalizeEnglishPolicy,
+  assertEnglishProgramConfig,
+} = require('./english-policy');
+const { ServiceError } = require('../../helpers/ServiceError');
 
 const legacyEnglishCourses = new Set([
   'Foundation',
@@ -19,6 +24,9 @@ const normalizeProgramPayload = (payload) => ({
   ...payload,
   code: payload.code?.toUpperCase(),
   legacyCourseName: payload.legacyCourseName || '',
+  ...(payload.englishPolicy !== undefined
+    ? { englishPolicy: normalizeEnglishPolicy(payload.englishPolicy) }
+    : {}),
 });
 
 const makeLegacyProgramCode = (courseName) => {
@@ -46,6 +54,7 @@ const buildProgramFilter = (query = {}) => {
   const filter = {};
   if (query.status) filter.status = query.status;
   if (query.category) filter.category = query.category;
+  if (query.liveEnglish) filter.liveEnglish = true;
   if (query.q) {
     const rx = new RegExp(escapeRegex(query.q), 'i');
     filter.$or = [{ name: rx }, { code: rx }, { description: rx }];
@@ -82,12 +91,22 @@ const getCompletionTrend = async (id) => {
 };
 
 const createProgram = async (payload) => {
-  const created = await repository.createProgram(normalizeProgramPayload(payload));
+  const normalized = normalizeProgramPayload(payload);
+  assertEnglishProgramConfig(normalized);
+  const created = await repository.createProgram(normalized);
   return programDto(created);
 };
 
 const updateProgram = async (id, payload) => {
   const normalized = normalizeProgramPayload(payload);
+  const existing = await repository.findProgramById(id);
+  if (!existing) return null;
+  const merged = { ...existing, ...normalized };
+  if (merged.category !== 'english' && existing.category === 'english' && normalized.englishPolicy === undefined) {
+    normalized.englishPolicy = null;
+    merged.englishPolicy = null;
+  }
+  assertEnglishProgramConfig(merged);
   // A program can never be its own prerequisite.
   if (Array.isArray(normalized.prerequisitePrograms)) {
     normalized.prerequisitePrograms = normalized.prerequisitePrograms.filter(
@@ -148,6 +167,8 @@ const buildCohortFilter = (query = {}) => {
   const filter = {};
   if (query.status) filter.status = query.status;
   if (query.programId) filter.programId = query.programId;
+  if (query.category) filter.category = query.category;
+  if (query.liveEnglish) filter.liveEnglish = true;
   const code = query.cohortCode || query.classCode;
   if (code) filter.classCode = code.toUpperCase();
   return filter;
@@ -159,19 +180,27 @@ const enrichCohorts = async (cohorts) => {
   return cohorts.map((cohort) => cohortDto(cohort, counts[cohort._id.toString()] || 0));
 };
 
-const listCohorts = async (query = {}) => {
+const listCohorts = async (query = {}, actor = null) => {
   const { skip, limit } = listWindow(query);
   const filter = buildCohortFilter(query);
   // Convergence Phase 3 slice 5: the server-side mode=team|cohort split was
   // retired — the UNIFIED catalog fetches all worlds and facets client-side by
   // the cohort DTO's deliveryType. `GET /api/learning/cohorts` returns both.
-  const cohorts = await repository.findCohorts(filter).skip(skip).limit(limit).lean();
+  let cohorts = await repository.findCohorts(filter).skip(skip).limit(limit).lean();
+  if (actor?.role === 'Teacher') {
+    cohorts = cohorts.filter((cohort) => cohort.programId?.category !== 'english'
+      || (cohort.teacherIds || []).some((id) => String(id) === String(actor._id)));
+  }
   return enrichCohorts(cohorts);
 };
 
-const getCohort = async (id) => {
+const getCohort = async (id, actor = null) => {
   const cohort = await repository.findCohortById(id).lean();
   if (!cohort) return null;
+  if (actor?.role === 'Teacher' && cohort.programId?.category === 'english'
+    && !(cohort.teacherIds || []).some((teacherId) => String(teacherId) === String(actor._id))) {
+    throw new ServiceError('You are not assigned to this English course run', 403);
+  }
   const [dto] = await enrichCohorts([cohort]);
   return dto;
 };
@@ -182,6 +211,18 @@ const createCohort = async (payload) => {
     const err = new Error('Learning program not found');
     err.statusCode = 404;
     throw err;
+  }
+
+  const isEnglish = program.category === 'english';
+  if (isEnglish) assertEnglishProgramConfig(program);
+  if (isEnglish && !payload.englishGroupCode) {
+    throw new ServiceError('englishGroupCode is required for an English course run', 400);
+  }
+  if (!isEnglish && (payload.englishGroupCode || payload.englishPicDisplay)) {
+    throw new ServiceError('English delivery fields require an English program', 400);
+  }
+  if (payload.startDate && payload.endDate && payload.endDate < payload.startDate) {
+    throw new ServiceError('endDate must be on or after startDate', 400);
   }
 
   let classCode = payload.cohortCode || payload.classCode;
@@ -197,6 +238,11 @@ const createCohort = async (payload) => {
     totalSessions: payload.totalSessions || program.defaultSessionCount,
     status: payload.status || 'Ongoing',
     teacherIds: payload.teacherIds || [],
+    englishGroupCode: isEnglish ? payload.englishGroupCode.toUpperCase() : null,
+    englishPolicySnapshot: isEnglish ? JSON.parse(JSON.stringify(program.englishPolicy)) : null,
+    englishPicDisplay: isEnglish ? (payload.englishPicDisplay || '') : '',
+    startDate: payload.startDate || null,
+    endDate: payload.endDate || null,
     ...(payload.customFields && typeof payload.customFields === 'object' ? { customFields: payload.customFields } : {}),
   });
 
@@ -231,6 +277,20 @@ const updateCohort = async (id, payload) => {
   if (payload.status !== undefined) update.status = payload.status;
   if (payload.totalSessions !== undefined) update.totalSessions = payload.totalSessions;
   if (payload.customFields !== undefined && typeof payload.customFields === 'object') update.customFields = payload.customFields;
+  if (payload.teacherIds !== undefined) update.teacherIds = payload.teacherIds;
+  if (payload.englishGroupCode !== undefined) update.englishGroupCode = payload.englishGroupCode.toUpperCase();
+  if (payload.englishPicDisplay !== undefined) update.englishPicDisplay = payload.englishPicDisplay;
+  if (payload.startDate !== undefined) update.startDate = payload.startDate;
+  if (payload.endDate !== undefined) update.endDate = payload.endDate;
+  const nextStart = payload.startDate !== undefined ? payload.startDate : existing.startDate;
+  const nextEnd = payload.endDate !== undefined ? payload.endDate : existing.endDate;
+  if (nextStart && nextEnd && nextEnd < nextStart) {
+    throw new ServiceError('endDate must be on or after startDate', 400);
+  }
+  if (existing.programId?.category !== 'english'
+    && (payload.englishGroupCode !== undefined || payload.englishPicDisplay !== undefined)) {
+    throw new ServiceError('English delivery fields require an English program', 400);
+  }
 
   await repository.updateCohortById(id, update);
   return getCohort(id);

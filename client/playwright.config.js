@@ -8,17 +8,22 @@ import { defineConfig, devices } from '@playwright/test';
  *   - Tests hit the Vite dev server (default :3000), which proxies /api → :5000.
  *   - The Vite server is auto-started by `webServer` below; reused if already up
  *     so devs can keep their existing dev process running.
- *   - The Node API server is NOT started here — it requires MongoDB and per-env
- *     configuration. Start it before running E2E:
+ *   - The Node API server is NOT started here. It runs on PostgreSQL
+ *     (DB_BACKEND=postgres; prod, CI, and tests are PG-only since Wave K).
+ *     Start it before running E2E, mirroring the `e2e-tests` job in
+ *     .github/workflows/ci.yml:
+ *
+ *       # one-time: apply migrations + seed canonical users on PG
+ *       cd server && npx knex migrate:latest --knexfile db/pg/knexfile.js
+ *       cd server && DB_BACKEND=postgres NODE_ENV=test npm run seed
  *
  *       # Terminal 1
- *       cd server && npm run dev
- *       # (one-time) cd server && npm run seed
+ *       cd server && DB_BACKEND=postgres npm run dev
  *
  *       # Terminal 2 — runs the E2E suite
  *       cd client && npm run test:e2e
  *
- *   - Seed credentials (from server/seed.js) used by tests:
+ *   - Seed credentials (from server/scripts/seed-pg.js) used by tests:
  *       Admin       000001 / admin12345
  *       Participant 000004 / participant123
  */
@@ -58,8 +63,32 @@ export default defineConfig({
 
   projects: [
     {
-      name: 'chromium',
-      use: { ...devices['Desktop Chrome'] },
+      // The primary project runs every E2E spec at the required wide desktop
+      // viewport. Responsive English Operations coverage is repeated by the
+      // two focused projects below instead of tripling every mutation suite.
+      name: 'desktop-wide',
+      use: {
+        ...devices['Desktop Chrome'],
+        viewport: { width: 1440, height: 900 },
+      },
+    },
+    {
+      name: 'desktop-compact',
+      testMatch: /english-operations\.spec\.js/,
+      use: {
+        ...devices['Desktop Chrome'],
+        viewport: { width: 1280, height: 800 },
+      },
+    },
+    {
+      name: 'mobile-390',
+      testMatch: /english-operations\.spec\.js/,
+      use: {
+        ...devices['Desktop Chrome'],
+        viewport: { width: 390, height: 844 },
+        hasTouch: true,
+        isMobile: true,
+      },
     },
   ],
 

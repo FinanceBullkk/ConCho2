@@ -105,7 +105,7 @@ export default function SessionDetailPage() {
   if (isError || !schedule) {
     return (
       <div className="space-y-4">
-        <Link to="/calendar?tab=attendance" className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground">
+        <Link to="/english-operations?tab=attendance" className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground">
           <ArrowLeft className="size-4" aria-hidden="true" />{t(`${s}.back`)}
         </Link>
         <EmptyState title={t(`${s}.loadError`)} />
@@ -117,7 +117,7 @@ export default function SessionDetailPage() {
 
   return (
     <div className="space-y-4">
-      <Link to="/calendar?tab=attendance" className="inline-flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground">
+      <Link to="/english-operations?tab=attendance" className="inline-flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground">
         <ArrowLeft className="size-4" aria-hidden="true" />{t(`${s}.back`)}
       </Link>
 

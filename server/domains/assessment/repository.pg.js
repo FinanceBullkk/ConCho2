@@ -299,10 +299,14 @@ const listEvaluationsForLearner = async (userId) => {
   return rows.map((e) => ({
     _id: e.id,
     classId: e.c_id ? { _id: e.c_id, classCode: e.c_code, courseName: e.c_course } : null,
-    userId: e.user_id, level: e.level || '',
-    grammarScore: Number(e.grammar_score), vocabularyScore: Number(e.vocabulary_score),
-    pronunciationScore: Number(e.pronunciation_score), fluencyScore: Number(e.fluency_score),
+    userId: e.user_id, level: e.level || '', resultKind: e.result_kind || 'rubric',
+    levelCode: e.level_code || null,
+    grammarScore: e.grammar_score == null ? null : Number(e.grammar_score),
+    vocabularyScore: e.vocabulary_score == null ? null : Number(e.vocabulary_score),
+    pronunciationScore: e.pronunciation_score == null ? null : Number(e.pronunciation_score),
+    fluencyScore: e.fluency_score == null ? null : Number(e.fluency_score),
     teacherComment: e.teacher_comment || '', createdBy: e.created_by || null,
+    evaluatedAt: e.evaluated_at || null, evaluatedBy: e.evaluated_by || null,
     isDeleted: e.is_deleted, createdAt: e.created_at, updatedAt: e.updated_at,
   }));
 };

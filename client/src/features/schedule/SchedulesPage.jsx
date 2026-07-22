@@ -38,7 +38,19 @@ const WORLD_FILTERS = ['all', 'team', 'cohort'];
 // team/cohort split + the /api/english reads, so 'all' is the only live value.
 // Note: cell-click CREATE always books a TEAM session (the manual-create API
 // requires a team); cohort sessions are created from Learning → Cohorts.
-export default function SchedulesPage({ mode }) {
+export default function SchedulesPage({
+  mode,
+  allowedClassIds,
+  allowCreate = true,
+  historicalOnly = false,
+  historicalSchedules = [],
+  defaultWeek,
+  onHistoricalCellClick,
+  onHistoricalScheduleClick,
+  selectedHistoricalCellKey,
+  hideHeader = false,
+  historicalDrawer = null,
+}) {
   const [searchParams, setSearchParams] = useSearchParams();
   const unified = mode === 'all';
   const [worldFilter, setWorldFilter] = useState('all');
@@ -56,6 +68,10 @@ export default function SchedulesPage({ mode }) {
   const [weekStart, setWeekStart] = useState(() => {
     const p = searchParams.get('week');
     if (p) { const d = new Date(p); if (!isNaN(d)) return getMonday(d); }
+    if (defaultWeek) {
+      const d = new Date(defaultWeek);
+      if (!isNaN(d)) return getMonday(d);
+    }
     return getMonday(new Date());
   });
 
@@ -89,13 +105,31 @@ export default function SchedulesPage({ mode }) {
   // Memoized: `schedData?.data || []` minted a fresh [] every render, making
   // every downstream useMemo (scheduleMap, rows, …) recompute per render.
   const allSchedules = useMemo(() => schedData?.data || [], [schedData]);
-  const schedules    = useMemo(
-    () => (unified && worldFilter !== 'all'
-      ? allSchedules.filter((s) => (s.deliveryType || 'team') === worldFilter)
-      : allSchedules),
-    [allSchedules, unified, worldFilter],
+  const allowedClassSet = useMemo(
+    () => (allowedClassIds ? new Set(allowedClassIds.map(String)) : null),
+    [allowedClassIds],
   );
-  const totalCount   = schedData?.total || allSchedules.length;
+  const scopedSchedules = useMemo(
+    () => (allowedClassSet
+      ? allSchedules.filter((schedule) => allowedClassSet.has(String(
+        schedule.classId?._id || schedule.classId || schedule.cohortId?._id || schedule.cohortId || '',
+      )))
+      : allSchedules),
+    [allSchedules, allowedClassSet],
+  );
+  const schedules = useMemo(
+    () => historicalOnly
+      ? historicalSchedules
+      : (unified && worldFilter !== 'all'
+        ? scopedSchedules.filter((s) => (s.deliveryType || 'team') === worldFilter)
+        : scopedSchedules),
+    [historicalOnly, historicalSchedules, scopedSchedules, unified, worldFilter],
+  );
+  const totalCount = historicalOnly
+    ? historicalSchedules.length
+    : (allowedClassSet ? scopedSchedules.length : (schedData?.total || allSchedules.length));
+  const createEnabled = !historicalOnly && canCreate && allowCreate;
+  const historicalCreateEnabled = historicalOnly && Boolean(onHistoricalCellClick);
   const { data: classes = [] } = useClasses();
   const { data: teams  = [] } = useTeams();
 
@@ -122,8 +156,9 @@ export default function SchedulesPage({ mode }) {
   // Pre-compute conflict IDs (O(n²) on schedules change, not per render)
   const conflictIds = useMemo(() => {
     const ids = new Set();
-    schedules.forEach(s => {
-      if (detectConflicts(schedules, s).length > 0) ids.add(s._id);
+    const editableSchedules = schedules.filter((schedule) => !schedule.isHistorical);
+    editableSchedules.forEach(s => {
+      if (detectConflicts(editableSchedules, s).length > 0) ids.add(s._id);
     });
     return ids;
   }, [schedules]);
@@ -141,15 +176,20 @@ export default function SchedulesPage({ mode }) {
   }, [schedules]);
 
   const selectedCellKey = useMemo(() => {
+    if (selectedHistoricalCellKey) return selectedHistoricalCellKey;
     if (drawerMode === 'edit'   && selectedSchedule) return scheduleToKey(selectedSchedule, offset);
     if (drawerMode === 'create' && selectedCell)     return `${toDateKey(selectedCell.day)}|${selectedCell.slot.id}`;
     return null;
-  }, [drawerMode, selectedSchedule, selectedCell, offset]);
+  }, [drawerMode, selectedSchedule, selectedCell, offset, selectedHistoricalCellKey]);
 
   const closeDrawer = () => { setDrawerMode(null); setSelectedSchedule(null); setSelectedCell(null); };
 
   const handleScheduleClick = (s) => {
-    if (!canUpdate) return;
+    if (historicalOnly) {
+      if (s.sourceKind === 'live') onHistoricalScheduleClick?.(s);
+      return;
+    }
+    if (s.isHistorical || !canUpdate) return;
     if (drawerMode === 'edit' && selectedSchedule?._id === s._id) { closeDrawer(); return; }
     setSelectedSchedule(s);
     setSelectedCell(null);
@@ -157,7 +197,15 @@ export default function SchedulesPage({ mode }) {
   };
 
   const handleCellClick = (day, slot) => {
-    if (!canCreate) return;
+    if (historicalOnly) {
+      if (!onHistoricalCellClick || slot.offPolicy) return;
+      const { startISO, endISO } = slotToUtcRange(day, slot, offset);
+      onHistoricalCellClick({
+        day, slot, startTime: new Date(startISO), endTime: new Date(endISO),
+      });
+      return;
+    }
+    if (!createEnabled) return;
     const clickedKey = `${toDateKey(day)}|${slot.id}`;
     if (drawerMode === 'create' && selectedCellKey === clickedKey) { closeDrawer(); return; }
     const { startISO, endISO } = slotToUtcRange(day, slot, offset);
@@ -171,19 +219,21 @@ export default function SchedulesPage({ mode }) {
   return (
     <div className="space-y-5">
       {/* ── Header ─────────────────────────────────────── */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-h1 text-foreground">Schedule Management</h1>
-          <p className="text-muted-foreground mt-1 text-body">
-            {totalCount} total sessions · {weekScheduleCount} this week
-          </p>
+      {!hideHeader && (
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div>
+            <h1 className="text-h1 text-foreground">Schedule Management</h1>
+            <p className="text-muted-foreground mt-1 text-body">
+              {totalCount} total sessions · {weekScheduleCount} this week
+            </p>
+          </div>
+          {createEnabled && (
+            <Button onClick={() => { setSelectedSchedule(null); setSelectedCell(null); setDrawerMode('create'); }}>
+              + New Schedule
+            </Button>
+          )}
         </div>
-        {canCreate && (
-          <Button onClick={() => { setSelectedSchedule(null); setSelectedCell(null); setDrawerMode('create'); }}>
-            + New Schedule
-          </Button>
-        )}
-      </div>
+      )}
 
       {/* ── World facet (unified mode only) ─────────────── */}
       {unified && (
@@ -209,7 +259,8 @@ export default function SchedulesPage({ mode }) {
           <CalendarGrid
             weekDays={weekDays}
             rows={rows}
-            isLoading={isLoading}
+            isLoading={!historicalOnly && isLoading}
+            dense={Boolean(historicalDrawer)}
             selectedCellKey={selectedCellKey}
             onPrev={() => setWeek(new Date(weekStart.getTime() - 7 * 86400000))}
             onNext={() => setWeek(new Date(weekStart.getTime() + 7 * 86400000))}
@@ -230,6 +281,9 @@ export default function SchedulesPage({ mode }) {
                 return (
                   <div className="space-y-1">
                     {cellSchedules.map(s => {
+                      const canOpen = historicalOnly
+                        ? s.sourceKind === 'live' && Boolean(onHistoricalScheduleClick)
+                        : !s.isHistorical && canUpdate;
                       const isConflict  = conflictIds.has(s._id);
                       const isSelected  = selectedSchedule?._id === s._id;
                       const pct         = s.capacity > 0 ? Math.round((s.enrolledCount / s.capacity) * 100) : 0;
@@ -238,11 +292,11 @@ export default function SchedulesPage({ mode }) {
                       return (
                         <div
                           key={s._id}
-                          role="button"
-                          tabIndex={0}
-                          onClick={() => handleScheduleClick(s)}
-                          onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleScheduleClick(s); } }}
-                          className={`rounded-md p-2 border transition-colors relative overflow-hidden ${canUpdate ? 'cursor-pointer' : ''} ${
+                          role={canOpen ? 'button' : undefined}
+                          tabIndex={canOpen ? 0 : undefined}
+                          onClick={canOpen ? () => handleScheduleClick(s) : undefined}
+                          onKeyDown={canOpen ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleScheduleClick(s); } } : undefined}
+                          className={`rounded-md p-2 border transition-colors relative overflow-hidden ${canOpen ? 'cursor-pointer' : ''} ${
                             isConflict
                               ? 'border-l-[3px] border-l-destructive/60 border-destructive/25 bg-destructive/[0.05]'
                               : isSelected
@@ -261,12 +315,14 @@ export default function SchedulesPage({ mode }) {
                           <div className="text-[10px] text-muted-foreground truncate">{s.classId?.courseName}</div>
                           <div className="mt-1">
                             <span className="inline-flex items-center text-[9px] font-semibold text-chart-3 bg-chart-3/15 px-1.5 py-0.5 rounded truncate max-w-full">
-                              {s.bookedTeamId?.name || '—'}
+                              {s.isHistorical ? s.historicalLabel : (s.bookedTeamId?.name || '—')}
                             </span>
                           </div>
                           <div className="mt-1.5">
                             <div className="flex justify-between text-[9px] text-subtle-foreground mb-0.5 tabular-nums">
-                              <span>{s.enrolledCount}/{s.capacity}</span>
+                              <span>{s.isHistorical
+                                ? `#${s.sessionNumber} · P ${s.archiveCounts?.present || 0} · A ${s.archiveCounts?.absent || 0}`
+                                : `${s.enrolledCount}/${s.capacity}`}</span>
                             </div>
                             <div className="h-1 rounded-full bg-muted overflow-hidden">
                               <div className={`h-full rounded-full ${barColor}`} style={{ width: `${pct}%` }} />
@@ -279,11 +335,14 @@ export default function SchedulesPage({ mode }) {
                 );
               }
 
-              if (canCreate) {
+              const historicalCellIsFuture = !historicalOnly || new Date(
+                slotToUtcRange(day, slot, offset).startISO,
+              ) > new Date();
+              if (createEnabled || (historicalCreateEnabled && !slot.offPolicy && historicalCellIsFuture)) {
                 return (
                   <button
                     type="button"
-                    className="h-full min-h-[80px] flex items-center justify-center rounded-md border border-transparent hover:bg-success/10 hover:border-success/20 cursor-pointer transition-colors duration-(--dur) group/cell"
+                    className="h-full min-h-[80px] w-full flex items-center justify-center rounded-md border border-transparent hover:bg-success/10 hover:border-success/20 cursor-pointer transition-colors duration-(--dur) group/cell"
                     onClick={() => handleCellClick(day, slot)}
                   >
                     <span className="text-[10px] text-subtle-foreground opacity-0 group-hover/cell:opacity-100 transition-opacity font-medium">+ Create</span>
@@ -298,24 +357,31 @@ export default function SchedulesPage({ mode }) {
           <div className="flex flex-wrap gap-4 text-xs text-muted-foreground">
             <div className="flex items-center gap-2">
               <div className="w-3.5 h-3.5 rounded bg-primary/15 border border-primary/20" />
-              <span>Session — click to edit</span>
+              <span>{historicalOnly
+                ? historicalSchedules[0]?.historicalReadOnlyLabel
+                : 'Session — click to edit'}</span>
             </div>
-            {canCreate && (
+            {(createEnabled || historicalCreateEnabled) && (
               <div className="flex items-center gap-2">
                 <div className="w-3.5 h-3.5 rounded border border-dashed border-success/30" />
                 <span>Empty — click to create</span>
               </div>
             )}
-            <div className="flex items-center gap-2">
+            {!historicalOnly && <div className="flex items-center gap-2">
               <div className="w-3.5 h-3.5 rounded border-l-[3px] border-l-destructive/60 border border-destructive/25 bg-destructive/5" />
               <span>Conflict</span>
-            </div>
+            </div>}
           </div>
         </div>
 
-        {/* Right: drawer */}
-        <div className="lg:w-[300px] lg:flex-none lg:sticky lg:top-6">
-          <ScheduleDrawer
+        {/* Right: drawer. Historical grids do not reserve an empty column. */}
+        {historicalDrawer ? (
+          <div data-testid="schedule-drawer-column" className="lg:w-[320px] lg:flex-none lg:sticky lg:top-6">
+            {historicalDrawer}
+          </div>
+        ) : !historicalOnly && (
+          <div data-testid="schedule-drawer-column" className="lg:w-[300px] lg:flex-none lg:sticky lg:top-6">
+            <ScheduleDrawer
             isOpen={!!drawerMode}
             mode={drawerMode || 'create'}
             schedule={selectedSchedule}
@@ -323,12 +389,13 @@ export default function SchedulesPage({ mode }) {
             classes={classes}
             teams={teams}
             allSchedules={allSchedules}
-            isReadOnly={!canUpdate && !canCreate}
+            isReadOnly={!canUpdate && !createEnabled}
             onClose={closeDrawer}
             onSaved={closeDrawer}
             onDeleted={closeDrawer}
-          />
-        </div>
+            />
+          </div>
+        )}
       </div>
     </div>
   );

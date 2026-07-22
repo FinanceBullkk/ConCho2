@@ -6,6 +6,7 @@ const { objectId } = require('../../../schemas/common');
 const enrollBody = z.object({
   cohortId: objectId,
   userId: objectId.optional(),
+  startSessionNumber: z.coerce.number().int().min(1).max(200).optional(),
 });
 
 const listEnrollmentsQuery = z.object({
@@ -19,6 +20,7 @@ const listEnrollmentsQuery = z.object({
 const bulkEnrollBody = z.object({
   cohortId: objectId,
   userIds: z.array(objectId).min(1).max(500),
+  startSessionNumber: z.coerce.number().int().min(1).max(200).optional(),
 });
 
 module.exports = { enrollBody, listEnrollmentsQuery, bulkEnrollBody };

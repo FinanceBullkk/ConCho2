@@ -88,6 +88,28 @@ const tplClassCancellation = ({ userName, className, dateStr, cancelledBy }) => 
     `<p>${brandName()} Training System</p>`,
 });
 
+const tplSessionRescheduled = ({ userName, className, oldDateStr, newDateStr, reason }) => ({
+  subject: `${brandName()} — Session Rescheduled: ${className}`,
+  text:
+    `Hi ${userName},\n\n` +
+    `The schedule for "${className}" has changed.\n\n` +
+    `Previous time: ${oldDateStr}\n` +
+    `New time: ${newDateStr}\n` +
+    (reason ? `Reason: ${reason}\n` : '') +
+    `\nPlease use the new time shown above.\n\n` +
+    `${brandName()} Training System`,
+  html:
+    `<p>Hi <strong>${userName}</strong>,</p>` +
+    `<p>The schedule for <strong>${className}</strong> has changed.</p>` +
+    `<ul>` +
+    `<li><strong>Previous time:</strong> ${oldDateStr}</li>` +
+    `<li><strong>New time:</strong> ${newDateStr}</li>` +
+    (reason ? `<li><strong>Reason:</strong> ${reason}</li>` : '') +
+    `</ul>` +
+    `<p>Please use the new time shown above.</p>` +
+    `<p>${brandName()} Training System</p>`,
+});
+
 const tplScheduleReminder = ({ userName, className, dateStr, roomLink }) => ({
   subject: `${brandName()} — Reminder: ${className} starts soon`,
   text:
@@ -322,6 +344,18 @@ const sendClassCancellation = ({ to, userName, className, startTime, cancelledBy
     ...tplClassCancellation({ userName, className, dateStr: fmtDate(startTime), cancelledBy }),
   });
 
+const sendSessionRescheduled = ({ to, userName, className, oldStartTime, newStartTime, reason }) =>
+  safeSend('session-rescheduled', {
+    to,
+    ...tplSessionRescheduled({
+      userName,
+      className,
+      oldDateStr: fmtDate(oldStartTime),
+      newDateStr: fmtDate(newStartTime),
+      reason,
+    }),
+  });
+
 const sendScheduleReminder = ({ to, userName, className, startTime, roomLink }) =>
   safeSend('schedule-reminder', {
     to,
@@ -406,6 +440,7 @@ module.exports = {
   // Public senders
   sendBookingConfirmation,
   sendClassCancellation,
+  sendSessionRescheduled,
   sendScheduleReminder,
   sendEnrollmentDropped,
   sendEnrollmentTransferred,
@@ -419,6 +454,7 @@ module.exports = {
   _templates: {
     tplBookingConfirmation,
     tplClassCancellation,
+    tplSessionRescheduled,
     tplScheduleReminder,
     tplEnrollmentDropped,
     tplEnrollmentTransferred,

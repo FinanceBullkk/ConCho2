@@ -30,6 +30,7 @@ const duplicateError = () => {
 const enrollmentRow = (r) => (r == null ? null : {
   _id: r.id, userId: r.user_id || null, classId: r.class_id || null, teamId: r.team_id || null,
   status: r.status, joinedAt: r.joined_at, leftAt: r.left_at || null, note: r.note == null ? undefined : r.note,
+  startSessionNumber: r.start_session_number == null ? null : Number(r.start_session_number),
   createdAt: r.created_at, updatedAt: r.updated_at,
 });
 const popUser = (r) => (r.u_id ? { _id: r.u_id, empCode: r.u_emp, name: r.u_name, department: r.u_dept, status: r.u_status } : null);
@@ -48,15 +49,16 @@ const findActiveCohortEnrollment = async (userId, cohortId) => {
 // team-sync enrollment create rolls back with the team + schedule writes. A raw
 // mongoose session (legacy Mongo callers) has no client → pool autocommit.
 // joinedAt defaults to now() like the model.
-const insertActiveEnrollment = async ({ userId, classId = null, teamId = null, joinedAt }, handle = null) => {
+const insertActiveEnrollment = async ({ userId, classId = null, teamId = null, joinedAt, startSessionNumber }, handle = null) => {
   const exec = (text, params) => (handle && handle.client ? handle.client.query(text, params) : query(text, params));
   let rows;
   try {
     ({ rows } = await exec(
-      `INSERT INTO enrollments(id,user_id,class_id,team_id,status,joined_at)
-       VALUES ($1,$2,$3,$4,'Active',$5) RETURNING *`,
+      `INSERT INTO enrollments(id,user_id,class_id,team_id,status,joined_at,start_session_number)
+       VALUES ($1,$2,$3,$4,'Active',$5,$6) RETURNING *`,
       [newId(), String(userId), classId == null ? null : String(classId), teamId == null ? null : String(teamId),
-        joinedAt ? new Date(joinedAt).toISOString() : new Date().toISOString()]));
+        joinedAt ? new Date(joinedAt).toISOString() : new Date().toISOString(),
+        startSessionNumber == null ? null : startSessionNumber]));
   } catch (error) {
     if (error && error.code === '23505') throw duplicateError();
     throw error;
@@ -106,11 +108,23 @@ const markDropped = async (id) => {
 
 const findCohort = async (cohortId) => {
   const { rows } = await query(
-    `SELECT id, class_code, course_name, program_id, is_deleted FROM classes WHERE id = $1 AND is_deleted = false`,
+    `SELECT c.id, c.class_code, c.course_name, c.program_id, c.total_sessions,
+            c.teacher_ids, c.is_deleted, p.category AS program_category
+       FROM classes c LEFT JOIN learning_programs p ON p.id = c.program_id
+      WHERE c.id = $1 AND c.is_deleted = false`,
     [String(cohortId)]);
   if (!rows[0]) return null;
   const r = rows[0];
-  return { _id: r.id, classCode: r.class_code, courseName: r.course_name, programId: r.program_id || null, isDeleted: r.is_deleted };
+  return {
+    _id: r.id,
+    classCode: r.class_code,
+    courseName: r.course_name,
+    programId: r.program_id || null,
+    programCategory: r.program_category || null,
+    totalSessions: r.total_sessions == null ? null : Number(r.total_sessions),
+    teacherIds: (r.teacher_ids || []).map(String),
+    isDeleted: r.is_deleted,
+  };
 };
 
 const findCohortSchedulingMode = async (cohortId) => {

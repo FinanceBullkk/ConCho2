@@ -3,7 +3,12 @@
 
 const cohortRow = (r) => ({
   id: r.id, classCode: r.class_code, displayName: r.display_name, status: r.status,
-  activeMembers: r.active_members, runs: r.runs,
+  capacity: r.capacity, activeMembers: r.active_members, runs: r.runs,
+  currentPicAssignmentId: r.current_pic_assignment_id || null,
+  currentPicEmployeeId: r.current_pic_employee_id || null,
+  currentPic: r.current_pic || null,
+  currentPicEmpCode: r.current_pic_emp_code || null,
+  currentPicLabel: r.current_pic_label || null,
 });
 const memberRow = (r) => ({
   id: r.id, status: r.status, startDate: r.start_date,
@@ -18,20 +23,24 @@ const picRow = (r) => ({ id: r.id, label: r.pic_label, empCode: r.emp_code, full
 const courseRow = (r) => ({
   id: r.id, courseCode: r.course_code, courseName: r.course_name,
   expectedUnits: r.expected_units, maxAbsencesAllowed: r.max_absences_allowed,
+  attendanceThresholdRatio: r.attendance_threshold_ratio == null ? null : Number(r.attendance_threshold_ratio),
   isActive: r.is_active, runs: r.runs,
 });
 // Exam-sit gate (owner rule): a participating learner with ≤2 absences may sit.
-const EXAM_MAX_ABSENCES = 2;
 const SITTABLE_STATUSES = ['active', 'completed'];
-const sitEligible = (status, absenceCount) =>
-  SITTABLE_STATUSES.includes(status) && (absenceCount || 0) <= EXAM_MAX_ABSENCES;
+const sitEligible = (status, markedCount, attendanceRatio, threshold) =>
+  SITTABLE_STATUSES.includes(status)
+  && Number(markedCount) > 0
+  && Number(attendanceRatio) >= Number(threshold);
 
 const rosterRow = (r) => ({
   id: r.id, status: r.status, startSessionNumber: r.start_session_number, dq: r.dq,
   empCode: r.emp_code, fullName: r.full_name,
   businessUnit: r.business_unit_id_snapshot, jobRole: r.job_role_id_snapshot,
-  absenceCount: r.absence_count,
-  sitEligible: sitEligible(r.status, r.absence_count),
+  markedCount: r.marked_count, presentCount: r.present_count, absenceCount: r.absence_count,
+  attendanceRatio: r.attendance_ratio == null ? null : Number(r.attendance_ratio),
+  attendanceThresholdRatio: r.attendance_threshold_ratio == null ? null : Number(r.attendance_threshold_ratio),
+  sitEligible: sitEligible(r.status, r.marked_count, r.attendance_ratio, r.attendance_threshold_ratio),
   examLevelCode: r.exam_level_code || null,
   examLevelName: r.exam_level_name || null,
   examDate: r.exam_date || null,
@@ -39,9 +48,14 @@ const rosterRow = (r) => ({
 // One learner row inside a class-detail course run: attendance summary,
 // exam eligibility, and level — read-only 360°.
 const classRosterRow = (r) => ({
-  enrollmentId: r.enrollment_id, empCode: r.emp_code, fullName: r.full_name,
+  enrollmentId: r.enrollment_id, employeeId: r.employee_id,
+  empCode: r.emp_code, fullName: r.full_name,
   enrollmentStatus: r.enrollment_status,
+  startSessionNumber: r.start_session_number,
   allowedAbsences: r.allowed_absences, absenceCount: r.absence_count,
+  markedCount: r.marked_count, presentCount: r.present_count,
+  attendanceRatio: r.attendance_ratio == null ? null : Number(r.attendance_ratio),
+  attendanceThresholdRatio: r.attendance_threshold_ratio == null ? null : Number(r.attendance_threshold_ratio),
   eligibilityStatus: r.eligibility_status,
   examLevelCode: r.exam_level_code || null,
   examLevelName: r.exam_level_name || null,
@@ -50,6 +64,7 @@ const classRosterRow = (r) => ({
 const employeeRow = (r) => ({
   id: r.id, empCode: r.emp_code, fullName: r.full_name, englishName: r.english_name,
   email: r.email, employmentStatus: r.employment_status,
+  activeCourseRunId: r.active_course_run_id || null,
 });
 const enrollmentRow = (r) => ({
   id: r.id, status: r.status, dq: r.dq, classCode: r.class_code,
@@ -57,8 +72,19 @@ const enrollmentRow = (r) => ({
 });
 const sessionRow = (r) => ({
   id: r.id, sessionNumber: r.session_number, heldAt: r.held_at, status: r.status,
+  meetingId: r.meeting_id || null, meetingStatus: r.meeting_status || null,
+  durationMinutes: r.duration_minutes == null ? 60 : Number(r.duration_minutes),
+  cancellationReason: r.cancellation_reason || null,
+  meetLink: r.meet_link || null,
+  sourceKind: r.source_kind || 'imported',
+  sourceWasImported: Boolean(r.source_was_imported),
+  sourceStartsAt: r.source_starts_at || null,
+  sourceDurationMinutes: r.source_duration_minutes == null
+    ? null : Number(r.source_duration_minutes),
+  operationalAt: r.operational_at || null,
   courseRunId: r.course_run_id, classCode: r.class_code, courseName: r.course_name,
-  attendanceCount: r.attendance_count, presentCount: r.present_count, absentCount: r.absent_count,
+  attendanceCount: r.attendance_count, expectedRosterCount: r.expected_roster_count,
+  presentCount: r.present_count, absentCount: r.absent_count,
 });
 const attendanceRow = (r) => ({
   attendanceId: r.attendance_id, enrollmentId: r.enrollment_id,
@@ -73,6 +99,8 @@ const eligibilityRow = (r) => ({
   runStatus: r.run_status, classCode: r.class_code, courseName: r.course_name,
   allowedAbsences: r.allowed_absences, markedSessions: r.marked_sessions,
   presentCount: r.present_count, absenceCount: r.absence_count,
+  attendanceRatio: r.attendance_ratio == null ? null : Number(r.attendance_ratio),
+  attendanceThresholdRatio: r.attendance_threshold_ratio == null ? null : Number(r.attendance_threshold_ratio),
   eligibilityStatus: r.eligibility_status,
   examLevelCode: r.exam_level_code || null,
   examLevelName: r.exam_level_name || null,
@@ -86,6 +114,13 @@ const examResultRow = (r) => ({
 const pendingExamEntryRow = (r) => ({
   courseRunId: r.course_run_id, classCode: r.class_code, courseName: r.course_name,
   runStatus: r.run_status, endDate: r.end_date, pendingCount: r.pending_count,
+});
+const activeCourseRunRow = (r) => ({
+  id: r.id, runNumber: r.run_number, status: r.status,
+  cohortId: r.cohort_id, classCode: r.class_code, displayName: r.display_name,
+  courseCode: r.course_code, courseName: r.course_name,
+  startDate: r.start_date, endDate: r.end_date,
+  nextSessionNumber: r.next_session_number,
 });
 
 module.exports = {
@@ -104,21 +139,31 @@ module.exports = {
     return {
       id: cohort.id, classCode: cohort.class_code,
       displayName: cohort.display_name, status: cohort.status,
+      capacity: cohort.capacity,
+      currentPicAssignmentId: cohort.current_pic_assignment_id || null,
+      currentPicEmployeeId: cohort.current_pic_employee_id || null,
+      currentPic: cohort.current_pic || null,
+      currentPicEmpCode: cohort.current_pic_emp_code || null,
+      currentPicLabel: cohort.current_pic_label || null,
       runs: runs.map((r) => ({
         id: r.id, runNumber: r.run_number, status: r.status,
         courseCode: r.course_code, courseName: r.course_name,
         startDate: r.start_date, endDate: r.end_date,
         maxAbsencesAllowed: r.max_absences_allowed,
+        attendanceThresholdRatio: Number(r.attendance_threshold_ratio),
+        nextSessionNumber: r.next_session_number,
         roster: byRun.get(r.id) || [],
       })),
     };
   },
   courseList: (rows) => rows.map(courseRow),
+  activeCourseRunList: (rows) => rows.map(activeCourseRunRow),
   courseRunDetail: ({ run, roster }) => ({
     id: run.id, runNumber: run.run_number, status: run.status,
     classCode: run.class_code, courseCode: run.course_code, courseName: run.course_name,
     startDate: run.start_date, endDate: run.end_date,
     expectedUnits: run.expected_units_snapshot, maxAbsencesAllowed: run.max_absences_allowed_snapshot,
+    attendanceThresholdRatio: Number(run.attendance_threshold_ratio_snapshot),
     roster: roster.map(rosterRow),
   }),
   employeeList: (rows) => rows.map(employeeRow),

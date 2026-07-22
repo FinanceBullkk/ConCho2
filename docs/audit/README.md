@@ -18,6 +18,14 @@
 
 ---
 
+## Current focused audits
+
+| Date | Report | Scope | Verdict |
+|---|---|---|---|
+| 2026-07-21 | [Delivery Workflow and English Operations Audit](./delivery-workflow-audit-2026-07-21.md) | Delivery-process wiring, Playwright enforcement, and the in-flight English Schedule/Attendance slice | **OPEN** — process implemented but enforcement gaps remain; English UI verification blocked |
+
+---
+
 ## Overall verdict
 
 > **NO-GO** to sell to an enterprise today.

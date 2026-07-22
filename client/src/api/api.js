@@ -261,6 +261,7 @@ export const learningAPI = {
   // Safe scheduling config (allowed slots + tz) — readable by all roles.
   getSchedulingConfig: () => api.get('/learning/sessions/config'),
   getSessions: (params) => api.get('/learning/sessions', { params }),
+  getSession: (id) => api.get(`/learning/sessions/${id}`),
   // Coordinator-scheduled session create (cohort + office + time) — re-center
   // Phase 2. Books against a cohort (self_enroll/nomination), team-less.
   bookSession: (data) => api.post('/learning/sessions/book-slot', data),
@@ -381,7 +382,7 @@ export const complianceAPI = {
   getUserCompliance: (id) => api.get(`/compliance/user/${id}`),
 };
 
-// English-training canonical workbook data (Phase 1 operations view + targeted corrections).
+// Canonical English domain plus imported workbook evidence/corrections.
 export const englishTrainingAPI = {
   getOverview: () => api.get('/english-training/overview'),
   getCohorts: () => api.get('/english-training/cohorts'),
@@ -400,6 +401,29 @@ export const englishTrainingAPI = {
   getPendingExamEntries: () => api.get('/english-training/pending-exam-entries'),
   recordExamResult: (enrollmentId, data) => api.post(`/english-training/enrollments/${enrollmentId}/exam-result`, data),
   deleteExamResult: (enrollmentId) => api.delete(`/english-training/enrollments/${enrollmentId}/exam-result`),
+};
+
+// English Operations workspace — live composition over shared domains.
+export const englishOperationsAPI = {
+  getOverview: () => api.get('/english-training/workspace/overview'),
+  getCanonicalClasses: () => api.get('/english-training/workspace/classes'),
+  getCanonicalClass: (id) => api.get(`/english-training/workspace/classes/${id}`),
+  getCanonicalCourses: () => api.get('/english-training/workspace/courses'),
+  getCanonicalCourseRuns: () => api.get('/english-training/workspace/course-runs'),
+  getCanonicalEmployees: (params) => api.get('/english-training/workspace/employees', { params }),
+  createCanonicalClass: (data) => api.post('/english-training/workspace/classes', data),
+  addCanonicalRunEnrollment: (courseRunId, data) => api.post(`/english-training/workspace/course-runs/${courseRunId}/enrollments`, data),
+  createCanonicalSession: (courseRunId, data) => api.post(`/english-training/workspace/course-runs/${courseRunId}/sessions`, data),
+  rescheduleCanonicalMeeting: (courseRunId, meetingId, data) => api.patch(`/english-training/workspace/course-runs/${courseRunId}/meetings/${meetingId}`, data),
+  cancelCanonicalMeeting: (courseRunId, meetingId, data) => api.delete(`/english-training/workspace/course-runs/${courseRunId}/meetings/${meetingId}`, { data }),
+  getCanonicalAttendanceRoster: (courseRunId, sessionUnitId) => api.get(`/english-training/workspace/course-runs/${courseRunId}/session-units/${sessionUnitId}/attendance`),
+  saveCanonicalAttendanceRoster: (courseRunId, sessionUnitId, data) => api.put(`/english-training/workspace/course-runs/${courseRunId}/session-units/${sessionUnitId}/attendance`, data),
+  getManagedLearners: (params) => api.get('/english-training/managed-learners', { params }),
+  createManagedLearner: (data) => api.post('/english-training/managed-learners', data),
+  updateManagedLearner: (id, data) => api.patch(`/english-training/managed-learners/${id}`, data),
+  deleteManagedLearner: (id) => api.delete(`/english-training/managed-learners/${id}`),
+  provisionArchiveLearners: () => api.post('/english-training/managed-learners/provision-archive'),
+  getTeachers: () => api.get('/english-training/workspace/teachers'),
 };
 
 // ── Org model (departments, offices, manager hierarchy, my-team) ───

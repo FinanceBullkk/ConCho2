@@ -2,7 +2,7 @@
 capability: auth-and-sessions
 status: stable
 owners: [controllers/authController, services/authService, services/mfaService, middleware/auth]
-last_updated: 2026-06-12
+last_updated: 2026-07-19
 related_code:
   - server/middleware/auth.js
   - server/controllers/authController.js
@@ -33,6 +33,8 @@ session-killing on password change.
   change, demotion/deactivation).
 - **BR-4:** Brute-force credential guessing must be throttled durably.
 - **BR-5:** Seed/default-password accounts must rotate their password before use.
+- **BR-6:** Directory records used only for training operations must never obtain
+  a session, reset token, or MFA-completed session.
 
 ## Actors & Use Cases (UC)
 
@@ -79,6 +81,12 @@ are denied.
 - **GIVEN** a user whose status ≠ Active
 - **WHEN** any authenticated route is hit
 - **THEN** **403** ("Account is <status>")
+
+#### Scenario: Login-disabled managed learner
+- **GIVEN** a User with `canLogin=false` and no password
+- **WHEN** login, MFA verification, password reset, or an old authenticated JWT is used
+- **THEN** the request is denied before bcrypt/session issuance; cache
+  invalidation makes an Admin's `canLogin` change effective immediately.
 
 ### Requirement: Brute-force lockout [BR-4, UC-1]
 

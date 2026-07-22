@@ -29,7 +29,77 @@ const examResultBody = z.object({
   note: z.string().trim().max(500).optional(),
 });
 
+const MANAGED_STATUSES = ['Active', 'Inactive', 'Dropped', 'Transferred', 'On-hold', 'Waiting for class'];
+const managedPersonFields = {
+  name: z.string().trim().min(1).max(120),
+  email: z.union([z.string().trim().toLowerCase().email().max(254), z.literal('')]).optional(),
+  department: z.string().trim().max(120).optional(),
+  position: z.string().trim().max(120).optional(),
+  status: z.enum(MANAGED_STATUSES).optional(),
+};
+const managedPersonCreateBody = z.object({
+  empCode: z.string().trim().min(1).max(32).regex(/^[A-Za-z0-9][A-Za-z0-9_-]*$/),
+  ...managedPersonFields,
+});
+const managedPersonUpdateBody = z.object(managedPersonFields).refine(
+  (value) => Object.keys(value).length > 0,
+  { message: 'At least one field is required' },
+);
+
+const canonicalClassBody = z.object({
+  classCode: z.string().trim().min(2).max(32).regex(/^[A-Za-z0-9_-]+$/),
+  displayName: z.string().trim().min(1).max(120),
+  courseId: z.string().min(1),
+  startDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'startDate must be YYYY-MM-DD'),
+  capacity: z.coerce.number().int().min(1).max(500),
+  status: z.enum(['planned', 'active']).default('active'),
+  picEmployeeId: z.string().min(1).nullable().optional(),
+  picLabel: z.string().trim().max(120).nullable().optional(),
+}).refine((value) => Boolean(value.picEmployeeId || value.picLabel), {
+  message: 'PIC employee or PIC team label is required',
+});
+
+const courseRunParams = z.object({ courseRunId: z.string().min(1) });
+const courseRunMeetingParams = z.object({
+  courseRunId: z.string().min(1),
+  meetingId: z.string().min(1),
+});
+const attendanceRosterParams = z.object({
+  courseRunId: z.string().min(1),
+  sessionUnitId: z.string().min(1),
+});
+const runEnrollmentBody = z.object({
+  employeeId: z.string().min(1),
+  startDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'startDate must be YYYY-MM-DD'),
+  confirmedStartSessionNumber: z.coerce.number().int().min(1),
+});
+const attendanceSessionBody = z.object({
+  startsAt: z.string().datetime({ offset: true }),
+  endsAt: z.string().datetime({ offset: true }),
+  confirmedSessionNumber: z.coerce.number().int().min(1),
+});
+const meetingRescheduleBody = z.object({
+  startsAt: z.string().datetime({ offset: true }),
+  endsAt: z.string().datetime({ offset: true }),
+  reason: z.string().trim().max(500).optional(),
+});
+const meetingCancellationBody = z.object({
+  cancellationReason: z.string().trim().min(3).max(500),
+});
+const attendanceRosterBody = z.object({
+  rosterToken: z.string().length(64),
+  records: z.array(z.object({
+    runEnrollmentId: z.string().min(1),
+    status: z.enum(['present', 'absent']),
+  })).max(500),
+});
+
 module.exports = {
   idParams, empCodeParams, issueCodeParams, listEmployeesQuery,
   employeeCorrectionBody, examResultBody,
+  managedPersonCreateBody, managedPersonUpdateBody,
+  canonicalClassBody,
+  courseRunParams, courseRunMeetingParams, attendanceRosterParams,
+  runEnrollmentBody, attendanceSessionBody, meetingRescheduleBody,
+  meetingCancellationBody, attendanceRosterBody,
 };

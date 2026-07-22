@@ -1,306 +1,243 @@
 ---
 capability: english-training
-status: evolving                        # Phase 3: exam result & level (evaluation); placement/certs still out of scope
+status: evolving
 owners: [domains/english-training]
-last_updated: 2026-07-19
-related_plans:
-  - plans/english-integration-phase-1.md
-  - plans/english-integration-phase-2-attendance.md
-  - plans/english-integration-phase-3-evaluation.md
+last_updated: 2026-07-21
+authority:
+  repository: kyphucclv/ConMeoGauGau
+  commit: 4107cd52ee905e87254e099da23cb58dcbdd82a9
+related_decisions:
+  - docs/decisions/english-domain-authority.md
 related_code:
   - server/db/pg/migrations/036_english_training.js
-  - server/db/pg/migrations/037_english_training_corrections.js
   - server/db/pg/migrations/038_english_training_attendance.js
   - server/db/pg/migrations/039_english_training_evaluation.js
-  - server/domains/english-training/routes.js
+  - server/db/pg/migrations/047_english_canonical_authority.js
+  - server/db/pg/migrations/048_english_live_meetings_attendance.js
+  - server/db/pg/migrations/049_english_meeting_calendar.js
+  - server/db/pg/migrations/050_english_future_meeting_handoff.js
+  - server/domains/english-training/canonical-operations.js
+  - server/domains/english-training/meeting-delivery.js
   - server/domains/english-training/reads.pg.js
   - server/domains/english-training/evaluation.js
-  - server/domains/english-training/import/pipeline.js
-  - server/scripts/eng-import.js
+  - client/src/features/english-operations/ClassesPanel.jsx
+  - client/src/features/english-operations/SchedulePanel.jsx
+  - client/src/features/english-operations/AttendancePanel.jsx
 ---
 
-# Capability: English Training (Phase 2 — Historical Sessions & Attendance)
-
-> **Source of truth for BEHAVIOR.** Describes what the English-training domain
-> does *today*. Business authority for the model is `kyphucclv/ConMeoGauGau`
-> (ADR: that repo's `docs/adr/0001-...`). ConCho2 is the host platform.
+# Capability: Canonical English Operations
 
 ## Purpose
 
-Bring the English-class business into ConCho2 as a canonical domain with correct
-entity grain. Phase 1 established identity + learning structure; Phase 2 adds
-lossless historical sessions, attendance, and derived absence eligibility. It
-does NOT collapse ConCho2's existing
-`classes/enrollments/attendances` into English concepts — it adds new `eng_*`
-tables whose row-meanings match the English model.
+Operate English classes inside ConCho2 without flattening the business model
+into generic Program/Class/Team rows. English has a dedicated workspace and a
+canonical module in the same modular monolith. Shared authentication,
+authorization, UI shell, and infrastructure remain reused.
 
-## Business Requirements (BR)
+## Business vocabulary and grain
 
-- **BR-1:** An employee's English-training identity is stable across time and is
-  keyed by `emp_code`, independent of whether they have a login account.
-- **BR-2:** A stable learning group (Cohort) can study many courses over time; a
-  repeat of the same course is a distinct delivery (Course Run), never overwriting.
-- **BR-3:** Historical data must migrate with **no silent loss** — every source
-  row ends loaded, staged, or recorded as a data-quality issue.
-- **BR-4:** Employment status (left the company) is separate from course-lifecycle
-  status (finished/stopped a course).
-- **BR-5:** Historical attendance uses the Course Run and Run Enrollment spine;
-  missing marks remain visible and eligibility is derived from the run's policy snapshot.
-- **BR-6:** Completing a course means sitting a final exam whose result **is a
-  level** (one of 13 ordered levels; no numeric score, no fail state). A learner
-  with **more than 2 absences cannot sit** the exam. Certificates are issued by
-  HR outside ConCho2 (out of scope).
+| Entity | One row means |
+|---|---|
+| `eng_employees` | one employee identity keyed by case-insensitive `emp_code` |
+| `eng_cohorts` | one stable class code across courses and time |
+| `eng_cohort_pic` | one dated PIC ownership assignment for a class |
+| `eng_cohort_memberships` | one employee membership period in a stable class |
+| `eng_courses` | one reusable English course definition |
+| `eng_course_runs` | one numbered occurrence of one course for one class |
+| `eng_run_enrollments` | one employee's participation in one Course Run |
+| `eng_meetings` | one real calendar occurrence with start, duration, and lifecycle status |
+| `eng_session_units` | one credited logical session in a Course Run |
+| `eng_attendance_records` | one Present/Absent result for Enrollment × Session Unit |
+| `eng_exam_results` | one active categorical final level per Run Enrollment |
+| `raw_eng_workbook_rows` | one immutable source row retained as evidence |
 
-## Actors & Use Cases (UC)
+PIC may reference an English employee or hold a normalized team label. PIC is
+not a teacher assignment, login identity, generic Team, or roster container.
 
-- **UC-1 (Admin/L&D — import):** run `scripts/eng-import.js <workbook>` → the six
-  Phase-1 sheets are staged, transformed, loaded into `eng_*`, and reconciled;
-  anomalies land in `eng_data_quality_issues`.
-- **UC-2 (Admin/Coordinator — review):** call `/api/english-training/*` read
-  endpoints to inspect cohorts, courses, course runs, employees, and the DQ issue
-  summary through the ConCho2 shell (login + roles reused).
-- **UC-3 (Admin/Coordinator — correct):** resolve missing employee BU/job role
-  through a controlled correction overlay; raw workbook rows remain immutable.
-- **UC-4 (Admin/Coordinator — attendance review):** search sessions, inspect a
-  session roster, and review absence eligibility without editing source history.
-- **UC-6 (HR/Admin — overview landing):** the section opens on a task-oriented
-  **Overview** (not a raw table): headline counts (cohorts, employees, courses,
-  runs) plus two actionable **"needs attention"** cards — learners awaiting an
-  exam level (→ Evaluation) and open data-quality issues (→ Issues) — served by a
-  single `GET /overview` count query. Status columns across the tables render as
-  colored badges.
-- **UC-5 (HR/Admin — record exam level):** from a completed Course Run's roster,
-  record (or clear) each eligible learner's exam level, using one **shared exam
-  date for the whole class** (defaulted to the run's end date). Selecting a run
-  opens its roster in place (the long "needs level" worklist is swapped out, not
-  appended, so no scrolling); a single **"Save all"** writes the picked level for
-  every eligible learner at once. The worklist surfaces completed runs still
-  missing levels. The ≤2-absence gate is enforced server-side; ineligible
-  learners cannot be recorded.
+## Invariants
 
-## Entities
+- `emp_code` is stable identity; login capability is orthogonal.
+- `class_code` identifies the stable class, not a Course Run.
+- At most one current PIC exists per class (`end_date IS NULL`).
+- At most one active Run Enrollment exists per employee across English.
+- A repeated course creates the next Course Run; it does not overwrite history.
+- Course Run snapshots expected units and `attendance_threshold_ratio`.
+- The default attendance threshold is `0.800`; eligibility uses the Run
+  snapshot and requires recorded attendance.
+- A Meeting is the calendar occurrence; a Session Unit is logical credit. One
+  Meeting may contain at most two normal Session Units.
+- New Meetings use an exact configured booking slot. One active English
+  Meeting may occupy a company-wide start time.
+- A learner starts at the next non-cancelled logical session and may hold at
+  most one active English Run Enrollment across all Course Runs.
+- Attendance applicability is calculated at event time. Planned rosters propose
+  Present; completed historical gaps remain unknown rather than becoming Absent.
+- One attendance save contains every applicable Run Enrollment exactly once.
+  The opaque roster token rejects stale writes, and Meeting completion,
+  attendance facts, and domain audit commit in one transaction.
+- Only `present` and `absent` are canonical attendance states.
+- Source rows are never silently discarded. A row is loaded, staged, or
+  represented by a data-quality issue.
+- English mutations require capability authorization, validation, and audit.
 
-Canonical `eng_*` tables (migration 036). One row means:
-- **eng_employees** — one English-training employee; `emp_code` unique
-  (case-insensitive); `employment_status ∈ {active,inactive,unknown}`; nullable
-  `user_id` crosswalk to `users` (no account required in Phase 1).
-- **eng_cohorts** — one stable group (`class_code` unique).
-- **eng_cohort_memberships** — one employee's membership period in one cohort;
-  ≤1 active per (cohort, employee) (partial unique).
-- **eng_courses** — one reusable course; `course_code` unique (generated slug);
-  `expected_units`, `max_absences_allowed` (default 2).
-- **eng_course_runs** — one delivery of one course to one cohort; unique
-  `(cohort_id, course_id, run_number)`; policy snapshotted per run.
-- **eng_run_enrollments** — one employee in one course run;
-  `status ∈ {active,waiting,completed,transferred,dropped,cancelled}`;
-  org snapshot immutable.
-- **eng_cohort_pic** — one PIC assignment (employee ref OR free-text label).
-- Support: **raw_eng_workbook_rows** (append-only staging),
-  **eng_data_quality_issues** (durable issue log).
-- Correction support (migration 037): **eng_employee_corrections** (current
-  overlay keyed by stable `emp_code`) and **eng_employee_correction_history**
-  (append-only before/after/reason/actor history). DQ issues carry
-  `open/resolved/accepted` status.
-- Attendance support (migration 038): **eng_session_units** (one numbered
-  occurrence per Course Run; unique run + session number) and
-  **eng_attendance_records** (one `present|absent` mark per Session Unit + Run
-  Enrollment). Source sheet/row and anomaly metadata remain attached.
-- Evaluation support (migration 039): **eng_levels** (13 ordered levels, seeded
-  reference data; `code` PK, `rank` unique) and **eng_exam_results** (one ACTIVE
-  result per run enrollment — `run_enrollment_id` partial-unique WHERE
-  `is_deleted=false`; soft-delete keeps history; `level_code` FK, `exam_date`,
-  `entered_by`).
+## Current workflows
 
-## Functional Requirements (FR)
+### List classes and rosters
 
-### Requirement: Stable employee identity by emp_code [BR-1]
+`GET /api/english-training/workspace/classes` returns stable classes with
+capacity, current PIC, active membership count, and Course Run count.
 
-The system MUST key each English employee by a normalized `emp_code` and MUST NOT
-require a login account.
+`GET /api/english-training/workspace/classes/:id` returns the stable class,
+current PIC, every Course Run, and each Run's roster with enrollment status,
+applicable start session, attendance ratio, and eligibility state.
 
-#### Scenario: import normalizes Excel-float codes
-- **GIVEN** a source `Emp Code` stored as `237050.0`
-- **WHEN** the import runs
-- **THEN** one `eng_employees` row exists with `emp_code = '237050'` and `user_id = NULL`.
+The Classes UI groups stable classes by their current PIC. The roster is read
+from `eng_run_enrollments`; it never queries generic Team Enrollments.
 
-#### Scenario: duplicate emp_code rejected
-- **GIVEN** an existing employee `237050`
-- **WHEN** a second row with the same code is inserted
-- **THEN** the case-insensitive unique index rejects it.
+### Create class with first Course Run
 
-### Requirement: Cohort takes many courses; repeats are new runs [BR-2]
+`POST /api/english-training/workspace/classes` accepts:
 
-The system MUST model a Course Run as `(cohort, course, run_number)` and MUST allow
-a cohort to hold runs of several different courses.
+- `classCode`, `displayName`, `courseId`, `startDate`, `capacity`, `status`;
+- either `picEmployeeId` or `picLabel`.
 
-#### Scenario: one cohort, several courses
-- **GIVEN** cohort `EL001` with rows for Business English, Communication 1, and Communication 2
-- **WHEN** the import runs
-- **THEN** `EL001` has three course runs, each `run_number = 1`.
+One transaction creates the Cohort, current PIC assignment, Course Run 1, and
+three `eng_audit_events`. Any validation, FK, or uniqueness failure rolls back
+the full command. Admin and Coordinator require `cohort.manage`.
 
-### Requirement: Employment vs course status separated [BR-4]
+### Add a learner to a Course Run
 
-The system MUST set `employment_status = inactive` only when the source
-`Drop reason = 'Resign'`; all other drop reasons keep `active`.
+Creating a brand-new managed learner creates the login-disabled shared User and
+the canonical English Employee crosswalk with the same normalized `emp_code` in
+one transaction. Existing imported Employees are provisioned/linked by the same
+key; roster selectors page through the full Employee directory.
 
-#### Scenario: course drop is not resignation
-- **GIVEN** a learner with `Drop reason = 'High workload'`
-- **WHEN** the import runs
-- **THEN** their `employment_status = active` and the course outcome is on the enrollment, not the employee.
+`POST /api/english-training/workspace/course-runs/:courseRunId/enrollments`
+starts one active Run Enrollment at the operator-confirmed next Session Unit.
+It reuses or creates the stable Cohort Membership, checks capacity and the
+one-active-enrollment invariant, and writes the domain audit atomically.
 
-### Requirement: Lossless import with reconciliation [BR-3]
+### Schedule and attendance
 
-The system MUST satisfy `source rows = loaded + issues` per sheet and MUST record
-every anomaly instead of dropping it.
+Schedule and Attendance render the canonical `eng_session_units` and
+`eng_attendance_records` projections on the weekly grids. Past imported rows
+remain explicitly read-only. Planned, attendance-free imported Meetings still
+in the future are handed to live operations with their source timestamp and
+duration retained as a baseline. There is no generic live/archive source toggle.
 
-#### Scenario: reconciliation balances
-- **WHEN** the reference workbook imports
-- **THEN** STUDENTS 308→308, COURSE_PLAN 6→6, CLASSES 91→91, ENROLLMENTS 552→552,
-  PIC 52→52, and issues (resign, missing BU/ROLE, multi-active, missing start,
-  cohort-without-run) are recorded in `eng_data_quality_issues`.
+`POST /api/english-training/workspace/course-runs/:courseRunId/sessions`
+creates one planned Meeting and its first normal Session Unit after exact-slot,
+Course Run state, conflict, and confirmed-sequence validation.
 
-#### Scenario: re-run is idempotent (staging)
-- **GIVEN** a workbook already staged
-- **WHEN** the import re-runs with the same checksum
-- **THEN** `raw_eng_workbook_rows` gains no duplicate rows.
+Admin and Coordinator can click an empty configured grid cell to prefill that
+command. A live planned Meeting can be opened from its card and moved with
+`PATCH .../meetings/:meetingId`; the Course Run, Session Unit identity, logical
+session number, and event-time roster remain unchanged. `DELETE` on the same
+resource is a durable cancellation with a required reason: Meeting and Session
+Unit statuses change to cancelled while the row and audit history remain.
+Unadopted imported history, started, completed, cancelled, or attendance-bearing
+Meetings are read-only. Create and move both reject past time and occupied active
+slots.
 
-### Requirement: Read projections are role-gated [UC-2]
+After commit, Meeting delivery is fail-soft like the shared ConCho2 schedule:
+linked learners and the current PIC receive bell notifications; roster emails
+are sent when SMTP is configured; and Google Calendar is created, updated, or
+deleted when the Calendar integration is configured. Provider failures never
+roll back the canonical Meeting mutation. Migration 049 stores the optional
+Google event id and Meet link on the Meeting.
 
-Read endpoints MUST require an authenticated Admin or Coordinator and MUST expose
-task-oriented projections, not raw table dumps.
+`GET .../session-units/:sessionUnitId/attendance` returns the event-time roster
+and an opaque stale-write token. `PUT` to the same path accepts only Present or
+Absent and must contain the exact full roster once each. A successful save
+upserts the facts, completes the Meeting and Session Unit, and records the
+domain audit in one transaction. Teacher access remains closed until assigned-
+resource scope is ported.
 
-#### Scenario: learner cannot read
-- **GIVEN** a Participant session
-- **WHEN** they call `GET /api/english-training/cohorts`
-- **THEN** the response is `403`.
+The English workspace presents these commands as HR-facing tasks:
 
-### Requirement: Missing employee org data can be corrected safely [UC-3]
+- Overview starts with direct actions for attendance review, session planning,
+  and PIC-owned class management.
+- Schedule follows the shared ConCho2 calendar + drawer pattern. Empty
+  configured cells open a prefilled drawer; operational cards open the same
+  compact move/cancel drawer; the duplicated embedded page header is hidden and
+  an unopened drawer does not reserve calendar width.
+- Attendance separates all sessions, sessions needing evidence, recorded
+  sessions, and upcoming sessions. Opening a roster keeps the calendar width
+  stable and renders the roster as an inline full-width work area.
+- Imported gaps are labelled `No evidence` and remain unknown. The UI never
+  derives Present, Absent, or Dropped from a missing historical source row.
 
-The system MUST preserve raw workbook evidence, persist corrections by stable
-employee code, backfill only `unknown` enrollment snapshots, resolve matching DQ
-issues, and retain correction history plus the global audit entry.
+### Evaluation
 
-#### Scenario: correct missing BU and role
-- **GIVEN** an imported employee with `missing_bu` and `missing_role` issues
-- **WHEN** an Admin or Coordinator submits BU, job role, and a reason
-- **THEN** the overlay and history are written, unknown snapshots are backfilled,
-  both issues become resolved, and the mutation is audited.
+Final evaluation records one of the ordered English levels. The server permits
+participating (`active` or `completed`) enrollments only when attendance exists
+and the actual Present ratio meets the Course Run snapshot. Results soft-delete
+on clear so history is retained.
 
-#### Scenario: correction survives re-import
-- **GIVEN** a persisted correction overlay
-- **WHEN** the canonical workbook data is reset and imported again
-- **THEN** the overlay is re-applied and the regenerated matching issues are
-  immediately resolved without modifying `raw_eng_workbook_rows`.
+### Imported evidence
 
-### Requirement: Historical attendance is lossless and reviewable [BR-3, BR-5]
+Archive exposes workbook/import evidence without a freeze or cutover command.
+Canonical operational English tables are writable through controlled commands;
+raw rows, DQ records, and time-correction evidence retain database freeze
+protection from the older archive mechanism.
 
-The importer MUST stage all meaningful `CLASS_SESSIONS` and `ATTENDANCE` rows,
-use the canonical session date, retain duplicate/date-mismatch evidence as DQ,
-and MUST NOT fabricate a mark for an enrolled learner without source evidence.
+## Migrations 047-050 reconciliation
 
-#### Scenario: reference workbook reconciles
-- **WHEN** the reference workbook imports
-- **THEN** 984 session rows load as 984 Session Units and 5,996 attendance rows
-  reconcile as 5,962 canonical records plus 34 explicitly ignored duplicates.
+Migration 047:
 
-#### Scenario: roster has no source mark
-- **GIVEN** an eligible enrollment whose session has no matching attendance row
-- **WHEN** Admin opens the session roster
-- **THEN** the row is returned with `attendanceStatus = unmarked`.
+- adds course/run attendance ratio policy;
+- adds transaction-local `eng_audit_events`;
+- installs unique current-PIC and one-active-enrollment indexes;
+- resolves only evidence-unambiguous duplicate active enrollments;
+- removes whole-domain Archive freeze triggers from operational `eng_*` tables.
 
-### Requirement: Eligibility is a projection [BR-5]
+The operator cleanup soft-retires the superseded handoff projection: 5 generic
+Programs, 11 Classes, 11 PIC Teams and 56 Team Enrollments. The source and
+canonical English rows are preserved.
 
-Eligibility MUST count canonical absences against
-`max_absences_allowed_snapshot`; zero marks are `unknown`, an exceeded threshold
-is `not_eligible`, and incomplete active runs within the limit are `within_limit`.
-The eligibility CASE is a single shared SQL fragment (`ELIGIBILITY_STATUS_SQL`),
-reused by both the Eligibility list and the class-detail read so they cannot
-disagree.
+Migration 048 creates `eng_meetings`, backfills one Meeting for every imported
+Session Unit, adds Meeting/Session-Unit integrity guards, and opens only the
+source columns required for controlled live commands. It also preserves each
+attendance row's original status and records the live actor separately. No raw
+workbook row is edited.
 
-### Requirement: A class opens as a read-only 360° [UC-2, BR-5]
+Migration 049 adds nullable Google Calendar identity and Meet-link fields to
+`eng_meetings`. It does not rewrite imported Meetings or attendance evidence.
 
-Opening one class MUST surface, in a single read
-(`GET /api/english-training/cohorts/:id/detail`), the class header plus each of
-its course runs, and for every learner in a run the attendance summary (absences
-used / allowed), the exam-eligibility projection, and the recorded level — so the
-operator sees a class without hopping tabs. The view is read-only; entry paths
-(exam level, employee correction) stay on their existing tabs.
+Migration 050 preserves source start/duration on every imported Meeting, then
+hands only future planned attendance-free occurrences to live operations. The
+imported wall-clock value is reinterpreted as a real Asia/Ho_Chi_Minh instant,
+the linked Session Unit is moved with it, and one domain-audit event is recorded
+per handoff. Past Meetings and all imported attendance facts are untouched.
 
-#### Scenario: class detail groups learners under their runs
-- **GIVEN** a cohort with course runs and enrolled learners
-- **WHEN** Admin/Coordinator opens the class from the Classes list
-- **THEN** each course run lists its learners with absences/allowed, an
-  eligibility badge (same projection as the Eligibility tab), and level; a run
-  with no enrollments renders an empty roster.
+The reproducible importer is schema-aware: it stages imported Meetings as
+cancelled inside the import transaction, loads their linked Session Units and
+original attendance status, reapplies the correction overlay, then opens final
+planned/completed states. The active-slot uniqueness guard therefore sees only
+corrected clocks; any remaining collision rolls back the complete import.
 
-#### Scenario: unknown class id
-- **WHEN** the detail is requested for a non-existent cohort id
-- **THEN** the request is rejected with **404**.
+## Verification
 
-### Requirement: Exam result records a level, gated by attendance [BR-6, UC-5]
+- Unit: atomic class/PIC/run command, learner-start sequence and capacity
+  guards, Meeting create/reschedule/durable-cancel, delivery notifications,
+  full-roster save, stale token, route permission denial, and DTO ratio mapping.
+- Client: PIC grouping, class detail roster, canonical Schedule/Attendance grid,
+  imported wall-clock conversion, live Meeting instant/duration mapping,
+  evidence filters, inline roster layout, query-tab breadcrumbs, empty-cell
+  creation, and live Meeting move/cancel controls.
+- Prototype: migrations 040–050 present; 27 canonical columns; 2 canonical
+  unique indexes; `eng_audit_events`; no multi-active enrollment/current-PIC or
+  Meeting-link/operational-baseline violations; 14 future imported Meetings are
+  under live control; canonical writes are allowed while imported raw evidence
+  remains guarded.
+- Reconciliation: 52 classes, 52 current PIC assignments, 6 courses, 91 Course
+  Runs, 552 Run Enrollments, 984 Meetings, 984 Session Units and 5,962
+  attendance facts.
 
-Recording an exam result MUST store a single active level per run enrollment and
-MUST reject a learner who is not eligible to sit: a participating enrollment
-(`active`/`completed`) with **at most 2 absences**. The gate is enforced
-server-side. Re-recording updates the active result in place; clearing
-soft-deletes it (history retained). Every write is audited.
+## Known next work
 
-#### Scenario: eligible learner receives a level
-- **GIVEN** a participating enrollment with ≤2 absences and a valid level code
-- **WHEN** HR/Admin `POST`s the exam result
-- **THEN** one active `eng_exam_results` row is stored and the mutation is audited.
-
-#### Scenario: too many absences blocks the exam
-- **GIVEN** an enrollment with 3 absences
-- **WHEN** HR/Admin tries to record a level
-- **THEN** the request is rejected with **422** and no result is written.
-
-#### Scenario: unknown level is rejected
-- **GIVEN** a `levelCode` not present in `eng_levels`
-- **WHEN** HR/Admin tries to record it
-- **THEN** the request is rejected with **400**.
-
-#### Scenario: completed runs surface a "needs level" worklist
-- **GIVEN** a completed course run with eligible learners lacking a level
-- **WHEN** HR/Admin opens the evaluation view
-- **THEN** the run appears in the pending worklist with a count of missing levels.
-
-## Non-Functional Requirements (NFR)
-
-- **NFR-1:** DB constraints enforce the grain (unique emp_code, class_code,
-  course_code, `(cohort,course,run_number)`; FK integrity across all tables).
-- **NFR-2:** Production ships dark unless `ENGLISH_TRAINING_ENABLED=true`; local
-  development enables the module so an imported dev DB is inspectable.
-- **NFR-3:** Import runs against a disposable/prototype DB during development; it is
-  never pointed at an unknown database.
-
-## Acceptance Criteria (AC)
-
-- **AC-1:** Migration 036 creates the 9 tables with inline FK/CHECK/UNIQUE; `up`/`down` reversible.
-- **AC-2:** Reference import reconciles exactly (no dropped row) and records the expected DQ issues.
-- **AC-3:** Transform mappings unit-tested (`tests/unit/english-training-transform.test.js`).
-- **AC-4:** Read endpoints return the documented shapes and enforce Admin/Coordinator.
-- **AC-5:** Migration 037 adds correction overlay/history and DQ resolution state;
-  correction writes are validated, capability-gated, audited, and re-import-safe.
-- **AC-6:** Migration 038 constrains session and attendance grain; Phase-2 reads
-  are Admin/Coordinator + `report.read`, the UI exposes Sessions and Eligibility,
-  and the real workbook reconciles without silent loss.
-- **AC-8:** `GET /overview` returns headline counts in one round-trip; the UI
-  opens on the Overview with actionable needs-attention cards that navigate to
-  Evaluation / Issues, and table status columns render as colored badges.
-- **AC-7:** Migration 039 seeds 13 levels + one-active-result-per-enrollment
-  (partial-unique, soft-delete); exam-result write is `enrollment.manage` +
-  Admin/Coordinator, enforces the ≤2-absence + participating-status gate
-  server-side (422), rejects unknown levels (400), and is audited. The UI exposes
-  an Evaluation tab with the "needs level" worklist and per-learner entry.
-
-## Out of Scope (still "evolving")
-
-Placement test at entry, level promotion/prerequisites across runs, numeric
-scoring / pass-fail / re-sit versioning, certificate issuance (HR external),
-live Teacher attendance entry, separate meetings, make-up credit, transfer
-command, full org-history model, login-account creation, and generic HTTP write
-commands beyond the targeted correction overlay + exam-result entry. The
-**one-active-enrollment** rule is intentionally a **soft/reporting rule** (not a
-DB guard): real data has legitimate concurrent enrollment, flagged via
-`multi_active_enrollment` for review.
+- Port learner transfer/leave intent commands and explicit capacity override.
+- Add the authority model's optional second normal Session Unit and linked
+  make-up replacement-credit workflow.
+- Add assigned-Teacher resource scope before exposing canonical rosters or
+  attendance mutations to Teacher role.

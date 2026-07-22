@@ -6,6 +6,7 @@
 
 const crypto = require('crypto');
 const { getPool, query } = require('../../config/pg');
+const { ServiceError } = require('../../helpers/ServiceError');
 
 const newId = () => crypto.randomBytes(12).toString('hex');
 
@@ -91,6 +92,7 @@ async function withTransaction(fn) {
 async function resetCanonical(client) {
   const order = [
     'eng_data_quality_issues', 'eng_attendance_records', 'eng_session_units',
+    'eng_meetings',
     'eng_cohort_pic', 'eng_run_enrollments',
     'eng_course_runs', 'eng_cohort_memberships', 'eng_employees',
     'eng_cohorts', 'eng_courses',
@@ -201,6 +203,210 @@ async function applyEmployeeCorrections(client) {
   `);
 }
 
+const SESSION_TIME_NATURAL_KEY_SQL =
+  `lower(concat_ws('|', co.class_code, c.course_code, r.run_number, su.session_number))`;
+const COURSE_RUN_NATURAL_KEY_SQL =
+  `lower(concat_ws('|', co.class_code, c.course_code, r.run_number))`;
+
+async function listSessionsForTimeAllocation(client, { lock = false } = {}) {
+  const { rows } = await runner(client)(`
+    SELECT su.id,
+      ${SESSION_TIME_NATURAL_KEY_SQL} AS natural_key,
+      co.class_code,
+      ${COURSE_RUN_NATURAL_KEY_SQL} AS course_run_key,
+      su.session_number,
+      COALESCE(tc.original_held_at, su.held_at) AS held_at
+    FROM eng_session_units su
+    JOIN eng_course_runs r ON r.id = su.course_run_id
+    JOIN eng_cohorts co ON co.id = r.cohort_id
+    JOIN eng_courses c ON c.id = r.course_id
+    LEFT JOIN eng_session_time_corrections tc
+      ON tc.natural_key = ${SESSION_TIME_NATURAL_KEY_SQL}
+    ORDER BY held_at, co.class_code COLLATE "C", c.course_code COLLATE "C",
+      r.run_number, su.session_number
+    ${lock ? 'FOR UPDATE OF su' : ''}`);
+  return rows.map((row) => ({
+    id: row.id,
+    naturalKey: row.natural_key,
+    classCode: row.class_code,
+    courseRunKey: row.course_run_key,
+    sessionNumber: row.session_number,
+    heldAt: row.held_at,
+  }));
+}
+
+async function saveSessionTimeAllocation({ batchId, assignments, summary, reason, correctedBy }, client) {
+  await runner(client)(`
+    INSERT INTO eng_session_time_correction_batches (id, reason, corrected_by, summary)
+    VALUES ($1,$2,$3,$4)
+  `, [batchId, reason, correctedBy, JSON.stringify(summary)]);
+
+  const changed = assignments.filter((row) => row.changedTime);
+  if (changed.length) {
+    await runner(client)(`
+      INSERT INTO eng_session_time_corrections (
+        natural_key, class_code, course_run_key, session_number,
+        original_held_at, corrected_held_at, slot_label, moved_date,
+        reason, corrected_by, batch_id
+      )
+      SELECT x.natural_key, x.class_code, x.course_run_key, x.session_number,
+        x.original_held_at, x.corrected_held_at, x.slot_label, x.moved_date,
+        $2, $3, $4
+      FROM jsonb_to_recordset($1::jsonb) AS x(
+        natural_key text, class_code text, course_run_key text, session_number integer,
+        original_held_at timestamptz, corrected_held_at timestamptz,
+        slot_label text, moved_date boolean
+      )
+      ON CONFLICT (natural_key) DO UPDATE SET
+        class_code = EXCLUDED.class_code,
+        course_run_key = EXCLUDED.course_run_key,
+        session_number = EXCLUDED.session_number,
+        corrected_held_at = EXCLUDED.corrected_held_at,
+        slot_label = EXCLUDED.slot_label,
+        moved_date = EXCLUDED.moved_date,
+        reason = EXCLUDED.reason,
+        corrected_by = EXCLUDED.corrected_by,
+        batch_id = EXCLUDED.batch_id,
+        updated_at = NOW()
+    `, [JSON.stringify(changed.map((row) => ({
+      natural_key: row.naturalKey,
+      class_code: row.classCode,
+      course_run_key: row.courseRunKey,
+      session_number: row.sessionNumber,
+      original_held_at: row.originalHeldAt,
+      corrected_held_at: row.assignedStartAt,
+      slot_label: row.slotLabel,
+      moved_date: row.movedDate,
+    }))), reason, correctedBy, batchId]);
+  }
+
+  const { rowCount } = await runner(client)(`
+    WITH planned AS (
+      SELECT * FROM jsonb_to_recordset($1::jsonb) AS x(
+        id text, original_held_at timestamptz, corrected_held_at timestamptz,
+        assigned_end_at timestamptz, slot_label text, moved_date boolean
+      )
+    )
+    UPDATE eng_session_units su SET
+      held_at = planned.corrected_held_at,
+      status = CASE
+        WHEN su.status = 'cancelled' THEN su.status
+        WHEN planned.corrected_held_at > NOW() THEN 'scheduled'
+        ELSE 'held'
+      END,
+      meta = COALESCE(su.meta, '{}'::jsonb) || jsonb_build_object(
+        'timeCorrection', jsonb_build_object(
+          'originalHeldAt', planned.original_held_at,
+          'correctedHeldAt', planned.corrected_held_at,
+          'assignedEndAt', planned.assigned_end_at,
+          'slotLabel', planned.slot_label,
+          'movedDate', planned.moved_date,
+          'batchId', $2::text
+        )
+      ),
+      updated_at = NOW()
+    FROM planned
+    WHERE su.id = planned.id
+  `, [JSON.stringify(assignments.map((row) => ({
+    id: row.id,
+    original_held_at: row.originalHeldAt,
+    corrected_held_at: row.assignedStartAt,
+    assigned_end_at: row.assignedEndAt,
+    slot_label: row.slotLabel,
+    moved_date: row.movedDate,
+  }))), batchId]);
+  return { updatedSessions: rowCount, persistedCorrections: changed.length };
+}
+
+async function verifySessionTimeAllocation(assignments, client) {
+  const { rows } = await runner(client)(`
+    WITH planned AS (
+      SELECT * FROM jsonb_to_recordset($1::jsonb) AS x(id text, corrected_held_at timestamptz)
+    ), actual AS (
+      SELECT su.id, su.held_at, r.cohort_id, co.class_code
+      FROM eng_session_units su
+      JOIN eng_course_runs r ON r.id = su.course_run_id
+      JOIN eng_cohorts co ON co.id = r.cohort_id
+    ), overlap_rows AS (
+      SELECT date_trunc('minute', held_at AT TIME ZONE 'UTC')
+      FROM actual GROUP BY 1 HAVING count(*) > 1
+    ), duplicate_class_dates AS (
+      SELECT class_code, (held_at AT TIME ZONE 'UTC')::date
+      FROM actual GROUP BY 1,2 HAVING count(*) > 1
+    )
+    SELECT
+      (SELECT count(*)::int FROM actual) AS total,
+      (SELECT count(*)::int FROM planned p
+        LEFT JOIN actual a ON a.id = p.id
+        WHERE a.id IS NULL OR a.held_at <> p.corrected_held_at) AS mismatches,
+      (SELECT count(*)::int FROM overlap_rows) AS overlaps,
+      (SELECT count(*)::int FROM duplicate_class_dates) AS class_date_duplicates
+  `, [JSON.stringify(assignments.map((row) => ({
+    id: row.id,
+    corrected_held_at: row.assignedStartAt,
+  })))]);
+  const result = rows[0];
+  return {
+    total: result.total,
+    mismatches: result.mismatches,
+    overlaps: result.overlaps,
+    classDateDuplicates: result.class_date_duplicates,
+  };
+}
+
+async function applySessionTimeCorrections(client) {
+  const { rowCount } = await runner(client)(`
+    UPDATE eng_session_units su SET
+      held_at = tc.corrected_held_at,
+      status = CASE
+        WHEN su.status = 'cancelled' THEN su.status
+        WHEN tc.corrected_held_at > NOW() THEN 'scheduled'
+        ELSE 'held'
+      END,
+      meta = COALESCE(su.meta, '{}'::jsonb) || jsonb_build_object(
+        'timeCorrection', jsonb_build_object(
+          'originalHeldAt', tc.original_held_at,
+          'correctedHeldAt', tc.corrected_held_at,
+          'slotLabel', tc.slot_label,
+          'movedDate', tc.moved_date,
+          'batchId', tc.batch_id
+        )
+      ),
+      updated_at = NOW()
+    FROM eng_course_runs r, eng_cohorts co, eng_courses c, eng_session_time_corrections tc
+    WHERE su.course_run_id = r.id
+      AND co.id = r.cohort_id
+      AND c.id = r.course_id
+      AND tc.natural_key = lower(concat_ws('|', co.class_code, c.course_code, r.run_number, su.session_number))
+  `);
+  return rowCount;
+}
+
+// Imported Meetings are inserted as cancelled staging rows so the active-slot
+// uniqueness guard cannot observe pre-correction workbook clocks. After every
+// correction overlay is applied, open their final lifecycle state in one SQL
+// statement. Any remaining slot collision aborts the whole import transaction.
+async function finalizeImportedMeetings(client) {
+  const { rowCount } = await runner(client)(`
+    UPDATE eng_meetings m SET
+      starts_at = su.held_at,
+      status = CASE su.status
+        WHEN 'cancelled' THEN 'cancelled'
+        WHEN 'held' THEN 'completed'
+        ELSE 'planned'
+      END,
+      cancellation_reason = CASE
+        WHEN su.status = 'cancelled' THEN 'Imported cancellation'
+        ELSE NULL
+      END,
+      updated_at = NOW()
+    FROM eng_session_units su
+    WHERE su.meeting_id = m.id
+      AND m.meta->>'source' = 'imported'
+  `);
+  return rowCount;
+}
+
 // ── Phase 3: exam result & level (evaluation) ───────────────────────────────
 
 async function getLevelByCode(code, client) {
@@ -217,8 +423,16 @@ async function getLevelByCode(code, client) {
 async function getEnrollmentForExam(enrollmentId, client) {
   const { rows } = await runner(client)(`
     SELECT en.id, en.status AS enrollment_status, r.status AS run_status,
+      r.attendance_threshold_ratio_snapshot,
       (SELECT count(*) FROM eng_attendance_records ar
-        WHERE ar.run_enrollment_id = en.id AND ar.status = 'absent')::int AS absence_count
+        WHERE ar.run_enrollment_id = en.id)::int AS marked_count,
+      (SELECT count(*) FROM eng_attendance_records ar
+        WHERE ar.run_enrollment_id = en.id AND ar.status = 'present')::int AS present_count,
+      (SELECT count(*) FROM eng_attendance_records ar
+        WHERE ar.run_enrollment_id = en.id AND ar.status = 'absent')::int AS absence_count,
+      (SELECT count(*) FILTER (WHERE ar.status = 'present')::numeric / nullif(count(*), 0)
+        FROM eng_attendance_records ar
+        WHERE ar.run_enrollment_id = en.id) AS attendance_ratio
     FROM eng_run_enrollments en
     JOIN eng_course_runs r ON r.id = en.course_run_id
     WHERE en.id = $1
@@ -259,11 +473,132 @@ async function softDeleteActiveExamResult(enrollmentId, client) {
   return rows[0] || null;
 }
 
+const archiveState = (row) => ({
+  isFrozen: Boolean(row?.is_frozen),
+  cutoverAt: row?.cutover_at || null,
+  frozenBy: row?.frozen_by || null,
+  reason: row?.reason || null,
+});
+
+async function getArchiveState(client) {
+  const { rows } = await runner(client)(
+    'SELECT * FROM english_archive_control WHERE singleton = true',
+  );
+  return archiveState(rows[0]);
+}
+
+async function assertArchiveWritable(client) {
+  const state = await getArchiveState(client);
+  if (state.isFrozen) {
+    throw new ServiceError('English archive is read-only after live cutover', 409);
+  }
+  return state;
+}
+
+async function freezeArchive({ actorId, reason }) {
+  return withTransaction(async (client) => {
+    const { rows: locked } = await client.query(
+      'SELECT * FROM english_archive_control WHERE singleton = true FOR UPDATE',
+    );
+    if (locked[0]?.is_frozen) return { changed: false, state: archiveState(locked[0]) };
+    const { rows } = await client.query(`
+      UPDATE english_archive_control SET
+        is_frozen = true, cutover_at = now(), frozen_by = $1, reason = $2, updated_at = now()
+      WHERE singleton = true AND is_frozen = false
+      RETURNING *`, [actorId == null ? null : String(actorId), reason]);
+    return { changed: true, state: archiveState(rows[0]) };
+  });
+}
+
+async function listArchiveAttendanceHistory() {
+  const { rows } = await query(`
+    SELECT 'archive' AS source, ar.id AS source_identity, e.emp_code,
+      c.course_code AS program_code, co.class_code AS english_group_code,
+      concat(co.class_code, ':', c.course_code, ':', r.run_number) AS cohort_run_code,
+      su.session_number, su.held_at AS event_date,
+      CASE ar.status WHEN 'present' THEN 'P' WHEN 'absent' THEN 'A' ELSE ar.status END AS attendance_status,
+      lower(concat_ws('|', e.emp_code, c.course_code, co.class_code, r.run_number, su.session_number)) AS natural_key
+    FROM eng_attendance_records ar
+    JOIN eng_session_units su ON su.id = ar.session_unit_id
+    JOIN eng_run_enrollments en ON en.id = ar.run_enrollment_id
+    JOIN eng_employees e ON e.id = en.employee_id
+    JOIN eng_course_runs r ON r.id = en.course_run_id
+    JOIN eng_courses c ON c.id = r.course_id
+    JOIN eng_cohorts co ON co.id = r.cohort_id
+    ORDER BY su.held_at, e.emp_code COLLATE "C"
+    LIMIT 20000`);
+  return rows;
+}
+
+async function listLiveAttendanceHistory() {
+  const { rows } = await query(`
+    SELECT 'live' AS source, a.id AS source_identity, u.emp_code,
+      p.code AS program_code, coalesce(cl.english_group_code, cl.class_code) AS english_group_code,
+      cl.class_code AS cohort_run_code, ordered.session_number, s.start_time AS event_date,
+      a.status AS attendance_status,
+      lower(concat_ws('|', u.emp_code, p.code, coalesce(cl.english_group_code, cl.class_code), cl.class_code, ordered.session_number)) AS natural_key
+    FROM attendances a
+    JOIN schedules s ON s.id = a.schedule_id
+    JOIN classes cl ON cl.id = s.class_id AND cl.is_deleted = false
+    JOIN learning_programs p ON p.id = cl.program_id AND p.category = 'english'
+    JOIN users u ON u.id = a.user_id AND u.is_deleted = false
+    JOIN LATERAL (
+      SELECT numbered.session_number FROM (
+        SELECT sx.id, row_number() OVER (ORDER BY sx.start_time, sx.id)::int AS session_number
+        FROM schedules sx WHERE sx.class_id = cl.id AND sx.status <> 'cancelled'
+      ) numbered WHERE numbered.id = s.id
+    ) ordered ON true
+    ORDER BY s.start_time, u.emp_code COLLATE "C"
+    LIMIT 20000`);
+  return rows;
+}
+
+async function listArchiveEvaluationHistory() {
+  const { rows } = await query(`
+    SELECT 'archive' AS source, xr.id AS source_identity, e.emp_code,
+      c.course_code AS program_code, co.class_code AS english_group_code,
+      concat(co.class_code, ':', c.course_code, ':', r.run_number) AS cohort_run_code,
+      xr.exam_date::timestamptz AS event_date, xr.level_code,
+      lower(concat_ws('|', e.emp_code, c.course_code, co.class_code, r.run_number, 'level')) AS natural_key
+    FROM eng_exam_results xr
+    JOIN eng_run_enrollments en ON en.id = xr.run_enrollment_id
+    JOIN eng_employees e ON e.id = en.employee_id
+    JOIN eng_course_runs r ON r.id = en.course_run_id
+    JOIN eng_courses c ON c.id = r.course_id
+    JOIN eng_cohorts co ON co.id = r.cohort_id
+    WHERE xr.is_deleted = false
+    ORDER BY xr.exam_date, e.emp_code COLLATE "C"
+    LIMIT 20000`);
+  return rows;
+}
+
+async function listLiveEvaluationHistory() {
+  const { rows } = await query(`
+    SELECT 'live' AS source, ev.id AS source_identity, u.emp_code,
+      p.code AS program_code, coalesce(cl.english_group_code, cl.class_code) AS english_group_code,
+      cl.class_code AS cohort_run_code, coalesce(ev.evaluated_at, ev.updated_at) AS event_date,
+      ev.level_code,
+      lower(concat_ws('|', u.emp_code, p.code, coalesce(cl.english_group_code, cl.class_code), cl.class_code, 'level')) AS natural_key
+    FROM evaluations ev
+    JOIN classes cl ON cl.id = ev.class_id AND cl.is_deleted = false
+    JOIN learning_programs p ON p.id = cl.program_id AND p.category = 'english'
+    JOIN users u ON u.id = ev.user_id AND u.is_deleted = false
+    WHERE ev.is_deleted = false AND ev.result_kind = 'english_level'
+    ORDER BY coalesce(ev.evaluated_at, ev.updated_at), u.emp_code COLLATE "C"
+    LIMIT 20000`);
+  return rows;
+}
+
 module.exports = {
   newId, insert, insertMany, stageRaw, recordIssue, count, withTransaction, resetCanonical, query,
   findEmployeeForCorrection, getEmployeeCorrection, saveEmployeeCorrection,
   backfillUnknownEnrollmentSnapshots, resolveEmployeeIssues,
   recordEmployeeCorrectionHistory, applyEmployeeCorrections,
+  listSessionsForTimeAllocation, saveSessionTimeAllocation,
+  verifySessionTimeAllocation, applySessionTimeCorrections, finalizeImportedMeetings,
   getLevelByCode, getEnrollmentForExam, getActiveExamResult,
   upsertExamResult, softDeleteActiveExamResult,
+  getArchiveState, assertArchiveWritable, freezeArchive,
+  listArchiveAttendanceHistory, listLiveAttendanceHistory,
+  listArchiveEvaluationHistory, listLiveEvaluationHistory,
 };

@@ -64,6 +64,7 @@ const programRow = (r) => (r == null ? null : {
   capacityPolicy: r.capacity_policy || D_CAPACITY,
   facilitatorPolicy: r.facilitator_policy || D_FACILITATOR,
   recertifyPolicy: r.recertify_policy || D_RECERTIFY,
+  englishPolicy: r.english_policy || null,
   customFields: r.custom_fields || {},
   prerequisitePrograms: (r.prerequisite_programs || []).map(String),
   status: r.status, legacyCourseName: r.legacy_course_name || '',
@@ -80,6 +81,11 @@ const cohortRow = (c, ...rest) => {
     totalSessions: c.total_sessions == null ? null : Number(c.total_sessions),
     status: c.status, customFields: c.custom_fields || {},
     teacherIds: (c.teacher_ids || []).map(String),
+    englishGroupCode: c.english_group_code || null,
+    englishPolicySnapshot: c.english_policy_snapshot || null,
+    englishPicDisplay: c.english_pic_display || '',
+    startDate: c.start_date || null,
+    endDate: c.end_date || null,
     createdAt: c.created_at, updatedAt: c.updated_at,
   };
 };
@@ -101,6 +107,7 @@ const PROGRAM_COL = {
   defaultSessionCount: 'default_session_count', deliveryMode: 'delivery_mode', schedulingMode: 'scheduling_mode',
   completionPolicy: 'completion_policy', certificateValidityDays: 'certificate_validity_days',
   capacityPolicy: 'capacity_policy', facilitatorPolicy: 'facilitator_policy', recertifyPolicy: 'recertify_policy',
+  englishPolicy: 'english_policy',
   customFields: 'custom_fields', prerequisitePrograms: 'prerequisite_programs', status: 'status', legacyCourseName: 'legacy_course_name',
 };
 const POLICY_DEFAULT = { completionPolicy: D_COMPLETION, capacityPolicy: D_CAPACITY, facilitatorPolicy: D_FACILITATOR, recertifyPolicy: D_RECERTIFY };
@@ -109,12 +116,14 @@ const progVal = (k, v) => {
   if (k === 'name' || k === 'description' || k === 'legacyCourseName') return v == null ? v : String(v).trim();
   if (POLICY_DEFAULT[k]) return JSON.stringify({ ...POLICY_DEFAULT[k], ...(v || {}) });
   if (k === 'customFields') return JSON.stringify(v || {});
+  if (k === 'englishPolicy') return v == null ? null : JSON.stringify(v);
   if (k === 'prerequisitePrograms') return (v || []).map(String);
   return v;
 };
 const PROGRAM_INSERT_DEFAULT = {
   description: '', category: 'other', defaultSessionCount: 1, deliveryMode: 'online', schedulingMode: 'admin_scheduled',
   completionPolicy: {}, capacityPolicy: {}, facilitatorPolicy: {}, recertifyPolicy: {}, customFields: {},
+  englishPolicy: null,
   prerequisitePrograms: [], status: 'active', legacyCourseName: '', code: null, certificateValidityDays: null,
 };
 
@@ -145,6 +154,7 @@ const findPrograms = (filter = {}) => chainable(async () => {
   const args = [];
   if (filter.status) { args.push(filter.status); conds.push(`status = $${args.length}`); }
   if (filter.category) { args.push(filter.category); conds.push(`category = $${args.length}`); }
+  if (filter.liveEnglish) conds.push('english_policy IS NOT NULL');
   const where = conds.length ? `WHERE ${conds.join(' AND ')}` : '';
   const { rows } = await query(`SELECT * FROM learning_programs ${where}`, args);
   return rows.map(programRow).sort((a, b) => cmp(a.category, b.category) || cmp(a.name, b.name));
@@ -169,9 +179,12 @@ const findProgramByLegacyCourseName = async (legacyCourseName) => {
 const CLASS_COL = {
   classCode: 'class_code', courseName: 'course_name', programId: 'program_id', totalSessions: 'total_sessions',
   status: 'status', customFields: 'custom_fields', teacherIds: 'teacher_ids', isDeleted: 'is_deleted', deletedAt: 'deleted_at',
+  englishGroupCode: 'english_group_code', englishPolicySnapshot: 'english_policy_snapshot',
+  englishPicDisplay: 'english_pic_display', startDate: 'start_date', endDate: 'end_date',
 };
 const classVal = (k, v) => {
   if (k === 'customFields') return JSON.stringify(v || {});
+  if (k === 'englishPolicySnapshot') return v == null ? null : JSON.stringify(v);
   if (k === 'teacherIds') return (v || []).map(String);
   if (k === 'programId') return v == null ? null : String(v);
   return v;
@@ -179,14 +192,20 @@ const classVal = (k, v) => {
 
 const createCohort = async (payload) => {
   const { rows } = await query(
-    `INSERT INTO classes(id,class_code,course_name,program_id,total_sessions,status,custom_fields,teacher_ids)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING *`,
+    `INSERT INTO classes(id,class_code,course_name,program_id,total_sessions,status,custom_fields,teacher_ids,
+                         english_group_code,english_policy_snapshot,english_pic_display,start_date,end_date)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13) RETURNING *`,
     [
       newId(), payload.classCode, payload.courseName == null ? null : payload.courseName,
       payload.programId == null ? null : String(payload.programId),
       payload.totalSessions == null ? null : payload.totalSessions,
       payload.status == null ? 'Ongoing' : payload.status,
       JSON.stringify(payload.customFields || {}), (payload.teacherIds || []).map(String),
+      payload.englishGroupCode || null,
+      payload.englishPolicySnapshot == null ? null : JSON.stringify(payload.englishPolicySnapshot),
+      payload.englishPicDisplay || null,
+      payload.startDate || null,
+      payload.endDate || null,
     ],
   );
   return cohortRow(rows[0]); // un-populated (raw program_id), matching Class.create
@@ -205,12 +224,15 @@ const updateCohortById = async (id, update) => {
 };
 
 const findCohorts = (filter = {}) => chainable(async () => {
-  const conds = ['is_deleted = false'];
+  const conds = ['c.is_deleted = false'];
   const args = [];
-  if (filter.status) { args.push(filter.status); conds.push(`status = $${args.length}`); }
-  if (filter.programId) { args.push(String(filter.programId)); conds.push(`program_id = $${args.length}`); }
+  if (filter.status) { args.push(filter.status); conds.push(`c.status = $${args.length}`); }
+  if (filter.programId) { args.push(String(filter.programId)); conds.push(`c.program_id = $${args.length}`); }
+  if (filter.category) { args.push(filter.category); conds.push(`p.category = $${args.length}`); }
+  if (filter.liveEnglish) conds.push('c.english_policy_snapshot IS NOT NULL AND c.english_group_code IS NOT NULL');
   const { rows } = await query(
-    `SELECT * FROM classes WHERE ${conds.join(' AND ')} ORDER BY class_code ASC, course_name ASC`, args);
+    `SELECT c.* FROM classes c LEFT JOIN learning_programs p ON p.id = c.program_id
+      WHERE ${conds.join(' AND ')} ORDER BY c.class_code ASC, c.course_name ASC`, args);
   return embedPrograms(rows);
 });
 

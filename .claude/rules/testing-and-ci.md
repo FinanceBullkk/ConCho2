@@ -1,41 +1,114 @@
-# Testing & CI
+# Testing and CI
 
-## Run tests
+Testing must prove the changed user outcome at the closest real seam. A large
+number of passing shallow tests is not evidence that an end-to-end workflow or
+layout works.
+
+## Verification ladder
+
+Run these in order. Keep the first loop narrow and fast; broaden it only after
+the target signal is green.
+
+1. **Regression signal** — the smallest test/probe that reproduces the exact
+   bug or acceptance example. For a bug, see it fail before the fix.
+2. **Affected tests** — nearby client/server suites for the changed domain.
+3. **Integration path** — real route, authorization, transaction, audit, and
+   database behavior for mutations.
+4. **Browser path** — the complete changed user interaction against a real
+   seeded/local backend.
+5. **Repository gates** — applicable full suites, lint, build, and diff check.
+
+Do not replace a missing higher-level check with more lower-level tests.
+
+## Common commands
+
 ```bash
-cd server && npm test            # Jest + Supertest + mongodb-memory-server (--runInBand)
-cd client && npm run test:run    # Vitest + React Testing Library
-cd client && npm run test:e2e    # Playwright (needs seeded backend + Mongo replica set)
-cd client && npm run test:coverage
-cd server && npm run test:smoke  # Artillery load (also :load, :spike)
+cd server && npm test
+cd client && npm run test:run
+cd client && npm run lint
+cd client && npm run build
+cd client && npm run test:e2e
+git diff --check
 ```
-Server tests need env `NODE_ENV=test` and a dummy `JWT_SECRET` (required at boot).
 
-## CI gates — ALL required to merge (`.github/workflows/ci.yml`) — 7 gates
-1. **client-tests** — Vitest unit + hook suite
-2. **client-build** — `vite build` must compile clean
-3. **client-lint** — eslint with ratchet cap
-4. **secrets-scan** — gitleaks (fails on any secret pattern)
-5. **audit** — `npm audit` high+ (prod deps on server, full on client)
-6. **e2e-tests** — Playwright against a real seeded backend on Postgres (slowest, ~5–10 min)
-7. **server-tests-pg** — the FULL Jest suite on the Postgres backend (`DB_BACKEND=postgres`), zero exclusions — the **sole server-test gate**. Promoted from informational to REQUIRED (Wave G, 2026-07-07) after the GATED schedule roster-sync/waitlist cluster closed; Wave-F PR-2 (attendance-export dual-backend port) then closed `p2-regression` and the temporary exclusion was dropped. The Mongo `server-tests` lane (Jest on `mongodb-memory-server`, `DB_BACKEND=mongo`) was **retired 2026-07-10** (Wave K Phase 2 Batch C) once prod cut over to PG and Atlas was cancelled — it only exercised now-dead Mongo repos. NOTE: the Jest harness still starts `mongodb-memory-server` to author fixtures (via `tests/pg-auto-mirror`); dropping `mongoose` needs the fixture-layer decouple (remaining Wave K work, Batch D).
+Server tests require a PostgreSQL test connection, `NODE_ENV=test`, and a dummy
+`JWT_SECRET`. Playwright uses `client/playwright.config.js`, starts the Vite
+client, and expects the seeded API server to be available. Install its browser
+once with `cd client && npx playwright install chromium`.
 
-### Merge discipline (QA-012 — gates are NOT machine-enforced)
-GitHub branch protection is unavailable on this repo (private repo, Free plan), so
-"required" above is **procedural, not enforced** — GitHub will let a red PR merge.
-Therefore, for humans AND agents:
-- **Never `gh pr merge` until `gh pr checks <n>` shows every gate green.** No exceptions;
-  a red/pending gate means wait, fix, or escalate to the owner.
-- Never push directly to `main`; all changes go through a PR so the gates run at all.
+If Playwright cannot launch, resolve the missing browser/runtime first. Until
+then, report a user-facing change as **UI verification blocked**, not ready.
 
-## ESLint ratchet (critical rule)
-`client/package.json` runs `eslint . --max-warnings <cap>`. **Current cap = 63.**
-- The cap may only go DOWN as warnings are fixed, **never UP**. PR review rejects any increase.
-- `client/eslint.config.js` documents the policy + history (its header comment may lag the actual cap — package.json is source of truth).
-- Hard errors (always block, no ratchet): `no-undef`, `no-unused-vars`, `react-hooks/rules-of-hooks`, `react-hooks/exhaustive-deps` (promoted to a REAL `error` in audit round 6 / QA-013 — it was silently `warn` before).
+## Choosing the correct seam
 
-## Test discipline
-- Tests verify the FINAL merged code. Don't skip, `.skip`, or weaken assertions just to go green.
-- No fake data / mocks-as-shortcuts to fake a pass — exercise real code paths.
-- Fix failing tests for real; re-run until genuinely passing before pushing.
-- New backend domains/use-cases should ship with integration tests (`server/tests/integration/`).
-- **Time-dependent tests must freeze the clock.** Any test whose subject compares a date to "now" (min-date gates, expiry/overdue, upcoming filters) must pin the clock (`vi.setSystemTime(...)` / Jest fake timers) instead of relying on the real wall clock — otherwise a hardcoded near-future date rots into a past date and the test fails by calendar (see `CreateSessionModal.test.jsx`). Fake only `Date` (`vi.useFakeTimers({ toFake: ['Date'] })`) so `userEvent` timers keep working; restore with `vi.useRealTimers()`.
+| Change | Minimum regression evidence |
+|---|---|
+| Pure function or formatter | Unit test |
+| Isolated component rendering/state | React Testing Library interaction test |
+| API read | Route/integration test using real authorization and repository path |
+| Mutation | Integration test for success, denial, core edge case, audit, and transaction |
+| User workflow across UI/API | Playwright flow that completes the interaction and verifies persisted result |
+| Responsive/layout behavior | Browser assertions/screenshots at required viewports with drawer/modal states |
+| Migration/import | Disposable-DB rehearsal with before/after counts, invariants, and rollback check |
+
+A test must assert the requested outcome. Opening a form does not prove that its
+save, edit, reschedule, cancel, notification, or persistence behavior works.
+
+## Browser verification standard
+
+For user-facing changes:
+
+- use the real route and representative data;
+- exercise the changed interaction from entrypoint through success/error state;
+- check 1440×900 and 1280×800 desktop viewports;
+- check 390×844 for responsive/mobile-accessible surfaces;
+- inspect empty, loading, populated, and error states when applicable;
+- open and close affected drawers/modals;
+- verify no accidental horizontal page scroll, clipped controls, hidden columns,
+  overlapping layers, or unreachable actions;
+- check browser console errors and failed API requests;
+- compare against the named reference UI when the task requires parity.
+
+Capture a screenshot or trace for a visual regression or reference-parity task.
+Human acceptance is the final product check, not the first time the changed UI
+is exercised.
+
+## Data and time discipline
+
+- Time-dependent tests must freeze the clock with `vi.setSystemTime(...)` or
+  Jest fake timers. Fake only `Date` when `userEvent` timers need to remain real.
+- Migrations/imports run on a disposable database before an active environment.
+- Record relevant row counts and invariants before and after the operation.
+- Preserve raw/source evidence; test rollback or a compensating recovery path.
+- Never infer attendance, enrollment, ownership, or status without a documented
+  business rule and an explicit acceptance example.
+
+## Test integrity
+
+- Tests verify final merged code. Never skip, weaken, or mock away the behavior
+  merely to obtain a green result.
+- New backend domains/use-cases ship with integration coverage.
+- Re-run the original unminimized scenario after the regression test passes.
+- Remove temporary instrumentation and test artifacts before commit.
+
+## CI gates
+
+All seven jobs in `.github/workflows/ci.yml` must be green before a change is
+called **Done**:
+
+1. `client-tests` — Vitest unit and hook suite.
+2. `client-build` — Vite production build.
+3. `client-lint` — ESLint ratchet; the warning cap may only decrease.
+4. `secrets-scan` — gitleaks and explicit `.env` tracking guard.
+5. `audit` — high+ dependency audit.
+6. `e2e-tests` — Playwright against seeded PostgreSQL and the real app.
+7. `server-tests-pg` — full Jest suite on PostgreSQL, zero exclusions.
+
+Branch protection is procedural on this repository. Never merge while a gate is
+red or pending; verify with `gh pr checks <number>`.
+
+## Evidence in the handoff
+
+Report exact commands/results, browser routes/interactions/viewports, data
+invariants, and any blocked check. “Tests pass” without naming which tests and
+“looks good” without a browser scenario are not sufficient evidence.

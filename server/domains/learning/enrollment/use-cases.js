@@ -9,11 +9,11 @@ const sameId = (a, b) => a && b && a.toString() === b.toString();
 //   - Admin may enroll any learner.
 //   - A non-admin may only enroll themselves, and only when the cohort's
 //     program is self-enroll (schedulingMode === 'self_enroll').
-const enroll = async ({ cohortId, userId }, actor) => {
+const enroll = async ({ cohortId, userId, startSessionNumber }, actor) => {
   const targetUserId = userId || actor._id.toString();
   const isSelf = sameId(targetUserId, actor._id);
 
-  if (actor.role !== 'Admin') {
+  if (!['Admin', 'Coordinator'].includes(actor.role)) {
     if (!isSelf) {
       throw new ServiceError('Not authorized to enroll another learner', 403);
     }
@@ -26,6 +26,9 @@ const enroll = async ({ cohortId, userId }, actor) => {
   const cohort = await repository.findCohort(cohortId);
   if (!cohort || cohort.isDeleted) {
     throw new ServiceError('Cohort not found', 404);
+  }
+  if (startSessionNumber != null && cohort.totalSessions != null && startSessionNumber > cohort.totalSessions) {
+    throw new ServiceError('startSessionNumber cannot exceed the cohort session count', 400);
   }
 
   const existing = await repository.findActiveCohortEnrollment(targetUserId, cohortId);
@@ -51,13 +54,18 @@ const enroll = async ({ cohortId, userId }, actor) => {
   }
 
   // Prerequisite gating applies to self-enrollment; Admins may override.
-  if (actor.role !== 'Admin') {
+  if (!['Admin', 'Coordinator'].includes(actor.role)) {
     await assertPrerequisitesMet(cohort, targetUserId);
   }
 
   let enrollment;
   try {
-    enrollment = await writes.createActiveEnrollment({ userId: targetUserId, classId: cohortId, teamId: null });
+    enrollment = await writes.createActiveEnrollment({
+      userId: targetUserId,
+      classId: cohortId,
+      teamId: null,
+      startSessionNumber,
+    });
   } catch (error) {
     // Lost a concurrent race against the partial unique index (DI-05b): the
     // app-level check above passed for both callers, only one insert wins.
@@ -81,7 +89,7 @@ const withdraw = async (id, actor) => {
   if (!before) {
     throw new ServiceError('Cohort enrollment not found', 404);
   }
-  if (actor.role !== 'Admin' && !sameId(before.userId, actor._id)) {
+  if (!['Admin', 'Coordinator'].includes(actor.role) && !sameId(before.userId, actor._id)) {
     throw new ServiceError('Not authorized to withdraw this enrollment', 403);
   }
   if (before.status !== 'Active') {
@@ -91,7 +99,15 @@ const withdraw = async (id, actor) => {
   return { before, after };
 };
 
-const list = ({ cohortId, learnerId }, actor) => {
+const list = async ({ cohortId, learnerId }, actor) => {
+  if (actor.role === 'Teacher' && cohortId) {
+    const cohort = await repository.findCohort(cohortId);
+    if (!cohort) throw new ServiceError('Cohort not found', 404);
+    if (cohort.programCategory === 'english'
+      && !cohort.teacherIds.some((teacherId) => sameId(teacherId, actor._id))) {
+      throw new ServiceError('You are not assigned to this English course run', 403);
+    }
+  }
   // Participants only ever see their own enrollments.
   const scopedLearner = actor.role === 'Participant' ? actor._id.toString() : learnerId;
   return repository.listCohortEnrollments({ cohortId, learnerId: scopedLearner });
@@ -109,10 +125,13 @@ const getMyEnrollments = (actor) =>
 // failing the whole batch. Admin-only at the route (`enrollment.manage`), so no
 // self-enroll / prerequisite gating applies (Admins override prerequisites, same
 // as single enroll). Cohort + capacity policy are fetched ONCE, not per learner.
-const bulkEnroll = async ({ cohortId, userIds }, actor) => {
+const bulkEnroll = async ({ cohortId, userIds, startSessionNumber }, actor) => {
   const cohort = await repository.findCohort(cohortId);
   if (!cohort || cohort.isDeleted) {
     throw new ServiceError('Cohort not found', 404);
+  }
+  if (startSessionNumber != null && cohort.totalSessions != null && startSessionNumber > cohort.totalSessions) {
+    throw new ServiceError('startSessionNumber cannot exceed the cohort session count', 400);
   }
 
   const { maxParticipants } = await repository.findCohortCapacityPolicy(cohortId);
@@ -137,7 +156,12 @@ const bulkEnroll = async ({ cohortId, userIds }, actor) => {
       continue;
     }
     try {
-      const enrollment = await writes.createActiveEnrollment({ userId, classId: cohortId, teamId: null });
+      const enrollment = await writes.createActiveEnrollment({
+        userId,
+        classId: cohortId,
+        teamId: null,
+        startSessionNumber,
+      });
       enrolled.push(enrollment);
       activeCount += 1;
       // Admin-initiated (never self) → emit; the notification subscriber writes

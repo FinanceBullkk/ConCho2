@@ -2,7 +2,7 @@
 capability: attendance
 status: stable
 owners: [domains/attendance, models/Attendance]
-last_updated: 2026-06-15
+last_updated: 2026-07-19
 related_code:
   - server/domains/attendance
   - server/services/attendanceService.js
@@ -164,6 +164,25 @@ invalidated.
 
 The system SHALL let an authenticated participant read their own attendance
 statistics.
+
+### Requirement: Canonical English attendance evidence
+
+English attendance belongs to the canonical English module, not shared generic
+Attendance rows. The current grid reads `eng_session_units` and
+`eng_attendance_records` directly and exposes only Present/Absent. Imported
+cells and rosters MUST be visibly read-only: marks may be inspected, missing
+marks remain visible as unmarked, and bulk mark/save controls are absent.
+
+Eligibility uses the Course Run's snapshotted attendance ratio (default 80%),
+not a blanket absence-count allowance. The next write slice must port the
+authority model's Meeting/Session-Unit separation, event-time applicability,
+and atomic full-roster save before English editing is enabled.
+
+#### Scenario: historical roster is inspected safely
+- **GIVEN** an imported canonical English session with attendance records
+- **WHEN** Admin/Coordinator selects it from the weekly grid
+- **THEN** its roster and marks are shown, all mutation controls are locked, and
+  canonical attendance storage does not change.
 
 ## Non-Functional Requirements (NFR)
 

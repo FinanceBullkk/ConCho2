@@ -12,12 +12,19 @@ import EvaluationView from './EvaluationView';
 import OverviewPanel from './OverviewPanel';
 import ClassDetailView from './ClassDetailView';
 import { EngBadge } from './eng-status-badge';
+import { formatEnglishArchiveDateTime } from './archive-time';
 
-const tabs = ['overview', 'classes', 'courses', 'employees', 'sessions', 'eligibility', 'evaluation', 'issues'];
+const editableTabs = ['overview', 'classes', 'courses', 'employees', 'sessions', 'eligibility', 'evaluation', 'issues'];
+const archiveTabs = ['classes', 'courses', 'employees', 'sessions', 'eligibility', 'issues'];
 
 // Status columns get a colored pill instead of raw text so the tables read at a glance.
 const BADGE_KEYS = new Set(['status', 'employmentStatus', 'eligibilityStatus', 'enrollmentStatus']);
-const badgeCell = (row, key) => (BADGE_KEYS.has(key) ? <EngBadge status={row[key]} /> : (row[key] ?? '—'));
+const PERCENT_KEYS = new Set(['attendanceRatio', 'attendanceThresholdRatio']);
+const badgeCell = (row, key) => {
+  if (BADGE_KEYS.has(key)) return <EngBadge status={row[key]} />;
+  if (PERCENT_KEYS.has(key)) return row[key] == null ? '—' : `${Math.round(Number(row[key]) * 100)}%`;
+  return row[key] ?? '—';
+};
 // Classes list: the class code opens the class 360° detail; everything else is a badge/plain cell.
 const classCell = (onOpen, t) => (row, key) => (key === 'classCode'
   ? <button type="button" onClick={() => onOpen(row.id)}
@@ -26,9 +33,9 @@ const classCell = (onOpen, t) => (row, key) => (key === 'classCode'
   : badgeCell(row, key));
 const definitions = {
   classes: [['classCode', 'classCode'], ['status', 'status'], ['activeMembers', 'activeMembers'], ['runs', 'runs']],
-  courses: [['courseCode', 'courseCode'], ['courseName', 'courseName'], ['expectedUnits', 'expectedUnits'], ['maxAbsencesAllowed', 'maxAbsences'], ['runs', 'runs']],
+  courses: [['courseCode', 'courseCode'], ['courseName', 'courseName'], ['expectedUnits', 'expectedUnits'], ['attendanceThresholdRatio', 'attendanceTarget'], ['runs', 'runs']],
   employees: [['empCode', 'employeeCode'], ['fullName', 'fullName'], ['email', 'email'], ['employmentStatus', 'status']],
-  eligibility: [['employee', 'employee'], ['classCode', 'classCode'], ['courseName', 'courseName'], ['absenceCount', 'absences'], ['allowedAbsences', 'allowedAbsences'], ['eligibilityStatus', 'eligibilityStatus']],
+  eligibility: [['employee', 'employee'], ['classCode', 'classCode'], ['courseName', 'courseName'], ['attendanceRatio', 'attendanceRate'], ['attendanceThresholdRatio', 'attendanceTarget'], ['eligibilityStatus', 'eligibilityStatus']],
 };
 
 function DataTable({ rows, columns, t, renderCell }) {
@@ -109,7 +116,7 @@ function CorrectionForm({ row, issueCode, onSaved, onCancel, t }) {
 function SessionsView({ rows, selected, onSelect, detail, t }) {
   const sessionRows = (rows || []).map((row) => ({
     ...row,
-    heldAtText: row.heldAt ? new Date(row.heldAt).toLocaleString() : null,
+    heldAtText: formatEnglishArchiveDateTime(row.heldAt),
   }));
   const columns = [
     ['classCode', 'classCode'], ['courseName', 'courseName'], ['sessionNumber', 'sessionNumber'],
@@ -145,10 +152,10 @@ function SessionsView({ rows, selected, onSelect, detail, t }) {
   );
 }
 
-function IssuesView({ rows, selected, onSelect, details, t }) {
+function IssuesView({ rows, selected, onSelect, details, t, readOnly = false }) {
   const [editing, setEditing] = useState(null);
   if (!rows?.length) return <EmptyState title={t('englishTraining.empty')} />;
-  const canCorrect = selected === 'missing_bu' || selected === 'missing_role';
+  const canCorrect = !readOnly && (selected === 'missing_bu' || selected === 'missing_role');
   const detailColumns = [
     ['entityType', 'entity'], ['entityKey', 'entityKey'], ['employee', 'employee'],
     ['classCode', 'cohort'], ['source', 'source'], ['detailText', 'detail'],
@@ -209,9 +216,10 @@ function IssuesView({ rows, selected, onSelect, details, t }) {
   );
 }
 
-export default function EnglishTrainingPage() {
+export default function EnglishTrainingPage({ readOnly = false, embedded = false }) {
   const { t } = useTranslation();
-  const [active, setActive] = useState('overview');
+  const tabs = readOnly ? archiveTabs : editableTabs;
+  const [active, setActive] = useState(() => readOnly ? 'classes' : 'overview');
   const [search, setSearch] = useState('');
   const [selectedIssue, setSelectedIssue] = useState(null);
   const [selectedSession, setSelectedSession] = useState(null);
@@ -227,7 +235,7 @@ export default function EnglishTrainingPage() {
   const current = queries[active];
   return (
     <div className="space-y-6">
-      <PageHeader title={t('englishTraining.title')} description={t('englishTraining.description')} />
+      {!embedded && <PageHeader title={t('englishTraining.title')} description={t('englishTraining.description')} />}
       <div className="flex flex-wrap gap-2" role="tablist">{tabs.map((tab) => (
         <button key={tab} type="button" role="tab" aria-selected={active === tab} onClick={() => { setActive(tab); setSelectedClass(null); }}
           className={`rounded-md px-3 py-2 text-sm font-medium ${active === tab ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground hover:text-foreground'}`}>
@@ -251,7 +259,7 @@ export default function EnglishTrainingPage() {
           {current.isLoading && <div className="flex justify-center py-12"><Spinner size={32} label={t('englishTraining.loading')} /></div>}
           {current.isError && <EmptyState title={t('englishTraining.loadError')} />}
           {!current.isLoading && !current.isError && active === 'issues' && (
-            <IssuesView rows={current.data} selected={selectedIssue} onSelect={setSelectedIssue} details={issueDetails} t={t} />
+            <IssuesView rows={current.data} selected={selectedIssue} onSelect={setSelectedIssue} details={issueDetails} t={t} readOnly={readOnly} />
           )}
           {!current.isLoading && !current.isError && active === 'sessions' && (
             <SessionsView rows={current.data} selected={selectedSession} onSelect={setSelectedSession} detail={sessionAttendance} t={t} />

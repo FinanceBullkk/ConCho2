@@ -12,7 +12,7 @@ import BookClassPage from '../schedule/BookClassPage';
 //
 // Convergence Phase 4 folded every English admin surface into a unified one —
 // 'classes' → Learning → Cohorts; 'attendance' + 'schedules' → the unified
-// Operations calendar (/calendar); 'evaluations' → the Grading workspace
+// English Operations workspace; 'evaluations' → the Grading workspace
 // (/grading); 'teams' → People (/people?tab=teams). What remains here is just
 // the LEADER BOOKING GRID, so this page is now learner-persona-only:
 //   Leader/Participant → Team booking, ONLY when they belong to a Team

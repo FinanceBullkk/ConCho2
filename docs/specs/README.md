@@ -39,14 +39,14 @@ table is just the index. Covers every mounted `/api/*` route surface.
 
 | Capability | Status | Owners (source) | Last updated |
 |---|---|---|---|
-| [scheduling-and-booking](scheduling-and-booking/spec.md) | stable | scheduleService, domains/schedule, domains/room, domains/learning/session | 2026-06-19 |
+| [scheduling-and-booking](scheduling-and-booking/spec.md) | stable | scheduleService, domains/schedule, domains/room, domains/learning/session | 2026-07-19 |
 | [studio-scheduling](studio-scheduling/spec.md) | stable | domains/session-type, domains/room (utilization) | 2026-06-16 |
-| [auth-and-sessions](auth-and-sessions/spec.md) | stable | controllers/authController, services/authService, services/mfaService, middleware/auth | 2026-06-12 |
-| [users-and-roles](users-and-roles/spec.md) | stable | controllers/userController, models/User | 2026-06-12 |
+| [auth-and-sessions](auth-and-sessions/spec.md) | stable | services/auth, middleware/auth | 2026-07-19 |
+| [users-and-roles](users-and-roles/spec.md) | stable | controllers/user, domains/english-training | 2026-07-19 |
 | [teams-and-groups](teams-and-groups/spec.md) | stable | domains/groups, models/Team | 2026-06-12 |
-| [attendance](attendance/spec.md) | stable | domains/attendance, models/Attendance | 2026-06-15 |
-| [learning-catalog](learning-catalog/spec.md) | stable | domains/learning, controllers/classController | 2026-06-10 |
-| [enrollment](enrollment/spec.md) | evolving | domains/learning/enrollment, controllers/enrollmentController | 2026-06-09 |
+| [attendance](attendance/spec.md) | stable | domains/attendance, domains/english-training | 2026-07-19 |
+| [learning-catalog](learning-catalog/spec.md) | stable | domains/learning | 2026-07-19 |
+| [enrollment](enrollment/spec.md) | evolving | domains/learning/enrollment | 2026-07-19 |
 | [learning-paths](learning-paths/spec.md) | stable | domains/learning/path | 2026-06-08 |
 | [assessments](assessments/spec.md) | stable | domains/assessment, controllers/evaluationController | 2026-06-15 |
 | [question-bank](question-bank/spec.md) | stable | domains/assessment (question-bank) | 2026-06-08 |
@@ -54,22 +54,22 @@ table is just the index. Covers every mounted `/api/*` route surface.
 | [feedback](feedback/spec.md) | stable | domains/learning/feedback | 2026-06-08 |
 | [completion-and-certificates](completion-and-certificates/spec.md) | stable | domains/learning/completion | 2026-06-08 |
 | [assignments-and-reminders](assignments-and-reminders/spec.md) | stable | domains/learning/assignment, services/reminderService | 2026-06-08 |
-| [reporting-and-rollups](reporting-and-rollups/spec.md) | stable | domains/learning/reports, domains/learning/dashboard | 2026-06-16 |
+| [reporting-and-rollups](reporting-and-rollups/spec.md) | stable | domains/learning/reports, domains/learning/dashboard, domains/english-training | 2026-07-19 |
 | [required-training-compliance](required-training-compliance/spec.md) | stable | domains/compliance, models/RequiredTraining | 2026-06-16 |
 | [compliance-and-recertification](compliance-and-recertification/spec.md) | stable | domains/learning/reports (compliance) | 2026-06-08 |
 | [audit-log](audit-log/spec.md) | stable | services/auditService, models/AuditLog | 2026-06-08 |
 | [export-and-integrations](export-and-integrations/spec.md) | stable | services/exportService, services/calendarService, controllers/syncController, lib | 2026-06-08 |
 | [reconcile-job](reconcile-job/spec.md) | deprecated | — (retired Wave K; PG FK/CHECK replaces the nightly sweep) | 2026-07-11 |
-| [capability-authz](capability-authz/spec.md) | evolving | middleware/requireCapability, policy/capabilities, middleware/roleGuard, policy, domains/access, models/Role | 2026-06-15 |
+| [capability-authz](capability-authz/spec.md) | evolving | middleware/requireCapability, policy/capabilities, middleware/roleGuard, policy | 2026-07-19 |
 | [security-platform](security-platform/spec.md) | stable | middleware (csrf, rateLimiters, validate, sanitize), helmet, soft-delete | 2026-06-12 |
-| [evaluations](evaluations/spec.md) | stable | controllers/evaluationController, models/Evaluation (legacy 4-skill; instructor-scored mode of assessments) | 2026-06-19 |
+| [evaluations](evaluations/spec.md) | stable | controllers/evaluationController, domains/evaluation, domains/english-training | 2026-07-19 |
 | [bulk-import](bulk-import/spec.md) | stable | controllers/importController, services/importService | 2026-06-12 |
 | [settings](settings/spec.md) | stable | controllers/settingController, models/Setting | 2026-06-08 |
 | [dashboard-analytics](dashboard-analytics/spec.md) | stable | controllers/dashboardController | 2026-06-08 |
 | [search](search/spec.md) | stable | controllers/searchController, services/searchService | 2026-06-15 |
 | [admin-db-explorer](admin-db-explorer/spec.md) | stable | routes/adminDbRoutes | 2026-06-08 |
 | [org-and-departments](org-and-departments/spec.md) | stable | domains/org, models/Department, models/Office | 2026-06-10 |
-| [english-training](english-training/spec.md) | evolving | domains/english-training (Phase 3: exam result & level entry, ≤2-absence gate; placement/certs still out of scope) | 2026-07-19 |
+| [english-training](english-training/spec.md) | evolving | domains/english-training + shared live domains (P0–P5 implemented; production archive flip pending) | 2026-07-19 |
 
 > Status: **stable** = shipped + enforced · **evolving** = partial / persisted-
 > not-enforced (the spec's "Out of Scope" says which).

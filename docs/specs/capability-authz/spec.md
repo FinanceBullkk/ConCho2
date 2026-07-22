@@ -2,7 +2,7 @@
 capability: capability-authz
 status: evolving
 owners: [middleware/requireCapability, middleware/roleGuard, policy]
-last_updated: 2026-06-15
+last_updated: 2026-07-19
 related_code:
   - server/middleware/requireCapability.js
   - server/policy/capabilities.js
@@ -138,6 +138,14 @@ The system SHALL enforce the same checks server-side regardless of UI state.
 The system SHALL keep some resource policies permissive while their backing
 fields are empty (e.g. empty `Class.teacherIds` → any Teacher allowed) and
 tighten once populated.
+
+### Requirement: English Operations is capability- and resource-gated [BR-1, BR-3]
+
+Workspace selection SHALL NOT grant access. Live English routes use the shared
+capabilities plus `english.evaluate`. Admin is superuser; Coordinator and Teacher
+hold `english.evaluate`; Participant does not. For English Cohorts, the legacy
+empty teacher-binding grace rule does not apply: a Teacher must be explicitly
+assigned to the Cohort (or named on the applicable Session).
 
 ## Non-Functional Requirements (NFR)
 

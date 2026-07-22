@@ -27,8 +27,31 @@ const asPic = (p) => ({
   id: p.id, cohort_id: p.cohort_id, pic_employee_id: p.pic_employee_id,
   pic_label: p.pic_label, start_date: p.start_date, end_date: p.end_date, meta: jsonb(p.meta),
 });
-const asSession = (session) => ({ ...session, meta: jsonb(session.meta) });
-const asAttendance = (record) => ({ ...record, meta: jsonb(record.meta) });
+const meetingId = (sessionId) => `meeting:${sessionId}`;
+const asMeeting = (session) => ({
+  id: meetingId(session.id),
+  course_run_id: session.course_run_id,
+  starts_at: session.held_at,
+  duration_minutes: 60,
+  // Keep imported meetings outside the active-slot index until all correction
+  // overlays are applied. finalizeImportedMeetings opens them atomically.
+  status: 'cancelled',
+  cancellation_reason: 'Import transaction staging',
+  meta: jsonb({ source: 'imported', sessionUnitId: session.id }),
+});
+const asSession = (session) => ({
+  ...session,
+  meeting_id: meetingId(session.id),
+  unit_number_in_meeting: 1,
+  unit_type: 'normal',
+  meta: jsonb(session.meta),
+});
+const asAttendance = (record) => ({
+  ...record,
+  original_status: record.status,
+  entered_by: null,
+  meta: jsonb(record.meta),
+});
 const BATCH_SIZE = 400;
 
 async function insertBatches(table, rows, client, options) {
@@ -45,6 +68,9 @@ function summarizeIssues(issues) {
 }
 
 async function runImport(path, { reset = false } = {}) {
+  // Fail before workbook IO and before opening a transaction once production
+  // archive cutover has made eng_* immutable. DB triggers remain the race guard.
+  await repo.assertArchiveWritable();
   const { checksum, sheets } = await readWorkbook(path);
   const data = transform(sheets);
 
@@ -69,6 +95,7 @@ async function runImport(path, { reset = false } = {}) {
     await insertBatches('eng_course_runs', data.courseRuns, client);
     await insertBatches('eng_run_enrollments', data.enrollments.map(asEnrollment), client);
     await insertBatches('eng_cohort_pic', data.pics.map(asPic), client);
+    await insertBatches('eng_meetings', data.sessions.map(asMeeting), client);
     await insertBatches('eng_session_units', data.sessions.map(asSession), client);
     await insertBatches('eng_attendance_records', data.attendance.map(asAttendance), client);
     await insertBatches('eng_data_quality_issues', data.issues.map((issue) => ({
@@ -78,6 +105,8 @@ async function runImport(path, { reset = false } = {}) {
       detail: issue.detail ? JSON.stringify(issue.detail) : null,
     })), client);
     await repo.applyEmployeeCorrections(client);
+    await repo.applySessionTimeCorrections(client);
+    await repo.finalizeImportedMeetings(client);
   });
 
   // Reconcile: source rows = loaded canonical + issue-skipped (per sheet).

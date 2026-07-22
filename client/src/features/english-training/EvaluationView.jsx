@@ -9,15 +9,18 @@ import {
 const dateOnly = (v) => (v ? String(v).slice(0, 10) : '');
 
 // One roster row (controlled by the parent): HR picks a level for an eligible
-// learner. The exam date is shared per class (chosen once above). Learners who
-// cannot sit (>2 absences / non-participating) show a disabled state — the server
-// enforces the same gate.
+// learner. The exam date is shared per class (chosen once above). Learners below
+// the run's attendance-ratio snapshot (or not participating) stay disabled; the
+// server enforces the same gate.
 function LevelRow({ learner, levels, value, onChange, t }) {
   const remove = useDeleteExamResult();
   return (
     <tr className="border-b border-border last:border-0">
       <td className="px-4 py-3 text-foreground">{[learner.empCode, learner.fullName].filter(Boolean).join(' · ')}</td>
-      <td className="px-4 py-3 text-foreground">{learner.absenceCount ?? 0}</td>
+      <td className="px-4 py-3 text-foreground">
+        {learner.attendanceRatio == null ? '—' : `${Math.round(learner.attendanceRatio * 100)}%`}
+        <span className="ml-1 text-xs text-muted-foreground">/ {Math.round((learner.attendanceThresholdRatio || 0) * 100)}%</span>
+      </td>
       <td className="px-4 py-3">
         {learner.sitEligible
           ? <span className="text-emerald-600 dark:text-emerald-400">{t('englishTraining.exam.eligible')}</span>
@@ -81,7 +84,7 @@ function RunRosterLoaded({ data, levels, t }) {
           <div className="overflow-x-auto rounded-lg border border-border bg-card">
             <table className="w-full text-sm">
               <thead className="border-b border-border bg-muted/50 text-left"><tr>
-                {['employee', 'absences', 'eligibility', 'level', 'actions'].map((c) => (
+                {['employee', 'attendance', 'eligibility', 'level', 'actions'].map((c) => (
                   <th key={c} className="px-4 py-3 font-medium">{t(`englishTraining.exam.col.${c}`)}</th>
                 ))}
               </tr></thead>

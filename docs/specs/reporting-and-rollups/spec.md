@@ -2,7 +2,7 @@
 capability: reporting-and-rollups
 status: stable
 owners: [domains/learning/reports, domains/learning/dashboard]
-last_updated: 2026-06-16
+last_updated: 2026-07-19
 related_code:
   - server/domains/learning/reports/use-cases.js
   - server/domains/learning/reports/completion-rollup-use-case.js
@@ -232,6 +232,14 @@ deferred — no PDF dependency in-repo; the multi-sheet xlsx is itself audit-rea
 - **THEN** the response is an `.xlsx` attachment (`evidence-pack-<date>.xlsx`) and an
   `exported` `Report` audit line is written
 - **AND** a Participant (no `report.read`) gets **403**
+
+### Requirement: English full history observes the cutover boundary
+
+After archive cutover, combined history SHALL include archive events strictly
+before `cutoverAt` and generic live events at/after it. Every row carries source,
+source identity, employee code, Program/course, group/run, event date, natural
+key, and cutover timestamp. Natural-key duplicates are returned once, preferring
+the live authority. Attendance and final-level counts are reported separately.
 
 ## Non-Functional Requirements (NFR)
 
