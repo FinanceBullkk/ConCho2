@@ -262,6 +262,11 @@ jobs:
           fi
           echo "OK: no .env files tracked."
 
+      - name: Fail if HR/L&D source data is reachable
+        run: |
+          npm run data-safety:test
+          npm run data-safety:check
+
   # ──────────────────────────────────────────────────────────
   # GATE: Playwright E2E (audit PR V / P2-09 — REQUIRED since PR X)
   #

@@ -58,9 +58,10 @@ Time Travel**) without touching any dump. There are no scheduled snapshots
 beyond it — which is exactly why the pg_dump layer exists.
 
 **Our pg_dump layer** — the `pg-backup.yml` workflow in the **PRIVATE
-`FinanceBullkk/ConCho2-backups` repo** (NOT this repo: ConCho2 is PUBLIC, and
-Actions artifacts on a public repo are downloadable by anyone — PII dumps,
-even encrypted, must not be published; decided 2026-07-08):
+`FinanceBullkk/ConCho2-backups` repo**. Never place dumps or employee source
+data in this application repository, regardless of its current visibility;
+PII artifacts, even encrypted, require an access-controlled backup location
+(decided 2026-07-08, reinforced by the 2026-07-22 source-data incident):
 - Daily at 18:00 UTC (01:00 ICT) — the cron block ships commented-out and is
   enabled at Wave-J step 8 (before secrets exist it would only spam red runs);
   on-demand any time via *Run workflow*.

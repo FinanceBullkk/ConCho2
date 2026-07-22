@@ -16,7 +16,9 @@
     "dev:client": "cd client && npm run dev",
     "seed": "cd server && node scripts/seed-pg.js",
     "seed:mongo": "cd server && node scripts/seed.js",
-    "scripts:check": "node scripts/check-syntax.js"
+    "scripts:check": "node scripts/check-syntax.js",
+    "data-safety:check": "node scripts/check-sensitive-data.js",
+    "data-safety:test": "node --test scripts/check-sensitive-data.test.js"
   },
   "devDependencies": {
     "xlsx": "^0.18.5"

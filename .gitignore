@@ -167,3 +167,10 @@ portfolio-handoff/
 
 # Scratch/working dir for local backups, spreadsheets, ad-hoc scripts — never commit.
 .tmp/
+
+# HR/L&D source data is never repository material. Import from an approved,
+# access-controlled location; tests must generate synthetic workbook data.
+Data/
+*.xlsx
+*.xls
+*.xlsm
