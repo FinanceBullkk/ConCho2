@@ -16,6 +16,7 @@ related_code:
   - server/db/pg/migrations/048_english_live_meetings_attendance.js
   - server/db/pg/migrations/049_english_meeting_calendar.js
   - server/db/pg/migrations/050_english_future_meeting_handoff.js
+  - server/db/pg/migrations/051_english_capacity_overrides.js
   - server/domains/english-training/import/pipeline.js
   - server/domains/english-training/canonical-operations.js
   - server/domains/english-training/meeting-delivery.js
@@ -46,6 +47,7 @@ authorization, UI shell, and infrastructure remain reused.
 | `eng_courses` | one reusable English course definition |
 | `eng_course_runs` | one numbered occurrence of one course for one class |
 | `eng_run_enrollments` | one employee's participation in one Course Run |
+| `eng_cohort_capacity_overrides` | one immutable approval to admit one employee above one class capacity |
 | `eng_meetings` | one real calendar occurrence with start, duration, and lifecycle status |
 | `eng_session_units` | one credited logical session in a Course Run |
 | `eng_attendance_records` | one Present/Absent result for Enrollment × Session Unit |
@@ -77,6 +79,10 @@ not a teacher assignment, login identity, generic Team, or roster container.
 - A cross-class transfer closes the source Enrollment and Membership as
   `transferred`, links that history to one new active target Enrollment and
   Membership, and snapshots the employee's current business unit and job role.
+- A transfer may exceed class capacity only with a non-blank HR reason. The
+  command records the approved capacity, resulting active count, actor, and
+  reason immutably and audits both the override and linked transfer; it never
+  changes the class capacity itself.
 - Attendance applicability is calculated at event time. Planned rosters propose
   Present; completed historical gaps remain unknown rather than becoming Absent.
 - One attendance save contains every applicable Run Enrollment exactly once.
@@ -161,32 +167,41 @@ any row.
   audit change commits.
 
 Transfer, capacity override, restoration, and departure notification were
-explicitly outside the learner-leave delivery slice; transfer is defined below.
+explicitly outside the learner-leave delivery slice; transfer and its reasoned
+capacity exception are defined below.
 
 ### Transfer a learner to another class
 
 `POST /api/english-training/workspace/course-runs/:courseRunId/enrollments/:enrollmentId/transfer`
 moves one active learner to a different stable English class. Admin and
 Coordinator require `enrollment.manage`; Teacher and Participant remain denied.
-The request carries the target Course Run, inclusive transfer date, and the
-operator-confirmed first applicable target Session Unit.
+The request carries the target Course Run, inclusive transfer date, the
+operator-confirmed first applicable target Session Unit, and an optional
+`capacityOverrideReason` of at most 1,000 characters.
 
 The target Course Run must be `planned` or `active`, must belong to another
-class, and must have ordinary capacity available. The server recomputes the
-target start session and rejects a stale proposal. In one transaction it locks
-the target and source state; closes the source Enrollment and Membership as
+class, and must either have ordinary capacity available or carry a non-blank HR
+override reason. The server recomputes both target occupancy and the target
+start session and rejects a stale proposal. In one transaction it locks the
+target and source state; closes the source Enrollment and Membership as
 `transferred`; links the source Membership to the new target Membership; creates
 the target Enrollment with `transfer_from_enrollment_id`; copies current
 business-unit and job-role snapshots; and writes `learner.transfer` to
-`eng_audit_events`. Source attendance, evaluation, Meeting, and Session Unit
-history remain attached to the historical source Enrollment.
+`eng_audit_events`. When projected occupancy exceeds capacity, the same
+transaction also creates one `eng_cohort_capacity_overrides` row and one
+`cohort.capacity.override` audit, with the override id linked from the transfer
+audit. Source attendance, evaluation, Meeting, and Session Unit history remain
+attached to the historical source Enrollment.
 
 The Classes roster exposes **Transfer learner** only for active enrollments and
 only to managers. The compact form offers cross-class planned/active Course Runs,
-shows the server-derived start-session proposal and target occupancy, disables
-full destinations, and states that source history will remain. Same-class,
-missing-current-org, prior-target-history, full-capacity, stale, and concurrent
-conflicts fail without a partial source close or duplicate target chain.
+shows the server-derived start-session proposal and target occupancy, and states
+that source history will remain. Full destinations stay selectable; choosing one
+shows the projected count, makes the HR reason required, and explains that the
+approval is permanent while capacity is unchanged. Same-class,
+missing-current-org, prior-target-history, full-without-reason, stale, and
+concurrent conflicts fail without a partial source close or duplicate target
+chain.
 
 #### Acceptance examples
 
@@ -197,12 +212,22 @@ conflicts fail without a partial source close or duplicate target chain.
   atomic domain-audit event exists.
 - `[UC-ENG-TRANSFER-1-PERMISSION]` Given the same Enrollment, when a Teacher or
   Participant submits the command, then access is denied and no row changes.
-- `[UC-ENG-TRANSFER-1-CONFLICT]` Given a same-class, stale, full, already-used,
-  or concurrent target, when the command is submitted, then it is rejected and
-  no partial source close, duplicate target history, or extra audit commits.
+- `[UC-ENG-TRANSFER-1-CONFLICT]` Given a same-class, stale, already-used, or
+  concurrent target, when the command is submitted, then it is rejected and no
+  partial source close, duplicate target history, or extra audit commits.
+- `[BR-ENG-CAPACITY-OVERRIDE-1]` Given a full cross-class target and a non-blank
+  HR reason, when an authorized operator confirms the transfer, then capacity
+  stays unchanged, resulting active count exceeds it by one, and exactly one
+  immutable override row, one `cohort.capacity.override` audit, and one linked
+  `learner.transfer` audit commit with the target chain.
+- `[UC-ENG-CAPACITY-OVERRIDE-1-EDGE]` Given a full target without a normalized
+  reason, or a stale/retried transfer, when the command is submitted, then it is
+  rejected without closing the source, creating a target chain, or adding a
+  duplicate override or audit.
 
-Reasoned capacity override, same-class Course Run continuation, restoration,
-and transfer notifications are explicitly outside this delivery slice.
+Changing class capacity, standalone or pre-approved overrides, same-class Course
+Run continuation, restoration, and transfer notifications remain outside this
+delivery slice.
 
 ### Schedule and attendance
 
@@ -268,7 +293,7 @@ Canonical operational English tables are writable through controlled commands;
 raw rows, DQ records, and time-correction evidence retain database freeze
 protection from the older archive mechanism.
 
-## Migrations 047-050 reconciliation
+## Migrations 047-051 reconciliation
 
 Migration 047:
 
@@ -297,6 +322,11 @@ imported wall-clock value is reinterpreted as a real Asia/Ho_Chi_Minh instant,
 the linked Session Unit is moved with it, and one domain-audit event is recorded
 per handoff. Past Meetings and all imported attendance facts are untouched.
 
+Migration 051 adds the immutable `eng_cohort_capacity_overrides` support table
+with positive-capacity, resulting-count-above-capacity, non-blank-reason, actor,
+and source-entity foreign-key guards. Its rollback drops an empty table but
+refuses to erase retained approval history.
+
 The reproducible importer is schema-aware. Before load it applies migration
 047's evidence rule to source multi-active enrollments and aborts ambiguous or
 unbalanced input. Inside the transaction it stages imported Meetings as
@@ -311,24 +341,26 @@ and domain audit. Any remaining collision rolls back the complete reset/import.
 
 - Unit: atomic class/PIC/run command, learner-start sequence and capacity
   guards, learner-leave happy/permission/date/stale guards, learner-transfer
-  happy/permission/stale/full/concurrent guards, Meeting create/
+  happy/permission/stale/full/concurrent guards, reasoned capacity-override
+  creation/no-reason/retry guards, Meeting create/
   reschedule/durable-cancel, delivery notifications, full-roster save, stale
   token, route permission denial, and DTO ratio mapping.
-- Client: PIC grouping, class detail roster, learner-leave confirmation and
-  cross-class learner-transfer proposal,
+- Client: PIC grouping, class detail roster, learner-leave confirmation,
+  cross-class learner-transfer proposal, and conditional full-target reason UI,
   canonical Schedule/Attendance grid,
   imported wall-clock conversion, live Meeting instant/duration mapping,
   evidence filters, inline roster layout, query-tab breadcrumbs, empty-cell
   creation, and live Meeting move/cancel controls.
-- Prototype: migrations 040–050 present; 27 canonical columns; 2 canonical
-  unique indexes; `eng_audit_events`; no multi-active enrollment/current-PIC or
+- Prototype: migrations 040–051 present; 27 canonical columns; 2 canonical
+  unique indexes; `eng_audit_events`; immutable capacity-override history; no
+  multi-active enrollment/current-PIC or
   Meeting-link/operational-baseline violations; 14 future imported Meetings are
   under live control; canonical writes are allowed while imported raw evidence
   remains guarded.
 - Reconciliation: 52 classes, 52 current PIC assignments, 6 courses, 91 Course
   Runs, 552 Run Enrollments, 984 Meetings, 984 Session Units and 5,962
   attendance facts.
-- Fresh-rebuild rehearsal: PostgreSQL 17 migrated 001–050; source counts above
+- Fresh-rebuild rehearsal: PostgreSQL 17 migrated 001–051; source counts above
   reproduced from checksum `9e514aea…3362`; 79 active and 13 waiting Run
   Enrollments; 180 open and 2 resolved DQ issues; zero multi-active, active-slot,
   or orphan violations. An induced slot collision preserved all pre-import rows
@@ -336,7 +368,6 @@ and domain audit. Any remaining collision rolls back the complete reset/import.
 
 ## Known next work
 
-- Add the authority model's reasoned, audited capacity override command.
 - Add the authority model's optional second normal Session Unit and linked
   make-up replacement-credit workflow.
 - Add assigned-Teacher resource scope before exposing canonical rosters or

@@ -19,6 +19,7 @@ jest.mock('../../domains/english-training/canonical-operations-repository.pg', (
   createRunEnrollment: jest.fn(),
   markRunEnrollmentTransferred: jest.fn(),
   markMembershipTransferred: jest.fn(),
+  createCapacityOverride: jest.fn(),
   dropRunEnrollment: jest.fn(),
   endMembershipIfUnused: jest.fn(),
   createMeeting: jest.fn(),
@@ -95,6 +96,7 @@ describe('canonical English live operations', () => {
     repository.markMembershipTransferred.mockResolvedValue({
       id: 'membership-1', status: 'transferred',
     });
+    repository.createCapacityOverride.mockResolvedValue({ id: 'override-1' });
   });
 
   test('starts a learner at the confirmed next logical session in one transaction', async () => {
@@ -234,6 +236,53 @@ describe('canonical English live operations', () => {
     }, actor)).rejects.toMatchObject({ statusCode: 409 });
     expect(repository.markRunEnrollmentTransferred).not.toHaveBeenCalled();
     expect(repository.markMembershipTransferred).not.toHaveBeenCalled();
+  });
+
+  test('records a reasoned capacity override inside the learner transfer transaction', async () => {
+    repository.findCourseRunForUpdate.mockImplementation(async (id) => (
+      id === 'run-2' ? { ...run, id: 'run-2', cohort_id: 'cohort-2', capacity: 4 } : run
+    ));
+    repository.findRunEnrollmentForUpdate.mockResolvedValue({
+      id: 'enrollment-1', employee_id: 'employee-1',
+      cohort_membership_id: 'membership-1', status: 'active',
+      membership_status: 'active', membership_cohort_id: 'cohort-1',
+      membership_start_date: '2026-07-01',
+      current_business_unit: 'Finance', current_job_role: 'Analyst',
+    });
+    repository.countActiveMemberships.mockResolvedValue(4);
+    repository.newId
+      .mockReturnValueOnce('membership-2')
+      .mockReturnValueOnce('enrollment-2')
+      .mockReturnValueOnce('override-1');
+    repository.createMembership.mockResolvedValue({ id: 'membership-2' });
+    repository.createRunEnrollment.mockResolvedValue({ id: 'enrollment-2', status: 'active' });
+
+    await expect(transferLearner({
+      sourceCourseRunId: 'run-1', enrollmentId: 'enrollment-1',
+      targetCourseRunId: 'run-2', transferDate: '2026-07-20',
+      confirmedStartSessionNumber: 3,
+      capacityOverrideReason: '  HR approved   an additional seat  ',
+    }, actor)).resolves.toMatchObject({
+      enrollmentId: 'enrollment-2', capacityOverrideApplied: true,
+      capacityOverrideId: 'override-1',
+    });
+    expect(repository.createCapacityOverride).toHaveBeenCalledWith({
+      id: 'override-1', cohortId: 'cohort-2', employeeId: 'employee-1',
+      courseRunId: 'run-2', previousCapacity: 4,
+      resultingActiveLearnerCount: 5,
+      reason: 'HR approved an additional seat', actorUserId: 'actor-1',
+    }, expect.anything());
+    expect(repository.recordAudit).toHaveBeenCalledWith(expect.objectContaining({
+      action: 'cohort.capacity.override', entityKey: 'override-1',
+      details: expect.objectContaining({
+        previousCapacity: 4, resultingActiveLearnerCount: 5,
+        reason: 'HR approved an additional seat',
+      }),
+    }), expect.anything());
+    expect(repository.recordAudit).toHaveBeenCalledWith(expect.objectContaining({
+      action: 'learner.transfer',
+      details: expect.objectContaining({ capacityOverrideId: 'override-1' }),
+    }), expect.anything());
   });
 
   test('creates a Meeting and Session Unit only after slot and sequence validation', async () => {

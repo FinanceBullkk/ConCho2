@@ -297,6 +297,94 @@ describe('English Operations — canonical live vertical flow', () => {
     expect(auditCount.rows[0].count).toBe(1);
   });
 
+  test('reasoned capacity override admits one transfer above the class limit and retries safely', async () => {
+    const suffix = `${Date.now()}`.slice(-8);
+    const courseId = `eng-override-course-${suffix}`;
+    const sourceEmployeeId = `eng-override-source-${suffix}`;
+    const occupantEmployeeId = `eng-override-occupant-${suffix}`;
+    await query(`INSERT INTO eng_courses (
+      id, course_code, course_name, expected_units, max_absences_allowed, is_active, meta
+    ) VALUES ($1,$2,$3,16,2,true,'{}'::jsonb)`, [
+      courseId, `OVERRIDE_${suffix}`, 'Capacity Override Integration',
+    ]);
+    await query(`INSERT INTO eng_employees (
+      id, emp_code, full_name, employment_status, user_id, meta
+    ) VALUES
+      ($1,$2,$3,'active',$4,'{"businessUnit":"Operations","jobRole":"Analyst"}'::jsonb),
+      ($5,$6,$7,'active',NULL,'{"businessUnit":"Finance","jobRole":"Specialist"}'::jsonb)`, [
+      sourceEmployeeId, seed.leader.empCode, seed.leader.name, seed.leader._id,
+      occupantEmployeeId, `OVR${suffix}`, 'Existing Target Learner',
+    ]);
+    const createClass = async (prefix, name, capacity) => {
+      const response = await authorized(
+        request(app).post('/api/english-training/workspace/classes'), tokens.admin,
+      ).send({
+        classCode: `${prefix}${suffix.slice(-4)}`, displayName: name, courseId,
+        startDate: '2026-07-20', capacity, status: 'active', picLabel: 'People Team',
+      });
+      expect(response.status).toBe(201);
+      return response.body.data;
+    };
+    const source = await createClass('OS', 'Override Source', 12);
+    const target = await createClass('OT', 'Override Target', 1);
+    const occupant = await authorized(
+      request(app).post(`/api/english-training/workspace/course-runs/${target.courseRunId}/enrollments`),
+      tokens.admin,
+    ).send({ employeeId: occupantEmployeeId, startDate: '2026-07-20', confirmedStartSessionNumber: 1 });
+    expect(occupant.status).toBe(201);
+    const enrollment = await authorized(
+      request(app).post(`/api/english-training/workspace/course-runs/${source.courseRunId}/enrollments`),
+      tokens.admin,
+    ).send({ employeeId: sourceEmployeeId, startDate: '2026-07-20', confirmedStartSessionNumber: 1 });
+    expect(enrollment.status).toBe(201);
+    const path = `/api/english-training/workspace/course-runs/${source.courseRunId}`
+      + `/enrollments/${enrollment.body.data.enrollmentId}/transfer`;
+    const body = {
+      targetCourseRunId: target.courseRunId,
+      transferDate: '2026-07-20', confirmedStartSessionNumber: 1,
+    };
+
+    const rejected = await authorized(request(app).post(path), tokens.admin).send(body);
+    expect(rejected.status).toBe(409);
+    expect((await query('SELECT status FROM eng_run_enrollments WHERE id = $1', [enrollment.body.data.enrollmentId])).rows[0].status).toBe('active');
+    expect((await query('SELECT count(*)::int AS count FROM eng_cohort_capacity_overrides')).rows[0].count).toBe(0);
+
+    const approved = await authorized(request(app).post(path), tokens.admin).send({
+      ...body, capacityOverrideReason: '  HR approved   an additional seat  ',
+    });
+    expect(approved.status).toBe(200);
+    expect(approved.body.data).toMatchObject({
+      capacityOverrideApplied: true,
+      capacityOverrideId: expect.any(String),
+    });
+    const [override, auditCounts, activeCount] = await Promise.all([
+      query(`SELECT previous_capacity, resulting_active_learner_count, reason, actor_user_id
+        FROM eng_cohort_capacity_overrides WHERE id = $1`, [approved.body.data.capacityOverrideId]),
+      query(`SELECT action, count(*)::int AS count FROM eng_audit_events
+        WHERE action IN ('cohort.capacity.override','learner.transfer')
+          AND details->>'employeeId' = $1 GROUP BY action ORDER BY action`, [sourceEmployeeId]),
+      query(`SELECT count(*)::int AS count FROM eng_run_enrollments
+        WHERE employee_id = $1 AND status = 'active'`, [sourceEmployeeId]),
+    ]);
+    expect(override.rows[0]).toMatchObject({
+      previous_capacity: 1,
+      resulting_active_learner_count: 2,
+      reason: 'HR approved an additional seat',
+      actor_user_id: seed.admin._id,
+    });
+    expect(auditCounts.rows).toEqual([
+      { action: 'cohort.capacity.override', count: 1 },
+      { action: 'learner.transfer', count: 1 },
+    ]);
+    expect(activeCount.rows[0].count).toBe(1);
+
+    const retry = await authorized(request(app).post(path), tokens.admin).send({
+      ...body, capacityOverrideReason: 'HR approved an additional seat',
+    });
+    expect(retry.status).toBe(409);
+    expect((await query('SELECT count(*)::int AS count FROM eng_cohort_capacity_overrides')).rows[0].count).toBe(1);
+  });
+
   test('adopted imported Meeting reschedules and cancels through the real PostgreSQL stack', async () => {
     const suffix = `${Date.now()}`.slice(-8);
     const courseId = `eng-adopt-course-${suffix}`;

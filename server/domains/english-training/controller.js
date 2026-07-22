@@ -84,7 +84,9 @@ const transferCanonicalRunEnrollment = async (req, res) => {
       req, action: 'transferred', entity: 'EnglishRunEnrollment',
       entityId: result.enrollmentId,
       diff: auditService.diff(result.before, result.after),
-      note: `${result.fromEnrollmentId} → ${result.enrollmentId}`,
+      note: result.capacityOverrideApplied
+        ? `${result.fromEnrollmentId} → ${result.enrollmentId}; capacity override: ${result.capacityOverrideReason}`
+        : `${result.fromEnrollmentId} → ${result.enrollmentId}`,
     });
     res.json({ success: true, data: result });
   } catch (e) { handleError(res, e); }

@@ -95,6 +95,7 @@ const runEnrollmentTransferBody = z.object({
     .regex(/^\d{4}-\d{2}-\d{2}$/, 'transferDate must be YYYY-MM-DD')
     .refine(validDateOnly, 'transferDate must be a real calendar date'),
   confirmedStartSessionNumber: z.coerce.number().int().min(1),
+  capacityOverrideReason: z.string().trim().max(1000).optional(),
 }).strict();
 const attendanceSessionBody = z.object({
   startsAt: z.string().datetime({ offset: true }),

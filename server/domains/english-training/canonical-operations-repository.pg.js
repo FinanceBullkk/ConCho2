@@ -234,6 +234,21 @@ const markMembershipTransferred = async (
   return rows[0] || null;
 };
 
+const createCapacityOverride = async (row, client) => {
+  const { rows } = await client.query(`
+    INSERT INTO eng_cohort_capacity_overrides (
+      id, cohort_id, employee_id, course_run_id, previous_capacity,
+      resulting_active_learner_count, reason, actor_user_id
+    ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
+    RETURNING *
+  `, [
+    row.id, row.cohortId, row.employeeId, row.courseRunId,
+    row.previousCapacity, row.resultingActiveLearnerCount,
+    row.reason, row.actorUserId,
+  ]);
+  return rows[0];
+};
+
 const dropRunEnrollment = async (enrollmentId, row, client) => {
   const { rows } = await client.query(`
     UPDATE eng_run_enrollments SET
@@ -489,6 +504,7 @@ module.exports = {
   createRunEnrollment,
   markRunEnrollmentTransferred,
   markMembershipTransferred,
+  createCapacityOverride,
   dropRunEnrollment,
   endMembershipIfUnused,
   createMeeting,

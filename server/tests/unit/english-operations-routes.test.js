@@ -175,6 +175,28 @@ describe('English Operations canonical live roster authorization', () => {
     expect(res.status).toBe(400);
   });
 
+  test('learner transfer accepts a bounded capacity override reason', async () => {
+    const accepted = await request(app)
+      .post('/api/english-training/workspace/course-runs/run-1/enrollments/enrollment-1/transfer')
+      .set('x-test-role', 'Admin')
+      .send({
+        targetCourseRunId: 'run-2', transferDate: '2026-07-20',
+        confirmedStartSessionNumber: 3,
+        capacityOverrideReason: 'HR approved an additional seat',
+      });
+    expect(accepted.status).toBe(200);
+
+    const tooLong = await request(app)
+      .post('/api/english-training/workspace/course-runs/run-1/enrollments/enrollment-1/transfer')
+      .set('x-test-role', 'Admin')
+      .send({
+        targetCourseRunId: 'run-2', transferDate: '2026-07-20',
+        confirmedStartSessionNumber: 3,
+        capacityOverrideReason: 'x'.repeat(1001),
+      });
+    expect(tooLong.status).toBe(400);
+  });
+
   test('Teacher cannot transfer a learner', async () => {
     const res = await request(app)
       .post('/api/english-training/workspace/course-runs/run-1/enrollments/enrollment-1/transfer')

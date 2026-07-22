@@ -19,6 +19,9 @@ vi.mock('../useEnglishOperations', () => ({
     }, {
       id: 'class-2', classCode: 'EL035', displayName: 'Beta', status: 'active',
       capacity: 12, activeMembers: 3, runs: 1, currentPic: 'People Team',
+    }, {
+      id: 'class-3', classCode: 'EL036', displayName: 'Gamma', status: 'active',
+      capacity: 3, activeMembers: 3, runs: 1, currentPic: 'People Team',
     }],
   }),
   useCanonicalEnglishCourseRuns: () => ({
@@ -26,6 +29,7 @@ vi.mock('../useEnglishOperations', () => ({
     data: [
       { id: 'run-1', cohortId: 'class-1', classCode: 'EL034', courseCode: 'COM1', courseName: 'Communication 1', nextSessionNumber: 2, transferStartSessionNumber: 2 },
       { id: 'run-2', cohortId: 'class-2', classCode: 'EL035', courseCode: 'COM2', courseName: 'Communication 2', nextSessionNumber: 5, transferStartSessionNumber: 4 },
+      { id: 'run-3', cohortId: 'class-3', classCode: 'EL036', courseCode: 'COM3', courseName: 'Communication 3', nextSessionNumber: 3, transferStartSessionNumber: 2 },
     ],
   }),
   useCanonicalEnglishCourses: () => ({ isLoading: false, data: [] }),
@@ -97,6 +101,29 @@ describe('canonical English Classes panel', () => {
       data: {
         targetCourseRunId: 'run-2', transferDate: '2026-07-21',
         confirmedStartSessionNumber: 4,
+      },
+    });
+  });
+
+  it('requires and submits a reason when transferring into a full class', async () => {
+    const user = userEvent.setup();
+    transferMutation.mutateAsync.mockResolvedValueOnce({});
+    render(<ClassesPanel />);
+
+    await user.click(screen.getByRole('button', { name: 'Transfer learner' }));
+    await user.selectOptions(screen.getByLabelText('Destination'), 'run-3');
+
+    expect(screen.getByText('Capacity override required: projected 4 / 3 learners.')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Confirm transfer' })).toBeDisabled();
+    await user.type(screen.getByLabelText('Capacity override reason'), 'HR approved an additional seat');
+    await user.click(screen.getByRole('button', { name: 'Confirm transfer' }));
+
+    expect(transferMutation.mutateAsync).toHaveBeenCalledWith({
+      sourceCourseRunId: 'run-1', enrollmentId: 'enrollment-1',
+      data: {
+        targetCourseRunId: 'run-3', transferDate: expect.any(String),
+        confirmedStartSessionNumber: 2,
+        capacityOverrideReason: 'HR approved an additional seat',
       },
     });
   });

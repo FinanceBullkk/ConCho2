@@ -295,8 +295,15 @@ const transferLearner = async (input, actor = {}) => {
         throw new ServiceError('This learner already has an active membership in the target class', 409);
       }
       const targetActiveCount = await repository.countActiveMemberships(targetRun.cohort_id, client);
-      if (targetRun.capacity && targetActiveCount >= targetRun.capacity) {
-        throw new ServiceError(`Target class capacity of ${targetRun.capacity} has been reached`, 409);
+      const resultingActiveLearnerCount = targetActiveCount + 1;
+      const capacityOverrideReason = normalizeLabel(input.capacityOverrideReason);
+      const needsCapacityOverride = targetRun.capacity != null
+        && resultingActiveLearnerCount > targetRun.capacity;
+      if (needsCapacityOverride && !capacityOverrideReason) {
+        throw new ServiceError(
+          `Target class capacity of ${targetRun.capacity} has been reached; an HR override reason is required`,
+          409,
+        );
       }
 
       const targetMembershipId = repository.newId();
@@ -329,6 +336,39 @@ const transferLearner = async (input, actor = {}) => {
         transferFromEnrollmentId: source.id,
         meta: { authority: AUTHORITY, createdIn: 'English Operations' },
       }, client);
+      let capacityOverrideId = null;
+      if (needsCapacityOverride) {
+        const actorFields = auditActor(actor);
+        if (!actorFields.actorUserId) {
+          throw new ServiceError('Capacity override requires an authenticated operator', 403);
+        }
+        capacityOverrideId = repository.newId();
+        await repository.createCapacityOverride({
+          id: capacityOverrideId,
+          cohortId: targetRun.cohort_id,
+          employeeId: source.employee_id,
+          courseRunId: targetRun.id,
+          previousCapacity: targetRun.capacity,
+          resultingActiveLearnerCount,
+          reason: capacityOverrideReason,
+          actorUserId: actorFields.actorUserId,
+        }, client);
+        await repository.recordAudit({
+          ...actorFields,
+          action: 'cohort.capacity.override',
+          entityType: 'cohort_capacity_override',
+          entityKey: capacityOverrideId,
+          details: {
+            employeeId: source.employee_id,
+            cohortId: targetRun.cohort_id,
+            courseRunId: targetRun.id,
+            previousCapacity: targetRun.capacity,
+            resultingActiveLearnerCount,
+            reason: capacityOverrideReason,
+            authority: AUTHORITY,
+          },
+        }, client);
+      }
       await repository.recordAudit({
         ...auditActor(actor), action: 'learner.transfer',
         entityType: 'run_enrollment', entityKey: targetEnrollment.id,
@@ -341,7 +381,7 @@ const transferLearner = async (input, actor = {}) => {
           membershipId: targetMembershipId,
           transferDate: input.transferDate,
           startSessionNumber: nextSessionNumber,
-          capacityOverrideId: null,
+          capacityOverrideId,
           authority: AUTHORITY,
         },
       }, client);
@@ -351,8 +391,15 @@ const transferLearner = async (input, actor = {}) => {
         fromMembershipId: source.cohort_membership_id,
         membershipId: targetMembershipId,
         startSessionNumber: nextSessionNumber,
+        capacityOverrideId,
+        capacityOverrideApplied: Boolean(capacityOverrideId),
+        capacityOverrideReason: capacityOverrideId ? capacityOverrideReason : null,
         before: { status: source.status, courseRunId: sourceRun.id },
-        after: { status: targetEnrollment.status, courseRunId: targetRun.id },
+        after: {
+          status: targetEnrollment.status,
+          courseRunId: targetRun.id,
+          capacityOverrideId,
+        },
       };
     });
   } catch (error) {

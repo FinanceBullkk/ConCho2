@@ -172,8 +172,9 @@ function RosterTransferForm({ run, learner, destinations, onClose }) {
   const firstAvailable = destinations.find((row) => !row.capacity || row.activeMembers < row.capacity);
   const [targetCourseRunId, setTargetCourseRunId] = useState(firstAvailable?.id || '');
   const [transferDate, setTransferDate] = useState(today());
+  const [capacityOverrideReason, setCapacityOverrideReason] = useState('');
   const target = destinations.find((row) => row.id === targetCourseRunId);
-  const targetFull = target?.capacity && target.activeMembers >= target.capacity;
+  const targetFull = Boolean(target?.capacity && target.activeMembers >= target.capacity);
   const submit = async (event) => {
     event.preventDefault();
     await mutation.mutateAsync({
@@ -183,6 +184,7 @@ function RosterTransferForm({ run, learner, destinations, onClose }) {
         targetCourseRunId,
         transferDate,
         confirmedStartSessionNumber: target.transferStartSessionNumber,
+        ...(targetFull ? { capacityOverrideReason: capacityOverrideReason.trim() } : {}),
       },
     });
     onClose();
@@ -194,14 +196,14 @@ function RosterTransferForm({ run, learner, destinations, onClose }) {
         <h5 className="text-sm font-semibold text-foreground">{t('englishOperations.classes.transferTitle', { learner: learner.fullName })}</h5>
         <p className="mt-1 text-xs text-muted-foreground">{t('englishOperations.classes.transferHint')}</p>
       </div>
-      <div className="grid gap-3 md:grid-cols-[minmax(240px,1fr)_180px_auto] md:items-end">
+      <div className="grid gap-3 md:grid-cols-[minmax(240px,1fr)_180px] md:items-end">
         <label className="min-w-0 space-y-1 text-sm text-muted-foreground">
           <span>{t('englishOperations.classes.transferDestination')}</span>
-          <select className="flex h-9 w-full rounded-md border border-input bg-background px-3 text-sm text-foreground" value={targetCourseRunId} onChange={(event) => setTargetCourseRunId(event.target.value)} required>
+          <select className="flex h-9 w-full rounded-md border border-input bg-background px-3 text-sm text-foreground" value={targetCourseRunId} onChange={(event) => { setTargetCourseRunId(event.target.value); setCapacityOverrideReason(''); }} required>
             <option value="" disabled>{t('englishOperations.classes.selectTransferDestination')}</option>
             {destinations.map((row) => {
               const full = row.capacity && row.activeMembers >= row.capacity;
-              return <option key={row.id} value={row.id} disabled={full}>{row.classCode} · {row.courseCode} · {t('englishOperations.classes.transferOption', { session: row.transferStartSessionNumber, count: row.activeMembers, capacity: row.capacity || '—' })}{full ? ` · ${t('englishOperations.classes.full')}` : ''}</option>;
+              return <option key={row.id} value={row.id}>{row.classCode} · {row.courseCode} · {t('englishOperations.classes.transferOption', { session: row.transferStartSessionNumber, count: row.activeMembers, capacity: row.capacity || '—' })}{full ? ` · ${t('englishOperations.classes.full')}` : ''}</option>;
             })}
           </select>
         </label>
@@ -209,10 +211,18 @@ function RosterTransferForm({ run, learner, destinations, onClose }) {
           <span>{t('englishOperations.classes.transferDate')}</span>
           <Input type="date" value={transferDate} onChange={(event) => setTransferDate(event.target.value)} required />
         </label>
-        <div className="flex flex-wrap gap-2">
-          <Button type="button" variant="ghost" onClick={onClose}>{t('englishOperations.classes.cancel')}</Button>
-          <Button type="submit" disabled={!target || targetFull || mutation.isPending}>{t('englishOperations.classes.confirmTransfer')}</Button>
-        </div>
+      </div>
+      {targetFull && <div className="space-y-2 rounded-md border border-amber-500/40 bg-amber-500/10 p-3">
+        <p className="text-sm font-medium text-foreground">{t('englishOperations.classes.capacityOverrideWarning', { projected: target.activeMembers + 1, capacity: target.capacity })}</p>
+        <p className="text-xs text-muted-foreground">{t('englishOperations.classes.capacityOverrideHint')}</p>
+        <label className="block space-y-1 text-sm text-muted-foreground">
+          <span>{t('englishOperations.classes.capacityOverrideReason')}</span>
+          <textarea value={capacityOverrideReason} onChange={(event) => setCapacityOverrideReason(event.target.value)} maxLength={1000} required rows={3} className="w-full resize-y rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground" />
+        </label>
+      </div>}
+      <div className="flex flex-wrap justify-end gap-2">
+        <Button type="button" variant="ghost" onClick={onClose}>{t('englishOperations.classes.cancel')}</Button>
+        <Button type="submit" disabled={!target || (targetFull && !capacityOverrideReason.trim()) || mutation.isPending}>{t('englishOperations.classes.confirmTransfer')}</Button>
       </div>
       {destinations.length === 0 && <p className="text-xs text-muted-foreground">{t('englishOperations.classes.noTransferDestinations')}</p>}
     </form>

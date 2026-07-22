@@ -24,14 +24,16 @@ remainder is documented deferred-by-design scope (below), not active debt.
   notification bell (full event coverage) shipped 2026-06-13.
 - **Now / Next — canonical English Operations:** ADR
   [`english-domain-authority`](decisions/english-domain-authority.md) is
-  **Accepted** and supersedes the generic English handoff. Migrations 047–050
+  **Accepted** and supersedes the generic English handoff. Migrations 047–051
   are applied on the prototype: 52 stable classes retain 52 current PIC
   assignments; Course Run rosters read directly from `eng_run_enrollments`;
   one-current-PIC and one-active-enrollment invariants are database guarded;
   eligibility uses the Course Run's 80% attendance-ratio snapshot. Operators
   can now start a learner at the confirmed next logical session, mark an active
   learner as left while retaining history and releasing capacity, transfer an
-  active learner across classes through a linked historical chain, create a real
+  active learner across classes through a linked historical chain, approve a
+  reasoned transfer above a full class's unchanged capacity with immutable
+  support and audit records, create a real
   Meeting + Session Unit on an approved slot, and atomically save one exact P/A
   roster with stale-write protection. The 984 imported sessions were backfilled
   to 984 Meetings without changing their 5,962 attendance facts. Migration 050
@@ -43,8 +45,8 @@ remainder is documented deferred-by-design scope (below), not active debt.
   Meetings until correction overlays make active-slot validation safe, mirrors
   migration 047's evidence-only multi-active reconciliation, fails before load
   on ambiguous/unbalanced input, and blocks remote targets by default.
-  **Next:** reasoned capacity override;
-  optional second Session Unit / make-up credit; assigned-Teacher scope.
+  **Next:** optional second Session Unit / make-up replacement credit;
+  assigned-Teacher scope.
 - **Canonical English baseline:** Phases 1–3 are complete on dev: identity,
   structure, correction overlay, 984 historical sessions, 5,962 attendance
   records, searchable attendance rosters, derived ratio eligibility, and (Phase 3,
@@ -191,6 +193,25 @@ Bug fixing and integration review rank above net-new feature rollout.
 > 07-04 E1–E3 rolled 2026-07-08, 07-02→07-03 rolled 2026-07-07 →
 > [`2026-q3.md`](changelog-archive/2026-q3.md); 06-20→06-27 rolled 2026-07-07;
 > 06-14→06-19 rolled 2026-07-04 → [`2026-q2.md`](changelog-archive/2026-q2.md)).
+
+- **2026-07-22** — **Reasoned English capacity-override transfer verified.**
+  Admin and Coordinator can now select a full cross-class Course Run during a
+  learner transfer. The UI shows projected occupancy, requires an HR reason,
+  and makes clear that the permanent approval does not change class capacity.
+  The same transaction retains the linked source history, creates the active
+  target chain, inserts one immutable `eng_cohort_capacity_overrides` row, and
+  writes `cohort.capacity.override` plus linked `learner.transfer` domain
+  audits. Missing reason, permission denial, stale state, and retry conflicts
+  create no partial or duplicate record. A disposable PostgreSQL 17 rehearsal
+  applied migrations 001–051, proved every support-table constraint and empty
+  rollback, then proved rollback refuses to erase non-empty approval history.
+  The real UI changed a target from 1/1 to 2/1 at unchanged capacity across
+  1440×900, 1280×800, and 390×844 with no page-level horizontal overflow or
+  browser warnings/errors. Verification: PostgreSQL integration 4/4,
+  override-focused server 37/37, all server unit tests 393/393, override client
+  4/4, full client 570/570, production build, lint (zero errors; five
+  pre-existing warnings), and syntax 21/21. **Next:** optional second normal
+  Session Unit / make-up replacement credit; assigned-Teacher scope.
 
 - **2026-07-22** — **Canonical English learner-transfer workflow verified.**
   Admin and Coordinator can transfer an active learner from the Classes roster
