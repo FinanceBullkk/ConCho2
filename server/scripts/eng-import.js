@@ -3,7 +3,8 @@
 //   node scripts/eng-import.js <workbook.xlsx> [--reset] [--dev]
 // Loads the prototype PG env by default (`--dev` selects server/.env), runs the
 // stage→transform→load→reconcile pipeline, prints the reconciliation + DQ
-// summary, and asserts source=loaded+skipped per sheet. Never point at prod.
+// summary, and asserts source=loaded+skipped per sheet. Remote targets require
+// an importer-specific one-shot confirmation before any connection is opened.
 
 const path = require('path');
 const args = process.argv.slice(2);
@@ -15,6 +16,7 @@ if (!process.env.PG_URL) {
 }
 const { runImport } = require('../domains/english-training/import/pipeline');
 const { closePool } = require('../config/pg');
+const dangerousScriptGuard = require('./lib/dangerousScriptGuard');
 
 (async () => {
   const reset = args.includes('--reset');
@@ -23,6 +25,19 @@ const { closePool } = require('../config/pg');
     console.error('usage: node scripts/eng-import.js <workbook.xlsx> [--reset] [--dev]');
     process.exit(1);
   }
+
+  const connectionString = process.env.PG_URL || process.env.PG_PROTOTYPE_URL;
+  if (!connectionString) throw new Error('PG connection string missing (PG_URL / PG_PROTOTYPE_URL)');
+  const target = new URL(connectionString);
+  dangerousScriptGuard({
+    scriptName: 'eng-import.js',
+    host: target.hostname,
+    dbName: decodeURIComponent(target.pathname.replace(/^\//, '')),
+    remoteOverride: {
+      envName: 'ENG_IMPORT_ALLOW_REMOTE',
+      expectedValue: 'YES_I_HAVE_BACKUP',
+    },
+  });
 
   const res = await runImport(file, { reset });
 

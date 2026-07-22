@@ -2,7 +2,7 @@
 capability: english-training
 status: evolving
 owners: [domains/english-training]
-last_updated: 2026-07-21
+last_updated: 2026-07-22
 authority:
   repository: kyphucclv/ConMeoGauGau
   commit: 4107cd52ee905e87254e099da23cb58dcbdd82a9
@@ -16,6 +16,7 @@ related_code:
   - server/db/pg/migrations/048_english_live_meetings_attendance.js
   - server/db/pg/migrations/049_english_meeting_calendar.js
   - server/db/pg/migrations/050_english_future_meeting_handoff.js
+  - server/domains/english-training/import/pipeline.js
   - server/domains/english-training/canonical-operations.js
   - server/domains/english-training/meeting-delivery.js
   - server/domains/english-training/reads.pg.js
@@ -210,11 +211,15 @@ imported wall-clock value is reinterpreted as a real Asia/Ho_Chi_Minh instant,
 the linked Session Unit is moved with it, and one domain-audit event is recorded
 per handoff. Past Meetings and all imported attendance facts are untouched.
 
-The reproducible importer is schema-aware: it stages imported Meetings as
-cancelled inside the import transaction, loads their linked Session Units and
-original attendance status, reapplies the correction overlay, then opens final
-planned/completed states. The active-slot uniqueness guard therefore sees only
-corrected clocks; any remaining collision rolls back the complete import.
+The reproducible importer is schema-aware. Before load it applies migration
+047's evidence rule to source multi-active enrollments and aborts ambiguous or
+unbalanced input. Inside the transaction it stages imported Meetings as
+cancelled, loads their linked Session Units and original attendance status, and
+reapplies the approved correction overlay. A fresh current-schema database
+bootstraps that same deterministic overlay with correction evidence rather than
+weakening the slot guard. The importer then opens final planned/completed states
+and reproduces migration 050's source baseline, Vietnam instant, future handoff,
+and domain audit. Any remaining collision rolls back the complete reset/import.
 
 ## Verification
 
@@ -233,6 +238,11 @@ corrected clocks; any remaining collision rolls back the complete import.
 - Reconciliation: 52 classes, 52 current PIC assignments, 6 courses, 91 Course
   Runs, 552 Run Enrollments, 984 Meetings, 984 Session Units and 5,962
   attendance facts.
+- Fresh-rebuild rehearsal: PostgreSQL 17 migrated 001–050; source counts above
+  reproduced from checksum `9e514aea…3362`; 79 active and 13 waiting Run
+  Enrollments; 180 open and 2 resolved DQ issues; zero multi-active, active-slot,
+  or orphan violations. An induced slot collision preserved all pre-import rows
+  and an exam-result sentinel, proving transaction rollback and reset FK order.
 
 ## Known next work
 

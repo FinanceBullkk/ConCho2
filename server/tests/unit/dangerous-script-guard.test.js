@@ -8,6 +8,7 @@ const ENV_KEYS = [
   'NODE_ENV',
   'ALLOW_PROD_DATA_MUTATION',
   'SEED_ALLOW_REMOTE',
+  'ENG_IMPORT_ALLOW_REMOTE',
 ];
 
 describe('dangerousScriptGuard - remote database safety', () => {
@@ -130,6 +131,27 @@ describe('dangerousScriptGuard - remote database safety', () => {
     const result = spawnSync(
       process.execPath,
       [path.join(__dirname, '..', '..', 'scripts', 'seed-pg.js')],
+      { env: childEnv, encoding: 'utf8', timeout: 10_000 },
+    );
+    const output = `${result.stdout}\n${result.stderr}`;
+
+    expect(result.status).toBe(1);
+    expect(output).toMatch(/cannot mutate remote database/i);
+    expect(output).not.toMatch(/ENOTFOUND|ECONNREFUSED|timeout expired/i);
+  });
+
+  it('wires the remote gate into eng-import before the CLI can open a connection', () => {
+    const childEnv = {
+      ...process.env,
+      NODE_ENV: 'development',
+      PG_URL: 'postgresql://fake:fake@ep-eng-import-safety.invalid/neondb',
+    };
+    delete childEnv.ENG_IMPORT_ALLOW_REMOTE;
+    delete childEnv.ALLOW_PROD_DATA_MUTATION;
+
+    const result = spawnSync(
+      process.execPath,
+      [path.join(__dirname, '..', '..', 'scripts', 'eng-import.js'), 'fixture.xlsx', '--reset'],
       { env: childEnv, encoding: 'utf8', timeout: 10_000 },
     );
     const output = `${result.stdout}\n${result.stderr}`;

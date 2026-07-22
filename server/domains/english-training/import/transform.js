@@ -13,8 +13,11 @@ const normClass = (v) => { const s = n.normText(v); return s ? s.toUpperCase() :
 // sheets: { STUDENTS, COURSE_PLAN, CLASSES, ENROLLMENTS, PIC } (arrays of row objs).
 function transform(sheets, now = new Date()) {
   const issues = [];
-  const issue = (code, sheet, row, detail, entityType, entityKey) =>
-    issues.push({ code, sheet, sourceRow: row, detail, entityType, entityKey });
+  const issue = (code, sheet, row, detail, entityType, entityKey, state = {}) => {
+    const record = { code, sheet, sourceRow: row, detail, entityType, entityKey, ...state };
+    issues.push(record);
+    return record;
+  };
 
   // ── courses ← COURSE_PLAN ──────────────────────────────────────────────
   const courses = [];
@@ -124,20 +127,20 @@ function transform(sheets, now = new Date()) {
     delete m._anyActive; delete m._minStart;
   }
 
-  // Multi-active (soft rule): keep BOTH active enrollments with their true status;
-  // record a DQ issue per affected employee for owner review. We do NOT demote or
-  // drop — real data has legitimate concurrent enrollment across different courses.
+  // Capture source multi-active evidence before Phase 2. Canonical status is
+  // reconciled only after attendance has been linked to these enrollments.
   const activeByEmp = new Map();
   for (const e of rawEnr) if (e.status === 'active') {
     const l = activeByEmp.get(e.emp) || [];
     l.push(e); activeByEmp.set(e.emp, l);
   }
   const multiActive = new Set();
+  const multiActiveIssueByEmp = new Map();
   for (const [emp, list] of activeByEmp) {
     if (list.length <= 1) continue;
     multiActive.add(emp);
-    issue('multi_active_enrollment', 'ENROLLMENTS', null,
-      { emp, runs: list.map((x) => `${x.cc}||${x.cn}`) }, 'employee', emp);
+    multiActiveIssueByEmp.set(emp, issue('multi_active_enrollment', 'ENROLLMENTS', null,
+      { emp, runs: list.map((x) => `${x.cc}||${x.cn}`) }, 'employee', emp));
   }
 
   const enrollments = [];
@@ -148,8 +151,9 @@ function transform(sheets, now = new Date()) {
       cohort_membership_id: memByKey.get(`${e.emp}||${e.cc}`).id,
       status: e.status, start_session_number: 1,
       business_unit_id_snapshot: emp._bu, job_role_id_snapshot: emp._role,
-      // Flag concurrent-active rows so the admin view can surface them for review.
-      meta: (e.status === 'active' && multiActive.has(e.emp)) ? { dq: 'multi_active' } : null,
+      // Retain the source status even if canonical reconciliation demotes the row.
+      meta: (e.status === 'active' && multiActive.has(e.emp))
+        ? { dq: 'multi_active', sourceStatus: 'active' } : null,
     });
   }
 
@@ -176,6 +180,66 @@ function transform(sheets, now = new Date()) {
     courses, cohorts: [...cohortByCode.values()], employees, courseRuns, enrollments,
   }, now);
   issues.push(...phase2.issues);
+
+  // Mirror migration 047 for imports against the current schema: exactly one
+  // attendance-evidenced active enrollment wins. Ambiguous evidence is rejected
+  // before database writes rather than guessed around the partial unique index.
+  const attendanceCountByEnrollment = new Map();
+  for (const record of phase2.attendance) {
+    attendanceCountByEnrollment.set(
+      record.run_enrollment_id,
+      (attendanceCountByEnrollment.get(record.run_enrollment_id) || 0) + 1,
+    );
+  }
+  for (const empCode of multiActive) {
+    const employee = empByCode.get(empCode);
+    const active = enrollments.filter(
+      (enrollment) => enrollment.employee_id === employee.id && enrollment.status === 'active',
+    );
+    const evidenced = active.filter(
+      (enrollment) => (attendanceCountByEnrollment.get(enrollment.id) || 0) > 0,
+    );
+    if (evidenced.length !== 1) {
+      throw new Error(
+        `Ambiguous multi-active English enrollment for employee ${empCode}: `
+        + `expected exactly one attendance-evidenced enrollment, found ${evidenced.length}.`,
+      );
+    }
+
+    for (const enrollment of active) {
+      if (enrollment.id === evidenced[0].id) continue;
+      enrollment.status = 'waiting';
+      enrollment.meta = {
+        ...(enrollment.meta || {}),
+        canonicalReconciliation: {
+          previousStatus: 'active',
+          reason: 'no_attendance_competing_active_enrollment',
+          authority: 'ConMeoGauGau@4107cd52ee905e87254e099da23cb58dcbdd82a9',
+        },
+      };
+    }
+
+    for (const membership of memberships) {
+      const hasDemotedEnrollment = active.some(
+        (enrollment) => enrollment.cohort_membership_id === membership.id
+          && enrollment.id !== evidenced[0].id,
+      );
+      const stillActive = enrollments.some(
+        (enrollment) => enrollment.cohort_membership_id === membership.id
+          && enrollment.status === 'active',
+      );
+      if (hasDemotedEnrollment && !stillActive && membership.status === 'active') {
+        membership.status = 'cancelled';
+      }
+    }
+
+    Object.assign(multiActiveIssueByEmp.get(empCode), {
+      status: 'resolved',
+      resolutionNote: 'Attendance-evidenced enrollment retained; empty competitor set to waiting.',
+      resolvedBy: 'system:import-canonical-reconciliation',
+      resolvedAt: now,
+    });
+  }
 
   return {
     courses, cohorts: [...cohortByCode.values()], employees, memberships, courseRuns,

@@ -6,7 +6,7 @@
 > - *Architecture / orientation* → [`system-overview.md`](system-overview.md)
 > - *Detailed task snapshot (archived)* → [`archive/handoff-2026-06-01.md`](archive/handoff-2026-06-01.md)
 >
-> **Last updated:** 2026-07-21
+> **Last updated:** 2026-07-22
 
 ---
 
@@ -38,7 +38,9 @@ remainder is documented deferred-by-design scope (below), not active debt.
   instants, and the shared calendar + drawer edit/cancel UX. Managed-person
   create now writes the disabled User +
   canonical Employee crosswalk atomically; the current-schema importer stages
-  Meetings until correction overlays make active-slot validation safe.
+  Meetings until correction overlays make active-slot validation safe, mirrors
+  migration 047's evidence-only multi-active reconciliation, fails before load
+  on ambiguous/unbalanced input, and blocks remote targets by default.
   **Next:** learner transfer/leave and capacity override;
   optional second Session Unit / make-up credit; assigned-Teacher scope.
 - **Canonical English baseline:** Phases 1–3 are complete on dev: identity,
@@ -187,6 +189,28 @@ Bug fixing and integration review rank above net-new feature rollout.
 > 07-04 E1–E3 rolled 2026-07-08, 07-02→07-03 rolled 2026-07-07 →
 > [`2026-q3.md`](changelog-archive/2026-q3.md); 06-20→06-27 rolled 2026-07-07;
 > 06-14→06-19 rolled 2026-07-04 → [`2026-q2.md`](changelog-archive/2026-q2.md)).
+
+- **2026-07-22** — **Current-schema English workbook rebuild hardened and verified.**
+  The importer now applies migration
+  047's exact evidence rule before inserting: one attendance-bearing active
+  enrollment remains active, evidence-free competitors become waiting, and
+  ambiguous conflicts abort before the transaction. Reconciliation also aborts
+  before load, resolved DQ state plus domain audit is persisted, `--reset`
+  deletes stale domain audit and exam-result children, and the CLI refuses remote
+  targets unless the importer-specific one-shot backup confirmation is present.
+  A fresh PostgreSQL 17 database migrated through all 50 migrations now
+  bootstraps the approved deterministic time-correction overlay, preserves it on
+  re-import, and reproduces migration 050's future Meeting handoff. The referenced
+  workbook checksum `9e514aea…3362` rebuilt losslessly to 6 courses, 52
+  cohorts, 308 employees, 91 runs, 552 enrollments (79 active / 13 waiting), 984
+  sessions, 5,962 attendance facts, and 182 DQ issues; 34 duplicate attendance
+  rows reconcile as retained raw evidence. There are zero multi-active, active-slot,
+  or orphan violations; audit contains 2 enrollment reconciliations plus 8 future
+  handoffs. An induced correction collision proved transaction rollback retained
+  all canonical counts and an exam-result sentinel; removing it then proved the
+  corrected FK reset order. Verification: English/canonical/session-time 64/64,
+  all server unit tests 379/379, syntax 21/21. The disposable database was removed
+  after verification; no remote database was contacted.
 
 - **2026-07-21** — **English future Meeting handoff re-sliced — Implemented,
   Gate 3 verification pending.** The oversized mixed worktree is now three

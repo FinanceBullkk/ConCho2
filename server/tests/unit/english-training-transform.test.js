@@ -34,6 +34,12 @@ function fixture() {
       { __row: 2, 'Class Code': 'EL001', PIC: 'Coach X', 'EMP Code': '1001', Mail: 'x@co' },
       { __row: 3, 'Class Code': 'EL003', PIC: 'Coach Y', 'EMP Code': null, Mail: null },
     ],
+    CLASS_SESSIONS: [
+      { __row: 2, 'Class Code': 'EL001', 'Course Name': 'Business English', 'Session No': 1, Date: D('2026-01-10T10:00:00Z') },
+    ],
+    ATTENDANCE: [
+      { __row: 2, 'Emp Code': '1001', 'Class Code': 'EL001', 'Course Name': 'Business English', 'Session No': 1, Date: D('2026-01-10T10:00:00Z'), Status: 'Present' },
+    ],
   };
 }
 
@@ -102,13 +108,61 @@ describe('transform', () => {
     expect(out.memberships.find((m) => m.status === 'active')).toBeTruthy(); // 1001 has active
   });
 
-  test('multi-active kept BOTH active + flagged (soft rule)', () => {
+  test('multi-active keeps the one attendance-evidenced enrollment active', () => {
+    const employeeId = out.employees.find((x) => x.emp_code === '1001').id;
     const active1001 = out.enrollments.filter(
-      (e) => e.employee_id === out.employees.find((x) => x.emp_code === '1001').id && e.status === 'active',
+      (e) => e.employee_id === employeeId && e.status === 'active',
     );
-    expect(active1001).toHaveLength(2);                // not demoted
-    expect(active1001.every((e) => e.meta && e.meta.dq === 'multi_active')).toBe(true);
+    const waiting1001 = out.enrollments.filter(
+      (e) => e.employee_id === employeeId && e.status === 'waiting',
+    );
+    expect(active1001).toHaveLength(1);
+    expect(waiting1001).toHaveLength(1);
+    expect(waiting1001[0].meta.canonicalReconciliation).toMatchObject({
+      previousStatus: 'active',
+      reason: 'no_attendance_competing_active_enrollment',
+    });
     expect(codes(out).multi_active_enrollment).toBe(1);
+    expect(out.issues.find((i) => i.code === 'multi_active_enrollment')).toMatchObject({
+      status: 'resolved',
+      resolvedBy: 'system:import-canonical-reconciliation',
+    });
+  });
+
+  test('refuses to guess when multi-active attendance evidence is ambiguous', () => {
+    const input = fixture();
+    input.ATTENDANCE = [];
+
+    expect(() => transform(input, D('2026-07-18')))
+      .toThrow(/ambiguous multi-active English enrollment.*1001/i);
+  });
+
+  test('refuses to guess when more than one active enrollment has attendance', () => {
+    const input = fixture();
+    input.CLASS_SESSIONS.push({
+      __row: 3, 'Class Code': 'EL001', 'Course Name': 'Foundation',
+      'Session No': 1, Date: D('2026-02-10T10:00:00Z'),
+    });
+    input.ATTENDANCE.push({
+      __row: 3, 'Emp Code': '1001', 'Class Code': 'EL001', 'Course Name': 'Foundation',
+      'Session No': 1, Date: D('2026-02-10T10:00:00Z'), Status: 'Present',
+    });
+
+    expect(() => transform(input, D('2026-07-18')))
+      .toThrow(/ambiguous multi-active English enrollment.*found 2/i);
+  });
+
+  test('cancels a demoted enrollment membership only when no active row remains in it', () => {
+    const input = fixture();
+    input.CLASSES[1]['Class Code'] = 'EL004';
+    input.ENROLLMENTS[1]['Class Code'] = 'EL004';
+    const result = transform(input, D('2026-07-18'));
+    const employeeId = result.employees.find((e) => e.emp_code === '1001').id;
+    const cohortId = result.cohorts.find((cohort) => cohort.class_code === 'EL004').id;
+
+    expect(result.memberships.find(
+      (membership) => membership.employee_id === employeeId && membership.cohort_id === cohortId,
+    ).status).toBe('cancelled');
   });
 
   test('waiting status preserved; membership start null recorded', () => {
