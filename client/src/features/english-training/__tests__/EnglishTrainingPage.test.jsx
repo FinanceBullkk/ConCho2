@@ -89,6 +89,21 @@ describe('EnglishTrainingPage', () => {
     expect(screen.getByRole('button', { name: 'Open class A1' })).toBeInTheDocument();
   });
 
+  it('readOnly embed hides the Correct action, but allowCorrections re-enables it (DQ regression guard)', () => {
+    const { rerender } = render(<EnglishTrainingPage readOnly embedded />);
+    fireEvent.click(screen.getByRole('tab', { name: 'Data-quality issues' }));
+    fireEvent.click(screen.getByRole('button', { name: 'View details for missing_bu' }));
+    // Pure read-only Archive embed: no correction entry point.
+    expect(screen.queryByRole('button', { name: 'Correct' })).not.toBeInTheDocument();
+
+    // Admin/Coordinator opt-in re-surfaces the shipped Phase-1 correction flow.
+    rerender(<EnglishTrainingPage readOnly embedded allowCorrections />);
+    fireEvent.click(screen.getByRole('tab', { name: 'Data-quality issues' }));
+    fireEvent.click(screen.getByRole('button', { name: 'View details for missing_bu' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Correct' }));
+    expect(screen.getByText('Correct employee data')).toBeInTheDocument();
+  });
+
   it('shows imported sessions, attendance roster, and eligibility', () => {
     render(<EnglishTrainingPage />);
     fireEvent.click(screen.getByRole('tab', { name: 'Sessions' }));
