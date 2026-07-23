@@ -7,6 +7,10 @@
 //   node scripts/eng-reallocate-session-times.js --apply \
 //     --confirm=REALLOCATE_ENGLISH_ARCHIVE --actor-emp-code=000001 \
 //     --reason="Approved correction reference"
+//
+// Remote targets fail closed: set ENG_REALLOCATE_ALLOW_REMOTE=YES_I_HAVE_BACKUP
+// (one-shot) after verifying the target and backup. Production additionally
+// requires ALLOW_PROD_DATA_MUTATION=YES_I_HAVE_BACKUP.
 
 const path = require('path');
 
@@ -63,6 +67,10 @@ function printPreview(plan) {
     scriptName: 'eng-reallocate-session-times.js — updates imported Archive session timestamps',
     host: target.hostname,
     dbName: target.pathname.replace(/^\//, ''),
+    remoteOverride: {
+      envName: 'ENG_REALLOCATE_ALLOW_REMOTE',
+      expectedValue: 'YES_I_HAVE_BACKUP',
+    },
   });
 
   const { rows } = await query(`
