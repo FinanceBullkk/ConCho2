@@ -7,7 +7,7 @@ import { Spinner } from '../../components/Spinner';
 import { useSchedulingConfig, DEFAULT_UTC_OFFSET_MINUTES } from '../../hooks/useSchedulingConfig';
 import { scheduleSlotId, slotToUtcRange } from '../../lib/scheduling-slots';
 import SchedulesPage from '../schedule/SchedulesPage';
-import { adaptHistoricalSessions } from './historical-session-adapter';
+import { adaptHistoricalSessions, nearestSessionStart } from './historical-session-adapter';
 import {
   useCancelCanonicalEnglishMeeting,
   useCanonicalEnglishCourseRuns,
@@ -325,7 +325,9 @@ export default function SchedulePanel() {
         historicalOnly
         hideHeader
         historicalSchedules={schedules}
-        defaultWeek={schedules[0]?.startTime}
+        // Open on the week the operator is actually working in, not on whichever
+        // session the API happened to return first.
+        defaultWeek={nearestSessionStart(schedules)}
         selectedHistoricalCellKey={selectedCellKey}
         onHistoricalCellClick={(prefill) => setEditor({ mode: 'create', prefill })}
         onHistoricalScheduleClick={(schedule) => setEditor({ mode: 'edit', schedule })}
