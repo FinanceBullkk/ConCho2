@@ -77,10 +77,18 @@ database`.
       NOT protect it. When running Playwright locally, start the API server with
       `PG_URL=$PG_TEST_URL` (Docker) so deep create/edit/cancel specs cannot
       write to production.
-- [ ] Consider a confirmation flag (`SEED_ALLOW_REMOTE=1`) on `seed-pg.js` before
-      it TRUNCATEs a non-localhost database.
-- [ ] Review other maintenance scripts under `server/scripts/` that mutate the
-      DB for the same "which database am I pointed at?" assumption.
+- [x] `seed-pg.js` now fails closed before it TRUNCATEs a non-loopback database.
+      Remote seeding requires the one-shot confirmation
+      `SEED_ALLOW_REMOTE=YES_I_HAVE_BACKUP`; production also retains the separate
+      `ALLOW_PROD_DATA_MUTATION=YES_I_HAVE_BACKUP` gate. Do not persist either
+      override in an env file.
+- [x] Reviewed the other maintenance scripts under `server/scripts/` for target
+      assumptions. Prototype verifiers either roll back their probes or limit
+      writes to synthetic prefixes/tables. The English import, PIC-team retire,
+      and session-time reallocation apply paths remain intentionally separate
+      follow-up hardening because they have different confirmation, audit, and
+      rollback contracts; do not run them against a non-disposable target until
+      that work is complete.
 
 ## Lessons
 

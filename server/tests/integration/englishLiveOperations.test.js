@@ -8,6 +8,7 @@
  */
 const request = require('supertest');
 const { query } = require('../../config/pg');
+const { toVN } = require('../../helpers/dayjsConfig');
 const {
   getApp, getTokens, getSeedData, getCsrfHeaders, teardown,
 } = require('../setup');
@@ -47,7 +48,7 @@ describe('English Operations — canonical live vertical flow', () => {
     ]);
     await query(`INSERT INTO eng_employees (
       id, emp_code, full_name, employment_status, user_id, meta
-    ) VALUES ($1,$2,$3,'active',$4,'{}'::jsonb)`, [
+    ) VALUES ($1,$2,$3,'active',$4,'{"businessUnit":"Finance","jobRole":"Analyst"}'::jsonb)`, [
       employeeId, seed.member1.empCode, seed.member1.name, seed.member1._id,
     ]);
 
@@ -65,6 +66,21 @@ describe('English Operations — canonical live vertical flow', () => {
     });
     expect(classResult.status).toBe(201);
     const { cohortId, courseRunId } = classResult.body.data;
+
+    const targetClassResult = await authorized(
+      request(app).post('/api/english-training/workspace/classes'),
+      tokens.admin,
+    ).send({
+      classCode: `ET${suffix.slice(-3)}`,
+      displayName: 'Canonical English Transfer Target',
+      courseId,
+      startDate: '2026-07-20',
+      capacity: 12,
+      status: 'active',
+      picLabel: 'People Team',
+    });
+    expect(targetClassResult.status).toBe(201);
+    const { cohortId: targetCohortId, courseRunId: targetCourseRunId } = targetClassResult.body.data;
 
     const enrollment = await authorized(
       request(app).post(`/api/english-training/workspace/course-runs/${courseRunId}/enrollments`),
@@ -135,6 +151,74 @@ describe('English Operations — canonical live vertical flow', () => {
     expect(stale.status).toBe(409);
     expect(stale.body.message).toMatch(/roster changed/i);
 
+    const transferPath = `/api/english-training/workspace/course-runs/${courseRunId}`
+      + `/enrollments/${enrollment.body.data.enrollmentId}/transfer`;
+    const deniedTransfer = await authorized(request(app).post(transferPath), tokens.teacher).send({
+      targetCourseRunId, transferDate: '2026-07-20', confirmedStartSessionNumber: 1,
+    });
+    expect(deniedTransfer.status).toBe(403);
+    expect((await query(
+      'SELECT status FROM eng_run_enrollments WHERE id = $1',
+      [enrollment.body.data.enrollmentId],
+    )).rows[0].status).toBe('active');
+
+    const transferred = await authorized(request(app).post(transferPath), tokens.admin).send({
+      targetCourseRunId, transferDate: '2026-07-20', confirmedStartSessionNumber: 1,
+    });
+    expect(transferred.status).toBe(200);
+    expect(transferred.body.data).toMatchObject({
+      fromEnrollmentId: enrollment.body.data.enrollmentId,
+      fromMembershipId: enrollment.body.data.membershipId,
+      startSessionNumber: 1,
+    });
+
+    const [sourceEnrollment, sourceMembership, targetEnrollment, preservedAfterTransfer, transferAudit] = await Promise.all([
+      query('SELECT status FROM eng_run_enrollments WHERE id = $1', [enrollment.body.data.enrollmentId]),
+      query('SELECT status, end_date, transfer_to_membership_id FROM eng_cohort_memberships WHERE id = $1', [enrollment.body.data.membershipId]),
+      query('SELECT status, transfer_from_enrollment_id FROM eng_run_enrollments WHERE id = $1', [transferred.body.data.enrollmentId]),
+      query('SELECT status FROM eng_attendance_records WHERE session_unit_id = $1', [sessionUnitId]),
+      query(`SELECT action FROM eng_audit_events
+        WHERE entity_key = $1 AND action = 'learner.transfer'`, [transferred.body.data.enrollmentId]),
+    ]);
+    expect(sourceEnrollment.rows[0].status).toBe('transferred');
+    expect(sourceMembership.rows[0].status).toBe('transferred');
+    expect(toVN(sourceMembership.rows[0].end_date).format('YYYY-MM-DD')).toBe('2026-07-20');
+    expect(sourceMembership.rows[0].transfer_to_membership_id).toBe(transferred.body.data.membershipId);
+    expect(targetEnrollment.rows[0]).toMatchObject({
+      status: 'active', transfer_from_enrollment_id: enrollment.body.data.enrollmentId,
+    });
+    expect(preservedAfterTransfer.rows[0].status).toBe('present');
+    expect(transferAudit.rowCount).toBe(1);
+
+    const leavePath = `/api/english-training/workspace/course-runs/${targetCourseRunId}`
+      + `/enrollments/${transferred.body.data.enrollmentId}/leave`;
+
+    const left = await authorized(request(app).post(leavePath), tokens.admin).send({
+      lastActiveDate: '2026-07-20',
+      reason: 'Work schedule changed',
+    });
+    expect(left.status).toBe(200);
+    expect(left.body.data).toMatchObject({
+      enrollmentId: transferred.body.data.enrollmentId,
+      membershipId: transferred.body.data.membershipId,
+      before: { status: 'active' },
+      after: { status: 'dropped', lastActiveDate: '2026-07-20' },
+      membershipEnded: true,
+    });
+
+    const [leftEnrollment, endedMembership, preservedAttendance, leaveAudit] = await Promise.all([
+      query('SELECT status FROM eng_run_enrollments WHERE id = $1', [transferred.body.data.enrollmentId]),
+      query('SELECT status, end_date FROM eng_cohort_memberships WHERE id = $1', [transferred.body.data.membershipId]),
+      query('SELECT status FROM eng_attendance_records WHERE session_unit_id = $1', [sessionUnitId]),
+      query(`SELECT action FROM eng_audit_events
+        WHERE entity_key = $1 AND action = 'run_enrollment.leave'`, [transferred.body.data.enrollmentId]),
+    ]);
+    expect(leftEnrollment.rows[0].status).toBe('dropped');
+    expect(endedMembership.rows[0].status).toBe('cancelled');
+    expect(toVN(endedMembership.rows[0].end_date).format('YYYY-MM-DD')).toBe('2026-07-20');
+    expect(preservedAttendance.rows[0].status).toBe('present');
+    expect(leaveAudit.rowCount).toBe(1);
+
     const detail = await authorized(
       request(app).get(`/api/english-training/workspace/classes/${cohortId}`),
       tokens.admin,
@@ -142,9 +226,163 @@ describe('English Operations — canonical live vertical flow', () => {
     expect(detail.status).toBe(200);
     expect(detail.body.data.runs[0].roster[0]).toMatchObject({
       employeeId,
+      enrollmentStatus: 'transferred',
       presentCount: 1,
       markedCount: 1,
     });
+
+    const targetDetail = await authorized(
+      request(app).get(`/api/english-training/workspace/classes/${targetCohortId}`),
+      tokens.admin,
+    );
+    expect(targetDetail.body.data.runs[0].roster[0]).toMatchObject({
+      employeeId, enrollmentStatus: 'dropped', presentCount: 0, markedCount: 0,
+    });
+  });
+
+  test('concurrent transfer requests create exactly one active target chain', async () => {
+    const suffix = `${Date.now()}`.slice(-8);
+    const courseId = `eng-transfer-course-${suffix}`;
+    const employeeId = `eng-transfer-employee-${suffix}`;
+    await query(`INSERT INTO eng_courses (
+      id, course_code, course_name, expected_units, max_absences_allowed, is_active, meta
+    ) VALUES ($1,$2,$3,16,2,true,'{}'::jsonb)`, [
+      courseId, `TRANSFER_${suffix}`, 'Concurrent Transfer Integration',
+    ]);
+    await query(`INSERT INTO eng_employees (
+      id, emp_code, full_name, employment_status, user_id, meta
+    ) VALUES ($1,$2,$3,'active',$4,'{"businessUnit":"Finance","jobRole":"Analyst"}'::jsonb)`, [
+      employeeId, seed.member2.empCode, seed.member2.name, seed.member2._id,
+    ]);
+    const createClass = async (prefix, name) => {
+      const response = await authorized(
+        request(app).post('/api/english-training/workspace/classes'), tokens.admin,
+      ).send({
+        classCode: `${prefix}${suffix.slice(-4)}`, displayName: name, courseId,
+        startDate: '2026-07-20', capacity: 12, status: 'active', picLabel: 'People Team',
+      });
+      expect(response.status).toBe(201);
+      return response.body.data;
+    };
+    const source = await createClass('XS', 'Concurrent Transfer Source');
+    const targetA = await createClass('XA', 'Concurrent Transfer Target A');
+    const targetB = await createClass('XB', 'Concurrent Transfer Target B');
+    const enrollment = await authorized(
+      request(app).post(`/api/english-training/workspace/course-runs/${source.courseRunId}/enrollments`),
+      tokens.admin,
+    ).send({ employeeId, startDate: '2026-07-20', confirmedStartSessionNumber: 1 });
+    expect(enrollment.status).toBe(201);
+    const transferPath = `/api/english-training/workspace/course-runs/${source.courseRunId}`
+      + `/enrollments/${enrollment.body.data.enrollmentId}/transfer`;
+
+    const responses = await Promise.all([targetA, targetB].map((target) => authorized(
+      request(app).post(transferPath), tokens.admin,
+    ).send({
+      targetCourseRunId: target.courseRunId,
+      transferDate: '2026-07-20',
+      confirmedStartSessionNumber: 1,
+    })));
+    expect(responses.map((response) => response.status).sort()).toEqual([200, 409]);
+
+    const [activeCount, targetCount, auditCount] = await Promise.all([
+      query(`SELECT count(*)::int AS count FROM eng_run_enrollments
+        WHERE employee_id = $1 AND status = 'active'`, [employeeId]),
+      query(`SELECT count(*)::int AS count FROM eng_run_enrollments
+        WHERE transfer_from_enrollment_id = $1`, [enrollment.body.data.enrollmentId]),
+      query(`SELECT count(*)::int AS count FROM eng_audit_events
+        WHERE action = 'learner.transfer' AND details->>'employeeId' = $1`, [employeeId]),
+    ]);
+    expect(activeCount.rows[0].count).toBe(1);
+    expect(targetCount.rows[0].count).toBe(1);
+    expect(auditCount.rows[0].count).toBe(1);
+  });
+
+  test('reasoned capacity override admits one transfer above the class limit and retries safely', async () => {
+    const suffix = `${Date.now()}`.slice(-8);
+    const courseId = `eng-override-course-${suffix}`;
+    const sourceEmployeeId = `eng-override-source-${suffix}`;
+    const occupantEmployeeId = `eng-override-occupant-${suffix}`;
+    await query(`INSERT INTO eng_courses (
+      id, course_code, course_name, expected_units, max_absences_allowed, is_active, meta
+    ) VALUES ($1,$2,$3,16,2,true,'{}'::jsonb)`, [
+      courseId, `OVERRIDE_${suffix}`, 'Capacity Override Integration',
+    ]);
+    await query(`INSERT INTO eng_employees (
+      id, emp_code, full_name, employment_status, user_id, meta
+    ) VALUES
+      ($1,$2,$3,'active',$4,'{"businessUnit":"Operations","jobRole":"Analyst"}'::jsonb),
+      ($5,$6,$7,'active',NULL,'{"businessUnit":"Finance","jobRole":"Specialist"}'::jsonb)`, [
+      sourceEmployeeId, seed.leader.empCode, seed.leader.name, seed.leader._id,
+      occupantEmployeeId, `OVR${suffix}`, 'Existing Target Learner',
+    ]);
+    const createClass = async (prefix, name, capacity) => {
+      const response = await authorized(
+        request(app).post('/api/english-training/workspace/classes'), tokens.admin,
+      ).send({
+        classCode: `${prefix}${suffix.slice(-4)}`, displayName: name, courseId,
+        startDate: '2026-07-20', capacity, status: 'active', picLabel: 'People Team',
+      });
+      expect(response.status).toBe(201);
+      return response.body.data;
+    };
+    const source = await createClass('OS', 'Override Source', 12);
+    const target = await createClass('OT', 'Override Target', 1);
+    const occupant = await authorized(
+      request(app).post(`/api/english-training/workspace/course-runs/${target.courseRunId}/enrollments`),
+      tokens.admin,
+    ).send({ employeeId: occupantEmployeeId, startDate: '2026-07-20', confirmedStartSessionNumber: 1 });
+    expect(occupant.status).toBe(201);
+    const enrollment = await authorized(
+      request(app).post(`/api/english-training/workspace/course-runs/${source.courseRunId}/enrollments`),
+      tokens.admin,
+    ).send({ employeeId: sourceEmployeeId, startDate: '2026-07-20', confirmedStartSessionNumber: 1 });
+    expect(enrollment.status).toBe(201);
+    const path = `/api/english-training/workspace/course-runs/${source.courseRunId}`
+      + `/enrollments/${enrollment.body.data.enrollmentId}/transfer`;
+    const body = {
+      targetCourseRunId: target.courseRunId,
+      transferDate: '2026-07-20', confirmedStartSessionNumber: 1,
+    };
+
+    const rejected = await authorized(request(app).post(path), tokens.admin).send(body);
+    expect(rejected.status).toBe(409);
+    expect((await query('SELECT status FROM eng_run_enrollments WHERE id = $1', [enrollment.body.data.enrollmentId])).rows[0].status).toBe('active');
+    expect((await query('SELECT count(*)::int AS count FROM eng_cohort_capacity_overrides')).rows[0].count).toBe(0);
+
+    const approved = await authorized(request(app).post(path), tokens.admin).send({
+      ...body, capacityOverrideReason: '  HR approved   an additional seat  ',
+    });
+    expect(approved.status).toBe(200);
+    expect(approved.body.data).toMatchObject({
+      capacityOverrideApplied: true,
+      capacityOverrideId: expect.any(String),
+    });
+    const [override, auditCounts, activeCount] = await Promise.all([
+      query(`SELECT previous_capacity, resulting_active_learner_count, reason, actor_user_id
+        FROM eng_cohort_capacity_overrides WHERE id = $1`, [approved.body.data.capacityOverrideId]),
+      query(`SELECT action, count(*)::int AS count FROM eng_audit_events
+        WHERE action IN ('cohort.capacity.override','learner.transfer')
+          AND details->>'employeeId' = $1 GROUP BY action ORDER BY action`, [sourceEmployeeId]),
+      query(`SELECT count(*)::int AS count FROM eng_run_enrollments
+        WHERE employee_id = $1 AND status = 'active'`, [sourceEmployeeId]),
+    ]);
+    expect(override.rows[0]).toMatchObject({
+      previous_capacity: 1,
+      resulting_active_learner_count: 2,
+      reason: 'HR approved an additional seat',
+      actor_user_id: seed.admin._id,
+    });
+    expect(auditCounts.rows).toEqual([
+      { action: 'cohort.capacity.override', count: 1 },
+      { action: 'learner.transfer', count: 1 },
+    ]);
+    expect(activeCount.rows[0].count).toBe(1);
+
+    const retry = await authorized(request(app).post(path), tokens.admin).send({
+      ...body, capacityOverrideReason: 'HR approved an additional seat',
+    });
+    expect(retry.status).toBe(409);
+    expect((await query('SELECT count(*)::int AS count FROM eng_cohort_capacity_overrides')).rows[0].count).toBe(1);
   });
 
   test('adopted imported Meeting reschedules and cancels through the real PostgreSQL stack', async () => {

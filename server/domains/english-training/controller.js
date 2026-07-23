@@ -56,6 +56,42 @@ const addCanonicalRunEnrollment = async (req, res) => {
   } catch (e) { handleError(res, e); }
 };
 
+const leaveCanonicalRunEnrollment = async (req, res) => {
+  try {
+    const result = await canonicalOperations.leaveRunEnrollment({
+      courseRunId: req.params.courseRunId,
+      enrollmentId: req.params.enrollmentId,
+      ...req.body,
+    }, req.user);
+    await auditService.record({
+      req, action: 'updated', entity: 'EnglishRunEnrollment',
+      entityId: result.enrollmentId,
+      diff: auditService.diff(result.before, result.after),
+      note: req.body.reason,
+    });
+    res.json({ success: true, data: result });
+  } catch (e) { handleError(res, e); }
+};
+
+const transferCanonicalRunEnrollment = async (req, res) => {
+  try {
+    const result = await canonicalOperations.transferLearner({
+      sourceCourseRunId: req.params.courseRunId,
+      enrollmentId: req.params.enrollmentId,
+      ...req.body,
+    }, req.user);
+    await auditService.record({
+      req, action: 'transferred', entity: 'EnglishRunEnrollment',
+      entityId: result.enrollmentId,
+      diff: auditService.diff(result.before, result.after),
+      note: result.capacityOverrideApplied
+        ? `${result.fromEnrollmentId} → ${result.enrollmentId}; capacity override: ${result.capacityOverrideReason}`
+        : `${result.fromEnrollmentId} → ${result.enrollmentId}`,
+    });
+    res.json({ success: true, data: result });
+  } catch (e) { handleError(res, e); }
+};
+
 const createCanonicalAttendanceSession = async (req, res) => {
   try {
     const result = await canonicalOperations.createAttendanceSession({
@@ -367,6 +403,8 @@ module.exports = {
   listEnglishTeachers,
   createCanonicalClass,
   addCanonicalRunEnrollment,
+  leaveCanonicalRunEnrollment,
+  transferCanonicalRunEnrollment,
   createCanonicalAttendanceSession,
   rescheduleCanonicalMeeting,
   cancelCanonicalMeeting,

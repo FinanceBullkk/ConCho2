@@ -123,7 +123,12 @@ async function listActiveCourseRuns() {
       r.cohort_id, co.class_code, co.display_name,
       c.course_code, c.course_name,
       COALESCE(MAX(su.session_number) FILTER (WHERE m.status <> 'cancelled'), 0)::int + 1
-        AS next_session_number
+        AS next_session_number,
+      COALESCE(
+        MIN(su.session_number) FILTER (WHERE m.status = 'planned'),
+        MAX(su.session_number) FILTER (WHERE m.status = 'completed') + 1,
+        1
+      )::int AS transfer_start_session_number
     FROM eng_course_runs r
     JOIN eng_cohorts co ON co.id = r.cohort_id
     JOIN eng_courses c ON c.id = r.course_id

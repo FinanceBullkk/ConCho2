@@ -17,6 +17,8 @@ jest.mock('../../domains/english-training/controller', () => ({
   deleteLiveEnglishLevel: jest.fn(),
   createCanonicalClass: (req, res) => res.status(201).json({ success: true, data: req.body }),
   addCanonicalRunEnrollment: (req, res) => res.status(201).json({ success: true, data: req.body }),
+  leaveCanonicalRunEnrollment: (req, res) => res.json({ success: true, data: req.body }),
+  transferCanonicalRunEnrollment: (req, res) => res.json({ success: true, data: req.body }),
   createCanonicalAttendanceSession: (req, res) => res.status(201).json({ success: true, data: req.body }),
   rescheduleCanonicalMeeting: (req, res) => res.json({ success: true, data: req.body }),
   cancelCanonicalMeeting: (req, res) => res.json({ success: true, data: req.body }),
@@ -117,6 +119,93 @@ describe('English Operations canonical live roster authorization', () => {
         confirmedSessionNumber: 3,
       });
     expect(session.status).toBe(201);
+  });
+
+  test('Coordinator can mark an active learner as left with a date and reason', async () => {
+    const res = await request(app)
+      .post('/api/english-training/workspace/course-runs/run-1/enrollments/enrollment-1/leave')
+      .set('x-test-role', 'Coordinator')
+      .send({ lastActiveDate: '2026-07-20', reason: 'Work schedule changed' });
+    expect(res.status).toBe(200);
+  });
+
+  test('learner leave requires an operator reason', async () => {
+    const res = await request(app)
+      .post('/api/english-training/workspace/course-runs/run-1/enrollments/enrollment-1/leave')
+      .set('x-test-role', 'Admin')
+      .send({ lastActiveDate: '2026-07-20', reason: '' });
+    expect(res.status).toBe(400);
+  });
+
+  test('learner leave rejects an impossible calendar date', async () => {
+    const res = await request(app)
+      .post('/api/english-training/workspace/course-runs/run-1/enrollments/enrollment-1/leave')
+      .set('x-test-role', 'Admin')
+      .send({ lastActiveDate: '2026-02-31', reason: 'Work schedule changed' });
+    expect(res.status).toBe(400);
+  });
+
+  test('Teacher cannot mark a learner as left', async () => {
+    const res = await request(app)
+      .post('/api/english-training/workspace/course-runs/run-1/enrollments/enrollment-1/leave')
+      .set('x-test-role', 'Teacher')
+      .send({ lastActiveDate: '2026-07-20', reason: 'Work schedule changed' });
+    expect(res.status).toBe(403);
+  });
+
+  test('Coordinator can transfer an active learner with a confirmed destination session', async () => {
+    const res = await request(app)
+      .post('/api/english-training/workspace/course-runs/run-1/enrollments/enrollment-1/transfer')
+      .set('x-test-role', 'Coordinator')
+      .send({
+        targetCourseRunId: 'run-2', transferDate: '2026-07-20',
+        confirmedStartSessionNumber: 3,
+      });
+    expect(res.status).toBe(200);
+  });
+
+  test('learner transfer rejects an impossible calendar date', async () => {
+    const res = await request(app)
+      .post('/api/english-training/workspace/course-runs/run-1/enrollments/enrollment-1/transfer')
+      .set('x-test-role', 'Admin')
+      .send({
+        targetCourseRunId: 'run-2', transferDate: '2026-02-31',
+        confirmedStartSessionNumber: 3,
+      });
+    expect(res.status).toBe(400);
+  });
+
+  test('learner transfer accepts a bounded capacity override reason', async () => {
+    const accepted = await request(app)
+      .post('/api/english-training/workspace/course-runs/run-1/enrollments/enrollment-1/transfer')
+      .set('x-test-role', 'Admin')
+      .send({
+        targetCourseRunId: 'run-2', transferDate: '2026-07-20',
+        confirmedStartSessionNumber: 3,
+        capacityOverrideReason: 'HR approved an additional seat',
+      });
+    expect(accepted.status).toBe(200);
+
+    const tooLong = await request(app)
+      .post('/api/english-training/workspace/course-runs/run-1/enrollments/enrollment-1/transfer')
+      .set('x-test-role', 'Admin')
+      .send({
+        targetCourseRunId: 'run-2', transferDate: '2026-07-20',
+        confirmedStartSessionNumber: 3,
+        capacityOverrideReason: 'x'.repeat(1001),
+      });
+    expect(tooLong.status).toBe(400);
+  });
+
+  test('Teacher cannot transfer a learner', async () => {
+    const res = await request(app)
+      .post('/api/english-training/workspace/course-runs/run-1/enrollments/enrollment-1/transfer')
+      .set('x-test-role', 'Teacher')
+      .send({
+        targetCourseRunId: 'run-2', transferDate: '2026-07-20',
+        confirmedStartSessionNumber: 3,
+      });
+    expect(res.status).toBe(403);
   });
 
   test('Coordinator can read and save one complete attendance roster', async () => {

@@ -87,11 +87,13 @@ async function withTransaction(fn) {
   }
 }
 
-// Dev-only: wipe canonical + issues (NOT raw staging) so the import is re-runnable
-// against the prototype DB. Dependency order matters (FKs).
+// Explicit reset: wipe canonical + issues (NOT raw staging/correction overlays)
+// so a disposable DB can be rebuilt. Dependency order matters (FKs). Exam
+// results are canonical children and are intentionally discarded by --reset.
 async function resetCanonical(client) {
   const order = [
-    'eng_data_quality_issues', 'eng_attendance_records', 'eng_session_units',
+    'eng_audit_events', 'eng_data_quality_issues', 'eng_exam_results',
+    'eng_attendance_records', 'eng_session_units',
     'eng_meetings',
     'eng_cohort_pic', 'eng_run_enrollments',
     'eng_course_runs', 'eng_cohort_memberships', 'eng_employees',
@@ -407,6 +409,69 @@ async function finalizeImportedMeetings(client) {
   return rowCount;
 }
 
+// Reproduce migration 050 for Meetings imported after that migration has
+// already run: retain corrected workbook wall-clock baselines, then hand only
+// future planned attendance-free occurrences to live Vietnam-time operations.
+async function adoptImportedFutureMeetings(client) {
+  await runner(client)(`
+    UPDATE eng_meetings SET
+      source_starts_at = starts_at,
+      source_duration_minutes = duration_minutes,
+      updated_at = NOW()
+    WHERE meta->>'source' = 'imported'
+  `);
+  const { rowCount } = await runner(client)(`
+    WITH adopted AS (
+      UPDATE eng_meetings m SET
+        starts_at = (m.starts_at AT TIME ZONE 'UTC') AT TIME ZONE 'Asia/Ho_Chi_Minh',
+        operational_at = NOW(),
+        operational_by = 'system:eng-import',
+        operational_reason = 'Owner-approved future imported schedule handoff',
+        meta = COALESCE(m.meta, '{}'::jsonb) || jsonb_build_object(
+          'endsAt', ((m.starts_at AT TIME ZONE 'UTC') AT TIME ZONE 'Asia/Ho_Chi_Minh')
+            + make_interval(mins => m.duration_minutes),
+          'sourceBaselinePreserved', true
+        ),
+        updated_at = NOW()
+      WHERE m.meta->>'source' = 'imported'
+        AND m.status = 'planned'
+        AND m.starts_at > NOW()
+        AND NOT EXISTS (
+          SELECT 1
+          FROM eng_session_units su
+          JOIN eng_attendance_records ar ON ar.session_unit_id = su.id
+          WHERE su.meeting_id = m.id
+        )
+      RETURNING m.id, m.starts_at, m.duration_minutes, m.source_starts_at,
+        m.operational_reason
+    ), updated_units AS (
+      UPDATE eng_session_units su SET
+        held_at = adopted.starts_at,
+        meta = COALESCE(su.meta, '{}'::jsonb) || jsonb_build_object(
+          'endsAt', adopted.starts_at + make_interval(mins => adopted.duration_minutes),
+          'futureImportHandoff', true
+        ),
+        updated_at = NOW()
+      FROM adopted
+      WHERE su.meeting_id = adopted.id
+      RETURNING su.meeting_id
+    )
+    INSERT INTO eng_audit_events (
+      actor_user_id, actor_emp_code, action, entity_type, entity_key, details
+    )
+    SELECT NULL, 'SYSTEM', 'meeting.future_import.adopt', 'meeting', adopted.id,
+      jsonb_build_object(
+        'sourceStartsAt', adopted.source_starts_at,
+        'operationalStartsAt', adopted.starts_at,
+        'reason', adopted.operational_reason,
+        'authority', 'ConMeoGauGau@4107cd52ee905e87254e099da23cb58dcbdd82a9'
+      )
+    FROM adopted
+    RETURNING entity_key
+  `);
+  return rowCount;
+}
+
 // ── Phase 3: exam result & level (evaluation) ───────────────────────────────
 
 async function getLevelByCode(code, client) {
@@ -596,6 +661,7 @@ module.exports = {
   recordEmployeeCorrectionHistory, applyEmployeeCorrections,
   listSessionsForTimeAllocation, saveSessionTimeAllocation,
   verifySessionTimeAllocation, applySessionTimeCorrections, finalizeImportedMeetings,
+  adoptImportedFutureMeetings,
   getLevelByCode, getEnrollmentForExam, getActiveExamResult,
   upsertExamResult, softDeleteActiveExamResult,
   getArchiveState, assertArchiveWritable, freezeArchive,

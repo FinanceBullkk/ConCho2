@@ -6,7 +6,7 @@
 > - *Architecture / orientation* → [`system-overview.md`](system-overview.md)
 > - *Detailed task snapshot (archived)* → [`archive/handoff-2026-06-01.md`](archive/handoff-2026-06-01.md)
 >
-> **Last updated:** 2026-07-21
+> **Last updated:** 2026-07-22
 
 ---
 
@@ -24,12 +24,16 @@ remainder is documented deferred-by-design scope (below), not active debt.
   notification bell (full event coverage) shipped 2026-06-13.
 - **Now / Next — canonical English Operations:** ADR
   [`english-domain-authority`](decisions/english-domain-authority.md) is
-  **Accepted** and supersedes the generic English handoff. Migrations 047–050
+  **Accepted** and supersedes the generic English handoff. Migrations 047–051
   are applied on the prototype: 52 stable classes retain 52 current PIC
   assignments; Course Run rosters read directly from `eng_run_enrollments`;
   one-current-PIC and one-active-enrollment invariants are database guarded;
   eligibility uses the Course Run's 80% attendance-ratio snapshot. Operators
-  can now start a learner at the confirmed next logical session, create a real
+  can now start a learner at the confirmed next logical session, mark an active
+  learner as left while retaining history and releasing capacity, transfer an
+  active learner across classes through a linked historical chain, approve a
+  reasoned transfer above a full class's unchanged capacity with immutable
+  support and audit records, create a real
   Meeting + Session Unit on an approved slot, and atomically save one exact P/A
   roster with stale-write protection. The 984 imported sessions were backfilled
   to 984 Meetings without changing their 5,962 attendance facts. Migration 050
@@ -38,9 +42,11 @@ remainder is documented deferred-by-design scope (below), not active debt.
   instants, and the shared calendar + drawer edit/cancel UX. Managed-person
   create now writes the disabled User +
   canonical Employee crosswalk atomically; the current-schema importer stages
-  Meetings until correction overlays make active-slot validation safe.
-  **Next:** learner transfer/leave and capacity override;
-  optional second Session Unit / make-up credit; assigned-Teacher scope.
+  Meetings until correction overlays make active-slot validation safe, mirrors
+  migration 047's evidence-only multi-active reconciliation, fails before load
+  on ambiguous/unbalanced input, and blocks remote targets by default.
+  **Next:** optional second Session Unit / make-up replacement credit;
+  assigned-Teacher scope.
 - **Canonical English baseline:** Phases 1–3 are complete on dev: identity,
   structure, correction overlay, 984 historical sessions, 5,962 attendance
   records, searchable attendance rosters, derived ratio eligibility, and (Phase 3,
@@ -187,6 +193,83 @@ Bug fixing and integration review rank above net-new feature rollout.
 > 07-04 E1–E3 rolled 2026-07-08, 07-02→07-03 rolled 2026-07-07 →
 > [`2026-q3.md`](changelog-archive/2026-q3.md); 06-20→06-27 rolled 2026-07-07;
 > 06-14→06-19 rolled 2026-07-04 → [`2026-q2.md`](changelog-archive/2026-q2.md)).
+
+- **2026-07-22** — **Reasoned English capacity-override transfer verified.**
+  Admin and Coordinator can now select a full cross-class Course Run during a
+  learner transfer. The UI shows projected occupancy, requires an HR reason,
+  and makes clear that the permanent approval does not change class capacity.
+  The same transaction retains the linked source history, creates the active
+  target chain, inserts one immutable `eng_cohort_capacity_overrides` row, and
+  writes `cohort.capacity.override` plus linked `learner.transfer` domain
+  audits. Missing reason, permission denial, stale state, and retry conflicts
+  create no partial or duplicate record. A disposable PostgreSQL 17 rehearsal
+  applied migrations 001–051, proved every support-table constraint and empty
+  rollback, then proved rollback refuses to erase non-empty approval history.
+  The real UI changed a target from 1/1 to 2/1 at unchanged capacity across
+  1440×900, 1280×800, and 390×844 with no page-level horizontal overflow or
+  browser warnings/errors. Verification: PostgreSQL integration 4/4,
+  override-focused server 37/37, all server unit tests 393/393, override client
+  4/4, full client 570/570, production build, lint (zero errors; five
+  pre-existing warnings), and syntax 21/21. **Next:** optional second normal
+  Session Unit / make-up replacement credit; assigned-Teacher scope.
+
+- **2026-07-22** — **Canonical English learner-transfer workflow verified.**
+  Admin and Coordinator can transfer an active learner from the Classes roster
+  to a planned/active Course Run in another stable class. One transaction
+  retains the source Enrollment and Membership as linked `transferred` history,
+  creates exactly one active target Membership and Enrollment at the confirmed
+  first applicable session, copies current org snapshots, enforces ordinary
+  target capacity, and writes `learner.transfer`. Same-class, stale, full,
+  prior-history, missing-org, permission, and concurrent conflicts roll back.
+  The real UI path was exercised at 1440×900, 1280×800, and 390×844 against a
+  disposable local PostgreSQL database with no page-level horizontal overflow.
+  Verification: disposable PostgreSQL integration 3/3, transfer-focused server
+  42/42, all server unit tests 391/391, transfer client 3/3, full client 569/569,
+  production build, lint (zero errors; five pre-existing warnings), and syntax
+  21/21.
+  **Next:** reasoned, audited capacity override; notifications, restoration, and
+  same-class continuation remain separate outcomes.
+
+- **2026-07-22** — **Canonical English learner-leave workflow verified.**
+  Admin and Coordinator can now mark an active Course Run Enrollment as left
+  from the Classes roster with a required Last active date and reason. The
+  transactional command locks the Run, Enrollment, and Membership; changes the
+  Enrollment to `dropped`; ends the otherwise-unused Membership as `cancelled`;
+  releases active class capacity; preserves roster, session, attendance, and
+  evaluation history; and writes `run_enrollment.leave` to the domain audit.
+  Teacher/Participant denial, stale/non-active state, wrong-Run identity, dates
+  before Membership start, future dates, and impossible calendar dates fail
+  without partial writes. A disposable local PostgreSQL 17 rehearsal proved
+  active/active became dropped/cancelled with the inclusive end date, one
+  retained Session Unit, and exactly one leave audit. The complete UI action was
+  exercised at 1440×900, 1280×800, and 390×844; that pass also found and fixed
+  a mobile grid min-width leak, leaving no page-level horizontal overflow or
+  browser warnings/errors. Verification: English server 97/97, all server unit
+  tests 385/385, full client 568/568, client production build, lint (zero errors;
+  five pre-existing warnings), and syntax 21/21. **Next at that checkpoint:**
+  learner transfer and explicit capacity override.
+
+- **2026-07-22** — **Current-schema English workbook rebuild hardened and verified.**
+  The importer now applies migration
+  047's exact evidence rule before inserting: one attendance-bearing active
+  enrollment remains active, evidence-free competitors become waiting, and
+  ambiguous conflicts abort before the transaction. Reconciliation also aborts
+  before load, resolved DQ state plus domain audit is persisted, `--reset`
+  deletes stale domain audit and exam-result children, and the CLI refuses remote
+  targets unless the importer-specific one-shot backup confirmation is present.
+  A fresh PostgreSQL 17 database migrated through all 50 migrations now
+  bootstraps the approved deterministic time-correction overlay, preserves it on
+  re-import, and reproduces migration 050's future Meeting handoff. The referenced
+  workbook checksum `9e514aea…3362` rebuilt losslessly to 6 courses, 52
+  cohorts, 308 employees, 91 runs, 552 enrollments (79 active / 13 waiting), 984
+  sessions, 5,962 attendance facts, and 182 DQ issues; 34 duplicate attendance
+  rows reconcile as retained raw evidence. There are zero multi-active, active-slot,
+  or orphan violations; audit contains 2 enrollment reconciliations plus 8 future
+  handoffs. An induced correction collision proved transaction rollback retained
+  all canonical counts and an exam-result sentinel; removing it then proved the
+  corrected FK reset order. Verification: English/canonical/session-time 64/64,
+  all server unit tests 379/379, syntax 21/21. The disposable database was removed
+  after verification; no remote database was contacted.
 
 - **2026-07-21** — **English future Meeting handoff re-sliced — Implemented,
   Gate 3 verification pending.** The oversized mixed worktree is now three
