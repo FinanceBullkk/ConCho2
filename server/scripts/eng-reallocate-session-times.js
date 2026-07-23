@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // Preview/apply the deterministic English Archive time repair.
 //
-// Preview (prototype DB by default):
+// Preview (targets PG_URL — shell first, else server/.env):
 //   node scripts/eng-reallocate-session-times.js
 // Apply:
 //   node scripts/eng-reallocate-session-times.js --apply \
@@ -15,12 +15,11 @@
 const path = require('path');
 
 const args = process.argv.slice(2);
-const useDevDb = args.includes('--dev');
-if (!process.env.PG_URL && !process.env.PG_PROTOTYPE_URL) {
-  require('dotenv').config({
-    path: path.join(__dirname, '..', useDevDb ? '.env' : '.env.pg-prototype'),
-    quiet: true,
-  });
+// `PG_URL` from the shell wins (that is how a disposable database is targeted);
+// otherwise server/.env. The `.env.pg-prototype` default was removed 2026-07-24
+// — it named the SAME Neon database as production.
+if (!process.env.PG_URL) {
+  require('dotenv').config({ path: path.join(__dirname, '..', '.env'), quiet: true });
 }
 
 const DEFAULT_TIME_SLOTS = require('../config/default-time-slots');
@@ -61,7 +60,8 @@ function printPreview(plan) {
   if (!reason || reason.trim().length < 10) throw new Error('Apply requires --reason with at least 10 characters');
   if (!actorEmpCode) throw new Error('Apply requires --actor-emp-code');
 
-  const connectionString = process.env.PG_URL || process.env.PG_PROTOTYPE_URL;
+  const connectionString = process.env.PG_URL;
+  if (!connectionString) throw new Error('PG connection string missing (PG_URL)');
   const target = new URL(connectionString);
   dangerousScriptGuard({
     scriptName: 'eng-reallocate-session-times.js — updates imported Archive session timestamps',

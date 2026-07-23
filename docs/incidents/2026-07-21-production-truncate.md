@@ -90,10 +90,31 @@ database`.
       rollback contracts; do not run them against a non-disposable target until
       that work is complete.
 
+- [x] **2026-07-24 — the aliasing door was closed at the source.** The review
+      above judged the prototype verifiers safe because they roll back their
+      probes; it did not question the premise. `PG_PROTOTYPE_URL` in
+      `server/.env.pg-prototype` named the **same Neon database as production**
+      via the direct (non-pooler) hostname, so every "prototype" entry point —
+      `db/pg/knexfile.js` (migrations!), `eng-import.js`,
+      `eng-reallocate-session-times.js`, and the four dev-tool verifiers —
+      defaulted to production while reading as disposable, and
+      `eng-live-prototype-verify.js`'s `prototypeUrl === productionUrl` check
+      lost to the very hostname aliasing named in the Lessons below. Discovered
+      when a routine `npx knex migrate:latest` (no shell `PG_URL`) applied
+      migrations to production. The prototype concept is now **retired**:
+      `PG_URL` is the single connection source, the knexfile prints the resolved
+      host/database (flagged `[REMOTE]`) before migrating, the four prototype
+      dev-tools and the `verify:english-prototype` script are deleted, and
+      `tests/unit/pg-connection-guard.test.js` fails if any code reads
+      `process.env.PG_PROTOTYPE_URL` or loads `.env.pg-prototype` again.
+
 ## Lessons
 
 - Do not compare database **URL strings** to decide "is this production" — Neon
   pooler vs direct hostnames alias the same branch. Compare on a positive,
   fail-closed signal (loopback-only) instead.
+- A file **named** for a disposable environment is not evidence that it points
+  at one. Verify the target, and make tooling print the database it resolved
+  before it changes anything.
 - Test and production must never share a connection string. Isolation is the
   guard; a string comparison is not.

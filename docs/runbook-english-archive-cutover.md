@@ -29,9 +29,13 @@ because the code is deployed.
 1. Deploy with server `ENGLISH_TRAINING_ENABLED=true` and a client build using
    `VITE_ENGLISH_TRAINING_ENABLED=true`; apply migrations 040–046 and take a
    verified PostgreSQL backup.
-   Before production, apply them to the disposable prototype and run
-   `cd server && npm run verify:english-prototype`; the probe refuses a URL that
-   matches `server/.env` and rolls back both write-guard checks.
+   Rehearse first on a **local disposable Postgres** — create an empty database,
+   `PG_URL=postgresql://…@127.0.0.1:5432/<scratch> npx knex migrate:latest
+   --knexfile db/pg/migrations/../knexfile.js` — then apply to production. (The
+   old `npm run verify:english-prototype` probe was retired 2026-07-24 with the
+   `.env.pg-prototype` concept: that "disposable prototype" was the SAME Neon
+   database as production through its direct hostname, and the probe's
+   string-comparison guard never noticed.)
 2. Record counts and hashes for every `eng_*` table and
    `raw_eng_workbook_rows`; keep the reconciliation artifact with the change.
 3. Preview imported-session allocation with

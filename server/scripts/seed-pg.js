@@ -91,7 +91,7 @@ const truncateAll = async () => {
 
 const hostAndDb = () => {
   try {
-    const u = new URL(process.env.PG_URL || process.env.PG_PROTOTYPE_URL || '');
+    const u = new URL(process.env.PG_URL || '');
     return { host: u.hostname || '(unknown)', dbName: (u.pathname || '').replace(/^\//, '') || '(unknown)' };
   } catch {
     return { host: '(unparsed)', dbName: '(unparsed)' };
