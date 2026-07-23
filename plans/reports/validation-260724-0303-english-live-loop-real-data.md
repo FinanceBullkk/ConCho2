@@ -81,7 +81,7 @@ stashed the test fails `Expected 201 / Received 500`; with it, 4/4 pass.
 
 | ID | Sev | Finding |
 |----|-----|---------|
-| L1 | Med (UX) | Attendance filter tiles don't move the calendar. Clicking **Upcoming** (9 sessions) leaves the grid on the previously shown week (Jul 6–12) → an empty grid, as if nothing were upcoming. `defaultWeek` is only an initial value; changing the filter doesn't re-seed it. Operator must page weeks manually. |
+| L1 | Med (UX) | ~~Attendance filter tiles don't move the calendar. Clicking **Upcoming** (9 sessions) leaves the grid on the previously shown week (Jul 6–12) → an empty grid, as if nothing were upcoming.~~ **FIXED (PR #335, 2026-07-24)** — the week now seeds from the session closest to now in the current set, and the grid remounts on a filter change so it actually re-seeds. Browser-verified at 3 viewports: every filter lands on a week containing its sessions. |
 | L2 | Low (UX) | The class 360° roster shows raw enum codes — `not_eligible`, `within_limit`, `not_applicable` — while the Evaluation screen shows proper labels ("Eligible", "Not eligible (attendance below target)"). Inconsistent vocabulary on an operator screen. |
 | L3 | Low (perf) | Both the Schedule and Attendance tabs load the **entire** session history on every visit: 5 sequential `GET /sessions?limit=200&offset=…` calls (985 rows) before rendering. Fine at this size, but it is a full-table page-through on each tab switch. |
 | L4 | Info | The "session hasn't started" gate is client-side only; the API accepts a roster save for a future session (the existing integration test marks a 2099 session). Harmless today, but the guard is not enforced server-side. |
