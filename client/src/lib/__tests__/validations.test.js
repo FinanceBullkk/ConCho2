@@ -13,7 +13,7 @@ const validUser = {
   empCode: 'E001',
   name: 'Jane Doe',
   email: 'jane@example.com',
-  role: 'Teacher',
+  role: 'Coordinator',
   status: 'Active',
   password: 'longenough10',
 };

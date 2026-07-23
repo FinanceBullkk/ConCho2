@@ -42,6 +42,19 @@ describe('POST /api/auth/login', () => {
     expect(res.headers['set-cookie'][0]).toMatch(/tms_token/);
   });
 
+  test('rejects a retired Teacher role with 403 even on valid credentials', async () => {
+    const res = await request(app)
+      .post('/api/auth/login')
+      .set(csrf)
+      .send({ empCode: '000002', password: 'teacher12345' });
+
+    expect(res.status).toBe(403);
+    expect(res.body.success).toBe(false);
+    expect(res.body.message).toMatch(/Teacher role has been retired/i);
+    // No session cookie is issued for a blocked login.
+    expect(res.headers['set-cookie']).toBeUndefined();
+  });
+
   test('rejects wrong password with 401', async () => {
     const res = await request(app)
       .post('/api/auth/login')

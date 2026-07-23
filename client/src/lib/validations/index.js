@@ -26,7 +26,7 @@ export const createUserSchema = z.object({
   // P3-04: email is required on create (server requires it for Calendar invites).
   // Was optional/empty-string-allowed — now must be a valid email address.
   email: z.string().email('Must be a valid email address').max(254),
-  role: z.enum(['Admin', 'Coordinator', 'Teacher', 'Participant']),
+  role: z.enum(['Admin', 'Coordinator', 'Participant']),
   department: z.string().max(100).optional().or(z.literal('')),
   position: z.string().max(100).optional().or(z.literal('')),
   status: z.enum(['Active', 'Inactive', 'Dropped', 'Transferred', 'On-hold', 'Waiting for class']),

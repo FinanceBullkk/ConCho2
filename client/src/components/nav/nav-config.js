@@ -22,9 +22,9 @@ import { isFeatureEnabled } from '../../config/features';
 // Labelled groups are collapsible; groups with no visible item don't render.
 // ──────────────────────────────────────────────────────────
 
-const ALL = { Admin: 'full', Coordinator: 'full', Teacher: 'full', Participant: 'full' };
+const ALL = { Admin: 'full', Coordinator: 'full', Participant: 'full' };
 const ADMIN_ONLY = { Admin: 'full' };
-const LEARNING_ACCESS = { Admin: 'full', Coordinator: 'full', Teacher: 'read', Participant: 'none' };
+const LEARNING_ACCESS = { Admin: 'full', Coordinator: 'full', Participant: 'none' };
 
 // `tab` helper — a section sub-item (deep link into an umbrella page).
 const tab = (base, key, labelKey, icon, extra = {}) => ({
@@ -51,7 +51,7 @@ export const NAV_GROUPS = [
       // /learning tab) that lists gradable units across BOTH modes (quiz manual
       // grading + English rubric); replaces the retired English Evaluations tab.
       // Leaf in the Learning group.
-      { path: '/grading', labelKey: 'nav.sections.grading', icon: ClipboardEdit, access: { Admin: 'full', Coordinator: 'full', Teacher: 'full' }, feature: 'grading', parentRoutes: ['/grading'] },
+      { path: '/grading', labelKey: 'nav.sections.grading', icon: ClipboardEdit, access: { Admin: 'full', Coordinator: 'full' }, feature: 'grading', parentRoutes: ['/grading'] },
     ],
   },
   {
@@ -125,7 +125,7 @@ export const LEARNER_GROUPS = [
     id: 'learner-english',
     items: [
       { path: '/english', labelKey: 'nav.english', icon: Languages,
-        access: { Admin: 'full', Coordinator: 'none', Teacher: 'full', Participant: 'full' },
+        access: { Admin: 'full', Coordinator: 'none', Participant: 'full' },
         parentRoutes: ['/english', '/book', '/classes', '/teams'] },
     ],
   },
@@ -139,7 +139,7 @@ export const ENGLISH_GROUPS = [
     id: 'english-overview',
     items: [
       tab('/english-operations', 'overview', 'englishOperations.tabs.overview', LayoutDashboard, {
-        access: { Admin: 'full', Coordinator: 'full', Teacher: 'read' },
+        access: { Admin: 'full', Coordinator: 'full' },
         feature: 'englishTraining',
       }),
     ],

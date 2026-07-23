@@ -93,6 +93,14 @@ const authenticate = async (empCode, password, req = null) => {
     throw new ServiceError('Invalid credentials', 401);
   }
 
+  // The Teacher role has been retired from the platform. Credentials may still
+  // verify (the role remains in the backend authz layer for historical data and
+  // audit), but no one can obtain a session as a Teacher. Training operations are
+  // Admin/Coordinator-driven now.
+  if (user.role === 'Teacher') {
+    throw new ServiceError('The Teacher role has been retired. Contact an administrator.', 403);
+  }
+
   // Successful login — clear any failure state.
   if (user.failedLoginAttempts > 0 || user.lockUntil) {
     await authRepository.resetLoginCounters(user._id);

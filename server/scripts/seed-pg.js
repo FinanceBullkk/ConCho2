@@ -19,9 +19,9 @@
  *
  * Default credentials (identical to the Mongo seed):
  *   Admin:        000001 / admin12345   (mustChangePassword)
- *   Teachers:     000002 / teacher123, 000003 / teacher123
  *   Participants: 000004–000009 / participant123
  *   Coordinator:  000010 / coordinator123
+ *   (Teacher role retired — no Teacher accounts are seeded.)
  */
 
 require('dotenv').config();
@@ -152,8 +152,7 @@ const seed = async () => {
   console.log('👤 Creating users...');
   const USERS = [
     { empCode: '000001', name: 'Admin User', role: 'Admin', department: 'Management', status: 'Active', password: 'admin12345', mustChangePassword: true },
-    { empCode: '000002', name: 'Teacher Nguyen', role: 'Teacher', department: 'English Department', status: 'Active', password: 'teacher123' },
-    { empCode: '000003', name: 'Teacher Tran', role: 'Teacher', department: 'English Department', status: 'Active', password: 'teacher123' },
+    // Teacher role retired — training ops are Admin/Coordinator-driven.
     { empCode: '000004', name: 'Participant Le (Team Lead A)', role: 'Participant', department: 'Sales', status: 'Active', password: 'participant123' },
     { empCode: '000005', name: 'Participant Pham', role: 'Participant', department: 'Sales', status: 'Active', password: 'participant123' },
     { empCode: '000006', name: 'Participant Vo', role: 'Participant', department: 'Sales', status: 'Active', password: 'participant123' },
@@ -182,7 +181,7 @@ const seed = async () => {
   await insertRow('offices', { id: officeHcmId, name: 'Ho Chi Minh Office', code: 'HCM', address: 'District 1, Ho Chi Minh City', timezone: 'Asia/Ho_Chi_Minh' });
   await insertRow('offices', { id: officeHnId, name: 'Ha Noi Office', code: 'HN', address: 'Cau Giay, Ha Noi', timezone: 'Asia/Ho_Chi_Minh' });
   await query(`UPDATE users SET office_id = $1 WHERE emp_code = ANY($2)`, [officeHcmId, ['000001', '000010', '000004', '000005']]);
-  await query(`UPDATE users SET office_id = $1 WHERE emp_code = ANY($2)`, [officeHnId, ['000002', '000007']]);
+  await query(`UPDATE users SET office_id = $1 WHERE emp_code = ANY($2)`, [officeHnId, ['000010', '000007']]);
   console.log('   ✅ Created 2 offices (HCM, HN)');
 
   // ── Classes ───────────────────────────────────────────────
@@ -345,7 +344,6 @@ const seed = async () => {
   console.log(`   Schedules:  ${await count('schedules')}`);
   console.log('\n🔑 Login credentials:');
   console.log('   Admin:        000001 / admin12345');
-  console.log('   Teachers:     000002 / teacher123, 000003 / teacher123');
   console.log('   Participants: 000004–000009 / participant123');
   console.log('   Coordinator:  000010 / coordinator123');
   console.log('');
