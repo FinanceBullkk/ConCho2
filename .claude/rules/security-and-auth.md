@@ -19,8 +19,8 @@ Four roles: **Admin**, **Coordinator**, **Teacher**, **Participant**. Coordinato
 
 ## Secrets & env
 - **Never** commit secrets. `server/.env` is gitignored; `.gitleaks.toml` + the gitleaks CI gate guard against leaks.
-- If a secret is ever committed: rotate it immediately (`JWT_SECRET`, `CRON_TOKEN`, `MONGO_URI`, SMTP, Google key).
-- Required env: `NODE_ENV`, `MONGO_URI`, `JWT_SECRET`, `CORS_ORIGINS`, `CRON_TOKEN`, `CLIENT_ORIGIN`, `IMPORT_DEFAULT_PASSWORD` (boot-required in production). See README §6.4 for the full table.
+- If a secret is ever committed: rotate it immediately (`JWT_SECRET`, `CRON_TOKEN`, `PG_URL`, SMTP, Google key).
+- Required env: `NODE_ENV`, `PG_URL` (under `DB_BACKEND=postgres` — the only backend now; Mongoose removed Wave K), `JWT_SECRET`, `CORS_ORIGINS`, `CRON_TOKEN`, `CLIENT_ORIGIN`, `IMPORT_DEFAULT_PASSWORD` (boot-required in production, via `lib/envValidator.js`). See README §6.4 for the full table.
 
 ## Data handling
 - **Soft delete** everywhere (`isDeleted`, `deletedAt`) — never hard-delete user/attendance/evaluation data; it's needed for reports & audit. Deleted records go to a recoverable "trash".

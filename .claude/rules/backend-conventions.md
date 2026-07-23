@@ -25,8 +25,8 @@ const createProgram = async (req, res) => {
 ```
 
 ## Layering
-`routes → controller → use-cases/service → repository/Mongoose`.
-- **New code:** follow the domain module convention (see domain-model-and-migration.md). Keep Mongoose calls behind a `repository.js`.
+`routes → controller → use-cases/service → repository (PostgreSQL via pg)`.
+- **New code:** follow the domain module convention (see domain-model-and-migration.md). Keep database (`pg`) calls behind a `repository.pg.js`.
 - **Legacy code:** `controllers/` call `services/` directly. When touching a large legacy controller, prefer extracting into `domains/` over growing it.
 
 ## Audit logging (mandatory for mutations)
@@ -41,10 +41,10 @@ Every create/update/delete/archive records an audit entry via `auditService.reco
 Validate request bodies with **zod** (`server/schemas/`) via the `validate` middleware. Don't trust client input.
 
 ## Transactions
-Multi-document mutations that must be atomic (group transfer, schedule edits, roster rebuild) use Mongoose sessions/transactions. Don't leave data half-written — all-or-nothing.
+Multi-row mutations that must be atomic (group transfer, schedule edits, roster rebuild) run in a PostgreSQL transaction — via `domains/_shared/unit-of-work` or the repository's `withTransaction` (a pooled `BEGIN … COMMIT`). Don't leave data half-written — all-or-nothing.
 
 ## Concurrency
-Double-booking is prevented by a PARTIAL unique index `{classId, startTime}` (`partialFilterExpression: {status:'scheduled'}`) on `Schedule` — the DB is the final guard, not just app logic; cancelled rows may share the slot as history while the freed slot re-books. Handle the duplicate-key error as a user-facing "slot taken" message.
+Double-booking is prevented by a PostgreSQL partial unique index `uq_sched_slot_scheduled ON schedules(class_id, start_time) WHERE status = 'scheduled'` — the DB is the final guard, not just app logic; cancelled rows may share the slot as history while the freed slot re-books. Handle the `23505` unique-violation as a user-facing "slot taken" message.
 
 ## Logging
 Use the request-scoped pino logger (`req.log`), not `console.log`. Logs are structured and request-id traced.

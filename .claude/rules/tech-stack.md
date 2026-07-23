@@ -1,10 +1,10 @@
 # Tech Stack
 
-MERN monorepo. Node `>=20` (engines; CI runs Node 22 for both server and client — aligned in audit round 7).
+PERN monorepo (PostgreSQL / Express / React / Node — migrated off MongoDB in Wave K, 2026-07-14). Node `>=20` (engines; CI runs Node 22 for both server and client — aligned in audit round 7).
 
 ## Server (`server/`) — CommonJS
 - **Express 5** — REST API (4→5 migrated 2026-06-12; `req.query` is getter-only — NoSQL sanitize runs via `middleware/mongo-sanitize-in-place.js`; SPA fallback pattern is `/{*splat}`)
-- **Mongoose 8** + MongoDB Atlas
+- **PostgreSQL 17** (Neon, `ap-southeast-1`) via **pg 8** (pooled client, `config/pg.js`) + **Knex 3** (migrations only, `db/pg/migrations`, `knex_migrations`) — **Mongoose fully removed** in Wave K (2026-07-14), Atlas cancelled 2026-07-10; prod is PG-only. Repositories are `.pg.js` modules behind each domain.
 - **jsonwebtoken** — JWT in HttpOnly cookie (`JWT_EXPIRE`, default 1d)
 - **bcryptjs** (12 rounds) — password hashing
 - **speakeasy** + **qrcode** — TOTP 2FA

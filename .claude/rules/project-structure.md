@@ -16,7 +16,7 @@ server/
 ├── controllers/    # legacy request handlers (13 facades + auth/class/dashboard/enrollment/user subdirs)
 ├── services/       # business logic (auth, schedule, attendance, export, reconcile...)
 ├── policy/         # resource-level authz (ownership/binding) — called from controllers AFTER roleGuard
-├── models/         # Mongoose schemas (43 files)
+├── db/pg/          # PostgreSQL schema: Knex migrations (db/pg/migrations, 51) + knexfile (the `models/` Mongoose dir was removed in Wave K, 2026-07-14)
 ├── middleware/     # auth, csrfProtection, roleGuard, requireCapability, rateLimiters, validate, cronAuth, requestId, analyticsCache
 ├── schemas/        # zod request schemas
 ├── jobs/           # node-cron schedules
