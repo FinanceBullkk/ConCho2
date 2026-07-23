@@ -31,7 +31,7 @@ architectural cleanup (overlapping folders, oversized files), not defects.
 ## Outcome
 
 - **F2 DONE** — `canonical-operations.js` 683 → barrel 27 + shared 65 + enrollment 376 + meeting 275; 103/103 unit tests, public API unchanged (behavior-neutral refactor, no spec change per spec-driven rules).
-- **F1 FIXED (regression)** — DQ correction restored for Admin/Coordinator via `allowCorrections` opt-in; 27/27 client tests + regression guard, lint/build clean. **UI-verification blocked (Playwright).**
+- **F1 FIXED (regression)** — DQ correction restored for Admin/Coordinator via `allowCorrections` opt-in; 27/27 client tests + regression guard, lint/build clean. **Browser-verified locally** (real Chromium, disposable `concho_local` PG + seeded `missing_bu` DQ fixture): a Coordinator sees the **Correct** action in Archive → Data-quality issues → missing_bu → affected records.
 - **F4 KEPT** — effect is a justified local-draft seed; no churn.
 - **F3 DEFERRED** — documented authz seam; not touched (risk > cosmetic value).
 

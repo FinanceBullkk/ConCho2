@@ -224,6 +224,12 @@ Bug fixing and integration review rank above net-new feature rollout.
   it now shows an honest "not available for your role yet" notice (assigned-Teacher
   scope stays spec known-next-work). Client english-operations 17/17 (+2 Overview
   tests). U2 (live loop unused), U3–U5 (minor) accepted/documented.
+  **Browser QA DONE locally** (real Chromium against a disposable `concho_local`
+  Postgres — migrations 001–051 + seed + a `missing_bu` DQ fixture): F1 Correct
+  action reachable for a Coordinator in Archive → Issues; U1 Teacher Overview shows
+  the honest notice (no ops counts) while Coordinator sees the full workspace —
+  screenshots at 1440×900 / 390×844. So F1 + U1 are now browser-verified (not just
+  automated-gate green); the earlier "UI-verification-blocked" caveat is cleared.
 
 - **2026-07-22** — **Reasoned English capacity-override transfer verified.**
   Admin and Coordinator can now select a full cross-class Course Run during a

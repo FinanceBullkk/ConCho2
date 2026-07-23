@@ -40,7 +40,13 @@ exactly-once + single transaction + present/absent only, eligibility by absence/
 
 - client english-operations suites: **17/17** (+2 new Overview tests)
 - lint: 0 errors (5 pre-existing warnings)
-- Browser QA: pending (Playwright Chromium unavailable) — Teacher-vs-Admin Overview to confirm visually.
+- **Browser QA DONE (local, real Chromium)** against a disposable `concho_local`
+  Postgres (migrations 001–051 + seed): Teacher `/english-operations` shows the
+  honest notice with **no** data-status counts / start-here cards (nav shows only
+  Overview); Coordinator sees full nav + start-here + data-status. Screenshots
+  captured at 1440×900 and 390×844. (Observed pre-existing console noise: a Teacher
+  load fires english queries that gate to 401/403 — data unused by the notice; not
+  introduced by this fix.)
 
 ## Unresolved questions
 
