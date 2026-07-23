@@ -3,7 +3,7 @@
  * envValidator.js — startup fail-fast (audit PR 10 / OPS-001)
  * ──────────────────────────────────────────────────────────
  * Extracted from server.js so the validation logic is unit-testable
- * without booting the full Express app + Mongo connection. server.js
+ * without booting the full Express app + database connection. server.js
  * calls validateEnvOrExit() at module load.
  *
  * Returns { ok: true } on success.
@@ -19,10 +19,10 @@ const REQUIRED_ALWAYS = ['JWT_SECRET'];
 // http://localhost:5173. Both are README-§6.4-required; fail fast at boot
 // instead (ALLOW_MISSING_PROD_ENV remains the emergency bypass).
 // Backend-agnostic production requirements (the ACTIVE backend's connection
-// string is added on top — see activeDbEnv). K1b: MONGO_URI is no longer
-// hard-required — under DB_BACKEND=postgres the app runs Mongo-less, so PG_URL
-// is what must be present. Read DB_BACKEND fresh (not the cached db-backend
-// helper) so the check tracks the current env in tests.
+// string is added on top — see activeDbEnv). PostgreSQL is the only backend
+// since Wave K (Mongoose removed 2026-07-14), so PG_URL is what must be present.
+// Read DB_BACKEND fresh (not the cached db-backend helper) so the check tracks
+// the current env in tests; a legacy `mongo` value still maps to MONGO_URI.
 const REQUIRED_IN_PRODUCTION_BASE = [
   'CRON_TOKEN',
   'IMPORT_DEFAULT_PASSWORD',
@@ -30,9 +30,9 @@ const REQUIRED_IN_PRODUCTION_BASE = [
   'CLIENT_ORIGIN',
 ];
 const activeDbEnv = () =>
-  ((process.env.DB_BACKEND || 'mongo').toLowerCase() === 'postgres' ? 'PG_URL' : 'MONGO_URI');
-// Kept for back-compat / documentation of the default (mongo) production set.
-const REQUIRED_IN_PRODUCTION = ['MONGO_URI', ...REQUIRED_IN_PRODUCTION_BASE];
+  ((process.env.DB_BACKEND || 'postgres').toLowerCase() === 'mongo' ? 'MONGO_URI' : 'PG_URL');
+// Kept for back-compat / documentation of the default (postgres) production set.
+const REQUIRED_IN_PRODUCTION = ['PG_URL', ...REQUIRED_IN_PRODUCTION_BASE];
 
 const isMissing = (key) => {
   const v = process.env[key];

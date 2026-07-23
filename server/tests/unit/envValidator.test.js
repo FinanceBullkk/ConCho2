@@ -28,7 +28,7 @@ describe('validateEnv()', () => {
   const FULL_PROD_ENV = {
     NODE_ENV: 'production',
     JWT_SECRET: 'x',
-    MONGO_URI: 'mongodb://x',
+    PG_URL: 'postgres://x',
     CRON_TOKEN: 'y',
     IMPORT_DEFAULT_PASSWORD: 'z',
     CORS_ORIGINS: 'https://app.example.com',
@@ -70,7 +70,7 @@ describe('validateEnv()', () => {
     process.env = {
       NODE_ENV: 'production',
       JWT_SECRET: 'x',
-      MONGO_URI: 'mongodb://x',
+      PG_URL: 'postgres://x',
       IMPORT_DEFAULT_PASSWORD: 'z',
     };
     delete process.env.CRON_TOKEN;
@@ -84,7 +84,7 @@ describe('validateEnv()', () => {
     process.env = {
       NODE_ENV: 'production',
       JWT_SECRET: 'x',
-      MONGO_URI: 'mongodb://x',
+      PG_URL: 'postgres://x',
       CRON_TOKEN: 'y',
     };
     delete process.env.IMPORT_DEFAULT_PASSWORD;
@@ -97,13 +97,13 @@ describe('validateEnv()', () => {
     process.env = {
       NODE_ENV: 'production',
       JWT_SECRET: 'x',
-      MONGO_URI: '',
+      PG_URL: '',
       CRON_TOKEN: '   ',  // whitespace-only
       IMPORT_DEFAULT_PASSWORD: 'z',
     };
     const r = validateEnv();
     expect(r.ok).toBe(false);
-    expect(r.missing).toEqual(expect.arrayContaining(['MONGO_URI', 'CRON_TOKEN']));
+    expect(r.missing).toEqual(expect.arrayContaining(['PG_URL', 'CRON_TOKEN']));
   });
 
   // K1b: under DB_BACKEND=postgres the app runs Mongo-less — PG_URL is the
@@ -136,7 +136,7 @@ describe('validateEnv()', () => {
       JWT_SECRET: 'x',
       ALLOW_MISSING_PROD_ENV: 'true',
     };
-    delete process.env.MONGO_URI;
+    delete process.env.PG_URL;
     delete process.env.CRON_TOKEN;
     delete process.env.IMPORT_DEFAULT_PASSWORD;
     const r = validateEnv();

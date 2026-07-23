@@ -29,7 +29,7 @@ const { spec } = require('./lib/swagger');
 // ──────────────────────────────────────────────────────────
 
 // Audit PR 10 (OPS-001 launch checklist): production deploys must carry
-// JWT_SECRET (always) plus MONGO_URI / CRON_TOKEN / IMPORT_DEFAULT_PASSWORD
+// JWT_SECRET (always) plus PG_URL / CRON_TOKEN / IMPORT_DEFAULT_PASSWORD
 // (production only). Failing at boot is louder + faster to diagnose than
 // failing at first request. The extracted helper is unit-tested in
 // tests/unit/envValidator.test.js.
