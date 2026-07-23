@@ -1,7 +1,7 @@
 // Shared constants for the Users feature (page + UserModal + columns + admin modal).
 // Per Screen 5 §E (Users variant):
 //   facets: status · role · BU · level    bulk: change status · change role · export · delete
-export const ROLES         = ['Admin', 'Coordinator', 'Teacher', 'Participant'];
+export const ROLES         = ['Admin', 'Coordinator', 'Participant'];
 export const STATUSES      = ['Active', 'Inactive', 'Dropped', 'Transferred', 'On-hold', 'Waiting for class'];
 export const STATUS_CHIPS  = ['Active', 'Inactive', 'On-hold'];   // primary axis per design
 export const PAGE_SIZE     = 50;

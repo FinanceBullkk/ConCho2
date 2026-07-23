@@ -284,22 +284,22 @@ export default function App() {
                   <ProtectedRoute roles={['Admin']}><LearnerProfilePage /></ProtectedRoute>
                 } />
                 <Route path="/learning" element={
-                  <ProtectedRoute roles={['Admin', 'Coordinator', 'Teacher']}><LearningPage /></ProtectedRoute>
+                  <ProtectedRoute roles={['Admin', 'Coordinator']}><LearningPage /></ProtectedRoute>
                 } />
                 <Route path="/learning/programs/:id" element={
-                  <ProtectedRoute roles={['Admin', 'Coordinator', 'Teacher']}><ProgramDetailPage /></ProtectedRoute>
+                  <ProtectedRoute roles={['Admin', 'Coordinator']}><ProgramDetailPage /></ProtectedRoute>
                 } />
                 <Route path="/learning/cohorts/:id" element={
-                  <ProtectedRoute roles={['Admin', 'Coordinator', 'Teacher']}><CohortDetailPage /></ProtectedRoute>
+                  <ProtectedRoute roles={['Admin', 'Coordinator']}><CohortDetailPage /></ProtectedRoute>
                 } />
-                {/* Session attendance marking — Admin/Teacher (the markers). */}
+                {/* Session attendance marking — Admin (the marker; Teacher role retired). */}
                 <Route path="/learning/sessions/:id" element={
-                  <ProtectedRoute roles={['Admin', 'Teacher']}><SessionDetailPage /></ProtectedRoute>
+                  <ProtectedRoute roles={['Admin']}><SessionDetailPage /></ProtectedRoute>
                 } />
                 {/* Unified Grading workspace (converge Phase 4 C2) — quiz manual
                     grading + English rubric evaluations in one place. */}
                 <Route path="/grading" element={
-                  <ProtectedRoute roles={['Admin', 'Coordinator', 'Teacher']}><GradingPage /></ProtectedRoute>
+                  <ProtectedRoute roles={['Admin', 'Coordinator']}><GradingPage /></ProtectedRoute>
                 } />
                 {/* English learner/leader experience. Staff operations live in
                     the separate English Operations workspace below. */}
@@ -308,21 +308,21 @@ export default function App() {
                   <ProtectedRoute roles={['Admin', 'Coordinator']}><Navigate replace to="/english-operations?tab=archive" /></ProtectedRoute>
                 } />
                 <Route path="/english-operations" element={
-                  <ProtectedRoute roles={['Admin', 'Coordinator', 'Teacher']}>
+                  <ProtectedRoute roles={['Admin', 'Coordinator']}>
                     <EnglishWorkspaceBoundary><EnglishOperationsPage /></EnglishWorkspaceBoundary>
                   </ProtectedRoute>
                 } />
                 <Route path="/calendar" element={<CalendarPage />} />
                 <Route path="/mobile-attendance" element={
-                  <ProtectedRoute roles={['Admin', 'Teacher']}>
+                  <ProtectedRoute roles={['Admin']}>
                     <EnglishWorkspaceBoundary><MobileAttendancePage /></EnglishWorkspaceBoundary>
                   </ProtectedRoute>
                 } />
                 {/* Coordinator holds read:reports (training-ops role) and sees the
                     Reports nav, so they must reach the page; ReportsPage filters
-                    tabs per-perm (Overview/HR-Export/Attendance stay Admin/Teacher). */}
+                    tabs per-perm (Overview/HR-Export/Attendance stay Admin). */}
                 <Route path="/reports" element={
-                  <ProtectedRoute roles={['Admin', 'Coordinator', 'Teacher']}><ReportsPage /></ProtectedRoute>
+                  <ProtectedRoute roles={['Admin', 'Coordinator']}><ReportsPage /></ProtectedRoute>
                 } />
                 {/* Drill list — filtered learner view behind a dashboard KPI.
                     Admin-only: it reads the org-wide compliance report. */}

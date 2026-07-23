@@ -33,25 +33,12 @@ function StatCard({ label, value }) {
   );
 }
 
-export function Overview({ data, isTeacher, onNavigate, t }) {
+export function Overview({ data, onNavigate, t }) {
   const actions = [
     { id: 'attendance', icon: ClipboardCheck },
     { id: 'schedule', icon: CalendarCheck2 },
     { id: 'classes', icon: Boxes },
   ];
-  // Teacher has no operational access to English Operations yet (assigned-Teacher
-  // scope is planned). Show an honest notice rather than management-facing action
-  // cards or operational data counts they cannot act on.
-  if (isTeacher) {
-    return (
-      <div className="rounded-lg border border-dashed border-border bg-card p-8 text-center">
-        <h2 className="font-semibold text-foreground">{t('englishOperations.overview.teacherTitle')}</h2>
-        <p className="mx-auto mt-2 max-w-md text-sm text-muted-foreground">
-          {t('englishOperations.overview.teacherPlaceholder')}
-        </p>
-      </div>
-    );
-  }
   return (
     <div className="space-y-5">
       <section>
@@ -282,7 +269,6 @@ export default function EnglishOperationsPage() {
       {active === 'overview' && (
         <Overview
           data={overview.data}
-          isTeacher={user?.role === 'Teacher'}
           onNavigate={(tab) => setParams({ tab })}
           t={t}
         />

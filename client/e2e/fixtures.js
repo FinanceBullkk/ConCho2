@@ -17,8 +17,6 @@ const ADMIN_CODE = process.env.E2E_ADMIN_CODE || '000001';
 const ADMIN_PASS = process.env.E2E_ADMIN_PASS || 'admin12345';
 const PARTICIPANT_CODE = process.env.E2E_PARTICIPANT_CODE || '000004';
 const PARTICIPANT_PASS = process.env.E2E_PARTICIPANT_PASS || 'participant123';
-const TEACHER_CODE = process.env.E2E_TEACHER_CODE || '000002';
-const TEACHER_PASS = process.env.E2E_TEACHER_PASS || 'teacher123';
 
 /**
  * Drive the login form to authenticate as the given user.
@@ -54,12 +52,6 @@ export const test = base.extend({
 
   participantPage: async ({ page }, use) => {
     await loginViaUI(page, { empCode: PARTICIPANT_CODE, password: PARTICIPANT_PASS });
-    await expect(page).toHaveURL(/\/(home|dashboard)$/);
-    await use(page);
-  },
-
-  teacherPage: async ({ page }, use) => {
-    await loginViaUI(page, { empCode: TEACHER_CODE, password: TEACHER_PASS });
     await expect(page).toHaveURL(/\/(home|dashboard)$/);
     await use(page);
   },

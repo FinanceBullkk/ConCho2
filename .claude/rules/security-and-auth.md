@@ -3,7 +3,7 @@
 Security is a first-class concern here. Preserve every layer when editing.
 
 ## Roles (current) → capabilities (target)
-Four roles: **Admin**, **Coordinator**, **Teacher**, **Participant**. Coordinator = training-ops management bundle (program/cohort/session/report manage; never user/security caps). The capability layer (`requireCapability` + `policy/capabilities.js`, capabilities derived from role — no per-user grants yet) is LIVE on the domain routers (learning, assessment, org, schedule, room); legacy routes still use `roleGuard`. See `docs/specs/capability-authz/spec.md`.
+Roles: **Admin**, **Coordinator**, **Participant**. Coordinator = training-ops management bundle (program/cohort/session/report manage; never user/security caps). **Teacher is retired** (2026-07-24): login is blocked server-side (`services/auth/auth-login.js` → 403), the role is hidden from the UI (not offered on user create/edit, no persona/nav), and it is not seeded. The role string is intentionally kept in the backend authz layer (`roleGuard`/`capabilities`/`policy/*`) and the DB enum for historical data and audit — do not rip it out; nothing can obtain a Teacher session. The capability layer (`requireCapability` + `policy/capabilities.js`, capabilities derived from role — no per-user grants yet) is LIVE on the domain routers (learning, assessment, org, schedule, room); legacy routes still use `roleGuard`. See `docs/specs/capability-authz/spec.md`.
 
 ## Auth flow
 - Login → bcrypt compare → if MFA: `mfaPendingToken` (5 min) → TOTP/backup-code verify → HttpOnly cookie (TTL = `JWT_EXPIRE`, default 1d).
