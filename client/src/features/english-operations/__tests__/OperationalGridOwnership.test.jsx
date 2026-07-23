@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import SchedulePanel from '../SchedulePanel';
@@ -26,8 +27,14 @@ vi.mock('../../schedule/SchedulesPage', () => ({
 }));
 
 vi.mock('../../attendance/AttendancePage', () => ({
-  default: (props) => {
+  // Named (and capitalised) so the hook below is a legal component hook call.
+  default: function MockAttendancePage(props) {
     h.attendanceProps = props;
+    // Mirrors the real page: `weekStart` is seeded from `defaultWeek` ONCE, in a
+    // useState initializer. A later prop change is ignored — only a remount
+    // re-seeds it. Keep that here or the filter regression below proves nothing.
+    const [mountedWeek] = useState(props.defaultWeek);
+    h.attendanceMountedWeek = mountedWeek;
     return <div data-testid="weekly-attendance-grid" />;
   },
 }));
@@ -150,6 +157,41 @@ describe('English Operations owns the operational grids', () => {
     expect(screen.getByRole('button', { name: 'Create session 2' })).toBeEnabled();
     expect(h.scheduleProps.hideHeader).toBe(true);
     expect(h.scheduleProps.historicalDrawer).toBeTruthy();
+  });
+
+  // Regression (2026-07-24 real-data run): the tiles counted 9 upcoming sessions
+  // while the grid stayed on the week it mounted with — far in the past and
+  // empty — so an operator filtering to Upcoming saw "nothing scheduled".
+  it('moves the calendar to the filtered sessions when the attendance filter changes', () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-07-08T02:00:00.000Z'));
+    h.archiveSessions = [
+      {
+        id: 'past-1', courseRunId: 'run-1', sessionNumber: 4,
+        heldAt: '2026-07-06T10:00:00.000Z', status: 'held', classCode: 'EL001',
+        courseName: 'English Level 1', attendanceCount: 3, expectedRosterCount: 3,
+      },
+      {
+        id: 'upcoming-1', courseRunId: 'run-1', sessionNumber: 6, sourceKind: 'live',
+        heldAt: '2026-07-27T02:00:00.000Z', status: 'scheduled', classCode: 'EL001',
+        courseName: 'English Level 1', attendanceCount: 0, expectedRosterCount: 3,
+      },
+    ];
+    try {
+      render(<AttendancePanel />);
+      // Unfiltered, the nearest session is the recent past one (10:00 VN = 03:00Z).
+      expect(h.attendanceMountedWeek).toBe('2026-07-06T03:00:00.000Z');
+
+      fireEvent.click(screen.getByRole('button', { name: /upcoming/i }));
+
+      expect(h.attendanceProps.historicalSchedules).toEqual([
+        expect.objectContaining({ archiveSessionId: 'upcoming-1' }),
+      ]);
+      // The grid actually re-seeded — not just a new prop the page would ignore.
+      expect(h.attendanceMountedWeek).toBe('2026-07-27T02:00:00.000Z');
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it('opens a live Meeting for durable cancellation with a required reason', async () => {

@@ -6,7 +6,7 @@ import { AttendanceDrawer } from '../../components/AttendanceDrawer';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '../../context/AuthContext';
 import AttendancePage from '../attendance/AttendancePage';
-import { adaptHistoricalSessions, latestMarkedHistoricalStart } from './historical-session-adapter';
+import { adaptHistoricalSessions, nearestSessionStart } from './historical-session-adapter';
 import {
   useCanonicalEnglishAttendanceRoster,
   useCanonicalEnglishSessions,
@@ -235,11 +235,15 @@ export default function AttendancePanel() {
         </div>
       ) : (
         <AttendancePage
+          // The calendar seeds its week once, on mount. Keying by filter remounts
+          // it so a filter change lands on that view's sessions instead of
+          // leaving the operator on the previous view's (often empty) week.
+          key={filter}
           allowedClassIds={[]}
           statusOptions={ATTENDANCE_STATES}
           historicalOnly
           historicalSchedules={filteredSchedules}
-          defaultWeek={latestMarkedHistoricalStart(filteredSchedules)}
+          defaultWeek={nearestSessionStart(filteredSchedules)}
           onHistoricalSelect={(schedule) => {
             if (schedule.archiveSessionId === selectedId) requestClose();
             else setSelectedId(schedule.archiveSessionId);

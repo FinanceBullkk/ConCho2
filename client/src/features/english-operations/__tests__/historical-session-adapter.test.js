@@ -1,7 +1,7 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   adaptHistoricalSessions,
-  latestMarkedHistoricalStart,
+  nearestSessionStart,
 } from '../historical-session-adapter';
 
 describe('adaptHistoricalSessions', () => {
@@ -52,7 +52,6 @@ describe('adaptHistoricalSessions', () => {
       { id: 'missing', status: 'unrecorded', marked: 0, enrolled: 5 },
     ]);
     expect(schedules[2].attendanceStateLabel).toBe('No evidence');
-    expect(latestMarkedHistoricalStart([...schedules].reverse())).toBe(schedules[1].startTime);
   });
 
   it('keeps live Meeting instants unchanged and uses their real duration', () => {
@@ -71,5 +70,38 @@ describe('adaptHistoricalSessions', () => {
     expect(session.historicalLabel).toBe('Live');
     expect(session.sourceWasImported).toBe(true);
     expect(session.sourceStartsAt).toBe('2026-07-27T10:00:00.000Z');
+  });
+});
+
+describe('nearestSessionStart', () => {
+  afterEach(() => vi.useRealTimers());
+
+  const at = (startTime, markedCount = 0) => ({ startTime, markedCount });
+
+  it('picks the session closest to now, in either direction', () => {
+    const now = new Date('2026-07-24T02:00:00.000Z');
+    expect(nearestSessionStart([
+      at('2026-07-06T02:00:00.000Z', 5),
+      at('2026-07-23T02:00:00.000Z'),
+      at('2026-07-27T02:00:00.000Z'),
+    ], now.getTime())).toBe('2026-07-23T02:00:00.000Z');
+  });
+
+  // The Upcoming filter used to strand the grid on the first MARKED session —
+  // a week from the far past — so the tile counted 9 sessions while the
+  // calendar rendered empty.
+  it('lands on the nearest upcoming session when none are marked yet', () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-07-24T02:00:00.000Z'));
+    expect(nearestSessionStart([
+      at('2026-07-27T02:00:00.000Z'),
+      at('2026-07-29T02:00:00.000Z'),
+    ])).toBe('2026-07-27T02:00:00.000Z');
+  });
+
+  it('ignores unparseable timestamps and returns null for an empty set', () => {
+    expect(nearestSessionStart([at('not-a-date')], Date.parse('2026-07-24T02:00:00.000Z'))).toBeNull();
+    expect(nearestSessionStart([])).toBeNull();
+    expect(nearestSessionStart(undefined)).toBeNull();
   });
 });
