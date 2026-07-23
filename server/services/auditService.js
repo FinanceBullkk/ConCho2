@@ -51,10 +51,15 @@ const stripSensitive = (obj) => {
 /**
  * Build a {before, after} diff for an update. Only includes keys that
  * actually changed — keeps audit rows compact.
+ *
+ * `null` is a normal input, not a bug: a create has no `before` and a delete
+ * has no `after`. Parameter defaults only cover `undefined`, so both sides are
+ * coerced here — otherwise the caller's mutation lands in the database and the
+ * audit record blows up afterwards (write without audit + a 500 on success).
  */
-const diff = (before = {}, after = {}) => {
-  const beforeSafe = stripSensitive(before);
-  const afterSafe = stripSensitive(after);
+const diff = (before, after) => {
+  const beforeSafe = stripSensitive(before) || {};
+  const afterSafe = stripSensitive(after) || {};
   const changed = {};
   const keys = new Set([...Object.keys(beforeSafe), ...Object.keys(afterSafe)]);
   for (const k of keys) {

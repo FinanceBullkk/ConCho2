@@ -142,6 +142,27 @@ describe('English Operations — canonical live vertical flow', () => {
     expect(attendance.rows[0]).toMatchObject({ status: 'present', original_status: 'present' });
     expect(domainAudit.rowCount).toBe(1);
 
+    // Attendance is now complete and at 100%, so the learner may sit the exam.
+    // This FIRST entry has no previous result (before = null) — the path that
+    // used to write the row and then 500 inside the audit diff.
+    const examPath = `/api/english-training/enrollments/${enrollment.body.data.enrollmentId}/exam-result`;
+    const exam = await authorized(request(app).post(examPath), tokens.admin).send({
+      levelCode: 'foundation',
+      examDate: '2099-01-06',
+    });
+    expect(exam.status).toBe(201);
+    expect(exam.body.data).toMatchObject({ levelCode: 'foundation' });
+
+    const [examRow, examAudit] = await Promise.all([
+      query(`SELECT level_code, is_deleted FROM eng_exam_results
+        WHERE run_enrollment_id = $1`, [enrollment.body.data.enrollmentId]),
+      query(`SELECT action FROM audit_log
+        WHERE entity = 'EnglishTrainingExamResult' AND entity_id = $1`,
+      [enrollment.body.data.enrollmentId]),
+    ]);
+    expect(examRow.rows[0]).toMatchObject({ level_code: 'foundation', is_deleted: false });
+    expect(examAudit.rowCount).toBe(1);
+
     // The first token captured the planned roster. Completion changes its
     // state, so retrying with that stale token must not overwrite anything.
     const stale = await authorized(request(app).put(rosterPath), tokens.admin).send({

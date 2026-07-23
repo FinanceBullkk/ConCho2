@@ -25,8 +25,10 @@
  */
 const { query } = require('../config/pg');
 
-// Tables that belong to knex's own bookkeeping — never truncated.
-const KNEX_TABLES = ["'knex_migrations'", "'knex_migrations_lock'"];
+// Never truncated: knex's own bookkeeping, plus reference data the SCHEMA owns.
+// Migration 039 seeds the 13 ordered English levels into `eng_levels`; wiping
+// them makes every exam-result path fail with "Unknown level".
+const PRESERVED_TABLES = ["'knex_migrations'", "'knex_migrations_lock'", "'eng_levels'"];
 
 /**
  * Truncate all application tables (RESTART IDENTITY CASCADE). Called once per
@@ -43,7 +45,7 @@ const resetPgDatabase = async () => {
   }
   const { rows } = await query(
     `SELECT tablename FROM pg_tables
-      WHERE schemaname = 'public' AND tablename NOT IN (${KNEX_TABLES.join(',')})`,
+      WHERE schemaname = 'public' AND tablename NOT IN (${PRESERVED_TABLES.join(',')})`,
   );
   if (rows.length === 0) return;
   const tables = rows.map((r) => `"${r.tablename}"`).join(', ');

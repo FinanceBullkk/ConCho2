@@ -60,15 +60,33 @@ const insertRow = (table, row) => {
   );
 };
 
+// Reference data the SCHEMA owns, not the seed: migration 039 inserts the 13
+// ordered English levels. TRUNCATEing it leaves `GET /api/english/levels` empty,
+// so exam-result entry becomes impossible in every seeded environment.
+const MIGRATION_OWNED_TABLES = ['eng_levels'];
+
 // Truncate every application table (mirrors tests/pg-test-utils.resetPgDatabase).
 const truncateAll = async () => {
+  const keep = MIGRATION_OWNED_TABLES.map((t) => `'${t}'`).join(', ');
   const { rows } = await query(
     `SELECT tablename FROM pg_tables
-      WHERE schemaname = 'public' AND tablename NOT LIKE 'knex_%'`,
+      WHERE schemaname = 'public' AND tablename NOT LIKE 'knex_%'
+        AND tablename NOT IN (${keep})`,
   );
   if (rows.length === 0) return;
   const tables = rows.map((r) => `"${r.tablename}"`).join(', ');
   await query(`TRUNCATE ${tables} RESTART IDENTITY CASCADE`);
+
+  // Migration 043 establishes this singleton as a schema invariant; TRUNCATE
+  // removes it (normal operation never does). Without the row the archive reads
+  // "open" but the cutover UPDATE matches nothing and can never freeze.
+  // Mirrors tests/pg-test-utils.resetPgDatabase.
+  if (rows.some((r) => r.tablename === 'english_archive_control')) {
+    await query(`
+      INSERT INTO english_archive_control(singleton, is_frozen)
+      VALUES (true, false)
+      ON CONFLICT (singleton) DO NOTHING`);
+  }
 };
 
 const hostAndDb = () => {
