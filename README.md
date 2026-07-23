@@ -397,9 +397,8 @@ docker run -d --name tms-v2 -p 5000:5000 --env-file .env tms-v2
 | Variable | Required? | Description |
 |----------|:---------:|-------------|
 | `NODE_ENV` | ✓ | `development` or `production` |
-| `DB_BACKEND` | ✓ (production) | Active repository backend. Production is `postgres`; unset/default `mongo` is legacy/dev fallback. |
-| `PG_URL` | ✓ when `DB_BACKEND=postgres` | PostgreSQL/Neon connection string |
-| `MONGO_URI` | legacy only | MongoDB Atlas/local connection string for old scripts/parity lanes. Production runs without it under `DB_BACKEND=postgres`. |
+| `DB_BACKEND` | optional | Active repository backend. PostgreSQL is the only backend since Wave K (Mongoose removed 2026-07-14); unset defaults to `postgres`. A legacy `mongo` value no longer resolves to a runnable backend. |
+| `PG_URL` | ✓ (production) | PostgreSQL/Neon connection string — the required DB connection string. |
 | `JWT_SECRET` | ✓ | Secret key for signing tokens (random 32-byte string) |
 | `CORS_ORIGINS` | ✓ | Frontend URLs allowed to call the API — the server REFUSES TO START in production without it (OPS-011) |
 | `CRON_TOKEN` | ✓ | Secret for the nightly automated job |
