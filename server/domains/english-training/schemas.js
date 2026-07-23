@@ -88,7 +88,7 @@ const runEnrollmentLeaveBody = z.object({
     .regex(/^\d{4}-\d{2}-\d{2}$/, 'lastActiveDate must be YYYY-MM-DD')
     .refine(validDateOnly, 'lastActiveDate must be a real calendar date'),
   reason: z.string().trim().min(3).max(500),
-});
+}).strict();
 const runEnrollmentTransferBody = z.object({
   targetCourseRunId: z.string().min(1),
   transferDate: z.string()
