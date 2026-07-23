@@ -34,7 +34,7 @@ server/domains/<domain>/
 ├── routes.js        # own Express router (mounted at /api/<domain>/...)
 ├── controller.js    # thin HTTP handlers (envelope + audit only)
 ├── use-cases.js     # business rules (the real logic)
-├── repository.js    # all Mongoose calls live here
+├── repository.pg.js # all database (PostgreSQL via pg) calls live here
 ├── policy.js        # resource authz (optional)
 ├── schemas.js       # zod request validation
 └── dto.js           # response shaping (legacy model → target vocabulary)
@@ -66,7 +66,7 @@ server/domains/<domain>/
 
 ## Architectural decisions (locked — `docs/decisions/`)
 - Modular monolith (not microservices).
-- **MongoDB now, PostgreSQL later** (Phase 6 gate; not started).
+- **PostgreSQL** (Neon) — migrated from MongoDB at the Phase 6 gate; **complete 2026-07-14** (Wave K: Mongoose removed, Atlas cancelled, prod PG-only).
 - React/Vite stays (no Next.js).
 - Physical collection renames are out-of-scope for the first 6 months — migrate via DTOs/abstractions, not destructive renames.
 
