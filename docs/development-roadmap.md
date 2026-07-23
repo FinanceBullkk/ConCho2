@@ -194,6 +194,30 @@ Bug fixing and integration review rank above net-new feature rollout.
 > [`2026-q3.md`](changelog-archive/2026-q3.md); 06-20→06-27 rolled 2026-07-07;
 > 06-14→06-19 rolled 2026-07-04 → [`2026-q2.md`](changelog-archive/2026-q2.md)).
 
+- **2026-07-24** — **English live-loop validated on the real workbook (audit U2 closed) + 3 defects fixed.**
+  Ran the whole operator loop — create Meeting → mark P/A roster → eligibility →
+  exam level — in a real browser as a Coordinator against a disposable
+  `concho_local` seeded and then loaded with the real `ENGCLASS_MANA` workbook
+  (reconciliation matched the baseline exactly: 984 sessions / 5 962 attendance /
+  182 DQ issues). Report
+  [`plans/reports/validation-260724-0303-english-live-loop-real-data.md`](../plans/reports/validation-260724-0303-english-live-loop-real-data.md).
+  The loop works end to end, but was **not shippable**: **(D1)** recording a
+  level **500'd on every first entry** while still writing the row and skipping
+  the audit record — `auditService.diff` used `= {}` parameter defaults, which
+  don't cover the `null` that every create passes (`Object.keys(null)` threw
+  after the commit); fixed in the shared helper (39 call sites).
+  **(D2)** `seed-pg.js` TRUNCATEd migration-owned reference data — `eng_levels`
+  (13 levels, migration 039) and the `english_archive_control` singleton — so any
+  seeded environment had an empty level list and exam entry was impossible;
+  reference table excluded, singleton restored. **(D3)** the same wipe in
+  `tests/pg-test-utils.resetPgDatabase` is why **no integration test could cover
+  exam-result entry** — `eng_levels` is now kept out of the reset, and the live
+  flow test continues into the first exam entry asserting `201` + the persisted
+  row + the `audit_log` row (red→green proven: 500 without the fix). Left open
+  (documented, not fixed): attendance filter tiles don't move the calendar week
+  (Upcoming shows an empty past week), raw eligibility enums on the class 360°
+  roster, both schedule/attendance tabs page through all 985 sessions per visit,
+  and the "session hasn't started" gate being client-side only.
 - **2026-07-23** — **English workspace audit + DQ-correction regression fix + canonical-ops refactor.**
   Inline audit of the English staff workspace (client `features/english*` +
   server `domains/english-training`); report
