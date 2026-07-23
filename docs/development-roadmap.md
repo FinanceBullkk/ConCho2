@@ -194,6 +194,24 @@ Bug fixing and integration review rank above net-new feature rollout.
 > [`2026-q3.md`](changelog-archive/2026-q3.md); 06-20→06-27 rolled 2026-07-07;
 > 06-14→06-19 rolled 2026-07-04 → [`2026-q2.md`](changelog-archive/2026-q2.md)).
 
+- **2026-07-24** — **Retired the `PG_PROTOTYPE_URL` / `.env.pg-prototype` concept — it was production.**
+  Found while applying migration 052: a routine `npx knex migrate:latest` with no
+  shell `PG_URL` applied migrations to **production**, because the knexfile loaded
+  `server/.env.pg-prototype` and `PG_PROTOTYPE_URL` named the SAME Neon database
+  as `PG_URL` through its direct (non-pooler) hostname. Seven entry points
+  defaulted there — the knexfile, `eng-import.js`, `eng-reallocate-session-times.js`,
+  `config/pg.js`'s fallback, and four dev-tool "prototype" verifiers — each
+  reading as disposable while writing to the live database; the
+  `prototypeUrl === productionUrl` guard in `eng-live-prototype-verify.js` lost to
+  exactly the hostname aliasing the 2026-07-21 incident had already named. Now:
+  **`PG_URL` is the only connection source**, the knexfile **prints the resolved
+  host/database (flagged `[REMOTE]`) before migrating**, the four prototype
+  dev-tools + the `verify:english-prototype` npm script are deleted, and the
+  incident's regression test fails if any code reads `process.env.PG_PROTOTYPE_URL`
+  or loads `.env.pg-prototype` again. Closes the open follow-up in
+  [`docs/incidents/2026-07-21-production-truncate.md`](incidents/2026-07-21-production-truncate.md).
+  **Operator action:** delete the local `server/.env.pg-prototype` file (nothing
+  reads it now).
 - **2026-07-24** — **English live-loop validated on the real workbook (audit U2 closed) + 3 defects fixed.**
   Ran the whole operator loop — create Meeting → mark P/A roster → eligibility →
   exam level — in a real browser as a Coordinator against a disposable

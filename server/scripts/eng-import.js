@@ -1,18 +1,21 @@
 #!/usr/bin/env node
 // English-training Phase-1 + Phase-2 import CLI.
-//   node scripts/eng-import.js <workbook.xlsx> [--reset] [--dev]
-// Loads the prototype PG env by default (`--dev` selects server/.env), runs the
-// stage→transform→load→reconcile pipeline, prints the reconciliation + DQ
-// summary, and asserts source=loaded+skipped per sheet. Remote targets require
-// an importer-specific one-shot confirmation before any connection is opened.
+//   node scripts/eng-import.js <workbook.xlsx> [--reset]
+// Runs the stage→transform→load→reconcile pipeline, prints the reconciliation +
+// DQ summary, and asserts source=loaded+skipped per sheet. Remote targets
+// require an importer-specific one-shot confirmation before any connection is
+// opened.
+//
+// The target is `PG_URL` — from the shell if set (that is how you point at a
+// disposable database), otherwise from `server/.env`. The old `--dev` flag and
+// the `.env.pg-prototype` default were removed 2026-07-24: that env named the
+// SAME Neon database as production, so the default target of a "prototype"
+// import was production itself.
 
 const path = require('path');
 const args = process.argv.slice(2);
-const useDevDb = args.includes('--dev');
 if (!process.env.PG_URL) {
-  require('dotenv').config({
-    path: path.join(__dirname, '..', useDevDb ? '.env' : '.env.pg-prototype'),
-  });
+  require('dotenv').config({ path: path.join(__dirname, '..', '.env') });
 }
 const { runImport } = require('../domains/english-training/import/pipeline');
 const { closePool } = require('../config/pg');
@@ -22,12 +25,12 @@ const dangerousScriptGuard = require('./lib/dangerousScriptGuard');
   const reset = args.includes('--reset');
   const file = args.find((a) => !a.startsWith('--'));
   if (!file) {
-    console.error('usage: node scripts/eng-import.js <workbook.xlsx> [--reset] [--dev]');
+    console.error('usage: node scripts/eng-import.js <workbook.xlsx> [--reset]');
     process.exit(1);
   }
 
-  const connectionString = process.env.PG_URL || process.env.PG_PROTOTYPE_URL;
-  if (!connectionString) throw new Error('PG connection string missing (PG_URL / PG_PROTOTYPE_URL)');
+  const connectionString = process.env.PG_URL;
+  if (!connectionString) throw new Error('PG connection string missing (PG_URL)');
   const target = new URL(connectionString);
   dangerousScriptGuard({
     scriptName: 'eng-import.js',

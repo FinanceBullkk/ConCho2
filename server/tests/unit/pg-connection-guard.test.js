@@ -64,6 +64,43 @@ describe('config/pg — test lane never connects to a remote database', () => {
   it('ALLOWS the real app (non-test) to use a remote Neon PG_URL', () => {
     expect(() => buildPoolWith({ NODE_ENV: 'production', PG_URL: NEON })).not.toThrow();
   });
+
+  // 2026-07-24: `.env.pg-prototype` named the SAME Neon database as production
+  // through its direct hostname, so every "prototype" entry point wrote to prod
+  // while reading as disposable. The whole concept is retired — PG_URL is the
+  // only connection source, and nothing may silently fall back again.
+  it('IGNORES PG_PROTOTYPE_URL — it is not a connection source any more', () => {
+    expect(() => buildPoolWith({ NODE_ENV: 'production', PG_PROTOTYPE_URL: NEON_DIRECT }))
+      .toThrow(/PG_URL/);
+  });
+});
+
+describe('the retired prototype env has no callers left', () => {
+  const { execFileSync } = require('child_process');
+  const serverDir = path.join(__dirname, '..', '..');
+
+  const grepServer = (pattern) => {
+    try {
+      return execFileSync(
+        'git',
+        ['grep', '-l', '-e', pattern, '--', '.', ':!tests/unit/pg-connection-guard.test.js'],
+        { cwd: serverDir, encoding: 'utf8' },
+      ).trim().split('\n').filter(Boolean);
+    } catch (error) {
+      // git grep exits 1 when nothing matches — that is the passing case.
+      if (error.status === 1) return [];
+      throw error;
+    }
+  };
+
+  // Code only — the incident is explained in comments across several files.
+  it('has no file reading process.env.PG_PROTOTYPE_URL', () => {
+    expect(grepServer('process\\.env\\.PG_PROTOTYPE_URL')).toEqual([]);
+  });
+
+  it('has no file loading the .env.pg-prototype file', () => {
+    expect(grepServer("'\\.env\\.pg-prototype'")).toEqual([]);
+  });
 });
 
 describe('resetPgDatabase — refuses to run outside test mode', () => {

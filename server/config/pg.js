@@ -1,7 +1,7 @@
 // PostgreSQL connection pool (PG-migration Phase 2 foundation).
-// Mirrors config/db.js (Mongo) for the relational backend. Lazy, pooled, SSL
-// for Neon. Reads the connection string from env (PG_URL in production; the
-// gitignored PG_PROTOTYPE_URL during the spike). No secret here.
+// Lazy, pooled, SSL for Neon. Reads `PG_URL` from env — no secret here.
+// (`PG_PROTOTYPE_URL` was retired 2026-07-24: the "throwaway prototype" Neon
+// branch had become production itself, so the fallback was a loaded gun.)
 //
 // Inert until DB_BACKEND=postgres routes a repository here (Phase 3) — importing
 // this module does NOT open a connection; getPool() does, on first use.
@@ -24,6 +24,10 @@ const isLocalConnection = (url) => /@(localhost|127\.0\.0\.1|\[::1\])[:/]/.test(
  * mode we now connect ONLY to a local/disposable Postgres (PG_TEST_URL, or a
  * localhost PG_URL as CI uses) and FAIL CLOSED on anything remote — the suite
  * refuses to run rather than risk a remote database.
+ *
+ * The `PG_PROTOTYPE_URL` fallback is gone (2026-07-24): that env pointed at the
+ * SAME Neon database as PG_URL through the direct (non-pooler) hostname, so
+ * every "prototype" entry point was really writing to production.
  */
 const getConnectionString = () => {
   if (process.env.NODE_ENV === 'test') {
@@ -41,8 +45,8 @@ const getConnectionString = () => {
     }
     return url;
   }
-  const connectionString = process.env.PG_URL || process.env.PG_PROTOTYPE_URL;
-  if (!connectionString) throw new Error('PG connection string missing (PG_URL / PG_PROTOTYPE_URL)');
+  const connectionString = process.env.PG_URL;
+  if (!connectionString) throw new Error('PG connection string missing (PG_URL)');
   return connectionString;
 };
 
