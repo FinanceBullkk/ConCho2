@@ -216,7 +216,14 @@ Bug fixing and integration review rank above net-new feature rollout.
   regression guard), lint **0 errors** (5 pre-existing warnings), client build
   compiles. Spec `docs/specs/english-training` gains the DQ-correction workflow.
   **Browser verification BLOCKED** (Playwright Chromium unavailable) → the F1 UI
-  change is **Implemented, UI-verification-blocked**, not Done. Not committed.
+  change is **Implemented, UI-verification-blocked**, not Done. (PR #329.)
+  Follow-up functional/UX/flow audit
+  ([`audit-260723-2231-english-functional-ux.md`](../plans/reports/audit-260723-2231-english-functional-ux.md)):
+  lifecycle coherent, business rules match spec. **U1 fixed** — a Teacher landing
+  on the Operations Overview no longer sees management-only data-status counts;
+  it now shows an honest "not available for your role yet" notice (assigned-Teacher
+  scope stays spec known-next-work). Client english-operations 17/17 (+2 Overview
+  tests). U2 (live loop unused), U3–U5 (minor) accepted/documented.
 
 - **2026-07-22** — **Reasoned English capacity-override transfer verified.**
   Admin and Coordinator can now select a full cross-class Course Run during a
