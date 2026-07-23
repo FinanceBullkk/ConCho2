@@ -2,7 +2,7 @@
 capability: english-training
 status: evolving
 owners: [domains/english-training]
-last_updated: 2026-07-22
+last_updated: 2026-07-23
 authority:
   repository: kyphucclv/ConMeoGauGau
   commit: 4107cd52ee905e87254e099da23cb58dcbdd82a9
@@ -292,6 +292,14 @@ Archive exposes workbook/import evidence without a freeze or cutover command.
 Canonical operational English tables are writable through controlled commands;
 raw rows, DQ records, and time-correction evidence retain database freeze
 protection from the older archive mechanism.
+
+Data-quality corrections: from the Archive → Issues drill-down, an Admin or
+Coordinator can correct a `missing_bu`/`missing_role` data-quality issue by
+supplying the missing business unit / job role plus a reason
+(`PATCH /api/english-training/employees/:empCode/correction`). The correction
+edits the canonical employee record and closes the issue; it does not mutate the
+read-only imported evidence. The correction entry point is off for read-only
+viewers and Teachers; the imported schedule/attendance evidence stays read-only.
 
 ## Migrations 047-051 reconciliation
 

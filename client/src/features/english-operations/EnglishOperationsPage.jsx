@@ -33,36 +33,47 @@ function StatCard({ label, value }) {
   );
 }
 
-function Overview({ data, isTeacher, onNavigate, t }) {
+export function Overview({ data, isTeacher, onNavigate, t }) {
   const actions = [
     { id: 'attendance', icon: ClipboardCheck },
     { id: 'schedule', icon: CalendarCheck2 },
     { id: 'classes', icon: Boxes },
   ];
+  // Teacher has no operational access to English Operations yet (assigned-Teacher
+  // scope is planned). Show an honest notice rather than management-facing action
+  // cards or operational data counts they cannot act on.
+  if (isTeacher) {
+    return (
+      <div className="rounded-lg border border-dashed border-border bg-card p-8 text-center">
+        <h2 className="font-semibold text-foreground">{t('englishOperations.overview.teacherTitle')}</h2>
+        <p className="mx-auto mt-2 max-w-md text-sm text-muted-foreground">
+          {t('englishOperations.overview.teacherPlaceholder')}
+        </p>
+      </div>
+    );
+  }
   return (
     <div className="space-y-5">
-      {!isTeacher && (
-        <section>
-          <h2 className="font-semibold text-foreground">{t('englishOperations.overview.startHere')}</h2>
-          <p className="mt-1 text-sm text-muted-foreground">{t('englishOperations.overview.startHereHint')}</p>
-          <div className="mt-3 grid gap-3 md:grid-cols-3">
-            {actions.map(({ id, icon }) => (
-              <button
-                key={id}
-                type="button"
-                onClick={() => onNavigate(id)}
-                className="group rounded-lg border border-border bg-card p-4 text-left transition-colors hover:border-primary/35 hover:bg-primary/[0.04]"
-              >
-                <span className="flex size-10 items-center justify-center rounded-lg bg-primary/10 text-primary">
-                  {createElement(icon, { className: 'size-5' })}
-                </span>
-                <span className="mt-3 block font-semibold text-foreground">{t(`englishOperations.overview.actions.${id}.title`)}</span>
-                <span className="mt-1 block text-sm text-muted-foreground">{t(`englishOperations.overview.actions.${id}.description`)}</span>
-              </button>
-            ))}
-          </div>
-        </section>
-      )}
+      <section>
+        <h2 className="font-semibold text-foreground">{t('englishOperations.overview.startHere')}</h2>
+        <p className="mt-1 text-sm text-muted-foreground">{t('englishOperations.overview.startHereHint')}</p>
+        <div className="mt-3 grid gap-3 md:grid-cols-3">
+          {actions.map(({ id, icon }) => (
+            <button
+              key={id}
+              type="button"
+              onClick={() => onNavigate(id)}
+              className="group rounded-lg border border-border bg-card p-4 text-left transition-colors hover:border-primary/35 hover:bg-primary/[0.04]"
+            >
+              <span className="flex size-10 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                {createElement(icon, { className: 'size-5' })}
+              </span>
+              <span className="mt-3 block font-semibold text-foreground">{t(`englishOperations.overview.actions.${id}.title`)}</span>
+              <span className="mt-1 block text-sm text-muted-foreground">{t(`englishOperations.overview.actions.${id}.description`)}</span>
+            </button>
+          ))}
+        </div>
+      </section>
       <section>
         <h2 className="mb-3 font-semibold text-foreground">{t('englishOperations.overview.dataStatus')}</h2>
         <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
@@ -72,11 +83,6 @@ function Overview({ data, isTeacher, onNavigate, t }) {
           <StatCard label={t('englishOperations.overview.archivePeople')} value={data?.archivePeople} />
         </div>
       </section>
-      {isTeacher && (
-        <p className="rounded-lg border border-border bg-card p-4 text-sm text-muted-foreground">
-          {t('englishOperations.overview.teacherPlaceholder')}
-        </p>
-      )}
     </div>
   );
 }

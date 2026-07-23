@@ -6,7 +6,7 @@
 > - *Architecture / orientation* → [`system-overview.md`](system-overview.md)
 > - *Detailed task snapshot (archived)* → [`archive/handoff-2026-06-01.md`](archive/handoff-2026-06-01.md)
 >
-> **Last updated:** 2026-07-22
+> **Last updated:** 2026-07-23
 
 ---
 
@@ -193,6 +193,37 @@ Bug fixing and integration review rank above net-new feature rollout.
 > 07-04 E1–E3 rolled 2026-07-08, 07-02→07-03 rolled 2026-07-07 →
 > [`2026-q3.md`](changelog-archive/2026-q3.md); 06-20→06-27 rolled 2026-07-07;
 > 06-14→06-19 rolled 2026-07-04 → [`2026-q2.md`](changelog-archive/2026-q2.md)).
+
+- **2026-07-23** — **English workspace audit + DQ-correction regression fix + canonical-ops refactor.**
+  Inline audit of the English staff workspace (client `features/english*` +
+  server `domains/english-training`); report
+  [`plans/reports/audit-260723-1922-english-workspace.md`](../plans/reports/audit-260723-1922-english-workspace.md).
+  Authz/audit/soft-delete controls verified intact. Two fixes shipped:
+  **(F1 regression)** the Phase-1 DQ employee-correction (fix missing BU/job role
+  from the Issues drill-down) had become UI-unreachable after the workspace merge
+  — the embedded Archive page rendered `readOnly`, gating `canCorrect` off while
+  the backend `PATCH /employees/:empCode/correction` stayed live (182 open DQ
+  issues affected). Restored via an `allowCorrections` opt-in threaded
+  ArchivePanel(Admin/Coordinator) → EnglishTrainingPage → IssuesView, reusing the
+  existing tested `CorrectionForm`; imported evidence stays read-only, Teachers
+  excluded. **(F2 refactor)** `domains/english-training/canonical-operations.js`
+  683 → thin barrel (27) + `canonical-operations-shared` (65) +
+  `canonical-enrollment-operations` (376) + `canonical-meeting-operations` (275);
+  public require path unchanged (behavior-neutral). F4 (an attendance
+  set-state-in-effect) reviewed and kept as a justified local-draft seed; F3
+  (dual guard-regime in `routes.js`) documented and deferred. Verified: server
+  english unit **103/103** (19 suites, no-DB), client english **27/27** (+1
+  regression guard), lint **0 errors** (5 pre-existing warnings), client build
+  compiles. Spec `docs/specs/english-training` gains the DQ-correction workflow.
+  **Browser verification BLOCKED** (Playwright Chromium unavailable) → the F1 UI
+  change is **Implemented, UI-verification-blocked**, not Done. (PR #329.)
+  Follow-up functional/UX/flow audit
+  ([`audit-260723-2231-english-functional-ux.md`](../plans/reports/audit-260723-2231-english-functional-ux.md)):
+  lifecycle coherent, business rules match spec. **U1 fixed** — a Teacher landing
+  on the Operations Overview no longer sees management-only data-status counts;
+  it now shows an honest "not available for your role yet" notice (assigned-Teacher
+  scope stays spec known-next-work). Client english-operations 17/17 (+2 Overview
+  tests). U2 (live loop unused), U3–U5 (minor) accepted/documented.
 
 - **2026-07-22** — **Reasoned English capacity-override transfer verified.**
   Admin and Coordinator can now select a full cross-class Course Run during a

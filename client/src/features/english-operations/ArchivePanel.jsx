@@ -1,9 +1,15 @@
 import { useTranslation } from 'react-i18next';
 import { LockKeyhole } from 'lucide-react';
 import EnglishTrainingPage from '../english-training/EnglishTrainingPage';
+import { useAuth } from '../../context/AuthContext';
 
 export default function ArchivePanel() {
   const { t } = useTranslation();
+  const { user } = useAuth();
+  // Imported schedule/attendance evidence stays read-only, but Admin/Coordinator
+  // may still fix data-quality gaps (missing BU/job role) on the canonical
+  // employee record from the Issues drill-down — the shipped Phase-1 DQ loop.
+  const canCorrect = user?.role === 'Admin' || user?.role === 'Coordinator';
 
   return (
     <div className="space-y-5">
@@ -17,7 +23,7 @@ export default function ArchivePanel() {
         </div>
       </section>
       <div className="rounded-lg border border-border bg-card p-4">
-        <EnglishTrainingPage readOnly embedded />
+        <EnglishTrainingPage readOnly embedded allowCorrections={canCorrect} />
       </div>
     </div>
   );

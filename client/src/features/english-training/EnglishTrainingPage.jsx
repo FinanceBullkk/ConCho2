@@ -152,10 +152,13 @@ function SessionsView({ rows, selected, onSelect, detail, t }) {
   );
 }
 
-function IssuesView({ rows, selected, onSelect, details, t, readOnly = false }) {
+function IssuesView({ rows, selected, onSelect, details, t, readOnly = false, allowCorrections = false }) {
   const [editing, setEditing] = useState(null);
   if (!rows?.length) return <EmptyState title={t('englishTraining.empty')} />;
-  const canCorrect = !readOnly && (selected === 'missing_bu' || selected === 'missing_role');
+  // Corrections edit the canonical employee record (backfill BU/job role), not the
+  // read-only imported evidence — so an embedded read-only Archive view may still
+  // opt into corrections for privileged operators via allowCorrections.
+  const canCorrect = (!readOnly || allowCorrections) && (selected === 'missing_bu' || selected === 'missing_role');
   const detailColumns = [
     ['entityType', 'entity'], ['entityKey', 'entityKey'], ['employee', 'employee'],
     ['classCode', 'cohort'], ['source', 'source'], ['detailText', 'detail'],
@@ -216,7 +219,7 @@ function IssuesView({ rows, selected, onSelect, details, t, readOnly = false }) 
   );
 }
 
-export default function EnglishTrainingPage({ readOnly = false, embedded = false }) {
+export default function EnglishTrainingPage({ readOnly = false, embedded = false, allowCorrections = false }) {
   const { t } = useTranslation();
   const tabs = readOnly ? archiveTabs : editableTabs;
   const [active, setActive] = useState(() => readOnly ? 'classes' : 'overview');
@@ -259,7 +262,7 @@ export default function EnglishTrainingPage({ readOnly = false, embedded = false
           {current.isLoading && <div className="flex justify-center py-12"><Spinner size={32} label={t('englishTraining.loading')} /></div>}
           {current.isError && <EmptyState title={t('englishTraining.loadError')} />}
           {!current.isLoading && !current.isError && active === 'issues' && (
-            <IssuesView rows={current.data} selected={selectedIssue} onSelect={setSelectedIssue} details={issueDetails} t={t} readOnly={readOnly} />
+            <IssuesView rows={current.data} selected={selectedIssue} onSelect={setSelectedIssue} details={issueDetails} t={t} readOnly={readOnly} allowCorrections={allowCorrections} />
           )}
           {!current.isLoading && !current.isError && active === 'sessions' && (
             <SessionsView rows={current.data} selected={selectedSession} onSelect={setSelectedSession} detail={sessionAttendance} t={t} />
