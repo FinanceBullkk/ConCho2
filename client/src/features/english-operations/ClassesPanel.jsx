@@ -78,6 +78,12 @@ function ClassForm({ classes, courses, employees, onClose }) {
 
 const percentage = (value) => value == null ? '—' : `${Math.round(value * 100)}%`;
 
+// Map the server's raw status enums to operator-facing labels. Falls back to the
+// raw code (never blank) so an unmapped value is visible rather than hidden.
+const labelFor = (t, group, code) => (code
+  ? t(`englishOperations.classes.${group}.${code}`, { defaultValue: code })
+  : '—');
+
 const today = () => {
   const date = new Date();
   const offset = date.getTimezoneOffset() * 60000;
@@ -281,7 +287,7 @@ function ClassDetail({ classId, summary, employees, courseRuns, classes, canMana
           <div className="overflow-x-auto rounded-md border border-border">
             <table className="w-full min-w-[720px] text-left text-sm">
               <thead className="border-b border-border bg-muted/40 text-xs uppercase text-muted-foreground"><tr><th className="px-3 py-2">{t('englishOperations.classes.learner')}</th><th className="px-3 py-2">{t('englishOperations.classes.enrollmentStatus')}</th><th className="px-3 py-2">{t('englishOperations.classes.startsAtSession')}</th><th className="px-3 py-2">{t('englishOperations.classes.attendance')}</th><th className="px-3 py-2">{t('englishOperations.classes.eligibility')}</th>{canManage && <th className="px-3 py-2 text-right">{t('englishOperations.classes.actions')}</th>}</tr></thead>
-              <tbody className="divide-y divide-border">{run.roster.map((row) => <tr key={row.enrollmentId}><td className="px-3 py-2"><div className="font-medium text-foreground">{row.fullName}</div><div className="text-xs text-muted-foreground">{row.empCode}</div></td><td className="px-3 py-2 text-muted-foreground">{row.enrollmentStatus}</td><td className="px-3 py-2 text-muted-foreground">{row.startSessionNumber}</td><td className="px-3 py-2 text-muted-foreground">{percentage(row.attendanceRatio)} <span className="text-xs">({row.presentCount}/{row.markedCount})</span></td><td className="px-3 py-2 text-muted-foreground">{row.eligibilityStatus}</td>{canManage && <td className="px-3 py-2 text-right">{row.enrollmentStatus === 'active' && <div className="flex justify-end gap-1"><Button size="sm" variant="outline" onClick={() => { setLeavingEnrollment(null); setTransferringEnrollment({ runId: run.id, enrollmentId: row.enrollmentId }); }}>{t('englishOperations.classes.transferLearner')}</Button><Button size="sm" variant="ghost" onClick={() => { setTransferringEnrollment(null); setLeavingEnrollment({ runId: run.id, enrollmentId: row.enrollmentId }); }}>{t('englishOperations.classes.markLeft')}</Button></div>}</td>}</tr>)}</tbody>
+              <tbody className="divide-y divide-border">{run.roster.map((row) => <tr key={row.enrollmentId}><td className="px-3 py-2"><div className="font-medium text-foreground">{row.fullName}</div><div className="text-xs text-muted-foreground">{row.empCode}</div></td><td className="px-3 py-2 text-muted-foreground">{labelFor(t, 'enrollmentStates', row.enrollmentStatus)}</td><td className="px-3 py-2 text-muted-foreground">{row.startSessionNumber}</td><td className="px-3 py-2 text-muted-foreground">{percentage(row.attendanceRatio)} <span className="text-xs">({row.presentCount}/{row.markedCount})</span></td><td className="px-3 py-2 text-muted-foreground">{labelFor(t, 'eligibilityStates', row.eligibilityStatus)}</td>{canManage && <td className="px-3 py-2 text-right">{row.enrollmentStatus === 'active' && <div className="flex justify-end gap-1"><Button size="sm" variant="outline" onClick={() => { setLeavingEnrollment(null); setTransferringEnrollment({ runId: run.id, enrollmentId: row.enrollmentId }); }}>{t('englishOperations.classes.transferLearner')}</Button><Button size="sm" variant="ghost" onClick={() => { setTransferringEnrollment(null); setLeavingEnrollment({ runId: run.id, enrollmentId: row.enrollmentId }); }}>{t('englishOperations.classes.markLeft')}</Button></div>}</td>}</tr>)}</tbody>
             </table>
             {run.roster.length === 0 && <p className="px-3 py-8 text-center text-sm text-muted-foreground">{t('englishOperations.classes.noRoster')}</p>}
           </div>
