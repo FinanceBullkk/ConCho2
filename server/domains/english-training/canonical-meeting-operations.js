@@ -210,6 +210,12 @@ const saveAttendanceRoster = async (input, actor = {}) => repository.withTransac
   if (data.unit.meeting_status === 'cancelled') {
     throw new ServiceError('Cancelled English Meetings cannot receive attendance', 409);
   }
+  // Attendance is evidence of a session that happened. The UI already hides the
+  // roster until the meeting starts; enforce it on the server too so a stale tab
+  // or a direct API call cannot record a future session (422 = not yet markable).
+  if (data.unit.starts_at && new Date(data.unit.starts_at).getTime() > Date.now()) {
+    throw new ServiceError('This session has not started yet; attendance cannot be recorded', 422);
+  }
   if (data.unit.unit_type === 'makeup') {
     throw new ServiceError('Make-up Session Units use the linked absence workflow', 409);
   }

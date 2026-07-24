@@ -2,7 +2,7 @@
 capability: english-training
 status: evolving
 owners: [domains/english-training]
-last_updated: 2026-07-23
+last_updated: 2026-07-24
 authority:
   repository: kyphucclv/ConMeoGauGau
   commit: 4107cd52ee905e87254e099da23cb58dcbdd82a9
@@ -88,6 +88,8 @@ not a teacher assignment, login identity, generic Team, or roster container.
 - One attendance save contains every applicable Run Enrollment exactly once.
   The opaque roster token rejects stale writes, and Meeting completion,
   attendance facts, and domain audit commit in one transaction.
+- Attendance is evidence of a session that happened: a roster save is rejected
+  server-side while the Meeting start time is still in the future.
 - Only `present` and `absent` are canonical attendance states.
 - Source rows are never silently discarded. A row is loaded, staged, or
   represented by a data-quality issue.

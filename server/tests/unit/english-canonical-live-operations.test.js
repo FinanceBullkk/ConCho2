@@ -58,6 +58,9 @@ const unit = {
   starts_at: new Date('2099-07-20T02:00:00.000Z'), duration_minutes: 60,
   session_number: 3, unit_type: 'normal',
 };
+// Same unit after its session has started — attendance records what happened, so
+// the roster-save tests use this while reschedule/cancel keep the future `unit`.
+const startedUnit = { ...unit, starts_at: new Date('2020-01-06T02:00:00.000Z') };
 const rosterRows = [{
   run_enrollment_id: 'enrollment-1', attendance_id: null, recorded_status: null,
   effective_status: 'present', emp_code: 'E001', full_name: 'Learner One',
@@ -378,7 +381,7 @@ describe('canonical English live operations', () => {
   });
 
   test('returns an opaque token and rejects stale or incomplete full-roster saves', async () => {
-    repository.getAttendanceRosterData.mockResolvedValue({ unit, rows: rosterRows });
+    repository.getAttendanceRosterData.mockResolvedValue({ unit: startedUnit, rows: rosterRows });
     const roster = await getAttendanceRoster({ courseRunId: 'run-1', sessionUnitId: 'unit-1' });
     expect(roster.rosterToken).toHaveLength(64);
 
@@ -389,17 +392,28 @@ describe('canonical English live operations', () => {
 
     await expect(saveAttendanceRoster({
       courseRunId: 'run-1', sessionUnitId: 'unit-1',
-      rosterToken: rosterToken(unit, rosterRows), records: [],
+      rosterToken: rosterToken(startedUnit, rosterRows), records: [],
     }, actor)).rejects.toMatchObject({ statusCode: 409, message: expect.stringMatching(/each applicable/) });
     expect(repository.upsertAttendance).not.toHaveBeenCalled();
   });
 
+  test('refuses to record attendance before the session has started', async () => {
+    const futureUnit = { ...unit, starts_at: new Date('2099-07-20T02:00:00.000Z') };
+    repository.getAttendanceRosterData.mockResolvedValue({ unit: futureUnit, rows: rosterRows });
+    await expect(saveAttendanceRoster({
+      courseRunId: 'run-1', sessionUnitId: 'unit-1',
+      rosterToken: rosterToken(futureUnit, rosterRows),
+      records: [{ runEnrollmentId: 'enrollment-1', status: 'present' }],
+    }, actor)).rejects.toMatchObject({ statusCode: 422, message: expect.stringMatching(/has not started/i) });
+    expect(repository.upsertAttendance).not.toHaveBeenCalled();
+  });
+
   test('saves exactly one result per applicable enrollment and completes the Meeting atomically', async () => {
-    repository.getAttendanceRosterData.mockResolvedValue({ unit, rows: rosterRows });
+    repository.getAttendanceRosterData.mockResolvedValue({ unit: startedUnit, rows: rosterRows });
     repository.upsertAttendance.mockResolvedValue({ inserted: true });
     const result = await saveAttendanceRoster({
       courseRunId: 'run-1', sessionUnitId: 'unit-1',
-      rosterToken: rosterToken(unit, rosterRows),
+      rosterToken: rosterToken(startedUnit, rosterRows),
       records: [{ runEnrollmentId: 'enrollment-1', status: 'present' }],
     }, actor);
     expect(result).toEqual({

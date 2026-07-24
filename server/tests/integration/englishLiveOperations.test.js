@@ -106,6 +106,25 @@ describe('English Operations — canonical live vertical flow', () => {
     expect(session.body.data).toMatchObject({ sessionNumber: 1 });
     const { meetingId, sessionUnitId } = session.body.data;
 
+    const rosterPath = `/api/english-training/workspace/course-runs/${courseRunId}`
+      + `/session-units/${sessionUnitId}/attendance`;
+
+    // A session can only be CREATED in the future, but attendance is evidence of
+    // a session that HAPPENED. Trying to record the roster while it is still in
+    // the future is rejected server-side (not just hidden in the UI).
+    const earlyRoster = await authorized(request(app).get(rosterPath), tokens.admin);
+    const early = await authorized(request(app).put(rosterPath), tokens.admin).send({
+      rosterToken: earlyRoster.body.data.rosterToken,
+      records: [{ runEnrollmentId: enrollment.body.data.enrollmentId, status: 'present' }],
+    });
+    expect(early.status).toBe(422);
+    expect(early.body.message).toMatch(/has not started/i);
+
+    // Now the class has taken place: move the Meeting into the past so the rest
+    // of the live flow (mark → complete → exam) runs as it would after the slot.
+    await query("UPDATE eng_meetings SET starts_at = now() - interval '1 hour' WHERE id = $1", [meetingId]);
+    await query("UPDATE eng_session_units SET held_at = now() - interval '1 hour' WHERE meeting_id = $1", [meetingId]);
+
     // The session list reports the full match count (windowed, ignoring LIMIT)
     // so the client can fetch remaining pages in parallel. With limit=1 the page
     // holds one row while `total` still reflects everything that matches.
@@ -117,8 +136,6 @@ describe('English Operations — canonical live vertical flow', () => {
     expect(typeof listed.body.total).toBe('number');
     expect(listed.body.total).toBeGreaterThanOrEqual(listed.body.count);
 
-    const rosterPath = `/api/english-training/workspace/course-runs/${courseRunId}`
-      + `/session-units/${sessionUnitId}/attendance`;
     const roster = await authorized(request(app).get(rosterPath), tokens.admin);
     expect(roster.status).toBe(200);
     expect(roster.body.data.rosterToken).toHaveLength(64);
