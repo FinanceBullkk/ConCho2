@@ -82,9 +82,9 @@ stashed the test fails `Expected 201 / Received 500`; with it, 4/4 pass.
 | ID | Sev | Finding |
 |----|-----|---------|
 | L1 | Med (UX) | ~~Attendance filter tiles don't move the calendar. Clicking **Upcoming** (9 sessions) leaves the grid on the previously shown week (Jul 6–12) → an empty grid, as if nothing were upcoming.~~ **FIXED (PR #335, 2026-07-24)** — the week now seeds from the session closest to now in the current set, and the grid remounts on a filter change so it actually re-seeds. Browser-verified at 3 viewports: every filter lands on a week containing its sessions. |
-| L2 | Low (UX) | The class 360° roster shows raw enum codes — `not_eligible`, `within_limit`, `not_applicable` — while the Evaluation screen shows proper labels ("Eligible", "Not eligible (attendance below target)"). Inconsistent vocabulary on an operator screen. |
-| L3 | Low (perf) | Both the Schedule and Attendance tabs load the **entire** session history on every visit: 5 sequential `GET /sessions?limit=200&offset=…` calls (985 rows) before rendering. Fine at this size, but it is a full-table page-through on each tab switch. |
-| L4 | Info | The "session hasn't started" gate is client-side only; the API accepts a roster save for a future session (the existing integration test marks a 2099 session). Harmless today, but the guard is not enforced server-side. |
+| L2 | Low (UX) | ~~The class 360° roster shows raw enum codes — `not_eligible`, `within_limit`, `not_applicable`.~~ **FIXED (PR #336)** — both columns map through i18n (`within_limit` → "On track"), falling back to the raw code so an unmapped value stays visible. Browser-verified at 3 viewports. |
+| L3 | Low (perf) | ~~Both the Schedule and Attendance tabs load the **entire** session history via 5 sequential `GET /sessions` calls before rendering.~~ **FIXED (PR #337)** — the endpoint returns the full `total` (windowed in SQL) so the client fetches page 0 then the rest with `Promise.all`. Browser-measured: pages 2–5 fire within 1ms instead of one round-trip apart (~5 serial → ~2). |
+| L4 | Info | ~~The "session hasn't started" gate is client-side only; the API accepts a roster save for a future session.~~ **FIXED (PR #338)** — `saveAttendanceRoster` returns 422 while the Meeting start is in the future; spec updated. Unit + integration regression, red→green verified. |
 
 ## Verification
 
@@ -101,8 +101,13 @@ stashed the test fails `Expected 201 / Received 500`; with it, 4/4 pass.
 - Single operator (Coordinator), single class, one session. Multi-operator concurrency and the PIC/notification side effects (email, Google Calendar) were not exercised; SMTP/Google are not configured locally.
 - `D2`/`D3` fixes protect a **fresh** database. An environment already seeded with the old script still has an empty `eng_levels`; it must be re-migrated or re-inserted.
 
-## Unresolved questions
+## Follow-up status (all resolved 2026-07-24)
 
-- L1: should a filter change re-seed the visible week (jump to the first matching session), or should filtering be scoped to the visible week only?
-- L4: enforce "cannot mark before the session starts" server-side, or keep it a UI affordance (e.g. so an operator can pre-fill)?
-- Does an already-deployed environment need an `eng_levels` backfill, or is every environment re-migrated from scratch?
+- **L1** → filter change re-seeds the visible week to the nearest session (PR #335).
+- **L4** → enforced server-side, 422 for a future session (PR #338).
+- **`eng_levels` backfill** → production was verified empty and repaired by migration 052 (PR #333); prod now reads 13 levels. Every environment is migrated, so the repair is one-time and idempotent.
+- **`PG_PROTOTYPE_URL`** (discovered during the 052 rollout) → the "prototype" env aliased production; retired entirely (PR #334).
+
+## Remaining (needs a person, not code)
+
+- **U2** — a real English operator running one live cycle (create Meeting → mark → level) end to end. This session drove it as a stand-in Coordinator; genuine operator acceptance is still pending.
