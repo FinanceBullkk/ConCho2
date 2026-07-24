@@ -58,20 +58,27 @@ export const useCanonicalEnglishEmployees = (enabled = true) => useQuery({
 const ARCHIVE_PAGE_SIZE = 200;
 const ARCHIVE_MAX_PAGES = 20;
 
+const fetchSessionPage = (page) => payload(englishTrainingAPI.getSessions({
+  limit: ARCHIVE_PAGE_SIZE,
+  offset: page * ARCHIVE_PAGE_SIZE,
+}));
+
 const loadAllCanonicalSessions = async () => {
-  const rows = [];
-  for (let page = 0; page < ARCHIVE_MAX_PAGES; page += 1) {
-    // Bounded pagination keeps the existing read endpoint safe for both imported
-    // evidence and new live Meeting-backed Session Units.
-    const body = await payload(englishTrainingAPI.getSessions({
-      limit: ARCHIVE_PAGE_SIZE,
-      offset: page * ARCHIVE_PAGE_SIZE,
-    }));
-    const batch = body.data || [];
-    rows.push(...batch);
-    if (batch.length < ARCHIVE_PAGE_SIZE) return rows;
-  }
-  throw new Error('English session page limit exceeded');
+  // Page 0 tells us the full count, so the remaining pages fetch in parallel
+  // instead of one sequential round-trip each (was 5 serial calls for ~985
+  // sessions). The endpoint is still bounded and safe for imported evidence and
+  // live Meeting-backed Session Units alike.
+  const first = await fetchSessionPage(0);
+  const rows = first.data || [];
+  const total = first.total ?? rows.length;
+  const pageCount = Math.min(Math.ceil(total / ARCHIVE_PAGE_SIZE), ARCHIVE_MAX_PAGES);
+  if (pageCount <= 1) return rows;
+
+  const rest = await Promise.all(
+    Array.from({ length: pageCount - 1 }, (_, i) => fetchSessionPage(i + 1)),
+  );
+  for (const body of rest) rows.push(...(body.data || []));
+  return rows;
 };
 
 export const useCanonicalEnglishSessions = (enabled = true) => useQuery({

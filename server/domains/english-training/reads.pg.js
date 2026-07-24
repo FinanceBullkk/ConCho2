@@ -229,7 +229,11 @@ async function listSessions({ q, limit = 100, offset = 0 } = {}) {
             OR (m.status = 'completed' AND cm.start_date <= m.starts_at::date
               AND (cm.end_date IS NULL OR m.starts_at::date <= cm.end_date)))) AS expected_roster_count,
       count(ar.id) FILTER (WHERE ar.status = 'present')::int AS present_count,
-      count(ar.id) FILTER (WHERE ar.status = 'absent')::int AS absent_count
+      count(ar.id) FILTER (WHERE ar.status = 'absent')::int AS absent_count,
+      -- Total across ALL matching sessions (ignores LIMIT/OFFSET) so the client
+      -- can fetch the remaining pages in parallel instead of walking them one by
+      -- one. Counts grouped rows = distinct session units.
+      count(*) OVER()::int AS total_count
     FROM eng_session_units su
     JOIN eng_meetings m ON m.id = su.meeting_id
     JOIN eng_course_runs r ON r.id = su.course_run_id

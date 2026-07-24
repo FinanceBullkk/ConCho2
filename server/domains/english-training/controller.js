@@ -303,7 +303,9 @@ const getEmployee = async (req, res) => {
 const listSessions = async (req, res) => {
   try {
     const rows = await reads.listSessions({ q: req.query.q, limit: req.query.limit, offset: req.query.offset });
-    res.json({ success: true, data: dto.sessionList(rows), count: rows.length });
+    // total = full matching count (windowed in SQL); count = this page's size.
+    const total = rows.length ? rows[0].total_count : 0;
+    res.json({ success: true, data: dto.sessionList(rows), count: rows.length, total });
   } catch (e) { handleError(res, e); }
 };
 
