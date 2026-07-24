@@ -106,6 +106,17 @@ describe('English Operations — canonical live vertical flow', () => {
     expect(session.body.data).toMatchObject({ sessionNumber: 1 });
     const { meetingId, sessionUnitId } = session.body.data;
 
+    // The session list reports the full match count (windowed, ignoring LIMIT)
+    // so the client can fetch remaining pages in parallel. With limit=1 the page
+    // holds one row while `total` still reflects everything that matches.
+    const listed = await authorized(
+      request(app).get('/api/english-training/sessions?limit=1'), tokens.admin,
+    );
+    expect(listed.status).toBe(200);
+    expect(listed.body.data).toHaveLength(1);
+    expect(typeof listed.body.total).toBe('number');
+    expect(listed.body.total).toBeGreaterThanOrEqual(listed.body.count);
+
     const rosterPath = `/api/english-training/workspace/course-runs/${courseRunId}`
       + `/session-units/${sessionUnitId}/attendance`;
     const roster = await authorized(request(app).get(rosterPath), tokens.admin);
