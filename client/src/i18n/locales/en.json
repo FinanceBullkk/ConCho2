@@ -237,7 +237,22 @@
       "noRoster": "No learners enrolled.",
       "programCreated": "English course created",
       "runCreated": "English course run created",
-      "saveError": "Could not create the English class"
+      "saveError": "Could not create the English class",
+      "eligibilityStates": {
+        "eligible": "Eligible",
+        "within_limit": "On track",
+        "not_eligible": "Not eligible",
+        "not_applicable": "Not applicable",
+        "unknown": "No attendance yet"
+      },
+      "enrollmentStates": {
+        "active": "Active",
+        "waiting": "Waiting",
+        "completed": "Completed",
+        "dropped": "Left",
+        "transferred": "Transferred",
+        "cancelled": "Cancelled"
+      }
     },
     "schedule": {
       "description": "Plan English meetings in approved time slots and review the complete delivery calendar.",

@@ -65,6 +65,10 @@ describe('canonical English Classes panel', () => {
     expect(screen.getByText('Current PIC: People Team')).toBeInTheDocument();
     expect(screen.getByText('Alice')).toBeInTheDocument();
     expect(screen.getByText('80%')).toBeInTheDocument();
+    // Status enums render as operator-facing labels, not the raw codes.
+    expect(screen.getByText('Active')).toBeInTheDocument();
+    expect(screen.getByText('On track')).toBeInTheDocument();
+    expect(screen.queryByText('within_limit')).not.toBeInTheDocument();
     expect(screen.queryByText('Add course')).not.toBeInTheDocument();
   });
 
