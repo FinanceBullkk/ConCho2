@@ -174,6 +174,23 @@ module.exports = {
     enrollments: enrollments.map(enrollmentRow),
   }),
   sessionList: (rows) => rows.map(sessionRow),
+  sessionsSummary: (r) => ({
+    counts: {
+      all: r.all_count, upcoming: r.upcoming_count,
+      recorded: r.recorded_count, needsEvidence: r.needs_evidence_count,
+      live: r.live_count, imported: r.imported_count,
+    },
+    nearestSessionAt: r.nearest_session_at || null,
+    latestSessionAt: r.latest_session_at || null,
+    // Which week each Attendance filter should open on (nearest session that
+    // actually falls in that bucket) — null when the bucket is empty.
+    filterSeedAt: {
+      all: r.nearest_session_at || null,
+      upcoming: r.upcoming_seed_at || null,
+      recorded: r.recorded_seed_at || null,
+      needsEvidence: r.needs_evidence_seed_at || null,
+    },
+  }),
   sessionAttendance: ({ session, roster }) => ({
     ...sessionRow(session), roster: roster.map(attendanceRow),
   }),

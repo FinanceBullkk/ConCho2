@@ -12,6 +12,12 @@ const listEmployeesQuery = z.object({
   limit: z.coerce.number().int().min(1).max(200).optional(),
   offset: z.coerce.number().int().min(0).optional(),
 });
+// Calendar window scope for the Schedule/Attendance tabs — a week's worth of
+// sessions at a time instead of the entire canonical history.
+const listSessionsQuery = listEmployeesQuery.extend({
+  from: z.string().datetime({ offset: true }).optional(),
+  to: z.string().datetime({ offset: true }).optional(),
+});
 
 const employeeCorrectionBody = z.object({
   businessUnit: z.string().trim().min(1).max(100).optional(),
@@ -119,7 +125,7 @@ const attendanceRosterBody = z.object({
 });
 
 module.exports = {
-  idParams, empCodeParams, issueCodeParams, listEmployeesQuery,
+  idParams, empCodeParams, issueCodeParams, listEmployeesQuery, listSessionsQuery,
   employeeCorrectionBody, examResultBody,
   managedPersonCreateBody, managedPersonUpdateBody,
   canonicalClassBody,

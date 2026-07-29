@@ -159,6 +159,8 @@ export const qk = {
     archiveSessions: ['english-operations', 'archive', 'sessions'],
     archiveSessionAttendance: (id) => ['english-operations', 'archive', 'sessions', id, 'attendance'],
     canonicalSessions: ['english-operations', 'canonical-sessions'],
+    canonicalSessionsSummary: ['english-operations', 'canonical-sessions', 'summary'],
+    canonicalSessionsWindow: (weekStartKey) => ['english-operations', 'canonical-sessions', 'window', weekStartKey],
     canonicalCourseRuns: ['english-operations', 'canonical-course-runs'],
     canonicalAttendance: (courseRunId, sessionUnitId) => ['english-operations', 'canonical-attendance', courseRunId, sessionUnitId],
     combinedHistory: ['english-operations', 'archive', 'combined-history'],

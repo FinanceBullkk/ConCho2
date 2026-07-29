@@ -81,11 +81,35 @@ const loadAllCanonicalSessions = async () => {
   return rows;
 };
 
-export const useCanonicalEnglishSessions = (enabled = true) => useQuery({
-  queryKey: qk.englishOperations.canonicalSessions,
-  queryFn: loadAllCanonicalSessions,
+// Calendar window scope for the Schedule/Attendance tabs — a week's worth of
+// sessions at a time (from the server, via `from`/`to`) instead of the entire
+// canonical history (985+ sessions and growing). `weekStart` is a Date at
+// local Monday 00:00; the query key is its ISO string so each week caches
+// independently and prev/next/today just switch cache entries.
+const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
+
+export const useEnglishSessionsWindow = (weekStart, enabled = true) => {
+  const weekStartKey = weekStart ? new Date(weekStart).toISOString() : null;
+  return useQuery({
+    queryKey: qk.englishOperations.canonicalSessionsWindow(weekStartKey),
+    queryFn: () => {
+      const from = new Date(weekStart).toISOString();
+      const to = new Date(new Date(weekStart).getTime() + WEEK_MS).toISOString();
+      return payload(englishTrainingAPI.getSessions({ from, to, limit: 200 })).then((body) => body.data);
+    },
+    enabled: enabled && Boolean(weekStartKey),
+    staleTime: 30 * 1000,
+  });
+};
+
+// Global counts (filter tiles) + bounds (default/"jump to latest" week) — one
+// aggregate query server-side instead of downloading every session to derive
+// them client-side.
+export const useEnglishSessionsSummary = (enabled = true) => useQuery({
+  queryKey: qk.englishOperations.canonicalSessionsSummary,
+  queryFn: () => payload(englishTrainingAPI.getSessionsSummary()).then((body) => body.data),
   enabled,
-  staleTime: 60 * 1000,
+  staleTime: 30 * 1000,
 });
 
 export const useEnglishArchiveSessions = (enabled = true) => useQuery({

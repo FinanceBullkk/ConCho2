@@ -202,13 +202,24 @@ async function getEmployeeByCode(empCode) {
   return { employee, memberships, enrollments };
 }
 
-async function listSessions({ q, limit = 100, offset = 0 } = {}) {
+async function listSessions({
+  q, limit = 100, offset = 0, from, to,
+} = {}) {
   const params = [];
-  let where = '';
+  const clauses = [];
   if (q) {
     params.push(`%${q}%`);
-    where = `WHERE co.class_code ILIKE $1 OR c.course_name ILIKE $1`;
+    clauses.push(`(co.class_code ILIKE $${params.length} OR c.course_name ILIKE $${params.length})`);
   }
+  if (from) {
+    params.push(from);
+    clauses.push(`m.starts_at >= $${params.length}`);
+  }
+  if (to) {
+    params.push(to);
+    clauses.push(`m.starts_at < $${params.length}`);
+  }
+  const where = clauses.length ? `WHERE ${clauses.join(' AND ')}` : '';
   params.push(limit, offset);
   const { rows } = await query(`
     SELECT su.id, su.session_number, m.starts_at AS held_at, su.status,
@@ -245,6 +256,61 @@ async function listSessions({ q, limit = 100, offset = 0 } = {}) {
     ORDER BY m.starts_at DESC, co.class_code, su.session_number
     LIMIT $${params.length - 1} OFFSET $${params.length}`, params);
   return rows;
+}
+
+// Lightweight counterpart to listSessions — the Attendance/Schedule tab filter
+// tiles and "jump to latest" week need a global count/bound, not the full row
+// set. One aggregate query (same session+attendance join, no row projection)
+// instead of downloading every session to count client-side.
+async function getSessionsSummary() {
+  const { rows } = await query(`
+    WITH base AS (
+      SELECT su.id, su.session_number, m.starts_at, m.status AS meeting_status,
+        (su.source_sheet IS NULL OR m.operational_at IS NOT NULL) AS is_live,
+        count(ar.id)::int AS marked_count,
+        (SELECT count(*)::int FROM eng_run_enrollments en
+          LEFT JOIN eng_cohort_memberships cm ON cm.id = en.cohort_membership_id
+          WHERE en.course_run_id = r.id AND en.start_session_number <= su.session_number
+            AND (EXISTS (SELECT 1 FROM eng_attendance_records ear
+                  WHERE ear.session_unit_id = su.id AND ear.run_enrollment_id = en.id)
+              OR (m.status = 'planned' AND en.status = 'active')
+              OR (m.status = 'completed' AND cm.start_date <= m.starts_at::date
+                AND (cm.end_date IS NULL OR m.starts_at::date <= cm.end_date)))) AS expected_roster_count
+      FROM eng_session_units su
+      JOIN eng_meetings m ON m.id = su.meeting_id
+      JOIN eng_course_runs r ON r.id = su.course_run_id
+      LEFT JOIN eng_attendance_records ar ON ar.session_unit_id = su.id
+      GROUP BY su.id, m.id, r.id
+    )
+    SELECT
+      count(*)::int AS all_count,
+      count(*) FILTER (WHERE is_live)::int AS live_count,
+      count(*) FILTER (WHERE NOT is_live)::int AS imported_count,
+      count(*) FILTER (WHERE starts_at > now())::int AS upcoming_count,
+      count(*) FILTER (
+        WHERE starts_at <= now() AND marked_count > 0 AND marked_count >= expected_roster_count
+      )::int AS recorded_count,
+      count(*) FILTER (
+        WHERE starts_at <= now() AND NOT (marked_count > 0 AND marked_count >= expected_roster_count)
+      )::int AS needs_evidence_count,
+      (SELECT starts_at FROM base
+        ORDER BY abs(extract(epoch FROM (starts_at - now()))) LIMIT 1) AS nearest_session_at,
+      max(starts_at) AS latest_session_at,
+      -- Per-bucket "which week should this filter open on" seeds — the soonest
+      -- upcoming session, and the most recent past session in each attendance
+      -- bucket — so switching the Attendance filter can re-seed the calendar to
+      -- a week that actually contains a session in that bucket (PR #335).
+      min(starts_at) FILTER (WHERE starts_at > now()) AS upcoming_seed_at,
+      max(starts_at) FILTER (
+        WHERE starts_at <= now() AND marked_count > 0 AND marked_count >= expected_roster_count
+      ) AS recorded_seed_at,
+      max(starts_at) FILTER (
+        WHERE starts_at <= now() AND NOT (marked_count > 0 AND marked_count >= expected_roster_count)
+      ) AS needs_evidence_seed_at
+    FROM base`);
+  // Plain aggregates with no GROUP BY always return exactly one row, even over
+  // zero matching sessions (counts 0, bounds null) — no fallback needed.
+  return rows[0];
 }
 
 async function getSessionAttendance(id) {
@@ -438,7 +504,8 @@ module.exports = {
   getOverview,
   listCohorts, getCohort, getClassDetail, listCourses, getCourseRun,
   listActiveCourseRuns,
-  listEmployees, getEmployeeByCode, listSessions, getSessionAttendance, listEligibility,
+  listEmployees, getEmployeeByCode, listSessions, getSessionsSummary,
+  getSessionAttendance, listEligibility,
   listDataQualityIssues, listDataQualityIssueDetails,
   listLevels, listPendingExamEntries,
 };

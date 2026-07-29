@@ -22,6 +22,10 @@ jest.mock('../../domains/english-training/controller', () => ({
   listManagedPeople: jest.fn(), createManagedPerson: jest.fn(), updateManagedPerson: jest.fn(),
   deleteManagedPerson: jest.fn(), provisionManagedPeople: jest.fn(),
   listSessions: (_req, res) => res.json({ success: true, data: [{ id: 's1' }] }),
+  getSessionsSummary: (_req, res) => res.json({
+    success: true,
+    data: { counts: { all: 1, upcoming: 0, recorded: 1, needsEvidence: 0 }, nearestSessionAt: null, latestSessionAt: null },
+  }),
   getSessionAttendance: (_req, res) => res.json({ success: true, data: { id: 's1', roster: [] } }),
   listEligibility: (_req, res) => res.json({ success: true, data: [] }),
   getOverview: jest.fn(),
@@ -50,6 +54,23 @@ describe('English-training Phase-2 route authorization', () => {
   test('Participant is denied before the session controller runs', async () => {
     const response = await request(app)
       .get('/api/english-training/sessions')
+      .set('x-test-role', 'Participant');
+
+    expect(response.status).toBe(403);
+  });
+
+  test('Admin with report.read can read the sessions summary', async () => {
+    const response = await request(app)
+      .get('/api/english-training/sessions/summary')
+      .set('x-test-role', 'Admin');
+
+    expect(response.status).toBe(200);
+    expect(response.body.data.counts).toMatchObject({ all: 1, recorded: 1 });
+  });
+
+  test('Participant is denied the sessions summary', async () => {
+    const response = await request(app)
+      .get('/api/english-training/sessions/summary')
       .set('x-test-role', 'Participant');
 
     expect(response.status).toBe(403);

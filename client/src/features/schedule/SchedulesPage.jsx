@@ -45,6 +45,15 @@ export default function SchedulesPage({
   historicalOnly = false,
   historicalSchedules = [],
   defaultWeek,
+  // Controlled week (optional): when both are passed, the parent owns
+  // navigation and fetches only that week's data server-side — `historicalSchedules`
+  // then holds just the visible window, not the full history. Omitting both
+  // keeps the original uncontrolled behavior (URL-synced internal state, full
+  // local list). `historicalLatestWeek` overrides the "jump to latest" target,
+  // which otherwise assumes `historicalSchedules` holds the whole history.
+  weekStart: controlledWeekStart,
+  onWeekChange,
+  historicalLatestWeek,
   onHistoricalCellClick,
   onHistoricalScheduleClick,
   selectedHistoricalCellKey,
@@ -65,7 +74,7 @@ export default function SchedulesPage({
   const [selectedSchedule, setSelectedSchedule] = useState(null);
   const [selectedCell, setSelectedCell]         = useState(null);   // { day, hour, startTime, endTime }
 
-  const [weekStart, setWeekStart] = useState(() => {
+  const [internalWeekStart, setInternalWeekStart] = useState(() => {
     const p = searchParams.get('week');
     if (p) { const d = new Date(p); if (!isNaN(d)) return getMonday(d); }
     if (defaultWeek) {
@@ -74,9 +83,12 @@ export default function SchedulesPage({
     }
     return getMonday(new Date());
   });
+  const isControlledWeek = Boolean(controlledWeekStart && onWeekChange);
+  const weekStart = isControlledWeek ? getMonday(new Date(controlledWeekStart)) : internalWeekStart;
 
   const setWeek = (monday) => {
-    setWeekStart(monday);
+    if (isControlledWeek) { onWeekChange(monday); return; }
+    setInternalWeekStart(monday);
     const next = new URLSearchParams(searchParams);
     next.set('week', toDateKey(monday));
     setSearchParams(next, { replace: true });
@@ -169,11 +181,15 @@ export default function SchedulesPage({
   }, [schedules, weekStart]);
 
   const latestScheduleWeek = useMemo(() => {
+    if (historicalLatestWeek) {
+      const d = new Date(historicalLatestWeek);
+      return isNaN(d) ? null : getMonday(d);
+    }
     if (!schedules.length) return null;
     let latest = new Date(schedules[0].startTime);
     schedules.forEach(s => { const d = new Date(s.startTime); if (d > latest) latest = d; });
     return getMonday(latest);
-  }, [schedules]);
+  }, [schedules, historicalLatestWeek]);
 
   const selectedCellKey = useMemo(() => {
     if (selectedHistoricalCellKey) return selectedHistoricalCellKey;

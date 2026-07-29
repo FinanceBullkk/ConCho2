@@ -28,7 +28,7 @@ jest.mock('../../domains/english-training/controller', () => ({
   getOverview: jest.fn(),
   listCohorts: jest.fn(), getCohort: jest.fn(), getClassDetail: jest.fn(), listCourses: jest.fn(), listCanonicalCourseRuns: jest.fn(), getCourseRun: jest.fn(),
   listEmployees: jest.fn(), getEmployee: jest.fn(), correctEmployee: jest.fn(),
-  listSessions: jest.fn(), getSessionAttendance: jest.fn(), listEligibility: jest.fn(),
+  listSessions: jest.fn(), getSessionsSummary: jest.fn(), getSessionAttendance: jest.fn(), listEligibility: jest.fn(),
   listIssues: jest.fn(), listIssueDetails: jest.fn(),
 }));
 

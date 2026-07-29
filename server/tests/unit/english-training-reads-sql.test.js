@@ -19,6 +19,50 @@ describe('English training read SQL', () => {
     expect(sql).toMatch(/m\.source_starts_at/i);
   });
 
+  test('session list scopes to a from/to calendar window when given', async () => {
+    await reads.listSessions({
+      limit: 200, offset: 0, from: '2026-07-01T00:00:00.000Z', to: '2026-07-08T00:00:00.000Z',
+    });
+
+    const [sql, params] = query.mock.calls[0];
+    expect(sql).toMatch(/WHERE\s+m\.starts_at\s*>=\s*\$1\s+AND\s+m\.starts_at\s*<\s*\$2/i);
+    expect(params).toEqual(['2026-07-01T00:00:00.000Z', '2026-07-08T00:00:00.000Z', 200, 0]);
+  });
+
+  test('session list combines the q filter with a from/to window', async () => {
+    await reads.listSessions({
+      q: 'EL0', limit: 50, offset: 0, from: '2026-07-01T00:00:00.000Z', to: '2026-07-08T00:00:00.000Z',
+    });
+
+    const [sql, params] = query.mock.calls[0];
+    expect(sql).toMatch(/WHERE\s+\(co\.class_code ILIKE \$1 OR c\.course_name ILIKE \$1\)\s+AND\s+m\.starts_at\s*>=\s*\$2\s+AND\s+m\.starts_at\s*<\s*\$3/i);
+    expect(params).toEqual(['%EL0%', '2026-07-01T00:00:00.000Z', '2026-07-08T00:00:00.000Z', 50, 0]);
+  });
+
+  test('sessions summary aggregates counts/bounds without LIMIT/OFFSET row paging', async () => {
+    query.mockResolvedValueOnce({
+      rows: [{
+        all_count: 3, upcoming_count: 1, recorded_count: 1, needs_evidence_count: 1,
+        nearest_session_at: '2026-07-24T02:00:00.000Z', latest_session_at: '2026-08-01T02:00:00.000Z',
+        upcoming_seed_at: '2026-08-01T02:00:00.000Z', recorded_seed_at: '2026-07-20T02:00:00.000Z',
+        needs_evidence_seed_at: '2026-07-24T02:00:00.000Z',
+      }],
+    });
+
+    const summary = await reads.getSessionsSummary();
+
+    const call = query.mock.calls[0];
+    // No page params — it is one global aggregate, not a row page (unlike
+    // listSessions, which always takes a [..., limit, offset] params array).
+    expect(call).toHaveLength(1);
+    expect(call[0]).toMatch(/FILTER\s*\(WHERE starts_at > now\(\)\)/i);
+    expect(call[0]).toMatch(/min\(starts_at\)\s+FILTER\s*\(WHERE starts_at > now\(\)\)\s+AS upcoming_seed_at/i);
+    expect(summary).toMatchObject({
+      all_count: 3, upcoming_count: 1, recorded_count: 1, needs_evidence_count: 1,
+      upcoming_seed_at: '2026-08-01T02:00:00.000Z',
+    });
+  });
+
   test('historical roster uses Meeting time and event-time membership applicability', async () => {
     query
       .mockResolvedValueOnce({ rows: [{

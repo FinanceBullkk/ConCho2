@@ -5,12 +5,14 @@ import { Spinner } from '../../components/Spinner';
 import { AttendanceDrawer } from '../../components/AttendanceDrawer';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '../../context/AuthContext';
+import { getMonday } from '../../components/CalendarGrid';
 import AttendancePage from '../attendance/AttendancePage';
-import { adaptHistoricalSessions, nearestSessionStart } from './historical-session-adapter';
+import { adaptHistoricalSessions } from './historical-session-adapter';
 import {
   useCanonicalEnglishAttendanceRoster,
-  useCanonicalEnglishSessions,
   useEnglishArchiveSessionAttendance,
+  useEnglishSessionsSummary,
+  useEnglishSessionsWindow,
   useSaveCanonicalEnglishAttendance,
 } from './useEnglishOperations';
 
@@ -26,7 +28,9 @@ const attendanceBucket = (schedule, now = new Date()) => {
 export default function AttendancePanel() {
   const { t } = useTranslation();
   const { user } = useAuth();
-  const sessions = useCanonicalEnglishSessions(true);
+  const summary = useEnglishSessionsSummary();
+  const [weekStart, setWeekStart] = useState(null);
+  const sessions = useEnglishSessionsWindow(weekStart, Boolean(weekStart));
   const [selectedId, setSelectedId] = useState('');
   const [records, setRecords] = useState([]);
   const [isDirty, setIsDirty] = useState(false);
@@ -35,18 +39,26 @@ export default function AttendancePanel() {
   const [filter, setFilter] = useState('all');
   const mutation = useSaveCanonicalEnglishAttendance();
 
+  // Seed the visible week once, from the server's global "nearest session"
+  // bound, the first time the summary loads. After that the operator owns
+  // navigation (prev/next/today/filter tiles) — this never re-seeds.
+  useEffect(() => {
+    if (weekStart || !summary.data) return;
+    const seed = summary.data.nearestSessionAt || new Date().toISOString();
+    // Seeds the visible week from server data, once — not a state sync loop.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setWeekStart(getMonday(new Date(seed)));
+  }, [summary.data, weekStart]);
+
   const schedules = useMemo(() => adaptHistoricalSessions(sessions.data, {
     historical: t('englishOperations.attendance.canonical'),
     readOnly: t('englishOperations.attendance.importedReadOnly'),
     live: t('englishOperations.attendance.live'),
     unrecorded: t('englishOperations.attendance.noEvidenceShort'),
   }), [sessions.data, t]);
-  const counts = useMemo(() => schedules.reduce((result, schedule) => {
-    const bucket = attendanceBucket(schedule);
-    result[bucket] += 1;
-    result.all += 1;
-    return result;
-  }, { all: 0, needsEvidence: 0, recorded: 0, upcoming: 0 }), [schedules]);
+  // Global counts (all weeks) come from the summary aggregate, not a client
+  // reduce over the loaded window.
+  const counts = summary.data?.counts || { all: 0, needsEvidence: 0, recorded: 0, upcoming: 0 };
   const filteredSchedules = useMemo(() => (
     filter === 'all' ? schedules : schedules.filter((schedule) => attendanceBucket(schedule) === filter)
   ), [filter, schedules]);
@@ -145,7 +157,9 @@ export default function AttendancePanel() {
     }
   };
 
-  if (sessions.isLoading) return <div className="flex justify-center py-16"><Spinner size={28} /></div>;
+  if (summary.isLoading || !weekStart || sessions.isLoading) {
+    return <div className="flex justify-center py-16"><Spinner size={28} /></div>;
+  }
 
   const drawer = selectedSchedule ? (
     <AttendanceDrawer
@@ -202,6 +216,11 @@ export default function AttendancePanel() {
                 onClick={() => {
                   setFilter(value);
                   if (selectedId) close();
+                  // Land on a week that actually contains a session in this
+                  // bucket — otherwise the tile counts N sessions while the
+                  // grid stays on the previously visible (often empty) week.
+                  const seed = summary.data?.filterSeedAt?.[value] || summary.data?.nearestSessionAt;
+                  if (seed) setWeekStart(getMonday(new Date(seed)));
                 }}
                 className={`flex items-center gap-3 rounded-lg border p-3 text-left transition-colors ${
                   filter === value
@@ -226,7 +245,9 @@ export default function AttendancePanel() {
         <div className="rounded-lg border border-destructive/25 bg-destructive/5 p-6 text-center text-sm text-destructive">
           {t('englishOperations.attendance.loadError')}
         </div>
-      ) : filteredSchedules.length === 0 ? (
+      ) : counts[filter] === 0 ? (
+        // Truly empty bucket (globally, per the summary) — not just an empty
+        // visible week, which the calendar below already renders as blank cells.
         <div className="rounded-lg border border-dashed border-border p-10 text-center">
           <p className="text-sm font-medium text-foreground">{t('englishOperations.attendance.filterEmpty')}</p>
           <Button className="mt-3" size="sm" variant="outline" onClick={() => setFilter('all')}>
@@ -235,15 +256,12 @@ export default function AttendancePanel() {
         </div>
       ) : (
         <AttendancePage
-          // The calendar seeds its week once, on mount. Keying by filter remounts
-          // it so a filter change lands on that view's sessions instead of
-          // leaving the operator on the previous view's (often empty) week.
-          key={filter}
           allowedClassIds={[]}
           statusOptions={ATTENDANCE_STATES}
           historicalOnly
           historicalSchedules={filteredSchedules}
-          defaultWeek={nearestSessionStart(filteredSchedules)}
+          weekStart={weekStart}
+          onWeekChange={setWeekStart}
           onHistoricalSelect={(schedule) => {
             if (schedule.archiveSessionId === selectedId) requestClose();
             else setSelectedId(schedule.archiveSessionId);

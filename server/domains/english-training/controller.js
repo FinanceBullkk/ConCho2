@@ -302,10 +302,20 @@ const getEmployee = async (req, res) => {
 
 const listSessions = async (req, res) => {
   try {
-    const rows = await reads.listSessions({ q: req.query.q, limit: req.query.limit, offset: req.query.offset });
+    const rows = await reads.listSessions({
+      q: req.query.q, limit: req.query.limit, offset: req.query.offset,
+      from: req.query.from, to: req.query.to,
+    });
     // total = full matching count (windowed in SQL); count = this page's size.
     const total = rows.length ? rows[0].total_count : 0;
     res.json({ success: true, data: dto.sessionList(rows), count: rows.length, total });
+  } catch (e) { handleError(res, e); }
+};
+
+const getSessionsSummary = async (req, res) => {
+  try {
+    const data = await reads.getSessionsSummary();
+    res.json({ success: true, data: dto.sessionsSummary(data) });
   } catch (e) { handleError(res, e); }
 };
 
@@ -416,7 +426,7 @@ module.exports = {
   getOverview,
   listCohorts, getCohort, getClassDetail, listCourses, getCourseRun, listEmployees, getEmployee,
   listCanonicalCourseRuns,
-  listSessions, getSessionAttendance, listEligibility,
+  listSessions, getSessionsSummary, getSessionAttendance, listEligibility,
   listIssues, listIssueDetails,
   correctEmployee,
   listLevels, listPendingExamEntries, recordExamResult, deleteExamResult,

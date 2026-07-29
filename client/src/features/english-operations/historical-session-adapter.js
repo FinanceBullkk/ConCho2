@@ -52,26 +52,3 @@ export function adaptHistoricalSessions(rows, labels) {
     }];
   });
 }
-
-/**
- * Which week should the calendar open on for a given set of sessions?
- *
- * The session closest to now — that is where an operator's work is, in every
- * view. Picking "the first marked session" instead used to strand the Upcoming
- * filter on a week from the far past: the tile counted 9 upcoming sessions while
- * the grid rendered empty, reading as "nothing scheduled".
- */
-export function nearestSessionStart(schedules, now = Date.now()) {
-  let best = null;
-  let bestDistance = Infinity;
-  for (const schedule of schedules || []) {
-    const time = new Date(schedule.startTime).getTime();
-    if (Number.isNaN(time)) continue;
-    const distance = Math.abs(time - now);
-    if (distance < bestDistance) {
-      bestDistance = distance;
-      best = schedule.startTime;
-    }
-  }
-  return best;
-}

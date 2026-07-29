@@ -1,18 +1,20 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { BellRing, CalendarClock, CalendarPlus2, Trash2, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Spinner } from '../../components/Spinner';
+import { getMonday } from '../../components/CalendarGrid';
 import { useSchedulingConfig, DEFAULT_UTC_OFFSET_MINUTES } from '../../hooks/useSchedulingConfig';
 import { scheduleSlotId, slotToUtcRange } from '../../lib/scheduling-slots';
 import SchedulesPage from '../schedule/SchedulesPage';
-import { adaptHistoricalSessions, nearestSessionStart } from './historical-session-adapter';
+import { adaptHistoricalSessions } from './historical-session-adapter';
 import {
   useCancelCanonicalEnglishMeeting,
   useCanonicalEnglishCourseRuns,
-  useCanonicalEnglishSessions,
   useCreateCanonicalEnglishSession,
+  useEnglishSessionsSummary,
+  useEnglishSessionsWindow,
   useRescheduleCanonicalEnglishMeeting,
 } from './useEnglishOperations';
 
@@ -278,7 +280,9 @@ function MeetingForm({ editor, runs, config, onClose }) {
 
 export default function SchedulePanel() {
   const { t } = useTranslation();
-  const sessions = useCanonicalEnglishSessions(true);
+  const summary = useEnglishSessionsSummary();
+  const [weekStart, setWeekStart] = useState(null);
+  const sessions = useEnglishSessionsWindow(weekStart, Boolean(weekStart));
   const runs = useCanonicalEnglishCourseRuns();
   const config = useSchedulingConfig();
   const [editor, setEditor] = useState(null);
@@ -289,11 +293,26 @@ export default function SchedulePanel() {
     cancelled: t('englishOperations.schedule.cancelledStatus'),
   }), [sessions.data, t]);
 
-  if (sessions.isLoading || runs.isLoading || config.isLoading) return <div className="flex justify-center py-16"><Spinner size={28} /></div>;
+  // Seed the visible week once, from the server's global "nearest session"
+  // bound, the first time the summary loads. After that the operator owns
+  // navigation (prev/next/today/"jump to latest").
+  useEffect(() => {
+    if (weekStart || !summary.data) return;
+    const seed = summary.data.nearestSessionAt || new Date().toISOString();
+    // Seeds the visible week from server data, once — not a state sync loop.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setWeekStart(getMonday(new Date(seed)));
+  }, [summary.data, weekStart]);
+
+  if (summary.isLoading || !weekStart || sessions.isLoading || runs.isLoading || config.isLoading) {
+    return <div className="flex justify-center py-16"><Spinner size={28} /></div>;
+  }
 
   const activeRuns = runs.data || [];
-  const liveCount = schedules.filter((row) => row.sourceKind === 'live').length;
-  const importedCount = schedules.length - liveCount;
+  // Global counts (all weeks) come from the summary aggregate, not a client
+  // reduce over the loaded window.
+  const liveCount = summary.data?.counts?.live ?? 0;
+  const importedCount = summary.data?.counts?.imported ?? 0;
   const selectedCellKey = editor?.mode === 'create' && editor.prefill
     ? `${localDateKey(editor.prefill.day)}|${editor.prefill.slot.id}`
     : editor?.mode === 'edit' && editor.schedule
@@ -325,9 +344,9 @@ export default function SchedulePanel() {
         historicalOnly
         hideHeader
         historicalSchedules={schedules}
-        // Open on the week the operator is actually working in, not on whichever
-        // session the API happened to return first.
-        defaultWeek={nearestSessionStart(schedules)}
+        weekStart={weekStart}
+        onWeekChange={setWeekStart}
+        historicalLatestWeek={summary.data?.latestSessionAt}
         selectedHistoricalCellKey={selectedCellKey}
         onHistoricalCellClick={(prefill) => setEditor({ mode: 'create', prefill })}
         onHistoricalScheduleClick={(schedule) => setEditor({ mode: 'edit', schedule })}

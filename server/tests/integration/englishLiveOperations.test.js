@@ -136,6 +136,48 @@ describe('English Operations — canonical live vertical flow', () => {
     expect(typeof listed.body.total).toBe('number');
     expect(listed.body.total).toBeGreaterThanOrEqual(listed.body.count);
 
+    // A `from`/`to` window scopes the query to a calendar range (the Schedule/
+    // Attendance tabs fetch one visible week at a time instead of the entire
+    // canonical history) — the Meeting moved to "now - 1h" above must appear in
+    // a window covering now, and must NOT appear in an unrelated past window.
+    const inWindow = await authorized(
+      request(app).get('/api/english-training/sessions').query({
+        from: new Date(Date.now() - 2 * 3600 * 1000).toISOString(),
+        to: new Date(Date.now() + 3600 * 1000).toISOString(),
+      }), tokens.admin,
+    );
+    expect(inWindow.status).toBe(200);
+    expect(inWindow.body.data.some((row) => row.meetingId === meetingId)).toBe(true);
+
+    const outOfWindow = await authorized(
+      request(app).get('/api/english-training/sessions').query({
+        from: '1999-01-01T00:00:00.000Z', to: '1999-01-02T00:00:00.000Z',
+      }), tokens.admin,
+    );
+    expect(outOfWindow.status).toBe(200);
+    expect(outOfWindow.body.data.some((row) => row.meetingId === meetingId)).toBe(false);
+
+    // The summary aggregate is a global count/bound (drives the filter tiles +
+    // "jump to latest" without downloading every session). Before the roster is
+    // saved this Meeting is unrecorded-but-due, so it must count toward
+    // needsEvidence; after saving, the same Meeting must have moved into
+    // recorded — asserted as a delta so it is robust to other fixtures' rows.
+    const summaryBefore = await authorized(
+      request(app).get('/api/english-training/sessions/summary'), tokens.admin,
+    );
+    expect(summaryBefore.status).toBe(200);
+    expect(summaryBefore.body.data.counts).toMatchObject({
+      all: expect.any(Number),
+      upcoming: expect.any(Number),
+      recorded: expect.any(Number),
+      needsEvidence: expect.any(Number),
+    });
+    expect(summaryBefore.body.data.nearestSessionAt).not.toBeNull();
+    expect(summaryBefore.body.data.latestSessionAt).not.toBeNull();
+    // The Meeting is due (past, unrecorded) — it must seed the needsEvidence
+    // filter's week, matching this Meeting's own start time.
+    expect(summaryBefore.body.data.filterSeedAt.needsEvidence).not.toBeNull();
+
     const roster = await authorized(request(app).get(rosterPath), tokens.admin);
     expect(roster.status).toBe(200);
     expect(roster.body.data.rosterToken).toHaveLength(64);
@@ -157,6 +199,17 @@ describe('English Operations — canonical live vertical flow', () => {
     });
     expect(save.status).toBe(200);
     expect(save.body.data).toMatchObject({ count: 1, createdCount: 1, updatedCount: 0 });
+
+    // This Meeting's roster is now complete — the summary's needsEvidence bucket
+    // must shrink and recorded must grow by exactly this one Meeting (delta, not
+    // an absolute count, so other suites' fixtures can't make this flaky).
+    const summaryAfter = await authorized(
+      request(app).get('/api/english-training/sessions/summary'), tokens.admin,
+    );
+    expect(summaryAfter.status).toBe(200);
+    expect(summaryAfter.body.data.counts.recorded).toBe(summaryBefore.body.data.counts.recorded + 1);
+    expect(summaryAfter.body.data.counts.needsEvidence).toBe(summaryBefore.body.data.counts.needsEvidence - 1);
+    expect(summaryAfter.body.data.counts.all).toBe(summaryBefore.body.data.counts.all);
 
     const [meeting, unit, attendance, domainAudit] = await Promise.all([
       query('SELECT status FROM eng_meetings WHERE id = $1', [meetingId]),

@@ -390,6 +390,7 @@ export const englishTrainingAPI = {
   getCourses: () => api.get('/english-training/courses'),
   getEmployees: (params) => api.get('/english-training/employees', { params }),
   getSessions: (params) => api.get('/english-training/sessions', { params }),
+  getSessionsSummary: () => api.get('/english-training/sessions/summary'),
   getSessionAttendance: (id) => api.get(`/english-training/sessions/${id}/attendance`),
   getEligibility: (params) => api.get('/english-training/eligibility', { params }),
   getIssues: () => api.get('/english-training/issues'),

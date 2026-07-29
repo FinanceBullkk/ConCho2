@@ -1,6 +1,6 @@
-import { useState } from 'react';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { getMonday } from '../../../components/CalendarGrid';
 import SchedulePanel from '../SchedulePanel';
 import AttendancePanel from '../AttendancePanel';
 
@@ -15,8 +15,19 @@ const h = vi.hoisted(() => ({
   archiveSessions: [{
     id: 'archive-session-1', courseRunId: 'archive-run-1', sessionNumber: 4,
     heldAt: '2025-06-10T10:00:00.000Z', status: 'held', classCode: 'EL001',
-    courseName: 'English Level 1', attendanceCount: 3, presentCount: 2, absentCount: 1,
+    courseName: 'English Level 1', attendanceCount: 3, expectedRosterCount: 3, presentCount: 2, absentCount: 1,
   }],
+  // What the server-side summary aggregate would report for the fixture
+  // above — one recorded (done) session, nothing needing evidence or upcoming.
+  summary: {
+    counts: { all: 1, recorded: 1, needsEvidence: 0, upcoming: 0, live: 0, imported: 1 },
+    nearestSessionAt: '2025-06-10T03:00:00.000Z',
+    latestSessionAt: '2025-06-10T03:00:00.000Z',
+    filterSeedAt: {
+      all: '2025-06-10T03:00:00.000Z', recorded: '2025-06-10T03:00:00.000Z',
+      needsEvidence: null, upcoming: null,
+    },
+  },
 }));
 
 vi.mock('../../schedule/SchedulesPage', () => ({
@@ -30,11 +41,10 @@ vi.mock('../../attendance/AttendancePage', () => ({
   // Named (and capitalised) so the hook below is a legal component hook call.
   default: function MockAttendancePage(props) {
     h.attendanceProps = props;
-    // Mirrors the real page: `weekStart` is seeded from `defaultWeek` ONCE, in a
-    // useState initializer. A later prop change is ignored — only a remount
-    // re-seeds it. Keep that here or the filter regression below proves nothing.
-    const [mountedWeek] = useState(props.defaultWeek);
-    h.attendanceMountedWeek = mountedWeek;
+    // `weekStart` is now parent-controlled (lifted into AttendancePanel), so
+    // the mock just mirrors whatever the panel currently holds — no local
+    // seed-once state needed here.
+    h.attendanceMountedWeek = props.weekStart ? new Date(props.weekStart).toISOString() : null;
     return <div data-testid="weekly-attendance-grid" />;
   },
 }));
@@ -60,7 +70,8 @@ vi.mock('../../rooms/useRooms', () => ({
 }));
 
 vi.mock('../useEnglishOperations', () => ({
-  useCanonicalEnglishSessions: () => ({ data: h.archiveSessions, isLoading: false }),
+  useEnglishSessionsSummary: () => ({ data: h.summary, isLoading: false }),
+  useEnglishSessionsWindow: () => ({ data: h.archiveSessions, isLoading: false, isError: false }),
   useCanonicalEnglishCourseRuns: () => ({ data: h.runs, isLoading: false }),
   useCreateCanonicalEnglishSession: () => ({ mutateAsync: h.createSession, isPending: false }),
   useRescheduleCanonicalEnglishMeeting: () => ({ mutateAsync: h.rescheduleMeeting, isPending: false }),
@@ -85,6 +96,20 @@ beforeEach(() => {
   h.createSession.mockClear();
   h.rescheduleMeeting.mockClear();
   h.cancelMeeting.mockClear();
+  h.archiveSessions = [{
+    id: 'archive-session-1', courseRunId: 'archive-run-1', sessionNumber: 4,
+    heldAt: '2025-06-10T10:00:00.000Z', status: 'held', classCode: 'EL001',
+    courseName: 'English Level 1', attendanceCount: 3, expectedRosterCount: 3, presentCount: 2, absentCount: 1,
+  }];
+  h.summary = {
+    counts: { all: 1, recorded: 1, needsEvidence: 0, upcoming: 0, live: 0, imported: 1 },
+    nearestSessionAt: '2025-06-10T03:00:00.000Z',
+    latestSessionAt: '2025-06-10T03:00:00.000Z',
+    filterSeedAt: {
+      all: '2025-06-10T03:00:00.000Z', recorded: '2025-06-10T03:00:00.000Z',
+      needsEvidence: null, upcoming: null,
+    },
+  };
 });
 
 describe('English Operations owns the operational grids', () => {
@@ -111,14 +136,17 @@ describe('English Operations owns the operational grids', () => {
     expect(screen.getByRole('button', { name: /needs evidence/i })).toBeInTheDocument();
   });
 
-  it('opens Schedule on the latest imported canonical week', () => {
+  it('opens Schedule on the week nearest to now, per the server summary', () => {
     render(<SchedulePanel />);
 
     expect(h.scheduleProps.historicalOnly).toBe(true);
     expect(h.scheduleProps.historicalSchedules).toEqual([
       expect.objectContaining({ archiveSessionId: 'archive-session-1', isHistorical: true }),
     ]);
-    expect(h.scheduleProps.defaultWeek).toBe('2025-06-10T03:00:00.000Z');
+    // weekStart is now a controlled Date (Monday-aligned), seeded once from
+    // summary.nearestSessionAt — not the raw defaultWeek string.
+    expect(h.scheduleProps.weekStart).toBeInstanceOf(Date);
+    expect(h.scheduleProps.historicalLatestWeek).toBe('2025-06-10T03:00:00.000Z');
   });
 
   it('opens Attendance from imported canonical rows', () => {
@@ -159,10 +187,12 @@ describe('English Operations owns the operational grids', () => {
     expect(h.scheduleProps.historicalDrawer).toBeTruthy();
   });
 
-  // Regression (2026-07-24 real-data run): the tiles counted 9 upcoming sessions
-  // while the grid stayed on the week it mounted with — far in the past and
-  // empty — so an operator filtering to Upcoming saw "nothing scheduled".
-  it('moves the calendar to the filtered sessions when the attendance filter changes', () => {
+  // Regression (2026-07-24 real-data run, PR #335): the tiles counted 9
+  // upcoming sessions while the grid stayed on the week it mounted with — far
+  // in the past and empty — so an operator filtering to Upcoming saw "nothing
+  // scheduled". The seed now comes from the server summary's per-bucket
+  // filterSeedAt instead of a client-side scan of the loaded window.
+  it('moves the calendar to the filtered sessions when the attendance filter changes', async () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date('2026-07-08T02:00:00.000Z'));
     h.archiveSessions = [
@@ -177,18 +207,30 @@ describe('English Operations owns the operational grids', () => {
         courseName: 'English Level 1', attendanceCount: 0, expectedRosterCount: 3,
       },
     ];
+    h.summary = {
+      counts: { all: 2, recorded: 1, needsEvidence: 0, upcoming: 1, live: 1, imported: 1 },
+      nearestSessionAt: '2026-07-06T03:00:00.000Z',
+      latestSessionAt: '2026-07-27T02:00:00.000Z',
+      filterSeedAt: {
+        all: '2026-07-06T03:00:00.000Z', recorded: '2026-07-06T03:00:00.000Z',
+        needsEvidence: null, upcoming: '2026-07-27T02:00:00.000Z',
+      },
+    };
+
     try {
       render(<AttendancePanel />);
-      // Unfiltered, the nearest session is the recent past one (10:00 VN = 03:00Z).
-      expect(h.attendanceMountedWeek).toBe('2026-07-06T03:00:00.000Z');
+      // Unfiltered, the panel seeds from the summary's overall nearest session
+      // (Monday-aligned — the exact instant depends on the runner's local TZ,
+      // same as the real getMonday the panel calls).
+      expect(h.attendanceMountedWeek).toBe(getMonday(new Date('2026-07-06T03:00:00.000Z')).toISOString());
 
       fireEvent.click(screen.getByRole('button', { name: /upcoming/i }));
 
       expect(h.attendanceProps.historicalSchedules).toEqual([
         expect.objectContaining({ archiveSessionId: 'upcoming-1' }),
       ]);
-      // The grid actually re-seeded — not just a new prop the page would ignore.
-      expect(h.attendanceMountedWeek).toBe('2026-07-27T02:00:00.000Z');
+      // The visible week actually moved to the Upcoming bucket's seed.
+      expect(h.attendanceMountedWeek).toBe(getMonday(new Date('2026-07-27T02:00:00.000Z')).toISOString());
     } finally {
       vi.useRealTimers();
     }

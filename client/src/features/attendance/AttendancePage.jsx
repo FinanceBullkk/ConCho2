@@ -74,6 +74,12 @@ export default function AttendancePage({
   historicalOnly = false,
   historicalSchedules = [],
   defaultWeek,
+  // Controlled week (optional): when the parent passes both, it owns
+  // navigation (prev/next/today) and can fetch just that week's data server-
+  // side instead of this component slicing a full local array. Omit both to
+  // keep the original uncontrolled behavior (internal state, full local list).
+  weekStart: controlledWeekStart,
+  onWeekChange,
   onHistoricalSelect,
   selectedHistoricalId,
   historicalDrawer,
@@ -97,13 +103,16 @@ export default function AttendancePage({
   const [result, setResult]                     = useState(null);
   const [isDirty, setIsDirty]                   = useState(false);
   const [confirmingClose, setConfirmingClose]   = useState(false);
-  const [weekStart, setWeekStart]               = useState(() => {
+  const [internalWeekStart, setInternalWeekStart] = useState(() => {
     if (defaultWeek) {
       const date = new Date(defaultWeek);
       if (!Number.isNaN(date.getTime())) return getMonday(date);
     }
     return getMonday(new Date());
   });
+  const isControlledWeek = Boolean(controlledWeekStart && onWeekChange);
+  const weekStart = isControlledWeek ? getMonday(new Date(controlledWeekStart)) : internalWeekStart;
+  const setWeekStart = isControlledWeek ? onWeekChange : setInternalWeekStart;
 
   useEffect(() => { document.title = 'TMS — Attendance'; }, []);
 

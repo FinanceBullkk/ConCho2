@@ -5,7 +5,7 @@ const { requireCapability } = require('../../middleware/requireCapability');
 const { validate } = require('../../middleware/validate');
 const controller = require('./controller');
 const {
-  idParams, empCodeParams, issueCodeParams, listEmployeesQuery,
+  idParams, empCodeParams, issueCodeParams, listEmployeesQuery, listSessionsQuery,
   employeeCorrectionBody, examResultBody,
   managedPersonCreateBody, managedPersonUpdateBody,
   canonicalClassBody,
@@ -179,7 +179,8 @@ router.get('/cohorts/:id', validate({ params: idParams }), controller.getCohort)
 router.get('/cohorts/:id/detail', validate({ params: idParams }), controller.getClassDetail);
 router.get('/courses', controller.listCourses);
 router.get('/course-runs/:id', validate({ params: idParams }), controller.getCourseRun);
-router.get('/sessions', validate({ query: listEmployeesQuery }), controller.listSessions);
+router.get('/sessions', validate({ query: listSessionsQuery }), controller.listSessions);
+router.get('/sessions/summary', controller.getSessionsSummary);
 router.get('/sessions/:id/attendance', validate({ params: idParams }), controller.getSessionAttendance);
 router.get('/eligibility', validate({ query: listEmployeesQuery }), controller.listEligibility);
 router.get('/employees', validate({ query: listEmployeesQuery }), controller.listEmployees);
