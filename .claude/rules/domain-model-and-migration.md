@@ -41,7 +41,7 @@ server/domains/<domain>/
 ```
 - `learning/` = full reference implementation (has own routes). `learning/session/` is a sub-domain.
 - `schedule/` = has its **own routes** since 2026-06-10 (mounted at `/api/schedules`; the legacy `scheduleController` was retired). `scheduleService` remains the transaction-heavy booking-mutation chokepoint the domain delegates into.
-- **13 domains today** (7 core + `evaluation` + `settings` + 4 kept capability; all mounted in `server.js`; `_shared` is helpers, not a mounted domain). This is the canonical inventory — other docs point here. **9 speculative capability domains were deleted 2026-07-09** (scope trim — ADR `docs/decisions/trim-speculative-capability-domains.md`).
+- **14 domains today** (7 core + `evaluation` + `settings` + 4 kept capability + `english-training`; all mounted in `server.js`; `_shared` is helpers, not a mounted domain). This is the canonical inventory — other docs point here. **9 speculative capability domains were deleted 2026-07-09** (scope trim — ADR `docs/decisions/trim-speculative-capability-domains.md`).
 
   **7 core training domains:**
   - `learning` — programs/cohorts/sessions/enrollment/completion engine (`/api/learning`); full reference implementation.
@@ -52,6 +52,9 @@ server/domains/<domain>/
   - `org` — departments, offices, manager hierarchy (`/api/org`).
   - `room` — office-scoped physical rooms (`/api/rooms`).
   - *(`english-class` retired 2026-06-20 — convergence Phase 3 slice 5: the `/api/english` READ delegation + the server-side `mode=team|cohort` split were removed; the unified reads return both worlds tagged `deliveryType`, faceted client-side. The `/english` learner booking grid stays, served by `/api/schedules`.)*
+
+  **English Operations domain** (dedicated, ADR `docs/decisions/english-domain-authority.md` — supersedes the generic English handoff):
+  - `english-training` — the canonical English workspace: identity/structure, historical sessions + attendance import, correction overlay, live Meeting/roster/attendance, learner transfer/leave, evaluation (exam result & level entry) (`/api/english-training`; added 2026-07-18, gated by `ENGLISH_TRAINING_ENABLED`).
 
   **4 capability domains** (the other 9 were deleted 2026-07-09 — scope trim, ADR `docs/decisions/trim-speculative-capability-domains.md`):
   - `branding` — branding & templates: singleton `TenantConfig` feeding the cert/email pipeline (`/api/branding`).
